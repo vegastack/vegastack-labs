@@ -268,7 +268,7 @@ If automation/control is unavailable, use direct LAN/console and the generated m
 
 ## Updates and maintenance
 
-Default maintenance window: **Sunday 02:00-05:00 Asia/Kolkata**.
+Default maintenance window: **Sunday 02:00 AM–05:00 AM IST (Asia/Kolkata)**.
 
 - inventory available updates continuously;
 - apply routine OS/package updates after a uniform seven-day soak;
@@ -279,7 +279,7 @@ Default maintenance window: **Sunday 02:00-05:00 Asia/Kolkata**.
 - allow an administrator to override the soak for an actively exploited critical issue, with reason, plan and post-checks;
 - use conditional automatic application rollback only when a declared health check can prove the previous digest is healthy. [Coolify update settings](https://coolify.io/docs/knowledge-base/self-update) [D-086](decisions-and-sources.md#d-086)
 
-Debian 13.6 is the current stable point release, released 11 July 2026. Security repositories remain enabled; point releases do not replace routine package updates. [Debian releases](https://www.debian.org/releases/) · [Debian 13 errata](https://www.debian.org/releases/stable/errata)
+Debian 13.6 is the current stable point release, released 11-07-2026. Security repositories remain enabled; point releases do not replace routine package updates. [Debian releases](https://www.debian.org/releases/) · [Debian 13 errata](https://www.debian.org/releases/stable/errata)
 
 ### Debian baseline and rebuild
 

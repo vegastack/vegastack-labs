@@ -1,6 +1,6 @@
 # VegaStack Labs gap-closure report
 
-Date: 2026-08-25
+Date: 25-08-2026
 Scope: documentation and architecture specification only
 
 ## Outcome
@@ -14,7 +14,7 @@ Every item in the prior 23-item gap report has been acted on without pretending 
 - `G-023` keeps Chaabi Prod deferred outside v1 and does not block v1.
 - The cross-cutting coverage register now has 53 rows: 52 documentation-complete and one truthful implementation-artifact partial (`C025`, future Codex/Claude/Hermes skill files and tests).
 
-The canonical implementation/evidence contract is `docs/implementation-gates.md` in the corrected VegaStack Labs output set. The regenerated machine register contains all 23 gates and current document hashes.
+The canonical implementation/evidence contract is `docs/implementation-gates.md` in the corrected VegaStack Labs output set. The regenerated machine register contains all 23 gates and document hashes for the audited snapshot, not subsequent documentation edits.
 
 ## Gap-by-gap disposition
 
@@ -71,7 +71,7 @@ Final corrected output set:
 - 192 ordered user-evidence rows, 59 indexed question fragments, 43 separately classified assistant recommendations/facts and 100 normalized decisions;
 - 25 GitHub dependency cases, 15 platform-support rows, 9 implementation-readiness subsystems and 53 coverage rows.
 
-New implementation-sensitive official links for restic, Coolify, Cloudflare's Go SDK, Sigstore, 1Password and GitHub runners were re-opened on 2026-08-25; all 12 returned successful primary-document responses. Coolify `v4.3.10` was additionally bound to tag commit `83f1a2e50374c27125671084b445b2599815f114` and installer SHA-256 `8ef02dce49339208f5abc247bff0277c73d04538d7a36dcfd21331e314e0f2cd`.
+New implementation-sensitive official links for restic, Coolify, Cloudflare's Go SDK, Sigstore, 1Password and GitHub runners were re-opened on 25-08-2026; all 12 returned successful primary-document responses. Coolify `v4.3.10` was additionally bound to tag commit `83f1a2e50374c27125671084b445b2599815f114` and installer SHA-256 `8ef02dce49339208f5abc247bff0277c73d04538d7a36dcfd21331e314e0f2cd`.
 
 Machine-register SHA-256: `029ace33951bcfa96504efd331ba1983b5a74a154fc2e82a3a362c4349e3eae2`.
 

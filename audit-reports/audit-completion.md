@@ -2,7 +2,7 @@
 
 > Superseded for current gap status by [VegaStack Labs gap-closure report](gap-closure-report.md). This file preserves the pre-closure audit snapshot and the 23 gaps that the follow-up pass resolved into exact design and activation gates.
 
-Date: 2026-08-25
+Date: 25-08-2026
 Scope: documentation-only
 
 ## Outcome

@@ -92,6 +92,13 @@ Use focused lifecycle skills from `.agents/skills/`. A skill may reason and insp
 
 Every automated workflow must have a human-readable procedure with identical prerequisites, targets, verification and recovery. Manual emergency commands must be recorded and followed by a reconciliation database revision.
 
+## Dates and times
+
+- Use `DD-MM-YYYY` for human-readable project dates, for example `26-08-2026`.
+- Use the 12-hour clock with explicit uppercase AM/PM in Indian Standard Time: `hh:mm AM/PM IST` or `hh:mm:ss AM/PM IST` when seconds matter. Use `Asia/Kolkata` as the scheduling timezone; IST is UTC+05:30. A full display timestamp is `26-08-2026 04:38 PM IST`. Include AM/PM on both ends of a time range.
+- Apply this convention to documentation, plans, issue/PR descriptions and comments, reports, and agent updates. Convert an instant to IST before displaying it; do not merely relabel a UTC time.
+- Preserve required machine/protocol formats such as ISO 8601/RFC 3339 timestamps in JSON, APIs, evidence and generated metadata. Do not rewrite source paths, URLs, identifiers or historical machine artifacts for display formatting. Never invent a time or timezone for a date-only historical record.
+
 ## Effort estimates
 
 Estimate agent-executed work, never human engineering days/hours. Per phase report expected agent minutes, a 2× checkpoint timebox, user review time, external waits, and the basis (files/turns plus command/runtime floors). For multi-phase work, log starts/ends and report actual versus estimate.
