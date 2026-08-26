@@ -2,6 +2,8 @@
 
 [Back to README](../README.md) · [Architecture](architecture-and-networking.md) · [Decisions](decisions-and-sources.md)
 
+This document is the concrete VegaStack Labs inventory profile, not the generic node schema. Other installations use the [typed identity and profile contract](platform-lifecycle.md#identity-and-configuration), without Sheet row order or mandatory physical serials.
+
 The control-plane SQLite inventory is the deployment source of truth. It is initially imported through a reviewed plan from the read-only Google Sheet and physical discovery; the Sheet's dedicated current `RAM` and `ROM` columns override Lenovo factory text for capacity. Factory text remains provenance only. An infrastructure admin owns reconciliation; neither automation nor this specification writes the Sheet. Each accepted import increments the database state revision and emits a signed declarative snapshot. [D-014](decisions-and-sources.md#d-014) [D-100](decisions-and-sources.md#d-100)
 
 ## Deterministic identity
@@ -130,4 +132,4 @@ Failure order is deterministic: quarantine the failed node and freeze its aliase
 - power-loss boot behavior and time synchronization;
 - current OS, secure boot/disk encryption state and installed Mesh client version.
 
-A node is role-eligible only after a typed `G-002` evidence bundle is committed through plan/apply and its `G-010` role evaluation passes. The closure exercise selected the explicit 8-hour common and role-specific temperature/throttle, memory/swap, disk, link and capacity defaults in [Implementation gates](implementation-gates.md#common-numeric-qualification-g-005-g-009-g-010-g-020-g-021). Automation evaluates real observations against those values; it still cannot invent an observation or weaken a failed threshold without an explicit expiring exception plan. [D-108](decisions-and-sources.md#d-108) [D-115](decisions-and-sources.md#d-115)
+A node is role-eligible only after a typed `G-002` evidence bundle is committed through plan/apply and its `G-010` role evaluation passes. The closure exercise selected the explicit 8-hour common and role-specific temperature/throttle, memory/swap, disk, link and capacity defaults in [Implementation gates](implementation-gates.md#common-numeric-qualification--g-005-g-009-g-010-g-020-g-021). Automation evaluates real observations against those values; it still cannot invent an observation or weaken a failed threshold without an explicit expiring exception plan. [D-108](decisions-and-sources.md#d-108) [D-115](decisions-and-sources.md#d-115)

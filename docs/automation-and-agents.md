@@ -60,13 +60,17 @@ plans/runs/audit/outbox     immutable plan lifecycle and sanitized evidence
 
 Source-control providers store platform and application code; they are not required to read or mutate private site declarations. The VegaStack Labs deployment profile currently selects GitHub for source, Actions CI and releases, but those are replaceable adapters. Database rows change only through the validated API/CLI, carry optimistic revisions and emit encrypted backups plus signed secret-free snapshots. Generated output is never hand-edited. CI fails if rendered instructions, schemas or skill copies drift from their source. [D-090](decisions-and-sources.md#d-090) [D-100](decisions-and-sources.md#d-100) [D-104](decisions-and-sources.md#d-104)
 
+### Generic lifecycle and profile selection
+
+[Portable lifecycle](platform-lifecycle.md) owns generic setup/enrollment, native credential resolution, typed identity, versioned profile/gate applicability and safe exit. Product core cannot assume a node number, mandatory physical serial, Labs domain, Sheet, router model or vendor account. Public builds have a credential-free contributor path. The Labs profile remains separately selected; its defaults are not universal values.
+
 ### Required declarations and schemas
 
 Every YAML declaration validates against a versioned public JSON Schema before it can plan. At minimum:
 
 | Schema | Required intent |
 |---|---|
-| asset/node | stable hardware identity, immutable node ID, lifecycle, discovered facts/evidence time, endpoint references, role aliases and qualification state |
+| asset/node | typed/scoped provenance and verified access identity, immutable node ID, lifecycle, discovered facts/evidence time, endpoint references, role aliases and qualification state |
 | person/device/grant | stable local person plus external-subject bindings, broad roles, projects, shell nodes, public-key/device identity, approver and lifecycle state |
 | network | named endpoints, address bindings, aliases/routes and allowed flow matrix; provider-specific private-access fields live in adapter extensions |
 | service/environment | owner, SCM/artifact reference, policy class, placement, exposure/audience, resource/storage/growth, health/migrations, backup and rollback contract |
@@ -85,16 +89,16 @@ The earlier `mac-dev-env-setup` project is a requirements mine, not a compatibil
 | Layer | Responsibility |
 |---|---|
 | one Go `vsk-labs` executable | CLI plus `server run`; validation, local/remote API, database ownership, discovery UX, schemas, authorization, planning, approvals, adapter orchestration, JSON output and audit |
-| Ansible | Debian/macOS host state over SSH: accounts, keys, packages, firewall, Docker prerequisites, timers, monitoring agent and verification |
+| Ansible | Supported Debian/Ubuntu/macOS host state over SSH: complete onboarding baseline, security tools/settings, accounts, keys, packages, firewall, Docker/role prerequisites, timers, monitoring and verification |
 | Typed provider adapters | versioned SCM, CI, release, registry, identity, secrets, edge, hosting, backup and notification bindings with previewable desired state and least-privilege credentials |
 | Optional capability modules | explicitly enabled discovery/events, managed source-build/PR feedback, rich provider status, external notification and remote-status projection behavior; disabled modules leave local core workflows usable |
 | Scripts | small deterministic helpers only when a native module is unavailable; every script is versioned, tested and called through the CLI |
 | SQLite control database | authoritative private desired state, revisions, plan/run lifecycle and historical intent |
 | Next/React web bundle | VegaStack Labs deployment profile's VegaStack Design System operator interface embedded into the same `vsk-labs` executable; it calls the same API as the CLI |
 
-The VegaStack Labs deployment profile selects direct typed adapters rather than a second Terraform/OpenTofu state engine: the Cloudflare adapter uses the official `cloudflare-go` v7 client plus reviewed raw REST only for a required missing endpoint, and the Coolify adapter uses `/api/v1`. SQLite remains desired-state authority. Any optional GitHub-owned resource uses its SCM/CI adapter and smallest credential. Do not mix direct console writes and adapter ownership for one object. [Implementation gates](implementation-gates.md#provider-ownership-g-012-through-g-016-g-019) [D-112](decisions-and-sources.md#d-112)
+The VegaStack Labs deployment profile selects direct typed adapters rather than a second Terraform/OpenTofu state engine: the Cloudflare adapter uses the official `cloudflare-go` v7 client plus reviewed raw REST only for a required missing endpoint, and the Coolify adapter uses `/api/v1`. SQLite remains desired-state authority. Any optional GitHub-owned resource uses its SCM/CI adapter and smallest credential. Do not mix direct console writes and adapter ownership for one object. [Implementation gates](implementation-gates.md#provider-ownership--g-012-through-g-016-g-019) [D-112](decisions-and-sources.md#d-112)
 
-The core is agentless: the control plane applies Ansible over SSH and provider APIs. Managed nodes do not run a custom privileged `vsk-labs` daemon. The CI adapter in `server run` launches pinned one-job ephemeral runner listeners over constrained SSH; no second controller service or permanently privileged runner is introduced. Phones/tablets are guided Cloudflare One Client and SSH-client endpoints, not managed servers. [D-008](decisions-and-sources.md#d-008) [D-111](decisions-and-sources.md#d-111)
+The core is agentless: the control plane applies Ansible over SSH and provider APIs. Managed nodes do not run a custom privileged `vsk-labs` daemon. The CI adapter in `server run` launches pinned one-job ephemeral runner listeners over constrained SSH; no second controller service or permanently privileged runner is introduced. Phones/tablets are operator endpoints, not managed servers; the Labs guidance selects Cloudflare One Client and SSH clients. Generic account-free local/SSH management is defined in [portable lifecycle](platform-lifecycle.md). [D-008](decisions-and-sources.md#d-008) [D-111](decisions-and-sources.md#d-111)
 
 Agentless operation and the Mac node numbering/role placements are **derived architecture choices**, not silently promoted transcript answers. They remain current because they are the smallest design satisfying the selected central-control/security model; a reviewed decision can replace them without rewriting user evidence.
 
@@ -138,7 +142,7 @@ Interactive commands guide humans; noninteractive commands accept explicit flags
 
 `server run` is the only long-running entry point. It stays in the foreground, handles graceful termination and is started/stopped/restarted by `systemd` in the supported server profile. `server status` is a read-only API/health query, not a second service manager. Every plan consumer uses the exact `--plan-id` grammar above; positional plan IDs, alternate service-lifecycle verbs and mutation-flavored `--dry-run` aliases are rejected so examples cannot drift.
 
-All risk-bearing infrastructure mutation enters the same immutable plan/run/lease state machine. `apply --plan-id` is the only **human** mutation entry point. An exact, previously approved noninteractive policy may start only (a) the fixed operational jobs below or (b) the declared low-risk application-deployment run whose protected CI executor is already bound in the plan; it is not a second command grammar or blanket authority. Domain verbs such as `node add`, `service deploy`, `restore run`, `maintenance run`, `user suspend` and `control-plane recover` are typed **change constructors**: they validate inputs and return a draft/change ID (and may immediately request its plan), but cannot execute it. `plan --change <draft-id>` is the one atomic transition that validates current facts, commits the inert desired-state revision and stores its immutable plan; committing intent changes no external system. Initial control-plane bootstrap is an offline plan executed by `vsk-labs apply --plan-id` from the trusted workstation. Read-only `verify`, `inspect`, `status`, `doctor`, `diff` and `audit` never create a draft.
+All risk-bearing infrastructure mutation enters the same immutable plan/run/lease state machine. `apply --plan-id` is the only **human** mutation entry point. An exact, previously approved noninteractive policy may start only (a) the fixed operational jobs below or (b) the declared low-risk application-deployment run whose protected CI executor is already bound in the plan; it is not a second command grammar or blanket authority. Domain verbs such as `node add`, `service deploy`, `restore run`, `maintenance run`, `user suspend` and `control-plane recover` are typed **change constructors**: they validate inputs and return a draft/change ID (and may immediately request its plan), but cannot execute it. `plan --change <draft-id>` is the one atomic transition that validates current facts, commits the inert desired-state revision and stores its immutable plan; committing intent changes no external system. Initial setup follows the finite local installation manifest and server-owned handoff in [portable lifecycle](platform-lifecycle.md#guided-setup-and-the-initial-authority); it is not a general offline apply mode and needs no separate operator workstation. Read-only `verify`, `inspect`, `status`, `doctor`, `diff` and `audit` never create a draft.
 
 A separately declared class covers repetitive, non-destructive operational jobs such as consistent backup creation, integrity verification, provider observation refresh and retention-safe audit export. Approving the policy/schedule authorizes only its exact sources, destinations, adapter version, maximum work and retention rules; each timer invocation creates a run ID, checks current policy/preconditions and audits the result without a new human acknowledgement. It cannot restore, delete protected recovery points, change retention, add targets or resolve broader credentials. `backup run` invokes this same fixed policy on demand; any policy/configuration change still uses plan/apply. [D-081](decisions-and-sources.md#d-081)
 
@@ -222,7 +226,7 @@ Every nonzero JSON response still emits one valid envelope with one or more orde
 - The control database pins exactly one `vsk-labs` toolchain version. The control plane must run that version before mutation; clients fetch/cache the exact attested release or stop with one clear upgrade command.
 - Change the site pin through a reviewed database revision, verify the new release in a canary/read-only run, back up the database, and activate atomically with a retained rollback binary.
 
-Release assets use Sigstore keyless blob signing and stored verification bundles; clients bind the exact OIDC issuer plus repository/workflow identity and verify offline-capable bundle evidence. The site retains the active release plus two prior complete verified release sets. Exact repository/workflow identity and feed URLs remain `G-017` evidence because no repository exists yet; the mechanism and retention count are closed. [Implementation gates](implementation-gates.md#platform-releases-and-generated-registries-g-017-g-018) [D-098](decisions-and-sources.md#d-098) [D-114](decisions-and-sources.md#d-114)
+Release assets use Sigstore keyless blob signing and stored verification bundles; clients bind the exact OIDC issuer plus repository/workflow identity and verify offline-capable bundle evidence. The site retains the active release plus two prior complete verified release sets. Exact release repository/workflow identity and feed URLs remain `G-017` evidence until pinned and verified; repository existence alone is insufficient. The active-plus-two count covers the immediate rollback cache, not the longer [recovery dependency archive](platform-lifecycle.md#recovery-and-retained-dependencies). [Implementation gates](implementation-gates.md#platform-releases-and-generated-registries--g-017-g-018) [D-098](decisions-and-sources.md#d-098) [D-114](decisions-and-sources.md#d-114)
 
 Release CI builds each platform from the tagged commit in an isolated workflow, records source/ref/toolchain/dependency inputs, produces SBOM/checksums and provenance, creates a Sigstore bundle under the selected identity, and publishes immutable assets. Installation verifies checksum, bundle, issuer and repository/workflow identity before atomic activation. The active and two prior site-pinned binaries/schemas remain executable for rollback. A compromised/missing feed or unverifiable artifact fails closed and leaves the current binary untouched. Package manifests point to the same verified release assets and cannot replace a binary silently.
 
@@ -252,9 +256,9 @@ Release CI builds each platform from the tagged commit in an isolated workflow, 
 
 Plans are immutable and short-lived. A plan ID is derived from the recovery epoch, normalized state revision, observation fingerprints, target set, ordered operations, tool/schema/policy versions and expiry. V1 plan validity is 30 minutes. Any changed recovery epoch, revision, target facts, policy, credential scope or elapsed validity invalidates it and requires regeneration. A run that began in time retains its immutable plan identity only within the same epoch; a retry may resume only declared idempotent steps after current preconditions pass.
 
-An acknowledgement binds recovery epoch, plan ID/digest, responsible human identity, authenticated session/device, authority used, timestamp/expiry, reason and exact targets/risk class. The executor re-authorizes rather than trusting a client assertion. An agent can request/present a plan but cannot create the acknowledgement. Noninteractive automation uses a separately declared policy identity only for exact operations already approved without a human; VegaStack Labs permits this for eligible low-risk application-environment deployments, never as blanket fleet/network/identity/control authority. Production-like deployment requires the assigned maintainer.
+An acknowledgement binds recovery epoch, plan ID/digest, responsible human identity, authenticated session/device, authority used, timestamp/expiry, reason and exact targets/risk class. The executor re-authorizes rather than trusting a client assertion. An agent can request/present a plan but cannot create the acknowledgement. OS/SSH identity alone cannot enforce this against a same-account coding process; the [separate human-proof contract](platform-lifecycle.md#human-acknowledgement-trust-boundary) must be qualified for local, remote and bootstrap approval before enabling the path. Noninteractive automation uses a separately declared policy identity only for exact operations already approved without a human; VegaStack Labs permits this for eligible low-risk application-environment deployments, never as blanket fleet/network/identity/control authority. Production-like deployment requires the assigned maintainer.
 
-Where constrained SSH is enabled, its server-side forced-command wrapper accepts only the canonical `vsk-labs apply --plan-id <id> --output json` request; it is an internal transport guard generated from the same command metadata, not a public `execute` verb or a general shell. The server loads the plan's exact recovery epoch and committed database revision, takes an epoch-bound scoped lease, re-runs preconditions, resolves needed secret references, executes ordered adapters, runs post-checks and writes durable run status. A disconnected client queries the run ID; it neither retries nor assumes failure. If control is unavailable, `plan/apply` stops and the human uses the generated manual recovery path—no client silently becomes an alternate controller.
+The account-free remote operator path uses constrained SSH to the control host and a generated versioned API transport guard. It supports the same authorized read, draft, plan, acknowledgement and exact apply operations as the local API; it accepts no arbitrary shell command, pathname or direct SQLite request. Bind the authenticated SSH principal/device to server grants; reject client-asserted identity, malformed framing and unknown operations. This transport is not a second mutation grammar; all applies enter the canonical exact-plan engine. The server loads the plan's exact recovery epoch and committed database revision, takes an epoch-bound scoped lease, re-runs preconditions, resolves needed secret references, executes ordered adapters, runs post-checks and writes durable run status. A disconnected client queries the run ID; it neither retries nor assumes failure. If control is unavailable, `plan/apply` stops and the human uses the generated manual recovery path—no client silently becomes an alternate controller.
 
 For Ansible-owned state, planning runs inventory/schema checks plus check/diff against the exact hosts, removes volatile noise and stores the ordered expected change fingerprints. Apply uses the same release/state revision/inventory/limit, serializes lockout-sensitive changes, and runs role post-checks followed by a second check-mode pass. Unexpected differences or non-idempotence produce `partial`/`failed`, preserve per-host state and stop the next batch. Provider adapters use the same read-plan-precondition-apply-read-verify contract and declare whether compensation is safe; a failed irreversible step never reports “rolled back.”
 
@@ -262,7 +266,8 @@ For Ansible-owned state, planning runs inventory/schema checks plus check/diff a
 
 | Operation | Required boundary |
 |---|---|
-| Status, discovery, audit, plan | Immediate if caller may read the underlying scope |
+| Status, discovery, audit and non-committing preview | Immediate if caller may read the underlying scope |
+| Draft/plan creation that commits intent | Change-authoring scope, optimistic revision match and the prior effective authority; no infrastructure or permission activation |
 | Create or edit a declaration revision | No live mutation; caller must have change-authoring scope and optimistic revision match |
 | Routine additive change within assigned project | Maintainer acknowledgement; self-approval allowed; explicit apply |
 | Exact eligible low-risk application-environment deployment | Previously approved policy identity; protected CI may claim only the plan-bound digest/resource lease; no per-run human acknowledgement |
@@ -291,16 +296,20 @@ Routine operational logs remain local for 30 days; encrypted security/execution 
 
 ## Representative workflows
 
-### Add a Debian node
+### Add a supported managed host
 
 ```text
-discover serial/hardware -> quarantine record -> burn-in
--> revisioned node/role declaration -> plan/review -> explicit apply
--> account + SSH + firewall + Mesh + Docker/role + Beszel
--> Coolify/CI registration if declared -> end-to-end verification
+discover identity + OS/version/architecture -> unadmitted inventory record
+-> qualification + verified bootstrap/recovery path
+-> revisioned node/role + applicable hardening profile -> plan/review
+-> explicit apply -> Ansible OS-specific security baseline + verification
+-> declared Mesh/role/services -> repeat affected security/health probes
+-> verified admission -> workload eligibility
 ```
 
 No AI-generated one-off playbook may bypass the reviewed role. If a capability is missing, the agent authors a public engine change with schema, tests and documentation first.
+
+Every managed host, including replacements, reimages and the control-plane bootstrap target, requires [basic hardening before workload admission](host-onboarding-and-hardening.md). Ansible owns the complete host-side security and role configuration through the approved `vsk-labs` workflow. Use the existing OS/architecture support matrix and typed, tested host profiles; no universal shell script or an unsupported-version fallback. Bare discovery and the minimum scoped access needed to harden a host do not grant workload eligibility or general fleet credentials. A quarantine record alone does not prove network isolation. The selected tools and daily/after-change drift/admission outcome are confirmed; exact profile settings, elevation and control-by-control probes remain phase 0 qualification work, not implemented commands or passed gates. Provider enrollment remains owned by its typed adapter, and OS/consent prerequisites that cannot be automated remain explicit gates.
 
 ### Onboard a person/device
 

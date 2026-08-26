@@ -2,7 +2,7 @@
 
 `vegastack-labs` is a portable infrastructure operations platform with a centralized control plane for operating and governing small physical compute fleets. It is delivered as a single `vsk-labs` executable providing the CLI, control-plane server, local API and VegaStack Labs Console, deterministic plan/apply engine and typed provider-adapter contracts. The concrete VegaStack Labs environment described here is a **deployment profile** of the platform: eight active ThinkPads, a Mac mini, an iMac, wired gigabit networking and selected Cloudflare, Coolify, Harbor, GitHub, Google Workspace, 1Password and R2 adapters.
 
-This repository is the **reviewed v1 implementation and operating specification**. It authorizes no deployment by itself, contains no live secrets, and remains activation-gated by the physical/provider/implementation evidence in the [gate ledger](docs/implementation-gates.md#gate-ledger). Every material user decision, derived design choice and official-source dependency is indexed in [Decisions and sources](docs/decisions-and-sources.md).
+This repository is the **v1 implementation and operating specification**, including the confirmed generic OSS lifecycle and a separate VegaStack Labs deployment profile. It authorizes no deployment by itself, contains no live secrets, and remains activation-gated by the physical/provider/implementation evidence in the [gate ledger](docs/implementation-gates.md#gate-ledger). Every material user decision, derived design choice and official-source dependency is indexed in [Decisions and sources](docs/decisions-and-sources.md).
 
 ## VegaStack Labs deployment profile objectives
 
@@ -31,6 +31,10 @@ Every normative statement belongs to exactly one layer. Provider names in exampl
 | **VegaStack Labs deployment profile** | the fixed node map, `labs.vegastack.com`, Cloudflare Mesh/Tunnel, Coolify, Harbor, GitHub Actions, Google Workspace, 1Password, R2, Debian/macOS, physical topology and the exact optional capabilities selected below | portability claims; these choices are selected configuration, not universal platform requirements |
 
 The platform remains useful with all remote provider adapters unavailable: authorized local/LAN operators can read inventory, create local plans, recover SQLite and use manual runbooks. An unavailable adapter may block only operations that actually require that provider. GitHub is the selected source, CI and release host for this deployment, not a runtime database or platform-core dependency. No VegaStack-owned GitHub App is required for v1; the exact function-by-function classification is in the [GitHub dependency matrix](docs/decisions-and-sources.md#github-dependency-matrix). [D-103](docs/decisions-and-sources.md#d-103) [D-104](docs/decisions-and-sources.md#d-104)
+
+## Generic product lifecycle
+
+An outside user installs `vsk-labs` on a supported host and explicitly chooses to create a control plane, connect an operator client, or enroll a managed node. No node number, company domain, physical Sheet or third-party account is a prerequisite for basic SSH management. The [portable lifecycle contract](docs/platform-lifecycle.md) owns setup, local credentials, profile/gate applicability, effective authority, enrollment, interruption, recovery and safe exit. `vsk-node-04` is only this deployment's chosen control host.
 
 ## Boundaries
 
@@ -100,24 +104,29 @@ The serial mapping and the one live-sheet conflict that must be resolved before 
 
 ## Phases and success criteria
 
-Phases are ordered gates. A phase may prepare declarations for the next phase, but it may not perform that phase's live mutation before the previous exit evidence is reviewed.
+Development phases are **0–11**, defined by the [development roadmap](docs/development/roadmap.md). Complete and verify the full v1 software before the first lab onboarding rehearsal. The separate deployment stages below describe this profile; they are not universal product phases or extra development issues. Read-only preparation is allowed only within its separately authorized scope.
 
-| Phase | Entry and dependencies | Work | Measurable exit gate |
-|---|---|---|---|
-| 0. Review and discovery | This specification and gate ledger reviewed; read-only access to assets and vendor consoles | Close `G-001`–`G-004`, `G-009` and affected `G-010`; inspect serials, disks, batteries, thermals, NICs, UPS, HX510 controls and ES216G revision/firmware | Credential-like Sheet values removed and rotated; serial map approved; all active nodes have signed evidence bundles and deterministic gate evaluations |
-| 1. LAN and base OS | Phase 0 closed; switch config export/restore and console recovery understood | Label/cable ports; reserve addresses; clean-install and harden Debian 13.6 | Every managed wired link negotiates 1 Gb/s and has no increasing errors during the approved sustained transfer test; reservations survive reboot; WAN/backhaul baseline recorded; external scan finds no unintended listeners; an admin reaches every node with Cloudflare disconnected |
-| 2. Identity and Mesh pilot | Phase 1 network stable; Workspace identities and approved device inventory exist | Configure audiences, quarantine/approval, host firewalls and a limited Mesh pilot | Pilot devices complete 30 days with reboot/WAN-loss/update/reconnect tests; declared TCP/UDP/ICMP flows pass and denied flows fail; MTU/throughput baseline recorded; revoke/re-enroll and LAN recovery are proven |
-| 3. Control plane | Mesh pilot usable; `G-007`, `G-008`, `G-011`, `G-014`, applicable `G-016` and `G-017` evidence passes | Install/bootstrap the `vsk-labs` server service, SQLite, embedded Console/API, Coolify and central plan/run coordination; add remote nodes; deploy Beszel and backup/alert plumbing | Access allow/deny and direct-origin bypass tests pass; CLI and browser produce the same plan digest; a clean spare restores the control database, pinned Coolify version, `APP_KEY` and SSH keys; one standard and one critical sample restore function; no user app or CI job runs on control |
-| 4. CI and application capacity | Phase 3 control/recovery healthy; `G-006`, affected `G-010`, `G-018`, `G-020` and `G-021` evidence passes | Qualify Linux builders/app nodes; configure Mac accounts and one native job | Four total Linux jobs pass the fixed sustained representative load without throttling, swap pressure, filesystem exhaustion or cross-job access; untrusted/fork code never reaches home runners; the Mac CI/fallback and Hermes lanes meet their declared budgets; spare-role restore is rehearsed |
-| 5. Ingress and Harbor | Phase 4 capacity proven; `G-012`, `G-013`, `G-015`, applicable `G-016` and first-project `G-019` evidence passes | Bring up two Tunnel connectors; deploy/migrate Harbor; verify signed digest promotion | No router forwarding; either connector can be removed without losing declared ingress; Access allow/deny tests pass; a signed/attested image is verified and deployed by digest; robot rotation and an isolated Harbor restore/cutover rollback are proven |
-| 6. Operations acceptance | All prior gates and related unresolved inputs closed | Rehearse lifecycle, maintenance, incident, backup and break-glass runbooks | Onboard/suspend/offboard, patch canary/rollback, site-silence alert, quarterly-style restore and manual recovery all produce the required attribution/evidence; critical restore tests meet 6 h/4 h node-loss and 24 h/24 h site-loss objectives |
+| Deployment stage | Work | Required admission/exit evidence |
+|---|---|---|
+| 0. Local foundation and scoped discovery | On the selected supported control host, the administrator uses the finite local setup workflow. Reconcile private inventory and inspect the site. | Trusted initial host/session and signed release; exclusive local service/SQLite ownership. Hardware/serial conflicts block affected operations, not unrelated local setup. No fleet, recovery or site-ready claim. |
+| 1. LAN and host preparation | Guided ES216G/HX510 actions, approved reservations, supported host adoption/hardening and qualification; prepare required application-node connectors/marker without user workloads. | Per-target identity, device recovery, persistent addressing, effective hardening, wired/thermal/capacity evidence and retained LAN/console access. No bulk clean-install assumption or automatic wipe. |
+| 2. Identity and Mesh pilot | Enable only the approved identities, paths and pilot after their prerequisites exist. | Actual G-005 30-day results and allowed/denied/revocation/LAN-recovery tests. Local control already exists but has not bypassed this acceptance. |
+| 3. Selected control capabilities | Qualify secret/backup/recovery, Coolify, monitoring and minimal protected Console ingress using qualified application-node connectors. | Scoped G-007/G-008/G-011/G-014/G-016/G-017 evidence plus applicable G-012/G-013 ingress evidence; independent clean-target recovery, audit continuity, CLI/Console parity and origin denial. No user apps or CI on the Labs control host. |
+| 4. CI and application capacity | Admit selected Linux application/build roles and supported Mac roles. | Real OS/role capacity, effective security, job admission/isolation and recovery tests; four Linux jobs only after qualification. Spare/reserve roles preserved. |
+| 5. Application ingress and Harbor | Extend ordinary application routes and deploy/migrate Harbor through Coolify with declared app permissions. | Qualified route redundancy and client endpoints, actual source/data recovery, signed digest delivery and scoped credentials. No special Harbor infrastructure privileges. |
+| 6. Operations acceptance | Rehearse normal lifecycle, updates, alerts, revocation, incidents and disaster recovery. | All applicable site evidence and measured recovery objectives; outstanding partial/uncontained states cannot count as success. |
+
+The [portable lifecycle readiness table](docs/platform-lifecycle.md#preparation-versus-activation) owns the boundary between local setup, permitted foundation preparation and qualified capabilities. Every mutation still needs its exact plan/policy authorization; this ordering grants none.
 
 ## Documentation map
 
+- [Portable product lifecycle](docs/platform-lifecycle.md) — generic OSS setup and account-free SSH management, profile boundaries, enrollment, recovery and safe exit.
 - [Architecture and networking](docs/architecture-and-networking.md) — LAN, ES216G/HX510, Mesh, Tunnel, names, Coolify and CI.
+- [Network device capabilities and operations](docs/network-device-operations.md) — researched ES216G/HX510 limits, DHCP ownership, guided device operations, diagnostics and recovery; exact firmware/UI behavior remains qualification evidence.
 - [Control-plane service and Console](docs/control-plane-service.md) — SQLite, API, UI, provider adapters, nomination/bootstrap, security, backup and acceptance.
 - [Inventory and roles](docs/inventory-and-roles.md) — complete asset register, immutable naming and hardware-aware mapping.
 - [Security and operations](docs/security-and-operations.md) — identity, secrets, updates, backups, recovery, observability, power and runbooks.
+- [Host onboarding and hardening](docs/host-onboarding-and-hardening.md) — mandatory Ansible-driven host admission; researched tool/OS profiles, configuration, recovery and verification proposals awaiting detailed phase approval.
 - [Automation and agents](docs/automation-and-agents.md) — `vsk-labs`, SQLite/API, Ansible/IaC, approvals, skills and manual fallback.
 - [Implementation gates and evidence procedures](docs/implementation-gates.md) — all 23 audit items, selected mechanisms, evidence schema, numeric acceptance and phase admission.
 - [Decisions and sources](docs/decisions-and-sources.md) — evidence register, coverage, GitHub dependency matrix, assumptions, unresolved items and official references.
