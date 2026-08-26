@@ -121,7 +121,7 @@ Phases are ordered gates. A phase may prepare declarations for the next phase, b
 - [Automation and agents](docs/automation-and-agents.md) — `vsk-labs`, SQLite/API, Ansible/IaC, approvals, skills and manual fallback.
 - [Implementation gates and evidence procedures](docs/implementation-gates.md) — all 23 audit items, selected mechanisms, evidence schema, numeric acceptance and phase admission.
 - [Decisions and sources](docs/decisions-and-sources.md) — evidence register, coverage, GitHub dependency matrix, assumptions, unresolved items and official references.
-- [Machine-checkable audit register](docs/audit-register.json) — transcript/decision evidence, coverage state and audit matrices generated from this review.
+- [Historical machine-checkable audit register](docs/audit-register.json) — transcript/decision evidence, coverage state and audit matrices from the reviewed snapshot. Its document hashes identify that snapshot, not later documentation edits; the human date-format update of 26-08-2026 does not regenerate or revalidate this evidence.
 - [AGENTS.md](AGENTS.md) and [CLAUDE.md](CLAUDE.md) — cross-agent repository contract.
 
 ## Terminology

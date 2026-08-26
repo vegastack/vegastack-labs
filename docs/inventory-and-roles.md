@@ -40,7 +40,7 @@ The Mac node numbers and initial role placements are derived architecture assign
 | `vsk-node-09` | discover during phase 0 | Apple M4, exact CPU variant unresolved | 24 GB | 512 GB SSD | macOS ARM64 CI + shared development |
 | `vsk-node-10` | discover during phase 0 | Apple M1 | 8 GB | 512 GB SSD | macOS Hermes agent host |
 
-This map follows the accepted active-row policy. On the read-only 2026-08-25 reconciliation, the workbook's hostname cell maps `vsk-node-05` to `PG025CNM`, while row-order policy maps `vsk-node-05` to `PF4F10C1` and `PG025CNM` to `vsk-node-07`. The conflict is a deployment blocker: physically verify both serial labels, decide the canonical mapping, correct the Sheet through its normal human workflow, and commit the same approved map as a new control-database revision. Do not configure either hostname until the two sources agree. Current RAM/storage values were taken from the workbook's dedicated current columns; no credential-like values from adjacent columns are reproduced here. [D-015](decisions-and-sources.md#d-015)
+This map follows the accepted active-row policy. On the read-only 25-08-2026 reconciliation, the workbook's hostname cell maps `vsk-node-05` to `PG025CNM`, while row-order policy maps `vsk-node-05` to `PF4F10C1` and `PG025CNM` to `vsk-node-07`. The conflict is a deployment blocker: physically verify both serial labels, decide the canonical mapping, correct the Sheet through its normal human workflow, and commit the same approved map as a new control-database revision. Do not configure either hostname until the two sources agree. Current RAM/storage values were taken from the workbook's dedicated current columns; no credential-like values from adjacent columns are reproduced here. [D-015](decisions-and-sources.md#d-015)
 
 ## Unmanaged or unavailable computer assets
 
@@ -61,7 +61,7 @@ This map follows the accepted active-row policy. On the read-only 2026-08-25 rec
 
 ## Observed application context
 
-Sheet2 was also re-read on 2026-08-24. It is discovery context, not live-health proof or a v1 placement declaration. Blank source cells stay blank here rather than inheriting a server name by guess. “Active” does not authorize migration; application-by-application placement remains deferred, Chaabi Prod is outside v1, and Harbor alone is the platform-workload exception.
+Sheet2 was also re-read on 24-08-2026. It is discovery context, not live-health proof or a v1 placement declaration. Blank source cells stay blank here rather than inheriting a server name by guess. “Active” does not authorize migration; application-by-application placement remains deferred, Chaabi Prod is outside v1, and Harbor alone is the platform-workload exception.
 
 | Source server/group cell | Application | Sheet status | Recorded CPU/RAM |
 |---|---|---|---|
