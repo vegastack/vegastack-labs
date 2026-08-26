@@ -29,12 +29,16 @@ Finish line: <merged and closed; any explicitly approved exception>
 
 Who needs this, what problem exists, and what will become possible or correct?
 Describe scope, explicit exclusions, and the before/after operator or system behavior.
+Identify the owning layer (core/adapter/optional capability/profile), generic behavior,
+selected dogfood values and unsupported combinations. Never turn a Labs value into
+a core prerequisite. Include account-free/basic and non-Labs fixture acceptance where applicable.
 
 ## Behavior and interfaces
 
 Specify the relevant user journeys and API/CLI/UI behavior, inputs/outputs,
 validation, errors, and positive/negative/empty/stale/interrupted cases.
-Pin affected shared contracts; identify compatibility obligations.
+Pin affected shared contracts; identify compatibility obligations, disabled/unconfigured
+capabilities, profile/policy provenance and the public credential-free build path where relevant.
 
 ## Implementation and data
 

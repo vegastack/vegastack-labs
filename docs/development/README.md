@@ -1,6 +1,6 @@
 # Development planning
 
-Status: operating mandate adopted as working v1 on 26-08-2026. The full-scope roadmap is a draft for phase-planning review.
+Status: operating mandate adopted as working v1 and full-scope roadmap approved by the user on 26-08-2026. Detailed phase solutions and issue batches still require their own approval.
 
 This directory holds VegaStack Labs development planning. Executable work will be tracked in GitHub Issues in the implementation repository; development phases will use GitHub milestones. These documents are in the public repository and must contain only publication-safe development information.
 
@@ -8,9 +8,17 @@ This directory holds VegaStack Labs development planning. Executable work will b
 
 - [Operating mandate](operating-mandate.md): how requirements become approved issues, how agents execute them, and what proves completion.
 - [Issue template](issue-template.md): the product-and-engineering contract for one executable issue, including completion and blocker comments.
-- [Full-scope roadmap](roadmap.md): proposed development phases, coverage of the existing specifications, and the separate live-deployment sequence.
+- [Full-scope roadmap](roadmap.md): approved development phases, coverage of the existing specifications, and the separate live-deployment sequence.
+- [Development-to-lab delivery path](roadmap.md#delivery-path-from-development-to-the-lab): complete and verify v1 first, then configure the actual inventory through the existing deployment gates.
+- [Phase 0 draft](phases/00-development-foundation.md): proposed requirements, solution, issue outcomes and readiness conditions for the first development phase.
 - [Repository contract](../../AGENTS.md): platform invariants and live-operation authority, which this mandate does not relax.
 - [Specification map](../../README.md#documentation-map): canonical architecture, behavior, safety, and deployment requirements.
+
+Next: review the phase 0 draft and develop its first complete issue batch. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) in that solution review; approving the roadmap did not approve those detailed profile choices or authorize live changes. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
+
+## Reconciled product requirements
+
+The [portable lifecycle](../platform-lifecycle.md) owns generic local control-plane setup, account-free SSH operations, profile/gate selection and safe exit. Read it before converting the roadmap to issues. The Labs walkthrough is a selected deployment, not a core prerequisite. Each issue records layer, generic and dogfood behavior, unsupported cases and concrete proof. See the [readiness distinctions](roadmap.md#implementation-readiness); requirements approval does not make every future issue executable or authorize GitHub/live changes.
 
 ## Planning structure
 

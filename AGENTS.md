@@ -10,6 +10,8 @@ Read `README.md` first, especially its architecture boundary, then the relevant 
 
 The checked-in material is a reviewed specification with unresolved deployment gates. Documentation alone grants no live authority. Do not deploy infrastructure, change Cloudflare/Coolify/GitHub/1Password/Google Workspace, modify the source Google Sheet, or operate managed hosts unless the user explicitly authorizes implementation after every prerequisite gate is closed.
 
+The user selected complete v1 development and verification before the first lab onboarding rehearsal. Use isolated, explicitly scoped development test environments; do not use the inventory fleet as an early rollout. Read the development roadmap's delivery path and D-117. Software acceptance does not close live deployment gates or authorize rollout.
+
 ## Invariants
 
 ### Portable platform
@@ -36,7 +38,12 @@ The checked-in material is a reviewed specification with unresolved deployment g
 - A live mutation requires a current plan and policy authorization. Human acknowledgement is mandatory unless the documented exact low-risk application-deployment class is already preauthorized; production-like deployment always requires the assigned maintainer.
 - Every agent-assisted mutation records both the responsible human and the agent/session.
 - Managed hosts have no custom privileged `vsk-labs` agent; normal execution is central Ansible/SSH or a tested provider adapter.
+- Every new, replaced or reimaged managed host must pass its applicable approved OS/role hardening baseline before workload admission. Ansible owns host security and role configuration through `vsk-labs`; discovery is not admission, and unsupported platforms or missing verification cannot be treated as secure. See the requirement and proposed tool/profile design in `docs/host-onboarding-and-hardening.md`.
 - Never print, log, commit or place a plaintext secret in a prompt, plan, issue or audit record.
+
+## Generic OSS lifecycle
+
+Read `docs/platform-lifecycle.md` for generic creation/enrollment and the minimum account-free SSH capability. A role binding such as `vsk-node-04`, a Labs gate, domain, physical serial or selected provider is not a core prerequisite. Only the server owns writable SQLite, including initial setup; the finite pre-database installation manifest is not an alternate controller. Local OS-peer/constrained SSH identities use the same effective grants as external identities. Preserve the distinction between a running local setup service and a qualified capability. Physical media disposition is outside platform scope.
 
 ## Operating workflow
 
@@ -68,6 +75,7 @@ An agent's own prompt-bypass or autonomy setting is not infrastructure authoriza
 - Go owns CLI UX, schemas, policy, planning, adapter orchestration and structured output.
 - Gate definitions, evidence schema and evaluators are generated platform metadata. A gate can pass only from applied, current, recovery-epoch-bound evidence; documentation or an agent assertion is never activation evidence.
 - The `vsk-labs` server process, launched with `server run`, owns the control database, versioned API, embedded Console and exact-plan executor on the control plane.
+- Ordinary public builds/tests need no private VegaStack credentials; authenticated component refresh and official release signing remain separate maintainer workflows.
 - The Console uses VegaStack Design System components and a generated API client; it must not create alternate authorization, provider or SQLite access paths.
 - Ansible owns idempotent host configuration over SSH.
 - An infrastructure object has one declarative owner; do not mix direct API and IaC ownership.

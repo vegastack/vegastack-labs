@@ -29,6 +29,7 @@ The revisioned control-database network declaration owns the actual LAN CIDR and
 | builders/job containers | GitHub, Harbor and explicitly mapped dependency endpoints | outbound HTTPS `443` and DNS/NTP through site policy | build/test jobs cannot initiate to control/Coolify/app SSH/databases/secret provider; only a separately admitted deploy job may reach the `vsk-labs` submit/claim API and Coolify HTTPS with its mapped project/team token |
 | application nodes | Harbor and declared dependencies | HTTPS `443` plus each service's declared database/API port | app identity only; no fleet/control credentials |
 | backup pull identity | declared workload export endpoints | declared adapter port/path | read-only source; workload never mounts backup repository read/write |
+| selected qualified Tunnel connectors | control-plane Console origin | declared private HTTPS port | reserved connector sources only, verified origin TLS and independent Access identity verification; no direct LAN/Mesh browser bypass |
 | Tunnel connectors and Mesh clients | Cloudflare endpoints | only current official connector/client egress requirements | no inbound WAN rule; exact ports/protocols revalidated before apply |
 
 Everything not declared is denied inbound; builders additionally deny east-west initiation as above. Apply firewall changes one node at a time with an existing console/LAN session held open: install proposed rules, open a second positive session, run negative probes, then close the old session. Automatic rollback restores the previous rules if the positive check or timer acknowledgement fails. Emergency local console can load the versioned baseline; it may not disable the firewall indefinitely.
@@ -36,6 +37,14 @@ Everything not declared is denied inbound; builders additionally deny east-west 
 ### SSH bootstrap and recovery
 
 Phase 1 records each host key fingerprint from local console before accepting any network SSH connection. `known_hosts` pins immutable node ID rather than its changing LAN/Mesh address. Automation and Coolify use separate keys, principals and allowed-source rules; private user keys are per person **and** device. Disable password and direct root login for people after the tested admin account/elevation path works; if Coolify needs privileged SSH, admit only its dedicated key/source and audit it separately. Reimage/replacement changes a host key only with serial/console evidence and an explicit inventory update. A mismatch stops automation; it is never auto-accepted with `StrictHostKeyChecking=no`.
+
+## Managed-host hardening
+
+**Confirmed requirement, 26-08-2026:** every new, replaced or reimaged managed host, including the control-plane bootstrap target, must receive basic hardening before workload admission. The user explicitly requires Ansible to perform the security and role configuration needed to add the machine to the lab. Reachable SSH or a successful package install is not admission evidence. [D-116](decisions-and-sources.md#d-116)
+
+The focused [host onboarding and hardening contract](host-onboarding-and-hardening.md) owns common controls, OS/role differences, Ansible sequence, recovery and verification. Linux SSH-only Fail2ban, bounded auditd and AIDE on control are selected; exact profile settings remain qualification work. OS-native firewalls/confinement and macOS controls remain required where applicable; Lynis is an optional audit aid, not an admission authority.
+
+Profiles must preserve the existing support matrix, scoped privileged access, encryption decisions, maintenance policy and live-authorization boundaries. No host has been inspected, configured or admitted by this documentation. Phase 0 must confirm the detailed profile/tool policies and unresolved Mac prerequisites before the relevant implementation issues become ready.
 
 ## Identity and authorization
 
@@ -85,6 +94,12 @@ Normal offboarding is a reviewed declaration and immutable plan followed by expl
 
 Because Workspace lifecycle is a prerequisite rather than a v1 mutation, `vsk-labs` produces a human checklist and verifies observed state but never mutates Workspace. A Workspace administrator attaches native event IDs—never a password or recovery code. Quarterly access review reconciles active/suspended Workspace identities, control-database roles, Cloudflare registrations/audiences, local accounts/SSH keys, Coolify teams, GitHub access and 1Password service accounts; stale access becomes a reviewed removal declaration/plan. Workspace Admin audit events are available through the official Reports API (current documented maximum query window: 180 days), so the six-month audit export must run within that window. [Google Admin activity report](https://developers.google.com/workspace/admin/reports/v1/guides/manage-audit-admin)
 
+### Complete revocation and containment
+
+Offboarding includes every independently authenticated identity/key/session for that person, including configured GitHub access and application-local identities such as Harbor. Use an existing scoped adapter or assign the owning human/application administrator a verified checklist action; no additional platform privileges are acquired for an app. Stop or contain established Linux/Mac/agent sessions, not only new logins. Record per-target verified denial and unresolved actions; successful revocations are not compensated by regranting access. The approved plan may include bounded isolation preserving administrator recovery. An unavailable host/provider remains unresolved and must reconcile before readmission. Physical custody, sanitization and disposal are outside product scope.
+
+Routine rotation compensation never overrides an approved suspected-compromise containment decision: a compromised old credential remains revoked even if the replacement is unhealthy. Preserve the incident evidence and use the recovery path.
+
 ## Shared Macs
 
 ### Mac mini M4
@@ -122,7 +137,7 @@ The VegaStack Labs deployment selects 1Password CLI plus a 1Password Teams servi
 Rules:
 
 - reference secrets by stable logical name, never inline value;
-- service-account access is limited to the smallest configured vault/item set;
+- service-account access is limited to physical vaults with matching authorized reader sets; item/field references are not provider-enforced isolation;
 - resolve only during an approved operation; materialize only to the target;
 - redact command output and logs; use nonreversible fingerprints for drift checks;
 - fail closed when 1Password is unavailable;
@@ -132,7 +147,7 @@ Rules:
 - on failed health checks, stop, restore the previous secret/reference, verify service, and leave the old credential active until the issue is resolved;
 - preserve a sealed offline recovery credential/key under the lead admin's custody and explicitly accept/test the resulting key-person dependency. [D-072](decisions-and-sources.md#d-072) [D-073](decisions-and-sources.md#d-073)
 
-The `secret_refs` control table records logical ID, owner, consuming identities/targets, 1Password reference, rotation/expiry class and last verification—never a value. The deployment layout is now fixed as purpose-separated Control, Cloudflare, Coolify, Registry, Backup, per-project and human-only Break Glass vaults; machine retrieval uses separately scoped service accounts and no universal identity. Actual vault/item UUIDs and grants remain `G-007` evidence. Before phase 3, an admin imports that map and proves through positive/negative tests that CI jobs, Hermes, app containers and project maintainers cannot retrieve fleet/control/backup credentials. [Implementation gates](implementation-gates.md#1password-layout-g-007) [D-110](decisions-and-sources.md#d-110)
+The `secret_refs` control table records logical ID, owner, consuming identities/targets, 1Password reference, rotation/expiry class and last verification—never a value. Control, Cloudflare, Coolify, Registry, Backup, project and Break Glass remain logical purpose categories; physical vaults must additionally split differing reader sets as required by G-007. The previous one-vault-per-purpose layout is superseded. Review the exact matrix before activation; machine retrieval uses narrow service accounts and human-only recovery material remains inaccessible to them. Actual vault/item UUIDs and grants remain `G-007` evidence. Before phase 3, an admin imports that map and proves through positive/negative tests that CI jobs, Hermes, app containers and project maintainers cannot retrieve fleet/control/backup credentials. [Implementation gates](implementation-gates.md#1password-layout--g-007) [D-110](decisions-and-sources.md#d-110)
 
 The VegaStack Labs deployment profile retains the accepted scoped CI automation. Each enrolled project's Coolify token is stored as a GitHub Environment secret only for its admitted deploy environment/job; the source value and ownership record remain in 1Password, and SQLite stores only its reference/fingerprint. `vsk-labs` may install or rotate that encrypted Environment secret with a selected-repository fine-grained PAT carrying only `Environments: write`; a purpose-specific GitHub App is optional, not required. Automating reviewer/protection configuration is a separate capability requiring `Administration: write` and is disabled unless explicitly owned. The deploy job's Coolify token is bound to one Coolify team and carries `write`+`deploy` because it must change the digest and trigger the resource; it has neither `root` nor `read:sensitive`, but compromise can affect every resource in that team. Rotation creates a replacement, updates the Environment secret, runs one positive exact-digest deploy plus denied cross-team/extra-permission tests, then revokes the old token and proves `401`. The exact Coolify automation account/owner, team map and GitHub environment owner are phase-5 gates. [GitHub Actions Secrets API](https://docs.github.com/en/rest/actions/secrets) · [Coolify API tokens](https://next.coolify.io/docs/core/security/credentials/api-tokens) [D-055](decisions-and-sources.md#d-055) [D-104](decisions-and-sources.md#d-104)
 
@@ -166,7 +181,7 @@ Systemd timers run the schedules because they expose last/next state and catch u
 
 Every stateful service declares a typed adapter or consistency hook: database-native dump, application export, quiesce/snapshot sequence, or a documented unsupported state. Copying a live database directory is not an accepted backup.
 
-The engine choice is closed: restic repository format v2 with separate `standard`, `critical-local` and `critical-offsite` repositories. Pin restic `0.19.1` or a reviewed later patch by binary digest; use `RESTIC_PASSWORD_COMMAND` backed by the narrow 1Password reference; use `keep-within` retention; and separate routine writer from retention/prune and R2 lock administrators. Before phase 3, `G-008` still requires actual repository IDs, measured capacity, R2 credential/lock evidence and functional sealed recovery without the control node. [Implementation gates](implementation-gates.md#backup-engine-and-repository-topology-g-008) [D-109](decisions-and-sources.md#d-109)
+The selected candidate is restic repository format v2; the writer/lock/retained-payload compatibility mechanism remains open under G-008 and must be proven without weakening safety. Use separate `standard`, `critical-local` and `critical-offsite` repositories. Pin restic `0.19.1` or a reviewed later patch by binary digest; use `RESTIC_PASSWORD_COMMAND` backed by the narrow 1Password reference; use `keep-within` retention; and separate routine writer from retention/prune and R2 lock administrators. Before phase 3, `G-008` still requires actual repository IDs, measured capacity, R2 credential/lock evidence and functional sealed recovery without the control node. [Implementation gates](implementation-gates.md#backup-engine-and-repository-topology--g-008) [D-109](decisions-and-sources.md#d-109)
 
 Every backup declaration names owner, source paths/volumes, consistency adapter, class/schedule, expected size/growth, encryption/recovery-key reference, retention, restore target and functional test. Minimum data-set coverage is:
 
@@ -266,12 +281,15 @@ No failure automatically elects a client or D1 projection as a new controller. R
 
 If automation/control is unavailable, use direct LAN/console and the generated manual runbook. Break-glass access is time/target/reason bounded and logged locally for later import. Suspected compromise favors credential revocation and clean rebuild over restoring potentially altered binaries.
 
+Recovery points retain their required binary/schema, images, signatures and key references for their full declared lifetime. The normal three-release rollback cache is separate from the recovery archive; capacity pressure blocks unsafe cleanup instead of silently deleting dependencies. Older audit recovery follows the [anchored history procedure](platform-lifecycle.md#recovery-and-retained-dependencies).
+
 ## Updates and maintenance
 
 Default maintenance window: **Sunday 02:00 AM–05:00 AM IST (Asia/Kolkata)**.
 
 - inventory available updates continuously;
 - apply routine OS/package updates after a uniform seven-day soak;
+- retain automatic native malware-definition/revocation-data updates as an explicitly separate classified update type; do not apply the OS-release hold to those data updates;
 - canary one qualified non-control node, then patch eligible nodes in bounded role-aware batches; reboot only when required;
 - preserve one recovery path and validate service health between batches;
 - refresh Cloudflare/Coolify connectors one at a time so a second path remains healthy; update the control plane last after a fresh verified state backup;
@@ -297,7 +315,7 @@ Before a point/major upgrade, read the current Debian release notes and test the
 - Reduce CI concurrency automatically if throttling, unsafe temperature, memory pressure or disk contention persists.
 - Keep the quarantined charging-fault asset disconnected until repaired and qualified. [D-087](decisions-and-sources.md#d-087)
 
-[Implementation qualification defaults](implementation-gates.md#common-numeric-qualification-g-005-g-009-g-010-g-020-g-021) are normative v1 acceptance values. Real measurements remain mandatory; agents cannot turn a default into observed evidence. [D-115](decisions-and-sources.md#d-115)
+[Implementation qualification defaults](implementation-gates.md#common-numeric-qualification--g-005-g-009-g-010-g-020-g-021) are normative v1 acceptance values. Real measurements remain mandatory; agents cannot turn a default into observed evidence. [D-115](decisions-and-sources.md#d-115)
 
 ## Minimum runbook set
 
