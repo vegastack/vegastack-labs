@@ -133,9 +133,8 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 
 ## Path to the first completed issue
 
-1. Use the approved roadmap; keep existing architecture choices unless a demonstrated conflict needs resolution.
-2. Settle the draft `phases/00-development-foundation.md` requirements, solution, exclusions, exit proof, shared setup and issue index.
-3. Review the first batch's complete issue bodies and verification approach with the user.
-4. Establish the explicitly authorized bootstrap delivery route and publish the agreed GitHub issues/milestone. Existing labels can be reused.
-5. Execute one small approved issue end to end: claim, implementation, deterministic checks, fresh review, permitted merge, final verification and implementation comment.
-6. Use any concrete pilot findings to improve the template, finish phase 0, and continue phase by phase. Do not create a speculative detailed backlog that must all be rewritten later.
+1. Completed on 27-08-2026: approve phase 0 batch 1, publish its milestone and [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), and claim the issue on `chore/0.1-development-route`.
+2. Complete issue 0.1's deterministic checks, fresh review and any in-scope fixes; keep the PR unmerged while required evidence is incomplete.
+3. Merge through the approved route only after every required check and fresh-review finding is resolved.
+4. Verify the integrated commit on `main`, post the implementation/evidence summary, and only then close issue 0.1.
+5. Use the pilot findings to improve the workflow, then prepare issue 0.2's solution and approval-ready body. Do not create a speculative detailed backlog that must all be rewritten later.
