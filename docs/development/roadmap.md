@@ -123,7 +123,7 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Current execution:** phase 0 batch 1, containing only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), was approved on 27-08-2026. Complete and verify that development-delivery pilot, then prepare issue 0.2's complete solution and body for the next approval. Later phase-0 issues remain unapproved. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them. Phase 0 is the development-foundation phase, not a reduction of the approved full scope to a CLI prototype.
+**Current approved batch:** phase 0 batch 1 contains only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) and was approved on 27-08-2026. GitHub owns its delivery status. After it closes with the required evidence, prepare issue 0.2's complete solution and body for the next approval. Later phase-0 issues remain unapproved. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them. Phase 0 is the development-foundation phase, not a reduction of the approved full scope to a CLI prototype.
 
 **Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 

@@ -1,6 +1,6 @@
 # Development phase 0 — Development foundation and specification reconciliation
 
-Status: reconciled requirements for solution/issue preparation, 26-08-2026. Phase 0 batch 1, containing only issue 0.1, was approved on 27-08-2026 and is in progress. The mandate, phase boundaries, full-v1-before-lab timing, generic control-plane-first UX, account-free SSH baseline and recorded operational outcomes are confirmed. Later issue solutions, permissions and batches remain separately approved.
+Status: reconciled requirements for solution/issue preparation, 26-08-2026. Phase 0 batch 1, containing only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), was approved on 27-08-2026; GitHub owns its current delivery status. The mandate, phase boundaries, full-v1-before-lab timing, generic control-plane-first UX, account-free SSH baseline and recorded operational outcomes are confirmed. Later issue solutions, permissions and batches remain separately approved.
 
 ## Outcome
 

@@ -14,7 +14,7 @@ This directory holds VegaStack Labs development planning. Executable work will b
 - [Repository contract](../../AGENTS.md): platform invariants and live-operation authority, which this mandate does not relax.
 - [Specification map](../../README.md#documentation-map): canonical architecture, behavior, safety, and deployment requirements.
 
-Next: complete and verify [phase 0 issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), then develop issue 0.2's solution and approval-ready body. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) when the affected phase-0 solutions are reviewed; neither batch 1 nor roadmap approval authorizes those detailed choices or any live change. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
+Delivery status for [phase 0 issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) lives in GitHub. After it closes with the required evidence, develop issue 0.2's solution and approval-ready body. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) when the affected phase-0 solutions are reviewed; neither batch 1 nor roadmap approval authorizes those detailed choices or any live change. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
 
 ## Reconciled product requirements
 
