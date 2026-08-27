@@ -118,6 +118,17 @@ Development phases are **0–11**, defined by the [development roadmap](docs/dev
 
 The [portable lifecycle readiness table](docs/platform-lifecycle.md#preparation-versus-activation) owns the boundary between local setup, permitted foundation preparation and qualified capabilities. Every mutation still needs its exact plan/policy authorization; this ordering grants none.
 
+## Public development checks
+
+The public development scaffold pins Go 1.27.0, Node.js 24.20.0 and pnpm 11.24.0. A normal checkout installs only public dependencies and needs no VegaStack registry credential:
+
+```text
+corepack pnpm install --frozen-lockfile
+corepack pnpm check
+```
+
+These checks validate repository safety, current documentation links and JSON, exact dependency provenance/licenses, preserved historical artifacts, the inert Go foundation package and the statically exported web scaffold. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, optional maintainer registry placeholders and delivery rules. This development scaffold does not claim that the `vsk-labs` product or Console workflow is implemented.
+
 ## Documentation map
 
 - [Portable product lifecycle](docs/platform-lifecycle.md) — generic OSS setup and account-free SSH management, profile boundaries, enrollment, recovery and safe exit.

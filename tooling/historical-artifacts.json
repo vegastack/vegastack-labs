@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "authority": "node tooling/historical.mjs --write --approve-current",
+  "purpose": "Detect changes to preserved historical evidence without claiming current generation.",
+  "artifacts": [
+    {
+      "path": "audit-reports/audit-completion.md",
+      "sha256": "6ba000aade3faf17f3c99ac625f30de5608be61262ff53fedafbb01a13c3d998"
+    },
+    {
+      "path": "audit-reports/gap-closure-report.md",
+      "sha256": "fa8e19a41a97abb26fa04b59edcdf06a4432aa251c50a1b8754d85ab93399e89"
+    },
+    {
+      "path": "docs/audit-register.json",
+      "sha256": "ab38512a82aa1726db28944522306e5c448e8d4a8bdfd40ee8a5741b4f28b3d6"
+    }
+  ]
+}

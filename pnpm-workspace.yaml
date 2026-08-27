@@ -1,0 +1,12 @@
+packages:
+  - web
+
+allowBuilds:
+  # ESLint can use the published native binary or JavaScript fallback. Its
+  # dependency build script receives no execution authority in this repo.
+  unrs-resolver: false
+
+# Next.js image optimization is not used by the static export. Omitting sharp
+# keeps its native libvips payload out of the public development dependency set.
+ignoredOptionalDependencies:
+  - sharp
