@@ -291,17 +291,8 @@ The exact development-only MPL-2.0 dependencies listed below are unmodified and 
 | `language-tags` | `1.0.9` | `MIT` | build | [source](https://github.com/mattcg/language-tags) |
 | `levn` | `0.4.1` | `MIT` | build | [source](https://github.com/gkz/levn) |
 | `lightningcss` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-android-arm64` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
 | `lightningcss-darwin-arm64` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-darwin-x64` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-freebsd-x64` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-linux-arm-gnueabihf` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-linux-arm64-gnu` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-linux-arm64-musl` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
 | `lightningcss-linux-x64-gnu` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-linux-x64-musl` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-win32-arm64-msvc` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
-| `lightningcss-win32-x64-msvc` | `1.32.0` | `MPL-2.0` | build | [source](https://github.com/parcel-bundler/lightningcss#readme) |
 | `locate-path` | `6.0.0` | `MIT` | build | [source](https://github.com/sindresorhus/locate-path#readme) |
 | `lodash.merge` | `4.6.2` | `MIT` | build | [source](https://lodash.com/) |
 | `loose-envify` | `1.4.0` | `MIT` | build | [source](https://github.com/zertosh/loose-envify) |

@@ -10,6 +10,8 @@ VegaStack Labs uses a credential-free public development lane. Read [AGENTS.md](
 
 Use the exact versions recorded in `go.mod`, `.node-version`, and the root `packageManager` field. Do not replace system-wide tools merely to work on this repository; a verified official distribution in a temporary tool directory is sufficient.
 
+The Phase 0.2 dependency proof supports macOS ARM64 development and Ubuntu 24.04 x64 GNU CI. The lockfile retains only those exact MPL-covered `lightningcss` platform binaries; adding another development platform requires a separate license review before changing that set. The orchestration itself remains shell-free and uses portable argument arrays so later platform lanes can extend the matrix deliberately.
+
 ## Public checks
 
 ```text

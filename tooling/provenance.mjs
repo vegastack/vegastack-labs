@@ -11,6 +11,18 @@ const LOCK_PATH = path.join(ROOT, "pnpm-lock.yaml");
 const MANIFEST_PATH = path.join(ROOT, "tooling/dependency-provenance.json");
 const NOTICES_PATH = path.join(ROOT, "THIRD_PARTY_NOTICES.md");
 const PUBLIC_REGISTRY = "https://registry.npmjs.org";
+const MANIFEST_AUTHORITY = "node tooling/provenance.mjs --write --approve-current-lock";
+const APPROVED_MPL_PACKAGES = new Set([
+  "axe-core@4.13.0",
+  "lightningcss@1.32.0",
+  "lightningcss-darwin-arm64@1.32.0",
+  "lightningcss-linux-x64-gnu@1.32.0",
+]);
+// This seal is updated only after reviewing every package's license, homepage,
+// role, decision, and derived reason. Resolution data is verified separately
+// against the lockfile. A provenance refresh cannot approve its own metadata.
+const REVIEWED_METADATA_SHA256 =
+  "a61af5e78107b373ff0d566071150abc771db497c3a1dad4033264320e112885";
 const REVIEWED_LICENSES = new Set([
   "0BSD",
   "Apache-2.0",
@@ -94,10 +106,37 @@ export function inspectLockPackages(lock) {
 function isApprovedMpl(record) {
   return (
     record.license === "MPL-2.0" &&
-    ((record.name === "axe-core" && record.version === "4.13.0") ||
-      (record.version === "1.32.0" &&
-        (record.name === "lightningcss" || record.name.startsWith("lightningcss-"))))
+    APPROVED_MPL_PACKAGES.has(`${record.name}@${record.version}`)
   );
+}
+
+function reviewedMetadata(manifest) {
+  return {
+    reviewedOn: manifest.reviewedOn,
+    packages: manifest.packages.map((record) => ({
+      name: record.name,
+      version: record.version,
+      license: record.license,
+      homepage: record.homepage,
+      role: record.role,
+      reviewDecision: record.reviewDecision,
+      reviewReason: record.reviewReason,
+    })),
+  };
+}
+
+export function reviewMetadataDigest(manifest) {
+  return digest(JSON.stringify(reviewedMetadata(manifest)));
+}
+
+export function verifyReviewedMetadata(manifest, expected = REVIEWED_METADATA_SHA256) {
+  const actual = reviewMetadataDigest(manifest);
+  if (actual !== expected) {
+    throw new Error(
+      `dependency review metadata does not match the approved decision seal (actual ${actual})`,
+    );
+  }
+  return actual;
 }
 
 export function validateLicenseDecision(record) {
@@ -263,14 +302,16 @@ async function buildManifest() {
     return resolved;
   });
 
-  return {
+  const manifest = {
     schemaVersion: 1,
-    authority: "node tooling/provenance.mjs --write --approve-current-lock",
+    authority: MANIFEST_AUTHORITY,
     reviewedOn: reviewedDate(),
     lockfileSha256: digest(lockBytes),
     registry: PUBLIC_REGISTRY,
     packages,
   };
+  manifest.reviewMetadataSha256 = reviewMetadataDigest(manifest);
+  return manifest;
 }
 
 function renderManifest(manifest) {
@@ -312,11 +353,19 @@ export async function verifyProvenance() {
   if (manifest.schemaVersion !== 1 || manifest.registry !== PUBLIC_REGISTRY) {
     throw new Error("dependency provenance schema or registry is invalid");
   }
+  if (manifest.authority !== MANIFEST_AUTHORITY) {
+    throw new Error("dependency provenance authority is invalid");
+  }
   if (manifest.lockfileSha256 !== digest(lockBytes)) {
     throw new Error("dependency provenance is stale for pnpm-lock.yaml");
   }
+  const reviewMetadataSha256 = verifyReviewedMetadata(manifest);
+  if (manifest.reviewMetadataSha256 !== reviewMetadataSha256) {
+    throw new Error("dependency provenance decision seal is stale");
+  }
 
   const manifestPackages = new Map();
+  const manifestMplPackages = new Set();
   for (const record of manifest.packages) {
     if (record.reviewDecision !== "approved") {
       throw new Error(`${record.name}@${record.version} lacks an approved review decision`);
@@ -325,7 +374,16 @@ export async function verifyProvenance() {
     if (record.reviewReason !== reason) {
       throw new Error(`${record.name}@${record.version} has a stale review reason`);
     }
+    if (record.license === "MPL-2.0") {
+      manifestMplPackages.add(`${record.name}@${record.version}`);
+    }
     manifestPackages.set(`${record.name}@${record.version}`, record);
+  }
+  if (
+    manifestMplPackages.size !== APPROVED_MPL_PACKAGES.size ||
+    [...APPROVED_MPL_PACKAGES].some((identity) => !manifestMplPackages.has(identity))
+  ) {
+    throw new Error("dependency provenance does not contain the exact approved MPL package set");
   }
 
   for (const record of locked) {
@@ -382,7 +440,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         writeFile(NOTICES_PATH, renderNotices(manifest), "utf8"),
       ]);
       process.stdout.write(
-        `${JSON.stringify({ schemaVersion: 1, check: "provenance", status: "written", packages: manifest.packages.length })}\n`,
+        `${JSON.stringify({ schemaVersion: 1, check: "provenance", status: "written", packages: manifest.packages.length, proposedReviewMetadataSha256: reviewMetadataDigest(manifest) })}\n`,
       );
     } else if (mode === "--check") {
       const result = await verifyProvenance();

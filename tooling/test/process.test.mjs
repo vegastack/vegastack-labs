@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { access, mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { CommandError, runCommand } from "../lib/process.mjs";
@@ -25,4 +28,22 @@ test("runCommand interrupts a timed-out subprocess", async () => {
     }),
     (error) => error instanceof CommandError && error.timedOut === true,
   );
+});
+
+test("a stubborn process tree is killed before it can mutate after timeout", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "vegastack-process-"));
+  const marker = path.join(root, "late-mutation.txt");
+  const started = performance.now();
+
+  await assert.rejects(
+    runCommand(process.execPath, [fixture("stubborn-tree.mjs"), marker], {
+      capture: true,
+      terminationGraceMs: 50,
+      timeoutMs: 50,
+    }),
+    (error) => error instanceof CommandError && error.timedOut === true,
+  );
+  assert.ok(performance.now() - started < 500, "timeout must remain bounded");
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  await assert.rejects(access(marker), { code: "ENOENT" });
 });

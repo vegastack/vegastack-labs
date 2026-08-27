@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "authority": "node tooling/provenance.mjs --write --approve-current-lock",
   "reviewedOn": "27-08-2026",
-  "lockfileSha256": "cd6f0c401631da72949ab2180508fc0f0e48a98105c3f7964b7cec6052700216",
+  "lockfileSha256": "2165af96de27f4712ca68cab949e9f15e1ac52b2397d11ee667fbeffa63ed34e",
   "registry": "https://registry.npmjs.org",
   "packages": [
     {
@@ -3996,20 +3996,6 @@
       "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
     },
     {
-      "name": "lightningcss-android-arm64",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-YK7/ClTt4kAK0vo6w3X+Pnm0D2cf2vPHbhOXdoNti1Ga0al1P4TBZhwjATvjNwLEBCnKvjJc2jQgHXH0NEwlAg==",
-      "lockKeys": [
-        "lightningcss-android-arm64@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
       "name": "lightningcss-darwin-arm64",
       "version": "1.32.0",
       "source": "https://registry.npmjs.org",
@@ -4024,124 +4010,12 @@
       "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
     },
     {
-      "name": "lightningcss-darwin-x64",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-U+QsBp2m/s2wqpUYT/6wnlagdZbtZdndSmut/NJqlCcMLTWp5muCrID+K5UJ6jqD2BFshejCYXniPDbNh73V8w==",
-      "lockKeys": [
-        "lightningcss-darwin-x64@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
-      "name": "lightningcss-freebsd-x64",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-JCTigedEksZk3tHTTthnMdVfGf61Fky8Ji2E4YjUTEQX14xiy/lTzXnu1vwiZe3bYe0q+SpsSH/CTeDXK6WHig==",
-      "lockKeys": [
-        "lightningcss-freebsd-x64@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
-      "name": "lightningcss-linux-arm-gnueabihf",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-x6rnnpRa2GL0zQOkt6rts3YDPzduLpWvwAF6EMhXFVZXD4tPrBkEFqzGowzCsIWsPjqSK+tyNEODUBXeeVHSkw==",
-      "lockKeys": [
-        "lightningcss-linux-arm-gnueabihf@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
-      "name": "lightningcss-linux-arm64-gnu",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-0nnMyoyOLRJXfbMOilaSRcLH3Jw5z9HDNGfT/gwCPgaDjnx0i8w7vBzFLFR1f6CMLKF8gVbebmkUN3fa/kQJpQ==",
-      "lockKeys": [
-        "lightningcss-linux-arm64-gnu@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
-      "name": "lightningcss-linux-arm64-musl",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-UpQkoenr4UJEzgVIYpI80lDFvRmPVg6oqboNHfoH4CQIfNA+HOrZ7Mo7KZP02dC6LjghPQJeBsvXhJod/wnIBg==",
-      "lockKeys": [
-        "lightningcss-linux-arm64-musl@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
       "name": "lightningcss-linux-x64-gnu",
       "version": "1.32.0",
       "source": "https://registry.npmjs.org",
       "integrity": "sha512-V7Qr52IhZmdKPVr+Vtw8o+WLsQJYCTd8loIfpDaMRWGUZfBOYEJeyJIkqGIDMZPwPx24pUMfwSxxI8phr/MbOA==",
       "lockKeys": [
         "lightningcss-linux-x64-gnu@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
-      "name": "lightningcss-linux-x64-musl",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-bYcLp+Vb0awsiXg/80uCRezCYHNg1/l3mt0gzHnWV9XP1W5sKa5/TCdGWaR/zBM2PeF/HbsQv/j2URNOiVuxWg==",
-      "lockKeys": [
-        "lightningcss-linux-x64-musl@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
-      "name": "lightningcss-win32-arm64-msvc",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-8SbC8BR40pS6baCM8sbtYDSwEVQd4JlFTOlaD3gWGHfThTcABnNDBda6eTZeqbofalIJhFx0qKzgHJmcPTnGdw==",
-      "lockKeys": [
-        "lightningcss-win32-arm64-msvc@1.32.0"
-      ],
-      "license": "MPL-2.0",
-      "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
-      "role": "build",
-      "reviewDecision": "approved",
-      "reviewReason": "Approved exact development-only MPL dependency; retain notices and exclude from output."
-    },
-    {
-      "name": "lightningcss-win32-x64-msvc",
-      "version": "1.32.0",
-      "source": "https://registry.npmjs.org",
-      "integrity": "sha512-Amq9B/SoZYdDi1kFrojnoqPLxYhQ4Wo5XiL8EVJrVsB8ARoC1PWW6VGtT0WKCemjy8aC+louJnjS7U18x3b06Q==",
-      "lockKeys": [
-        "lightningcss-win32-x64-msvc@1.32.0"
       ],
       "license": "MPL-2.0",
       "homepage": "https://github.com/parcel-bundler/lightningcss#readme",
@@ -5843,5 +5717,6 @@
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     }
-  ]
+  ],
+  "reviewMetadataSha256": "a61af5e78107b373ff0d566071150abc771db497c3a1dad4033264320e112885"
 }
