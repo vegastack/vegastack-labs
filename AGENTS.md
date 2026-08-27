@@ -4,11 +4,13 @@
 
 This repository defines the portable `vegastack-labs` infrastructure operations platform and the concrete VegaStack Labs deployment profile. The platform is delivered through one CLI/executable, `vsk-labs`. Humans, Codex, Claude Code and Hermes use the same schemas, plans, approvals and typed adapters.
 
-Read `README.md` first, especially its architecture boundary, then the relevant focused document or skill. `docs/decisions-and-sources.md` is the evidence index. Private operational state belongs in the control-plane SQLite database, never this public repository or an SCM host. GitHub is the selected VegaStack Labs source/CI/release provider, not a platform-core or runtime dependency.
+Read `README.md` first, especially its architecture boundary, then the relevant focused document or skill. For repository development, also read `docs/development/operating-mandate.md` and the current phase plan. `docs/decisions-and-sources.md` is the evidence index. Private operational state belongs in the control-plane SQLite database, never this public repository or an SCM host. GitHub is the selected VegaStack Labs source/CI/release provider, not a platform-core or runtime dependency.
 
 ## Current phase
 
-The checked-in material is a reviewed specification with unresolved deployment gates. Documentation alone grants no live authority. Do not deploy infrastructure, change Cloudflare/Coolify/GitHub/1Password/Google Workspace, modify the source Google Sheet, or operate managed hosts unless the user explicitly authorizes implementation after every prerequisite gate is closed.
+The checked-in material is a reviewed specification with unresolved deployment gates. Documentation alone grants no live authority. Do not deploy infrastructure, change Cloudflare/Coolify/1Password/Google Workspace, modify the source Google Sheet, or operate managed hosts unless the user explicitly authorizes implementation after every prerequisite gate is closed.
+
+Repository development has a separate, narrow authority path. Within a user-approved development batch, agents may create or update its named GitHub issues and milestone, branches, commits, pull requests, development comments and reviews, and may merge only when that batch permits it and its required checks and fresh review pass. Approval of one batch grants no authority over another. Repository settings/rulesets, releases, credentials, provider resources and live infrastructure always require separate explicit authorization.
 
 The user selected complete v1 development and verification before the first lab onboarding rehearsal. Use isolated, explicitly scoped development test environments; do not use the inventory fleet as an early rollout. Read the development roadmap's delivery path and D-117. Software acceptance does not close live deployment gates or authorize rollout.
 
@@ -87,6 +89,13 @@ An agent's own prompt-bypass or autonomy setting is not infrastructure authoriza
 - Never copy or share Codex/Claude authentication state between macOS user accounts; vendor authentication is separate from fleet identity.
 - Preserve user changes and unrelated work. Never use destructive Git/filesystem recovery to hide drift.
 - Prefer reversible operations and fail closed on stale plan, missing approval, provider outage or identity mismatch.
+
+### Development branch names
+
+- Use a type-based branch name: `feat/<issue-id>-<short-slug>` for a `feature` issue, `fix/<issue-id>-<short-slug>` for a `bug`, and `chore/<issue-id>-<short-slug>` for a `chore`.
+- Examples are `feat/2.1-inventory-read-api`, `fix/4.3-reject-stale-plans`, and `chore/0.1-development-route`.
+- Do not prefix branches with an agent or tool name such as `codex/` or `claude/`. The branch describes the work regardless of which human or agent performs it.
+- Branch creation never grants development, merge, release, repository-administration or infrastructure authority; the approved issue and workflow remain controlling.
 
 ## Verification
 

@@ -19,6 +19,7 @@ Development issue: <phase>.<issue>
 Development phase: <phase number and milestone>
 Approved batch: <batch identifier; does not change the issue number>
 Type: <feature | bug | chore>
+Branch: <feat | fix | chore>/<phase.issue>-<short-kebab-case-outcome>
 Approval record: <phase/batch record with actual user confirmation and constraints>
 Depends on: <development IDs plus GitHub links, e.g. 0.2 (#17); or explicitly none>
 Required reading: <repository instructions, mandate, relevant spec/phase sections and baseline references>

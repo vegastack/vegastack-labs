@@ -93,7 +93,7 @@ Recheck readiness at claim. Changed material contracts or failed prerequisites a
 
 One named coordinator owns batch assignments and merge order. With one executing agent, that agent may also coordinate; no extra manager is required. For parallel work, only the coordinator confirms assignments. Workers do not race to claim an issue.
 
-The claim comment records the responsible human, agent/session, current plan/approval reference, base commit, branch, readiness result, and start time. Remove `ready` when claimed. Use an isolated worktree and a `codex/` branch for Codex unless the user/repository selects another prefix. Preserve unrelated changes, inspect affected code, and run relevant baseline checks before editing. Distinguish existing failures from regressions.
+The claim comment records the responsible human, agent/session, current plan/approval reference, base commit, branch, readiness result, and start time. Remove `ready` when claimed. Use an isolated worktree and the repository's type-based branch convention: `feat/<issue-id>-<short-slug>` for `feature`, `fix/<issue-id>-<short-slug>` for `bug`, or `chore/<issue-id>-<short-slug>` for `chore`. Never use agent-name prefixes such as `codex/` or `claude/`. Preserve unrelated changes, inspect affected code, and run relevant baseline checks before editing. Distinguish existing failures from regressions.
 
 Execute in dependency order. Parallel issues must be explicitly identified as independent in the approved batch, with isolated worktrees and settled shared interfaces. Avoid competing ownership of migrations/generated sources. Serialize merges and verify the integrated result. An unmerged dependency branch is not a completed prerequisite unless that workflow was specifically approved.
 
@@ -153,6 +153,8 @@ Use one milestone per development phase: `Phase <phase> — <name>`. Use only th
 | `blocked` | Cannot proceed within the approved contract |
 
 Use exactly one type label. `ready` and `blocked` are mutually exclusive; unapproved drafts have neither. Assignment/claim and PR status show active/review work; closure with evidence shows completion. Clear transient readiness/blocker labels when closing. No project board or extra status labels. Add a label only for an agreed, repeated retrieval/automation need.
+
+The type label also selects the branch prefix: `feature` uses `feat/`, `bug` uses `fix/`, and `chore` uses `chore/`. Continue the name with the development issue ID and a short kebab-case outcome, for example `feat/2.1-inventory-read-api`. The canonical rule and authority boundary are in [AGENTS.md](../../AGENTS.md#development-branch-names).
 
 Titles start with the development ID and outcome: `[2.1] Reject expired plans before secret resolution`. GitHub's automatic number is separate: `2.1 (#23)`. Carry the development ID into PR references and implementation summaries. Numbers and availability never bypass dependencies.
 
