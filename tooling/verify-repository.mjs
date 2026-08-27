@@ -6,6 +6,25 @@ import { runCommand } from "./lib/process.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTED_NODE = "24.20.0";
 const EXPECTED_PNPM = "11.24.0";
+const ACCESS_ENV_NAME = ["CF", "ACCESS", "CLIENT", "SECRET"].join("_");
+const ACCESS_HEADER_NAME = ["CF", "Access", "Client", "Secret"].join("-");
+const ACCESS_SECRET_PLACEHOLDER = `\${${ACCESS_ENV_NAME}}`;
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function assignmentValues(text, name, separator, allowClosingQuote = false) {
+  const closingQuote = allowClosingQuote ? `["']?` : "";
+  const pattern = new RegExp(
+    `${escapeRegExp(name)}${closingQuote}[\\t ]*${separator}[\\t ]*(?:"([^"]*)"|'([^']*)'|([^\\s,;"']+))`,
+    "gi",
+  );
+  return [...text.matchAll(pattern)].map((match) => ({
+    bare: match[3] ?? null,
+    value: match[1] ?? match[2] ?? match[3] ?? "",
+  }));
+}
 
 export function assertExactDependencySpec(name, specifier) {
   if (typeof specifier !== "string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(specifier)) {
@@ -22,14 +41,12 @@ export function findSecretMarkers(text) {
   if (/\b(?:gh[pousr]_|npm_)[A-Za-z0-9]{20,}\b/.test(text)) {
     markers.push("token-shaped value");
   }
-  if (/^[\t ]*CF_ACCESS_CLIENT_SECRET[\t ]*=[\t ]*(?!#|$)\S+/m.test(text)) {
-    markers.push("Cloudflare Access secret value");
-  }
-  for (const match of text.matchAll(
-    /(?:^|[,{])[\t ]*["']?CF-Access-Client-Secret["']?[\t ]*:[\t ]*(?:"([^"]*)"|'([^']*)'|([^\s,}]+))/gim,
-  )) {
-    const value = match[1] ?? match[2] ?? match[3] ?? "";
-    if (value && value !== "${CF_ACCESS_CLIENT_SECRET}") {
+  const assignments = [
+    ...assignmentValues(text, ACCESS_ENV_NAME, "="),
+    ...assignmentValues(text, ACCESS_HEADER_NAME, ":", true),
+  ];
+  for (const { bare, value } of assignments) {
+    if (value && value !== ACCESS_SECRET_PLACEHOLDER && !bare?.startsWith("#")) {
       if (!markers.includes("Cloudflare Access secret value")) {
         markers.push("Cloudflare Access secret value");
       }

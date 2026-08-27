@@ -21,16 +21,27 @@ test("unpinned dependency specifications fail", () => {
 });
 
 test("secret markers detect a nonempty registry secret without echoing it", () => {
-  const markers = findSecretMarkers(["CF_ACCESS_CLIENT_SECRET", "fixture-secret-value"].join("="));
-  assert.deepEqual(markers, ["Cloudflare Access secret value"]);
+  const envName = ["CF", "ACCESS", "CLIENT", "SECRET"].join("_");
+  const headerName = ["CF", "Access", "Client", "Secret"].join("-");
+  const secretMarker = ["Cloudflare Access secret value"];
+  const inputs = [
+    [envName, "fixture-secret-value"].join("="),
+    ["export ", envName, "=fixture-secret-value"].join(""),
+    [headerName, "fixture-secret-value"].join(": "),
+    ["- ", headerName, ": fixture-secret-value"].join(""),
+    ["curl -H \"", headerName, ": fixture-secret-value\""].join(""),
+    JSON.stringify({ [headerName]: "fixture-secret-value" }),
+  ];
 
-  const header = ["CF-Access-Client-Secret", "fixture-secret-value"].join(": ");
-  assert.deepEqual(findSecretMarkers(header), ["Cloudflare Access secret value"]);
+  for (const input of inputs) {
+    assert.deepEqual(findSecretMarkers(input), secretMarker);
+  }
 });
 
 test("empty registry placeholders are accepted", () => {
-  assert.deepEqual(findSecretMarkers("CF_ACCESS_CLIENT_SECRET=\n"), []);
-  assert.deepEqual(findSecretMarkers("CF_ACCESS_CLIENT_SECRET=\nNEXT_VALUE=safe\n"), []);
+  const envName = ["CF", "ACCESS", "CLIENT", "SECRET"].join("_");
+  assert.deepEqual(findSecretMarkers(`${envName}=\n`), []);
+  assert.deepEqual(findSecretMarkers(`${envName}=\nNEXT_VALUE=safe\n`), []);
   assert.deepEqual(findSecretMarkers('"CF-Access-Client-Secret": "${CF_ACCESS_CLIENT_SECRET}"'), []);
 });
 
@@ -73,7 +84,11 @@ test("ignored local credentials pass while the same tracked file fails", async (
       "utf8",
     ),
     writeFile(path.join(root, "web/package.json"), `${webPackageJson}\n`, "utf8"),
-    writeFile(path.join(root, "web/.env.local"), "CF_ACCESS_CLIENT_SECRET=fixture-value\n", "utf8"),
+    writeFile(
+      path.join(root, "web/.env.local"),
+      `${[["CF", "ACCESS", "CLIENT", "SECRET"].join("_"), "fixture-value"].join("=")}\n`,
+      "utf8",
+    ),
   ]);
   await runCommand("git", ["init", "--quiet"], { capture: true, cwd: root });
   await runCommand("git", ["add", "."], { capture: true, cwd: root });
@@ -90,7 +105,7 @@ test("ignored local credentials pass while the same tracked file fails", async (
   const headerFixture = path.join(root, "registry-header.yaml");
   await writeFile(
     headerFixture,
-    `${["CF-Access-Client-Secret", "fixture-secret-value"].join(": ")}\n`,
+    `${["- ", ["CF", "Access", "Client", "Secret"].join("-"), ": fixture-secret-value"].join("")}\n`,
     "utf8",
   );
   await runCommand("git", ["add", "registry-header.yaml"], { capture: true, cwd: root });
