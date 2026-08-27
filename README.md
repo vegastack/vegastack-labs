@@ -128,6 +128,7 @@ The [portable lifecycle readiness table](docs/platform-lifecycle.md#preparation-
 - [Security and operations](docs/security-and-operations.md) — identity, secrets, updates, backups, recovery, observability, power and runbooks.
 - [Host onboarding and hardening](docs/host-onboarding-and-hardening.md) — mandatory Ansible-driven host admission; researched tool/OS profiles, configuration, recovery and verification proposals awaiting detailed phase approval.
 - [Automation and agents](docs/automation-and-agents.md) — `vsk-labs`, SQLite/API, Ansible/IaC, approvals, skills and manual fallback.
+- [Development planning and operating mandate](docs/development/README.md) — approved phase/issue workflow, readiness, branch conventions, review, delivery and evidence rules.
 - [Implementation gates and evidence procedures](docs/implementation-gates.md) — all 23 audit items, selected mechanisms, evidence schema, numeric acceptance and phase admission.
 - [Decisions and sources](docs/decisions-and-sources.md) — evidence register, coverage, GitHub dependency matrix, assumptions, unresolved items and official references.
 - [Historical machine-checkable audit register](docs/audit-register.json) — transcript/decision evidence, coverage state and audit matrices from the reviewed snapshot. Its document hashes identify that snapshot, not later documentation edits; the human date-format update of 26-08-2026 does not regenerate or revalidate this evidence.

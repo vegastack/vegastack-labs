@@ -123,9 +123,9 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Next confirmation:** review the [draft phase 0 requirements and solution](phases/00-development-foundation.md), including the confirmed hardening outcomes and remaining mechanism qualifications, then approve its first complete issue batch. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them. Phase 0 is the development-foundation phase, not a reduction of the approved full scope to a CLI prototype.
+**Current approved batch:** phase 0 batch 1 contains only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) and was approved on 27-08-2026. GitHub owns its delivery status. After it closes with the required evidence, prepare issue 0.2's complete solution and body for the next approval. Later phase-0 issues remain unapproved. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them. Phase 0 is the development-foundation phase, not a reduction of the approved full scope to a CLI prototype.
 
-**Before remote execution:** obtain explicit authorization for named-repository development and separately any proposed repository-policy change. Inspect current rules; agree the normal PR/check/review/merge route without bypass. No new credentials, settings, issues, milestones, release or infrastructure actions are authorized merely by this roadmap.
+**Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 
 **Later, only when needed:** obtain unavailable real OS/test lanes and signing identities, actual provider/secret/recovery ownership, site/physical measurements, alert recipients, Harbor migration inputs, and service mappings at their affected gates. Discover facts read-only where permitted before asking the user. Never put private evidence or secret values in GitHub.
 
@@ -133,9 +133,8 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 
 ## Path to the first completed issue
 
-1. Use the approved roadmap; keep existing architecture choices unless a demonstrated conflict needs resolution.
-2. Settle the draft `phases/00-development-foundation.md` requirements, solution, exclusions, exit proof, shared setup and issue index.
-3. Review the first batch's complete issue bodies and verification approach with the user.
-4. Establish the explicitly authorized bootstrap delivery route and publish the agreed GitHub issues/milestone. Existing labels can be reused.
-5. Execute one small approved issue end to end: claim, implementation, deterministic checks, fresh review, permitted merge, final verification and implementation comment.
-6. Use any concrete pilot findings to improve the template, finish phase 0, and continue phase by phase. Do not create a speculative detailed backlog that must all be rewritten later.
+1. Completed on 27-08-2026: approve phase 0 batch 1, publish its milestone and [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), and claim the issue on `chore/0.1-development-route`.
+2. Complete issue 0.1's deterministic checks, fresh review and any in-scope fixes; keep the PR unmerged while required evidence is incomplete.
+3. Merge through the approved route only after every required check and fresh-review finding is resolved.
+4. Verify the integrated commit on `main`, post the implementation/evidence summary, and only then close issue 0.1.
+5. Use the pilot findings to improve the workflow, then prepare issue 0.2's solution and approval-ready body. Do not create a speculative detailed backlog that must all be rewritten later.

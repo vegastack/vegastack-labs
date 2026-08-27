@@ -1,6 +1,6 @@
 # Development planning
 
-Status: operating mandate adopted as working v1 and full-scope roadmap approved by the user on 26-08-2026. Detailed phase solutions and issue batches still require their own approval.
+Status: operating mandate adopted as working v1 and full-scope roadmap approved by the user on 26-08-2026. Phase 0 batch 1, containing only issue 0.1, was approved on 27-08-2026; later phase solutions and issue batches still require their own approval.
 
 This directory holds VegaStack Labs development planning. Executable work will be tracked in GitHub Issues in the implementation repository; development phases will use GitHub milestones. These documents are in the public repository and must contain only publication-safe development information.
 
@@ -14,7 +14,7 @@ This directory holds VegaStack Labs development planning. Executable work will b
 - [Repository contract](../../AGENTS.md): platform invariants and live-operation authority, which this mandate does not relax.
 - [Specification map](../../README.md#documentation-map): canonical architecture, behavior, safety, and deployment requirements.
 
-Next: review the phase 0 draft and develop its first complete issue batch. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) in that solution review; approving the roadmap did not approve those detailed profile choices or authorize live changes. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
+Delivery status for [phase 0 issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) lives in GitHub. After it closes with the required evidence, develop issue 0.2's solution and approval-ready body. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) when the affected phase-0 solutions are reviewed; neither batch 1 nor roadmap approval authorizes those detailed choices or any live change. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
 
 ## Reconciled product requirements
 
@@ -28,10 +28,13 @@ Use one `roadmap.md` and add one document per development phase under `phases/` 
 |---|---|---|
 | Development phase | `Phase 0`, `Phase 1` | `phases/00-<phase-name>.md`, `phases/01-<phase-name>.md` |
 | Issue within a phase | `0.1`, `0.2`, `1.1`, `1.2` | GitHub title: `[1.1] <observable outcome>` |
+| Development branch | `<type>/<issue-id>-<short-slug>` | `feat/2.1-inventory-read-api`, `fix/4.3-reject-stale-plans`, or `chore/0.1-development-route` |
 | Optional standalone issue draft, before publication | `1.1` | `01.01-<issue-name>.md`; after publication, GitHub is authoritative |
 | GitHub tracking number | `#23` | Link as `1.1 (#23)`; it is not the development issue ID |
 
 Use at least two digits per filename component for ordinary filename sorting, but no padding in displayed phase/issue IDs. If a component exceeds two digits, widen that component consistently in filenames only. Sort issue lists by the two integer components: `1.2` precedes `1.10`; these IDs are not decimal numbers. Shared documents such as this index, the mandate, the template, and the roadmap are not phases or executable issues and keep descriptive filenames.
+
+Branch prefixes follow the issue's one type label: `feature` maps to `feat/`, `bug` to `fix/`, and `chore` to `chore/`. Do not use agent-name prefixes such as `codex/` or `claude/`; see the canonical [branch-name rule](../../AGENTS.md#development-branch-names).
 
 Each phase document starts with `# Development phase <phase> — <name>` and has an ordered issue index with columns for issue ID, outcome, dependencies, and GitHub link. Use the same ID in issue headings, approval records, PR references, and implementation comments. The examples here define naming only; they do not approve phase content or create issues.
 
