@@ -1,11 +1,11 @@
-import { readFile, readdir } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { runCommand } from "./lib/process.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTED_NODE = "24.20.0";
 const EXPECTED_PNPM = "11.24.0";
-const EXCLUDED_DIRECTORIES = new Set([".git", ".next", "node_modules", "out", "coverage"]);
 
 export function assertExactDependencySpec(name, specifier) {
   if (typeof specifier !== "string" || !/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(specifier)) {
@@ -36,25 +36,13 @@ export function isSecretEnvironmentFile(relative) {
   );
 }
 
-async function walk(root, relative = "") {
-  const directory = path.join(root, relative);
-  const entries = await readdir(directory, { withFileTypes: true });
-  const files = [];
-
-  for (const entry of entries) {
-    const childRelative = path.join(relative, entry.name);
-    if (entry.isDirectory()) {
-      if (!EXCLUDED_DIRECTORIES.has(entry.name)) {
-        files.push(...(await walk(root, childRelative)));
-      }
-      continue;
-    }
-    if (entry.isFile()) {
-      files.push(childRelative);
-    }
-  }
-
-  return files;
+export async function listTrackedFiles(root = ROOT) {
+  const result = await runCommand("git", ["ls-files", "-z"], {
+    capture: true,
+    cwd: root,
+    timeoutMs: 30_000,
+  });
+  return result.stdout.split("\0").filter(Boolean);
 }
 
 async function loadJson(file) {
@@ -113,7 +101,7 @@ export async function verifyRepository(root = ROOT, runtimeVersion = process.ver
     throw new Error("components.json must use the client secret environment placeholder");
   }
 
-  const files = await walk(root);
+  const files = await listTrackedFiles(root);
   for (const relative of files) {
     const basename = path.basename(relative);
     if (isSecretEnvironmentFile(relative)) {
