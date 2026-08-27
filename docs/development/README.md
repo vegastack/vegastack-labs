@@ -1,6 +1,6 @@
 # Development planning
 
-Status: operating mandate adopted as working v1 and full-scope roadmap approved by the user on 26-08-2026. Phase 0 batch 1, containing only issue 0.1, was approved on 27-08-2026; later phase solutions and issue batches still require their own approval.
+Status: operating mandate adopted as working v1 and full-scope roadmap approved by the user on 26-08-2026. Phase 0 batch 1, containing only issue 0.1, was completed on 27-08-2026. Phase 0 batch 2, containing only [issue 0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5), was approved and published on 27-08-2026; later phase solutions and issue batches still require their own approval.
 
 This directory holds VegaStack Labs development planning. Executable work will be tracked in GitHub Issues in the implementation repository; development phases will use GitHub milestones. These documents are in the public repository and must contain only publication-safe development information.
 
@@ -10,11 +10,11 @@ This directory holds VegaStack Labs development planning. Executable work will b
 - [Issue template](issue-template.md): the product-and-engineering contract for one executable issue, including completion and blocker comments.
 - [Full-scope roadmap](roadmap.md): approved development phases, coverage of the existing specifications, and the separate live-deployment sequence.
 - [Development-to-lab delivery path](roadmap.md#delivery-path-from-development-to-the-lab): complete and verify v1 first, then configure the actual inventory through the existing deployment gates.
-- [Phase 0 draft](phases/00-development-foundation.md): proposed requirements, solution, issue outcomes and readiness conditions for the first development phase.
+- [Phase 0 plan](phases/00-development-foundation.md): requirements, solution, issue outcomes and readiness conditions for the first development phase.
 - [Repository contract](../../AGENTS.md): platform invariants and live-operation authority, which this mandate does not relax.
 - [Specification map](../../README.md#documentation-map): canonical architecture, behavior, safety, and deployment requirements.
 
-Delivery status for [phase 0 issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) lives in GitHub. After it closes with the required evidence, develop issue 0.2's solution and approval-ready body. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) when the affected phase-0 solutions are reviewed; neither batch 1 nor roadmap approval authorizes those detailed choices or any live change. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
+[Phase 0 issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) is merged and closed. [Issue 0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) is the current approved development issue; GitHub owns its living body and delivery status. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) when the affected later phase-0 solutions are reviewed; neither batch 2 nor roadmap approval authorizes those detailed choices or any live change. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
 
 ## Reconciled product requirements
 

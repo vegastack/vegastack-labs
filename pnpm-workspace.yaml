@@ -1,0 +1,23 @@
+packages:
+  - web
+
+allowBuilds:
+  # ESLint can use the published native binary or JavaScript fallback. Its
+  # dependency build script receives no execution authority in this repo.
+  unrs-resolver: false
+
+# Next.js image optimization is not used by the static export. Omitting sharp
+# keeps its native libvips payload out of the public development dependency set.
+ignoredOptionalDependencies:
+  - sharp
+  # The approved development matrix is macOS ARM64 plus Ubuntu x64 GNU CI.
+  # Other MPL-covered platform binaries are intentionally outside the lock.
+  - lightningcss-android-arm64
+  - lightningcss-darwin-x64
+  - lightningcss-freebsd-x64
+  - lightningcss-linux-arm-gnueabihf
+  - lightningcss-linux-arm64-gnu
+  - lightningcss-linux-arm64-musl
+  - lightningcss-linux-x64-musl
+  - lightningcss-win32-arm64-msvc
+  - lightningcss-win32-x64-msvc

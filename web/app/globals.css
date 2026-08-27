@@ -1,0 +1,3 @@
+/* The public package supplies Tailwind v4, semantic tokens, base accessibility,
+ * motion, and utilities. Do not add a second Tailwind import. */
+@import "@vegastack/design/preset.css";

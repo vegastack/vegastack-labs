@@ -123,7 +123,7 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Current approved batch:** phase 0 batch 1 contains only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) and was approved on 27-08-2026. GitHub owns its delivery status. After it closes with the required evidence, prepare issue 0.2's complete solution and body for the next approval. Later phase-0 issues remain unapproved. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them. Phase 0 is the development-foundation phase, not a reduction of the approved full scope to a CLI prototype.
+**Current approved batch:** phase 0 batch 1 contained only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3) and was completed on 27-08-2026. Phase 0 batch 2 contains only [issue 0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) and was approved on 27-08-2026. Later phase-0 issues remain unapproved. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them. Phase 0 is the development-foundation phase, not a reduction of the approved full scope to a CLI prototype.
 
 **Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 
@@ -133,8 +133,8 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 
 ## Path to the first completed issue
 
-1. Completed on 27-08-2026: approve phase 0 batch 1, publish its milestone and [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), and claim the issue on `chore/0.1-development-route`.
-2. Complete issue 0.1's deterministic checks, fresh review and any in-scope fixes; keep the PR unmerged while required evidence is incomplete.
-3. Merge through the approved route only after every required check and fresh-review finding is resolved.
-4. Verify the integrated commit on `main`, post the implementation/evidence summary, and only then close issue 0.1.
-5. Use the pilot findings to improve the workflow, then prepare issue 0.2's solution and approval-ready body. Do not create a speculative detailed backlog that must all be rewritten later.
+1. Completed on 27-08-2026: approve Phase 0 batch 1, publish its milestone and [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), and claim the issue on `chore/0.1-development-route`.
+2. Completed on 27-08-2026: run issue 0.1's deterministic checks, fresh review and in-scope fixes; merge through the approved route only after the evidence is current.
+3. Completed on 27-08-2026: verify the integrated commit on `main`, post the implementation/evidence summary, and close issue 0.1.
+4. Completed on 27-08-2026: use the pilot findings to prepare and obtain approval for [issue 0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) as Phase 0 batch 2.
+5. Current: deliver issue 0.2 through its approved checks, public CI, fresh review, merge and post-merge verification. Do not create a speculative detailed backlog that must all be rewritten later.

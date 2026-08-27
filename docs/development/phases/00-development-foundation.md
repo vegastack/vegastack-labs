@@ -1,6 +1,6 @@
 # Development phase 0 — Development foundation and specification reconciliation
 
-Status: reconciled requirements for solution/issue preparation, 26-08-2026. Phase 0 batch 1, containing only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), was approved on 27-08-2026; GitHub owns its current delivery status. The mandate, phase boundaries, full-v1-before-lab timing, generic control-plane-first UX, account-free SSH baseline and recorded operational outcomes are confirmed. Later issue solutions, permissions and batches remain separately approved.
+Status: reconciled requirements for solution/issue preparation, 26-08-2026. Phase 0 batch 1, containing only [issue 0.1](https://github.com/vegastack/vegastack-labs/issues/3), was completed on 27-08-2026. Phase 0 batch 2, containing only [issue 0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5), was approved and published on 27-08-2026. The mandate, phase boundaries, full-v1-before-lab timing, generic control-plane-first UX, account-free SSH baseline and recorded operational outcomes are confirmed. Later issue solutions, permissions and batches remain separately approved.
 
 ## Outcome
 
@@ -51,7 +51,7 @@ These are outcomes and ownership, not complete executable issue bodies or publis
 | Issue ID | Outcome and required proof | Dependencies | GitHub link |
 |---|---|---|---|
 | **0.1** | Development authority/delivery is unambiguous; inspected permitted route and fresh-agent scope test. | User confirms exact named-repository development boundary and first delivery route. | [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) |
-| **0.2** | Public clean checkout runs pinned checks; no private credential prerequisite; current generation/provenance and representative negative fixtures pass. | 0.1; reviewed toolchain/dependency/check solution. | Not published |
+| **0.2** | Public clean checkout runs pinned checks; no private credential prerequisite; current generation/provenance and representative negative fixtures pass. | 0.1; reviewed toolchain/dependency/check solution. | [0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) |
 | **0.3** | Generic control-plane setup/profile/identity/transport contracts are noncircular; normal/interrupted paths and minimal/non-Labs/Labs fixtures mapped to downstream owners. | 0.1; confirmed product requirements; use 0.2 checks when available. | Not published |
 | **0.4** | OS/role security and local credential admission have reviewed control-to-test mappings, bounded privileges and recovery; unsupported mechanisms remain explicitly blocked. | 0.3; material candidate mechanisms reviewed before implementation. | Not published |
 | **0.5** | Demonstrate integrated clean-checkout checks, one real approved issue's delivery/review evidence, consistent contracts and phase-1 handoff. | 0.1–0.4 completed and verified. | Not published |
@@ -70,6 +70,6 @@ Execution defaults to sequential; parallel work needs batch approval and settled
 
 Batch approval record: the repository owner approved **Phase 0 batch 1**, containing only [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3), in the current Codex task; approval recorded **27-08-2026 11:26:58 AM IST**. Codex is the coordinator. The approved development-only scope permits the issue/milestone, `chore/0.1-development-route`, commits, PR, development comments/reviews and agent merge after the issue's checks and fresh review pass. It excludes repository settings/rulesets, releases, credentials, providers, the Google Sheet, hosts, networks and every other live infrastructure action.
 
-Issue 0.2 is the next proposed batch only after its solution, prerequisites, complete body and estimate are ready for separate approval. Use the mandate's existing five labels and one coordinator; no new tracker or approval layer.
+Batch approval record: the repository owner approved **Phase 0 batch 2**, containing only [0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5), in the current Codex task on 27-08-2026. The approved development-only scope permits the issue, `chore/0.2-public-development-scaffold`, commits, public CI runs, PR, development comments/reviews and agent merge/closure after the approved checks and fresh review pass. It excludes repository settings/rulesets, releases, credentials, private registry source publication, providers, the Google Sheet, hosts, networks and every live infrastructure action. Use the mandate's existing five labels and one coordinator; no new tracker or approval layer.
 
 Each executable issue must pin actual files, supported versions, input/output/error semantics, verification commands/environments, recovery/stop conditions and an agent-minute estimate with basis, 2× checkpoint, user review and separate waits. No current implementation suite is claimed. The real 30-day Mesh pilot remains a later deployment wait after full software acceptance.

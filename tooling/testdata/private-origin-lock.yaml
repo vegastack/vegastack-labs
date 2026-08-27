@@ -1,0 +1,6 @@
+lockfileVersion: '9.0'
+packages:
+  example@1.0.0:
+    resolution:
+      tarball: https://packages.example.invalid/example-1.0.0.tgz
+      integrity: sha512-example

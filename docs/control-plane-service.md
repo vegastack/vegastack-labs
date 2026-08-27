@@ -240,7 +240,7 @@ The VegaStack Labs Console uses the supported VegaStack Design System path: Next
 Build requirements:
 
 1. Install `@vegastack/design` and import only `@vegastack/design/preset.css`; do not duplicate the Tailwind import.
-2. Install `@vegastack/provider` before components and keep `VegaStackProvider`, theme hydration handling and global CSS import intact.
+2. In an authenticated maintainer lane, copy the `@vegastack/provider` registry item with `shadcn add @vegastack/provider`; it is not an npm package. Review and pin the copied source before it enters this public repository. Once approved source is checked in, ordinary public builds use that local copy without a registry token and keep `VegaStackProvider`, theme hydration handling and the global CSS import intact.
 3. Start from `@vegastack/dashboard-01`, move its shell into the shared dashboard layout, then replace fixture data with the generated VegaStack Labs API client.
 4. Maintainers acquire/update owned components through the authenticated VegaStack shadcn registry, then publish only approved redistributable pinned source/dependencies. Ordinary public checkout builds require no registry token; validate distribution rights and the credential-free path before frontend issue readiness. Registry tokens remain in maintainer local/CI secret storage only.
 5. Public CI validates pinned local component integrity, build and accessible doctor checks without private credentials. Authenticated refresh/update checks run in a separate maintainer lane; no public fork receives its tokens. Review update diffs before overwrite; copied components are owned source, not silently auto-updated.

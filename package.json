@@ -1,0 +1,26 @@
+{
+  "name": "vegastack-labs",
+  "version": "0.0.0",
+  "private": true,
+  "license": "MIT",
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": "24.20.0",
+    "pnpm": "11.24.0"
+  },
+  "scripts": {
+    "check": "node tooling/check.mjs",
+    "check:dependencies": "node tooling/provenance.mjs --check",
+    "check:docs": "node tooling/verify-docs.mjs",
+    "check:historical": "node tooling/historical.mjs --check",
+    "check:repository": "node tooling/verify-repository.mjs",
+    "check:workflow": "node tooling/verify-workflow.mjs",
+    "generate:historical": "node tooling/historical.mjs --write --approve-current",
+    "generate:provenance": "node tooling/provenance.mjs --write --approve-current-lock",
+    "test:tooling": "node --test tooling/test/*.test.mjs"
+  },
+  "devDependencies": {
+    "spdx-expression-parse": "5.0.0",
+    "yaml": "2.9.0"
+  }
+}
