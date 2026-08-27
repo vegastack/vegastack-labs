@@ -23,6 +23,9 @@ test("unpinned dependency specifications fail", () => {
 test("secret markers detect a nonempty registry secret without echoing it", () => {
   const markers = findSecretMarkers(["CF_ACCESS_CLIENT_SECRET", "fixture-secret-value"].join("="));
   assert.deepEqual(markers, ["Cloudflare Access secret value"]);
+
+  const header = ["CF-Access-Client-Secret", "fixture-secret-value"].join(": ");
+  assert.deepEqual(findSecretMarkers(header), ["Cloudflare Access secret value"]);
 });
 
 test("empty registry placeholders are accepted", () => {
@@ -79,4 +82,17 @@ test("ignored local credentials pass while the same tracked file fails", async (
 
   await runCommand("git", ["add", "--force", "web/.env.local"], { capture: true, cwd: root });
   await assert.rejects(verifyRepository(root), /secret-bearing environment file must not be tracked/);
+
+  await runCommand("git", ["rm", "--cached", "--force", "web/.env.local"], {
+    capture: true,
+    cwd: root,
+  });
+  const headerFixture = path.join(root, "registry-header.yaml");
+  await writeFile(
+    headerFixture,
+    `${["CF-Access-Client-Secret", "fixture-secret-value"].join(": ")}\n`,
+    "utf8",
+  );
+  await runCommand("git", ["add", "registry-header.yaml"], { capture: true, cwd: root });
+  await assert.rejects(verifyRepository(root), /contains prohibited Cloudflare Access secret value/);
 });

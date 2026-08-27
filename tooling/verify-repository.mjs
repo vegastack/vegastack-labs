@@ -25,6 +25,17 @@ export function findSecretMarkers(text) {
   if (/^[\t ]*CF_ACCESS_CLIENT_SECRET[\t ]*=[\t ]*(?!#|$)\S+/m.test(text)) {
     markers.push("Cloudflare Access secret value");
   }
+  for (const match of text.matchAll(
+    /(?:^|[,{])[\t ]*["']?CF-Access-Client-Secret["']?[\t ]*:[\t ]*(?:"([^"]*)"|'([^']*)'|([^\s,}]+))/gim,
+  )) {
+    const value = match[1] ?? match[2] ?? match[3] ?? "";
+    if (value && value !== "${CF_ACCESS_CLIENT_SECRET}") {
+      if (!markers.includes("Cloudflare Access secret value")) {
+        markers.push("Cloudflare Access secret value");
+      }
+      break;
+    }
+  }
 
   return markers;
 }
