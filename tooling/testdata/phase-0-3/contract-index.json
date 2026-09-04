@@ -11,7 +11,13 @@
         "expired-denied",
         "release-substitution-denied",
         "target-substitution-denied",
-        "interrupted-consumption-denied"
+        "interrupted-consumption-denied",
+        "verified-ssh-bootstrap-accepted",
+        "invalid-signature-denied",
+        "untrusted-signer-denied",
+        "post-approval-manifest-mutation-denied",
+        "forged-ssh-binding-denied",
+        "cross-user-binding-denied"
       ]
     },
     {
@@ -48,7 +54,11 @@
         "socket-mode-outage",
         "adapter-token-failure",
         "lost-approver-access",
-        "missing-proof"
+        "missing-proof",
+        "bootstrap-approval-request-substitution-denied",
+        "bootstrap-mapping-substitution-denied",
+        "break-glass-handoff-recorded",
+        "automatic-break-glass-fallback-denied"
       ]
     },
     {
@@ -80,7 +90,10 @@
         "client-asserted-identity-denied",
         "principal-device-mismatch",
         "recovery-epoch-mismatch",
-        "disconnect-queries-durable-run"
+        "disconnect-queries-durable-run",
+        "response-length-denied",
+        "response-version-denied",
+        "response-correlation-denied"
       ]
     },
     {

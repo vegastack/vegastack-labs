@@ -6,7 +6,7 @@
     {
       "id": "bootstrap-approved",
       "input": {
-        "requestId": "approval-bootstrap-001",
+        "requestId": "approval-synthetic-bootstrap-001",
         "requestKind": "bootstrap",
         "planId": null,
         "installationManifestId": "manifest-synthetic-001",
@@ -35,7 +35,7 @@
     {
       "id": "ordinary-plan-approved",
       "input": {
-        "requestId": "approval-plan-001",
+        "requestId": "approval-synthetic-plan-001",
         "requestKind": "plan",
         "planId": "plan-synthetic-001",
         "installationManifestId": null,
@@ -64,7 +64,7 @@
     {
       "id": "ordinary-plan-rejected",
       "input": {
-        "requestId": "approval-plan-002",
+        "requestId": "approval-synthetic-plan-002",
         "requestKind": "plan",
         "planId": "plan-synthetic-002",
         "installationManifestId": null,
@@ -93,7 +93,7 @@
     {
       "id": "missing-authenticated-envelope",
       "input": {
-        "requestId": "approval-plan-003",
+        "requestId": "approval-synthetic-plan-003",
         "requestKind": "plan",
         "planId": "plan-synthetic-003",
         "installationManifestId": null,
@@ -122,7 +122,7 @@
     {
       "id": "wrong-workspace-denied",
       "input": {
-        "requestId": "approval-plan-004",
+        "requestId": "approval-synthetic-plan-004",
         "requestKind": "plan",
         "planId": "plan-synthetic-004",
         "installationManifestId": null,
@@ -151,7 +151,7 @@
     {
       "id": "wrong-user-denied",
       "input": {
-        "requestId": "approval-plan-005",
+        "requestId": "approval-synthetic-plan-005",
         "requestKind": "plan",
         "planId": "plan-synthetic-005",
         "installationManifestId": null,
@@ -180,7 +180,7 @@
     {
       "id": "agent-controlled-session-insufficient",
       "input": {
-        "requestId": "approval-plan-006",
+        "requestId": "approval-synthetic-plan-006",
         "requestKind": "plan",
         "planId": "plan-synthetic-006",
         "installationManifestId": null,
@@ -209,7 +209,7 @@
     {
       "id": "changed-digest-denied",
       "input": {
-        "requestId": "approval-plan-007",
+        "requestId": "approval-synthetic-plan-007",
         "requestKind": "plan",
         "planId": "plan-synthetic-007",
         "installationManifestId": null,
@@ -238,7 +238,7 @@
     {
       "id": "changed-target-denied",
       "input": {
-        "requestId": "approval-plan-008",
+        "requestId": "approval-synthetic-plan-008",
         "requestKind": "plan",
         "planId": "plan-synthetic-008",
         "installationManifestId": null,
@@ -267,7 +267,7 @@
     {
       "id": "stale-plan-denied",
       "input": {
-        "requestId": "approval-plan-009",
+        "requestId": "approval-synthetic-plan-009",
         "requestKind": "plan",
         "planId": "plan-synthetic-stale",
         "installationManifestId": null,
@@ -296,7 +296,7 @@
     {
       "id": "expired-request-denied",
       "input": {
-        "requestId": "approval-plan-010",
+        "requestId": "approval-synthetic-plan-010",
         "requestKind": "plan",
         "planId": "plan-synthetic-010",
         "installationManifestId": null,
@@ -325,7 +325,7 @@
     {
       "id": "duplicate-click-idempotent",
       "input": {
-        "requestId": "approval-plan-consumed",
+        "requestId": "approval-synthetic-plan-consumed",
         "requestKind": "plan",
         "planId": "plan-synthetic-consumed",
         "installationManifestId": null,
@@ -354,7 +354,7 @@
     {
       "id": "replay-denied",
       "input": {
-        "requestId": "approval-plan-consumed",
+        "requestId": "approval-synthetic-plan-consumed",
         "requestKind": "plan",
         "planId": "plan-synthetic-other",
         "installationManifestId": null,
@@ -383,7 +383,7 @@
     {
       "id": "recovery-epoch-mismatch",
       "input": {
-        "requestId": "approval-plan-011",
+        "requestId": "approval-synthetic-plan-011",
         "requestKind": "plan",
         "planId": "plan-synthetic-011",
         "installationManifestId": null,
@@ -412,7 +412,7 @@
     {
       "id": "socket-mode-outage",
       "input": {
-        "requestId": "approval-plan-012",
+        "requestId": "approval-synthetic-plan-012",
         "requestKind": "plan",
         "planId": "plan-synthetic-012",
         "installationManifestId": null,
@@ -441,7 +441,7 @@
     {
       "id": "adapter-token-failure",
       "input": {
-        "requestId": "approval-plan-013",
+        "requestId": "approval-synthetic-plan-013",
         "requestKind": "plan",
         "planId": "plan-synthetic-013",
         "installationManifestId": null,
@@ -470,7 +470,7 @@
     {
       "id": "lost-approver-access",
       "input": {
-        "requestId": "approval-plan-014",
+        "requestId": "approval-synthetic-plan-014",
         "requestKind": "plan",
         "planId": "plan-synthetic-014",
         "installationManifestId": null,
@@ -499,7 +499,7 @@
     {
       "id": "missing-proof",
       "input": {
-        "requestId": "approval-plan-015",
+        "requestId": "approval-synthetic-plan-015",
         "requestKind": "plan",
         "planId": "plan-synthetic-015",
         "installationManifestId": null,
@@ -523,6 +523,140 @@
         "status": "blocked",
         "errorCode": "APPROVAL_REQUIRED",
         "reason": "Authentication and plan creation do not substitute for the required human action."
+      }
+    },
+    {
+      "id": "bootstrap-approval-request-substitution-denied",
+      "input": {
+        "requestId": "approval-synthetic-bootstrap-substituted",
+        "requestKind": "bootstrap",
+        "planId": null,
+        "installationManifestId": "manifest-synthetic-001",
+        "subjectDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "targetSetDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "reasonDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "riskClass": "control-plane-bootstrap",
+        "responsibleHumanId": "person-synthetic-admin",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-approved",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-bootstrap-substituted",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:00:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-001",
+        "stateRevision": 0,
+        "recoveryEpoch": 0
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "A Slack action for a different approval request cannot consume the installation manifest."
+      }
+    },
+    {
+      "id": "bootstrap-mapping-substitution-denied",
+      "input": {
+        "requestId": "approval-synthetic-bootstrap-001",
+        "requestKind": "bootstrap",
+        "planId": null,
+        "installationManifestId": "manifest-synthetic-001",
+        "subjectDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "targetSetDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "reasonDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "riskClass": "control-plane-bootstrap",
+        "responsibleHumanId": "person-synthetic-other",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-other",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-bootstrap-other",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:00:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-001",
+        "stateRevision": 0,
+        "recoveryEpoch": 0
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The Slack workspace/user mapping must resolve to the nominated local administrator."
+      }
+    },
+    {
+      "id": "break-glass-handoff-recorded",
+      "input": {
+        "requestId": "recovery-handoff-synthetic-001",
+        "requestKind": "recovery-handoff",
+        "planId": null,
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-revoked",
+        "action": "handoff-break-glass",
+        "envelopeId": null,
+        "sessionControl": "revoked",
+        "receivedAt": "2026-09-04T13:16:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-015",
+        "stateRevision": 42,
+        "recoveryEpoch": 3,
+        "breakGlassHandoff": {
+          "authorizationState": "separately-authorized",
+          "separateAuthorizationRequired": true,
+          "normalAcknowledgementCreated": false,
+          "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "fromRecoveryEpoch": 3,
+          "toRecoveryEpoch": 4
+        }
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "A separately authorized recovery handoff is recorded without creating a normal Slack acknowledgement."
+      }
+    },
+    {
+      "id": "automatic-break-glass-fallback-denied",
+      "input": {
+        "requestId": "recovery-handoff-synthetic-002",
+        "requestKind": "recovery-handoff",
+        "planId": null,
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-revoked",
+        "action": "automatic-break-glass-fallback",
+        "envelopeId": null,
+        "sessionControl": "revoked",
+        "receivedAt": "2026-09-04T13:16:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-015",
+        "stateRevision": 42,
+        "recoveryEpoch": 3,
+        "breakGlassHandoff": {
+          "authorizationState": "absent",
+          "separateAuthorizationRequired": true,
+          "normalAcknowledgementCreated": false,
+          "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "fromRecoveryEpoch": 3,
+          "toRecoveryEpoch": 3
+        }
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "Slack outage or lost approver access cannot automatically select break-glass."
       }
     }
   ]

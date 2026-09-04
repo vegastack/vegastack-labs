@@ -10,10 +10,13 @@
         "releaseBuildId": "release-synthetic-001",
         "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "intendedOperation": "create-control-plane",
-        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "hostIdentity": {
+          "kind": "local-os-peer",
+          "subject": "person-synthetic-admin"
+        },
         "databasePathRef": "server-state/control-database",
         "initialAdministrator": {
-          "localPrincipalId": "principal-synthetic-admin",
+          "localPrincipalId": "person-synthetic-admin",
           "sshPrincipalId": null,
           "slackBindingId": "binding-synthetic-admin"
         },
@@ -23,11 +26,33 @@
         "profileProvenance": "built-in:minimal@1.0.0",
         "stateRevision": 0,
         "recoveryEpoch": 0,
-        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "recoveryPreconditions": [
+          "trusted-local-console",
+          "independent-recovery-access"
+        ],
         "approvalRequestId": "approval-synthetic-bootstrap-001",
         "expiresAt": "2026-09-04T13:30:00Z",
         "nonce": "nonce-synthetic-001",
-        "state": "pending"
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-001",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
       },
       "expected": {
         "status": "accepted",
@@ -42,10 +67,13 @@
         "releaseBuildId": "release-synthetic-001",
         "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "intendedOperation": "create-control-plane",
-        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "hostIdentity": {
+          "kind": "local-os-peer",
+          "subject": "person-synthetic-admin"
+        },
         "databasePathRef": "server-state/control-database",
         "initialAdministrator": {
-          "localPrincipalId": "principal-synthetic-admin",
+          "localPrincipalId": "person-synthetic-admin",
           "sshPrincipalId": null,
           "slackBindingId": "binding-synthetic-admin"
         },
@@ -55,11 +83,33 @@
         "profileProvenance": "built-in:minimal@1.0.0",
         "stateRevision": 1,
         "recoveryEpoch": 0,
-        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "recoveryPreconditions": [
+          "trusted-local-console",
+          "independent-recovery-access"
+        ],
         "approvalRequestId": "approval-synthetic-bootstrap-002",
         "expiresAt": "2026-09-04T13:30:00Z",
         "nonce": "nonce-synthetic-002",
-        "state": "consumed"
+        "state": "consumed",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-002",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
       },
       "expected": {
         "status": "blocked",
@@ -74,10 +124,13 @@
         "releaseBuildId": "release-synthetic-001",
         "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "intendedOperation": "create-control-plane",
-        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "hostIdentity": {
+          "kind": "local-os-peer",
+          "subject": "person-synthetic-admin"
+        },
         "databasePathRef": "server-state/control-database",
         "initialAdministrator": {
-          "localPrincipalId": "principal-synthetic-admin",
+          "localPrincipalId": "person-synthetic-admin",
           "sshPrincipalId": null,
           "slackBindingId": "binding-synthetic-admin"
         },
@@ -87,11 +140,33 @@
         "profileProvenance": "built-in:minimal@1.0.0",
         "stateRevision": 0,
         "recoveryEpoch": 0,
-        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "recoveryPreconditions": [
+          "trusted-local-console",
+          "independent-recovery-access"
+        ],
         "approvalRequestId": "approval-synthetic-bootstrap-003",
         "expiresAt": "2026-09-04T12:00:00Z",
         "nonce": "nonce-synthetic-003",
-        "state": "pending"
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-003",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
       },
       "expected": {
         "status": "blocked",
@@ -106,10 +181,13 @@
         "releaseBuildId": "release-synthetic-substituted",
         "releaseDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
         "intendedOperation": "create-control-plane",
-        "hostIdentity": { "kind": "verified-ssh", "subject": "ssh-principal-synthetic-admin" },
+        "hostIdentity": {
+          "kind": "verified-ssh",
+          "subject": "ssh-principal-synthetic-admin"
+        },
         "databasePathRef": "server-state/control-database",
         "initialAdministrator": {
-          "localPrincipalId": "principal-synthetic-admin",
+          "localPrincipalId": "person-synthetic-admin",
           "sshPrincipalId": "ssh-principal-synthetic-admin",
           "slackBindingId": "binding-synthetic-admin"
         },
@@ -119,11 +197,33 @@
         "profileProvenance": "built-in:minimal@1.0.0",
         "stateRevision": 0,
         "recoveryEpoch": 0,
-        "recoveryPreconditions": ["verified-ssh-session", "independent-recovery-access"],
+        "recoveryPreconditions": [
+          "verified-ssh-session",
+          "independent-recovery-access"
+        ],
         "approvalRequestId": "approval-synthetic-bootstrap-004",
         "expiresAt": "2026-09-04T13:30:00Z",
         "nonce": "nonce-synthetic-004",
-        "state": "pending"
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-004",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
       },
       "expected": {
         "status": "blocked",
@@ -138,10 +238,13 @@
         "releaseBuildId": "release-synthetic-001",
         "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "intendedOperation": "create-control-plane",
-        "hostIdentity": { "kind": "verified-ssh", "subject": "ssh-principal-synthetic-other-host" },
+        "hostIdentity": {
+          "kind": "verified-ssh",
+          "subject": "ssh-principal-synthetic-other-host"
+        },
         "databasePathRef": "server-state/control-database",
         "initialAdministrator": {
-          "localPrincipalId": "principal-synthetic-admin",
+          "localPrincipalId": "person-synthetic-admin",
           "sshPrincipalId": "ssh-principal-synthetic-admin",
           "slackBindingId": "binding-synthetic-admin"
         },
@@ -151,11 +254,33 @@
         "profileProvenance": "built-in:minimal@1.0.0",
         "stateRevision": 0,
         "recoveryEpoch": 0,
-        "recoveryPreconditions": ["verified-ssh-session", "independent-recovery-access"],
+        "recoveryPreconditions": [
+          "verified-ssh-session",
+          "independent-recovery-access"
+        ],
         "approvalRequestId": "approval-synthetic-bootstrap-005",
         "expiresAt": "2026-09-04T13:30:00Z",
         "nonce": "nonce-synthetic-005",
-        "state": "pending"
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-005",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
       },
       "expected": {
         "status": "blocked",
@@ -170,10 +295,13 @@
         "releaseBuildId": "release-synthetic-001",
         "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "intendedOperation": "create-control-plane",
-        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "hostIdentity": {
+          "kind": "local-os-peer",
+          "subject": "person-synthetic-admin"
+        },
         "databasePathRef": "server-state/control-database",
         "initialAdministrator": {
-          "localPrincipalId": "principal-synthetic-admin",
+          "localPrincipalId": "person-synthetic-admin",
           "sshPrincipalId": null,
           "slackBindingId": "binding-synthetic-admin"
         },
@@ -183,16 +311,380 @@
         "profileProvenance": "built-in:minimal@1.0.0",
         "stateRevision": 0,
         "recoveryEpoch": 0,
-        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "recoveryPreconditions": [
+          "trusted-local-console",
+          "independent-recovery-access"
+        ],
         "approvalRequestId": "approval-synthetic-bootstrap-006",
         "expiresAt": "2026-09-04T13:30:00Z",
         "nonce": "nonce-synthetic-006",
-        "state": "consuming"
+        "state": "consuming",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-006",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
       },
       "expected": {
         "status": "blocked",
         "errorCode": "INTERRUPTED",
         "reason": "An interrupted consumption is reconciled from durable state and cannot be blindly retried."
+      }
+    },
+    {
+      "id": "verified-ssh-bootstrap-accepted",
+      "input": {
+        "manifestId": "manifest-synthetic-ssh-001",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": {
+          "kind": "verified-ssh",
+          "subject": "ssh-principal-synthetic-admin"
+        },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "person-synthetic-admin",
+          "sshPrincipalId": "ssh-principal-synthetic-admin",
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": [
+          "verified-ssh-session",
+          "independent-recovery-access"
+        ],
+        "approvalRequestId": "approval-synthetic-bootstrap-ssh-001",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-ssh-001",
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-ssh-001",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "A verified SSH principal joined to the approved local human and Slack mapping may begin atomic consumption."
+      }
+    },
+    {
+      "id": "invalid-signature-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-invalid-signature",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": {
+          "kind": "local-os-peer",
+          "subject": "person-synthetic-admin"
+        },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "person-synthetic-admin",
+          "sshPrincipalId": null,
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": [
+          "trusted-local-console",
+          "independent-recovery-access"
+        ],
+        "approvalRequestId": "approval-synthetic-invalid-signature",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-001",
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-invalid",
+          "verificationStatus": "invalid"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "An invalid detached manifest signature cannot authorize bootstrap."
+      }
+    },
+    {
+      "id": "untrusted-signer-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-untrusted-signer",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": {
+          "kind": "local-os-peer",
+          "subject": "person-synthetic-admin"
+        },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "person-synthetic-admin",
+          "sshPrincipalId": null,
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": [
+          "trusted-local-console",
+          "independent-recovery-access"
+        ],
+        "approvalRequestId": "approval-synthetic-untrusted-signer",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-001",
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-untrusted",
+          "verificationBundleRef": "verification-bundle-synthetic-untrusted",
+          "verificationStatus": "untrusted"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "A signature from an untrusted bootstrap signer cannot authorize bootstrap."
+      }
+    },
+    {
+      "id": "post-approval-manifest-mutation-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-mutated",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": {
+          "kind": "local-os-peer",
+          "subject": "person-synthetic-admin"
+        },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "person-synthetic-admin",
+          "sshPrincipalId": null,
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": [
+          "trusted-local-console",
+          "independent-recovery-access"
+        ],
+        "approvalRequestId": "approval-synthetic-mutated",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-001",
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-pre-mutation",
+          "verificationStatus": "invalid"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "Mutation after approval invalidates the manifest signature and approval subject."
+      }
+    },
+    {
+      "id": "forged-ssh-binding-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-forged-ssh",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": {
+          "kind": "verified-ssh",
+          "subject": "ssh-principal-synthetic-forged"
+        },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "person-synthetic-admin",
+          "sshPrincipalId": "ssh-principal-synthetic-admin",
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": [
+          "verified-ssh-session",
+          "independent-recovery-access"
+        ],
+        "approvalRequestId": "approval-synthetic-forged-ssh",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-001",
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-forged-ssh",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-approved",
+          "localHumanPrincipalId": "person-synthetic-admin",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHENTICATION_REQUIRED",
+        "reason": "The observed SSH principal does not match the administrator binding."
+      }
+    },
+    {
+      "id": "cross-user-binding-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-cross-user",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": {
+          "kind": "verified-ssh",
+          "subject": "ssh-principal-synthetic-admin"
+        },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "person-synthetic-admin",
+          "sshPrincipalId": "ssh-principal-synthetic-admin",
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": [
+          "verified-ssh-session",
+          "independent-recovery-access"
+        ],
+        "approvalRequestId": "approval-synthetic-cross-user",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-001",
+        "state": "pending",
+        "manifestIntegrity": {
+          "manifestDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "signatureFormat": "detached-verification-bundle",
+          "signerKeyId": "signer-key-synthetic-bootstrap",
+          "verificationBundleRef": "verification-bundle-synthetic-cross-user",
+          "verificationStatus": "verified"
+        },
+        "initialSlackMapping": {
+          "workspaceId": "workspace-synthetic-approved",
+          "slackUserId": "slack-user-synthetic-other",
+          "localHumanPrincipalId": "person-synthetic-other",
+          "approvalClasses": [
+            "control-plane-bootstrap"
+          ]
+        },
+        "slackSecretRefs": {
+          "appTokenRef": "secret-ref-synthetic-slack-app",
+          "botTokenRef": "secret-ref-synthetic-slack-bot"
+        }
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The Slack mapping local human does not match the nominated initial administrator."
       }
     }
   ]
