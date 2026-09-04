@@ -4,6 +4,8 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   loadPhaseZeroFourFixtures,
+  validateProtectedFiles,
+  validatePhaseZeroFourContracts,
   validatePhaseZeroFourFixture,
 } from "../verify-phase-0-4.mjs";
 
@@ -120,4 +122,67 @@ test("macOS and evidence contracts fail closed without source, consent, or fresh
     evidence.find(({ id }) => id === "stale-recovery-accepted").expected.status,
     "accepted",
   );
+});
+
+test("the oracle, sanitizer, linked contracts, and Phase 0.3 hashes fail closed", async () => {
+  const fixtures = await loadPhaseZeroFourFixtures(ROOT);
+  const changed = new Map(fixtures);
+  const evidence = structuredClone(changed.get("admission-evidence"));
+  evidence.cases.find(({ id }) => id === "wrong-evidence-recovery-epoch-denied").input.recoveryEpoch =
+    evidence.cases.find(({ id }) => id === "current-daily-evidence-accepted").input.recoveryEpoch;
+  changed.set("admission-evidence", evidence);
+  assert.throws(
+    () => validatePhaseZeroFourContracts(changed),
+    /recovery epoch must differ/,
+  );
+
+  const observed = new Map([
+    ["tooling/verify-phase-0-3.mjs", `sha256:${"0".repeat(64)}`],
+  ]);
+  assert.throws(
+    () =>
+      validateProtectedFiles(
+        {
+          protectedFiles: [
+            {
+              path: "tooling/verify-phase-0-3.mjs",
+              sha256: `sha256:${"1".repeat(64)}`,
+            },
+          ],
+        },
+        observed,
+      ),
+    /protected Phase 0.3 digest mismatch/,
+  );
+});
+
+test("Phase 0.4 rejects repaired denials, outcome drift, duplicate IDs, and private canaries", async () => {
+  const fixtures = await loadPhaseZeroFourFixtures(ROOT);
+
+  const repaired = structuredClone(fixtures.get("macos-admission"));
+  repaired.cases.find(({ id }) => id === "wrong-user-denied").input.remoteLogin.requestedUser =
+    "user-synthetic-automation";
+  assert.throws(() => validatePhaseZeroFourFixture(repaired, "memory"), /undeclared Remote Login user/);
+
+  const invented = structuredClone(fixtures.get("admission-evidence"));
+  invented.cases.find(({ id }) => id === "stale-new-admission-blocked").expected.errorCode =
+    "EVIDENCE_EXPIRED";
+  assert.throws(() => validatePhaseZeroFourFixture(invented, "memory"), /independent outcome oracle/);
+
+  const duplicate = structuredClone(fixtures.get("native-credentials"));
+  duplicate.cases[1].id = duplicate.cases[0].id;
+  assert.throws(() => validatePhaseZeroFourFixture(duplicate, "memory"), /duplicate case id/);
+
+  const privateCanary = structuredClone(fixtures.get("native-credentials"));
+  privateCanary.cases[0].expected.reason =
+    "private_key=material-must-not-echo";
+  let message = "";
+  try {
+    validatePhaseZeroFourFixture(privateCanary, "memory");
+    assert.fail("expected private fixture material to be rejected");
+  } catch (error) {
+    message = error.message;
+  }
+  assert.match(message, /prohibited private material/);
+  assert.doesNotMatch(message, /must-not-echo/);
 });

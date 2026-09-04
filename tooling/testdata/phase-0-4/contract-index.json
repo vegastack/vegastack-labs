@@ -101,5 +101,16 @@
         "wrong-evidence-recovery-epoch-denied"
       ]
     }
+  ],
+  "protectedFiles": [
+    { "path": "tooling/verify-phase-0-3.mjs", "sha256": "sha256:7a415c8ff881b2ee473cb1beab3c235c746850d2aff5fa23bb4876b453eebfb0" },
+    { "path": "tooling/test/phase-0-3.test.mjs", "sha256": "sha256:ad44941180c703e08c3286d282637a7c188afb5536bcf46702fa2347fb645b99" },
+    { "path": "tooling/testdata/phase-0-3/approver-import.json", "sha256": "sha256:06ac6accec7e5eaef6c982203c211904625096c02f1a7351b41ce09c0413ef62" },
+    { "path": "tooling/testdata/phase-0-3/constrained-ssh.json", "sha256": "sha256:d5029441e0312a4d562c35bec79bb8fc061df339df55b221bf59daa06a909c05" },
+    { "path": "tooling/testdata/phase-0-3/contract-index.json", "sha256": "sha256:e182b7604d8a45feeaffdaaaee764c63720e9ba0d9a41768c9e1729a6677d9fe" },
+    { "path": "tooling/testdata/phase-0-3/installation-manifest.json", "sha256": "sha256:dfebc7931172cee1171deaabca54a8ddd9aed763a0f8b42fa8453c15259d01c0" },
+    { "path": "tooling/testdata/phase-0-3/profile-gates.json", "sha256": "sha256:178905f779486acd5cee3e415c5558cfde315b83d6249097c8aa9494c4df2df9" },
+    { "path": "tooling/testdata/phase-0-3/setup-state.json", "sha256": "sha256:adc7f4a40e3ee2a0f6f9261d80bb16d5eb915ca3bb5a9e7338eb005a42dd451b" },
+    { "path": "tooling/testdata/phase-0-3/slack-acknowledgement.json", "sha256": "sha256:3a7e3b1efd3f1c25d42fb8519f1b7fca662037cbb66bfc061d4d408b5a178acf" }
   ]
 }

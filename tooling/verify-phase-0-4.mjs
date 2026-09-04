@@ -1,4 +1,5 @@
 import { readFile, readdir } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -7,6 +8,17 @@ const FIXTURE_DIRECTORY = path.join("tooling", "testdata", "phase-0-4");
 const FIXTURE_SCHEMA = "vegastack-labs.dev/phase-0.4-contract-fixture";
 const INDEX_SCHEMA = "vegastack-labs.dev/phase-0.4-contract-index";
 const SCHEMA_VERSION = "1.0.0";
+const PHASE_ZERO_THREE_PROTECTED_PATHS = new Set([
+  "tooling/verify-phase-0-3.mjs",
+  "tooling/test/phase-0-3.test.mjs",
+  "tooling/testdata/phase-0-3/approver-import.json",
+  "tooling/testdata/phase-0-3/constrained-ssh.json",
+  "tooling/testdata/phase-0-3/contract-index.json",
+  "tooling/testdata/phase-0-3/installation-manifest.json",
+  "tooling/testdata/phase-0-3/profile-gates.json",
+  "tooling/testdata/phase-0-3/setup-state.json",
+  "tooling/testdata/phase-0-3/slack-acknowledgement.json",
+]);
 
 const CONTRACT_NAMES = new Set([
   "host-control-matrix",
@@ -210,9 +222,19 @@ function assertSyntheticIdentifier(value, label, prefix) {
 function assertSanitized(value, label = "fixture") {
   const forbiddenKey = /(?:private.?key|secret.?value|credential.?value|raw.?payload|host.?fact|operational.?evidence)/i;
   const secretValue = /\b(?:x(?:app|ox[abprs])-[A-Za-z0-9-]+|AKIA[A-Z0-9]{16})\b/;
+  const privateValues = [
+    /\bprivate[ _-]?key\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i,
+    /\b(?:password|passphrase)\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i,
+    /\b(?:secret|credential)[ _-]?value\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i,
+    /\bhost[ _-]?fact\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i,
+    /\boperational[ _-]?evidence\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i,
+  ];
   function visit(current) {
     if (typeof current === "string") {
       if (secretValue.test(current)) throw new Error(`${label} contains a credential value`);
+      if (privateValues.some((pattern) => pattern.test(current))) {
+        throw new Error(`${label} contains prohibited private material`);
+      }
       return;
     }
     if (Array.isArray(current)) {
@@ -813,7 +835,7 @@ export function validatePhaseZeroFourFixture(document, source) {
 
 function validateIndex(document, source) {
   assertPlainObject(document, source);
-  assertExactKeys(document, ["schema", "schemaVersion", "contracts"], source);
+  assertExactKeys(document, ["schema", "schemaVersion", "contracts", "protectedFiles"], source);
   if (document.schema !== INDEX_SCHEMA || document.schemaVersion !== SCHEMA_VERSION) throw new Error(`${source} has unsupported schema or version`);
   if (!Array.isArray(document.contracts)) throw new Error(`${source}.contracts must be an array`);
   const contracts = new Set();
@@ -833,7 +855,14 @@ function validateIndex(document, source) {
     assertStringArray(entry.requiredCaseIds, `${label}.requiredCaseIds`, { nonempty: true });
   }
   if (contracts.size !== CONTRACT_NAMES.size) throw new Error(`${source} must index every Phase 0.4 contract`);
-  return document.contracts;
+  if (!Array.isArray(document.protectedFiles)) throw new Error(`${source}.protectedFiles must be an array`);
+  const protectedPaths = new Set(document.protectedFiles.map((entry) => entry?.path));
+  const missingProtected = [...PHASE_ZERO_THREE_PROTECTED_PATHS].filter((file) => !protectedPaths.has(file));
+  const extraProtected = [...protectedPaths].filter((file) => !PHASE_ZERO_THREE_PROTECTED_PATHS.has(file));
+  if (missingProtected.length > 0 || extraProtected.length > 0 || protectedPaths.size !== document.protectedFiles.length) {
+    throw new Error(`${source} must list every protected Phase 0.3 file exactly once`);
+  }
+  return { contracts: document.contracts, protectedFiles: document.protectedFiles };
 }
 
 async function loadJson(file) {
@@ -843,17 +872,84 @@ async function loadJson(file) {
 export function validatePhaseZeroFourContracts(fixtures) {
   const matrix = fixtures.get("host-control-matrix");
   if (matrix === undefined) throw new Error("Phase 0.4 host-control matrix is missing");
+  const privilege = fixtures.get("privileged-execution");
+  const credentials = fixtures.get("native-credentials");
+  const macos = fixtures.get("macos-admission");
+  const evidence = fixtures.get("admission-evidence");
+  if ([privilege, credentials, macos, evidence].some((fixture) => fixture === undefined)) {
+    throw new Error("Phase 0.4 linked contracts are incomplete");
+  }
+
+  const byId = (fixture) => new Map(fixture.cases.map((entry) => [entry.id, entry.input]));
+  const matrixCases = byId(matrix);
+  const privilegeCases = byId(privilege);
+  const credentialCases = byId(credentials);
+  const macosCases = byId(macos);
+  const evidenceCases = byId(evidence);
+  const matrixAccepted = matrixCases.get("supported-profiles-complete");
+  const privilegeAccepted = privilegeCases.get("approved-bundle-accepted");
+  const evidenceAccepted = evidenceCases.get("current-daily-evidence-accepted");
+  const supportedProfileIds = new Set(matrixAccepted.profiles.filter(({ supportState }) => supportState === "supported").map(({ profileId }) => profileId));
+  const controlIds = new Set(matrixAccepted.controls.map(({ controlId }) => controlId));
+
+  for (const entry of macos.cases) {
+    if (!supportedProfileIds.has(entry.input.profileId)) throw new Error(`macOS contract references unknown profile ${entry.input.profileId}`);
+  }
+  for (const entry of evidence.cases) {
+    for (const control of entry.input.mandatoryControls) {
+      if (!controlIds.has(control.controlId)) throw new Error(`admission evidence references unknown control ${control.controlId}`);
+    }
+  }
+  if (matrixAccepted.profileVersion !== evidenceAccepted.profileVersion) throw new Error("host-control and admission-evidence profile versions disagree");
+  for (const [left, right, field] of [
+    [privilegeAccepted.targetHostId, evidenceAccepted.hostId, "host identity"],
+    [privilegeAccepted.declarationRevision, evidenceAccepted.declarationRevision, "declaration revision"],
+    [privilegeAccepted.recoveryEpoch, evidenceAccepted.recoveryEpoch, "recovery epoch"],
+  ]) {
+    if (left !== right) throw new Error(`privilege and admission-evidence contracts disagree on ${field}`);
+  }
+  if (privilegeCases.get("wrong-recovery-epoch-denied").recoveryEpoch === privilegeAccepted.recoveryEpoch) {
+    throw new Error("privileged-execution wrong recovery epoch must differ from the accepted epoch");
+  }
+  if (evidenceCases.get("wrong-evidence-recovery-epoch-denied").recoveryEpoch === evidenceAccepted.recoveryEpoch) {
+    throw new Error("admission-evidence wrong recovery epoch must differ from the accepted epoch");
+  }
+  const nativeRecovery = credentialCases.get("cold-start-accepted").recovery;
+  const macRecovery = macosCases.get("approved-mesh-ssh-accepted").recovery;
+  if (!nativeRecovery.independent || !nativeRecovery.available || !macRecovery.independent || macRecovery.method !== "physical-local-console") {
+    throw new Error("native credential and macOS contracts must retain independent recovery");
+  }
+}
+
+export function validateProtectedFiles(index, observedDigests) {
+  assertPlainObject(index, "contract-index.json");
+  if (!Array.isArray(index.protectedFiles)) throw new Error("contract-index.json.protectedFiles must be an array");
+  const paths = new Set();
+  for (const [position, entry] of index.protectedFiles.entries()) {
+    const label = `contract-index.json.protectedFiles[${position}]`;
+    assertPlainObject(entry, label);
+    assertExactKeys(entry, ["path", "sha256"], label);
+    assertNonemptyString(entry.path, `${label}.path`);
+    assertDigest(entry.sha256, `${label}.sha256`);
+    if (!PHASE_ZERO_THREE_PROTECTED_PATHS.has(entry.path) || paths.has(entry.path)) {
+      throw new Error(`${label}.path must be a unique protected Phase 0.3 path`);
+    }
+    paths.add(entry.path);
+    const observed = observedDigests.get(entry.path);
+    if (observed !== entry.sha256) throw new Error(`protected Phase 0.3 digest mismatch for ${entry.path}`);
+  }
 }
 
 export async function loadPhaseZeroFourFixtures(root = ROOT) {
   const directory = path.join(root, FIXTURE_DIRECTORY);
-  const index = validateIndex(await loadJson(path.join(directory, "contract-index.json")), "contract-index.json");
-  const expectedFiles = new Set(["contract-index.json", ...index.map(({ file }) => file)]);
+  const indexDocument = await loadJson(path.join(directory, "contract-index.json"));
+  const index = validateIndex(indexDocument, "contract-index.json");
+  const expectedFiles = new Set(["contract-index.json", ...index.contracts.map(({ file }) => file)]);
   const actualFiles = (await readdir(directory)).filter((file) => file.endsWith(".json"));
   for (const file of actualFiles) if (!expectedFiles.has(file)) throw new Error(`unindexed Phase 0.4 fixture file ${JSON.stringify(file)}`);
   for (const file of expectedFiles) if (!actualFiles.includes(file)) throw new Error(`indexed Phase 0.4 fixture file is missing: ${file}`);
   const fixtures = new Map();
-  for (const entry of index) {
+  for (const entry of index.contracts) {
     const document = await loadJson(path.join(directory, entry.file));
     validatePhaseZeroFourFixture(document, entry.file);
     if (document.contract !== entry.contract) throw new Error(`${entry.file} contract does not match its index entry`);
@@ -862,13 +958,19 @@ export async function loadPhaseZeroFourFixtures(root = ROOT) {
     fixtures.set(entry.contract, document);
   }
   validatePhaseZeroFourContracts(fixtures);
+  const observedDigests = new Map();
+  for (const entry of index.protectedFiles) {
+    const contents = await readFile(path.join(root, entry.path));
+    observedDigests.set(entry.path, `sha256:${createHash("sha256").update(contents).digest("hex")}`);
+  }
+  validateProtectedFiles(indexDocument, observedDigests);
   return fixtures;
 }
 
 export async function verifyPhaseZeroFour(root = ROOT) {
   const fixtures = await loadPhaseZeroFourFixtures(root);
   const cases = [...fixtures.values()].reduce((total, fixture) => total + fixture.cases.length, 0);
-  return { fixtureFiles: fixtures.size, cases, contracts: [...fixtures.keys()], protectedFiles: 0 };
+  return { fixtureFiles: fixtures.size, cases, contracts: [...fixtures.keys()], protectedFiles: PHASE_ZERO_THREE_PROTECTED_PATHS.size };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
