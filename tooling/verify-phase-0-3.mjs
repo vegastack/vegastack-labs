@@ -7,6 +7,7 @@ const FIXTURE_DIRECTORY = path.join("tooling", "testdata", "phase-0-3");
 const FIXTURE_SCHEMA = "vegastack-labs.dev/phase-0.3-contract-fixture";
 const INDEX_SCHEMA = "vegastack-labs.dev/phase-0.3-contract-index";
 const SCHEMA_VERSION = "1.0.0";
+const FIXTURE_EVALUATION_TIME = Date.parse("2026-09-04T13:15:00Z");
 
 const CONTRACT_NAMES = new Set([
   "installation-manifest",
@@ -30,6 +31,67 @@ const ERROR_CODES = new Set([
   "DEPENDENCY_UNAVAILABLE",
   "INTERRUPTED",
 ]);
+
+const EXPECTED_CASE_OUTCOMES = {
+  "installation-manifest": {
+    accepted: ["first-use-accepted", "verified-ssh-bootstrap-accepted"],
+    AUTHENTICATION_REQUIRED: ["forged-ssh-binding-denied"],
+    AUTHORIZATION_DENIED: ["release-substitution-denied", "target-substitution-denied", "invalid-signature-denied", "untrusted-signer-denied", "post-approval-manifest-mutation-denied", "cross-user-binding-denied"],
+    STATE_CONFLICT: ["consumed-replay-denied"],
+    PLAN_STALE: ["expired-denied"],
+    INTERRUPTED: ["interrupted-consumption-denied"],
+  },
+  "setup-state": {
+    accepted: ["single-writer-handoff", "foundation-preparation-bounded"],
+    AUTHENTICATION_REQUIRED: ["first-browser-authority-denied", "client-asserted-identity-denied"],
+    AUTHORIZATION_DENIED: ["hostname-authority-denied"],
+    STATE_CONFLICT: ["manifest-reuse-denied", "second-writer-denied"],
+    INTERRUPTED: ["interruption-enters-recovery"],
+  },
+  "slack-acknowledgement": {
+    accepted: ["bootstrap-approved", "ordinary-plan-approved", "ordinary-plan-rejected", "duplicate-click-idempotent", "break-glass-handoff-recorded"],
+    AUTHENTICATION_REQUIRED: ["missing-authenticated-envelope"],
+    AUTHORIZATION_DENIED: ["wrong-workspace-denied", "wrong-user-denied", "changed-digest-denied", "changed-target-denied", "bootstrap-approval-request-substitution-denied", "bootstrap-mapping-substitution-denied", "automatic-break-glass-fallback-denied"],
+    APPROVAL_REQUIRED: ["agent-controlled-session-insufficient", "missing-proof"],
+    STATE_CONFLICT: ["replay-denied"],
+    PLAN_STALE: ["stale-plan-denied", "expired-request-denied"],
+    RECOVERY_EPOCH_MISMATCH: ["recovery-epoch-mismatch"],
+    PREREQUISITE_BLOCKED: ["lost-approver-access"],
+    DEPENDENCY_UNAVAILABLE: ["socket-mode-outage", "adapter-token-failure"],
+  },
+  "approver-import": {
+    accepted: ["bootstrap-seed-remains-inert", "existing-admin-add-accepted", "existing-admin-widen-accepted", "removal-invalidates-outstanding"],
+    AUTHORIZATION_DENIED: ["proposed-user-self-add-denied", "proposed-user-self-widen-denied", "file-replacement-cannot-authorize"],
+  },
+  "constrained-ssh": {
+    accepted: ["read-request-accepted", "plan-request-accepted", "approved-apply-request-accepted", "disconnect-queries-durable-run"],
+    INPUT_INVALID: ["shell-text-denied", "path-denied", "malformed-length-denied", "unknown-operation-denied", "response-length-denied"],
+    SCHEMA_UNSUPPORTED: ["unsupported-version-denied", "response-version-denied"],
+    AUTHENTICATION_REQUIRED: ["client-asserted-identity-denied"],
+    AUTHORIZATION_DENIED: ["direct-sqlite-denied", "principal-device-mismatch"],
+    STATE_CONFLICT: ["response-correlation-denied"],
+    RECOVERY_EPOCH_MISMATCH: ["recovery-epoch-mismatch"],
+  },
+  "profile-gates": {
+    accepted: ["minimal-read-accepted", "minimal-plan-accepted", "non-labs-slack-configured", "labs-slack-configured", "inapplicable-gate-is-not-passed"],
+    AUTHORIZATION_DENIED: ["wrong-workspace-blocked"],
+    STATE_CONFLICT: ["conflicting-provenance-blocked"],
+    PLAN_STALE: ["stale-slack-binding-blocked"],
+    PREREQUISITE_BLOCKED: ["minimal-bootstrap-without-slack-blocked", "minimal-apply-without-slack-blocked", "missing-mandatory-evidence-blocked"],
+    DEPENDENCY_UNAVAILABLE: ["slack-unavailable-blocked"],
+  },
+};
+
+const EXPECTED_OUTCOMES = new Map();
+for (const [contract, outcomes] of Object.entries(EXPECTED_CASE_OUTCOMES)) {
+  for (const [outcome, caseIds] of Object.entries(outcomes)) {
+    for (const caseId of caseIds) {
+      const key = `${contract}/${caseId}`;
+      if (EXPECTED_OUTCOMES.has(key)) throw new Error(`duplicate expected fixture outcome for ${key}`);
+      EXPECTED_OUTCOMES.set(key, outcome === "accepted" ? ["accepted", null] : ["blocked", outcome]);
+    }
+  }
+}
 
 function assertPlainObject(value, label) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) {
@@ -137,25 +199,33 @@ function assertSanitized(value, label = "fixture") {
 }
 
 const MANIFEST_KEYS = [
-  "manifestId", "releaseBuildId", "releaseDigest", "manifestIntegrity", "intendedOperation",
-  "hostIdentity", "databasePathRef", "initialAdministrator", "initialSlackMapping",
-  "slackSecretRefs", "profileId", "profileVersion", "profileDefaultsDigest",
+  "manifestId", "releaseBuildId", "releaseDigest", "intendedOperation",
+  "hostIdentity", "databasePathRef", "initialAdministrator", "profileId", "profileVersion", "profileDefaultsDigest",
   "profileProvenance", "stateRevision", "recoveryEpoch", "recoveryPreconditions",
   "approvalRequestId", "expiresAt", "nonce", "state",
 ];
+
+function manifestIntegrity(input, label) {
+  const matches = input.recoveryPreconditions.filter((entry) => entry.kind === "manifest-integrity");
+  if (matches.length !== 1) throw new Error(`${label}.recoveryPreconditions must contain exactly one manifest-integrity prerequisite`);
+  return matches[0];
+}
+
+function manifestAcknowledgementExtension(input, label) {
+  const adapter = input.profileProvenance.acknowledgementAdapter;
+  assertPlainObject(adapter, `${label}.profileProvenance.acknowledgementAdapter`);
+  assertExactKeys(adapter, ["kind", "extension"], `${label}.profileProvenance.acknowledgementAdapter`);
+  assertEnum(adapter.kind, ["slack-socket-mode"], `${label}.profileProvenance.acknowledgementAdapter.kind`);
+  assertPlainObject(adapter.extension, `${label}.profileProvenance.acknowledgementAdapter.extension`);
+  assertExactKeys(adapter.extension, ["initialMapping", "secretRefs"], `${label}.profileProvenance.acknowledgementAdapter.extension`);
+  return adapter.extension;
+}
 
 function validateInstallationManifest(input, contractCase, label) {
   assertExactKeys(input, MANIFEST_KEYS, label);
   assertSyntheticIdentifier(input.manifestId, `${label}.manifestId`, "manifest-");
   assertSyntheticIdentifier(input.releaseBuildId, `${label}.releaseBuildId`, "release-");
   assertDigest(input.releaseDigest, `${label}.releaseDigest`);
-  assertPlainObject(input.manifestIntegrity, `${label}.manifestIntegrity`);
-  assertExactKeys(input.manifestIntegrity, ["manifestDigest", "signatureFormat", "signerKeyId", "verificationBundleRef", "verificationStatus"], `${label}.manifestIntegrity`);
-  assertDigest(input.manifestIntegrity.manifestDigest, `${label}.manifestIntegrity.manifestDigest`);
-  assertEnum(input.manifestIntegrity.signatureFormat, ["detached-verification-bundle"], `${label}.manifestIntegrity.signatureFormat`);
-  assertSyntheticIdentifier(input.manifestIntegrity.signerKeyId, `${label}.manifestIntegrity.signerKeyId`, "signer-key-");
-  assertSyntheticIdentifier(input.manifestIntegrity.verificationBundleRef, `${label}.manifestIntegrity.verificationBundleRef`, "verification-bundle-");
-  assertEnum(input.manifestIntegrity.verificationStatus, ["verified", "invalid", "untrusted"], `${label}.manifestIntegrity.verificationStatus`);
   assertEnum(input.intendedOperation, ["create-control-plane"], `${label}.intendedOperation`);
   assertPlainObject(input.hostIdentity, `${label}.hostIdentity`);
   assertExactKeys(input.hostIdentity, ["kind", "subject"], `${label}.hostIdentity`);
@@ -168,30 +238,56 @@ function validateInstallationManifest(input, contractCase, label) {
   assertNullableString(input.initialAdministrator.sshPrincipalId, `${label}.initialAdministrator.sshPrincipalId`);
   if (input.initialAdministrator.sshPrincipalId !== null) assertSyntheticIdentifier(input.initialAdministrator.sshPrincipalId, `${label}.initialAdministrator.sshPrincipalId`, "ssh-principal-");
   assertSyntheticIdentifier(input.initialAdministrator.slackBindingId, `${label}.initialAdministrator.slackBindingId`, "binding-");
-  assertPlainObject(input.initialSlackMapping, `${label}.initialSlackMapping`);
-  assertExactKeys(input.initialSlackMapping, ["workspaceId", "slackUserId", "localHumanPrincipalId", "approvalClasses"], `${label}.initialSlackMapping`);
-  assertSyntheticIdentifier(input.initialSlackMapping.workspaceId, `${label}.initialSlackMapping.workspaceId`, "workspace-");
-  assertSyntheticIdentifier(input.initialSlackMapping.slackUserId, `${label}.initialSlackMapping.slackUserId`, "slack-user-");
-  assertSyntheticIdentifier(input.initialSlackMapping.localHumanPrincipalId, `${label}.initialSlackMapping.localHumanPrincipalId`, "person-");
-  assertStringArray(input.initialSlackMapping.approvalClasses, `${label}.initialSlackMapping.approvalClasses`, { nonempty: true });
-  assertPlainObject(input.slackSecretRefs, `${label}.slackSecretRefs`);
-  assertExactKeys(input.slackSecretRefs, ["appTokenRef", "botTokenRef"], `${label}.slackSecretRefs`);
-  for (const key of ["appTokenRef", "botTokenRef"]) assertSyntheticIdentifier(input.slackSecretRefs[key], `${label}.slackSecretRefs.${key}`, "secret-ref-");
   assertNonemptyString(input.profileId, `${label}.profileId`);
   assertNonemptyString(input.profileVersion, `${label}.profileVersion`);
   assertDigest(input.profileDefaultsDigest, `${label}.profileDefaultsDigest`);
-  assertNonemptyString(input.profileProvenance, `${label}.profileProvenance`);
+  assertPlainObject(input.profileProvenance, `${label}.profileProvenance`);
+  assertExactKeys(input.profileProvenance, ["source", "acknowledgementAdapter"], `${label}.profileProvenance`);
+  assertNonemptyString(input.profileProvenance.source, `${label}.profileProvenance.source`);
+  const extension = manifestAcknowledgementExtension(input, label);
+  assertPlainObject(extension.initialMapping, `${label}.profileProvenance.acknowledgementAdapter.extension.initialMapping`);
+  assertExactKeys(extension.initialMapping, ["workspaceId", "slackUserId", "localHumanPrincipalId", "approvalClasses"], `${label}.profileProvenance.acknowledgementAdapter.extension.initialMapping`);
+  assertSyntheticIdentifier(extension.initialMapping.workspaceId, `${label}.profileProvenance.acknowledgementAdapter.extension.initialMapping.workspaceId`, "workspace-");
+  assertSyntheticIdentifier(extension.initialMapping.slackUserId, `${label}.profileProvenance.acknowledgementAdapter.extension.initialMapping.slackUserId`, "slack-user-");
+  assertSyntheticIdentifier(extension.initialMapping.localHumanPrincipalId, `${label}.profileProvenance.acknowledgementAdapter.extension.initialMapping.localHumanPrincipalId`, "person-");
+  assertStringArray(extension.initialMapping.approvalClasses, `${label}.profileProvenance.acknowledgementAdapter.extension.initialMapping.approvalClasses`, { nonempty: true });
+  assertPlainObject(extension.secretRefs, `${label}.profileProvenance.acknowledgementAdapter.extension.secretRefs`);
+  assertExactKeys(extension.secretRefs, ["appTokenRef", "botTokenRef"], `${label}.profileProvenance.acknowledgementAdapter.extension.secretRefs`);
+  for (const key of ["appTokenRef", "botTokenRef"]) assertSyntheticIdentifier(extension.secretRefs[key], `${label}.profileProvenance.acknowledgementAdapter.extension.secretRefs.${key}`, "secret-ref-");
   assertNonnegativeInteger(input.stateRevision, `${label}.stateRevision`);
   assertNonnegativeInteger(input.recoveryEpoch, `${label}.recoveryEpoch`);
-  assertStringArray(input.recoveryPreconditions, `${label}.recoveryPreconditions`, { nonempty: true });
+  if (!Array.isArray(input.recoveryPreconditions) || input.recoveryPreconditions.length === 0) throw new Error(`${label}.recoveryPreconditions must be a nonempty array`);
+  input.recoveryPreconditions.forEach((entry, index) => {
+    const entryLabel = `${label}.recoveryPreconditions[${index}]`;
+    assertPlainObject(entry, entryLabel);
+    assertNonemptyString(entry.kind, `${entryLabel}.kind`);
+    if (entry.kind === "manifest-integrity") {
+      assertExactKeys(entry, ["kind", "manifestDigest", "signatureFormat", "signerKeyId", "verificationBundleRef", "verificationStatus"], entryLabel);
+      assertDigest(entry.manifestDigest, `${entryLabel}.manifestDigest`);
+      assertEnum(entry.signatureFormat, ["detached-verification-bundle"], `${entryLabel}.signatureFormat`);
+      assertSyntheticIdentifier(entry.signerKeyId, `${entryLabel}.signerKeyId`, "signer-key-");
+      assertSyntheticIdentifier(entry.verificationBundleRef, `${entryLabel}.verificationBundleRef`, "verification-bundle-");
+      assertEnum(entry.verificationStatus, ["verified", "invalid", "untrusted"], `${entryLabel}.verificationStatus`);
+    } else {
+      assertExactKeys(entry, ["kind", "status"], entryLabel);
+      assertEnum(entry.status, ["verified", "missing"], `${entryLabel}.status`);
+    }
+  });
+  const integrity = manifestIntegrity(input, label);
   assertSyntheticIdentifier(input.approvalRequestId, `${label}.approvalRequestId`, "approval-");
   assertTimestamp(input.expiresAt, `${label}.expiresAt`);
   assertSyntheticIdentifier(input.nonce, `${label}.nonce`, "nonce-");
   assertEnum(input.state, ["pending", "consuming", "consumed", "failed"], `${label}.state`);
 
+  if (contractCase.id === "consumed-replay-denied" && input.state !== "consumed") throw new Error(`${label} consumed replay case must use a consumed manifest`);
+  if (contractCase.id === "expired-denied" && Date.parse(input.expiresAt) >= FIXTURE_EVALUATION_TIME) throw new Error(`${label} expired manifest case must precede the fixture evaluation time`);
+  if (contractCase.id === "invalid-signature-denied" && integrity.verificationStatus !== "invalid") throw new Error(`${label} invalid-signature case must carry invalid verification`);
+  if (contractCase.id === "untrusted-signer-denied" && integrity.verificationStatus !== "untrusted") throw new Error(`${label} untrusted-signer case must carry untrusted verification`);
+  if (contractCase.id === "post-approval-manifest-mutation-denied" && integrity.verificationStatus !== "invalid") throw new Error(`${label} post-approval mutation must invalidate manifest verification`);
+
   if (contractCase.expected.status === "accepted") {
-    if (input.manifestIntegrity.verificationStatus !== "verified") throw new Error(`${label} accepted manifest must have a verified signature`);
-    if (input.initialSlackMapping.localHumanPrincipalId !== input.initialAdministrator.localPrincipalId) throw new Error(`${label} accepted manifest must bind Slack and local human identities`);
+    if (integrity.verificationStatus !== "verified") throw new Error(`${label} accepted manifest must have a verified signature`);
+    if (extension.initialMapping.localHumanPrincipalId !== input.initialAdministrator.localPrincipalId) throw new Error(`${label} accepted manifest must bind acknowledgement and local human identities`);
     const expectedSubject = input.hostIdentity.kind === "verified-ssh" ? input.initialAdministrator.sshPrincipalId : input.initialAdministrator.localPrincipalId;
     if (expectedSubject === null || input.hostIdentity.subject !== expectedSubject) throw new Error(`${label} accepted manifest must bind the observed host principal`);
   }
@@ -234,6 +330,8 @@ function validateSlackAcknowledgement(input, contractCase, label) {
   if (input.requestKind === "bootstrap" && (input.planId !== null || input.installationManifestId === null)) throw new Error(`${label} bootstrap request must name only an installation manifest`);
   if (input.requestKind === "plan" && (input.planId === null || input.installationManifestId !== null)) throw new Error(`${label} plan request must name only a plan`);
   if (input.requestKind === "recovery-handoff" && (input.planId !== null || input.installationManifestId !== null)) throw new Error(`${label} recovery handoff cannot masquerade as plan or manifest approval`);
+  if (input.requestKind === "recovery-handoff" && input.riskClass !== "control-plane-recovery-break-glass") throw new Error(`${label} recovery handoff must use the recovery-specific risk class`);
+  if (input.requestKind !== "recovery-handoff" && input.riskClass === "control-plane-recovery-break-glass") throw new Error(`${label} normal acknowledgement cannot use the recovery-specific risk class`);
   if (input.breakGlassHandoff !== undefined) {
     assertPlainObject(input.breakGlassHandoff, `${label}.breakGlassHandoff`);
     assertExactKeys(input.breakGlassHandoff, ["authorizationState", "separateAuthorizationRequired", "normalAcknowledgementCreated", "targetSetDigest", "reasonDigest", "fromRecoveryEpoch", "toRecoveryEpoch"], `${label}.breakGlassHandoff`);
@@ -359,6 +457,9 @@ function validateProfileGates(input, contractCase, label) {
   assertNonemptyString(input.requestedOperation, `${label}.requestedOperation`);
   assertEnum(input.slackCapabilityState, ["not-configured", "qualified", "unavailable", "stale", "wrong-workspace"], `${label}.slackCapabilityState`);
   assertNonnegativeInteger(input.recoveryEpoch, `${label}.recoveryEpoch`);
+  if (contractCase.id === "stale-slack-binding-blocked" && input.slackCapabilityState !== "stale") throw new Error(`${label} stale binding case must carry stale Slack capability state`);
+  if (contractCase.id === "wrong-workspace-blocked" && input.slackCapabilityState !== "wrong-workspace") throw new Error(`${label} wrong-workspace case must carry wrong-workspace capability state`);
+  if (contractCase.id === "missing-mandatory-evidence-blocked" && !input.gates.some(({ evidenceState }) => evidenceState === "missing")) throw new Error(`${label} missing-evidence case must carry a missing evidence state`);
   if (contractCase.expected.status === "accepted" && ["bootstrap-control-plane", "apply-plan"].includes(input.requestedOperation) && input.slackCapabilityState !== "qualified") throw new Error(`${label} accepted mutation requires qualified Slack capability`);
 }
 
@@ -398,8 +499,8 @@ export function validatePhaseZeroThreeFixture(document, source) {
       throw new Error(`${source} has duplicate case id ${JSON.stringify(contractCase.id)}`);
     }
     caseIds.add(contractCase.id);
+    assertSanitized(contractCase, label);
     assertPlainObject(contractCase.input, `${label}.input`);
-    assertSanitized(contractCase.input, `${label}.input`);
     INPUT_VALIDATORS.get(document.contract)(contractCase.input, contractCase, `${label}.input`);
     assertPlainObject(contractCase.expected, `${label}.expected`);
     assertExactKeys(
@@ -419,6 +520,11 @@ export function validatePhaseZeroThreeFixture(document, source) {
       throw new Error(`${label} has unknown error code ${JSON.stringify(contractCase.expected.errorCode)}`);
     }
     assertNonemptyString(contractCase.expected.reason, `${label}.expected.reason`);
+    const pinnedOutcome = EXPECTED_OUTCOMES.get(`${document.contract}/${contractCase.id}`);
+    if (pinnedOutcome === undefined) throw new Error(`${label} is not registered in the independent outcome oracle`);
+    if (contractCase.expected.status !== pinnedOutcome[0] || contractCase.expected.errorCode !== pinnedOutcome[1]) {
+      throw new Error(`${label} disagrees with the independent outcome oracle`);
+    }
   }
 
   return { contract: document.contract, cases: document.cases.length };
@@ -494,28 +600,73 @@ export function validatePhaseZeroThreeContracts(fixtures) {
     throw new Error("Phase 0.3 bootstrap contracts are missing their linked positive cases");
   }
   const mapping = approver.mappings[0];
+  const integrity = manifestIntegrity(manifest, "installation-manifest/first-use-accepted");
+  const extension = manifestAcknowledgementExtension(manifest, "installation-manifest/first-use-accepted");
+  const initialMapping = extension.initialMapping;
   const comparisons = [
     [manifest.manifestId, slack.installationManifestId, "manifest ID"],
     [manifest.approvalRequestId, slack.requestId, "approval request ID"],
-    [manifest.manifestIntegrity.manifestDigest, slack.subjectDigest, "manifest subject digest"],
+    [integrity.manifestDigest, slack.subjectDigest, "manifest subject digest"],
     [manifest.stateRevision, slack.stateRevision, "state revision"],
     [manifest.recoveryEpoch, slack.recoveryEpoch, "recovery epoch"],
     [manifest.initialAdministrator.localPrincipalId, slack.responsibleHumanId, "responsible local human"],
-    [manifest.initialSlackMapping.workspaceId, slack.workspaceId, "Slack workspace"],
-    [manifest.initialSlackMapping.slackUserId, slack.slackUserId, "Slack user"],
-    [manifest.initialSlackMapping.localHumanPrincipalId, slack.responsibleHumanId, "Slack-to-local-human mapping"],
-    [manifest.initialSlackMapping.workspaceId, approver.workspaceId, "approver workspace"],
-    [manifest.initialSlackMapping.slackUserId, mapping?.slackUserId, "approver Slack user"],
-    [manifest.initialSlackMapping.localHumanPrincipalId, mapping?.localHumanPrincipalId, "approver local human"],
-    [JSON.stringify(manifest.initialSlackMapping.approvalClasses), JSON.stringify(mapping?.approvalClasses), "approval classes"],
-    [manifest.initialSlackMapping.approvalClasses[0], slack.riskClass, "bootstrap risk class"],
+    [initialMapping.workspaceId, slack.workspaceId, "Slack workspace"],
+    [initialMapping.slackUserId, slack.slackUserId, "Slack user"],
+    [initialMapping.localHumanPrincipalId, slack.responsibleHumanId, "Slack-to-local-human mapping"],
+    [initialMapping.workspaceId, approver.workspaceId, "approver workspace"],
+    [initialMapping.slackUserId, mapping?.slackUserId, "approver Slack user"],
+    [initialMapping.localHumanPrincipalId, mapping?.localHumanPrincipalId, "approver local human"],
+    [JSON.stringify(initialMapping.approvalClasses), JSON.stringify(mapping?.approvalClasses), "approval classes"],
+    [initialMapping.approvalClasses[0], slack.riskClass, "bootstrap risk class"],
   ];
   for (const [left, right, label] of comparisons) {
     if (left !== right) throw new Error(`linked bootstrap contracts disagree on ${label}`);
   }
-  for (const ref of Object.values(manifest.slackSecretRefs)) {
+  for (const ref of Object.values(extension.secretRefs)) {
     if (!ref.startsWith("secret-ref-synthetic-")) throw new Error("bootstrap Slack credentials must be logical synthetic references");
   }
+
+  const cases = (contract) => new Map(fixtures.get(contract).cases.map((entry) => [entry.id, entry.input]));
+  const slackCases = cases("slack-acknowledgement");
+  const ordinaryApproval = slackCases.get("ordinary-plan-approved");
+  const wrongWorkspace = slackCases.get("wrong-workspace-denied");
+  const wrongUser = slackCases.get("wrong-user-denied");
+  if (wrongWorkspace.workspaceId === ordinaryApproval.workspaceId) throw new Error("wrong-workspace case must differ from the approved workspace");
+  if (wrongUser.slackUserId === ordinaryApproval.slackUserId) throw new Error("wrong-user case must differ from the approved Slack user");
+  const expired = slackCases.get("expired-request-denied");
+  if (Date.parse(expired.receivedAt) <= Date.parse(expired.expiresAt)) throw new Error("expired Slack case must arrive after expiry");
+  const duplicate = slackCases.get("duplicate-click-idempotent");
+  const replay = slackCases.get("replay-denied");
+  if (duplicate.requestId !== replay.requestId || duplicate.nonce !== replay.nonce) throw new Error("duplicate and replay cases must share the consumed request and nonce");
+  if (duplicate.planId === replay.planId && duplicate.subjectDigest === replay.subjectDigest) throw new Error("replay case must attempt a different consumed subject");
+
+  const approverCases = cases("approver-import");
+  for (const id of ["proposed-user-self-add-denied", "proposed-user-self-widen-denied"]) {
+    const input = approverCases.get(id);
+    if (input.authorizingApproverId !== input.mappings[0]?.localHumanPrincipalId) throw new Error(`${id} must model self-authorization`);
+  }
+  for (const id of ["existing-admin-add-accepted", "existing-admin-widen-accepted"]) {
+    const input = approverCases.get(id);
+    if (input.authorizingApproverId === null || input.authorizingApproverId === input.mappings[0]?.localHumanPrincipalId) throw new Error(`${id} must be authorized by a different existing approver`);
+  }
+
+  const profileCases = cases("profile-gates");
+  const conflicting = profileCases.get("conflicting-provenance-blocked").resolvedValues;
+  const conflictingKeys = new Map();
+  for (const value of conflicting) {
+    const prior = conflictingKeys.get(value.key);
+    if (prior !== undefined && (prior.value !== value.value || prior.provenance !== value.provenance)) conflictingKeys.set(value.key, "conflict");
+    else if (prior === undefined) conflictingKeys.set(value.key, value);
+  }
+  if (![...conflictingKeys.values()].includes("conflict")) throw new Error("conflicting-provenance case must contain competing owners for one value");
+
+  const sshCases = cases("constrained-ssh");
+  const responseLength = sshCases.get("response-length-denied");
+  if (responseLength.responseFrame.declaredPayloadBytes === responseLength.responseFrame.actualPayloadBytes) throw new Error("response-length case must contain a framing mismatch");
+  const responseVersion = sshCases.get("response-version-denied");
+  if (responseVersion.responseFrame.version === "1.0.0") throw new Error("response-version case must use an unsupported response version");
+  const responseCorrelation = sshCases.get("response-correlation-denied");
+  if (responseCorrelation.responseFrame.requestId === responseCorrelation.requestId) throw new Error("response-correlation case must mismatch the originating request ID");
 }
 
 export async function loadPhaseZeroThreeFixtures(root = ROOT) {

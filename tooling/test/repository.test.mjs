@@ -45,6 +45,13 @@ test("empty registry placeholders are accepted", () => {
   assert.deepEqual(findSecretMarkers('"CF-Access-Client-Secret": "${CF_ACCESS_CLIENT_SECRET}"'), []);
 });
 
+test("Slack credential markers are rejected without echoing their value", () => {
+  const credential = ["xapp", "example", "credential", "must", "not", "echo"].join("-");
+  const markers = findSecretMarkers(`expected reason: ${credential}`);
+  assert.deepEqual(markers, ["Slack credential value"]);
+  assert.doesNotMatch(markers.join(" "), /must-not-echo/);
+});
+
 test("environment filename classification distinguishes redacted examples", () => {
   assert.equal(isSecretEnvironmentFile("web/.env.local"), true);
   assert.equal(isSecretEnvironmentFile("web/.env"), true);
@@ -110,4 +117,22 @@ test("ignored local credentials pass while the same tracked file fails", async (
   );
   await runCommand("git", ["add", "registry-header.yaml"], { capture: true, cwd: root });
   await assert.rejects(verifyRepository(root), /contains prohibited Cloudflare Access secret value/);
+
+  await runCommand("git", ["rm", "--cached", "registry-header.yaml"], {
+    capture: true,
+    cwd: root,
+  });
+  const slackFixture = path.join(root, "slack-proof.json");
+  const credential = ["xapp", "example", "credential", "must", "not", "echo"].join("-");
+  await writeFile(slackFixture, `${JSON.stringify({ reason: credential })}\n`, "utf8");
+  await runCommand("git", ["add", "slack-proof.json"], { capture: true, cwd: root });
+  let message = "";
+  try {
+    await verifyRepository(root);
+    assert.fail("expected the tracked Slack credential to fail repository verification");
+  } catch (error) {
+    message = error.message;
+  }
+  assert.match(message, /contains prohibited Slack credential value/);
+  assert.doesNotMatch(message, /must-not-echo/);
 });

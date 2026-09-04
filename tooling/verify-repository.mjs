@@ -41,6 +41,9 @@ export function findSecretMarkers(text) {
   if (/\b(?:gh[pousr]_|npm_)[A-Za-z0-9]{20,}\b/.test(text)) {
     markers.push("token-shaped value");
   }
+  if (/\bx(?:app|ox[abprs])-[A-Za-z0-9-]+\b/.test(text)) {
+    markers.push("Slack credential value");
+  }
   const assignments = [
     ...assignmentValues(text, ACCESS_ENV_NAME, "="),
     ...assignmentValues(text, ACCESS_HEADER_NAME, ":", true),
