@@ -1,0 +1,77 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.4-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "admission-evidence",
+  "cases": [
+    {
+      "id": "current-daily-evidence-accepted",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-04T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "admit-workload", "existingWorkloadDisposition": "not-applicable", "recoveryAllowed": true },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "current daily evidence may admit the declared workload" }
+    },
+    {
+      "id": "current-after-change-accepted",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "after-change", "collectedAt": "2026-09-04T03:45:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": "2026-09-04T03:30:00Z" }], "requestedOperation": "expand-role", "existingWorkloadDisposition": "not-applicable", "recoveryAllowed": true },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "fresh evidence collected after the relevant change may expand the role" }
+    },
+    {
+      "id": "stale-new-admission-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-02T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "admit-workload", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PLAN_STALE", "reason": "stale evidence blocks new workload admission" }
+    },
+    {
+      "id": "stale-role-expansion-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-02T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "expand-role", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PLAN_STALE", "reason": "stale evidence blocks role expansion" }
+    },
+    {
+      "id": "stale-new-credential-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-02T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "issue-workload-credential", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PLAN_STALE", "reason": "stale evidence blocks new workload credentials" }
+    },
+    {
+      "id": "stale-existing-workload-preserved",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-02T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "continue-existing-workload", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "stale evidence does not silently stop a safe existing workload" }
+    },
+    {
+      "id": "stale-recovery-accepted",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-02T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "recover", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "stale evidence does not remove the independently authorized recovery path" }
+    },
+    {
+      "id": "after-change-old-evidence-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "after-change", "collectedAt": "2026-09-04T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": "2026-09-04T03:30:00Z" }], "requestedOperation": "admit-workload", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PLAN_STALE", "reason": "a relevant change immediately invalidates earlier evidence" }
+    },
+    {
+      "id": "missing-mandatory-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-04T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "missing", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "admit-workload", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "missing mandatory evidence never passes admission" }
+    },
+    {
+      "id": "failed-mandatory-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-04T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "failed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "expand-role", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "failed mandatory evidence blocks role expansion" }
+    },
+    {
+      "id": "unknown-mandatory-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-04T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "unknown", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "issue-workload-credential", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "unknown mandatory evidence blocks new credentials" }
+    },
+    {
+      "id": "skipped-mandatory-blocked",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-04T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "skipped", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "admit-workload", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "skipped mandatory evidence is not a pass" }
+    },
+    {
+      "id": "missing-evidence-recovery-denied",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "trigger": "daily", "collectedAt": "2026-09-02T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "missing", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "recover", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": false },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "recovery remains explicit and cannot be invented from missing evidence" }
+    },
+    {
+      "id": "wrong-evidence-recovery-epoch-denied",
+      "input": { "hostId": "host-synthetic-001", "profileVersion": "host-security-v1", "releaseBuildId": "release-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 2, "trigger": "daily", "collectedAt": "2026-09-04T03:00:00Z", "evaluatedAt": "2026-09-04T04:00:00Z", "mandatoryControls": [{ "controlId": "host.ssh-effective", "state": "passed", "maxAgeSeconds": 86400, "changedAt": null }], "requestedOperation": "admit-workload", "existingWorkloadDisposition": "preserve-safe", "recoveryAllowed": true },
+      "expected": { "status": "blocked", "errorCode": "RECOVERY_EPOCH_MISMATCH", "reason": "evidence from another recovery epoch cannot admit work" }
+    }
+  ]
+}

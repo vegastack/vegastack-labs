@@ -1,0 +1,116 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.4-contract-index",
+  "schemaVersion": "1.0.0",
+  "contracts": [
+    {
+      "contract": "host-control-matrix",
+      "file": "host-control-matrix.json",
+      "requiredCaseIds": [
+        "supported-profiles-complete",
+        "debian-13-6-common-accepted",
+        "ubuntu-26-04-common-accepted",
+        "unsupported-release-denied",
+        "missing-probe-denied",
+        "package-only-evidence-denied",
+        "unbounded-fail2ban-denied",
+        "missing-aide-baseline-denied",
+        "unsafe-audit-capture-denied",
+        "missing-recovery-denied"
+      ]
+    },
+    {
+      "contract": "privileged-execution",
+      "file": "privileged-execution.json",
+      "requiredCaseIds": [
+        "approved-bundle-accepted",
+        "wrong-plan-denied",
+        "wrong-plan-digest-denied",
+        "wrong-bundle-digest-denied",
+        "wrong-host-denied",
+        "wrong-recovery-epoch-denied",
+        "expired-bundle-denied",
+        "undeclared-action-denied",
+        "arbitrary-module-denied",
+        "arbitrary-command-denied",
+        "target-widening-denied",
+        "lost-recovery-denied",
+        "resident-helper-denied",
+        "desired-state-copy-denied",
+        "wrong-executable-denied"
+      ]
+    },
+    {
+      "contract": "native-credentials",
+      "file": "native-credentials.json",
+      "requiredCaseIds": [
+        "cold-start-accepted",
+        "correct-consumer-accepted",
+        "no-cloud-account-accepted",
+        "no-hardware-protection-accepted",
+        "rotation-complete-accepted",
+        "revocation-complete-accepted",
+        "cross-consumer-denied",
+        "stale-material-denied",
+        "revoked-material-denied",
+        "incomplete-rotation-denied",
+        "recovery-unavailable-denied",
+        "cloud-required-denied",
+        "plaintext-fallback-denied"
+      ]
+    },
+    {
+      "contract": "macos-admission",
+      "file": "macos-admission.json",
+      "requiredCaseIds": [
+        "approved-mesh-ssh-accepted",
+        "local-consent-accepted",
+        "wrong-mesh-identity-denied",
+        "wrong-device-denied",
+        "wrong-source-denied",
+        "wrong-user-denied",
+        "direct-lan-fallback-denied",
+        "password-login-denied",
+        "root-login-denied",
+        "full-disk-access-widening-denied",
+        "consent-absent-blocked",
+        "consent-revoked-blocked",
+        "product-pf-denied",
+        "mdm-claim-denied",
+        "native-firewall-disabled-denied",
+        "reboot-drift-denied",
+        "missing-macos-recovery-denied"
+      ]
+    },
+    {
+      "contract": "admission-evidence",
+      "file": "admission-evidence.json",
+      "requiredCaseIds": [
+        "current-daily-evidence-accepted",
+        "current-after-change-accepted",
+        "stale-new-admission-blocked",
+        "stale-role-expansion-blocked",
+        "stale-new-credential-blocked",
+        "stale-existing-workload-preserved",
+        "stale-recovery-accepted",
+        "after-change-old-evidence-blocked",
+        "missing-mandatory-blocked",
+        "failed-mandatory-blocked",
+        "unknown-mandatory-blocked",
+        "skipped-mandatory-blocked",
+        "missing-evidence-recovery-denied",
+        "wrong-evidence-recovery-epoch-denied"
+      ]
+    }
+  ],
+  "protectedFiles": [
+    { "path": "tooling/verify-phase-0-3.mjs", "sha256": "sha256:7a415c8ff881b2ee473cb1beab3c235c746850d2aff5fa23bb4876b453eebfb0" },
+    { "path": "tooling/test/phase-0-3.test.mjs", "sha256": "sha256:ad44941180c703e08c3286d282637a7c188afb5536bcf46702fa2347fb645b99" },
+    { "path": "tooling/testdata/phase-0-3/approver-import.json", "sha256": "sha256:06ac6accec7e5eaef6c982203c211904625096c02f1a7351b41ce09c0413ef62" },
+    { "path": "tooling/testdata/phase-0-3/constrained-ssh.json", "sha256": "sha256:d5029441e0312a4d562c35bec79bb8fc061df339df55b221bf59daa06a909c05" },
+    { "path": "tooling/testdata/phase-0-3/contract-index.json", "sha256": "sha256:e182b7604d8a45feeaffdaaaee764c63720e9ba0d9a41768c9e1729a6677d9fe" },
+    { "path": "tooling/testdata/phase-0-3/installation-manifest.json", "sha256": "sha256:dfebc7931172cee1171deaabca54a8ddd9aed763a0f8b42fa8453c15259d01c0" },
+    { "path": "tooling/testdata/phase-0-3/profile-gates.json", "sha256": "sha256:178905f779486acd5cee3e415c5558cfde315b83d6249097c8aa9494c4df2df9" },
+    { "path": "tooling/testdata/phase-0-3/setup-state.json", "sha256": "sha256:adc7f4a40e3ee2a0f6f9261d80bb16d5eb915ca3bb5a9e7338eb005a42dd451b" },
+    { "path": "tooling/testdata/phase-0-3/slack-acknowledgement.json", "sha256": "sha256:3a7e3b1efd3f1c25d42fb8519f1b7fca662037cbb66bfc061d4d408b5a178acf" }
+  ]
+}

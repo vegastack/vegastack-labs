@@ -1,0 +1,277 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.4-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "host-control-matrix",
+  "cases": [
+    {
+      "id": "supported-profiles-complete",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [
+          { "profileId": "debian-13-amd64", "osFamily": "debian", "release": "13.6", "architecture": "amd64", "supportState": "supported" },
+          { "profileId": "ubuntu-26-04-amd64", "osFamily": "ubuntu", "release": "26.04", "architecture": "amd64", "supportState": "supported" },
+          { "profileId": "macos-current-arm64", "osFamily": "macos", "release": "current", "architecture": "arm64", "supportState": "supported" },
+          { "profileId": "macos-previous-arm64", "osFamily": "macos", "release": "previous", "architecture": "arm64", "supportState": "supported" }
+        ],
+        "roles": ["common", "control", "linux-ci", "application", "recovery-spare", "mac-developer-ci", "hermes"],
+        "controls": [
+          {
+            "controlId": "host.identity-accounts",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64", "macos-current-arm64", "macos-previous-arm64"],
+            "roleIds": ["common", "control", "linux-ci", "application", "recovery-spare", "mac-developer-ci", "hermes"],
+            "applicability": "baseline",
+            "mechanism": "native account and group controls",
+            "desiredState": "individual standard accounts, dedicated automation identity, protected homes, and no shared login",
+            "positiveProbe": "enumerate declared identities, grants, home ownership, and denied shared-login state",
+            "negativeProbe": "attempt an undeclared identity and cross-account access",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "retain an independently verified local administrator or console path",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "host.ssh-effective",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64", "macos-current-arm64", "macos-previous-arm64"],
+            "roleIds": ["common", "control", "linux-ci", "application", "recovery-spare", "mac-developer-ci", "hermes"],
+            "applicability": "baseline",
+            "mechanism": "OpenSSH effective configuration plus transport policy",
+            "desiredState": "declared users and sources only, key authentication, no password login, and no direct human root login",
+            "positiveProbe": "open a fresh declared-user session from an allowed source",
+            "negativeProbe": "deny wrong user, source, password login, and direct root login",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "arm local rollback and retain independent console access before change",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "linux.firewall-container",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64"],
+            "roleIds": ["common", "control", "linux-ci", "application", "recovery-spare"],
+            "applicability": "baseline",
+            "mechanism": "qualified Linux firewall with explicit container-rule ownership",
+            "desiredState": "deny undeclared host and forwarded ingress while preserving declared management and recovery paths",
+            "positiveProbe": "reach every declared host and container service before and after restart",
+            "negativeProbe": "deny unpublished, prohibited east-west, and undeclared container-published paths",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "restore the last validated ruleset from the armed local rollback",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "linux.fail2ban-sshd",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64"],
+            "roleIds": ["common", "control", "linux-ci", "application", "recovery-spare"],
+            "applicability": "baseline",
+            "mechanism": "Fail2ban SSH jail using the observed authentication-log backend",
+            "desiredState": "sshd jail only; maxretry 5 within 600 seconds; 600-second ban; one protected recovery source; bounded journal and action load",
+            "positiveProbe": "trigger the bounded SSH failure threshold from a disposable source and observe the temporary ban",
+            "negativeProbe": "prove expiry or manual unban and continued independent recovery access",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "disable the scoped jail through the local rollback and unban the disposable test source",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "linux.auditd-bounded",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64"],
+            "roleIds": ["common", "control", "linux-ci", "application", "recovery-spare"],
+            "applicability": "baseline",
+            "mechanism": "auditd watches for account, privilege, and critical security configuration changes",
+            "desiredState": "bounded path/watch rules, bounded backlog and disk use, no blanket syscall or process-argument capture",
+            "positiveProbe": "perform a synthetic declared configuration change and find its sanitized audit event",
+            "negativeProbe": "prove unrelated command arguments and canary values are absent from collected evidence",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "restore the previous validated rule set and preserve existing system logs",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "linux.aide-control",
+            "profileIds": ["debian-13-amd64"],
+            "roleIds": ["control"],
+            "applicability": "role-specific",
+            "mechanism": "AIDE over an explicit stable control-host file scope",
+            "desiredState": "trusted immutable baseline, explicit exclusions, change alert, and reviewed baseline refresh",
+            "positiveProbe": "change a synthetic watched file and observe a sanitized integrity alert",
+            "negativeProbe": "reject a missing, stale, or silently refreshed baseline",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "restore watched configuration from the approved recovery point before rebuilding the baseline",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "linux.apparmor-enforcing",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64"],
+            "roleIds": ["common", "control", "linux-ci", "application", "recovery-spare"],
+            "applicability": "baseline",
+            "mechanism": "AppArmor service and declared workload profiles",
+            "desiredState": "enforcing mode for applicable declared profiles without global disablement",
+            "positiveProbe": "run the declared workload within its enforcing profile",
+            "negativeProbe": "deny a synthetic action prohibited by the profile",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "restore the last validated profile while leaving global confinement enabled",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "host.security-updates",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64", "macos-current-arm64", "macos-previous-arm64"],
+            "roleIds": ["common", "control", "linux-ci", "application", "recovery-spare", "mac-developer-ci", "hermes"],
+            "applicability": "baseline",
+            "mechanism": "native signed repository, security-data, malware-data, and revocation update mechanisms",
+            "desiredState": "security-data health is evaluated independently from the seven-day OS and package soak policy",
+            "positiveProbe": "observe current signed security-data metadata and separately report pending OS packages",
+            "negativeProbe": "reject disabled, unsigned, failed, or stale security-data state",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "retain the last verified platform state and block new admission until update health returns",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "host.storage-encryption",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64", "macos-current-arm64", "macos-previous-arm64"],
+            "roleIds": ["control", "linux-ci", "application", "recovery-spare", "mac-developer-ci", "hermes"],
+            "applicability": "role-specific",
+            "mechanism": "qualified OS-native volume encryption and recovery custody",
+            "desiredState": "declared volumes encrypted with independently recoverable keys and no plaintext recovery material",
+            "positiveProbe": "verify effective encryption state and an independently held recovery reference",
+            "negativeProbe": "deny admission for unencrypted required volumes or missing recovery custody",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "use the independently held recovery procedure without exposing key material",
+            "mandatory": true,
+            "ownerPhase": "5"
+          },
+          {
+            "controlId": "macos.platform-protection",
+            "profileIds": ["macos-current-arm64", "macos-previous-arm64"],
+            "roleIds": ["mac-developer-ci", "hermes"],
+            "applicability": "baseline",
+            "mechanism": "SIP, Gatekeeper, XProtect, native application firewall, sharing controls, and local consent",
+            "desiredState": "native protections enabled; declared Remote Login users only; Full Disk Access disabled absent separate approval",
+            "positiveProbe": "verify native protections, declared SSH user, application firewall, consent, and post-reboot state",
+            "negativeProbe": "deny disabled protection, undeclared sharing, absent consent, and reboot drift",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "use physical local-console recovery and supported recoveryOS procedures",
+            "mandatory": true,
+            "ownerPhase": "6"
+          },
+          {
+            "controlId": "role.workload-isolation",
+            "profileIds": ["debian-13-amd64", "ubuntu-26-04-amd64", "macos-current-arm64", "macos-previous-arm64"],
+            "roleIds": ["linux-ci", "application", "mac-developer-ci", "hermes"],
+            "applicability": "role-specific",
+            "mechanism": "role-specific service identity, filesystem, network, and resource boundaries",
+            "desiredState": "one role receives only its declared workload and credential capabilities",
+            "positiveProbe": "run an admitted synthetic workload within its declared role limits",
+            "negativeProbe": "deny cross-role data, credential, control-plane, and host namespace access",
+            "evidenceMaxAgeSeconds": 86400,
+            "recovery": "stop new workload admission while preserving safe existing workloads and recovery",
+            "mandatory": true,
+            "ownerPhase": "6"
+          }
+        ],
+        "observed": { "profileId": "debian-13-amd64", "release": "13.6", "roleId": "control", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "every supported profile and role has a complete control-to-test mapping" }
+    },
+    {
+      "id": "debian-13-6-common-accepted",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "debian-13-amd64", "osFamily": "debian", "release": "13.6", "architecture": "amd64", "supportState": "supported" }],
+        "roles": ["common"],
+        "controls": [{ "controlId": "host.ssh-effective", "profileIds": ["debian-13-amd64"], "roleIds": ["common"], "applicability": "baseline", "mechanism": "OpenSSH effective configuration", "desiredState": "declared key-only SSH users and sources", "positiveProbe": "open a fresh allowed session", "negativeProbe": "deny password, root, wrong-user, and wrong-source access", "evidenceMaxAgeSeconds": 86400, "recovery": "retain verified console access", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "debian-13-amd64", "release": "13.6", "roleId": "common", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "the Debian 13.6 common profile is explicit and tested" }
+    },
+    {
+      "id": "ubuntu-26-04-common-accepted",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "ubuntu-26-04-amd64", "osFamily": "ubuntu", "release": "26.04", "architecture": "amd64", "supportState": "supported" }],
+        "roles": ["common"],
+        "controls": [{ "controlId": "host.security-updates", "profileIds": ["ubuntu-26-04-amd64"], "roleIds": ["common"], "applicability": "baseline", "mechanism": "Ubuntu signed repositories and native security update facilities", "desiredState": "security-data health separate from package soak", "positiveProbe": "observe current signed security metadata", "negativeProbe": "deny disabled or stale security data", "evidenceMaxAgeSeconds": 86400, "recovery": "retain the last verified state and block admission", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "ubuntu-26-04-amd64", "release": "26.04", "roleId": "common", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "the Ubuntu 26.04 common profile is distinct and tested" }
+    },
+    {
+      "id": "unsupported-release-denied",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "debian-14-amd64-synthetic", "osFamily": "debian", "release": "14", "architecture": "amd64", "supportState": "unsupported" }],
+        "roles": ["common"],
+        "controls": [{ "controlId": "host.ssh-effective", "profileIds": ["debian-13-amd64"], "roleIds": ["common"], "applicability": "baseline", "mechanism": "no universal fallback", "desiredState": "unsupported releases remain quarantined", "positiveProbe": "identify the release exactly", "negativeProbe": "reject use of a nearby supported profile", "evidenceMaxAgeSeconds": 86400, "recovery": "select and qualify an explicitly supported profile", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "debian-14-amd64-synthetic", "release": "14", "roleId": "common", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "blocked", "errorCode": "SCHEMA_UNSUPPORTED", "reason": "an unknown release cannot inherit another distribution profile" }
+    },
+    {
+      "id": "missing-probe-denied",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "debian-13-amd64", "osFamily": "debian", "release": "13.6", "architecture": "amd64", "supportState": "supported" }],
+        "roles": ["common"],
+        "controls": [{ "controlId": "host.ssh-effective", "profileIds": ["debian-13-amd64"], "roleIds": ["common"], "applicability": "baseline", "mechanism": "OpenSSH", "desiredState": "key-only declared-user access", "positiveProbe": null, "negativeProbe": "deny password and root login", "evidenceMaxAgeSeconds": 86400, "recovery": "retain console access", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "debian-13-amd64", "release": "13.6", "roleId": "common", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "blocked", "errorCode": "INPUT_INVALID", "reason": "a control without both probes is not machine testable" }
+    },
+    {
+      "id": "package-only-evidence-denied",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "debian-13-amd64", "osFamily": "debian", "release": "13.6", "architecture": "amd64", "supportState": "supported" }],
+        "roles": ["common"],
+        "controls": [{ "controlId": "linux.fail2ban-sshd", "profileIds": ["debian-13-amd64"], "roleIds": ["common"], "applicability": "baseline", "mechanism": "Fail2ban SSH jail", "desiredState": "bounded SSH-only jail", "positiveProbe": "trigger and observe a temporary ban", "negativeProbe": "prove expiry and recovery access", "evidenceMaxAgeSeconds": 86400, "recovery": "disable the scoped jail and unban the test source", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "debian-13-amd64", "release": "13.6", "roleId": "common", "evidenceState": "package-only", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "package presence is not configured-control evidence" }
+    },
+    {
+      "id": "unbounded-fail2ban-denied",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "debian-13-amd64", "osFamily": "debian", "release": "13.6", "architecture": "amd64", "supportState": "supported" }],
+        "roles": ["common"],
+        "controls": [{ "controlId": "linux.fail2ban-sshd", "profileIds": ["debian-13-amd64"], "roleIds": ["common"], "applicability": "baseline", "mechanism": "Fail2ban all bundled jails", "desiredState": "unbounded permanent bans with no retry window", "positiveProbe": "observe a ban", "negativeProbe": "attempt recovery", "evidenceMaxAgeSeconds": 86400, "recovery": "use console access", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "debian-13-amd64", "release": "13.6", "roleId": "common", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "blocked", "errorCode": "INPUT_INVALID", "reason": "dynamic bans require bounded retry, window, duration, scope, and recovery" }
+    },
+    {
+      "id": "missing-aide-baseline-denied",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "debian-13-amd64", "osFamily": "debian", "release": "13.6", "architecture": "amd64", "supportState": "supported" }],
+        "roles": ["control"],
+        "controls": [{ "controlId": "linux.aide-control", "profileIds": ["debian-13-amd64"], "roleIds": ["control"], "applicability": "role-specific", "mechanism": "AIDE control-host scope", "desiredState": "trusted reviewed baseline", "positiveProbe": "detect a synthetic watched-file change", "negativeProbe": "reject missing or stale baseline", "evidenceMaxAgeSeconds": 86400, "recovery": "restore watched configuration before baseline refresh", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "debian-13-amd64", "release": "13.6", "roleId": "control", "evidenceState": "missing-baseline", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "AIDE cannot pass without a trusted current baseline" }
+    },
+    {
+      "id": "unsafe-audit-capture-denied",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "ubuntu-26-04-amd64", "osFamily": "ubuntu", "release": "26.04", "architecture": "amd64", "supportState": "supported" }],
+        "roles": ["common"],
+        "controls": [{ "controlId": "linux.auditd-bounded", "profileIds": ["ubuntu-26-04-amd64"], "roleIds": ["common"], "applicability": "baseline", "mechanism": "auditd", "desiredState": "all-syscall blanket argument capture", "positiveProbe": "observe an account change", "negativeProbe": "search for leaked canary material", "evidenceMaxAgeSeconds": 86400, "recovery": "restore the bounded rule set", "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "ubuntu-26-04-amd64", "release": "26.04", "roleId": "common", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "blocked", "errorCode": "INPUT_INVALID", "reason": "blanket syscall and argument capture can disclose secrets and exhaust audit resources" }
+    },
+    {
+      "id": "missing-recovery-denied",
+      "input": {
+        "profileVersion": "host-security-v1",
+        "profiles": [{ "profileId": "macos-current-arm64", "osFamily": "macos", "release": "current", "architecture": "arm64", "supportState": "supported" }],
+        "roles": ["mac-developer-ci"],
+        "controls": [{ "controlId": "host.ssh-effective", "profileIds": ["macos-current-arm64"], "roleIds": ["mac-developer-ci"], "applicability": "baseline", "mechanism": "Remote Login and Mesh policy", "desiredState": "declared users and sources only", "positiveProbe": "open an approved Mesh SSH session", "negativeProbe": "deny undeclared users and paths", "evidenceMaxAgeSeconds": 86400, "recovery": null, "mandatory": true, "ownerPhase": "6" }],
+        "observed": { "profileId": "macos-current-arm64", "release": "current", "roleId": "mac-developer-ci", "evidenceState": "configured-and-probed", "collectedAt": "2026-09-04T15:50:00Z" }
+      },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "lockout-sensitive controls require an independent recovery path" }
+    }
+  ]
+}

@@ -77,6 +77,10 @@ Required invariants:
 - evaluation is deterministic and produces `passed`, `failed`, `expired` or `blocked`; manual override creates a separate time-bounded exception plan, never edits evidence;
 - replacement/reimage, version change or evidence expiry invalidates only the affected subjects and downstream gates.
 
+Host-admission evidence adds the `host-security-v1` extension: immutable `hostId`, exact OS release/build, `profileVersion`, `declarationRevision`, `recoveryEpoch`, trigger (`daily` or `after-change`), `collectedAt`, `evaluatedAt`, and every applicable mandatory control with its `controlId`, state, `evidenceMaxAgeSeconds` and relevant-change timestamp. The Phase 0.4 contract caps mandatory evidence at `86400` seconds. An `after-change` evaluation rejects evidence collected before that change even when it is less than a day old. Missing, failed, unknown, skipped and expired are distinct non-passing states.
+
+The evaluator applies the result by operation, not as a blanket host kill switch. Non-passing mandatory evidence blocks `admit-workload`, `expand-role` and `issue-workload-credential`. It preserves a declared safe existing workload and the independently authorized recovery path while recording the blocker. Replacement/reimage or a changed recovery epoch invalidates prior evidence; historical bundles remain immutable and cannot be rebound to the new host epoch. Phase 5 implements the shared evidence/evaluator and native-credential binding, Phase 6 supplies real OS/reboot/idempotence proof, Phase 7 supplies Mesh policy evidence, Phase 10 owns recurring drift and planned repair, and Phase 11 proves the complete matrix.
+
 ## Physical, LAN and acceptance procedures
 
 ### Inventory and discovery — `G-001` through `G-004`
