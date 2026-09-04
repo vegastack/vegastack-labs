@@ -26,6 +26,43 @@
         "first-browser-authority-denied",
         "client-asserted-identity-denied"
       ]
+    },
+    {
+      "contract": "slack-acknowledgement",
+      "file": "slack-acknowledgement.json",
+      "requiredCaseIds": [
+        "bootstrap-approved",
+        "ordinary-plan-approved",
+        "ordinary-plan-rejected",
+        "missing-authenticated-envelope",
+        "wrong-workspace-denied",
+        "wrong-user-denied",
+        "agent-controlled-session-insufficient",
+        "changed-digest-denied",
+        "changed-target-denied",
+        "stale-plan-denied",
+        "expired-request-denied",
+        "duplicate-click-idempotent",
+        "replay-denied",
+        "recovery-epoch-mismatch",
+        "socket-mode-outage",
+        "adapter-token-failure",
+        "lost-approver-access",
+        "missing-proof"
+      ]
+    },
+    {
+      "contract": "approver-import",
+      "file": "approver-import.json",
+      "requiredCaseIds": [
+        "bootstrap-seed-remains-inert",
+        "existing-admin-add-accepted",
+        "proposed-user-self-add-denied",
+        "existing-admin-widen-accepted",
+        "proposed-user-self-widen-denied",
+        "removal-invalidates-outstanding",
+        "file-replacement-cannot-authorize"
+      ]
     }
   ]
 }

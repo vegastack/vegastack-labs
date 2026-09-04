@@ -50,3 +50,23 @@ test("installation and setup fixtures cover atomic first use and interruption", 
   assert.ok(setupIds.includes("single-writer-handoff"));
   assert.ok(setupIds.includes("interruption-enters-recovery"));
 });
+
+test("Slack cases bind exact identity and prevent self-authorization", async () => {
+  const fixtures = await loadPhaseZeroThreeFixtures(ROOT);
+  const cases = fixtures.get("slack-acknowledgement").cases;
+
+  assert.equal(
+    cases.find(({ id }) => id === "wrong-workspace-denied").expected.errorCode,
+    "AUTHORIZATION_DENIED",
+  );
+  assert.equal(
+    cases.find(({ id }) => id === "recovery-epoch-mismatch").expected.errorCode,
+    "RECOVERY_EPOCH_MISMATCH",
+  );
+  assert.equal(
+    fixtures
+      .get("approver-import")
+      .cases.find(({ id }) => id === "proposed-user-self-add-denied").expected.errorCode,
+    "AUTHORIZATION_DENIED",
+  );
+});

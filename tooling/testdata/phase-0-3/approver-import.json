@@ -1,0 +1,155 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.3-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "approver-import",
+  "cases": [
+    {
+      "id": "bootstrap-seed-remains-inert",
+      "input": {
+        "workspaceId": "workspace-synthetic-approved",
+        "mappings": [
+          {
+            "slackUserId": "slack-user-synthetic-approved",
+            "localHumanPrincipalId": "person-synthetic-admin",
+            "approvalClasses": ["control-plane-bootstrap"]
+          }
+        ],
+        "priorEffectivePolicyRevision": null,
+        "proposedRevision": 1,
+        "authorizingApproverId": null,
+        "operation": "seed-bootstrap-desired-state"
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The installation manifest may seed an inert mapping that becomes effective only after the exact Slack bootstrap approval."
+      }
+    },
+    {
+      "id": "existing-admin-add-accepted",
+      "input": {
+        "workspaceId": "workspace-synthetic-approved",
+        "mappings": [
+          {
+            "slackUserId": "slack-user-synthetic-new",
+            "localHumanPrincipalId": "person-synthetic-new",
+            "approvalClasses": ["assigned-project-routine"]
+          }
+        ],
+        "priorEffectivePolicyRevision": 7,
+        "proposedRevision": 8,
+        "authorizingApproverId": "person-synthetic-admin",
+        "operation": "add-approver"
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "A currently effective administrator may approve an inert revision that adds a narrower approver."
+      }
+    },
+    {
+      "id": "proposed-user-self-add-denied",
+      "input": {
+        "workspaceId": "workspace-synthetic-approved",
+        "mappings": [
+          {
+            "slackUserId": "slack-user-synthetic-new",
+            "localHumanPrincipalId": "person-synthetic-new",
+            "approvalClasses": ["assigned-project-routine"]
+          }
+        ],
+        "priorEffectivePolicyRevision": 7,
+        "proposedRevision": 8,
+        "authorizingApproverId": "person-synthetic-new",
+        "operation": "add-approver"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "A proposed approver cannot authorize their own addition."
+      }
+    },
+    {
+      "id": "existing-admin-widen-accepted",
+      "input": {
+        "workspaceId": "workspace-synthetic-approved",
+        "mappings": [
+          {
+            "slackUserId": "slack-user-synthetic-maintainer",
+            "localHumanPrincipalId": "person-synthetic-maintainer",
+            "approvalClasses": ["assigned-project-routine", "node-change"]
+          }
+        ],
+        "priorEffectivePolicyRevision": 8,
+        "proposedRevision": 9,
+        "authorizingApproverId": "person-synthetic-admin",
+        "operation": "widen-approver"
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "A currently effective infrastructure administrator may approve a visible scope expansion."
+      }
+    },
+    {
+      "id": "proposed-user-self-widen-denied",
+      "input": {
+        "workspaceId": "workspace-synthetic-approved",
+        "mappings": [
+          {
+            "slackUserId": "slack-user-synthetic-maintainer",
+            "localHumanPrincipalId": "person-synthetic-maintainer",
+            "approvalClasses": ["assigned-project-routine", "node-change"]
+          }
+        ],
+        "priorEffectivePolicyRevision": 8,
+        "proposedRevision": 9,
+        "authorizingApproverId": "person-synthetic-maintainer",
+        "operation": "widen-approver"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "An approver cannot authorize expansion of their own effective classes."
+      }
+    },
+    {
+      "id": "removal-invalidates-outstanding",
+      "input": {
+        "workspaceId": "workspace-synthetic-approved",
+        "mappings": [],
+        "priorEffectivePolicyRevision": 9,
+        "proposedRevision": 10,
+        "authorizingApproverId": "person-synthetic-admin",
+        "operation": "remove-approver-and-invalidate-requests"
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "An approved removal invalidates the removed principal's outstanding requests before another apply."
+      }
+    },
+    {
+      "id": "file-replacement-cannot-authorize",
+      "input": {
+        "workspaceId": "workspace-synthetic-replaced",
+        "mappings": [
+          {
+            "slackUserId": "slack-user-synthetic-attacker",
+            "localHumanPrincipalId": "person-synthetic-attacker",
+            "approvalClasses": ["control-plane-bootstrap", "network-change"]
+          }
+        ],
+        "priorEffectivePolicyRevision": 9,
+        "proposedRevision": 10,
+        "authorizingApproverId": null,
+        "operation": "replace-private-file"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "Replacing the private declaration file changes no effective authority without an authorized plan."
+      }
+    }
+  ]
+}

@@ -1,0 +1,529 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.3-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "slack-acknowledgement",
+  "cases": [
+    {
+      "id": "bootstrap-approved",
+      "input": {
+        "requestId": "approval-bootstrap-001",
+        "requestKind": "bootstrap",
+        "planId": null,
+        "installationManifestId": "manifest-synthetic-001",
+        "subjectDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "targetSetDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "reasonDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "riskClass": "control-plane-bootstrap",
+        "responsibleHumanId": "person-synthetic-admin",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-approved",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-001",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:00:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-001",
+        "stateRevision": 0,
+        "recoveryEpoch": 0
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The authenticated independent Slack action matches the exact bootstrap request."
+      }
+    },
+    {
+      "id": "ordinary-plan-approved",
+      "input": {
+        "requestId": "approval-plan-001",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-001",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "targetSetDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "reasonDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-002",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:02:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-002",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The authenticated approver is currently authorized for the exact plan and risk class."
+      }
+    },
+    {
+      "id": "ordinary-plan-rejected",
+      "input": {
+        "requestId": "approval-plan-002",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-002",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "targetSetDigest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "reasonDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "riskClass": "network-change",
+        "responsibleHumanId": "person-synthetic-admin",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-approved",
+        "action": "reject",
+        "envelopeId": "envelope-synthetic-003",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:03:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-003",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "An authenticated rejection consumes the request without granting execution authority."
+      }
+    },
+    {
+      "id": "missing-authenticated-envelope",
+      "input": {
+        "requestId": "approval-plan-003",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-003",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": null,
+        "sessionControl": "unknown",
+        "receivedAt": "2026-09-04T13:04:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-004",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHENTICATION_REQUIRED",
+        "reason": "A Slack user ID without an authenticated interaction envelope is not proof."
+      }
+    },
+    {
+      "id": "wrong-workspace-denied",
+      "input": {
+        "requestId": "approval-plan-004",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-004",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-wrong",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-004",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:05:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-005",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The authenticated Slack workspace does not match the request."
+      }
+    },
+    {
+      "id": "wrong-user-denied",
+      "input": {
+        "requestId": "approval-plan-005",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-005",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-unmapped",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-005",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:06:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-006",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The Slack user is not the configured local human for this request."
+      }
+    },
+    {
+      "id": "agent-controlled-session-insufficient",
+      "input": {
+        "requestId": "approval-plan-006",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-006",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-006",
+        "sessionControl": "agent-accessible",
+        "receivedAt": "2026-09-04T13:07:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-007",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "APPROVAL_REQUIRED",
+        "reason": "The threat model requires a Slack session outside the assisting agent's control."
+      }
+    },
+    {
+      "id": "changed-digest-denied",
+      "input": {
+        "requestId": "approval-plan-007",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-007",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-007",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:08:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-008",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The current plan digest differs from the locally stored request subject."
+      }
+    },
+    {
+      "id": "changed-target-denied",
+      "input": {
+        "requestId": "approval-plan-008",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-008",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-008",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:09:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-009",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The current target set differs from the locally stored request."
+      }
+    },
+    {
+      "id": "stale-plan-denied",
+      "input": {
+        "requestId": "approval-plan-009",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-stale",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-009",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:10:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-010",
+        "stateRevision": 41,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PLAN_STALE",
+        "reason": "The request's state revision is no longer current."
+      }
+    },
+    {
+      "id": "expired-request-denied",
+      "input": {
+        "requestId": "approval-plan-010",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-010",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-010",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:31:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-011",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PLAN_STALE",
+        "reason": "The one-use approval request expired before the action arrived."
+      }
+    },
+    {
+      "id": "duplicate-click-idempotent",
+      "input": {
+        "requestId": "approval-plan-consumed",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-consumed",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-duplicate",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:11:01Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-consumed",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "An identical duplicate click returns the original consumed result and creates no second acknowledgement."
+      }
+    },
+    {
+      "id": "replay-denied",
+      "input": {
+        "requestId": "approval-plan-consumed",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-other",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-replay",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:12:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-consumed",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "STATE_CONFLICT",
+        "reason": "A consumed nonce cannot authorize a different plan or envelope."
+      }
+    },
+    {
+      "id": "recovery-epoch-mismatch",
+      "input": {
+        "requestId": "approval-plan-011",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-011",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": "envelope-synthetic-011",
+        "sessionControl": "independent-human",
+        "receivedAt": "2026-09-04T13:13:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-012",
+        "stateRevision": 42,
+        "recoveryEpoch": 2
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "RECOVERY_EPOCH_MISMATCH",
+        "reason": "Recovery invalidates every acknowledgement from the prior epoch."
+      }
+    },
+    {
+      "id": "socket-mode-outage",
+      "input": {
+        "requestId": "approval-plan-012",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-012",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": null,
+        "sessionControl": "unavailable",
+        "receivedAt": "2026-09-04T13:14:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-013",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "DEPENDENCY_UNAVAILABLE",
+        "reason": "Loss of the Socket Mode connection grants no approval and starts no execution."
+      }
+    },
+    {
+      "id": "adapter-token-failure",
+      "input": {
+        "requestId": "approval-plan-013",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-013",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": "approve",
+        "envelopeId": null,
+        "sessionControl": "adapter-credential-invalid",
+        "receivedAt": "2026-09-04T13:15:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-014",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "DEPENDENCY_UNAVAILABLE",
+        "reason": "An invalid logical Slack credential reference blocks the adapter without revealing a value."
+      }
+    },
+    {
+      "id": "lost-approver-access",
+      "input": {
+        "requestId": "approval-plan-014",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-014",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-revoked",
+        "action": "approve",
+        "envelopeId": null,
+        "sessionControl": "revoked",
+        "receivedAt": "2026-09-04T13:16:00Z",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-015",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PREREQUISITE_BLOCKED",
+        "reason": "Normal mutation remains blocked until an effective approver is restored or break-glass is separately authorized."
+      }
+    },
+    {
+      "id": "missing-proof",
+      "input": {
+        "requestId": "approval-plan-015",
+        "requestKind": "plan",
+        "planId": "plan-synthetic-015",
+        "installationManifestId": null,
+        "subjectDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "targetSetDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "reasonDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "riskClass": "assigned-project-routine",
+        "responsibleHumanId": "person-synthetic-maintainer",
+        "workspaceId": "workspace-synthetic-approved",
+        "slackUserId": "slack-user-synthetic-maintainer",
+        "action": null,
+        "envelopeId": null,
+        "sessionControl": "independent-human",
+        "receivedAt": null,
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-slack-synthetic-016",
+        "stateRevision": 42,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "APPROVAL_REQUIRED",
+        "reason": "Authentication and plan creation do not substitute for the required human action."
+      }
+    }
+  ]
+}
