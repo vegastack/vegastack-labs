@@ -263,3 +263,162 @@ test("recovery handoff cannot be classified as routine approval", async () => {
     "assigned-project-routine";
   assert.throws(() => validatePhaseZeroThreeFixture(document, "memory"), /recovery-specific risk class/);
 });
+
+test("named manifest, Slack, and SSH denial facts cannot be repaired", async () => {
+  const fixtures = await loadPhaseZeroThreeFixtures(ROOT);
+  const assertRepairRejected = (contract, caseId, repair) => {
+    const document = structuredClone(fixtures.get(contract));
+    const input = document.cases.find(({ id }) => id === caseId).input;
+    repair(input, document);
+    assert.throws(
+      () => validatePhaseZeroThreeFixture(document, "memory"),
+      /denial fact|must carry|must precede|must use|must differ|must model|framing mismatch/,
+      `${contract}/${caseId}`,
+    );
+  };
+
+  const acceptedManifest = fixtures.get("installation-manifest").cases.find(({ id }) => id === "first-use-accepted").input;
+  assertRepairRejected("installation-manifest", "release-substitution-denied", (input) => {
+    input.releaseBuildId = acceptedManifest.releaseBuildId;
+    input.releaseDigest = acceptedManifest.releaseDigest;
+  });
+  for (const id of ["target-substitution-denied", "forged-ssh-binding-denied"]) {
+    assertRepairRejected("installation-manifest", id, (input) => {
+      input.hostIdentity.subject = input.initialAdministrator.sshPrincipalId;
+    });
+  }
+  assertRepairRejected("installation-manifest", "cross-user-binding-denied", (input) => {
+    input.profileProvenance.acknowledgementAdapter.extension.initialMapping.localHumanPrincipalId =
+      input.initialAdministrator.localPrincipalId;
+  });
+
+  const slackCases = new Map(fixtures.get("slack-acknowledgement").cases.map((entry) => [entry.id, entry.input]));
+  const currentSlack = slackCases.get("missing-authenticated-envelope");
+  assertRepairRejected("slack-acknowledgement", "changed-digest-denied", (input) => {
+    input.subjectDigest = currentSlack.subjectDigest;
+  });
+  assertRepairRejected("slack-acknowledgement", "changed-target-denied", (input) => {
+    input.targetSetDigest = currentSlack.targetSetDigest;
+  });
+  assertRepairRejected("slack-acknowledgement", "stale-plan-denied", (input) => {
+    input.stateRevision = currentSlack.stateRevision;
+  });
+  assertRepairRejected("slack-acknowledgement", "recovery-epoch-mismatch", (input) => {
+    input.recoveryEpoch = currentSlack.recoveryEpoch;
+  });
+
+  assertRepairRejected("constrained-ssh", "shell-text-denied", (input) => {
+    input.operation = "GET /api/v1/summary";
+    input.arguments = ["--output", "json"];
+  });
+  assertRepairRejected("constrained-ssh", "path-denied", (input) => {
+    input.operation = "GET /api/v1/summary";
+    input.arguments = ["--output", "json"];
+  });
+  assertRepairRejected("constrained-ssh", "unknown-operation-denied", (input) => {
+    input.operation = "GET /api/v1/summary";
+  });
+  assertRepairRejected("constrained-ssh", "unsupported-version-denied", (input) => {
+    input.version = "1.0.0";
+  });
+  assertRepairRejected("constrained-ssh", "client-asserted-identity-denied", (input) => {
+    input.sshPrincipalId = "ssh-principal-synthetic-reader";
+  });
+  assertRepairRejected("constrained-ssh", "principal-device-mismatch", (input) => {
+    input.deviceId = "device-synthetic-reader";
+  });
+});
+
+test("all remaining negative families retain independently checked causal facts", async () => {
+  const fixtures = await loadPhaseZeroThreeFixtures(ROOT);
+  const repairCases = [
+    ["installation-manifest", "consumed-replay-denied", (input) => { input.state = "pending"; }],
+    ["installation-manifest", "expired-denied", (input) => { input.expiresAt = "2026-09-04T13:30:00Z"; }],
+    ["installation-manifest", "interrupted-consumption-denied", (input) => { input.state = "pending"; }],
+    ["installation-manifest", "invalid-signature-denied", (input) => { input.recoveryPreconditions[0].verificationStatus = "verified"; }],
+    ["installation-manifest", "untrusted-signer-denied", (input) => { input.recoveryPreconditions[0].verificationStatus = "verified"; }],
+    ["installation-manifest", "post-approval-manifest-mutation-denied", (input) => { input.releaseDigest = `sha256:${"a".repeat(64)}`; }],
+    ["setup-state", "interruption-enters-recovery", (input) => { input.operation = "consume-manifest-and-start-server"; }],
+    ["setup-state", "manifest-reuse-denied", (input) => { input.operation = "prepare-foundation-capability"; }],
+    ["setup-state", "second-writer-denied", (input) => { input.writerState = "server-exclusive"; }],
+    ["setup-state", "hostname-authority-denied", (input) => { input.operation = "prepare-foundation-capability"; }],
+    ["setup-state", "first-browser-authority-denied", (input) => { input.operation = "prepare-foundation-capability"; }],
+    ["setup-state", "client-asserted-identity-denied", (input) => { input.operation = "prepare-foundation-capability"; }],
+    ["slack-acknowledgement", "missing-authenticated-envelope", (input) => { input.envelopeId = "envelope-synthetic-repaired"; }],
+    ["slack-acknowledgement", "wrong-workspace-denied", (input) => { input.workspaceId = "workspace-synthetic-approved"; }],
+    ["slack-acknowledgement", "wrong-user-denied", (input) => { input.slackUserId = "slack-user-synthetic-maintainer"; }],
+    ["slack-acknowledgement", "agent-controlled-session-insufficient", (input) => { input.sessionControl = "independent-human"; }],
+    ["slack-acknowledgement", "expired-request-denied", (input) => { input.receivedAt = "2026-09-04T13:29:00Z"; }],
+    ["slack-acknowledgement", "replay-denied", (input) => { input.requestId = "approval-synthetic-repaired"; }],
+    ["slack-acknowledgement", "socket-mode-outage", (input) => { input.sessionControl = "independent-human"; }],
+    ["slack-acknowledgement", "adapter-token-failure", (input) => { input.sessionControl = "independent-human"; }],
+    ["slack-acknowledgement", "lost-approver-access", (input) => { input.sessionControl = "independent-human"; }],
+    ["slack-acknowledgement", "missing-proof", (input) => { input.action = "approve"; }],
+    ["slack-acknowledgement", "bootstrap-approval-request-substitution-denied", (input) => { input.requestId = "approval-synthetic-bootstrap-001"; }],
+    ["slack-acknowledgement", "bootstrap-mapping-substitution-denied", (input) => { input.responsibleHumanId = "person-synthetic-admin"; input.slackUserId = "slack-user-synthetic-approved"; }],
+    ["slack-acknowledgement", "automatic-break-glass-fallback-denied", (input) => { input.action = "handoff-break-glass"; input.breakGlassHandoff.authorizationState = "separately-authorized"; input.breakGlassHandoff.toRecoveryEpoch = 4; }],
+    ["approver-import", "proposed-user-self-add-denied", (input) => { input.authorizingApproverId = "person-synthetic-admin"; }],
+    ["approver-import", "proposed-user-self-widen-denied", (input) => { input.authorizingApproverId = "person-synthetic-admin"; }],
+    ["approver-import", "file-replacement-cannot-authorize", (input) => { input.authorizingApproverId = "person-synthetic-admin"; }],
+    ["profile-gates", "minimal-bootstrap-without-slack-blocked", (input) => { input.slackCapabilityState = "qualified"; }],
+    ["profile-gates", "minimal-apply-without-slack-blocked", (input) => { input.slackCapabilityState = "qualified"; }],
+    ["profile-gates", "slack-unavailable-blocked", (input) => { input.slackCapabilityState = "qualified"; }],
+    ["profile-gates", "stale-slack-binding-blocked", (input) => { input.slackCapabilityState = "qualified"; }],
+    ["profile-gates", "wrong-workspace-blocked", (input) => { input.slackCapabilityState = "qualified"; }],
+    ["profile-gates", "missing-mandatory-evidence-blocked", (input) => { input.gates[0].evidenceState = "current"; }],
+    ["profile-gates", "conflicting-provenance-blocked", (input) => { input.resolvedValues.pop(); }],
+    ["constrained-ssh", "direct-sqlite-denied", (input) => { input.operation = "GET /api/v1/summary"; input.arguments = ["--output", "json"]; }],
+    ["constrained-ssh", "malformed-length-denied", (input) => { input.declaredPayloadBytes = input.actualPayloadBytes; }],
+    ["constrained-ssh", "recovery-epoch-mismatch", (input) => { input.recoveryEpoch = 3; }],
+    ["constrained-ssh", "response-length-denied", (input) => { input.responseFrame.declaredPayloadBytes = input.responseFrame.actualPayloadBytes; }],
+    ["constrained-ssh", "response-version-denied", (input) => { input.responseFrame.version = "1.0.0"; }],
+    ["constrained-ssh", "response-correlation-denied", (input) => { input.responseFrame.requestId = input.requestId; input.responseFrame.envelope.requestId = input.requestId; }],
+  ];
+  for (const [contract, caseId, repair] of repairCases) {
+    const document = structuredClone(fixtures.get(contract));
+    repair(document.cases.find(({ id }) => id === caseId).input);
+    assert.throws(() => validatePhaseZeroThreeFixture(document, "memory"), undefined, `${contract}/${caseId}`);
+  }
+});
+
+test("sanitization covers prohibited private-value categories before field and duplicate errors", async () => {
+  const fixtures = await loadPhaseZeroThreeFixtures(ROOT);
+  const privateValues = [
+    [["signing", "secret"].join("_"), ["material", "must", "not", "echo"].join("-")].join("="),
+    [["T", "123456789"].join(""), ["U", "123456789"].join("")].join("->"),
+    [["private", "user", "mapping"].join("_"), ["person", "must", "not", "echo"].join("-")].join(":"),
+    [["host", "fact"].join("_"), ["host", "must", "not", "echo"].join("-")].join("="),
+    [["operational", "evidence"].join("_"), ["evidence", "must", "not", "echo"].join("-")].join(":"),
+  ];
+  for (const privateValue of privateValues) {
+    const document = structuredClone(fixtures.get("slack-acknowledgement"));
+    document.cases[0].expected.reason = privateValue;
+    let message = "";
+    try {
+      validatePhaseZeroThreeFixture(document, "memory");
+      assert.fail("expected private fixture value to be rejected");
+    } catch (error) {
+      message = error.message;
+    }
+    assert.match(message, /contains (?:prohibited|a Slack)/);
+    assert.doesNotMatch(message, /must-not-echo|123456789/);
+  }
+
+  const credentialKey = ["xapp", "duplicate", "must", "not", "echo"].join("-");
+  for (const mutate of [
+    (document) => { document.cases[0].id = credentialKey; document.cases[1].id = credentialKey; },
+    (document) => { document.cases[0][credentialKey] = true; },
+  ]) {
+    const document = structuredClone(fixtures.get("slack-acknowledgement"));
+    mutate(document);
+    let message = "";
+    try {
+      validatePhaseZeroThreeFixture(document, "memory");
+      assert.fail("expected pre-validation sanitation to reject fixture-controlled content");
+    } catch (error) {
+      message = error.message;
+    }
+    assert.match(message, /Slack credential value/);
+    assert.doesNotMatch(message, /must-not-echo/);
+  }
+});

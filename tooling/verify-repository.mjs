@@ -44,6 +44,16 @@ export function findSecretMarkers(text) {
   if (/\bx(?:app|ox[abprs])-[A-Za-z0-9-]+\b/.test(text)) {
     markers.push("Slack credential value");
   }
+  const privateValuePatterns = [
+    [/\b(?:slack[ _-]?)?signing[ _-]?secret\s*(?:=|:)\s*["']?[A-Za-z0-9][A-Za-z0-9_-]{7,}/i, "signing-secret value"],
+    [/\bT[A-Z0-9]{8,}\s*(?:->|:|\/)\s*U[A-Z0-9]{8,}\b/, "private Slack user mapping"],
+    [/\bprivate[ _-]?user[ _-]?mapping\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i, "private user mapping"],
+    [/\bhost[ _-]?fact\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i, "private host fact"],
+    [/\boperational[ _-]?evidence\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i, "private operational evidence"],
+  ];
+  for (const [pattern, marker] of privateValuePatterns) {
+    if (pattern.test(text)) markers.push(marker);
+  }
   const assignments = [
     ...assignmentValues(text, ACCESS_ENV_NAME, "="),
     ...assignmentValues(text, ACCESS_HEADER_NAME, ":", true),
@@ -135,6 +145,10 @@ export async function verifyRepository(root = ROOT, runtimeVersion = process.ver
   const files = await listTrackedFiles(root);
   for (const relative of files) {
     const basename = path.basename(relative);
+    const pathMarkers = findSecretMarkers(relative);
+    if (pathMarkers.length > 0) {
+      throw new Error(`tracked path contains prohibited ${pathMarkers.join(" and ")}`);
+    }
     if (isSecretEnvironmentFile(relative)) {
       throw new Error(`secret-bearing environment file must not be tracked: ${relative}`);
     }

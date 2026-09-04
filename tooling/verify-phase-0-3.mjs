@@ -8,6 +8,31 @@ const FIXTURE_SCHEMA = "vegastack-labs.dev/phase-0.3-contract-fixture";
 const INDEX_SCHEMA = "vegastack-labs.dev/phase-0.3-contract-index";
 const SCHEMA_VERSION = "1.0.0";
 const FIXTURE_EVALUATION_TIME = Date.parse("2026-09-04T13:15:00Z");
+const FIXTURE_FACTS = Object.freeze({
+  approvedReleaseBuildId: "release-synthetic-001",
+  approvedReleaseDigest: `sha256:${"a".repeat(64)}`,
+  approvedWorkspaceId: "workspace-synthetic-approved",
+  approvedOrdinarySlackUserId: "slack-user-synthetic-maintainer",
+  bootstrapApprovalRequestId: "approval-synthetic-bootstrap-001",
+  bootstrapManifestId: "manifest-synthetic-001",
+  bootstrapResponsibleHumanId: "person-synthetic-admin",
+  bootstrapSlackUserId: "slack-user-synthetic-approved",
+  consumedApprovalRequestId: "approval-synthetic-plan-consumed",
+  consumedApprovalNonce: "nonce-slack-synthetic-consumed",
+  currentPlanDigest: `sha256:${"a".repeat(64)}`,
+  currentTargetSetDigest: `sha256:${"b".repeat(64)}`,
+  currentStateRevision: 42,
+  currentRecoveryEpoch: 3,
+  readerPrincipalId: "ssh-principal-synthetic-reader",
+  readerDeviceId: "device-synthetic-reader",
+});
+
+const DECLARED_SSH_OPERATIONS = new Set([
+  "GET /api/v1/summary",
+  "POST /api/v1/plans",
+  "POST /api/v1/plans/plan-synthetic-001/execute",
+  "GET /api/v1/runs/run-synthetic-001",
+]);
 
 const CONTRACT_NAMES = new Set([
   "installation-manifest",
@@ -177,25 +202,39 @@ function assertKeys(value, required, optional, label) {
 function assertSanitized(value, label = "fixture") {
   const forbiddenKey = /(?:password|private.?key|signing.?secret|secret.?value|credential.?value|raw.?payload|host.?fact|operational.?evidence)/i;
   const slackToken = /\bx(?:app|ox[abprs])-[A-Za-z0-9-]+/;
-  function visit(current, currentLabel) {
+  const privateValues = [
+    [/\b(?:slack[ _-]?)?signing[ _-]?secret\s*(?:=|:)\s*["']?[A-Za-z0-9][A-Za-z0-9_-]{7,}/i, "signing-secret value"],
+    [/\bT[A-Z0-9]{8,}\s*(?:->|:|\/)\s*U[A-Z0-9]{8,}\b/, "private Slack user mapping"],
+    [/\bprivate[ _-]?user[ _-]?mapping\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i, "private user mapping"],
+    [/\bhost[ _-]?fact\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i, "private host fact"],
+    [/\boperational[ _-]?evidence\s*(?:=|:)\s*["']?[^\s,"'}]{4,}/i, "private operational evidence"],
+  ];
+  function inspectString(current) {
+    if (slackToken.test(current)) throw new Error(`${label} contains a Slack credential value`);
+    for (const [pattern, category] of privateValues) {
+      if (pattern.test(current)) throw new Error(`${label} contains prohibited ${category}`);
+    }
+  }
+  function visit(current) {
     if (typeof current === "string") {
-      if (slackToken.test(current)) throw new Error(`${currentLabel} contains a Slack credential value`);
+      inspectString(current);
       return;
     }
     if (Array.isArray(current)) {
-      current.forEach((entry, index) => visit(entry, `${currentLabel}[${index}]`));
+      current.forEach((entry) => visit(entry));
       return;
     }
     if (current === null || typeof current !== "object") return;
     for (const [key, child] of Object.entries(current)) {
-      if (forbiddenKey.test(key)) throw new Error(`${currentLabel}.${key} is a forbidden private-value field`);
+      inspectString(key);
+      if (forbiddenKey.test(key)) throw new Error(`${label} contains a forbidden private-value field`);
       if (/token/i.test(key) && !/(?:Ref|Refs)$/.test(key)) {
-        throw new Error(`${currentLabel}.${key} must be represented as a logical reference`);
+        throw new Error(`${label} contains a token field that is not a logical reference`);
       }
-      visit(child, `${currentLabel}.${key}`);
+      visit(child);
     }
   }
-  visit(value, label);
+  visit(value);
 }
 
 const MANIFEST_KEYS = [
@@ -472,8 +511,234 @@ const INPUT_VALIDATORS = new Map([
   ["profile-gates", validateProfileGates],
 ]);
 
+function requireNegativeFact(condition, label, description) {
+  if (!condition) throw new Error(`${label} must preserve its denial fact: ${description}`);
+}
+
+function validateInstallationNegativeFacts(contractCase, inputs, label) {
+  const input = contractCase.input;
+  const accepted = inputs.get("first-use-accepted");
+  requireNegativeFact(accepted.releaseBuildId === FIXTURE_FACTS.approvedReleaseBuildId && accepted.releaseDigest === FIXTURE_FACTS.approvedReleaseDigest, label, "the accepted reference carries the pinned approved release");
+  const integrity = manifestIntegrity(input, label);
+  switch (contractCase.id) {
+    case "consumed-replay-denied":
+      requireNegativeFact(input.state === "consumed", label, "the manifest is already consumed");
+      break;
+    case "expired-denied":
+      requireNegativeFact(Date.parse(input.expiresAt) < FIXTURE_EVALUATION_TIME, label, "the manifest is expired");
+      break;
+    case "release-substitution-denied":
+      requireNegativeFact(input.releaseBuildId !== FIXTURE_FACTS.approvedReleaseBuildId && input.releaseDigest !== FIXTURE_FACTS.approvedReleaseDigest, label, "release build and digest differ from the approved release");
+      break;
+    case "target-substitution-denied":
+    case "forged-ssh-binding-denied":
+      requireNegativeFact(input.hostIdentity.kind === "verified-ssh" && input.hostIdentity.subject !== input.initialAdministrator.sshPrincipalId, label, "the observed SSH subject differs from the administrator binding");
+      break;
+    case "interrupted-consumption-denied":
+      requireNegativeFact(input.state === "consuming", label, "manifest consumption is interrupted in progress");
+      break;
+    case "invalid-signature-denied":
+      requireNegativeFact(integrity.verificationStatus === "invalid", label, "signature verification is invalid");
+      break;
+    case "untrusted-signer-denied":
+      requireNegativeFact(integrity.verificationStatus === "untrusted", label, "the signer is untrusted");
+      break;
+    case "post-approval-manifest-mutation-denied":
+      requireNegativeFact(integrity.verificationStatus === "invalid" && input.releaseDigest !== FIXTURE_FACTS.approvedReleaseDigest, label, "post-approval content changed and invalidated verification");
+      break;
+    case "cross-user-binding-denied": {
+      const mapping = manifestAcknowledgementExtension(input, label).initialMapping;
+      requireNegativeFact(mapping.localHumanPrincipalId !== input.initialAdministrator.localPrincipalId, label, "the Slack mapping resolves to another local human");
+      break;
+    }
+    default:
+      throw new Error(`${label} has no independent installation-manifest denial-fact validator`);
+  }
+}
+
+function validateSetupNegativeFacts(contractCase, _inputs, label) {
+  const input = contractCase.input;
+  const expected = {
+    "interruption-enters-recovery": ["resume-interrupted-manifest", "consuming", "unknown", "recovery-required"],
+    "manifest-reuse-denied": ["reuse-consumed-manifest", "consumed", "server-exclusive", "local-setup-service"],
+    "second-writer-denied": ["open-second-writable-database", "consumed", "conflicting-writer", "recovery-required"],
+    "hostname-authority-denied": ["bind-administrator-from-hostname", "pending", "none", "uninitialized"],
+    "first-browser-authority-denied": ["bind-first-browser-visitor", "pending", "none", "uninitialized"],
+    "client-asserted-identity-denied": ["bind-client-asserted-principal", "pending", "none", "uninitialized"],
+  }[contractCase.id];
+  requireNegativeFact(expected !== undefined && [input.operation, input.manifestState, input.writerState, input.to].every((value, index) => value === expected[index]), label, "the named setup authority or writer hazard remains present");
+}
+
+function validateSlackNegativeFacts(contractCase, inputs, label) {
+  const input = contractCase.input;
+  const bootstrap = inputs.get("bootstrap-approved");
+  const duplicate = inputs.get("duplicate-click-idempotent");
+  requireNegativeFact(bootstrap.requestId === FIXTURE_FACTS.bootstrapApprovalRequestId && bootstrap.installationManifestId === FIXTURE_FACTS.bootstrapManifestId && bootstrap.responsibleHumanId === FIXTURE_FACTS.bootstrapResponsibleHumanId && bootstrap.slackUserId === FIXTURE_FACTS.bootstrapSlackUserId, label, "the accepted bootstrap reference carries the pinned request and mapping");
+  requireNegativeFact(duplicate.requestId === FIXTURE_FACTS.consumedApprovalRequestId && duplicate.nonce === FIXTURE_FACTS.consumedApprovalNonce, label, "the idempotent duplicate reference carries the consumed request and nonce");
+  switch (contractCase.id) {
+    case "missing-authenticated-envelope":
+      requireNegativeFact(input.envelopeId === null, label, "the authenticated interaction envelope is absent");
+      break;
+    case "wrong-workspace-denied":
+      requireNegativeFact(input.workspaceId !== FIXTURE_FACTS.approvedWorkspaceId, label, "the workspace differs from the configured workspace");
+      break;
+    case "wrong-user-denied":
+      requireNegativeFact(input.slackUserId !== FIXTURE_FACTS.approvedOrdinarySlackUserId, label, "the Slack user differs from the configured user");
+      break;
+    case "agent-controlled-session-insufficient":
+      requireNegativeFact(input.sessionControl === "agent-accessible", label, "the session is accessible to the assisting agent");
+      break;
+    case "changed-digest-denied":
+      requireNegativeFact(input.subjectDigest !== FIXTURE_FACTS.currentPlanDigest && input.targetSetDigest === FIXTURE_FACTS.currentTargetSetDigest, label, "only the protected subject digest changed");
+      break;
+    case "changed-target-denied":
+      requireNegativeFact(input.targetSetDigest !== FIXTURE_FACTS.currentTargetSetDigest && input.subjectDigest === FIXTURE_FACTS.currentPlanDigest, label, "only the protected target set changed");
+      break;
+    case "stale-plan-denied":
+      requireNegativeFact(input.stateRevision < FIXTURE_FACTS.currentStateRevision, label, "the request state revision is stale");
+      break;
+    case "expired-request-denied":
+      requireNegativeFact(Date.parse(input.receivedAt) > Date.parse(input.expiresAt), label, "the action arrived after expiry");
+      break;
+    case "replay-denied":
+      requireNegativeFact(input.requestId === FIXTURE_FACTS.consumedApprovalRequestId && input.nonce === FIXTURE_FACTS.consumedApprovalNonce && (input.planId !== duplicate.planId || input.subjectDigest !== duplicate.subjectDigest), label, "a consumed request and nonce are reused for a different subject");
+      break;
+    case "recovery-epoch-mismatch":
+      requireNegativeFact(input.recoveryEpoch < FIXTURE_FACTS.currentRecoveryEpoch, label, "the request belongs to an earlier recovery epoch");
+      break;
+    case "socket-mode-outage":
+      requireNegativeFact(input.sessionControl === "unavailable" && input.envelopeId === null, label, "Socket Mode and its authenticated envelope are unavailable");
+      break;
+    case "adapter-token-failure":
+      requireNegativeFact(input.sessionControl === "adapter-credential-invalid" && input.envelopeId === null, label, "the adapter credential is invalid");
+      break;
+    case "lost-approver-access":
+      requireNegativeFact(input.sessionControl === "revoked" && input.envelopeId === null, label, "approver access is revoked");
+      break;
+    case "missing-proof":
+      requireNegativeFact(input.action === null && input.envelopeId === null && input.receivedAt === null, label, "no human action proof exists");
+      break;
+    case "bootstrap-approval-request-substitution-denied":
+      requireNegativeFact(input.requestId !== FIXTURE_FACTS.bootstrapApprovalRequestId && input.installationManifestId === FIXTURE_FACTS.bootstrapManifestId, label, "the bootstrap approval request was substituted");
+      break;
+    case "bootstrap-mapping-substitution-denied":
+      requireNegativeFact(input.requestId === FIXTURE_FACTS.bootstrapApprovalRequestId && (input.responsibleHumanId !== FIXTURE_FACTS.bootstrapResponsibleHumanId || input.slackUserId !== FIXTURE_FACTS.bootstrapSlackUserId), label, "the bootstrap human mapping was substituted");
+      break;
+    case "automatic-break-glass-fallback-denied":
+      requireNegativeFact(input.action === "automatic-break-glass-fallback" && input.breakGlassHandoff?.authorizationState === "absent" && input.breakGlassHandoff?.toRecoveryEpoch === input.breakGlassHandoff?.fromRecoveryEpoch, label, "break-glass has no separate authorization and does not advance the epoch");
+      break;
+    default:
+      throw new Error(`${label} has no independent Slack denial-fact validator`);
+  }
+}
+
+function validateApproverNegativeFacts(contractCase, _inputs, label) {
+  const input = contractCase.input;
+  if (["proposed-user-self-add-denied", "proposed-user-self-widen-denied"].includes(contractCase.id)) {
+    requireNegativeFact(input.authorizingApproverId === input.mappings[0]?.localHumanPrincipalId, label, "the proposed user attempts to authorize themself");
+  } else if (contractCase.id === "file-replacement-cannot-authorize") {
+    requireNegativeFact(input.operation === "replace-private-file" && input.authorizingApproverId === null, label, "file replacement has no effective authorizer");
+  } else {
+    throw new Error(`${label} has no independent approver-import denial-fact validator`);
+  }
+}
+
+function validateSshNegativeFacts(contractCase, inputs, label) {
+  const input = contractCase.input;
+  const reader = inputs.get("read-request-accepted");
+  const apply = inputs.get("approved-apply-request-accepted");
+  requireNegativeFact(reader.sshPrincipalId === FIXTURE_FACTS.readerPrincipalId && reader.deviceId === FIXTURE_FACTS.readerDeviceId && apply.recoveryEpoch === FIXTURE_FACTS.currentRecoveryEpoch, label, "accepted SSH references carry the pinned principal/device and recovery epoch");
+  switch (contractCase.id) {
+    case "shell-text-denied":
+      requireNegativeFact(input.operation === "shell" && input.arguments.some((argument) => /[;&|`$]/.test(argument)), label, "arbitrary shell text is present");
+      break;
+    case "path-denied":
+      requireNegativeFact(input.operation === "read-file" && input.arguments.some((argument) => argument.includes("/") || argument.includes("control-database")), label, "a direct filesystem path is requested");
+      break;
+    case "direct-sqlite-denied":
+      requireNegativeFact(input.operation === "sqlite-query" && input.arguments.some((argument) => /\b(?:select|insert|update|delete|sqlite)\b/i.test(argument)), label, "direct SQLite access is requested");
+      break;
+    case "malformed-length-denied":
+      requireNegativeFact(input.declaredPayloadBytes !== input.actualPayloadBytes, label, "request frame lengths disagree");
+      break;
+    case "unsupported-version-denied":
+      requireNegativeFact(input.version !== "1.0.0", label, "the request protocol version is unsupported");
+      break;
+    case "unknown-operation-denied":
+      requireNegativeFact(!DECLARED_SSH_OPERATIONS.has(input.operation), label, "the operation is not in the declared API allowlist");
+      break;
+    case "client-asserted-identity-denied":
+      requireNegativeFact(input.sshPrincipalId.startsWith("client-asserted-"), label, "identity is client asserted rather than transport verified");
+      break;
+    case "principal-device-mismatch":
+      requireNegativeFact(input.sshPrincipalId === FIXTURE_FACTS.readerPrincipalId && input.deviceId !== FIXTURE_FACTS.readerDeviceId, label, "the verified principal is paired with an unbound device");
+      break;
+    case "recovery-epoch-mismatch":
+      requireNegativeFact(input.recoveryEpoch < FIXTURE_FACTS.currentRecoveryEpoch, label, "the request belongs to an earlier recovery epoch");
+      break;
+    case "response-length-denied":
+      requireNegativeFact(input.responseFrame.declaredPayloadBytes !== input.responseFrame.actualPayloadBytes, label, "response frame lengths disagree");
+      break;
+    case "response-version-denied":
+      requireNegativeFact(input.responseFrame.version !== "1.0.0", label, "the response protocol version is unsupported");
+      break;
+    case "response-correlation-denied":
+      requireNegativeFact(input.responseFrame.requestId !== input.requestId, label, "the response does not correlate to the request");
+      break;
+    default:
+      throw new Error(`${label} has no independent constrained-SSH denial-fact validator`);
+  }
+}
+
+function validateProfileNegativeFacts(contractCase, _inputs, label) {
+  const input = contractCase.input;
+  switch (contractCase.id) {
+    case "minimal-bootstrap-without-slack-blocked":
+      requireNegativeFact(input.requestedOperation === "bootstrap-control-plane" && input.slackCapabilityState === "not-configured", label, "bootstrap lacks Slack acknowledgement capability");
+      break;
+    case "minimal-apply-without-slack-blocked":
+      requireNegativeFact(input.requestedOperation === "apply-plan" && input.slackCapabilityState === "not-configured", label, "apply lacks Slack acknowledgement capability");
+      break;
+    case "slack-unavailable-blocked":
+      requireNegativeFact(input.slackCapabilityState === "unavailable", label, "Slack acknowledgement is unavailable");
+      break;
+    case "stale-slack-binding-blocked":
+      requireNegativeFact(input.slackCapabilityState === "stale", label, "the Slack binding is stale");
+      break;
+    case "wrong-workspace-blocked":
+      requireNegativeFact(input.slackCapabilityState === "wrong-workspace", label, "the workspace does not match the profile");
+      break;
+    case "missing-mandatory-evidence-blocked":
+      requireNegativeFact(input.gates.some((gate) => gate.applicability === "applicable" && gate.evidenceState === "missing"), label, "an applicable gate lacks mandatory evidence");
+      break;
+    case "conflicting-provenance-blocked": {
+      const byKey = new Map();
+      let conflict = false;
+      for (const entry of input.resolvedValues) {
+        const prior = byKey.get(entry.key);
+        if (prior !== undefined && (prior.value !== entry.value || prior.provenance !== entry.provenance)) conflict = true;
+        byKey.set(entry.key, entry);
+      }
+      requireNegativeFact(conflict, label, "one resolved value has competing owners");
+      break;
+    }
+    default:
+      throw new Error(`${label} has no independent profile-gates denial-fact validator`);
+  }
+}
+
+const NEGATIVE_FACT_VALIDATORS = new Map([
+  ["installation-manifest", validateInstallationNegativeFacts],
+  ["setup-state", validateSetupNegativeFacts],
+  ["slack-acknowledgement", validateSlackNegativeFacts],
+  ["approver-import", validateApproverNegativeFacts],
+  ["constrained-ssh", validateSshNegativeFacts],
+  ["profile-gates", validateProfileNegativeFacts],
+]);
+
 export function validatePhaseZeroThreeFixture(document, source) {
   assertPlainObject(document, source);
+  assertSanitized(document, source);
   assertExactKeys(document, ["schema", "schemaVersion", "contract", "cases"], source);
 
   if (document.schema !== FIXTURE_SCHEMA) {
@@ -493,13 +758,13 @@ export function validatePhaseZeroThreeFixture(document, source) {
   for (const [index, contractCase] of document.cases.entries()) {
     const label = `${source} cases[${index}]`;
     assertPlainObject(contractCase, label);
+    assertSanitized(contractCase, label);
     assertExactKeys(contractCase, ["id", "input", "expected"], label);
     assertNonemptyString(contractCase.id, `${label}.id`);
     if (caseIds.has(contractCase.id)) {
       throw new Error(`${source} has duplicate case id ${JSON.stringify(contractCase.id)}`);
     }
     caseIds.add(contractCase.id);
-    assertSanitized(contractCase, label);
     assertPlainObject(contractCase.input, `${label}.input`);
     INPUT_VALIDATORS.get(document.contract)(contractCase.input, contractCase, `${label}.input`);
     assertPlainObject(contractCase.expected, `${label}.expected`);
@@ -525,6 +790,13 @@ export function validatePhaseZeroThreeFixture(document, source) {
     if (contractCase.expected.status !== pinnedOutcome[0] || contractCase.expected.errorCode !== pinnedOutcome[1]) {
       throw new Error(`${label} disagrees with the independent outcome oracle`);
     }
+  }
+
+  const inputs = new Map(document.cases.map((contractCase) => [contractCase.id, contractCase.input]));
+  for (const [index, contractCase] of document.cases.entries()) {
+    if (contractCase.expected.status === "accepted") continue;
+    const label = `${source} cases[${index}].input`;
+    NEGATIVE_FACT_VALIDATORS.get(document.contract)(contractCase, inputs, label);
   }
 
   return { contract: document.contract, cases: document.cases.length };
