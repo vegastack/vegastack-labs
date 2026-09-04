@@ -1,0 +1,199 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.3-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "installation-manifest",
+  "cases": [
+    {
+      "id": "first-use-accepted",
+      "input": {
+        "manifestId": "manifest-synthetic-001",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "principal-synthetic-admin",
+          "sshPrincipalId": null,
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "approvalRequestId": "approval-synthetic-bootstrap-001",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-001",
+        "state": "pending"
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The exact signed, unexpired, pending manifest may begin its one atomic consumption."
+      }
+    },
+    {
+      "id": "consumed-replay-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-002",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "principal-synthetic-admin",
+          "sshPrincipalId": null,
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 1,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "approvalRequestId": "approval-synthetic-bootstrap-002",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-002",
+        "state": "consumed"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "STATE_CONFLICT",
+        "reason": "A consumed manifest is permanent evidence and cannot regain execution authority."
+      }
+    },
+    {
+      "id": "expired-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-003",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "principal-synthetic-admin",
+          "sshPrincipalId": null,
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "approvalRequestId": "approval-synthetic-bootstrap-003",
+        "expiresAt": "2026-09-04T12:00:00Z",
+        "nonce": "nonce-synthetic-003",
+        "state": "pending"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PLAN_STALE",
+        "reason": "Expiry invalidates the manifest and its acknowledgement."
+      }
+    },
+    {
+      "id": "release-substitution-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-004",
+        "releaseBuildId": "release-synthetic-substituted",
+        "releaseDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": { "kind": "verified-ssh", "subject": "ssh-principal-synthetic-admin" },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "principal-synthetic-admin",
+          "sshPrincipalId": "ssh-principal-synthetic-admin",
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": ["verified-ssh-session", "independent-recovery-access"],
+        "approvalRequestId": "approval-synthetic-bootstrap-004",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-004",
+        "state": "pending"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The release identity and digest differ from the approved manifest subject."
+      }
+    },
+    {
+      "id": "target-substitution-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-005",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": { "kind": "verified-ssh", "subject": "ssh-principal-synthetic-other-host" },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "principal-synthetic-admin",
+          "sshPrincipalId": "ssh-principal-synthetic-admin",
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": ["verified-ssh-session", "independent-recovery-access"],
+        "approvalRequestId": "approval-synthetic-bootstrap-005",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-005",
+        "state": "pending"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The observed installation identity differs from the approved target."
+      }
+    },
+    {
+      "id": "interrupted-consumption-denied",
+      "input": {
+        "manifestId": "manifest-synthetic-006",
+        "releaseBuildId": "release-synthetic-001",
+        "releaseDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "intendedOperation": "create-control-plane",
+        "hostIdentity": { "kind": "local-os-peer", "subject": "principal-synthetic-admin" },
+        "databasePathRef": "server-state/control-database",
+        "initialAdministrator": {
+          "localPrincipalId": "principal-synthetic-admin",
+          "sshPrincipalId": null,
+          "slackBindingId": "binding-synthetic-admin"
+        },
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "profileDefaultsDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "profileProvenance": "built-in:minimal@1.0.0",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "recoveryPreconditions": ["trusted-local-console", "independent-recovery-access"],
+        "approvalRequestId": "approval-synthetic-bootstrap-006",
+        "expiresAt": "2026-09-04T13:30:00Z",
+        "nonce": "nonce-synthetic-006",
+        "state": "consuming"
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "INTERRUPTED",
+        "reason": "An interrupted consumption is reconciled from durable state and cannot be blindly retried."
+      }
+    }
+  ]
+}

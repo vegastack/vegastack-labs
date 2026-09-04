@@ -1,5 +1,31 @@
 {
   "schema": "vegastack-labs.dev/phase-0.3-contract-index",
   "schemaVersion": "1.0.0",
-  "contracts": []
+  "contracts": [
+    {
+      "contract": "installation-manifest",
+      "file": "installation-manifest.json",
+      "requiredCaseIds": [
+        "first-use-accepted",
+        "consumed-replay-denied",
+        "expired-denied",
+        "release-substitution-denied",
+        "target-substitution-denied",
+        "interrupted-consumption-denied"
+      ]
+    },
+    {
+      "contract": "setup-state",
+      "file": "setup-state.json",
+      "requiredCaseIds": [
+        "single-writer-handoff",
+        "interruption-enters-recovery",
+        "manifest-reuse-denied",
+        "second-writer-denied",
+        "hostname-authority-denied",
+        "first-browser-authority-denied",
+        "client-asserted-identity-denied"
+      ]
+    }
+  ]
 }
