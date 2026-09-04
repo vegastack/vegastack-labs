@@ -70,3 +70,23 @@ test("Slack cases bind exact identity and prevent self-authorization", async () 
     "AUTHORIZATION_DENIED",
   );
 });
+
+test("SSH and profile fixtures deny shell text and account-free mutation", async () => {
+  const fixtures = await loadPhaseZeroThreeFixtures(ROOT);
+  const ssh = fixtures.get("constrained-ssh").cases;
+  const profiles = fixtures.get("profile-gates").cases;
+
+  assert.equal(
+    ssh.find(({ id }) => id === "shell-text-denied").expected.errorCode,
+    "INPUT_INVALID",
+  );
+  assert.equal(
+    profiles.find(({ id }) => id === "minimal-read-accepted").expected.status,
+    "accepted",
+  );
+  assert.equal(
+    profiles.find(({ id }) => id === "minimal-bootstrap-without-slack-blocked").expected
+      .errorCode,
+    "PREREQUISITE_BLOCKED",
+  );
+});

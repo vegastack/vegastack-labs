@@ -63,6 +63,43 @@
         "removal-invalidates-outstanding",
         "file-replacement-cannot-authorize"
       ]
+    },
+    {
+      "contract": "constrained-ssh",
+      "file": "constrained-ssh.json",
+      "requiredCaseIds": [
+        "read-request-accepted",
+        "plan-request-accepted",
+        "approved-apply-request-accepted",
+        "shell-text-denied",
+        "path-denied",
+        "direct-sqlite-denied",
+        "malformed-length-denied",
+        "unsupported-version-denied",
+        "unknown-operation-denied",
+        "client-asserted-identity-denied",
+        "principal-device-mismatch",
+        "recovery-epoch-mismatch",
+        "disconnect-queries-durable-run"
+      ]
+    },
+    {
+      "contract": "profile-gates",
+      "file": "profile-gates.json",
+      "requiredCaseIds": [
+        "minimal-read-accepted",
+        "minimal-plan-accepted",
+        "minimal-bootstrap-without-slack-blocked",
+        "minimal-apply-without-slack-blocked",
+        "non-labs-slack-configured",
+        "labs-slack-configured",
+        "slack-unavailable-blocked",
+        "stale-slack-binding-blocked",
+        "wrong-workspace-blocked",
+        "missing-mandatory-evidence-blocked",
+        "inapplicable-gate-is-not-passed",
+        "conflicting-provenance-blocked"
+      ]
     }
   ]
 }

@@ -1,0 +1,280 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.3-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "constrained-ssh",
+  "cases": [
+    {
+      "id": "read-request-accepted",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-001",
+        "sshPrincipalId": "ssh-principal-synthetic-reader",
+        "deviceId": "device-synthetic-reader",
+        "operation": "GET /api/v1/summary",
+        "arguments": ["--output", "json"],
+        "payloadDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "declaredPayloadBytes": 128,
+        "actualPayloadBytes": 128,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "A bound reader may invoke a declared API operation through direct arguments."
+      }
+    },
+    {
+      "id": "plan-request-accepted",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-002",
+        "sshPrincipalId": "ssh-principal-synthetic-author",
+        "deviceId": "device-synthetic-author",
+        "operation": "POST /api/v1/plans",
+        "arguments": ["--change", "draft-synthetic-001", "--output", "json"],
+        "payloadDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "declaredPayloadBytes": 192,
+        "actualPayloadBytes": 192,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The transport forwards one typed plan request to the same server API."
+      }
+    },
+    {
+      "id": "approved-apply-request-accepted",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-003",
+        "sshPrincipalId": "ssh-principal-synthetic-admin",
+        "deviceId": "device-synthetic-admin",
+        "operation": "POST /api/v1/plans/plan-synthetic-001/execute",
+        "arguments": ["--plan-id", "plan-synthetic-001", "--output", "json"],
+        "payloadDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "declaredPayloadBytes": 224,
+        "actualPayloadBytes": 224,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The server, not SSH framing, reauthorizes and executes the exact current acknowledged plan."
+      }
+    },
+    {
+      "id": "shell-text-denied",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-004",
+        "sshPrincipalId": "ssh-principal-synthetic-admin",
+        "deviceId": "device-synthetic-admin",
+        "operation": "shell",
+        "arguments": ["status; uname -a"],
+        "payloadDigest": "sha256:4444444444444444444444444444444444444444444444444444444444444444",
+        "declaredPayloadBytes": 128,
+        "actualPayloadBytes": 128,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "INPUT_INVALID",
+        "reason": "The constrained transport accepts no shell grammar or metacharacter-delimited text."
+      }
+    },
+    {
+      "id": "path-denied",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-005",
+        "sshPrincipalId": "ssh-principal-synthetic-admin",
+        "deviceId": "device-synthetic-admin",
+        "operation": "read-file",
+        "arguments": ["server-state/control-database"],
+        "payloadDigest": "sha256:5555555555555555555555555555555555555555555555555555555555555555",
+        "declaredPayloadBytes": 128,
+        "actualPayloadBytes": 128,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "INPUT_INVALID",
+        "reason": "Filesystem paths are not operations in the constrained API protocol."
+      }
+    },
+    {
+      "id": "direct-sqlite-denied",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-006",
+        "sshPrincipalId": "ssh-principal-synthetic-admin",
+        "deviceId": "device-synthetic-admin",
+        "operation": "sqlite-query",
+        "arguments": ["SELECT state_revision FROM system_meta"],
+        "payloadDigest": "sha256:6666666666666666666666666666666666666666666666666666666666666666",
+        "declaredPayloadBytes": 160,
+        "actualPayloadBytes": 160,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "Clients and transports never expose direct SQLite access."
+      }
+    },
+    {
+      "id": "malformed-length-denied",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-007",
+        "sshPrincipalId": "ssh-principal-synthetic-reader",
+        "deviceId": "device-synthetic-reader",
+        "operation": "GET /api/v1/summary",
+        "arguments": ["--output", "json"],
+        "payloadDigest": "sha256:7777777777777777777777777777777777777777777777777777777777777777",
+        "declaredPayloadBytes": 4096,
+        "actualPayloadBytes": 128,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "INPUT_INVALID",
+        "reason": "The declared and received frame lengths must match before the payload is parsed."
+      }
+    },
+    {
+      "id": "unsupported-version-denied",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "2.0.0",
+        "requestId": "request-ssh-synthetic-008",
+        "sshPrincipalId": "ssh-principal-synthetic-reader",
+        "deviceId": "device-synthetic-reader",
+        "operation": "GET /api/v1/summary",
+        "arguments": ["--output", "json"],
+        "payloadDigest": "sha256:8888888888888888888888888888888888888888888888888888888888888888",
+        "declaredPayloadBytes": 128,
+        "actualPayloadBytes": 128,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "SCHEMA_UNSUPPORTED",
+        "reason": "An unknown transport major is rejected before dispatch."
+      }
+    },
+    {
+      "id": "unknown-operation-denied",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-009",
+        "sshPrincipalId": "ssh-principal-synthetic-reader",
+        "deviceId": "device-synthetic-reader",
+        "operation": "POST /api/v1/invented",
+        "arguments": [],
+        "payloadDigest": "sha256:9999999999999999999999999999999999999999999999999999999999999999",
+        "declaredPayloadBytes": 96,
+        "actualPayloadBytes": 96,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "INPUT_INVALID",
+        "reason": "Only operations declared by the versioned API metadata are accepted."
+      }
+    },
+    {
+      "id": "client-asserted-identity-denied",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-010",
+        "sshPrincipalId": "client-asserted-admin",
+        "deviceId": "device-synthetic-unbound",
+        "operation": "GET /api/v1/summary",
+        "arguments": ["--output", "json"],
+        "payloadDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "declaredPayloadBytes": 128,
+        "actualPayloadBytes": 128,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHENTICATION_REQUIRED",
+        "reason": "The server derives identity from the authenticated SSH principal rather than request fields."
+      }
+    },
+    {
+      "id": "principal-device-mismatch",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-011",
+        "sshPrincipalId": "ssh-principal-synthetic-reader",
+        "deviceId": "device-synthetic-other-person",
+        "operation": "GET /api/v1/summary",
+        "arguments": ["--output", "json"],
+        "payloadDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "declaredPayloadBytes": 128,
+        "actualPayloadBytes": 128,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "The authenticated SSH principal and device must match one current server grant."
+      }
+    },
+    {
+      "id": "recovery-epoch-mismatch",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-012",
+        "sshPrincipalId": "ssh-principal-synthetic-admin",
+        "deviceId": "device-synthetic-admin",
+        "operation": "POST /api/v1/plans/plan-synthetic-old/execute",
+        "arguments": ["--plan-id", "plan-synthetic-old", "--output", "json"],
+        "payloadDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "declaredPayloadBytes": 224,
+        "actualPayloadBytes": 224,
+        "recoveryEpoch": 2
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "RECOVERY_EPOCH_MISMATCH",
+        "reason": "A transport request cannot revive a plan from an earlier recovery epoch."
+      }
+    },
+    {
+      "id": "disconnect-queries-durable-run",
+      "input": {
+        "protocol": "vegastack-labs.api-ssh",
+        "version": "1.0.0",
+        "requestId": "request-ssh-synthetic-013",
+        "sshPrincipalId": "ssh-principal-synthetic-admin",
+        "deviceId": "device-synthetic-admin",
+        "operation": "GET /api/v1/runs/run-synthetic-001",
+        "arguments": ["--run-id", "run-synthetic-001", "--output", "json"],
+        "payloadDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+        "declaredPayloadBytes": 160,
+        "actualPayloadBytes": 160,
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "After disconnect the client queries durable run state instead of retrying the mutation."
+      }
+    }
+  ]
+}
