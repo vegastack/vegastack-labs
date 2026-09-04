@@ -1,0 +1,312 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.3-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "profile-gates",
+  "cases": [
+    {
+      "id": "minimal-read-accepted",
+      "input": {
+        "fixtureProfile": "minimal-no-account",
+        "owningLayer": "portable-core",
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "resolvedValues": [
+          { "key": "operatorTransport", "value": "local-or-constrained-ssh", "provenance": "built-in:minimal@1.0.0" }
+        ],
+        "gates": [],
+        "requestedOperation": "read-summary",
+        "slackCapabilityState": "not-configured",
+        "recoveryEpoch": 0
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "Account-free authenticated read-only inspection remains available."
+      }
+    },
+    {
+      "id": "minimal-plan-accepted",
+      "input": {
+        "fixtureProfile": "minimal-no-account",
+        "owningLayer": "portable-core",
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "product-v1@1.0.0" }
+        ],
+        "gates": [],
+        "requestedOperation": "create-inert-plan",
+        "slackCapabilityState": "not-configured",
+        "recoveryEpoch": 0
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "A user may prepare an inert plan before Slack is configured; execution remains unavailable."
+      }
+    },
+    {
+      "id": "minimal-bootstrap-without-slack-blocked",
+      "input": {
+        "fixtureProfile": "minimal-no-account",
+        "owningLayer": "typed-approval-adapter",
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "product-v1@1.0.0" }
+        ],
+        "gates": [],
+        "requestedOperation": "bootstrap-control-plane",
+        "slackCapabilityState": "not-configured",
+        "recoveryEpoch": 0
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PREREQUISITE_BLOCKED",
+        "reason": "V1 normal bootstrap requires the configured Slack approval adapter and independent approver session."
+      }
+    },
+    {
+      "id": "minimal-apply-without-slack-blocked",
+      "input": {
+        "fixtureProfile": "minimal-no-account",
+        "owningLayer": "typed-approval-adapter",
+        "profileId": "minimal",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "product-v1@1.0.0" }
+        ],
+        "gates": [],
+        "requestedOperation": "apply-plan",
+        "slackCapabilityState": "not-configured",
+        "recoveryEpoch": 0
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PREREQUISITE_BLOCKED",
+        "reason": "Account-free mutation is deliberately unavailable in v1."
+      }
+    },
+    {
+      "id": "non-labs-slack-configured",
+      "input": {
+        "fixtureProfile": "synthetic-non-labs",
+        "owningLayer": "deployment-profile",
+        "profileId": "synthetic-site",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "site-declaration:revision-4" }
+        ],
+        "gates": [
+          {
+            "gateId": "synthetic-approval-ready",
+            "gateVersion": "1.0.0",
+            "subjects": ["approval-adapter-synthetic"],
+            "applicability": "applicable",
+            "prerequisites": ["workspace-mapped", "independent-session-tested"],
+            "evidenceState": "current",
+            "recoveryEpoch": 1
+          }
+        ],
+        "requestedOperation": "bootstrap-control-plane",
+        "slackCapabilityState": "qualified",
+        "recoveryEpoch": 1
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "A non-Labs profile uses the same typed Slack adapter without Labs identifiers in core fields."
+      }
+    },
+    {
+      "id": "labs-slack-configured",
+      "input": {
+        "fixtureProfile": "vegastack-labs-synthetic",
+        "owningLayer": "deployment-profile",
+        "profileId": "vegastack-labs-synthetic",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "profile:vegastack-labs-synthetic@1.0.0" }
+        ],
+        "gates": [
+          {
+            "gateId": "synthetic-labs-approval-ready",
+            "gateVersion": "1.0.0",
+            "subjects": ["approval-adapter-synthetic"],
+            "applicability": "applicable",
+            "prerequisites": ["workspace-mapped", "allowed-denied-canaries"],
+            "evidenceState": "current",
+            "recoveryEpoch": 3
+          }
+        ],
+        "requestedOperation": "apply-plan",
+        "slackCapabilityState": "qualified",
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "Synthetic Labs profile values resolve through the typed adapter and current effective policy."
+      }
+    },
+    {
+      "id": "slack-unavailable-blocked",
+      "input": {
+        "fixtureProfile": "synthetic-non-labs",
+        "owningLayer": "typed-approval-adapter",
+        "profileId": "synthetic-site",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "site-declaration:revision-4" }
+        ],
+        "gates": [],
+        "requestedOperation": "apply-plan",
+        "slackCapabilityState": "unavailable",
+        "recoveryEpoch": 1
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "DEPENDENCY_UNAVAILABLE",
+        "reason": "Slack outage cannot become approval or trigger execution."
+      }
+    },
+    {
+      "id": "stale-slack-binding-blocked",
+      "input": {
+        "fixtureProfile": "synthetic-non-labs",
+        "owningLayer": "typed-approval-adapter",
+        "profileId": "synthetic-site",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "site-declaration:revision-3" }
+        ],
+        "gates": [],
+        "requestedOperation": "apply-plan",
+        "slackCapabilityState": "stale",
+        "recoveryEpoch": 1
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PLAN_STALE",
+        "reason": "A plan bound to an older approver policy revision requires a new approval request."
+      }
+    },
+    {
+      "id": "wrong-workspace-blocked",
+      "input": {
+        "fixtureProfile": "vegastack-labs-synthetic",
+        "owningLayer": "typed-approval-adapter",
+        "profileId": "vegastack-labs-synthetic",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "profile:vegastack-labs-synthetic@1.0.0" }
+        ],
+        "gates": [],
+        "requestedOperation": "apply-plan",
+        "slackCapabilityState": "wrong-workspace",
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "A Slack interaction from another workspace cannot satisfy this profile's approval binding."
+      }
+    },
+    {
+      "id": "missing-mandatory-evidence-blocked",
+      "input": {
+        "fixtureProfile": "vegastack-labs-synthetic",
+        "owningLayer": "deployment-profile",
+        "profileId": "vegastack-labs-synthetic",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:3333333333333333333333333333333333333333333333333333333333333333",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "profile:vegastack-labs-synthetic@1.0.0" }
+        ],
+        "gates": [
+          {
+            "gateId": "synthetic-labs-target-ready",
+            "gateVersion": "1.0.0",
+            "subjects": ["target-synthetic-001"],
+            "applicability": "applicable",
+            "prerequisites": ["target-qualified"],
+            "evidenceState": "missing",
+            "recoveryEpoch": 3
+          }
+        ],
+        "requestedOperation": "apply-plan",
+        "slackCapabilityState": "qualified",
+        "recoveryEpoch": 3
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "PREREQUISITE_BLOCKED",
+        "reason": "Human approval cannot override missing mandatory evidence for the selected target."
+      }
+    },
+    {
+      "id": "inapplicable-gate-is-not-passed",
+      "input": {
+        "fixtureProfile": "synthetic-non-labs",
+        "owningLayer": "deployment-profile",
+        "profileId": "synthetic-site",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "resolvedValues": [
+          { "key": "backupAdapter", "value": "local-synthetic", "provenance": "profile:synthetic-site@1.0.0" }
+        ],
+        "gates": [
+          {
+            "gateId": "labs-only-synthetic-gate",
+            "gateVersion": "1.0.0",
+            "subjects": [],
+            "applicability": "not-applicable",
+            "prerequisites": [],
+            "evidenceState": "not-evaluated",
+            "recoveryEpoch": 1
+          }
+        ],
+        "requestedOperation": "read-gates",
+        "slackCapabilityState": "not-configured",
+        "recoveryEpoch": 1
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The result reports not-applicable with provenance and never rewrites it as passed evidence."
+      }
+    },
+    {
+      "id": "conflicting-provenance-blocked",
+      "input": {
+        "fixtureProfile": "synthetic-non-labs",
+        "owningLayer": "deployment-profile",
+        "profileId": "synthetic-site",
+        "profileVersion": "1.0.0",
+        "defaultsDigest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "resolvedValues": [
+          { "key": "mutationApprovalAdapter", "value": "slack", "provenance": "profile:synthetic-site@1.0.0" },
+          { "key": "mutationApprovalAdapter", "value": "another-adapter", "provenance": "site-declaration:revision-4" }
+        ],
+        "gates": [],
+        "requestedOperation": "create-inert-plan",
+        "slackCapabilityState": "qualified",
+        "recoveryEpoch": 1
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "STATE_CONFLICT",
+        "reason": "Conflicting owners for one resolved value fail validation instead of silently choosing a winner."
+      }
+    }
+  ]
+}

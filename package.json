@@ -13,6 +13,7 @@
     "check:dependencies": "node tooling/provenance.mjs --check",
     "check:docs": "node tooling/verify-docs.mjs",
     "check:historical": "node tooling/historical.mjs --check",
+    "check:phase-0-3": "node tooling/verify-phase-0-3.mjs",
     "check:repository": "node tooling/verify-repository.mjs",
     "check:workflow": "node tooling/verify-workflow.mjs",
     "generate:historical": "node tooling/historical.mjs --write --approve-current",

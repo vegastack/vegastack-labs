@@ -1,0 +1,118 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.3-contract-index",
+  "schemaVersion": "1.0.0",
+  "contracts": [
+    {
+      "contract": "installation-manifest",
+      "file": "installation-manifest.json",
+      "requiredCaseIds": [
+        "first-use-accepted",
+        "consumed-replay-denied",
+        "expired-denied",
+        "release-substitution-denied",
+        "target-substitution-denied",
+        "interrupted-consumption-denied",
+        "verified-ssh-bootstrap-accepted",
+        "invalid-signature-denied",
+        "untrusted-signer-denied",
+        "post-approval-manifest-mutation-denied",
+        "forged-ssh-binding-denied",
+        "cross-user-binding-denied"
+      ]
+    },
+    {
+      "contract": "setup-state",
+      "file": "setup-state.json",
+      "requiredCaseIds": [
+        "single-writer-handoff",
+        "interruption-enters-recovery",
+        "manifest-reuse-denied",
+        "second-writer-denied",
+        "hostname-authority-denied",
+        "first-browser-authority-denied",
+        "client-asserted-identity-denied"
+      ]
+    },
+    {
+      "contract": "slack-acknowledgement",
+      "file": "slack-acknowledgement.json",
+      "requiredCaseIds": [
+        "bootstrap-approved",
+        "ordinary-plan-approved",
+        "ordinary-plan-rejected",
+        "missing-authenticated-envelope",
+        "wrong-workspace-denied",
+        "wrong-user-denied",
+        "agent-controlled-session-insufficient",
+        "changed-digest-denied",
+        "changed-target-denied",
+        "stale-plan-denied",
+        "expired-request-denied",
+        "duplicate-click-idempotent",
+        "replay-denied",
+        "recovery-epoch-mismatch",
+        "socket-mode-outage",
+        "adapter-token-failure",
+        "lost-approver-access",
+        "missing-proof",
+        "bootstrap-approval-request-substitution-denied",
+        "bootstrap-mapping-substitution-denied",
+        "break-glass-handoff-recorded",
+        "automatic-break-glass-fallback-denied"
+      ]
+    },
+    {
+      "contract": "approver-import",
+      "file": "approver-import.json",
+      "requiredCaseIds": [
+        "bootstrap-seed-remains-inert",
+        "existing-admin-add-accepted",
+        "proposed-user-self-add-denied",
+        "existing-admin-widen-accepted",
+        "proposed-user-self-widen-denied",
+        "removal-invalidates-outstanding",
+        "file-replacement-cannot-authorize"
+      ]
+    },
+    {
+      "contract": "constrained-ssh",
+      "file": "constrained-ssh.json",
+      "requiredCaseIds": [
+        "read-request-accepted",
+        "plan-request-accepted",
+        "approved-apply-request-accepted",
+        "shell-text-denied",
+        "path-denied",
+        "direct-sqlite-denied",
+        "malformed-length-denied",
+        "unsupported-version-denied",
+        "unknown-operation-denied",
+        "client-asserted-identity-denied",
+        "principal-device-mismatch",
+        "recovery-epoch-mismatch",
+        "disconnect-queries-durable-run",
+        "response-length-denied",
+        "response-version-denied",
+        "response-correlation-denied"
+      ]
+    },
+    {
+      "contract": "profile-gates",
+      "file": "profile-gates.json",
+      "requiredCaseIds": [
+        "minimal-read-accepted",
+        "minimal-plan-accepted",
+        "minimal-bootstrap-without-slack-blocked",
+        "minimal-apply-without-slack-blocked",
+        "non-labs-slack-configured",
+        "labs-slack-configured",
+        "slack-unavailable-blocked",
+        "stale-slack-binding-blocked",
+        "wrong-workspace-blocked",
+        "missing-mandatory-evidence-blocked",
+        "inapplicable-gate-is-not-passed",
+        "conflicting-provenance-blocked"
+      ]
+    }
+  ]
+}

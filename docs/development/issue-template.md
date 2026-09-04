@@ -32,7 +32,8 @@ Who needs this, what problem exists, and what will become possible or correct?
 Describe scope, explicit exclusions, and the before/after operator or system behavior.
 Identify the owning layer (core/adapter/optional capability/profile), generic behavior,
 selected dogfood values and unsupported combinations. Never turn a Labs value into
-a core prerequisite. Include account-free/basic and non-Labs fixture acceptance where applicable.
+a core prerequisite. Include minimal/no-account read/preparation, configured-approval,
+failure-closed mutation and non-Labs fixture acceptance where applicable.
 
 ## Behavior and interfaces
 

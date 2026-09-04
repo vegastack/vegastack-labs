@@ -45,7 +45,7 @@ The user selected complete v1 development and verification before the first lab 
 
 ## Generic OSS lifecycle
 
-Read `docs/platform-lifecycle.md` for generic creation/enrollment and the minimum account-free SSH capability. A role binding such as `vsk-node-04`, a Labs gate, domain, physical serial or selected provider is not a core prerequisite. Only the server owns writable SQLite, including initial setup; the finite pre-database installation manifest is not an alternate controller. Local OS-peer/constrained SSH identities use the same effective grants as external identities. Preserve the distinction between a running local setup service and a qualified capability. Physical media disposition is outside platform scope.
+Read `docs/platform-lifecycle.md` for generic creation/enrollment, account-free read/preparation and recovery, and the Slack-only v1 human-acknowledgement prerequisite for bootstrap and mutation. A role binding such as `vsk-node-04`, a Labs gate, domain or physical serial is not a core prerequisite. Only the server owns writable SQLite, including initial setup; the finite pre-database installation manifest is not an alternate controller. Local OS-peer/constrained SSH identities use the same effective grants as external identities but cannot create a human acknowledgement. Preserve the distinction between a running local setup service and a qualified capability. Physical media disposition is outside platform scope.
 
 ## Operating workflow
 

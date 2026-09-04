@@ -45,6 +45,42 @@ test("empty registry placeholders are accepted", () => {
   assert.deepEqual(findSecretMarkers('"CF-Access-Client-Secret": "${CF_ACCESS_CLIENT_SECRET}"'), []);
 });
 
+test("Slack credential markers are rejected without echoing their value", () => {
+  const credential = ["xapp", "example", "credential", "must", "not", "echo"].join("-");
+  const markers = findSecretMarkers(`expected reason: ${credential}`);
+  assert.deepEqual(markers, ["Slack credential value"]);
+  assert.doesNotMatch(markers.join(" "), /must-not-echo/);
+});
+
+test("private contract values are classified without echoing their contents", () => {
+  const cases = [
+    [
+      [["signing", "secret"].join("_"), ["material", "must", "not", "echo"].join("-")].join("="),
+      "signing-secret value",
+    ],
+    [
+      [["T", "123456789"].join(""), ["U", "123456789"].join("")].join("->"),
+      "private Slack user mapping",
+    ],
+    [
+      [["private", "user", "mapping"].join("_"), ["person", "must", "not", "echo"].join("-")].join(":"),
+      "private user mapping",
+    ],
+    [
+      [["host", "fact"].join("_"), ["host", "must", "not", "echo"].join("-")].join("="),
+      "private host fact",
+    ],
+    [
+      [["operational", "evidence"].join("_"), ["evidence", "must", "not", "echo"].join("-")].join(":"),
+      "private operational evidence",
+    ],
+  ];
+  for (const [input, marker] of cases) {
+    assert.deepEqual(findSecretMarkers(input), [marker]);
+    assert.doesNotMatch(findSecretMarkers(input).join(" "), /must-not-echo|123456789/);
+  }
+});
+
 test("environment filename classification distinguishes redacted examples", () => {
   assert.equal(isSecretEnvironmentFile("web/.env.local"), true);
   assert.equal(isSecretEnvironmentFile("web/.env"), true);
@@ -110,4 +146,49 @@ test("ignored local credentials pass while the same tracked file fails", async (
   );
   await runCommand("git", ["add", "registry-header.yaml"], { capture: true, cwd: root });
   await assert.rejects(verifyRepository(root), /contains prohibited Cloudflare Access secret value/);
+
+  await runCommand("git", ["rm", "--cached", "registry-header.yaml"], {
+    capture: true,
+    cwd: root,
+  });
+  const slackFixture = path.join(root, "slack-proof.json");
+  const credential = ["xapp", "example", "credential", "must", "not", "echo"].join("-");
+  await writeFile(slackFixture, `${JSON.stringify({ reason: credential })}\n`, "utf8");
+  await runCommand("git", ["add", "slack-proof.json"], { capture: true, cwd: root });
+  let message = "";
+  try {
+    await verifyRepository(root);
+    assert.fail("expected the tracked Slack credential to fail repository verification");
+  } catch (error) {
+    message = error.message;
+  }
+  assert.match(message, /contains prohibited Slack credential value/);
+  assert.doesNotMatch(message, /must-not-echo/);
+
+  await runCommand("git", ["rm", "--cached", "slack-proof.json"], {
+    capture: true,
+    cwd: root,
+  });
+  const privateCases = [
+    [["signing", "secret"].join("_"), ["material", "must", "not", "echo"].join("-")].join("="),
+    [["T", "123456789"].join(""), ["U", "123456789"].join("")].join("->"),
+    [["private", "user", "mapping"].join("_"), ["person", "must", "not", "echo"].join("-")].join(":"),
+    [["host", "fact"].join("_"), ["host", "must", "not", "echo"].join("-")].join("="),
+    [["operational", "evidence"].join("_"), ["evidence", "must", "not", "echo"].join("-")].join(":"),
+  ];
+  for (const [index, privateValue] of privateCases.entries()) {
+    const file = `private-value-${index}.txt`;
+    await writeFile(path.join(root, file), `${privateValue}\n`, "utf8");
+    await runCommand("git", ["add", file], { capture: true, cwd: root });
+    let privateMessage = "";
+    try {
+      await verifyRepository(root);
+      assert.fail("expected tracked private contract value to fail repository verification");
+    } catch (error) {
+      privateMessage = error.message;
+    }
+    assert.match(privateMessage, /contains prohibited/);
+    assert.doesNotMatch(privateMessage, /must-not-echo|123456789/);
+    await runCommand("git", ["rm", "--cached", file], { capture: true, cwd: root });
+  }
 });

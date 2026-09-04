@@ -1,0 +1,151 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.3-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "setup-state",
+  "cases": [
+    {
+      "id": "single-writer-handoff",
+      "input": {
+        "from": "uninitialized",
+        "operation": "consume-manifest-and-start-server",
+        "to": "local-setup-service",
+        "manifestState": "consumed",
+        "writerState": "server-exclusive",
+        "stateRevision": 1,
+        "recoveryEpoch": 0,
+        "postconditions": ["audit-imported", "manifest-disabled", "one-server-writer"]
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "The atomic handoff leaves one server-owned writable database and disables manifest authority."
+      }
+    },
+    {
+      "id": "interruption-enters-recovery",
+      "input": {
+        "from": "uninitialized",
+        "operation": "resume-interrupted-manifest",
+        "to": "recovery-required",
+        "manifestState": "consuming",
+        "writerState": "unknown",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "postconditions": ["durable-state-id-returned", "mutation-disabled"]
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "INTERRUPTED",
+        "reason": "Unknown postconditions require reconciliation through the durable setup state identifier."
+      }
+    },
+    {
+      "id": "manifest-reuse-denied",
+      "input": {
+        "from": "local-setup-service",
+        "operation": "reuse-consumed-manifest",
+        "to": "local-setup-service",
+        "manifestState": "consumed",
+        "writerState": "server-exclusive",
+        "stateRevision": 1,
+        "recoveryEpoch": 0,
+        "postconditions": ["existing-authority-unchanged"]
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "STATE_CONFLICT",
+        "reason": "The installation manifest cannot act after server ownership is established."
+      }
+    },
+    {
+      "id": "second-writer-denied",
+      "input": {
+        "from": "local-setup-service",
+        "operation": "open-second-writable-database",
+        "to": "recovery-required",
+        "manifestState": "consumed",
+        "writerState": "conflicting-writer",
+        "stateRevision": 1,
+        "recoveryEpoch": 0,
+        "postconditions": ["mutation-disabled", "existing-database-preserved"]
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "STATE_CONFLICT",
+        "reason": "Only vsk-labs server run may own the writable database."
+      }
+    },
+    {
+      "id": "hostname-authority-denied",
+      "input": {
+        "from": "uninitialized",
+        "operation": "bind-administrator-from-hostname",
+        "to": "uninitialized",
+        "manifestState": "pending",
+        "writerState": "none",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "postconditions": ["no-authority-created"]
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHORIZATION_DENIED",
+        "reason": "A hostname is not an authenticated administrator identity."
+      }
+    },
+    {
+      "id": "first-browser-authority-denied",
+      "input": {
+        "from": "uninitialized",
+        "operation": "bind-first-browser-visitor",
+        "to": "uninitialized",
+        "manifestState": "pending",
+        "writerState": "none",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "postconditions": ["no-authority-created"]
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHENTICATION_REQUIRED",
+        "reason": "The first web visitor never becomes the initial administrator."
+      }
+    },
+    {
+      "id": "client-asserted-identity-denied",
+      "input": {
+        "from": "uninitialized",
+        "operation": "bind-client-asserted-principal",
+        "to": "uninitialized",
+        "manifestState": "pending",
+        "writerState": "none",
+        "stateRevision": 0,
+        "recoveryEpoch": 0,
+        "postconditions": ["no-authority-created"]
+      },
+      "expected": {
+        "status": "blocked",
+        "errorCode": "AUTHENTICATION_REQUIRED",
+        "reason": "Only trusted local peer or verified SSH identity evidence may seed the administrator binding."
+      }
+    },
+    {
+      "id": "foundation-preparation-bounded",
+      "input": {
+        "from": "local-setup-service",
+        "operation": "prepare-foundation-capability",
+        "to": "foundation-preparation",
+        "manifestState": "consumed",
+        "writerState": "server-exclusive",
+        "stateRevision": 2,
+        "recoveryEpoch": 0,
+        "postconditions": ["scope-bounded", "workload-admission-disabled"]
+      },
+      "expected": {
+        "status": "accepted",
+        "errorCode": null,
+        "reason": "Foundation preparation may proceed only within its separately approved scope and recovery bounds."
+      }
+    }
+  ]
+}
