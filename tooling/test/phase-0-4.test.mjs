@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -185,4 +186,30 @@ test("Phase 0.4 rejects repaired denials, outcome drift, duplicate IDs, and priv
   }
   assert.match(message, /prohibited private material/);
   assert.doesNotMatch(message, /must-not-echo/);
+});
+
+test("Phase 0.4 contracts are composed into checks and reconciled into owning specifications", async () => {
+  const checks = await readFile(path.join(ROOT, "tooling", "check.mjs"), "utf8");
+  assert.match(checks, /Phase 0\.4 contract fixtures/);
+  assert.match(
+    checks,
+    /verify-phase-0-3\.mjs"\]\);\n\s+await stage\("Phase 0\.4 contract fixtures"[^\n]+verify-phase-0-4\.mjs"\]\);/,
+    "Phase 0.4 must run immediately after Phase 0.3",
+  );
+
+  const expected = new Map([
+    ["docs/host-onboarding-and-hardening.md", ["host.identity-accounts", "linux.fail2ban-sshd", "host-security-v1"]],
+    ["docs/security-and-operations.md", ["host-action-once", "native account-free credential resolver"]],
+    ["docs/platform-lifecycle.md", ["host-security-v1", "continue-existing-workload"]],
+    ["docs/automation-and-agents.md", ["privileged-execution", "native-credentials"]],
+    ["docs/implementation-gates.md", ["evidenceMaxAgeSeconds", "after-change"]],
+    ["docs/development/phases/00-development-foundation.md", ["0.4 (#17)", "69 cases"]],
+    ["docs/development/roadmap.md", ["0.4 (#17)", "host-security-v1"]],
+    ["docs/architecture-and-networking.md", ["Mesh-only automated macOS SSH", "physical local console"]],
+    ["docs/decisions-and-sources.md", ["D-123", "D-124", "SRC-ANS-02", "SRC-CF-12", "SRC-MAC-07"]],
+  ]);
+  for (const [relative, needles] of expected) {
+    const contents = await readFile(path.join(ROOT, relative), "utf8");
+    for (const needle of needles) assert.ok(contents.includes(needle), `${relative} must contain ${needle}`);
+  }
 });

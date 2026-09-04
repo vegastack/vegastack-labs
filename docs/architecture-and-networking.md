@@ -135,12 +135,18 @@ Every managed node runs the appropriate Cloudflare One Client and receives its o
 
 | Situation | Path | Purpose |
 |---|---|---|
-| Both endpoints at the lab | reserved LAN address through ES216G | SSH, Coolify, builds, registry pulls, backups, databases |
+| Both endpoints at the lab | reserved LAN address through ES216G | Linux SSH, Coolify, builds, registry pulls, backups, databases; not automated Mac management |
 | Authorized endpoint away | target Mesh address | private SSH/CLI and bidirectional agent/service flows |
 | Public/protected web request | Cloudflare Tunnel | selected Coolify-managed services |
-| Cloudflare/Internet outage | LAN SSH or physical console | recovery |
+| Cloudflare/Internet outage | Linux LAN SSH or physical console; Mac physical local console | recovery |
 
 Mesh device profiles use Split Tunnels **include** mode with Cloudflare's current Mesh range `100.96.0.0/12`; add a routed private CIDR only if a later reviewed route actually requires it. Do not send ordinary Internet browsing through the client. Host firewalls treat `100.96.0.0/12` as an untrusted source range and admit only declared node/port flows. Servers retain application-layer SSH/TLS authentication; Mesh membership alone never grants shell or database access. [Cloudflare Mesh client devices](https://developers.cloudflare.com/cloudflare-one/networks/connectors/cloudflare-mesh/client-devices/) [D-042](decisions-and-sources.md#d-042)
+
+### Mesh-only automated macOS SSH
+
+Mesh-only automated macOS SSH is the Phase 0.4 admission boundary. Cloudflare network policy defaults to deny and allows only the declared identity, passing device posture, Mesh traffic source, destination and port `22`; Remote Login separately allows only the declared automation user with key authentication. The native application firewall remains enabled for application/service rules and is not claimed as a source-CIDR control. Product-managed PF, MDM, password/direct-root login and default remote Full Disk Access are excluded. [Cloudflare network policies](https://developers.cloudflare.com/cloudflare-one/traffic-policies/network-policies/) [Apple Remote Login](https://support.apple.com/guide/mac-help/allow-a-remote-computer-to-access-your-mac-mchlp1066/mac) [Apple PF guidance](https://developer.apple.com/documentation/technotes/tn3165-packet-filter-is-not-api) [D-124](decisions-and-sources.md#d-124)
+
+Human Screen Sharing, when separately declared, is not automation or admission evidence and remains behind its own Mesh identity/device policy. Privacy-protected work requires supported local user consent. If Mesh, SSH or consent is unavailable, automation stops; it never enables a direct-LAN fallback. The recovery path is the independently verified physical local console, followed by a fresh positive/negative Mesh and SSH admission check.
 
 ### Enrollment, routes and profiles
 

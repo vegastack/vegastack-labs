@@ -44,7 +44,11 @@ Phase 1 records each host key fingerprint from local console before accepting an
 
 The focused [host onboarding and hardening contract](host-onboarding-and-hardening.md) owns common controls, OS/role differences, Ansible sequence, recovery and verification. Linux SSH-only Fail2ban, bounded auditd and AIDE on control are selected; exact profile settings remain qualification work. OS-native firewalls/confinement and macOS controls remain required where applicable; Lynis is an optional audit aid, not an admission authority.
 
-Profiles must preserve the existing support matrix, scoped privileged access, encryption decisions, maintenance policy and live-authorization boundaries. No host has been inspected, configured or admitted by this documentation. Phase 0 must confirm the detailed profile/tool policies and unresolved Mac prerequisites before the relevant implementation issues become ready.
+Phase 0.4 pins those settings in the machine-checked `host-security-v1` corpus. Ansible uses a dedicated non-root account and may elevate only into the root-owned, one-shot `host-action-once` mode of the single `vsk-labs` executable. That mode revalidates the exact plan, digests, host, declaration revision, recovery epoch, expiry and action set; refuses arbitrary module, command and target input; stores no desired state; and exits after the exact bundle. A fresh independent recovery session and local rollback must already be verified and armed. [D-123](decisions-and-sources.md#d-123)
+
+The native account-free credential resolver uses the platform credential-path abstraction and binds every logical reference/material version to one declared consumer. It must work at cold start without Workspace, 1Password or TPM-class hardware, and it has no plaintext fallback. Wrong consumer, stale/revoked material, incomplete rotation or unavailable independent recovery blocks use. Planning and fixtures expose only reference IDs, status and versions; never material.
+
+Profiles preserve the support matrix, encryption decisions, maintenance policy and live-authorization boundaries. Mandatory control evidence is collected daily and after relevant changes. Stale, missing, failed, unknown or skipped evidence blocks `admit-workload`, `expand-role` and `issue-workload-credential`; it does not silently stop a safe existing workload or erase an explicitly authorized recovery path. No host has been inspected, configured or admitted by this documentation; real OS, reboot, idempotence and recovery qualification remains Phase 6 evidence.
 
 ## Identity and authorization
 
