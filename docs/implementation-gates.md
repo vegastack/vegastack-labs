@@ -6,6 +6,8 @@ The portable platform owns the gate/evidence model. Concrete serials, node candi
 
 Generic gate ownership, applicability and profile-version rules are defined in [portable lifecycle](platform-lifecycle.md#identity-and-configuration). The following ledger is selected only by the Labs profile. Local service initialization uses its own finite prerequisites, not post-install site evidence. Development stage numbers and deployment stage numbers are different namespaces.
 
+Normal v1 bootstrap and human-authorized mutation require the configured Slack acknowledgement capability described by [D-122](decisions-and-sources.md#d-122). That portable capability prerequisite is evaluated for the requested operation and resolved profile; it is not a new Labs `G-*` activation gate and cannot be marked passed by unrelated site evidence. Minimal/no-account profiles may inspect and prepare inert inputs, but bootstrap/apply fails closed when Slack is missing, stale, wrongly bound or unavailable. Profile edits, approver imports and gate evidence are inert and cannot satisfy their own authorization. Notification delivery is a separate optional capability and cannot acknowledge or authorize plans.
+
 ## Gate semantics
 
 Each gate has two independent states:

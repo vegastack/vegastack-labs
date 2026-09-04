@@ -34,7 +34,7 @@ The platform remains useful with all remote provider adapters unavailable: autho
 
 ## Generic product lifecycle
 
-An outside user installs `vsk-labs` on a supported host and explicitly chooses to create a control plane, connect an operator client, or enroll a managed node. No node number, company domain, physical Sheet or third-party account is a prerequisite for basic SSH management. The [portable lifecycle contract](docs/platform-lifecycle.md) owns setup, local credentials, profile/gate applicability, effective authority, enrollment, interruption, recovery and safe exit. `vsk-node-04` is only this deployment's chosen control host.
+An outside user installs `vsk-labs` on a supported host and explicitly chooses to create a control plane, connect an operator client, or enroll a managed node. No node number, company domain or physical Sheet is a portable prerequisite. Account-free local and constrained-SSH access supports inspection and inert preparation, local credentials and recovery; normal v1 bootstrap and mutation additionally require the configured Slack acknowledgement adapter. The [portable lifecycle contract](docs/platform-lifecycle.md) owns setup, credentials, profile/gate applicability, effective authority, enrollment, interruption, recovery and safe exit. `vsk-node-04` is only this deployment's chosen control host.
 
 ## Boundaries
 
@@ -131,7 +131,7 @@ These checks validate repository safety, current documentation links and JSON, e
 
 ## Documentation map
 
-- [Portable product lifecycle](docs/platform-lifecycle.md) — generic OSS setup and account-free SSH management, profile boundaries, enrollment, recovery and safe exit.
+- [Portable product lifecycle](docs/platform-lifecycle.md) — generic OSS setup, account-free read/preparation and recovery, Slack-only v1 human acknowledgement, profile boundaries, enrollment and safe exit.
 - [Architecture and networking](docs/architecture-and-networking.md) — LAN, ES216G/HX510, Mesh, Tunnel, names, Coolify and CI.
 - [Network device capabilities and operations](docs/network-device-operations.md) — researched ES216G/HX510 limits, DHCP ownership, guided device operations, diagnostics and recovery; exact firmware/UI behavior remains qualification evidence.
 - [Control-plane service and Console](docs/control-plane-service.md) — SQLite, API, UI, provider adapters, nomination/bootstrap, security, backup and acceptance.

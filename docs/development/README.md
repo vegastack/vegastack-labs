@@ -18,7 +18,7 @@ This directory holds VegaStack Labs development planning. Executable work will b
 
 ## Reconciled product requirements
 
-The [portable lifecycle](../platform-lifecycle.md) owns generic local control-plane setup, account-free SSH operations, profile/gate selection and safe exit. Read it before converting the roadmap to issues. The Labs walkthrough is a selected deployment, not a core prerequisite. Each issue records layer, generic and dogfood behavior, unsupported cases and concrete proof. See the [readiness distinctions](roadmap.md#implementation-readiness); requirements approval does not make every future issue executable or authorize GitHub/live changes.
+The [portable lifecycle](../platform-lifecycle.md) owns generic local control-plane setup, account-free read/preparation and recovery over local or constrained-SSH access, Slack-only v1 human acknowledgement, profile/gate selection and safe exit. Read it before converting the roadmap to issues. The Labs walkthrough is a selected deployment, not a core prerequisite. Each issue records layer, generic and dogfood behavior, unsupported cases and concrete proof. See the [readiness distinctions](roadmap.md#implementation-readiness); requirements approval does not make every future issue executable or authorize GitHub/live changes.
 
 ## Planning structure
 
