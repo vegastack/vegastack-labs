@@ -13,7 +13,13 @@ test("Phase 0.4 loads an indexed host-control matrix with complete rows", async 
   const fixtures = await loadPhaseZeroFourFixtures(ROOT);
   assert.deepEqual(
     [...fixtures.keys()],
-    ["host-control-matrix", "privileged-execution", "native-credentials"],
+    [
+      "host-control-matrix",
+      "privileged-execution",
+      "native-credentials",
+      "macos-admission",
+      "admission-evidence",
+    ],
   );
   const accepted = fixtures
     .get("host-control-matrix")
@@ -86,5 +92,32 @@ test("privilege and native credentials reject widening and cross-consumer use", 
   assert.throws(
     () => validatePhaseZeroFourFixture(credentials, "memory"),
     /must request a different consumer/,
+  );
+});
+
+test("macOS and evidence contracts fail closed without source, consent, or freshness", async () => {
+  const fixtures = await loadPhaseZeroFourFixtures(ROOT);
+  const macos = fixtures.get("macos-admission").cases;
+  assert.equal(
+    macos.find(({ id }) => id === "direct-lan-fallback-denied").expected.errorCode,
+    "AUTHORIZATION_DENIED",
+  );
+  assert.equal(
+    macos.find(({ id }) => id === "consent-revoked-blocked").expected.errorCode,
+    "PREREQUISITE_BLOCKED",
+  );
+
+  const evidence = fixtures.get("admission-evidence").cases;
+  assert.equal(
+    evidence.find(({ id }) => id === "stale-new-admission-blocked").expected.errorCode,
+    "PLAN_STALE",
+  );
+  assert.equal(
+    evidence.find(({ id }) => id === "stale-existing-workload-preserved").expected.status,
+    "accepted",
+  );
+  assert.equal(
+    evidence.find(({ id }) => id === "stale-recovery-accepted").expected.status,
+    "accepted",
   );
 });

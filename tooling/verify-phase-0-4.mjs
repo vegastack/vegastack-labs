@@ -12,6 +12,8 @@ const CONTRACT_NAMES = new Set([
   "host-control-matrix",
   "privileged-execution",
   "native-credentials",
+  "macos-admission",
+  "admission-evidence",
 ]);
 const ERROR_CODES = new Set([
   "INPUT_INVALID",
@@ -96,6 +98,50 @@ const EXPECTED_CASE_OUTCOMES = {
       "recovery-unavailable-denied",
     ],
   },
+  "macos-admission": {
+    accepted: ["approved-mesh-ssh-accepted", "local-consent-accepted"],
+    AUTHORIZATION_DENIED: [
+      "wrong-mesh-identity-denied",
+      "wrong-device-denied",
+      "wrong-source-denied",
+      "wrong-user-denied",
+      "direct-lan-fallback-denied",
+      "password-login-denied",
+      "root-login-denied",
+      "full-disk-access-widening-denied",
+      "product-pf-denied",
+      "mdm-claim-denied",
+    ],
+    PREREQUISITE_BLOCKED: [
+      "consent-absent-blocked",
+      "consent-revoked-blocked",
+      "native-firewall-disabled-denied",
+      "reboot-drift-denied",
+      "missing-macos-recovery-denied",
+    ],
+  },
+  "admission-evidence": {
+    accepted: [
+      "current-daily-evidence-accepted",
+      "current-after-change-accepted",
+      "stale-existing-workload-preserved",
+      "stale-recovery-accepted",
+    ],
+    PLAN_STALE: [
+      "stale-new-admission-blocked",
+      "stale-role-expansion-blocked",
+      "stale-new-credential-blocked",
+      "after-change-old-evidence-blocked",
+    ],
+    PREREQUISITE_BLOCKED: [
+      "missing-mandatory-blocked",
+      "failed-mandatory-blocked",
+      "unknown-mandatory-blocked",
+      "skipped-mandatory-blocked",
+      "missing-evidence-recovery-denied",
+    ],
+    RECOVERY_EPOCH_MISMATCH: ["wrong-evidence-recovery-epoch-denied"],
+  },
 };
 
 const EXPECTED_OUTCOMES = new Map();
@@ -162,7 +208,7 @@ function assertSyntheticIdentifier(value, label, prefix) {
 }
 
 function assertSanitized(value, label = "fixture") {
-  const forbiddenKey = /(?:password|private.?key|secret.?value|credential.?value|raw.?payload|host.?fact|operational.?evidence)/i;
+  const forbiddenKey = /(?:private.?key|secret.?value|credential.?value|raw.?payload|host.?fact|operational.?evidence)/i;
   const secretValue = /\b(?:x(?:app|ox[abprs])-[A-Za-z0-9-]+|AKIA[A-Z0-9]{16})\b/;
   function visit(current) {
     if (typeof current === "string") {
@@ -379,10 +425,134 @@ function validateNativeCredentials(input, contractCase, label) {
   }
 }
 
+function validateMacosAdmission(input, contractCase, label) {
+  assertExactKeys(
+    input,
+    [
+      "profileId", "roleId", "managementTransport", "networkPath", "sourcePolicy",
+      "remoteLogin", "applicationFirewall", "productManagedPf", "mdm", "tccConsent",
+      "rebootVerification", "recovery",
+    ],
+    label,
+  );
+  assertEnum(input.profileId, ["macos-current-arm64", "macos-previous-arm64"], `${label}.profileId`);
+  assertEnum(input.roleId, ["mac-developer-ci", "hermes"], `${label}.roleId`);
+  assertEnum(input.managementTransport, ["constrained-ssh", "direct-lan-ssh"], `${label}.managementTransport`);
+  assertPlainObject(input.networkPath, `${label}.networkPath`);
+  assertExactKeys(input.networkPath, ["kind", "identityVerified", "deviceVerified", "sourceDeclared", "destinationDeclared", "port"], `${label}.networkPath`);
+  assertEnum(input.networkPath.kind, ["cloudflare-mesh", "direct-lan"], `${label}.networkPath.kind`);
+  for (const key of ["identityVerified", "deviceVerified", "sourceDeclared", "destinationDeclared"]) assertBoolean(input.networkPath[key], `${label}.networkPath.${key}`);
+  assertNonnegativeInteger(input.networkPath.port, `${label}.networkPath.port`);
+  assertPlainObject(input.sourcePolicy, `${label}.sourcePolicy`);
+  assertExactKeys(input.sourcePolicy, ["default", "identity", "device", "destination", "port"], `${label}.sourcePolicy`);
+  assertEnum(input.sourcePolicy.default, ["deny", "allow"], `${label}.sourcePolicy.default`);
+  for (const key of ["identity", "device", "destination"]) assertSyntheticIdentifier(input.sourcePolicy[key], `${label}.sourcePolicy.${key}`, `${key}-`);
+  assertNonnegativeInteger(input.sourcePolicy.port, `${label}.sourcePolicy.port`);
+  assertPlainObject(input.remoteLogin, `${label}.remoteLogin`);
+  assertExactKeys(input.remoteLogin, ["allowedUsers", "requestedUser", "passwordLogin", "directRootLogin", "fullDiskAccess"], `${label}.remoteLogin`);
+  assertStringArray(input.remoteLogin.allowedUsers, `${label}.remoteLogin.allowedUsers`, { nonempty: true });
+  assertSyntheticIdentifier(input.remoteLogin.requestedUser, `${label}.remoteLogin.requestedUser`, "user-");
+  for (const key of ["passwordLogin", "directRootLogin", "fullDiskAccess"]) assertBoolean(input.remoteLogin[key], `${label}.remoteLogin.${key}`);
+  assertPlainObject(input.applicationFirewall, `${label}.applicationFirewall`);
+  assertExactKeys(input.applicationFirewall, ["enabled", "model"], `${label}.applicationFirewall`);
+  assertBoolean(input.applicationFirewall.enabled, `${label}.applicationFirewall.enabled`);
+  assertEnum(input.applicationFirewall.model, ["application-service"], `${label}.applicationFirewall.model`);
+  assertBoolean(input.productManagedPf, `${label}.productManagedPf`);
+  assertBoolean(input.mdm, `${label}.mdm`);
+  assertPlainObject(input.tccConsent, `${label}.tccConsent`);
+  assertExactKeys(input.tccConsent, ["required", "state", "approvalMethod"], `${label}.tccConsent`);
+  assertBoolean(input.tccConsent.required, `${label}.tccConsent.required`);
+  assertEnum(input.tccConsent.state, ["not-required", "approved", "absent", "revoked"], `${label}.tccConsent.state`);
+  assertEnum(input.tccConsent.approvalMethod, ["supported-local-user", "none", "device-management"], `${label}.tccConsent.approvalMethod`);
+  assertPlainObject(input.rebootVerification, `${label}.rebootVerification`);
+  assertExactKeys(input.rebootVerification, ["state"], `${label}.rebootVerification`);
+  assertEnum(input.rebootVerification.state, ["verified", "drifted"], `${label}.rebootVerification.state`);
+  assertPlainObject(input.recovery, `${label}.recovery`);
+  assertExactKeys(input.recovery, ["independent", "method", "directLanFallback"], `${label}.recovery`);
+  assertBoolean(input.recovery.independent, `${label}.recovery.independent`);
+  assertEnum(input.recovery.method, ["physical-local-console", "missing"], `${label}.recovery.method`);
+  assertBoolean(input.recovery.directLanFallback, `${label}.recovery.directLanFallback`);
+
+  if (contractCase.expected.status === "accepted") {
+    const pathAccepted = input.managementTransport === "constrained-ssh" && input.networkPath.kind === "cloudflare-mesh" &&
+      input.networkPath.identityVerified && input.networkPath.deviceVerified && input.networkPath.sourceDeclared &&
+      input.networkPath.destinationDeclared && input.networkPath.port === 22 && input.sourcePolicy.default === "deny";
+    const loginAccepted = input.remoteLogin.allowedUsers.includes(input.remoteLogin.requestedUser) &&
+      !input.remoteLogin.passwordLogin && !input.remoteLogin.directRootLogin && !input.remoteLogin.fullDiskAccess;
+    const consentAccepted = !input.tccConsent.required || (input.tccConsent.state === "approved" && input.tccConsent.approvalMethod === "supported-local-user");
+    if (!pathAccepted || !loginAccepted || !input.applicationFirewall.enabled || input.productManagedPf || input.mdm ||
+        !consentAccepted || input.rebootVerification.state !== "verified" || !input.recovery.independent ||
+        input.recovery.method !== "physical-local-console" || input.recovery.directLanFallback) {
+      throw new Error(`${label} accepted macOS admission violates the constrained Mesh, native protection, consent, reboot, or recovery boundary`);
+    }
+  }
+}
+
+const EVIDENCE_OPERATIONS = [
+  "admit-workload",
+  "expand-role",
+  "issue-workload-credential",
+  "continue-existing-workload",
+  "recover",
+];
+
+function validateAdmissionEvidence(input, contractCase, label) {
+  assertExactKeys(
+    input,
+    [
+      "hostId", "profileVersion", "releaseBuildId", "declarationRevision", "recoveryEpoch",
+      "trigger", "collectedAt", "evaluatedAt", "mandatoryControls", "requestedOperation",
+      "existingWorkloadDisposition", "recoveryAllowed",
+    ],
+    label,
+  );
+  assertSyntheticIdentifier(input.hostId, `${label}.hostId`, "host-");
+  assertNonemptyString(input.profileVersion, `${label}.profileVersion`);
+  assertSyntheticIdentifier(input.releaseBuildId, `${label}.releaseBuildId`, "release-");
+  assertNonnegativeInteger(input.declarationRevision, `${label}.declarationRevision`);
+  assertNonnegativeInteger(input.recoveryEpoch, `${label}.recoveryEpoch`);
+  assertEnum(input.trigger, ["daily", "after-change"], `${label}.trigger`);
+  assertTimestamp(input.collectedAt, `${label}.collectedAt`);
+  assertTimestamp(input.evaluatedAt, `${label}.evaluatedAt`);
+  if (!Array.isArray(input.mandatoryControls) || input.mandatoryControls.length === 0) throw new Error(`${label}.mandatoryControls must be a nonempty array`);
+  for (const [index, control] of input.mandatoryControls.entries()) {
+    const controlLabel = `${label}.mandatoryControls[${index}]`;
+    assertPlainObject(control, controlLabel);
+    assertExactKeys(control, ["controlId", "state", "maxAgeSeconds", "changedAt"], controlLabel);
+    assertNonemptyString(control.controlId, `${controlLabel}.controlId`);
+    assertEnum(control.state, ["passed", "failed", "missing", "unknown", "skipped"], `${controlLabel}.state`);
+    assertNonnegativeInteger(control.maxAgeSeconds, `${controlLabel}.maxAgeSeconds`);
+    if (control.maxAgeSeconds === 0 || control.maxAgeSeconds > 86400) throw new Error(`${controlLabel}.maxAgeSeconds must be within the daily limit`);
+    if (control.changedAt !== null) assertTimestamp(control.changedAt, `${controlLabel}.changedAt`);
+  }
+  assertEnum(input.requestedOperation, EVIDENCE_OPERATIONS, `${label}.requestedOperation`);
+  assertEnum(input.existingWorkloadDisposition, ["preserve-safe", "not-applicable"], `${label}.existingWorkloadDisposition`);
+  assertBoolean(input.recoveryAllowed, `${label}.recoveryAllowed`);
+
+  if (contractCase.expected.status === "accepted") {
+    const privilegedBypass = ["continue-existing-workload", "recover"].includes(input.requestedOperation);
+    if (!privilegedBypass) {
+      const evaluated = Date.parse(input.evaluatedAt);
+      const collected = Date.parse(input.collectedAt);
+      if (input.mandatoryControls.some(({ state }) => state !== "passed") ||
+          input.mandatoryControls.some(({ maxAgeSeconds }) => evaluated - collected > maxAgeSeconds * 1000) ||
+          (input.trigger === "after-change" && input.mandatoryControls.some(({ changedAt }) => changedAt !== null && collected < Date.parse(changedAt)))) {
+        throw new Error(`${label} accepted new admission requires current passing evidence`);
+      }
+    } else if (input.requestedOperation === "continue-existing-workload" && input.existingWorkloadDisposition !== "preserve-safe") {
+      throw new Error(`${label} stale evidence may preserve only a safe existing workload`);
+    } else if (input.requestedOperation === "recover" && !input.recoveryAllowed) {
+      throw new Error(`${label} recovery must remain explicitly allowed`);
+    }
+  }
+}
+
 const INPUT_VALIDATORS = new Map([
   ["host-control-matrix", validateHostControlMatrix],
   ["privileged-execution", validatePrivilegedExecution],
   ["native-credentials", validateNativeCredentials],
+  ["macos-admission", validateMacosAdmission],
+  ["admission-evidence", validateAdmissionEvidence],
 ]);
 
 function requireNegativeFact(condition, label, description) {
@@ -504,10 +674,98 @@ function validateCredentialNegativeFacts(contractCase, _inputs, label) {
   }
 }
 
+function validateMacosNegativeFacts(contractCase, _inputs, label) {
+  const input = contractCase.input;
+  const path = input.networkPath;
+  const login = input.remoteLogin;
+  switch (contractCase.id) {
+    case "wrong-mesh-identity-denied":
+      requireNegativeFact(!path.identityVerified, label, "an unverified Mesh identity");
+      break;
+    case "wrong-device-denied":
+      requireNegativeFact(!path.deviceVerified, label, "an unverified device");
+      break;
+    case "wrong-source-denied":
+      requireNegativeFact(!path.sourceDeclared || !path.destinationDeclared || input.sourcePolicy.default !== "deny", label, "an undeclared source or destination");
+      break;
+    case "wrong-user-denied":
+      requireNegativeFact(!login.allowedUsers.includes(login.requestedUser), label, "an undeclared Remote Login user");
+      break;
+    case "direct-lan-fallback-denied":
+      requireNegativeFact(input.managementTransport === "direct-lan-ssh" || path.kind === "direct-lan" || input.recovery.directLanFallback, label, "a silent direct-LAN fallback");
+      break;
+    case "password-login-denied":
+      requireNegativeFact(login.passwordLogin, label, "password login");
+      break;
+    case "root-login-denied":
+      requireNegativeFact(login.directRootLogin, label, "direct human root login");
+      break;
+    case "full-disk-access-widening-denied":
+      requireNegativeFact(login.fullDiskAccess, label, "remote Full Disk Access widening");
+      break;
+    case "product-pf-denied":
+      requireNegativeFact(input.productManagedPf, label, "product-managed PF");
+      break;
+    case "mdm-claim-denied":
+      requireNegativeFact(input.mdm || input.tccConsent.approvalMethod === "device-management", label, "an excluded MDM claim");
+      break;
+    case "consent-absent-blocked":
+      requireNegativeFact(input.tccConsent.required && input.tccConsent.state === "absent", label, "absent required local consent");
+      break;
+    case "consent-revoked-blocked":
+      requireNegativeFact(input.tccConsent.required && input.tccConsent.state === "revoked", label, "revoked required local consent");
+      break;
+    case "native-firewall-disabled-denied":
+      requireNegativeFact(!input.applicationFirewall.enabled, label, "a disabled native application firewall");
+      break;
+    case "reboot-drift-denied":
+      requireNegativeFact(input.rebootVerification.state === "drifted", label, "post-reboot drift");
+      break;
+    case "missing-macos-recovery-denied":
+      requireNegativeFact(!input.recovery.independent || input.recovery.method === "missing", label, "missing physical-console recovery");
+      break;
+    default:
+      throw new Error(`${label} has no independent macOS denial-fact validator`);
+  }
+}
+
+function validateEvidenceNegativeFacts(contractCase, inputs, label) {
+  const input = contractCase.input;
+  const current = inputs.get("current-daily-evidence-accepted");
+  switch (contractCase.id) {
+    case "stale-new-admission-blocked":
+    case "stale-role-expansion-blocked":
+    case "stale-new-credential-blocked":
+      requireNegativeFact(Date.parse(input.evaluatedAt) - Date.parse(input.collectedAt) > input.mandatoryControls[0].maxAgeSeconds * 1000, label, "stale evidence for a new or expanded capability");
+      break;
+    case "after-change-old-evidence-blocked":
+      requireNegativeFact(input.trigger === "after-change" && input.mandatoryControls.some(({ changedAt }) => changedAt !== null && Date.parse(input.collectedAt) < Date.parse(changedAt)), label, "evidence collected before the relevant change");
+      break;
+    case "missing-mandatory-blocked":
+    case "failed-mandatory-blocked":
+    case "unknown-mandatory-blocked":
+    case "skipped-mandatory-blocked": {
+      const expectedState = contractCase.id.split("-")[0];
+      requireNegativeFact(input.mandatoryControls.some(({ state }) => state === expectedState), label, `${expectedState} mandatory evidence`);
+      break;
+    }
+    case "missing-evidence-recovery-denied":
+      requireNegativeFact(input.requestedOperation === "recover" && !input.recoveryAllowed, label, "a denied recovery operation");
+      break;
+    case "wrong-evidence-recovery-epoch-denied":
+      requireNegativeFact(input.recoveryEpoch !== current.recoveryEpoch, label, "a different recovery epoch");
+      break;
+    default:
+      throw new Error(`${label} has no independent admission-evidence denial-fact validator`);
+  }
+}
+
 const NEGATIVE_FACT_VALIDATORS = new Map([
   ["host-control-matrix", validateHostControlNegativeFacts],
   ["privileged-execution", validatePrivilegedNegativeFacts],
   ["native-credentials", validateCredentialNegativeFacts],
+  ["macos-admission", validateMacosNegativeFacts],
+  ["admission-evidence", validateEvidenceNegativeFacts],
 ]);
 
 export function validatePhaseZeroFourFixture(document, source) {

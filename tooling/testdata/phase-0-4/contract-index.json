@@ -57,6 +57,49 @@
         "cloud-required-denied",
         "plaintext-fallback-denied"
       ]
+    },
+    {
+      "contract": "macos-admission",
+      "file": "macos-admission.json",
+      "requiredCaseIds": [
+        "approved-mesh-ssh-accepted",
+        "local-consent-accepted",
+        "wrong-mesh-identity-denied",
+        "wrong-device-denied",
+        "wrong-source-denied",
+        "wrong-user-denied",
+        "direct-lan-fallback-denied",
+        "password-login-denied",
+        "root-login-denied",
+        "full-disk-access-widening-denied",
+        "consent-absent-blocked",
+        "consent-revoked-blocked",
+        "product-pf-denied",
+        "mdm-claim-denied",
+        "native-firewall-disabled-denied",
+        "reboot-drift-denied",
+        "missing-macos-recovery-denied"
+      ]
+    },
+    {
+      "contract": "admission-evidence",
+      "file": "admission-evidence.json",
+      "requiredCaseIds": [
+        "current-daily-evidence-accepted",
+        "current-after-change-accepted",
+        "stale-new-admission-blocked",
+        "stale-role-expansion-blocked",
+        "stale-new-credential-blocked",
+        "stale-existing-workload-preserved",
+        "stale-recovery-accepted",
+        "after-change-old-evidence-blocked",
+        "missing-mandatory-blocked",
+        "failed-mandatory-blocked",
+        "unknown-mandatory-blocked",
+        "skipped-mandatory-blocked",
+        "missing-evidence-recovery-denied",
+        "wrong-evidence-recovery-epoch-denied"
+      ]
     }
   ]
 }
