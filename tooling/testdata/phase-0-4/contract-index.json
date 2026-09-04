@@ -17,6 +17,46 @@
         "unsafe-audit-capture-denied",
         "missing-recovery-denied"
       ]
+    },
+    {
+      "contract": "privileged-execution",
+      "file": "privileged-execution.json",
+      "requiredCaseIds": [
+        "approved-bundle-accepted",
+        "wrong-plan-denied",
+        "wrong-plan-digest-denied",
+        "wrong-bundle-digest-denied",
+        "wrong-host-denied",
+        "wrong-recovery-epoch-denied",
+        "expired-bundle-denied",
+        "undeclared-action-denied",
+        "arbitrary-module-denied",
+        "arbitrary-command-denied",
+        "target-widening-denied",
+        "lost-recovery-denied",
+        "resident-helper-denied",
+        "desired-state-copy-denied",
+        "wrong-executable-denied"
+      ]
+    },
+    {
+      "contract": "native-credentials",
+      "file": "native-credentials.json",
+      "requiredCaseIds": [
+        "cold-start-accepted",
+        "correct-consumer-accepted",
+        "no-cloud-account-accepted",
+        "no-hardware-protection-accepted",
+        "rotation-complete-accepted",
+        "revocation-complete-accepted",
+        "cross-consumer-denied",
+        "stale-material-denied",
+        "revoked-material-denied",
+        "incomplete-rotation-denied",
+        "recovery-unavailable-denied",
+        "cloud-required-denied",
+        "plaintext-fallback-denied"
+      ]
     }
   ]
 }

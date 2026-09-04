@@ -8,7 +8,11 @@ const FIXTURE_SCHEMA = "vegastack-labs.dev/phase-0.4-contract-fixture";
 const INDEX_SCHEMA = "vegastack-labs.dev/phase-0.4-contract-index";
 const SCHEMA_VERSION = "1.0.0";
 
-const CONTRACT_NAMES = new Set(["host-control-matrix"]);
+const CONTRACT_NAMES = new Set([
+  "host-control-matrix",
+  "privileged-execution",
+  "native-credentials",
+]);
 const ERROR_CODES = new Set([
   "INPUT_INVALID",
   "SCHEMA_UNSUPPORTED",
@@ -50,6 +54,46 @@ const EXPECTED_CASE_OUTCOMES = {
       "package-only-evidence-denied",
       "missing-aide-baseline-denied",
       "missing-recovery-denied",
+    ],
+  },
+  "privileged-execution": {
+    accepted: ["approved-bundle-accepted"],
+    AUTHORIZATION_DENIED: [
+      "wrong-plan-denied",
+      "wrong-plan-digest-denied",
+      "wrong-bundle-digest-denied",
+      "wrong-host-denied",
+      "undeclared-action-denied",
+      "arbitrary-module-denied",
+      "arbitrary-command-denied",
+      "target-widening-denied",
+      "resident-helper-denied",
+      "desired-state-copy-denied",
+      "wrong-executable-denied",
+    ],
+    RECOVERY_EPOCH_MISMATCH: ["wrong-recovery-epoch-denied"],
+    PLAN_STALE: ["expired-bundle-denied"],
+    PREREQUISITE_BLOCKED: ["lost-recovery-denied"],
+  },
+  "native-credentials": {
+    accepted: [
+      "cold-start-accepted",
+      "correct-consumer-accepted",
+      "no-cloud-account-accepted",
+      "no-hardware-protection-accepted",
+      "rotation-complete-accepted",
+      "revocation-complete-accepted",
+    ],
+    AUTHORIZATION_DENIED: [
+      "cross-consumer-denied",
+      "cloud-required-denied",
+      "plaintext-fallback-denied",
+    ],
+    PLAN_STALE: ["stale-material-denied"],
+    PREREQUISITE_BLOCKED: [
+      "revoked-material-denied",
+      "incomplete-rotation-denied",
+      "recovery-unavailable-denied",
     ],
   },
 };
@@ -226,7 +270,120 @@ function validateHostControlMatrix(input, contractCase, label) {
   }
 }
 
-const INPUT_VALIDATORS = new Map([["host-control-matrix", validateHostControlMatrix]]);
+function assertDigest(value, label) {
+  if (typeof value !== "string" || !/^sha256:[0-9a-f]{64}$/.test(value)) {
+    throw new Error(`${label} must be a lowercase sha256 digest`);
+  }
+}
+
+function validateRecoveryPrecheck(value, label) {
+  assertPlainObject(value, label);
+  assertExactKeys(value, ["independentAccess", "rollbackArmed", "verifiedAt"], label);
+  assertBoolean(value.independentAccess, `${label}.independentAccess`);
+  assertBoolean(value.rollbackArmed, `${label}.rollbackArmed`);
+  if (value.verifiedAt !== null) assertTimestamp(value.verifiedAt, `${label}.verifiedAt`);
+}
+
+function validatePrivilegedExecution(input, contractCase, label) {
+  assertExactKeys(
+    input,
+    [
+      "planId", "planDigest", "bundleDigest", "targetHostId", "declarationRevision",
+      "recoveryEpoch", "issuedAt", "expiresAt", "observedAt", "automationPrincipalId",
+      "executable", "mode", "resident", "storesDesiredState", "approvedActions",
+      "requestedActions", "recoveryPrecheck",
+    ],
+    label,
+  );
+  assertSyntheticIdentifier(input.planId, `${label}.planId`, "plan-");
+  assertDigest(input.planDigest, `${label}.planDigest`);
+  assertDigest(input.bundleDigest, `${label}.bundleDigest`);
+  assertSyntheticIdentifier(input.targetHostId, `${label}.targetHostId`, "host-");
+  assertNonnegativeInteger(input.declarationRevision, `${label}.declarationRevision`);
+  assertNonnegativeInteger(input.recoveryEpoch, `${label}.recoveryEpoch`);
+  assertTimestamp(input.issuedAt, `${label}.issuedAt`);
+  assertTimestamp(input.expiresAt, `${label}.expiresAt`);
+  assertTimestamp(input.observedAt, `${label}.observedAt`);
+  if (Date.parse(input.expiresAt) <= Date.parse(input.issuedAt)) throw new Error(`${label}.expiresAt must follow issuedAt`);
+  assertSyntheticIdentifier(input.automationPrincipalId, `${label}.automationPrincipalId`, "automation-principal-");
+  assertNonemptyString(input.executable, `${label}.executable`);
+  assertNonemptyString(input.mode, `${label}.mode`);
+  assertBoolean(input.resident, `${label}.resident`);
+  assertBoolean(input.storesDesiredState, `${label}.storesDesiredState`);
+  assertStringArray(input.approvedActions, `${label}.approvedActions`, { nonempty: true });
+  assertStringArray(input.requestedActions, `${label}.requestedActions`, { nonempty: true });
+  validateRecoveryPrecheck(input.recoveryPrecheck, `${label}.recoveryPrecheck`);
+  if (contractCase.expected.status === "accepted") {
+    if (input.executable !== "vsk-labs" || input.mode !== "host-action-once" || input.resident || input.storesDesiredState) {
+      throw new Error(`${label} accepted privileged execution must use non-resident vsk-labs host-action-once without desired state`);
+    }
+    if (input.requestedActions.some((action) => !input.approvedActions.includes(action))) {
+      throw new Error(`${label} accepted privileged execution cannot widen actions`);
+    }
+    if (!input.recoveryPrecheck.independentAccess || !input.recoveryPrecheck.rollbackArmed || input.recoveryPrecheck.verifiedAt === null) {
+      throw new Error(`${label} accepted privileged execution requires independent recovery and armed rollback`);
+    }
+    if (Date.parse(input.observedAt) > Date.parse(input.expiresAt)) throw new Error(`${label} accepted privileged execution cannot be expired`);
+  }
+}
+
+function validateNativeCredentials(input, contractCase, label) {
+  assertExactKeys(
+    input,
+    [
+      "credentialRef", "resolver", "consumerId", "requestedConsumerId", "materialVersion",
+      "requiredMaterialVersion", "status", "cloudAccountRequired", "hardwareProtection",
+      "rotation", "revocation", "recovery",
+    ],
+    label,
+  );
+  assertSyntheticIdentifier(input.credentialRef, `${label}.credentialRef`, "credential-ref-");
+  assertPlainObject(input.resolver, `${label}.resolver`);
+  assertExactKeys(input.resolver, ["kind", "accountFree", "pathAbstraction", "plaintextFallback"], `${label}.resolver`);
+  assertEnum(input.resolver.kind, ["os-native"], `${label}.resolver.kind`);
+  assertBoolean(input.resolver.accountFree, `${label}.resolver.accountFree`);
+  assertEnum(input.resolver.pathAbstraction, ["platform-credential-store"], `${label}.resolver.pathAbstraction`);
+  assertBoolean(input.resolver.plaintextFallback, `${label}.resolver.plaintextFallback`);
+  assertSyntheticIdentifier(input.consumerId, `${label}.consumerId`, "consumer-");
+  assertSyntheticIdentifier(input.requestedConsumerId, `${label}.requestedConsumerId`, "consumer-");
+  assertNonnegativeInteger(input.materialVersion, `${label}.materialVersion`);
+  assertNonnegativeInteger(input.requiredMaterialVersion, `${label}.requiredMaterialVersion`);
+  assertEnum(input.status, ["current", "stale", "revoked"], `${label}.status`);
+  assertBoolean(input.cloudAccountRequired, `${label}.cloudAccountRequired`);
+  assertEnum(input.hardwareProtection, ["available", "unavailable-not-required"], `${label}.hardwareProtection`);
+  assertPlainObject(input.rotation, `${label}.rotation`);
+  assertExactKeys(input.rotation, ["state", "fromVersion", "toVersion", "consumersVerified"], `${label}.rotation`);
+  assertEnum(input.rotation.state, ["not-required", "pending", "complete"], `${label}.rotation.state`);
+  for (const key of ["fromVersion", "toVersion"]) assertNonnegativeInteger(input.rotation[key], `${label}.rotation.${key}`);
+  assertBoolean(input.rotation.consumersVerified, `${label}.rotation.consumersVerified`);
+  assertPlainObject(input.revocation, `${label}.revocation`);
+  assertExactKeys(input.revocation, ["state", "revokedVersions"], `${label}.revocation`);
+  assertEnum(input.revocation.state, ["not-required", "complete"], `${label}.revocation.state`);
+  if (!Array.isArray(input.revocation.revokedVersions)) throw new Error(`${label}.revocation.revokedVersions must be an array`);
+  input.revocation.revokedVersions.forEach((version, index) => assertNonnegativeInteger(version, `${label}.revocation.revokedVersions[${index}]`));
+  assertPlainObject(input.recovery, `${label}.recovery`);
+  assertExactKeys(input.recovery, ["independent", "available", "method"], `${label}.recovery`);
+  assertBoolean(input.recovery.independent, `${label}.recovery.independent`);
+  assertBoolean(input.recovery.available, `${label}.recovery.available`);
+  assertNonemptyString(input.recovery.method, `${label}.recovery.method`);
+  if (contractCase.expected.status === "accepted") {
+    if (!input.resolver.accountFree || input.cloudAccountRequired || input.resolver.plaintextFallback) {
+      throw new Error(`${label} accepted native resolution must be account-free with no plaintext fallback`);
+    }
+    if (input.consumerId !== input.requestedConsumerId) throw new Error(`${label} accepted native resolution must bind one consumer`);
+    if (input.status !== "current" || input.materialVersion !== input.requiredMaterialVersion || input.revocation.revokedVersions.includes(input.materialVersion)) {
+      throw new Error(`${label} accepted native resolution requires current non-revoked material`);
+    }
+    if (input.rotation.state === "pending" || !input.rotation.consumersVerified) throw new Error(`${label} accepted native resolution requires completed consumer verification`);
+    if (!input.recovery.independent || !input.recovery.available) throw new Error(`${label} accepted native resolution requires independent recovery`);
+  }
+}
+
+const INPUT_VALIDATORS = new Map([
+  ["host-control-matrix", validateHostControlMatrix],
+  ["privileged-execution", validatePrivilegedExecution],
+  ["native-credentials", validateNativeCredentials],
+]);
 
 function requireNegativeFact(condition, label, description) {
   if (!condition) throw new Error(`${label} must retain ${description}`);
@@ -262,6 +419,97 @@ function validateHostControlNegativeFacts(contractCase, label) {
   }
 }
 
+function validatePrivilegedNegativeFacts(contractCase, inputs, label) {
+  const input = contractCase.input;
+  const accepted = inputs.get("approved-bundle-accepted");
+  requireNegativeFact(accepted !== undefined, label, "the approved bundle reference");
+  switch (contractCase.id) {
+    case "wrong-plan-denied":
+      requireNegativeFact(input.planId !== accepted.planId, label, "a different plan ID");
+      break;
+    case "wrong-plan-digest-denied":
+      requireNegativeFact(input.planDigest !== accepted.planDigest, label, "a different plan digest");
+      break;
+    case "wrong-bundle-digest-denied":
+      requireNegativeFact(input.bundleDigest !== accepted.bundleDigest, label, "a different action-bundle digest");
+      break;
+    case "wrong-host-denied":
+      requireNegativeFact(input.targetHostId !== accepted.targetHostId, label, "a different target host");
+      break;
+    case "wrong-recovery-epoch-denied":
+      requireNegativeFact(input.recoveryEpoch !== accepted.recoveryEpoch, label, "a different recovery epoch");
+      break;
+    case "expired-bundle-denied":
+      requireNegativeFact(Date.parse(input.observedAt) > Date.parse(input.expiresAt), label, "an expired action bundle");
+      break;
+    case "undeclared-action-denied":
+      if (!input.requestedActions.some((action) => !input.approvedActions.includes(action))) {
+        throw new Error(`${label} undeclared-action case must widen the approved action set`);
+      }
+      break;
+    case "arbitrary-module-denied":
+      requireNegativeFact(input.requestedActions.some((action) => action.startsWith("module:")), label, "an arbitrary Ansible module request");
+      break;
+    case "arbitrary-command-denied":
+      requireNegativeFact(input.requestedActions.some((action) => action.startsWith("command:")), label, "an arbitrary command request");
+      break;
+    case "target-widening-denied":
+      requireNegativeFact(input.requestedActions.some((action) => action.includes("host-synthetic-all")), label, "target widening");
+      break;
+    case "lost-recovery-denied":
+      requireNegativeFact(!input.recoveryPrecheck.independentAccess || !input.recoveryPrecheck.rollbackArmed, label, "a failed independent recovery precheck");
+      break;
+    case "resident-helper-denied":
+      requireNegativeFact(input.resident, label, "a resident privileged helper");
+      break;
+    case "desired-state-copy-denied":
+      requireNegativeFact(input.storesDesiredState, label, "an independent desired-state copy");
+      break;
+    case "wrong-executable-denied":
+      requireNegativeFact(input.executable !== "vsk-labs" || input.mode !== "host-action-once", label, "an alternate executable or privileged mode");
+      break;
+    default:
+      throw new Error(`${label} has no independent privileged-execution denial-fact validator`);
+  }
+}
+
+function validateCredentialNegativeFacts(contractCase, _inputs, label) {
+  const input = contractCase.input;
+  switch (contractCase.id) {
+    case "cross-consumer-denied":
+      if (input.requestedConsumerId === input.consumerId) {
+        throw new Error(`${label} cross-consumer case must request a different consumer`);
+      }
+      break;
+    case "stale-material-denied":
+      requireNegativeFact(input.status === "stale" || input.materialVersion < input.requiredMaterialVersion, label, "stale material");
+      break;
+    case "revoked-material-denied":
+      requireNegativeFact(input.status === "revoked" || input.revocation.revokedVersions.includes(input.materialVersion), label, "revoked material");
+      break;
+    case "incomplete-rotation-denied":
+      requireNegativeFact(input.rotation.state === "pending" || !input.rotation.consumersVerified, label, "an incomplete rotation");
+      break;
+    case "recovery-unavailable-denied":
+      requireNegativeFact(!input.recovery.independent || !input.recovery.available, label, "unavailable independent recovery");
+      break;
+    case "cloud-required-denied":
+      requireNegativeFact(input.cloudAccountRequired || !input.resolver.accountFree, label, "a cloud-account dependency");
+      break;
+    case "plaintext-fallback-denied":
+      requireNegativeFact(input.resolver.plaintextFallback, label, "a plaintext fallback");
+      break;
+    default:
+      throw new Error(`${label} has no independent native-credential denial-fact validator`);
+  }
+}
+
+const NEGATIVE_FACT_VALIDATORS = new Map([
+  ["host-control-matrix", validateHostControlNegativeFacts],
+  ["privileged-execution", validatePrivilegedNegativeFacts],
+  ["native-credentials", validateCredentialNegativeFacts],
+]);
+
 export function validatePhaseZeroFourFixture(document, source) {
   assertPlainObject(document, source);
   assertSanitized(document, source);
@@ -296,9 +544,10 @@ export function validatePhaseZeroFourFixture(document, source) {
       throw new Error(`${label} disagrees with the independent outcome oracle`);
     }
   }
+  const inputs = new Map(document.cases.map((contractCase) => [contractCase.id, contractCase.input]));
   for (const [index, contractCase] of document.cases.entries()) {
     if (contractCase.expected.status !== "accepted") {
-      validateHostControlNegativeFacts(contractCase, `${source} cases[${index}].input`);
+      NEGATIVE_FACT_VALIDATORS.get(document.contract)(contractCase, inputs, `${source} cases[${index}].input`);
     }
   }
   return { contract: document.contract, cases: document.cases.length };

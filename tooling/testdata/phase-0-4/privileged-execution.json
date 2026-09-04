@@ -1,0 +1,100 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.4-contract-fixture",
+  "schemaVersion": "1.0.0",
+  "contract": "privileged-execution",
+  "cases": [
+    {
+      "id": "approved-bundle-accepted",
+      "input": {
+        "planId": "plan-synthetic-001",
+        "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "targetHostId": "host-synthetic-001",
+        "declarationRevision": 42,
+        "recoveryEpoch": 3,
+        "issuedAt": "2026-09-04T03:00:00Z",
+        "expiresAt": "2026-09-04T03:30:00Z",
+        "observedAt": "2026-09-04T03:10:00Z",
+        "automationPrincipalId": "automation-principal-synthetic-001",
+        "executable": "vsk-labs",
+        "mode": "host-action-once",
+        "resident": false,
+        "storesDesiredState": false,
+        "approvedActions": ["configure:ssh@host-synthetic-001", "verify:ssh@host-synthetic-001"],
+        "requestedActions": ["configure:ssh@host-synthetic-001", "verify:ssh@host-synthetic-001"],
+        "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" }
+      },
+      "expected": { "status": "accepted", "errorCode": null, "reason": "the exact approved bundle may run once through the single executable" }
+    },
+    {
+      "id": "wrong-plan-denied",
+      "input": { "planId": "plan-synthetic-other", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "the bundle is bound to another plan ID" }
+    },
+    {
+      "id": "wrong-plan-digest-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "the protected plan content changed" }
+    },
+    {
+      "id": "wrong-bundle-digest-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "the immutable action bundle changed" }
+    },
+    {
+      "id": "wrong-host-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-other", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "the target host identity does not match the plan" }
+    },
+    {
+      "id": "wrong-recovery-epoch-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 2, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "RECOVERY_EPOCH_MISMATCH", "reason": "the action belongs to an earlier recovery epoch" }
+    },
+    {
+      "id": "expired-bundle-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:31:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "PLAN_STALE", "reason": "the one-shot action expired before execution" }
+    },
+    {
+      "id": "undeclared-action-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001", "verify:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001", "verify:ssh@host-synthetic-001", "configure:firewall@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "requested actions exceed the approved action set" }
+    },
+    {
+      "id": "arbitrary-module-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["module:shell@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "arbitrary Ansible modules are not accepted by the one-shot mode" }
+    },
+    {
+      "id": "arbitrary-command-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["command:arbitrary@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "arbitrary privileged commands are not accepted" }
+    },
+    {
+      "id": "target-widening-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-all"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "a host target cannot be widened at execution" }
+    },
+    {
+      "id": "lost-recovery-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": false, "rollbackArmed": false, "verifiedAt": null } },
+      "expected": { "status": "blocked", "errorCode": "PREREQUISITE_BLOCKED", "reason": "a risky access change cannot start without independent recovery and armed rollback" }
+    },
+    {
+      "id": "resident-helper-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": true, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "managed hosts do not run a resident privileged platform agent" }
+    },
+    {
+      "id": "desired-state-copy-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs", "mode": "host-action-once", "resident": false, "storesDesiredState": true, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "the one-shot mode cannot keep independent desired state" }
+    },
+    {
+      "id": "wrong-executable-denied",
+      "input": { "planId": "plan-synthetic-001", "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "bundleDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", "targetHostId": "host-synthetic-001", "declarationRevision": 42, "recoveryEpoch": 3, "issuedAt": "2026-09-04T03:00:00Z", "expiresAt": "2026-09-04T03:30:00Z", "observedAt": "2026-09-04T03:10:00Z", "automationPrincipalId": "automation-principal-synthetic-001", "executable": "vsk-labs-helper", "mode": "daemon", "resident": false, "storesDesiredState": false, "approvedActions": ["configure:ssh@host-synthetic-001"], "requestedActions": ["configure:ssh@host-synthetic-001"], "recoveryPrecheck": { "independentAccess": true, "rollbackArmed": true, "verifiedAt": "2026-09-04T02:59:00Z" } },
+      "expected": { "status": "blocked", "errorCode": "AUTHORIZATION_DENIED", "reason": "only the single vsk-labs executable and one-shot mode may cross the boundary" }
+    }
+  ]
+}
