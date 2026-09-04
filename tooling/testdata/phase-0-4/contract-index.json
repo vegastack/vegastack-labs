@@ -1,0 +1,22 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.4-contract-index",
+  "schemaVersion": "1.0.0",
+  "contracts": [
+    {
+      "contract": "host-control-matrix",
+      "file": "host-control-matrix.json",
+      "requiredCaseIds": [
+        "supported-profiles-complete",
+        "debian-13-6-common-accepted",
+        "ubuntu-26-04-common-accepted",
+        "unsupported-release-denied",
+        "missing-probe-denied",
+        "package-only-evidence-denied",
+        "unbounded-fail2ban-denied",
+        "missing-aide-baseline-denied",
+        "unsafe-audit-capture-denied",
+        "missing-recovery-denied"
+      ]
+    }
+  ]
+}
