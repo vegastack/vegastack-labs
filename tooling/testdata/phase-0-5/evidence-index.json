@@ -206,9 +206,33 @@
       }
     ]
   },
+  "postMerge": {
+    "recordedAt": "2026-09-07T06:43:35Z",
+    "issue": {
+      "number": 18,
+      "state": "CLOSED",
+      "url": "https://github.com/vegastack/vegastack-labs/issues/18"
+    },
+    "pullRequest": {
+      "number": 21,
+      "state": "MERGED",
+      "base": "main",
+      "head": "chore/0.5-phase-zero-handoff",
+      "headCommit": "1556affa1ddb201cd4cd4688530881729294dfc4",
+      "mergeCommit": "0381f4b4b43a5f0d438b8c5647d37b6c617ad38a",
+      "parentCount": 2,
+      "url": "https://github.com/vegastack/vegastack-labs/pull/21"
+    },
+    "hostedCheck": {
+      "name": "Public foundation checks",
+      "conclusion": "SUCCESS",
+      "runUrl": "https://github.com/vegastack/vegastack-labs/actions/runs/34091778327/job/101646590145"
+    }
+  },
   "limitations": [
     {
       "id": "github-actions-billing-lock",
+      "scope": "issue-17-pr-20",
       "classification": "external-unavailable",
       "owner": "repository-operator",
       "claim": "hosted-ci-not-passed",
@@ -216,10 +240,19 @@
     },
     {
       "id": "pr-20-non-squash-merge",
+      "scope": "issue-17-pr-20",
       "classification": "workflow-divergence",
       "owner": "repository-operator",
       "claim": "squash-route-not-conformant",
       "evidenceUrl": "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543671799"
+    },
+    {
+      "id": "pr-21-non-squash-merge",
+      "scope": "issue-18-pr-21",
+      "classification": "workflow-divergence",
+      "owner": "repository-operator",
+      "claim": "squash-route-not-conformant",
+      "evidenceUrl": "https://github.com/vegastack/vegastack-labs/issues/18#issuecomment-5566187881"
     }
   ]
 }

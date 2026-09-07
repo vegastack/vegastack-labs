@@ -113,6 +113,37 @@ test("Phase 0.5 keeps the PR #20 merge-route divergence explicit", async () => {
   );
 });
 
+test("Phase 0.5 pins the successful PR #21 post-merge result", async () => {
+  const evidence = await loadPhaseZeroFiveEvidence(ROOT);
+  assert.ok(evidence.postMerge, "postMerge evidence must exist");
+
+  for (const [mutate, expected] of [
+    [(changed) => { changed.postMerge.issue.state = "OPEN"; }, /Issue #18 must be closed/],
+    [(changed) => { changed.postMerge.pullRequest.headCommit = "f".repeat(40); }, /PR #21 binding/],
+    [(changed) => { changed.postMerge.pullRequest.mergeCommit = "e".repeat(40); }, /PR #21 binding/],
+    [(changed) => { changed.postMerge.pullRequest.parentCount = 1; }, /PR #21 must remain a two-parent merge/],
+    [(changed) => { changed.postMerge.hostedCheck.name = "Different check"; }, /PR #21 hosted check/],
+    [(changed) => { changed.postMerge.hostedCheck.conclusion = "UNAVAILABLE"; }, /PR #21 hosted check must be successful/],
+    [(changed) => { changed.postMerge.hostedCheck.runUrl = "https://github.com/vegastack/vegastack-labs/actions/runs/1"; }, /PR #21 hosted check/],
+  ]) {
+    const changed = structuredClone(evidence);
+    mutate(changed);
+    assert.throws(() => validatePhaseZeroFiveEvidence(changed), expected);
+  }
+});
+
+test("Phase 0.5 distinguishes historical Issue #17 limitations from PR #21", async () => {
+  const evidence = await loadPhaseZeroFiveEvidence(ROOT);
+  const billing = evidence.limitations.find(({ id }) => id === "github-actions-billing-lock");
+  const pr20 = evidence.limitations.find(({ id }) => id === "pr-20-non-squash-merge");
+  const pr21 = evidence.limitations.find(({ id }) => id === "pr-21-non-squash-merge");
+
+  assert.equal(billing?.scope, "issue-17-pr-20");
+  assert.equal(pr20?.scope, "issue-17-pr-20");
+  assert.equal(pr21?.scope, "issue-18-pr-21");
+  assert.equal(evidence.postMerge.hostedCheck.conclusion, "SUCCESS");
+});
+
 test("module ownership rejects duplicate spines and a widened Phase 1 handoff", async () => {
   const evidence = await loadPhaseZeroFiveEvidence(ROOT);
   const duplicateOwner = structuredClone(evidence);

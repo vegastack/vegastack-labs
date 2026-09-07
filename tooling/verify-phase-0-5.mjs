@@ -64,14 +64,35 @@ const EXPECTED_PHASE_ONE_SEQUENCE = new Map([
     after: ["redaction-foundation", "offline-release-verification"],
   }],
 ]);
+const EXPECTED_POST_MERGE = {
+  recordedAt: "2026-09-07T06:43:35Z",
+  issueNumber: 18,
+  pullRequestNumber: 21,
+  head: "chore/0.5-phase-zero-handoff",
+  headCommit: "1556affa1ddb201cd4cd4688530881729294dfc4",
+  mergeCommit: "0381f4b4b43a5f0d438b8c5647d37b6c617ad38a",
+  hostedCheckName: "Public foundation checks",
+  hostedCheckRun: 34091778327,
+  hostedCheckJob: 101646590145,
+};
 const EXPECTED_LIMITATIONS = new Map([
   ["github-actions-billing-lock", {
+    scope: "issue-17-pr-20",
     classification: "external-unavailable",
     claim: "hosted-ci-not-passed",
+    issueNumber: 17,
   }],
   ["pr-20-non-squash-merge", {
+    scope: "issue-17-pr-20",
     classification: "workflow-divergence",
     claim: "squash-route-not-conformant",
+    issueNumber: 17,
+  }],
+  ["pr-21-non-squash-merge", {
+    scope: "issue-18-pr-21",
+    classification: "workflow-divergence",
+    claim: "squash-route-not-conformant",
+    issueNumber: 18,
   }],
 ]);
 
@@ -354,30 +375,98 @@ export function validateModuleOwnership(entries) {
 
 function validateLimitations(limitations) {
   if (!Array.isArray(limitations) || limitations.length !== EXPECTED_LIMITATIONS.size) {
-    throw new Error("Phase 0.5 must record exactly two known limitations");
+    throw new Error("Phase 0.5 must record exactly three known limitations");
   }
   const seen = new Set();
   for (const limitation of limitations) {
     assertPlainObject(limitation, "limitation");
-    assertExactKeys(limitation, ["id", "classification", "owner", "claim", "evidenceUrl"], "limitation");
+    assertExactKeys(
+      limitation,
+      ["id", "scope", "classification", "owner", "claim", "evidenceUrl"],
+      "limitation",
+    );
     const expected = EXPECTED_LIMITATIONS.get(limitation.id);
     if (!expected || seen.has(limitation.id)) {
       throw new Error("Phase 0.5 limitations contain an unknown or duplicate ID");
     }
     seen.add(limitation.id);
-    if (limitation.classification !== expected.classification || limitation.claim !== expected.claim) {
+    if (limitation.scope !== expected.scope ||
+        limitation.classification !== expected.classification ||
+        limitation.claim !== expected.claim) {
       if (limitation.id === "github-actions-billing-lock") {
-        throw new Error("hosted CI must remain unavailable rather than being recorded as passed");
+        throw new Error("Issue #17 hosted CI must remain unavailable rather than being recorded as passed");
       }
-      throw new Error("PR #20 must remain recorded as nonconformant with the squash route");
+      if (limitation.id === "pr-20-non-squash-merge") {
+        throw new Error("PR #20 must remain recorded as nonconformant with the squash route");
+      }
+      throw new Error("PR #21 must remain recorded as nonconformant with the squash route");
     }
     assertNonemptyString(limitation.owner, `${limitation.id}.owner`);
     assertPublicGitHubUrl(
       limitation.evidenceUrl,
       `${limitation.id}.evidenceUrl`,
-      /^\/vegastack\/vegastack-labs\/issues\/17$/,
+      new RegExp(`^/vegastack/vegastack-labs/issues/${expected.issueNumber}$`),
     );
   }
+}
+
+function validatePostMerge(postMerge) {
+  assertPlainObject(postMerge, "postMerge");
+  assertExactKeys(postMerge, ["recordedAt", "issue", "pullRequest", "hostedCheck"], "postMerge");
+  assertTimestamp(postMerge.recordedAt, "postMerge.recordedAt");
+  if (postMerge.recordedAt !== EXPECTED_POST_MERGE.recordedAt) {
+    throw new Error("PR #21 post-merge timestamp does not match the recorded evidence");
+  }
+
+  assertPlainObject(postMerge.issue, "postMerge.issue");
+  assertExactKeys(postMerge.issue, ["number", "state", "url"], "postMerge.issue");
+  if (postMerge.issue.number !== EXPECTED_POST_MERGE.issueNumber ||
+      postMerge.issue.state !== "CLOSED") {
+    throw new Error("Issue #18 must be closed in the post-merge evidence");
+  }
+  assertPublicGitHubUrl(
+    postMerge.issue.url,
+    "postMerge.issue.url",
+    /^\/vegastack\/vegastack-labs\/issues\/18$/,
+  );
+
+  const pull = postMerge.pullRequest;
+  assertPlainObject(pull, "postMerge.pullRequest");
+  assertExactKeys(
+    pull,
+    ["number", "state", "base", "head", "headCommit", "mergeCommit", "parentCount", "url"],
+    "postMerge.pullRequest",
+  );
+  assertSha(pull.headCommit, "postMerge.pullRequest.headCommit");
+  assertSha(pull.mergeCommit, "postMerge.pullRequest.mergeCommit");
+  if (pull.number !== EXPECTED_POST_MERGE.pullRequestNumber || pull.state !== "MERGED" ||
+      pull.base !== "main" || pull.head !== EXPECTED_POST_MERGE.head ||
+      pull.headCommit !== EXPECTED_POST_MERGE.headCommit ||
+      pull.mergeCommit !== EXPECTED_POST_MERGE.mergeCommit) {
+    throw new Error("PR #21 binding does not match the audited post-merge result");
+  }
+  if (pull.parentCount !== 2) {
+    throw new Error("PR #21 must remain a two-parent merge");
+  }
+  assertPublicGitHubUrl(
+    pull.url,
+    "postMerge.pullRequest.url",
+    /^\/vegastack\/vegastack-labs\/pull\/21$/,
+  );
+
+  const check = postMerge.hostedCheck;
+  assertPlainObject(check, "postMerge.hostedCheck");
+  assertExactKeys(check, ["name", "conclusion", "runUrl"], "postMerge.hostedCheck");
+  if (check.conclusion !== "SUCCESS") {
+    throw new Error("PR #21 hosted check must be successful");
+  }
+  const expectedCheckPath = new RegExp(
+    `^/vegastack/vegastack-labs/actions/runs/${EXPECTED_POST_MERGE.hostedCheckRun}/job/${EXPECTED_POST_MERGE.hostedCheckJob}$`,
+  );
+  if (check.name !== EXPECTED_POST_MERGE.hostedCheckName) {
+    throw new Error("PR #21 hosted check does not match the audited check name");
+  }
+  assertPublicGitHubUrl(check.runUrl, "PR #21 hosted check runUrl", expectedCheckPath);
 }
 
 export async function loadPhaseZeroFiveEvidence(root = ROOT) {
@@ -391,7 +480,7 @@ export function validatePhaseZeroFiveEvidence(document) {
     document,
     [
       "schema", "schemaVersion", "repository", "reviewedAt", "baselineCommit",
-      "dependencies", "moduleParents", "phaseOneHandoff", "limitations",
+      "dependencies", "moduleParents", "phaseOneHandoff", "postMerge", "limitations",
     ],
     "Phase 0.5 evidence",
   );
@@ -415,6 +504,7 @@ export function validatePhaseZeroFiveEvidence(document) {
 
   const ownership = validateModuleOwnership(document.moduleParents);
   validateHandoffShape(document.phaseOneHandoff);
+  validatePostMerge(document.postMerge);
   validateLimitations(document.limitations);
 
   return {
