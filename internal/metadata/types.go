@@ -52,27 +52,27 @@ type CommandDefinition struct {
 }
 
 type FlagDefinition struct {
-	Name       string
-	ValueName  string
-	Required   bool
-	Repeatable bool
-	Summary    string
-	Enum       []string
+	Name       string   `json:"name"`
+	ValueName  string   `json:"valueName"`
+	Required   bool     `json:"required"`
+	Repeatable bool     `json:"repeatable"`
+	Summary    string   `json:"summary"`
+	Enum       []string `json:"enum"`
 }
 
 type ExampleDefinition struct {
-	Summary   string
-	Arguments []string
+	Summary   string   `json:"summary"`
+	Arguments []string `json:"arguments"`
 }
 
 type ErrorDefinition struct {
-	Code     string
-	ExitCode int
+	Code     string `json:"code"`
+	ExitCode int    `json:"exitCode"`
 }
 
 type ExitDefinition struct {
-	Code    int
-	Meaning string
+	Code    int    `json:"code"`
+	Meaning string `json:"meaning"`
 }
 
 type SchemaDefinition struct {

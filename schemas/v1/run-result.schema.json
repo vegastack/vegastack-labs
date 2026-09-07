@@ -1,0 +1,153 @@
+{
+  "$defs": {
+    "result-error": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "APPROVAL_REQUIRED",
+            "AUTHENTICATION_REQUIRED",
+            "AUTHORIZATION_DENIED",
+            "DEPENDENCY_UNAVAILABLE",
+            "EVIDENCE_EXPIRED",
+            "EVIDENCE_INVALID",
+            "EXECUTION_FAILED",
+            "EXECUTION_PARTIAL",
+            "GATE_BLOCKED",
+            "INPUT_INVALID",
+            "INTEGRITY_FAILURE",
+            "INTERRUPTED",
+            "MIGRATION_BLOCKED",
+            "PLAN_STALE",
+            "PREREQUISITE_BLOCKED",
+            "RECOVERY_EPOCH_MISMATCH",
+            "RECOVERY_REQUIRED",
+            "SCHEMA_UNSUPPORTED",
+            "SESSION_EXPIRED",
+            "STATE_CONFLICT",
+            "TARGET_UNREACHABLE",
+            "UNSUPPORTED_PLATFORM",
+            "VERSION_INCOMPATIBLE"
+          ],
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "target",
+        "retryable"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/run-result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changed": {
+      "type": "boolean"
+    },
+    "command": {
+      "type": "string"
+    },
+    "data": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/result-error"
+      },
+      "type": "array"
+    },
+    "planId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "type": "integer"
+    },
+    "releaseBuildId": {
+      "type": "string"
+    },
+    "requestId": {
+      "type": "string"
+    },
+    "runId": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/run-result"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "snapshotDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sourceRevision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stateRevision": {
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "blocked",
+        "cancelled",
+        "failed",
+        "interrupted",
+        "partial",
+        "succeeded"
+      ],
+      "type": "string"
+    },
+    "toolVersion": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "toolVersion",
+    "command",
+    "requestId",
+    "runId",
+    "status",
+    "changed",
+    "recoveryEpoch",
+    "stateRevision",
+    "snapshotDigest",
+    "releaseBuildId",
+    "sourceRevision",
+    "planId",
+    "errors",
+    "data"
+  ],
+  "title": "VegaStack Labs run result",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
