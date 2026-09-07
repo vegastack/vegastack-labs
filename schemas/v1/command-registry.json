@@ -238,6 +238,16 @@
             "human",
             "json"
           ]
+        },
+        {
+          "name": "--schema-version",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
         }
       ],
       "resultSchema": "vegastack-labs.dev/run-result",
@@ -536,6 +546,16 @@
           "enum": [
             "human",
             "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
           ]
         }
       ],

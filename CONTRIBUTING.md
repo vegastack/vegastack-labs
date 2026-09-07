@@ -21,6 +21,16 @@ corepack pnpm check
 
 After the frozen install, the checks need no private registry or VegaStack credential. They verify repository safety, local documentation links and JSON, dependency provenance and licenses, historical artifacts, Go packages, tooling tests, and the static web export.
 
+For focused executable work, build and smoke-test the only shipped command directly:
+
+```text
+go build -o <temporary-output-path> ./cmd/vsk-labs
+go run ./cmd/vsk-labs help
+go run ./cmd/vsk-labs version --output json --schema-version 1
+```
+
+Use a disposable output path and remove it with the host platform's normal file operation after the smoke test. Run `corepack pnpm check:cli` to enforce the single-executable, generated-registry, no-SQLite and no-shell-dispatch boundaries and to cross-build the supported development targets into automatically removed temporary outputs. Cross-build success is not real-platform or release qualification.
+
 The public scaffold does not contain private design-system registry components. `web/components.json` documents the optional authenticated registry shape for a future approved maintainer lane, but public checks never contact it.
 
 ## Generated platform contracts

@@ -4,7 +4,49 @@ package generated
 
 import "encoding/json"
 
-const SchemaMajor = 1
+const (
+	SchemaMajor                     = 1
+	RegistrySchemaVersion           = "1.0.0"
+	AvailabilityAvailable           = "available"
+	AvailabilityPlanned             = "planned"
+	SchemaIDResultError             = "vegastack-labs.dev/result-error"
+	SchemaIDRunResult               = "vegastack-labs.dev/run-result"
+	RunStatusBlocked                = "blocked"
+	RunStatusCancelled              = "cancelled"
+	RunStatusFailed                 = "failed"
+	RunStatusInterrupted            = "interrupted"
+	RunStatusPartial                = "partial"
+	RunStatusSucceeded              = "succeeded"
+	CommandNameHelp                 = "help"
+	FlagOutput                      = "--output"
+	OutputHuman                     = "human"
+	OutputJSON                      = "json"
+	FlagSchemaVersion               = "--schema-version"
+	CommandNameVersion              = "version"
+	ErrorCodeApprovalRequired       = "APPROVAL_REQUIRED"
+	ErrorCodeAuthenticationRequired = "AUTHENTICATION_REQUIRED"
+	ErrorCodeAuthorizationDenied    = "AUTHORIZATION_DENIED"
+	ErrorCodeDependencyUnavailable  = "DEPENDENCY_UNAVAILABLE"
+	ErrorCodeEvidenceExpired        = "EVIDENCE_EXPIRED"
+	ErrorCodeEvidenceInvalid        = "EVIDENCE_INVALID"
+	ErrorCodeExecutionFailed        = "EXECUTION_FAILED"
+	ErrorCodeExecutionPartial       = "EXECUTION_PARTIAL"
+	ErrorCodeGateBlocked            = "GATE_BLOCKED"
+	ErrorCodeInputInvalid           = "INPUT_INVALID"
+	ErrorCodeIntegrityFailure       = "INTEGRITY_FAILURE"
+	ErrorCodeInterrupted            = "INTERRUPTED"
+	ErrorCodeMigrationBlocked       = "MIGRATION_BLOCKED"
+	ErrorCodePlanStale              = "PLAN_STALE"
+	ErrorCodePrerequisiteBlocked    = "PREREQUISITE_BLOCKED"
+	ErrorCodeRecoveryEpochMismatch  = "RECOVERY_EPOCH_MISMATCH"
+	ErrorCodeRecoveryRequired       = "RECOVERY_REQUIRED"
+	ErrorCodeSchemaUnsupported      = "SCHEMA_UNSUPPORTED"
+	ErrorCodeSessionExpired         = "SESSION_EXPIRED"
+	ErrorCodeStateConflict          = "STATE_CONFLICT"
+	ErrorCodeTargetUnreachable      = "TARGET_UNREACHABLE"
+	ErrorCodeUnsupportedPlatform    = "UNSUPPORTED_PLATFORM"
+	ErrorCodeVersionIncompatible    = "VERSION_INCOMPATIBLE"
+)
 
 type ResultError struct {
 	Code      string `json:"code"`
@@ -32,29 +74,29 @@ type RunResult struct {
 }
 
 type Command struct {
-	Path          []string
-	Summary       string
-	Availability  string
-	OwnerPhase    string
-	Risk          string
-	Flags         []Flag
-	RequestSchema string
-	ResultSchema  string
-	Examples      []Example
+	Path          []string  `json:"path"`
+	Summary       string    `json:"summary"`
+	Availability  string    `json:"availability"`
+	OwnerPhase    string    `json:"ownerPhase"`
+	Risk          string    `json:"risk"`
+	Flags         []Flag    `json:"flags,omitempty"`
+	RequestSchema string    `json:"requestSchema,omitempty"`
+	ResultSchema  string    `json:"resultSchema,omitempty"`
+	Examples      []Example `json:"examples,omitempty"`
 }
 
 type Flag struct {
-	Name       string
-	ValueName  string
-	Required   bool
-	Repeatable bool
-	Summary    string
-	Enum       []string
+	Name       string   `json:"name"`
+	ValueName  string   `json:"valueName"`
+	Required   bool     `json:"required"`
+	Repeatable bool     `json:"repeatable"`
+	Summary    string   `json:"summary"`
+	Enum       []string `json:"enum"`
 }
 
 type Example struct {
-	Summary   string
-	Arguments []string
+	Summary   string   `json:"summary"`
+	Arguments []string `json:"arguments"`
 }
 
 var Commands = []Command{
@@ -80,7 +122,7 @@ var Commands = []Command{
 	{Path: []string{"gate", "evidence"}, Summary: "Validate evidence and create an inert evidence change.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"gate", "inspect"}, Summary: "Inspect one gate and its evidence requirements.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"gate", "list"}, Summary: "List applicable implementation gates.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
-	{Path: []string{"help"}, Summary: "Show generated command help.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show all generated command help.", Arguments: []string{"help"}}}},
+	{Path: []string{"help"}, Summary: "Show generated command help.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show all generated command help.", Arguments: []string{"help"}}}},
 	{Path: []string{"inventory", "diff"}, Summary: "Compare declared and supplied inventory.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
 	{Path: []string{"inventory", "export"}, Summary: "Export authorized inventory data.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
 	{Path: []string{"inventory", "import"}, Summary: "Import typed inventory as an inert change.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
@@ -108,7 +150,7 @@ var Commands = []Command{
 	{Path: []string{"user", "onboard"}, Summary: "Create an inert user-onboarding change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"user", "resume"}, Summary: "Create an inert user-resumption change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"user", "suspend"}, Summary: "Create an inert user-suspension change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
-	{Path: []string{"version"}, Summary: "Show the vsk-labs build and contract version.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show version information as JSON.", Arguments: []string{"version", "--output", "json"}}}},
+	{Path: []string{"version"}, Summary: "Show the vsk-labs build and contract version.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show version information as JSON.", Arguments: []string{"version", "--output", "json"}}}},
 }
 
 var ErrorExitCodes = map[string]int{

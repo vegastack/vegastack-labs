@@ -12,6 +12,7 @@ Show generated command help.
 Owner phase: `1` · risk: `read-only` · availability: `available`
 
 - `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
 
 - Show all generated command help.: `vsk-labs help`
 
@@ -22,6 +23,7 @@ Show the vsk-labs build and contract version.
 Owner phase: `1` · risk: `read-only` · availability: `available`
 
 - `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
 
 - Show version information as JSON.: `vsk-labs version --output json`
 

@@ -139,6 +139,43 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 	}
 }
 
+func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var source []byte
+	for _, artifact := range artifacts {
+		if artifact.Path == "internal/generated/contracts_gen.go" {
+			source = artifact.Content
+			break
+		}
+	}
+	for _, want := range []string{
+		`RegistrySchemaVersion`,
+		`= "1.0.0"`,
+		`SchemaIDRunResult`,
+		`SchemaIDResultError`,
+		`AvailabilityAvailable`,
+		`AvailabilityPlanned`,
+		`json:"path"`,
+		`json:"flags,omitempty"`,
+		`json:"arguments"`,
+	} {
+		if !bytes.Contains(source, []byte(want)) {
+			t.Errorf("generated Go is missing %q", want)
+		}
+	}
+	for _, definition := range metadata.Current().Errors {
+		want := "ErrorCode" + errorCodeGoName(definition.Code)
+		if !bytes.Contains(source, []byte(want)) {
+			t.Errorf("generated Go is missing %q", want)
+		}
+	}
+}
+
 func TestGenerateDoesNotLeakRejectedMetadata(t *testing.T) {
 	t.Parallel()
 
