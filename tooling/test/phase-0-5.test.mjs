@@ -4,6 +4,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import {
   loadPhaseZeroFiveEvidence,
+  validateModuleOwnership,
   validatePhaseZeroFiveEvidence,
 } from "../verify-phase-0-5.mjs";
 
@@ -108,5 +109,59 @@ test("Phase 0.5 keeps the PR #20 merge-route divergence explicit", async () => {
   assert.throws(
     () => validatePhaseZeroFiveEvidence(changed),
     /PR #20 must remain recorded as nonconformant/,
+  );
+});
+
+test("module ownership rejects duplicate spines and a widened Phase 1 handoff", async () => {
+  const evidence = await loadPhaseZeroFiveEvidence(ROOT);
+  const duplicateOwner = structuredClone(evidence);
+  duplicateOwner.moduleParents.find(({ issueNumber }) => issueNumber === 8).sharedSpine =
+    duplicateOwner.moduleParents.find(({ issueNumber }) => issueNumber === 7).sharedSpine;
+  assert.throws(
+    () => validatePhaseZeroFiveEvidence(duplicateOwner),
+    /shared spine owner must be unique/,
+  );
+
+  const widened = structuredClone(evidence);
+  widened.phaseOneHandoff.authority = "implementation";
+  assert.throws(
+    () => validatePhaseZeroFiveEvidence(widened),
+    /handoff authority must be planning-only/,
+  );
+});
+
+test("module ownership requires every audited parent and exact delivery ownership", async () => {
+  const evidence = await loadPhaseZeroFiveEvidence(ROOT);
+  assert.deepEqual(validateModuleOwnership(evidence.moduleParents), {
+    moduleParents: 9,
+    sharedSpines: 9,
+    phaseOneOwners: 4,
+  });
+
+  const missing = structuredClone(evidence.moduleParents);
+  missing.pop();
+  assert.throws(() => validateModuleOwnership(missing), /all nine module parents/);
+
+  const wrongRole = structuredClone(evidence.moduleParents);
+  wrongRole.find(({ issueNumber }) => issueNumber === 10).phaseOneRole = "managed-ci";
+  assert.throws(() => validateModuleOwnership(wrongRole), /does not match its audited ownership/);
+});
+
+test("Phase 1 ordering rejects cycles and unknown prerequisites", async () => {
+  const evidence = await loadPhaseZeroFiveEvidence(ROOT);
+  const cycle = structuredClone(evidence);
+  cycle.phaseOneHandoff.sequence.find(({ capability }) => capability === "metadata-graph").after =
+    ["generated-cli-help-presentation"];
+  assert.throws(
+    () => validatePhaseZeroFiveEvidence(cycle),
+    /order cycle/,
+  );
+
+  const unknown = structuredClone(evidence);
+  unknown.phaseOneHandoff.sequence.find(({ capability }) => capability === "portable-contracts").after =
+    ["unknown-capability"];
+  assert.throws(
+    () => validatePhaseZeroFiveEvidence(unknown),
+    /unknown prerequisite/,
   );
 });

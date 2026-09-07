@@ -43,6 +43,27 @@ const EXPECTED_DEPENDENCIES = new Map([
 ]);
 
 const EXPECTED_PARENT_ISSUES = new Set([7, 8, 9, 10, 11, 12, 13, 14, 15]);
+const EXPECTED_MODULE_PARENTS = new Map([
+  [7, { sharedSpine: "platform-core-api-sqlite", deliveryPhases: [1, 2, 4, 5, 11], phaseOneRole: "metadata-graph-and-portable-contracts" }],
+  [8, { sharedSpine: "hardware-inventory-hosts", deliveryPhases: [2, 5, 6, 10], phaseOneRole: null }],
+  [9, { sharedSpine: "network-identity-edge", deliveryPhases: [3, 6, 7, 10], phaseOneRole: null }],
+  [10, { sharedSpine: "source-ci-releases", deliveryPhases: [1, 9, 11], phaseOneRole: "offline-release-verification" }],
+  [11, { sharedSpine: "registry-hosting", deliveryPhases: [8, 9, 11], phaseOneRole: null }],
+  [12, { sharedSpine: "secrets-redaction", deliveryPhases: [1, 5, 7], phaseOneRole: "redaction-foundation" }],
+  [13, { sharedSpine: "backup-restore-audit", deliveryPhases: [2, 5, 11], phaseOneRole: null }],
+  [14, { sharedSpine: "observability-notifications", deliveryPhases: [3, 10], phaseOneRole: null }],
+  [15, { sharedSpine: "operator-console-agents", deliveryPhases: [1, 3, 4, 10, 11], phaseOneRole: "generated-cli-help-presentation" }],
+]);
+const EXPECTED_PHASE_ONE_SEQUENCE = new Map([
+  ["metadata-graph", { ownerIssue: 7, after: [] }],
+  ["portable-contracts", { ownerIssue: 7, after: ["metadata-graph"] }],
+  ["redaction-foundation", { ownerIssue: 12, after: ["portable-contracts"] }],
+  ["offline-release-verification", { ownerIssue: 10, after: ["portable-contracts"] }],
+  ["generated-cli-help-presentation", {
+    ownerIssue: 15,
+    after: ["redaction-foundation", "offline-release-verification"],
+  }],
+]);
 const EXPECTED_LIMITATIONS = new Map([
   ["github-actions-billing-lock", {
     classification: "external-unavailable",
@@ -227,7 +248,7 @@ function validateDependency(dependency, seen) {
   validateReviewReference(dependency.review, expected.reviewKind, dependency.issueNumber);
 }
 
-function validateModuleParentShape(parent, seen) {
+function validateModuleParentShape(parent, seen, spines) {
   assertPlainObject(parent, "module parent");
   assertExactKeys(
     parent,
@@ -239,12 +260,17 @@ function validateModuleParentShape(parent, seen) {
     throw new Error("module parents contain an unknown or duplicate issue");
   }
   seen.add(parent.issueNumber);
+  const expected = EXPECTED_MODULE_PARENTS.get(parent.issueNumber);
   assertPublicGitHubUrl(
     parent.url,
     `module parent #${parent.issueNumber}.url`,
     new RegExp(`^/vegastack/vegastack-labs/issues/${parent.issueNumber}$`),
   );
   assertNonemptyString(parent.sharedSpine, `module parent #${parent.issueNumber}.sharedSpine`);
+  if (spines.has(parent.sharedSpine)) {
+    throw new Error("shared spine owner must be unique");
+  }
+  spines.add(parent.sharedSpine);
   if (!Array.isArray(parent.deliveryPhases) || parent.deliveryPhases.length === 0) {
     throw new Error(`module parent #${parent.issueNumber} must list delivery phases`);
   }
@@ -252,16 +278,37 @@ function validateModuleParentShape(parent, seen) {
   if (parent.phaseOneRole !== null) {
     assertNonemptyString(parent.phaseOneRole, `module parent #${parent.issueNumber}.phaseOneRole`);
   }
+  if (parent.sharedSpine !== expected.sharedSpine ||
+      JSON.stringify(parent.deliveryPhases) !== JSON.stringify(expected.deliveryPhases) ||
+      parent.phaseOneRole !== expected.phaseOneRole) {
+    throw new Error(`module parent #${parent.issueNumber} does not match its audited ownership`);
+  }
+}
+
+function visitCapability(capability, byCapability, visiting, visited) {
+  if (visited.has(capability)) return;
+  if (visiting.has(capability)) throw new Error("Phase 1 handoff contains an order cycle");
+  const step = byCapability.get(capability);
+  if (!step) throw new Error("Phase 1 handoff references an unknown prerequisite");
+  visiting.add(capability);
+  step.after.forEach((dependency) => visitCapability(dependency, byCapability, visiting, visited));
+  visiting.delete(capability);
+  visited.add(capability);
 }
 
 function validateHandoffShape(handoff) {
   assertPlainObject(handoff, "phaseOneHandoff");
   assertExactKeys(handoff, ["authority", "firstCapability", "sequence"], "phaseOneHandoff");
-  assertNonemptyString(handoff.authority, "phaseOneHandoff.authority");
-  assertNonemptyString(handoff.firstCapability, "phaseOneHandoff.firstCapability");
+  if (handoff.authority !== "planning-only") {
+    throw new Error("Phase 1 handoff authority must be planning-only");
+  }
+  if (handoff.firstCapability !== "metadata-graph") {
+    throw new Error("Phase 1 handoff must start with the metadata graph");
+  }
   if (!Array.isArray(handoff.sequence) || handoff.sequence.length === 0) {
     throw new Error("phaseOneHandoff.sequence must be nonempty");
   }
+  const byCapability = new Map();
   for (const [index, step] of handoff.sequence.entries()) {
     assertPlainObject(step, `phaseOneHandoff.sequence[${index}]`);
     assertExactKeys(step, ["capability", "ownerIssue", "after"], `phaseOneHandoff.sequence[${index}]`);
@@ -269,7 +316,40 @@ function validateHandoffShape(handoff) {
     assertInteger(step.ownerIssue, `phaseOneHandoff.sequence[${index}].ownerIssue`);
     if (!Array.isArray(step.after)) throw new Error(`phaseOneHandoff.sequence[${index}].after must be an array`);
     step.after.forEach((entry) => assertNonemptyString(entry, "phaseOneHandoff dependency"));
+    if (byCapability.has(step.capability)) throw new Error("Phase 1 handoff contains a duplicate capability");
+    byCapability.set(step.capability, step);
   }
+  if (byCapability.size !== EXPECTED_PHASE_ONE_SEQUENCE.size) {
+    throw new Error("Phase 1 handoff has incomplete capability coverage");
+  }
+  const visited = new Set();
+  for (const capability of byCapability.keys()) {
+    visitCapability(capability, byCapability, new Set(), visited);
+  }
+  for (const [capability, expected] of EXPECTED_PHASE_ONE_SEQUENCE) {
+    const step = byCapability.get(capability);
+    if (!step || step.ownerIssue !== expected.ownerIssue ||
+        JSON.stringify(step.after) !== JSON.stringify(expected.after)) {
+      throw new Error(`Phase 1 capability ${capability} does not match the approved order`);
+    }
+  }
+}
+
+export function validateModuleOwnership(entries) {
+  if (!Array.isArray(entries) || entries.length !== EXPECTED_PARENT_ISSUES.size) {
+    throw new Error("Phase 0.5 must record all nine module parents");
+  }
+  const moduleParents = new Set();
+  const sharedSpines = new Set();
+  entries.forEach((parent) => validateModuleParentShape(parent, moduleParents, sharedSpines));
+  const phaseOneOwners = new Set(
+    entries.filter(({ phaseOneRole }) => phaseOneRole !== null).map(({ issueNumber }) => issueNumber),
+  );
+  return {
+    moduleParents: moduleParents.size,
+    sharedSpines: sharedSpines.size,
+    phaseOneOwners: phaseOneOwners.size,
+  };
 }
 
 function validateLimitations(limitations) {
@@ -333,19 +413,15 @@ export function validatePhaseZeroFiveEvidence(document) {
   const dependencyIssues = new Set();
   document.dependencies.forEach((dependency) => validateDependency(dependency, dependencyIssues));
 
-  if (!Array.isArray(document.moduleParents) || document.moduleParents.length !== EXPECTED_PARENT_ISSUES.size) {
-    throw new Error("Phase 0.5 must record all nine module parents");
-  }
-  const moduleParents = new Set();
-  document.moduleParents.forEach((parent) => validateModuleParentShape(parent, moduleParents));
+  const ownership = validateModuleOwnership(document.moduleParents);
   validateHandoffShape(document.phaseOneHandoff);
   validateLimitations(document.limitations);
 
   return {
     dependencyIssues: dependencyIssues.size,
     mergedPullRequests: document.dependencies.length,
-    moduleParents: moduleParents.size,
-    sharedSpines: document.moduleParents.length,
+    moduleParents: ownership.moduleParents,
+    sharedSpines: ownership.sharedSpines,
     limitations: document.limitations.length,
   };
 }
