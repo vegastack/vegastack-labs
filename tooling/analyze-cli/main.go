@@ -20,14 +20,6 @@ import (
 	"strings"
 )
 
-var targets = [][2]string{
-	{"linux", "amd64"},
-	{"linux", "arm64"},
-	{"darwin", "amd64"},
-	{"darwin", "arm64"},
-	{"windows", "amd64"},
-}
-
 type module struct {
 	Path string
 	Main bool
@@ -39,20 +31,27 @@ type listedPackage struct {
 	GoFiles    []string
 	CgoFiles   []string
 	Imports    []string
+	Export     string
 	Module     *module
 }
 
 type analysis struct {
-	GeneratedCommandsReference bool `json:"generatedCommandsReference"`
-	HandwrittenRegistry        bool `json:"handwrittenRegistry"`
-	SQLiteAccess               bool `json:"sqliteAccess"`
-	ShellDispatch              bool `json:"shellDispatch"`
+	GeneratedCommandsReference bool     `json:"generatedCommandsReference"`
+	HandwrittenRegistry        bool     `json:"handwrittenRegistry"`
+	SQLiteAccess               bool     `json:"sqliteAccess"`
+	ShellDispatch              bool     `json:"shellDispatch"`
+	TargetsAnalyzed            []string `json:"targetsAnalyzed"`
 }
 
 type sourcePackage struct {
 	listed listedPackage
 	files  []*ast.File
 	info   *types.Info
+}
+
+type analysisContext struct {
+	generatedImport string
+	derivedCommands map[*types.Named]bool
 }
 
 type packageImporter struct {
@@ -69,13 +68,15 @@ func (loader packageImporter) Import(path string) (*types.Package, error) {
 
 func main() {
 	root := flag.String("root", "", "repository root to inspect")
+	goos := flag.String("goos", "", "target GOOS")
+	goarch := flag.String("goarch", "", "target GOARCH")
 	flag.Parse()
-	if *root == "" {
-		fmt.Fprintln(os.Stderr, "analyze-cli: --root is required")
+	if *root == "" || *goos == "" || *goarch == "" {
+		fmt.Fprintln(os.Stderr, "analyze-cli: --root, --goos and --goarch are required")
 		os.Exit(2)
 	}
 
-	result, err := analyze(*root)
+	result, err := analyze(*root, *goos, *goarch)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "analyze-cli: %v\n", err)
 		os.Exit(1)
@@ -86,30 +87,21 @@ func main() {
 	}
 }
 
-func analyze(root string) (analysis, error) {
-	var combined analysis
-	for _, target := range targets {
-		packages, err := listPackages(root, target[0], target[1])
-		if err != nil {
-			return analysis{}, fmt.Errorf("list %s/%s dependency closure: %w", target[0], target[1], err)
-		}
-		result, err := analyzeTarget(packages)
-		if err != nil {
-			return analysis{}, fmt.Errorf("analyze %s/%s dependency closure: %w", target[0], target[1], err)
-		}
-		if !result.GeneratedCommandsReference {
-			return analysis{}, fmt.Errorf("%s/%s runtime does not reference generated.Commands", target[0], target[1])
-		}
-		combined.GeneratedCommandsReference = true
-		combined.HandwrittenRegistry = combined.HandwrittenRegistry || result.HandwrittenRegistry
-		combined.SQLiteAccess = combined.SQLiteAccess || result.SQLiteAccess
-		combined.ShellDispatch = combined.ShellDispatch || result.ShellDispatch
+func analyze(root, goos, goarch string) (analysis, error) {
+	packages, err := listPackages(root, goos, goarch)
+	if err != nil {
+		return analysis{}, fmt.Errorf("list %s/%s dependency closure: %w", goos, goarch, err)
 	}
-	return combined, nil
+	result, err := analyzeTarget(packages)
+	if err != nil {
+		return analysis{}, fmt.Errorf("analyze %s/%s dependency closure: %w", goos, goarch, err)
+	}
+	result.TargetsAnalyzed = []string{goos + "/" + goarch}
+	return result, nil
 }
 
 func listPackages(root, goos, goarch string) ([]listedPackage, error) {
-	command := exec.Command("go", "list", "-deps", "-json", "./cmd/vsk-labs")
+	command := exec.Command("go", "list", "-deps", "-export", "-json", "./cmd/vsk-labs")
 	command.Dir = root
 	command.Env = targetEnvironment(goos, goarch)
 	output, err := command.Output()
@@ -131,9 +123,7 @@ func listPackages(root, goos, goarch string) ([]listedPackage, error) {
 			}
 			return nil, fmt.Errorf("decode go list output: %w", err)
 		}
-		if candidate.Module != nil && candidate.Module.Main {
-			packages = append(packages, candidate)
-		}
+		packages = append(packages, candidate)
 	}
 	return packages, nil
 }
@@ -154,25 +144,32 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		return analysis{}, errors.New("dependency closure contains no in-module packages")
 	}
 	modulePath := ""
+	var inModule []listedPackage
 	for _, candidate := range listed {
-		if candidate.Module != nil && candidate.Module.Path != "" {
-			modulePath = candidate.Module.Path
-			break
+		if candidate.Module != nil && candidate.Module.Main {
+			inModule = append(inModule, candidate)
+			if candidate.Module.Path != "" {
+				modulePath = candidate.Module.Path
+			}
 		}
 	}
-	if modulePath == "" {
+	if modulePath == "" || len(inModule) == 0 {
 		return analysis{}, errors.New("main module path is unavailable")
 	}
 	mainImport := modulePath + "/cmd/vsk-labs"
 	generatedImport := modulePath + "/internal/generated"
-	if !containsPackage(listed, mainImport) || !containsPackage(listed, generatedImport) {
+	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
 
 	checked := make(map[string]*types.Package)
-	loader := packageImporter{checked: checked, fallback: importer.Default()}
+	targetLoader, err := exportDataImporter(listed)
+	if err != nil {
+		return analysis{}, err
+	}
+	loader := packageImporter{checked: checked, fallback: targetLoader}
 	var result analysis
-	for _, candidate := range listed {
+	for _, candidate := range inModule {
 		parsed, err := parseAndCheck(candidate, loader)
 		if err != nil {
 			return analysis{}, err
@@ -189,6 +186,23 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		inspectPackage(parsed, generatedImport, &result)
 	}
 	return result, nil
+}
+
+func exportDataImporter(packages []listedPackage) (types.Importer, error) {
+	exports := make(map[string]string, len(packages))
+	for _, candidate := range packages {
+		if candidate.Export != "" {
+			exports[candidate.ImportPath] = candidate.Export
+		}
+	}
+	lookup := func(importPath string) (io.ReadCloser, error) {
+		filename := exports[importPath]
+		if filename == "" {
+			return nil, fmt.Errorf("target export data unavailable for %s", importPath)
+		}
+		return os.Open(filename)
+	}
+	return importer.ForCompiler(token.NewFileSet(), "gc", lookup), nil
 }
 
 func containsPackage(packages []listedPackage, importPath string) bool {
@@ -237,23 +251,27 @@ func parseAndCheck(candidate listedPackage, loader types.Importer) (checkedSourc
 }
 
 func inspectPackage(candidate checkedSourcePackage, generatedImport string, result *analysis) {
+	context := analysisContext{
+		generatedImport: generatedImport,
+		derivedCommands: derivedCommandTypes(candidate, generatedImport),
+	}
 	for _, file := range candidate.files {
 		ast.Inspect(file, func(node ast.Node) bool {
 			switch typed := node.(type) {
-			case *ast.SelectorExpr:
-				if isGeneratedCommandsSelector(typed, candidate.info, generatedImport) {
+			case *ast.RangeStmt:
+				if selector, ok := unparenthesized(typed.X).(*ast.SelectorExpr); ok && isGeneratedCommandsSelector(selector, candidate.info, generatedImport) {
 					result.GeneratedCommandsReference = true
 				}
 			case *ast.ValueSpec:
-				if candidate.listed.ImportPath != generatedImport && valueSpecIsRegistry(typed, candidate.info, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && valueSpecIsRegistry(typed, candidate.info, context) {
 					result.HandwrittenRegistry = true
 				}
 			case *ast.AssignStmt:
-				if candidate.listed.ImportPath != generatedImport && assignmentIsRegistry(typed, candidate.info, generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && assignmentIsRegistry(typed, candidate.info, context) {
 					result.HandwrittenRegistry = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && isDispatchCollection(candidate.info.TypeOf(typed), generatedImport) {
+				if candidate.listed.ImportPath != generatedImport && isDispatchCollection(candidate.info.TypeOf(typed), context) {
 					result.HandwrittenRegistry = true
 				}
 			}
@@ -262,32 +280,68 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport string, resu
 	}
 }
 
-func valueSpecIsRegistry(spec *ast.ValueSpec, info *types.Info, generatedImport string) bool {
-	if spec.Type != nil && isDispatchCollection(info.TypeOf(spec.Type), generatedImport) {
+func derivedCommandTypes(candidate checkedSourcePackage, generatedImport string) map[*types.Named]bool {
+	derived := make(map[*types.Named]bool)
+	var declarations []*ast.TypeSpec
+	for _, file := range candidate.files {
+		for _, declaration := range file.Decls {
+			general, ok := declaration.(*ast.GenDecl)
+			if !ok || general.Tok != token.TYPE {
+				continue
+			}
+			for _, raw := range general.Specs {
+				declarations = append(declarations, raw.(*ast.TypeSpec))
+			}
+		}
+	}
+	changed := true
+	for changed {
+		changed = false
+		for _, declaration := range declarations {
+			object := candidate.info.Defs[declaration.Name]
+			if object == nil {
+				continue
+			}
+			defined, ok := types.Unalias(object.Type()).(*types.Named)
+			if !ok || derived[defined] {
+				continue
+			}
+			context := analysisContext{generatedImport: generatedImport, derivedCommands: derived}
+			if isCanonicalOrDerivedCommand(candidate.info.TypeOf(declaration.Type), context) {
+				derived[defined] = true
+				changed = true
+			}
+		}
+	}
+	return derived
+}
+
+func valueSpecIsRegistry(spec *ast.ValueSpec, info *types.Info, context analysisContext) bool {
+	if spec.Type != nil && isDispatchCollection(info.TypeOf(spec.Type), context) {
 		return true
 	}
 	for _, value := range spec.Values {
-		if selector, ok := value.(*ast.SelectorExpr); ok && isGeneratedCommandsSelector(selector, info, generatedImport) {
+		if selector, ok := value.(*ast.SelectorExpr); ok && isGeneratedCommandsSelector(selector, info, context.generatedImport) {
 			continue
 		}
-		if isDispatchCollection(info.TypeOf(value), generatedImport) {
+		if isDispatchCollection(info.TypeOf(value), context) {
 			return true
 		}
 	}
 	return false
 }
 
-func assignmentIsRegistry(statement *ast.AssignStmt, info *types.Info, generatedImport string) bool {
+func assignmentIsRegistry(statement *ast.AssignStmt, info *types.Info, context analysisContext) bool {
 	for index, value := range statement.Rhs {
 		if index < len(statement.Lhs) {
 			if identifier, ok := statement.Lhs[index].(*ast.Ident); ok && identifier.Name == "_" {
 				continue
 			}
 		}
-		if selector, ok := value.(*ast.SelectorExpr); ok && isGeneratedCommandsSelector(selector, info, generatedImport) {
+		if selector, ok := value.(*ast.SelectorExpr); ok && isGeneratedCommandsSelector(selector, info, context.generatedImport) {
 			continue
 		}
-		if isDispatchCollection(info.TypeOf(value), generatedImport) {
+		if isDispatchCollection(info.TypeOf(value), context) {
 			return true
 		}
 	}
@@ -295,27 +349,40 @@ func assignmentIsRegistry(statement *ast.AssignStmt, info *types.Info, generated
 }
 
 func isGeneratedCommandsSelector(selector *ast.SelectorExpr, info *types.Info, generatedImport string) bool {
-	object := info.Uses[selector.Sel]
-	return object != nil && object.Name() == "Commands" && object.Pkg() != nil && object.Pkg().Path() == generatedImport
+	variable, ok := info.Uses[selector.Sel].(*types.Var)
+	if !ok || variable.Name() != "Commands" || variable.Pkg() == nil || variable.Pkg().Path() != generatedImport {
+		return false
+	}
+	return variable.Parent() == variable.Pkg().Scope() && variable.Pkg().Scope().Lookup("Commands") == variable
 }
 
-func isDispatchCollection(value types.Type, generatedImport string) bool {
+func unparenthesized(expression ast.Expr) ast.Expr {
+	for {
+		parenthesized, ok := expression.(*ast.ParenExpr)
+		if !ok {
+			return expression
+		}
+		expression = parenthesized.X
+	}
+}
+
+func isDispatchCollection(value types.Type, context analysisContext) bool {
 	if value == nil {
 		return false
 	}
 	switch underlying := value.Underlying().(type) {
 	case *types.Slice:
-		return isDispatchEntry(underlying.Elem(), generatedImport)
+		return isDispatchEntry(underlying.Elem(), context, true)
 	case *types.Array:
-		return isDispatchEntry(underlying.Elem(), generatedImport)
+		return isDispatchEntry(underlying.Elem(), context, true)
 	case *types.Map:
-		return isString(underlying.Key()) && (isFunction(underlying.Elem()) || isDispatchEntry(underlying.Elem(), generatedImport))
+		return isString(underlying.Key()) && (isFunction(underlying.Elem()) || isDispatchEntry(underlying.Elem(), context, false))
 	default:
 		return false
 	}
 }
 
-func isDispatchEntry(value types.Type, generatedImport string) bool {
+func isDispatchEntry(value types.Type, context analysisContext, requireRouteSemantics bool) bool {
 	for {
 		pointer, ok := value.(*types.Pointer)
 		if !ok {
@@ -323,22 +390,53 @@ func isDispatchEntry(value types.Type, generatedImport string) bool {
 		}
 		value = pointer.Elem()
 	}
-	if named, ok := value.(*types.Named); ok {
+	if isCanonicalOrDerivedCommand(value, context) {
+		return true
+	}
+	if named, ok := types.Unalias(value).(*types.Named); ok {
 		object := named.Obj()
-		if object.Pkg() != nil && object.Pkg().Path() == generatedImport && object.Name() == "Command" {
-			return true
+		if object.Pkg() != nil && object.Pkg().Path() == context.generatedImport {
+			// Generated non-command records, such as Flag, are authoritative
+			// lookup data rather than parallel command registries.
+			return false
 		}
 	}
 	structure, ok := value.Underlying().(*types.Struct)
 	if !ok {
 		return false
 	}
+	if !requireRouteSemantics {
+		return true
+	}
 	for index := 0; index < structure.NumFields(); index++ {
-		if isFunction(structure.Field(index).Type()) {
+		field := structure.Field(index)
+		if isFunction(field.Type()) || isRouteField(field.Name()) {
 			return true
 		}
 	}
 	return false
+}
+
+func isCanonicalOrDerivedCommand(value types.Type, context analysisContext) bool {
+	value = types.Unalias(value)
+	named, ok := value.(*types.Named)
+	if !ok {
+		return false
+	}
+	if context.derivedCommands[named] {
+		return true
+	}
+	object := named.Obj()
+	return object.Pkg() != nil && object.Pkg().Path() == context.generatedImport && object.Name() == "Command"
+}
+
+func isRouteField(name string) bool {
+	switch strings.ToLower(name) {
+	case "action", "actionid", "command", "commandname", "handler", "handlerid", "path", "route":
+		return true
+	default:
+		return false
+	}
 }
 
 func isString(value types.Type) bool {

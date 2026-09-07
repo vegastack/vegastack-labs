@@ -53,6 +53,7 @@ function relativeDirectory(root, file) {
 
 async function inspectSources(root, execute) {
   const codes = new Set();
+  const targetsAnalyzed = [];
   const commandFiles = await goFiles(root, "cmd");
   const mainDirectories = new Set();
   for (const file of commandFiles) {
@@ -65,25 +66,48 @@ async function inspectSources(root, execute) {
     codes.add("CLI_EXECUTABLE_COUNT");
   }
 
-  let analysis;
-  try {
-    const result = await execute("go", ["run", ANALYZER_DIRECTORY, "--root", root], {
-      cwd: ROOT,
-      capture: true,
-      timeoutMs: 120_000,
-    });
-    analysis = JSON.parse(result.stdout);
-  } catch {
-    codes.add("CLI_GENERATED_OWNERSHIP");
-    return codes;
+  for (const [goos, goarch] of TARGETS) {
+    const expectedTarget = `${goos}/${goarch}`;
+    let analysis;
+    try {
+      const result = await execute(
+        "go",
+        [
+          "run",
+          ANALYZER_DIRECTORY,
+          "--root",
+          root,
+          "--goos",
+          goos,
+          "--goarch",
+          goarch,
+        ],
+        { cwd: ROOT, capture: true, timeoutMs: 120_000 },
+      );
+      analysis = JSON.parse(result.stdout);
+    } catch {
+      codes.add("CLI_GENERATED_OWNERSHIP");
+      return { codes, targetsAnalyzed };
+    }
+    if (
+      !Array.isArray(analysis.targetsAnalyzed) ||
+      analysis.targetsAnalyzed.length !== 1 ||
+      analysis.targetsAnalyzed[0] !== expectedTarget
+    ) {
+      codes.add("CLI_CROSS_BUILD");
+    } else {
+      targetsAnalyzed.push(expectedTarget);
+    }
+    if (!analysis.generatedCommandsReference) codes.add("CLI_GENERATED_OWNERSHIP");
+    if (analysis.handwrittenRegistry) codes.add("CLI_HANDWRITTEN_REGISTRY");
+    if (analysis.sqliteAccess) codes.add("CLI_SQLITE_ACCESS");
+    if (analysis.shellDispatch) codes.add("CLI_SHELL_DISPATCH");
   }
-  if (!analysis.generatedCommandsReference) {
-    codes.add("CLI_GENERATED_OWNERSHIP");
-  }
-  if (analysis.handwrittenRegistry) codes.add("CLI_HANDWRITTEN_REGISTRY");
-  if (analysis.sqliteAccess) codes.add("CLI_SQLITE_ACCESS");
-  if (analysis.shellDispatch) codes.add("CLI_SHELL_DISPATCH");
-  return codes;
+  return { codes, targetsAnalyzed };
+}
+
+function sameTargets(left, right) {
+  return left.length === right.length && left.every((target, index) => target === right[index]);
 }
 
 async function crossBuild(root, operations) {
@@ -115,7 +139,8 @@ export async function verifyCLI(root = ROOT, options = {}) {
     createBuildDirectory = mkdtemp,
     removeBuildDirectory = rm,
   } = options;
-  const codes = await inspectSources(root, runAnalyzer);
+  const inspection = await inspectSources(root, runAnalyzer);
+  const { codes } = inspection;
   let targetsBuilt = [];
   if (codes.size === 0 && shouldCrossBuild) {
     try {
@@ -124,6 +149,10 @@ export async function verifyCLI(root = ROOT, options = {}) {
         execute: runBuild,
         removeDirectory: removeBuildDirectory,
       });
+      if (!sameTargets(inspection.targetsAnalyzed, targetsBuilt)) {
+        codes.add("CLI_CROSS_BUILD");
+        targetsBuilt = [];
+      }
     } catch {
       codes.add("CLI_CROSS_BUILD");
     }
