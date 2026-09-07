@@ -1,0 +1,60 @@
+vsk-labs commands
+
+Available commands:
+  help                     Show generated command help.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  version                  Show the vsk-labs build and contract version.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+
+Planned commands (unavailable):
+  apply                    Execute one current, authorized immutable plan.
+  audit                    Inspect sanitized audit history.
+  backup run               Run one exact approved backup policy.
+  backup status            Inspect backup status.
+  backup verify            Verify a declared backup.
+  connect                  Open a constrained connection to an authorized node endpoint.
+  control-plane plan       Create an immutable control-plane change plan.
+  control-plane recover    Create an inert control-plane recovery change.
+  control-plane verify     Verify control-plane health and authority.
+  database backup          Create a verified control-database backup.
+  database export          Export authorized sanitized control data.
+  database restore         Create an inert control-database restore change.
+  database status          Inspect control-database status.
+  database verify          Verify control-database integrity or backup content.
+  device approve           Create an inert device-approval change.
+  device request           Create an inert device-enrollment request.
+  device revoke            Create an inert device-revocation change.
+  doctor                   Diagnose one actionable platform invariant at a time.
+  gate check               Evaluate applicable gates without changing infrastructure.
+  gate evidence            Validate evidence and create an inert evidence change.
+  gate inspect             Inspect one gate and its evidence requirements.
+  gate list                List applicable implementation gates.
+  inventory diff           Compare declared and supplied inventory.
+  inventory export         Export authorized inventory data.
+  inventory import         Import typed inventory as an inert change.
+  maintenance plan         Create an immutable maintenance plan.
+  maintenance run          Run one authorized maintenance plan.
+  node add                 Create an inert managed-node change.
+  node discover            Discover a candidate managed node.
+  node inspect             Inspect a managed node.
+  node nominate            Create an inert role-nomination change.
+  node quarantine          Create an inert node-quarantine change.
+  node replace             Create an inert node-replacement change.
+  plan                     Create an immutable plan from an inert change.
+  release inspect          Inspect a release manifest and compatibility.
+  release verify           Verify release identity, signature, and digest.
+  restore plan             Create an immutable restore plan.
+  restore run              Run one authorized restore plan.
+  restore verify           Verify a completed restore.
+  server run               Run the persistent control service in the foreground.
+  server status            Query control-service health.
+  service deploy           Create an inert service-deployment change.
+  service plan             Create an inert service change and request its plan.
+  service rollback         Create an inert service-rollback change.
+  status                   Show the current platform summary.
+  user offboard            Create an inert user-offboarding change.
+  user onboard             Create an inert user-onboarding change.
+  user resume              Create an inert user-resumption change.
+  user suspend             Create an inert user-suspension change.
