@@ -8,6 +8,7 @@ const MANIFEST_PATH = path.join(ROOT, "tooling/historical-artifacts.json");
 const HISTORICAL_FILES = [
   "audit-reports/audit-completion.md",
   "audit-reports/gap-closure-report.md",
+  "audit-reports/requirements-readiness-2026-08-27.md",
   "docs/audit-register.json",
 ];
 

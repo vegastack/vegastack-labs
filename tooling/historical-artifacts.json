@@ -12,6 +12,10 @@
       "sha256": "fa8e19a41a97abb26fa04b59edcdf06a4432aa251c50a1b8754d85ab93399e89"
     },
     {
+      "path": "audit-reports/requirements-readiness-2026-08-27.md",
+      "sha256": "8801fb2d56fb61db483c03da501b0432eebca32a448be2ad1ab262654811a473"
+    },
+    {
       "path": "docs/audit-register.json",
       "sha256": "ab38512a82aa1726db28944522306e5c448e8d4a8bdfd40ee8a5741b4f28b3d6"
     }

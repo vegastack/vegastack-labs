@@ -21,7 +21,7 @@ The aim is no unresolved consequential decisions about behavior, interfaces, sec
 
 This mandate governs development, not fleet authority. [AGENTS.md](../../AGENTS.md), the canonical specifications, and operational gates remain binding. A merged PR, closed issue, milestone, or agent review is never infrastructure authorization or live activation evidence. No agent bypasses repository protection, impersonates an approver, or weakens checks.
 
-Ordinary development uses repository tools and isolated tests, without depending on the not-yet-built `vsk-labs` runtime. The current root contract still needs an approved clarification before general autonomous GitHub work starts; see [one-time setup](README.md#before-autonomous-execution). This mandate does not itself grant that authority. Fleet operations, repository administration, releases, and production-like tests retain their separate authorization requirements.
+Ordinary development uses repository tools and isolated tests, without depending on the not-yet-built `vsk-labs` runtime. Phase 0.1 integrated the approved root-contract clarification and Phase 0.2 established the public check lane; see the [established development foundation](README.md#established-development-foundation). Every implementation still requires an approved named issue or batch. Fleet operations, repository administration, releases, and production-like tests retain their separate authorization requirements.
 
 ## 2. One home for each kind of information
 
@@ -87,7 +87,7 @@ Apply `ready` only when:
 
 A fresh review agent is not automatically a separate GitHub approver. If required human approval is unavailable, do not promise autonomous delivery. A bootstrap issue may create its own harness, but must define the resulting checks and clean-checkout procedure and have an independently permitted delivery path.
 
-Recheck readiness at claim. Changed material contracts or failed prerequisites affect only relevant issues. Fixture-based work need not wait for unrelated live gates, but cannot claim live proof. See the [setup checklist](README.md#before-autonomous-execution); a documented command is not an implemented check.
+Recheck readiness at claim. Changed material contracts or failed prerequisites affect only relevant issues. Fixture-based work need not wait for unrelated live gates, but cannot claim live proof. See the [established development foundation](README.md#established-development-foundation); a documented command is not an implemented check.
 
 ## 5. Execute, recover, and resume
 

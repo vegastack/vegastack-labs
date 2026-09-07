@@ -20,6 +20,7 @@ try {
   await stage("documentation and JSON", process.execPath, ["tooling/verify-docs.mjs"]);
   await stage("Phase 0.3 contract fixtures", process.execPath, ["tooling/verify-phase-0-3.mjs"]);
   await stage("Phase 0.4 contract fixtures", process.execPath, ["tooling/verify-phase-0-4.mjs"]);
+  await stage("Phase 0.5 exit evidence", process.execPath, ["tooling/verify-phase-0-5.mjs"]);
   await stage("historical artifacts", process.execPath, ["tooling/historical.mjs", "--check"]);
   await stage("dependency provenance", process.execPath, ["tooling/provenance.mjs", "--check"]);
 

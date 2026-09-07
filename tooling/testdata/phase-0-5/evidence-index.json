@@ -1,0 +1,225 @@
+{
+  "schema": "vegastack-labs.dev/phase-0.5-evidence-index",
+  "schemaVersion": "1.0.0",
+  "repository": "vegastack/vegastack-labs",
+  "reviewedAt": "2026-09-07T06:06:04Z",
+  "baselineCommit": "4412c30c49c8ea6b5e6a8929f05178db235c7b42",
+  "dependencies": [
+    {
+      "developmentId": "0.1",
+      "issueNumber": 3,
+      "issueUrl": "https://github.com/vegastack/vegastack-labs/issues/3",
+      "issueState": "closed",
+      "pullRequest": {
+        "number": 4,
+        "url": "https://github.com/vegastack/vegastack-labs/pull/4",
+        "state": "merged",
+        "base": "main",
+        "head": "chore/0.1-development-route",
+        "mergeCommit": "36ffcbae7bbb0cc28a5f63ec4d07055c066cf373",
+        "parentCount": 2
+      },
+      "evidence": {
+        "kind": "legacy-implementation-summary",
+        "marker": null,
+        "url": "https://github.com/vegastack/vegastack-labs/issues/3#issuecomment-5435051804"
+      },
+      "review": {
+        "kind": "legacy-summary-clean-review",
+        "marker": null,
+        "verdict": "clean",
+        "url": "https://github.com/vegastack/vegastack-labs/issues/3#issuecomment-5435051804"
+      }
+    },
+    {
+      "developmentId": "0.2",
+      "issueNumber": 5,
+      "issueUrl": "https://github.com/vegastack/vegastack-labs/issues/5",
+      "issueState": "closed",
+      "pullRequest": {
+        "number": 6,
+        "url": "https://github.com/vegastack/vegastack-labs/pull/6",
+        "state": "merged",
+        "base": "main",
+        "head": "chore/0.2-public-development-scaffold",
+        "mergeCommit": "a20d0f526018bab27d72738a94d637d3d7d4036f",
+        "parentCount": 2
+      },
+      "evidence": {
+        "kind": "legacy-implementation-summary",
+        "marker": null,
+        "url": "https://github.com/vegastack/vegastack-labs/issues/5#issuecomment-5435744957"
+      },
+      "review": {
+        "kind": "legacy-summary-clean-review",
+        "marker": null,
+        "verdict": "clean",
+        "url": "https://github.com/vegastack/vegastack-labs/issues/5#issuecomment-5435744957"
+      }
+    },
+    {
+      "developmentId": "0.3",
+      "issueNumber": 16,
+      "issueUrl": "https://github.com/vegastack/vegastack-labs/issues/16",
+      "issueState": "closed",
+      "pullRequest": {
+        "number": 19,
+        "url": "https://github.com/vegastack/vegastack-labs/pull/19",
+        "state": "merged",
+        "base": "main",
+        "head": "chore/0.3-bootstrap-profile-human-proof",
+        "mergeCommit": "fff6d34400f299f9b3b220c8ae5a61efdca47457",
+        "parentCount": 2
+      },
+      "evidence": {
+        "kind": "vsk-evidence",
+        "marker": "type=evidence",
+        "url": "https://github.com/vegastack/vegastack-labs/issues/16#issuecomment-5541458629"
+      },
+      "review": {
+        "kind": "vsk-review",
+        "marker": "type=review verdict=clean",
+        "verdict": "clean",
+        "url": "https://github.com/vegastack/vegastack-labs/issues/16#issuecomment-5541442554"
+      }
+    },
+    {
+      "developmentId": "0.4",
+      "issueNumber": 17,
+      "issueUrl": "https://github.com/vegastack/vegastack-labs/issues/17",
+      "issueState": "closed",
+      "pullRequest": {
+        "number": 20,
+        "url": "https://github.com/vegastack/vegastack-labs/pull/20",
+        "state": "merged",
+        "base": "main",
+        "head": "chore/0.4-host-security-admission",
+        "mergeCommit": "4412c30c49c8ea6b5e6a8929f05178db235c7b42",
+        "parentCount": 2
+      },
+      "evidence": {
+        "kind": "vsk-evidence",
+        "marker": "type=evidence",
+        "url": "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543535981"
+      },
+      "review": {
+        "kind": "vsk-review",
+        "marker": "type=review verdict=clean",
+        "verdict": "clean",
+        "url": "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543518185"
+      }
+    }
+  ],
+  "moduleParents": [
+    {
+      "issueNumber": 7,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/7",
+      "sharedSpine": "platform-core-api-sqlite",
+      "deliveryPhases": [1, 2, 4, 5, 11],
+      "phaseOneRole": "metadata-graph-and-portable-contracts"
+    },
+    {
+      "issueNumber": 8,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/8",
+      "sharedSpine": "hardware-inventory-hosts",
+      "deliveryPhases": [2, 5, 6, 10],
+      "phaseOneRole": null
+    },
+    {
+      "issueNumber": 9,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/9",
+      "sharedSpine": "network-identity-edge",
+      "deliveryPhases": [3, 6, 7, 10],
+      "phaseOneRole": null
+    },
+    {
+      "issueNumber": 10,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/10",
+      "sharedSpine": "source-ci-releases",
+      "deliveryPhases": [1, 9, 11],
+      "phaseOneRole": "offline-release-verification"
+    },
+    {
+      "issueNumber": 11,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/11",
+      "sharedSpine": "registry-hosting",
+      "deliveryPhases": [8, 9, 11],
+      "phaseOneRole": null
+    },
+    {
+      "issueNumber": 12,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/12",
+      "sharedSpine": "secrets-redaction",
+      "deliveryPhases": [1, 5, 7],
+      "phaseOneRole": "redaction-foundation"
+    },
+    {
+      "issueNumber": 13,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/13",
+      "sharedSpine": "backup-restore-audit",
+      "deliveryPhases": [2, 5, 11],
+      "phaseOneRole": null
+    },
+    {
+      "issueNumber": 14,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/14",
+      "sharedSpine": "observability-notifications",
+      "deliveryPhases": [3, 10],
+      "phaseOneRole": null
+    },
+    {
+      "issueNumber": 15,
+      "url": "https://github.com/vegastack/vegastack-labs/issues/15",
+      "sharedSpine": "operator-console-agents",
+      "deliveryPhases": [1, 3, 4, 10, 11],
+      "phaseOneRole": "generated-cli-help-presentation"
+    }
+  ],
+  "phaseOneHandoff": {
+    "authority": "planning-only",
+    "firstCapability": "metadata-graph",
+    "sequence": [
+      {
+        "capability": "metadata-graph",
+        "ownerIssue": 7,
+        "after": []
+      },
+      {
+        "capability": "portable-contracts",
+        "ownerIssue": 7,
+        "after": ["metadata-graph"]
+      },
+      {
+        "capability": "redaction-foundation",
+        "ownerIssue": 12,
+        "after": ["portable-contracts"]
+      },
+      {
+        "capability": "offline-release-verification",
+        "ownerIssue": 10,
+        "after": ["portable-contracts"]
+      },
+      {
+        "capability": "generated-cli-help-presentation",
+        "ownerIssue": 15,
+        "after": ["redaction-foundation", "offline-release-verification"]
+      }
+    ]
+  },
+  "limitations": [
+    {
+      "id": "github-actions-billing-lock",
+      "classification": "external-unavailable",
+      "owner": "repository-operator",
+      "claim": "hosted-ci-not-passed",
+      "evidenceUrl": "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543671799"
+    },
+    {
+      "id": "pr-20-non-squash-merge",
+      "classification": "workflow-divergence",
+      "owner": "repository-operator",
+      "claim": "squash-route-not-conformant",
+      "evidenceUrl": "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543671799"
+    }
+  ]
+}
