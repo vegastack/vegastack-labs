@@ -277,6 +277,19 @@ test("the built vsk-labs executable preserves its complete process contract", as
     error: { code: "VERSION_INCOMPATIBLE", target: "platform" }, data: {},
   });
 
+  for (const selectionArguments of [
+    [],
+    ["--asset", "linux-amd64", "--all"],
+  ]) {
+    assertEnvelope(run(binary, [
+      "release", "verify", "--manifest", manifestPath, "--policy", policyPath,
+      ...selectionArguments, "--output", "json",
+    ]), {
+      exitCode: 2, command: "release verify", status: "failed",
+      error: { code: "INPUT_INVALID", target: "selection" }, data: {},
+    });
+  }
+
   assertEnvelope(run(binary, ["help", "--output", "json", "--output", "json"]), {
     exitCode: 2,
     command: "help",
