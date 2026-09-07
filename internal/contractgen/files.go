@@ -129,10 +129,6 @@ func secureTarget(root, artifactPath string) (string, error) {
 			return "", artifactError("GENERATED_PATH_UNSAFE", artifactPath)
 		}
 		if info.Mode()&os.ModeSymlink != 0 {
-			resolved, err := filepath.EvalSymlinks(current)
-			if err != nil || !withinRoot(resolvedRoot, resolved) {
-				return "", artifactError("GENERATED_PATH_UNSAFE", artifactPath)
-			}
 			return "", artifactError("GENERATED_PATH_UNSAFE", artifactPath)
 		}
 	}

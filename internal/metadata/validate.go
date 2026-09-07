@@ -11,6 +11,7 @@ import (
 var (
 	commandPartPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 	flagPattern        = regexp.MustCompile(`^--[a-z][a-z0-9-]*$`)
+	phasePattern       = regexp.MustCompile(`^[0-9]+$`)
 	schemaIDPattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9./-]*$`)
 	versionPattern     = regexp.MustCompile(`^1\.[0-9]+\.[0-9]+$`)
 	errorCodePattern   = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
@@ -56,6 +57,9 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 		seen[name] = struct{}{}
 		if command.Summary == "" || command.OwnerPhase == "" {
 			return validationError("METADATA_REQUIRED", location)
+		}
+		if !phasePattern.MatchString(command.OwnerPhase) {
+			return validationError("METADATA_INVALID", location+".ownerPhase")
 		}
 
 		switch command.Availability {

@@ -44,9 +44,10 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		"duplicate schema": func(registry *Registry) {
 			registry.Schemas = append(registry.Schemas, registry.Schemas[0])
 		},
-		"missing result schema":     func(registry *Registry) { registry.Commands[0].ResultSchema = "missing" },
-		"available risk unassigned": func(registry *Registry) { registry.Commands[0].Risk = RiskUnassigned },
-		"available example missing": func(registry *Registry) { registry.Commands[0].Examples = nil },
+		"missing result schema":      func(registry *Registry) { registry.Commands[0].ResultSchema = "missing" },
+		"available risk unassigned":  func(registry *Registry) { registry.Commands[0].Risk = RiskUnassigned },
+		"available example missing":  func(registry *Registry) { registry.Commands[0].Examples = nil },
+		"owner phase is not numeric": func(registry *Registry) { registry.Commands[0].OwnerPhase = "later" },
 		"planned has flags": func(registry *Registry) {
 			registry.Commands[2].Flags = []FlagDefinition{{Name: "--invented", ValueName: "value", Summary: "Not approved"}}
 		},
