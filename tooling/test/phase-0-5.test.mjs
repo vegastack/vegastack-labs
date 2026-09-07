@@ -15,8 +15,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
   const statusLine = phase.split("\n").find((line) => line.startsWith("Status:"));
   assert.ok(statusLine, "Phase 0 document requires one current status line");
-  assert.match(statusLine, /issues\/18\) are completed/);
-  assert.match(statusLine, /operator separately accepts the phase exit/);
+  assert.match(statusLine, /complete and accepted on 07-09-2026/i);
+  assert.match(statusLine, /issues\/22\).*merged and closed.*PR #23/is);
   for (const document of [phase, overview, roadmap]) {
     assert.doesNotMatch(
       document,
@@ -26,7 +26,8 @@ function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
       document,
       /GitHub Actions (?:cannot start|is (?:generally )?unavailable)/i,
     );
-    assert.doesNotMatch(document, /Phase 0 (?:is|has been) (?:complete|accepted)/i);
+    assert.doesNotMatch(document, /Phase 0 exit acceptance remains pending/i);
+    assert.doesNotMatch(document, /Issue #22 is still awaiting merge/i);
   }
 
   const hostedLine = phase.split("\n").find((line) => line.startsWith("| Hosted CI history |"));
@@ -43,9 +44,9 @@ function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
     /this (?:instruction|guidance) (?:grants|authorizes) (?:the )?merge/i,
   );
 
-  assert.match(overview, /Issue 0\.5 \(#18\).*merged and closed/i);
-  assert.match(roadmap, /Completed.*issue 0\.5 \(#18\)/is);
-  assert.match(roadmap, /Phase 0 exit acceptance.*separate/i);
+  assert.match(overview, /Issue 0\.6 \(#22\).*merged and closed/i);
+  assert.match(roadmap, /Completed.*issue 0\.6 \(#22\).*PR #23/is);
+  assert.match(roadmap, /Current: implement Issue 1\.1/is);
 }
 
 test("Phase 0.5 evidence rejects missing review proof and false CI success", async () => {
@@ -288,7 +289,7 @@ test("Phase 1 ordering rejects cycles and unknown prerequisites", async () => {
   );
 });
 
-test("current development documents reconcile PR #21 without accepting Phase 0", async () => {
+test("current development documents record the accepted Phase 0 and active Phase 1", async () => {
   const phase = await readFile(
     path.join(ROOT, "docs/development/phases/00-development-foundation.md"),
     "utf8",
@@ -305,7 +306,8 @@ test("current development documents reconcile PR #21 without accepting Phase 0",
   const staleClaims = [
     "Issue #18 is still awaiting merge.",
     "GitHub Actions is generally unavailable.",
-    "Phase 0 is accepted.",
+    "Issue #22 is still awaiting merge.",
+    "Phase 0 exit acceptance remains pending.",
   ];
   const mutations = [
     (changed) => {

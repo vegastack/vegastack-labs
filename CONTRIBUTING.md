@@ -23,6 +23,17 @@ After the frozen install, the checks need no private registry or VegaStack crede
 
 The public scaffold does not contain private design-system registry components. `web/components.json` documents the optional authenticated registry shape for a future approved maintainer lane, but public checks never contact it.
 
+## Generated platform contracts
+
+The typed Go graph under `internal/metadata` is the only editable source for platform command, schema, help, error, and exit metadata. To update it:
+
+```text
+corepack pnpm generate:contracts
+corepack pnpm check:contracts
+```
+
+Review the metadata change together with the resulting files under `internal/generated`, `schemas/v1`, and `docs/generated`. Never edit a generated contract directly; the non-writing contract check is part of `corepack pnpm check` and rejects missing or stale output. Generation uses public local tooling only and does not contact a service or require a credential.
+
 ## Registry credentials
 
 Do not commit credentials. After the ignore rules in this repository are present, a maintainer may put the following values in `web/.env.local` for a separately approved registry operation:

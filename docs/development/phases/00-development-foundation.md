@@ -1,6 +1,6 @@
 # Development phase 0 — Development foundation and specification reconciliation
 
-Status: Phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.5 (#18)](https://github.com/vegastack/vegastack-labs/issues/18) are completed. [Issue 0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) is the approved post-merge evidence correction as of 07-09-2026. Phase 0 becomes complete only after that correction is merged, its integrated check passes and the operator separately accepts the phase exit. Later issue solutions, permissions and batches remain separately approved.
+Status: complete and accepted on 07-09-2026. Phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) are merged and closed; PR #23 integrated the final correction, its public check passed, and (omkarmohanta09) accepted the phase exit. The acceptance authorizes the bounded Phase 1 planning path only; later issue solutions, implementation plans, pull requests, merges, releases, and operational authority remain separately approved.
 
 ## Outcome
 
@@ -77,16 +77,21 @@ The checked-in [Phase 0.5 evidence index](../../../tooling/testdata/phase-0-5/ev
 |---|---|
 | Issues 0.1–0.4 | #3, #5, #16 and #17 are closed; PRs #4, #6, #19 and #20 are merged into `main` at the commits recorded in the index. Legacy summaries prove 0.1/0.2; marker-based evidence and clean reviews prove 0.3/0.4. |
 | Issue 0.5 delivery | Issue #18 is merged and closed through PR #21 at integrated `main` commit `0381f4b4b43a5f0d438b8c5647d37b6c617ad38a`; the exact post-merge binding is pinned in the index. |
-| Public verification | PR #21's `Public foundation checks` passed, and the same integrated commit passed the temporary clean-checkout lane. The Phase 0.5 validator, documentation/history/workflow checks and complete public lane remain required on the correction candidate and its integrated commit. |
+| Issue 0.6 delivery | Issue #22 is merged and closed through PR #23 at integrated `main` commit `9b57392aff0b588cdfb8b07858b3b4f7d954d347`; its implementation evidence records the focused, complete, clean-checkout, offline-network-denial, and fresh-review results. |
+| Public verification | PR #21's and PR #23's `Public foundation checks` passed. The Phase 0.5 validator, documentation/history/workflow checks, complete public lane, and temporary clean-checkout lane passed for the final correction before the operator accepted the phase exit. |
 | Historical evidence | `docs/audit-register.json`, `audit-reports/audit-completion.md`, `audit-reports/gap-closure-report.md` and `audit-reports/requirements-readiness-2026-08-27.md` remain protected by `tooling/historical-artifacts.json`; the old snapshots are not rewritten as current evidence. |
 | Hosted CI history | Issue #17's account/billing failure remains historical unavailable evidence for PR #20; it is not relabeled as passing. PR #21's successful hosted check proves that failure did not apply to the later acceptance-owner run, so there is no current conclusion that GitHub Actions generally cannot start. |
 | Merge-route limitation | PR #20 and PR #21 have two-parent merge commits and are recorded as separate divergences from the current development profile's squash route; the other audited PRs also retain their recorded two-parent history. Shared history is preserved, and the repository operator owns conformance for later merges or any separately authorized settings change. |
 | Module ownership | #7–#15 retain one owner per shared spine. Resolved Phase 0.3/0.4 blockers were removed from #7, #8 and #15; remaining open questions stay with their named module/phase. |
-| Phase 1 handoff | The metadata graph is the first planning step through #7, followed by #7 portable contracts, #12 redaction and #10 offline release verification, then #15 generated CLI/help presentation. This order grants planning authority only. |
+| Phase 1 handoff | The metadata graph is the first delivery through #7, followed by #7 portable contracts, #12 redaction and #10 offline release verification, then #15 generated CLI/help presentation. Phase 0 supplied planning authority only; the operator separately approved the Phase 1 child briefs and Issue #24 Plan v1 after accepting the exit. |
 
 Issue #18 estimated 35 agent minutes with a 70-minute checkpoint and about 8 minutes of operator review. Its final evidence comment records actual elapsed effort versus that estimate after the last verification and fresh review, because a branch document cannot truthfully know its own final reviewed commit or completion time. No software-runtime, provider, host, fleet or deployment readiness is claimed here.
 
-Issue #22 estimated 15 agent minutes with a 30-minute checkpoint and about 4 minutes of operator review. It corrects post-merge evidence only; Phase 0 exit acceptance and all Phase 1 activity remain separate operator gates.
+Issue #22 estimated 15 agent minutes with a 30-minute checkpoint and about 4 minutes of operator review. It corrected post-merge evidence only; its implementation evidence records the actual result. PR #23 merged that correction, its integrated public check passed, and the operator separately accepted Phase 0 without granting runtime, release, or live authority.
+
+## Phase 0 exit acceptance
+
+Accepted by (omkarmohanta09) on 07-09-2026: "yes I accept it as complete". The acceptance followed PR #23's merge, passing `Public foundation checks`, and Issue #22 closure. It closes the development-foundation milestone and permits the separately approved [Phase 1 planning path](01-portable-executable-and-generated-contracts.md); it does not approve a later issue's implementation plan, pull request, merge, release, repository administration, or infrastructure operation.
 
 ## Approval and next batch
 
