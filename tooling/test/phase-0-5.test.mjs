@@ -198,15 +198,26 @@ test("Phase 1 ordering rejects cycles and unknown prerequisites", async () => {
   );
 });
 
-test("current development documents name Phase 0.5 and preserve a planning-only handoff", async () => {
+test("current development documents reconcile PR #21 without accepting Phase 0", async () => {
   const phase = await readFile(
     path.join(ROOT, "docs/development/phases/00-development-foundation.md"),
     "utf8",
   );
   const overview = await readFile(path.join(ROOT, "docs/development/README.md"), "utf8");
+  const roadmap = await readFile(path.join(ROOT, "docs/development/roadmap.md"), "utf8");
+  const mandate = await readFile(
+    path.join(ROOT, "docs/development/operating-mandate.md"),
+    "utf8",
+  );
   assert.match(phase, /Phase 0 exit evidence/);
-  assert.match(phase, /GitHub Actions.*billing.*unavailable/i);
-  assert.match(phase, /two-parent.*PR #20/i);
+  assert.match(phase, /PR #21.*Public foundation checks.*passed/is);
+  assert.match(phase, /Issue #17.*historical/is);
+  assert.match(phase, /PR #20.*two-parent/i);
+  assert.match(phase, /PR #21.*two-parent/is);
+  assert.doesNotMatch(phase, /GitHub Actions cannot start/i);
   assert.match(phase, /metadata graph.*planning/i);
-  assert.doesNotMatch(overview, /Issue 0\.2.*current approved development issue/);
+  assert.match(overview, /Issue 0\.5 \(#18\).*merged and closed/i);
+  assert.match(roadmap, /Completed.*issue 0\.5 \(#18\)/is);
+  assert.match(roadmap, /Phase 0 exit acceptance.*separate/i);
+  assert.match(mandate, /choose \*\*Squash and merge\*\*.*unavailable.*stop/is);
 });

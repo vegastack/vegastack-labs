@@ -119,7 +119,7 @@ Run existing narrow unit/schema/fixture checks first, then relevant integration,
 
 Record actionable findings, their disposition, and the reviewed commit in the PR. Fix findings and rerun affected checks. Later changes, including conflict resolution, require relevant renewed checks and review; old review cannot certify unseen changes. No ritual review rounds or unrelated perfectionism.
 
-Unresolved correctness, security, or acceptance findings prevent merge. They require user input only when resolution exceeds the approved contract or available prerequisites. Agents cannot accept a new material risk for the user.
+Unresolved correctness, security, or acceptance findings prevent merge. They require user input only when resolution exceeds the approved contract or available prerequisites. Agents cannot accept a new material risk for the user. At an authorized GitHub UI merge gate, choose **Squash and merge**; if that option is unavailable, stop rather than selecting **Create a merge commit** or changing repository settings.
 
 Evidence identifies the commit, environment/versions, exact commands/procedures, results, and relevant artifacts. Failed, skipped, unavailable, or flaky required checks are not passes. If required proof cannot be obtained, block affected work or obtain an approved scope change; never substitute an illustrative result.
 
