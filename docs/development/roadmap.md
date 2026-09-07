@@ -1,6 +1,6 @@
 # Full-scope development roadmap
 
-Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. The user has adopted the [operating mandate](operating-mandate.md) and directed that the entire documented scope be delivered phase by phase, with multiple issues per phase. Detailed phase solutions, issue batches, and operational authority retain their separate approvals.
+Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. The user has adopted the [operating mandate](operating-mandate.md), accepted Phase 0 on 07-09-2026, and directed that the entire documented scope be delivered phase by phase, with multiple issues per phase. [Phase 1](phases/01-portable-executable-and-generated-contracts.md) is active; later phase solutions, issue batches, and operational authority retain their separate approvals.
 
 Rollout timing confirmed on 26-08-2026: finish and verify the complete v1 platform before the first lab onboarding rehearsal. Isolated implementation tests still run throughout development; the inventory fleet is not an early deployment pilot. [D-117](../decisions-and-sources.md#d-117)
 
@@ -123,7 +123,7 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Current approved batch:** phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.5 (#18)](https://github.com/vegastack/vegastack-labs/issues/18) are completed. [0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) is the approved post-merge evidence correction; it may record PR #21's public hosted-check result and merge shape, reconcile current status and clarify the existing squash instruction. Its PR, merge, phase-exit acceptance, Phase 1 planning and issue creation, release, repository administration, providers, credentials, hosts, networks and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
+**Current approved batch:** Phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) are completed and the phase exit was accepted on 07-09-2026. Phase 1 briefs [1.1 (#24)](https://github.com/vegastack/vegastack-labs/issues/24) and [1.2 (#25)](https://github.com/vegastack/vegastack-labs/issues/25) are approved. Only Issue 1.1 has an approved implementation plan and may execute now; Issue 1.2 remains planning-only until 1.1 merges and its interfaces are re-grounded. Pull requests, merges, Phase 1 exit acceptance, release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
 
 **Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 
@@ -140,5 +140,7 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 5. Completed on 04-09-2026: deliver [issue 0.3 (#16)](https://github.com/vegastack/vegastack-labs/issues/16) and merge its bootstrap/profile/transport/Slack contract corpus.
 6. Completed on 04-09-2026: deliver [issue 0.4 (#17)](https://github.com/vegastack/vegastack-labs/issues/17), including its public contract checks and fresh security-focused review.
 7. Completed on 07-09-2026: deliver and merge [issue 0.5 (#18)](https://github.com/vegastack/vegastack-labs/issues/18) as the integrated Phase 0 evidence, consistency and handoff check; its integrated local check and PR #21 hosted check passed.
-8. Current: deliver [issue 0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) to reconcile PR #21's post-merge evidence. Its PR, merge and Phase 0 exit acceptance remain separate operator instructions.
-9. Next, only after Phase 0 exit acceptance: plan a bounded Phase 1 batch beginning with the metadata graph. No Phase 1 issue becomes ready from the handoff alone.
+8. Completed on 07-09-2026: deliver and merge [issue 0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) through PR #23, verify its integrated public check, and record the operator's Phase 0 exit acceptance.
+9. Completed on 07-09-2026: create and approve the bounded Phase 1 briefs [1.1 (#24)](https://github.com/vegastack/vegastack-labs/issues/24) and [1.2 (#25)](https://github.com/vegastack/vegastack-labs/issues/25), then approve Plan v1 for Issue 1.1 after settling incremental coverage, typed-Go ownership, and checked-in generation.
+10. Current: implement Issue 1.1's metadata graph, generated artifacts, drift checks, documentation, verification, and fresh review. Pull-request creation and merge remain separate operator instructions.
+11. Next, only after Issue 1.1 merges: re-ground and plan Issue 1.2 against the real generated interfaces. Its approved brief alone does not make it ready.

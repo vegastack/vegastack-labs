@@ -10,6 +10,7 @@
   },
   "scripts": {
     "check": "node tooling/check.mjs",
+    "check:contracts": "go run ./tooling/generate-contracts --check",
     "check:dependencies": "node tooling/provenance.mjs --check",
     "check:docs": "node tooling/verify-docs.mjs",
     "check:historical": "node tooling/historical.mjs --check",
@@ -19,6 +20,7 @@
     "check:repository": "node tooling/verify-repository.mjs",
     "check:workflow": "node tooling/verify-workflow.mjs",
     "generate:historical": "node tooling/historical.mjs --write --approve-current",
+    "generate:contracts": "go run ./tooling/generate-contracts --write",
     "generate:provenance": "node tooling/provenance.mjs --write --approve-current-lock",
     "test:tooling": "node --test tooling/test/*.test.mjs"
   },

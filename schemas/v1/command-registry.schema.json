@@ -1,0 +1,301 @@
+{
+  "$id": "vegastack-labs.dev/command-registry",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "commands": {
+      "items": {
+        "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "availability": {
+                  "const": "planned"
+                }
+              },
+              "required": [
+                "availability"
+              ]
+            },
+            "then": {
+              "not": {
+                "anyOf": [
+                  {
+                    "required": [
+                      "requestSchema"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "resultSchema"
+                    ]
+                  }
+                ]
+              },
+              "properties": {
+                "examples": {
+                  "maxItems": 0
+                },
+                "flags": {
+                  "maxItems": 0
+                },
+                "risk": {
+                  "const": "unassigned"
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "availability": {
+                  "const": "available"
+                }
+              },
+              "required": [
+                "availability"
+              ]
+            },
+            "then": {
+              "properties": {
+                "examples": {
+                  "minItems": 1
+                },
+                "risk": {
+                  "const": "read-only"
+                }
+              },
+              "required": [
+                "resultSchema",
+                "examples"
+              ]
+            }
+          }
+        ],
+        "properties": {
+          "availability": {
+            "enum": [
+              "available",
+              "planned"
+            ],
+            "type": "string"
+          },
+          "examples": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "arguments": {
+                  "items": {
+                    "minLength": 1,
+                    "type": "string"
+                  },
+                  "minItems": 1,
+                  "type": "array"
+                },
+                "summary": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "summary",
+                "arguments"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "flags": {
+            "items": {
+              "additionalProperties": false,
+              "properties": {
+                "enum": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array",
+                  "uniqueItems": true
+                },
+                "name": {
+                  "pattern": "^--[a-z][a-z0-9-]*$",
+                  "type": "string"
+                },
+                "repeatable": {
+                  "type": "boolean"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "summary": {
+                  "minLength": 1,
+                  "type": "string"
+                },
+                "valueName": {
+                  "minLength": 1,
+                  "type": "string"
+                }
+              },
+              "required": [
+                "name",
+                "valueName",
+                "required",
+                "repeatable",
+                "summary",
+                "enum"
+              ],
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "ownerPhase": {
+            "pattern": "^[0-9]+$",
+            "type": "string"
+          },
+          "path": {
+            "items": {
+              "minLength": 1,
+              "type": "string"
+            },
+            "minItems": 1,
+            "type": "array"
+          },
+          "requestSchema": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "resultSchema": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "risk": {
+            "enum": [
+              "read-only",
+              "unassigned"
+            ],
+            "type": "string"
+          },
+          "summary": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "summary",
+          "availability",
+          "ownerPhase",
+          "risk"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "errors": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "pattern": "^[A-Z][A-Z0-9_]*$",
+            "type": "string"
+          },
+          "exitCode": {
+            "enum": [
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "type": "integer"
+          }
+        },
+        "required": [
+          "code",
+          "exitCode"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "exits": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "enum": [
+              0,
+              2,
+              3,
+              4,
+              5,
+              6,
+              7,
+              8,
+              9
+            ],
+            "type": "integer"
+          },
+          "meaning": {
+            "minLength": 1,
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "meaning"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    },
+    "generatedBy": {
+      "const": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
+      "type": "string"
+    },
+    "schema": {
+      "const": "vegastack-labs.dev/command-registry",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "schemas": {
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "version": {
+            "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "version"
+        ],
+        "type": "object"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "generatedBy",
+    "schema",
+    "schemaVersion",
+    "commands",
+    "errors",
+    "exits",
+    "schemas"
+  ],
+  "title": "VegaStack Labs command registry",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

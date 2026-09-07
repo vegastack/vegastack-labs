@@ -1,0 +1,697 @@
+{
+  "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
+  "schema": "vegastack-labs.dev/command-registry",
+  "schemaVersion": "1.0.0",
+  "commands": [
+    {
+      "path": [
+        "apply"
+      ],
+      "summary": "Execute one current, authorized immutable plan.",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "audit"
+      ],
+      "summary": "Inspect sanitized audit history.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "backup",
+        "run"
+      ],
+      "summary": "Run one exact approved backup policy.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "backup",
+        "status"
+      ],
+      "summary": "Inspect backup status.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "backup",
+        "verify"
+      ],
+      "summary": "Verify a declared backup.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "connect"
+      ],
+      "summary": "Open a constrained connection to an authorized node endpoint.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "control-plane",
+        "plan"
+      ],
+      "summary": "Create an immutable control-plane change plan.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "control-plane",
+        "recover"
+      ],
+      "summary": "Create an inert control-plane recovery change.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "control-plane",
+        "verify"
+      ],
+      "summary": "Verify control-plane health and authority.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "database",
+        "backup"
+      ],
+      "summary": "Create a verified control-database backup.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "database",
+        "export"
+      ],
+      "summary": "Export authorized sanitized control data.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "database",
+        "restore"
+      ],
+      "summary": "Create an inert control-database restore change.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "database",
+        "status"
+      ],
+      "summary": "Inspect control-database status.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "database",
+        "verify"
+      ],
+      "summary": "Verify control-database integrity or backup content.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "device",
+        "approve"
+      ],
+      "summary": "Create an inert device-approval change.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "device",
+        "request"
+      ],
+      "summary": "Create an inert device-enrollment request.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "device",
+        "revoke"
+      ],
+      "summary": "Create an inert device-revocation change.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "doctor"
+      ],
+      "summary": "Diagnose one actionable platform invariant at a time.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "gate",
+        "check"
+      ],
+      "summary": "Evaluate applicable gates without changing infrastructure.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "gate",
+        "evidence"
+      ],
+      "summary": "Validate evidence and create an inert evidence change.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "gate",
+        "inspect"
+      ],
+      "summary": "Inspect one gate and its evidence requirements.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "gate",
+        "list"
+      ],
+      "summary": "List applicable implementation gates.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "help"
+      ],
+      "summary": "Show generated command help.",
+      "availability": "available",
+      "ownerPhase": "1",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--output",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "examples": [
+        {
+          "summary": "Show all generated command help.",
+          "arguments": [
+            "help"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "inventory",
+        "diff"
+      ],
+      "summary": "Compare declared and supplied inventory.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "inventory",
+        "export"
+      ],
+      "summary": "Export authorized inventory data.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "inventory",
+        "import"
+      ],
+      "summary": "Import typed inventory as an inert change.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "maintenance",
+        "plan"
+      ],
+      "summary": "Create an immutable maintenance plan.",
+      "availability": "planned",
+      "ownerPhase": "10",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "maintenance",
+        "run"
+      ],
+      "summary": "Run one authorized maintenance plan.",
+      "availability": "planned",
+      "ownerPhase": "10",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "add"
+      ],
+      "summary": "Create an inert managed-node change.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "discover"
+      ],
+      "summary": "Discover a candidate managed node.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "inspect"
+      ],
+      "summary": "Inspect a managed node.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "nominate"
+      ],
+      "summary": "Create an inert role-nomination change.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "quarantine"
+      ],
+      "summary": "Create an inert node-quarantine change.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "node",
+        "replace"
+      ],
+      "summary": "Create an inert node-replacement change.",
+      "availability": "planned",
+      "ownerPhase": "6",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "plan"
+      ],
+      "summary": "Create an immutable plan from an inert change.",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "release",
+        "inspect"
+      ],
+      "summary": "Inspect a release manifest and compatibility.",
+      "availability": "planned",
+      "ownerPhase": "11",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "release",
+        "verify"
+      ],
+      "summary": "Verify release identity, signature, and digest.",
+      "availability": "planned",
+      "ownerPhase": "11",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "restore",
+        "plan"
+      ],
+      "summary": "Create an immutable restore plan.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "restore",
+        "run"
+      ],
+      "summary": "Run one authorized restore plan.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "restore",
+        "verify"
+      ],
+      "summary": "Verify a completed restore.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "server",
+        "run"
+      ],
+      "summary": "Run the persistent control service in the foreground.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "server",
+        "status"
+      ],
+      "summary": "Query control-service health.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "service",
+        "deploy"
+      ],
+      "summary": "Create an inert service-deployment change.",
+      "availability": "planned",
+      "ownerPhase": "8",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "service",
+        "plan"
+      ],
+      "summary": "Create an inert service change and request its plan.",
+      "availability": "planned",
+      "ownerPhase": "8",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "service",
+        "rollback"
+      ],
+      "summary": "Create an inert service-rollback change.",
+      "availability": "planned",
+      "ownerPhase": "8",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "status"
+      ],
+      "summary": "Show the current platform summary.",
+      "availability": "planned",
+      "ownerPhase": "2",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "user",
+        "offboard"
+      ],
+      "summary": "Create an inert user-offboarding change.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "user",
+        "onboard"
+      ],
+      "summary": "Create an inert user-onboarding change.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "user",
+        "resume"
+      ],
+      "summary": "Create an inert user-resumption change.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "user",
+        "suspend"
+      ],
+      "summary": "Create an inert user-suspension change.",
+      "availability": "planned",
+      "ownerPhase": "7",
+      "risk": "unassigned"
+    },
+    {
+      "path": [
+        "version"
+      ],
+      "summary": "Show the vsk-labs build and contract version.",
+      "availability": "available",
+      "ownerPhase": "1",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--output",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "examples": [
+        {
+          "summary": "Show version information as JSON.",
+          "arguments": [
+            "version",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": "APPROVAL_REQUIRED",
+      "exitCode": 4
+    },
+    {
+      "code": "AUTHENTICATION_REQUIRED",
+      "exitCode": 3
+    },
+    {
+      "code": "AUTHORIZATION_DENIED",
+      "exitCode": 4
+    },
+    {
+      "code": "DEPENDENCY_UNAVAILABLE",
+      "exitCode": 6
+    },
+    {
+      "code": "EVIDENCE_EXPIRED",
+      "exitCode": 5
+    },
+    {
+      "code": "EVIDENCE_INVALID",
+      "exitCode": 2
+    },
+    {
+      "code": "EXECUTION_FAILED",
+      "exitCode": 7
+    },
+    {
+      "code": "EXECUTION_PARTIAL",
+      "exitCode": 7
+    },
+    {
+      "code": "GATE_BLOCKED",
+      "exitCode": 6
+    },
+    {
+      "code": "INPUT_INVALID",
+      "exitCode": 2
+    },
+    {
+      "code": "INTEGRITY_FAILURE",
+      "exitCode": 8
+    },
+    {
+      "code": "INTERRUPTED",
+      "exitCode": 9
+    },
+    {
+      "code": "MIGRATION_BLOCKED",
+      "exitCode": 8
+    },
+    {
+      "code": "PLAN_STALE",
+      "exitCode": 5
+    },
+    {
+      "code": "PREREQUISITE_BLOCKED",
+      "exitCode": 6
+    },
+    {
+      "code": "RECOVERY_EPOCH_MISMATCH",
+      "exitCode": 5
+    },
+    {
+      "code": "RECOVERY_REQUIRED",
+      "exitCode": 7
+    },
+    {
+      "code": "SCHEMA_UNSUPPORTED",
+      "exitCode": 2
+    },
+    {
+      "code": "SESSION_EXPIRED",
+      "exitCode": 3
+    },
+    {
+      "code": "STATE_CONFLICT",
+      "exitCode": 5
+    },
+    {
+      "code": "TARGET_UNREACHABLE",
+      "exitCode": 6
+    },
+    {
+      "code": "UNSUPPORTED_PLATFORM",
+      "exitCode": 2
+    },
+    {
+      "code": "VERSION_INCOMPATIBLE",
+      "exitCode": 5
+    }
+  ],
+  "exits": [
+    {
+      "code": 0,
+      "meaning": "read, plan, or apply completed successfully; inspect changed for a no-op"
+    },
+    {
+      "code": 2,
+      "meaning": "command usage, parse, or schema validation failed before authorization"
+    },
+    {
+      "code": 3,
+      "meaning": "caller could not be authenticated or the session expired or was revoked"
+    },
+    {
+      "code": 4,
+      "meaning": "authenticated caller lacks scope or required acknowledgement"
+    },
+    {
+      "code": 5,
+      "meaning": "state, plan, evidence, recovery epoch, or client/server version conflict"
+    },
+    {
+      "code": 6,
+      "meaning": "prerequisite, gate, target, credential reference, or dependency is unavailable"
+    },
+    {
+      "code": 7,
+      "meaning": "execution began and failed, stopped partial, or requires recovery"
+    },
+    {
+      "code": 8,
+      "meaning": "database, audit, or migration integrity failure"
+    },
+    {
+      "code": 9,
+      "meaning": "caller cancellation or interruption reached a declared safe boundary"
+    }
+  ],
+  "schemas": [
+    {
+      "id": "vegastack-labs.dev/result-error",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/run-result",
+      "version": "1.0.0"
+    }
+  ]
+}
