@@ -60,6 +60,28 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 }
 
+func TestFoundationCommandsExposeSchemaMajor(t *testing.T) {
+	t.Parallel()
+
+	for _, command := range Current().Commands {
+		if command.Availability != AvailabilityAvailable {
+			continue
+		}
+		if !hasFlag(command.Flags, "--schema-version", "major", []string{"1"}) {
+			t.Fatalf("%v does not expose generated schema-major selection", command.Path)
+		}
+	}
+}
+
+func hasFlag(flags []FlagDefinition, name, valueName string, enum []string) bool {
+	for _, flag := range flags {
+		if flag.Name == name && flag.ValueName == valueName && reflect.DeepEqual(flag.Enum, enum) {
+			return true
+		}
+	}
+	return false
+}
+
 func TestCurrentErrorExitMapping(t *testing.T) {
 	t.Parallel()
 

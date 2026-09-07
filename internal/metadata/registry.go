@@ -145,6 +145,12 @@ func foundationCommand(name, summary string, examples []ExampleDefinition) Comma
 				Summary:   "Select human or versioned JSON output.",
 				Enum:      []string{"human", "json"},
 			},
+			{
+				Name:      "--schema-version",
+				ValueName: "major",
+				Summary:   "Select the machine-contract schema major.",
+				Enum:      []string{"1"},
+			},
 		},
 		ResultSchema: runResultSchemaID,
 		Examples:     examples,
