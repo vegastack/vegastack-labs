@@ -23,7 +23,11 @@ func renderHumanHelp(output io.Writer) int {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
 		for _, flag := range command.Flags {
-			if _, err := fmt.Fprintf(output, "    %-22s %s", flag.Name+" <"+flag.ValueName+">", flag.Summary); err != nil {
+			label := flag.Name
+			if flag.Kind == generated.FlagKindValue {
+				label += " <" + flag.ValueName + ">"
+			}
+			if _, err := fmt.Fprintf(output, "    %-22s %s", label, flag.Summary); err != nil {
 				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 			}
 			if len(flag.Enum) != 0 {
@@ -44,6 +48,32 @@ func renderHumanHelp(output io.Writer) int {
 			continue
 		}
 		if _, err := fmt.Fprintf(output, "  %-24s %s\n", commandName(command.Path), command.Summary); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	return 0
+}
+
+func renderHumanReleaseInspect(output io.Writer, data generated.ReleaseInspectData) int {
+	if _, err := fmt.Fprintf(output,
+		"Release %s\nBuild %s\nSource %s\nPlatform %s/%s (schema %d)\nVerification not performed\nCompatible assets: %s\n",
+		data.ReleaseID, data.BuildID, data.SourceRevision, data.PlatformOS, data.PlatformArchitecture,
+		data.PlatformSchemaMajor, strings.Join(data.CompatibleAssetIDs, ", "),
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return 0
+}
+
+func renderHumanReleaseVerify(output io.Writer, data generated.ReleaseVerifyData) int {
+	if _, err := fmt.Fprintf(output,
+		"Release %s\nBuild %s\nSource %s\nVerification %s\nSupplied policy %s\n",
+		data.ReleaseID, data.BuildID, data.SourceRevision, data.VerificationStatus, data.PolicySHA256,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, asset := range data.Assets {
+		if _, err := fmt.Fprintf(output, "Asset %s: %s (%s, %d bytes)\n", asset.AssetID, asset.Status, asset.Digest, asset.Size); err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
 	}

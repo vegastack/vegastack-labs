@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { access, mkdtemp, readFile, rm } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { access, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -53,7 +54,7 @@ function assertEnvelope(actual, expected) {
   const result = JSON.parse(actual.stdout);
   assert.deepEqual(Object.keys(result), RESULT_KEYS);
   assert.equal(result.schema, "vegastack-labs.dev/run-result");
-  assert.equal(result.schemaVersion, "1.0.0");
+  assert.equal(result.schemaVersion, "1.1.0");
   assert.equal(result.toolVersion, "0.0.0-dev");
   assert.equal(result.command, expected.command);
   assert.match(result.requestId, /^request-[0-9a-f]{32}$/);
@@ -84,7 +85,8 @@ function expectedHumanHelp(registry) {
   for (const command of available) {
     lines.push(`  ${command.path.join(" ").padEnd(24)} ${command.summary}`);
     for (const flag of command.flags ?? []) {
-      let line = `    ${`${flag.name} <${flag.valueName}>`.padEnd(22)} ${flag.summary}`;
+      const label = flag.kind === "switch" ? flag.name : `${flag.name} <${flag.valueName}>`;
+      let line = `    ${label.padEnd(22)} ${flag.summary}`;
       if ((flag.enum ?? []).length !== 0) line += ` Allowed: ${flag.enum.join(", ")}.`;
       lines.push(line);
     }
@@ -120,7 +122,7 @@ test("the built vsk-labs executable preserves its complete process contract", as
   });
   assert.deepEqual(run(binary, ["version"]), {
     code: 0,
-    stdout: "vsk-labs 0.0.0-dev\ncontract 1.0.0\nbuild development\n",
+    stdout: "vsk-labs 0.0.0-dev\ncontract 1.1.0\nbuild development\n",
     stderr: "",
   });
 
@@ -158,6 +160,121 @@ test("the built vsk-labs executable preserves its complete process contract", as
   assertHumanFailure(run(binary, ["status"]), 6, {
     code: "PREREQUISITE_BLOCKED",
     field: "command",
+  });
+
+  const releaseDirectory = path.join(temporary, "release $(not-a-shell) ; private-canary");
+  const policyPath = path.join(temporary, "policy.json");
+  await cp(path.join(ROOT, "internal/release/testdata/release-valid"), releaseDirectory, {
+    recursive: true,
+  });
+  await cp(path.join(ROOT, "internal/release/testdata/policy-valid.json"), policyPath);
+  const manifestPath = path.join(releaseDirectory, "manifest.json");
+  const manifest = JSON.parse(await readFile(manifestPath, "utf8"));
+  const policyRaw = await readFile(policyPath);
+  const policySha256 = `sha256:${createHash("sha256").update(policyRaw).digest("hex")}`;
+
+  assertEnvelope(
+    run(binary, [
+      "release", "verify", "--manifest", manifestPath, "--policy", policyPath,
+      "--asset", "linux-amd64", "--output", "json",
+    ]),
+    {
+      exitCode: 0,
+      command: "release verify",
+      status: "succeeded",
+      data: {
+        releaseId: manifest.releaseId,
+        buildId: manifest.buildId,
+        sourceRevision: manifest.sourceRevision,
+        manifestStatus: "verified",
+        verificationStatus: "verified-against-supplied-policy",
+        policySha256,
+        assets: [{
+          assetId: manifest.assets[0].id,
+          os: manifest.assets[0].os,
+          architecture: manifest.assets[0].architecture,
+          digest: manifest.assets[0].digest,
+          size: manifest.assets[0].size,
+          status: "verified",
+        }],
+      },
+    },
+  );
+  assert.doesNotMatch(
+    run(binary, ["release", "verify", "--manifest", manifestPath, "--policy", policyPath, "--all"]).stdout,
+    /official VegaStack release/i,
+  );
+  await assert.rejects(access(path.join(temporary, "not-a-shell"), constants.F_OK), { code: "ENOENT" });
+
+  const currentManifest = structuredClone(manifest);
+  currentManifest.assets[0].os = process.platform === "win32" ? "windows" : process.platform;
+  currentManifest.assets[0].architecture = process.arch === "x64" ? "amd64" : process.arch;
+  const currentManifestPath = path.join(releaseDirectory, "manifest-current.json");
+  await writeFile(currentManifestPath, `${JSON.stringify(currentManifest, null, 2)}\n`);
+  const inspected = assertEnvelope(
+    run(binary, ["release", "inspect", "--manifest", currentManifestPath, "--output", "json"]),
+    {
+      exitCode: 0,
+      command: "release inspect",
+      status: "succeeded",
+      data: {
+        releaseId: currentManifest.releaseId,
+        buildId: currentManifest.buildId,
+        sourceRevision: currentManifest.sourceRevision,
+        minimumSchemaMajor: 1,
+        maximumSchemaMajor: 1,
+        platformOs: currentManifest.assets[0].os,
+        platformArchitecture: currentManifest.assets[0].architecture,
+        platformSchemaMajor: 1,
+        compatibleAssetIds: [currentManifest.assets[0].id],
+        assets: currentManifest.assets,
+        verificationStatus: "not-verified",
+      },
+    },
+  );
+  assert.equal(inspected.data.verificationStatus, "not-verified");
+
+  const wrongPolicy = JSON.parse(policyRaw.toString("utf8"));
+  wrongPolicy.certificateIdentity = "https://example.invalid/private-canary";
+  const wrongPolicyPath = path.join(temporary, "wrong-policy.json");
+  await writeFile(wrongPolicyPath, `${JSON.stringify(wrongPolicy)}\n`);
+  const wrongSigner = run(binary, [
+    "release", "verify", "--manifest", manifestPath, "--policy", wrongPolicyPath,
+    "--all", "--output", "json",
+  ]);
+  assertEnvelope(wrongSigner, {
+    exitCode: 2, command: "release verify", status: "failed",
+    error: { code: "EVIDENCE_INVALID", target: "manifest-signature" }, data: {},
+  });
+  assert.doesNotMatch(wrongSigner.stdout + wrongSigner.stderr, /private-canary/);
+
+  await writeFile(path.join(releaseDirectory, "artifacts/vsk-labs"), "tampered artifact!\n");
+  assertEnvelope(run(binary, [
+    "release", "verify", "--manifest", manifestPath, "--policy", policyPath,
+    "--all", "--output", "json",
+  ]), {
+    exitCode: 2, command: "release verify", status: "failed",
+    error: { code: "EVIDENCE_INVALID", target: "asset-digest" }, data: {},
+  });
+
+  assertEnvelope(run(binary, [
+    "release", "inspect", "--manifest", path.join(temporary, "missing-private-canary.json"),
+    "--output", "json",
+  ]), {
+    exitCode: 6, command: "release inspect", status: "blocked",
+    error: { code: "PREREQUISITE_BLOCKED", target: "manifest" }, data: {},
+  });
+
+  const incompatible = structuredClone(currentManifest);
+  incompatible.minimumSchemaMajor = 2;
+  incompatible.maximumSchemaMajor = 2;
+  const incompatiblePath = path.join(releaseDirectory, "incompatible.json");
+  await writeFile(incompatiblePath, `${JSON.stringify(incompatible)}\n`);
+  assertEnvelope(run(binary, [
+    "release", "inspect", "--manifest", incompatiblePath, "--output", "json",
+  ]), {
+    exitCode: 5, command: "release inspect", status: "failed",
+    error: { code: "VERSION_INCOMPATIBLE", target: "platform" }, data: {},
   });
 
   assertEnvelope(run(binary, ["help", "--output", "json", "--output", "json"]), {

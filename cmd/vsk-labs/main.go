@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/vegastack/vegastack-labs/internal/cli"
+	"github.com/vegastack/vegastack-labs/internal/release"
 )
 
 var (
@@ -30,7 +31,7 @@ func main() {
 		ToolVersion:    toolVersion,
 		ReleaseBuildID: releaseBuildID,
 		SourceRevision: revision,
-	}, newRequestID)
+	}, newRequestID, cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})))
 	os.Exit(app.Run(ctx, os.Args[1:]))
 }
 

@@ -1,0 +1,6 @@
+Release v1.2.3
+Build build-123
+Source aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+Verification verified-against-supplied-policy
+Supplied policy sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+Asset linux-amd64: verified (sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc, 1234 bytes)
