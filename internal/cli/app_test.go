@@ -263,6 +263,25 @@ func TestReleaseDomainErrorsAreMappedWithoutRawInput(t *testing.T) {
 	}
 }
 
+func TestReleaseDomainErrorBoundaryRejectsUnknownCodeAndTarget(t *testing.T) {
+	t.Parallel()
+
+	for _, err := range []error{
+		&release.Error{Code: "PRIVATE_CODE", Target: "manifest-signature"},
+		&release.Error{Code: generated.ErrorCodeEvidenceInvalid, Target: "private-target-canary"},
+	} {
+		operations := &stubReleaseOperations{err: err}
+		code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{
+			"release", "verify", "--manifest", "manifest.json", "--policy", "policy.json", "--all", "--output", "json",
+		}, nil, WithReleaseOperations(operations))
+		result := decodeResult(t, code, stdout, stderr, 8)
+		assertResultError(t, result, generated.ErrorCodeIntegrityFailure, generated.RunStatusFailed)
+		if strings.Contains(stdout+stderr, "PRIVATE_CODE") || strings.Contains(stdout+stderr, "private-target-canary") {
+			t.Fatalf("unsafe release error escaped: %s%s", stdout, stderr)
+		}
+	}
+}
+
 func TestRequestIDFailureIsSanitized(t *testing.T) {
 	t.Parallel()
 

@@ -18,6 +18,13 @@ const (
 	fallbackRequestID = "request-id-unavailable"
 )
 
+var releaseErrorTargets = map[string]struct{}{
+	"asset-digest": {}, "asset-file": {}, "asset-signature": {},
+	"bundle-file": {}, "bundle-signature": {}, "context": {},
+	"manifest": {}, "manifest-file": {}, "manifest-path": {}, "manifest-schema": {}, "manifest-signature": {},
+	"platform": {}, "policy": {}, "policy-file": {}, "policy-schema": {}, "release-reference": {}, "selection": {},
+}
+
 type BuildInfo struct {
 	ToolVersion    string
 	ReleaseBuildID string
@@ -143,6 +150,12 @@ func (app *App) succeedData(command string, data any) int {
 func (app *App) failRelease(mode outputMode, command string, err error) int {
 	var releaseErr *release.Error
 	if !errors.As(err, &releaseErr) || releaseErr.Code == "" || releaseErr.Target == "" {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
+	}
+	if _, knownCode := generated.ErrorExitCodes[releaseErr.Code]; !knownCode {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
+	}
+	if _, safeTarget := releaseErrorTargets[releaseErr.Target]; !safeTarget {
 		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
 	}
 	status := generated.RunStatusFailed
