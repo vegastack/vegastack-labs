@@ -17,9 +17,17 @@ function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
   assert.ok(statusLine, "Phase 0 document requires one current status line");
   assert.match(statusLine, /issues\/18\) are completed/);
   assert.match(statusLine, /operator separately accepts the phase exit/);
-  assert.doesNotMatch(phase, /Issue #18 (?:is )?(?:still )?(?:awaiting|pending) (?:a )?(?:PR|merge)/i);
-  assert.doesNotMatch(phase, /GitHub Actions (?:cannot start|is (?:generally )?unavailable)/i);
-  assert.doesNotMatch(phase, /Phase 0 (?:is|has been) (?:complete|accepted)/i);
+  for (const document of [phase, overview, roadmap]) {
+    assert.doesNotMatch(
+      document,
+      /Issue #18 (?:is )?(?:still )?(?:awaiting|pending) (?:a )?(?:PR|merge)/i,
+    );
+    assert.doesNotMatch(
+      document,
+      /GitHub Actions (?:cannot start|is (?:generally )?unavailable)/i,
+    );
+    assert.doesNotMatch(document, /Phase 0 (?:is|has been) (?:complete|accepted)/i);
+  }
 
   const hostedLine = phase.split("\n").find((line) => line.startsWith("| Hosted CI history |"));
   assert.ok(hostedLine, "Phase 0 document requires one hosted-CI history row");
@@ -294,14 +302,22 @@ test("current development documents reconcile PR #21 without accepting Phase 0",
   const documents = { phase, overview, roadmap, mandate };
   validateCurrentDocuments(documents);
 
-  for (const mutate of [
-    (changed) => { changed.phase += "\nIssue #18 is still awaiting merge.\n"; },
-    (changed) => { changed.phase += "\nGitHub Actions is generally unavailable.\n"; },
-    (changed) => { changed.phase += "\nPhase 0 is accepted.\n"; },
+  const staleClaims = [
+    "Issue #18 is still awaiting merge.",
+    "GitHub Actions is generally unavailable.",
+    "Phase 0 is accepted.",
+  ];
+  const mutations = [
     (changed) => {
       changed.mandate += "\nThis instruction grants merge authority.\n";
     },
-  ]) {
+  ];
+  for (const document of ["phase", "overview", "roadmap"]) {
+    for (const claim of staleClaims) {
+      mutations.push((changed) => { changed[document] += `\n${claim}\n`; });
+    }
+  }
+  for (const mutate of mutations) {
     const changed = structuredClone(documents);
     mutate(changed);
     assert.throws(() => validateCurrentDocuments(changed));
