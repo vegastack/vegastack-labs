@@ -6,7 +6,7 @@ import { runCommand } from "./lib/process.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTED_EXECUTABLE = "cmd/vsk-labs";
-const GENERATED_PACKAGE_SUFFIX = "/internal/generated";
+const ANALYZER_DIRECTORY = path.join(ROOT, "tooling/analyze-cli");
 const TARGETS = [
   ["linux", "amd64"],
   ["linux", "arm64"],
@@ -51,142 +51,6 @@ function relativeDirectory(root, file) {
   return path.relative(root, path.dirname(file)).split(path.sep).join("/");
 }
 
-function parseJSONStream(source) {
-  const values = [];
-  let start = -1;
-  let depth = 0;
-  let inString = false;
-  let escaped = false;
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index];
-    if (start === -1) {
-      if (/\s/.test(character)) continue;
-      if (character !== "{") throw new Error("go list returned a non-JSON value");
-      start = index;
-      depth = 1;
-      continue;
-    }
-    if (inString) {
-      if (escaped) {
-        escaped = false;
-      } else if (character === "\\") {
-        escaped = true;
-      } else if (character === '"') {
-        inString = false;
-      }
-      continue;
-    }
-    if (character === '"') {
-      inString = true;
-    } else if (character === "{") {
-      depth += 1;
-    } else if (character === "}") {
-      depth -= 1;
-      if (depth === 0) {
-        values.push(JSON.parse(source.slice(start, index + 1)));
-        start = -1;
-      }
-    }
-  }
-  if (start !== -1 || inString || depth !== 0) throw new Error("go list returned incomplete JSON");
-  return values;
-}
-
-async function dependencyClosure(root, execute) {
-  const result = await execute("go", ["list", "-deps", "-json", "./cmd/vsk-labs"], {
-    cwd: root,
-    capture: true,
-    timeoutMs: 120_000,
-  });
-  const packages = parseJSONStream(result.stdout);
-  return packages.filter((entry) => entry.Module?.Main === true);
-}
-
-function sourceFilesForPackage(entry) {
-  return [...(entry.GoFiles ?? []), ...(entry.CgoFiles ?? [])].map((file) =>
-    path.join(entry.Dir, file),
-  );
-}
-
-// Remove comments and literal contents before looking for executable Go structure.
-// Newlines and delimiters are retained so declarations cannot be joined accidentally.
-function structuralSource(source) {
-  let output = "";
-  let state = "code";
-  let escaped = false;
-  for (let index = 0; index < source.length; index += 1) {
-    const character = source[index];
-    const next = source[index + 1];
-    if (state === "line-comment") {
-      if (character === "\n") {
-        output += "\n";
-        state = "code";
-      } else {
-        output += " ";
-      }
-      continue;
-    }
-    if (state === "block-comment") {
-      if (character === "*" && next === "/") {
-        output += "  ";
-        index += 1;
-        state = "code";
-      } else {
-        output += character === "\n" ? "\n" : " ";
-      }
-      continue;
-    }
-    if (state === "string" || state === "rune") {
-      output += character === "\n" ? "\n" : " ";
-      if (escaped) {
-        escaped = false;
-      } else if (character === "\\") {
-        escaped = true;
-      } else if ((state === "string" && character === '"') || (state === "rune" && character === "'")) {
-        state = "code";
-      }
-      continue;
-    }
-    if (state === "raw-string") {
-      output += character === "\n" ? "\n" : " ";
-      if (character === "`") state = "code";
-      continue;
-    }
-    if (character === "/" && next === "/") {
-      output += "  ";
-      index += 1;
-      state = "line-comment";
-    } else if (character === "/" && next === "*") {
-      output += "  ";
-      index += 1;
-      state = "block-comment";
-    } else if (character === '"') {
-      output += " ";
-      state = "string";
-    } else if (character === "'") {
-      output += " ";
-      state = "rune";
-    } else if (character === "`") {
-      output += " ";
-      state = "raw-string";
-    } else {
-      output += character;
-    }
-  }
-  return output;
-}
-
-function declaresCommandRegistry(source) {
-  const structural = structuralSource(source);
-  const commandType = String.raw`(?:[A-Za-z_]\w*\.)?(?:Command|CommandDefinition)`;
-  const collectionType = String.raw`(?:\[\]\s*${commandType}|map\s*\[[^\]]+\]\s*${commandType})`;
-  const typedVariable = new RegExp(String.raw`\bvar\s+[A-Za-z_]\w*\s+${collectionType}(?:\s*=|\s*(?:\n|$))`);
-  const collectionValue = new RegExp(
-    String.raw`(?:\bvar\s+[A-Za-z_]\w*(?:\s+${collectionType})?\s*=\s*|:=\s*)(?:${collectionType}\s*\{|make\s*\(\s*${collectionType}\b)`,
-  );
-  return typedVariable.test(structural) || collectionValue.test(structural);
-}
-
 async function inspectSources(root, execute) {
   const codes = new Set();
   const commandFiles = await goFiles(root, "cmd");
@@ -201,37 +65,24 @@ async function inspectSources(root, execute) {
     codes.add("CLI_EXECUTABLE_COUNT");
   }
 
-  let packages;
+  let analysis;
   try {
-    packages = await dependencyClosure(root, execute);
+    const result = await execute("go", ["run", ANALYZER_DIRECTORY, "--root", root], {
+      cwd: ROOT,
+      capture: true,
+      timeoutMs: 120_000,
+    });
+    analysis = JSON.parse(result.stdout);
   } catch {
     codes.add("CLI_GENERATED_OWNERSHIP");
     return codes;
   }
-  const mainPackage = packages.find((entry) => entry.ImportPath?.endsWith(`/${EXPECTED_EXECUTABLE}`));
-  const modulePath = mainPackage?.Module?.Path;
-  const generatedImport = modulePath ? `${modulePath}${GENERATED_PACKAGE_SUFFIX}` : "";
-  if (!mainPackage || !generatedImport || !packages.some((entry) => entry.ImportPath === generatedImport)) {
+  if (!analysis.generatedCommandsReference) {
     codes.add("CLI_GENERATED_OWNERSHIP");
   }
-
-  for (const entry of packages) {
-    for (const file of sourceFilesForPackage(entry)) {
-      const source = await readFile(file, "utf8");
-      if (entry.ImportPath !== generatedImport && declaresCommandRegistry(source)) {
-        codes.add("CLI_HANDWRITTEN_REGISTRY");
-      }
-      if ((entry.Imports ?? []).includes("database/sql")) {
-        codes.add("CLI_SQLITE_ACCESS");
-      }
-      if (
-        (entry.Imports ?? []).includes("os/exec") ||
-        /\b(?:exec\.Command(?:Context)?|syscall\.Exec)\s*\(/.test(structuralSource(source))
-      ) {
-        codes.add("CLI_SHELL_DISPATCH");
-      }
-    }
-  }
+  if (analysis.handwrittenRegistry) codes.add("CLI_HANDWRITTEN_REGISTRY");
+  if (analysis.sqliteAccess) codes.add("CLI_SQLITE_ACCESS");
+  if (analysis.shellDispatch) codes.add("CLI_SHELL_DISPATCH");
   return codes;
 }
 
@@ -259,12 +110,12 @@ async function crossBuild(root, operations) {
 export async function verifyCLI(root = ROOT, options = {}) {
   const {
     crossBuild: shouldCrossBuild = true,
-    runGoList = runCommand,
+    runAnalyzer = runCommand,
     runBuild = runCommand,
     createBuildDirectory = mkdtemp,
     removeBuildDirectory = rm,
   } = options;
-  const codes = await inspectSources(root, runGoList);
+  const codes = await inspectSources(root, runAnalyzer);
   let targetsBuilt = [];
   if (codes.size === 0 && shouldCrossBuild) {
     try {
