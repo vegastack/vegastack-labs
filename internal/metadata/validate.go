@@ -15,6 +15,7 @@ var (
 	schemaIDPattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9./-]*$`)
 	versionPattern     = regexp.MustCompile(`^1\.[0-9]+\.[0-9]+$`)
 	errorCodePattern   = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+	jsonPatternPattern = regexp.MustCompile(`^.{1,512}$`)
 )
 
 func Validate(registry Registry) error {
@@ -70,11 +71,19 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 			if _, ok := schemas[command.ResultSchema]; !ok {
 				return validationError("METADATA_REFERENCE", location+".resultSchema")
 			}
+			if command.Path[0] == "release" && command.DataSchema == "" {
+				return validationError("METADATA_REQUIRED", location+".dataSchema")
+			}
+			if command.DataSchema != "" {
+				if _, ok := schemas[command.DataSchema]; !ok {
+					return validationError("METADATA_REFERENCE", location+".dataSchema")
+				}
+			}
 			if len(command.Examples) == 0 {
 				return validationError("METADATA_REQUIRED", location+".examples")
 			}
 		case AvailabilityPlanned:
-			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.RequestSchema != "" || command.ResultSchema != "" || len(command.Examples) != 0 {
+			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.RequestSchema != "" || command.ResultSchema != "" || command.DataSchema != "" || len(command.Examples) != 0 {
 				return validationError("PLANNED_COMMAND_DETAIL", location)
 			}
 		default:
@@ -92,6 +101,9 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 		if command.ResultSchema != "" && !safeSchemaID(command.ResultSchema) {
 			return validationError("METADATA_PATH_UNSAFE", location+".resultSchema")
 		}
+		if command.DataSchema != "" && !safeSchemaID(command.DataSchema) {
+			return validationError("METADATA_PATH_UNSAFE", location+".dataSchema")
+		}
 		if err := validateFlags(command.Flags, location); err != nil {
 			return err
 		}
@@ -106,8 +118,20 @@ func validateFlags(flags []FlagDefinition, commandLocation string) error {
 	seen := make(map[string]struct{}, len(flags))
 	for index, flag := range flags {
 		location := fmt.Sprintf("%s.flags[%d]", commandLocation, index)
-		if !flagPattern.MatchString(flag.Name) || flag.ValueName == "" || flag.Summary == "" {
+		if !flagPattern.MatchString(flag.Name) || flag.Summary == "" {
 			return validationError("METADATA_INVALID", location)
+		}
+		switch flag.Kind {
+		case FlagValue:
+			if flag.ValueName == "" {
+				return validationError("METADATA_REQUIRED", location+".valueName")
+			}
+		case FlagSwitch:
+			if flag.ValueName != "" || flag.Repeatable || len(flag.Enum) != 0 {
+				return validationError("METADATA_INVALID", location+".kind")
+			}
+		default:
+			return validationError("METADATA_INVALID", location+".kind")
 		}
 		if _, ok := seen[flag.Name]; ok {
 			return validationError("METADATA_DUPLICATE", location+".name")
@@ -145,6 +169,7 @@ func validateSchemas(definitions []SchemaDefinition) (map[string]struct{}, error
 		return nil, validationError("METADATA_REQUIRED", "schemas")
 	}
 	schemas := make(map[string]struct{}, len(definitions))
+	artifacts := make(map[string]struct{}, len(definitions))
 	for index, definition := range definitions {
 		location := fmt.Sprintf("schemas[%d]", index)
 		if !safeSchemaID(definition.ID) || !versionPattern.MatchString(definition.Version) {
@@ -154,6 +179,15 @@ func validateSchemas(definitions []SchemaDefinition) (map[string]struct{}, error
 			return nil, validationError("METADATA_DUPLICATE", location+".id")
 		}
 		schemas[definition.ID] = struct{}{}
+		if definition.ArtifactPath != "" {
+			if !safeArtifactPath(definition.ArtifactPath) {
+				return nil, validationError("METADATA_PATH_UNSAFE", location+".artifactPath")
+			}
+			if _, ok := artifacts[definition.ArtifactPath]; ok {
+				return nil, validationError("METADATA_DUPLICATE", location+".artifactPath")
+			}
+			artifacts[definition.ArtifactPath] = struct{}{}
+		}
 	}
 	for index, definition := range definitions {
 		if err := validateFields(definition.Fields, schemas, fmt.Sprintf("schemas[%d]", index)); err != nil {
@@ -198,14 +232,40 @@ func validateFields(fields []FieldDefinition, schemas map[string]struct{}, schem
 				return validationError("METADATA_REFERENCE", location+".itemRef")
 			}
 		}
-		if field.Kind == ValueArray && field.ItemRef == "" {
-			return validationError("METADATA_REQUIRED", location+".itemRef")
+		if field.ItemKind != "" {
+			if field.Kind != ValueArray || field.ItemRef != "" || !validPrimitiveKind(field.ItemKind) {
+				return validationError("METADATA_INVALID", location+".itemKind")
+			}
+		}
+		if field.Kind == ValueArray && (field.ItemRef == "") == (field.ItemKind == "") {
+			return validationError("METADATA_REQUIRED", location+".items")
 		}
 		if field.AdditionalProperties && field.Kind != ValueObject {
 			return validationError("METADATA_INVALID", location+".additionalProperties")
 		}
 		if hasDuplicate(field.Enum) {
 			return validationError("METADATA_DUPLICATE", location+".enum")
+		}
+		if field.Pattern != "" {
+			if field.Kind != ValueString || !jsonPatternPattern.MatchString(field.Pattern) {
+				return validationError("METADATA_INVALID", location+".pattern")
+			}
+			if _, err := regexp.Compile(field.Pattern); err != nil {
+				return validationError("METADATA_INVALID", location+".pattern")
+			}
+		}
+		if field.Minimum != nil || field.Maximum != nil {
+			if field.Kind != ValueInteger || (field.Minimum != nil && field.Maximum != nil && *field.Minimum > *field.Maximum) {
+				return validationError("METADATA_INVALID", location+".range")
+			}
+		}
+		if field.MinItems != nil || field.MaxItems != nil || field.UniqueItems {
+			if field.Kind != ValueArray ||
+				(field.MinItems != nil && *field.MinItems < 0) ||
+				(field.MaxItems != nil && *field.MaxItems < 0) ||
+				(field.MinItems != nil && field.MaxItems != nil && *field.MinItems > *field.MaxItems) {
+				return validationError("METADATA_INVALID", location+".items")
+			}
 		}
 	}
 	return nil
@@ -269,12 +329,26 @@ func validKind(kind ValueKind) bool {
 	}
 }
 
+func validPrimitiveKind(kind ValueKind) bool {
+	return kind == ValueString || kind == ValueBoolean || kind == ValueInteger
+}
+
 func safeSchemaID(identifier string) bool {
 	return schemaIDPattern.MatchString(identifier) &&
 		!strings.Contains(identifier, "..") &&
 		!strings.Contains(identifier, "\\") &&
 		!strings.HasPrefix(identifier, "/") &&
 		path.Clean(identifier) == identifier
+}
+
+func safeArtifactPath(artifactPath string) bool {
+	return artifactPath != "" &&
+		!strings.HasPrefix(artifactPath, "/") &&
+		!strings.Contains(artifactPath, "\\") &&
+		!strings.Contains(artifactPath, "..") &&
+		path.Clean(artifactPath) == artifactPath &&
+		strings.HasPrefix(artifactPath, "schemas/v1/") &&
+		strings.HasSuffix(artifactPath, ".schema.json")
 }
 
 func hasDuplicate(values []string) bool {

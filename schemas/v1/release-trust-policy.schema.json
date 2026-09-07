@@ -1,0 +1,39 @@
+{
+  "$id": "vegastack-labs.dev/release-trust-policy",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "certificateIdentity": {
+      "type": "string"
+    },
+    "oidcIssuer": {
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/release-trust-policy"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "trustedRoot": {
+      "additionalProperties": true,
+      "type": "object"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "certificateIdentity",
+    "oidcIssuer",
+    "trustedRoot"
+  ],
+  "title": "VegaStack Labs release trust policy",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -31,6 +31,13 @@ const (
 	ValueArray   ValueKind = "array"
 )
 
+type FlagKind string
+
+const (
+	FlagValue  FlagKind = "value"
+	FlagSwitch FlagKind = "switch"
+)
+
 type Registry struct {
 	SchemaVersion string
 	Commands      []CommandDefinition
@@ -48,11 +55,13 @@ type CommandDefinition struct {
 	Flags         []FlagDefinition
 	RequestSchema string
 	ResultSchema  string
+	DataSchema    string
 	Examples      []ExampleDefinition
 }
 
 type FlagDefinition struct {
 	Name       string   `json:"name"`
+	Kind       FlagKind `json:"kind"`
 	ValueName  string   `json:"valueName"`
 	Required   bool     `json:"required"`
 	Repeatable bool     `json:"repeatable"`
@@ -76,9 +85,10 @@ type ExitDefinition struct {
 }
 
 type SchemaDefinition struct {
-	ID      string
-	Version string
-	Fields  []FieldDefinition
+	ID           string
+	Version      string
+	ArtifactPath string
+	Fields       []FieldDefinition
 }
 
 type FieldDefinition struct {
@@ -89,8 +99,15 @@ type FieldDefinition struct {
 	Nullable             bool
 	Ref                  string
 	ItemRef              string
+	ItemKind             ValueKind
 	Enum                 []string
 	AdditionalProperties bool
+	Pattern              string
+	Minimum              *int64
+	Maximum              *int64
+	MinItems             *int
+	MaxItems             *int
+	UniqueItems          bool
 }
 
 type ValidationError struct {

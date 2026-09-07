@@ -5,48 +5,128 @@ package generated
 import "encoding/json"
 
 const (
-	SchemaMajor                     = 1
-	RegistrySchemaVersion           = "1.0.0"
-	AvailabilityAvailable           = "available"
-	AvailabilityPlanned             = "planned"
-	SchemaIDResultError             = "vegastack-labs.dev/result-error"
-	SchemaIDRunResult               = "vegastack-labs.dev/run-result"
-	RunStatusBlocked                = "blocked"
-	RunStatusCancelled              = "cancelled"
-	RunStatusFailed                 = "failed"
-	RunStatusInterrupted            = "interrupted"
-	RunStatusPartial                = "partial"
-	RunStatusSucceeded              = "succeeded"
-	CommandNameHelp                 = "help"
-	FlagOutput                      = "--output"
-	OutputHuman                     = "human"
-	OutputJSON                      = "json"
-	FlagSchemaVersion               = "--schema-version"
-	CommandNameVersion              = "version"
-	ErrorCodeApprovalRequired       = "APPROVAL_REQUIRED"
-	ErrorCodeAuthenticationRequired = "AUTHENTICATION_REQUIRED"
-	ErrorCodeAuthorizationDenied    = "AUTHORIZATION_DENIED"
-	ErrorCodeDependencyUnavailable  = "DEPENDENCY_UNAVAILABLE"
-	ErrorCodeEvidenceExpired        = "EVIDENCE_EXPIRED"
-	ErrorCodeEvidenceInvalid        = "EVIDENCE_INVALID"
-	ErrorCodeExecutionFailed        = "EXECUTION_FAILED"
-	ErrorCodeExecutionPartial       = "EXECUTION_PARTIAL"
-	ErrorCodeGateBlocked            = "GATE_BLOCKED"
-	ErrorCodeInputInvalid           = "INPUT_INVALID"
-	ErrorCodeIntegrityFailure       = "INTEGRITY_FAILURE"
-	ErrorCodeInterrupted            = "INTERRUPTED"
-	ErrorCodeMigrationBlocked       = "MIGRATION_BLOCKED"
-	ErrorCodePlanStale              = "PLAN_STALE"
-	ErrorCodePrerequisiteBlocked    = "PREREQUISITE_BLOCKED"
-	ErrorCodeRecoveryEpochMismatch  = "RECOVERY_EPOCH_MISMATCH"
-	ErrorCodeRecoveryRequired       = "RECOVERY_REQUIRED"
-	ErrorCodeSchemaUnsupported      = "SCHEMA_UNSUPPORTED"
-	ErrorCodeSessionExpired         = "SESSION_EXPIRED"
-	ErrorCodeStateConflict          = "STATE_CONFLICT"
-	ErrorCodeTargetUnreachable      = "TARGET_UNREACHABLE"
-	ErrorCodeUnsupportedPlatform    = "UNSUPPORTED_PLATFORM"
-	ErrorCodeVersionIncompatible    = "VERSION_INCOMPATIBLE"
+	SchemaMajor                      = 1
+	RegistrySchemaVersion            = "1.1.0"
+	AvailabilityAvailable            = "available"
+	AvailabilityPlanned              = "planned"
+	FlagKindValue                    = "value"
+	FlagKindSwitch                   = "switch"
+	SchemaIDReleaseAsset             = "vegastack-labs.dev/release-asset"
+	SchemaIDReleaseAssetVerification = "vegastack-labs.dev/release-asset-verification"
+	SchemaIDReleaseInspectData       = "vegastack-labs.dev/release-inspect-data"
+	SchemaIDReleaseManifest          = "vegastack-labs.dev/release-manifest"
+	SchemaIDReleaseTrustPolicy       = "vegastack-labs.dev/release-trust-policy"
+	SchemaIDReleaseVerifyData        = "vegastack-labs.dev/release-verify-data"
+	SchemaIDResultError              = "vegastack-labs.dev/result-error"
+	SchemaIDRunResult                = "vegastack-labs.dev/run-result"
+	RunStatusBlocked                 = "blocked"
+	RunStatusCancelled               = "cancelled"
+	RunStatusFailed                  = "failed"
+	RunStatusInterrupted             = "interrupted"
+	RunStatusPartial                 = "partial"
+	RunStatusSucceeded               = "succeeded"
+	CommandNameHelp                  = "help"
+	FlagOutput                       = "--output"
+	OutputHuman                      = "human"
+	OutputJSON                       = "json"
+	FlagSchemaVersion                = "--schema-version"
+	CommandNameReleaseInspect        = "release inspect"
+	FlagManifest                     = "--manifest"
+	CommandNameReleaseVerify         = "release verify"
+	FlagAll                          = "--all"
+	FlagAsset                        = "--asset"
+	FlagPolicy                       = "--policy"
+	CommandNameVersion               = "version"
+	ErrorCodeApprovalRequired        = "APPROVAL_REQUIRED"
+	ErrorCodeAuthenticationRequired  = "AUTHENTICATION_REQUIRED"
+	ErrorCodeAuthorizationDenied     = "AUTHORIZATION_DENIED"
+	ErrorCodeDependencyUnavailable   = "DEPENDENCY_UNAVAILABLE"
+	ErrorCodeEvidenceExpired         = "EVIDENCE_EXPIRED"
+	ErrorCodeEvidenceInvalid         = "EVIDENCE_INVALID"
+	ErrorCodeExecutionFailed         = "EXECUTION_FAILED"
+	ErrorCodeExecutionPartial        = "EXECUTION_PARTIAL"
+	ErrorCodeGateBlocked             = "GATE_BLOCKED"
+	ErrorCodeInputInvalid            = "INPUT_INVALID"
+	ErrorCodeIntegrityFailure        = "INTEGRITY_FAILURE"
+	ErrorCodeInterrupted             = "INTERRUPTED"
+	ErrorCodeMigrationBlocked        = "MIGRATION_BLOCKED"
+	ErrorCodePlanStale               = "PLAN_STALE"
+	ErrorCodePrerequisiteBlocked     = "PREREQUISITE_BLOCKED"
+	ErrorCodeRecoveryEpochMismatch   = "RECOVERY_EPOCH_MISMATCH"
+	ErrorCodeRecoveryRequired        = "RECOVERY_REQUIRED"
+	ErrorCodeSchemaUnsupported       = "SCHEMA_UNSUPPORTED"
+	ErrorCodeSessionExpired          = "SESSION_EXPIRED"
+	ErrorCodeStateConflict           = "STATE_CONFLICT"
+	ErrorCodeTargetUnreachable       = "TARGET_UNREACHABLE"
+	ErrorCodeUnsupportedPlatform     = "UNSUPPORTED_PLATFORM"
+	ErrorCodeVersionIncompatible     = "VERSION_INCOMPATIBLE"
 )
+
+type ReleaseAsset struct {
+	ID             string  `json:"id"`
+	Kind           string  `json:"kind"`
+	OS             string  `json:"os"`
+	Architecture   string  `json:"architecture"`
+	Path           string  `json:"path"`
+	Size           int64   `json:"size"`
+	Digest         string  `json:"digest"`
+	BundlePath     string  `json:"bundlePath"`
+	SBOMPath       *string `json:"sbomPath"`
+	ProvenancePath *string `json:"provenancePath"`
+}
+
+type ReleaseAssetVerification struct {
+	AssetID      string `json:"assetId"`
+	OS           string `json:"os"`
+	Architecture string `json:"architecture"`
+	Digest       string `json:"digest"`
+	Size         int64  `json:"size"`
+	Status       string `json:"status"`
+}
+
+type ReleaseInspectData struct {
+	ReleaseID            string         `json:"releaseId"`
+	BuildID              string         `json:"buildId"`
+	SourceRevision       string         `json:"sourceRevision"`
+	MinimumSchemaMajor   int64          `json:"minimumSchemaMajor"`
+	MaximumSchemaMajor   int64          `json:"maximumSchemaMajor"`
+	PlatformOS           string         `json:"platformOs"`
+	PlatformArchitecture string         `json:"platformArchitecture"`
+	PlatformSchemaMajor  int64          `json:"platformSchemaMajor"`
+	CompatibleAssetIDs   []string       `json:"compatibleAssetIds"`
+	Assets               []ReleaseAsset `json:"assets"`
+	VerificationStatus   string         `json:"verificationStatus"`
+}
+
+type ReleaseManifest struct {
+	Schema             string         `json:"schema"`
+	SchemaVersion      string         `json:"schemaVersion"`
+	ReleaseID          string         `json:"releaseId"`
+	BuildID            string         `json:"buildId"`
+	SourceRevision     string         `json:"sourceRevision"`
+	MinimumSchemaMajor int64          `json:"minimumSchemaMajor"`
+	MaximumSchemaMajor int64          `json:"maximumSchemaMajor"`
+	BundlePath         string         `json:"bundlePath"`
+	Assets             []ReleaseAsset `json:"assets"`
+}
+
+type ReleaseTrustPolicy struct {
+	Schema              string          `json:"schema"`
+	SchemaVersion       string          `json:"schemaVersion"`
+	CertificateIdentity string          `json:"certificateIdentity"`
+	OIDCIssuer          string          `json:"oidcIssuer"`
+	TrustedRoot         json.RawMessage `json:"trustedRoot"`
+}
+
+type ReleaseVerifyData struct {
+	ReleaseID          string                     `json:"releaseId"`
+	BuildID            string                     `json:"buildId"`
+	SourceRevision     string                     `json:"sourceRevision"`
+	ManifestStatus     string                     `json:"manifestStatus"`
+	VerificationStatus string                     `json:"verificationStatus"`
+	PolicySHA256       string                     `json:"policySha256"`
+	Assets             []ReleaseAssetVerification `json:"assets"`
+}
 
 type ResultError struct {
 	Code      string `json:"code"`
@@ -82,11 +162,13 @@ type Command struct {
 	Flags         []Flag    `json:"flags,omitempty"`
 	RequestSchema string    `json:"requestSchema,omitempty"`
 	ResultSchema  string    `json:"resultSchema,omitempty"`
+	DataSchema    string    `json:"dataSchema,omitempty"`
 	Examples      []Example `json:"examples,omitempty"`
 }
 
 type Flag struct {
 	Name       string   `json:"name"`
+	Kind       string   `json:"kind"`
 	ValueName  string   `json:"valueName"`
 	Required   bool     `json:"required"`
 	Repeatable bool     `json:"repeatable"`
@@ -122,7 +204,7 @@ var Commands = []Command{
 	{Path: []string{"gate", "evidence"}, Summary: "Validate evidence and create an inert evidence change.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"gate", "inspect"}, Summary: "Inspect one gate and its evidence requirements.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"gate", "list"}, Summary: "List applicable implementation gates.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
-	{Path: []string{"help"}, Summary: "Show generated command help.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show all generated command help.", Arguments: []string{"help"}}}},
+	{Path: []string{"help"}, Summary: "Show generated command help.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show all generated command help.", Arguments: []string{"help"}}}},
 	{Path: []string{"inventory", "diff"}, Summary: "Compare declared and supplied inventory.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
 	{Path: []string{"inventory", "export"}, Summary: "Export authorized inventory data.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
 	{Path: []string{"inventory", "import"}, Summary: "Import typed inventory as an inert change.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
@@ -135,8 +217,8 @@ var Commands = []Command{
 	{Path: []string{"node", "quarantine"}, Summary: "Create an inert node-quarantine change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"node", "replace"}, Summary: "Create an inert node-replacement change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"plan"}, Summary: "Create an immutable plan from an inert change.", Availability: "planned", OwnerPhase: "4", Risk: "unassigned"},
-	{Path: []string{"release", "inspect"}, Summary: "Inspect a release manifest and compatibility.", Availability: "planned", OwnerPhase: "11", Risk: "unassigned"},
-	{Path: []string{"release", "verify"}, Summary: "Verify release identity, signature, and digest.", Availability: "planned", OwnerPhase: "11", Risk: "unassigned"},
+	{Path: []string{"release", "inspect"}, Summary: "Inspect a local release manifest and compatibility without claiming cryptographic verification.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-inspect-data", Examples: []Example{{Summary: "Inspect a local manifest as versioned JSON.", Arguments: []string{"release", "inspect", "--manifest", "release/manifest.json", "--output", "json"}}}},
+	{Path: []string{"release", "verify"}, Summary: "Verify a signed local manifest and explicitly selected assets against a supplied offline policy.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--all", Kind: "switch", ValueName: "", Required: false, Repeatable: false, Summary: "Explicitly verify every asset in the manifest.", Enum: []string(nil)}, {Name: "--asset", Kind: "value", ValueName: "id", Required: false, Repeatable: true, Summary: "Verify one named asset; repeat for additional assets.", Enum: []string(nil)}, {Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--policy", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the supplied local trust policy at this path.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-verify-data", Examples: []Example{{Summary: "Explicitly verify every local asset.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--all"}}, {Summary: "Verify one local asset against a supplied policy.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--asset", "linux-amd64", "--output", "json"}}}},
 	{Path: []string{"restore", "plan"}, Summary: "Create an immutable restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"restore", "run"}, Summary: "Run one authorized restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"restore", "verify"}, Summary: "Verify a completed restore.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
@@ -150,7 +232,7 @@ var Commands = []Command{
 	{Path: []string{"user", "onboard"}, Summary: "Create an inert user-onboarding change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"user", "resume"}, Summary: "Create an inert user-resumption change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"user", "suspend"}, Summary: "Create an inert user-suspension change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
-	{Path: []string{"version"}, Summary: "Show the vsk-labs build and contract version.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show version information as JSON.", Arguments: []string{"version", "--output", "json"}}}},
+	{Path: []string{"version"}, Summary: "Show the vsk-labs build and contract version.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show version information as JSON.", Arguments: []string{"version", "--output", "json"}}}},
 }
 
 var ErrorExitCodes = map[string]int{

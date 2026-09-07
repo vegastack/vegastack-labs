@@ -39,12 +39,14 @@ type registryCommand struct {
 	Flags         []metadata.FlagDefinition    `json:"flags,omitempty"`
 	RequestSchema string                       `json:"requestSchema,omitempty"`
 	ResultSchema  string                       `json:"resultSchema,omitempty"`
+	DataSchema    string                       `json:"dataSchema,omitempty"`
 	Examples      []metadata.ExampleDefinition `json:"examples,omitempty"`
 }
 
 type registrySchema struct {
-	ID      string `json:"id"`
-	Version string `json:"version"`
+	ID           string `json:"id"`
+	Version      string `json:"version"`
+	ArtifactPath string `json:"artifactPath,omitempty"`
 }
 
 func Generate(registry metadata.Registry) ([]Artifact, error) {
@@ -69,18 +71,26 @@ func Generate(registry metadata.Registry) ([]Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
-	runSchema, err := renderRunResultSchema(registry)
-	if err != nil {
-		return nil, err
-	}
-
-	return []Artifact{
+	artifacts := []Artifact{
 		{Path: "docs/generated/command-registry.md", Content: markdown},
 		{Path: "internal/generated/contracts_gen.go", Content: goSource},
 		{Path: "schemas/v1/command-registry.json", Content: registryJSON},
 		{Path: "schemas/v1/command-registry.schema.json", Content: registrySchema},
-		{Path: "schemas/v1/run-result.schema.json", Content: runSchema},
-	}, nil
+	}
+	for _, definition := range registry.Schemas {
+		if definition.ArtifactPath == "" {
+			continue
+		}
+		content, err := renderSchema(definition, registry)
+		if err != nil {
+			return nil, err
+		}
+		artifacts = append(artifacts, Artifact{Path: definition.ArtifactPath, Content: content})
+	}
+	sort.Slice(artifacts[4:], func(left, right int) bool {
+		return artifacts[4+left].Path < artifacts[4+right].Path
+	})
+	return artifacts, nil
 }
 
 func normalizedRegistry(registry metadata.Registry) metadata.Registry {
@@ -137,11 +147,12 @@ func renderRegistryJSON(registry metadata.Registry) ([]byte, error) {
 			Flags:         command.Flags,
 			RequestSchema: command.RequestSchema,
 			ResultSchema:  command.ResultSchema,
+			DataSchema:    command.DataSchema,
 			Examples:      command.Examples,
 		})
 	}
 	for _, schema := range registry.Schemas {
-		document.Schemas = append(document.Schemas, registrySchema{ID: schema.ID, Version: schema.Version})
+		document.Schemas = append(document.Schemas, registrySchema{ID: schema.ID, Version: schema.Version, ArtifactPath: schema.ArtifactPath})
 	}
 	return encodeJSON(document)
 }
@@ -151,16 +162,31 @@ func renderRegistrySchema() ([]byte, error) {
 		"type": "array", "minItems": 1, "items": map[string]any{"type": "string", "minLength": 1},
 	}
 	flag := strictObject(
-		[]string{"name", "valueName", "required", "repeatable", "summary", "enum"},
+		[]string{"name", "kind", "valueName", "required", "repeatable", "summary", "enum"},
 		map[string]any{
 			"name":       map[string]any{"type": "string", "pattern": "^--[a-z][a-z0-9-]*$"},
-			"valueName":  map[string]any{"type": "string", "minLength": 1},
+			"kind":       map[string]any{"type": "string", "enum": []string{"switch", "value"}},
+			"valueName":  map[string]any{"type": "string"},
 			"required":   map[string]any{"type": "boolean"},
 			"repeatable": map[string]any{"type": "boolean"},
 			"summary":    map[string]any{"type": "string", "minLength": 1},
 			"enum":       map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "uniqueItems": true},
 		},
 	)
+	flag["allOf"] = []any{
+		map[string]any{
+			"if": map[string]any{"properties": map[string]any{"kind": map[string]any{"const": "switch"}}, "required": []string{"kind"}},
+			"then": map[string]any{"properties": map[string]any{
+				"valueName":  map[string]any{"const": ""},
+				"repeatable": map[string]any{"const": false},
+				"enum":       map[string]any{"maxItems": 0},
+			}},
+		},
+		map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"kind": map[string]any{"const": "value"}}, "required": []string{"kind"}},
+			"then": map[string]any{"properties": map[string]any{"valueName": map[string]any{"minLength": 1}}},
+		},
+	}
 	example := strictObject(
 		[]string{"summary", "arguments"},
 		map[string]any{
@@ -179,6 +205,7 @@ func renderRegistrySchema() ([]byte, error) {
 			"flags":         map[string]any{"type": "array", "items": flag},
 			"requestSchema": map[string]any{"type": "string", "minLength": 1},
 			"resultSchema":  map[string]any{"type": "string", "minLength": 1},
+			"dataSchema":    map[string]any{"type": "string", "minLength": 1},
 			"examples":      map[string]any{"type": "array", "items": example},
 		},
 	)
@@ -198,6 +225,7 @@ func renderRegistrySchema() ([]byte, error) {
 					"anyOf": []any{
 						map[string]any{"required": []string{"requestSchema"}},
 						map[string]any{"required": []string{"resultSchema"}},
+						map[string]any{"required": []string{"dataSchema"}},
 					},
 				},
 			},
@@ -233,8 +261,9 @@ func renderRegistrySchema() ([]byte, error) {
 	schemaDefinition := strictObject(
 		[]string{"id", "version"},
 		map[string]any{
-			"id":      map[string]any{"type": "string", "minLength": 1},
-			"version": map[string]any{"type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$"},
+			"id":           map[string]any{"type": "string", "minLength": 1},
+			"version":      map[string]any{"type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$"},
+			"artifactPath": map[string]any{"type": "string", "pattern": "^schemas/v1/[a-z0-9-]+\\.schema\\.json$"},
 		},
 	)
 	document := map[string]any{
@@ -258,41 +287,57 @@ func renderRegistrySchema() ([]byte, error) {
 	return encodeJSON(document)
 }
 
-func renderRunResultSchema(registry metadata.Registry) ([]byte, error) {
+func renderSchema(root metadata.SchemaDefinition, registry metadata.Registry) ([]byte, error) {
 	definitions := make(map[string]metadata.SchemaDefinition, len(registry.Schemas))
 	for _, definition := range registry.Schemas {
 		definitions[definition.ID] = definition
 	}
-	runResult, ok := definitions[runResultSchemaID]
-	if !ok {
-		return nil, artifactError("GENERATED_SCHEMA_MISSING", "schemas/v1/run-result.schema.json")
-	}
-	properties, required, err := schemaProperties(runResult, registry.Errors)
+	properties, required, err := schemaProperties(root, registry.Errors)
 	if err != nil {
 		return nil, err
 	}
-	resultError, ok := definitions["vegastack-labs.dev/result-error"]
-	if !ok {
-		return nil, artifactError("GENERATED_SCHEMA_MISSING", "schemas/v1/run-result.schema.json")
-	}
-	errorProperties, errorRequired, err := schemaProperties(resultError, registry.Errors)
-	if err != nil {
-		return nil, err
+	referenced := make(map[string]bool)
+	collectSchemaReferences(root, definitions, referenced)
+	defs := make(map[string]any, len(referenced))
+	for identifier := range referenced {
+		definition, ok := definitions[identifier]
+		if !ok {
+			return nil, artifactError("GENERATED_SCHEMA_MISSING", root.ArtifactPath)
+		}
+		definitionProperties, definitionRequired, err := schemaProperties(definition, registry.Errors)
+		if err != nil {
+			return nil, err
+		}
+		defs[schemaShortName(identifier)] = strictObject(definitionRequired, definitionProperties)
 	}
 	document := map[string]any{
 		"$schema":              jsonSchemaDialect,
-		"$id":                  runResult.ID,
-		"title":                "VegaStack Labs run result",
+		"$id":                  root.ID,
+		"title":                "VegaStack Labs " + strings.ReplaceAll(schemaShortName(root.ID), "-", " "),
 		"x-generated-by":       generatedBy,
 		"type":                 "object",
 		"additionalProperties": false,
 		"required":             required,
 		"properties":           properties,
-		"$defs": map[string]any{
-			"result-error": strictObject(errorRequired, errorProperties),
-		},
+	}
+	if len(defs) != 0 {
+		document["$defs"] = defs
 	}
 	return encodeJSON(document)
+}
+
+func collectSchemaReferences(definition metadata.SchemaDefinition, definitions map[string]metadata.SchemaDefinition, found map[string]bool) {
+	for _, field := range definition.Fields {
+		for _, identifier := range []string{field.Ref, field.ItemRef} {
+			if identifier == "" || found[identifier] {
+				continue
+			}
+			found[identifier] = true
+			if nested, ok := definitions[identifier]; ok {
+				collectSchemaReferences(nested, definitions, found)
+			}
+		}
+	}
 }
 
 func schemaProperties(definition metadata.SchemaDefinition, errors []metadata.ErrorDefinition) (map[string]any, []string, error) {
@@ -311,6 +356,8 @@ func schemaProperties(definition metadata.SchemaDefinition, errors []metadata.Er
 		}
 		if field.ItemRef != "" {
 			property["items"] = map[string]any{"$ref": "#/$defs/" + schemaShortName(field.ItemRef)}
+		} else if field.ItemKind != "" {
+			property["items"] = map[string]any{"type": string(field.ItemKind)}
 		}
 		if len(field.Enum) != 0 {
 			property["enum"] = field.Enum
@@ -322,8 +369,26 @@ func schemaProperties(definition metadata.SchemaDefinition, errors []metadata.Er
 			}
 			property["enum"] = codes
 		}
-		if field.Kind == metadata.ValueObject {
+		if field.Kind == metadata.ValueObject && field.Ref == "" {
 			property["additionalProperties"] = field.AdditionalProperties
+		}
+		if field.Pattern != "" {
+			property["pattern"] = field.Pattern
+		}
+		if field.Minimum != nil {
+			property["minimum"] = *field.Minimum
+		}
+		if field.Maximum != nil {
+			property["maximum"] = *field.Maximum
+		}
+		if field.MinItems != nil {
+			property["minItems"] = *field.MinItems
+		}
+		if field.MaxItems != nil {
+			property["maxItems"] = *field.MaxItems
+		}
+		if field.UniqueItems {
+			property["uniqueItems"] = true
 		}
 		properties[field.JSONName] = property
 		if field.Required {
@@ -341,6 +406,8 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	fmt.Fprintf(&output, "const (\n\tSchemaMajor = %d\n\tRegistrySchemaVersion = %s\n", metadata.SchemaMajor, strconv.Quote(registry.SchemaVersion))
 	fmt.Fprintf(&output, "\tAvailabilityAvailable = %s\n", strconv.Quote(string(metadata.AvailabilityAvailable)))
 	fmt.Fprintf(&output, "\tAvailabilityPlanned = %s\n", strconv.Quote(string(metadata.AvailabilityPlanned)))
+	fmt.Fprintf(&output, "\tFlagKindValue = %s\n", strconv.Quote(string(metadata.FlagValue)))
+	fmt.Fprintf(&output, "\tFlagKindSwitch = %s\n", strconv.Quote(string(metadata.FlagSwitch)))
 	for _, schema := range registry.Schemas {
 		fmt.Fprintf(&output, "\tSchemaID%s = %s\n", schemaGoName(schema.ID), strconv.Quote(schema.ID))
 		if schema.ID == runResultSchemaID {
@@ -388,8 +455,8 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 		output.WriteString("}\n\n")
 	}
 
-	output.WriteString("type Command struct {\n\tPath []string `json:\"path\"`\n\tSummary string `json:\"summary\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tRisk string `json:\"risk\"`\n\tFlags []Flag `json:\"flags,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tResultSchema string `json:\"resultSchema,omitempty\"`\n\tExamples []Example `json:\"examples,omitempty\"`\n}\n\n")
-	output.WriteString("type Flag struct {\n\tName string `json:\"name\"`\n\tValueName string `json:\"valueName\"`\n\tRequired bool `json:\"required\"`\n\tRepeatable bool `json:\"repeatable\"`\n\tSummary string `json:\"summary\"`\n\tEnum []string `json:\"enum\"`\n}\n\n")
+	output.WriteString("type Command struct {\n\tPath []string `json:\"path\"`\n\tSummary string `json:\"summary\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tRisk string `json:\"risk\"`\n\tFlags []Flag `json:\"flags,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tResultSchema string `json:\"resultSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema,omitempty\"`\n\tExamples []Example `json:\"examples,omitempty\"`\n}\n\n")
+	output.WriteString("type Flag struct {\n\tName string `json:\"name\"`\n\tKind string `json:\"kind\"`\n\tValueName string `json:\"valueName\"`\n\tRequired bool `json:\"required\"`\n\tRepeatable bool `json:\"repeatable\"`\n\tSummary string `json:\"summary\"`\n\tEnum []string `json:\"enum\"`\n}\n\n")
 	output.WriteString("type Example struct {\n\tSummary string `json:\"summary\"`\n\tArguments []string `json:\"arguments\"`\n}\n\n")
 	output.WriteString("var Commands = []Command{\n")
 	for _, command := range registry.Commands {
@@ -397,7 +464,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 		if len(command.Flags) != 0 {
 			output.WriteString(", Flags: []Flag{")
 			for _, flag := range command.Flags {
-				fmt.Fprintf(&output, "{Name: %s, ValueName: %s, Required: %t, Repeatable: %t, Summary: %s, Enum: %#v},", strconv.Quote(flag.Name), strconv.Quote(flag.ValueName), flag.Required, flag.Repeatable, strconv.Quote(flag.Summary), flag.Enum)
+				fmt.Fprintf(&output, "{Name: %s, Kind: %s, ValueName: %s, Required: %t, Repeatable: %t, Summary: %s, Enum: %#v},", strconv.Quote(flag.Name), strconv.Quote(string(flag.Kind)), strconv.Quote(flag.ValueName), flag.Required, flag.Repeatable, strconv.Quote(flag.Summary), flag.Enum)
 			}
 			output.WriteString("}")
 		}
@@ -406,6 +473,9 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 		}
 		if command.ResultSchema != "" {
 			fmt.Fprintf(&output, ", ResultSchema: %s", strconv.Quote(command.ResultSchema))
+		}
+		if command.DataSchema != "" {
+			fmt.Fprintf(&output, ", DataSchema: %s", strconv.Quote(command.DataSchema))
 		}
 		if len(command.Examples) != 0 {
 			output.WriteString(", Examples: []Example{")
@@ -454,7 +524,11 @@ func renderMarkdown(registry metadata.Registry) ([]byte, error) {
 			fmt.Fprintf(&output, "%s\n\n", markdownText(command.Summary))
 			fmt.Fprintf(&output, "Owner phase: `%s` · risk: `%s` · availability: `%s`\n\n", command.OwnerPhase, command.Risk, command.Availability)
 			for _, flag := range command.Flags {
-				fmt.Fprintf(&output, "- `%s <%s>` — %s", flag.Name, flag.ValueName, markdownText(flag.Summary))
+				label := flag.Name
+				if flag.Kind == metadata.FlagValue {
+					label += " <" + flag.ValueName + ">"
+				}
+				fmt.Fprintf(&output, "- `%s` — %s", label, markdownText(flag.Summary))
 				if len(flag.Enum) != 0 {
 					fmt.Fprintf(&output, " Allowed: `%s`.", strings.Join(flag.Enum, "`, `"))
 				}
@@ -573,12 +647,29 @@ func goFieldType(field metadata.FieldDefinition) string {
 			fieldType = "json.RawMessage"
 		}
 	case metadata.ValueArray:
-		fieldType = "[]" + schemaGoName(field.ItemRef)
+		if field.ItemRef != "" {
+			fieldType = "[]" + schemaGoName(field.ItemRef)
+		} else {
+			fieldType = "[]" + goPrimitiveType(field.ItemKind)
+		}
 	}
 	if field.Nullable {
 		fieldType = "*" + fieldType
 	}
 	return fieldType
+}
+
+func goPrimitiveType(kind metadata.ValueKind) string {
+	switch kind {
+	case metadata.ValueString:
+		return "string"
+	case metadata.ValueBoolean:
+		return "bool"
+	case metadata.ValueInteger:
+		return "int64"
+	default:
+		return "any"
+	}
 }
 
 func markdownText(value string) string {

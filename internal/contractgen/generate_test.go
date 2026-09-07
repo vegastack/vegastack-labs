@@ -30,6 +30,10 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"internal/generated/contracts_gen.go",
 		"schemas/v1/command-registry.json",
 		"schemas/v1/command-registry.schema.json",
+		"schemas/v1/release-inspect-data.schema.json",
+		"schemas/v1/release-manifest.schema.json",
+		"schemas/v1/release-trust-policy.schema.json",
+		"schemas/v1/release-verify-data.schema.json",
 		"schemas/v1/run-result.schema.json",
 	}
 	gotPaths := make([]string, len(first))
@@ -92,6 +96,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 	if rules, ok := commandItem["allOf"].([]any); !ok || len(rules) != 2 {
 		t.Fatalf("command availability rules = %#v, want planned and available guards", commandItem["allOf"])
 	}
+	flagItem := commandItem["properties"].(map[string]any)["flags"].(map[string]any)["items"].(map[string]any)
+	if rules, ok := flagItem["allOf"].([]any); !ok || len(rules) != 2 {
+		t.Fatalf("flag kind rules = %#v, want switch and value guards", flagItem["allOf"])
+	}
 
 	var registry struct {
 		GeneratedBy string `json:"generatedBy"`
@@ -123,8 +131,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 2 || planned != 49 {
-		t.Fatalf("command availability = (%d available, %d planned), want (2, 49)", available, planned)
+	if available != 4 || planned != 47 {
+		t.Fatalf("command availability = (%d available, %d planned), want (4, 47)", available, planned)
 	}
 
 	for _, path := range []string{
@@ -155,7 +163,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.0.0"`,
+		`= "1.1.0"`,
 		`SchemaIDRunResult`,
 		`SchemaIDResultError`,
 		`AvailabilityAvailable`,
@@ -163,6 +171,16 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 		`json:"path"`,
 		`json:"flags,omitempty"`,
 		`json:"arguments"`,
+		`type ReleaseManifest struct`,
+		`type ReleaseAsset struct`,
+		`type ReleaseTrustPolicy struct`,
+		`type ReleaseInspectData struct`,
+		`type ReleaseVerifyData struct`,
+		`type ReleaseAssetVerification struct`,
+		`FlagManifest`,
+		`FlagPolicy`,
+		`FlagAsset`,
+		`FlagAll`,
 	} {
 		if !bytes.Contains(source, []byte(want)) {
 			t.Errorf("generated Go is missing %q", want)

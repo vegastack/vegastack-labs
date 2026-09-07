@@ -3,8 +3,14 @@ package metadata
 import "strings"
 
 const (
-	runResultSchemaID   = "vegastack-labs.dev/run-result"
-	resultErrorSchemaID = "vegastack-labs.dev/result-error"
+	runResultSchemaID                = "vegastack-labs.dev/run-result"
+	resultErrorSchemaID              = "vegastack-labs.dev/result-error"
+	releaseManifestSchemaID          = "vegastack-labs.dev/release-manifest"
+	releaseAssetSchemaID             = "vegastack-labs.dev/release-asset"
+	releaseTrustPolicySchemaID       = "vegastack-labs.dev/release-trust-policy"
+	releaseInspectDataSchemaID       = "vegastack-labs.dev/release-inspect-data"
+	releaseVerifyDataSchemaID        = "vegastack-labs.dev/release-verify-data"
+	releaseAssetVerificationSchemaID = "vegastack-labs.dev/release-asset-verification"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -99,8 +105,6 @@ var plannedCommands = []plannedCommand{
 	{path: "database export", phase: "5", summary: "Export authorized sanitized control data."},
 	{path: "server run", phase: "2", summary: "Run the persistent control service in the foreground."},
 	{path: "server status", phase: "2", summary: "Query control-service health."},
-	{path: "release inspect", phase: "11", summary: "Inspect a release manifest and compatibility."},
-	{path: "release verify", phase: "11", summary: "Verify release identity, signature, and digest."},
 }
 
 func Current() Registry {
@@ -111,6 +115,8 @@ func Current() Registry {
 		foundationCommand("version", "Show the vsk-labs build and contract version.", []ExampleDefinition{
 			{Summary: "Show version information as JSON.", Arguments: []string{"version", "--output", "json"}},
 		}),
+		releaseInspectCommand(),
+		releaseVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
 		commands = append(commands, CommandDefinition{
@@ -123,7 +129,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.0.0",
+		SchemaVersion: "1.1.0",
 		Commands:      commands,
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
@@ -141,12 +147,14 @@ func foundationCommand(name, summary string, examples []ExampleDefinition) Comma
 		Flags: []FlagDefinition{
 			{
 				Name:      "--output",
+				Kind:      FlagValue,
 				ValueName: "format",
 				Summary:   "Select human or versioned JSON output.",
 				Enum:      []string{"human", "json"},
 			},
 			{
 				Name:      "--schema-version",
+				Kind:      FlagValue,
 				ValueName: "major",
 				Summary:   "Select the machine-contract schema major.",
 				Enum:      []string{"1"},
@@ -154,6 +162,53 @@ func foundationCommand(name, summary string, examples []ExampleDefinition) Comma
 		},
 		ResultSchema: runResultSchemaID,
 		Examples:     examples,
+	}
+}
+
+func releaseInspectCommand() CommandDefinition {
+	return CommandDefinition{
+		Path:         []string{"release", "inspect"},
+		Summary:      "Inspect a local release manifest and compatibility without claiming cryptographic verification.",
+		Availability: AvailabilityAvailable,
+		OwnerPhase:   "1",
+		Risk:         RiskReadOnly,
+		Flags: append([]FlagDefinition{
+			{Name: "--manifest", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the local release manifest at this path."},
+		}, commonFlags()...),
+		ResultSchema: runResultSchemaID,
+		DataSchema:   releaseInspectDataSchemaID,
+		Examples: []ExampleDefinition{
+			{Summary: "Inspect a local manifest as versioned JSON.", Arguments: []string{"release", "inspect", "--manifest", "release/manifest.json", "--output", "json"}},
+		},
+	}
+}
+
+func releaseVerifyCommand() CommandDefinition {
+	return CommandDefinition{
+		Path:         []string{"release", "verify"},
+		Summary:      "Verify a signed local manifest and explicitly selected assets against a supplied offline policy.",
+		Availability: AvailabilityAvailable,
+		OwnerPhase:   "1",
+		Risk:         RiskReadOnly,
+		Flags: append([]FlagDefinition{
+			{Name: "--manifest", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the local release manifest at this path."},
+			{Name: "--policy", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the supplied local trust policy at this path."},
+			{Name: "--asset", Kind: FlagValue, ValueName: "id", Repeatable: true, Summary: "Verify one named asset; repeat for additional assets."},
+			{Name: "--all", Kind: FlagSwitch, Summary: "Explicitly verify every asset in the manifest."},
+		}, commonFlags()...),
+		ResultSchema: runResultSchemaID,
+		DataSchema:   releaseVerifyDataSchemaID,
+		Examples: []ExampleDefinition{
+			{Summary: "Verify one local asset against a supplied policy.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--asset", "linux-amd64", "--output", "json"}},
+			{Summary: "Explicitly verify every local asset.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--all"}},
+		},
+	}
+}
+
+func commonFlags() []FlagDefinition {
+	return []FlagDefinition{
+		{Name: "--output", Kind: FlagValue, ValueName: "format", Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}},
+		{Name: "--schema-version", Kind: FlagValue, ValueName: "major", Summary: "Select the machine-contract schema major.", Enum: []string{"1"}},
 	}
 }
 
@@ -169,8 +224,9 @@ func currentSchemas() []SchemaDefinition {
 			},
 		},
 		{
-			ID:      runResultSchemaID,
-			Version: "1.0.0",
+			ID:           runResultSchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/run-result.schema.json",
 			Fields: []FieldDefinition{
 				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{runResultSchemaID}},
 				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
@@ -190,8 +246,100 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "data", GoName: "Data", Kind: ValueObject, Required: true, AdditionalProperties: true},
 			},
 		},
+		{
+			ID:      releaseAssetSchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				{JSONName: "id", GoName: "ID", Kind: ValueString, Required: true, Pattern: `^[a-z0-9][a-z0-9._-]{0,63}$`},
+				{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Enum: []string{"archive", "executable", "package"}},
+				{JSONName: "os", GoName: "OS", Kind: ValueString, Required: true, Enum: []string{"darwin", "linux", "windows"}},
+				{JSONName: "architecture", GoName: "Architecture", Kind: ValueString, Required: true, Enum: []string{"amd64", "arm64"}},
+				{JSONName: "path", GoName: "Path", Kind: ValueString, Required: true, Pattern: `^[^/\\].*`},
+				{JSONName: "size", GoName: "Size", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1), Maximum: int64Pointer(8 * 1024 * 1024 * 1024)},
+				{JSONName: "digest", GoName: "Digest", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`},
+				{JSONName: "bundlePath", GoName: "BundlePath", Kind: ValueString, Required: true, Pattern: `^[^/\\].*`},
+				{JSONName: "sbomPath", GoName: "SBOMPath", Kind: ValueString, Nullable: true, Pattern: `^[^/\\].*`},
+				{JSONName: "provenancePath", GoName: "ProvenancePath", Kind: ValueString, Nullable: true, Pattern: `^[^/\\].*`},
+			},
+		},
+		{
+			ID:           releaseManifestSchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/release-manifest.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{releaseManifestSchemaID}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "releaseId", GoName: "ReleaseID", Kind: ValueString, Required: true, Pattern: `^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$`},
+				{JSONName: "buildId", GoName: "BuildID", Kind: ValueString, Required: true, Pattern: `^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`},
+				{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true, Pattern: `^[0-9a-f]{40,64}$`},
+				{JSONName: "minimumSchemaMajor", GoName: "MinimumSchemaMajor", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+				{JSONName: "maximumSchemaMajor", GoName: "MaximumSchemaMajor", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+				{JSONName: "bundlePath", GoName: "BundlePath", Kind: ValueString, Required: true, Pattern: `^[^/\\].*`},
+				{JSONName: "assets", GoName: "Assets", Kind: ValueArray, Required: true, ItemRef: releaseAssetSchemaID, MinItems: intPointer(1), MaxItems: intPointer(64), UniqueItems: true},
+			},
+		},
+		{
+			ID:           releaseTrustPolicySchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/release-trust-policy.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{releaseTrustPolicySchemaID}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "certificateIdentity", GoName: "CertificateIdentity", Kind: ValueString, Required: true},
+				{JSONName: "oidcIssuer", GoName: "OIDCIssuer", Kind: ValueString, Required: true},
+				{JSONName: "trustedRoot", GoName: "TrustedRoot", Kind: ValueObject, Required: true, AdditionalProperties: true},
+			},
+		},
+		{
+			ID:           releaseInspectDataSchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/release-inspect-data.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "releaseId", GoName: "ReleaseID", Kind: ValueString, Required: true},
+				{JSONName: "buildId", GoName: "BuildID", Kind: ValueString, Required: true},
+				{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true},
+				{JSONName: "minimumSchemaMajor", GoName: "MinimumSchemaMajor", Kind: ValueInteger, Required: true},
+				{JSONName: "maximumSchemaMajor", GoName: "MaximumSchemaMajor", Kind: ValueInteger, Required: true},
+				{JSONName: "platformOs", GoName: "PlatformOS", Kind: ValueString, Required: true},
+				{JSONName: "platformArchitecture", GoName: "PlatformArchitecture", Kind: ValueString, Required: true},
+				{JSONName: "platformSchemaMajor", GoName: "PlatformSchemaMajor", Kind: ValueInteger, Required: true},
+				{JSONName: "compatibleAssetIds", GoName: "CompatibleAssetIDs", Kind: ValueArray, Required: true, ItemKind: ValueString, UniqueItems: true},
+				{JSONName: "assets", GoName: "Assets", Kind: ValueArray, Required: true, ItemRef: releaseAssetSchemaID},
+				{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"not-verified"}},
+			},
+		},
+		{
+			ID:      releaseAssetVerificationSchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				{JSONName: "assetId", GoName: "AssetID", Kind: ValueString, Required: true},
+				{JSONName: "os", GoName: "OS", Kind: ValueString, Required: true},
+				{JSONName: "architecture", GoName: "Architecture", Kind: ValueString, Required: true},
+				{JSONName: "digest", GoName: "Digest", Kind: ValueString, Required: true},
+				{JSONName: "size", GoName: "Size", Kind: ValueInteger, Required: true},
+				{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"verified"}},
+			},
+		},
+		{
+			ID:           releaseVerifyDataSchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/release-verify-data.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "releaseId", GoName: "ReleaseID", Kind: ValueString, Required: true},
+				{JSONName: "buildId", GoName: "BuildID", Kind: ValueString, Required: true},
+				{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true},
+				{JSONName: "manifestStatus", GoName: "ManifestStatus", Kind: ValueString, Required: true, Enum: []string{"verified"}},
+				{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"verified-against-supplied-policy"}},
+				{JSONName: "policySha256", GoName: "PolicySHA256", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`},
+				{JSONName: "assets", GoName: "Assets", Kind: ValueArray, Required: true, ItemRef: releaseAssetVerificationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(64)},
+			},
+		},
 	}
 }
+
+func int64Pointer(value int64) *int64 { return &value }
+
+func intPointer(value int) *int { return &value }
 
 func commandName(path []string) string {
 	return strings.Join(path, " ")

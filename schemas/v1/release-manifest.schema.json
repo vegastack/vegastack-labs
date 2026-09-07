@@ -1,0 +1,142 @@
+{
+  "$defs": {
+    "release-asset": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "enum": [
+            "amd64",
+            "arm64"
+          ],
+          "type": "string"
+        },
+        "bundlePath": {
+          "pattern": "^[^/\\\\].*",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "id": {
+          "pattern": "^[a-z0-9][a-z0-9._-]{0,63}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "archive",
+            "executable",
+            "package"
+          ],
+          "type": "string"
+        },
+        "os": {
+          "enum": [
+            "darwin",
+            "linux",
+            "windows"
+          ],
+          "type": "string"
+        },
+        "path": {
+          "pattern": "^[^/\\\\].*",
+          "type": "string"
+        },
+        "provenancePath": {
+          "pattern": "^[^/\\\\].*",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sbomPath": {
+          "pattern": "^[^/\\\\].*",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "size": {
+          "maximum": 8589934592,
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "os",
+        "architecture",
+        "path",
+        "size",
+        "digest",
+        "bundlePath"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/release-manifest",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/release-asset"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "buildId": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$",
+      "type": "string"
+    },
+    "bundlePath": {
+      "pattern": "^[^/\\\\].*",
+      "type": "string"
+    },
+    "maximumSchemaMajor": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "minimumSchemaMajor": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "releaseId": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/release-manifest"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceRevision": {
+      "pattern": "^[0-9a-f]{40,64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "releaseId",
+    "buildId",
+    "sourceRevision",
+    "minimumSchemaMajor",
+    "maximumSchemaMajor",
+    "bundlePath",
+    "assets"
+  ],
+  "title": "VegaStack Labs release manifest",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

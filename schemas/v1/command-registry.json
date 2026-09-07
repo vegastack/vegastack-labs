@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.0.0",
+  "schemaVersion": "1.1.0",
   "commands": [
     {
       "path": [
@@ -230,6 +230,7 @@
       "flags": [
         {
           "name": "--output",
+          "kind": "value",
           "valueName": "format",
           "required": false,
           "repeatable": false,
@@ -241,6 +242,7 @@
         },
         {
           "name": "--schema-version",
+          "kind": "value",
           "valueName": "major",
           "required": false,
           "repeatable": false,
@@ -384,20 +386,161 @@
         "release",
         "inspect"
       ],
-      "summary": "Inspect a release manifest and compatibility.",
-      "availability": "planned",
-      "ownerPhase": "11",
-      "risk": "unassigned"
+      "summary": "Inspect a local release manifest and compatibility without claiming cryptographic verification.",
+      "availability": "available",
+      "ownerPhase": "1",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--manifest",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the local release manifest at this path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/release-inspect-data",
+      "examples": [
+        {
+          "summary": "Inspect a local manifest as versioned JSON.",
+          "arguments": [
+            "release",
+            "inspect",
+            "--manifest",
+            "release/manifest.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "release",
         "verify"
       ],
-      "summary": "Verify release identity, signature, and digest.",
-      "availability": "planned",
-      "ownerPhase": "11",
-      "risk": "unassigned"
+      "summary": "Verify a signed local manifest and explicitly selected assets against a supplied offline policy.",
+      "availability": "available",
+      "ownerPhase": "1",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--all",
+          "kind": "switch",
+          "valueName": "",
+          "required": false,
+          "repeatable": false,
+          "summary": "Explicitly verify every asset in the manifest.",
+          "enum": null
+        },
+        {
+          "name": "--asset",
+          "kind": "value",
+          "valueName": "id",
+          "required": false,
+          "repeatable": true,
+          "summary": "Verify one named asset; repeat for additional assets.",
+          "enum": null
+        },
+        {
+          "name": "--manifest",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the local release manifest at this path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--policy",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the supplied local trust policy at this path.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/release-verify-data",
+      "examples": [
+        {
+          "summary": "Explicitly verify every local asset.",
+          "arguments": [
+            "release",
+            "verify",
+            "--manifest",
+            "release/manifest.json",
+            "--policy",
+            "release/policy.json",
+            "--all"
+          ]
+        },
+        {
+          "summary": "Verify one local asset against a supplied policy.",
+          "arguments": [
+            "release",
+            "verify",
+            "--manifest",
+            "release/manifest.json",
+            "--policy",
+            "release/policy.json",
+            "--asset",
+            "linux-amd64",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -539,6 +682,7 @@
       "flags": [
         {
           "name": "--output",
+          "kind": "value",
           "valueName": "format",
           "required": false,
           "repeatable": false,
@@ -550,6 +694,7 @@
         },
         {
           "name": "--schema-version",
+          "kind": "value",
           "valueName": "major",
           "required": false,
           "repeatable": false,
@@ -706,12 +851,41 @@
   ],
   "schemas": [
     {
+      "id": "vegastack-labs.dev/release-asset",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/release-asset-verification",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/release-inspect-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/release-inspect-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/release-manifest",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/release-manifest.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/release-trust-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/release-trust-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/release-verify-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/release-verify-data.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/result-error",
       "version": "1.0.0"
     },
     {
       "id": "vegastack-labs.dev/run-result",
-      "version": "1.0.0"
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/run-result.schema.json"
     }
   ]
 }
