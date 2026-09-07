@@ -116,7 +116,9 @@ func TestLoadManifestValidatesCrossFieldInvariants(t *testing.T) {
 		{"reversed-schema", func(s string) string {
 			return strings.Replace(s, `"maximumSchemaMajor": 1`, `"maximumSchemaMajor": 0`, 1)
 		}},
-		{"bad-digest", func(s string) string { return strings.Replace(s, `sha256:`+strings.Repeat("0", 64), `sha256:ABC`, 1) }},
+		{"bad-digest", func(s string) string {
+			return strings.Replace(s, `sha256:3c1e79825287ad56cf4dc687c4838d401014a0c8e911e8c039779c8e7b2baf49`, `sha256:ABC`, 1)
+		}},
 		{"bad-size", func(s string) string { return strings.Replace(s, `"size": 19`, `"size": 0`, 1) }},
 		{"duplicate-id", duplicateAssetWithEdit(func(s string) string { return s })},
 		{"duplicate-target", duplicateAssetWithEdit(func(s string) string { return strings.Replace(s, `"id": "linux-amd64"`, `"id": "linux-amd64-2"`, 1) })},

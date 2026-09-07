@@ -4,6 +4,164 @@
   "certificateIdentity": "https://example.invalid/vegastack/synthetic-release",
   "oidcIssuer": "https://issuer.example.invalid",
   "trustedRoot": {
-    "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1"
+    "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
+    "tlogs": [
+      {
+        "baseUrl": "https://rekor.localhost",
+        "hashAlgorithm": "SHA2_256",
+        "publicKey": {
+          "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEeOB4BD0ECRnEH/iwlTgSbWGj8zDvAP426FoDDFNtIJbZxfXw7WeD73zDqIcnb3SgR0jMdykXJZXe8go9GDfNlw==",
+          "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+          "validFor": {
+            "start": "2026-09-07T18:02:55.219208Z",
+            "end": "2026-09-07T20:02:55.219208Z"
+          }
+        },
+        "logId": {
+          "keyId": "MlDa0S901IaC1j4fen7AIR7TPHjq16ujzdxWqtCo9t0="
+        }
+      },
+      {
+        "baseUrl": "https://rekor.localhost",
+        "hashAlgorithm": "SHA2_256",
+        "publicKey": {
+          "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEIRogUe6tNSm4NOJVNXi1IZXatOVx32OpG1deQTDX8HsQVnuzmi4jfw/5JjNpCqJKQWdKh5QPuhwyIsSzkLh7nQ==",
+          "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+          "validFor": {
+            "start": "2026-09-07T18:02:55.220402Z",
+            "end": "2026-09-07T20:02:55.220402Z"
+          }
+        },
+        "logId": {
+          "keyId": "LXPSJyMXSZoTLZXbL+8hT//QTOdwDsqH/B0IoKJ/ZYo="
+        }
+      }
+    ],
+    "certificateAuthorities": [
+      {
+        "subject": {
+          "organization": "sigstore.dev",
+          "commonName": "sigstore"
+        },
+        "uri": "https://fulcio.example.invalid",
+        "certChain": {
+          "certificates": [
+            {
+              "rawBytes": "MIIByDCCAW6gAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE5MDA1NVoXDTI2MDkwNzIxMDI1NVowNzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRlcm1lZGlhdGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAASKQcIuJXPRWY52bC6uYk2cL25z55/o5hgiESxuCPFq7V3TYM5w2/rshfs3Qs0I0xSyvBAxTe+QWGp/RcYu3rqgo3gwdjAOBgNVHQ8BAf8EBAMCAQYwEwYDVR0lBAwwCgYIKwYBBQUHAwMwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQU6J1url+8kxJ7lx4Im85YajI8gdcwHwYDVR0jBBgwFoAUg68t9Aj1xuwzZoJ6sDz7w9tqVGswCgYIKoZIzj0EAwIDSAAwRQIgUwM09pD+LPF/PXsmG+W/SCNCUQJxzGewVv5f7pT6gM4CIQD5MOCYtImSXvaJcnrszEeak+jRT13pk5bClOWkR6bJaA=="
+            },
+            {
+              "rawBytes": "MIIBhDCCASugAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE0MDI1NVoXDTI2MDkwODAwMDI1NVowKjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABDfvJ/5eyFA3UzJ6iq3qjAzzFf9ASn5lw0NPKX5H6AKoFiJqL19DZbwxhi7BQdwbM8qoycy0VbvaAEWxJ5E0ikujQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSDry30CPXG7DNmgnqwPPvD22pUazAKBggqhkjOPQQDAgNHADBEAiBTBdrh4kBcQW/bnqigLJX4B5yegOUNCnVR6J4vM4uqyQIgElkS45/kuhnlKKFg9theNEcAZvP9/zZ54h978Kdy0Yw="
+            }
+          ]
+        },
+        "validFor": {
+          "start": "2026-09-07T14:02:55Z",
+          "end": "2026-09-08T00:02:55Z"
+        }
+      },
+      {
+        "subject": {
+          "organization": "sigstore.dev",
+          "commonName": "sigstore"
+        },
+        "uri": "https://fulcio.example.invalid",
+        "certChain": {
+          "certificates": [
+            {
+              "rawBytes": "MIIBxzCCAW6gAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE5MDA1NVoXDTI2MDkwNzIxMDI1NVowNzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MR4wHAYDVQQDExVzaWdzdG9yZS1pbnRlcm1lZGlhdGUwWTATBgcqhkjOPQIBBggqhkjOPQMBBwNCAATylTKcQQr17uK3F9x4N/AaAM+vo9ZTBbHicxNDG3B8xGWJkHUjPqNmHMhVfKWLj17hn1zj6YnfL9Z5C9PJDcPKo3gwdjAOBgNVHQ8BAf8EBAMCAQYwEwYDVR0lBAwwCgYIKwYBBQUHAwMwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUX2ozpXha/0ws+x/rdZZBokZ96DkwHwYDVR0jBBgwFoAU2Vm0uE/S9CB6FcqQKuti89ZoLS4wCgYIKoZIzj0EAwIDRwAwRAIgOiZfDBJ8l/GrF6RoNZN6B56mTkaLXE18brPPFukzTDcCIC9zCLycIsY6lwehgZmiArW6Z42XV7dXd9+VvdwDop9N"
+            },
+            {
+              "rawBytes": "MIIBhDCCASugAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE0MDI1NVoXDTI2MDkwODAwMDI1NVowKjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABB4WbXeTNXIhcAgsWEX8GSl0D+H1qYMUlJAHnow4EeSruLhqe4U5l3CCv7WOJSlbYFEz2BxaklvXFViEEWH9z2yjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBTZWbS4T9L0IHoVypAq62Lz1mgtLjAKBggqhkjOPQQDAgNHADBEAiAcCmsfgxC41BlEZ6Sei5MGKT+6r54hUuPdqROm3HUSmAIgZxWgV4BeptylrvR/3jzDWWjFAsdqAxtj+cU/JpMsDVo="
+            }
+          ]
+        },
+        "validFor": {
+          "start": "2026-09-07T14:02:55Z",
+          "end": "2026-09-08T00:02:55Z"
+        }
+      }
+    ],
+    "ctlogs": [
+      {
+        "baseUrl": "https://ctlog.example.invalid",
+        "hashAlgorithm": "SHA2_256",
+        "publicKey": {
+          "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEhEqifFPichtPzH9hYLXyiIUUUGei02rWjxNuXYXd5OFgbVYwWwDGI+YQoAdWj4yvp28CmnCrgFq8UWOBfmVa7Q==",
+          "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+          "validFor": {
+            "start": "2026-09-07T18:02:55Z",
+            "end": "2026-09-07T20:02:55Z"
+          }
+        },
+        "logId": {
+          "keyId": "xAEFNyvBb5lAdK2iZsdDU9yAOcg+NdQdeCqHvCdwVlA="
+        }
+      },
+      {
+        "baseUrl": "https://ctlog.example.invalid",
+        "hashAlgorithm": "SHA2_256",
+        "publicKey": {
+          "rawBytes": "MFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEE65fwXPHQTgnWScv9YsL7fXTy2mt8N2DlJVOxEsyo7dHyevwcrhSSQS0oFVQmJwdEW9qL2w74zrth/xDqhonOw==",
+          "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+          "validFor": {
+            "start": "2026-09-07T18:02:55Z",
+            "end": "2026-09-07T20:02:55Z"
+          }
+        },
+        "logId": {
+          "keyId": "4W32+skdee/6IXVBRwr1ClPG/qSB3r26MYXDilB3aKI="
+        }
+      }
+    ],
+    "timestampAuthorities": [
+      {
+        "subject": {
+          "organization": "sigstore.dev",
+          "commonName": "sigstore"
+        },
+        "uri": "https://virtual.tsa.sigstore.dev",
+        "certChain": {
+          "certificates": [
+            {
+              "rawBytes": "MIIBdjCCARugAwIBAgIBATAKBggqhkjOPQQDAjA7MRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxIjAgBgNVBAMTGXNpZ3N0b3JlLXRzYS1pbnRlcm1lZGlhdGUwHhcNMjYwOTA3MTg1NzU1WhcNMjYwOTA3MTkwNzU1WjAAMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEGuYOyzzRLCNWXSOlnCyeQHzMCre6obvMa+vOMmLojPa9MjA/8TLr6A1usgpKMFdPlTotiMLtX+z2aztPq8iDX6NLMEkwDgYDVR0PAQH/BAQDAgeAMB8GA1UdIwQYMBaAFJU2QzIWXWVrlwYF2l2HoyFCQLpvMBYGA1UdJQEB/wQMMAoGCCsGAQUFBwMIMAoGCCqGSM49BAMCA0kAMEYCIQCaft+y4p8XXoX1pen/+o1YO53aZOTbS5I3aw7bF9HnIwIhAK+yKtfgvXa83zNdZ0pVrj/i93M0e1RMzixYLucKqsOa"
+            },
+            {
+              "rawBytes": "MIIBzDCCAXKgAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE5MDA1NVoXDTI2MDkwNzIxMDI1NVowOzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MSIwIAYDVQQDExlzaWdzdG9yZS10c2EtaW50ZXJtZWRpYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEQbnKkySETIgeRTtuECRZI7UNsa6ppXAqglYCDFkJI9IiF3LARCfE4eCV3sbJgUOh2zG7aCzQ3uLjNDXmA821AaN4MHYwDgYDVR0PAQH/BAQDAgEGMBMGA1UdJQQMMAoGCCsGAQUFBwMIMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFJU2QzIWXWVrlwYF2l2HoyFCQLpvMB8GA1UdIwQYMBaAFKwb6tUL/ebexm7/9rB2HDfJRgdzMAoGCCqGSM49BAMCA0gAMEUCIAuUJInJwu41qn0gkKnv/ufcE92eSWcoiaXXqlFqnWbLAiEA8H7OSdRJnSSchmeQ+OWEZZrv0+7YXfbqTXu4VFyAsRg="
+            },
+            {
+              "rawBytes": "MIIBhDCCASugAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE0MDI1NVoXDTI2MDkwODAwMDI1NVowKjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABCHREFntJaFQCJv0d73QwpyRjZO/h1O79ROz0bhj2Xj2nJMmUWvlUXTLdJG+JUyCCxdPBByeZSJZdaI0zYpG5w+jQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBSsG+rVC/3m3sZu//awdhw3yUYHczAKBggqhkjOPQQDAgNHADBEAiAEA6K2FZMa8p3xsyyTImjeosBu/zzFZKWHudTAVycd8AIgIm9KG3Yn2GdH1hwUbD6sosHN0YQ+kZfK2SGfNLwt4jc="
+            }
+          ]
+        },
+        "validFor": {
+          "start": "2026-09-07T14:02:55.217119Z",
+          "end": "2026-09-07T20:02:55.217119Z"
+        }
+      },
+      {
+        "subject": {
+          "organization": "sigstore.dev",
+          "commonName": "sigstore"
+        },
+        "uri": "https://virtual.tsa.sigstore.dev",
+        "certChain": {
+          "certificates": [
+            {
+              "rawBytes": "MIIBdTCCARugAwIBAgIBATAKBggqhkjOPQQDAjA7MRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxIjAgBgNVBAMTGXNpZ3N0b3JlLXRzYS1pbnRlcm1lZGlhdGUwHhcNMjYwOTA3MTg1NzU1WhcNMjYwOTA3MTkwNzU1WjAAMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEKWAjcFgNq2R8wBcaaBmLtgHNsGO/YMIZSFbZjCbW06POGXzcnjM94vOUWMWl5+miTYT4ilYHrPFrf7XB4kvFHKNLMEkwDgYDVR0PAQH/BAQDAgeAMB8GA1UdIwQYMBaAFGMxOWQk5bjciW24dLLVW1BmAoflMBYGA1UdJQEB/wQMMAoGCCsGAQUFBwMIMAoGCCqGSM49BAMCA0gAMEUCIE5caAA98gkP082BauiFZY/Ir4PK/e3SzVcJvxVLfbInAiEAsHUDzcgHdfP0ntZ+2oGyjGK+iZ6+b2PbER8+DTKavBw="
+            },
+            {
+              "rawBytes": "MIIBzTCCAXKgAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE5MDA1NVoXDTI2MDkwNzIxMDI1NVowOzEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MSIwIAYDVQQDExlzaWdzdG9yZS10c2EtaW50ZXJtZWRpYXRlMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAEU+Jjo56px8Li0cDdaO7J1HYIiSXxpzFYWxv5iuYWA95Xm9KRl3dqnRUOEISv4edOofHh+B2DQjlI7dVFBNGjAqN4MHYwDgYDVR0PAQH/BAQDAgEGMBMGA1UdJQQMMAoGCCsGAQUFBwMIMA8GA1UdEwEB/wQFMAMBAf8wHQYDVR0OBBYEFGMxOWQk5bjciW24dLLVW1BmAoflMB8GA1UdIwQYMBaAFLvad8NrBcUoL3eQi1kskv8e0bltMAoGCCqGSM49BAMCA0kAMEYCIQCNM5S85HQzND62QNkpygvZSe4o0OX4jKXUXd86SVo0iwIhAIl1k8cRhoYzvak+AKxc295BQq/5/+j5jKz8CsnmxhPl"
+            },
+            {
+              "rawBytes": "MIIBhjCCASugAwIBAgIBATAKBggqhkjOPQQDAjAqMRUwEwYDVQQKEwxzaWdzdG9yZS5kZXYxETAPBgNVBAMTCHNpZ3N0b3JlMB4XDTI2MDkwNzE0MDI1NVoXDTI2MDkwODAwMDI1NVowKjEVMBMGA1UEChMMc2lnc3RvcmUuZGV2MREwDwYDVQQDEwhzaWdzdG9yZTBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABCqVHVlji/YjJTxMxOYEYR6HBmA3SuCW3AHVtytEzLQKNv2C/abX9G3MMcOKZUdlW/WKEhqil1xtbgZo5cL3HgKjQjBAMA4GA1UdDwEB/wQEAwIBBjAPBgNVHRMBAf8EBTADAQH/MB0GA1UdDgQWBBS72nfDawXFKC93kItZLJL/HtG5bTAKBggqhkjOPQQDAgNJADBGAiEA/RKTSpD26uk+om/W8eKNzjdNjLg5BfRWMiHYLxDWRaoCIQC+fsJc7tSwwcJRFvnR59S3wgYDGw0Kr9n81Yc++elyMQ=="
+            }
+          ]
+        },
+        "validFor": {
+          "start": "2026-09-07T14:02:55.219695Z",
+          "end": "2026-09-07T20:02:55.219695Z"
+        }
+      }
+    ]
   }
 }
