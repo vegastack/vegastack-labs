@@ -1,0 +1,9 @@
+{
+  "schema": "vegastack-labs.dev/release-trust-policy",
+  "schemaVersion": "1.0.0",
+  "certificateIdentity": "https://example.invalid/vegastack/synthetic-release",
+  "oidcIssuer": "https://issuer.example.invalid",
+  "trustedRoot": {
+    "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1"
+  }
+}

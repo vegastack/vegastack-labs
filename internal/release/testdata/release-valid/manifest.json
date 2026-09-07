@@ -1,0 +1,24 @@
+{
+  "schema": "vegastack-labs.dev/release-manifest",
+  "schemaVersion": "1.0.0",
+  "releaseId": "v1.2.3",
+  "buildId": "build-123",
+  "sourceRevision": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "minimumSchemaMajor": 1,
+  "maximumSchemaMajor": 1,
+  "bundlePath": "manifest.sigstore.json",
+  "assets": [
+    {
+      "id": "linux-amd64",
+      "kind": "executable",
+      "os": "linux",
+      "architecture": "amd64",
+      "path": "artifacts/vsk-labs",
+      "size": 19,
+      "digest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "bundlePath": "artifacts/vsk-labs.sigstore.json",
+      "sbomPath": "artifacts/vsk-labs.sbom.json",
+      "provenancePath": "artifacts/vsk-labs.provenance.json"
+    }
+  ]
+}
