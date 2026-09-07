@@ -1,6 +1,6 @@
 # Development planning
 
-Status: operating mandate adopted as working v1 and full-scope roadmap approved by the user on 26-08-2026. Phase 0 issues 0.1 and [0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) are completed. [Issue 0.3 (#16)](https://github.com/vegastack/vegastack-labs/issues/16) is the current approved implementation batch as of 04-09-2026; PR creation, merge, release, repository administration and live operations remain separately gated, and later phase solutions/issues require their own approval.
+Status: operating mandate adopted as working v1 and full-scope roadmap approved by the user on 26-08-2026. Phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.4 (#17)](https://github.com/vegastack/vegastack-labs/issues/17) are completed. [Issue 0.5 (#18)](https://github.com/vegastack/vegastack-labs/issues/18) is the approved Phase 0 acceptance owner as of 07-09-2026; PR creation, merge, phase-exit acceptance, Phase 1 planning, release, repository administration and live operations remain separately gated.
 
 This directory holds VegaStack Labs development planning. Executable work will be tracked in GitHub Issues in the implementation repository; development phases will use GitHub milestones. These documents are in the public repository and must contain only publication-safe development information.
 
@@ -14,7 +14,7 @@ This directory holds VegaStack Labs development planning. Executable work will b
 - [Repository contract](../../AGENTS.md): platform invariants and live-operation authority, which this mandate does not relax.
 - [Specification map](../../README.md#documentation-map): canonical architecture, behavior, safety, and deployment requirements.
 
-[Phase 0 issues 0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) and [0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) are merged and closed. [Issue 0.3 (#16)](https://github.com/vegastack/vegastack-labs/issues/16) is the current approved development issue; GitHub owns its living body and delivery status. Include the mandatory [Ansible onboarding requirement and researched hardening/tool profiles](../host-onboarding-and-hardening.md) when the affected later phase-0 solutions are reviewed; issue 0.3 or roadmap approval authorizes neither those detailed choices nor any live change. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
+[Phase 0 issues 0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.4 (#17)](https://github.com/vegastack/vegastack-labs/issues/17) are merged and closed. [Issue 0.5 (#18)](https://github.com/vegastack/vegastack-labs/issues/18) audits their evidence, current documents and module ownership before proposing a planning-only Phase 1 handoff; GitHub owns its living body and delivery status. The completed 0.3/0.4 packages pin the Slack-only acknowledgement and host-security admission contracts but authorize no runtime or live change. The user selected completion of the entire v1 platform before the first lab onboarding rehearsal on 26-08-2026; isolated implementation tests remain required throughout development.
 
 ## Reconciled product requirements
 
@@ -50,13 +50,13 @@ No phase plan, executable issue, GitHub milestone, label, or live activation is 
 
 Keep private inventory, credentials, operational declarations, provider identifiers, recovery material, and restricted evidence out of these documents and GitHub issues/comments. Use synthetic fixtures and logical references. Runtime desired state, operational plans/approvals, and evidence retain their existing control-plane authority.
 
-## Before autonomous execution
+## Established development foundation
 
-These are one-time setup requirements, not steps to repeat in every issue:
+Issues 0.1 and 0.2 established these one-time prerequisites; later issues verify rather than recreate them:
 
-- Integrate the user-approved root-contract clarification separating named-repository development from fleet operations, repository-policy changes, and releases. The broad GitHub restriction still applies outside specifically authorized actions.
-- Link the mandate from the mandatory repository entry point so future agents discover it.
-- Establish reproducible checks and a permitted review/merge route, including required identities and automation side effects. Prove that route with a small approved issue before dispatching a larger batch.
-- Address reproducible audit generation. The dated audit register is a historical artifact; do not hand-edit generated data or claim its hashes verify later changes.
+- The root contract separates approved named-repository development from fleet operations, repository-policy changes and releases; authority outside a named batch remains separately gated.
+- Mandatory repository entry points link this mandate.
+- Public, reproducible checks and the permitted review/merge route have been exercised on real approved issues.
+- The dated audit register remains a protected historical artifact; current evidence uses separately owned validators and never rewrites that snapshot.
 
-The initial development plan must assign this setup work. Local bootstrap may establish prerequisites before autonomous GitHub admission; each bootstrap issue needs validation and delivery independent of the component it creates. A written mandate does not prove the environment or permissions are ready.
+Each later issue still proves its own prerequisites, checks, review and delivery. An established development route does not grant release, repository-administration or infrastructure authority.

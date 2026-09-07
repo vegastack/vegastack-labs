@@ -1,6 +1,6 @@
 # Development phase 0 — Development foundation and specification reconciliation
 
-Status: reconciled requirements for solution/issue preparation, 04-09-2026. Phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3), [0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) and [0.3 (#16)](https://github.com/vegastack/vegastack-labs/issues/16) are completed. [Issue 0.4 (#17)](https://github.com/vegastack/vegastack-labs/issues/17) is the current approved implementation batch. The mandate, phase boundaries, full-v1-before-lab timing, generic control-plane-first UX, account-free read/preparation and recovery baseline, Slack-only v1 acknowledgement decision and recorded operational outcomes are confirmed. Later issue solutions, permissions and batches remain separately approved.
+Status: Phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.4 (#17)](https://github.com/vegastack/vegastack-labs/issues/17) are completed. [Issue 0.5 (#18)](https://github.com/vegastack/vegastack-labs/issues/18) is the approved acceptance owner as of 07-09-2026. Its branch contains a candidate exit record; Phase 0 becomes complete only after the change is merged, the integrated check passes and the operator separately accepts the phase exit. Later issue solutions, permissions and batches remain separately approved.
 
 ## Outcome
 
@@ -56,7 +56,7 @@ These are outcomes and ownership, not complete executable issue bodies or publis
 | **0.2** | Public clean checkout runs pinned checks; no private credential prerequisite; current generation/provenance and representative negative fixtures pass. | 0.1; reviewed toolchain/dependency/check solution. | [0.2 (#5)](https://github.com/vegastack/vegastack-labs/issues/5) |
 | **0.3** | Generic control-plane setup/profile/identity/transport and Slack-only acknowledgement contracts are noncircular; normal/interrupted paths and minimal/non-Labs/Labs fixtures map to downstream owners. | 0.1 and 0.2 complete; approved Slack-only v1 decision and implementation plan. | [0.3 (#16)](https://github.com/vegastack/vegastack-labs/issues/16) |
 | **0.4** | OS/role security and local credential admission have reviewed control-to-test mappings, bounded privileges and recovery; the public verifier exercises 69 cases and explicitly blocks unsupported mechanisms. | 0.3 complete; privilege and Mac mechanisms approved. | [0.4 (#17)](https://github.com/vegastack/vegastack-labs/issues/17) |
-| **0.5** | Demonstrate integrated clean-checkout checks, one real approved issue's delivery/review evidence, consistent contracts and phase-1 handoff. | 0.1–0.4 completed and verified. | Not published |
+| **0.5** | Demonstrate integrated clean-checkout checks, all four delivered issues' evidence, consistent contracts and a planning-only Phase 1 handoff. | 0.1–0.4 completed and verified. | [0.5 (#18)](https://github.com/vegastack/vegastack-labs/issues/18) |
 
 Execution defaults to sequential; parallel work needs batch approval and settled interfaces. A material discovery changes the issue back to planning and stops only dependents. Never publish assumptions as acceptance.
 
@@ -68,6 +68,22 @@ Execution defaults to sequential; parallel work needs batch approval and settled
 - Requirements for effective authority, complete revocation, compromise precedence, actual-job CI admission, audit continuity, recovery dependency retention and safe detach/uninstall have explicit downstream owners in the lifecycle/roadmap.
 - Tests are specified for real OS/kernel/reboot and scoped provider behavior where needed. Cross-compilation/containers alone cannot certify those surfaces. No unavailable test lane is silently waived.
 
+## Phase 0 exit evidence
+
+The checked-in [Phase 0.5 evidence index](../../../tooling/testdata/phase-0-5/evidence-index.json) is a sanitized snapshot from the one-time public GitHub audit on 07-09-2026. `node tooling/verify-phase-0-5.mjs` validates it without a network connection or credential and is part of `pnpm check`. It records the exact issue, PR, merge commit, implementation evidence and review proof for 0.1–0.4, plus the nine module-parent owners and bounded Phase 1 order.
+
+| Evidence | Current conclusion |
+|---|---|
+| Issues 0.1–0.4 | #3, #5, #16 and #17 are closed; PRs #4, #6, #19 and #20 are merged into `main` at the commits recorded in the index. Legacy summaries prove 0.1/0.2; marker-based evidence and clean reviews prove 0.3/0.4. |
+| Public verification | The Phase 0.5 validator, documentation/history/workflow checks and complete public lane remain required on the candidate and integrated commit. A branch or PR result is not post-merge evidence. |
+| Historical evidence | `docs/audit-register.json`, `audit-reports/audit-completion.md`, `audit-reports/gap-closure-report.md` and `audit-reports/requirements-readiness-2026-08-27.md` remain protected by `tooling/historical-artifacts.json`; the old snapshots are not rewritten as current evidence. |
+| Hosted CI limitation | GitHub Actions cannot start because of the reported account billing lock and is therefore unavailable. This is external unavailable evidence, not a passing hosted check and not permission to weaken the local or clean-checkout lane. |
+| Merge-route limitation | The two-parent merge commit from PR #20 diverges from the current development profile's squash route. Shared history is preserved; the repository operator owns conformance for later merges or any separately authorized settings change. |
+| Module ownership | #7–#15 retain one owner per shared spine. Resolved Phase 0.3/0.4 blockers were removed from #7, #8 and #15; remaining open questions stay with their named module/phase. |
+| Phase 1 handoff | The metadata graph is the first planning step through #7, followed by #7 portable contracts, #12 redaction and #10 offline release verification, then #15 generated CLI/help presentation. This order grants planning authority only. |
+
+Issue #18 estimated 35 agent minutes with a 70-minute checkpoint and about 8 minutes of operator review. Its final evidence comment records actual elapsed effort versus that estimate after the last verification and fresh review, because a branch document cannot truthfully know its own final reviewed commit or completion time. No software-runtime, provider, host, fleet or deployment readiness is claimed here.
+
 ## Approval and next batch
 
 Batch approval record: the repository owner approved **Phase 0 batch 1**, containing only [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3), in the current Codex task; approval recorded **27-08-2026 11:26:58 AM IST**. Codex is the coordinator. The approved development-only scope permits the issue/milestone, `chore/0.1-development-route`, commits, PR, development comments/reviews and agent merge after the issue's checks and fresh review pass. It excludes repository settings/rulesets, releases, credentials, providers, the Google Sheet, hosts, networks and every other live infrastructure action.
@@ -77,5 +93,7 @@ Batch approval record: the repository owner approved **Phase 0 batch 2**, contai
 Batch approval record: the repository owner approved implementation of **Phase 0 issue 0.3**, [#16](https://github.com/vegastack/vegastack-labs/issues/16), on 04-09-2026 after approving its Slack-only v1 decision and Plan v1. The development-only scope permits `chore/0.3-bootstrap-profile-human-proof`, commits, issue comments, sanitized fixtures, public checks and fresh review. PR creation, merge, release, repository administration, credentials, live Slack/provider actions, hosts, networks, databases and infrastructure remain separately gated.
 
 Batch approval record: the repository owner approved the brief and Plan v1 for **Phase 0 issue 0.4**, [#17](https://github.com/vegastack/vegastack-labs/issues/17), on 04-09-2026 after confirming the bounded Ansible privilege and constrained macOS management decisions. The development-only scope permits `chore/0.4-host-security-admission`, documentation, deterministic JavaScript verification, sanitized fixtures, issue/parent summaries, public checks and fresh review. PR creation, merge, release, repository administration, credentials, provider configuration, hosts, networks, databases and every live infrastructure action remain separately gated.
+
+Batch approval record: the repository owner approved the brief and Plan v1 for **Phase 0 issue 0.5**, [#18](https://github.com/vegastack/vegastack-labs/issues/18), on 07-09-2026 after replacing permanent live GitHub checks with a one-time public audit and offline evidence validation. The development-only scope permits `chore/0.5-phase-zero-handoff`, sanitized evidence, current documentation/module-parent reconciliation, public checks and fresh review. PR creation, merge, phase-exit acceptance, Phase 1 planning/issues, release, repository administration, credentials, providers, hosts, networks, databases and every live infrastructure action remain separately gated.
 
 Each executable issue must pin actual files, supported versions, input/output/error semantics, verification commands/environments, recovery/stop conditions and an agent-minute estimate with basis, 2× checkpoint, user review and separate waits. The Phase 0.4 suite proves public contracts and sanitized fixtures only; it is not real-host admission evidence. The real 30-day Mesh pilot remains a later deployment wait after full software acceptance.

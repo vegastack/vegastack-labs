@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
@@ -164,4 +165,17 @@ test("Phase 1 ordering rejects cycles and unknown prerequisites", async () => {
     () => validatePhaseZeroFiveEvidence(unknown),
     /unknown prerequisite/,
   );
+});
+
+test("current development documents name Phase 0.5 and preserve a planning-only handoff", async () => {
+  const phase = await readFile(
+    path.join(ROOT, "docs/development/phases/00-development-foundation.md"),
+    "utf8",
+  );
+  const overview = await readFile(path.join(ROOT, "docs/development/README.md"), "utf8");
+  assert.match(phase, /Phase 0 exit evidence/);
+  assert.match(phase, /GitHub Actions.*billing.*unavailable/i);
+  assert.match(phase, /two-parent.*PR #20/i);
+  assert.match(phase, /metadata graph.*planning/i);
+  assert.doesNotMatch(overview, /Issue 0\.2.*current approved development issue/);
 });
