@@ -15,6 +15,7 @@ const ALLOWED_LICENSES = new Set([
   "Apache-2.0",
   "Apache-2.0 AND BSD-3-Clause",
   "Apache-2.0 AND BSD-3-Clause AND MIT",
+  "Apache-2.0 AND ISC AND MIT",
   "Apache-2.0 AND MIT",
   "BSD-2-Clause",
   "BSD-3-Clause",
@@ -35,7 +36,7 @@ const ALLOWED_SOURCE_HOSTS = new Set([
 // role, decision, and reason have been reviewed. Resolution checks cannot
 // approve changed metadata by themselves.
 const REVIEWED_METADATA_SHA256 =
-  "85cb44646879eb684c2ae695bb2c1f416f48c4722a6c4b6521381a7e3491dbc0";
+  "37480c97c41c83b29e78c7861cff39b2bd779cc4d680a73663250f9cabda888c";
 
 export class GoDependencyError extends Error {
   constructor(code, target) {
@@ -127,6 +128,8 @@ function inferredSource(modulePath) {
   switch (modulePath) {
     case "gopkg.in/check.v1":
       return "https://github.com/go-check/check";
+    case "gopkg.in/tomb.v1":
+      return "https://gopkg.in/tomb.v1";
     case "gopkg.in/yaml.v2":
     case "gopkg.in/yaml.v3":
       return "https://github.com/go-yaml/yaml";
@@ -135,19 +138,32 @@ function inferredSource(modulePath) {
   }
 }
 
-async function downloadedSources(root, run) {
+async function downloadedModules(root, run, selected) {
+  const requested = new Set(selected.map((record) => `${record.path}@${record.version}`));
   let output;
   try {
-    output = await run("go", ["mod", "download", "-json", "all"], {
-      cwd: root,
-      capture: true,
-      timeoutMs: 120_000,
-    });
+    output = await run(
+      "go",
+      [
+        "mod",
+        "download",
+        "-json",
+        ...selected.map((record) => `${record.path}@${record.version}`),
+      ],
+      {
+        cwd: root,
+        capture: true,
+        timeoutMs: 120_000,
+      },
+    );
   } catch {
     fail("GO_SOURCE", "go-mod-download");
   }
-  const sources = new Map();
+  const downloaded = new Map();
   for (const record of parseJSONStream(output.stdout)) {
+    const identity = `${record.Path}@${record.Version}`;
+    if (!requested.has(identity)) continue;
+    if (record.Error) fail("GO_SOURCE", identity);
     let source = record.Origin?.URL;
     if (!source && record.Info) {
       try {
@@ -158,10 +174,14 @@ async function downloadedSources(root, run) {
       }
     }
     source ||= inferredSource(record.Path);
-    if (!source) fail("GO_SOURCE", `${record.Path}@${record.Version}`);
-    sources.set(`${record.Path}@${record.Version}`, source);
+    if (!source) fail("GO_SOURCE", identity);
+    if (!record.Sum) fail("GO_MODULE_CHECKSUM", identity);
+    downloaded.set(identity, { checksum: record.Sum, source });
   }
-  return sources;
+  for (const identity of requested) {
+    if (!downloaded.has(identity)) fail("GO_SOURCE", identity);
+  }
+  return downloaded;
 }
 
 function validateRecord(record, index) {
@@ -219,7 +239,7 @@ export function renderGoNotices(manifest) {
     "",
     "## Go runtime dependencies",
     "",
-    "This section is reviewed from `tooling/go-dependency-provenance.json` by `node tooling/verify-go-dependencies.mjs --check`. Modules marked `build` in that inventory are selected only by the transitive Go module graph and are not compiled into `vsk-labs` for the approved verifier import set.",
+    "This section is reviewed from `tooling/go-dependency-provenance.json` by `node tooling/verify-go-dependencies.mjs --check`. Modules marked `build` in that inventory are selected by the test or transitive Go module graph and are not compiled into `vsk-labs` for the approved verifier import set.",
     "",
     "The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-openapi/jsonpointer`, `github.com/go-openapi/jsonreference`, `github.com/go-openapi/runtime`, `github.com/theupdateframework/go-tuf/v2`, `go.yaml.in/yaml/v3`, and `google.golang.org/grpc`; their attribution is retained through the linked exact source release. MIT and BSD copyright/license notices remain with those exact sources.",
     "",
@@ -302,6 +322,28 @@ async function selectedModules(root, run) {
     );
 }
 
+async function dependencyModules(root, run, args, target) {
+  let output;
+  try {
+    output = await run("go", args, {
+      cwd: root,
+      capture: true,
+      timeoutMs: 120_000,
+    });
+  } catch {
+    fail("GO_MODULE_GRAPH", target);
+  }
+  const modules = new Set();
+  for (const record of parseJSONStream(output.stdout)) {
+    if (record.Module?.Main || !record.Module) continue;
+    if (!record.Module.Path || !record.Module.Version || record.Module.Replace) {
+      fail("GO_MODULE_GRAPH", target);
+    }
+    modules.add(`${record.Module.Path}@${record.Module.Version}`);
+  }
+  return modules;
+}
+
 export async function verifyGoDependencies(root = ROOT, options = {}) {
   const run = options.run ?? runCommand;
   const checkOrigins = options.checkOrigins ?? true;
@@ -329,25 +371,52 @@ export async function verifyGoDependencies(root = ROOT, options = {}) {
   }
 
   const selected = await selectedModules(root, run);
-  const sources = checkOrigins ? await downloadedSources(root, run) : new Map();
+  const [executable, tests] = await Promise.all([
+    dependencyModules(
+      root,
+      run,
+      ["list", "-deps", "-json", "./cmd/vsk-labs"],
+      "executable-dependencies",
+    ),
+    dependencyModules(
+      root,
+      run,
+      ["list", "-deps", "-test", "-json", "./..."],
+      "test-dependencies",
+    ),
+  ]);
+  const downloaded = checkOrigins ? await downloadedModules(root, run, selected) : new Map();
   const checksums = checksumMap(goSum);
   const reviewed = new Map(manifest.modules.map((record) => [`${record.path}@${record.version}`, record]));
+  const selectedIdentities = new Set(selected.map((module) => `${module.path}@${module.version}`));
+  for (const identity of [...executable, ...tests]) {
+    if (!selectedIdentities.has(identity)) fail("GO_MODULE_GRAPH", identity);
+  }
   if (reviewed.size !== selected.length) fail("GO_MODULE_GRAPH", "module-count");
   for (const module of selected) {
     const identity = `${module.path}@${module.version}`;
     const record = reviewed.get(identity);
     if (!record) fail("GO_MODULE_GRAPH", identity);
-    const checksum = module.checksum || checksums.get(identity);
-    if (!checksum || record.checksum !== checksum || checksums.get(identity) !== checksum) {
+    const checksum = module.checksum || checksums.get(identity) || downloaded.get(identity)?.checksum;
+    if (
+      !checksum ||
+      record.checksum !== checksum ||
+      (checksums.has(identity) && checksums.get(identity) !== checksum) ||
+      (checkOrigins && downloaded.get(identity)?.checksum !== checksum)
+    ) {
       fail("GO_MODULE_CHECKSUM", identity);
     }
-    if (checkOrigins && sources.get(identity) !== record.source) fail("GO_SOURCE", identity);
+    if (checkOrigins && downloaded.get(identity)?.source !== record.source) {
+      fail("GO_SOURCE", identity);
+    }
+    const expectedRole = executable.has(identity) ? "runtime" : "build";
+    if (record.role !== expectedRole) fail("GO_ROLE", identity);
   }
   if (!reviewed.has(`${SIGSTORE_MODULE}@${SIGSTORE_VERSION}`)) {
     fail("GO_SIGSTORE_PIN", SIGSTORE_MODULE);
   }
   for (const identity of reviewed.keys()) {
-    if (!selected.some((module) => `${module.path}@${module.version}` === identity)) {
+    if (!selectedIdentities.has(identity)) {
       fail("GO_MODULE_GRAPH", identity);
     }
   }

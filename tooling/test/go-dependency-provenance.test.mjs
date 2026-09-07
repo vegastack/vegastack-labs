@@ -60,6 +60,21 @@ async function fixtureRepo(t, value = manifest()) {
 function successfulRunner(value = MODULE) {
   return async (_command, args) => {
     if (args[0] === "mod" && args[1] === "verify") return { stdout: "all modules verified\n" };
+    if (args[0] === "list" && args.includes("-deps")) {
+      return {
+        stdout: [
+          JSON.stringify({
+            ImportPath: "example.test/cmd/vsk-labs",
+            Module: { Path: "example.test", Main: true },
+          }),
+          JSON.stringify({
+            ImportPath: `${value.path}/pkg/verify`,
+            Module: { Path: value.path, Version: value.version },
+          }),
+          "",
+        ].join("\n"),
+      };
+    }
     if (args[0] === "list") {
       return {
         stdout: [
@@ -98,6 +113,31 @@ test("the exact reviewed Go graph verifies without writing", async (t) => {
     modules: 1,
     reviewDigest: value.reviewMetadataSha256,
   });
+});
+
+test("source verification downloads exact selected versions instead of the mutable all target", async (t) => {
+  const value = manifest();
+  const root = await fixtureRepo(t, value);
+  const baseRunner = successfulRunner();
+  const run = async (command, args) => {
+    if (args[0] === "mod" && args[1] === "download") {
+      assert.deepEqual(args, ["mod", "download", "-json", `${MODULE.path}@${MODULE.version}`]);
+      return {
+        stdout: `${JSON.stringify({
+          Path: MODULE.path,
+          Version: MODULE.version,
+          Sum: MODULE.checksum,
+          Origin: { URL: MODULE.source },
+        })}\n`,
+      };
+    }
+    return baseRunner(command, args);
+  };
+  const result = await verifyGoDependencies(root, {
+    run,
+    expectedReviewDigest: value.reviewMetadataSha256,
+  });
+  assert.equal(result.status, "pass");
 });
 
 test("version, checksum, omitted, added, and duplicate modules fail closed", async (t) => {
@@ -161,5 +201,20 @@ test("stale Go notices fail closed", async (t) => {
       expectedReviewDigest: value.reviewMetadataSha256,
     }),
     (error) => error?.code === "GO_NOTICES",
+  );
+});
+
+test("runtime roles must match the actual executable dependency closure", async (t) => {
+  const value = manifest();
+  value.modules[0].role = "build";
+  value.reviewMetadataSha256 = reviewMetadataDigest(value);
+  const root = await fixtureRepo(t, value);
+  await assert.rejects(
+    verifyGoDependencies(root, {
+      run: successfulRunner(),
+      checkOrigins: false,
+      expectedReviewDigest: value.reviewMetadataSha256,
+    }),
+    (error) => error?.code === "GO_ROLE",
   );
 });

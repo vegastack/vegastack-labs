@@ -334,6 +334,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/aws/aws-sdk-go-v2/internal/ini",
+      "version": "v1.8.4",
+      "checksum": "h1:WKuaxf++XKWlHWu9ECbMlha8WOEGm0OUEZqm4K/Gcfk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "github.com/aws/aws-sdk-go-v2/internal/v4a",
       "version": "v1.4.26",
       "checksum": "h1:A1PmWU2zfkIm9EyFlJncFXL4W4phML+h8KjltUsCvNQ=",
@@ -814,6 +824,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/dgryski/go-rendezvous",
+      "version": "v0.0.0-20200823014737-9f7001d12a5f",
+      "checksum": "h1:lO4WD4F/rVNCu3HqELle0jiPLLBs70cWOduZpkS1E78=",
+      "license": "MIT",
+      "source": "https://github.com/dgryski/go-rendezvous",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "github.com/digitorus/pkcs7",
       "version": "v0.0.0-20230818184609-3a137a874352",
       "checksum": "h1:ge14PCmCvPjpMQMIAH7uKg0lrtNSOdpYsRXlwk3QbaE=",
@@ -894,6 +914,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/eggsampler/acme/v3",
+      "version": "v3.6.2",
+      "checksum": "h1:gvyZbQ92wNQLDASVftGpHEdFwPSfg0+17P0lLt09Tp8=",
+      "license": "MIT",
+      "source": "https://github.com/eggsampler/acme",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "github.com/envoyproxy/go-control-plane",
       "version": "v0.14.0",
       "checksum": "h1:hbG2kr4RuFj222B6+7T83thSPqLjwBIfQawTkC++2HA=",
@@ -949,6 +979,16 @@
       "checksum": "h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=",
       "license": "MIT",
       "source": "https://github.com/felixge/httpsnoop",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/flynn/go-docopt",
+      "version": "v0.0.0-20140912013429-f6dd2ebbb31e",
+      "checksum": "h1:Ss/B3/5wWRh8+emnK0++g5zQzwDTi30W10pKxKc4JXI=",
+      "license": "MIT",
+      "source": "https://github.com/flynn/go-docopt",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
@@ -1011,7 +1051,7 @@
       "source": "https://github.com/go-jose/go-jose",
       "role": "build",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
     },
     {
       "path": "github.com/go-logr/logr",
@@ -1514,6 +1554,16 @@
       "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
     },
     {
+      "path": "github.com/google/gofuzz",
+      "version": "v1.2.0",
+      "checksum": "h1:xRy4A+RhZaiKjJ1bPfwQ8sedCA+YS2YcCHW6ec7JMi0=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/gofuzz",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "github.com/google/pprof",
       "version": "v0.0.0-20260402051712-545e8a4df936",
       "checksum": "h1:EwtI+Al+DeppwYX2oXJCETMO23COyaKGP6fHVpkpWpg=",
@@ -1901,7 +1951,7 @@
       "source": "https://github.com/jedisct1/go-minisign",
       "role": "build",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
     },
     {
       "path": "github.com/jellydator/ttlcache/v3",
@@ -1929,6 +1979,16 @@
       "checksum": "h1:liMMTbpW34dhU4az1GN0pTPADwNmvoRSeoZ6PItiqnY=",
       "license": "Apache-2.0",
       "source": "https://github.com/jmespath/go-jmespath",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jmhodges/clock",
+      "version": "v1.2.0",
+      "checksum": "h1:eq4kys+NI0PLngzaHEe7AmPT90XMGIEySD1JfV1PDIs=",
+      "license": "MIT",
+      "source": "https://github.com/jmhodges/clock",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
@@ -2014,11 +2074,31 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/letsencrypt/borp",
+      "version": "v0.0.0-20251118150929-89c6927051ae",
+      "checksum": "h1:yFuF5yRIwaandcuNMi1A4he4FMWJsGRv38rsizIaxJA=",
+      "license": "MIT",
+      "source": "https://github.com/letsencrypt/borp",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "github.com/letsencrypt/boulder",
       "version": "v0.20260309.0",
       "checksum": "h1:kZynrxK3QfqLGx6hhoz+Rfs3hgltJs1p9Mp+4+VwnY0=",
       "license": "MPL-2.0",
       "source": "https://github.com/letsencrypt/boulder",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed test-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/letsencrypt/challtestsrv",
+      "version": "v1.4.2",
+      "checksum": "h1:0ON3ldMhZyWlfVNYYpFuWRTmZNnyfiL9Hh5YzC3JVwU=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/letsencrypt/challtestsrv",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
@@ -2029,6 +2109,16 @@
       "checksum": "h1:qLc/OznH7xMr5ARJgkZCCWk+EomQkiNTOoOF5LAgagc=",
       "license": "BSD-2-Clause",
       "source": "https://github.com/letsencrypt/pkcs11key",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/letsencrypt/validator/v10",
+      "version": "v10.0.0-20230215210743-a0c7dfc17158",
+      "checksum": "h1:HGFsIltYMUiB5eoFSowFzSoXkocM2k9ctmJ57QMGjys=",
+      "license": "MIT",
+      "source": "https://github.com/letsencrypt/validator",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
@@ -2119,6 +2209,16 @@
       "checksum": "h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=",
       "license": "MIT",
       "source": "https://github.com/Microsoft/go-winio",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/miekg/dns",
+      "version": "v1.1.62",
+      "checksum": "h1:cN8OuEF1/x5Rq6Np+h1epln8OiyPWV+lROx9LxcGgIQ=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/miekg/dns",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
@@ -2294,6 +2394,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/pelletier/go-toml",
+      "version": "v1.9.5",
+      "checksum": "h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=",
+      "license": "Apache-2.0 AND MIT",
+      "source": "https://github.com/pelletier/go-toml",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "github.com/pelletier/go-toml/v2",
       "version": "v2.2.4",
       "checksum": "h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=",
@@ -2339,6 +2449,16 @@
       "checksum": "h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=",
       "license": "BSD-3-Clause",
       "source": "https://github.com/pmezard/go-difflib",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/poy/onpar",
+      "version": "v1.1.2",
+      "checksum": "h1:QaNrNiZx0+Nar5dLgTVp5mXkyoVFIbepjyEoGSnhbAY=",
+      "license": "MIT",
+      "source": "https://github.com/poy/onpar",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
@@ -2419,6 +2539,26 @@
       "checksum": "h1:hlnBDcy3YEDXH7kc9gV+NLaN0cDzhDvD1s7Y6FZ8RpM=",
       "license": "MIT",
       "source": "https://github.com/pseudomuto/protokit",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/redis/go-redis/extra/rediscmd/v9",
+      "version": "v9.5.3",
+      "checksum": "h1:1/BDligzCa40GTllkDnY3Y5DTHuKCONbB2JcRyIfl20=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/redis/go-redis",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/redis/go-redis/extra/redisotel/v9",
+      "version": "v9.5.3",
+      "checksum": "h1:kuvuJL/+MZIEdvtb/kTBRiRgYaOmx1l+lYJyVdrRUOs=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/redis/go-redis",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
@@ -2511,7 +2651,7 @@
       "source": "https://github.com/sassoftware/relic",
       "role": "build",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
     },
     {
       "path": "github.com/sassoftware/relic/v7",
@@ -2711,7 +2851,7 @@
       "source": "https://github.com/spf13/cobra",
       "role": "build",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
     },
     {
       "path": "github.com/spf13/pflag",
@@ -2721,7 +2861,7 @@
       "source": "https://github.com/spf13/pflag",
       "role": "build",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
     },
     {
       "path": "github.com/spf13/viper",
@@ -2781,7 +2921,7 @@
       "source": "https://github.com/theupdateframework/go-tuf",
       "role": "build",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
     },
     {
       "path": "github.com/theupdateframework/go-tuf/v2",
@@ -2841,7 +2981,7 @@
       "source": "https://github.com/titanous/rocacheck",
       "role": "build",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
     },
     {
       "path": "github.com/tmc/grpc-websocket-proxy",
@@ -2934,6 +3074,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/weppos/publicsuffix-go",
+      "version": "v0.50.2",
+      "checksum": "h1:KsJFc8IEKTJovM46SRCnGNsM+rFShxcs6VEHjOJcXzE=",
+      "license": "MIT",
+      "source": "https://github.com/weppos/publicsuffix-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "github.com/x448/float16",
       "version": "v0.8.4",
       "checksum": "h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=",
@@ -3019,6 +3169,26 @@
       "checksum": "h1:v9CUu9phlABObO4LPWycf+zwMG7nlbb3t/B5wa97yms=",
       "license": "MIT",
       "source": "https://github.com/zalando/go-keyring",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/zmap/zcrypto",
+      "version": "v0.0.0-20250129210703-03c45d0bae98",
+      "checksum": "h1:Qp98bmMm9JHPPOaLi2Nb6oWoZ+1OyOMWI7PPeJrirI0=",
+      "license": "Apache-2.0 AND ISC AND MIT",
+      "source": "https://github.com/zmap/zcrypto",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/zmap/zlint/v3",
+      "version": "v3.6.6",
+      "checksum": "h1:tH7RJM9bDmh7IonlLEkFIkIn8XDYDYjehhUPgpLVqYA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/zmap/zlint",
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
@@ -3205,8 +3375,8 @@
     },
     {
       "path": "go.opentelemetry.io/otel/exporters/otlp/otlptrace",
-      "version": "v1.34.0",
-      "checksum": "h1:OeNbIYk/2C15ckl7glBlOBp5+WlYsOElzTNmiPW/x60=",
+      "version": "v1.38.0",
+      "checksum": "h1:GqRJVj7UmLjCVyVJ3ZFLdPRmhDUp2zFmQe3RHIOsw24=",
       "license": "Apache-2.0",
       "source": "https://github.com/open-telemetry/opentelemetry-go",
       "role": "build",
@@ -3215,8 +3385,8 @@
     },
     {
       "path": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc",
-      "version": "v1.34.0",
-      "checksum": "h1:tgJ0uaNS4c98WRNUEx5U3aDlrDOI5Rs+1Vifcw4DJ8U=",
+      "version": "v1.38.0",
+      "checksum": "h1:lwI4Dc5leUqENgGuQImwLo4WnuXFPetmPpkLi2IrX54=",
       "license": "Apache-2.0",
       "source": "https://github.com/open-telemetry/opentelemetry-go",
       "role": "build",
@@ -3604,6 +3774,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "gopkg.in/tomb.v1",
+      "version": "v1.0.0-20141024135613-dd632973f1e7",
+      "checksum": "h1:uRGJdciOHaEIrze2W8Q3AKkepLTh2hOroT7a+7czfdQ=",
+      "license": "BSD-2-Clause",
+      "source": "https://gopkg.in/tomb.v1",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
       "path": "gopkg.in/yaml.v2",
       "version": "v2.4.0",
       "checksum": "h1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY=",
@@ -3674,5 +3854,5 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     }
   ],
-  "reviewMetadataSha256": "85cb44646879eb684c2ae695bb2c1f416f48c4722a6c4b6521381a7e3491dbc0"
+  "reviewMetadataSha256": "37480c97c41c83b29e78c7861cff39b2bd779cc4d680a73663250f9cabda888c"
 }

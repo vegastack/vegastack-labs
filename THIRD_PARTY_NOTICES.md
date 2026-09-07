@@ -418,7 +418,7 @@ The exact development-only MPL-2.0 dependencies listed below are unmodified and 
 
 ## Go runtime dependencies
 
-This section is reviewed from `tooling/go-dependency-provenance.json` by `node tooling/verify-go-dependencies.mjs --check`. Modules marked `build` in that inventory are selected only by the transitive Go module graph and are not compiled into `vsk-labs` for the approved verifier import set.
+This section is reviewed from `tooling/go-dependency-provenance.json` by `node tooling/verify-go-dependencies.mjs --check`. Modules marked `build` in that inventory are selected by the test or transitive Go module graph and are not compiled into `vsk-labs` for the approved verifier import set.
 
 The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-openapi/jsonpointer`, `github.com/go-openapi/jsonreference`, `github.com/go-openapi/runtime`, `github.com/theupdateframework/go-tuf/v2`, `go.yaml.in/yaml/v3`, and `google.golang.org/grpc`; their attribution is retained through the linked exact source release. MIT and BSD copyright/license notices remain with those exact sources.
 
