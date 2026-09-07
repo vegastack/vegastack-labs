@@ -14,7 +14,9 @@ const EXPECTED_DEPENDENCIES = new Map([
     head: "chore/0.1-development-route",
     mergeCommit: "36ffcbae7bbb0cc28a5f63ec4d07055c066cf373",
     evidenceKind: "legacy-implementation-summary",
+    evidenceUrl: "https://github.com/vegastack/vegastack-labs/issues/3#issuecomment-5435051804",
     reviewKind: "legacy-summary-clean-review",
+    reviewUrl: "https://github.com/vegastack/vegastack-labs/issues/3#issuecomment-5435051804",
   }],
   [5, {
     developmentId: "0.2",
@@ -22,7 +24,9 @@ const EXPECTED_DEPENDENCIES = new Map([
     head: "chore/0.2-public-development-scaffold",
     mergeCommit: "a20d0f526018bab27d72738a94d637d3d7d4036f",
     evidenceKind: "legacy-implementation-summary",
+    evidenceUrl: "https://github.com/vegastack/vegastack-labs/issues/5#issuecomment-5435744957",
     reviewKind: "legacy-summary-clean-review",
+    reviewUrl: "https://github.com/vegastack/vegastack-labs/issues/5#issuecomment-5435744957",
   }],
   [16, {
     developmentId: "0.3",
@@ -30,7 +34,9 @@ const EXPECTED_DEPENDENCIES = new Map([
     head: "chore/0.3-bootstrap-profile-human-proof",
     mergeCommit: "fff6d34400f299f9b3b220c8ae5a61efdca47457",
     evidenceKind: "vsk-evidence",
+    evidenceUrl: "https://github.com/vegastack/vegastack-labs/issues/16#issuecomment-5541458629",
     reviewKind: "vsk-review",
+    reviewUrl: "https://github.com/vegastack/vegastack-labs/issues/16#issuecomment-5541442554",
   }],
   [17, {
     developmentId: "0.4",
@@ -38,7 +44,9 @@ const EXPECTED_DEPENDENCIES = new Map([
     head: "chore/0.4-host-security-admission",
     mergeCommit: "4412c30c49c8ea6b5e6a8929f05178db235c7b42",
     evidenceKind: "vsk-evidence",
+    evidenceUrl: "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543535981",
     reviewKind: "vsk-review",
+    reviewUrl: "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543518185",
   }],
 ]);
 
@@ -64,14 +72,44 @@ const EXPECTED_PHASE_ONE_SEQUENCE = new Map([
     after: ["redaction-foundation", "offline-release-verification"],
   }],
 ]);
+const EXPECTED_POST_MERGE = {
+  recordedAt: "2026-09-07T06:43:35Z",
+  issueNumber: 18,
+  issueUrl: "https://github.com/vegastack/vegastack-labs/issues/18",
+  pullRequestNumber: 21,
+  pullRequestUrl: "https://github.com/vegastack/vegastack-labs/pull/21",
+  head: "chore/0.5-phase-zero-handoff",
+  headCommit: "1556affa1ddb201cd4cd4688530881729294dfc4",
+  mergeCommit: "0381f4b4b43a5f0d438b8c5647d37b6c617ad38a",
+  hostedCheckName: "Public foundation checks",
+  hostedCheckRun: 34091778327,
+  hostedCheckJob: 101646590145,
+  hostedCheckUrl: "https://github.com/vegastack/vegastack-labs/actions/runs/34091778327/job/101646590145",
+};
 const EXPECTED_LIMITATIONS = new Map([
   ["github-actions-billing-lock", {
+    scope: "issue-17-pr-20",
     classification: "external-unavailable",
     claim: "hosted-ci-not-passed",
+    issueNumber: 17,
+    owner: "repository-operator",
+    evidenceUrl: "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543671799",
   }],
   ["pr-20-non-squash-merge", {
+    scope: "issue-17-pr-20",
     classification: "workflow-divergence",
     claim: "squash-route-not-conformant",
+    issueNumber: 17,
+    owner: "repository-operator",
+    evidenceUrl: "https://github.com/vegastack/vegastack-labs/issues/17#issuecomment-5543671799",
+  }],
+  ["pr-21-non-squash-merge", {
+    scope: "issue-18-pr-21",
+    classification: "workflow-divergence",
+    claim: "squash-route-not-conformant",
+    issueNumber: 18,
+    owner: "repository-operator",
+    evidenceUrl: "https://github.com/vegastack/vegastack-labs/issues/18#issuecomment-5566187881",
   }],
 ]);
 
@@ -115,17 +153,19 @@ function assertTimestamp(value, label) {
   }
 }
 
-function assertPublicGitHubUrl(value, label, pathPattern) {
+function assertPublicGitHubUrl(value, label, pathPattern, fragmentPattern = null) {
   assertNonemptyString(value, label);
   let url;
   try {
     url = new URL(value);
   } catch {
-    throw new Error(`${label} must be a public GitHub URL`);
+    throw new Error(`${label} must be a canonical public GitHub URL`);
   }
   if (url.protocol !== "https:" || url.hostname !== "github.com" ||
-      !pathPattern.test(url.pathname)) {
-    throw new Error(`${label} must be a public GitHub URL for the expected repository object`);
+      url.username !== "" || url.password !== "" || url.port !== "" || url.search !== "" ||
+      !pathPattern.test(url.pathname) ||
+      (fragmentPattern === null ? url.hash !== "" : !fragmentPattern.test(url.hash))) {
+    throw new Error(`${label} must be a canonical public GitHub URL for the expected repository object`);
   }
 }
 
@@ -156,7 +196,7 @@ function assertSanitized(value) {
   visit(value);
 }
 
-function validateEvidenceReference(reference, label, expectedKind, issueNumber) {
+function validateEvidenceReference(reference, label, expectedKind, expectedUrl, issueNumber) {
   assertPlainObject(reference, label);
   assertExactKeys(reference, ["kind", "marker", "url"], label);
   if (reference.kind !== expectedKind) throw new Error(`${label}.kind does not match the audited evidence`);
@@ -164,7 +204,9 @@ function validateEvidenceReference(reference, label, expectedKind, issueNumber) 
     reference.url,
     `${label}.url`,
     new RegExp(`^/vegastack/vegastack-labs/issues/${issueNumber}$`),
+    /^#issuecomment-\d+$/,
   );
+  if (reference.url !== expectedUrl) throw new Error(`${label}.url does not match the audited evidence`);
   if (expectedKind === "vsk-evidence") {
     if (reference.marker !== "type=evidence") {
       throw new Error(`#${issueNumber} requires marker-based implementation evidence`);
@@ -174,7 +216,7 @@ function validateEvidenceReference(reference, label, expectedKind, issueNumber) 
   }
 }
 
-function validateReviewReference(review, expectedKind, issueNumber) {
+function validateReviewReference(review, expectedKind, expectedUrl, issueNumber) {
   assertPlainObject(review, `dependency #${issueNumber}.review`);
   assertExactKeys(review, ["kind", "marker", "verdict", "url"], `dependency #${issueNumber}.review`);
   if (review.kind !== expectedKind || review.verdict !== "clean") {
@@ -184,7 +226,9 @@ function validateReviewReference(review, expectedKind, issueNumber) {
     review.url,
     `dependency #${issueNumber}.review.url`,
     new RegExp(`^/vegastack/vegastack-labs/issues/${issueNumber}$`),
+    /^#issuecomment-\d+$/,
   );
+  if (review.url !== expectedUrl) throw new Error(`#${issueNumber} review URL does not match the audited evidence`);
   if (expectedKind === "vsk-review") {
     if (review.marker !== "type=review verdict=clean") {
       throw new Error(`#${issueNumber} requires clean review evidence`);
@@ -243,9 +287,15 @@ function validateDependency(dependency, seen) {
     dependency.evidence,
     `dependency #${dependency.issueNumber}.evidence`,
     expected.evidenceKind,
+    expected.evidenceUrl,
     dependency.issueNumber,
   );
-  validateReviewReference(dependency.review, expected.reviewKind, dependency.issueNumber);
+  validateReviewReference(
+    dependency.review,
+    expected.reviewKind,
+    expected.reviewUrl,
+    dependency.issueNumber,
+  );
 }
 
 function validateModuleParentShape(parent, seen, spines) {
@@ -354,34 +404,122 @@ export function validateModuleOwnership(entries) {
 
 function validateLimitations(limitations) {
   if (!Array.isArray(limitations) || limitations.length !== EXPECTED_LIMITATIONS.size) {
-    throw new Error("Phase 0.5 must record exactly two known limitations");
+    throw new Error("Phase 0.5 must record exactly three known limitations");
   }
   const seen = new Set();
   for (const limitation of limitations) {
     assertPlainObject(limitation, "limitation");
-    assertExactKeys(limitation, ["id", "classification", "owner", "claim", "evidenceUrl"], "limitation");
+    assertExactKeys(
+      limitation,
+      ["id", "scope", "classification", "owner", "claim", "evidenceUrl"],
+      "limitation",
+    );
     const expected = EXPECTED_LIMITATIONS.get(limitation.id);
     if (!expected || seen.has(limitation.id)) {
       throw new Error("Phase 0.5 limitations contain an unknown or duplicate ID");
     }
     seen.add(limitation.id);
-    if (limitation.classification !== expected.classification || limitation.claim !== expected.claim) {
+    if (limitation.scope !== expected.scope ||
+        limitation.classification !== expected.classification ||
+        limitation.claim !== expected.claim) {
       if (limitation.id === "github-actions-billing-lock") {
-        throw new Error("hosted CI must remain unavailable rather than being recorded as passed");
+        throw new Error("Issue #17 hosted CI must remain unavailable rather than being recorded as passed");
       }
-      throw new Error("PR #20 must remain recorded as nonconformant with the squash route");
+      if (limitation.id === "pr-20-non-squash-merge") {
+        throw new Error("PR #20 must remain recorded as nonconformant with the squash route");
+      }
+      throw new Error("PR #21 must remain recorded as nonconformant with the squash route");
     }
-    assertNonemptyString(limitation.owner, `${limitation.id}.owner`);
+    if (limitation.owner !== expected.owner) {
+      throw new Error(`${limitation.id}.owner does not match the audited owner`);
+    }
     assertPublicGitHubUrl(
       limitation.evidenceUrl,
       `${limitation.id}.evidenceUrl`,
-      /^\/vegastack\/vegastack-labs\/issues\/17$/,
+      new RegExp(`^/vegastack/vegastack-labs/issues/${expected.issueNumber}$`),
+      /^#issuecomment-\d+$/,
     );
+    if (limitation.evidenceUrl !== expected.evidenceUrl) {
+      throw new Error(`${limitation.id}.evidenceUrl does not match the audited evidence`);
+    }
+  }
+}
+
+function validatePostMerge(postMerge) {
+  assertPlainObject(postMerge, "postMerge");
+  assertExactKeys(postMerge, ["recordedAt", "issue", "pullRequest", "hostedCheck"], "postMerge");
+  assertTimestamp(postMerge.recordedAt, "postMerge.recordedAt");
+  if (postMerge.recordedAt !== EXPECTED_POST_MERGE.recordedAt) {
+    throw new Error("PR #21 post-merge timestamp does not match the recorded evidence");
+  }
+
+  assertPlainObject(postMerge.issue, "postMerge.issue");
+  assertExactKeys(postMerge.issue, ["number", "state", "url"], "postMerge.issue");
+  if (postMerge.issue.number !== EXPECTED_POST_MERGE.issueNumber ||
+      postMerge.issue.state !== "CLOSED") {
+    throw new Error("Issue #18 must be closed in the post-merge evidence");
+  }
+  assertPublicGitHubUrl(
+    postMerge.issue.url,
+    "postMerge.issue.url",
+    /^\/vegastack\/vegastack-labs\/issues\/18$/,
+  );
+  if (postMerge.issue.url !== EXPECTED_POST_MERGE.issueUrl) {
+    throw new Error("Issue #18 URL does not match the audited post-merge evidence");
+  }
+
+  const pull = postMerge.pullRequest;
+  assertPlainObject(pull, "postMerge.pullRequest");
+  assertExactKeys(
+    pull,
+    ["number", "state", "base", "head", "headCommit", "mergeCommit", "parentCount", "url"],
+    "postMerge.pullRequest",
+  );
+  assertSha(pull.headCommit, "postMerge.pullRequest.headCommit");
+  assertSha(pull.mergeCommit, "postMerge.pullRequest.mergeCommit");
+  if (pull.number !== EXPECTED_POST_MERGE.pullRequestNumber || pull.state !== "MERGED" ||
+      pull.base !== "main" || pull.head !== EXPECTED_POST_MERGE.head ||
+      pull.headCommit !== EXPECTED_POST_MERGE.headCommit ||
+      pull.mergeCommit !== EXPECTED_POST_MERGE.mergeCommit) {
+    throw new Error("PR #21 binding does not match the audited post-merge result");
+  }
+  if (pull.parentCount !== 2) {
+    throw new Error("PR #21 must remain a two-parent merge");
+  }
+  assertPublicGitHubUrl(
+    pull.url,
+    "postMerge.pullRequest.url",
+    /^\/vegastack\/vegastack-labs\/pull\/21$/,
+  );
+  if (pull.url !== EXPECTED_POST_MERGE.pullRequestUrl) {
+    throw new Error("PR #21 URL does not match the audited post-merge evidence");
+  }
+
+  const check = postMerge.hostedCheck;
+  assertPlainObject(check, "postMerge.hostedCheck");
+  assertExactKeys(check, ["name", "conclusion", "runUrl"], "postMerge.hostedCheck");
+  if (check.conclusion !== "SUCCESS") {
+    throw new Error("PR #21 hosted check must be successful");
+  }
+  const expectedCheckPath = new RegExp(
+    `^/vegastack/vegastack-labs/actions/runs/${EXPECTED_POST_MERGE.hostedCheckRun}/job/${EXPECTED_POST_MERGE.hostedCheckJob}$`,
+  );
+  if (check.name !== EXPECTED_POST_MERGE.hostedCheckName) {
+    throw new Error("PR #21 hosted check does not match the audited check name");
+  }
+  assertPublicGitHubUrl(check.runUrl, "PR #21 hosted check runUrl", expectedCheckPath);
+  if (check.runUrl !== EXPECTED_POST_MERGE.hostedCheckUrl) {
+    throw new Error("PR #21 hosted check URL does not match the audited check run");
   }
 }
 
 export async function loadPhaseZeroFiveEvidence(root = ROOT) {
-  return JSON.parse(await readFile(path.join(root, EVIDENCE_PATH), "utf8"));
+  const source = await readFile(path.join(root, EVIDENCE_PATH), "utf8");
+  try {
+    return JSON.parse(source);
+  } catch {
+    throw new Error("Phase 0.5 evidence must be valid JSON");
+  }
 }
 
 export function validatePhaseZeroFiveEvidence(document) {
@@ -391,7 +529,7 @@ export function validatePhaseZeroFiveEvidence(document) {
     document,
     [
       "schema", "schemaVersion", "repository", "reviewedAt", "baselineCommit",
-      "dependencies", "moduleParents", "phaseOneHandoff", "limitations",
+      "dependencies", "moduleParents", "phaseOneHandoff", "postMerge", "limitations",
     ],
     "Phase 0.5 evidence",
   );
@@ -415,6 +553,7 @@ export function validatePhaseZeroFiveEvidence(document) {
 
   const ownership = validateModuleOwnership(document.moduleParents);
   validateHandoffShape(document.phaseOneHandoff);
+  validatePostMerge(document.postMerge);
   validateLimitations(document.limitations);
 
   return {
