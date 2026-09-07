@@ -1,0 +1,3678 @@
+{
+  "schemaVersion": 1,
+  "authority": "manual-review:go-dependency-provenance",
+  "reviewedOn": "08-09-2026",
+  "modules": [
+    {
+      "path": "bitbucket.org/creachadair/shell",
+      "version": "v0.0.8",
+      "checksum": "h1:3yM6JcAfaGWzjzcCamTblzSIWXm/YSs0PFGIzBm2HTo=",
+      "license": "BSD-3-Clause",
+      "source": "https://bitbucket.org/creachadair/shell",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cel.dev/expr",
+      "version": "v0.25.1",
+      "checksum": "h1:1KrZg61W6TWSxuNZ37Xy49ps13NUovb66QLprthtwi4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/cel-spec",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go",
+      "version": "v0.123.0",
+      "checksum": "h1:2NAUJwPR47q+E35uaJeYoNhuNEM9kM8SjgRgdeOJUSE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/auth",
+      "version": "v0.20.0",
+      "checksum": "h1:kXTssoVb4azsVDoUiF8KvxAqrsQcQtB53DcSgta74CA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/auth/oauth2adapt",
+      "version": "v0.2.8",
+      "checksum": "h1:keo8NaayQZ6wimpNSmW5OPc283g65QNIiLpZnkHRbnc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/compute/metadata",
+      "version": "v0.9.0",
+      "checksum": "h1:pDUj4QMoPejqq20dK0Pg2N4yG9zIkYGdBtwLoEkH9Zs=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/iam",
+      "version": "v1.11.0",
+      "checksum": "h1:KieQ9Pb+LLPak1O3Rv3GgCxhnmkYf7Xyh0P5HfF1jFM=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/kms",
+      "version": "v1.31.0",
+      "checksum": "h1:LS8N92OxFDgOLg5NCo3OmbvjtQAIVT5gUHVLKIDHaFE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/longrunning",
+      "version": "v1.0.0",
+      "checksum": "h1:lwzWEYD8+NkYV7dhexOz6kmlvajZA70+bW/xMhRVVdY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/monitoring",
+      "version": "v1.25.0",
+      "checksum": "h1:HnsTIOxTN6BCSkt1P/Im23r1m7MHTTpmSYCzPkW7NK4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/profiler",
+      "version": "v0.6.0",
+      "checksum": "h1:Vwxqgnp8CQwBNcKjO8luwLCh7qblEkcZCtMUvhU9Yik=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/pubsub",
+      "version": "v1.50.2",
+      "checksum": "h1:54Up97HnThdP4H8jjWJSSQ/mnYG2EKon7ZSNETRq0tM=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/pubsub/v2",
+      "version": "v2.6.0",
+      "checksum": "h1:8pjR0id+GTB+krKx5G6AGJoYrHog58w2Q89PCOrfM64=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/security",
+      "version": "v1.25.0",
+      "checksum": "h1:U7Op1u7GSbmqEBtQEqxAKG7jMpMFNJ9mTFf+E0HYTJY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/spanner",
+      "version": "v1.91.0",
+      "checksum": "h1:XwXfcZ0kc1NT9Uu2IsThFiWtYptB+WgLn/KZEZcyzRg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/storage",
+      "version": "v1.62.2",
+      "checksum": "h1:WgR4U9n7bIzXkkVnwPKKE8bkaKUNsHG+0MAAlh9DGU4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "cloud.google.com/go/trace",
+      "version": "v1.11.3",
+      "checksum": "h1:c+I4YFjxRQjvAhRmSsmjpASUKq88chOX854ied0K/pE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/google-cloud-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "contrib.go.opencensus.io/exporter/stackdriver",
+      "version": "v0.13.14",
+      "checksum": "h1:zBakwHardp9Jcb8sQHcHpXy/0+JIb1M8KjigCJzx7+4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/census-ecosystem/opencensus-go-exporter-stackdriver",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "filippo.io/edwards25519",
+      "version": "v1.2.0",
+      "checksum": "h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/FiloSottile/edwards25519",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "filippo.io/mldsa",
+      "version": "v0.0.0-20260215214346-43d0283efc3e",
+      "checksum": "h1:VsUbObBMxXlc23Eb9VeeJYE4jvTs87qa5RqSN2U5FJU=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/FiloSottile/mldsa",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/AdamKorcz/go-fuzz-headers-1",
+      "version": "v0.0.0-20230919221257-8b5d3ce2d11d",
+      "checksum": "h1:zjqpY4C7H15HjRPEenkS4SAn3Jy2eRRjkjZbGR30TOg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/AdamKorcz/go-fuzz-headers-1",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/alessio/shellescape",
+      "version": "v1.4.1",
+      "checksum": "h1:V7yhSDDn8LP4lc4jS8pFkt0zCnzVJlG5JXy9BVKJUX0=",
+      "license": "MIT",
+      "source": "https://github.com/alessio/shellescape",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/antihax/optional",
+      "version": "v1.0.0",
+      "checksum": "h1:xK2lYat7ZLaVVcIuj82J8kIro4V6kDe0AUDFboUCwcg=",
+      "license": "MIT",
+      "source": "https://github.com/antihax/optional",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/asaskevich/govalidator",
+      "version": "v0.0.0-20230301143203-a9d515a09cc2",
+      "checksum": "h1:DklsrG3dyBCFEj5IhUbnKptjxatkF07cF2ak3yi77so=",
+      "license": "MIT",
+      "source": "https://github.com/asaskevich/govalidator",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go",
+      "version": "v1.55.5",
+      "checksum": "h1:KKUZBfBoyqy5d3swXyiC7Q76ic40rYcbqH7qjh59kzU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2",
+      "version": "v1.41.9",
+      "checksum": "h1:/rYeyO2+HrMztAmxAq9++XJtFMqSIpSsNA0yDGALYq4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream",
+      "version": "v1.7.11",
+      "checksum": "h1:h5+3VT69KUBK24grGuuA5saDJTj2IIjLb9au668Fo5I=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/config",
+      "version": "v1.32.20",
+      "checksum": "h1:8VMDnWc/kEzxsI/1ngGM9mG81a8IGmIHD8KLcYGwagc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/credentials",
+      "version": "v1.19.19",
+      "checksum": "h1:yuFzSV1U0aRNYCQGVaTY2zW2M/L93pYHnXnrJUphYhU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/feature/ec2/imds",
+      "version": "v1.18.25",
+      "checksum": "h1:0w6dCiO8iez+YKwRhRBlL1CH/E3GTfdkuzrwj1by8vo=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/feature/s3/manager",
+      "version": "v1.20.12",
+      "checksum": "h1:Zy6Tme1AA13kX8x3CnkHx5cqdGWGaj/anwOiWGnA0Xo=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/internal/configsources",
+      "version": "v1.4.25",
+      "checksum": "h1:Uii3frf9ztec/ABM2/FSH9/z7PLzxfpG8h4RpkUFflQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/internal/endpoints/v2",
+      "version": "v2.7.25",
+      "checksum": "h1:r1+/l6m+WaUJF9HISEsNOLHSNj5EXYQxK8VX6Cz9NlA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/internal/v4a",
+      "version": "v1.4.26",
+      "checksum": "h1:A1PmWU2zfkIm9EyFlJncFXL4W4phML+h8KjltUsCvNQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding",
+      "version": "v1.13.10",
+      "checksum": "h1:d5/908OJ4bXg8lyjeMPvXetEKqoDoLi5Owy1zNue3yg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/internal/checksum",
+      "version": "v1.9.18",
+      "checksum": "h1:W/EyPFl9A5rXrtoilfwHYEvzHER+K4SpBPtMXi24Mos=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/internal/presigned-url",
+      "version": "v1.13.25",
+      "checksum": "h1:dD3dhHNglpd98gs72my22Ndqi1hqQGllFFg1F+twfxg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/internal/s3shared",
+      "version": "v1.19.25",
+      "checksum": "h1:2pQEbwf+/6EDbiit/GcBE2K4IUpMZymaA0kOz3xK978=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/kms",
+      "version": "v1.52.0",
+      "checksum": "h1:QNtg+Mtj1zmepk568+UKBD5DFfqh+ESTUUqQT27JkQc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/s3",
+      "version": "v1.102.2",
+      "checksum": "h1:ie4ElCmUKS26pzrZcIk/lmt4yWjAqLLcawstyQCh298=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/signin",
+      "version": "v1.1.1",
+      "checksum": "h1:1VwbP3qMNfxUDEXWki4rCE5iA+44VA1lokTz9HasGzw=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/sso",
+      "version": "v1.30.19",
+      "checksum": "h1:N6pIsdFOW1Kd9S4KyFKXdGRBojPPxkP32+uHFWLv4Hc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/ssooidc",
+      "version": "v1.36.2",
+      "checksum": "h1:hc+lBYiiTr8Zk4MTzIsQ92MeDWCIDvWGmzKUWOaBcOg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/aws-sdk-go-v2/service/sts",
+      "version": "v1.42.3",
+      "checksum": "h1:ErklX/7uhSbkAAeyQD/Y1OoQ9hO3SJXQNEgksORW3Js=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/aws-sdk-go-v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/aws/smithy-go",
+      "version": "v1.26.0",
+      "checksum": "h1:9ouqbi+NyKP7fV3Te7UElCwdAb6Y8uk7LGwPE5tVe/s=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/aws/smithy-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Azure/azure-sdk-for-go/sdk/azcore",
+      "version": "v1.21.1",
+      "checksum": "h1:jHb/wfvRikGdxMXYV3QG/SzUOPYN9KEUUuC0Yd0/vC0=",
+      "license": "MIT",
+      "source": "https://github.com/Azure/azure-sdk-for-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Azure/azure-sdk-for-go/sdk/azidentity",
+      "version": "v1.13.1",
+      "checksum": "h1:Hk5QBxZQC1jb2Fwj6mpzme37xbCDdNTxU7O9eb5+LB4=",
+      "license": "MIT",
+      "source": "https://github.com/Azure/azure-sdk-for-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Azure/azure-sdk-for-go/sdk/internal",
+      "version": "v1.12.0",
+      "checksum": "h1:fhqpLE3UEXi9lPaBRpQ6XuRW0nU7hgg4zlmZZa+a9q4=",
+      "license": "MIT",
+      "source": "https://github.com/Azure/azure-sdk-for-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/azkeys",
+      "version": "v1.5.0",
+      "checksum": "h1:MaKvxE6D0KkjOg6Wd9M00iqP5PR0kUxCfiezes4JweM=",
+      "license": "MIT",
+      "source": "https://github.com/Azure/azure-sdk-for-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Azure/azure-sdk-for-go/sdk/security/keyvault/internal",
+      "version": "v1.2.0",
+      "checksum": "h1:nCYfgcSyHZXJI8J0IWE5MsCGlb2xp9fJiXyxWgmOFg4=",
+      "license": "MIT",
+      "source": "https://github.com/Azure/azure-sdk-for-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/AzureAD/microsoft-authentication-library-for-go",
+      "version": "v1.7.0",
+      "checksum": "h1:4iB+IesclUXdP0ICgAabvq2FYLXrJWKx1fJQ+GxSo3Y=",
+      "license": "MIT",
+      "source": "https://github.com/AzureAD/microsoft-authentication-library-for-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/beevik/ntp",
+      "version": "v1.5.0",
+      "checksum": "h1:y+uj/JjNwlY2JahivxYvtmv4ehfi3h74fAuABB9ZSM4=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/beevik/ntp",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/beorn7/perks",
+      "version": "v1.0.1",
+      "checksum": "h1:VlbKKnNfV8bJzeqoa4cOKqO6bYr3WgKZxO8Z16+hsOM=",
+      "license": "MIT",
+      "source": "https://github.com/beorn7/perks",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/bgentry/speakeasy",
+      "version": "v0.2.0",
+      "checksum": "h1:tgObeVOf8WAvtuAX6DhJ4xks4CFNwPDZiqzGqIHE51E=",
+      "license": "MIT",
+      "source": "https://github.com/bgentry/speakeasy",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/blang/semver",
+      "version": "v3.5.1+incompatible",
+      "checksum": "h1:cQNTCjp13qL8KC3Nbxr/y2Bqb63oX6wdnnjpJbkM4JQ=",
+      "license": "MIT",
+      "source": "https://github.com/blang/semver",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/bmatcuk/doublestar/v4",
+      "version": "v4.0.2",
+      "checksum": "h1:X0krlUVAVmtr2cRoTqR8aDMrDqnB36ht8wpWTiQ3jsA=",
+      "license": "MIT",
+      "source": "https://github.com/bmatcuk/doublestar",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/bufbuild/protocompile",
+      "version": "v0.14.1",
+      "checksum": "h1:iA73zAf/fyljNjQKwYzUHD6AD4R8KMasmwa/FBatYVw=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/bufbuild/protocompile",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cavaliercoder/badio",
+      "version": "v0.0.0-20160213150051-ce5280129e9e",
+      "checksum": "h1:YYUjy5BRwO5zPtfk+aa2gw255FIIoi93zMmuy19o0bc=",
+      "license": "MIT",
+      "source": "https://github.com/cavaliercoder/badio",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cavaliercoder/go-rpm",
+      "version": "v0.0.0-20200122174316-8cb9fd9c31a8",
+      "checksum": "h1:jP7ki8Tzx9ThnFPLDhBYAhEpI2+jOURnHQNURgsMvnY=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/cavaliercoder/go-rpm",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cavaliergopher/cpio",
+      "version": "v1.0.1",
+      "checksum": "h1:KQFSeKmZhv0cr+kawA3a0xTQCU4QxXF1vhU7P7av2KM=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/cavaliergopher/cpio",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cenkalti/backoff/v4",
+      "version": "v4.3.0",
+      "checksum": "h1:MyRJ/UdXutAwSAT+s3wNd7MfTIcy71VQueUuFK343L8=",
+      "license": "MIT",
+      "source": "https://github.com/cenkalti/backoff",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cenkalti/backoff/v5",
+      "version": "v5.0.3",
+      "checksum": "h1:ZN+IMa753KfX5hd8vVaMixjnqRZ3y8CuJKRKj1xcsSM=",
+      "license": "MIT",
+      "source": "https://github.com/cenkalti/backoff",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/census-instrumentation/opencensus-proto",
+      "version": "v0.4.1",
+      "checksum": "h1:iKLQ0xPNFxR/2hzXZMrBo8f1j86j5WHzznCCQxV/b8g=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/census-instrumentation/opencensus-proto",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cespare/xxhash/v2",
+      "version": "v2.3.0",
+      "checksum": "h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UFvs=",
+      "license": "MIT",
+      "source": "https://github.com/cespare/xxhash",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/chainguard-dev/clog",
+      "version": "v1.8.0",
+      "checksum": "h1:frlTMEdg3XQR+ioQ6O9i92uigY8GTUcWKpuCFkhcCHA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/chainguard-dev/clog",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cheggaaa/pb/v3",
+      "version": "v3.1.6",
+      "checksum": "h1:h0x+vd7EiUohAJ29DJtJy+SNAc55t/elW3jCD086EXk=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/cheggaaa/pb",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cncf/xds/go",
+      "version": "v0.0.0-20260202195803-dba9d589def2",
+      "checksum": "h1:aBangftG7EVZoUb69Os8IaYg++6uMOdKK83QtkkvJik=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/cncf/xds",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/codahale/rfc6979",
+      "version": "v0.0.0-20141003034818-6a90f24967eb",
+      "checksum": "h1:EDmT6Q9Zs+SbUoc7Ik9EfrFqcylYqgPZ9ANSbTAntnE=",
+      "license": "MIT",
+      "source": "https://github.com/codahale/rfc6979",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/common-nighthawk/go-figure",
+      "version": "v0.0.0-20210622060536-734e95fb86be",
+      "checksum": "h1:J5BL2kskAlV9ckgEsNQXscjIaLiOYiZ75d4e94E6dcQ=",
+      "license": "MIT",
+      "source": "https://github.com/common-nighthawk/go-figure",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/containerd/errdefs",
+      "version": "v1.0.0",
+      "checksum": "h1:tg5yIfIlQIrxYtu9ajqY42W3lpS19XqdxRQeEwYG8PI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/containerd/errdefs",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/containerd/errdefs/pkg",
+      "version": "v0.3.0",
+      "checksum": "h1:9IKJ06FvyNlexW690DXuQNx2KA2cUJXx151Xdx3ZPPE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/containerd/errdefs",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/coreos/go-oidc/v3",
+      "version": "v3.17.0",
+      "checksum": "h1:hWBGaQfbi0iVviX4ibC7bk8OKT5qNr4klBaCHVNvehc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/coreos/go-oidc",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/coreos/go-semver",
+      "version": "v0.3.1",
+      "checksum": "h1:yi21YpKnrx1gt5R+la8n5WgS0kCrsPp33dmEyHReZr4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/coreos/go-semver",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/coreos/go-systemd/v22",
+      "version": "v22.5.0",
+      "checksum": "h1:RrqgGjYQKalulkV8NGVIfkXQf6YYmOyiJKk8iXXhfZs=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/coreos/go-systemd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cpuguy83/go-md2man/v2",
+      "version": "v2.0.7",
+      "checksum": "h1:zbFlGlXEAKlwXpmvle3d8Oe3YnkKIK4xSRTd3sHPnBo=",
+      "license": "MIT",
+      "source": "https://github.com/cpuguy83/go-md2man",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/cyberphone/json-canonicalization",
+      "version": "v0.0.0-20241213102144-19d51d7fe467",
+      "checksum": "h1:uX1JmpONuD549D73r6cgnxyUu18Zb7yHAy5AYU0Pm4Q=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/cyberphone/json-canonicalization",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/danieljoos/wincred",
+      "version": "v1.2.0",
+      "checksum": "h1:ozqKHaLK0W/ii4KVbbvluM91W2H3Sh0BncbUNPS7jLE=",
+      "license": "MIT",
+      "source": "https://github.com/danieljoos/wincred",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/DATA-DOG/go-sqlmock",
+      "version": "v1.5.2",
+      "checksum": "h1:OcvFkGmslmlZibjAjaHm3L//6LiuBgolP7OputlJIzU=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/DATA-DOG/go-sqlmock",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/davecgh/go-spew",
+      "version": "v1.1.2-0.20180830191138-d8f796af33cc",
+      "checksum": "h1:U9qPSI2PIWSS1VwoXQT9A3Wy9MM3WgvqSxFWenqJduM=",
+      "license": "ISC",
+      "source": "https://github.com/davecgh/go-spew",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/dgraph-io/badger/v4",
+      "version": "v4.9.1",
+      "checksum": "h1:DocZXZkg5JJHJPtUErA0ibyHxOVUDVoXLSCV6t8NC8w=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/dgraph-io/badger",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/dgraph-io/ristretto/v2",
+      "version": "v2.2.0",
+      "checksum": "h1:bkY3XzJcXoMuELV8F+vS8kzNgicwQFAaGINAEJdWGOM=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/dgraph-io/ristretto",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/digitorus/pkcs7",
+      "version": "v0.0.0-20230818184609-3a137a874352",
+      "checksum": "h1:ge14PCmCvPjpMQMIAH7uKg0lrtNSOdpYsRXlwk3QbaE=",
+      "license": "MIT",
+      "source": "https://github.com/digitorus/pkcs7",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/digitorus/timestamp",
+      "version": "v0.0.0-20231217203849-220c5c2851b7",
+      "checksum": "h1:lxmTCgmHE1GUYL7P0MlNa00M67axePTq+9nBSGddR8I=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/digitorus/timestamp",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/distribution/reference",
+      "version": "v0.6.0",
+      "checksum": "h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/distribution/reference",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/docker/cli",
+      "version": "v29.5.3+incompatible",
+      "checksum": "h1:nbEFfz774vBwQ5KRYv7c/AghjReqnGISvrRhzjV0evs=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/docker/cli",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/docker/docker-credential-helpers",
+      "version": "v0.9.3",
+      "checksum": "h1:gAm/VtF9wgqJMoxzT3Gj5p4AqIjCBS4wrsOh9yRqcz8=",
+      "license": "MIT",
+      "source": "https://github.com/docker/docker-credential-helpers",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/docker/go-connections",
+      "version": "v0.7.0",
+      "checksum": "h1:6SsRfJddP22WMrCkj19x9WKjEDTB+ahsdiGYf0mN39c=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/docker/go-connections",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/docker/go-units",
+      "version": "v0.5.0",
+      "checksum": "h1:69rxXcBk27SvSaaxTtLh/8llcHD8vYHT7WSdRZ/jvr4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/docker/go-units",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/dustin/go-humanize",
+      "version": "v1.0.1",
+      "checksum": "h1:GzkhY7T5VNhEkwH0PVJgjz+fX1rhBrR7pRT3mDkpeCY=",
+      "license": "MIT",
+      "source": "https://github.com/dustin/go-humanize",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/envoyproxy/go-control-plane",
+      "version": "v0.14.0",
+      "checksum": "h1:hbG2kr4RuFj222B6+7T83thSPqLjwBIfQawTkC++2HA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/envoyproxy/go-control-plane",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/envoyproxy/go-control-plane/envoy",
+      "version": "v1.37.0",
+      "checksum": "h1:u3riX6BoYRfF4Dr7dwSOroNfdSbEPe9Yyl09/B6wBrQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/envoyproxy/go-control-plane",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/envoyproxy/go-control-plane/ratelimit",
+      "version": "v0.1.0",
+      "checksum": "h1:/G9QYbddjL25KvtKTv3an9lx6VBE2cnb8wp1vEGNYGI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/envoyproxy/go-control-plane",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/envoyproxy/protoc-gen-validate",
+      "version": "v1.3.3",
+      "checksum": "h1:MVQghNeW+LZcmXe7SY1V36Z+WFMDjpqGAGacLe2T0ds=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/envoyproxy/protoc-gen-validate",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/fatih/color",
+      "version": "v1.18.0",
+      "checksum": "h1:S8gINlzdQ840/4pfAwic/ZE0djQEH3wM94VfqLTZcOM=",
+      "license": "MIT",
+      "source": "https://github.com/fatih/color",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/felixge/httpsnoop",
+      "version": "v1.0.4",
+      "checksum": "h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2Wg=",
+      "license": "MIT",
+      "source": "https://github.com/felixge/httpsnoop",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/fsnotify/fsnotify",
+      "version": "v1.9.0",
+      "checksum": "h1:2Ml+OJNzbYCTzsxtv8vKSFD9PbJjmhYF14k/jKC7S9k=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/fsnotify/fsnotify",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/fullstorydev/grpcurl",
+      "version": "v1.9.3",
+      "checksum": "h1:PC1Xi3w+JAvEE2Tg2Gf2RfVgPbf9+tbuQr1ZkyVU3jk=",
+      "license": "MIT",
+      "source": "https://github.com/fullstorydev/grpcurl",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/fxamacker/cbor/v2",
+      "version": "v2.9.0",
+      "checksum": "h1:NpKPmjDBgUfBms6tr6JZkTHtfFGcMKsw3eGcmD/sapM=",
+      "license": "MIT",
+      "source": "https://github.com/fxamacker/cbor",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/gabriel-vasile/mimetype",
+      "version": "v1.4.13",
+      "checksum": "h1:46nXokslUBsAJE/wMsp5gtO500a4F3Nkz9Ufpk2AcUM=",
+      "license": "MIT",
+      "source": "https://github.com/gabriel-vasile/mimetype",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-chi/chi/v5",
+      "version": "v5.3.0",
+      "checksum": "h1:halUjDxhshgXHMrao5bB8eNBXo/rnzwr8m5m36glehM=",
+      "license": "MIT",
+      "source": "https://github.com/go-chi/chi",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-jose/go-jose/v4",
+      "version": "v4.1.4",
+      "checksum": "h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-jose/go-jose",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-logr/logr",
+      "version": "v1.4.4",
+      "checksum": "h1:tG4xh9yMsRCAiodLVTxyrkzSZ9+o0L1Kg/+cPVcbP/8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-logr/logr",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-logr/stdr",
+      "version": "v1.2.2",
+      "checksum": "h1:hSWxHoqTgW2S2qGc0LTAI563KZ5YKYRhT3MFKZMbjag=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-logr/stdr",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/analysis",
+      "version": "v0.25.5",
+      "checksum": "h1:xPYEvTb90o1y0epuiOPAoG4QqahjP3cdp5xNlHeKJRI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/analysis",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/errors",
+      "version": "v0.22.8",
+      "checksum": "h1:oP7sW7TWc3wFFjrzzj0nI83H2qMBkNjNfSd+XRejk/I=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/errors",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/jsonpointer",
+      "version": "v1.0.0",
+      "checksum": "h1:kR9tHqY0CtZaOPVFm622dPVNhrvYpwr4uCxgL3h1H8s=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/jsonpointer",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/jsonreference",
+      "version": "v1.0.0",
+      "checksum": "h1:jlmTr6torcd1YgDQvSfNmRtKzYDO4FGBkrAdlAVWnpY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/jsonreference",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/loads",
+      "version": "v0.25.0",
+      "checksum": "h1:74Bc2snfaVlsHzwdQj/3gsA9XJz3daXTJVs+4ZaK7jI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/loads",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/runtime",
+      "version": "v0.33.0",
+      "checksum": "h1:Dd3Oj2ig+WH8ckK95l0Wn2V8a4bH/UqWPRZVT0vc8yU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/runtime",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/runtime/server-middleware",
+      "version": "v0.30.0",
+      "checksum": "h1:8rPoJ/xv7JL8BsovaqboKETlpWBArVh8n+0L/GyePog=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/runtime",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/spec",
+      "version": "v0.22.9",
+      "checksum": "h1:/vKIFDcGKp0ktZWGbym/tJEWbk6/XOEmAVU0kqKMH+w=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/spec",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/strfmt",
+      "version": "v0.27.0",
+      "checksum": "h1:kbcTeaD9TXuXD0hhMXzuYa1sdTo6+dWGvwjW93E80IM=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/strfmt",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag",
+      "version": "v0.26.1",
+      "checksum": "h1:l5sVEyVpwj+DDYeZyo7wQI/Ebn/mKYIyGB/pFwAfGoQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/cmdutils",
+      "version": "v0.27.0",
+      "checksum": "h1:aIKiqhB29AaP+7xm8/CPg3uOpeHx2SUp6TvMpu/a31Y=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/conv",
+      "version": "v0.27.3",
+      "checksum": "h1:iqJFmGEjmX3AY0lSszABFqRVqOSt99XS0LzNIMJYuhU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/fileutils",
+      "version": "v0.27.3",
+      "checksum": "h1:3UVoZ2RLaIs1lt+2jcKzL8RM3Yk0rmsDE9FLA/HGxFE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/jsonname",
+      "version": "v0.26.1",
+      "checksum": "h1:VReupaV6WxlAsCn0e4DUfgV6bPmINnPpyJDLqSfNPcE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/jsonutils",
+      "version": "v0.27.3",
+      "checksum": "h1:1DEz+O82frtSMBcos/7XIn1GnpNTbsD4Bru4Dc/uhRc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/jsonutils/fixtures_test",
+      "version": "v0.27.3",
+      "checksum": "h1:h/eT9kmGCDdFLJF29lOhzLtF0FmP1AX2MhLJWVebsb8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-openapi/swag/loading",
+      "version": "v0.27.3",
+      "checksum": "h1:L9nQkEgzU7QgFQL+pLEMfGUKxeM4pWwGwbET9Z3weW0=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/mangling",
+      "version": "v0.27.3",
+      "checksum": "h1:gRzzD1PAUoLTtGMgI3KpBmCSOlTuLTFWnviLxLcTnyg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/netutils",
+      "version": "v0.27.0",
+      "checksum": "h1:lEUG+hHvPvLggB3A8snFk0IRKNf9uC0YKc+7WYqvAF8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/pools",
+      "version": "v0.27.3",
+      "checksum": "h1:gXjImP3F6/56wRRcFgEPld084Y6u2gs21ikPBt8NKBk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/stringutils",
+      "version": "v0.27.3",
+      "checksum": "h1:Ru28hnbAvN5wycALQYy8IobHvASq+FUFMlp1QzLM0JI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/typeutils",
+      "version": "v0.27.3",
+      "checksum": "h1:l6SSrx5eR5/WVwrGNzN6bQ9WqL04mrxNBl9YgQ3rcJ4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/swag/yamlutils",
+      "version": "v0.27.3",
+      "checksum": "h1:cRFCAoYtslYn9L9T0xWryHy1t7c1MACC+DMj3CLvwvs=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/swag",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-openapi/testify/enable/yaml/v2",
+      "version": "v2.6.0",
+      "checksum": "h1:gGHwAJ0R/5jU8BEGDbfRNR3hL68dAVi84WuOApp29B0=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/testify",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-openapi/testify/v2",
+      "version": "v2.6.0",
+      "checksum": "h1:5PKH2HE7YJ/LuRPQGvSxBRlFXNQhSetBLlGAgUEu3ug=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/testify",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-openapi/validate",
+      "version": "v0.26.1",
+      "checksum": "h1:pZSbvtRO8G2R2FpWTYRn3w8LrsNwbtaVhP2dWiBa0Us=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-openapi/validate",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/go-playground/locales",
+      "version": "v0.14.1",
+      "checksum": "h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=",
+      "license": "MIT",
+      "source": "https://github.com/go-playground/locales",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-playground/universal-translator",
+      "version": "v0.18.1",
+      "checksum": "h1:Bcnm0ZwsGyWbCzImXv+pAJnYK9S473LQFuzCbDbfSFY=",
+      "license": "MIT",
+      "source": "https://github.com/go-playground/universal-translator",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-playground/validator/v10",
+      "version": "v10.30.3",
+      "checksum": "h1:4MU6YkEwx7GbcPJOZxrtbu+QfF3pJLJuaYTeAH0DYy8=",
+      "license": "MIT",
+      "source": "https://github.com/go-playground/validator",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-redis/redismock/v9",
+      "version": "v9.2.0",
+      "checksum": "h1:ZrMYQeKPECZPjOj5u9eyOjg8Nnb0BS9lkVIZ6IpsKLw=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/go-redis/redismock",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-rod/rod",
+      "version": "v0.116.2",
+      "checksum": "h1:A5t2Ky2A+5eD/ZJQr1EfsQSe5rms5Xof/qj296e+ZqA=",
+      "license": "MIT",
+      "source": "https://github.com/go-rod/rod",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-sql-driver/mysql",
+      "version": "v1.9.3",
+      "checksum": "h1:U/N249h2WzJ3Ukj8SowVFjdtZKfu9vlLZxjPXV1aweo=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/go-sql-driver/mysql",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-test/deep",
+      "version": "v1.1.1",
+      "checksum": "h1:0r/53hagsehfO4bzD2Pgr/+RgHqhmf+k1Bpse2cTu1U=",
+      "license": "MIT",
+      "source": "https://github.com/go-test/deep",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/go-viper/mapstructure/v2",
+      "version": "v2.5.0",
+      "checksum": "h1:vM5IJoUAy3d7zRSVtIwQgBj7BiWtMPfmPEgAXnvj1Ro=",
+      "license": "MIT",
+      "source": "https://github.com/go-viper/mapstructure",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/godbus/dbus/v5",
+      "version": "v5.1.0",
+      "checksum": "h1:4KLkAxT3aOY8Li4FRJe/KvhoNFFxo0m6fNuFUO8QJUk=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/godbus/dbus",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/gogo/protobuf",
+      "version": "v1.3.2",
+      "checksum": "h1:Ov1cvc58UF3b5XjBnZv7+opcTcQFZebYjWzi34vdm4Q=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/gogo/protobuf",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/golang-jwt/jwt/v5",
+      "version": "v5.3.1",
+      "checksum": "h1:kYf81DTWFe7t+1VvL7eS+jKFVWaUnK9cB1qbwn63YCY=",
+      "license": "MIT",
+      "source": "https://github.com/golang-jwt/jwt",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/golang/glog",
+      "version": "v1.2.5",
+      "checksum": "h1:DrW6hGnjIhtvhOIiAKT6Psh/Kd/ldepEa81DKeiRJ5I=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/golang/glog",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/golang/groupcache",
+      "version": "v0.0.0-20241129210726-2c02b8208cf8",
+      "checksum": "h1:f+oWsMOmNPc8JmEHVZIycC7hBoQxHH9pNKQORJNozsQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/golang/groupcache",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/golang/mock",
+      "version": "v1.7.0-rc.1",
+      "checksum": "h1:YojYx61/OLFsiv6Rw1Z96LpldJIy31o+UHmwAUMJ6/U=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/golang/mock",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/golang/protobuf",
+      "version": "v1.5.4",
+      "checksum": "h1:i7eJL8qZTpSEXOPTxNKhASYpMn+8e5Q6AdndVa1dWek=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/golang/protobuf",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/golang/snappy",
+      "version": "v0.0.4",
+      "checksum": "h1:yAGX7huGHXlcLOEtBnF4w7FQwA26wojNCwOYAEhLjQM=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/golang/snappy",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/addlicense",
+      "version": "v1.1.1",
+      "checksum": "h1:jpVf9qPbU8rz5MxKo7d+RMcNHkqxi4YJi/laauX4aAE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/addlicense",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/btree",
+      "version": "v1.1.3",
+      "checksum": "h1:CVpQJjYgC4VbzxeGVHfvZrv1ctoYCAI8vbl07Fcxlyg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/btree",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/certificate-transparency-go",
+      "version": "v1.3.3",
+      "checksum": "h1:hq/rSxztSkXN2tx/3jQqF6Xc0O565UQPdHrOWvZwybo=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/certificate-transparency-go",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/google/flatbuffers",
+      "version": "v25.2.10+incompatible",
+      "checksum": "h1:F3vclr7C3HpB1k9mxCGRMXq6FdUalZ6H/pNX4FP1v0Q=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/flatbuffers",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/go-cmp",
+      "version": "v0.7.0",
+      "checksum": "h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/google/go-cmp",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/go-containerregistry",
+      "version": "v0.21.7",
+      "checksum": "h1:/vPFuVXDjtFREsVArW+0h1CIl5urnOhzei4X2DMW9IU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/go-containerregistry",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/google/pprof",
+      "version": "v0.0.0-20260402051712-545e8a4df936",
+      "checksum": "h1:EwtI+Al+DeppwYX2oXJCETMO23COyaKGP6fHVpkpWpg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/pprof",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/rpmpack",
+      "version": "v0.7.1",
+      "checksum": "h1:YdWh1IpzOjBz60Wvdw0TU0A5NWP+JTVHA5poDqwMO2o=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/rpmpack",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/s2a-go",
+      "version": "v0.1.9",
+      "checksum": "h1:LGD7gtMgezd8a/Xak7mEWL0PjoTQFvpRudN895yqKW0=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/s2a-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/trillian",
+      "version": "v1.7.3",
+      "checksum": "h1:hziW+vo4czis48tzx2GK5xRBl/ZxBA9B0/UR5avXOro=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/trillian",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/google/uuid",
+      "version": "v1.6.0",
+      "checksum": "h1:NIvaJDMOsjHA8n1jAhLSgzrAzy1Hgr+hNrb57e+94F0=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/google/uuid",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/google/wire",
+      "version": "v0.7.0",
+      "checksum": "h1:JxUKI6+CVBgCO2WToKy/nQk0sS+amI9z9EjVmdaocj4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/wire",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/googleapis/enterprise-certificate-proxy",
+      "version": "v0.3.16",
+      "checksum": "h1:F/VPrx0YPBdksZJQdCAp0WUsqnNmZpUZszzfYt0M5Dw=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/enterprise-certificate-proxy",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/googleapis/gax-go/v2",
+      "version": "v2.22.0",
+      "checksum": "h1:PjIWBpgGIVKGoCXuiCoP64altEJCj3/Ei+kSU5vlZD4=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/googleapis/gax-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/GoogleCloudPlatform/grpc-gcp-go/grpcgcp",
+      "version": "v1.6.0",
+      "checksum": "h1:BzsL0qE7LvtTEtXG7Dt5NS1EP0CQwI21HZfj9aGghhw=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/GoogleCloudPlatform/grpc-gcp-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/GoogleCloudPlatform/opentelemetry-operations-go/detectors/gcp",
+      "version": "v1.32.0",
+      "checksum": "h1:rIkQfkCOVKc1OiRCNcSDD8ml5RJlZbH/Xsq7lbpynwc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/GoogleCloudPlatform/opentelemetry-operations-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric",
+      "version": "v0.55.0",
+      "checksum": "h1:UnDZ/zFfG1JhH/DqxIZYU/1CUAlTUScoXD/LcM2Ykk8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/GoogleCloudPlatform/opentelemetry-operations-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping",
+      "version": "v0.55.0",
+      "checksum": "h1:0s6TxfCu2KHkkZPnBfsQ2y5qia0jl3MMrmBhu3nCOYk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/GoogleCloudPlatform/opentelemetry-operations-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/gorilla/websocket",
+      "version": "v1.5.1",
+      "checksum": "h1:gmztn0JnHVt9JZquRuzLw3g4wouNVzKL15iLr/zn/QY=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/gorilla/websocket",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/grpc-ecosystem/go-grpc-middleware",
+      "version": "v1.4.0",
+      "checksum": "h1:UH//fgunKIs4JdUbpDl1VZCDaL56wXCB/5+wF6uHfaI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grpc-ecosystem/go-grpc-middleware",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus",
+      "version": "v1.1.0",
+      "checksum": "h1:QGLs/O40yoNK9vmy4rhUGBVyMf1lISBGtXRpsu/Qu/o=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grpc-ecosystem/go-grpc-middleware",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/grpc-ecosystem/go-grpc-middleware/v2",
+      "version": "v2.3.3",
+      "checksum": "h1:B+8ClL/kCQkRiU82d9xajRPKYMrB7E0MbtzWVi1K4ns=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grpc-ecosystem/go-grpc-middleware",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/grpc-ecosystem/grpc-gateway/v2",
+      "version": "v2.29.0",
+      "checksum": "h1:5VipnvEpbqr2gA2VbM+nYVbkIF28c5ZQfqCBQ5g2xfk=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/grpc-ecosystem/grpc-gateway",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/hashicorp/errwrap",
+      "version": "v1.1.0",
+      "checksum": "h1:OxrOeh75EUXMY8TBjag2fzXGZ40LB6IKw45YeGUDY2I=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/errwrap",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/go-cleanhttp",
+      "version": "v0.5.2",
+      "checksum": "h1:035FKYIWjmULyFRBKPs8TBQoi0x6d9G4xc9neXJWAZQ=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/go-cleanhttp",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/go-multierror",
+      "version": "v1.1.1",
+      "checksum": "h1:H5DkEtf6CXdFp0N0Em5UCwQpXMWke8IA0+lD48awMYo=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/go-multierror",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/go-retryablehttp",
+      "version": "v0.7.8",
+      "checksum": "h1:ylXZWnqa7Lhqpk0L1P1LzDtGcCR0rPVUrx/c8Unxc48=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/go-retryablehttp",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/go-rootcerts",
+      "version": "v1.0.2",
+      "checksum": "h1:jzhAVGtqPKbwpyCPELlgNWhE1znq+qwJtW5Oi2viEzc=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/go-rootcerts",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/go-secure-stdlib/parseutil",
+      "version": "v0.2.0",
+      "checksum": "h1:U+kC2dOhMFQctRfhK0gRctKAPTloZdMU5ZJxaesJ/VM=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/go-secure-stdlib",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/go-secure-stdlib/strutil",
+      "version": "v0.1.2",
+      "checksum": "h1:kes8mmyCpxJsI7FTwtzRqEy9CdjCtrXrXGuOpxEA7Ts=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/go-secure-stdlib",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/go-sockaddr",
+      "version": "v1.0.7",
+      "checksum": "h1:G+pTkSO01HpR5qCxg7lxfsFEZaG+C0VssTy/9dbT+Fw=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/go-sockaddr",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/golang-lru/v2",
+      "version": "v2.0.7",
+      "checksum": "h1:a+bsQ5rvGLjzHuww6tVxozPZFVghXaHOwFs4luLUK2k=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/golang-lru",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/hcl",
+      "version": "v1.0.1-vault-7",
+      "checksum": "h1:ag5OxFVy3QYTFTJODRzTKVZ6xvdfLLCA1cy/Y6xGI0I=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/hcl",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/hashicorp/vault/api",
+      "version": "v1.22.0",
+      "checksum": "h1:+HYFquE35/B74fHoIeXlZIP2YADVboaPjaSicHEZiH0=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/hashicorp/vault",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/howeyc/gopass",
+      "version": "v0.0.0-20210920133722-c8aef6fb66ef",
+      "checksum": "h1:A9HsByNhogrvm9cWb28sjiS3i7tcKCkflWFEkHfuAgM=",
+      "license": "ISC",
+      "source": "https://github.com/howeyc/gopass",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/huandu/xstrings",
+      "version": "v1.2.0",
+      "checksum": "h1:yPeWdRnmynF7p+lLYz0H2tthW9lqhMJrQV/U7yy4wX0=",
+      "license": "MIT",
+      "source": "https://github.com/huandu/xstrings",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/imdario/mergo",
+      "version": "v0.3.16",
+      "checksum": "h1:wwQJbIsHYGMUyLSPrEq1CT16AhnhNJQ51+4fdHUnCl4=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/imdario/mergo",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/in-toto/attestation",
+      "version": "v1.2.0",
+      "checksum": "h1:aPRUZ3azbqD7yEBD5fP3TD8Dszf+YHo284SOcpahjQk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/in-toto/attestation",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/in-toto/in-toto-golang",
+      "version": "v0.11.0",
+      "checksum": "h1:nfidMYBFx+E0lnmX5KUnN2Pdm8zdNKal1ayjJuzzRoA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/in-toto/in-toto-golang",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/inconshreveable/mousetrap",
+      "version": "v1.1.0",
+      "checksum": "h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/inconshreveable/mousetrap",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jackc/pgpassfile",
+      "version": "v1.0.0",
+      "checksum": "h1:/6Hmqy13Ss2zCq62VdNG8tM1wchn8zjSGOBJ6icpsIM=",
+      "license": "MIT",
+      "source": "https://github.com/jackc/pgpassfile",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jackc/pgservicefile",
+      "version": "v0.0.0-20240606120523-5a60cdf6a761",
+      "checksum": "h1:iCEnooe7UlwOQYpKFhBabPMi4aNAfoODPEFNiAnClxo=",
+      "license": "MIT",
+      "source": "https://github.com/jackc/pgservicefile",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jackc/pgx/v5",
+      "version": "v5.8.0",
+      "checksum": "h1:TYPDoleBBme0xGSAX3/+NujXXtpZn9HBONkQC7IEZSo=",
+      "license": "MIT",
+      "source": "https://github.com/jackc/pgx",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jackc/puddle/v2",
+      "version": "v2.2.2",
+      "checksum": "h1:PR8nw+E/1w0GLuRFSmiioY6UooMp6KJv0/61nB7icHo=",
+      "license": "MIT",
+      "source": "https://github.com/jackc/puddle",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jedisct1/go-minisign",
+      "version": "v0.0.0-20211028175153-1c139d1cc84b",
+      "checksum": "h1:ZGiXF8sz7PDk6RgkP+A/SFfUD0ZR/AgG6SpRNEDKZy8=",
+      "license": "MIT",
+      "source": "https://github.com/jedisct1/go-minisign",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jellydator/ttlcache/v3",
+      "version": "v3.4.0",
+      "checksum": "h1:YS4P125qQS0tNhtL6aeYkheEaB/m8HCqdMMP4mnWdTY=",
+      "license": "MIT",
+      "source": "https://github.com/jellydator/ttlcache",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jhump/protoreflect",
+      "version": "v1.17.0",
+      "checksum": "h1:qOEr613fac2lOuTgWN4tPAtLL7fUSbuJL5X5XumQh94=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/jhump/protoreflect",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jmespath/go-jmespath",
+      "version": "v0.4.1-0.20220621161143-b0104c826a24",
+      "checksum": "h1:liMMTbpW34dhU4az1GN0pTPADwNmvoRSeoZ6PItiqnY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/jmespath/go-jmespath",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jmoiron/sqlx",
+      "version": "v1.4.0",
+      "checksum": "h1:1PLqN7S1UYp5t4SrVVnt4nUVNemrDAtxlulVe+Qgm3o=",
+      "license": "MIT",
+      "source": "https://github.com/jmoiron/sqlx",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/jonboulle/clockwork",
+      "version": "v0.5.0",
+      "checksum": "h1:Hyh9A8u51kptdkR+cqRpT1EebBwTn1oK9YfGYbdFz6I=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/jonboulle/clockwork",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/klauspost/compress",
+      "version": "v1.18.6",
+      "checksum": "h1:2jupLlAwFm95+YDR+NwD2MEfFO9d4z4Prjl1XXDjuao=",
+      "license": "Apache-2.0 AND BSD-3-Clause",
+      "source": "https://github.com/klauspost/compress",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/klauspost/pgzip",
+      "version": "v1.2.6",
+      "checksum": "h1:8RXeL5crjEUFnR2/Sn6GJNWtSQ3Dk8pq4CL3jvdDyjU=",
+      "license": "MIT",
+      "source": "https://github.com/klauspost/pgzip",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/kr/pretty",
+      "version": "v0.3.1",
+      "checksum": "h1:flRD4NNwYAUpkphVc1HcthR4KEIFJ65n8Mw5qdRn3LE=",
+      "license": "MIT",
+      "source": "https://github.com/kr/pretty",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/kr/text",
+      "version": "v0.2.0",
+      "checksum": "h1:5Nx0Ya0ZqY2ygV366QzturHI13Jq95ApcVaJBhpS+AY=",
+      "license": "MIT",
+      "source": "https://github.com/kr/text",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/kylelemons/godebug",
+      "version": "v1.1.0",
+      "checksum": "h1:RPNrshWIDI6G2gRW9EHilWtl7Z6Sb1BR0xunSBf0SNc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/kylelemons/godebug",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/leodido/go-urn",
+      "version": "v1.4.0",
+      "checksum": "h1:WT9HwE9SGECu3lg4d/dIA+jxlljEa1/ffXKmRjqdmIQ=",
+      "license": "MIT",
+      "source": "https://github.com/leodido/go-urn",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/letsencrypt/boulder",
+      "version": "v0.20260309.0",
+      "checksum": "h1:kZynrxK3QfqLGx6hhoz+Rfs3hgltJs1p9Mp+4+VwnY0=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/letsencrypt/boulder",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/letsencrypt/pkcs11key/v4",
+      "version": "v4.0.0",
+      "checksum": "h1:qLc/OznH7xMr5ARJgkZCCWk+EomQkiNTOoOF5LAgagc=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/letsencrypt/pkcs11key",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/lib/pq",
+      "version": "v1.10.9",
+      "checksum": "h1:YXG7RB+JIjhP29X+OtkiDnYaXQwpS4JEWq7dtCCRUEw=",
+      "license": "MIT",
+      "source": "https://github.com/lib/pq",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Masterminds/goutils",
+      "version": "v1.1.1",
+      "checksum": "h1:5nUrii3FMTL5diU80unEVvNevw1nH4+ZV4DSLVJLSYI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/Masterminds/goutils",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Masterminds/semver",
+      "version": "v1.5.0",
+      "checksum": "h1:H65muMkzWKEuNDnfl9d70GUjFniHKHRbFPGBuZ3QEww=",
+      "license": "MIT",
+      "source": "https://github.com/Masterminds/semver",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Masterminds/sprig",
+      "version": "v2.22.0+incompatible",
+      "checksum": "h1:z4yfnGrZ7netVz+0EDJ0Wi+5VZCSYp4Z0m2dk6cEM60=",
+      "license": "MIT",
+      "source": "https://github.com/Masterminds/sprig",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mattn/go-colorable",
+      "version": "v0.1.14",
+      "checksum": "h1:9A9LHSqF/7dyVVX6g0U9cwm9pG3kP9gSzcuIPHPsaIE=",
+      "license": "MIT",
+      "source": "https://github.com/mattn/go-colorable",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mattn/go-isatty",
+      "version": "v0.0.20",
+      "checksum": "h1:xfD0iDuEKnDkl03q4limB+vH+GxLEtL/jb4xVJSWWEY=",
+      "license": "MIT",
+      "source": "https://github.com/mattn/go-isatty",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mattn/go-runewidth",
+      "version": "v0.0.16",
+      "checksum": "h1:E5ScNMtiwvlvB5paMFdw9p4kSQzbXFikJ5SQO6TULQc=",
+      "license": "MIT",
+      "source": "https://github.com/mattn/go-runewidth",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mattn/go-sqlite3",
+      "version": "v1.14.24",
+      "checksum": "h1:tpSp2G2KyMnnQu99ngJ47EIkWVmliIizyZBfPrBWDRM=",
+      "license": "MIT",
+      "source": "https://github.com/mattn/go-sqlite3",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/Microsoft/go-winio",
+      "version": "v0.6.2",
+      "checksum": "h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=",
+      "license": "MIT",
+      "source": "https://github.com/Microsoft/go-winio",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/miekg/pkcs11",
+      "version": "v1.1.1",
+      "checksum": "h1:Ugu9pdy6vAYku5DEpVWVFPYnzV+bxB+iRdbuFSu7TvU=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/miekg/pkcs11",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mitchellh/copystructure",
+      "version": "v1.0.0",
+      "checksum": "h1:Laisrj+bAB6b/yJwB5Bt3ITZhGJdqmxquMKeZ+mmkFQ=",
+      "license": "MIT",
+      "source": "https://github.com/mitchellh/copystructure",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mitchellh/go-homedir",
+      "version": "v1.1.0",
+      "checksum": "h1:lukF9ziXFxDFPkA1vsr5zpc1XuPDn/wFntq5mG+4E0Y=",
+      "license": "MIT",
+      "source": "https://github.com/mitchellh/go-homedir",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mitchellh/mapstructure",
+      "version": "v1.5.0",
+      "checksum": "h1:jeMsZIYE/09sWLaz43PL7Gy6RuMjD2eJVyuac5Z2hdY=",
+      "license": "MIT",
+      "source": "https://github.com/mitchellh/mapstructure",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mitchellh/reflectwalk",
+      "version": "v1.0.1",
+      "checksum": "h1:FVzMWA5RllMAKIdUSC8mdWo3XtwoecrH79BY70sEEpE=",
+      "license": "MIT",
+      "source": "https://github.com/mitchellh/reflectwalk",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/moby/docker-image-spec",
+      "version": "v1.3.1",
+      "checksum": "h1:jMKff3w6PgbfSa69GfNg+zN/XLhfXJGnEx3Nl2EsFP0=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/moby/docker-image-spec",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/moby/moby/api",
+      "version": "v1.54.2",
+      "checksum": "h1:wiat9QAhnDQjA7wk1kh/TqHz2I1uUA7M7t9SAl/JNXg=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/moby/moby",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/moby/moby/client",
+      "version": "v0.4.1",
+      "checksum": "h1:DMQgisVoMkmMs7fp3ROSdiBnoAu8+vo3GggFl06M/wY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/moby/moby",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/munnerz/goautoneg",
+      "version": "v0.0.0-20191010083416-a7dc8b61c822",
+      "checksum": "h1:C3w9PqII01/Oq1c1nUAm88MOHcQC9l5mIlSMApZMrHA=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/munnerz/goautoneg",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/mwitkow/go-proto-validators",
+      "version": "v0.2.0",
+      "checksum": "h1:F6LFfmgVnfULfaRsQWBbe7F7ocuHCr9+7m+GAeDzNbQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/mwitkow/go-proto-validators",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/natefinch/atomic",
+      "version": "v1.0.1",
+      "checksum": "h1:ZPYKxkqQOx3KZ+RsbnP/YsgvxWQPGxjC0oBt2AhwV0A=",
+      "license": "MIT",
+      "source": "https://github.com/natefinch/atomic",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/nxadm/tail",
+      "version": "v1.4.11",
+      "checksum": "h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=",
+      "license": "MIT",
+      "source": "https://github.com/nxadm/tail",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/oklog/ulid/v2",
+      "version": "v2.1.1",
+      "checksum": "h1:suPZ4ARWLOJLegGFiZZ1dFAkqzhMjL3J1TzI+5wHz8s=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/oklog/ulid",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/olekukonko/tablewriter",
+      "version": "v0.0.5",
+      "checksum": "h1:P2Ga83D34wi1o9J6Wh1mRuqd4mF/x/lgBS7N7AbDhec=",
+      "license": "MIT",
+      "source": "https://github.com/olekukonko/tablewriter",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/opencontainers/go-digest",
+      "version": "v1.0.0",
+      "checksum": "h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/opencontainers/go-digest",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/opencontainers/image-spec",
+      "version": "v1.1.1",
+      "checksum": "h1:y0fUlFfIZhPF1W537XOLg0/fcx6zcHCJwooC2xJA040=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/opencontainers/image-spec",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/pborman/getopt",
+      "version": "v0.0.0-20170112200414-7148bc3a4c30",
+      "checksum": "h1:BHT1/DKsYDGkUgQ2jmMaozVcdk+sVfz0+1ZJq4zkWgw=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/pborman/getopt",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/pelletier/go-toml/v2",
+      "version": "v2.2.4",
+      "checksum": "h1:mye9XuhQ6gvn5h28+VilKrrPoQVanw5PMw/TB0t5Ec4=",
+      "license": "MIT",
+      "source": "https://github.com/pelletier/go-toml",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/pkg/browser",
+      "version": "v0.0.0-20240102092130-5ac0b6a4141c",
+      "checksum": "h1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/pkg/browser",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/pkg/errors",
+      "version": "v0.9.1",
+      "checksum": "h1:FEBLx1zS214owpjy7qsBeixbURkuhQAwrK5UwLGTwt4=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/pkg/errors",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/planetscale/vtprotobuf",
+      "version": "v0.6.1-0.20240319094008-0393e58bdf10",
+      "checksum": "h1:GFCKgmp0tecUJ0sJuv4pzYCqS9+RGSn52M3FUwPs+uo=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/planetscale/vtprotobuf",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/pmezard/go-difflib",
+      "version": "v1.0.1-0.20181226105442-5d4384ee4fb2",
+      "checksum": "h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/pmezard/go-difflib",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/prometheus/client_golang",
+      "version": "v1.23.2",
+      "checksum": "h1:Je96obch5RDVy3FDMndoUsjAhG5Edi49h0RJWRi/o0o=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/prometheus/client_golang",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/prometheus/client_model",
+      "version": "v0.6.2",
+      "checksum": "h1:oBsgwpGs7iVziMvrGhE53c/GrLUsZdHnqNwqPLxwZyk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/prometheus/client_model",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/prometheus/common",
+      "version": "v0.67.5",
+      "checksum": "h1:pIgK94WWlQt1WLwAC5j2ynLaBRDiinoAb86HZHTUGI4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/prometheus/common",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/prometheus/otlptranslator",
+      "version": "v1.0.0",
+      "checksum": "h1:s0LJW/iN9dkIH+EnhiD3BlkkP5QVIUVEoIwkU+A6qos=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/prometheus/otlptranslator",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/prometheus/procfs",
+      "version": "v0.20.1",
+      "checksum": "h1:XwbrGOIplXW/AU3YhIhLODXMJYyC1isLFfYCsTEycfc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/prometheus/procfs",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/prometheus/prometheus",
+      "version": "v0.51.0",
+      "checksum": "h1:aRdjTnmHLved29ILtdzZN2GNvOjWATtA/z+3fYuexOc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/prometheus/prometheus",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/pseudomuto/protoc-gen-doc",
+      "version": "v1.5.1",
+      "checksum": "h1:Ah259kcrio7Ix1Rhb6u8FCaOkzf9qRBqXnvAufg061w=",
+      "license": "MIT",
+      "source": "https://github.com/pseudomuto/protoc-gen-doc",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/pseudomuto/protokit",
+      "version": "v0.2.0",
+      "checksum": "h1:hlnBDcy3YEDXH7kc9gV+NLaN0cDzhDvD1s7Y6FZ8RpM=",
+      "license": "MIT",
+      "source": "https://github.com/pseudomuto/protokit",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/redis/go-redis/v9",
+      "version": "v9.20.1",
+      "checksum": "h1:sfCU6A8P3dXbKyWes02uxA2baehGux9dZHfEKtsTB1w=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/redis/go-redis",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/rivo/uniseg",
+      "version": "v0.4.7",
+      "checksum": "h1:WUdvkW8uEhrYfLC4ZzdpI2ztxP1I582+49Oc5Mq64VQ=",
+      "license": "MIT",
+      "source": "https://github.com/rivo/uniseg",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/rogpeppe/fastuuid",
+      "version": "v1.2.0",
+      "checksum": "h1:Ppwyp6VYCF1nvBTXL3trRso7mXMlRrw9ooo375wvi2s=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/rogpeppe/fastuuid",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/rogpeppe/go-internal",
+      "version": "v1.14.1",
+      "checksum": "h1:UQB4HGPB6osV0SQTLymcB4TgvyWu6ZyliaW0tI/otEQ=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/rogpeppe/go-internal",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/rs/cors",
+      "version": "v1.11.1",
+      "checksum": "h1:eU3gRzXLRK57F5rKMGMZURNdIG4EoAmX8k94r9wXWHA=",
+      "license": "MIT",
+      "source": "https://github.com/rs/cors",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/russross/blackfriday/v2",
+      "version": "v2.1.0",
+      "checksum": "h1:JIOH55/0cWyOuilr9/qlrm0BSXldqnqwMsf35Ld67mk=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/russross/blackfriday",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/ryanuber/go-glob",
+      "version": "v1.0.0",
+      "checksum": "h1:iQh3xXAumdQ+4Ufa5b25cRpC5TYKlno6hsv6Cb3pkBk=",
+      "license": "MIT",
+      "source": "https://github.com/ryanuber/go-glob",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sagikazarmark/locafero",
+      "version": "v0.11.0",
+      "checksum": "h1:1iurJgmM9G3PA/I+wWYIOw/5SyBtxapeHDcg+AAIFXc=",
+      "license": "MIT",
+      "source": "https://github.com/sagikazarmark/locafero",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sassoftware/relic",
+      "version": "v7.2.1+incompatible",
+      "checksum": "h1:Pwyh1F3I0r4clFJXkSI8bOyJINGqpgjJU3DYAZeI05A=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sassoftware/relic",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sassoftware/relic/v7",
+      "version": "v7.6.2",
+      "checksum": "h1:rS44Lbv9G9eXsukknS4mSjIAuuX+lMq/FnStgmZlUv4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sassoftware/relic",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/secure-systems-lab/go-securesystemslib",
+      "version": "v0.11.0",
+      "checksum": "h1:iuCR9kcMFD4QurdKrGvPLoKZLv9YvwPYVr0473BdtFs=",
+      "license": "MIT",
+      "source": "https://github.com/secure-systems-lab/go-securesystemslib",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sergi/go-diff",
+      "version": "v1.4.0",
+      "checksum": "h1:n/SP9D5ad1fORl+llWyN+D6qoUETXNZARKjyY2/KVCw=",
+      "license": "MIT",
+      "source": "https://github.com/sergi/go-diff",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/shibumi/go-pathspec",
+      "version": "v1.3.0",
+      "checksum": "h1:QUyMZhFo0Md5B8zV8x2tesohbb5kfbpTi9rBnKh5dkI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/shibumi/go-pathspec",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sigstore/protobuf-specs",
+      "version": "v0.5.1",
+      "checksum": "h1:/5OPaNuolRJmQfeZLayJGFXMpsRJEdgC6ah1/+7Px7U=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/protobuf-specs",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sigstore/rekor",
+      "version": "v1.5.3",
+      "checksum": "h1:0Tyolw3zreRgm7PUW8dccFLXGBThi08278jI8EXNSr4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/rekor",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sigstore/rekor-tiles/v2",
+      "version": "v2.3.0",
+      "checksum": "h1:HhMgH61UP0t899V8Fjt7pz1YdgOBptbaQdnCF+79cdc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/rekor-tiles",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sigstore/sigstore",
+      "version": "v1.10.8",
+      "checksum": "h1:1Mgkxvkw4AXMfIP1DOjc6kw0GkUgA8pGVpveN/EfOq4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/sigstore",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sigstore/sigstore-go",
+      "version": "v1.3.0",
+      "checksum": "h1:hnIMHREyCNTYFtOE1o7ae3Axa9B5W5EjUSBJICP2NBE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/sigstore-go",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sigstore/sigstore/pkg/signature/kms/aws",
+      "version": "v1.10.8",
+      "checksum": "h1:tofVQ+UWJgad/69I5zbqxdFCN5gpIn9tRQP7iBzIpBw=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/sigstore",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sigstore/sigstore/pkg/signature/kms/azure",
+      "version": "v1.10.8",
+      "checksum": "h1:8Mt7J36GcUEmbiJaiFhz2tud5ZIgkfVVCe2H/WJCHmw=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/sigstore",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sigstore/sigstore/pkg/signature/kms/gcp",
+      "version": "v1.10.8",
+      "checksum": "h1:MxpAIMZVzn0Tpbarc9ax1I498oQBp7oYSMgoMSsOmKI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/sigstore",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sigstore/sigstore/pkg/signature/kms/hashivault",
+      "version": "v1.10.8",
+      "checksum": "h1:1DGe4/clcdOnkz5MINEczWlmEvjUtZd+AjPPT/cBhQ8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/sigstore",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sigstore/timestamp-authority/v2",
+      "version": "v2.1.3",
+      "checksum": "h1:Fc+LjCTfik1lh3YLkaosENfkXa3R2Y1nswiUKutBdFA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/sigstore/timestamp-authority",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/sirupsen/logrus",
+      "version": "v1.9.4",
+      "checksum": "h1:TsZE7l11zFCLZnZ+teH4Umoq5BhEIfIzfRDZ1Uzql2w=",
+      "license": "MIT",
+      "source": "https://github.com/sirupsen/logrus",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/soheilhy/cmux",
+      "version": "v0.1.5",
+      "checksum": "h1:jjzc5WVemNEDTLwv9tlmemhC73tI08BNOIGwBOo10Js=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/soheilhy/cmux",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/sourcegraph/conc",
+      "version": "v0.3.1-0.20240121214520-5f936abd7ae8",
+      "checksum": "h1:+jumHNA0Wrelhe64i8F6HNlS8pkoyMv5sreGx2Ry5Rw=",
+      "license": "MIT",
+      "source": "https://github.com/sourcegraph/conc",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/spf13/afero",
+      "version": "v1.15.0",
+      "checksum": "h1:b/YBCLWAJdFWJTN9cLhiXXcD7mzKn9Dm86dNnfyQw1I=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/spf13/afero",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/spf13/cast",
+      "version": "v1.10.0",
+      "checksum": "h1:h2x0u2shc1QuLHfxi+cTJvs30+ZAHOGRic8uyGTDWxY=",
+      "license": "MIT",
+      "source": "https://github.com/spf13/cast",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/spf13/cobra",
+      "version": "v1.10.2",
+      "checksum": "h1:DMTTonx5m65Ic0GOoRY2c16WCbHxOOw6xxezuLaBpcU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/spf13/cobra",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/spf13/pflag",
+      "version": "v1.0.10",
+      "checksum": "h1:4EBh2KAYBwaONj6b2Ye1GiHfwjqyROoF4RwYO+vPwFk=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/spf13/pflag",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/spf13/viper",
+      "version": "v1.21.0",
+      "checksum": "h1:x5S+0EU27Lbphp4UKm1C+1oQO+rKx36vfCoaVebLFSU=",
+      "license": "MIT",
+      "source": "https://github.com/spf13/viper",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/spiffe/go-spiffe/v2",
+      "version": "v2.6.0",
+      "checksum": "h1:l+DolpxNWYgruGQVV0xsfeya3CsC7m8iBzDnMpsbLuo=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/spiffe/go-spiffe",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/stretchr/testify",
+      "version": "v1.11.1",
+      "checksum": "h1:7s2iGBzp5EwR7/aIZr8ao5+dra3wiQyKjjFuvgVKu7U=",
+      "license": "MIT",
+      "source": "https://github.com/stretchr/testify",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/subosito/gotenv",
+      "version": "v1.6.0",
+      "checksum": "h1:9NlTDc1FTs4qu0DDq7AEtTPNw6SVm7uBMsUCUjABIf8=",
+      "license": "MIT",
+      "source": "https://github.com/subosito/gotenv",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/syndtr/goleveldb",
+      "version": "v1.0.1-0.20220721030215-126854af5e6d",
+      "checksum": "h1:vfofYNRScrDdvS342BElfbETmL1Aiz3i2t0zfRj16Hs=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/syndtr/goleveldb",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/theupdateframework/go-tuf",
+      "version": "v0.7.0",
+      "checksum": "h1:CqbQFrWo1ae3/I0UCblSbczevCCbS31Qvs5LdxRWqRI=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/theupdateframework/go-tuf",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/theupdateframework/go-tuf/v2",
+      "version": "v2.4.2",
+      "checksum": "h1:w7976/W8uTwlsegP5nRymlpjPgrwSh+AXUf85is6nJk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/theupdateframework/go-tuf",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/tink-crypto/tink-go-awskms/v3",
+      "version": "v3.0.0",
+      "checksum": "h1:XSohRhCkXAVI0iaCnWB/GS05TEmpnKurQmzaY1jzt3Y=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/tink-crypto/tink-go-awskms",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/tink-crypto/tink-go-gcpkms/v2",
+      "version": "v2.3.0",
+      "checksum": "h1:3s6YMgMOBZRU8qG6ybpKSF2Sau+y3sMvxR911M59SwA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/tink-crypto/tink-go-gcpkms",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/tink-crypto/tink-go-hcvault/v2",
+      "version": "v2.5.0",
+      "checksum": "h1:eXuNqgrcYelxU1MVikOJDP3wTS5lvihM4ntoAbAMfvs=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/tink-crypto/tink-go-hcvault",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/tink-crypto/tink-go/v2",
+      "version": "v2.7.0",
+      "checksum": "h1:k7QnUXJ1cRDpvoy/5l1FimZqMAArRff8vjUqzi5N04o=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/tink-crypto/tink-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/titanous/rocacheck",
+      "version": "v0.0.0-20171023193734-afe73141d399",
+      "checksum": "h1:e/5i7d4oYZ+C1wj2THlRK+oAhjeS/TRQwMfkIuet3w0=",
+      "license": "MIT",
+      "source": "https://github.com/titanous/rocacheck",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/tmc/grpc-websocket-proxy",
+      "version": "v0.0.0-20220101234140-673ab2c3ae75",
+      "checksum": "h1:6fotK7otjonDflCTK0BCfls4SPy3NcCVb5dqqmbRknE=",
+      "license": "MIT",
+      "source": "https://github.com/tmc/grpc-websocket-proxy",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/tomasen/realip",
+      "version": "v0.0.0-20180522021738-f0c99a92ddce",
+      "checksum": "h1:fb190+cK2Xz/dvi9Hv8eCYJYvIGUTN2/KLq1pT6CjEc=",
+      "license": "MIT",
+      "source": "https://github.com/tomasen/realip",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/transparency-dev/formats",
+      "version": "v0.1.1",
+      "checksum": "h1:4bVHJc+KdBgpA1OJD1yjI+g0i5Z1graCppTMH8lWKJI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/transparency-dev/formats",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/transparency-dev/merkle",
+      "version": "v0.0.2",
+      "checksum": "h1:Q9nBoQcZcgPamMkGn7ghV8XiTZ/kRxn1yCG81+twTK4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/transparency-dev/merkle",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/transparency-dev/tessera",
+      "version": "v1.0.2",
+      "checksum": "h1:PNfGPFfJHpCFVswlrsQvRghxqYz2xy/OtP8qTjJuzFQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/transparency-dev/tessera",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/ulikunitz/xz",
+      "version": "v0.5.14",
+      "checksum": "h1:uv/0Bq533iFdnMHZdRBTOlaNMdb1+ZxXIlHDZHIHcvg=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/ulikunitz/xz",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/urfave/negroni",
+      "version": "v1.0.0",
+      "checksum": "h1:kIimOitoypq34K7TG7DUaJ9kq/N4Ofuwi1sjz0KipXc=",
+      "license": "MIT",
+      "source": "https://github.com/urfave/negroni",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/veraison/go-cose",
+      "version": "v1.3.0",
+      "checksum": "h1:2/H5w8kdSpQJyVtIhx8gmwPJ2uSz1PkyWFx0idbd7rk=",
+      "license": "MPL-2.0",
+      "source": "https://github.com/veraison/go-cose",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only MPL dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/VividCortex/ewma",
+      "version": "v1.2.0",
+      "checksum": "h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=",
+      "license": "MIT",
+      "source": "https://github.com/VividCortex/ewma",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/x448/float16",
+      "version": "v0.8.4",
+      "checksum": "h1:qLwI1I70+NjRFUR3zs1JPUCgaCXSh3SW62uAKT1mSBM=",
+      "license": "MIT",
+      "source": "https://github.com/x448/float16",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/xiang90/probing",
+      "version": "v0.0.0-20221125231312-a49e3df8f510",
+      "checksum": "h1:S2dVYn90KE98chqDkyE9Z4N61UnQd+KOfgp5Iu53llk=",
+      "license": "MIT",
+      "source": "https://github.com/xiang90/probing",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/youmark/pkcs8",
+      "version": "v0.0.0-20240726163527-a2c0da244d78",
+      "checksum": "h1:ilQV1hzziu+LLM3zUTJ0trRztfwgjqKnBWNtSRkbmwM=",
+      "license": "MIT",
+      "source": "https://github.com/youmark/pkcs8",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "github.com/ysmood/fetchup",
+      "version": "v0.2.3",
+      "checksum": "h1:ulX+SonA0Vma5zUFXtv52Kzip/xe7aj4vqT5AJwQ+ZQ=",
+      "license": "MIT",
+      "source": "https://github.com/ysmood/fetchup",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/ysmood/goob",
+      "version": "v0.4.0",
+      "checksum": "h1:HsxXhyLBeGzWXnqVKtmT9qM7EuVs/XOgkX7T6r1o1AQ=",
+      "license": "MIT",
+      "source": "https://github.com/ysmood/goob",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/ysmood/got",
+      "version": "v0.40.0",
+      "checksum": "h1:ZQk1B55zIvS7zflRrkGfPDrPG3d7+JOza1ZkNxcc74Q=",
+      "license": "MIT",
+      "source": "https://github.com/ysmood/got",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/ysmood/gson",
+      "version": "v0.7.3",
+      "checksum": "h1:QFkWbTH8MxyUTKPkVWAENJhxqdBa4lYTQWqZCiLG6kE=",
+      "license": "MIT",
+      "source": "https://github.com/ysmood/gson",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/ysmood/leakless",
+      "version": "v0.9.0",
+      "checksum": "h1:qxCG5VirSBvmi3uynXFkcnLMzkphdh3xx5FtrORwDCU=",
+      "license": "MIT",
+      "source": "https://github.com/ysmood/leakless",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/zalando/go-keyring",
+      "version": "v0.2.3",
+      "checksum": "h1:v9CUu9phlABObO4LPWycf+zwMG7nlbb3t/B5wa97yms=",
+      "license": "MIT",
+      "source": "https://github.com/zalando/go-keyring",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/bbolt",
+      "version": "v1.4.3",
+      "checksum": "h1:dEadXpI6G79deX5prL3QRNP6JB8UxVkqo4UPnHaNXJo=",
+      "license": "MIT",
+      "source": "https://github.com/etcd-io/bbolt",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/api/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:gqb1VN92TAI6G2FiBvWcqKtHiIjr4SU2GdXxTwyexbM=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/client/pkg/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:Qs/5C0LNFiqXxYf2GU8MVjYUEXJ6sZaYOz0zEqQgy50=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/client/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:B3G76t1UykqAOrbio7s/EPatixQDkQBevN8/mwiplrY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/etcdctl/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:iO3zX9xuY/X2Y+fnt6mUR7o/18iBGYpd/lhs/4FqHCc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/etcdutl/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:5YolVcLplhVwSR7IXemN7kBpx/L4qHAmyNc+iW+PL/k=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/pkg/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:Xe+LIL974spy8b4nEx3H0KMr1ofq3r0kh6FbU3aw4es=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/server/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:U2strdSEy1U8qcSzRIdkYpvOPtBy/9i/IfaaCI9flZ4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/tests/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:FUiUGXUhLkU1WZMebKWdwtM7KtzAGuUSQEUV8Sq2+QA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/etcd/v3",
+      "version": "v3.6.8",
+      "checksum": "h1:zfUsRJ8ql/F1LrQ04o1wSjKzGpD/gKz6SKkvaoFaZEA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/etcd",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/gofail",
+      "version": "v0.2.0",
+      "checksum": "h1:p19drv16FKK345a09a1iubchlw/vmRuksmRzgBIGjcA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/gofail",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.etcd.io/raft/v3",
+      "version": "v3.6.0",
+      "checksum": "h1:5NtvbDVYpnfZWcIHgGRk9DyzkBIXOi8j+DDp1IcnUWQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/etcd-io/raft",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opencensus.io",
+      "version": "v0.24.0",
+      "checksum": "h1:y73uSU6J157QMP2kn2r30vwW1A2W2WFwSCGnAVxeaD0=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/census-instrumentation/opencensus-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/auto/sdk",
+      "version": "v1.2.1",
+      "checksum": "h1:jXsnJ4Lmnqd11kwkBV2LgLoFMZKizbCi5fNZ/ipaZ64=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go-instrumentation",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "go.opentelemetry.io/contrib/detectors/gcp",
+      "version": "v1.43.0",
+      "checksum": "h1:62yY3dT7/ShwOxzA0RsKRgshBmfElKI4d/Myu2OxDFU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go-contrib",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc",
+      "version": "v0.67.0",
+      "checksum": "h1:yI1/OhfEPy7J9eoa6Sj051C7n5dvpj0QX8g4sRchg04=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go-contrib",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp",
+      "version": "v0.67.0",
+      "checksum": "h1:OyrsyzuttWTSur2qN/Lm0m2a8yqyIjUVBZcxFPuXq2o=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go-contrib",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/otel",
+      "version": "v1.44.0",
+      "checksum": "h1:JjwHmHpA4iZ3wBxluu2fbbE7j4kqlE8jXyAyPXH7HqU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "go.opentelemetry.io/otel/exporters/otlp/otlptrace",
+      "version": "v1.34.0",
+      "checksum": "h1:OeNbIYk/2C15ckl7glBlOBp5+WlYsOElzTNmiPW/x60=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc",
+      "version": "v1.34.0",
+      "checksum": "h1:tgJ0uaNS4c98WRNUEx5U3aDlrDOI5Rs+1Vifcw4DJ8U=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/otel/exporters/prometheus",
+      "version": "v0.66.0",
+      "checksum": "h1:vkrK8PAznv2NKt2r+kdu252ccGzkEqLc2aSXbQIALYQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/otel/metric",
+      "version": "v1.44.0",
+      "checksum": "h1:1w0gILTcHdr3YI+ixLyjemwrVnsMURbTZFrSYCdDdmc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "go.opentelemetry.io/otel/sdk",
+      "version": "v1.44.0",
+      "checksum": "h1:nHYwb9lK+fJPU/dnT6s7W7Z8itMWyqrnVfbheVYrZ58=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/otel/sdk/metric",
+      "version": "v1.44.0",
+      "checksum": "h1:3LlKgI+VjbVsjNRFZJZAJ30WjXC5VkNRks6si09iEfI=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.opentelemetry.io/otel/trace",
+      "version": "v1.44.0",
+      "checksum": "h1:jxF5CsGYCe74MCRx2X4g7WsY/VBKRqqpNvXlX/6gtIk=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "go.opentelemetry.io/proto/otlp",
+      "version": "v1.7.1",
+      "checksum": "h1:gTOMpGDb0WTBOP8JaO72iL3auEZhVmAQg4ipjOVAtj4=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-proto-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.step.sm/crypto",
+      "version": "v0.77.7",
+      "checksum": "h1:6azC+pD678Vjju8yXnMDHCZJ+HzFaEmL3sCryiezTIA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/smallstep/crypto",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.uber.org/atomic",
+      "version": "v1.11.0",
+      "checksum": "h1:ZvwS0R+56ePWxUNi+Atn9dWONBPp/AUETXlHW0DxSjE=",
+      "license": "MIT",
+      "source": "https://github.com/uber-go/atomic",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.uber.org/goleak",
+      "version": "v1.3.0",
+      "checksum": "h1:2K3zAYmnTNqV73imy9J1T3WC+gmCePx2hEGkimedGto=",
+      "license": "MIT",
+      "source": "https://github.com/uber-go/goleak",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.uber.org/multierr",
+      "version": "v1.11.0",
+      "checksum": "h1:blXXJkSxSSfBVBlC76pxqeO+LN3aDfLQo+309xJstO0=",
+      "license": "MIT",
+      "source": "https://github.com/uber-go/multierr",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.uber.org/zap",
+      "version": "v1.28.0",
+      "checksum": "h1:IZzaP1Fv73/T/pBMLk4VutPl36uNC+OSUh3JLG3FIjo=",
+      "license": "MIT",
+      "source": "https://github.com/uber-go/zap",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.yaml.in/yaml/v2",
+      "version": "v2.4.4",
+      "checksum": "h1:tuyd0P+2Ont/d6e2rl3be67goVK4R6deVxCUX5vyPaQ=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/yaml/go-yaml",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "go.yaml.in/yaml/v3",
+      "version": "v3.0.4",
+      "checksum": "h1:tfq32ie2Jv2UxXFdLJdh3jXuOzWiL1fo0bu/FbuKpbc=",
+      "license": "Apache-2.0 AND MIT",
+      "source": "https://github.com/yaml/go-yaml",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "gocloud.dev",
+      "version": "v0.45.0",
+      "checksum": "h1:WknIK8IbRdmynDvara3Q7G6wQhmEiOGwpgJufbM39sY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/google/go-cloud",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "golang.org/x/crypto",
+      "version": "v0.54.0",
+      "checksum": "h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/crypto",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "golang.org/x/exp",
+      "version": "v0.0.0-20251023183803-a4bb9ffd2546",
+      "checksum": "h1:mgKeJMpvi0yx/sU5GsxQ7p6s2wtOnGAHZWCHUM4KGzY=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/exp",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "golang.org/x/mod",
+      "version": "v0.38.0",
+      "checksum": "h1:MECBjubtXD7yj4HrhIUcywNaGeNVUdfVnxmPajOk4yk=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/mod",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "golang.org/x/net",
+      "version": "v0.57.0",
+      "checksum": "h1:K5+3DljvIuDG9/Jv9rvyMywYNFCQ9RSUY6OOTTkT+tE=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/net",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "golang.org/x/oauth2",
+      "version": "v0.36.0",
+      "checksum": "h1:peZ/1z27fi9hUOFCAZaHyrpWG5lwe0RJEEEeH0ThlIs=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/oauth2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "golang.org/x/sync",
+      "version": "v0.22.0",
+      "checksum": "h1:SZjpbeLmrCk4xhRSZFNZW5gFUeCeFgjekvI/+gfScek=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/sync",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "golang.org/x/sys",
+      "version": "v0.47.0",
+      "checksum": "h1:o7XGOvZQCADBQQ4Y7VNq2dRWQR7JmOUW8Kxx4ZsNgWs=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/sys",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "golang.org/x/telemetry",
+      "version": "v0.0.0-20260409153401-be6f6cb8b1fa",
+      "checksum": "h1:efT73AJZfAAUV7SOip6pWGkwJDzIGiKBZGVzHYa+ve4=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/telemetry",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "golang.org/x/term",
+      "version": "v0.45.0",
+      "checksum": "h1:NwWyBmoJCbfTHpxrWoZ9C6/VxOf7ic219I8xZZFdrf0=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/term",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "golang.org/x/text",
+      "version": "v0.40.0",
+      "checksum": "h1:Ub2Z6/xjgF1WrYQz2nuITOEegKFtiIy+rieRJ5lHZKs=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/text",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "golang.org/x/time",
+      "version": "v0.15.0",
+      "checksum": "h1:bbrp8t3bGUeFOx08pvsMYRTCVSMk89u4tKbNOZbp88U=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/time",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "golang.org/x/tools",
+      "version": "v0.47.0",
+      "checksum": "h1:7Kn5x/d1svx/PzryTsqeoZN4TZwqeH5pGWjefhLi/1Q=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/tools",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "golang.org/x/xerrors",
+      "version": "v0.0.0-20240903120638-7835f813f4da",
+      "checksum": "h1:noIWHXmPHxILtqtCOPIhSt0ABwskkZKjD3bXGnZGpNY=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/xerrors",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "gonum.org/v1/gonum",
+      "version": "v0.17.0",
+      "checksum": "h1:VbpOemQlsSMrYmn7T2OUvQ4dqxQXU+ouZFQsZOx50z4=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/gonum/gonum",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "google.golang.org/api",
+      "version": "v0.283.0",
+      "checksum": "h1:0lkp8u0MPwJVHqRL+nJlMAoZVVzbmiXmFHXMOTmSPik=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/googleapis/google-api-go-client",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "google.golang.org/genproto",
+      "version": "v0.0.0-20260319201613-d00831a3d3e7",
+      "checksum": "h1:XzmzkmB14QhVhgnawEVsOn6OFsnpyxNPRY9QV01dNB0=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/go-genproto",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "google.golang.org/genproto/googleapis/api",
+      "version": "v0.0.0-20260526163538-3dc84a4a5aaa",
+      "checksum": "h1:Kjn0N0tCrDgiAFW+lGO4JZ3ck44CehvJQMAwj9QF0G8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/go-genproto",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "google.golang.org/genproto/googleapis/rpc",
+      "version": "v0.0.0-20260523011958-0a33c5d7ca68",
+      "checksum": "h1:PvEgGJf9C/1u5CHkInMg7UFYYUoiaQmW2LbtH0pjB78=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/googleapis/go-genproto",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "google.golang.org/grpc",
+      "version": "v1.82.1",
+      "checksum": "h1:NnAxzGRA0677vCa4BUkOAnO5+FfQqVl9iUXeD0IqcGE=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grpc/grpc-go",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "google.golang.org/grpc/cmd/protoc-gen-go-grpc",
+      "version": "v1.6.1",
+      "checksum": "h1:/WILD1UcXj/ujCxgoL/DvRgt2CP3txG8+FwkUbb9110=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/grpc/grpc-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "google.golang.org/protobuf",
+      "version": "v1.36.11",
+      "checksum": "h1:fV6ZwhNocDyBLK0dj+fg8ektcVegBBuEolpbTQyBNVE=",
+      "license": "BSD-3-Clause",
+      "source": "https://go.googlesource.com/protobuf",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "gopkg.in/check.v1",
+      "version": "v1.0.0-20201130134442-10cb98267c6c",
+      "checksum": "h1:Hei/4ADfdWqJk1ZMxUNpqntNwaWcugrBjAiHlqqRiVk=",
+      "license": "BSD-2-Clause",
+      "source": "https://github.com/go-check/check",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "gopkg.in/ini.v1",
+      "version": "v1.67.3",
+      "checksum": "h1:iM9Lhz5MRSGhHVGGwCuzG9KO8PoirCXj/m/qTmOJJQw=",
+      "license": "Apache-2.0",
+      "source": "https://gopkg.in/ini.v1",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "gopkg.in/natefinch/lumberjack.v2",
+      "version": "v2.2.1",
+      "checksum": "h1:bBRl1b0OH9s/DuPhuXpNl+VtCaJXFZ5/uEFST95x9zc=",
+      "license": "MIT",
+      "source": "https://gopkg.in/natefinch/lumberjack.v2",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "gopkg.in/yaml.v2",
+      "version": "v2.4.0",
+      "checksum": "h1:D8xgwECY7CYvx+Y2n4sBz93Jn9JRvxdiyyo8CTfuKaY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/go-yaml/yaml",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "gopkg.in/yaml.v3",
+      "version": "v3.0.1",
+      "checksum": "h1:fxVm/GzAzEWqLHuvctI91KS9hhNmmWOoWu0XTYJS7CA=",
+      "license": "Apache-2.0 AND MIT",
+      "source": "https://github.com/go-yaml/yaml",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "k8s.io/klog/v2",
+      "version": "v2.140.0",
+      "checksum": "h1:Tf+J3AH7xnUzZyVVXhTgGhEKnFqye14aadWv7bzXdzc=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/kubernetes/klog",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+    },
+    {
+      "path": "sigs.k8s.io/json",
+      "version": "v0.0.0-20241010143419-9aa6b5e7a4b3",
+      "checksum": "h1:/Rv+M11QRah1itp8VhT6HoVx1Ray9eB4DBr+K+/sCJ8=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/kubernetes-sigs/json",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "sigs.k8s.io/release-utils",
+      "version": "v0.12.4",
+      "checksum": "h1:kuG6WTWGCKx5uUrJwl2uFErOKOw+4Ba8WrPmOQh5J3g=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/kubernetes-sigs/release-utils",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "sigs.k8s.io/yaml",
+      "version": "v1.6.0",
+      "checksum": "h1:G8fkbMSAFqgEFgh4b1wmtzDnioxFCUgTZhlbj5P9QYs=",
+      "license": "Apache-2.0 AND BSD-3-Clause AND MIT",
+      "source": "https://github.com/kubernetes-sigs/yaml",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "software.sslmate.com/src/go-pkcs12",
+      "version": "v0.4.0",
+      "checksum": "h1:H2g08FrTvSFKUj+D309j1DPfk5APnIdAQAB8aEykJ5k=",
+      "license": "BSD-3-Clause",
+      "source": "https://software.sslmate.com/src/go-pkcs12.git",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    }
+  ],
+  "reviewMetadataSha256": "85cb44646879eb684c2ae695bb2c1f416f48c4722a6c4b6521381a7e3491dbc0"
+}

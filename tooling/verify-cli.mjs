@@ -20,6 +20,8 @@ const CODE_ORDER = [
   "CLI_HANDWRITTEN_REGISTRY",
   "CLI_SQLITE_ACCESS",
   "CLI_SHELL_DISPATCH",
+  "CLI_RELEASE_NETWORK_ACCESS",
+  "CLI_RELEASE_ARTIFACT_EXECUTION",
   "CLI_CROSS_BUILD",
 ];
 
@@ -56,6 +58,8 @@ function validAnalyzerResult(value) {
   const expectedKeys = [
     "generatedCommandsReference",
     "handwrittenRegistry",
+    "releaseArtifactExecution",
+    "releaseNetworkAccess",
     "shellDispatch",
     "sqliteAccess",
     "targetsAnalyzed",
@@ -64,6 +68,8 @@ function validAnalyzerResult(value) {
   if (
     typeof value.generatedCommandsReference !== "boolean" ||
     typeof value.handwrittenRegistry !== "boolean" ||
+    typeof value.releaseArtifactExecution !== "boolean" ||
+    typeof value.releaseNetworkAccess !== "boolean" ||
     typeof value.shellDispatch !== "boolean" ||
     typeof value.sqliteAccess !== "boolean"
   ) {
@@ -129,6 +135,8 @@ async function inspectSources(root, execute) {
     if (analysis.handwrittenRegistry) codes.add("CLI_HANDWRITTEN_REGISTRY");
     if (analysis.sqliteAccess) codes.add("CLI_SQLITE_ACCESS");
     if (analysis.shellDispatch) codes.add("CLI_SHELL_DISPATCH");
+    if (analysis.releaseNetworkAccess) codes.add("CLI_RELEASE_NETWORK_ACCESS");
+    if (analysis.releaseArtifactExecution) codes.add("CLI_RELEASE_ARTIFACT_EXECUTION");
   }
   return { codes, targetsAnalyzed };
 }

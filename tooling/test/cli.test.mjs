@@ -339,6 +339,128 @@ test("the CLI verifier scans imported in-module packages outside the old fixed d
   ]);
 });
 
+test("offline release code rejects network and artifact execution", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      "import (",
+      '  "example.test/internal/generated"',
+      '  _ "example.test/internal/release"',
+      ")",
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/release/unsafe.go": [
+      "package release",
+      'import ("net/http"; "os/exec")',
+      "var _ = http.Get",
+      "var _ = exec.Command",
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, [
+    "CLI_RELEASE_NETWORK_ACCESS",
+    "CLI_RELEASE_ARTIFACT_EXECUTION",
+  ]);
+});
+
+const SIGSTORE_STUB_FILES = {
+  "sigstore-stub/go.mod": "module github.com/sigstore/sigstore-go\n\ngo 1.27.0\n",
+  "sigstore-stub/pkg/bundle/bundle.go": [
+    "package bundle",
+    "type Bundle struct{}",
+    "func LoadJSONFromPath(string) (*Bundle, error) { return nil, nil }",
+    "func (*Bundle) UnmarshalJSON([]byte) error { return nil }",
+    "",
+  ].join("\n"),
+  "sigstore-stub/pkg/root/root.go": [
+    "package root",
+    "type TrustedRoot struct{}",
+    "func FetchTrustedRoot() (*TrustedRoot, error) { return nil, nil }",
+    "func NewTrustedRootFromJSON([]byte) (*TrustedRoot, error) { return nil, nil }",
+    "",
+  ].join("\n"),
+  "sigstore-stub/pkg/tuf/tuf.go": "package tuf\ntype Client struct{}\n",
+  "sigstore-stub/pkg/verify/verify.go": [
+    "package verify",
+    "type Option struct{}",
+    "type Identity struct{}",
+    "func WithoutArtifactUnsafe() Option { return Option{} }",
+    "func NewShortCertificateIdentity(string, string, string, string) (Identity, error) { return Identity{}, nil }",
+    "",
+  ].join("\n"),
+};
+
+function sigstoreFixtureFiles(releaseSource) {
+  return {
+    ...SIGSTORE_STUB_FILES,
+    "go.mod": [
+      "module example.test",
+      "",
+      "go 1.27.0",
+      "",
+      "require github.com/sigstore/sigstore-go v1.3.0",
+      "replace github.com/sigstore/sigstore-go => ./sigstore-stub",
+      "",
+    ].join("\n"),
+    "internal/cli/run.go": [
+      "package cli",
+      "import (",
+      '  "example.test/internal/generated"',
+      '  _ "example.test/internal/release"',
+      ")",
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/release/release.go": releaseSource,
+  };
+}
+
+test("offline release code rejects TUF fetches, path loaders, unsafe artifacts, and regex identity", async (t) => {
+  const root = await fixtureRepo(t, sigstoreFixtureFiles([
+    "package release",
+    "import (",
+    '  "github.com/sigstore/sigstore-go/pkg/bundle"',
+    '  "github.com/sigstore/sigstore-go/pkg/root"',
+    '  _ "github.com/sigstore/sigstore-go/pkg/tuf"',
+    '  "github.com/sigstore/sigstore-go/pkg/verify"',
+    ")",
+    "func unsafe() {",
+    "  _, _ = root.FetchTrustedRoot()",
+    '  _, _ = bundle.LoadJSONFromPath("bundle.json")',
+    "  _ = verify.WithoutArtifactUnsafe()",
+    '  _, _ = verify.NewShortCertificateIdentity("issuer", ".*", "identity", "")',
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, [
+    "CLI_RELEASE_NETWORK_ACCESS",
+    "CLI_RELEASE_ARTIFACT_EXECUTION",
+  ]);
+});
+
+test("offline release code accepts local bytes and exact non-regex identity", async (t) => {
+  const root = await fixtureRepo(t, sigstoreFixtureFiles([
+    "package release",
+    "import (",
+    '  "github.com/sigstore/sigstore-go/pkg/bundle"',
+    '  "github.com/sigstore/sigstore-go/pkg/root"',
+    '  "github.com/sigstore/sigstore-go/pkg/verify"',
+    ")",
+    "func safe() {",
+    "  var value bundle.Bundle",
+    "  _ = value.UnmarshalJSON([]byte(`{}`))",
+    "  _, _ = root.NewTrustedRootFromJSON([]byte(`{}`))",
+    '  _, _ = verify.NewShortCertificateIdentity("issuer", "", "identity", "")',
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
+});
+
 test("the CLI verifier scans target-specific dependency closures", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/escape_windows.go": [
@@ -395,6 +517,8 @@ test("the CLI verifier fails closed when the analyzer reports a mismatched targe
         stdout: `${JSON.stringify({
           generatedCommandsReference: true,
           handwrittenRegistry: false,
+          releaseArtifactExecution: false,
+          releaseNetworkAccess: false,
           sqliteAccess: false,
           shellDispatch: false,
           targetsAnalyzed: [target],
@@ -416,6 +540,8 @@ test("the CLI verifier fails closed on missing or nonboolean analyzer fields", a
     {
       generatedCommandsReference: "true",
       handwrittenRegistry: false,
+      releaseArtifactExecution: false,
+      releaseNetworkAccess: false,
       sqliteAccess: false,
       shellDispatch: false,
       targetsAnalyzed: ["linux/amd64"],

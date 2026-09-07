@@ -23,6 +23,7 @@ try {
   await stage("Phase 0.5 exit evidence", process.execPath, ["tooling/verify-phase-0-5.mjs"]);
   await stage("historical artifacts", process.execPath, ["tooling/historical.mjs", "--check"]);
   await stage("dependency provenance", process.execPath, ["tooling/provenance.mjs", "--check"]);
+  await stage("Go dependency provenance", process.execPath, ["tooling/verify-go-dependencies.mjs", "--check"]);
 
   const goVersion = await runCommand("go", ["version"], { cwd: ROOT, capture: true });
   if (!/\bgo1\.27\.0\b/.test(goVersion.stdout)) {
