@@ -258,8 +258,8 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport string, resu
 	for _, file := range candidate.files {
 		ast.Inspect(file, func(node ast.Node) bool {
 			switch typed := node.(type) {
-			case *ast.RangeStmt:
-				if selector, ok := unparenthesized(typed.X).(*ast.SelectorExpr); ok && isGeneratedCommandsSelector(selector, candidate.info, generatedImport) {
+			case *ast.FuncDecl:
+				if functionRecognizesGeneratedCommands(typed, candidate.info, generatedImport) {
 					result.GeneratedCommandsReference = true
 				}
 			case *ast.ValueSpec:
@@ -278,6 +278,151 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport string, resu
 			return true
 		})
 	}
+}
+
+func functionRecognizesGeneratedCommands(function *ast.FuncDecl, info *types.Info, generatedImport string) bool {
+	if function.Body == nil {
+		return false
+	}
+	returned := make(map[types.Object]bool)
+	ast.Inspect(function.Body, func(node ast.Node) bool {
+		statement, ok := node.(*ast.ReturnStmt)
+		if !ok {
+			return true
+		}
+		for _, expression := range statement.Results {
+			collectReferencedObjects(expression, info, returned)
+		}
+		return true
+	})
+
+	recognized := false
+	ast.Inspect(function.Body, func(node ast.Node) bool {
+		statement, ok := node.(*ast.RangeStmt)
+		if !ok {
+			return true
+		}
+		selector, ok := unparenthesized(statement.X).(*ast.SelectorExpr)
+		if !ok || !isGeneratedCommandsSelector(selector, info, generatedImport) {
+			return true
+		}
+		value, ok := statement.Value.(*ast.Ident)
+		if !ok || value.Name == "_" {
+			return true
+		}
+		rangeObject := info.ObjectOf(value)
+		if rangeObject == nil || !rangeBodyMatchesPath(statement.Body, rangeObject, info, generatedImport) {
+			return true
+		}
+		if rangeBodyReturnsCommand(statement.Body, rangeObject, returned, info) {
+			recognized = true
+			return false
+		}
+		return true
+	})
+	return recognized
+}
+
+func rangeBodyMatchesPath(body *ast.BlockStmt, rangeObject types.Object, info *types.Info, generatedImport string) bool {
+	matched := false
+	ast.Inspect(body, func(node ast.Node) bool {
+		var expressions []ast.Expr
+		switch statement := node.(type) {
+		case *ast.IfStmt:
+			expressions = []ast.Expr{statement.Cond}
+		case *ast.ForStmt:
+			if statement.Cond != nil {
+				expressions = []ast.Expr{statement.Cond}
+			}
+		case *ast.RangeStmt:
+			expressions = []ast.Expr{statement.X}
+		case *ast.SwitchStmt:
+			if statement.Tag != nil {
+				expressions = []ast.Expr{statement.Tag}
+			}
+		case *ast.CaseClause:
+			expressions = statement.List
+		}
+		for _, expression := range expressions {
+			if expressionUsesRangePath(expression, rangeObject, info, generatedImport) {
+				matched = true
+				return false
+			}
+		}
+		return !matched
+	})
+	return matched
+}
+
+func expressionUsesRangePath(expression ast.Expr, rangeObject types.Object, info *types.Info, generatedImport string) bool {
+	found := false
+	ast.Inspect(expression, func(node ast.Node) bool {
+		selector, ok := node.(*ast.SelectorExpr)
+		if !ok {
+			return true
+		}
+		receiver, ok := unparenthesized(selector.X).(*ast.Ident)
+		field, fieldOK := info.Uses[selector.Sel].(*types.Var)
+		if ok && fieldOK && info.ObjectOf(receiver) == rangeObject && field.IsField() && field.Name() == "Path" && field.Pkg() != nil && field.Pkg().Path() == generatedImport {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func rangeBodyReturnsCommand(body *ast.BlockStmt, rangeObject types.Object, returned map[types.Object]bool, info *types.Info) bool {
+	found := false
+	ast.Inspect(body, func(node ast.Node) bool {
+		switch statement := node.(type) {
+		case *ast.ReturnStmt:
+			for _, expression := range statement.Results {
+				if expressionReferencesObject(expression, rangeObject, info) {
+					found = true
+					return false
+				}
+			}
+		case *ast.AssignStmt:
+			for index, right := range statement.Rhs {
+				if index >= len(statement.Lhs) || !expressionReferencesObject(right, rangeObject, info) {
+					continue
+				}
+				left, ok := statement.Lhs[index].(*ast.Ident)
+				if ok && returned[info.ObjectOf(left)] {
+					found = true
+					return false
+				}
+			}
+		}
+		return !found
+	})
+	return found
+}
+
+func expressionReferencesObject(expression ast.Expr, target types.Object, info *types.Info) bool {
+	found := false
+	ast.Inspect(expression, func(node ast.Node) bool {
+		identifier, ok := node.(*ast.Ident)
+		if ok && info.ObjectOf(identifier) == target {
+			found = true
+			return false
+		}
+		return true
+	})
+	return found
+}
+
+func collectReferencedObjects(expression ast.Expr, info *types.Info, destination map[types.Object]bool) {
+	ast.Inspect(expression, func(node ast.Node) bool {
+		identifier, ok := node.(*ast.Ident)
+		if ok {
+			if object := info.ObjectOf(identifier); object != nil {
+				destination[object] = true
+			}
+		}
+		return true
+	})
 }
 
 func derivedCommandTypes(candidate checkedSourcePackage, generatedImport string) map[*types.Named]bool {
@@ -372,27 +517,21 @@ func isDispatchCollection(value types.Type, context analysisContext) bool {
 	}
 	switch underlying := value.Underlying().(type) {
 	case *types.Slice:
-		return isDispatchEntry(underlying.Elem(), context, true)
+		return isDispatchEntry(underlying.Elem(), context)
 	case *types.Array:
-		return isDispatchEntry(underlying.Elem(), context, true)
+		return isDispatchEntry(underlying.Elem(), context)
 	case *types.Map:
-		return isString(underlying.Key()) && (isFunction(underlying.Elem()) || isDispatchEntry(underlying.Elem(), context, false))
+		return isString(underlying.Key()) && (isFunction(underlying.Elem()) || isDispatchEntry(underlying.Elem(), context))
 	default:
 		return false
 	}
 }
 
-func isDispatchEntry(value types.Type, context analysisContext, requireRouteSemantics bool) bool {
-	for {
-		pointer, ok := value.(*types.Pointer)
-		if !ok {
-			break
-		}
-		value = pointer.Elem()
-	}
+func isDispatchEntry(value types.Type, context analysisContext) bool {
 	if isCanonicalOrDerivedCommand(value, context) {
 		return true
 	}
+	value = unaliasPointers(value)
 	if named, ok := types.Unalias(value).(*types.Named); ok {
 		object := named.Obj()
 		if object.Pkg() != nil && object.Pkg().Path() == context.generatedImport {
@@ -405,9 +544,8 @@ func isDispatchEntry(value types.Type, context analysisContext, requireRouteSema
 	if !ok {
 		return false
 	}
-	if !requireRouteSemantics {
-		return true
-	}
+	// Record collections block only on executable handlers or a bounded set of
+	// route/action fields. Ordinary string-keyed record maps remain valid.
 	for index := 0; index < structure.NumFields(); index++ {
 		field := structure.Field(index)
 		if isFunction(field.Type()) || isRouteField(field.Name()) {
@@ -418,16 +556,32 @@ func isDispatchEntry(value types.Type, context analysisContext, requireRouteSema
 }
 
 func isCanonicalOrDerivedCommand(value types.Type, context analysisContext) bool {
-	value = types.Unalias(value)
-	named, ok := value.(*types.Named)
-	if !ok {
-		return false
+	for {
+		value = types.Unalias(value)
+		if named, ok := value.(*types.Named); ok {
+			if context.derivedCommands[named] {
+				return true
+			}
+			object := named.Obj()
+			return object.Pkg() != nil && object.Pkg().Path() == context.generatedImport && object.Name() == "Command"
+		}
+		pointer, ok := value.(*types.Pointer)
+		if !ok {
+			return false
+		}
+		value = pointer.Elem()
 	}
-	if context.derivedCommands[named] {
-		return true
+}
+
+func unaliasPointers(value types.Type) types.Type {
+	for {
+		value = types.Unalias(value)
+		pointer, ok := value.(*types.Pointer)
+		if !ok {
+			return value
+		}
+		value = pointer.Elem()
 	}
-	object := named.Obj()
-	return object.Pkg() != nil && object.Pkg().Path() == context.generatedImport && object.Name() == "Command"
 }
 
 func isRouteField(name string) bool {

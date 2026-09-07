@@ -51,6 +51,31 @@ function relativeDirectory(root, file) {
   return path.relative(root, path.dirname(file)).split(path.sep).join("/");
 }
 
+function validAnalyzerResult(value) {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+  const expectedKeys = [
+    "generatedCommandsReference",
+    "handwrittenRegistry",
+    "shellDispatch",
+    "sqliteAccess",
+    "targetsAnalyzed",
+  ];
+  if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(expectedKeys)) return false;
+  if (
+    typeof value.generatedCommandsReference !== "boolean" ||
+    typeof value.handwrittenRegistry !== "boolean" ||
+    typeof value.shellDispatch !== "boolean" ||
+    typeof value.sqliteAccess !== "boolean"
+  ) {
+    return false;
+  }
+  return (
+    Array.isArray(value.targetsAnalyzed) &&
+    value.targetsAnalyzed.length === 1 &&
+    typeof value.targetsAnalyzed[0] === "string"
+  );
+}
+
 async function inspectSources(root, execute) {
   const codes = new Set();
   const targetsAnalyzed = [];
@@ -89,9 +114,11 @@ async function inspectSources(root, execute) {
       codes.add("CLI_GENERATED_OWNERSHIP");
       return { codes, targetsAnalyzed };
     }
+    if (!validAnalyzerResult(analysis)) {
+      codes.add("CLI_GENERATED_OWNERSHIP");
+      return { codes, targetsAnalyzed };
+    }
     if (
-      !Array.isArray(analysis.targetsAnalyzed) ||
-      analysis.targetsAnalyzed.length !== 1 ||
       analysis.targetsAnalyzed[0] !== expectedTarget
     ) {
       codes.add("CLI_CROSS_BUILD");
