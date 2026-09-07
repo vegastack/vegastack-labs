@@ -156,6 +156,10 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
 		`= "1.0.0"`,
+		`SchemaIDRunResult`,
+		`SchemaIDResultError`,
+		`AvailabilityAvailable`,
+		`AvailabilityPlanned`,
 		`json:"path"`,
 		`json:"flags,omitempty"`,
 		`json:"arguments"`,

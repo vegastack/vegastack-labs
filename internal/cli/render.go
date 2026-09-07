@@ -16,7 +16,7 @@ func renderHumanHelp(output io.Writer) int {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
 	for _, command := range generated.Commands {
-		if command.Availability == availabilityPlanned {
+		if command.Availability == generated.AvailabilityPlanned {
 			continue
 		}
 		if _, err := fmt.Fprintf(output, "  %-24s %s\n", commandName(command.Path), command.Summary); err != nil {
@@ -40,7 +40,7 @@ func renderHumanHelp(output io.Writer) int {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
 	for _, command := range generated.Commands {
-		if command.Availability != availabilityPlanned {
+		if command.Availability != generated.AvailabilityPlanned {
 			continue
 		}
 		if _, err := fmt.Fprintf(output, "  %-24s %s\n", commandName(command.Path), command.Summary); err != nil {

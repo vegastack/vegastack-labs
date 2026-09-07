@@ -339,6 +339,42 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	output.WriteString("package generated\n\n")
 	output.WriteString("import \"encoding/json\"\n\n")
 	fmt.Fprintf(&output, "const (\n\tSchemaMajor = %d\n\tRegistrySchemaVersion = %s\n", metadata.SchemaMajor, strconv.Quote(registry.SchemaVersion))
+	fmt.Fprintf(&output, "\tAvailabilityAvailable = %s\n", strconv.Quote(string(metadata.AvailabilityAvailable)))
+	fmt.Fprintf(&output, "\tAvailabilityPlanned = %s\n", strconv.Quote(string(metadata.AvailabilityPlanned)))
+	for _, schema := range registry.Schemas {
+		fmt.Fprintf(&output, "\tSchemaID%s = %s\n", schemaGoName(schema.ID), strconv.Quote(schema.ID))
+		if schema.ID == runResultSchemaID {
+			for _, field := range schema.Fields {
+				if field.JSONName != "status" {
+					continue
+				}
+				for _, value := range field.Enum {
+					fmt.Fprintf(&output, "\tRunStatus%s = %s\n", exportedGoName(value), strconv.Quote(value))
+				}
+			}
+		}
+	}
+	seenFlags := make(map[string]bool)
+	seenOutputs := make(map[string]bool)
+	for _, command := range registry.Commands {
+		if command.Availability == metadata.AvailabilityAvailable {
+			fmt.Fprintf(&output, "\tCommandName%s = %s\n", exportedGoName(strings.Join(command.Path, "-")), strconv.Quote(strings.Join(command.Path, " ")))
+		}
+		for _, flag := range command.Flags {
+			if !seenFlags[flag.Name] {
+				fmt.Fprintf(&output, "\tFlag%s = %s\n", exportedGoName(strings.TrimPrefix(flag.Name, "--")), strconv.Quote(flag.Name))
+				seenFlags[flag.Name] = true
+			}
+			if flag.Name == "--output" {
+				for _, value := range flag.Enum {
+					if !seenOutputs[value] {
+						fmt.Fprintf(&output, "\tOutput%s = %s\n", exportedGoName(value), strconv.Quote(value))
+						seenOutputs[value] = true
+					}
+				}
+			}
+		}
+	}
 	for _, definition := range registry.Errors {
 		fmt.Fprintf(&output, "\tErrorCode%s = %s\n", errorCodeGoName(definition.Code), strconv.Quote(definition.Code))
 	}
@@ -481,7 +517,42 @@ func errorCodeGoName(code string) string {
 		if part == "" {
 			continue
 		}
-		parts[index] = strings.ToUpper(part[:1]) + part[1:]
+		switch part {
+		case "api":
+			parts[index] = "API"
+		case "id":
+			parts[index] = "ID"
+		case "json":
+			parts[index] = "JSON"
+		case "ssh":
+			parts[index] = "SSH"
+		default:
+			parts[index] = strings.ToUpper(part[:1]) + part[1:]
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+func exportedGoName(value string) string {
+	parts := strings.FieldsFunc(strings.ToLower(value), func(character rune) bool {
+		return character < 'a' || character > 'z'
+	})
+	for index, part := range parts {
+		if part == "" {
+			continue
+		}
+		switch part {
+		case "api":
+			parts[index] = "API"
+		case "id":
+			parts[index] = "ID"
+		case "json":
+			parts[index] = "JSON"
+		case "ssh":
+			parts[index] = "SSH"
+		default:
+			parts[index] = strings.ToUpper(part[:1]) + part[1:]
+		}
 	}
 	return strings.Join(parts, "")
 }

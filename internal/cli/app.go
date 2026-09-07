@@ -13,9 +13,7 @@ import (
 )
 
 const (
-	runResultSchema     = "vegastack-labs.dev/run-result"
-	fallbackRequestID   = "request-id-unavailable"
-	availabilityPlanned = "planned"
+	fallbackRequestID = "request-id-unavailable"
 )
 
 type BuildInfo struct {
@@ -47,48 +45,48 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource) 
 func (app *App) Run(ctx context.Context, args []string) int {
 	mode := requestedOutput(args)
 	if err := ctx.Err(); err != nil {
-		return app.fail(mode, "", generated.ErrorCodeInterrupted, "context", "cancelled", true)
+		return app.fail(mode, "", generated.ErrorCodeInterrupted, "context", generated.RunStatusCancelled, true)
 	}
 
 	parsed, parseFailure := parseArguments(args)
 	if parseFailure != nil {
-		return app.fail(mode, parsed.commandName(), parseFailure.code, parseFailure.target, "failed", false)
+		return app.fail(mode, parsed.commandName(), parseFailure.code, parseFailure.target, generated.RunStatusFailed, false)
 	}
 	mode = parsed.output
-	if parsed.command.Availability == availabilityPlanned {
-		return app.fail(mode, parsed.commandName(), generated.ErrorCodePrerequisiteBlocked, "command", "blocked", false)
+	if parsed.command.Availability == generated.AvailabilityPlanned {
+		return app.fail(mode, parsed.commandName(), generated.ErrorCodePrerequisiteBlocked, "command", generated.RunStatusBlocked, false)
 	}
 
 	switch parsed.commandName() {
-	case "help":
+	case generated.CommandNameHelp:
 		if mode == outputJSON {
 			data, err := json.Marshal(struct {
 				Commands []generated.Command `json:"commands"`
 			}{Commands: generated.Commands})
 			if err != nil {
-				return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "output", "failed", false)
+				return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "output", generated.RunStatusFailed, false)
 			}
 			return app.succeedJSON(parsed.commandName(), data)
 		}
 		return renderHumanHelp(app.stdout)
-	case "version":
+	case generated.CommandNameVersion:
 		if mode == outputJSON {
 			return app.succeedJSON(parsed.commandName(), json.RawMessage("{}"))
 		}
 		return renderHumanVersion(app.stdout, app.build)
 	default:
-		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", "failed", false)
+		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
 	}
 }
 
 func (app *App) succeedJSON(command string, data json.RawMessage) int {
 	requestID, err := app.requestIDs()
 	if err != nil || requestID == "" {
-		return app.renderJSON(fallbackRequestID, command, "failed", []generated.ResultError{{
+		return app.renderJSON(fallbackRequestID, command, generated.RunStatusFailed, []generated.ResultError{{
 			Code: generated.ErrorCodeIntegrityFailure, Target: "request-id", Retryable: false,
 		}}, json.RawMessage("{}"))
 	}
-	return app.renderJSON(requestID, command, "succeeded", []generated.ResultError{}, data)
+	return app.renderJSON(requestID, command, generated.RunStatusSucceeded, []generated.ResultError{}, data)
 }
 
 func (app *App) fail(mode outputMode, command, code, target, status string, preserveCodeOnRequestIDFailure bool) int {
@@ -103,7 +101,7 @@ func (app *App) fail(mode outputMode, command, code, target, status string, pres
 		if !preserveCodeOnRequestIDFailure {
 			code = generated.ErrorCodeIntegrityFailure
 			target = "request-id"
-			status = "failed"
+			status = generated.RunStatusFailed
 			exitCode = exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
 	}
@@ -114,7 +112,7 @@ func (app *App) fail(mode outputMode, command, code, target, status string, pres
 
 func (app *App) renderJSON(requestID, command, status string, resultErrors []generated.ResultError, data json.RawMessage) int {
 	result := generated.RunResult{
-		Schema:         runResultSchema,
+		Schema:         generated.SchemaIDRunResult,
 		SchemaVersion:  generated.RegistrySchemaVersion,
 		ToolVersion:    app.build.ToolVersion,
 		Command:        command,
@@ -150,7 +148,7 @@ func exitCodeFor(code string) int {
 
 func requestedOutput(args []string) outputMode {
 	for index := 0; index+1 < len(args); index++ {
-		if args[index] == "--output" && args[index+1] == "json" {
+		if args[index] == generated.FlagOutput && args[index+1] == generated.OutputJSON {
 			return outputJSON
 		}
 	}

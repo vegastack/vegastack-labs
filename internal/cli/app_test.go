@@ -24,7 +24,7 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 		t.Run(strings.Join(command.Path, "_"), func(t *testing.T) {
 			t.Parallel()
 			code, stdout, stderr := runTestApp(t, context.Background(), command.Path, nil)
-			if command.Availability == "planned" {
+			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {
 					t.Fatalf("planned command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)
 				}
@@ -97,14 +97,14 @@ func TestJSONFailureIsOneEnvelopeAndDoesNotEchoInput(t *testing.T) {
 	if code != 2 || stderr != "" || bytes.Count([]byte(stdout), []byte("\n")) != 1 || strings.Contains(stdout, "private-canary") {
 		t.Fatalf("unsafe JSON failure: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 	}
-	assertResultError(t, decodeResult(t, code, stdout, stderr, 2), generated.ErrorCodeInputInvalid, "failed")
+	assertResultError(t, decodeResult(t, code, stdout, stderr, 2), generated.ErrorCodeInputInvalid, generated.RunStatusFailed)
 }
 
 func TestUnsupportedSchemaMajor(t *testing.T) {
 	t.Parallel()
 
 	code, stdout, stderr := runTestApp(t, context.Background(), []string{"version", "--output", "json", "--schema-version", "2"}, nil)
-	assertResultError(t, decodeResult(t, code, stdout, stderr, 2), generated.ErrorCodeSchemaUnsupported, "failed")
+	assertResultError(t, decodeResult(t, code, stdout, stderr, 2), generated.ErrorCodeSchemaUnsupported, generated.RunStatusFailed)
 }
 
 func TestMalformedInputFailsWithoutEcho(t *testing.T) {
@@ -131,7 +131,7 @@ func TestCancelledContextFailsBeforeDispatch(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	code, stdout, stderr := runTestApp(t, ctx, []string{"help", "--output", "json"}, nil)
-	assertResultError(t, decodeResult(t, code, stdout, stderr, 9), generated.ErrorCodeInterrupted, "cancelled")
+	assertResultError(t, decodeResult(t, code, stdout, stderr, 9), generated.ErrorCodeInterrupted, generated.RunStatusCancelled)
 }
 
 func TestRequestIDFailureIsSanitized(t *testing.T) {
@@ -140,7 +140,7 @@ func TestRequestIDFailureIsSanitized(t *testing.T) {
 	requestIDs := func() (string, error) { return "", errors.New("private-request-id-canary") }
 	code, stdout, stderr := runTestApp(t, context.Background(), []string{"help", "--output", "json"}, requestIDs)
 	result := decodeResult(t, code, stdout, stderr, 8)
-	assertResultError(t, result, generated.ErrorCodeIntegrityFailure, "failed")
+	assertResultError(t, result, generated.ErrorCodeIntegrityFailure, generated.RunStatusFailed)
 	if result.RequestID != "request-id-unavailable" || strings.Contains(stdout+stderr, "private-request-id-canary") {
 		t.Fatalf("unsafe request ID failure: %#v stdout=%q stderr=%q", result, stdout, stderr)
 	}
@@ -170,7 +170,7 @@ func decodeResult(t *testing.T, code int, stdout, stderr string, wantCode int) g
 	if err := json.Unmarshal([]byte(stdout), &result); err != nil {
 		t.Fatalf("invalid result JSON: %v", err)
 	}
-	if result.Schema != "vegastack-labs.dev/run-result" || result.Changed || result.RecoveryEpoch != 0 || result.StateRevision != 0 || result.RunID != nil || result.SnapshotDigest != nil || result.PlanID != nil {
+	if result.Schema != generated.SchemaIDRunResult || result.Changed || result.RecoveryEpoch != 0 || result.StateRevision != 0 || result.RunID != nil || result.SnapshotDigest != nil || result.PlanID != nil {
 		t.Fatalf("invalid Phase 1 envelope: %#v", result)
 	}
 	return result

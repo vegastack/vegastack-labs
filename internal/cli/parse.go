@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -9,8 +10,8 @@ import (
 type outputMode string
 
 const (
-	outputHuman outputMode = "human"
-	outputJSON  outputMode = "json"
+	outputHuman outputMode = generated.OutputHuman
+	outputJSON  outputMode = generated.OutputJSON
 )
 
 type parsedArguments struct {
@@ -52,13 +53,13 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
 		value := args[index+1]
-		if flag.Name == "--schema-version" && value != "1" {
+		if flag.Name == generated.FlagSchemaVersion && value != strconv.Itoa(generated.SchemaMajor) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeSchemaUnsupported, target: "schema-version"}
 		}
 		if !contains(flag.Enum, value) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
-		if flag.Name == "--output" {
+		if flag.Name == generated.FlagOutput {
 			parsed.output = outputMode(value)
 		}
 		seen[flag.Name] = true
