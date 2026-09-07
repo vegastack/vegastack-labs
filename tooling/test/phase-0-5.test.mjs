@@ -46,7 +46,9 @@ function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
 
   assert.match(overview, /Issue 0\.6 \(#22\).*merged and closed/i);
   assert.match(roadmap, /Completed.*issue 0\.6 \(#22\).*PR #23/is);
-  assert.match(roadmap, /Current: implement Issue 1\.1/is);
+  assert.match(roadmap, /Completed.*Issue 1\.1.*PR #26/is);
+  assert.match(roadmap, /Current: implement Issue 1\.2/is);
+  assert.doesNotMatch(roadmap, /Current: implement Issue 1\.1/is);
 }
 
 test("Phase 0.5 evidence rejects missing review proof and false CI success", async () => {

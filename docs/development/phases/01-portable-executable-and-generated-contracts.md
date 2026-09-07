@@ -1,6 +1,6 @@
 # Development phase 1 — Portable executable and generated contracts
 
-Status: active. Phase 0 was accepted by (omkarmohanta09) on 07-09-2026 after [Issue 0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) merged through PR #23 and its integrated public check passed. The briefs for [Issue 1.1 (#24)](https://github.com/vegastack/vegastack-labs/issues/24) and [Issue 1.2 (#25)](https://github.com/vegastack/vegastack-labs/issues/25) are approved; Plan v1 for Issue #24 is approved and in implementation. Issue #25 remains planning-only until Issue #24 is merged and its generated interfaces are re-grounded.
+Status: active. Phase 0 was accepted by (omkarmohanta09) on 07-09-2026. [Issue 1.1 (#24)](https://github.com/vegastack/vegastack-labs/issues/24) merged through PR #26 and its integrated public check passed. Brief v1 and Plan v1 for [Issue 1.2 (#25)](https://github.com/vegastack/vegastack-labs/issues/25) are approved; Issue #25 is implementing the Phase 1 acceptance executable and portable client boundaries. Phase acceptance still requires its reviewed merge, integrated check and explicit operator acceptance.
 
 ## Outcome
 
@@ -36,7 +36,7 @@ developer-only Go generator
 read-only drift check in the public lane
 ```
 
-Contributors run `corepack pnpm generate:contracts`, review both the metadata and generated diff, and then run `corepack pnpm check:contracts`. The complete `corepack pnpm check` includes the same non-writing drift check before Go vet, tests, and build.
+Contributors run `corepack pnpm generate:contracts`, review both the metadata and generated diff, and then run `corepack pnpm check:contracts`. The complete `corepack pnpm check` includes the same non-writing drift check, the portable CLI boundary and temporary target cross-build check, then Go vet, tests, and build.
 
 ## Ordered issue index
 
@@ -62,8 +62,10 @@ The integrated Phase 1 demonstration must show all of the following from one rev
 
 Phase 1 closes only after both issues are merged, their integrated checks pass, Issue #25 posts the combined evidence, and the operator accepts the phase exit. `G-018` remains open after this phase foundation: later owning issues must extend the same graph until every command in the first mutating release has complete generated coverage.
 
+Issue #25 implements only the foundation demonstration: generated `help`/`version`, exact human/JSON stream behavior, explicit unavailable-command failure, portable path calculation, logical credential metadata verification, and registered direct-argument transport. It adds no server, SQLite owner, authentication, secret resolver, real executor, provider adapter, release publication or infrastructure authority. Its Linux, macOS and Windows cross-builds are development evidence rather than native OS qualification.
+
 ## Effort and approvals
 
-Issue #24 estimates 45 agent minutes with a 90-minute checkpoint, about 8 minutes of operator review, and public CI as the only external wait; its basis is 12–16 files, focused generation/check runs, a clean-checkout run, and one expected review-fix round. Issue #25 estimates 55 agent minutes with a 110-minute checkpoint, about 10 minutes of operator review, and public CI as the only external wait; its basis is 14–18 files, three target-build floors, CLI golden/adversarial tests, and one expected review-fix round. These are sequential issue estimates, not a promise that review or CI waits add to agent work.
+Issue #24 estimated 45 agent minutes with a 90-minute checkpoint, about 8 minutes of operator review, and public CI as its only external wait. Issue #25 uses a parallel implementation schedule: 45–50 expected elapsed agent minutes, a 100-minute checkpoint, about 10 minutes of operator review and public CI as its only external wait. Approximately 65–75 aggregate agent-minutes are distributed across the coordinator and isolated path, credential and transport workers; aggregate work is not elapsed waiting time.
 
-Approval record: (omkarmohanta09) approved the briefs for Issue #24 and Issue #25 on 07-09-2026, approved Issue #24's three architecture corrections on 07-09-2026, and approved Plan v1 for Issue #24 on 07-09-2026. This development authority covers the named issue's branch, commits, tests, documentation, issue comments, and fresh review. Pull-request creation, merge, release, repository administration, credentials, providers, hosts, networks, databases, and every live infrastructure action remain separately gated.
+Approval record: (omkarmohanta09) approved the briefs for Issues #24 and #25 on 07-09-2026, approved Plan v1 for Issue #24 on 07-09-2026, and approved Plan v1 plus parallel implementation for Issue #25 on 07-09-2026. This development authority covers each named issue's branch, commits, tests, documentation, issue comments, and fresh review. Pull-request creation, merge, Phase 1 exit acceptance, release, repository administration, credentials, providers, hosts, networks, databases, and every live infrastructure action remain separately gated.

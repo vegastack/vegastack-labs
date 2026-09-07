@@ -10,6 +10,7 @@
   },
   "scripts": {
     "check": "node tooling/check.mjs",
+    "check:cli": "node tooling/verify-cli.mjs",
     "check:contracts": "go run ./tooling/generate-contracts --check",
     "check:dependencies": "node tooling/provenance.mjs --check",
     "check:docs": "node tooling/verify-docs.mjs",

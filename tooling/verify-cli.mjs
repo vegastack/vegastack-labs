@@ -1,0 +1,148 @@
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { runCommand } from "./lib/process.mjs";
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const EXPECTED_EXECUTABLE = "cmd/vsk-labs";
+const BOUNDARY_DIRECTORIES = [
+  "cmd",
+  "internal/cli",
+  "internal/platformpath",
+  "internal/credentialref",
+  "internal/transport",
+];
+const TARGETS = [
+  ["linux", "amd64"],
+  ["linux", "arm64"],
+  ["darwin", "amd64"],
+  ["darwin", "arm64"],
+  ["windows", "amd64"],
+];
+const CODE_ORDER = [
+  "CLI_EXECUTABLE_COUNT",
+  "CLI_HANDWRITTEN_REGISTRY",
+  "CLI_SQLITE_ACCESS",
+  "CLI_SHELL_DISPATCH",
+  "CLI_CROSS_BUILD",
+];
+
+async function goFiles(root, relative) {
+  const start = path.join(root, relative);
+  const files = [];
+  async function walk(directory) {
+    let entries;
+    try {
+      entries = await readdir(directory, { withFileTypes: true });
+    } catch (error) {
+      if (error.code === "ENOENT") return;
+      throw error;
+    }
+    for (const entry of entries) {
+      const fullPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        await walk(fullPath);
+      } else if (entry.isFile() && entry.name.endsWith(".go") && !entry.name.endsWith("_test.go")) {
+        files.push(fullPath);
+      }
+    }
+  }
+  await walk(start);
+  return files;
+}
+
+function relativeDirectory(root, file) {
+  return path.relative(root, path.dirname(file)).split(path.sep).join("/");
+}
+
+async function inspectSources(root) {
+  const codes = new Set();
+  const commandFiles = await goFiles(root, "cmd");
+  const mainDirectories = new Set();
+  for (const file of commandFiles) {
+    const source = await readFile(file, "utf8");
+    if (/^\s*package\s+main\s*$/m.test(source)) {
+      mainDirectories.add(relativeDirectory(root, file));
+    }
+  }
+  if (mainDirectories.size !== 1 || !mainDirectories.has(EXPECTED_EXECUTABLE)) {
+    codes.add("CLI_EXECUTABLE_COUNT");
+  }
+
+  const boundaryFiles = (
+    await Promise.all(BOUNDARY_DIRECTORIES.map((directory) => goFiles(root, directory)))
+  ).flat();
+  for (const file of new Set(boundaryFiles)) {
+    const source = await readFile(file, "utf8");
+    if (
+      /\bvar\s+(?:Commands|commands|commandRegistry)\s*=/.test(source) ||
+      /\[\]\s*(?:generated\.)?Command\s*\{/.test(source)
+    ) {
+      codes.add("CLI_HANDWRITTEN_REGISTRY");
+    }
+    if (/['"](?:database\/sql|[^'"]*sqlite[^'"]*)['"]/i.test(source)) {
+      codes.add("CLI_SQLITE_ACCESS");
+    }
+    if (
+      /['"]os\/exec['"]/.test(source) ||
+      /\b(?:exec\.Command(?:Context)?|syscall\.Exec)\s*\(/.test(source) ||
+      /['"](?:sh|bash|zsh|dash|fish|cmd(?:\.exe)?|powershell(?:\.exe)?|pwsh(?:\.exe)?)['"]\s*,\s*['"](?:-c|\/c|\/C)['"]/i.test(
+        source,
+      )
+    ) {
+      codes.add("CLI_SHELL_DISPATCH");
+    }
+  }
+  return codes;
+}
+
+async function crossBuild(root) {
+  const outputDirectory = await mkdtemp(path.join(tmpdir(), "vegastack-cli-build-"));
+  const targetsBuilt = [];
+  try {
+    for (const [goos, goarch] of TARGETS) {
+      const suffix = goos === "windows" ? ".exe" : "";
+      const output = path.join(outputDirectory, `vsk-labs-${goos}-${goarch}${suffix}`);
+      await runCommand("go", ["build", "-o", output, "./cmd/vsk-labs"], {
+        cwd: root,
+        env: { ...process.env, CGO_ENABLED: "0", GOOS: goos, GOARCH: goarch },
+        timeoutMs: 120_000,
+      });
+      targetsBuilt.push(`${goos}/${goarch}`);
+    }
+    return targetsBuilt;
+  } finally {
+    await rm(outputDirectory, { recursive: true, force: true });
+  }
+}
+
+export async function verifyCLI(root = ROOT, options = {}) {
+  const { crossBuild: shouldCrossBuild = true } = options;
+  const codes = await inspectSources(root);
+  let targetsBuilt = [];
+  if (codes.size === 0 && shouldCrossBuild) {
+    try {
+      targetsBuilt = await crossBuild(root);
+    } catch {
+      codes.add("CLI_CROSS_BUILD");
+    }
+  }
+  const orderedCodes = CODE_ORDER.filter((code) => codes.has(code));
+  return {
+    status: orderedCodes.length === 0 ? "pass" : "fail",
+    codes: orderedCodes,
+    targetsBuilt,
+  };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  try {
+    const result = await verifyCLI();
+    process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "cli", ...result })}\n`);
+    if (result.status !== "pass") process.exitCode = 1;
+  } catch (error) {
+    process.stderr.write(`CLI verification failed: ${error.message}\n`);
+    process.exitCode = 1;
+  }
+}
