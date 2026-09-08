@@ -1,0 +1,57 @@
+{
+  "$id": "vegastack-labs.dev/database-status-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "integrityStatus": {
+      "enum": [
+        "unknown",
+        "verified",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "lastIntegrityCheckAt": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "mode": {
+      "enum": [
+        "ready",
+        "safe-mode"
+      ],
+      "type": "string"
+    },
+    "mutationEnabled": {
+      "type": "boolean"
+    },
+    "recoveryPending": {
+      "type": "boolean"
+    },
+    "safeModeReason": {
+      "type": "string"
+    },
+    "schemaVersion": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sqliteVersion": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "mode",
+    "schemaVersion",
+    "sqliteVersion",
+    "mutationEnabled",
+    "recoveryPending",
+    "integrityStatus",
+    "lastIntegrityCheckAt",
+    "safeModeReason"
+  ],
+  "title": "VegaStack Labs database status data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

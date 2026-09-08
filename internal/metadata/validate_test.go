@@ -73,8 +73,21 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		"unknown data schema": func(registry *Registry) {
 			commandByNameForMutation(registry, "release inspect").DataSchema = "vegastack-labs.dev/missing"
 		},
-		"unsafe schema artifact":    func(registry *Registry) { registry.Schemas[0].ArtifactPath = "../escape.json" },
-		"duplicate schema artifact": func(registry *Registry) { registry.Schemas[2].ArtifactPath = registry.Schemas[1].ArtifactPath },
+		"unsafe schema artifact": func(registry *Registry) { registry.Schemas[0].ArtifactPath = "../escape.json" },
+		"duplicate schema artifact": func(registry *Registry) {
+			first := ""
+			for index := range registry.Schemas {
+				if registry.Schemas[index].ArtifactPath == "" {
+					continue
+				}
+				if first == "" {
+					first = registry.Schemas[index].ArtifactPath
+					continue
+				}
+				registry.Schemas[index].ArtifactPath = first
+				return
+			}
+		},
 		"minimum above maximum": func(registry *Registry) {
 			minimum, maximum := int64(2), int64(1)
 			registry.Schemas[0].Fields[0].Minimum = &minimum

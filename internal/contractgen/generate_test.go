@@ -30,6 +30,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"internal/generated/contracts_gen.go",
 		"schemas/v1/command-registry.json",
 		"schemas/v1/command-registry.schema.json",
+		"schemas/v1/database-status-data.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
 		"schemas/v1/release-manifest.schema.json",
 		"schemas/v1/release-trust-policy.schema.json",
@@ -163,7 +164,8 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.1.0"`,
+		`= "1.2.0"`,
+		`type DatabaseStatusData struct`,
 		`SchemaIDRunResult`,
 		`SchemaIDResultError`,
 		`AvailabilityAvailable`,

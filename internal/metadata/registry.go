@@ -11,6 +11,7 @@ const (
 	releaseInspectDataSchemaID       = "vegastack-labs.dev/release-inspect-data"
 	releaseVerifyDataSchemaID        = "vegastack-labs.dev/release-verify-data"
 	releaseAssetVerificationSchemaID = "vegastack-labs.dev/release-asset-verification"
+	databaseStatusDataSchemaID       = "vegastack-labs.dev/database-status-data"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -129,7 +130,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.1.0",
+		SchemaVersion: "1.2.0",
 		Commands:      commands,
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
@@ -214,6 +215,21 @@ func commonFlags() []FlagDefinition {
 
 func currentSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		{
+			ID:           databaseStatusDataSchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/database-status-data.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "mode", GoName: "Mode", Kind: ValueString, Required: true, Enum: []string{"ready", "safe-mode"}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)},
+				{JSONName: "sqliteVersion", GoName: "SQLiteVersion", Kind: ValueString, Required: true},
+				{JSONName: "mutationEnabled", GoName: "MutationEnabled", Kind: ValueBoolean, Required: true},
+				{JSONName: "recoveryPending", GoName: "RecoveryPending", Kind: ValueBoolean, Required: true},
+				{JSONName: "integrityStatus", GoName: "IntegrityStatus", Kind: ValueString, Required: true, Enum: []string{"unknown", "verified", "failed"}},
+				{JSONName: "lastIntegrityCheckAt", GoName: "LastIntegrityCheckAt", Kind: ValueString, Required: true, Nullable: true},
+				{JSONName: "safeModeReason", GoName: "SafeModeReason", Kind: ValueString, Required: true},
+			},
+		},
 		{
 			ID:      resultErrorSchemaID,
 			Version: "1.0.0",

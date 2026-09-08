@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "commands": [
     {
       "path": [
@@ -850,6 +850,11 @@
     }
   ],
   "schemas": [
+    {
+      "id": "vegastack-labs.dev/database-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/database-status-data.schema.json"
+    },
     {
       "id": "vegastack-labs.dev/release-asset",
       "version": "1.0.0"
