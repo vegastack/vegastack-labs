@@ -263,7 +263,6 @@ func isLocalFilesystemType(filesystemType uint64) bool {
 		unix.XFS_SUPER_MAGIC,
 		unix.BTRFS_SUPER_MAGIC,
 		unix.F2FS_SUPER_MAGIC,
-		unix.TMPFS_MAGIC,
 		0x2fc12fc1: // ZFS_SUPER_MAGIC; not exported by x/sys/unix on Linux.
 		return true
 	default:
