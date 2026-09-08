@@ -27,8 +27,10 @@ func (repository *InventoryDraftRepository) Put(ctx context.Context, request inv
 	if repository == nil || repository.store == nil || request.DraftID == "" || !inventoryDigestPattern.MatchString(request.IdempotencyKeyDigest) || !inventoryDigestPattern.MatchString(request.CandidateDigest) || request.CandidateDigest != request.Draft.ContentDigest || !inventoryDigestPattern.MatchString(request.Draft.Candidate.Source.Digest) || (request.Draft.ValidationStatus != inventory.DraftValid && request.Draft.ValidationStatus != inventory.DraftBlocked) {
 		return inventory.PutDraftResult{}, newStoreError("INPUT_INVALID", "inventory-draft", false, nil)
 	}
-	if err := validateInventoryProvenance(request.Draft.Candidate); err != nil {
-		return inventory.PutDraftResult{}, err
+	if request.Draft.ValidationStatus == inventory.DraftValid {
+		if err := validateInventoryProvenance(request.Draft.Candidate); err != nil {
+			return inventory.PutDraftResult{}, err
+		}
 	}
 	var expected *RevisionToken
 	if request.ExpectedStateRevision != nil {
