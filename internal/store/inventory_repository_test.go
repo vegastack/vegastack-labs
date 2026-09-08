@@ -4,6 +4,9 @@ package store
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -15,6 +18,8 @@ func TestInventoryRepositoryPersistsBlockedDraftAtomicallyAndImmutably(t *testin
 	store := newInventoryTestStore(t)
 	repository := NewInventoryDraftRepository(store)
 	request := inventoryPutRequest("sha256:"+strings.Repeat("1", 64), inventory.DraftBlocked)
+	request.Draft.Candidate.Assets = append(request.Draft.Candidate.Assets, request.Draft.Candidate.Assets[0])
+	request.Draft.Counts.Assets = 2
 	request.Draft.Findings = []inventory.Finding{{Code: "MISSING_REFERENCE", Severity: "error", Blocking: true, RecordKind: "node", RecordID: "node-a", FieldPath: "assetId", Location: "records/node-a/assetId"}}
 	request.Draft.Counts.Findings = 1
 	result, err := repository.Put(context.Background(), request)
@@ -90,6 +95,97 @@ func TestInventoryImportIdempotencyAndSourceRevisionConflicts(t *testing.T) {
 	}
 	if got := readStateRevision(t, store); got != first.CommitStateRevision {
 		t.Fatalf("state revision after conflicts = %d", got)
+	}
+}
+
+func TestInventoryRepositoryListsAndSnapshotsCanonicalDrafts(t *testing.T) {
+	store := newInventoryTestStore(t)
+	repository := NewInventoryDraftRepository(store)
+	second := inventoryPutRequest("sha256:"+strings.Repeat("6", 64), inventory.DraftValid)
+	second.DraftID = "draft-public-b"
+	second.CandidateDigest = "sha256:" + strings.Repeat("d", 64)
+	second.Draft.ContentDigest = second.CandidateDigest
+	first := inventoryPutRequest("sha256:"+strings.Repeat("5", 64), inventory.DraftValid)
+	first.DraftID = "draft-public-a"
+	first.CandidateDigest = "sha256:" + strings.Repeat("c", 64)
+	first.Draft.ContentDigest = first.CandidateDigest
+	if _, err := repository.Put(context.Background(), second); err != nil {
+		t.Fatal(err)
+	}
+	created, err := repository.Put(context.Background(), first)
+	if err != nil {
+		t.Fatal(err)
+	}
+	listed, err := repository.ListDrafts(context.Background(), inventory.DraftListQuery{Limit: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed) != 1 || listed[0].Ref.ID != "draft-public-a" {
+		t.Fatalf("listed = %#v", listed)
+	}
+	next, err := repository.ListDrafts(context.Background(), inventory.DraftListQuery{AfterCreatedAt: listed[0].CreatedAt, AfterDraftID: listed[0].Ref.ID, AfterRevision: listed[0].Ref.Revision, Limit: 2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(next) != 1 || next[0].Ref.ID != "draft-public-b" {
+		t.Fatalf("next = %#v", next)
+	}
+	records, err := repository.ListRecords(context.Background(), created.Ref, inventory.RecordListQuery{Limit: 256})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 1; index < len(records); index++ {
+		if records[index-1].Kind+"\x00"+string(records[index-1].LocalID) > records[index].Kind+"\x00"+string(records[index].LocalID) {
+			t.Fatalf("records unordered: %#v", records)
+		}
+	}
+	projection, err := repository.SnapshotDraft(context.Background(), created.Ref)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(projection)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if projection.Kind != "draft" || projection.ContentDigest != first.Draft.ContentDigest {
+		t.Fatalf("projection identity = %#v", projection)
+	}
+	if regexp.MustCompile(`(?i)(declared|effective|admitted|qualified|rawSource|idempotencyKey|provider|sheetColumn|BEGIN PRIVATE KEY)`).Match(raw) {
+		t.Fatalf("unsafe draft projection: %s", raw)
+	}
+	for _, limit := range []int{0, 257} {
+		if _, err := repository.ListDrafts(context.Background(), inventory.DraftListQuery{Limit: limit}); err == nil {
+			t.Fatalf("draft limit %d accepted", limit)
+		}
+		if _, err := repository.ListRecords(context.Background(), created.Ref, inventory.RecordListQuery{Limit: limit}); err == nil {
+			t.Fatalf("record limit %d accepted", limit)
+		}
+	}
+}
+
+func TestInventoryRepositoryFaultAndCancellationRollBack(t *testing.T) {
+	store := newInventoryTestStore(t)
+	repository := NewInventoryDraftRepository(store)
+	repository.beforeChildWrite = func() error { return errors.New("injected child failure") }
+	if _, err := repository.Put(context.Background(), inventoryPutRequest("sha256:"+strings.Repeat("7", 64), inventory.DraftValid)); Code(err) != "INTEGRITY_FAILURE" {
+		t.Fatalf("fault code = %q", Code(err))
+	}
+	for _, table := range inventoryDraftTables {
+		if got := countRows(t, store, table); got != 0 {
+			t.Errorf("%s rows = %d", table, got)
+		}
+	}
+	if got := readStateRevision(t, store); got != 0 {
+		t.Fatalf("fault state revision = %d", got)
+	}
+	repository.beforeChildWrite = nil
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := repository.Put(ctx, inventoryPutRequest("sha256:"+strings.Repeat("8", 64), inventory.DraftValid)); Code(err) != "INTERRUPTED" {
+		t.Fatalf("cancel code = %q", Code(err))
+	}
+	if got := readStateRevision(t, store); got != 0 {
+		t.Fatalf("cancel state revision = %d", got)
 	}
 }
 

@@ -54,6 +54,28 @@ func TestServiceHashesOpaqueIdempotencyKeyAndRejectsInvalidKeys(t *testing.T) {
 	}
 }
 
+func TestStructuralAndCancellationFailuresNeverCallRepository(t *testing.T) {
+	t.Parallel()
+	repository := &spyRepository{}
+	service, err := NewService(repository, fixedID("draft_public_test_3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if _, err := service.ValidateAndStore(ctx, ImportRequest{IdempotencyKey: "cancelled", Decoded: DecodedCandidate{Candidate: minimalCandidate()}}); err == nil {
+		t.Fatal("cancelled import succeeded")
+	}
+	overLimit := minimalCandidate()
+	overLimit.Assets = make([]DraftAsset, MaxPrimaryRecords+1)
+	if _, err := service.ValidateAndStore(context.Background(), ImportRequest{IdempotencyKey: "too-many", Decoded: DecodedCandidate{Candidate: overLimit}}); err == nil {
+		t.Fatal("over-limit import succeeded")
+	}
+	if repository.puts != 0 {
+		t.Fatalf("repository puts = %d", repository.puts)
+	}
+}
+
 type spyRepository struct {
 	puts   int
 	last   PutDraftRequest
