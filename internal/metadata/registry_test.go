@@ -1,9 +1,47 @@
 package metadata
 
 import (
+	"encoding/json"
 	"reflect"
+	"regexp"
 	"testing"
 )
+
+func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	if registry.SchemaVersion != "1.2.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.2.0", registry.SchemaVersion)
+	}
+	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
+	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
+	if input.Version != "1.0.0" || result.Version != "1.0.0" {
+		t.Fatalf("inventory versions = (%q, %q)", input.Version, result.Version)
+	}
+	encoded, err := json.Marshal(struct {
+		Input  []FieldDefinition
+		Result []FieldDefinition
+	}{input.Fields, result.Fields})
+	if err != nil {
+		t.Fatal(err)
+	}
+	forbidden := regexp.MustCompile(`(?i)(labs\.vegastack|google|sheet|provider|vsk-node|spreadsheet|columnName)`)
+	if forbidden.Match(encoded) {
+		t.Fatalf("inventory contract leaks deployment/adapter vocabulary: %s", encoded)
+	}
+}
+
+func schemaByID(t *testing.T, registry Registry, id string) SchemaDefinition {
+	t.Helper()
+	for _, schema := range registry.Schemas {
+		if schema.ID == id {
+			return schema
+		}
+	}
+	t.Fatalf("schema %q is missing", id)
+	return SchemaDefinition{}
+}
 
 func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()

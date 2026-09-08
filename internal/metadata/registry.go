@@ -3,18 +3,31 @@ package metadata
 import "strings"
 
 const (
-	runResultSchemaID                = "vegastack-labs.dev/run-result"
-	resultErrorSchemaID              = "vegastack-labs.dev/result-error"
-	releaseManifestSchemaID          = "vegastack-labs.dev/release-manifest"
-	releaseAssetSchemaID             = "vegastack-labs.dev/release-asset"
-	releaseTrustPolicySchemaID       = "vegastack-labs.dev/release-trust-policy"
-	releaseInspectDataSchemaID       = "vegastack-labs.dev/release-inspect-data"
-	releaseVerifyDataSchemaID        = "vegastack-labs.dev/release-verify-data"
-	releaseAssetVerificationSchemaID = "vegastack-labs.dev/release-asset-verification"
-	databaseStatusDataSchemaID       = "vegastack-labs.dev/database-status-data"
-	localPrincipalBindingSchemaID    = "vegastack-labs.dev/local-principal-binding"
-	serverProfileSchemaID            = "vegastack-labs.dev/server-profile"
-	serverStatusDataSchemaID         = "vegastack-labs.dev/server-status-data"
+	runResultSchemaID                  = "vegastack-labs.dev/run-result"
+	resultErrorSchemaID                = "vegastack-labs.dev/result-error"
+	releaseManifestSchemaID            = "vegastack-labs.dev/release-manifest"
+	releaseAssetSchemaID               = "vegastack-labs.dev/release-asset"
+	releaseTrustPolicySchemaID         = "vegastack-labs.dev/release-trust-policy"
+	releaseInspectDataSchemaID         = "vegastack-labs.dev/release-inspect-data"
+	releaseVerifyDataSchemaID          = "vegastack-labs.dev/release-verify-data"
+	releaseAssetVerificationSchemaID   = "vegastack-labs.dev/release-asset-verification"
+	databaseStatusDataSchemaID         = "vegastack-labs.dev/database-status-data"
+	localPrincipalBindingSchemaID      = "vegastack-labs.dev/local-principal-binding"
+	serverProfileSchemaID              = "vegastack-labs.dev/server-profile"
+	serverStatusDataSchemaID           = "vegastack-labs.dev/server-status-data"
+	inventoryDraftInputSchemaID        = "vegastack-labs.dev/inventory-draft-input"
+	inventoryImportDataSchemaID        = "vegastack-labs.dev/inventory-import-data"
+	inventoryDraftSourceSchemaID       = "vegastack-labs.dev/inventory-draft-source"
+	inventoryDraftAssetSchemaID        = "vegastack-labs.dev/inventory-draft-asset"
+	inventoryDraftIdentitySchemaID     = "vegastack-labs.dev/inventory-draft-identity"
+	inventoryDraftNodeSchemaID         = "vegastack-labs.dev/inventory-draft-node"
+	inventoryDraftAliasSchemaID        = "vegastack-labs.dev/inventory-draft-alias"
+	inventoryDraftAddressSchemaID      = "vegastack-labs.dev/inventory-draft-address"
+	inventoryDraftObservationSchemaID  = "vegastack-labs.dev/inventory-draft-observation"
+	inventoryDraftHardwareFactSchemaID = "vegastack-labs.dev/inventory-draft-hardware-fact"
+	inventoryFieldProvenanceSchemaID   = "vegastack-labs.dev/inventory-field-provenance"
+	inventoryFindingSchemaID           = "vegastack-labs.dev/inventory-finding"
+	inventoryDraftCountsSchemaID       = "vegastack-labs.dev/inventory-draft-counts"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -248,7 +261,7 @@ func commonFlags() []FlagDefinition {
 }
 
 func currentSchemas() []SchemaDefinition {
-	return []SchemaDefinition{
+	schemas := []SchemaDefinition{
 		{
 			ID:           databaseStatusDataSchemaID,
 			Version:      "1.0.0",
@@ -417,6 +430,105 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "mutationAvailable", GoName: "MutationAvailable", Kind: ValueBoolean, Required: true},
 				{JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true},
 				{JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true},
+			},
+		},
+	}
+	return append(schemas, inventorySchemas()...)
+}
+
+func inventorySchemas() []SchemaDefinition {
+	const (
+		maxPrimary    = 4096
+		maxFacts      = 16384
+		maxProvenance = 32768
+		maxIdentities = 64
+		maxText       = 1024
+	)
+	token := func(jsonName, goName string, required bool) FieldDefinition {
+		return FieldDefinition{JSONName: jsonName, GoName: goName, Kind: ValueString, Required: required, MaxLength: intPointer(128)}
+	}
+	return []SchemaDefinition{
+		{
+			ID:      inventoryDraftSourceSchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				token("kind", "Kind", true),
+				token("adapterKind", "AdapterKind", true),
+				token("adapterVersion", "AdapterVersion", true),
+				token("sourceRevision", "SourceRevision", true),
+				{JSONName: "capturedAt", GoName: "CapturedAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+			},
+		},
+		{
+			ID:      inventoryDraftIdentitySchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Enum: []string{"hardware-serial", "installation", "machine", "virtual-instance", "ssh-host-key-fingerprint"}},
+				{JSONName: "value", GoName: "Value", Kind: ValueString, Required: true, MaxLength: intPointer(maxText)},
+				{JSONName: "quarantined", GoName: "Quarantined", Kind: ValueBoolean, Required: true},
+			},
+		},
+		{
+			ID:      inventoryDraftHardwareFactSchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				token("id", "ID", true),
+				{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Enum: []string{"manufacturer", "model", "chassis", "firmware-version", "cpu-architecture", "cpu-model", "cpu-physical-cores", "cpu-logical-threads", "memory-capacity", "storage-capacity"}},
+				{JSONName: "integerValue", GoName: "IntegerValue", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(0)},
+				{JSONName: "textValue", GoName: "TextValue", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(maxText)},
+				{JSONName: "unit", GoName: "Unit", Kind: ValueString, Required: true, Enum: []string{"", "bytes", "count"}},
+			},
+		},
+		{
+			ID:      inventoryDraftAssetSchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				token("id", "ID", true),
+				{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Enum: []string{"physical", "virtual", "network", "storage", "other"}},
+				{JSONName: "lifecycle", GoName: "Lifecycle", Kind: ValueString, Required: true, Enum: []string{"candidate", "available", "quarantined", "retired"}},
+				{JSONName: "identities", GoName: "Identities", Kind: ValueArray, Required: true, ItemRef: inventoryDraftIdentitySchemaID, MaxItems: intPointer(maxIdentities)},
+				{JSONName: "hardwareFacts", GoName: "HardwareFacts", Kind: ValueArray, Required: true, ItemRef: inventoryDraftHardwareFactSchemaID, MaxItems: intPointer(64)},
+			},
+		},
+		{ID: inventoryDraftNodeSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			token("id", "ID", true), token("assetId", "AssetID", true), token("parentId", "ParentID", true),
+		}},
+		{ID: inventoryDraftAliasSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			token("id", "ID", true), token("targetId", "TargetID", true), {JSONName: "value", GoName: "Value", Kind: ValueString, Required: true, MaxLength: intPointer(maxText)},
+		}},
+		{ID: inventoryDraftAddressSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			token("id", "ID", true), token("nodeId", "NodeID", true), {JSONName: "value", GoName: "Value", Kind: ValueString, Required: true, MaxLength: intPointer(maxText)},
+		}},
+		{ID: inventoryDraftObservationSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			token("id", "ID", true), token("subjectId", "SubjectID", true), token("kind", "Kind", true), {JSONName: "value", GoName: "Value", Kind: ValueString, Required: true, MaxLength: intPointer(maxText)}, {JSONName: "observedAt", GoName: "ObservedAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+		}},
+		{ID: inventoryFieldProvenanceSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			token("recordKind", "RecordKind", true), token("recordId", "RecordID", true), {JSONName: "fieldPath", GoName: "FieldPath", Kind: ValueString, Required: true, MaxLength: intPointer(256)}, {JSONName: "locator", GoName: "Locator", Kind: ValueString, Required: true, MaxLength: intPointer(256)}, {JSONName: "capturedAt", GoName: "CapturedAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)}, token("adapterVersion", "AdapterVersion", true), {JSONName: "valueStatus", GoName: "ValueStatus", Kind: ValueString, Required: true, Enum: []string{"observed", "declared", "unrecognized", "invalid"}},
+		}},
+		{ID: inventoryFindingSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "code", GoName: "Code", Kind: ValueString, Required: true, Enum: []string{"DUPLICATE_RECORD_ID", "DUPLICATE_IDENTITY", "DUPLICATE_ALIAS", "DUPLICATE_ADDRESS", "MISSING_REFERENCE", "REFERENCE_CYCLE", "IDENTITY_CONFLICT", "IDENTITY_QUARANTINED", "IDENTITY_UNSUPPORTED", "UNSUPPORTED_VALUE", "INVALID_CAPACITY", "MISSING_REQUIRED_FIELD", "PROHIBITED_SECRET_VALUE"}}, {JSONName: "severity", GoName: "Severity", Kind: ValueString, Required: true, Enum: []string{"error"}}, {JSONName: "blocking", GoName: "Blocking", Kind: ValueBoolean, Required: true}, token("recordKind", "RecordKind", true), token("recordId", "RecordID", true), {JSONName: "fieldPath", GoName: "FieldPath", Kind: ValueString, Required: true, MaxLength: intPointer(256)}, {JSONName: "location", GoName: "Location", Kind: ValueString, Required: true, MaxLength: intPointer(256)}, {JSONName: "relatedIds", GoName: "RelatedIDs", Kind: ValueArray, Required: true, ItemKind: ValueString, MaxItems: intPointer(64), UniqueItems: true},
+		}},
+		{ID: inventoryDraftCountsSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "assets", GoName: "Assets", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "nodes", GoName: "Nodes", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "aliases", GoName: "Aliases", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "addresses", GoName: "Addresses", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "observations", GoName: "Observations", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "hardwareFacts", GoName: "HardwareFacts", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "provenance", GoName: "Provenance", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "findings", GoName: "Findings", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)},
+		}},
+		{
+			ID: inventoryDraftInputSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-draft-input.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{inventoryDraftInputSchemaID}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "source", GoName: "Source", Kind: ValueObject, Required: true, Ref: inventoryDraftSourceSchemaID},
+				{JSONName: "assets", GoName: "Assets", Kind: ValueArray, Required: true, ItemRef: inventoryDraftAssetSchemaID, MaxItems: intPointer(maxPrimary)},
+				{JSONName: "nodes", GoName: "Nodes", Kind: ValueArray, Required: true, ItemRef: inventoryDraftNodeSchemaID, MaxItems: intPointer(maxPrimary)},
+				{JSONName: "aliases", GoName: "Aliases", Kind: ValueArray, Required: true, ItemRef: inventoryDraftAliasSchemaID, MaxItems: intPointer(maxPrimary)},
+				{JSONName: "addresses", GoName: "Addresses", Kind: ValueArray, Required: true, ItemRef: inventoryDraftAddressSchemaID, MaxItems: intPointer(maxPrimary)},
+				{JSONName: "observations", GoName: "Observations", Kind: ValueArray, Required: true, ItemRef: inventoryDraftObservationSchemaID, MaxItems: intPointer(maxPrimary)},
+				{JSONName: "provenance", GoName: "Provenance", Kind: ValueArray, Required: true, ItemRef: inventoryFieldProvenanceSchemaID, MaxItems: intPointer(maxProvenance)},
+			},
+		},
+		{
+			ID: inventoryImportDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-import-data.schema.json",
+			Fields: []FieldDefinition{
+				token("draftId", "DraftID", true), {JSONName: "draftRevision", GoName: "DraftRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, {JSONName: "sourceDigest", GoName: "SourceDigest", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`}, {JSONName: "contentDigest", GoName: "ContentDigest", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`}, {JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "created", GoName: "Created", Kind: ValueBoolean, Required: true}, {JSONName: "counts", GoName: "Counts", Kind: ValueObject, Required: true, Ref: inventoryDraftCountsSchemaID}, {JSONName: "findings", GoName: "Findings", Kind: ValueArray, Required: true, ItemRef: inventoryFindingSchemaID, MaxItems: intPointer(maxFacts)},
 			},
 		},
 	}
