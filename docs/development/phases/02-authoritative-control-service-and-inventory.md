@@ -1,6 +1,6 @@
 # Development phase 2 — Authoritative control service and inventory
 
-Status: active. Phase 1 was accepted by (omkarmohanta09) on 08-09-2026 at integrated `main` commit `ed8629080c7797b3aca11dc9b7a1a9a3fde2c337`. The Issue 2.1 and 2.2 implementation plans are the current approved parallel batch; every later issue retains its own approved-plan prerequisite. Issue 2.10 (#38) owns the combined exit proof and cannot declare this phase accepted without explicit operator acceptance.
+Status: active. Phase 1 was accepted by (omkarmohanta09) on 08-09-2026 at integrated `main` commit `ed8629080c7797b3aca11dc9b7a1a9a3fde2c337`. Issues 2.1 and 2.2 are integrated; Issue 2.3 defines the next frozen implementation boundary, and every later issue retains its own dependency and approved-plan prerequisite. Issue 2.10 (#38) owns the combined exit proof and cannot declare this phase accepted without explicit operator acceptance.
 
 ## Outcome and authority boundary
 
@@ -14,7 +14,7 @@ This phase does not install a service, qualify a live host, read a real Google S
 |---|---|---|---|
 | **2.1** | Run the single foreground local control service with kernel-authenticated peers, protected socket ownership, health, and bounded signal shutdown. | Accepted Phase 1 at `ed86290`; approved Plan v1. | [Issue 2.1 (#29)](https://github.com/vegastack/vegastack-labs/issues/29) |
 | **2.2** | Make the service the only writable SQLite owner with checksummed migrations, transaction/revision primitives, integrity checks, and truthful safe mode. | Accepted Phase 1; its store/server ports are frozen with 2.1. | [Issue 2.2 (#30)](https://github.com/vegastack/vegastack-labs/issues/30) |
-| **2.3** | Validate and persist provider-neutral, revisioned, inert inventory drafts with typed provenance and deterministic findings. | 2.2. | [Issue 2.3 (#31)](https://github.com/vegastack/vegastack-labs/issues/31) |
+| **2.3** | Validate and persist complete provider-neutral, revisioned, inert `valid` or `blocked` inventory drafts with typed provenance, deterministic findings and exact-retry idempotency. | Integrated 2.2 store at `478c1d7`; owns migration `0002` only. | [Issue 2.3 (#31)](https://github.com/vegastack/vegastack-labs/issues/31) |
 | **2.4** | Convert an explicit sanitized Labs Sheet1 CSV into the generic inert inventory-draft contract without Google access. | 2.3; may follow its frozen interfaces in parallel with generic API work. | [Issue 2.4 (#32)](https://github.com/vegastack/vegastack-labs/issues/32) |
 | **2.5** | Append canonical attributed events and required destination-neutral outbox intents atomically with state transactions. | 2.1 and 2.2. | [Issue 2.5 (#33)](https://github.com/vegastack/vegastack-labs/issues/33) |
 | **2.6** | Create and verify SQLite Online Backup API snapshots and prove isolated pre-migration recovery. | 2.2; may proceed alongside 2.3 and 2.5 with migration ownership coordinated. | [Issue 2.6 (#34)](https://github.com/vegastack/vegastack-labs/issues/34) |
@@ -54,13 +54,21 @@ Issue #30 exclusively owns SQLite initialization, migration and transaction prim
 
 Later issues update only their issue row, owned contract subsection, and accumulated acceptance evidence after Issue #29 merges. Generated definitions remain the single public-contract source; reserved migration and API ownership links are not permission to define parallel formats early.
 
+## Frozen Issue 2.3 inventory-draft boundary
+
+Issue #31 adds generated provider-neutral JSON input and result contracts, `DecodedCandidate{Candidate, Findings}`, strict local decoding, deterministic normalization/validation, and immutable normalized draft storage. The input has no Labs node, domain, provider, Google or Sheet-column field. Issue #32 may translate a sanitized profile source into this contract, but cannot widen core types or reach SQLite; Issues #35 and #36 own later authenticated reads and presentation, so this implementation does not make an inventory command or API route available.
+
+Input is bounded to 4 MiB and JSON depth 32. The combined asset/node/alias/address/observation count is at most 4,096; hardware facts at most 16,384; provenance rows at most 32,768; identities and facts per asset at most 64 each; identifiers/tokens are at most 128 UTF-8 bytes, locators 256, and ordinary text 1,024. Malformed, unknown-field, wrong-schema, over-limit, cancelled or high-confidence secret-bearing input is fatal: it creates no draft, child row or import-key binding and does not advance `state_revision`. Safe semantic conflicts retain the whole normalized candidate plus ordered findings as `blocked`; a conflict never produces a valid-only subset.
+
+Migration `0002_inventory_drafts` owns only the immutable draft namespace. One nonempty opaque idempotency key is retained only as a SHA-256 digest and bound to canonical content. Exact reuse returns the original draft reference without a write or revision increment; changed content under the same key, or a changed exact-source digest under the same nonempty source identity, fails closed. There is no update/delete repair and no transition to declared, effective, qualified, trusted, admitted, named or configured state. A later canonical signed representation must retain `kind=draft`. Existing-database upgrades continue to require Issue #30's verified pre-migration snapshot; failure rolls back, verifies recovery only in an isolated target, and never overwrites the authority automatically.
+
 ## Verification, recovery, and combined exit
 
 All fixtures are synthetic fixtures with no real operational data, credentials, private rows, or production signing keys. Narrow tests precede repository-wide race, build, generated-drift, analyzer, and complete public checks. Supported Linux behavior receives build-tagged filesystem, credential, lock, replacement, signal and recovery tests; unsupported targets must fail before touching a supplied path.
 
 Recovery evidence is capability-specific: socket cleanup never removes a replacement, a failed migration preserves evidence and restores only through the approved verified-copy seam, and exports publish only after verification. None of those development tests authorizes a live recovery or makes an off-site disaster-recovery claim.
 
-Issue #38 is the combined acceptance owner. It must map every Phase 2 row to integrated evidence from one reviewed merged commit, prove authorization denials, safe states, migrations, online copies, inert imports, durable replay, deterministic exports, CLI/API parity, and absence of any available infrastructure mutation. A green child issue, merged PR, or milestone state is insufficient; only explicit operator acceptance can close the phase.
+Issue #38 is the combined acceptance owner. It must map every Phase 2 row to integrated evidence from one reviewed merged commit, prove authorization denials, safe states, the full checksummed migration catalog, immutable complete draft imports, online copies, durable replay, deterministic exports, CLI/API parity, and absence of any available infrastructure mutation. A green child issue, merged PR, or milestone state is insufficient; only explicit operator acceptance can close the phase.
 
 ## Effort and approvals
 
