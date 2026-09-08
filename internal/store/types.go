@@ -77,8 +77,6 @@ type IntentStore interface {
 // migration slices; Config prevents callers from bypassing those ports.
 type FilesystemInspector interface{}
 
-type MigrationRecovery interface{}
-
 type Config struct {
 	DatabasePath string
 	Mode         OpenMode
