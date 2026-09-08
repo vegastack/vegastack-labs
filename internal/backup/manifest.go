@@ -5,8 +5,14 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"regexp"
 	"strings"
 	"time"
+)
+
+var (
+	versionTokenPattern  = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$`)
+	sqliteVersionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+$`)
 )
 
 func marshalManifest(manifest Manifest) ([]byte, error) {
@@ -51,7 +57,7 @@ func validateManifest(manifest Manifest) error {
 		manifest.Purpose != snapshotPurpose ||
 		!safeVersion(manifest.ToolVersion) ||
 		!safeVersion(manifest.BuildVersion) ||
-		!safeVersion(manifest.SQLiteVersion) ||
+		!safeSQLiteVersion(manifest.SQLiteVersion) ||
 		manifest.DatabaseSchemaVersion == 0 ||
 		!validDigest(manifest.CatalogSHA256) ||
 		manifest.StateRevision < 0 ||
@@ -86,16 +92,10 @@ func validDigest(value string) bool {
 }
 
 func safeVersion(value string) bool {
-	if value == "" || len(value) > 128 || strings.TrimSpace(value) != value {
-		return false
-	}
-	for _, character := range value {
-		if character < 0x21 || character > 0x7e {
-			return false
-		}
-	}
-	return true
+	return versionTokenPattern.MatchString(value)
 }
+
+func safeSQLiteVersion(value string) bool { return sqliteVersionPattern.MatchString(value) }
 
 func parseUTCTimestamp(value string) (time.Time, bool) {
 	if !strings.HasSuffix(value, "Z") {

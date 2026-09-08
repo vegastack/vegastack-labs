@@ -99,7 +99,7 @@ func analyze(root string) (analysis, error) {
 			if importPath == "database/sql" && !strings.HasPrefix(relative, "internal/store/") {
 				result.SQLiteAccess = true
 			}
-			if importPath == "golang.org/x/sys/unix" && !(strings.HasSuffix(relative, "_linux.go") && (strings.HasPrefix(relative, "internal/localapi/") || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))) {
+			if importPath == "golang.org/x/sys/unix" && !(strings.HasSuffix(relative, "_linux.go") && (strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/localapi/") || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))) {
 				result.XSysOutsideScope = true
 			}
 		}

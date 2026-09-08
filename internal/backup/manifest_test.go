@@ -43,6 +43,8 @@ func TestManifestRejectsNonCanonicalAndInvalidValues(t *testing.T) {
 		"tool":         func(m *Manifest) { m.ToolVersion = "" },
 		"build":        func(m *Manifest) { m.BuildVersion = "" },
 		"sqlite":       func(m *Manifest) { m.SQLiteVersion = "" },
+		"sqliteSQL":    func(m *Manifest) { m.SQLiteVersion = "SELECT secret" },
+		"toolPath":     func(m *Manifest) { m.ToolVersion = "/srv/control.db" },
 		"schemaNumber": func(m *Manifest) { m.DatabaseSchemaVersion = 0 },
 		"catalog":      func(m *Manifest) { m.CatalogSHA256 = strings.Repeat("g", 64) },
 		"revision":     func(m *Manifest) { m.StateRevision = -1 },

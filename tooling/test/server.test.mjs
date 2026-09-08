@@ -37,8 +37,10 @@ test("the server verifier accepts the single Unix service boundary", async (t) =
   assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
 });
 
-test("the server verifier accepts SQLite and Linux filesystem access only in the store", async (t) => {
+test("the server verifier accepts reviewed Linux filesystem access in backup and store", async (t) => {
   const root = await fixtureRepo(t, {
+    "internal/backup/filesystem_linux.go":
+      "package backup\nimport _ \"golang.org/x/sys/unix\"\n",
     "internal/store/store.go": "package store\nimport _ \"database/sql\"\n",
     "internal/store/filesystem_linux.go":
       "package store\nimport _ \"golang.org/x/sys/unix\"\n",

@@ -74,7 +74,7 @@ func (service *Service) Prepare(ctx context.Context, source store.MigrationSourc
 	if err != nil {
 		return store.VerifiedSnapshot{}, classifyOperation(ctx, err)
 	}
-	if inspection.IntegrityStatus != store.IntegrityVerified || inspection.SchemaVersion != request.CurrentSchemaVersion || inspection.Revision != request.CurrentRevision || !safeVersion(inspection.SQLiteVersion) {
+	if inspection.IntegrityStatus != store.IntegrityVerified || inspection.SchemaVersion != request.CurrentSchemaVersion || inspection.Revision != request.CurrentRevision || !safeSQLiteVersion(inspection.SQLiteVersion) {
 		return store.VerifiedSnapshot{}, integrityError()
 	}
 	verifiedAt := service.config.Clock().UTC()

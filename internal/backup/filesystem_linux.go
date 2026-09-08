@@ -40,7 +40,7 @@ func (layout *linuxArtifactLayout) BeginGeneration(ctx context.Context, snapshot
 		return stagedGeneration{}, classified(err, integrityError())
 	}
 	directory := filepath.Join(layout.root, ".staging-"+snapshotID)
-	if err := mkdirExclusive(directory); err != nil {
+	if err := layout.mkdirAtRoot(filepath.Base(directory)); err != nil {
 		return stagedGeneration{}, integrityError()
 	}
 	if err := layout.validateOwnedDirectory(directory); err != nil {
@@ -73,8 +73,23 @@ func (layout *linuxArtifactLayout) WriteManifest(ctx context.Context, staged sta
 	if _, err := parseManifest(body); err != nil {
 		return integrityError()
 	}
-	file, err := os.OpenFile(staged.manifest, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	rootDescriptor, err := layout.openRoot()
 	if err != nil {
+		return integrityError()
+	}
+	defer unix.Close(rootDescriptor)
+	stageDescriptor, err := layout.openOwnedDirectoryAt(rootDescriptor, filepath.Base(staged.dir))
+	if err != nil {
+		return integrityError()
+	}
+	defer unix.Close(stageDescriptor)
+	descriptor, err := unix.Openat(stageDescriptor, manifestFileName, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
+	if err != nil {
+		return integrityError()
+	}
+	file := os.NewFile(uintptr(descriptor), "snapshot-manifest")
+	if file == nil {
+		_ = unix.Close(descriptor)
 		return integrityError()
 	}
 	written, writeErr := file.Write(body)
@@ -105,11 +120,25 @@ func (layout *linuxArtifactLayout) Publish(ctx context.Context, staged stagedGen
 	if err != nil || manifest.SnapshotID != staged.id || manifest.DatabaseSize != size || manifest.DatabaseSHA256 != fmt.Sprintf("%x", digest) {
 		return publishedGeneration{}, integrityError()
 	}
-	if err := syncDirectory(staged.dir); err != nil {
+	rootDescriptor, err := layout.openRoot()
+	if err != nil {
+		return publishedGeneration{}, integrityError()
+	}
+	defer unix.Close(rootDescriptor)
+	stageName := filepath.Base(staged.dir)
+	stageDescriptor, err := layout.openOwnedDirectoryAt(rootDescriptor, stageName)
+	if err != nil {
+		return publishedGeneration{}, integrityError()
+	}
+	if err := unix.Fsync(stageDescriptor); err != nil {
+		_ = unix.Close(stageDescriptor)
+		return publishedGeneration{}, integrityError()
+	}
+	if err := unix.Close(stageDescriptor); err != nil {
 		return publishedGeneration{}, integrityError()
 	}
 	finalDirectory := filepath.Join(layout.root, staged.id)
-	if err := unix.Renameat2(unix.AT_FDCWD, staged.dir, unix.AT_FDCWD, finalDirectory, unix.RENAME_NOREPLACE); err != nil {
+	if err := unix.Renameat2(rootDescriptor, stageName, rootDescriptor, staged.id, unix.RENAME_NOREPLACE); err != nil {
 		return publishedGeneration{}, integrityError()
 	}
 	published := publishedGeneration{
@@ -119,7 +148,7 @@ func (layout *linuxArtifactLayout) Publish(ctx context.Context, staged stagedGen
 		manifest:         filepath.Join(finalDirectory, manifestFileName),
 		databaseIdentity: staged.databaseIdentity,
 	}
-	if err := syncDirectory(layout.root); err != nil {
+	if err := unix.Fsync(rootDescriptor); err != nil {
 		return publishedGeneration{}, integrityError()
 	}
 	return published, nil
@@ -159,7 +188,7 @@ func (layout *linuxArtifactLayout) BeginRestore(ctx context.Context, snapshotID 
 		return restoreTarget{}, integrityError()
 	}
 	directory := filepath.Join(layout.root, ".restore-"+snapshotID+"-"+suffix)
-	if err := mkdirExclusive(directory); err != nil {
+	if err := layout.mkdirAtRoot(filepath.Base(directory)); err != nil {
 		return restoreTarget{}, integrityError()
 	}
 	if err := layout.validateOwnedDirectory(directory); err != nil {
@@ -184,10 +213,22 @@ func (layout *linuxArtifactLayout) RemoveRestore(ctx context.Context, target res
 	if err := layout.validateRestorePath(ctx, target); err != nil {
 		return err
 	}
-	if err := os.Remove(target.database); err != nil && !errors.Is(err, fs.ErrNotExist) {
+	rootDescriptor, err := layout.openRoot()
+	if err != nil {
 		return integrityError()
 	}
-	if err := os.Remove(target.dir); err != nil {
+	defer unix.Close(rootDescriptor)
+	name := filepath.Base(target.dir)
+	restoreDescriptor, err := layout.openOwnedDirectoryAt(rootDescriptor, name)
+	if err != nil {
+		return integrityError()
+	}
+	unlinkErr := unix.Unlinkat(restoreDescriptor, databaseFileName, 0)
+	closeErr := unix.Close(restoreDescriptor)
+	if unlinkErr != nil && !errors.Is(unlinkErr, unix.ENOENT) {
+		return integrityError()
+	}
+	if closeErr != nil || unix.Unlinkat(rootDescriptor, name, unix.AT_REMOVEDIR) != nil {
 		return integrityError()
 	}
 	return nil
@@ -240,7 +281,74 @@ func (layout *linuxArtifactLayout) validateRoot(ctx context.Context) error {
 			return integrityError()
 		}
 	}
-	return layout.validateOwnedDirectory(layout.root)
+	descriptor, err := layout.openRoot()
+	if err != nil {
+		return integrityError()
+	}
+	if err := unix.Close(descriptor); err != nil {
+		return integrityError()
+	}
+	return nil
+}
+
+func (layout *linuxArtifactLayout) openRoot() (int, error) {
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, layout.root, &unix.OpenHow{
+		Flags:   unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC,
+		Resolve: unix.RESOLVE_NO_MAGICLINKS | unix.RESOLVE_NO_SYMLINKS,
+	})
+	if err != nil {
+		return -1, err
+	}
+	if err := validateOwnedDirectoryDescriptor(descriptor, layout.expectedUID); err != nil {
+		_ = unix.Close(descriptor)
+		return -1, err
+	}
+	return descriptor, nil
+}
+
+func (layout *linuxArtifactLayout) openOwnedDirectoryAt(parentDescriptor int, name string) (int, error) {
+	if name == "" || name == "." || name == ".." || strings.ContainsRune(name, filepath.Separator) {
+		return -1, errors.New("unsafe directory name")
+	}
+	descriptor, err := unix.Openat(parentDescriptor, name, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+	if err != nil {
+		return -1, err
+	}
+	if err := validateOwnedDirectoryDescriptor(descriptor, layout.expectedUID); err != nil {
+		_ = unix.Close(descriptor)
+		return -1, err
+	}
+	return descriptor, nil
+}
+
+func (layout *linuxArtifactLayout) mkdirAtRoot(name string) error {
+	rootDescriptor, err := layout.openRoot()
+	if err != nil {
+		return err
+	}
+	defer unix.Close(rootDescriptor)
+	if name == "" || name == "." || name == ".." || strings.ContainsRune(name, filepath.Separator) {
+		return errors.New("unsafe directory name")
+	}
+	if err := unix.Mkdirat(rootDescriptor, name, 0o700); err != nil {
+		return err
+	}
+	directoryDescriptor, err := layout.openOwnedDirectoryAt(rootDescriptor, name)
+	if err != nil {
+		return err
+	}
+	if err := unix.Close(directoryDescriptor); err != nil {
+		return err
+	}
+	return unix.Fsync(rootDescriptor)
+}
+
+func validateOwnedDirectoryDescriptor(descriptor int, expectedUID uint32) error {
+	var stat unix.Stat_t
+	if err := unix.Fstat(descriptor, &stat); err != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Mode&0o777 != 0o700 || stat.Uid != expectedUID || stat.Nlink < 1 || !isLocalDescriptor(descriptor) {
+		return errors.New("unsafe directory")
+	}
+	return nil
 }
 
 func (layout *linuxArtifactLayout) validateOwnedDirectory(path string) error {
