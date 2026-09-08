@@ -95,12 +95,13 @@ func TestMigrationRejectsUnknownNewerAndChangedLedger(t *testing.T) {
 func TestRecoverySourceCreatesAndVerifiesIsolatedCopies(t *testing.T) {
 	store := openTestStore(t)
 	directory := filepath.Dir(store.config.DatabasePath)
-	source := &recoverySource{store: store}
+	catalog := mustCatalog(t)
+	source := &recoverySource{store: store, catalog: catalog}
 	snapshot := filepath.Join(directory, "snapshot.db")
 	if err := source.OnlineBackup(context.Background(), snapshot, BackupStepPolicy{PagesPerStep: 1}); err != nil {
 		t.Fatal(err)
 	}
-	expectation := SnapshotExpectation{SchemaVersion: 1, Revision: RevisionToken{}, CatalogSHA256: catalogSHA256(mustCatalog(t))}
+	expectation := SnapshotExpectation{SchemaVersion: 1, Revision: RevisionToken{}, CatalogSHA256: catalogSHA256(catalog)}
 	inspection, err := source.InspectSnapshot(context.Background(), snapshot, expectation)
 	if err != nil || inspection.IntegrityStatus != IntegrityVerified {
 		t.Fatalf("inspection = %#v, %v", inspection, err)
@@ -111,6 +112,11 @@ func TestRecoverySourceCreatesAndVerifiesIsolatedCopies(t *testing.T) {
 	}
 	if _, err := source.InspectSnapshot(context.Background(), restored, expectation); err != nil {
 		t.Fatal(err)
+	}
+	wrongCatalog := expectation
+	wrongCatalog.CatalogSHA256 = sha256.Sum256([]byte("wrong catalog"))
+	if _, err := source.InspectSnapshot(context.Background(), restored, wrongCatalog); Code(err) != "MIGRATION_BLOCKED" {
+		t.Fatalf("wrong catalog code = %q", Code(err))
 	}
 	if err := source.RestoreSnapshot(context.Background(), snapshot, store.config.DatabasePath); Code(err) != "INPUT_INVALID" {
 		t.Fatalf("authority replacement code = %q", Code(err))

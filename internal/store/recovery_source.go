@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -12,7 +13,8 @@ import (
 )
 
 type recoverySource struct {
-	store *Store
+	store   *Store
+	catalog []Migration
 }
 
 func (source *recoverySource) OnlineBackup(ctx context.Context, destination string, policy BackupStepPolicy) error {
@@ -38,24 +40,37 @@ func (source *recoverySource) OnlineBackup(ctx context.Context, destination stri
 		if err != nil {
 			return err
 		}
-		defer backup.Close()
+		closed := false
+		defer func() {
+			if !closed {
+				_ = backup.Close()
+			}
+		}()
 		deadline := time.Now().Add(policy.BusyBudget)
 		for {
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			done, err := backup.Step(policy.PagesPerStep)
-			if done {
-				return backup.Close()
+			done, stepErr := backup.Step(policy.PagesPerStep)
+			if stepErr == nil && done {
+				closeErr := backup.Close()
+				closed = true
+				return closeErr
 			}
-			if err == nil {
+			if stepErr == nil {
 				continue
 			}
-			if (errors.Is(err, sqlite3.BUSY) || errors.Is(err, sqlite3.LOCKED)) && time.Now().Before(deadline) {
-				time.Sleep(time.Millisecond)
-				continue
+			if (errors.Is(stepErr, sqlite3.BUSY) || errors.Is(stepErr, sqlite3.LOCKED)) && time.Now().Before(deadline) {
+				timer := time.NewTimer(time.Millisecond)
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return ctx.Err()
+				case <-timer.C:
+					continue
+				}
 			}
-			return err
+			return stepErr
 		}
 	})
 	if backupErr != nil {
@@ -89,14 +104,19 @@ func (source *recoverySource) InspectSnapshot(ctx context.Context, snapshotPath 
 	if err := database.QueryRowContext(ctx, `SELECT schema_version, state_revision, recovery_epoch FROM system_meta WHERE id = 1`).Scan(&inspection.SchemaVersion, &inspection.Revision.StateRevision, &inspection.Revision.RecoveryEpoch); err != nil {
 		return SnapshotInspection{}, databaseError("INTEGRITY_FAILURE", err)
 	}
-	rows, err := database.QueryContext(ctx, `SELECT id FROM schema_migrations ORDER BY id`)
+	if len(source.catalog) == 0 || catalogSHA256(source.catalog) != expected.CatalogSHA256 {
+		return SnapshotInspection{}, newStoreError("MIGRATION_BLOCKED", "migration-snapshot", false, nil)
+	}
+	rows, err := database.QueryContext(ctx, `SELECT id, name, sha256 FROM schema_migrations ORDER BY id`)
 	if err != nil {
 		return SnapshotInspection{}, databaseError("INTEGRITY_FAILURE", err)
 	}
 	count := uint64(0)
 	for rows.Next() {
 		var id uint64
-		if err := rows.Scan(&id); err != nil || id != count+1 {
+		var name string
+		var checksum []byte
+		if err := rows.Scan(&id, &name, &checksum); err != nil || id != count+1 || id > uint64(len(source.catalog)) || source.catalog[id-1].Name != name || !bytes.Equal(source.catalog[id-1].SHA256[:], checksum) {
 			_ = rows.Close()
 			return SnapshotInspection{}, newStoreError("MIGRATION_BLOCKED", "migration-snapshot", false, err)
 		}

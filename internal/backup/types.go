@@ -3,6 +3,7 @@
 package backup
 
 import (
+	"fmt"
 	"io"
 	"time"
 )
@@ -60,3 +61,11 @@ func migrationError() error   { return classifiedError(failureMigration) }
 func integrityError() error   { return classifiedError(failureIntegrity) }
 func interruptedError() error { return classifiedError(failureInterrupted) }
 func unsupportedError() error { return classifiedError(failureUnsupported) }
+
+func randomID(entropy io.Reader) (string, error) {
+	buffer := make([]byte, snapshotIDByteLength)
+	if _, err := io.ReadFull(entropy, buffer); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", buffer), nil
+}
