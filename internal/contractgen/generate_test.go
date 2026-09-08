@@ -31,6 +31,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/command-registry.json",
 		"schemas/v1/command-registry.schema.json",
 		"schemas/v1/database-status-data.schema.json",
+		"schemas/v1/inventory-draft-input.schema.json",
+		"schemas/v1/inventory-import-data.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
 		"schemas/v1/release-manifest.schema.json",
 		"schemas/v1/release-trust-policy.schema.json",
@@ -51,6 +53,38 @@ func TestGenerateIsByteStable(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gotPaths, wantPaths) {
 		t.Fatalf("artifact paths = %v, want %v", gotPaths, wantPaths)
+	}
+}
+
+func TestGenerateEmitsInventoryArtifactsAndClosedInput(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := map[string][]byte{}
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = artifact.Content
+	}
+	raw := byPath["schemas/v1/inventory-draft-input.schema.json"]
+	var schema map[string]any
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		t.Fatal(err)
+	}
+	if schema["additionalProperties"] != false {
+		t.Fatalf("inventory input additionalProperties = %v", schema["additionalProperties"])
+	}
+	generatedGo := string(byPath["internal/generated/contracts_gen.go"])
+	for _, declaration := range []string{
+		"type InventoryDraftInput struct",
+		"type InventoryImportData struct",
+		"type InventoryDraftAsset struct",
+		"type InventoryFieldProvenance struct",
+	} {
+		if !strings.Contains(generatedGo, declaration) {
+			t.Errorf("missing %q", declaration)
+		}
 	}
 }
 

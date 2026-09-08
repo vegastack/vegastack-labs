@@ -210,7 +210,7 @@ func (store *Store) applyFoundation(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if len(catalog) != 1 || catalog[0].ID != 1 {
+	if err := validateMigrationCatalog(catalog); err != nil || catalog[0].ID != 1 {
 		return migrationCatalogError(errors.New("foundation migration is unavailable"))
 	}
 	transaction, err := store.conn.BeginTx(ctx, nil)
@@ -218,21 +218,28 @@ func (store *Store) applyFoundation(ctx context.Context) error {
 		return databaseError("INTEGRITY_FAILURE", err)
 	}
 	defer func() { _ = transaction.Rollback() }()
-	migration := catalog[0]
-	if _, err := transaction.ExecContext(ctx, migration.SQL); err != nil {
+	for _, migration := range catalog {
+		if _, err := transaction.ExecContext(ctx, migration.SQL); err != nil {
+			return databaseError("MIGRATION_BLOCKED", err)
+		}
+		if _, err := transaction.ExecContext(
+			ctx,
+			"INSERT INTO schema_migrations(id, name, sha256, applied_at, tool_version, build_version) VALUES (?, ?, ?, ?, ?, ?)",
+			migration.ID,
+			migration.Name,
+			migration.SHA256[:],
+			store.config.Clock().UTC().Format(time.RFC3339Nano),
+			store.config.ToolVersion,
+			store.config.BuildVersion,
+		); err != nil {
+			return databaseError("MIGRATION_BLOCKED", err)
+		}
+	}
+	if _, err := transaction.ExecContext(ctx, `UPDATE system_meta SET schema_version = ? WHERE id = 1`, len(catalog)); err != nil {
 		return databaseError("MIGRATION_BLOCKED", err)
 	}
-	if _, err := transaction.ExecContext(
-		ctx,
-		"INSERT INTO schema_migrations(id, name, sha256, applied_at, tool_version, build_version) VALUES (?, ?, ?, ?, ?, ?)",
-		migration.ID,
-		migration.Name,
-		migration.SHA256[:],
-		store.config.Clock().UTC().Format(time.RFC3339Nano),
-		store.config.ToolVersion,
-		store.config.BuildVersion,
-	); err != nil {
-		return databaseError("MIGRATION_BLOCKED", err)
+	if err := checkTransactionIntegrity(ctx, transaction); err != nil {
+		return err
 	}
 	if err := transaction.Commit(); err != nil {
 		return databaseError("INTEGRITY_FAILURE", err)

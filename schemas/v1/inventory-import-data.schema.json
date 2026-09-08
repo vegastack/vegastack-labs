@@ -1,0 +1,183 @@
+{
+  "$defs": {
+    "inventory-draft-counts": {
+      "additionalProperties": false,
+      "properties": {
+        "addresses": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "aliases": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "assets": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "findings": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hardwareFacts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nodes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "provenance": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "assets",
+        "nodes",
+        "aliases",
+        "addresses",
+        "observations",
+        "hardwareFacts",
+        "provenance",
+        "findings"
+      ],
+      "type": "object"
+    },
+    "inventory-finding": {
+      "additionalProperties": false,
+      "properties": {
+        "blocking": {
+          "type": "boolean"
+        },
+        "code": {
+          "enum": [
+            "DUPLICATE_RECORD_ID",
+            "DUPLICATE_IDENTITY",
+            "DUPLICATE_ALIAS",
+            "DUPLICATE_ADDRESS",
+            "MISSING_REFERENCE",
+            "REFERENCE_CYCLE",
+            "IDENTITY_CONFLICT",
+            "IDENTITY_QUARANTINED",
+            "IDENTITY_UNSUPPORTED",
+            "UNSUPPORTED_VALUE",
+            "INVALID_CAPACITY",
+            "MISSING_REQUIRED_FIELD",
+            "PROHIBITED_SECRET_VALUE"
+          ],
+          "type": "string"
+        },
+        "fieldPath": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "location": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "recordId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "recordKind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "relatedIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "severity": {
+          "enum": [
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "blocking",
+        "recordKind",
+        "recordId",
+        "fieldPath",
+        "location",
+        "relatedIds"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/inventory-import-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contentDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "counts": {
+      "$ref": "#/$defs/inventory-draft-counts"
+    },
+    "created": {
+      "type": "boolean"
+    },
+    "draftId": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "draftRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/inventory-finding"
+      },
+      "maxItems": 16384,
+      "type": "array"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "sourceDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "validationStatus": {
+      "enum": [
+        "valid",
+        "blocked"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "draftId",
+    "draftRevision",
+    "validationStatus",
+    "sourceDigest",
+    "contentDigest",
+    "stateRevision",
+    "recoveryEpoch",
+    "created",
+    "counts",
+    "findings"
+  ],
+  "title": "VegaStack Labs inventory import data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

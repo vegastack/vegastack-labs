@@ -1,0 +1,395 @@
+{
+  "$defs": {
+    "inventory-draft-address": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "nodeId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "value"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-alias": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "targetId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "targetId",
+        "value"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-asset": {
+      "additionalProperties": false,
+      "properties": {
+        "hardwareFacts": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-hardware-fact"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-identity"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "physical",
+            "virtual",
+            "network",
+            "storage",
+            "other"
+          ],
+          "type": "string"
+        },
+        "lifecycle": {
+          "enum": [
+            "candidate",
+            "available",
+            "quarantined",
+            "retired"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "lifecycle",
+        "identities",
+        "hardwareFacts"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-hardware-fact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "integerValue": {
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "manufacturer",
+            "model",
+            "chassis",
+            "firmware-version",
+            "cpu-architecture",
+            "cpu-model",
+            "cpu-physical-cores",
+            "cpu-logical-threads",
+            "memory-capacity",
+            "storage-capacity"
+          ],
+          "type": "string"
+        },
+        "textValue": {
+          "maxLength": 1024,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "",
+            "bytes",
+            "count"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "integerValue",
+        "textValue",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-identity": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "hardware-serial",
+            "installation",
+            "machine",
+            "virtual-instance",
+            "ssh-host-key-fingerprint"
+          ],
+          "type": "string"
+        },
+        "quarantined": {
+          "type": "boolean"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "quarantined"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-node": {
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "parentId": {
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "assetId",
+        "parentId"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "observedAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "subjectId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "subjectId",
+        "kind",
+        "value",
+        "observedAt"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-source": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterKind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "adapterVersion": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "capturedAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "sourceRevision": {
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "adapterKind",
+        "adapterVersion",
+        "sourceRevision",
+        "capturedAt"
+      ],
+      "type": "object"
+    },
+    "inventory-field-provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterVersion": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "capturedAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "fieldPath": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "locator": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "recordId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "recordKind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "valueStatus": {
+          "enum": [
+            "observed",
+            "declared",
+            "unrecognized",
+            "invalid"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordKind",
+        "recordId",
+        "fieldPath",
+        "locator",
+        "capturedAt",
+        "adapterVersion",
+        "valueStatus"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/inventory-draft-input",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "addresses": {
+      "items": {
+        "$ref": "#/$defs/inventory-draft-address"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "aliases": {
+      "items": {
+        "$ref": "#/$defs/inventory-draft-alias"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/inventory-draft-asset"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "nodes": {
+      "items": {
+        "$ref": "#/$defs/inventory-draft-node"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "observations": {
+      "items": {
+        "$ref": "#/$defs/inventory-draft-observation"
+      },
+      "maxItems": 4096,
+      "type": "array"
+    },
+    "provenance": {
+      "items": {
+        "$ref": "#/$defs/inventory-field-provenance"
+      },
+      "maxItems": 32768,
+      "type": "array"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/inventory-draft-input"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "source": {
+      "$ref": "#/$defs/inventory-draft-source"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "source",
+    "assets",
+    "nodes",
+    "aliases",
+    "addresses",
+    "observations",
+    "provenance"
+  ],
+  "title": "VegaStack Labs inventory draft input",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

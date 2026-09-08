@@ -951,6 +951,60 @@
       "artifactPath": "schemas/v1/database-status-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/inventory-draft-address",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-alias",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-asset",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-counts",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-hardware-fact",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-identity",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-input",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-draft-input.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-node",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-observation",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-source",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-field-provenance",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-finding",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-import-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-import-data.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/local-principal-binding",
       "version": "1.0.0"
     },
