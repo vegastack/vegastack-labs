@@ -3,6 +3,7 @@ package inventory
 import (
 	"context"
 	"net/netip"
+	"regexp"
 	"sort"
 	"strings"
 	"unicode/utf8"
@@ -11,6 +12,7 @@ import (
 )
 
 var allowedFindingCodes = map[string]bool{"DUPLICATE_RECORD_ID": true, "DUPLICATE_IDENTITY": true, "DUPLICATE_ALIAS": true, "DUPLICATE_ADDRESS": true, "MISSING_REFERENCE": true, "REFERENCE_CYCLE": true, "IDENTITY_CONFLICT": true, "IDENTITY_QUARANTINED": true, "IDENTITY_UNSUPPORTED": true, "UNSUPPORTED_VALUE": true, "INVALID_CAPACITY": true, "MISSING_REQUIRED_FIELD": true, "PROHIBITED_SECRET_VALUE": true}
+var sourceDigestPattern = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 
 func validateBoundsAndSecrets(candidate DraftCandidate, findings []Finding) error {
 	primary := len(candidate.Assets) + len(candidate.Nodes) + len(candidate.Aliases) + len(candidate.Addresses) + len(candidate.Observations)
@@ -18,8 +20,10 @@ func validateBoundsAndSecrets(candidate DraftCandidate, findings []Finding) erro
 	if primary > MaxPrimaryRecords || len(candidate.Provenance) > MaxProvenance {
 		return newError(generated.ErrorCodeInputInvalid, targetDraft)
 	}
-	stringsToCheck := []string{candidate.Source.Kind, candidate.Source.AdapterKind, candidate.Source.AdapterVersion, candidate.Source.SourceRevision, candidate.Source.Digest}
-	if candidate.Source.Kind == "" || candidate.Source.AdapterKind == "" || candidate.Source.AdapterVersion == "" || !canonicalTime(candidate.Source.CapturedAt) {
+	tokens := []string{candidate.Source.Kind, candidate.Source.AdapterKind, candidate.Source.AdapterVersion, candidate.Source.SourceRevision}
+	texts := []string{candidate.Source.Digest}
+	locators := []string{}
+	if candidate.Source.Kind == "" || candidate.Source.AdapterKind == "" || candidate.Source.AdapterVersion == "" || !canonicalTime(candidate.Source.CapturedAt) || !sourceDigestPattern.MatchString(candidate.Source.Digest) {
 		return newError(generated.ErrorCodeInputInvalid, targetDraft)
 	}
 	for _, asset := range candidate.Assets {
@@ -27,14 +31,15 @@ func validateBoundsAndSecrets(candidate DraftCandidate, findings []Finding) erro
 			return newError(generated.ErrorCodeInputInvalid, targetDraft)
 		}
 		facts += len(asset.HardwareFacts)
-		stringsToCheck = append(stringsToCheck, string(asset.ID), string(asset.Kind), string(asset.Lifecycle))
+		tokens = append(tokens, string(asset.ID), string(asset.Kind), string(asset.Lifecycle))
 		for _, identity := range asset.Identities {
-			stringsToCheck = append(stringsToCheck, identity.Kind, identity.Value)
+			tokens = append(tokens, identity.Kind)
+			texts = append(texts, identity.Value)
 		}
 		for _, fact := range asset.HardwareFacts {
-			stringsToCheck = append(stringsToCheck, string(fact.ID), fact.Kind, fact.Unit)
+			tokens = append(tokens, string(fact.ID), fact.Kind, fact.Unit)
 			if fact.TextValue != nil {
-				stringsToCheck = append(stringsToCheck, *fact.TextValue)
+				texts = append(texts, *fact.TextValue)
 			}
 		}
 	}
@@ -42,31 +47,49 @@ func validateBoundsAndSecrets(candidate DraftCandidate, findings []Finding) erro
 		return newError(generated.ErrorCodeInputInvalid, targetDraft)
 	}
 	for _, node := range candidate.Nodes {
-		stringsToCheck = append(stringsToCheck, string(node.ID), string(node.AssetID), string(node.ParentID))
+		tokens = append(tokens, string(node.ID), string(node.AssetID), string(node.ParentID))
 	}
 	for _, alias := range candidate.Aliases {
-		stringsToCheck = append(stringsToCheck, string(alias.ID), string(alias.TargetID), alias.Value)
+		tokens = append(tokens, string(alias.ID), string(alias.TargetID))
+		texts = append(texts, alias.Value)
 	}
 	for _, address := range candidate.Addresses {
-		stringsToCheck = append(stringsToCheck, string(address.ID), string(address.NodeID), address.Value)
+		tokens = append(tokens, string(address.ID), string(address.NodeID))
+		texts = append(texts, address.Value)
 	}
 	for _, observation := range candidate.Observations {
-		stringsToCheck = append(stringsToCheck, string(observation.ID), string(observation.SubjectID), observation.Kind, observation.Value)
+		tokens = append(tokens, string(observation.ID), string(observation.SubjectID), observation.Kind)
+		texts = append(texts, observation.Value)
 	}
 	for _, provenance := range candidate.Provenance {
-		stringsToCheck = append(stringsToCheck, provenance.RecordKind, string(provenance.RecordID), provenance.FieldPath, provenance.Locator, provenance.AdapterVersion, provenance.ValueStatus)
-		if len(provenance.FieldPath) > MaxLocatorBytes || len(provenance.Locator) > MaxLocatorBytes || secretSemanticName(provenance.FieldPath) || secretSemanticName(provenance.Locator) {
+		tokens = append(tokens, provenance.RecordKind, string(provenance.RecordID), provenance.AdapterVersion, provenance.ValueStatus)
+		locators = append(locators, provenance.FieldPath, provenance.Locator)
+		if secretSemanticName(provenance.FieldPath) || secretSemanticName(provenance.Locator) {
 			return newError(generated.ErrorCodeInputInvalid, targetDraft)
 		}
 	}
 	for _, finding := range findings {
-		if !allowedFindingCodes[finding.Code] || finding.Severity != "error" || !finding.Blocking || len(finding.FieldPath) > MaxLocatorBytes || len(finding.Location) > MaxLocatorBytes || len(finding.RelatedIDs) > MaxIdentities || secretSemanticName(finding.FieldPath) || secretSemanticName(finding.Location) {
+		if !allowedFindingCodes[finding.Code] || finding.Severity != "error" || !finding.Blocking || len(finding.RelatedIDs) > MaxIdentities || secretSemanticName(finding.FieldPath) || secretSemanticName(finding.Location) {
 			return newError(generated.ErrorCodeInputInvalid, targetDraft)
 		}
-		stringsToCheck = append(stringsToCheck, finding.Code, finding.Severity, finding.RecordKind, string(finding.RecordID), finding.FieldPath, finding.Location)
+		tokens = append(tokens, finding.Code, finding.Severity, finding.RecordKind, string(finding.RecordID))
+		for _, relatedID := range finding.RelatedIDs {
+			tokens = append(tokens, string(relatedID))
+		}
+		locators = append(locators, finding.FieldPath, finding.Location)
 	}
-	for _, value := range stringsToCheck {
-		if !utf8.ValidString(value) || len(value) > MaxTextBytes || containsSecretValue(value) {
+	for _, bounded := range []struct {
+		values []string
+		limit  int
+	}{{tokens, MaxTokenBytes}, {locators, MaxLocatorBytes}, {texts, MaxTextBytes}} {
+		for _, value := range bounded.values {
+			if !utf8.ValidString(value) || len(value) > bounded.limit || containsSecretValue(value) {
+				return newError(generated.ErrorCodeInputInvalid, targetDraft)
+			}
+		}
+	}
+	for _, provenance := range candidate.Provenance {
+		if provenance.RecordKind == "" || provenance.RecordID == "" || provenance.FieldPath == "" || provenance.Locator == "" || provenance.AdapterVersion == "" || provenance.ValueStatus == "" || !canonicalTime(provenance.CapturedAt) {
 			return newError(generated.ErrorCodeInputInvalid, targetDraft)
 		}
 	}

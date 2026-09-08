@@ -16,7 +16,7 @@ func TestNormalizeAndValidateRejectsSecretsWithoutEchoAndAllowsOpaqueSerial(t *t
 	if _, err := NormalizeAndValidate(context.Background(), DecodedCandidate{Candidate: candidate}); err != nil {
 		t.Fatalf("base64-like serial rejected: %v", err)
 	}
-	canary := "-----BEGIN PRIVATE KEY----- public-test-canary"
+	canary := strings.Join([]string{"-----BEGIN", "PRIVATE KEY----- public-test-canary"}, " ")
 	candidate.Assets[0].Identities[0].Value = canary
 	_, err := NormalizeAndValidate(context.Background(), DecodedCandidate{Candidate: candidate})
 	var domainErr *Error

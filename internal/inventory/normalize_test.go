@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"os"
 	"reflect"
 	"slices"
 	"strings"
@@ -35,6 +36,46 @@ func TestNormalizeAndValidateReturnsCompleteStableBlockedDraft(t *testing.T) {
 	}
 	if len(first.Candidate.Assets) != len(candidate.Assets) || len(first.Candidate.Nodes) != len(candidate.Nodes) {
 		t.Fatal("blocked candidate was reduced to a valid subset")
+	}
+}
+
+func TestConflictFixtureDecodesAsACompleteBlockedDraft(t *testing.T) {
+	t.Parallel()
+	input, err := os.Open("testdata/conflicts.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer input.Close()
+	decoded, err := (JSONDecoder{}).Decode(context.Background(), input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := NormalizeAndValidate(context.Background(), decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.ValidationStatus != DraftBlocked || len(result.Candidate.Assets) != 2 || len(result.Candidate.Nodes) != 3 {
+		t.Fatalf("conflict fixture was not preserved completely: %#v", result)
+	}
+}
+
+func TestNormalizeDigestIsStableForDuplicateRecordIDs(t *testing.T) {
+	t.Parallel()
+	candidate := minimalCandidate()
+	candidate.Assets = append(candidate.Assets, DraftAsset{
+		ID: "asset-a", Kind: AssetVirtual, Lifecycle: LifecycleAvailable,
+		Identities: []DraftIdentity{{Kind: "virtual-instance", Value: "public-instance-2"}},
+	})
+	first, err := NormalizeAndValidate(context.Background(), DecodedCandidate{Candidate: candidate})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reversed, err := NormalizeAndValidate(context.Background(), DecodedCandidate{Candidate: reverseCandidate(candidate)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.ContentDigest != reversed.ContentDigest {
+		t.Fatalf("duplicate-ID digest changed with input order: %q != %q", first.ContentDigest, reversed.ContentDigest)
 	}
 }
 

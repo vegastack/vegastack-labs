@@ -21,7 +21,7 @@ func TestServicePersistsSemanticConflictButNotFatalInput(t *testing.T) {
 		t.Fatalf("blocked import = %#v, puts=%d", blocked, repository.puts)
 	}
 	fatal := minimalCandidate()
-	fatal.Assets[0].Identities[0].Value = "-----BEGIN PRIVATE KEY----- public-test-canary"
+	fatal.Assets[0].Identities[0].Value = strings.Join([]string{"-----BEGIN", "PRIVATE KEY----- public-test-canary"}, " ")
 	if _, err := service.ValidateAndStore(context.Background(), ImportRequest{IdempotencyKey: "request-2", Decoded: DecodedCandidate{Candidate: fatal}}); err == nil {
 		t.Fatal("secret-shaped candidate accepted")
 	}

@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -21,6 +22,30 @@ func TestNormalizeRejectsInvalidAdapterFindingAndLimits(t *testing.T) {
 	cancel()
 	_, err = NormalizeAndValidate(ctx, DecodedCandidate{Candidate: minimalCandidate()})
 	assertInventoryCode(t, err, generated.ErrorCodeInterrupted)
+}
+
+func TestNormalizeEnforcesTokenLocatorAndTextBounds(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name   string
+		change func(*DraftCandidate)
+	}{
+		{name: "token", change: func(candidate *DraftCandidate) {
+			candidate.Assets[0].ID = LocalID(strings.Repeat("a", MaxTokenBytes+1))
+		}},
+		{name: "locator", change: func(candidate *DraftCandidate) {
+			candidate.Provenance[0].Locator = strings.Repeat("l", MaxLocatorBytes+1)
+		}},
+		{name: "text", change: func(candidate *DraftCandidate) { candidate.Observations[0].Value = strings.Repeat("v", MaxTextBytes+1) }},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			candidate := minimalCandidate()
+			test.change(&candidate)
+			_, err := NormalizeAndValidate(context.Background(), DecodedCandidate{Candidate: candidate})
+			assertInventoryCode(t, err, generated.ErrorCodeInputInvalid)
+		})
+	}
 }
 
 func TestNormalizeDeduplicatesExactAdapterFindings(t *testing.T) {

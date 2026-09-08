@@ -92,7 +92,9 @@ func normalizeCandidate(candidate *DraftCandidate) {
 		sort.Slice(asset.Identities, func(i, j int) bool {
 			return asset.Identities[i].Kind+"\x00"+asset.Identities[i].Value < asset.Identities[j].Kind+"\x00"+asset.Identities[j].Value
 		})
-		sort.Slice(asset.HardwareFacts, func(i, j int) bool { return asset.HardwareFacts[i].ID < asset.HardwareFacts[j].ID })
+		sort.Slice(asset.HardwareFacts, func(i, j int) bool {
+			return canonicalSortKey(asset.HardwareFacts[i]) < canonicalSortKey(asset.HardwareFacts[j])
+		})
 	}
 	for index := range candidate.Nodes {
 		candidate.Nodes[index].ID = trimID(candidate.Nodes[index].ID)
@@ -136,15 +138,29 @@ func normalizeCandidate(candidate *DraftCandidate) {
 		provenance.AdapterVersion = strings.TrimSpace(provenance.AdapterVersion)
 		provenance.ValueStatus = strings.TrimSpace(provenance.ValueStatus)
 	}
-	sort.Slice(candidate.Assets, func(i, j int) bool { return candidate.Assets[i].ID < candidate.Assets[j].ID })
-	sort.Slice(candidate.Nodes, func(i, j int) bool { return candidate.Nodes[i].ID < candidate.Nodes[j].ID })
-	sort.Slice(candidate.Aliases, func(i, j int) bool { return candidate.Aliases[i].ID < candidate.Aliases[j].ID })
-	sort.Slice(candidate.Addresses, func(i, j int) bool { return candidate.Addresses[i].ID < candidate.Addresses[j].ID })
-	sort.Slice(candidate.Observations, func(i, j int) bool { return candidate.Observations[i].ID < candidate.Observations[j].ID })
-	sort.Slice(candidate.Provenance, func(i, j int) bool {
-		left, right := candidate.Provenance[i], candidate.Provenance[j]
-		return left.RecordKind+"\x00"+string(left.RecordID)+"\x00"+left.FieldPath+"\x00"+left.Locator < right.RecordKind+"\x00"+string(right.RecordID)+"\x00"+right.FieldPath+"\x00"+right.Locator
+	sort.Slice(candidate.Assets, func(i, j int) bool {
+		return canonicalSortKey(candidate.Assets[i]) < canonicalSortKey(candidate.Assets[j])
 	})
+	sort.Slice(candidate.Nodes, func(i, j int) bool {
+		return canonicalSortKey(candidate.Nodes[i]) < canonicalSortKey(candidate.Nodes[j])
+	})
+	sort.Slice(candidate.Aliases, func(i, j int) bool {
+		return canonicalSortKey(candidate.Aliases[i]) < canonicalSortKey(candidate.Aliases[j])
+	})
+	sort.Slice(candidate.Addresses, func(i, j int) bool {
+		return canonicalSortKey(candidate.Addresses[i]) < canonicalSortKey(candidate.Addresses[j])
+	})
+	sort.Slice(candidate.Observations, func(i, j int) bool {
+		return canonicalSortKey(candidate.Observations[i]) < canonicalSortKey(candidate.Observations[j])
+	})
+	sort.Slice(candidate.Provenance, func(i, j int) bool {
+		return canonicalSortKey(candidate.Provenance[i]) < canonicalSortKey(candidate.Provenance[j])
+	})
+}
+
+func canonicalSortKey(value any) string {
+	encoded, _ := json.Marshal(value)
+	return string(encoded)
 }
 
 func trimID(value LocalID) LocalID { return LocalID(strings.TrimSpace(string(value))) }
