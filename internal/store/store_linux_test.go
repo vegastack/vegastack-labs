@@ -134,6 +134,10 @@ func TestOpenRejectsWrongModeAndPermissionLoss(t *testing.T) {
 	if err := store.Close(); err != nil {
 		t.Fatal(err)
 	}
+	lockInfo, err := os.Stat(cfg.DatabasePath + ".lock")
+	if err != nil || !lockInfo.Mode().IsRegular() || lockInfo.Mode().Perm() != 0o600 {
+		t.Fatalf("persistent lock sidecar = %#v, %v", lockInfo, err)
+	}
 	if err := store.Close(); err != nil {
 		t.Fatalf("idempotent close: %v", err)
 	}

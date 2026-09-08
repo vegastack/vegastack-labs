@@ -63,8 +63,7 @@ type ReadTx struct {
 }
 
 type IntentTx struct {
-	handle  any
-	changed bool
+	handle any
 }
 
 type IntentStore interface {

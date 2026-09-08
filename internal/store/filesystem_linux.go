@@ -154,7 +154,7 @@ func (linuxFilesystem) AcquireWriterLock(ctx context.Context, databasePath strin
 		}
 		return nil, filesystemError(err)
 	}
-	return &writerLock{file: file, path: lockPath, identity: identity}, nil
+	return &writerLock{file: file}, nil
 }
 
 func (linuxFilesystem) SameFile(left, right FileIdentity) bool {
@@ -195,11 +195,9 @@ func (linuxFilesystem) SyncDatabase(ctx context.Context, databasePath string, ex
 }
 
 type writerLock struct {
-	once     sync.Once
-	file     *os.File
-	path     string
-	identity FileIdentity
-	err      error
+	once sync.Once
+	file *os.File
+	err  error
 }
 
 func (lock *writerLock) Close() error {
@@ -208,23 +206,6 @@ func (lock *writerLock) Close() error {
 			lock.err = filesystemError(err)
 		}
 		if err := lock.file.Close(); err != nil && lock.err == nil {
-			lock.err = filesystemError(err)
-		}
-		info, err := os.Lstat(lock.path)
-		if err != nil {
-			if !errors.Is(err, fs.ErrNotExist) && lock.err == nil {
-				lock.err = filesystemError(err)
-			}
-			return
-		}
-		actual, err := fileIdentity(lock.path, info)
-		if err != nil || !(linuxFilesystem{}).SameFile(lock.identity, actual) {
-			if lock.err == nil {
-				lock.err = filesystemError(errors.New("lock identity changed"))
-			}
-			return
-		}
-		if err := os.Remove(lock.path); err != nil && lock.err == nil {
 			lock.err = filesystemError(err)
 		}
 	})
