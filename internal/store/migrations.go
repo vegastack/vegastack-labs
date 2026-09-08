@@ -119,7 +119,3 @@ func mustSHA256(value string) [32]byte {
 func migrationCatalogError(cause error) error {
 	return newStoreError("MIGRATION_BLOCKED", "migration-catalog", false, cause)
 }
-
-func containsFold(value, fragment string) bool {
-	return strings.Contains(strings.ToLower(value), strings.ToLower(fragment))
-}

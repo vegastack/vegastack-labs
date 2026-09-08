@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -22,6 +23,10 @@ func testConfig(t *testing.T) Config {
 		ToolVersion:  "test-tool",
 		BuildVersion: "test-build",
 	}
+}
+
+func containsFold(value, fragment string) bool {
+	return strings.Contains(strings.ToLower(value), strings.ToLower(fragment))
 }
 
 type sqliteSettings struct {

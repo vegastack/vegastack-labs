@@ -254,11 +254,20 @@ func localFilesystem(path string) (bool, error) {
 	if err := unix.Statfs(path, &stat); err != nil {
 		return false, err
 	}
-	switch uint64(stat.Type) {
-	case 0x6969, 0x517b, 0xff534d42, 0x65735546, 0x5346414f:
-		return false, nil
+	return isLocalFilesystemType(uint64(stat.Type)), nil
+}
+
+func isLocalFilesystemType(filesystemType uint64) bool {
+	switch filesystemType {
+	case unix.EXT4_SUPER_MAGIC,
+		unix.XFS_SUPER_MAGIC,
+		unix.BTRFS_SUPER_MAGIC,
+		unix.F2FS_SUPER_MAGIC,
+		unix.TMPFS_MAGIC,
+		0x2fc12fc1: // ZFS_SUPER_MAGIC; not exported by x/sys/unix on Linux.
+		return true
 	default:
-		return true, nil
+		return false
 	}
 }
 
