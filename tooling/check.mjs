@@ -35,6 +35,7 @@ try {
   }
   await stage("generated contracts", "go", ["run", "./tooling/generate-contracts", "--check"]);
   await stage("portable CLI boundary and target builds", process.execPath, ["tooling/verify-cli.mjs"]);
+  await stage("local control service boundary", process.execPath, ["tooling/verify-server.mjs"]);
   await stage("Go vet", "go", ["vet", "./..."]);
   await stage("Go unit tests", "go", ["test", "./..."]);
   await stage("Go package build", "go", ["build", "./..."]);

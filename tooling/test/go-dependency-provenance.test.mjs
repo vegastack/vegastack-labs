@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -217,4 +217,29 @@ test("runtime roles must match the actual executable dependency closure", async 
     }),
     (error) => error?.code === "GO_ROLE",
   );
+});
+
+test("the reviewed x/sys runtime module is direct and records its local security uses", async () => {
+  const root = path.resolve(import.meta.dirname, "../..");
+  const [goMod, reviewed] = await Promise.all([
+    readFile(path.join(root, "go.mod"), "utf8"),
+    readFile(path.join(root, "tooling/go-dependency-provenance.json"), "utf8"),
+  ]);
+  assert.match(goMod, /^\s*golang\.org\/x\/sys v0\.47\.0\s*$/m);
+  const xsys = JSON.parse(reviewed).modules.find((entry) => entry.path === "golang.org/x/sys");
+  assert.deepEqual(
+    {
+      version: xsys?.version,
+      license: xsys?.license,
+      role: xsys?.role,
+      decision: xsys?.reviewDecision,
+    },
+    {
+      version: "v0.47.0",
+      license: "BSD-3-Clause",
+      role: "runtime",
+      decision: "approved",
+    },
+  );
+  assert.match(xsys.reviewReason, /peer credentials.*advisory locks.*no-follow/is);
 });
