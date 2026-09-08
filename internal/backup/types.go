@@ -69,3 +69,10 @@ func randomID(entropy io.Reader) (string, error) {
 	}
 	return fmt.Sprintf("%x", buffer), nil
 }
+
+func classified(got, fallback error) error {
+	if got != nil {
+		return got
+	}
+	return fallback
+}

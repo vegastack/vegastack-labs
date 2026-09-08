@@ -5,9 +5,12 @@ package backup
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestPublishIsNoReplaceAndStagingIsNotDiscoverable(t *testing.T) {
@@ -118,6 +121,27 @@ func TestArtifactOpenRejectsIdentitySwapAndInvalidNames(t *testing.T) {
 	}
 }
 
+func TestPublishRejectsDatabaseChangedAfterSeal(t *testing.T) {
+	layout := newTestLayout(t)
+	staged := beginValidGeneration(t, layout, "00112233445566778899aabbccddeeff", []byte("first"))
+	file, err := os.OpenFile(staged.database, os.O_APPEND|os.O_WRONLY, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := file.WriteString("changed"); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := layout.Publish(context.Background(), staged); err == nil {
+		t.Fatal("database changed after verification was published")
+	}
+	if _, _, err := layout.OpenPublished(context.Background(), staged.id); err == nil {
+		t.Fatal("failed generation became discoverable")
+	}
+}
+
 func TestArtifactLayoutHonorsCancellation(t *testing.T) {
 	layout := newTestLayout(t)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -141,6 +165,10 @@ func newTestLayout(t *testing.T) artifactLayout {
 }
 
 func beginCompleteGeneration(t *testing.T, layout artifactLayout, id string, database []byte) stagedGeneration {
+	return beginValidGeneration(t, layout, id, database)
+}
+
+func beginValidGeneration(t *testing.T, layout artifactLayout, id string, database []byte) stagedGeneration {
 	t.Helper()
 	staged, err := layout.BeginGeneration(context.Background(), id)
 	if err != nil {
@@ -154,7 +182,7 @@ func beginCompleteGeneration(t *testing.T, layout artifactLayout, id string, dat
 		t.Fatal(err)
 	}
 	staged.databaseIdentity = identity
-	body, err := marshalManifest(validManifest(t))
+	body, err := marshalManifest(testArtifactManifest(id, size, digest))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -162,6 +190,18 @@ func beginCompleteGeneration(t *testing.T, layout artifactLayout, id string, dat
 		t.Fatal(err)
 	}
 	return staged
+}
+
+func testArtifactManifest(id string, size int64, digest [32]byte) Manifest {
+	timestamp := time.Date(2026, 9, 8, 10, 0, 0, 0, time.UTC).Format(time.RFC3339Nano)
+	catalog := sha256.Sum256([]byte("catalog"))
+	return Manifest{
+		Schema: ManifestSchema, SchemaVersion: ManifestVersion, SnapshotID: id, Purpose: snapshotPurpose,
+		ToolVersion: "test-tool", BuildVersion: "test-build", SQLiteVersion: "3.53.4", DatabaseSchemaVersion: 1,
+		CatalogSHA256: hex.EncodeToString(catalog[:]), StateRevision: 1, RecoveryEpoch: 1,
+		DatabaseSHA256: hex.EncodeToString(digest[:]), DatabaseSize: size, Verification: VerificationPassed,
+		CreatedAt: timestamp, VerifiedAt: timestamp,
+	}
 }
 
 func mustReadFile(t *testing.T, path string) []byte {

@@ -26,6 +26,9 @@ type recordingSource struct {
 	policy            store.BackupStepPolicy
 	restoreSource     string
 	restoreTarget     string
+	authorityPath     string
+	authorityBytes    []byte
+	restoredSentinel  string
 }
 
 func (source *recordingSource) OnlineBackup(_ context.Context, destination string, policy store.BackupStepPolicy) error {
@@ -63,7 +66,11 @@ func (source *recordingSource) RestoreSnapshot(_ context.Context, snapshot, targ
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(target, body, 0o600)
+	if err := os.WriteFile(target, body, 0o600); err != nil {
+		return err
+	}
+	source.restoredSentinel = string(body)
+	return nil
 }
 
 type testArtifactLayout struct {

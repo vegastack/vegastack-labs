@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"errors"
 	"path/filepath"
 	"testing"
@@ -94,6 +95,13 @@ func TestMigrationRejectsUnknownNewerAndChangedLedger(t *testing.T) {
 
 func TestRecoverySourceCreatesAndVerifiesIsolatedCopies(t *testing.T) {
 	store := openTestStore(t)
+	if _, err := store.conn.ExecContext(context.Background(), `CREATE TABLE recovery_sentinel(value TEXT NOT NULL) STRICT; INSERT INTO recovery_sentinel(value) VALUES ('before-migration')`); err != nil {
+		t.Fatal(err)
+	}
+	beforeHealth, err := store.Health(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
 	directory := filepath.Dir(store.config.DatabasePath)
 	catalog := mustCatalog(t)
 	source := &recoverySource{store: store, catalog: catalog}
@@ -112,6 +120,24 @@ func TestRecoverySourceCreatesAndVerifiesIsolatedCopies(t *testing.T) {
 	}
 	if _, err := source.InspectSnapshot(context.Background(), restored, expectation); err != nil {
 		t.Fatal(err)
+	}
+	restoredDatabase, err := sql.Open(sqliteDriverName, fileURI(restored, "ro"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restoredDatabase.Close()
+	var sentinel string
+	if err := restoredDatabase.QueryRowContext(context.Background(), `SELECT value FROM recovery_sentinel`).Scan(&sentinel); err != nil || sentinel != "before-migration" {
+		t.Fatalf("restored sentinel = %q, %v", sentinel, err)
+	}
+	afterHealth, err := store.Health(context.Background())
+	if err != nil || afterHealth.Revision != beforeHealth.Revision || afterHealth.Mode != beforeHealth.Mode {
+		t.Fatalf("authority health changed: before=%#v after=%#v err=%v", beforeHealth, afterHealth, err)
+	}
+	contenderConfig := store.config
+	contenderConfig.Mode = OpenExisting
+	if _, err := Open(context.Background(), contenderConfig); Code(err) != "STATE_CONFLICT" {
+		t.Fatalf("writer lock was not retained: %v", err)
 	}
 	wrongCatalog := expectation
 	wrongCatalog.CatalogSHA256 = sha256.Sum256([]byte("wrong catalog"))

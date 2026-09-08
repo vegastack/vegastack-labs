@@ -11,6 +11,11 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
+const (
+	restoreVerified = "verified"
+	restoreFailed   = "failed"
+)
+
 // Service implements the migration-recovery port without opening SQLite. The
 // store package remains the sole owner of every database connection.
 type Service struct {
@@ -122,8 +127,82 @@ func validateMigrationRequest(request store.MigrationRequest) bool {
 		!request.RequestedAt.IsZero()
 }
 
-func (service *Service) VerifyRestorable(context.Context, store.MigrationSource, store.VerifiedSnapshot) (store.RestoreEvidence, error) {
-	return store.RestoreEvidence{}, migrationError()
+func (service *Service) VerifyRestorable(ctx context.Context, source store.MigrationSource, snapshot store.VerifiedSnapshot) (store.RestoreEvidence, error) {
+	startedAt := time.Now().UTC()
+	if service != nil && service.config.Clock != nil {
+		startedAt = service.config.Clock().UTC()
+	}
+	evidence := store.RestoreEvidence{
+		SnapshotID:    snapshot.SnapshotID,
+		Status:        restoreFailed,
+		SchemaVersion: snapshot.SchemaVersion,
+		Revision:      snapshot.Revision,
+		StartedAt:     startedAt,
+	}
+	if service == nil || source == nil {
+		return finishRestoreEvidence(service, evidence, migrationError())
+	}
+	service.mu.Lock()
+	defer service.mu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return finishRestoreEvidence(service, evidence, interruptedError())
+	}
+	if !validSnapshotID(snapshot.SnapshotID) || snapshot.SchemaVersion == 0 || snapshot.Revision.StateRevision < 0 || snapshot.Revision.RecoveryEpoch < 0 || snapshot.CatalogSHA256 == ([32]byte{}) {
+		return finishRestoreEvidence(service, evidence, integrityError())
+	}
+	published, body, err := service.layout.OpenPublished(ctx, snapshot.SnapshotID)
+	if err != nil {
+		return finishRestoreEvidence(service, evidence, classifyOperation(ctx, err))
+	}
+	manifest, err := parseManifest(body)
+	if err != nil || manifest.SnapshotID != snapshot.SnapshotID || manifest.DatabaseSchemaVersion != snapshot.SchemaVersion || manifest.StateRevision != snapshot.Revision.StateRevision || manifest.RecoveryEpoch != snapshot.Revision.RecoveryEpoch || manifest.CatalogSHA256 != hex.EncodeToString(snapshot.CatalogSHA256[:]) {
+		return finishRestoreEvidence(service, evidence, integrityError())
+	}
+	target, err := service.layout.BeginRestore(ctx, snapshot.SnapshotID)
+	if err != nil {
+		return finishRestoreEvidence(service, evidence, classifyOperation(ctx, err))
+	}
+	failAndClean := func(primary error) (store.RestoreEvidence, error) {
+		classifiedPrimary := classifyOperation(ctx, primary)
+		if cleanupErr := service.layout.RemoveRestore(context.WithoutCancel(ctx), target); cleanupErr != nil && primary == nil {
+			classifiedPrimary = integrityError()
+		}
+		return finishRestoreEvidence(service, evidence, classifiedPrimary)
+	}
+	if err := source.RestoreSnapshot(ctx, published.database, target.database); err != nil {
+		return failAndClean(err)
+	}
+	_, restoredSize, err := service.layout.SealRestore(ctx, target)
+	if err != nil || restoredSize <= 0 {
+		return failAndClean(classified(err, integrityError()))
+	}
+	expectation := store.SnapshotExpectation{SchemaVersion: snapshot.SchemaVersion, Revision: snapshot.Revision, CatalogSHA256: snapshot.CatalogSHA256}
+	inspection, err := source.InspectSnapshot(ctx, target.database, expectation)
+	if err != nil {
+		return failAndClean(err)
+	}
+	if inspection.IntegrityStatus != store.IntegrityVerified || inspection.SchemaVersion != snapshot.SchemaVersion || inspection.Revision != snapshot.Revision || inspection.SQLiteVersion != manifest.SQLiteVersion {
+		return failAndClean(integrityError())
+	}
+	if err := service.layout.RemoveRestore(context.WithoutCancel(ctx), target); err != nil {
+		return finishRestoreEvidence(service, evidence, integrityError())
+	}
+	evidence.Status = restoreVerified
+	evidence.FailureCode = ""
+	completedAt := service.config.Clock().UTC()
+	evidence.CompletedAt = completedAt
+	return evidence, nil
+}
+
+func finishRestoreEvidence(service *Service, evidence store.RestoreEvidence, err error) (store.RestoreEvidence, error) {
+	evidence.Status = restoreFailed
+	classifiedErr := classifyOperation(context.Background(), err)
+	evidence.FailureCode = classifiedErr.Error()
+	evidence.CompletedAt = time.Now().UTC()
+	if service != nil && service.config.Clock != nil {
+		evidence.CompletedAt = service.config.Clock().UTC()
+	}
+	return evidence, classifiedErr
 }
 
 func classifyOperation(ctx context.Context, err error) error {

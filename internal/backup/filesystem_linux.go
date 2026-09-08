@@ -93,11 +93,16 @@ func (layout *linuxArtifactLayout) Publish(ctx context.Context, staged stagedGen
 	if err := layout.validateStage(ctx, staged); err != nil {
 		return publishedGeneration{}, err
 	}
-	identity, _, _, err := inspectAndDigest(staged.database, layout.expectedUID, true)
+	identity, size, digest, err := inspectAndDigest(staged.database, layout.expectedUID, true)
 	if err != nil || staged.databaseIdentity == (fileIdentity{}) || identity != staged.databaseIdentity {
 		return publishedGeneration{}, integrityError()
 	}
-	if _, _, _, err := inspectAndDigest(staged.manifest, layout.expectedUID, false); err != nil {
+	body, err := readProtectedFile(staged.manifest, layout.expectedUID, 64*1024)
+	if err != nil {
+		return publishedGeneration{}, integrityError()
+	}
+	manifest, err := parseManifest(body)
+	if err != nil || manifest.SnapshotID != staged.id || manifest.DatabaseSize != size || manifest.DatabaseSHA256 != fmt.Sprintf("%x", digest) {
 		return publishedGeneration{}, integrityError()
 	}
 	if err := syncDirectory(staged.dir); err != nil {
@@ -266,7 +271,7 @@ func inspectAndDigest(path string, expectedUID uint32, sync bool) (fileIdentity,
 		return fileIdentity{}, 0, [32]byte{}, errors.New("unsafe artifact")
 	}
 	identity, err := identify(path, info)
-	if err != nil || identity.uid != expectedUID || identity.links != 1 || !isLocal(path) {
+	if err != nil || identity.uid != expectedUID || identity.links != 1 || !isLocalDescriptor(descriptor) {
 		return fileIdentity{}, 0, [32]byte{}, errors.New("unsafe artifact identity")
 	}
 	hash := sha256.New()
@@ -292,16 +297,37 @@ func inspectAndDigest(path string, expectedUID uint32, sync bool) (fileIdentity,
 }
 
 func readProtectedFile(path string, expectedUID uint32, limit int64) ([]byte, error) {
-	identity, size, _, err := inspectAndDigest(path, expectedUID, false)
-	if err != nil || identity == (fileIdentity{}) || size > limit {
-		return nil, errors.New("unsafe artifact")
-	}
-	file, err := os.Open(path)
+	descriptor, err := unix.Open(path, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return nil, err
 	}
+	file := os.NewFile(uintptr(descriptor), "protected-manifest")
+	if file == nil {
+		_ = unix.Close(descriptor)
+		return nil, errors.New("descriptor unavailable")
+	}
 	defer file.Close()
-	return io.ReadAll(io.LimitReader(file, limit+1))
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() || info.Mode().Perm() != 0o600 || info.Size() <= 0 || info.Size() > limit {
+		return nil, errors.New("unsafe manifest")
+	}
+	identity, err := identify(path, info)
+	if err != nil || identity.uid != expectedUID || identity.links != 1 || !isLocalDescriptor(descriptor) {
+		return nil, errors.New("unsafe manifest identity")
+	}
+	body, err := io.ReadAll(io.LimitReader(file, limit+1))
+	if err != nil || int64(len(body)) != info.Size() {
+		return nil, errors.New("manifest changed while reading")
+	}
+	infoAfter, err := file.Stat()
+	if err != nil {
+		return nil, err
+	}
+	identityAfter, err := identify(path, infoAfter)
+	if err != nil || identityAfter != identity || infoAfter.Size() != info.Size() {
+		return nil, errors.New("manifest identity changed")
+	}
+	return body, nil
 }
 
 func identify(path string, info fs.FileInfo) (fileIdentity, error) {
@@ -318,6 +344,23 @@ func isLocal(path string) bool {
 		return false
 	}
 	switch uint64(stat.Type) {
+	case unix.EXT4_SUPER_MAGIC, unix.XFS_SUPER_MAGIC, unix.BTRFS_SUPER_MAGIC, unix.F2FS_SUPER_MAGIC, 0x2fc12fc1:
+		return true
+	default:
+		return false
+	}
+}
+
+func isLocalDescriptor(descriptor int) bool {
+	var stat unix.Statfs_t
+	if err := unix.Fstatfs(descriptor, &stat); err != nil {
+		return false
+	}
+	return isLocalFilesystemType(uint64(stat.Type))
+}
+
+func isLocalFilesystemType(filesystemType uint64) bool {
+	switch filesystemType {
 	case unix.EXT4_SUPER_MAGIC, unix.XFS_SUPER_MAGIC, unix.BTRFS_SUPER_MAGIC, unix.F2FS_SUPER_MAGIC, 0x2fc12fc1:
 		return true
 	default:
@@ -343,11 +386,4 @@ func syncDirectory(path string) error {
 		return syncErr
 	}
 	return closeErr
-}
-
-func classified(got, fallback error) error {
-	if got != nil {
-		return got
-	}
-	return fallback
 }
