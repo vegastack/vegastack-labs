@@ -158,6 +158,12 @@ async function crossBuild(root, operations) {
         env: { ...process.env, CGO_ENABLED: "0", GOOS: goos, GOARCH: goarch },
         timeoutMs: 120_000,
       });
+      const storeOutput = path.join(outputDirectory, `store-${goos}-${goarch}.a`);
+      await execute("go", ["build", "-o", storeOutput, "./internal/store"], {
+        cwd: root,
+        env: { ...process.env, CGO_ENABLED: "0", GOOS: goos, GOARCH: goarch },
+        timeoutMs: 120_000,
+      });
       targetsBuilt.push(`${goos}/${goarch}`);
     }
     return targetsBuilt;

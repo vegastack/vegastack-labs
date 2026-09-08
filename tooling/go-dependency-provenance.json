@@ -804,6 +804,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/dchest/siphash",
+      "version": "v1.2.3",
+      "checksum": "h1:QXwFc8cFOR2dSa/gE6o/HokBMWtLUaNDVd+22aKHeEA=",
+      "license": "CC0-1.0",
+      "source": "https://github.com/dchest/siphash",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive build-graph-only dependency selected by the pinned SQLite WASM tool graph; not compiled into the vsk-labs binary or store package."
+    },
+    {
       "path": "github.com/dgraph-io/badger/v4",
       "version": "v4.9.1",
       "checksum": "h1:DocZXZkg5JJHJPtUErA0ibyHxOVUDVoXLSCV6t8NC8w=",
@@ -2334,6 +2344,66 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/ncruces/go-sqlite3",
+      "version": "v0.35.4",
+      "checksum": "h1:unjCk+lVaxMpD9hbVaZyDJviS5Unw1P03+HF0ROLlHo=",
+      "license": "MIT",
+      "source": "https://github.com/ncruces/go-sqlite3",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed cgo-free SQLite runtime selected for the server-owned authoritative store, exact driver API, online backup support, and five-target compilation."
+    },
+    {
+      "path": "github.com/ncruces/go-sqlite3-wasm/v5",
+      "version": "v5.0.35304",
+      "checksum": "h1:Ck3GB9h+0n3hJqdhAeehOef3k5V+llGio1c2Dyk/W6w=",
+      "license": "MIT-0",
+      "source": "https://github.com/ncruces/go-sqlite3-wasm",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed exact SQLite 3.53.4 WASM runtime payload selected by github.com/ncruces/go-sqlite3 v0.35.4."
+    },
+    {
+      "path": "github.com/ncruces/julianday",
+      "version": "v1.0.0",
+      "checksum": "h1:fH0OKwa7NWvniGQtxdJRxAgkBMolni2BjDHaWTxqt7M=",
+      "license": "MIT",
+      "source": "https://github.com/ncruces/julianday",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned SQLite driver."
+    },
+    {
+      "path": "github.com/ncruces/sort",
+      "version": "v1.0.0",
+      "checksum": "h1:tXeitUzE3B8I2z+rsqbKUBThBlJJ34glqCDP0XReJmk=",
+      "license": "MIT-0",
+      "source": "https://github.com/ncruces/sort",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive build-graph-only dependency selected by the pinned SQLite module graph; not compiled into the vsk-labs binary or store package."
+    },
+    {
+      "path": "github.com/ncruces/wasm2go",
+      "version": "v0.4.11",
+      "checksum": "h1:3izUKG2z0dnC01Z7o9t4W0bVJcLJqT1b6nIYwIChQu0=",
+      "license": "MIT",
+      "source": "https://github.com/ncruces/wasm2go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive build-graph-only tool dependency of the pinned SQLite WASM payload; not compiled into the vsk-labs binary or store package."
+    },
+    {
+      "path": "github.com/ncruces/wbt",
+      "version": "v1.0.0",
+      "checksum": "h1:8iBE7UPjTLUpzu3/FCRjAmuQjWzgxo10RGBgt3ooLSc=",
+      "license": "MIT",
+      "source": "https://github.com/ncruces/wbt",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive build-graph-only dependency selected by the pinned SQLite module graph; not compiled into the vsk-labs binary or store package."
+    },
+    {
       "path": "github.com/nxadm/tail",
       "version": "v1.4.11",
       "checksum": "h1:8feyoE3OzPrcshW5/MJ4sGESc5cqmGkGCWlco4l0bqY=",
@@ -2522,6 +2592,16 @@
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/psanford/httpreadat",
+      "version": "v0.1.0",
+      "checksum": "h1:VleW1HS2zO7/4c7c7zNl33fO6oYACSagjJIyMIwZLUE=",
+      "license": "MIT",
+      "source": "https://github.com/psanford/httpreadat",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive build-graph-only dependency selected by the pinned SQLite WASM tool graph; not compiled into the vsk-labs binary or store package."
     },
     {
       "path": "github.com/pseudomuto/protoc-gen-doc",
@@ -3535,8 +3615,8 @@
     },
     {
       "path": "golang.org/x/crypto",
-      "version": "v0.54.0",
-      "checksum": "h1:YLIA59K4fiNzHzjnZt2tUJQjQtUWfWbeHBqKtk3eScw=",
+      "version": "v0.55.0",
+      "checksum": "h1:+KWHjbgOaAQ66dh/YlkZKHlz9ZUlq61AFirAR9ntP8M=",
       "license": "BSD-3-Clause",
       "source": "https://go.googlesource.com/crypto",
       "role": "runtime",
@@ -3625,8 +3705,8 @@
     },
     {
       "path": "golang.org/x/text",
-      "version": "v0.40.0",
-      "checksum": "h1:Ub2Z6/xjgF1WrYQz2nuITOEegKFtiIy+rieRJ5lHZKs=",
+      "version": "v0.41.0",
+      "checksum": "h1:vz/seA0lnX87Othu2f/0L24RcgrXD9/YFTSuGjj3rH8=",
       "license": "BSD-3-Clause",
       "source": "https://go.googlesource.com/text",
       "role": "runtime",
@@ -3645,8 +3725,8 @@
     },
     {
       "path": "golang.org/x/tools",
-      "version": "v0.47.0",
-      "checksum": "h1:7Kn5x/d1svx/PzryTsqeoZN4TZwqeH5pGWjefhLi/1Q=",
+      "version": "v0.48.0",
+      "checksum": "h1:3+hClM1aLL5mjMKm5ovokw9epgRXPuu2tILgismM6RE=",
       "license": "BSD-3-Clause",
       "source": "https://go.googlesource.com/tools",
       "role": "build",
@@ -3814,6 +3894,16 @@
       "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
     },
     {
+      "path": "lukechampine.com/adiantum",
+      "version": "v1.1.1",
+      "checksum": "h1:4fp6gTxWCqpEbLy40ExiYDDED3oUNWx5cTqBCtPdZqA=",
+      "license": "MIT",
+      "source": "https://github.com/lukechampine/adiantum",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive build-graph-only dependency selected by the pinned SQLite WASM tool graph; not compiled into the vsk-labs binary or store package."
+    },
+    {
       "path": "sigs.k8s.io/json",
       "version": "v0.0.0-20241010143419-9aa6b5e7a4b3",
       "checksum": "h1:/Rv+M11QRah1itp8VhT6HoVx1Ray9eB4DBr+K+/sCJ8=",
@@ -3854,5 +3944,5 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     }
   ],
-  "reviewMetadataSha256": "37480c97c41c83b29e78c7861cff39b2bd779cc4d680a73663250f9cabda888c"
+  "reviewMetadataSha256": "d514bab08bb5cb7e5ca3f43a3da1b497e82ef4cce4b7db398ee308b9f97dc4be"
 }
