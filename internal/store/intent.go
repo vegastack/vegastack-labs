@@ -142,6 +142,22 @@ func (tx ReadTx) queryRow(ctx context.Context, query string, arguments ...any) *
 	return transaction.QueryRowContext(ctx, query, arguments...)
 }
 
+func (tx ReadTx) query(ctx context.Context, query string, arguments ...any) (*sql.Rows, error) {
+	transaction, ok := tx.handle.(*sql.Tx)
+	if !ok || transaction == nil {
+		return nil, newStoreError("INPUT_INVALID", "database-read", false, nil)
+	}
+	return transaction.QueryContext(ctx, query, arguments...)
+}
+
+func (tx IntentTx) queryRow(ctx context.Context, query string, arguments ...any) *sql.Row {
+	handle, _ := tx.handle.(*intentHandle)
+	if handle == nil || handle.transaction == nil {
+		return (&sql.Tx{}).QueryRowContext(ctx, query, arguments...)
+	}
+	return handle.transaction.QueryRowContext(ctx, query, arguments...)
+}
+
 func readRevision(ctx context.Context, transaction *sql.Tx) (RevisionToken, error) {
 	var token RevisionToken
 	err := transaction.QueryRowContext(ctx, `SELECT state_revision, recovery_epoch FROM system_meta WHERE id = 1`).Scan(&token.StateRevision, &token.RecoveryEpoch)

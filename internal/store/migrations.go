@@ -37,6 +37,7 @@ var migrationNamePattern = regexp.MustCompile(`^[0-9]{4}_[a-z][a-z0-9_]*$`)
 
 var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 1, Name: "0001_store_foundation", SHA256: mustSHA256("05c15b90ff0805b8b74b90d5cf61691ddcb44a9e80e92ba78c7610c393f40191")},
+	{ID: 2, Name: "0002_inventory_drafts", SHA256: mustSHA256("6e6be190299476299314831f0519f4c0abc7d161a871152d95fda5089edcda6e")},
 }
 
 func Catalog() ([]Migration, error) {

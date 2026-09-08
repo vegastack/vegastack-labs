@@ -82,7 +82,7 @@ func TestFoundationMigrationOwnsOnlySystemTables(t *testing.T) {
 	t.Parallel()
 
 	catalog, err := Catalog()
-	if err != nil || len(catalog) != 1 {
+	if err != nil || len(catalog) < 1 {
 		t.Fatalf("Catalog() = %#v, %v", catalog, err)
 	}
 	if catalog[0].ID != 1 || catalog[0].Name != "0001_store_foundation" {
@@ -96,6 +96,25 @@ func TestFoundationMigrationOwnsOnlySystemTables(t *testing.T) {
 	for _, forbidden := range []string{"principals", "grants", "inventory", "audit_events", "outbox", "snapshot", "export"} {
 		if containsFold(catalog[0].SQL, forbidden) {
 			t.Errorf("foundation SQL contains out-of-scope table %q", forbidden)
+		}
+	}
+}
+
+func TestCatalogReservesSecondMigrationForInventoryDrafts(t *testing.T) {
+	t.Parallel()
+	catalog, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog) < 2 || catalog[1].ID != 2 || catalog[1].Name != "0002_inventory_drafts" {
+		t.Fatalf("second migration = %#v", catalog)
+	}
+	if sha256.Sum256([]byte(catalog[1].SQL)) != catalog[1].SHA256 {
+		t.Fatal("inventory migration checksum does not match embedded SQL")
+	}
+	for _, required := range []string{"inventory_drafts", "inventory_draft_assets", "inventory_draft_provenance", "inventory_import_keys", "no_update", "no_delete"} {
+		if !containsFold(catalog[1].SQL, required) {
+			t.Errorf("inventory migration is missing %q", required)
 		}
 	}
 }
