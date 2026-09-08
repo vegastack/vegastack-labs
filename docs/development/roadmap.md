@@ -1,6 +1,6 @@
 # Full-scope development roadmap
 
-Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. The user has adopted the [operating mandate](operating-mandate.md), accepted Phase 0 on 07-09-2026, and directed that the entire documented scope be delivered phase by phase, with multiple issues per phase. [Phase 1](phases/01-portable-executable-and-generated-contracts.md) is active; later phase solutions, issue batches, and operational authority retain their separate approvals.
+Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. The user has adopted the [operating mandate](operating-mandate.md); Phase 0 was accepted on 07-09-2026 and [Phase 1](phases/01-portable-executable-and-generated-contracts.md) was accepted on 08-09-2026. The user directed that the entire documented scope be delivered phase by phase. [Phase 2](phases/02-authoritative-control-service-and-inventory.md) is active; later phase solutions, issue batches, and operational authority retain their separate approvals.
 
 Rollout timing confirmed on 26-08-2026: finish and verify the complete v1 platform before the first lab onboarding rehearsal. Isolated implementation tests still run throughout development; the inventory fleet is not an early deployment pilot. [D-117](../decisions-and-sources.md#d-117)
 
@@ -123,7 +123,7 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Current approved batch:** Phase 0 issues [0.1 (#3)](https://github.com/vegastack/vegastack-labs/issues/3) through [0.6 (#22)](https://github.com/vegastack/vegastack-labs/issues/22) are completed and the phase exit was accepted on 07-09-2026. Phase 1 Issues [1.1 (#24)](https://github.com/vegastack/vegastack-labs/issues/24) and [1.2 (#25)](https://github.com/vegastack/vegastack-labs/issues/25) are merged with their integrated checks passing. Brief v2 and Plan v1 for [1.3 (#28)](https://github.com/vegastack/vegastack-labs/issues/28) are approved; it owns the remaining local release-verification slice and combined Phase 1 exit. Pull requests, merges, Phase 1 exit acceptance, release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
+**Current approved batch:** Phase 0 and Phase 1 are completed and explicitly accepted. Phase 2 briefs [2.1 (#29)](https://github.com/vegastack/vegastack-labs/issues/29) through [2.10 (#38)](https://github.com/vegastack/vegastack-labs/issues/38) are approved; Plan v1 for Issues 2.1 and 2.2 and their separate parallel implementation sessions are approved. Each later issue still requires its own current approved plan. Pull requests, pushes, merges, Phase 2 exit acceptance, release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
 
 **Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 
@@ -145,4 +145,5 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 10. Completed on 07-09-2026: implement and merge Issue 1.1's metadata graph, generated artifacts, drift checks, documentation and verification through PR #26; its integrated public check passed.
 11. Completed on 07-09-2026: implement Issue 1.2's generated-registry executable, portable client boundaries, target-build verifier, documentation, verification and fresh review.
 12. Completed on 07-09-2026: merge Issue 1.2 and pass its integrated check.
-13. Current: implement and review Issue 1.3, then merge only after a separate operator instruction, pass the integrated public lane, and present the combined Phase 1 exit demonstration for explicit operator acceptance. Phase 2 briefs are approved but remain parked until that acceptance.
+13. Completed on 08-09-2026: merge Issue 1.3 through PR #39, pass the integrated public lane, and record explicit operator acceptance of the combined Phase 1 exit at `ed86290`.
+14. Current: implement the separately approved Phase 2 Issues 2.1 and 2.2 in isolated parallel sessions, then stop each reviewed candidate for operator review without creating a PR or merging.

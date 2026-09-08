@@ -127,7 +127,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm check
 ```
 
-These checks validate repository safety, current documentation links and JSON, exact Node and Go dependency provenance/licenses, preserved historical artifacts, the generated-contract and portable CLI foundations, the offline release-verification boundary, and the statically exported web scaffold. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, optional maintainer registry placeholders and delivery rules. This foundation is not the complete `vsk-labs` product and does not claim that the server, control database or Console workflow is implemented.
+These checks validate repository safety, current documentation links and JSON, exact Node and Go dependency provenance/licenses, preserved historical artifacts, the generated-contract and portable CLI foundations, the offline release-verification boundary, the local control-service boundary, and the statically exported web scaffold. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, synthetic server-profile examples and delivery rules. This is not the complete `vsk-labs` product and does not claim that the control database, inventory, permissions, Console workflow, deployment, or live host qualification is implemented.
 
 ## Implemented executable foundation
 
@@ -138,6 +138,12 @@ The Phase 1 foundation now builds one executable at `cmd/vsk-labs`. Its `help`, 
 Phase 1 success says `verified-against-supplied-policy` and reports the SHA-256 of that policy. This is deliberately not an official VegaStack release claim. `G-017` must later establish and independently pin the real repository/workflow/OIDC/feed policy; Phase 11 installation and update paths must reject arbitrary adjacent policy material.
 
 The same foundation includes provider-neutral packages for portable client paths, opaque credential-reference verification and registered direct-argument transport. These are safety boundaries, not live implementations: they do not open SQLite, reveal a credential, invoke a process, implement SSH or contact any provider.
+
+## Implemented local control-service boundary
+
+`vsk-labs server run --config <protected-profile>` now provides the single foreground control-service entry point on the declared Debian 13 Linux AMD64 target. It owns one protected Unix-domain HTTP socket and lock, authenticates every accepted connection from kernel peer credentials, maps the peer UID to a stable principal through the protected profile, rejects caller identity headers, reports generated health through `server status`, detects socket replacement, and drains for the exact bounded shutdown interval on SIGINT or SIGTERM. Unsupported targets fail before reading or creating the supplied path.
+
+The profile is strict protected non-secret configuration containing socket facts and UID-to-principal identity bindings, not permissions or grants. This boundary does not implement SQLite authority, inventory storage, authorization policy, additional API resources, browser access, service installation, provider calls, plan/apply, or infrastructure mutation. Those capabilities remain owned by later approved Phase 2 issues and deployment gates.
 
 The public check cross-builds `cmd/vsk-labs` for Linux AMD64/ARM64, macOS AMD64/ARM64 and Windows AMD64 into an isolated temporary directory that is removed afterward. This proves compilation only. It does not qualify installation, native credential stores, service management, signing, notarization or supported releases. The control server, API, database, authentication, declaration/plan/apply engines, Console workflows, provider adapters, `G-017`, `G-018` completion and module-level acceptance remain future work.
 
