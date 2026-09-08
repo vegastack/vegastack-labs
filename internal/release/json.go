@@ -6,8 +6,6 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"io"
 	"os"
 	"regexp"
 	"strings"
@@ -15,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/strictjson"
 )
 
 const (
@@ -157,16 +156,10 @@ func validateJSON(ctx context.Context, raw []byte, schemaID, schemaVersion, sche
 	if len(raw) == 0 || !utf8.Valid(raw) || bytes.HasPrefix(raw, []byte{0xef, 0xbb, 0xbf}) || bytes.IndexByte(raw, 0) >= 0 {
 		return newError(generated.ErrorCodeInputInvalid, strings.TrimSuffix(schemaTarget, "-schema"))
 	}
-	decoder := json.NewDecoder(bytes.NewReader(raw))
-	decoder.UseNumber()
-	if err := scanJSONValue(ctx, decoder, 0); err != nil {
-		var releaseErr *Error
-		if errors.As(err, &releaseErr) && releaseErr.Code == generated.ErrorCodeInterrupted {
-			return err
+	if err := strictjson.Scan(ctx, raw, strictjson.Limits{MaxDepth: maxJSONDepth}); err != nil {
+		if err == strictjson.ErrInterrupted {
+			return interrupted()
 		}
-		return newError(generated.ErrorCodeInputInvalid, strings.TrimSuffix(schemaTarget, "-schema"))
-	}
-	if _, err := decoder.Token(); err != io.EOF {
 		return newError(generated.ErrorCodeInputInvalid, strings.TrimSuffix(schemaTarget, "-schema"))
 	}
 	var envelope map[string]json.RawMessage
@@ -184,64 +177,6 @@ func validateJSON(ctx context.Context, raw []byte, schemaID, schemaVersion, sche
 	}
 	if actualSchema != schemaID || actualVersion != schemaVersion {
 		return newError(generated.ErrorCodeSchemaUnsupported, schemaTarget)
-	}
-	return nil
-}
-
-func scanJSONValue(ctx context.Context, decoder *json.Decoder, depth int) error {
-	if err := ctx.Err(); err != nil {
-		return interrupted()
-	}
-	if depth > maxJSONDepth {
-		return newError(generated.ErrorCodeInputInvalid, targetManifest)
-	}
-	token, err := decoder.Token()
-	if err != nil {
-		return err
-	}
-	delimiter, ok := token.(json.Delim)
-	if !ok {
-		return nil
-	}
-	switch delimiter {
-	case '{':
-		seen := map[string]struct{}{}
-		for decoder.More() {
-			if err := ctx.Err(); err != nil {
-				return interrupted()
-			}
-			keyToken, err := decoder.Token()
-			if err != nil {
-				return err
-			}
-			key, ok := keyToken.(string)
-			if !ok {
-				return newError(generated.ErrorCodeInputInvalid, targetManifest)
-			}
-			if _, duplicate := seen[key]; duplicate {
-				return newError(generated.ErrorCodeInputInvalid, targetManifest)
-			}
-			seen[key] = struct{}{}
-			if err := scanJSONValue(ctx, decoder, depth+1); err != nil {
-				return err
-			}
-		}
-		closing, err := decoder.Token()
-		if err != nil || closing != json.Delim('}') {
-			return newError(generated.ErrorCodeInputInvalid, targetManifest)
-		}
-	case '[':
-		for decoder.More() {
-			if err := scanJSONValue(ctx, decoder, depth+1); err != nil {
-				return err
-			}
-		}
-		closing, err := decoder.Token()
-		if err != nil || closing != json.Delim(']') {
-			return newError(generated.ErrorCodeInputInvalid, targetManifest)
-		}
-	default:
-		return newError(generated.ErrorCodeInputInvalid, targetManifest)
 	}
 	return nil
 }
