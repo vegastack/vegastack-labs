@@ -72,11 +72,6 @@ type IntentStore interface {
 	WriteIntent(context.Context, *RevisionToken, func(IntentTx) error) (Commit, error)
 }
 
-// FilesystemInspector and MigrationRecovery are closed package ports. Their
-// exact methods are defined with their domain types by the lifecycle and
-// migration slices; Config prevents callers from bypassing those ports.
-type FilesystemInspector interface{}
-
 type Config struct {
 	DatabasePath string
 	Mode         OpenMode
