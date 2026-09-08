@@ -11,7 +11,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"github.com/vegastack/vegastack-labs/internal/release"
 )
 
@@ -34,17 +36,110 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			if command.Availability == generated.AvailabilityAvailable && len(command.Examples) != 0 {
 				arguments = command.Examples[0].Arguments
 			}
-			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithReleaseOperations(operations))
+			serverOperations := &stubServerOperations{status: successfulServerResponse(t)}
+			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithReleaseOperations(operations), WithServerOperations(serverOperations))
 			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {
 					t.Fatalf("planned command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)
 				}
 				return
 			}
-			if code != 0 || stderr != "" || stdout == "" {
+			if code != 0 || stderr != "" || (stdout == "" && commandName(command.Path) != generated.CommandNameServerRun) {
 				t.Fatalf("available command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)
 			}
 		})
+	}
+}
+
+type stubServerOperations struct {
+	status       localapi.Response
+	err          error
+	runConfig    string
+	statusConfig string
+}
+
+func (stub *stubServerOperations) Run(_ context.Context, config string) error {
+	stub.runConfig = config
+	return stub.err
+}
+
+func (stub *stubServerOperations) Status(_ context.Context, config string) (localapi.Response, error) {
+	stub.statusConfig = config
+	return stub.status, stub.err
+}
+
+func successfulServerResponse(t *testing.T) localapi.Response {
+	t.Helper()
+	status := generated.ServerStatusData{State: "ready", ReadAvailable: true, RecoveryEpoch: 7, StateRevision: 42}
+	result := generated.RunResult{
+		Schema: generated.SchemaIDRunResult, SchemaVersion: generated.RegistrySchemaVersion,
+		ToolVersion: "0.2.0-test", Command: generated.CommandNameServerStatus, RequestID: "request-server-1",
+		Status: generated.RunStatusSucceeded, Changed: false, RecoveryEpoch: 7, StateRevision: 42,
+		ReleaseBuildID: "build-server", Errors: []generated.ResultError{}, Data: mustJSON(t, status),
+	}
+	raw := append(mustJSON(t, result), '\n')
+	return localapi.Response{Raw: raw, Result: result, Status: status, ExitCode: 0}
+}
+
+func mustJSON(t *testing.T, value any) []byte {
+	t.Helper()
+	raw, err := json.Marshal(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return raw
+}
+
+func TestServerStatusPreservesRemoteEnvelope(t *testing.T) {
+	remote := successfulServerResponse(t)
+	operations := &stubServerOperations{status: remote}
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{
+		"server", "status", "--config", "profile.json", "--output", "json",
+	}, nil, WithServerOperations(operations))
+	if code != 0 || stdout != string(remote.Raw) || stderr != "" || operations.statusConfig != "profile.json" {
+		t.Fatalf("status = code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+}
+
+func TestServerStatusPreservesRemoteErrorEnvelope(t *testing.T) {
+	remote := successfulServerResponse(t)
+	remote.Result.Status = generated.RunStatusFailed
+	remote.Result.Errors = []generated.ResultError{{Code: generated.ErrorCodeIntegrityFailure, Target: "application-health", Retryable: false}}
+	remote.ExitCode = 8
+	remote.Raw = append(mustJSON(t, remote.Result), '\n')
+	operations := &stubServerOperations{status: remote}
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{
+		"server", "status", "--config", "profile.json", "--output", "json",
+	}, nil, WithServerOperations(operations))
+	if code != 8 || stdout != string(remote.Raw) || stderr != "" {
+		t.Fatalf("status = code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+}
+
+func TestServerRunRoutesAndUnavailableStatusCreatesTypedEnvelope(t *testing.T) {
+	operations := &stubServerOperations{}
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{"server", "run", "--config", "profile.json"}, nil, WithServerOperations(operations))
+	if code != 0 || stdout != "" || stderr != "" || operations.runConfig != "profile.json" {
+		t.Fatalf("run = %d %q %q config=%q", code, stdout, stderr, operations.runConfig)
+	}
+	operations.err = failure.New(generated.ErrorCodeDependencyUnavailable, "control-service", true)
+	code, stdout, stderr = runTestAppWithOptions(t, context.Background(), []string{"server", "status", "--config", "profile.json", "--output", "json"}, nil, WithServerOperations(operations))
+	result := decodeResult(t, code, stdout, stderr, 6)
+	var status generated.ServerStatusData
+	if err := json.Unmarshal(result.Data, &status); err != nil || status.State != "unavailable" || status.ReadAvailable || status.MutationAvailable {
+		t.Fatalf("unavailable = %#v, %v", status, err)
+	}
+}
+
+func TestServerStatusHumanOutputIsSanitized(t *testing.T) {
+	operations := &stubServerOperations{status: successfulServerResponse(t)}
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{"server", "status", "--config", "private-canary.json"}, nil, WithServerOperations(operations))
+	want, err := os.ReadFile(filepath.Join("testdata", "server-status-human.golden"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code != 0 || stderr != "" || strings.Contains(stdout, "private-canary") || stdout != string(want) {
+		t.Fatalf("human status = %d %q %q", code, stdout, stderr)
 	}
 }
 

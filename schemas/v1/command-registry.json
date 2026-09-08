@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.1.0",
+  "schemaVersion": "1.2.0",
   "commands": [
     {
       "path": [
@@ -578,9 +578,55 @@
         "run"
       ],
       "summary": "Run the persistent control service in the foreground.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "2",
-      "risk": "unassigned"
+      "risk": "local-service",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "examples": [
+        {
+          "summary": "Run the local control service in the foreground.",
+          "arguments": [
+            "server",
+            "run",
+            "--config",
+            "fixture/server-profile.json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -588,9 +634,58 @@
         "status"
       ],
       "summary": "Query control-service health.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "2",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/server-status-data",
+      "examples": [
+        {
+          "summary": "Query local control-service health as versioned JSON.",
+          "arguments": [
+            "server",
+            "status",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -851,6 +946,10 @@
   ],
   "schemas": [
     {
+      "id": "vegastack-labs.dev/local-principal-binding",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/release-asset",
       "version": "1.0.0"
     },
@@ -886,6 +985,16 @@
       "id": "vegastack-labs.dev/run-result",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/run-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/server-profile",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/server-profile.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/server-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/server-status-data.schema.json"
     }
   ]
 }

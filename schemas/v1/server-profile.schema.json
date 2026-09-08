@@ -1,0 +1,93 @@
+{
+  "$defs": {
+    "local-principal-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "principalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "uid": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uid",
+        "principalId"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/server-profile",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "principalBindings": {
+      "items": {
+        "$ref": "#/$defs/local-principal-binding"
+      },
+      "maxItems": 256,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/server-profile"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "shutdownGraceSeconds": {
+      "maximum": 5,
+      "minimum": 5,
+      "type": "integer"
+    },
+    "socketGroupGid": {
+      "maximum": 4294967295,
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "socketMode": {
+      "enum": [
+        "0600",
+        "0660"
+      ],
+      "type": "string"
+    },
+    "socketOwnerUid": {
+      "maximum": 4294967295,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "socketPath": {
+      "maxLength": 107,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "socketPath",
+    "socketOwnerUid",
+    "socketGroupGid",
+    "socketMode",
+    "shutdownGraceSeconds",
+    "principalBindings"
+  ],
+  "title": "VegaStack Labs server profile",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

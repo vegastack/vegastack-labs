@@ -17,8 +17,9 @@ const (
 type RiskClass string
 
 const (
-	RiskReadOnly   RiskClass = "read-only"
-	RiskUnassigned RiskClass = "unassigned"
+	RiskReadOnly     RiskClass = "read-only"
+	RiskLocalService RiskClass = "local-service"
+	RiskUnassigned   RiskClass = "unassigned"
 )
 
 type ValueKind string
@@ -103,6 +104,8 @@ type FieldDefinition struct {
 	Enum                 []string
 	AdditionalProperties bool
 	Pattern              string
+	MinLength            *int
+	MaxLength            *int
 	Minimum              *int64
 	Maximum              *int64
 	MinItems             *int

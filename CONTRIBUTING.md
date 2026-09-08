@@ -35,6 +35,15 @@ Use a disposable output path and remove it with the host platform's normal file 
 
 Run `corepack pnpm check:cli` to enforce the single-executable, generated-registry, no-SQLite, no-shell-dispatch, offline-release and no-artifact-execution boundaries and to cross-build the supported development targets into automatically removed temporary outputs. Run `corepack pnpm check:go-dependencies` after any Go module change; its reviewed inventory and notice seal cannot be regenerated as an approval shortcut. Cross-build success is not real-platform or release qualification.
 
+For local control-service development on a supported isolated Linux fixture, use explicit protected configuration:
+
+```bash
+go run ./cmd/vsk-labs server run --config fixture/server-profile.json
+go run ./cmd/vsk-labs server status --config fixture/server-profile.json --output json
+```
+
+The profile is protected non-secret configuration: it contains local socket facts and UID-to-principal bindings, but no permissions, authorization grants, credential values, or private inventory. Use synthetic fixtures only and no real operational data. Never commit a machine-specific profile, real UID mapping, private path, fleet row, credential, or provider response. `corepack pnpm check:server` enforces the one-service, Unix-only, authenticated-context, no-SQLite and supported-platform boundaries.
+
 The public scaffold does not contain private design-system registry components. `web/components.json` documents the optional authenticated registry shape for a future approved maintainer lane, but public checks never contact it.
 
 ## Generated platform contracts
