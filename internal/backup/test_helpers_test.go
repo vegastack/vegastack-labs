@@ -130,6 +130,9 @@ func (layout *testArtifactLayout) Publish(_ context.Context, staged stagedGenera
 	}
 	published := publishedGeneration{id: staged.id, dir: dir, database: filepath.Join(dir, databaseFileName), manifest: filepath.Join(dir, manifestFileName), databaseIdentity: staged.databaseIdentity}
 	layout.published[staged.id] = published
+	if layout.failAt == "root-sync" {
+		return publishedGeneration{}, errors.New("injected")
+	}
 	return published, nil
 }
 

@@ -168,6 +168,55 @@ func TestPrepareCollisionPreservesEarlierPublishedGeneration(t *testing.T) {
 	}
 }
 
+func TestPrepareRootSyncFailureReturnsNoSuccessButLeavesValidGeneration(t *testing.T) {
+	service, layout := newTestService(t)
+	layout.failAt = "root-sync"
+	got, err := service.Prepare(context.Background(), &recordingSource{inspection: validInspection()}, validMigrationRequestForTest(t))
+	if err == nil || got.SnapshotID != "" || len(layout.published) != 1 {
+		t.Fatalf("Prepare() = (%#v, %v), published=%d", got, err, len(layout.published))
+	}
+	for id := range layout.published {
+		if _, _, openErr := layout.OpenPublished(context.Background(), id); openErr != nil {
+			t.Fatalf("post-rename generation rejected: %v", openErr)
+		}
+	}
+}
+
+func TestPrepareFailuresNeverChangeEarlierGeneration(t *testing.T) {
+	for _, stage := range []string{"begin", "backup", "seal", "inspect", "manifest", "publish", "root-sync"} {
+		t.Run(stage, func(t *testing.T) {
+			service, layout := newTestService(t)
+			first, err := service.Prepare(context.Background(), &recordingSource{inspection: validInspection(), backupBody: []byte("earlier generation")}, validMigrationRequestForTest(t))
+			if err != nil {
+				t.Fatal(err)
+			}
+			before, err := os.ReadFile(layout.published[first.SnapshotID].database)
+			if err != nil {
+				t.Fatal(err)
+			}
+			source := &recordingSource{inspection: validInspection(), backupBody: []byte("later generation")}
+			switch stage {
+			case "backup":
+				source.backupErr = errors.New("injected")
+			case "inspect":
+				source.inspectErr = errors.New("injected")
+			default:
+				layout.failAt = stage
+			}
+			if _, err := service.Prepare(context.Background(), source, validMigrationRequestForTest(t)); err == nil {
+				t.Fatal("injected failure succeeded")
+			}
+			after, err := os.ReadFile(layout.published[first.SnapshotID].database)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(before, after) {
+				t.Fatal("earlier generation changed")
+			}
+		})
+	}
+}
+
 type errorReader struct{}
 
 func (errorReader) Read([]byte) (int, error) { return 0, errors.New("injected entropy failure") }

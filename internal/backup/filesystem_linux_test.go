@@ -177,7 +177,7 @@ func beginValidGeneration(t *testing.T, layout artifactLayout, id string, databa
 	if err := os.WriteFile(staged.database, database, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	identity, _, _, err := layout.SealDatabase(context.Background(), staged)
+	identity, size, digest, err := layout.SealDatabase(context.Background(), staged)
 	if err != nil {
 		t.Fatal(err)
 	}
