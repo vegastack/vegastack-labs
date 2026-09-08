@@ -164,9 +164,8 @@ func (service *Service) VerifyRestorable(ctx context.Context, source store.Migra
 	}
 	failAndClean := func(primary error) (store.RestoreEvidence, error) {
 		classifiedPrimary := classifyOperation(ctx, primary)
-		if cleanupErr := service.layout.RemoveRestore(context.WithoutCancel(ctx), target); cleanupErr != nil && primary == nil {
-			classifiedPrimary = integrityError()
-		}
+		// Cleanup cannot replace the original recovery failure.
+		_ = service.layout.RemoveRestore(context.WithoutCancel(ctx), target)
 		return finishRestoreEvidence(service, evidence, classifiedPrimary)
 	}
 	if err := source.RestoreSnapshot(ctx, published.database, target.database); err != nil {

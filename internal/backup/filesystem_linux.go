@@ -476,13 +476,6 @@ func isLocalFilesystemType(filesystemType uint64) bool {
 	}
 }
 
-func mkdirExclusive(path string) error {
-	if err := os.Mkdir(path, 0o700); err != nil {
-		return err
-	}
-	return syncDirectory(filepath.Dir(path))
-}
-
 func syncDirectory(path string) error {
 	directory, err := os.Open(path)
 	if err != nil {
