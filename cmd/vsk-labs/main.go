@@ -10,6 +10,8 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/cli"
 	"github.com/vegastack/vegastack-labs/internal/release"
+	"github.com/vegastack/vegastack-labs/internal/result"
+	"github.com/vegastack/vegastack-labs/internal/server"
 )
 
 var (
@@ -27,11 +29,15 @@ func main() {
 		value := sourceRevision
 		revision = &value
 	}
-	app := cli.New(os.Stdout, os.Stderr, cli.BuildInfo{
+	build := result.BuildInfo{
 		ToolVersion:    toolVersion,
 		ReleaseBuildID: releaseBuildID,
 		SourceRevision: revision,
-	}, newRequestID, cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})))
+	}
+	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,
+		cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})),
+		cli.WithServerOperations(server.NewOperations(build, newRequestID)),
+	)
 	os.Exit(app.Run(ctx, os.Args[1:]))
 }
 

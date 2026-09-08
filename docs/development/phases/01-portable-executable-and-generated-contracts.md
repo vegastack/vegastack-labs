@@ -1,6 +1,6 @@
 # Development phase 1 — Portable executable and generated contracts
 
-Status: active. Phase 0 was accepted by (omkarmohanta09) on 07-09-2026. [Issue 1.1 (#24)](https://github.com/vegastack/vegastack-labs/issues/24) and [Issue 1.2 (#25)](https://github.com/vegastack/vegastack-labs/issues/25) are merged with their integrated public checks passing. [Issue 1.3 (#28)](https://github.com/vegastack/vegastack-labs/issues/28) owns the remaining Phase 1 release-manifest and offline-verification slice. Phase acceptance still requires Issue 1.3's reviewed merge, an integrated check, the combined demonstration below and explicit operator acceptance.
+Status: accepted. Phase 0 was accepted by (omkarmohanta09) on 07-09-2026. [Issue 1.1 (#24)](https://github.com/vegastack/vegastack-labs/issues/24), [Issue 1.2 (#25)](https://github.com/vegastack/vegastack-labs/issues/25), and [Issue 1.3 (#28)](https://github.com/vegastack/vegastack-labs/issues/28) are merged with their integrated public checks passing. (omkarmohanta09) accepted the combined Phase 1 exit on 08-09-2026 at `main` commit `ed8629080c7797b3aca11dc9b7a1a9a3fde2c337`; [Phase 2](02-authoritative-control-service-and-inventory.md) is the active handoff.
 
 ## Outcome
 

@@ -46,6 +46,8 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		},
 		"missing result schema":      func(registry *Registry) { registry.Commands[0].ResultSchema = "missing" },
 		"available risk unassigned":  func(registry *Registry) { registry.Commands[0].Risk = RiskUnassigned },
+		"read command local service": func(registry *Registry) { commandByNameForMutation(registry, "server status").Risk = RiskLocalService },
+		"non-server local service":   func(registry *Registry) { registry.Commands[0].Risk = RiskLocalService },
 		"available example missing":  func(registry *Registry) { registry.Commands[0].Examples = nil },
 		"owner phase is not numeric": func(registry *Registry) { registry.Commands[0].OwnerPhase = "later" },
 		"planned has flags": func(registry *Registry) {
@@ -75,16 +77,16 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		},
 		"unsafe schema artifact": func(registry *Registry) { registry.Schemas[0].ArtifactPath = "../escape.json" },
 		"duplicate schema artifact": func(registry *Registry) {
-			first := ""
+			first := -1
 			for index := range registry.Schemas {
 				if registry.Schemas[index].ArtifactPath == "" {
 					continue
 				}
-				if first == "" {
-					first = registry.Schemas[index].ArtifactPath
+				if first == -1 {
+					first = index
 					continue
 				}
-				registry.Schemas[index].ArtifactPath = first
+				registry.Schemas[index].ArtifactPath = registry.Schemas[first].ArtifactPath
 				return
 			}
 		},

@@ -3681,7 +3681,7 @@
       "source": "https://go.googlesource.com/sys",
       "role": "runtime",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
+      "reviewReason": "Reviewed permissive runtime dependency used by the offline verifier and for Linux peer credentials, advisory locks, and no-follow filesystem operations."
     },
     {
       "path": "golang.org/x/telemetry",
@@ -3944,5 +3944,5 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     }
   ],
-  "reviewMetadataSha256": "d514bab08bb5cb7e5ca3f43a3da1b497e82ef4cce4b7db398ee308b9f97dc4be"
+  "reviewMetadataSha256": "da7c2142f176425c64c2aeea1bad26ff2f47c3048a23364b6e11a7c1831d19b7"
 }

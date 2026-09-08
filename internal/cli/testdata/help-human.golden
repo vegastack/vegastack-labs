@@ -15,6 +15,14 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --policy <path>        Read the supplied local trust policy at this path.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  server run               Run the persistent control service in the foreground.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  server status            Query control-service health.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   version                  Show the vsk-labs build and contract version.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
@@ -57,8 +65,6 @@ Planned commands (unavailable):
   restore plan             Create an immutable restore plan.
   restore run              Run one authorized restore plan.
   restore verify           Verify a completed restore.
-  server run               Run the persistent control service in the foreground.
-  server status            Query control-service health.
   service deploy           Create an inert service-deployment change.
   service plan             Create an inert service change and request its plan.
   service rollback         Create an inert service-rollback change.

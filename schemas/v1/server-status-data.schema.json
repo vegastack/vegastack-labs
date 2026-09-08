@@ -1,0 +1,39 @@
+{
+  "$id": "vegastack-labs.dev/server-status-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "mutationAvailable": {
+      "type": "boolean"
+    },
+    "readAvailable": {
+      "type": "boolean"
+    },
+    "recoveryEpoch": {
+      "type": "integer"
+    },
+    "state": {
+      "enum": [
+        "starting",
+        "ready",
+        "safe-mode",
+        "stopping",
+        "unavailable"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "type": "integer"
+    }
+  },
+  "required": [
+    "state",
+    "readAvailable",
+    "mutationAvailable",
+    "recoveryEpoch",
+    "stateRevision"
+  ],
+  "title": "VegaStack Labs server status data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

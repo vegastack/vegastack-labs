@@ -58,6 +58,31 @@ test("the CLI verifier accepts one generated-registry consumer", async (t) => {
   assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
 });
 
+test("the CLI verifier permits HTTP only as ordinary code in the named local service packages", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/server")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/server/service.go": [
+      "package server",
+      'import ("net/http"; _ "example.test/internal/localapi")',
+      "func Serve(writer http.ResponseWriter, request *http.Request) {}",
+      "",
+    ].join("\n"),
+    "internal/localapi/client.go": [
+      "package localapi",
+      'import "net/http"',
+      "func Client() *http.Client { return &http.Client{} }",
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
+});
+
 test("the CLI verifier requires the shipped dependency closure to consume generated contracts", async (t) => {
   const root = await fixtureRepo(t, {
     "cmd/vsk-labs/main.go": "package main\nfunc main() {}\n",

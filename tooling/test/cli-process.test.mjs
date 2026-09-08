@@ -140,6 +140,28 @@ test("the built vsk-labs executable preserves its complete process contract", as
     data: {},
   });
 
+  if (process.platform !== "linux" || process.arch !== "x64") {
+    const privatePath = path.join(temporary, "private-profile-canary.json");
+    for (const command of [["server", "run"], ["server", "status"]]) {
+      const unsupported = run(binary, [
+        ...command,
+        "--config",
+        privatePath,
+        "--output",
+        "json",
+      ]);
+      assertEnvelope(unsupported, {
+        exitCode: 2,
+        command: command.join(" "),
+        status: "failed",
+        error: { code: "UNSUPPORTED_PLATFORM", target: "server-platform" },
+        data: {},
+      });
+      assert.doesNotMatch(unsupported.stdout + unsupported.stderr, /private-profile-canary/);
+    }
+    await assert.rejects(access(privatePath, constants.F_OK), { code: "ENOENT" });
+  }
+
   assertHumanFailure(run(binary), 2, { code: "INPUT_INVALID", field: "command" });
   assertHumanFailure(run(binary, ["unknown-command"]), 2, {
     code: "INPUT_INVALID",

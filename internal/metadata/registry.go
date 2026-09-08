@@ -12,6 +12,9 @@ const (
 	releaseVerifyDataSchemaID        = "vegastack-labs.dev/release-verify-data"
 	releaseAssetVerificationSchemaID = "vegastack-labs.dev/release-asset-verification"
 	databaseStatusDataSchemaID       = "vegastack-labs.dev/database-status-data"
+	localPrincipalBindingSchemaID    = "vegastack-labs.dev/local-principal-binding"
+	serverProfileSchemaID            = "vegastack-labs.dev/server-profile"
+	serverStatusDataSchemaID         = "vegastack-labs.dev/server-status-data"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -104,8 +107,6 @@ var plannedCommands = []plannedCommand{
 	{path: "database verify", phase: "5", summary: "Verify control-database integrity or backup content."},
 	{path: "database restore", phase: "5", summary: "Create an inert control-database restore change."},
 	{path: "database export", phase: "5", summary: "Export authorized sanitized control data."},
-	{path: "server run", phase: "2", summary: "Run the persistent control service in the foreground."},
-	{path: "server status", phase: "2", summary: "Query control-service health."},
 }
 
 func Current() Registry {
@@ -118,6 +119,8 @@ func Current() Registry {
 		}),
 		releaseInspectCommand(),
 		releaseVerifyCommand(),
+		serverRunCommand(),
+		serverStatusCommand(),
 	}
 	for _, command := range plannedCommands {
 		commands = append(commands, CommandDefinition{
@@ -135,6 +138,37 @@ func Current() Registry {
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
 		Schemas:       currentSchemas(),
+	}
+}
+
+func serverRunCommand() CommandDefinition {
+	return CommandDefinition{
+		Path:         []string{"server", "run"},
+		Summary:      "Run the persistent control service in the foreground.",
+		Availability: AvailabilityAvailable,
+		OwnerPhase:   "2",
+		Risk:         RiskLocalService,
+		Flags: append([]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+		}, commonFlags()...),
+		ResultSchema: runResultSchemaID,
+		Examples:     []ExampleDefinition{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}},
+	}
+}
+
+func serverStatusCommand() CommandDefinition {
+	return CommandDefinition{
+		Path:         []string{"server", "status"},
+		Summary:      "Query control-service health.",
+		Availability: AvailabilityAvailable,
+		OwnerPhase:   "2",
+		Risk:         RiskReadOnly,
+		Flags: append([]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+		}, commonFlags()...),
+		ResultSchema: runResultSchemaID,
+		DataSchema:   serverStatusDataSchemaID,
+		Examples:     []ExampleDefinition{{Summary: "Query local control-service health as versioned JSON.", Arguments: []string{"server", "status", "--config", "fixture/server-profile.json", "--output", "json"}}},
 	}
 }
 
@@ -228,6 +262,14 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "integrityStatus", GoName: "IntegrityStatus", Kind: ValueString, Required: true, Enum: []string{"unknown", "verified", "failed"}},
 				{JSONName: "lastIntegrityCheckAt", GoName: "LastIntegrityCheckAt", Kind: ValueString, Required: true, Nullable: true},
 				{JSONName: "safeModeReason", GoName: "SafeModeReason", Kind: ValueString, Required: true},
+			},
+		},
+		{
+			ID:      localPrincipalBindingSchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				{JSONName: "uid", GoName: "UID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
+				{JSONName: "principalId", GoName: "PrincipalID", Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
 			},
 		},
 		{
@@ -348,6 +390,33 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"verified-against-supplied-policy"}},
 				{JSONName: "policySha256", GoName: "PolicySHA256", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`},
 				{JSONName: "assets", GoName: "Assets", Kind: ValueArray, Required: true, ItemRef: releaseAssetVerificationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(64)},
+			},
+		},
+		{
+			ID:           serverProfileSchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/server-profile.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{serverProfileSchemaID}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "socketPath", GoName: "SocketPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(107)},
+				{JSONName: "socketOwnerUid", GoName: "SocketOwnerUID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
+				{JSONName: "socketGroupGid", GoName: "SocketGroupGID", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
+				{JSONName: "socketMode", GoName: "SocketMode", Kind: ValueString, Required: true, Enum: []string{"0600", "0660"}},
+				{JSONName: "shutdownGraceSeconds", GoName: "ShutdownGraceSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(5), Maximum: int64Pointer(5)},
+				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
+			},
+		},
+		{
+			ID:           serverStatusDataSchemaID,
+			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/server-status-data.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "state", GoName: "State", Kind: ValueString, Required: true, Enum: []string{"starting", "ready", "safe-mode", "stopping", "unavailable"}},
+				{JSONName: "readAvailable", GoName: "ReadAvailable", Kind: ValueBoolean, Required: true},
+				{JSONName: "mutationAvailable", GoName: "MutationAvailable", Kind: ValueBoolean, Required: true},
+				{JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true},
+				{JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true},
 			},
 		},
 	}

@@ -36,6 +36,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/release-trust-policy.schema.json",
 		"schemas/v1/release-verify-data.schema.json",
 		"schemas/v1/run-result.schema.json",
+		"schemas/v1/server-profile.schema.json",
+		"schemas/v1/server-status-data.schema.json",
 	}
 	gotPaths := make([]string, len(first))
 	for index, artifact := range first {
@@ -132,8 +134,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 4 || planned != 47 {
-		t.Fatalf("command availability = (%d available, %d planned), want (4, 47)", available, planned)
+	if available != 6 || planned != 45 {
+		t.Fatalf("command availability = (%d available, %d planned), want (6, 45)", available, planned)
 	}
 
 	for _, path := range []string{
@@ -179,6 +181,12 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 		`type ReleaseInspectData struct`,
 		`type ReleaseVerifyData struct`,
 		`type ReleaseAssetVerification struct`,
+		`type LocalPrincipalBinding struct`,
+		`type ServerProfile struct`,
+		`type ServerStatusData struct`,
+		`CommandNameServerRun`,
+		`CommandNameServerStatus`,
+		`FlagConfig`,
 		`FlagManifest`,
 		`FlagPolicy`,
 		`FlagAsset`,

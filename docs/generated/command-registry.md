@@ -44,6 +44,30 @@ Owner phase: `1` · risk: `read-only` · availability: `available`
 - Explicitly verify every local asset.: `vsk-labs release verify --manifest release/manifest.json --policy release/policy.json --all`
 - Verify one local asset against a supplied policy.: `vsk-labs release verify --manifest release/manifest.json --policy release/policy.json --asset linux-amd64 --output json`
 
+### `vsk-labs server run`
+
+Run the persistent control service in the foreground.
+
+Owner phase: `2` · risk: `local-service` · availability: `available`
+
+- `--config <path>` — Read the protected server profile at this explicit path.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Run the local control service in the foreground.: `vsk-labs server run --config fixture/server-profile.json`
+
+### `vsk-labs server status`
+
+Query control-service health.
+
+Owner phase: `2` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read the protected server profile at this explicit path.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Query local control-service health as versioned JSON.: `vsk-labs server status --config fixture/server-profile.json --output json`
+
 ### `vsk-labs version`
 
 Show the vsk-labs build and contract version.
@@ -278,18 +302,6 @@ Owner phase: `5` · risk: `unassigned` · availability: `planned`
 Verify a completed restore.
 
 Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs server run`
-
-Run the persistent control service in the foreground.
-
-Owner phase: `2` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs server status`
-
-Query control-service health.
-
-Owner phase: `2` · risk: `unassigned` · availability: `planned`
 
 ### `vsk-labs service deploy`
 

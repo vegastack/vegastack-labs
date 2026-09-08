@@ -68,7 +68,10 @@
                   "minItems": 1
                 },
                 "risk": {
-                  "const": "read-only"
+                  "enum": [
+                    "local-service",
+                    "read-only"
+                  ]
                 }
               },
               "required": [
@@ -232,6 +235,7 @@
           },
           "risk": {
             "enum": [
+              "local-service",
               "read-only",
               "unassigned"
             ],
