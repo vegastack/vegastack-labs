@@ -6,11 +6,12 @@ import "encoding/json"
 
 const (
 	SchemaMajor                      = 1
-	RegistrySchemaVersion            = "1.1.0"
+	RegistrySchemaVersion            = "1.2.0"
 	AvailabilityAvailable            = "available"
 	AvailabilityPlanned              = "planned"
 	FlagKindValue                    = "value"
 	FlagKindSwitch                   = "switch"
+	SchemaIDLocalPrincipalBinding    = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDReleaseAsset             = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification = "vegastack-labs.dev/release-asset-verification"
 	SchemaIDReleaseInspectData       = "vegastack-labs.dev/release-inspect-data"
@@ -25,6 +26,8 @@ const (
 	RunStatusInterrupted             = "interrupted"
 	RunStatusPartial                 = "partial"
 	RunStatusSucceeded               = "succeeded"
+	SchemaIDServerProfile            = "vegastack-labs.dev/server-profile"
+	SchemaIDServerStatusData         = "vegastack-labs.dev/server-status-data"
 	CommandNameHelp                  = "help"
 	FlagOutput                       = "--output"
 	OutputHuman                      = "human"
@@ -36,6 +39,9 @@ const (
 	FlagAll                          = "--all"
 	FlagAsset                        = "--asset"
 	FlagPolicy                       = "--policy"
+	CommandNameServerRun             = "server run"
+	FlagConfig                       = "--config"
+	CommandNameServerStatus          = "server status"
 	CommandNameVersion               = "version"
 	ErrorCodeApprovalRequired        = "APPROVAL_REQUIRED"
 	ErrorCodeAuthenticationRequired  = "AUTHENTICATION_REQUIRED"
@@ -61,6 +67,11 @@ const (
 	ErrorCodeUnsupportedPlatform     = "UNSUPPORTED_PLATFORM"
 	ErrorCodeVersionIncompatible     = "VERSION_INCOMPATIBLE"
 )
+
+type LocalPrincipalBinding struct {
+	UID         int64  `json:"uid"`
+	PrincipalID string `json:"principalId"`
+}
 
 type ReleaseAsset struct {
 	ID             string  `json:"id"`
@@ -153,6 +164,25 @@ type RunResult struct {
 	Data           json.RawMessage `json:"data"`
 }
 
+type ServerProfile struct {
+	Schema               string                  `json:"schema"`
+	SchemaVersion        string                  `json:"schemaVersion"`
+	SocketPath           string                  `json:"socketPath"`
+	SocketOwnerUID       int64                   `json:"socketOwnerUid"`
+	SocketGroupGID       *int64                  `json:"socketGroupGid"`
+	SocketMode           string                  `json:"socketMode"`
+	ShutdownGraceSeconds int64                   `json:"shutdownGraceSeconds"`
+	PrincipalBindings    []LocalPrincipalBinding `json:"principalBindings"`
+}
+
+type ServerStatusData struct {
+	State             string `json:"state"`
+	ReadAvailable     bool   `json:"readAvailable"`
+	MutationAvailable bool   `json:"mutationAvailable"`
+	RecoveryEpoch     int64  `json:"recoveryEpoch"`
+	StateRevision     int64  `json:"stateRevision"`
+}
+
 type Command struct {
 	Path          []string  `json:"path"`
 	Summary       string    `json:"summary"`
@@ -222,8 +252,8 @@ var Commands = []Command{
 	{Path: []string{"restore", "plan"}, Summary: "Create an immutable restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"restore", "run"}, Summary: "Run one authorized restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"restore", "verify"}, Summary: "Verify a completed restore.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
-	{Path: []string{"server", "run"}, Summary: "Run the persistent control service in the foreground.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
-	{Path: []string{"server", "status"}, Summary: "Query control-service health.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
+	{Path: []string{"server", "run"}, Summary: "Run the persistent control service in the foreground.", Availability: "available", OwnerPhase: "2", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}}},
+	{Path: []string{"server", "status"}, Summary: "Query control-service health.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/server-status-data", Examples: []Example{{Summary: "Query local control-service health as versioned JSON.", Arguments: []string{"server", "status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"service", "deploy"}, Summary: "Create an inert service-deployment change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
 	{Path: []string{"service", "plan"}, Summary: "Create an inert service change and request its plan.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
 	{Path: []string{"service", "rollback"}, Summary: "Create an inert service-rollback change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},

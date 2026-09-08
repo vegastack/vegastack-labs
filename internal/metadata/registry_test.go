@@ -9,11 +9,11 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.1.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.1.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.2.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.2.0", registry.SchemaVersion)
 	}
 
-	wantAvailable := map[string]bool{"help": false, "release inspect": false, "release verify": false, "version": false}
+	wantAvailable := map[string]bool{"help": false, "release inspect": false, "release verify": false, "server run": false, "server status": false, "version": false}
 	wantPlanned := map[string]string{
 		"status": "2", "doctor": "2", "plan": "4", "apply": "4", "audit": "5",
 		"inventory import": "2", "inventory export": "2", "inventory diff": "2",
@@ -27,7 +27,6 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"maintenance plan": "10", "maintenance run": "10", "connect": "7",
 		"control-plane plan": "6", "control-plane verify": "6", "control-plane recover": "6",
 		"database status": "2", "database backup": "5", "database verify": "5", "database restore": "5", "database export": "5",
-		"server run": "2", "server status": "2",
 	}
 	gotPlanned := make(map[string]string)
 	for _, command := range registry.Commands {
@@ -58,6 +57,22 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	if err := Validate(registry); err != nil {
 		t.Fatalf("Validate(Current()) = %v", err)
 	}
+}
+
+func TestServerCommandsFreezePhaseTwoContracts(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	run := commandByName(t, registry, "server run")
+	status := commandByName(t, registry, "server status")
+	if run.Availability != AvailabilityAvailable || run.Risk != RiskLocalService || run.OwnerPhase != "2" {
+		t.Fatalf("server run contract = %#v", run)
+	}
+	if status.Availability != AvailabilityAvailable || status.Risk != RiskReadOnly || status.OwnerPhase != "2" || status.DataSchema != serverStatusDataSchemaID {
+		t.Fatalf("server status contract = %#v", status)
+	}
+	assertFlag(t, run, "--config", FlagValue, true, false)
+	assertFlag(t, status, "--config", FlagValue, true, false)
 }
 
 func TestReleaseCommandsAreGeneratedPhaseOneContracts(t *testing.T) {

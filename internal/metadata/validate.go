@@ -65,7 +65,11 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 
 		switch command.Availability {
 		case AvailabilityAvailable:
-			if command.Risk != RiskReadOnly {
+			wantRisk := RiskReadOnly
+			if name == "server run" {
+				wantRisk = RiskLocalService
+			}
+			if command.Risk != wantRisk {
 				return validationError("METADATA_INVALID", location+".risk")
 			}
 			if _, ok := schemas[command.ResultSchema]; !ok {
@@ -252,6 +256,14 @@ func validateFields(fields []FieldDefinition, schemas map[string]struct{}, schem
 			}
 			if _, err := regexp.Compile(field.Pattern); err != nil {
 				return validationError("METADATA_INVALID", location+".pattern")
+			}
+		}
+		if field.MinLength != nil || field.MaxLength != nil {
+			if field.Kind != ValueString ||
+				(field.MinLength != nil && *field.MinLength < 0) ||
+				(field.MaxLength != nil && *field.MaxLength < 0) ||
+				(field.MinLength != nil && field.MaxLength != nil && *field.MinLength > *field.MaxLength) {
+				return validationError("METADATA_INVALID", location+".length")
 			}
 		}
 		if field.Minimum != nil || field.Maximum != nil {

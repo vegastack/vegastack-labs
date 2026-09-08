@@ -201,7 +201,7 @@ func renderRegistrySchema() ([]byte, error) {
 			"summary":       map[string]any{"type": "string", "minLength": 1},
 			"availability":  map[string]any{"type": "string", "enum": []string{"available", "planned"}},
 			"ownerPhase":    map[string]any{"type": "string", "pattern": "^[0-9]+$"},
-			"risk":          map[string]any{"type": "string", "enum": []string{"read-only", "unassigned"}},
+			"risk":          map[string]any{"type": "string", "enum": []string{"local-service", "read-only", "unassigned"}},
 			"flags":         map[string]any{"type": "array", "items": flag},
 			"requestSchema": map[string]any{"type": "string", "minLength": 1},
 			"resultSchema":  map[string]any{"type": "string", "minLength": 1},
@@ -238,7 +238,7 @@ func renderRegistrySchema() ([]byte, error) {
 			"then": map[string]any{
 				"required": []string{"resultSchema", "examples"},
 				"properties": map[string]any{
-					"risk":     map[string]any{"const": "read-only"},
+					"risk":     map[string]any{"enum": []string{"local-service", "read-only"}},
 					"examples": map[string]any{"minItems": 1},
 				},
 			},
@@ -374,6 +374,12 @@ func schemaProperties(definition metadata.SchemaDefinition, errors []metadata.Er
 		}
 		if field.Pattern != "" {
 			property["pattern"] = field.Pattern
+		}
+		if field.MinLength != nil {
+			property["minLength"] = *field.MinLength
+		}
+		if field.MaxLength != nil {
+			property["maxLength"] = *field.MaxLength
 		}
 		if field.Minimum != nil {
 			property["minimum"] = *field.Minimum
