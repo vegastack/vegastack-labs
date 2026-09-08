@@ -97,7 +97,7 @@ func TestStatusRejectsUntrustedResponseShapes(t *testing.T) {
 	for name, response := range map[string][]byte{
 		"trailing":        append(append([]byte(nil), valid...), []byte("{}\n")...),
 		"missing newline": valid[:len(valid)-1],
-		"oversized":       []byte(`{"private":"` + strings.Repeat("x", maxResponseBodyBytes) + `"}\n`),
+		"oversized":       []byte(`{"private":"` + strings.Repeat("x", maxResponseBodyBytes) + `"}` + "\n"),
 		"wrong command":   []byte(strings.Replace(string(valid), `"server status"`, `"help"`, 1)),
 	} {
 		t.Run(name, func(t *testing.T) {

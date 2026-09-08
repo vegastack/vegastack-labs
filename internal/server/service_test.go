@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -36,6 +37,7 @@ type testApplication struct {
 	health         ApplicationHealth
 	startErr       error
 	healthErr      error
+	healthCalls    atomic.Int32
 	shutdownErr    error
 	shutdownCalled atomic.Bool
 }
@@ -54,6 +56,7 @@ func (application *testApplication) Start(ctx context.Context) error {
 	return application.startErr
 }
 func (application *testApplication) Health(context.Context) (ApplicationHealth, error) {
+	application.healthCalls.Add(1)
 	return application.health, application.healthErr
 }
 func (application *testApplication) ServeHTTP(writer http.ResponseWriter, _ *http.Request) {
@@ -199,6 +202,34 @@ func TestServiceAuthenticatesBeforeReadingBody(t *testing.T) {
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestServiceUnauthenticatedFailureDoesNotProbeOrDiscloseHealth(t *testing.T) {
+	application := &testApplication{health: ApplicationHealth{RecoveryEpoch: 7, StateRevision: 42}}
+	service := &service{
+		config: Config{Application: application, Results: testResultFactory()},
+		state:  StateReady,
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized {
+		t.Fatalf("status = %d", response.Code)
+	}
+	if calls := application.healthCalls.Load(); calls != 0 {
+		t.Fatalf("unauthenticated request invoked Application.Health %d times", calls)
+	}
+	var envelope generated.RunResult
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	var status generated.ServerStatusData
+	if err := json.Unmarshal(envelope.Data, &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.RecoveryEpoch != 0 || status.StateRevision != 0 || status.ReadAvailable || status.MutationAvailable {
+		t.Fatalf("unauthenticated status = %#v", status)
 	}
 }
 

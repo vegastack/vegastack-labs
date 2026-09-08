@@ -168,12 +168,12 @@ func (service *service) shutdown(listener localapi.Listener, httpServer *http.Se
 
 func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if _, ok := identity.PrincipalFromContext(request.Context()); !ok {
-		service.writeFailure(writer, http.StatusUnauthorized, generated.ErrorCodeAuthenticationRequired, "local-peer", false)
+		service.writeFailure(writer, request, http.StatusUnauthorized, generated.ErrorCodeAuthenticationRequired, "local-peer", false)
 		return
 	}
 	for _, header := range forbiddenIdentityHeaders {
 		if request.Header.Values(header) != nil {
-			service.writeFailure(writer, http.StatusUnauthorized, generated.ErrorCodeAuthenticationRequired, "identity-header", false)
+			service.writeFailure(writer, request, http.StatusUnauthorized, generated.ErrorCodeAuthenticationRequired, "identity-header", false)
 			return
 		}
 	}
@@ -182,19 +182,19 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	if request.Method != http.MethodGet {
-		service.writeFailure(writer, http.StatusMethodNotAllowed, generated.ErrorCodeInputInvalid, "method", false)
+		service.writeFailure(writer, request, http.StatusMethodNotAllowed, generated.ErrorCodeInputInvalid, "method", false)
 		return
 	}
 	if request.Body != nil {
 		content, err := io.ReadAll(io.LimitReader(request.Body, 1))
 		if err != nil || len(content) != 0 {
-			service.writeFailure(writer, http.StatusBadRequest, generated.ErrorCodeInputInvalid, "request-body", false)
+			service.writeFailure(writer, request, http.StatusBadRequest, generated.ErrorCodeInputInvalid, "request-body", false)
 			return
 		}
 	}
 	health, err := service.config.Application.Health(request.Context())
 	if err != nil {
-		service.writeFailure(writer, http.StatusServiceUnavailable, generated.ErrorCodeIntegrityFailure, "application-health", false)
+		service.writeFailure(writer, request, http.StatusServiceUnavailable, generated.ErrorCodeIntegrityFailure, "application-health", false)
 		return
 	}
 	state := service.currentState()
@@ -213,8 +213,11 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	writeEnvelope(writer, http.StatusOK, envelope)
 }
 
-func (service *service) writeFailure(writer http.ResponseWriter, statusCode int, code, target string, retryable bool) {
-	health, _ := service.config.Application.Health(context.Background())
+func (service *service) writeFailure(writer http.ResponseWriter, request *http.Request, statusCode int, code, target string, retryable bool) {
+	var health ApplicationHealth
+	if _, authenticated := identity.PrincipalFromContext(request.Context()); authenticated {
+		health, _ = service.config.Application.Health(request.Context())
+	}
 	data := generated.ServerStatusData{State: string(service.currentState()), RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision}
 	envelope, err := service.config.Results.Failure(generated.CommandNameServerStatus, generated.RunStatusFailed, code, target, retryable, health.RecoveryEpoch, health.StateRevision, data)
 	if err != nil {
