@@ -15,12 +15,30 @@ const (
 )
 
 type parsedArguments struct {
-	command generated.Command
-	output  outputMode
+	command  generated.Command
+	output   outputMode
+	values   map[string][]string
+	switches map[string]bool
 }
 
 func (parsed parsedArguments) commandName() string {
 	return commandName(parsed.command.Path)
+}
+
+func (parsed parsedArguments) Values(name string) []string {
+	return append([]string(nil), parsed.values[name]...)
+}
+
+func (parsed parsedArguments) Value(name string) string {
+	values := parsed.values[name]
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
+}
+
+func (parsed parsedArguments) Switch(name string) bool {
+	return parsed.switches[name]
 }
 
 type argumentFailure struct {
@@ -29,7 +47,11 @@ type argumentFailure struct {
 }
 
 func parseArguments(args []string) (parsedArguments, *argumentFailure) {
-	parsed := parsedArguments{output: outputHuman}
+	parsed := parsedArguments{
+		output:   outputHuman,
+		values:   make(map[string][]string),
+		switches: make(map[string]bool),
+	}
 	command, consumed, ok := matchCommand(args)
 	if !ok {
 		return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "command"}
@@ -49,21 +71,33 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 		if seen[flag.Name] && !flag.Repeatable {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
-		if index+1 >= len(args) || strings.HasPrefix(args[index+1], "--") {
-			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
-		}
-		value := args[index+1]
-		if flag.Name == generated.FlagSchemaVersion && value != strconv.Itoa(generated.SchemaMajor) {
-			return parsed, &argumentFailure{code: generated.ErrorCodeSchemaUnsupported, target: "schema-version"}
-		}
-		if !contains(flag.Enum, value) {
-			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
-		}
-		if flag.Name == generated.FlagOutput {
-			parsed.output = outputMode(value)
-		}
 		seen[flag.Name] = true
-		index += 2
+		switch flag.Kind {
+		case generated.FlagKindSwitch:
+			parsed.switches[flag.Name] = true
+			index++
+		case generated.FlagKindValue:
+			if index+1 >= len(args) || strings.HasPrefix(args[index+1], "--") {
+				return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
+			}
+			value := args[index+1]
+			if value == "" {
+				return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
+			}
+			if flag.Name == generated.FlagSchemaVersion && value != strconv.Itoa(generated.SchemaMajor) {
+				return parsed, &argumentFailure{code: generated.ErrorCodeSchemaUnsupported, target: "schema-version"}
+			}
+			if len(flag.Enum) != 0 && !contains(flag.Enum, value) {
+				return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
+			}
+			parsed.values[flag.Name] = append(parsed.values[flag.Name], value)
+			if flag.Name == generated.FlagOutput {
+				parsed.output = outputMode(value)
+			}
+			index += 2
+		default:
+			return parsed, &argumentFailure{code: generated.ErrorCodeIntegrityFailure, target: "command-registry"}
+		}
 	}
 
 	for _, flag := range command.Flags {

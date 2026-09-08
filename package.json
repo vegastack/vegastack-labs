@@ -14,6 +14,7 @@
     "check:contracts": "go run ./tooling/generate-contracts --check",
     "check:dependencies": "node tooling/provenance.mjs --check",
     "check:docs": "node tooling/verify-docs.mjs",
+    "check:go-dependencies": "node tooling/verify-go-dependencies.mjs --check",
     "check:historical": "node tooling/historical.mjs --check",
     "check:phase-0-3": "node tooling/verify-phase-0-3.mjs",
     "check:phase-0-4": "node tooling/verify-phase-0-4.mjs",
@@ -21,6 +22,7 @@
     "check:repository": "node tooling/verify-repository.mjs",
     "check:workflow": "node tooling/verify-workflow.mjs",
     "generate:historical": "node tooling/historical.mjs --write --approve-current",
+    "generate:go-provenance": "node tooling/verify-go-dependencies.mjs --propose",
     "generate:contracts": "go run ./tooling/generate-contracts --write",
     "generate:provenance": "node tooling/provenance.mjs --write --approve-current-lock",
     "test:tooling": "node --test tooling/test/*.test.mjs"

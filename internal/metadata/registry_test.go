@@ -9,11 +9,11 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.0.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.0.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.1.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.1.0", registry.SchemaVersion)
 	}
 
-	wantAvailable := map[string]bool{"help": false, "version": false}
+	wantAvailable := map[string]bool{"help": false, "release inspect": false, "release verify": false, "version": false}
 	wantPlanned := map[string]string{
 		"status": "2", "doctor": "2", "plan": "4", "apply": "4", "audit": "5",
 		"inventory import": "2", "inventory export": "2", "inventory diff": "2",
@@ -27,7 +27,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"maintenance plan": "10", "maintenance run": "10", "connect": "7",
 		"control-plane plan": "6", "control-plane verify": "6", "control-plane recover": "6",
 		"database status": "2", "database backup": "5", "database verify": "5", "database restore": "5", "database export": "5",
-		"server run": "2", "server status": "2", "release inspect": "11", "release verify": "11",
+		"server run": "2", "server status": "2",
 	}
 	gotPlanned := make(map[string]string)
 	for _, command := range registry.Commands {
@@ -40,7 +40,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 			wantAvailable[name] = true
 		case AvailabilityPlanned:
 			gotPlanned[name] = command.OwnerPhase
-			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.RequestSchema != "" || command.ResultSchema != "" || len(command.Examples) != 0 {
+			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.RequestSchema != "" || command.ResultSchema != "" || command.DataSchema != "" || len(command.Examples) != 0 {
 				t.Fatalf("planned command %q contains speculative contract detail", name)
 			}
 		default:
@@ -58,6 +58,52 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	if err := Validate(registry); err != nil {
 		t.Fatalf("Validate(Current()) = %v", err)
 	}
+}
+
+func TestReleaseCommandsAreGeneratedPhaseOneContracts(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	inspect := commandByName(t, registry, "release inspect")
+	verify := commandByName(t, registry, "release verify")
+	if inspect.Availability != AvailabilityAvailable || verify.Availability != AvailabilityAvailable {
+		t.Fatal("release commands must be available")
+	}
+	if inspect.OwnerPhase != "1" || verify.OwnerPhase != "1" {
+		t.Fatal("release commands must be owned by Phase 1")
+	}
+	if inspect.DataSchema != releaseInspectDataSchemaID || verify.DataSchema != releaseVerifyDataSchemaID {
+		t.Fatal("release commands must name generated data schemas")
+	}
+	assertFlag(t, inspect, "--manifest", FlagValue, true, false)
+	assertFlag(t, verify, "--manifest", FlagValue, true, false)
+	assertFlag(t, verify, "--policy", FlagValue, true, false)
+	assertFlag(t, verify, "--asset", FlagValue, false, true)
+	assertFlag(t, verify, "--all", FlagSwitch, false, false)
+}
+
+func commandByName(t *testing.T, registry Registry, name string) CommandDefinition {
+	t.Helper()
+	for _, command := range registry.Commands {
+		if commandName(command.Path) == name {
+			return command
+		}
+	}
+	t.Fatalf("command %q is missing", name)
+	return CommandDefinition{}
+}
+
+func assertFlag(t *testing.T, command CommandDefinition, name string, kind FlagKind, required, repeatable bool) {
+	t.Helper()
+	for _, flag := range command.Flags {
+		if flag.Name == name {
+			if flag.Kind != kind || flag.Required != required || flag.Repeatable != repeatable {
+				t.Fatalf("%s flag %s = %#v", commandName(command.Path), name, flag)
+			}
+			return
+		}
+	}
+	t.Fatalf("%s flag %s is missing", commandName(command.Path), name)
 }
 
 func TestFoundationCommandsExposeSchemaMajor(t *testing.T) {

@@ -127,15 +127,19 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm check
 ```
 
-These checks validate repository safety, current documentation links and JSON, exact dependency provenance/licenses, preserved historical artifacts, the generated-contract and portable CLI foundations, and the statically exported web scaffold. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, optional maintainer registry placeholders and delivery rules. This foundation is not the complete `vsk-labs` product and does not claim that the server, control database or Console workflow is implemented.
+These checks validate repository safety, current documentation links and JSON, exact Node and Go dependency provenance/licenses, preserved historical artifacts, the generated-contract and portable CLI foundations, the offline release-verification boundary, and the statically exported web scaffold. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, optional maintainer registry placeholders and delivery rules. This foundation is not the complete `vsk-labs` product and does not claim that the server, control database or Console workflow is implemented.
 
 ## Implemented executable foundation
 
-The Phase 1 foundation now builds one executable at `cmd/vsk-labs`. Its `help` and `version` commands consume the checked-in generated registry for command names, flags, help data, schema version, stable errors and exit codes. Human output uses stdout for successful reads and stderr for diagnostics; `--output json` produces one versioned result envelope without prompts. Every other documented command remains visibly planned and returns `PREREQUISITE_BLOCKED` without starting work.
+The Phase 1 foundation now builds one executable at `cmd/vsk-labs`. Its `help`, `version`, `release inspect` and `release verify` commands consume the checked-in generated registry for command names, flags, help data, schema version, stable errors and exit codes. Human output uses stdout for successful reads and stderr for diagnostics; `--output json` produces one versioned result envelope without prompts. Other documented commands remain visibly planned and return `PREREQUISITE_BLOCKED` without starting work.
+
+`release inspect` strictly validates a local provider-neutral manifest, its confined file references and compatibility without claiming cryptographic verification. `release verify` first authenticates the raw manifest, then streams only explicitly named `--asset` values or every asset after explicit `--all`; it checks sizes, SHA-256 digests and local Sigstore bundles against an exact certificate identity, OIDC issuer and trusted root in a separately supplied local policy. The verifier has no network, shell, artifact-execution, installation or mutation path.
+
+Phase 1 success says `verified-against-supplied-policy` and reports the SHA-256 of that policy. This is deliberately not an official VegaStack release claim. `G-017` must later establish and independently pin the real repository/workflow/OIDC/feed policy; Phase 11 installation and update paths must reject arbitrary adjacent policy material.
 
 The same foundation includes provider-neutral packages for portable client paths, opaque credential-reference verification and registered direct-argument transport. These are safety boundaries, not live implementations: they do not open SQLite, reveal a credential, invoke a process, implement SSH or contact any provider.
 
-The public check cross-builds `cmd/vsk-labs` for Linux AMD64/ARM64, macOS AMD64/ARM64 and Windows AMD64 into an isolated temporary directory that is removed afterward. This proves compilation only. It does not qualify installation, native credential stores, service management, signing, notarization or supported releases. The control server, API, database, authentication, declaration/plan/apply engines, Console workflows, provider adapters, `G-018` completion and Module 1 acceptance remain future work.
+The public check cross-builds `cmd/vsk-labs` for Linux AMD64/ARM64, macOS AMD64/ARM64 and Windows AMD64 into an isolated temporary directory that is removed afterward. This proves compilation only. It does not qualify installation, native credential stores, service management, signing, notarization or supported releases. The control server, API, database, authentication, declaration/plan/apply engines, Console workflows, provider adapters, `G-017`, `G-018` completion and module-level acceptance remain future work.
 
 ## Documentation map
 

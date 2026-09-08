@@ -414,3 +414,84 @@ The exact development-only MPL-2.0 dependencies listed below are unmodified and 
 | `yocto-queue` | `0.1.0` | `MIT` | build | [source](https://github.com/sindresorhus/yocto-queue#readme) |
 | `zod` | `4.4.3` | `MIT` | build | [source](https://zod.dev) |
 | `zod-validation-error` | `4.0.2` | `MIT` | build | [source](https://github.com/causaly/zod-validation-error#readme) |
+<!-- go-dependency-notices:start -->
+
+## Go runtime dependencies
+
+This section is reviewed from `tooling/go-dependency-provenance.json` by `node tooling/verify-go-dependencies.mjs --check`. Modules marked `build` in that inventory are selected by the test or transitive Go module graph and are not compiled into `vsk-labs` for the approved verifier import set.
+
+The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-openapi/jsonpointer`, `github.com/go-openapi/jsonreference`, `github.com/go-openapi/runtime`, `github.com/theupdateframework/go-tuf/v2`, `go.yaml.in/yaml/v3`, and `google.golang.org/grpc`; their attribution is retained through the linked exact source release. MIT and BSD copyright/license notices remain with those exact sources.
+
+| Module | Version | License | Upstream |
+|---|---|---|---|
+| `github.com/asaskevich/govalidator` | `v0.0.0-20230301143203-a9d515a09cc2` | `MIT` | [source](https://github.com/asaskevich/govalidator) |
+| `github.com/blang/semver` | `v3.5.1+incompatible` | `MIT` | [source](https://github.com/blang/semver) |
+| `github.com/cenkalti/backoff/v5` | `v5.0.3` | `MIT` | [source](https://github.com/cenkalti/backoff) |
+| `github.com/cespare/xxhash/v2` | `v2.3.0` | `MIT` | [source](https://github.com/cespare/xxhash) |
+| `github.com/cyberphone/json-canonicalization` | `v0.0.0-20241213102144-19d51d7fe467` | `Apache-2.0` | [source](https://github.com/cyberphone/json-canonicalization) |
+| `github.com/digitorus/pkcs7` | `v0.0.0-20230818184609-3a137a874352` | `MIT` | [source](https://github.com/digitorus/pkcs7) |
+| `github.com/digitorus/timestamp` | `v0.0.0-20231217203849-220c5c2851b7` | `BSD-2-Clause` | [source](https://github.com/digitorus/timestamp) |
+| `github.com/go-logr/logr` | `v1.4.4` | `Apache-2.0` | [source](https://github.com/go-logr/logr) |
+| `github.com/go-logr/stdr` | `v1.2.2` | `Apache-2.0` | [source](https://github.com/go-logr/stdr) |
+| `github.com/go-openapi/analysis` | `v0.25.5` | `Apache-2.0` | [source](https://github.com/go-openapi/analysis) |
+| `github.com/go-openapi/errors` | `v0.22.8` | `Apache-2.0` | [source](https://github.com/go-openapi/errors) |
+| `github.com/go-openapi/jsonpointer` | `v1.0.0` | `Apache-2.0` | [source](https://github.com/go-openapi/jsonpointer) |
+| `github.com/go-openapi/jsonreference` | `v1.0.0` | `Apache-2.0` | [source](https://github.com/go-openapi/jsonreference) |
+| `github.com/go-openapi/loads` | `v0.25.0` | `Apache-2.0` | [source](https://github.com/go-openapi/loads) |
+| `github.com/go-openapi/runtime` | `v0.33.0` | `Apache-2.0` | [source](https://github.com/go-openapi/runtime) |
+| `github.com/go-openapi/runtime/server-middleware` | `v0.30.0` | `Apache-2.0` | [source](https://github.com/go-openapi/runtime) |
+| `github.com/go-openapi/spec` | `v0.22.9` | `Apache-2.0` | [source](https://github.com/go-openapi/spec) |
+| `github.com/go-openapi/strfmt` | `v0.27.0` | `Apache-2.0` | [source](https://github.com/go-openapi/strfmt) |
+| `github.com/go-openapi/swag` | `v0.26.1` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/cmdutils` | `v0.27.0` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/conv` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/fileutils` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/jsonname` | `v0.26.1` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/jsonutils` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/loading` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/mangling` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/netutils` | `v0.27.0` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/pools` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/stringutils` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/typeutils` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/swag/yamlutils` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
+| `github.com/go-openapi/validate` | `v0.26.1` | `Apache-2.0` | [source](https://github.com/go-openapi/validate) |
+| `github.com/go-viper/mapstructure/v2` | `v2.5.0` | `MIT` | [source](https://github.com/go-viper/mapstructure) |
+| `github.com/google/certificate-transparency-go` | `v1.3.3` | `Apache-2.0` | [source](https://github.com/google/certificate-transparency-go) |
+| `github.com/google/go-containerregistry` | `v0.21.7` | `Apache-2.0` | [source](https://github.com/google/go-containerregistry) |
+| `github.com/google/uuid` | `v1.6.0` | `BSD-3-Clause` | [source](https://github.com/google/uuid) |
+| `github.com/grpc-ecosystem/grpc-gateway/v2` | `v2.29.0` | `BSD-3-Clause` | [source](https://github.com/grpc-ecosystem/grpc-gateway) |
+| `github.com/in-toto/attestation` | `v1.2.0` | `Apache-2.0` | [source](https://github.com/in-toto/attestation) |
+| `github.com/in-toto/in-toto-golang` | `v0.11.0` | `Apache-2.0` | [source](https://github.com/in-toto/in-toto-golang) |
+| `github.com/oklog/ulid/v2` | `v2.1.1` | `Apache-2.0` | [source](https://github.com/oklog/ulid) |
+| `github.com/opencontainers/go-digest` | `v1.0.0` | `Apache-2.0` | [source](https://github.com/opencontainers/go-digest) |
+| `github.com/pkg/errors` | `v0.9.1` | `BSD-2-Clause` | [source](https://github.com/pkg/errors) |
+| `github.com/secure-systems-lab/go-securesystemslib` | `v0.11.0` | `MIT` | [source](https://github.com/secure-systems-lab/go-securesystemslib) |
+| `github.com/shibumi/go-pathspec` | `v1.3.0` | `Apache-2.0` | [source](https://github.com/shibumi/go-pathspec) |
+| `github.com/sigstore/protobuf-specs` | `v0.5.1` | `Apache-2.0` | [source](https://github.com/sigstore/protobuf-specs) |
+| `github.com/sigstore/rekor` | `v1.5.3` | `Apache-2.0` | [source](https://github.com/sigstore/rekor) |
+| `github.com/sigstore/rekor-tiles/v2` | `v2.3.0` | `Apache-2.0` | [source](https://github.com/sigstore/rekor-tiles) |
+| `github.com/sigstore/sigstore` | `v1.10.8` | `Apache-2.0` | [source](https://github.com/sigstore/sigstore) |
+| `github.com/sigstore/sigstore-go` | `v1.3.0` | `Apache-2.0` | [source](https://github.com/sigstore/sigstore-go) |
+| `github.com/sigstore/timestamp-authority/v2` | `v2.1.3` | `Apache-2.0` | [source](https://github.com/sigstore/timestamp-authority) |
+| `github.com/theupdateframework/go-tuf/v2` | `v2.4.2` | `Apache-2.0` | [source](https://github.com/theupdateframework/go-tuf) |
+| `github.com/transparency-dev/formats` | `v0.1.1` | `Apache-2.0` | [source](https://github.com/transparency-dev/formats) |
+| `github.com/transparency-dev/merkle` | `v0.0.2` | `Apache-2.0` | [source](https://github.com/transparency-dev/merkle) |
+| `github.com/youmark/pkcs8` | `v0.0.0-20240726163527-a2c0da244d78` | `MIT` | [source](https://github.com/youmark/pkcs8) |
+| `go.opentelemetry.io/auto/sdk` | `v1.2.1` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go-instrumentation) |
+| `go.opentelemetry.io/otel` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
+| `go.opentelemetry.io/otel/metric` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
+| `go.opentelemetry.io/otel/trace` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
+| `go.yaml.in/yaml/v3` | `v3.0.4` | `Apache-2.0 AND MIT` | [source](https://github.com/yaml/go-yaml) |
+| `golang.org/x/crypto` | `v0.54.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/crypto) |
+| `golang.org/x/mod` | `v0.38.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/mod) |
+| `golang.org/x/net` | `v0.57.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/net) |
+| `golang.org/x/sync` | `v0.22.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/sync) |
+| `golang.org/x/sys` | `v0.47.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/sys) |
+| `golang.org/x/term` | `v0.45.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/term) |
+| `golang.org/x/text` | `v0.40.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/text) |
+| `google.golang.org/genproto/googleapis/api` | `v0.0.0-20260526163538-3dc84a4a5aaa` | `Apache-2.0` | [source](https://github.com/googleapis/go-genproto) |
+| `google.golang.org/genproto/googleapis/rpc` | `v0.0.0-20260523011958-0a33c5d7ca68` | `Apache-2.0` | [source](https://github.com/googleapis/go-genproto) |
+| `google.golang.org/grpc` | `v1.82.1` | `Apache-2.0` | [source](https://github.com/grpc/grpc-go) |
+| `google.golang.org/protobuf` | `v1.36.11` | `BSD-3-Clause` | [source](https://go.googlesource.com/protobuf) |
+| `k8s.io/klog/v2` | `v2.140.0` | `Apache-2.0` | [source](https://github.com/kubernetes/klog) |

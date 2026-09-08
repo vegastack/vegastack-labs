@@ -4,6 +4,17 @@ Available commands:
   help                     Show generated command help.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  release inspect          Inspect a local release manifest and compatibility without claiming cryptographic verification.
+    --manifest <path>      Read the local release manifest at this path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  release verify           Verify a signed local manifest and explicitly selected assets against a supplied offline policy.
+    --all                  Explicitly verify every asset in the manifest.
+    --asset <id>           Verify one named asset; repeat for additional assets.
+    --manifest <path>      Read the local release manifest at this path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --policy <path>        Read the supplied local trust policy at this path.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   version                  Show the vsk-labs build and contract version.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
@@ -43,8 +54,6 @@ Planned commands (unavailable):
   node quarantine          Create an inert node-quarantine change.
   node replace             Create an inert node-replacement change.
   plan                     Create an immutable plan from an inert change.
-  release inspect          Inspect a release manifest and compatibility.
-  release verify           Verify release identity, signature, and digest.
   restore plan             Create an immutable restore plan.
   restore run              Run one authorized restore plan.
   restore verify           Verify a completed restore.

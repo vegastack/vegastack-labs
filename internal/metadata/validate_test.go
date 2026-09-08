@@ -49,7 +49,12 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		"available example missing":  func(registry *Registry) { registry.Commands[0].Examples = nil },
 		"owner phase is not numeric": func(registry *Registry) { registry.Commands[0].OwnerPhase = "later" },
 		"planned has flags": func(registry *Registry) {
-			registry.Commands[2].Flags = []FlagDefinition{{Name: "--invented", ValueName: "value", Summary: "Not approved"}}
+			for index := range registry.Commands {
+				if registry.Commands[index].Availability == AvailabilityPlanned {
+					registry.Commands[index].Flags = []FlagDefinition{{Name: "--invented", Kind: FlagValue, ValueName: "value", Summary: "Not approved"}}
+					break
+				}
+			}
 		},
 		"unsafe schema reference": func(registry *Registry) { registry.Commands[0].ResultSchema = "../secret" },
 		"error mapping changed":   func(registry *Registry) { registry.Errors[0].ExitCode = 7 },
@@ -59,6 +64,22 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 			registry.Schemas[0].Fields = append(registry.Schemas[0].Fields, registry.Schemas[0].Fields[0])
 		},
 		"field reference missing": func(registry *Registry) { registry.Schemas[0].Fields[0].Ref = "missing" },
+		"switch has value name": func(registry *Registry) {
+			commandByNameForMutation(registry, "release verify").Flags[0].Kind = FlagSwitch
+		},
+		"value lacks value name": func(registry *Registry) {
+			commandByNameForMutation(registry, "release inspect").Flags[0].ValueName = ""
+		},
+		"unknown data schema": func(registry *Registry) {
+			commandByNameForMutation(registry, "release inspect").DataSchema = "vegastack-labs.dev/missing"
+		},
+		"unsafe schema artifact":    func(registry *Registry) { registry.Schemas[0].ArtifactPath = "../escape.json" },
+		"duplicate schema artifact": func(registry *Registry) { registry.Schemas[2].ArtifactPath = registry.Schemas[1].ArtifactPath },
+		"minimum above maximum": func(registry *Registry) {
+			minimum, maximum := int64(2), int64(1)
+			registry.Schemas[0].Fields[0].Minimum = &minimum
+			registry.Schemas[0].Fields[0].Maximum = &maximum
+		},
 	}
 
 	for name, mutate := range tests {
@@ -72,6 +93,15 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 			}
 		})
 	}
+}
+
+func commandByNameForMutation(registry *Registry, name string) *CommandDefinition {
+	for index := range registry.Commands {
+		if commandName(registry.Commands[index].Path) == name {
+			return &registry.Commands[index]
+		}
+	}
+	panic("missing command: " + name)
 }
 
 func TestMetadataTypesHaveNoProviderOrVendorField(t *testing.T) {

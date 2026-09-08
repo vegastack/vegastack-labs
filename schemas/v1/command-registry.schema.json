@@ -30,6 +30,11 @@
                     "required": [
                       "resultSchema"
                     ]
+                  },
+                  {
+                    "required": [
+                      "dataSchema"
+                    ]
                   }
                 ]
               },
@@ -81,6 +86,10 @@
             ],
             "type": "string"
           },
+          "dataSchema": {
+            "minLength": 1,
+            "type": "string"
+          },
           "examples": {
             "items": {
               "additionalProperties": false,
@@ -109,6 +118,52 @@
           "flags": {
             "items": {
               "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "switch"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "enum": {
+                        "maxItems": 0
+                      },
+                      "repeatable": {
+                        "const": false
+                      },
+                      "valueName": {
+                        "const": ""
+                      }
+                    }
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "kind": {
+                        "const": "value"
+                      }
+                    },
+                    "required": [
+                      "kind"
+                    ]
+                  },
+                  "then": {
+                    "properties": {
+                      "valueName": {
+                        "minLength": 1
+                      }
+                    }
+                  }
+                }
+              ],
               "properties": {
                 "enum": {
                   "items": {
@@ -116,6 +171,13 @@
                   },
                   "type": "array",
                   "uniqueItems": true
+                },
+                "kind": {
+                  "enum": [
+                    "switch",
+                    "value"
+                  ],
+                  "type": "string"
                 },
                 "name": {
                   "pattern": "^--[a-z][a-z0-9-]*$",
@@ -132,12 +194,12 @@
                   "type": "string"
                 },
                 "valueName": {
-                  "minLength": 1,
                   "type": "string"
                 }
               },
               "required": [
                 "name",
+                "kind",
                 "valueName",
                 "required",
                 "repeatable",
@@ -268,6 +330,10 @@
       "items": {
         "additionalProperties": false,
         "properties": {
+          "artifactPath": {
+            "pattern": "^schemas/v1/[a-z0-9-]+\\.schema\\.json$",
+            "type": "string"
+          },
           "id": {
             "minLength": 1,
             "type": "string"

@@ -38,6 +38,8 @@ type listedPackage struct {
 type analysis struct {
 	GeneratedCommandsReference bool     `json:"generatedCommandsReference"`
 	HandwrittenRegistry        bool     `json:"handwrittenRegistry"`
+	ReleaseArtifactExecution   bool     `json:"releaseArtifactExecution"`
+	ReleaseNetworkAccess       bool     `json:"releaseNetworkAccess"`
 	SQLiteAccess               bool     `json:"sqliteAccess"`
 	ShellDispatch              bool     `json:"shellDispatch"`
 	TargetsAnalyzed            []string `json:"targetsAnalyzed"`
@@ -158,6 +160,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	}
 	mainImport := modulePath + "/cmd/vsk-labs"
 	generatedImport := modulePath + "/internal/generated"
+	releaseImport := modulePath + "/internal/release"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -175,15 +178,24 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		for _, imported := range candidate.Imports {
 			if imported == "database/sql" {
 				result.SQLiteAccess = true
 			}
-			if imported == "os/exec" {
+			if imported == "os/exec" && !isReleasePackage {
 				result.ShellDispatch = true
 			}
+			if isReleasePackage {
+				switch imported {
+				case "net", "net/http", "github.com/sigstore/sigstore-go/pkg/tuf":
+					result.ReleaseNetworkAccess = true
+				case "os/exec", "plugin":
+					result.ReleaseArtifactExecution = true
+				}
+			}
 		}
-		inspectPackage(parsed, generatedImport, &result)
+		inspectPackage(parsed, generatedImport, isReleasePackage, &result)
 	}
 	return result, nil
 }
@@ -250,13 +262,16 @@ func parseAndCheck(candidate listedPackage, loader types.Importer) (checkedSourc
 	}, nil
 }
 
-func inspectPackage(candidate checkedSourcePackage, generatedImport string, result *analysis) {
+func inspectPackage(candidate checkedSourcePackage, generatedImport string, isReleasePackage bool, result *analysis) {
 	context := analysisContext{
 		generatedImport: generatedImport,
 		derivedCommands: derivedCommandTypes(candidate, generatedImport),
 	}
 	for _, file := range candidate.files {
 		ast.Inspect(file, func(node ast.Node) bool {
+			if isReleasePackage {
+				inspectReleaseNode(node, candidate.info, result)
+			}
 			switch typed := node.(type) {
 			case *ast.FuncDecl:
 				if functionRecognizesGeneratedCommands(typed, candidate.info, generatedImport) {
@@ -278,6 +293,72 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport string, resu
 			return true
 		})
 	}
+}
+
+func inspectReleaseNode(node ast.Node, info *types.Info, result *analysis) {
+	call, ok := node.(*ast.CallExpr)
+	if !ok {
+		return
+	}
+	function := calledFunction(call.Fun, info)
+	if function == nil || function.Pkg() == nil {
+		return
+	}
+	path := function.Pkg().Path()
+	name := function.Name()
+
+	switch path {
+	case "github.com/sigstore/sigstore-go/pkg/root":
+		if strings.HasPrefix(name, "Fetch") || strings.HasPrefix(name, "NewLiveTrustedRoot") {
+			result.ReleaseNetworkAccess = true
+		}
+	case "github.com/sigstore/sigstore-go/pkg/bundle":
+		if name == "LoadJSONFromPath" {
+			result.ReleaseArtifactExecution = true
+		}
+	case "github.com/sigstore/sigstore-go/pkg/verify":
+		switch name {
+		case "WithoutArtifactUnsafe":
+			result.ReleaseArtifactExecution = true
+		case "NewShortCertificateIdentity":
+			if nonemptyStringArgument(call.Args, 1) || nonemptyStringArgument(call.Args, 3) {
+				result.ReleaseArtifactExecution = true
+			}
+		case "NewSANMatcher", "NewIssuerMatcher":
+			if nonemptyStringArgument(call.Args, 1) {
+				result.ReleaseArtifactExecution = true
+			}
+		}
+	case "os":
+		if name == "StartProcess" {
+			result.ReleaseArtifactExecution = true
+		}
+	case "syscall":
+		if name == "Exec" || name == "ForkExec" || name == "StartProcess" {
+			result.ReleaseArtifactExecution = true
+		}
+	}
+}
+
+func calledFunction(expression ast.Expr, info *types.Info) *types.Func {
+	switch value := unparenthesized(expression).(type) {
+	case *ast.Ident:
+		function, _ := info.ObjectOf(value).(*types.Func)
+		return function
+	case *ast.SelectorExpr:
+		function, _ := info.ObjectOf(value.Sel).(*types.Func)
+		return function
+	default:
+		return nil
+	}
+}
+
+func nonemptyStringArgument(arguments []ast.Expr, index int) bool {
+	if index >= len(arguments) {
+		return true
+	}
+	literal, ok := unparenthesized(arguments[index]).(*ast.BasicLit)
+	return !ok || literal.Kind != token.STRING || literal.Value != `""`
 }
 
 func functionRecognizesGeneratedCommands(function *ast.FuncDecl, info *types.Info, generatedImport string) bool {

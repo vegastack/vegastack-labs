@@ -1,0 +1,89 @@
+{
+  "$defs": {
+    "release-asset-verification": {
+      "additionalProperties": false,
+      "properties": {
+        "architecture": {
+          "type": "string"
+        },
+        "assetId": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string"
+        },
+        "os": {
+          "type": "string"
+        },
+        "size": {
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "verified"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "assetId",
+        "os",
+        "architecture",
+        "digest",
+        "size",
+        "status"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/release-verify-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assets": {
+      "items": {
+        "$ref": "#/$defs/release-asset-verification"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array"
+    },
+    "buildId": {
+      "type": "string"
+    },
+    "manifestStatus": {
+      "enum": [
+        "verified"
+      ],
+      "type": "string"
+    },
+    "policySha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "releaseId": {
+      "type": "string"
+    },
+    "sourceRevision": {
+      "type": "string"
+    },
+    "verificationStatus": {
+      "enum": [
+        "verified-against-supplied-policy"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "releaseId",
+    "buildId",
+    "sourceRevision",
+    "manifestStatus",
+    "verificationStatus",
+    "policySha256",
+    "assets"
+  ],
+  "title": "VegaStack Labs release verify data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

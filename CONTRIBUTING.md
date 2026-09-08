@@ -27,9 +27,13 @@ For focused executable work, build and smoke-test the only shipped command direc
 go build -o <temporary-output-path> ./cmd/vsk-labs
 go run ./cmd/vsk-labs help
 go run ./cmd/vsk-labs version --output json --schema-version 1
+go run ./cmd/vsk-labs release inspect --manifest <local-manifest-path>
+go run ./cmd/vsk-labs release verify --manifest <local-manifest-path> --policy <local-policy-path> --asset <asset-id>
 ```
 
-Use a disposable output path and remove it with the host platform's normal file operation after the smoke test. Run `corepack pnpm check:cli` to enforce the single-executable, generated-registry, no-SQLite and no-shell-dispatch boundaries and to cross-build the supported development targets into automatically removed temporary outputs. Cross-build success is not real-platform or release qualification.
+Use a disposable output path and remove it with the host platform's normal file operation after the smoke test. Release inputs must be local public test material; do not use the command to install or execute an artifact. A successful Phase 1 verification means only `verified-against-supplied-policy` and reports that policy's SHA-256. It is not proof of an official VegaStack release; the later `G-017`/Phase 11 path must independently pin the real policy rather than accepting arbitrary release-adjacent policy material.
+
+Run `corepack pnpm check:cli` to enforce the single-executable, generated-registry, no-SQLite, no-shell-dispatch, offline-release and no-artifact-execution boundaries and to cross-build the supported development targets into automatically removed temporary outputs. Run `corepack pnpm check:go-dependencies` after any Go module change; its reviewed inventory and notice seal cannot be regenerated as an approval shortcut. Cross-build success is not real-platform or release qualification.
 
 The public scaffold does not contain private design-system registry components. `web/components.json` documents the optional authenticated registry shape for a future approved maintainer lane, but public checks never contact it.
 

@@ -12,6 +12,7 @@ const MANIFEST_PATH = path.join(ROOT, "tooling/dependency-provenance.json");
 const NOTICES_PATH = path.join(ROOT, "THIRD_PARTY_NOTICES.md");
 const PUBLIC_REGISTRY = "https://registry.npmjs.org";
 const MANIFEST_AUTHORITY = "node tooling/provenance.mjs --write --approve-current-lock";
+const GO_NOTICE_MARKER = "<!-- go-dependency-notices:start -->";
 const APPROVED_MPL_PACKAGES = new Set([
   "axe-core@4.13.0",
   "lightningcss@1.32.0",
@@ -340,6 +341,11 @@ function renderNotices(manifest) {
   return lines.join("\n");
 }
 
+function goNoticeSuffix(notices) {
+  const marker = notices.indexOf(GO_NOTICE_MARKER);
+  return marker < 0 ? "" : notices.slice(marker);
+}
+
 export async function verifyProvenance() {
   const [lockBytes, manifestText, notices] = await Promise.all([
     readFile(LOCK_PATH),
@@ -420,7 +426,9 @@ export async function verifyProvenance() {
     }
   }
 
-  if (notices !== renderNotices(manifest)) {
+  const goMarker = notices.indexOf(GO_NOTICE_MARKER);
+  const nodeNotices = goMarker < 0 ? notices : notices.slice(0, goMarker);
+  if (nodeNotices !== renderNotices(manifest)) {
     throw new Error("THIRD_PARTY_NOTICES.md is stale");
   }
 
@@ -435,9 +443,13 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
         throw new Error("writing requires --approve-current-lock after dependency and license review");
       }
       const manifest = await buildManifest();
+      let existingNotices = "";
+      try {
+        existingNotices = await readFile(NOTICES_PATH, "utf8");
+      } catch {}
       await Promise.all([
         writeFile(MANIFEST_PATH, renderManifest(manifest), "utf8"),
-        writeFile(NOTICES_PATH, renderNotices(manifest), "utf8"),
+        writeFile(NOTICES_PATH, renderNotices(manifest) + goNoticeSuffix(existingNotices), "utf8"),
       ]);
       process.stdout.write(
         `${JSON.stringify({ schemaVersion: 1, check: "provenance", status: "written", packages: manifest.packages.length, proposedReviewMetadataSha256: reviewMetadataDigest(manifest) })}\n`,

@@ -7,14 +7,23 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"runtime"
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/release"
 )
 
 const (
 	fallbackRequestID = "request-id-unavailable"
 )
+
+var releaseErrorTargets = map[string]struct{}{
+	"asset-digest": {}, "asset-file": {}, "asset-signature": {},
+	"bundle-file": {}, "bundle-signature": {}, "context": {},
+	"manifest": {}, "manifest-file": {}, "manifest-path": {}, "manifest-schema": {}, "manifest-signature": {},
+	"platform": {}, "policy": {}, "policy-file": {}, "policy-schema": {}, "release-reference": {}, "selection": {},
+}
 
 type BuildInfo struct {
 	ToolVersion    string
@@ -24,14 +33,28 @@ type BuildInfo struct {
 
 type RequestIDSource func() (string, error)
 
+type ReleaseOperations interface {
+	Inspect(context.Context, release.InspectRequest) (generated.ReleaseInspectData, error)
+	Verify(context.Context, release.VerifyRequest) (generated.ReleaseVerifyData, error)
+}
+
+type Option func(*App)
+
+func WithReleaseOperations(operations ReleaseOperations) Option {
+	return func(app *App) {
+		app.releases = operations
+	}
+}
+
 type App struct {
 	stdout     io.Writer
 	stderr     io.Writer
 	build      BuildInfo
 	requestIDs RequestIDSource
+	releases   ReleaseOperations
 }
 
-func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource) *App {
+func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, options ...Option) *App {
 	if requestIDs == nil {
 		requestIDs = func() (string, error) { return "", errors.New("request ID source unavailable") }
 	}
@@ -39,7 +62,13 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource) 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	return &App{stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs}
+	app := &App{stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs}
+	for _, option := range options {
+		if option != nil {
+			option(app)
+		}
+	}
+	return app
 }
 
 func (app *App) Run(ctx context.Context, args []string) int {
@@ -74,9 +103,68 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.succeedJSON(parsed.commandName(), json.RawMessage("{}"))
 		}
 		return renderHumanVersion(app.stdout, app.build)
+	case generated.CommandNameReleaseInspect:
+		if app.releases == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
+		}
+		data, err := app.releases.Inspect(ctx, release.InspectRequest{
+			ManifestPath: parsed.Value(generated.FlagManifest),
+			Platform:     release.Platform{OS: runtime.GOOS, Architecture: runtime.GOARCH, SchemaMajor: generated.SchemaMajor},
+		})
+		if err != nil {
+			return app.failRelease(mode, parsed.commandName(), err)
+		}
+		if mode == outputJSON {
+			return app.succeedData(parsed.commandName(), data)
+		}
+		return renderHumanReleaseInspect(app.stdout, data)
+	case generated.CommandNameReleaseVerify:
+		if app.releases == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
+		}
+		data, err := app.releases.Verify(ctx, release.VerifyRequest{
+			ManifestPath: parsed.Value(generated.FlagManifest),
+			PolicyPath:   parsed.Value(generated.FlagPolicy),
+			Selection:    release.Selection{All: parsed.Switch(generated.FlagAll), AssetIDs: parsed.Values(generated.FlagAsset)},
+		})
+		if err != nil {
+			return app.failRelease(mode, parsed.commandName(), err)
+		}
+		if mode == outputJSON {
+			return app.succeedData(parsed.commandName(), data)
+		}
+		return renderHumanReleaseVerify(app.stdout, data)
 	default:
 		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
 	}
+}
+
+func (app *App) succeedData(command string, data any) int {
+	raw, err := json.Marshal(data)
+	if err != nil {
+		return app.fail(outputJSON, command, generated.ErrorCodeIntegrityFailure, "output", generated.RunStatusFailed, false)
+	}
+	return app.succeedJSON(command, raw)
+}
+
+func (app *App) failRelease(mode outputMode, command string, err error) int {
+	var releaseErr *release.Error
+	if !errors.As(err, &releaseErr) || releaseErr.Code == "" || releaseErr.Target == "" {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
+	}
+	if _, knownCode := generated.ErrorExitCodes[releaseErr.Code]; !knownCode {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
+	}
+	if _, safeTarget := releaseErrorTargets[releaseErr.Target]; !safeTarget {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "release-verifier", generated.RunStatusFailed, false)
+	}
+	status := generated.RunStatusFailed
+	if releaseErr.Code == generated.ErrorCodeInterrupted {
+		status = generated.RunStatusCancelled
+	} else if releaseErr.Code == generated.ErrorCodePrerequisiteBlocked {
+		status = generated.RunStatusBlocked
+	}
+	return app.fail(mode, command, releaseErr.Code, releaseErr.Target, status, false)
 }
 
 func (app *App) succeedJSON(command string, data json.RawMessage) int {
