@@ -11,6 +11,7 @@ const (
 	AvailabilityPlanned              = "planned"
 	FlagKindValue                    = "value"
 	FlagKindSwitch                   = "switch"
+	SchemaIDDatabaseStatusData       = "vegastack-labs.dev/database-status-data"
 	SchemaIDLocalPrincipalBinding    = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDReleaseAsset             = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification = "vegastack-labs.dev/release-asset-verification"
@@ -67,6 +68,17 @@ const (
 	ErrorCodeUnsupportedPlatform     = "UNSUPPORTED_PLATFORM"
 	ErrorCodeVersionIncompatible     = "VERSION_INCOMPATIBLE"
 )
+
+type DatabaseStatusData struct {
+	Mode                 string  `json:"mode"`
+	SchemaVersion        int64   `json:"schemaVersion"`
+	SQLiteVersion        string  `json:"sqliteVersion"`
+	MutationEnabled      bool    `json:"mutationEnabled"`
+	RecoveryPending      bool    `json:"recoveryPending"`
+	IntegrityStatus      string  `json:"integrityStatus"`
+	LastIntegrityCheckAt *string `json:"lastIntegrityCheckAt"`
+	SafeModeReason       string  `json:"safeModeReason"`
+}
 
 type LocalPrincipalBinding struct {
 	UID         int64  `json:"uid"`

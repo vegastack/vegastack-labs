@@ -98,6 +98,11 @@ func analyze(root, goos, goarch string) (analysis, error) {
 	if err != nil {
 		return analysis{}, fmt.Errorf("analyze %s/%s dependency closure: %w", goos, goarch, err)
 	}
+	modulePackages, err := listModulePackages(root, goos, goarch)
+	if err != nil {
+		return analysis{}, fmt.Errorf("list %s/%s module packages: %w", goos, goarch, err)
+	}
+	result.SQLiteAccess = hasSQLiteAccessOutsideStore(modulePackages)
 	result.TargetsAnalyzed = []string{goos + "/" + goarch}
 	return result, nil
 }
@@ -128,6 +133,65 @@ func listPackages(root, goos, goarch string) ([]listedPackage, error) {
 		packages = append(packages, candidate)
 	}
 	return packages, nil
+}
+
+func listModulePackages(root, goos, goarch string) ([]listedPackage, error) {
+	command := exec.Command("go", "list", "-json", "./...")
+	command.Dir = root
+	command.Env = targetEnvironment(goos, goarch)
+	output, err := command.Output()
+	if err != nil {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
+			return nil, fmt.Errorf("go list: %s", strings.TrimSpace(string(exitError.Stderr)))
+		}
+		return nil, fmt.Errorf("go list: %w", err)
+	}
+
+	decoder := json.NewDecoder(strings.NewReader(string(output)))
+	var packages []listedPackage
+	for {
+		var candidate listedPackage
+		if err := decoder.Decode(&candidate); err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, fmt.Errorf("decode go list output: %w", err)
+		}
+		if candidate.Module != nil && candidate.Module.Main {
+			packages = append(packages, candidate)
+		}
+	}
+	return packages, nil
+}
+
+func hasSQLiteAccessOutsideStore(packages []listedPackage) bool {
+	if len(packages) == 0 {
+		return true
+	}
+	modulePath := ""
+	for _, candidate := range packages {
+		if candidate.Module != nil && candidate.Module.Main && candidate.Module.Path != "" {
+			modulePath = candidate.Module.Path
+			break
+		}
+	}
+	if modulePath == "" {
+		return true
+	}
+	storeImport := modulePath + "/internal/store"
+	for _, candidate := range packages {
+		if candidate.ImportPath == storeImport || strings.HasPrefix(candidate.ImportPath, storeImport+"/") {
+			continue
+		}
+		for _, imported := range candidate.Imports {
+			switch imported {
+			case "database/sql", "github.com/ncruces/go-sqlite3", "github.com/ncruces/go-sqlite3/driver":
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func targetEnvironment(goos, goarch string) []string {
@@ -180,9 +244,6 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		checked[candidate.ImportPath] = parsed.infoPackage()
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		for _, imported := range candidate.Imports {
-			if imported == "database/sql" {
-				result.SQLiteAccess = true
-			}
 			if imported == "os/exec" && !isReleasePackage {
 				result.ShellDispatch = true
 			}

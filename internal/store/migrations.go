@@ -1,0 +1,121 @@
+package store
+
+import (
+	"crypto/sha256"
+	"embed"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
+	"fmt"
+	"io/fs"
+	"path"
+	"regexp"
+	"sort"
+	"strings"
+)
+
+// Migration ownership is fixed for Phase 2: 0001 belongs to #30, 0002 to
+// #31, 0003 to #33, and 0004 to #35. Issues #34 and #37 own no migration.
+
+//go:embed migrations/*.sql
+var embeddedMigrations embed.FS
+
+type Migration struct {
+	ID     uint64
+	Name   string
+	SHA256 [32]byte
+	SQL    string
+}
+
+type migrationManifestEntry struct {
+	ID     uint64
+	Name   string
+	SHA256 [32]byte
+}
+
+var migrationNamePattern = regexp.MustCompile(`^[0-9]{4}_[a-z][a-z0-9_]*$`)
+
+var embeddedMigrationManifest = []migrationManifestEntry{
+	{ID: 1, Name: "0001_store_foundation", SHA256: mustSHA256("05c15b90ff0805b8b74b90d5cf61691ddcb44a9e80e92ba78c7610c393f40191")},
+}
+
+func Catalog() ([]Migration, error) {
+	return catalogFromFS(embeddedMigrations, embeddedMigrationManifest)
+}
+
+func catalogFromFS(source fs.FS, manifest []migrationManifestEntry) ([]Migration, error) {
+	if source == nil || len(manifest) == 0 {
+		return nil, migrationCatalogError(errors.New("catalog is empty"))
+	}
+	entries, err := fs.ReadDir(source, "migrations")
+	if err != nil {
+		return nil, migrationCatalogError(err)
+	}
+	files := make(map[string]bool, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || path.Ext(entry.Name()) != ".sql" {
+			return nil, migrationCatalogError(errors.New("catalog contains an unexpected entry"))
+		}
+		files[strings.TrimSuffix(entry.Name(), ".sql")] = true
+	}
+	if len(files) != len(manifest) {
+		return nil, migrationCatalogError(errors.New("catalog and manifest differ"))
+	}
+
+	seenNames := make(map[string]bool, len(manifest))
+	catalog := make([]Migration, 0, len(manifest))
+	for index, entry := range manifest {
+		expectedID := uint64(index + 1)
+		if entry.ID != expectedID || seenNames[entry.Name] || !migrationNamePattern.MatchString(entry.Name) || entry.Name[:4] != fmt.Sprintf("%04d", entry.ID) {
+			return nil, migrationCatalogError(errors.New("migration sequence is invalid"))
+		}
+		seenNames[entry.Name] = true
+		if !files[entry.Name] {
+			return nil, migrationCatalogError(errors.New("migration file is missing"))
+		}
+		body, err := fs.ReadFile(source, "migrations/"+entry.Name+".sql")
+		if err != nil {
+			return nil, migrationCatalogError(err)
+		}
+		if strings.TrimSpace(string(body)) == "" {
+			return nil, migrationCatalogError(errors.New("migration body is empty"))
+		}
+		actual := sha256.Sum256(body)
+		if actual != entry.SHA256 {
+			return nil, migrationCatalogError(errors.New("migration checksum differs"))
+		}
+		catalog = append(catalog, Migration{ID: entry.ID, Name: entry.Name, SHA256: actual, SQL: string(body)})
+	}
+	return catalog, nil
+}
+
+func catalogSHA256(catalog []Migration) [32]byte {
+	ordered := append([]Migration(nil), catalog...)
+	sort.Slice(ordered, func(left, right int) bool { return ordered[left].ID < ordered[right].ID })
+	hash := sha256.New()
+	var identifier [8]byte
+	for _, migration := range ordered {
+		binary.BigEndian.PutUint64(identifier[:], migration.ID)
+		_, _ = hash.Write(identifier[:])
+		_, _ = hash.Write([]byte(migration.Name))
+		_, _ = hash.Write([]byte{0})
+		_, _ = hash.Write(migration.SHA256[:])
+	}
+	var result [32]byte
+	copy(result[:], hash.Sum(nil))
+	return result
+}
+
+func mustSHA256(value string) [32]byte {
+	decoded, err := hex.DecodeString(value)
+	if err != nil || len(decoded) != sha256.Size {
+		panic("invalid embedded migration checksum")
+	}
+	var result [32]byte
+	copy(result[:], decoded)
+	return result
+}
+
+func migrationCatalogError(cause error) error {
+	return newStoreError("MIGRATION_BLOCKED", "migration-catalog", false, cause)
+}

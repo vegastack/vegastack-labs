@@ -19,8 +19,10 @@ const ALLOWED_LICENSES = new Set([
   "Apache-2.0 AND MIT",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  "CC0-1.0",
   "ISC",
   "MIT",
+  "MIT-0",
   "MPL-2.0",
 ]);
 const ALLOWED_SOURCE_HOSTS = new Set([
@@ -36,7 +38,7 @@ const ALLOWED_SOURCE_HOSTS = new Set([
 // role, decision, and reason have been reviewed. Resolution checks cannot
 // approve changed metadata by themselves.
 const REVIEWED_METADATA_SHA256 =
-  "6b8844f78c49516d5dfdc884c52b173653eb00063b2353b060fb2c90280a559d";
+  "da7c2142f176425c64c2aeea1bad26ff2f47c3048a23364b6e11a7c1831d19b7";
 
 export class GoDependencyError extends Error {
   constructor(code, target) {
@@ -371,12 +373,12 @@ export async function verifyGoDependencies(root = ROOT, options = {}) {
   }
 
   const selected = await selectedModules(root, run);
-  const [executable, tests] = await Promise.all([
+  const [runtime, tests] = await Promise.all([
     dependencyModules(
       root,
       run,
-      ["list", "-deps", "-json", "./cmd/vsk-labs"],
-      "executable-dependencies",
+      ["list", "-deps", "-json", "./cmd/vsk-labs", "./internal/store"],
+      "runtime-dependencies",
     ),
     dependencyModules(
       root,
@@ -389,7 +391,7 @@ export async function verifyGoDependencies(root = ROOT, options = {}) {
   const checksums = checksumMap(goSum);
   const reviewed = new Map(manifest.modules.map((record) => [`${record.path}@${record.version}`, record]));
   const selectedIdentities = new Set(selected.map((module) => `${module.path}@${module.version}`));
-  for (const identity of [...executable, ...tests]) {
+  for (const identity of [...runtime, ...tests]) {
     if (!selectedIdentities.has(identity)) fail("GO_MODULE_GRAPH", identity);
   }
   if (reviewed.size !== selected.length) fail("GO_MODULE_GRAPH", "module-count");
@@ -409,7 +411,7 @@ export async function verifyGoDependencies(root = ROOT, options = {}) {
     if (checkOrigins && downloaded.get(identity)?.source !== record.source) {
       fail("GO_SOURCE", identity);
     }
-    const expectedRole = executable.has(identity) ? "runtime" : "build";
+    const expectedRole = runtime.has(identity) ? "runtime" : "build";
     if (record.role !== expectedRole) fail("GO_ROLE", identity);
   }
   if (!reviewed.has(`${SIGSTORE_MODULE}@${SIGSTORE_VERSION}`)) {

@@ -59,6 +59,29 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	}
 }
 
+func TestDatabaseStatusDataIsClosedAndSanitized(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	var got *SchemaDefinition
+	for i := range registry.Schemas {
+		if registry.Schemas[i].ID == "vegastack-labs.dev/database-status-data" {
+			got = &registry.Schemas[i]
+		}
+	}
+	if got == nil || got.ArtifactPath != "schemas/v1/database-status-data.schema.json" {
+		t.Fatal("database status data schema is missing")
+	}
+	want := []string{"mode", "schemaVersion", "sqliteVersion", "mutationEnabled", "recoveryPending", "integrityStatus", "lastIntegrityCheckAt", "safeModeReason"}
+	names := make([]string, 0, len(got.Fields))
+	for _, field := range got.Fields {
+		names = append(names, field.JSONName)
+	}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("fields = %v, want %v", names, want)
+	}
+}
+
 func TestServerCommandsFreezePhaseTwoContracts(t *testing.T) {
 	t.Parallel()
 

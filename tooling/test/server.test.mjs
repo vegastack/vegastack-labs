@@ -37,6 +37,15 @@ test("the server verifier accepts the single Unix service boundary", async (t) =
   assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
 });
 
+test("the server verifier accepts SQLite and Linux filesystem access only in the store", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/store/store.go": "package store\nimport _ \"database/sql\"\n",
+    "internal/store/filesystem_linux.go":
+      "package store\nimport _ \"golang.org/x/sys/unix\"\n",
+  });
+  assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
+});
+
 test("the server verifier rejects a TCP control listener", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/server/service.go": [

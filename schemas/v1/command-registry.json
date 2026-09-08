@@ -946,6 +946,11 @@
   ],
   "schemas": [
     {
+      "id": "vegastack-labs.dev/database-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/database-status-data.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/local-principal-binding",
       "version": "1.0.0"
     },

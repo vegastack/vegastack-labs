@@ -463,6 +463,9 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/grpc-ecosystem/grpc-gateway/v2` | `v2.29.0` | `BSD-3-Clause` | [source](https://github.com/grpc-ecosystem/grpc-gateway) |
 | `github.com/in-toto/attestation` | `v1.2.0` | `Apache-2.0` | [source](https://github.com/in-toto/attestation) |
 | `github.com/in-toto/in-toto-golang` | `v0.11.0` | `Apache-2.0` | [source](https://github.com/in-toto/in-toto-golang) |
+| `github.com/ncruces/go-sqlite3` | `v0.35.4` | `MIT` | [source](https://github.com/ncruces/go-sqlite3) |
+| `github.com/ncruces/go-sqlite3-wasm/v5` | `v5.0.35304` | `MIT-0` | [source](https://github.com/ncruces/go-sqlite3-wasm) |
+| `github.com/ncruces/julianday` | `v1.0.0` | `MIT` | [source](https://github.com/ncruces/julianday) |
 | `github.com/oklog/ulid/v2` | `v2.1.1` | `Apache-2.0` | [source](https://github.com/oklog/ulid) |
 | `github.com/opencontainers/go-digest` | `v1.0.0` | `Apache-2.0` | [source](https://github.com/opencontainers/go-digest) |
 | `github.com/pkg/errors` | `v0.9.1` | `BSD-2-Clause` | [source](https://github.com/pkg/errors) |
@@ -483,13 +486,13 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `go.opentelemetry.io/otel/metric` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
 | `go.opentelemetry.io/otel/trace` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
 | `go.yaml.in/yaml/v3` | `v3.0.4` | `Apache-2.0 AND MIT` | [source](https://github.com/yaml/go-yaml) |
-| `golang.org/x/crypto` | `v0.54.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/crypto) |
+| `golang.org/x/crypto` | `v0.55.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/crypto) |
 | `golang.org/x/mod` | `v0.38.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/mod) |
 | `golang.org/x/net` | `v0.57.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/net) |
 | `golang.org/x/sync` | `v0.22.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/sync) |
 | `golang.org/x/sys` | `v0.47.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/sys) |
 | `golang.org/x/term` | `v0.45.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/term) |
-| `golang.org/x/text` | `v0.40.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/text) |
+| `golang.org/x/text` | `v0.41.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/text) |
 | `google.golang.org/genproto/googleapis/api` | `v0.0.0-20260526163538-3dc84a4a5aaa` | `Apache-2.0` | [source](https://github.com/googleapis/go-genproto) |
 | `google.golang.org/genproto/googleapis/rpc` | `v0.0.0-20260523011958-0a33c5d7ca68` | `Apache-2.0` | [source](https://github.com/googleapis/go-genproto) |
 | `google.golang.org/grpc` | `v1.82.1` | `Apache-2.0` | [source](https://github.com/grpc/grpc-go) |

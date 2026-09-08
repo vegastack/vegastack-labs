@@ -96,10 +96,10 @@ func analyze(root string) (analysis, error) {
 			if name != "_" && name != "." {
 				importAliases[name] = importPath
 			}
-			if importPath == "database/sql" {
+			if importPath == "database/sql" && !strings.HasPrefix(relative, "internal/store/") {
 				result.SQLiteAccess = true
 			}
-			if importPath == "golang.org/x/sys/unix" && !(strings.HasSuffix(relative, "_linux.go") && (strings.HasPrefix(relative, "internal/localapi/") || strings.HasPrefix(relative, "internal/serverconfig/"))) {
+			if importPath == "golang.org/x/sys/unix" && !(strings.HasSuffix(relative, "_linux.go") && (strings.HasPrefix(relative, "internal/localapi/") || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))) {
 				result.XSysOutsideScope = true
 			}
 		}

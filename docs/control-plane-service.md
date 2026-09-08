@@ -103,6 +103,16 @@ Rules:
 
 WAL may be reconsidered only if the pinned SQLite library includes the official fix, all connections remain same-host, the connection/checkpoint design is documented, power-loss/concurrency tests pass and backup handling includes the WAL state correctly. [SQLite backup API](https://sqlite.org/backup.html)
 
+#### Implemented Phase 2 ownership boundary
+
+Issue 2.2 (#30) supplies the CGO-free, Linux-server SQLite authority behind the control service. It retains one `database/sql` connection, holds one same-owner writer-lock sidecar, requires an absolute clean path beneath a local `0700` directory, creates the database as `0600`, and rejects symlinks, hard links, owner/mode changes, network filesystems, and path replacement. It reads back rollback journaling, `synchronous=FULL`, foreign keys, and the bounded busy timeout before reporting ready. Non-Linux client builds continue to compile but cannot open an authoritative database.
+
+The embedded migration ownership is intentionally staged. #30 owns only `0001_store_foundation`, containing `system_meta` and the append-only `schema_migrations` ledger. #31 owns `0002` inventory, #33 owns `0003` audit, and #35 owns `0004` read authorization. #34 and #37 own no migration. In particular, #30 does not create principals, grants, inventory, audit-event, outbox, snapshot, or export tables; the broader data-model table below remains the target contract for its owning issues.
+
+Fresh exclusive initialization is the only path that does not require a verified pre-migration snapshot. Every upgrade first validates the applied ledger as an exact checksum-bound catalog prefix, then obtains a verified online copy through the narrow `MigrationRecovery`/`MigrationSource` boundary. A failed migration rolls back and preserves the authority file and failure evidence. Recovery verification restores the snapshot only to a separate isolated target; it never renames, copies, or restores over the authority automatically. Authority replacement, external fencing, accepted `recovery_epoch` cutover, and restart with a retained binary remain Phase 5 operator-owned recovery work.
+
+#35 composes and injects the store-backed application behind the #29 server boundary; neither the CLI nor the Console opens SQLite. #38 verifies that ownership closure through the built executable. Until those issues land, the store package is a tested internal foundation and does not claim that the persistent service is complete.
+
 ### Core data model
 
 | Table/group | Required data and invariants |
@@ -137,13 +147,13 @@ The [portable lifecycle](platform-lifecycle.md#effective-authority-and-revocatio
 Migrations are embedded in the attested server binary and have sequential IDs plus checksums. Startup may apply only forward-compatible migrations approved for that release.
 
 1. Stop new plans and wait for or safely interrupt active runs.
-2. Create an online backup and pass integrity verification.
+2. Create an online backup, inspect its schema/revision/integrity, and bind it to the target catalog.
 3. Acquire the exclusive migration lock and confirm expected current schema.
 4. Apply one transaction where SQLite permits; record each migration checksum.
 5. Run foreign-key and integrity checks plus API smoke tests.
-6. Start normal operation only after all checks pass.
+6. Fsync the committed database and its parent, recheck file identity, and start normal operation only after all checks pass.
 
-On failure, stop the new service, preserve the failed copy/evidence, restore the verified pre-migration database, start the previous retained binary and verify. Never run an older binary against a newer schema.
+On migration or post-check failure, the implementation rolls back where SQLite still permits, preserves the authoritative file and evidence, verifies the snapshot by restoring only to an isolated target, and remains mutation-disabled in safe mode. It does not automatically replace authority. The Phase 5 recovery procedure owns fencing the former writer, explicitly accepting the recovery point, replacing authority, advancing `recovery_epoch`, starting the compatible retained binary, and verifying the result. Never run an older binary against a newer schema.
 
 ## API contract
 

@@ -364,6 +364,31 @@ test("the CLI verifier scans imported in-module packages outside the old fixed d
   ]);
 });
 
+test("raw SQLite imports are allowed only in internal/store", async (t) => {
+  const allowed = await fixtureRepo(t, {
+    "internal/store/store.go": [
+      "package store",
+      'import "database/sql"',
+      "var _ *sql.DB",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(allowed, { crossBuild: false })).codes, []);
+
+  const denied = await fixtureRepo(t, {
+    "internal/store/store.go": "package store\n",
+    "internal/api/rogue.go": [
+      "package api",
+      'import "database/sql"',
+      "var _ *sql.DB",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(denied, { crossBuild: false })).codes, [
+    "CLI_SQLITE_ACCESS",
+  ]);
+});
+
 test("offline release code rejects network and artifact execution", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/run.go": [
@@ -594,7 +619,7 @@ test("the CLI verifier requires cmd/vsk-labs as the sole executable", async (t) 
   assert.deepEqual(result.codes, ["CLI_EXECUTABLE_COUNT", "CLI_GENERATED_OWNERSHIP"]);
 });
 
-test("the cross-build uses the independently expected five targets and unique outputs", async (t) => {
+test("the cross-build compiles the executable and store for five independent targets", async (t) => {
   const root = await fixtureRepo(t);
   const calls = [];
   const removed = [];
@@ -614,17 +639,27 @@ test("the cross-build uses the independently expected five targets and unique ou
   ];
   assert.deepEqual(
     calls.map(({ options }) => [options.env.GOOS, options.env.GOARCH]),
-    expectedTargets,
+    expectedTargets.flatMap((target) => [target, target]),
   );
-  assert.equal(new Set(calls.map(({ args }) => args[2])).size, expectedTargets.length);
+  assert.equal(new Set(calls.map(({ args }) => args[2])).size, expectedTargets.length * 2);
   assert.deepEqual(
-    calls.map(({ args }) => path.basename(args[2])),
+    calls.filter(({ args }) => args[3] === "./cmd/vsk-labs").map(({ args }) => path.basename(args[2])),
     [
       "vsk-labs-linux-amd64",
       "vsk-labs-linux-arm64",
       "vsk-labs-darwin-amd64",
       "vsk-labs-darwin-arm64",
       "vsk-labs-windows-amd64.exe",
+    ],
+  );
+  assert.deepEqual(
+    calls.filter(({ args }) => args[3] === "./internal/store").map(({ args }) => path.basename(args[2])),
+    [
+      "store-linux-amd64.a",
+      "store-linux-arm64.a",
+      "store-darwin-amd64.a",
+      "store-darwin-arm64.a",
+      "store-windows-amd64.a",
     ],
   );
   assert.deepEqual(result, {
