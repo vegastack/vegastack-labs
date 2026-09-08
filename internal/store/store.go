@@ -17,15 +17,16 @@ import (
 const DefaultBusyTimeout = 5 * time.Second
 
 type Store struct {
-	mu         sync.Mutex
-	db         *sql.DB
-	conn       *sql.Conn
-	filesystem FilesystemInspector
-	identity   FileIdentity
-	writerLock io.Closer
-	config     Config
-	health     Health
-	closed     bool
+	mu           sync.Mutex
+	db           *sql.DB
+	conn         *sql.Conn
+	filesystem   FilesystemInspector
+	identity     FileIdentity
+	writerLock   io.Closer
+	config       Config
+	health       Health
+	closed       bool
+	beforeCommit func() error
 }
 
 func Open(ctx context.Context, config Config) (*Store, error) {
