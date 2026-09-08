@@ -116,6 +116,14 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 		if err := store.applyFoundation(ctx); err != nil {
 			return nil, err
 		}
+	} else {
+		catalog, catalogErr := Catalog()
+		if catalogErr != nil {
+			return nil, catalogErr
+		}
+		if err := store.migrate(ctx, catalog); err != nil {
+			return nil, err
+		}
 	}
 	if err := store.readAndValidateState(ctx); err != nil {
 		return nil, err

@@ -19,7 +19,7 @@ func (store *Store) Read(ctx context.Context, callback func(ReadTx) error) error
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	if err := store.readyForTransaction(ctx); err != nil {
+	if err := store.readyForRead(ctx); err != nil {
 		return err
 	}
 	transaction, err := store.conn.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
@@ -30,6 +30,10 @@ func (store *Store) Read(ctx context.Context, callback func(ReadTx) error) error
 	if err := callback(ReadTx{handle: transaction}); err != nil {
 		if ctx.Err() != nil {
 			return interruptedError("database-read", ctx.Err())
+		}
+		var sqliteError *sqlite3.Error
+		if errors.As(err, &sqliteError) {
+			return store.transactionError(ctx, err)
 		}
 		return err
 	}
@@ -145,14 +149,21 @@ func readRevision(ctx context.Context, transaction *sql.Tx) (RevisionToken, erro
 }
 
 func (store *Store) readyForTransaction(ctx context.Context) error {
+	if err := store.readyForRead(ctx); err != nil {
+		return err
+	}
+	if store.health.Mode != DatabaseReady || !store.health.MutationEnabled {
+		return newStoreError("PREREQUISITE_BLOCKED", "database-safe-mode", false, nil)
+	}
+	return nil
+}
+
+func (store *Store) readyForRead(ctx context.Context) error {
 	if err := ctx.Err(); err != nil {
 		return interruptedError("database", err)
 	}
 	if store.closed {
 		return newStoreError("DEPENDENCY_UNAVAILABLE", "database", false, nil)
-	}
-	if store.health.Mode != DatabaseReady || !store.health.MutationEnabled {
-		return newStoreError("PREREQUISITE_BLOCKED", "database-safe-mode", false, nil)
 	}
 	return store.checkIdentity(ctx)
 }
