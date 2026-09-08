@@ -61,6 +61,38 @@ func TestFreshInitializationAppliesWholeCheckedCatalogWithoutRecovery(t *testing
 	}
 }
 
+func TestInventoryImportIdempotencyAndSourceRevisionConflicts(t *testing.T) {
+	store := newInventoryTestStore(t)
+	repository := NewInventoryDraftRepository(store)
+	request := inventoryPutRequest("sha256:"+strings.Repeat("3", 64), inventory.DraftValid)
+	first, err := repository.Put(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	retry, err := repository.Put(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !first.Created || retry.Created || first.Ref != retry.Ref || first.CommitStateRevision != retry.CommitStateRevision {
+		t.Fatalf("first/retry = %#v / %#v", first, retry)
+	}
+	changed := request
+	changed.CandidateDigest = "sha256:" + strings.Repeat("c", 64)
+	changed.Draft.ContentDigest = changed.CandidateDigest
+	if _, err := repository.Put(context.Background(), changed); Code(err) != "STATE_CONFLICT" {
+		t.Fatalf("changed key code = %q", Code(err))
+	}
+	sourceConflict := request
+	sourceConflict.IdempotencyKeyDigest = "sha256:" + strings.Repeat("4", 64)
+	sourceConflict.Draft.Candidate.Source.Digest = "sha256:" + strings.Repeat("f", 64)
+	if _, err := repository.Put(context.Background(), sourceConflict); Code(err) != "STATE_CONFLICT" {
+		t.Fatalf("source conflict code = %q", Code(err))
+	}
+	if got := readStateRevision(t, store); got != first.CommitStateRevision {
+		t.Fatalf("state revision after conflicts = %d", got)
+	}
+}
+
 var inventoryDraftTables = []string{"inventory_import_keys", "inventory_source_bindings", "inventory_drafts", "inventory_draft_assets", "inventory_draft_identities", "inventory_draft_nodes", "inventory_draft_aliases", "inventory_draft_addresses", "inventory_draft_observations", "inventory_draft_hardware_facts", "inventory_draft_provenance", "inventory_draft_findings"}
 
 func newInventoryTestStore(t *testing.T) *Store {

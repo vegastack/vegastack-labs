@@ -251,3 +251,28 @@ type DraftRepository interface {
 type ExportProjection interface {
 	SnapshotDraft(context.Context, DraftRef) (CanonicalDraftSnapshot, error)
 }
+
+type ImportRequest struct {
+	IdempotencyKey        string
+	ExpectedStateRevision *int64
+	Decoded               DecodedCandidate
+}
+
+type ImportResult struct {
+	DraftID          DraftID
+	DraftRevision    int64
+	ValidationStatus DraftValidationStatus
+	SourceDigest     string
+	ContentDigest    string
+	StateRevision    int64
+	RecoveryEpoch    int64
+	Created          bool
+	Counts           DraftCounts
+	Findings         []Finding
+}
+
+type ImportService interface {
+	ValidateAndStore(context.Context, ImportRequest) (ImportResult, error)
+}
+
+type IDGenerator func() (DraftID, error)
