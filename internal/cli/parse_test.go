@@ -54,3 +54,19 @@ func TestParseValueFlagStillRequiresValue(t *testing.T) {
 		t.Fatalf("failure = %#v", failure)
 	}
 }
+
+func TestParseServerCommandsRequireOneExplicitConfig(t *testing.T) {
+	t.Parallel()
+	for _, command := range []string{"run", "status"} {
+		if _, failure := parseArguments([]string{"server", command}); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Fatalf("server %s without config failure = %#v", command, failure)
+		}
+		if _, failure := parseArguments([]string{"server", command, "--config", "one.json", "--config", "two.json"}); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Fatalf("server %s duplicate config failure = %#v", command, failure)
+		}
+		parsed, failure := parseArguments([]string{"server", command, "--config", "fixture/server-profile.json"})
+		if failure != nil || parsed.Value(generated.FlagConfig) != "fixture/server-profile.json" {
+			t.Fatalf("server %s parse = (%#v, %#v)", command, parsed, failure)
+		}
+	}
+}

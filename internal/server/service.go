@@ -141,7 +141,7 @@ func (service *service) shutdown(listener localapi.Listener, httpServer *http.Se
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), service.config.Profile.ShutdownGrace)
 	defer cancel()
 	var terminal error
-	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+	if err := httpServer.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		_ = httpServer.Close()
 		terminal = failure.New(generated.ErrorCodeExecutionFailed, "control-service-drain", false)
 	}

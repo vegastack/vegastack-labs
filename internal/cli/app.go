@@ -10,8 +10,11 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"github.com/vegastack/vegastack-labs/internal/release"
+	"github.com/vegastack/vegastack-labs/internal/result"
 )
 
 const (
@@ -25,17 +28,18 @@ var releaseErrorTargets = map[string]struct{}{
 	"platform": {}, "policy": {}, "policy-file": {}, "policy-schema": {}, "release-reference": {}, "selection": {},
 }
 
-type BuildInfo struct {
-	ToolVersion    string
-	ReleaseBuildID string
-	SourceRevision *string
-}
+type BuildInfo = result.BuildInfo
 
-type RequestIDSource func() (string, error)
+type RequestIDSource = result.RequestIDSource
 
 type ReleaseOperations interface {
 	Inspect(context.Context, release.InspectRequest) (generated.ReleaseInspectData, error)
 	Verify(context.Context, release.VerifyRequest) (generated.ReleaseVerifyData, error)
+}
+
+type ServerOperations interface {
+	Run(context.Context, string) error
+	Status(context.Context, string) (localapi.Response, error)
 }
 
 type Option func(*App)
@@ -46,12 +50,19 @@ func WithReleaseOperations(operations ReleaseOperations) Option {
 	}
 }
 
+func WithServerOperations(operations ServerOperations) Option {
+	return func(app *App) {
+		app.server = operations
+	}
+}
+
 type App struct {
 	stdout     io.Writer
 	stderr     io.Writer
 	build      BuildInfo
 	requestIDs RequestIDSource
 	releases   ReleaseOperations
+	server     ServerOperations
 }
 
 func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, options ...Option) *App {
@@ -134,9 +145,80 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.succeedData(parsed.commandName(), data)
 		}
 		return renderHumanReleaseVerify(app.stdout, data)
+	case generated.CommandNameServerRun:
+		if app.server == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)
+		}
+		if err := app.server.Run(ctx, parsed.Value(generated.FlagConfig)); err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		return 0
+	case generated.CommandNameServerStatus:
+		if app.server == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)
+		}
+		response, err := app.server.Status(ctx, parsed.Value(generated.FlagConfig))
+		if err != nil {
+			return app.failServerStatus(mode, parsed.commandName(), err)
+		}
+		if mode == outputJSON {
+			if _, err := app.stdout.Write(response.Raw); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+			return response.ExitCode
+		}
+		return renderHumanServerStatus(app.stdout, response.Status, response.ExitCode)
 	default:
 		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
 	}
+}
+
+var serverErrorTargets = map[string]struct{}{
+	"application-health": {}, "application-shutdown": {}, "application-start": {},
+	"context": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {},
+	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},
+	"identity-header": {}, "local-peer": {}, "method": {}, "principal-bindings": {},
+	"request-body": {}, "server-config": {}, "server-platform": {},
+}
+
+func (app *App) failServer(mode outputMode, command string, err error) int {
+	stable, ok := failure.As(err)
+	if !ok || stable.Target == "" {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)
+	}
+	if _, knownCode := generated.ErrorExitCodes[stable.Code]; !knownCode {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)
+	}
+	if _, safeTarget := serverErrorTargets[stable.Target]; !safeTarget {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "server-operations", generated.RunStatusFailed, false)
+	}
+	status := generated.RunStatusFailed
+	if stable.Code == generated.ErrorCodeInterrupted {
+		status = generated.RunStatusInterrupted
+	} else if stable.Code == generated.ErrorCodeDependencyUnavailable || stable.Code == generated.ErrorCodePrerequisiteBlocked {
+		status = generated.RunStatusBlocked
+	}
+	return app.fail(mode, command, stable.Code, stable.Target, status, stable.Code == generated.ErrorCodeInterrupted)
+}
+
+func (app *App) failServerStatus(mode outputMode, command string, err error) int {
+	stable, ok := failure.As(err)
+	if ok && stable.Code == generated.ErrorCodeDependencyUnavailable && stable.Target == "control-service" {
+		status := generated.ServerStatusData{State: "unavailable", ReadAvailable: false, MutationAvailable: false, RecoveryEpoch: 0, StateRevision: 0}
+		if mode != outputJSON {
+			return renderHumanServerStatus(app.stdout, status, generated.ErrorExitCodes[stable.Code])
+		}
+		factory := result.NewFactory(app.build, app.requestIDs)
+		envelope, buildErr := factory.Failure(command, generated.RunStatusBlocked, stable.Code, stable.Target, true, 0, 0, status)
+		if buildErr != nil {
+			return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "request-id", generated.RunStatusFailed, true)
+		}
+		if encodeErr := result.Encode(app.stdout, envelope); encodeErr != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return generated.ErrorExitCodes[stable.Code]
+	}
+	return app.failServer(mode, command, err)
 }
 
 func (app *App) succeedData(command string, data any) int {

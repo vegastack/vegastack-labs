@@ -80,6 +80,16 @@ func renderHumanReleaseVerify(output io.Writer, data generated.ReleaseVerifyData
 	return 0
 }
 
+func renderHumanServerStatus(output io.Writer, data generated.ServerStatusData, exitCode int) int {
+	if _, err := fmt.Fprintf(output,
+		"State %s\nRead available %t\nMutation available %t\nState revision %d\nRecovery epoch %d\n",
+		data.State, data.ReadAvailable, data.MutationAvailable, data.StateRevision, data.RecoveryEpoch,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return exitCode
+}
+
 func renderHumanVersion(output io.Writer, build BuildInfo) int {
 	if _, err := fmt.Fprintf(output, "vsk-labs %s\ncontract %s\nbuild %s\n", build.ToolVersion, generated.RegistrySchemaVersion, build.ReleaseBuildID); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
