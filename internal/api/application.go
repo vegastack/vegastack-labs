@@ -67,6 +67,9 @@ func NewApplication(config Config) (*Application, error) {
 	}
 	app := &Application{config: config}
 	app.routes = finiteRoutes(app)
+	if !routesMatchGenerated(app.routes) {
+		return nil, apiFailure("INTEGRITY_FAILURE", "endpoint-registry")
+	}
 	return app, nil
 }
 

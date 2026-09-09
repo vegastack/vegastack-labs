@@ -38,6 +38,22 @@ func finiteRoutes(app *Application) []route {
 	}
 }
 
+func routesMatchGenerated(routes []route) bool {
+	implemented := map[string]string{"api.v1.health.get": "/api/v1/health", "api.v1.events.stream": "/api/v1/events"}
+	for _, candidate := range routes {
+		implemented[candidate.id] = candidate.pattern
+	}
+	if len(implemented) != len(generated.Endpoints) {
+		return false
+	}
+	for _, endpoint := range generated.Endpoints {
+		if endpoint.Method != http.MethodGet || implemented[endpoint.ID] != endpoint.Path {
+			return false
+		}
+	}
+	return true
+}
+
 func (app *Application) serve(writer http.ResponseWriter, request *http.Request) {
 	if strings.HasPrefix(request.URL.Path, "/api/v") && !strings.HasPrefix(request.URL.Path, "/api/v1/") {
 		app.failure(writer, "api", apiFailure(generated.ErrorCodeSchemaUnsupported, "schema-major"))
