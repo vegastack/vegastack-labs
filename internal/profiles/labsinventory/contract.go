@@ -2,7 +2,12 @@
 // projection into provider-neutral, inert inventory candidates.
 package labsinventory
 
-import "time"
+import (
+	"fmt"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/inventory"
+)
 
 const (
 	Format                = "labs-sheet1-csv"
@@ -36,4 +41,18 @@ var headerV1 = [...]string{
 type Config struct {
 	SourceRevision string
 	CapturedAt     time.Time
+}
+
+func rowRoot(record int) string { return fmt.Sprintf("sheet1-row-%06d", record) }
+
+func localID(record int, suffix string) inventory.LocalID {
+	return inventory.LocalID(rowRoot(record) + "-" + suffix)
+}
+
+func rowLocator(record int, field string) string {
+	return fmt.Sprintf("row:%06d/field:%s", record, field)
+}
+
+func sourceFieldPath(record int, field string) string {
+	return fmt.Sprintf("assets.%s.%s", rowRoot(record), field)
 }

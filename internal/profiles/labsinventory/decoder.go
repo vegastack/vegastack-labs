@@ -78,15 +78,13 @@ func (decoder *Decoder) Decode(ctx context.Context, source io.Reader) (inventory
 			}
 		}
 	}
+	decoded, err := mapRecords(ctx, decoder.config, records[1:])
+	if err != nil {
+		return inventory.DecodedCandidate{}, err
+	}
 	digest := sha256.Sum256(raw)
-	return inventory.DecodedCandidate{Candidate: inventory.DraftCandidate{Source: inventory.SourceDescriptor{
-		Kind:           "csv",
-		AdapterKind:    Format,
-		AdapterVersion: AdapterVersion,
-		SourceRevision: decoder.config.SourceRevision,
-		Digest:         "sha256:" + hex.EncodeToString(digest[:]),
-		CapturedAt:     decoder.config.CapturedAt,
-	}}}, nil
+	decoded.Candidate.Source.Digest = "sha256:" + hex.EncodeToString(digest[:])
+	return decoded, nil
 }
 
 func readBounded(ctx context.Context, source io.Reader) ([]byte, error) {
