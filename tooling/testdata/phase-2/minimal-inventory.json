@@ -1,0 +1,17 @@
+{
+  "schema": "vegastack-labs.dev/inventory-draft-input",
+  "schemaVersion": "1.0.0",
+  "source": {
+    "kind": "synthetic-fixture",
+    "adapterKind": "typed-json",
+    "adapterVersion": "1.0.0",
+    "sourceRevision": "phase-2-minimal-1",
+    "capturedAt": "2026-09-08T06:00:00Z"
+  },
+  "assets": [],
+  "nodes": [],
+  "aliases": [],
+  "addresses": [],
+  "observations": [],
+  "provenance": []
+}

@@ -78,6 +78,7 @@
     { "id": "read.scoped-pagination", "category": "happy", "ownerIssue": 35, "proof": "go-test:./internal/store:TestScopedDraftPageCannotLeakAnotherGrantAndIsStableAcrossInsert" },
     { "id": "read.cursor-scope-restart", "category": "denial", "ownerIssue": 35, "proof": "go-test:./internal/api:TestCursorExpiresAndCannotCrossScopeQueryEndpointOrRestart" },
     { "id": "read.event-reconnect", "category": "recovery", "ownerIssue": 35, "proof": "go-test:./internal/api:TestSSEReplaysStrictlyAfterDurableIDAsGeneratedProjection" },
+    { "id": "cli.built-process", "category": "parity", "ownerIssue": 36, "proof": "node-test:tooling/test/cli-process.test.mjs" },
     { "id": "cli.exact-envelope-parity", "category": "parity", "ownerIssue": 36, "proof": "go-test:./internal/localapi:TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes" },
     { "id": "cli.auth-before-body", "category": "denial", "ownerIssue": 36, "proof": "go-test:./internal/api:TestInventoryImportAuthorizesBeforeReadingBody" },
     { "id": "cli.deterministic-diff", "category": "happy", "ownerIssue": 36, "proof": "go-test:./internal/inventoryops:TestDiffIsDeterministicAndBlocksWithoutBaseline" },
@@ -94,7 +95,7 @@
     { "requirementId": "module-1.sqlite-durability-migrations", "module": "1", "ownerIssue": 30, "status": "covered", "scenarioIds": ["store.single-writer", "store.concurrent-revision", "store.safe-mode", "backup.isolated-restore"] },
     { "requirementId": "module-1.versioned-read-api-events", "module": "1", "ownerIssue": 35, "status": "covered", "scenarioIds": ["read.scoped-pagination", "read.cursor-scope-restart", "read.event-reconnect"] },
     { "requirementId": "module-2.typed-inventory", "module": "2", "ownerIssue": 31, "status": "covered", "scenarioIds": ["inventory.typed-import", "inventory.semantic-conflict", "inventory.private-input"] },
-    { "requirementId": "module-2.read-api-cli", "module": "2", "ownerIssue": 36, "status": "covered", "scenarioIds": ["read.scoped-pagination", "cli.exact-envelope-parity", "cli.auth-before-body", "cli.deterministic-diff"] },
+    { "requirementId": "module-2.read-api-cli", "module": "2", "ownerIssue": 36, "status": "covered", "scenarioIds": ["read.scoped-pagination", "cli.built-process", "cli.exact-envelope-parity", "cli.auth-before-body", "cli.deterministic-diff"] },
     { "requirementId": "module-2.labs-sheet-adapter", "module": "2", "ownerIssue": 32, "status": "covered", "scenarioIds": ["inventory.labs-csv", "inventory.labs-conflict", "inventory.labs-privacy"] },
     { "requirementId": "module-7.audit-outbox", "module": "7", "ownerIssue": 33, "status": "covered", "scenarioIds": ["audit.atomic-event-outbox", "audit.crash-restart", "audit.outbox-failure"] },
     { "requirementId": "module-7.online-backup-signed-export", "module": "7", "ownerIssue": 34, "status": "covered", "scenarioIds": ["backup.online-snapshot", "backup.publication-interruption", "backup.isolated-restore", "export.test-trust-signature", "export.production-trust-blocked", "export.tamper-wrong-key", "export.interrupted-publication"] }

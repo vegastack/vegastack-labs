@@ -109,6 +109,49 @@ async function proofExists(root, proof) {
   return false;
 }
 
+function regexpLiteral(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+export async function executeScenarioProofs(manifest, root = ROOT, selected = null) {
+  const requested = selected === null ? manifest.scenarios.map(({ id }) => id) : [...selected];
+  const byID = new Map(manifest.scenarios.map((scenario) => [scenario.id, scenario]));
+  const goGroups = new Map();
+  const nodeFiles = new Set();
+  for (const id of requested) {
+    const scenario = byID.get(id);
+    if (!scenario || !await proofExists(root, scenario.proof)) {
+      return { status: "fail", codes: ["PHASE2_TRACEABILITY_GAP"], scenarios: [] };
+    }
+    const [kind, location, testName] = scenario.proof.split(":");
+    if (kind === "go-test") {
+      const names = goGroups.get(location) ?? [];
+      names.push(testName);
+      goGroups.set(location, names);
+    } else if (kind === "node-test") {
+      nodeFiles.add(location);
+    } else {
+      return { status: "fail", codes: ["PHASE2_TRACEABILITY_GAP"], scenarios: [] };
+    }
+  }
+  try {
+    for (const [goPackage, names] of [...goGroups].sort(([left], [right]) => left.localeCompare(right))) {
+      const pattern = `^(?:${names.map(regexpLiteral).join("|")})$`;
+      await runCommand("go", ["test", "-count=1", goPackage, "-run", pattern], {
+        cwd: root, capture: true, timeoutMs: 180_000,
+      });
+    }
+    for (const filename of [...nodeFiles].sort()) {
+      await runCommand(process.execPath, ["--test", filename], {
+        cwd: root, capture: true, timeoutMs: 180_000,
+      });
+    }
+  } catch {
+    return { status: "fail", codes: ["PHASE2_EVIDENCE_STALE"], scenarios: requested };
+  }
+  return { status: "pass", codes: [], scenarios: requested };
+}
+
 export async function collectIntegratedFacts(root = ROOT) {
   const commands = JSON.parse(await readFile(path.join(root, "schemas/v1/command-registry.json"), "utf8"));
   const endpoints = JSON.parse(await readFile(path.join(root, "schemas/v1/endpoint-registry.json"), "utf8"));
