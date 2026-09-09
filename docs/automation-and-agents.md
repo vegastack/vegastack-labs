@@ -115,14 +115,16 @@ An infrastructure object has exactly one mutation owner recorded as `{adapter-in
 The final tree is generated from command metadata. The initial contract is:
 
 ```text
-vsk-labs status [--output json]
+vsk-labs status --config <path> [--output human|json] [--schema-version 1]
+vsk-labs database status --config <path> [--output human|json] [--schema-version 1]
 vsk-labs doctor
 vsk-labs plan [--change <draft-id>] [--output json]
 vsk-labs apply --plan-id <plan-id> [--output json]
 vsk-labs audit
 
-vsk-labs inventory import --file <path>
-vsk-labs inventory export|diff
+vsk-labs inventory import --config <path> --file <path> --format <typed-json|labs-sheet1-csv> --source-revision <revision> --captured-at <UTC-RFC3339> --idempotency-key <opaque-key> [--expected-state-revision <revision>] [--output human|json] [--schema-version 1]
+vsk-labs inventory diff --config <path> (--draft-id <id> --draft-revision <revision> | --file <path> --format <typed-json|labs-sheet1-csv> --source-revision <revision> --captured-at <UTC-RFC3339>) [--output human|json] [--schema-version 1]
+vsk-labs inventory export --config <path> --draft-id <id> --draft-revision <revision> [--output human|json] [--schema-version 1]
 vsk-labs gate list [--phase <n>] [--ready-for-input] [--output json]
 vsk-labs gate inspect --gate <gate-id> [--output json]
 vsk-labs gate check [--phase <n>] [--gate <gate-id>] [--output json]
@@ -136,7 +138,7 @@ vsk-labs restore plan|run|verify
 vsk-labs maintenance plan|run
 vsk-labs connect --node <id> --port <n>
 vsk-labs control-plane plan|verify|recover
-vsk-labs database status|backup|verify|restore|export
+vsk-labs database backup|verify|restore|export
 vsk-labs server run [--config <path>]
 vsk-labs server status
 vsk-labs release inspect|verify
@@ -144,11 +146,13 @@ vsk-labs release inspect|verify
 
 Interactive commands guide humans; noninteractive commands accept explicit flags/files and return versioned, stable JSON on stdout while diagnostics go to stderr. Both invoke identical validation and policy. V1 supports the native clients in the matrix below. This gives Codex, Claude Code, CI and humans one parseable contract instead of screen-scraping prose. [D-097](decisions-and-sources.md#d-097)
 
-The inventory commands in that final tree remain planned until Issue #36 supplies the authenticated API/client route; the Issue #31 library is not a separately available CLI or database path. Its input is strict provider-neutral JSON, at most 4 MiB and depth 32, with bounded record, provenance, identifier, locator and text counts/lengths. A structurally safe semantic conflict is retained completely as an inert `blocked` draft with deterministic findings. Malformed, unknown, oversized, secret-bearing or cancelled input writes nothing. An opaque idempotency key is retained only as a digest: exact key plus canonical-content retry returns the original reference without a state change, while conflicting reuse fails closed.
+Issue #36 makes the five status/inventory commands above available only through the authenticated protected API/client route; the Issue #31 library is not a separately available CLI or database path. The client validates the complete flag shape and may read only the explicit protected config and candidate file. The server authorizes before reading the request body, then performs decoding, validation, persistence, compatible-draft baseline selection, and Issue #37 export delegation. Input is strict and bounded. A structurally safe semantic conflict is retained completely as an inert `blocked` draft with deterministic findings; malformed, unknown, oversized, secret-bearing, cancelled, or unauthorized input writes nothing. An opaque idempotency key is retained only as a digest: exact key plus canonical-content retry returns the original reference without a state change, while conflicting reuse fails closed.
+
+JSON mode writes the validated server envelope exactly once without restamping or reserialization; its request ID, revisions, status, errors, exit meaning, and final newline remain the API's. Human mode renders only the typed data from that envelope. Redirected stdout is a client record, not the server's digest-addressed signed artifact. A missing compatible diff baseline or unavailable qualified export trust is `PREREQUISITE_BLOCKED`; neither condition is guessed around.
 
 The `audit` command in the final-tree sketch also remains planned. Issue #33 creates no audit query/API/CLI, sender, worker, external projection or notification path; later issues must expose authorized reads and separately select any optional destination adapter.
 
-The human-equivalent import procedure is: validate one local provider-neutral file through the eventual authenticated client; inspect every ordered finding; correct the source using that source's human-owned workflow; then submit a new key to create another immutable draft. Do not edit SQLite, remove findings, overwrite a stored draft, infer identity from hostname/address/row position, or treat `valid` as accepted. Database or migration failure uses the same checked-catalog, verified-copy and isolated-restore procedure as every server-owned store change. A later signed draft projection says `kind=draft`; declaration/effective transition remains Phase 4 work.
+The human-equivalent import procedure is: select the explicit protected config and local provider-neutral file; provide its format, source revision, UTC capture time, and opaque idempotency key; inspect every ordered finding and diff; correct the source using that source's human-owned workflow; then submit a new immutable snapshot and key. Do not edit SQLite, the source Sheet, the export root, remove findings, overwrite a stored draft, infer identity from hostname/address/row position, or treat `valid` as accepted. Database or migration failure uses the same checked-catalog, verified-copy and isolated-restore procedure as every server-owned store change. A signed projection still says `kind=draft`; declaration/effective transition remains Phase 4 work.
 
 `gate list`, `inspect` and `check` are read-only. `gate evidence` validates a typed evidence bundle and creates an inert draft/change ID; it cannot declare success. The ordinary `plan --change` and `apply --plan-id` path records the evidence, after which the server derives the gate evaluation from generated checks. [Implementation gates](implementation-gates.md#gate-semantics) [D-108](decisions-and-sources.md#d-108)
 

@@ -18,6 +18,23 @@ test("Phase 2 starts with one protected service and frozen dependent ports", asy
   assert.doesNotMatch(phase, /Phase 2 (?:is )?accepted/i);
 });
 
+test("Phase 2 documents draft-only CLI/API parity without a second authority", async () => {
+  const phase = await readFile(
+    path.join(ROOT, "docs/development/phases/02-authoritative-control-service-and-inventory.md"),
+    "utf8",
+  );
+  assert.match(
+    phase,
+    /Issue 2\.8 \(#36\).*status.*database status.*inventory import.*inventory diff.*inventory export/is,
+  );
+  assert.match(phase, /authorize.*before.*body/is);
+  assert.match(phase, /baseline.*draft.*PREREQUISITE_BLOCKED/is);
+  assert.match(phase, /Issue #37.*publish.*signed/is);
+  assert.match(phase, /human.*JSON.*exact.*envelope/is);
+  assert.match(phase, /never edit SQLite.*source Sheet.*export root.*infrastructure/is);
+  assert.doesNotMatch(phase, /Phase 2 (?:is )?accepted/i);
+});
+
 test("current development pointers advance only to active Phase 2", async () => {
   const [index, roadmap, phaseOne, readme, contributing] = await Promise.all([
     readFile(path.join(ROOT, "docs/development/README.md"), "utf8"),

@@ -44,6 +44,18 @@ go run ./cmd/vsk-labs server status --config fixture/server-profile.json --outpu
 
 The profile is protected non-secret configuration: it contains local socket facts and UID-to-principal bindings, but no permissions, authorization grants, credential values, or private inventory. Use synthetic fixtures only and no real operational data. Never commit a machine-specific profile, real UID mapping, private path, fleet row, credential, or provider response. `corepack pnpm check:server` enforces the one-service, Unix-only, authenticated-context, no-SQLite and supported-platform boundaries.
 
+With an isolated protected test server and explicit synthetic input, exercise the Issue #36 client surface through the same API:
+
+```text
+go run ./cmd/vsk-labs status --config fixture/server-profile.json --output json
+go run ./cmd/vsk-labs database status --config fixture/server-profile.json --output json
+go run ./cmd/vsk-labs inventory import --config fixture/server-profile.json --file fixture/inventory.json --format typed-json --source-revision synthetic-1 --captured-at 2026-09-10T06:00:00Z --idempotency-key synthetic-request-1 --output json
+go run ./cmd/vsk-labs inventory diff --config fixture/server-profile.json --draft-id <synthetic-draft-id> --draft-revision 1 --output json
+go run ./cmd/vsk-labs inventory export --config fixture/server-profile.json --draft-id <synthetic-draft-id> --draft-revision 1 --output json
+```
+
+The fixture server must grant only the synthetic test principal and use a disposable database/export root. Production composition intentionally has no signer, so export should return `PREREQUISITE_BLOCKED`; never add a private key merely to make a development smoke test pass. Do not use real inventory, source Sheet rows, machine paths, UIDs, credentials, provider responses, or signer material in a fixture, log, golden, issue, or commit. Redirected JSON stdout is only a client-side response record, not the verified server artifact.
+
 The public scaffold does not contain private design-system registry components. `web/components.json` documents the optional authenticated registry shape for a future approved maintainer lane, but public checks never contact it.
 
 ## Generated platform contracts

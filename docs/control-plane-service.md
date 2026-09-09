@@ -196,6 +196,16 @@ All browser and CLI behavior uses one versioned API. HTTP JSON uses `/api/v1`; t
 
 List endpoints use stable cursor pagination, explicit sorting and server-side filters. Unknown filters/fields are rejected rather than ignored. API and CLI share generated schemas and fixtures; human UI strings are not an API.
 
+### Implemented draft-operation endpoints
+
+| Method and path | Effect and boundary |
+|---|---|
+| `POST /api/v1/inventory-drafts/import` | Decode and persist one complete immutable inert `valid` or `blocked` draft; exact idempotent replay is a no-op. |
+| `POST /api/v1/inventory-diffs` | Compare an exact draft or bounded file candidate with the latest authorized compatible draft at one pinned revision; never persist the file candidate. |
+| `POST /api/v1/inventory-exports` | Select one exact inert draft and delegate only to Issue #37's verified signed publisher; the caller cannot choose a server path or signing material. |
+
+For all three routes, kernel-backed authentication and exact capability/resource authorization finish before any body byte, draft candidate, baseline, or export subject is read. Import creates no accepted or effective declaration. Diff explicitly labels its baseline `draft` and returns `PREREQUISITE_BLOCKED` if none exists. Export also returns `PREREQUISITE_BLOCKED` when production signing trust is unavailable and preserves the prior verified artifact. Responses use the same closed typed envelope as the CLI; raw source rows, paths, private fields, signing material, and internal errors are never returned.
+
 ### Plan and execution endpoints
 
 | Method and path | Effect and boundary |
@@ -359,6 +369,12 @@ The protected Unix-domain service now composes generated schema-major-1 reads fo
 Finite pages default to 50 and stop at 200. Their opaque process-keyed cursors bind endpoint, query, scope, grant revision, recovery epoch, state snapshot and keyset position; they expire after 15 minutes and after restart. Event IDs are durable and resume strictly after `Last-Event-ID`. Streams batch 200 events, retain 64 coalesced wakeups, heartbeat every 15 seconds, use a 5-second write deadline, and cap concurrency at 16 total and 4 per principal.
 
 The human-equivalent procedure uses the same protected socket and API: authenticate as an explicitly bound OS peer, obtain an explicit database-backed read grant through the later trusted setup workflow, issue the generated local request, verify the result schema/revision and `no-store` response, and for events retain only the last successfully received durable ID. On denial, stale cursor, revocation, restart-expired cursor, slow connection, or safe-mode limitation, stop and resolve the grant/recovery prerequisite; never open SQLite, add a TCP listener, infer health from absence, or bypass the API. Before merge, abandon the branch to roll back. After migration `0004` reaches a database, correct forward and recover from a verified database copy under the normal recovery procedure.
+
+## Implemented draft-operation API and CLI
+
+The protected service now composes the three generated operation routes above with the five available operator commands: `status`, `database status`, `inventory import`, `inventory diff`, and `inventory export`. The CLI remains a thin local-socket client. File opening happens only for an explicit protected input, while decoding, validation, persistence, baseline resolution, export publication, authorization, and state ownership stay server-side. JSON output preserves the validated server envelope byte for byte; human output renders only its typed data.
+
+This is an inert-draft development boundary. Production composition intentionally has no qualified signer/verifier, so a real export cannot publish yet. The implementation does not accept inventory, install or deploy the service, qualify a host, contact a provider, mutate infrastructure, or close a deployment gate.
 
 The service is implementation-complete only when tests prove:
 
