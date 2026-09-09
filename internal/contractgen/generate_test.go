@@ -110,6 +110,18 @@ func TestGenerateEmitsClosedAuditArtifactsAndTypes(t *testing.T) {
 			t.Fatalf("%s additionalProperties = %v", path, schema["additionalProperties"])
 		}
 	}
+	var auditSchema struct {
+		Properties map[string]struct {
+			Enum []any `json:"enum"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(byPath["schemas/v1/audit-event.schema.json"], &auditSchema); err != nil {
+		t.Fatal(err)
+	}
+	agentSource := auditSchema.Properties["agentSource"].Enum
+	if len(agentSource) != 2 || agentSource[0] != nil || agentSource[1] != "self-reported" {
+		t.Fatalf("nullable enum excludes null: %#v", agentSource)
+	}
 	generatedGo := string(byPath["internal/generated/contracts_gen.go"])
 	for _, declaration := range []string{"type AuditEvent struct", "type AuditTarget struct", "type OutboxRecordData struct"} {
 		if !strings.Contains(generatedGo, declaration) {

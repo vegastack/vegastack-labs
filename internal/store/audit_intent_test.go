@@ -176,6 +176,60 @@ func TestConcurrentAuditWritersProduceOneStrictSequence(t *testing.T) {
 	}
 }
 
+func TestConcurrentBusinessAndOperationalWritersShareOneStrictSequence(t *testing.T) {
+	store := openAuditTestStore(t)
+	const writers = 16
+	start := make(chan struct{})
+	errorsByWriter := make(chan error, writers)
+	var wait sync.WaitGroup
+	for index := range writers {
+		index := index
+		event := publicIntentRequest(t, "f", nil).Event
+		event.CorrelationID = fmt.Sprintf("request-mixed-%d", index)
+		event.Target.ID = fmt.Sprintf("target-mixed-%d", index)
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			<-start
+			key := digestForText(fmt.Sprintf("mixed-key-%d", index))
+			requestDigest := digestForText(fmt.Sprintf("mixed-request-%d", index))
+			if index%2 == 0 {
+				_, err := store.writeIntent(context.Background(), intentRequest{Idempotency: audit.IntentKey{Scope: "mixed-business", KeyDigest: key, RequestDigest: requestDigest}, Event: event}, func(ctx context.Context, tx *sql.Tx) error {
+					_, err := tx.ExecContext(ctx, `INSERT INTO audit_business(id) VALUES(?)`, fmt.Sprintf("business-mixed-%d", index))
+					return err
+				})
+				errorsByWriter <- err
+				return
+			}
+			for {
+				health, err := store.Health(context.Background())
+				if err != nil {
+					errorsByWriter <- err
+					return
+				}
+				_, err = store.AppendOperationalAudit(context.Background(), OperationalAuditRequest{Expected: health.Revision, Idempotency: audit.IntentKey{Scope: "mixed-operational", KeyDigest: key, RequestDigest: requestDigest}, Event: event})
+				if Code(err) == "STATE_CONFLICT" {
+					continue
+				}
+				errorsByWriter <- err
+				return
+			}
+		}()
+	}
+	close(start)
+	wait.Wait()
+	close(errorsByWriter)
+	for err := range errorsByWriter {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := readRevisionAndSequence(t, store); got != (revisionAndSequence{StateRevision: writers / 2, AuditSequence: writers}) {
+		t.Fatalf("mixed state = %#v", got)
+	}
+	assertEventSequenceConsistent(t, store)
+}
+
 func openAuditTestStore(t *testing.T) *Store {
 	t.Helper()
 	store := openTestStore(t)

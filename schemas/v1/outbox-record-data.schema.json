@@ -34,6 +34,7 @@
     },
     "lastErrorCode": {
       "enum": [
+        null,
         "DESTINATION_UNAVAILABLE",
         "DELIVERY_REJECTED",
         "PAYLOAD_INVALID",

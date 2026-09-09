@@ -50,6 +50,7 @@
     },
     "agentSource": {
       "enum": [
+        null,
         "self-reported"
       ],
       "type": [
