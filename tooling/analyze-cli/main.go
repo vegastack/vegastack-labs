@@ -46,6 +46,13 @@ type analysis struct {
 	ShellDispatch               bool     `json:"shellDispatch"`
 	StateExportTrust            bool     `json:"stateExportTrust"`
 	StateExportReleaseCoupling  bool     `json:"stateExportReleaseCoupling"`
+	ControlSQLiteAccess         bool     `json:"controlSQLiteAccess"`
+	ControlShellDispatch        bool     `json:"controlShellDispatch"`
+	ControlGoogleAccess         bool     `json:"controlGoogleAccess"`
+	ControlProviderAccess       bool     `json:"controlProviderAccess"`
+	ControlArbitraryHTTP        bool     `json:"controlArbitraryHTTP"`
+	ControlServerPath           bool     `json:"controlServerPath"`
+	InventoryDirectDomain       bool     `json:"inventoryDirectDomain"`
 	TargetsAnalyzed             []string `json:"targetsAnalyzed"`
 }
 
@@ -328,6 +335,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	releaseImport := modulePath + "/internal/release"
 	stateExportImport := modulePath + "/internal/stateexport"
 	apiImport := modulePath + "/internal/api"
+	localAPIImport := modulePath + "/internal/localapi"
+	cliImport := modulePath + "/internal/cli"
+	clientFileImport := modulePath + "/internal/clientfile"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -346,6 +356,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
+		isControlPackage := candidate.ImportPath == cliImport || strings.HasPrefix(candidate.ImportPath, cliImport+"/") || candidate.ImportPath == clientFileImport || strings.HasPrefix(candidate.ImportPath, clientFileImport+"/")
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage {
 				result.ShellDispatch = true
@@ -362,8 +373,27 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 					result.ReleaseArtifactExecution = true
 				}
 			}
+			if isControlPackage {
+				switch imported {
+				case "database/sql", "github.com/ncruces/go-sqlite3", "github.com/ncruces/go-sqlite3/driver":
+					result.ControlSQLiteAccess = true
+				case "os/exec", "plugin":
+					result.ControlShellDispatch = true
+				case "net/http":
+					result.ControlArbitraryHTTP = true
+				}
+				if strings.Contains(imported, "google.golang.org") || strings.Contains(imported, "/google") || strings.Contains(imported, "sheets") {
+					result.ControlGoogleAccess = true
+				}
+				if strings.HasPrefix(imported, modulePath+"/internal/inventory") || strings.HasPrefix(imported, modulePath+"/internal/profiles/") || imported == modulePath+"/internal/store" || imported == modulePath+"/internal/stateexport" {
+					result.InventoryDirectDomain = true
+				}
+				if strings.Contains(imported, "/cloudflare") || strings.Contains(imported, "/coolify") || strings.Contains(imported, "/harbor") || strings.Contains(imported, "/onepassword") {
+					result.ControlProviderAccess = true
+				}
+			}
 		}
-		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport, &result)
+		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, isControlPackage, &result)
 	}
 	return result, nil
 }
@@ -430,13 +460,16 @@ func parseAndCheck(candidate listedPackage, loader types.Importer) (checkedSourc
 	}, nil
 }
 
-func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExportImport string, isReleasePackage, isAPIPackage bool, result *analysis) {
+func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExportImport string, isReleasePackage, isAPIPackage, isControlPackage bool, result *analysis) {
 	context := analysisContext{
 		generatedImport: generatedImport,
 		derivedCommands: derivedCommandTypes(candidate, generatedImport),
 	}
 	for _, file := range candidate.files {
 		ast.Inspect(file, func(node ast.Node) bool {
+			if isControlPackage && controlNodeUsesServerPath(node) {
+				result.ControlServerPath = true
+			}
 			if selector, ok := node.(*ast.SelectorExpr); ok {
 				if object := candidate.info.ObjectOf(selector.Sel); object != nil && object.Pkg() != nil && object.Pkg().Path() == generatedImport && object.Name() == "Endpoints" {
 					result.GeneratedEndpointsReference = true
@@ -475,6 +508,21 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 			}
 			return true
 		})
+	}
+}
+
+func controlNodeUsesServerPath(node ast.Node) bool {
+	switch value := node.(type) {
+	case *ast.Ident:
+		return value.Name == "InventoryExportRoot" || value.Name == "DatabasePath" || value.Name == "ServerPath"
+	case *ast.BasicLit:
+		if value.Kind != token.STRING {
+			return false
+		}
+		decoded, err := strconv.Unquote(value.Value)
+		return err == nil && (strings.HasPrefix(decoded, "/var/") || strings.Contains(decoded, "control.db") || strings.Contains(decoded, "serverPath"))
+	default:
+		return false
 	}
 }
 

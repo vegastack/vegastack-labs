@@ -1,0 +1,2 @@
+lifecycle,hardware_serial,reported_hostname,manufacturer,model,cpu_architecture,cpu_model,cpu_physical_cores,cpu_logical_threads,factory_ram_gb,factory_ssd_gb,factory_hdd_gb,current_ram_gb,current_ssd_gb,current_hdd_gb
+active,SYNTHETIC-001,example-node-1,ExampleCorp,ExampleModel,amd64,ExampleCPU,4,8,8,256,0,16,512,0

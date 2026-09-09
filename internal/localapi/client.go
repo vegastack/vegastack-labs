@@ -74,23 +74,23 @@ func (client *client) Status(ctx context.Context, profile serverconfig.Profile) 
 }
 
 func (client *client) Summary(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.ApiSummaryData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/summary", generated.CommandNameStatus, maxResponseBodyBytes, statusTimeout, false}, nil, validSummary)
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/summary", "api.v1.summary.get", maxResponseBodyBytes, statusTimeout, false}, nil, validSummary)
 }
 
 func (client *client) DatabaseStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.DatabaseStatusData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/database/status", generated.CommandNameDatabaseStatus, maxResponseBodyBytes, statusTimeout, false}, nil, validDatabaseStatus)
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/database/status", "api.v1.database-status.get", maxResponseBodyBytes, statusTimeout, false}, nil, validDatabaseStatus)
 }
 
 func (client *client) ImportInventory(ctx context.Context, profile serverconfig.Profile, input generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-drafts/import", generated.CommandNameInventoryImport, maxOperationResponseBodyBytes, operationTimeout, true}, input, validImportData)
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-drafts/import", "api.v1.inventory-drafts.import", maxOperationResponseBodyBytes, operationTimeout, true}, input, validImportData)
 }
 
 func (client *client) DiffInventory(ctx context.Context, profile serverconfig.Profile, input generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-diffs", generated.CommandNameInventoryDiff, maxOperationResponseBodyBytes, operationTimeout, false}, input, validDiffData)
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-diffs", "api.v1.inventory-diffs.create", maxOperationResponseBodyBytes, operationTimeout, false}, input, validDiffData)
 }
 
 func (client *client) ExportInventory(ctx context.Context, profile serverconfig.Profile, input generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-exports", generated.CommandNameInventoryExport, maxOperationResponseBodyBytes, operationTimeout, true}, input, validExportData)
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-exports", "api.v1.inventory-exports.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validExportData)
 }
 
 func requestTyped[T any](client *client, ctx context.Context, profile serverconfig.Profile, spec requestSpec, input any, validate func(T, generated.RunResult) bool) (TypedResponse[T], error) {

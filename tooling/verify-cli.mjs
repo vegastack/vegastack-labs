@@ -18,6 +18,13 @@ const CODE_ORDER = [
   "CLI_EXECUTABLE_COUNT",
   "CLI_GENERATED_OWNERSHIP",
   "CLI_HANDWRITTEN_REGISTRY",
+  "CLI_CONTROL_SQLITE_ACCESS",
+  "CLI_CONTROL_SHELL_DISPATCH",
+  "CLI_CONTROL_GOOGLE_ACCESS",
+  "CLI_CONTROL_PROVIDER_ACCESS",
+  "CLI_CONTROL_ARBITRARY_HTTP",
+  "CLI_CONTROL_SERVER_PATH",
+  "CLI_INVENTORY_DIRECT_DOMAIN",
   "CLI_SQLITE_ACCESS",
   "CLI_SHELL_DISPATCH",
   "CLI_RELEASE_NETWORK_ACCESS",
@@ -58,9 +65,16 @@ function relativeDirectory(root, file) {
 function validAnalyzerResult(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const expectedKeys = [
+    "controlArbitraryHTTP",
+    "controlGoogleAccess",
+    "controlProviderAccess",
+    "controlSQLiteAccess",
+    "controlServerPath",
+    "controlShellDispatch",
     "generatedCommandsReference",
     "generatedEndpointsReference",
     "handwrittenRegistry",
+    "inventoryDirectDomain",
     "releaseArtifactExecution",
     "releaseNetworkAccess",
     "shellDispatch",
@@ -74,6 +88,13 @@ function validAnalyzerResult(value) {
     typeof value.generatedCommandsReference !== "boolean" ||
     typeof value.generatedEndpointsReference !== "boolean" ||
     typeof value.handwrittenRegistry !== "boolean" ||
+    typeof value.controlArbitraryHTTP !== "boolean" ||
+    typeof value.controlGoogleAccess !== "boolean" ||
+    typeof value.controlProviderAccess !== "boolean" ||
+    typeof value.controlSQLiteAccess !== "boolean" ||
+    typeof value.controlServerPath !== "boolean" ||
+    typeof value.controlShellDispatch !== "boolean" ||
+    typeof value.inventoryDirectDomain !== "boolean" ||
     typeof value.releaseArtifactExecution !== "boolean" ||
     typeof value.releaseNetworkAccess !== "boolean" ||
     typeof value.shellDispatch !== "boolean" ||
@@ -141,8 +162,15 @@ async function inspectSources(root, execute) {
     }
     if (!analysis.generatedCommandsReference) codes.add("CLI_GENERATED_OWNERSHIP");
     if (analysis.handwrittenRegistry) codes.add("CLI_HANDWRITTEN_REGISTRY");
-    if (analysis.sqliteAccess) codes.add("CLI_SQLITE_ACCESS");
-    if (analysis.shellDispatch) codes.add("CLI_SHELL_DISPATCH");
+    if (analysis.controlSQLiteAccess) codes.add("CLI_CONTROL_SQLITE_ACCESS");
+    else if (analysis.sqliteAccess) codes.add("CLI_SQLITE_ACCESS");
+    if (analysis.controlShellDispatch) codes.add("CLI_CONTROL_SHELL_DISPATCH");
+    else if (analysis.shellDispatch) codes.add("CLI_SHELL_DISPATCH");
+    if (analysis.controlGoogleAccess) codes.add("CLI_CONTROL_GOOGLE_ACCESS");
+    if (analysis.controlProviderAccess) codes.add("CLI_CONTROL_PROVIDER_ACCESS");
+    if (analysis.controlArbitraryHTTP) codes.add("CLI_CONTROL_ARBITRARY_HTTP");
+    if (analysis.controlServerPath) codes.add("CLI_CONTROL_SERVER_PATH");
+    if (analysis.inventoryDirectDomain) codes.add("CLI_INVENTORY_DIRECT_DOMAIN");
     if (analysis.releaseNetworkAccess) codes.add("CLI_RELEASE_NETWORK_ACCESS");
     if (analysis.releaseArtifactExecution) codes.add("CLI_RELEASE_ARTIFACT_EXECUTION");
     if (analysis.stateExportTrust) codes.add("CLI_STATE_EXPORT_TRUST");

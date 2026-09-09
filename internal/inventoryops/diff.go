@@ -160,7 +160,7 @@ func sanitizeDomainError(err error, target string) error {
 	return failure.New(generated.ErrorCodeDependencyUnavailable, target, false)
 }
 
-type flatField struct{ path, value string }
+type flatField struct{ fieldPath, value string }
 type flatRecord struct {
 	kind, id string
 	fields   []flatField
@@ -199,7 +199,7 @@ func flatten(snapshot inventory.CanonicalDraftSnapshot) []flatRecord {
 		records = append(records, flatRecord{"provenance", id, []flatField{{"recordKind", scalar(value.RecordKind)}, {"recordId", scalar(string(value.RecordID))}, {"fieldPath", scalar(value.FieldPath)}, {"locator", scalar(value.Locator)}, {"capturedAt", scalar(value.CapturedAt.UTC().Format(time.RFC3339Nano))}, {"adapterVersion", scalar(value.AdapterVersion)}, {"valueStatus", scalar(value.ValueStatus)}}})
 	}
 	for index := range records {
-		sort.Slice(records[index].fields, func(i, j int) bool { return records[index].fields[i].path < records[index].fields[j].path })
+		sort.Slice(records[index].fields, func(i, j int) bool { return records[index].fields[i].fieldPath < records[index].fields[j].fieldPath })
 	}
 	sort.Slice(records, func(i, j int) bool {
 		left, right := recordRank(records[i].kind), recordRank(records[j].kind)
@@ -245,21 +245,21 @@ func compareRecords(candidate, baseline []flatRecord) ([]generated.InventoryDiff
 func compareFields(candidate, baseline []flatField) []generated.InventoryFieldChange {
 	var result []generated.InventoryFieldChange
 	for left, right := 0, 0; left < len(candidate) || right < len(baseline); {
-		if right == len(baseline) || (left < len(candidate) && candidate[left].path < baseline[right].path) {
+		if right == len(baseline) || (left < len(candidate) && candidate[left].fieldPath < baseline[right].fieldPath) {
 			value := candidate[left].value
-			result = append(result, generated.InventoryFieldChange{Path: candidate[left].path, After: &value})
+			result = append(result, generated.InventoryFieldChange{Path: candidate[left].fieldPath, After: &value})
 			left++
 			continue
 		}
-		if left == len(candidate) || baseline[right].path < candidate[left].path {
+		if left == len(candidate) || baseline[right].fieldPath < candidate[left].fieldPath {
 			value := baseline[right].value
-			result = append(result, generated.InventoryFieldChange{Path: baseline[right].path, Before: &value})
+			result = append(result, generated.InventoryFieldChange{Path: baseline[right].fieldPath, Before: &value})
 			right++
 			continue
 		}
 		if candidate[left].value != baseline[right].value {
 			before, after := baseline[right].value, candidate[left].value
-			result = append(result, generated.InventoryFieldChange{Path: candidate[left].path, Before: &before, After: &after})
+			result = append(result, generated.InventoryFieldChange{Path: candidate[left].fieldPath, Before: &before, After: &after})
 		}
 		left++
 		right++
@@ -271,7 +271,7 @@ func oneSided(record flatRecord, change string, before bool) generated.Inventory
 	fields := make([]generated.InventoryFieldChange, 0, len(record.fields))
 	for _, field := range record.fields {
 		value := field.value
-		item := generated.InventoryFieldChange{Path: field.path}
+		item := generated.InventoryFieldChange{Path: field.fieldPath}
 		if before {
 			item.Before = &value
 		} else {

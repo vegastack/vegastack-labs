@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { access, cp, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
@@ -54,7 +54,7 @@ function assertEnvelope(actual, expected) {
   const result = JSON.parse(actual.stdout);
   assert.deepEqual(Object.keys(result), RESULT_KEYS);
   assert.equal(result.schema, "vegastack-labs.dev/run-result");
-  assert.equal(result.schemaVersion, "1.5.0");
+  assert.equal(result.schemaVersion, "1.6.0");
   assert.equal(result.toolVersion, "0.0.0-dev");
   assert.equal(result.command, expected.command);
   assert.match(result.requestId, /^request-[0-9a-f]{32}$/);
@@ -76,6 +76,27 @@ function assertEnvelope(actual, expected) {
     ]);
   }
   return result;
+}
+
+function apiEnvelope(command, changed, recoveryEpoch, stateRevision, data) {
+  return `${JSON.stringify({
+    schema: "vegastack-labs.dev/run-result",
+    schemaVersion: "1.6.0",
+    toolVersion: "0.0.0-dev",
+    command,
+    requestId: `request-${command.replaceAll(/[^a-z0-9]/g, "").padEnd(32, "0").slice(0, 32)}`,
+    runId: null,
+    status: "succeeded",
+    changed,
+    recoveryEpoch,
+    stateRevision,
+    snapshotDigest: null,
+    releaseBuildId: "development",
+    sourceRevision: null,
+    planId: null,
+    errors: [],
+    data,
+  })}\n`;
 }
 
 function expectedHumanHelp(registry) {
@@ -122,7 +143,7 @@ test("the built vsk-labs executable preserves its complete process contract", as
   });
   assert.deepEqual(run(binary, ["version"]), {
     code: 0,
-    stdout: "vsk-labs 0.0.0-dev\ncontract 1.5.0\nbuild development\n",
+    stdout: "vsk-labs 0.0.0-dev\ncontract 1.6.0\nbuild development\n",
     stderr: "",
   });
 
@@ -179,9 +200,9 @@ test("the built vsk-labs executable preserves its complete process contract", as
     code: "INPUT_INVALID",
     field: "arguments",
   });
-  assertHumanFailure(run(binary, ["status"]), 6, {
-    code: "PREREQUISITE_BLOCKED",
-    field: "command",
+  assertHumanFailure(run(binary, ["status"]), 2, {
+    code: "INPUT_INVALID",
+    field: "arguments",
   });
 
   const releaseDirectory = path.join(temporary, "release $(not-a-shell) ; private-canary");
@@ -346,4 +367,101 @@ test("the built vsk-labs executable preserves its complete process contract", as
   });
   assert.doesNotMatch(canaryResult.stdout + canaryResult.stderr, /private-secret-canary|must-not-exist/);
   await assert.rejects(access(canary, constants.F_OK), { code: "ENOENT" });
+});
+
+test("five operator commands preserve protected API bytes in the built process", async (t) => {
+  if (process.platform !== "linux" || process.arch !== "x64" || typeof process.getuid !== "function") return;
+  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-cli-api-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const binary = path.join(temporary, "vsk-labs");
+  const build = spawnSync("go", ["build", "-o", binary, "./cmd/vsk-labs"], { cwd: ROOT, encoding: "utf8", shell: false });
+  assert.equal(build.status, 0, build.stderr);
+
+  const socketPath = path.join(temporary, "control.sock");
+  const exportRoot = path.join(temporary, "exports");
+  await mkdir(exportRoot, { mode: 0o700 });
+  await chmod(exportRoot, 0o700);
+  const profilePath = path.join(temporary, "profile.json");
+  await writeFile(profilePath, `${JSON.stringify({
+    schema: "vegastack-labs.dev/server-profile",
+    schemaVersion: "1.0.0",
+    socketPath,
+    socketOwnerUid: process.getuid(),
+    socketGroupGid: null,
+    socketMode: "0600",
+    shutdownGraceSeconds: 5,
+    inventoryExportRoot: exportRoot,
+    principalBindings: [{ uid: process.getuid(), principalId: "principal.synthetic" }],
+  })}\n`, { mode: 0o600 });
+  await chmod(profilePath, 0o600);
+  const candidatePath = path.join(temporary, "inventory π.json");
+  await writeFile(candidatePath, "{\"synthetic\":true}\n", { mode: 0o600 });
+  await chmod(candidatePath, 0o600);
+
+  const responses = {
+    "GET /api/v1/summary": apiEnvelope("api.v1.summary.get", false, 2, 7, {
+      databaseMode: "read-write", readAvailable: true, mutationAvailable: false,
+      draftCount: 2, validDraftCount: 1, blockedDraftCount: 1, lastEventId: 9,
+      recoveryEpoch: 2, stateRevision: 7,
+    }),
+    "GET /api/v1/database/status": apiEnvelope("api.v1.database-status.get", false, 2, 7, {
+      mode: "read-write", schemaVersion: 1, sqliteVersion: "3.synthetic", mutationEnabled: false,
+      recoveryPending: false, integrityStatus: "ok", lastIntegrityCheckAt: null, safeModeReason: "",
+    }),
+    "POST /api/v1/inventory-drafts/import": apiEnvelope("api.v1.inventory-drafts.import", true, 2, 8, {
+      draftId: "draft-test", draftRevision: 1, validationStatus: "valid",
+      sourceDigest: `sha256:${"1".repeat(64)}`, contentDigest: `sha256:${"2".repeat(64)}`,
+      stateRevision: 8, recoveryEpoch: 2, eventId: 10, created: true,
+      counts: { assets: 0, nodes: 0, aliases: 0, addresses: 0, observations: 0, hardwareFacts: 0, provenance: 0, findings: 0 }, findings: [],
+    }),
+    "POST /api/v1/inventory-diffs": apiEnvelope("api.v1.inventory-diffs.create", false, 2, 8, {
+      candidateKind: "draft", candidateDraft: { draftId: "draft-test", draftRevision: 2 }, candidateDigest: `sha256:${"3".repeat(64)}`,
+      baselineKind: "draft", baselineDraft: { draftId: "draft-base", draftRevision: 1 }, stateRevision: 8, recoveryEpoch: 2,
+      counts: { added: 0, removed: 0, changed: 0, unchanged: 0 }, records: [], findings: [],
+    }),
+    "POST /api/v1/inventory-exports": apiEnvelope("api.v1.inventory-exports.create", true, 2, 9, {
+      exportId: `sha256:${"4".repeat(64)}`, subjectKind: "draft", draft: { draftId: "draft-test", draftRevision: 1 },
+      stateRevision: 9, recoveryEpoch: 2, contentDigest: `sha256:${"5".repeat(64)}`, algorithm: "ed25519", keyId: "synthetic-key",
+      keyFingerprint: `sha256:${"6".repeat(64)}`, verificationStatus: "verified", publicationStatus: "published", signedBytesBase64: "e30K",
+    }),
+  };
+  const serverScript = path.join(temporary, "fixture-server.mjs");
+  await writeFile(serverScript, [
+    'import http from "node:http";',
+    'import { rmSync } from "node:fs";',
+    'const [socketPath, encoded] = process.argv.slice(2);',
+    'const responses = JSON.parse(encoded);',
+    'try { rmSync(socketPath); } catch {}',
+    'const server = http.createServer((request, response) => {',
+    '  request.resume();',
+    '  request.on("end", () => {',
+    '    const body = responses[`${request.method} ${request.url}`];',
+    '    if (body === undefined) { response.writeHead(404); response.end(); return; }',
+    '    response.writeHead(200, { "Content-Type": "application/json" });',
+    '    response.end(body);',
+    '  });',
+    '});',
+    'server.listen(socketPath);',
+    'process.on("SIGTERM", () => server.close(() => process.exit(0)));',
+    '',
+  ].join("\n"));
+  const fixture = spawn(process.execPath, [serverScript, socketPath, JSON.stringify(responses)], { stdio: "ignore" });
+  t.after(() => fixture.kill("SIGTERM"));
+  const deadline = Date.now() + 5000;
+  while (true) {
+    try { await access(socketPath, constants.F_OK); break; } catch {}
+    if (Date.now() > deadline) throw new Error("fixture API did not become ready");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  const scenarios = [
+    [["status", "--config", profilePath, "--output", "json"], responses["GET /api/v1/summary"]],
+    [["database", "status", "--config", profilePath, "--output", "json"], responses["GET /api/v1/database/status"]],
+    [["inventory", "import", "--config", profilePath, "--file", candidatePath, "--format", "typed-json", "--source-revision", "synthetic-1", "--captured-at", "2026-09-08T06:00:00Z", "--idempotency-key", "opaque-1", "--output", "json"], responses["POST /api/v1/inventory-drafts/import"]],
+    [["inventory", "diff", "--config", profilePath, "--draft-id", "draft-test", "--draft-revision", "2", "--output", "json"], responses["POST /api/v1/inventory-diffs"]],
+    [["inventory", "export", "--config", profilePath, "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"], responses["POST /api/v1/inventory-exports"]],
+  ];
+  for (const [args, expected] of scenarios) {
+    assert.deepEqual(run(binary, args), { code: 0, stdout: expected, stderr: "" });
+  }
 });

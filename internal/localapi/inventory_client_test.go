@@ -27,14 +27,14 @@ type capturedRequest struct {
 func TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes(t *testing.T) {
 	client := NewClient(clientTestFactory())
 	summary := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, RecoveryEpoch: 2, StateRevision: 7}
-	raw, profile, captured := serveFixedResponse(t, http.StatusOK, operationEnvelope(t, generated.CommandNameStatus, false, 2, 7, summary))
+	raw, profile, captured := serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.summary.get", false, 2, 7, summary))
 	response, err := client.Summary(context.Background(), profile)
 	if err != nil || !bytes.Equal(response.Raw, raw) || (<-captured).path != "/api/v1/summary" {
 		t.Fatalf("summary response = %#v err=%v", response, err)
 	}
 
 	database := generated.DatabaseStatusData{Mode: "read-write", SchemaVersion: 1, SQLiteVersion: "3.synthetic", IntegrityStatus: "ok"}
-	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, generated.CommandNameDatabaseStatus, false, 2, 7, database))
+	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.database-status.get", false, 2, 7, database))
 	databaseResponse, err := client.DatabaseStatus(context.Background(), profile)
 	if err != nil || !bytes.Equal(databaseResponse.Raw, raw) || (<-captured).path != "/api/v1/database/status" {
 		t.Fatalf("database response = %#v err=%v", databaseResponse, err)
@@ -42,7 +42,7 @@ func TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes(t *testing.T) {
 
 	importRequest := generated.InventoryImportRequest{Format: "typed-json", SourceRevision: "source-1", CapturedAt: "2026-09-08T06:00:00Z", IdempotencyKey: "opaque-1", Content: "{}"}
 	importData := generated.InventoryImportData{DraftID: "draft-test", DraftRevision: 1, StateRevision: 8, RecoveryEpoch: 2, Created: true}
-	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, generated.CommandNameInventoryImport, true, 2, 8, importData))
+	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.inventory-drafts.import", true, 2, 8, importData))
 	importResponse, err := client.ImportInventory(context.Background(), profile, importRequest)
 	gotImport := <-captured
 	if err != nil || !bytes.Equal(importResponse.Raw, raw) || gotImport.method != http.MethodPost || gotImport.path != "/api/v1/inventory-drafts/import" || gotImport.contentType != "application/json" {
@@ -56,7 +56,7 @@ func TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes(t *testing.T) {
 	draft := &generated.InventoryDraftRef{DraftID: "draft-next", DraftRevision: 2}
 	diffRequest := generated.InventoryDiffRequest{CandidateKind: "draft", Draft: draft}
 	diffData := generated.InventoryDiffData{CandidateKind: "draft", BaselineKind: "draft", BaselineDraft: generated.InventoryDraftRef{DraftID: "draft-base", DraftRevision: 1}, StateRevision: 8, RecoveryEpoch: 2}
-	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, generated.CommandNameInventoryDiff, false, 2, 8, diffData))
+	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.inventory-diffs.create", false, 2, 8, diffData))
 	diffResponse, err := client.DiffInventory(context.Background(), profile, diffRequest)
 	gotDiff := <-captured
 	if err != nil || !bytes.Equal(diffResponse.Raw, raw) || gotDiff.path != "/api/v1/inventory-diffs" || !bytes.Contains(gotDiff.body, []byte(`"candidateKind":"draft"`)) {
@@ -65,7 +65,7 @@ func TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes(t *testing.T) {
 
 	exportRequest := generated.InventoryExportRequest{Draft: *draft}
 	exportData := generated.InventoryExportData{ExportID: "sha256:" + strings.Repeat("1", 64), SubjectKind: "draft", Draft: *draft, StateRevision: 9, RecoveryEpoch: 2}
-	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, generated.CommandNameInventoryExport, true, 2, 9, exportData))
+	raw, profile, captured = serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.inventory-exports.create", true, 2, 9, exportData))
 	exportResponse, err := client.ExportInventory(context.Background(), profile, exportRequest)
 	gotExport := <-captured
 	if err != nil || !bytes.Equal(exportResponse.Raw, raw) || gotExport.path != "/api/v1/inventory-exports" || bytes.Contains(gotExport.body, []byte("file")) {
@@ -75,13 +75,13 @@ func TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes(t *testing.T) {
 
 func TestTypedClientRejectsCommandStatusAndDataDisagreement(t *testing.T) {
 	validData := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, RecoveryEpoch: 2, StateRevision: 7}
-	valid := operationEnvelope(t, generated.CommandNameStatus, false, 2, 7, validData)
+	valid := operationEnvelope(t, "api.v1.summary.get", false, 2, 7, validData)
 	fixtures := []struct {
 		status int
 		raw    []byte
 	}{
 		{http.StatusCreated, valid},
-		{http.StatusOK, []byte(strings.Replace(string(valid), `"command":"status"`, `"command":"help"`, 1))},
+		{http.StatusOK, []byte(strings.Replace(string(valid), `"command":"api.v1.summary.get"`, `"command":"help"`, 1))},
 		{http.StatusOK, []byte(strings.Replace(string(valid), `"databaseMode":"read-write"`, `"databaseMode":""`, 1))},
 		{http.StatusOK, append(append([]byte(nil), valid...), []byte("{}\n")...)},
 	}

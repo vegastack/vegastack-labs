@@ -81,11 +81,11 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	diff := generated.InventoryDiffData{CandidateKind: "draft", CandidateDigest: "sha256:" + strings.Repeat("1", 64), BaselineKind: "draft", BaselineDraft: generated.InventoryDraftRef{DraftID: "draft-base", DraftRevision: 1}, StateRevision: 8, RecoveryEpoch: 2, Records: []generated.InventoryDiffRecord{}, Findings: []generated.InventoryFinding{}}
 	exported := generated.InventoryExportData{ExportID: "sha256:" + strings.Repeat("2", 64), SubjectKind: "draft", Draft: generated.InventoryDraftRef{DraftID: "draft-test", DraftRevision: 1}, StateRevision: 9, RecoveryEpoch: 2, ContentDigest: "sha256:" + strings.Repeat("3", 64), Algorithm: "ed25519", KeyID: "synthetic-key", KeyFingerprint: "sha256:" + strings.Repeat("4", 64), VerificationStatus: "verified", PublicationStatus: "published", SignedBytesBase64: "e30K"}
 	return &stubControlOperations{
-		summaryResponse:  operationResponse(t, generated.CommandNameStatus, false, 2, 7, summary),
-		databaseResponse: operationResponse(t, generated.CommandNameDatabaseStatus, false, 2, 7, database),
-		importResponse:   operationResponse(t, generated.CommandNameInventoryImport, true, 2, 8, imported),
-		diffResponse:     operationResponse(t, generated.CommandNameInventoryDiff, false, 2, 8, diff),
-		exportResponse:   operationResponse(t, generated.CommandNameInventoryExport, true, 2, 9, exported),
+		summaryResponse:  operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
+		databaseResponse: operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
+		importResponse:   operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
+		diffResponse:     operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
+		exportResponse:   operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
 	}
 }
 
