@@ -49,7 +49,7 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 	routes := make(map[string]struct{}, len(endpoints))
 	for index, endpoint := range endpoints {
 		location := fmt.Sprintf("endpoints[%d]", index)
-		if !endpointIDPattern.MatchString(endpoint.ID) || endpoint.Method != "GET" || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || endpoint.OwnerPhase != "2" {
+		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || endpoint.OwnerPhase != "2" {
 			return validationError("METADATA_INVALID", location)
 		}
 		if _, exists := ids[endpoint.ID]; exists {
@@ -68,6 +68,17 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 			if _, ok := schemas[endpoint.QuerySchema]; !ok {
 				return validationError("METADATA_REFERENCE", location+".querySchema")
 			}
+		}
+		if endpoint.RequestSchema != "" {
+			if _, ok := schemas[endpoint.RequestSchema]; !ok {
+				return validationError("METADATA_REFERENCE", location+".requestSchema")
+			}
+		}
+		if endpoint.Method == "GET" && endpoint.RequestSchema != "" {
+			return validationError("METADATA_INVALID", location+".requestSchema")
+		}
+		if endpoint.Method == "POST" && (endpoint.RequestSchema == "" || endpoint.QuerySchema != "" || endpoint.Stream != StreamFinite) {
+			return validationError("METADATA_REQUIRED", location+".requestSchema")
 		}
 		switch endpoint.Stream {
 		case StreamFinite, StreamSSE:

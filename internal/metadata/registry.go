@@ -53,6 +53,15 @@ const (
 	apiInventoryObservationListDataSchemaID = "vegastack-labs.dev/api-inventory-observation-list-data"
 	apiInventoryObservationDataSchemaID     = "vegastack-labs.dev/api-inventory-observation-data"
 	apiAuditEventDataSchemaID               = "vegastack-labs.dev/api-audit-event-data"
+	inventoryDraftRefSchemaID               = "vegastack-labs.dev/inventory-draft-ref"
+	inventoryImportRequestSchemaID          = "vegastack-labs.dev/inventory-import-request"
+	inventoryDiffRequestSchemaID            = "vegastack-labs.dev/inventory-diff-request"
+	inventoryFieldChangeSchemaID            = "vegastack-labs.dev/inventory-field-change"
+	inventoryDiffRecordSchemaID             = "vegastack-labs.dev/inventory-diff-record"
+	inventoryDiffCountsSchemaID             = "vegastack-labs.dev/inventory-diff-counts"
+	inventoryDiffDataSchemaID               = "vegastack-labs.dev/inventory-diff-data"
+	inventoryExportRequestSchemaID          = "vegastack-labs.dev/inventory-export-request"
+	inventoryExportDataSchemaID             = "vegastack-labs.dev/inventory-export-data"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -160,8 +169,16 @@ func Current() Registry {
 		releaseVerifyCommand(),
 		serverRunCommand(),
 		serverStatusCommand(),
+		platformStatusCommand(),
+		databaseStatusCommand(),
+		inventoryImportCommand(),
+		inventoryDiffCommand(),
+		inventoryExportCommand(),
 	}
 	for _, command := range plannedCommands {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") {
+			continue
+		}
 		commands = append(commands, CommandDefinition{
 			Path:         strings.Fields(command.path),
 			Summary:      command.summary,
@@ -172,7 +189,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.5.0",
+		SchemaVersion: "1.6.0",
 		Commands:      commands,
 		Endpoints:     readEndpoints(),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
@@ -206,7 +223,63 @@ func readEndpoints() []EndpointDefinition {
 		list("api.v1.inventory-draft-observations.list", base+"/observations", apiInventoryObservationListDataSchemaID),
 		finite("api.v1.inventory-draft-observations.get", base+"/observations/{recordId}", apiInventoryObservationDataSchemaID),
 		{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", OwnerPhase: "2", DataSchema: apiAuditEventDataSchemaID, Stream: StreamSSE},
+		{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", OwnerPhase: "2", RequestSchema: inventoryImportRequestSchemaID, DataSchema: inventoryImportDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", OwnerPhase: "2", RequestSchema: inventoryDiffRequestSchemaID, DataSchema: inventoryDiffDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", OwnerPhase: "2", RequestSchema: inventoryExportRequestSchemaID, DataSchema: inventoryExportDataSchemaID, Stream: StreamFinite},
 	}
+}
+
+func operatorCommand(path []string, summary, requestSchema, dataSchema string, flags []FlagDefinition, example []string) CommandDefinition {
+	return CommandDefinition{Path: path, Summary: summary, Availability: AvailabilityAvailable, OwnerPhase: "2", Risk: RiskReadOnly,
+		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
+		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}}}
+}
+
+func platformStatusCommand() CommandDefinition {
+	return operatorCommand([]string{"status"}, "Show the current platform summary.", "", apiSummaryDataSchemaID,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."}},
+		[]string{"status", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func databaseStatusCommand() CommandDefinition {
+	return operatorCommand([]string{"database", "status"}, "Inspect control-database status.", "", databaseStatusDataSchemaID,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."}},
+		[]string{"database", "status", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func inventoryImportCommand() CommandDefinition {
+	return operatorCommand([]string{"inventory", "import"}, "Validate and store one inventory candidate as an inert draft.", inventoryImportRequestSchemaID, inventoryImportDataSchemaID,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local candidate file."},
+			{Name: "--format", Kind: FlagValue, ValueName: "format", Required: true, Summary: "Select the explicit candidate format.", Enum: []string{"typed-json", "labs-sheet1-csv"}},
+			{Name: "--source-revision", Kind: FlagValue, ValueName: "revision", Required: true, Summary: "Record the source revision supplied by its owner."},
+			{Name: "--captured-at", Kind: FlagValue, ValueName: "timestamp", Required: true, Summary: "Record an RFC 3339 UTC capture time."},
+			{Name: "--idempotency-key", Kind: FlagValue, ValueName: "key", Required: true, Summary: "Supply one opaque retry key."},
+			{Name: "--expected-state-revision", Kind: FlagValue, ValueName: "revision", Summary: "Require this current state revision."},
+		}, []string{"inventory", "import", "--config", "fixture/server-profile.json", "--file", "fixture/inventory.json", "--format", "typed-json", "--source-revision", "source-1", "--captured-at", "2026-09-08T06:00:00Z", "--idempotency-key", "opaque-1", "--output", "json"})
+}
+
+func inventoryDiffCommand() CommandDefinition {
+	return operatorCommand([]string{"inventory", "diff"}, "Compare one inert draft or local candidate with a compatible inert draft.", inventoryDiffRequestSchemaID, inventoryDiffDataSchemaID,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--draft-id", Kind: FlagValue, ValueName: "id", Summary: "Select an existing inert draft."},
+			{Name: "--draft-revision", Kind: FlagValue, ValueName: "revision", Summary: "Select the exact inert draft revision."},
+			{Name: "--file", Kind: FlagValue, ValueName: "path", Summary: "Read one protected local candidate file."},
+			{Name: "--format", Kind: FlagValue, ValueName: "format", Summary: "Select the explicit candidate format.", Enum: []string{"typed-json", "labs-sheet1-csv"}},
+			{Name: "--source-revision", Kind: FlagValue, ValueName: "revision", Summary: "Record the source revision supplied by its owner."},
+			{Name: "--captured-at", Kind: FlagValue, ValueName: "timestamp", Summary: "Record an RFC 3339 UTC capture time."},
+		}, []string{"inventory", "diff", "--config", "fixture/server-profile.json", "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"})
+}
+
+func inventoryExportCommand() CommandDefinition {
+	return operatorCommand([]string{"inventory", "export"}, "Publish one verified signed inert-draft export.", inventoryExportRequestSchemaID, inventoryExportDataSchemaID,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--draft-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select an existing inert draft."},
+			{Name: "--draft-revision", Kind: FlagValue, ValueName: "revision", Required: true, Summary: "Select the exact inert draft revision."},
+		}, []string{"inventory", "export", "--config", "fixture/server-profile.json", "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"})
 }
 
 func serverRunCommand() CommandDefinition {
@@ -492,7 +565,77 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, inventorySchemas()...)
 	schemas = append(schemas, stateExportSchemas()...)
 	schemas = append(schemas, auditSchemas()...)
-	return append(schemas, readAPISchemas()...)
+	schemas = append(schemas, readAPISchemas()...)
+	return append(schemas, inventoryOperationSchemas()...)
+}
+
+func inventoryOperationSchemas() []SchemaDefinition {
+	token := `^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$`
+	digest := `^sha256:[0-9a-f]{64}$`
+	int0 := func(name, goName string) FieldDefinition {
+		return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}
+	}
+	return []SchemaDefinition{
+		{ID: inventoryDraftRefSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "draftId", GoName: "DraftID", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "draftRevision", GoName: "DraftRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+		}},
+		{ID: inventoryImportRequestSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-import-request.schema.json", Fields: []FieldDefinition{
+			{JSONName: "format", GoName: "Format", Kind: ValueString, Required: true, Enum: []string{"typed-json", "labs-sheet1-csv"}},
+			{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(128)},
+			{JSONName: "capturedAt", GoName: "CapturedAt", Kind: ValueString, Required: true, MinLength: intPointer(20), MaxLength: intPointer(64)},
+			{JSONName: "idempotencyKey", GoName: "IdempotencyKey", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(256)},
+			{JSONName: "expectedStateRevision", GoName: "ExpectedStateRevision", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(0)},
+			{JSONName: "content", GoName: "Content", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(4 << 20)},
+		}},
+		{ID: inventoryDiffRequestSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-diff-request.schema.json", Fields: []FieldDefinition{
+			{JSONName: "candidateKind", GoName: "CandidateKind", Kind: ValueString, Required: true, Enum: []string{"draft", "file"}},
+			{JSONName: "draft", GoName: "Draft", Kind: ValueObject, Required: true, Nullable: true, Ref: inventoryDraftRefSchemaID},
+			{JSONName: "format", GoName: "Format", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"typed-json", "labs-sheet1-csv"}},
+			{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(128)},
+			{JSONName: "capturedAt", GoName: "CapturedAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)},
+			{JSONName: "content", GoName: "Content", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(4 << 20)},
+		}},
+		{ID: inventoryFieldChangeSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "path", GoName: "Path", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(256)},
+			{JSONName: "before", GoName: "Before", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(2048)},
+			{JSONName: "after", GoName: "After", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(2048)},
+		}},
+		{ID: inventoryDiffRecordSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "change", GoName: "Change", Kind: ValueString, Required: true, Enum: []string{"added", "removed", "changed", "unchanged"}},
+			{JSONName: "recordKind", GoName: "RecordKind", Kind: ValueString, Required: true, Enum: []string{"asset", "node", "alias", "address", "observation", "provenance"}},
+			{JSONName: "localId", GoName: "LocalID", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "fields", GoName: "Fields", Kind: ValueArray, Required: true, ItemRef: inventoryFieldChangeSchemaID, MaxItems: intPointer(128)},
+		}},
+		{ID: inventoryDiffCountsSchemaID, Version: "1.0.0", Fields: []FieldDefinition{int0("added", "Added"), int0("removed", "Removed"), int0("changed", "Changed"), int0("unchanged", "Unchanged")}},
+		{ID: inventoryDiffDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-diff-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "candidateKind", GoName: "CandidateKind", Kind: ValueString, Required: true, Enum: []string{"draft", "file"}},
+			{JSONName: "candidateDraft", GoName: "CandidateDraft", Kind: ValueObject, Required: true, Nullable: true, Ref: inventoryDraftRefSchemaID},
+			{JSONName: "candidateDigest", GoName: "CandidateDigest", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "baselineKind", GoName: "BaselineKind", Kind: ValueString, Required: true, Enum: []string{"draft"}},
+			{JSONName: "baselineDraft", GoName: "BaselineDraft", Kind: ValueObject, Required: true, Ref: inventoryDraftRefSchemaID},
+			int0("stateRevision", "StateRevision"), int0("recoveryEpoch", "RecoveryEpoch"),
+			{JSONName: "counts", GoName: "Counts", Kind: ValueObject, Required: true, Ref: inventoryDiffCountsSchemaID},
+			{JSONName: "records", GoName: "Records", Kind: ValueArray, Required: true, ItemRef: inventoryDiffRecordSchemaID, MaxItems: intPointer(32768)},
+			{JSONName: "findings", GoName: "Findings", Kind: ValueArray, Required: true, ItemRef: inventoryFindingSchemaID, MaxItems: intPointer(16384)},
+		}},
+		{ID: inventoryExportRequestSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-export-request.schema.json", Fields: []FieldDefinition{
+			{JSONName: "draft", GoName: "Draft", Kind: ValueObject, Required: true, Ref: inventoryDraftRefSchemaID},
+		}},
+		{ID: inventoryExportDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-export-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "exportId", GoName: "ExportID", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "subjectKind", GoName: "SubjectKind", Kind: ValueString, Required: true, Enum: []string{"draft"}},
+			{JSONName: "draft", GoName: "Draft", Kind: ValueObject, Required: true, Ref: inventoryDraftRefSchemaID},
+			int0("stateRevision", "StateRevision"), int0("recoveryEpoch", "RecoveryEpoch"),
+			{JSONName: "contentDigest", GoName: "ContentDigest", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "algorithm", GoName: "Algorithm", Kind: ValueString, Required: true, Enum: []string{"ed25519"}},
+			{JSONName: "keyId", GoName: "KeyID", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "keyFingerprint", GoName: "KeyFingerprint", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"verified"}},
+			{JSONName: "publicationStatus", GoName: "PublicationStatus", Kind: ValueString, Required: true, Enum: []string{"published"}},
+			{JSONName: "signedBytesBase64", GoName: "SignedBytesBase64", Kind: ValueString, Required: true, Pattern: `^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$`, MaxLength: intPointer(24 << 20)},
+		}},
+	}
 }
 
 func readAPISchemas() []SchemaDefinition {

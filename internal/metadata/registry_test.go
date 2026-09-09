@@ -26,12 +26,48 @@ func TestPhaseTwoReadEndpointsAreGeneratedAndDraftScoped(t *testing.T) {
 	}
 }
 
+func TestInventoryOperatorContractsAreGeneratedAndDraftScoped(t *testing.T) {
+	registry := Current()
+	for _, name := range []string{"status", "database status", "inventory import", "inventory diff", "inventory export"} {
+		command := commandByName(t, registry, name)
+		if command.Availability != AvailabilityAvailable {
+			t.Fatalf("%s unavailable", name)
+		}
+	}
+	for _, route := range []string{"POST /api/v1/inventory-drafts/import", "POST /api/v1/inventory-diffs", "POST /api/v1/inventory-exports"} {
+		var got *EndpointDefinition
+		for index := range registry.Endpoints {
+			endpoint := &registry.Endpoints[index]
+			if endpoint.Method+" "+endpoint.Path == route {
+				got = endpoint
+				break
+			}
+		}
+		if got == nil || got.RequestSchema == "" || got.DataSchema == "" {
+			t.Fatalf("incomplete endpoint %s: %#v", route, got)
+		}
+	}
+	for _, identifier := range []string{
+		inventoryImportRequestSchemaID, inventoryDiffRequestSchemaID, inventoryDiffDataSchemaID,
+		inventoryExportRequestSchemaID, inventoryExportDataSchemaID,
+	} {
+		definition := schemaByID(t, registry, identifier)
+		encoded, err := json.Marshal(definition.Fields)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if regexp.MustCompile(`(?i)(effective|qualified|serverPath|privateKey|google)`).Match(encoded) {
+			t.Fatalf("unsafe authority/provider vocabulary in %s: %s", identifier, encoded)
+		}
+	}
+}
+
 func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.5.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.5.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.6.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.6.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -62,8 +98,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.5.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.5.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.6.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.6.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -142,14 +178,16 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.5.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.5.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.6.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.6.0", registry.SchemaVersion)
 	}
 
-	wantAvailable := map[string]bool{"help": false, "release inspect": false, "release verify": false, "server run": false, "server status": false, "version": false}
+	wantAvailable := map[string]bool{
+		"help": false, "release inspect": false, "release verify": false, "server run": false, "server status": false, "version": false,
+		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
+	}
 	wantPlanned := map[string]string{
-		"status": "2", "doctor": "2", "plan": "4", "apply": "4", "audit": "5",
-		"inventory import": "2", "inventory export": "2", "inventory diff": "2",
+		"doctor": "2", "plan": "4", "apply": "4", "audit": "5",
 		"gate list": "5", "gate inspect": "5", "gate check": "5", "gate evidence": "5",
 		"node discover": "6", "node add": "6", "node inspect": "6", "node nominate": "6", "node quarantine": "6", "node replace": "6",
 		"user onboard": "7", "user offboard": "7", "user suspend": "7", "user resume": "7",
@@ -159,7 +197,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"restore plan": "5", "restore run": "5", "restore verify": "5",
 		"maintenance plan": "10", "maintenance run": "10", "connect": "7",
 		"control-plane plan": "6", "control-plane verify": "6", "control-plane recover": "6",
-		"database status": "2", "database backup": "5", "database verify": "5", "database restore": "5", "database export": "5",
+		"database backup": "5", "database verify": "5", "database restore": "5", "database export": "5",
 	}
 	gotPlanned := make(map[string]string)
 	for _, command := range registry.Commands {

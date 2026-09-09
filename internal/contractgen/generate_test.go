@@ -48,11 +48,16 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/api-summary-data.schema.json",
 		"schemas/v1/audit-event.schema.json",
 		"schemas/v1/database-status-data.schema.json",
+		"schemas/v1/inventory-diff-data.schema.json",
+		"schemas/v1/inventory-diff-request.schema.json",
 		"schemas/v1/inventory-draft-export-pointer.schema.json",
 		"schemas/v1/inventory-draft-export-signature.schema.json",
 		"schemas/v1/inventory-draft-input.schema.json",
 		"schemas/v1/inventory-draft-snapshot-payload.schema.json",
+		"schemas/v1/inventory-export-data.schema.json",
+		"schemas/v1/inventory-export-request.schema.json",
 		"schemas/v1/inventory-import-data.schema.json",
+		"schemas/v1/inventory-import-request.schema.json",
 		"schemas/v1/outbox-record-data.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
 		"schemas/v1/release-manifest.schema.json",
@@ -104,6 +109,38 @@ func TestGenerateEmitsInventoryArtifactsAndClosedInput(t *testing.T) {
 		"type InventoryDraftAsset struct",
 		"type InventoryFieldProvenance struct",
 	} {
+		if !strings.Contains(generatedGo, declaration) {
+			t.Errorf("missing %q", declaration)
+		}
+	}
+}
+
+func TestGenerateEmitsStrictInventoryOperationSchemas(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := make(map[string][]byte, len(artifacts))
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = artifact.Content
+	}
+	for _, path := range []string{
+		"schemas/v1/inventory-import-request.schema.json",
+		"schemas/v1/inventory-diff-request.schema.json",
+		"schemas/v1/inventory-export-data.schema.json",
+	} {
+		var schema map[string]any
+		if err := json.Unmarshal(byPath[path], &schema); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if schema["additionalProperties"] != false {
+			t.Fatalf("%s is open", path)
+		}
+	}
+	generatedGo := string(byPath["internal/generated/contracts_gen.go"])
+	for _, declaration := range []string{"type InventoryImportRequest struct", "type InventoryDiffData struct", "type InventoryExportData struct"} {
 		if !strings.Contains(generatedGo, declaration) {
 			t.Errorf("missing %q", declaration)
 		}
@@ -230,8 +267,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 6 || planned != 45 {
-		t.Fatalf("command availability = (%d available, %d planned), want (6, 45)", available, planned)
+	if available != 11 || planned != 40 {
+		t.Fatalf("command availability = (%d available, %d planned), want (11, 40)", available, planned)
 	}
 
 	for _, path := range []string{
@@ -262,7 +299,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.5.0"`,
+		`= "1.6.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

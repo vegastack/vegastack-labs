@@ -1,0 +1,267 @@
+{
+  "$defs": {
+    "inventory-diff-counts": {
+      "additionalProperties": false,
+      "properties": {
+        "added": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "changed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "removed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unchanged": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "added",
+        "removed",
+        "changed",
+        "unchanged"
+      ],
+      "type": "object"
+    },
+    "inventory-diff-record": {
+      "additionalProperties": false,
+      "properties": {
+        "change": {
+          "enum": [
+            "added",
+            "removed",
+            "changed",
+            "unchanged"
+          ],
+          "type": "string"
+        },
+        "fields": {
+          "items": {
+            "$ref": "#/$defs/inventory-field-change"
+          },
+          "maxItems": 128,
+          "type": "array"
+        },
+        "localId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "recordKind": {
+          "enum": [
+            "asset",
+            "node",
+            "alias",
+            "address",
+            "observation",
+            "provenance"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "change",
+        "recordKind",
+        "localId",
+        "fields"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-ref": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "draftRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "draftId",
+        "draftRevision"
+      ],
+      "type": "object"
+    },
+    "inventory-field-change": {
+      "additionalProperties": false,
+      "properties": {
+        "after": {
+          "maxLength": 2048,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "before": {
+          "maxLength": 2048,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "path": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "before",
+        "after"
+      ],
+      "type": "object"
+    },
+    "inventory-finding": {
+      "additionalProperties": false,
+      "properties": {
+        "blocking": {
+          "type": "boolean"
+        },
+        "code": {
+          "enum": [
+            "DUPLICATE_RECORD_ID",
+            "DUPLICATE_IDENTITY",
+            "DUPLICATE_ALIAS",
+            "DUPLICATE_ADDRESS",
+            "MISSING_REFERENCE",
+            "REFERENCE_CYCLE",
+            "IDENTITY_CONFLICT",
+            "IDENTITY_QUARANTINED",
+            "IDENTITY_UNSUPPORTED",
+            "UNSUPPORTED_VALUE",
+            "INVALID_CAPACITY",
+            "MISSING_REQUIRED_FIELD",
+            "PROHIBITED_SECRET_VALUE"
+          ],
+          "type": "string"
+        },
+        "fieldPath": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "location": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "recordId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "recordKind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "relatedIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "severity": {
+          "enum": [
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "blocking",
+        "recordKind",
+        "recordId",
+        "fieldPath",
+        "location",
+        "relatedIds"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/inventory-diff-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "baselineDraft": {
+      "$ref": "#/$defs/inventory-draft-ref"
+    },
+    "baselineKind": {
+      "enum": [
+        "draft"
+      ],
+      "type": "string"
+    },
+    "candidateDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "candidateDraft": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/inventory-draft-ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "candidateKind": {
+      "enum": [
+        "draft",
+        "file"
+      ],
+      "type": "string"
+    },
+    "counts": {
+      "$ref": "#/$defs/inventory-diff-counts"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/inventory-finding"
+      },
+      "maxItems": 16384,
+      "type": "array"
+    },
+    "records": {
+      "items": {
+        "$ref": "#/$defs/inventory-diff-record"
+      },
+      "maxItems": 32768,
+      "type": "array"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "candidateKind",
+    "candidateDraft",
+    "candidateDigest",
+    "baselineKind",
+    "baselineDraft",
+    "stateRevision",
+    "recoveryEpoch",
+    "counts",
+    "records",
+    "findings"
+  ],
+  "title": "VegaStack Labs inventory diff data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

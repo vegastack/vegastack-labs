@@ -6,6 +6,44 @@
     "endpoints": {
       "items": {
         "additionalProperties": false,
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "method": {
+                  "const": "POST"
+                }
+              },
+              "required": [
+                "method"
+              ]
+            },
+            "then": {
+              "required": [
+                "requestSchema"
+              ]
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "method": {
+                  "const": "GET"
+                }
+              },
+              "required": [
+                "method"
+              ]
+            },
+            "then": {
+              "not": {
+                "required": [
+                  "requestSchema"
+                ]
+              }
+            }
+          }
+        ],
         "properties": {
           "dataSchema": {
             "minLength": 1,
@@ -16,7 +54,10 @@
             "type": "string"
           },
           "method": {
-            "const": "GET"
+            "enum": [
+              "GET",
+              "POST"
+            ]
           },
           "ownerPhase": {
             "const": "2"
@@ -26,6 +67,9 @@
             "type": "string"
           },
           "querySchema": {
+            "type": "string"
+          },
+          "requestSchema": {
             "type": "string"
           },
           "stream": {

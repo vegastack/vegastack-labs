@@ -1,0 +1,52 @@
+{
+  "$id": "vegastack-labs.dev/inventory-import-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "capturedAt": {
+      "maxLength": 64,
+      "minLength": 20,
+      "type": "string"
+    },
+    "content": {
+      "maxLength": 4194304,
+      "minLength": 1,
+      "type": "string"
+    },
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "format": {
+      "enum": [
+        "typed-json",
+        "labs-sheet1-csv"
+      ],
+      "type": "string"
+    },
+    "idempotencyKey": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
+    },
+    "sourceRevision": {
+      "maxLength": 128,
+      "minLength": 1,
+      "type": "string"
+    }
+  },
+  "required": [
+    "format",
+    "sourceRevision",
+    "capturedAt",
+    "idempotencyKey",
+    "expectedStateRevision",
+    "content"
+  ],
+  "title": "VegaStack Labs inventory import request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
