@@ -2,11 +2,7 @@
 // It deliberately contains no signing key implementation or production trust.
 package stateexport
 
-import (
-	"context"
-
-	"github.com/vegastack/vegastack-labs/internal/inventory"
-)
+import "github.com/vegastack/vegastack-labs/internal/inventory"
 
 const (
 	PayloadSchema        = "vegastack-labs.dev/inventory-draft-snapshot-payload"
@@ -60,23 +56,4 @@ type CurrentPointer struct {
 	ExportKind    string `json:"exportKind"`
 	ArtifactID    string `json:"artifactId"`
 	ContentDigest string `json:"contentDigest"`
-}
-
-type PublishRequest struct {
-	ArtifactID    string
-	ContentDigest string
-	Bytes         []byte
-}
-
-type Publication struct {
-	Current  CurrentPointer
-	Previous *CurrentPointer
-	Created  bool
-}
-
-type ArtifactStore interface {
-	InspectCurrent(context.Context) (*CurrentPointer, error)
-	Publish(context.Context, PublishRequest) (Publication, error)
-	ReadArtifact(context.Context, string) ([]byte, error)
-	RestoreCurrent(context.Context, CurrentPointer, *CurrentPointer) error
 }

@@ -12,6 +12,7 @@ func validGeneratedProfile() generated.ServerProfile {
 		Schema:               generated.SchemaIDServerProfile,
 		SchemaVersion:        "1.0.0",
 		SocketPath:           "/tmp/vsk-labs/control.sock",
+		InventoryExportRoot:  "/tmp/vsk-labs/exports",
 		SocketOwnerUID:       1001,
 		SocketMode:           "0600",
 		ShutdownGraceSeconds: 5,
@@ -26,7 +27,7 @@ func TestConvertGeneratedProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.SocketPath != "/tmp/vsk-labs/control.sock" || got.SocketMode != 0o600 || got.ShutdownGrace.Seconds() != 5 || len(got.PrincipalBindings) != 1 {
+	if got.SocketPath != "/tmp/vsk-labs/control.sock" || got.InventoryExportRoot != "/tmp/vsk-labs/exports" || got.SocketMode != 0o600 || got.ShutdownGrace.Seconds() != 5 || len(got.PrincipalBindings) != 1 {
 		t.Fatalf("convertGeneratedProfile() = %#v", got)
 	}
 }
@@ -34,18 +35,23 @@ func TestConvertGeneratedProfile(t *testing.T) {
 func TestConvertGeneratedProfileRejectsInvalidContracts(t *testing.T) {
 	group := int64(2001)
 	tests := map[string]func(*generated.ServerProfile){
-		"schema":             func(p *generated.ServerProfile) { p.Schema = "wrong" },
-		"version":            func(p *generated.ServerProfile) { p.SchemaVersion = "2.0.0" },
-		"owner":              func(p *generated.ServerProfile) { p.SocketOwnerUID = 1002 },
-		"relative socket":    func(p *generated.ServerProfile) { p.SocketPath = "relative.sock" },
-		"unclean socket":     func(p *generated.ServerProfile) { p.SocketPath = "/tmp/../private.sock" },
-		"nul socket":         func(p *generated.ServerProfile) { p.SocketPath = "/tmp/a\x00b" },
-		"overlong socket":    func(p *generated.ServerProfile) { p.SocketPath = "/" + strings.Repeat("a", 107) },
-		"grace":              func(p *generated.ServerProfile) { p.ShutdownGraceSeconds = 4 },
-		"mode":               func(p *generated.ServerProfile) { p.SocketMode = "0640" },
-		"group with 0600":    func(p *generated.ServerProfile) { p.SocketGroupGID = &group },
-		"0660 without group": func(p *generated.ServerProfile) { p.SocketMode = "0660" },
-		"empty bindings":     func(p *generated.ServerProfile) { p.PrincipalBindings = nil },
+		"schema":               func(p *generated.ServerProfile) { p.Schema = "wrong" },
+		"version":              func(p *generated.ServerProfile) { p.SchemaVersion = "2.0.0" },
+		"owner":                func(p *generated.ServerProfile) { p.SocketOwnerUID = 1002 },
+		"relative socket":      func(p *generated.ServerProfile) { p.SocketPath = "relative.sock" },
+		"unclean socket":       func(p *generated.ServerProfile) { p.SocketPath = "/tmp/../private.sock" },
+		"nul socket":           func(p *generated.ServerProfile) { p.SocketPath = "/tmp/a\x00b" },
+		"overlong socket":      func(p *generated.ServerProfile) { p.SocketPath = "/" + strings.Repeat("a", 107) },
+		"relative export root": func(p *generated.ServerProfile) { p.InventoryExportRoot = "relative" },
+		"unclean export root":  func(p *generated.ServerProfile) { p.InventoryExportRoot = "/tmp/../exports" },
+		"root export root":     func(p *generated.ServerProfile) { p.InventoryExportRoot = "/" },
+		"nul export root":      func(p *generated.ServerProfile) { p.InventoryExportRoot = "/tmp/a\x00b" },
+		"overlong export root": func(p *generated.ServerProfile) { p.InventoryExportRoot = "/" + strings.Repeat("a", 4096) },
+		"grace":                func(p *generated.ServerProfile) { p.ShutdownGraceSeconds = 4 },
+		"mode":                 func(p *generated.ServerProfile) { p.SocketMode = "0640" },
+		"group with 0600":      func(p *generated.ServerProfile) { p.SocketGroupGID = &group },
+		"0660 without group":   func(p *generated.ServerProfile) { p.SocketMode = "0660" },
+		"empty bindings":       func(p *generated.ServerProfile) { p.PrincipalBindings = nil },
 		"duplicate uid": func(p *generated.ServerProfile) {
 			p.PrincipalBindings = append(p.PrincipalBindings, generated.LocalPrincipalBinding{UID: 1001, PrincipalID: "principal.second"})
 		},
@@ -67,7 +73,7 @@ func TestConvertGeneratedProfileRejectsInvalidContracts(t *testing.T) {
 }
 
 func TestDecodeGeneratedProfileIsStrictAndBounded(t *testing.T) {
-	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.0.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}]}`
+	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.0.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}],"inventoryExportRoot":"/tmp/vsk-labs/exports"}`
 	for name, content := range map[string]string{
 		"empty":          "",
 		"unknown":        strings.Replace(valid, `"schema":`, `"unknown":true,"schema":`, 1),

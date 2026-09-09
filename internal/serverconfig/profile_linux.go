@@ -52,5 +52,34 @@ func (loader *protectedLoader) Load(ctx context.Context, profilePath string) (Pr
 	if err := ctx.Err(); err != nil {
 		return Profile{}, failure.New("INTERRUPTED", "server-config", false)
 	}
-	return convertGeneratedProfile(generatedProfile, loader.expectedOwnerUID)
+	profile, err := convertGeneratedProfile(generatedProfile, loader.expectedOwnerUID)
+	if err != nil {
+		return Profile{}, err
+	}
+	if err := validateInventoryExportRoot(profile.InventoryExportRoot, loader.expectedOwnerUID); err != nil {
+		return Profile{}, failure.New("INTEGRITY_FAILURE", "server-config", false)
+	}
+	return profile, nil
+}
+
+func validateInventoryExportRoot(path string, expectedUID uint32) error {
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC,
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return err
+	}
+	defer unix.Close(descriptor)
+	var stat unix.Stat_t
+	var filesystem unix.Statfs_t
+	if unix.Fstat(descriptor, &stat) != nil || unix.Fstatfs(descriptor, &filesystem) != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Mode&0o777 != 0o700 || stat.Uid != expectedUID || stat.Nlink < 1 {
+		return unix.EPERM
+	}
+	switch uint64(filesystem.Type) {
+	case unix.EXT4_SUPER_MAGIC, unix.XFS_SUPER_MAGIC, unix.BTRFS_SUPER_MAGIC, unix.F2FS_SUPER_MAGIC, 0x2fc12fc1:
+		return nil
+	default:
+		return unix.ENOTSUP
+	}
 }

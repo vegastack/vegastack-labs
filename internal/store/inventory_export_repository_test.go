@@ -18,6 +18,7 @@ func TestInventoryExportSnapshotPinsRevisionAndIncludesBlockedDrafts(t *testing.
 	request.DraftID = "draft-export-blocked"
 	request.Draft.Findings = []inventory.Finding{{Code: "MISSING_REFERENCE", Severity: "error", Blocking: true, RecordKind: "node", RecordID: "node-a", FieldPath: "assetId", Location: "records/node-a/assetId", RelatedIDs: []inventory.LocalID{}}}
 	request.Draft.Counts.Findings = 1
+	syncInventoryAuditRequest(&request)
 	created, err := NewInventoryDraftRepository(database).Put(context.Background(), request)
 	if err != nil {
 		t.Fatal(err)
