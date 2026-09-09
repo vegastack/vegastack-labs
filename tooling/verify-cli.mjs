@@ -22,6 +22,8 @@ const CODE_ORDER = [
   "CLI_SHELL_DISPATCH",
   "CLI_RELEASE_NETWORK_ACCESS",
   "CLI_RELEASE_ARTIFACT_EXECUTION",
+  "CLI_STATE_EXPORT_TRUST",
+  "CLI_STATE_EXPORT_RELEASE_COUPLING",
   "CLI_CROSS_BUILD",
 ];
 
@@ -62,6 +64,8 @@ function validAnalyzerResult(value) {
     "releaseNetworkAccess",
     "shellDispatch",
     "sqliteAccess",
+    "stateExportReleaseCoupling",
+    "stateExportTrust",
     "targetsAnalyzed",
   ];
   if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(expectedKeys)) return false;
@@ -71,7 +75,9 @@ function validAnalyzerResult(value) {
     typeof value.releaseArtifactExecution !== "boolean" ||
     typeof value.releaseNetworkAccess !== "boolean" ||
     typeof value.shellDispatch !== "boolean" ||
-    typeof value.sqliteAccess !== "boolean"
+    typeof value.sqliteAccess !== "boolean" ||
+    typeof value.stateExportTrust !== "boolean" ||
+    typeof value.stateExportReleaseCoupling !== "boolean"
   ) {
     return false;
   }
@@ -137,6 +143,8 @@ async function inspectSources(root, execute) {
     if (analysis.shellDispatch) codes.add("CLI_SHELL_DISPATCH");
     if (analysis.releaseNetworkAccess) codes.add("CLI_RELEASE_NETWORK_ACCESS");
     if (analysis.releaseArtifactExecution) codes.add("CLI_RELEASE_ARTIFACT_EXECUTION");
+    if (analysis.stateExportTrust) codes.add("CLI_STATE_EXPORT_TRUST");
+    if (analysis.stateExportReleaseCoupling) codes.add("CLI_STATE_EXPORT_RELEASE_COUPLING");
   }
   return { codes, targetsAnalyzed };
 }

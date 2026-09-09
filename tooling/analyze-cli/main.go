@@ -17,6 +17,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -42,6 +43,8 @@ type analysis struct {
 	ReleaseNetworkAccess       bool     `json:"releaseNetworkAccess"`
 	SQLiteAccess               bool     `json:"sqliteAccess"`
 	ShellDispatch              bool     `json:"shellDispatch"`
+	StateExportTrust           bool     `json:"stateExportTrust"`
+	StateExportReleaseCoupling bool     `json:"stateExportReleaseCoupling"`
 	TargetsAnalyzed            []string `json:"targetsAnalyzed"`
 }
 
@@ -103,8 +106,103 @@ func analyze(root, goos, goarch string) (analysis, error) {
 		return analysis{}, fmt.Errorf("list %s/%s module packages: %w", goos, goarch, err)
 	}
 	result.SQLiteAccess = hasSQLiteAccessOutsideStore(modulePackages)
+	result.StateExportTrust, result.StateExportReleaseCoupling = stateExportFacts(modulePackages)
 	result.TargetsAnalyzed = []string{goos + "/" + goarch}
 	return result, nil
+}
+
+func stateExportFacts(packages []listedPackage) (bool, bool) {
+	modulePath := ""
+	for _, candidate := range packages {
+		if candidate.Module != nil && candidate.Module.Main && candidate.Module.Path != "" {
+			modulePath = candidate.Module.Path
+			break
+		}
+	}
+	if modulePath == "" {
+		return true, true
+	}
+	exportImport := modulePath + "/internal/stateexport"
+	releaseImport := modulePath + "/internal/release"
+	storeImport := modulePath + "/internal/store"
+	trust := false
+	coupling := false
+	for _, candidate := range packages {
+		for _, name := range append(append([]string(nil), candidate.GoFiles...), candidate.CgoFiles...) {
+			file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(candidate.Dir, name), nil, parser.SkipObjectResolution)
+			if err != nil {
+				return true, true
+			}
+			aliases := make(map[string]string)
+			sensitive := candidate.ImportPath == exportImport || (candidate.ImportPath == storeImport && strings.HasPrefix(name, "inventory_export"))
+			for _, imported := range file.Imports {
+				path, err := strconv.Unquote(imported.Path.Value)
+				if err != nil {
+					return true, true
+				}
+				alias := filepath.Base(path)
+				if imported.Name != nil && imported.Name.Name != "_" && imported.Name.Name != "." {
+					alias = imported.Name.Name
+				}
+				aliases[alias] = path
+				if sensitive && path == "crypto/ed25519" {
+					trust = true
+				}
+				if sensitive && path == releaseImport {
+					coupling = true
+				}
+			}
+			ast.Inspect(file, func(node ast.Node) bool {
+				if sensitive {
+					switch value := node.(type) {
+					case *ast.Ident:
+						normalized := strings.ToLower(strings.ReplaceAll(value.Name, "_", ""))
+						if value.Name == "ReleaseTrustPolicy" {
+							coupling = true
+						}
+						if normalized == "privatekey" || normalized == "signingseed" || normalized == "privatekeybytes" {
+							trust = true
+						}
+					case *ast.BasicLit:
+						if value.Kind == token.STRING {
+							decoded, _ := strconv.Unquote(value.Value)
+							if strings.Contains(decoded, "verified-against-supplied-policy") || strings.Contains(decoded, "release-trust-policy") {
+								coupling = true
+							}
+						}
+					}
+				}
+				literal, ok := node.(*ast.CompositeLit)
+				if !ok {
+					return true
+				}
+				selector, ok := unparenthesized(literal.Type).(*ast.SelectorExpr)
+				if !ok {
+					return true
+				}
+				prefix, prefixOK := selector.X.(*ast.Ident)
+				if !prefixOK || selector.Sel.Name != "Config" || aliases[prefix.Name] != exportImport {
+					return true
+				}
+				for _, element := range literal.Elts {
+					pair, ok := element.(*ast.KeyValueExpr)
+					if !ok {
+						continue
+					}
+					key, keyOK := pair.Key.(*ast.Ident)
+					if !keyOK || (key.Name != "Signer" && key.Name != "Verifier") {
+						continue
+					}
+					identifier, isIdentifier := unparenthesized(pair.Value).(*ast.Ident)
+					if !isIdentifier || identifier.Name != "nil" {
+						trust = true
+					}
+				}
+				return true
+			})
+		}
+	}
+	return trust, coupling
 }
 
 func listPackages(root, goos, goarch string) ([]listedPackage, error) {

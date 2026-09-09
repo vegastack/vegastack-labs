@@ -331,6 +331,10 @@ The control database is `critical` data. Use SQLite's online backup API through 
 
 The backup adapter pins restic `0.19.1` or a separately reviewed later patch by binary digest, obtains its password through a narrow `RESTIC_PASSWORD_COMMAND`, keeps backup-write and retention/prune authority separate, and follows the check/restore cadence in [Implementation gates](implementation-gates.md#backup-engine-and-repository-topology--g-008). [D-109](decisions-and-sources.md#d-109)
 
+Issue #37 implements only the inert draft-snapshot part of that future export path. It serializes one immutable `valid` or `blocked` inventory draft as a deterministic self-contained `inventory-draft-snapshot`, signs the payload digest for `vsk-labs:inventory-draft-export:v1`, independently verifies it through a separate provider-neutral port, writes immutable digest-addressed bytes, and atomically advances a protected `current.json`. It contains no raw input, secret, approval, plan, run, database page, provider response, local path, session, or authority transition; `kind=draft` remains explicit.
+
+Production currently composes no signer or verifier and fails closed with `PREREQUISITE_BLOCKED`; only a fixed synthetic test identity exists. Issue #28's release-verification policy is a separate trust domain and is not reused. Phase 5 must replace this temporary development choice with qualified export identity and public trust distribution, provider/keystore selection, custody and least privilege, key-ID/fingerprint ownership, rotation overlap and revocation, retained verification keys and offline access, loss/compromise response, restore-time key selection, a tested recovery procedure, clean-node positive/negative evidence, and a decision on export versus audit-checkpoint key separation. Until then, these bytes are neither an accepted declaration nor live recovery authority.
+
 Database restore order. A replacement starts read-only with `recovery_pending=true`; moving an alias alone is never a fence:
 
 1. Freeze the damaged node and preserve the database/files/log hashes.
