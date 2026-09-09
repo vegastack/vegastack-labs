@@ -28,7 +28,7 @@
     "generate:go-provenance": "node tooling/verify-go-dependencies.mjs --propose",
     "generate:contracts": "go run ./tooling/generate-contracts --write",
     "generate:provenance": "node tooling/provenance.mjs --write --approve-current-lock",
-    "test:tooling": "node --test tooling/test/*.test.mjs"
+    "test:tooling": "node --test --test-concurrency=1 tooling/test/*.test.mjs"
   },
   "devDependencies": {
     "spdx-expression-parse": "5.0.0",
