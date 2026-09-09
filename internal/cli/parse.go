@@ -3,6 +3,7 @@ package cli
 import (
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
@@ -105,7 +106,47 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
 	}
+	if invalidInventoryShape(parsed) {
+		return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
+	}
 	return parsed, nil
+}
+
+func invalidInventoryShape(parsed parsedArguments) bool {
+	positiveRevision := func(flag string) bool {
+		value, err := strconv.ParseInt(parsed.Value(flag), 10, 64)
+		return err == nil && value > 0
+	}
+	nonnegativeRevision := func(flag string) bool {
+		value, err := strconv.ParseInt(parsed.Value(flag), 10, 64)
+		return err == nil && value >= 0
+	}
+	utcTimestamp := func(flag string) bool {
+		value, err := time.Parse(time.RFC3339, parsed.Value(flag))
+		if err != nil {
+			return false
+		}
+		_, offset := value.Zone()
+		return offset == 0
+	}
+	switch parsed.commandName() {
+	case generated.CommandNameInventoryImport:
+		if !utcTimestamp(generated.FlagCapturedAt) {
+			return true
+		}
+		return parsed.Value(generated.FlagExpectedStateRevision) != "" && !nonnegativeRevision(generated.FlagExpectedStateRevision)
+	case generated.CommandNameInventoryExport:
+		return !positiveRevision(generated.FlagDraftRevision)
+	case generated.CommandNameInventoryDiff:
+		draftID, draftRevision := parsed.Value(generated.FlagDraftID) != "", parsed.Value(generated.FlagDraftRevision) != ""
+		file, format := parsed.Value(generated.FlagFile) != "", parsed.Value(generated.FlagFormat) != ""
+		source, captured := parsed.Value(generated.FlagSourceRevision) != "", parsed.Value(generated.FlagCapturedAt) != ""
+		draftCandidate := draftID && draftRevision && positiveRevision(generated.FlagDraftRevision) && !file && !format && !source && !captured
+		fileCandidate := !draftID && !draftRevision && file && format && source && captured && utcTimestamp(generated.FlagCapturedAt)
+		return !draftCandidate && !fileCandidate
+	default:
+		return false
+	}
 }
 
 func matchCommand(args []string) (generated.Command, int, bool) {

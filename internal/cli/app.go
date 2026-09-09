@@ -8,8 +8,10 @@ import (
 	"errors"
 	"io"
 	"runtime"
+	"strconv"
 	"strings"
 
+	"github.com/vegastack/vegastack-labs/internal/clientfile"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
@@ -42,6 +44,14 @@ type ServerOperations interface {
 	Status(context.Context, string) (localapi.Response, error)
 }
 
+type ControlOperations interface {
+	Summary(context.Context, string) (localapi.TypedResponse[generated.ApiSummaryData], error)
+	DatabaseStatus(context.Context, string) (localapi.TypedResponse[generated.DatabaseStatusData], error)
+	ImportInventory(context.Context, string, generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error)
+	DiffInventory(context.Context, string, generated.InventoryDiffRequest) (localapi.TypedResponse[generated.InventoryDiffData], error)
+	ExportInventory(context.Context, string, generated.InventoryExportRequest) (localapi.TypedResponse[generated.InventoryExportData], error)
+}
+
 type Option func(*App)
 
 func WithReleaseOperations(operations ReleaseOperations) Option {
@@ -56,6 +66,13 @@ func WithServerOperations(operations ServerOperations) Option {
 	}
 }
 
+func WithControlOperations(operations ControlOperations, files clientfile.Reader) Option {
+	return func(app *App) {
+		app.control = operations
+		app.files = files
+	}
+}
+
 type App struct {
 	stdout     io.Writer
 	stderr     io.Writer
@@ -63,6 +80,8 @@ type App struct {
 	requestIDs RequestIDSource
 	releases   ReleaseOperations
 	server     ServerOperations
+	control    ControlOperations
+	files      clientfile.Reader
 }
 
 func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, options ...Option) *App {
@@ -168,6 +187,107 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return response.ExitCode
 		}
 		return renderHumanServerStatus(app.stdout, response.Status, response.ExitCode)
+	case generated.CommandNameStatus:
+		if app.control == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		response, err := app.control.Summary(ctx, parsed.Value(generated.FlagConfig))
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		return renderHumanSummary(app.stdout, response.Data)
+	case generated.CommandNameDatabaseStatus:
+		if app.control == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		response, err := app.control.DatabaseStatus(ctx, parsed.Value(generated.FlagConfig))
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		return renderHumanDatabaseStatus(app.stdout, response.Data)
+	case generated.CommandNameInventoryImport:
+		if app.control == nil || app.files == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		content, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), clientfile.MaxInventoryBytes)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		var expected *int64
+		if value := parsed.Value(generated.FlagExpectedStateRevision); value != "" {
+			revision, _ := strconv.ParseInt(value, 10, 64)
+			expected = &revision
+		}
+		response, err := app.control.ImportInventory(ctx, parsed.Value(generated.FlagConfig), generated.InventoryImportRequest{Format: parsed.Value(generated.FlagFormat), SourceRevision: parsed.Value(generated.FlagSourceRevision), CapturedAt: parsed.Value(generated.FlagCapturedAt), IdempotencyKey: parsed.Value(generated.FlagIdempotencyKey), ExpectedStateRevision: expected, Content: string(content)})
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		return renderHumanInventoryImport(app.stdout, response.Data)
+	case generated.CommandNameInventoryDiff:
+		if app.control == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		request := generated.InventoryDiffRequest{}
+		if parsed.Value(generated.FlagDraftID) != "" {
+			revision, _ := strconv.ParseInt(parsed.Value(generated.FlagDraftRevision), 10, 64)
+			request.CandidateKind = "draft"
+			request.Draft = &generated.InventoryDraftRef{DraftID: parsed.Value(generated.FlagDraftID), DraftRevision: revision}
+		} else {
+			if app.files == nil {
+				return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+			}
+			content, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), clientfile.MaxInventoryBytes)
+			if err != nil {
+				return app.failServer(mode, parsed.commandName(), err)
+			}
+			format, source, captured, body := parsed.Value(generated.FlagFormat), parsed.Value(generated.FlagSourceRevision), parsed.Value(generated.FlagCapturedAt), string(content)
+			request = generated.InventoryDiffRequest{CandidateKind: "file", Format: &format, SourceRevision: &source, CapturedAt: &captured, Content: &body}
+		}
+		response, err := app.control.DiffInventory(ctx, parsed.Value(generated.FlagConfig), request)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		return renderHumanInventoryDiff(app.stdout, response.Data)
+	case generated.CommandNameInventoryExport:
+		if app.control == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		revision, _ := strconv.ParseInt(parsed.Value(generated.FlagDraftRevision), 10, 64)
+		response, err := app.control.ExportInventory(ctx, parsed.Value(generated.FlagConfig), generated.InventoryExportRequest{Draft: generated.InventoryDraftRef{DraftID: parsed.Value(generated.FlagDraftID), DraftRevision: revision}})
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		return renderHumanInventoryExport(app.stdout, response.Data)
 	default:
 		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
 	}
@@ -175,10 +295,27 @@ func (app *App) Run(ctx context.Context, args []string) int {
 
 var serverErrorTargets = map[string]struct{}{
 	"application-health": {}, "application-shutdown": {}, "application-start": {},
-	"context": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {},
+	"context": {}, "control-operations": {}, "control-service": {}, "control-service-drain": {}, "control-service-lock": {}, "control-service-request": {},
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},
 	"identity-header": {}, "local-peer": {}, "method": {}, "principal-bindings": {},
-	"request-body": {}, "server-config": {}, "server-platform": {},
+	"inventory-file": {}, "request-body": {}, "server-config": {}, "server-platform": {},
+}
+
+func writeRemoteJSON(output io.Writer, raw []byte, exitCode int) int {
+	if _, err := output.Write(raw); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return exitCode
+}
+
+func (app *App) remoteFailure(mode outputMode, raw []byte, envelope generated.RunResult, exitCode int) int {
+	if mode == outputJSON {
+		return writeRemoteJSON(app.stdout, raw, exitCode)
+	}
+	if len(envelope.Errors) != 1 {
+		return renderHumanFailure(app.stderr, generated.ErrorCodeIntegrityFailure, "control-service-response", exitCodeFor(generated.ErrorCodeIntegrityFailure))
+	}
+	return renderHumanFailure(app.stderr, envelope.Errors[0].Code, envelope.Errors[0].Target, exitCode)
 }
 
 func (app *App) failServer(mode outputMode, command string, err error) int {

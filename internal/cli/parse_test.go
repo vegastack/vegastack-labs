@@ -70,3 +70,48 @@ func TestParseServerCommandsRequireOneExplicitConfig(t *testing.T) {
 		}
 	}
 }
+
+func TestParseInventoryDiffRequiresExactlyOneCompleteSelector(t *testing.T) {
+	base := []string{"inventory", "diff", "--config", "profile.json"}
+	invalid := [][]string{
+		base,
+		append(append([]string{}, base...), "--draft-id", "draft"),
+		append(append([]string{}, base...), "--draft-id", "draft", "--draft-revision", "0"),
+		append(append([]string{}, base...), "--file", "/tmp/input", "--format", "typed-json", "--source-revision", "source"),
+		append(append([]string{}, base...), "--draft-id", "draft", "--draft-revision", "1", "--file", "/tmp/input", "--format", "typed-json", "--source-revision", "source", "--captured-at", "2026-09-08T06:00:00Z"),
+	}
+	for _, args := range invalid {
+		if _, failure := parseArguments(args); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Fatalf("args %v failure = %#v", args, failure)
+		}
+	}
+	for _, args := range [][]string{
+		append(append([]string{}, base...), "--draft-id", "draft", "--draft-revision", "1"),
+		append(append([]string{}, base...), "--file", "/tmp/input", "--format", "typed-json", "--source-revision", "source", "--captured-at", "2026-09-08T06:00:00Z"),
+	} {
+		if _, failure := parseArguments(args); failure != nil {
+			t.Fatalf("args %v failure = %#v", args, failure)
+		}
+	}
+}
+
+func TestParseInventoryRevisionsAndCaptureTime(t *testing.T) {
+	validImport := []string{"inventory", "import", "--config", "profile.json", "--file", "/tmp/input", "--format", "typed-json", "--source-revision", "source", "--captured-at", "2026-09-08T06:00:00Z", "--idempotency-key", "opaque"}
+	for _, extra := range [][]string{{"--expected-state-revision", "-1"}, {"--expected-state-revision", "9223372036854775808"}} {
+		if _, failure := parseArguments(append(append([]string{}, validImport...), extra...)); failure == nil {
+			t.Fatalf("accepted invalid revision %v", extra)
+		}
+	}
+	invalidTime := append([]string{}, validImport...)
+	for index := range invalidTime {
+		if invalidTime[index] == "2026-09-08T06:00:00Z" {
+			invalidTime[index] = "2026-09-08T06:00:00+01:00"
+		}
+	}
+	if _, failure := parseArguments(invalidTime); failure == nil {
+		t.Fatal("accepted non-UTC capture time")
+	}
+	if _, failure := parseArguments(append(validImport, "--expected-state-revision", "0")); failure != nil {
+		t.Fatalf("rejected zero expected revision: %#v", failure)
+	}
+}

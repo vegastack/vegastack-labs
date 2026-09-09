@@ -1,9 +1,39 @@
 vsk-labs commands
 
 Available commands:
+  database status          Inspect control-database status.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   help                     Show generated command help.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  inventory diff           Compare one inert draft or local candidate with a compatible inert draft.
+    --captured-at <timestamp> Record an RFC 3339 UTC capture time.
+    --config <path>        Read the protected server profile at this explicit path.
+    --draft-id <id>        Select an existing inert draft.
+    --draft-revision <revision> Select the exact inert draft revision.
+    --file <path>          Read one protected local candidate file.
+    --format <format>      Select the explicit candidate format. Allowed: labs-sheet1-csv, typed-json.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --source-revision <revision> Record the source revision supplied by its owner.
+  inventory export         Publish one verified signed inert-draft export.
+    --config <path>        Read the protected server profile at this explicit path.
+    --draft-id <id>        Select an existing inert draft.
+    --draft-revision <revision> Select the exact inert draft revision.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  inventory import         Validate and store one inventory candidate as an inert draft.
+    --captured-at <timestamp> Record an RFC 3339 UTC capture time.
+    --config <path>        Read the protected server profile at this explicit path.
+    --expected-state-revision <revision> Require this current state revision.
+    --file <path>          Read one protected local candidate file.
+    --format <format>      Select the explicit candidate format. Allowed: labs-sheet1-csv, typed-json.
+    --idempotency-key <key> Supply one opaque retry key.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --source-revision <revision> Record the source revision supplied by its owner.
   release inspect          Inspect a local release manifest and compatibility without claiming cryptographic verification.
     --manifest <path>      Read the local release manifest at this path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
@@ -20,6 +50,10 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   server status            Query control-service health.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  status                   Show the current platform summary.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
@@ -40,7 +74,6 @@ Planned commands (unavailable):
   database backup          Create a verified control-database backup.
   database export          Export authorized sanitized control data.
   database restore         Create an inert control-database restore change.
-  database status          Inspect control-database status.
   database verify          Verify control-database integrity or backup content.
   device approve           Create an inert device-approval change.
   device request           Create an inert device-enrollment request.
@@ -50,9 +83,6 @@ Planned commands (unavailable):
   gate evidence            Validate evidence and create an inert evidence change.
   gate inspect             Inspect one gate and its evidence requirements.
   gate list                List applicable implementation gates.
-  inventory diff           Compare declared and supplied inventory.
-  inventory export         Export authorized inventory data.
-  inventory import         Import typed inventory as an inert change.
   maintenance plan         Create an immutable maintenance plan.
   maintenance run          Run one authorized maintenance plan.
   node add                 Create an inert managed-node change.
@@ -68,7 +98,6 @@ Planned commands (unavailable):
   service deploy           Create an inert service-deployment change.
   service plan             Create an inert service change and request its plan.
   service rollback         Create an inert service-rollback change.
-  status                   Show the current platform summary.
   user offboard            Create an inert user-offboarding change.
   user onboard             Create an inert user-onboarding change.
   user resume              Create an inert user-resumption change.

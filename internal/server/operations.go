@@ -98,15 +98,63 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 }
 
 func (operations *Operations) Status(ctx context.Context, configPath string) (localapi.Response, error) {
-	ownerUID, err := currentServiceOwnerUID()
-	if err != nil {
-		return localapi.Response{}, failure.New(generated.ErrorCodeUnsupportedPlatform, "server-platform", false)
-	}
-	profile, err := serverconfig.NewLoader(ownerUID).Load(ctx, configPath)
+	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
 		return localapi.Response{}, err
 	}
-	return localapi.NewClient(result.NewFactory(operations.build, operations.requestIDs)).Status(ctx, profile)
+	return client.Status(ctx, profile)
+}
+
+func (operations *Operations) Summary(ctx context.Context, configPath string) (localapi.TypedResponse[generated.ApiSummaryData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.ApiSummaryData]{}, err
+	}
+	return client.Summary(ctx, profile)
+}
+
+func (operations *Operations) DatabaseStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.DatabaseStatusData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.DatabaseStatusData]{}, err
+	}
+	return client.DatabaseStatus(ctx, profile)
+}
+
+func (operations *Operations) ImportInventory(ctx context.Context, configPath string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.InventoryImportData]{}, err
+	}
+	return client.ImportInventory(ctx, profile, request)
+}
+
+func (operations *Operations) DiffInventory(ctx context.Context, configPath string, request generated.InventoryDiffRequest) (localapi.TypedResponse[generated.InventoryDiffData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.InventoryDiffData]{}, err
+	}
+	return client.DiffInventory(ctx, profile, request)
+}
+
+func (operations *Operations) ExportInventory(ctx context.Context, configPath string, request generated.InventoryExportRequest) (localapi.TypedResponse[generated.InventoryExportData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.InventoryExportData]{}, err
+	}
+	return client.ExportInventory(ctx, profile, request)
+}
+
+func (operations *Operations) controlClient(ctx context.Context, configPath string) (localapi.Client, serverconfig.Profile, error) {
+	ownerUID, err := currentServiceOwnerUID()
+	if err != nil {
+		return nil, serverconfig.Profile{}, failure.New(generated.ErrorCodeUnsupportedPlatform, "server-platform", false)
+	}
+	profile, err := serverconfig.NewLoader(ownerUID).Load(ctx, configPath)
+	if err != nil {
+		return nil, serverconfig.Profile{}, err
+	}
+	return localapi.NewClient(result.NewFactory(operations.build, operations.requestIDs)), profile, nil
 }
 
 type fixedPlatformProbe struct{ platform Platform }
