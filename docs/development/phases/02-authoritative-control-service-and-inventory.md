@@ -1,6 +1,6 @@
 # Development phase 2 — Authoritative control service and inventory
 
-Status: active. Phase 1 was accepted by (omkarmohanta09) on 08-09-2026 at integrated `main` commit `ed8629080c7797b3aca11dc9b7a1a9a3fde2c337`. Issues 2.1 through 2.7 and Issue 2.9 are integrated; Issue 2.8 is the current implementation boundary. Issue 2.10 (#38) owns the combined exit proof and cannot declare this phase accepted without explicit operator acceptance.
+Status: implemented; awaiting operator acceptance. Phase 1 was accepted by (omkarmohanta09) on 08-09-2026 at integrated `main` commit `ed8629080c7797b3aca11dc9b7a1a9a3fde2c337`. Issues 2.1 through 2.9 are integrated on `main` at `8d4a07bedc8d2aaadb479dab73210435c907f24a`; Issue 2.10 (#38) owns the combined candidate, merge, and post-merge proof. Neither this status nor a later merge declares Phase 2 accepted without the operator's explicit acceptance.
 
 ## Outcome and authority boundary
 
@@ -114,8 +114,30 @@ Issue #33 acceptance evidence includes Linux race/fault/concurrency tests, abrup
 
 Issue #38 is the combined acceptance owner. It must map every Phase 2 row to integrated evidence from one reviewed merged commit, prove authorization denials, safe states, the full checksummed migration catalog, immutable complete draft imports, online copies, durable replay, deterministic exports, CLI/API parity, and absence of any available infrastructure mutation. A green child issue, merged PR, or milestone state is insufficient; only explicit operator acceptance can close the phase.
 
+## Integrated Phase 2 evidence
+
+The checked [`phase-2-evidence.json`](../../../tooling/phase-2-evidence.json) manifest maps the roadmap row and every Phase 2 candidate row from Modules 1, 2, and 7 to one owner and one or more executable scenarios. `node tooling/verify-phase-2.mjs` fails closed on a missing child, traceability gap, command/endpoint/migration drift, available mutation, production fixture reachability, private fixture, or stale evidence. The fixtures and results are publication-safe development fixture proof, not live evidence: they do not qualify a host, grant, signer, backup repository, provider, or deployment gate.
+
+| Delivered issue | Integrated PR and merge | Implementation evidence | Fresh child review |
+|---|---|---|---|
+| Issue 2.1 (#29) | [PR #40](https://github.com/vegastack/vegastack-labs/pull/40), `61dd286` | [evidence](https://github.com/vegastack/vegastack-labs/issues/29#issuecomment-5585481513) | [review](https://github.com/vegastack/vegastack-labs/issues/29#issuecomment-5585367133) |
+| Issue 2.2 (#30) | [PR #41](https://github.com/vegastack/vegastack-labs/pull/41), `478c1d7` | [evidence](https://github.com/vegastack/vegastack-labs/issues/30#issuecomment-5585806131) | [review](https://github.com/vegastack/vegastack-labs/issues/30#issuecomment-5585672312) |
+| Issue 2.3 (#31) | [PR #43](https://github.com/vegastack/vegastack-labs/pull/43), `81b0d8e` | [evidence](https://github.com/vegastack/vegastack-labs/issues/31#issuecomment-5588909269) | [review](https://github.com/vegastack/vegastack-labs/issues/31#issuecomment-5588748589) |
+| Issue 2.4 (#32) | [PR #44](https://github.com/vegastack/vegastack-labs/pull/44), `2bc14ca` | [evidence](https://github.com/vegastack/vegastack-labs/issues/32#issuecomment-5598837793) | [review](https://github.com/vegastack/vegastack-labs/issues/32#issuecomment-5598430045) |
+| Issue 2.5 (#33) | [PR #45](https://github.com/vegastack/vegastack-labs/pull/45), `04f555f` | [evidence](https://github.com/vegastack/vegastack-labs/issues/33#issuecomment-5599207569) | [review](https://github.com/vegastack/vegastack-labs/issues/33#issuecomment-5599181440) |
+| Issue 2.6 (#34) | [PR #42](https://github.com/vegastack/vegastack-labs/pull/42), `1dc2e9f` | [evidence](https://github.com/vegastack/vegastack-labs/issues/34#issuecomment-5588858872) | [review](https://github.com/vegastack/vegastack-labs/issues/34#issuecomment-5588704434) |
+| Issue 2.7 (#35) | [PR #46](https://github.com/vegastack/vegastack-labs/pull/46), `4118272` | [evidence](https://github.com/vegastack/vegastack-labs/issues/35#issuecomment-5605967158) | [review](https://github.com/vegastack/vegastack-labs/issues/35#issuecomment-5605914477) |
+| Issue 2.8 (#36) | [PR #48](https://github.com/vegastack/vegastack-labs/pull/48), `8d4a07b` | [evidence](https://github.com/vegastack/vegastack-labs/issues/36#issuecomment-5609023926) | [review](https://github.com/vegastack/vegastack-labs/issues/36#issuecomment-5608924722) |
+| Issue 2.9 (#37) | [PR #47](https://github.com/vegastack/vegastack-labs/pull/47), `34e9e9d` | [evidence](https://github.com/vegastack/vegastack-labs/issues/37#issuecomment-5606248613) | [review](https://github.com/vegastack/vegastack-labs/issues/37#issuecomment-5605983952) |
+
+Reported child effort is intentionally incomplete rather than reconstructed from timestamps: #29 reported 78 minutes 30 seconds against 70–90 estimated; #32 reported about 110 against 60–80; #33 reported about 92 against 90–120; #35 reported about 267 including its CI correction against 95–125; and #37 reported about 276 against 85–115. Issues #30, #31, #34, and #36 did not record an unambiguous total in their current evidence comments. Issue #38 reports its own measured time at hand-back; parallel agent clocks and external CI waits are not added as elapsed wall time.
+
+### Phase 3 handoff
+
+Phase 3 planning may consume only the accepted read contracts: the generated API schemas, protected local identity and authorization boundary, finite pagination/cursors, durable event replay, exact CLI envelopes, and truthful `mutationAvailable=false` state. It must separately plan the embedded Console, browser authentication/session/revocation, generated web client, accessibility, and browser security controls. Phase 3 is not approved or started by this record, and it cannot treat Phase 2 fixtures as live Access, provider, or host evidence.
+
 ## Effort and approvals
 
 Issue #29 estimates 70–90 agent minutes, a 180-minute 2× checkpoint, 8–10 minutes of operator review, and 5–15 minutes of external public-CI wait if invoked. Its basis is 16–22 source/generated/test/documentation files, six implementation/review turns, Linux and unsupported seams, five target builds, two complete checks, and fresh security review. Each later issue records its own estimate and actuals.
 
-Approval record: (omkarmohanta09) accepted Phase 1 on 08-09-2026, approved the Phase 2 briefs #29–#38, approved Plan v1 for Issues #29, #30, and #33, and authorized their separate implementation sessions. That authority covers only named development branches, commits, tests, issue comments, and review. Pull requests, pushes, merges, releases, repository administration, credentials, provider resources, hosts, networks, databases outside synthetic fixtures, deployment, and every live infrastructure action remain separately gated.
+Approval record: (omkarmohanta09) accepted Phase 1 on 08-09-2026 and approved the Phase 2 briefs and Plan v1 for Issues #29–#38. The operator later authorized the complete dependency-ordered Phase 2 development and shipping workflow, including Issue #38, while release, repository administration, credentials, provider resources, hosts, networks, databases outside synthetic fixtures, deployment, Phase 2 acceptance, and every live infrastructure action remain separately gated.

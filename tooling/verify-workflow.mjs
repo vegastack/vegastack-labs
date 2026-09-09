@@ -61,6 +61,9 @@ export function verifyWorkflowDocument(workflow, source = "") {
     if (action === "actions/checkout" && step.with?.["persist-credentials"] !== false) {
       throw new Error("checkout must disable persisted credentials");
     }
+    if (action === "actions/checkout" && step.with?.["fetch-depth"] !== 0) {
+      throw new Error("checkout must retain complete commit history for ancestry evidence");
+    }
   }
   if (seen.size !== ACTIONS.size) {
     throw new Error("workflow does not use the complete approved Action set");

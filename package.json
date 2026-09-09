@@ -19,6 +19,7 @@
     "check:phase-0-3": "node tooling/verify-phase-0-3.mjs",
     "check:phase-0-4": "node tooling/verify-phase-0-4.mjs",
     "check:phase-0-5": "node tooling/verify-phase-0-5.mjs",
+    "check:phase-2": "node tooling/verify-phase-2.mjs",
     "check:read-api": "node tooling/verify-read-api.mjs",
     "check:repository": "node tooling/verify-repository.mjs",
     "check:server": "node tooling/verify-server.mjs",
@@ -27,7 +28,7 @@
     "generate:go-provenance": "node tooling/verify-go-dependencies.mjs --propose",
     "generate:contracts": "go run ./tooling/generate-contracts --write",
     "generate:provenance": "node tooling/provenance.mjs --write --approve-current-lock",
-    "test:tooling": "node --test tooling/test/*.test.mjs"
+    "test:tooling": "node --test --test-concurrency=1 tooling/test/*.test.mjs"
   },
   "devDependencies": {
     "spdx-expression-parse": "5.0.0",

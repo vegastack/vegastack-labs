@@ -151,7 +151,7 @@ The public check cross-builds `cmd/vsk-labs` for Linux AMD64/ARM64, macOS AMD64/
 
 The generated CLI now exposes `status`, `database status`, `inventory import`, `inventory diff`, and `inventory export` as fixed clients of the protected local API. Import creates only a complete immutable inert draft. Diff compares a draft or protected local candidate with the latest authorized compatible draft at one state revision and never persists a file candidate. Export delegates only to the verified signed-draft publisher; production currently has no qualified signing trust and therefore fails closed.
 
-JSON output is the exact validated API envelope, while human output uses the same typed data. The client has no SQLite, Google/provider, shell, arbitrary-network, or server-path access. These commands do not accept inventory, change infrastructure, deploy the service, qualify a host, or complete Phase 2; Issue #38 owns the combined acceptance proof.
+JSON output is the exact validated API envelope, while human output uses the same typed data. The client has no SQLite, Google/provider, shell, arbitrary-network, or server-path access. These commands do not accept inventory, change infrastructure, deploy the service, or qualify a host. Phase 2 is implemented; awaiting operator acceptance after Issue #38's reviewed candidate, merge, and post-merge proof. Fixture proof is not live evidence and does not close a deployment gate.
 
 ## Documentation map
 

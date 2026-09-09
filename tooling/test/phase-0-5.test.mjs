@@ -49,8 +49,8 @@ function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
   assert.match(roadmap, /Completed.*Issue 1\.1.*PR #26/is);
   assert.match(roadmap, /Completed.*Issue 1\.2/is);
   assert.match(roadmap, /Completed.*Issue 1\.3.*PR #39/is);
-  assert.match(roadmap, /Current: implement.*Phase 2 Issues 2\.1 and 2\.2/is);
-  assert.match(overview, /Phase 1.*accepted.*Phase 2.*active/is);
+  assert.match(roadmap, /Current: complete Issue 2\.10.*accept or reject the Phase 2 exit/is);
+  assert.match(overview, /Phase 1.*accepted.*Phase 2.*implemented; awaiting operator acceptance/is);
   assert.doesNotMatch(roadmap, /Current: implement Issue 1\.1/is);
   assert.doesNotMatch(roadmap, /Current: implement Issue 1\.2/is);
 }
@@ -295,7 +295,7 @@ test("Phase 1 ordering rejects cycles and unknown prerequisites", async () => {
   );
 });
 
-test("current development documents record accepted Phase 0 and Phase 1 with active Phase 2", async () => {
+test("current development documents record accepted Phase 0 and Phase 1 with Phase 2 awaiting acceptance", async () => {
   const phase = await readFile(
     path.join(ROOT, "docs/development/phases/00-development-foundation.md"),
     "utf8",
