@@ -111,7 +111,7 @@ func TestDecoderAcceptsQuotedCSVAndRejectsLimitsFormulaControlsAndCancellation(t
 func TestNewDecoderRejectsUntrustedSourceMetadata(t *testing.T) {
 	cases := []Config{
 		{},
-		{SourceRevision: "revision", CapturedAt: time.Now()},
+		{SourceRevision: "revision", CapturedAt: time.Date(2026, 9, 9, 7, 30, 0, 0, time.FixedZone("non-UTC", 5*60*60+30*60))},
 		{SourceRevision: strings.Repeat("r", 129), CapturedAt: time.Date(2026, 9, 9, 7, 30, 0, 0, time.UTC)},
 	}
 	for _, config := range cases {
