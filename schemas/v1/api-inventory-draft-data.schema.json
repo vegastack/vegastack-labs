@@ -1,0 +1,101 @@
+{
+  "$defs": {
+    "inventory-draft-counts": {
+      "additionalProperties": false,
+      "properties": {
+        "addresses": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "aliases": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "assets": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "findings": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "hardwareFacts": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "nodes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "observations": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "provenance": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "assets",
+        "nodes",
+        "aliases",
+        "addresses",
+        "observations",
+        "hardwareFacts",
+        "provenance",
+        "findings"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/api-inventory-draft-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority": {
+      "enum": [
+        "draft"
+      ],
+      "type": "string"
+    },
+    "contentDigest": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "counts": {
+      "$ref": "#/$defs/inventory-draft-counts"
+    },
+    "createdAt": {
+      "maxLength": 64,
+      "type": "string"
+    },
+    "draftId": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "validationStatus": {
+      "enum": [
+        "valid",
+        "blocked"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "authority",
+    "draftId",
+    "revision",
+    "validationStatus",
+    "contentDigest",
+    "createdAt",
+    "counts"
+  ],
+  "title": "VegaStack Labs api inventory draft data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

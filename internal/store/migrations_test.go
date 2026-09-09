@@ -125,8 +125,11 @@ func TestCatalogAddsAuditOutboxAsExactlyMigrationThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) != 3 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" {
+	if len(catalog) != 4 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" {
 		t.Fatalf("third migration = %#v", catalog)
+	}
+	if sha256.Sum256([]byte(catalog[3].SQL)) != catalog[3].SHA256 {
+		t.Fatal("migration 0004 checksum mismatch")
 	}
 	if sha256.Sum256([]byte(catalog[2].SQL)) != catalog[2].SHA256 {
 		t.Fatal("migration 0003 checksum mismatch")

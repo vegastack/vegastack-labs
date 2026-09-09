@@ -84,6 +84,14 @@ This boundary supplies durable local state and transition/inspection methods onl
 
 ## Verification, recovery, and combined exit
 
+### Issue 2.7 authorized read boundary
+
+The Issue 2.7 candidate owns migration `0004_read_authorization`. It creates empty-by-default local-principal and resource-grant tables; it seeds no service owner, administrator, wildcard, or production grant. Later trusted setup work owns real grant creation. Kernel peer identity is authorized before request path/query/cursor or `Last-Event-ID` parsing, and the resulting scope and grant revision are rechecked inside every short SQLite read. Inventory routes remain beneath `/api/v1/inventory-drafts/{draftId}/revisions/{revision}` and expose draft authority only.
+
+Finite reads use closed generated data schemas in the existing result envelope, `Cache-Control: no-store`, a 4 MiB response ceiling, explicit SQL columns, strict keysets, and a default/cap of 50/200. HMAC-SHA-256 cursors expire after 15 minutes and intentionally become invalid when the server restarts; durable audit event IDs do not. SSE replays strictly after a known ID in batches of 200, reauthorizes every batch, coalesces at most 64 commit hints per subscriber, heartbeats every 15 seconds, applies a 5-second write deadline, and admits at most 16 streams process-wide and 4 per principal. No read transaction remains open while waiting or writing.
+
+Rollback before merge is branch abandonment. After merge, migration `0004` is immutable: corrections use a forward migration and corrective pull request. Code rollback is not database recovery, and event IDs are never renumbered or deleted. This candidate evidence does not accept Phase 2, create real grants, deploy the service, or close a live implementation gate; Issue #38 retains combined acceptance.
+
 All fixtures are synthetic fixtures with no real operational data, credentials, private rows, or production signing keys. Narrow tests precede repository-wide race, build, generated-drift, analyzer, and complete public checks. Supported Linux behavior receives build-tagged filesystem, credential, lock, replacement, signal and recovery tests; unsupported targets must fail before touching a supplied path.
 
 Recovery evidence is capability-specific: socket cleanup never removes a replacement, a failed migration preserves evidence and restores only through the approved verified-copy seam, and exports publish only after verification. None of those development tests authorizes a live recovery or makes an off-site disaster-recovery claim.

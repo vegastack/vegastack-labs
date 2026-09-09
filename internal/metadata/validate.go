@@ -9,13 +9,15 @@ import (
 )
 
 var (
-	commandPartPattern = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
-	flagPattern        = regexp.MustCompile(`^--[a-z][a-z0-9-]*$`)
-	phasePattern       = regexp.MustCompile(`^[0-9]+$`)
-	schemaIDPattern    = regexp.MustCompile(`^[a-z0-9][a-z0-9./-]*$`)
-	versionPattern     = regexp.MustCompile(`^1\.[0-9]+\.[0-9]+$`)
-	errorCodePattern   = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
-	jsonPatternPattern = regexp.MustCompile(`^.{1,512}$`)
+	commandPartPattern  = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+	flagPattern         = regexp.MustCompile(`^--[a-z][a-z0-9-]*$`)
+	phasePattern        = regexp.MustCompile(`^[0-9]+$`)
+	schemaIDPattern     = regexp.MustCompile(`^[a-z0-9][a-z0-9./-]*$`)
+	versionPattern      = regexp.MustCompile(`^1\.[0-9]+\.[0-9]+$`)
+	errorCodePattern    = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
+	jsonPatternPattern  = regexp.MustCompile(`^.{1,512}$`)
+	endpointIDPattern   = regexp.MustCompile(`^api\.v1\.[a-z0-9.-]+$`)
+	endpointPathPattern = regexp.MustCompile(`^/api/v1(?:/[a-z0-9-]+|/\{(?:draftId|revision|recordId)\})+$`)
 )
 
 func Validate(registry Registry) error {
@@ -30,10 +32,50 @@ func Validate(registry Registry) error {
 	if err := validateCommands(registry.Commands, schemas); err != nil {
 		return err
 	}
+	if err := validateEndpoints(registry.Endpoints, schemas); err != nil {
+		return err
+	}
 	if err := validateErrors(registry.Errors); err != nil {
 		return err
 	}
 	return validateExits(registry.Exits)
+}
+
+func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct{}) error {
+	if len(endpoints) == 0 {
+		return validationError("METADATA_REQUIRED", "endpoints")
+	}
+	ids := make(map[string]struct{}, len(endpoints))
+	routes := make(map[string]struct{}, len(endpoints))
+	for index, endpoint := range endpoints {
+		location := fmt.Sprintf("endpoints[%d]", index)
+		if !endpointIDPattern.MatchString(endpoint.ID) || endpoint.Method != "GET" || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || endpoint.OwnerPhase != "2" {
+			return validationError("METADATA_INVALID", location)
+		}
+		if _, exists := ids[endpoint.ID]; exists {
+			return validationError("METADATA_DUPLICATE", location+".id")
+		}
+		ids[endpoint.ID] = struct{}{}
+		route := endpoint.Method + " " + endpoint.Path
+		if _, exists := routes[route]; exists {
+			return validationError("METADATA_DUPLICATE", location+".path")
+		}
+		routes[route] = struct{}{}
+		if _, ok := schemas[endpoint.DataSchema]; !ok {
+			return validationError("METADATA_REFERENCE", location+".dataSchema")
+		}
+		if endpoint.QuerySchema != "" {
+			if _, ok := schemas[endpoint.QuerySchema]; !ok {
+				return validationError("METADATA_REFERENCE", location+".querySchema")
+			}
+		}
+		switch endpoint.Stream {
+		case StreamFinite, StreamSSE:
+		default:
+			return validationError("METADATA_INVALID", location+".stream")
+		}
+	}
+	return nil
 }
 
 func validateCommands(commands []CommandDefinition, schemas map[string]struct{}) error {

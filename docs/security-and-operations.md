@@ -281,6 +281,12 @@ No failure automatically elects a client or D1 projection as a new controller. R
 
 ## Incident procedure
 
+## Local read authorization and event redaction
+
+Migration `0004_read_authorization` starts with no principals or grants. A socket binding authenticates a kernel peer but grants nothing. Reads require one of `control.health.read`, `database.status.read`, `platform.summary.read`, `inventory.draft.read`, or `audit.event.read`, plus its exact provider-neutral resource kind and, for a draft detail or child, the canonical draft revision ID. Revoked, absent, wrong-kind, cross-resource, resolver, and store failures deny without a protected row or existence oracle. The grant revision and digest are revalidated in the same short transaction as each query; SSE repeats authorization before each batch.
+
+Event streaming emits only the closed generated audit projection: bounded attribution, target, revision, correlation/link fields, and optional fingerprints. It never emits SQL, database paths, raw source, raw errors, prompts, provider responses, outbox bytes, or secret values. Slow/disconnected consumers lose no durable database event: they reconnect from the last successfully received ID. Commit notifications contain no event bytes and are hints only; durable SQLite replay remains authoritative.
+
 1. **Detect and own:** acknowledge the alert, assign incident lead, record start/scope and preserve clocks/log hashes. Never paste secrets into the issue.
 2. **Classify and contain:** distinguish node, LAN/power, Cloudflare, control plane, workload, credential or compromise. Stop new applies/deploys; revoke or isolate only the affected identity/path; preserve LAN/console recovery.
 3. **Recover:** select the subsystem runbook and last verified recovery point; state expected data loss/downtime; require the operation's approval class; restore to isolated/replacement capacity when possible.

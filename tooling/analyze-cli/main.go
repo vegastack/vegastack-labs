@@ -36,13 +36,14 @@ type listedPackage struct {
 }
 
 type analysis struct {
-	GeneratedCommandsReference bool     `json:"generatedCommandsReference"`
-	HandwrittenRegistry        bool     `json:"handwrittenRegistry"`
-	ReleaseArtifactExecution   bool     `json:"releaseArtifactExecution"`
-	ReleaseNetworkAccess       bool     `json:"releaseNetworkAccess"`
-	SQLiteAccess               bool     `json:"sqliteAccess"`
-	ShellDispatch              bool     `json:"shellDispatch"`
-	TargetsAnalyzed            []string `json:"targetsAnalyzed"`
+	GeneratedCommandsReference  bool     `json:"generatedCommandsReference"`
+	GeneratedEndpointsReference bool     `json:"generatedEndpointsReference"`
+	HandwrittenRegistry         bool     `json:"handwrittenRegistry"`
+	ReleaseArtifactExecution    bool     `json:"releaseArtifactExecution"`
+	ReleaseNetworkAccess        bool     `json:"releaseNetworkAccess"`
+	SQLiteAccess                bool     `json:"sqliteAccess"`
+	ShellDispatch               bool     `json:"shellDispatch"`
+	TargetsAnalyzed             []string `json:"targetsAnalyzed"`
 }
 
 type sourcePackage struct {
@@ -225,6 +226,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	mainImport := modulePath + "/cmd/vsk-labs"
 	generatedImport := modulePath + "/internal/generated"
 	releaseImport := modulePath + "/internal/release"
+	apiImport := modulePath + "/internal/api"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -256,7 +258,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 		}
-		inspectPackage(parsed, generatedImport, isReleasePackage, &result)
+		inspectPackage(parsed, generatedImport, isReleasePackage, candidate.ImportPath == apiImport, &result)
 	}
 	return result, nil
 }
@@ -323,13 +325,18 @@ func parseAndCheck(candidate listedPackage, loader types.Importer) (checkedSourc
 	}, nil
 }
 
-func inspectPackage(candidate checkedSourcePackage, generatedImport string, isReleasePackage bool, result *analysis) {
+func inspectPackage(candidate checkedSourcePackage, generatedImport string, isReleasePackage, isAPIPackage bool, result *analysis) {
 	context := analysisContext{
 		generatedImport: generatedImport,
 		derivedCommands: derivedCommandTypes(candidate, generatedImport),
 	}
 	for _, file := range candidate.files {
 		ast.Inspect(file, func(node ast.Node) bool {
+			if selector, ok := node.(*ast.SelectorExpr); ok {
+				if object := candidate.info.ObjectOf(selector.Sel); object != nil && object.Pkg() != nil && object.Pkg().Path() == generatedImport && object.Name() == "Endpoints" {
+					result.GeneratedEndpointsReference = true
+				}
+			}
 			if isReleasePackage {
 				inspectReleaseNode(node, candidate.info, result)
 			}
@@ -339,15 +346,15 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport string, isRe
 					result.GeneratedCommandsReference = true
 				}
 			case *ast.ValueSpec:
-				if candidate.listed.ImportPath != generatedImport && valueSpecIsRegistry(typed, candidate.info, context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && valueSpecIsRegistry(typed, candidate.info, context) {
 					result.HandwrittenRegistry = true
 				}
 			case *ast.AssignStmt:
-				if candidate.listed.ImportPath != generatedImport && assignmentIsRegistry(typed, candidate.info, context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) {
 					result.HandwrittenRegistry = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && isDispatchCollection(candidate.info.TypeOf(typed), context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) {
 					result.HandwrittenRegistry = true
 				}
 			}

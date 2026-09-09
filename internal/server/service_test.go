@@ -42,6 +42,15 @@ type testApplication struct {
 	shutdownCalled atomic.Bool
 }
 
+type healthAuthorizedApplication struct {
+	testApplication
+	err error
+}
+
+func (application *healthAuthorizedApplication) AuthorizeHealth(context.Context, identity.Principal) error {
+	return application.err
+}
+
 func (application *testApplication) Start(ctx context.Context) error {
 	if application.startCalled != nil {
 		close(application.startCalled)
@@ -230,6 +239,21 @@ func TestServiceUnauthenticatedFailureDoesNotProbeOrDiscloseHealth(t *testing.T)
 	}
 	if status.RecoveryEpoch != 0 || status.StateRevision != 0 || status.ReadAvailable || status.MutationAvailable {
 		t.Fatalf("unauthenticated status = %#v", status)
+	}
+}
+
+func TestServiceHealthGrantDenialDoesNotProbeOrDiscloseHealth(t *testing.T) {
+	application := &healthAuthorizedApplication{testApplication: testApplication{health: ApplicationHealth{RecoveryEpoch: 7, StateRevision: 42}}, err: failure.New(generated.ErrorCodeAuthorizationDenied, "read", false)}
+	service := &service{config: Config{Application: application, Results: testResultFactory()}, state: StateReady}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/health", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
+	response := httptest.NewRecorder()
+	service.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden || application.healthCalls.Load() != 0 {
+		t.Fatalf("status/health calls = %d/%d", response.Code, application.healthCalls.Load())
+	}
+	if strings.Contains(response.Body.String(), "42") || strings.Contains(response.Body.String(), "7") {
+		t.Fatal("denial disclosed health")
 	}
 }
 

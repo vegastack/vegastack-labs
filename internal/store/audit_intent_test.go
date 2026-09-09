@@ -39,6 +39,38 @@ func TestWriteIntentCommitsBusinessEventAndRequiredOutboxExactlyOnce(t *testing.
 	assertOutboxStatuses(t, store, map[string]audit.OutboxStatus{"primary-audit": audit.OutboxPending, "secondary-audit": audit.OutboxPaused})
 }
 
+func TestEventCommitSignalsOnlyAfterNewDurableCommit(t *testing.T) {
+	store := openAuditTestStore(t)
+	subscription := store.SubscribeEventCommits()
+	defer subscription.Close()
+	request := publicIntentRequest(t, "b", nil)
+	if _, err := store.writeIntent(context.Background(), request, insertSyntheticBusiness); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-subscription.C():
+	default:
+		t.Fatal("durable commit did not signal")
+	}
+	if _, err := store.writeIntent(context.Background(), request, insertSyntheticBusiness); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-subscription.C():
+		t.Fatal("idempotent replay signaled")
+	default:
+	}
+	failing := publicIntentRequest(t, "c", nil)
+	if _, err := store.writeIntent(context.Background(), failing, func(context.Context, *sql.Tx) error { return errors.New("synthetic rollback") }); err == nil {
+		t.Fatal("rollback succeeded")
+	}
+	select {
+	case <-subscription.C():
+		t.Fatal("rollback signaled")
+	default:
+	}
+}
+
 func TestWriteIntentFaultMatrixRollsBackEveryLayer(t *testing.T) {
 	for _, stage := range []auditIntentStage{auditAfterBusiness, auditAfterRevision, auditAfterSequence, auditAfterEvent, auditAfterIntent, auditAfterOutbox, auditBeforeCommit} {
 		t.Run(string(stage), func(t *testing.T) {
