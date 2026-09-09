@@ -1,11 +1,11 @@
 {
   "forbiddenValues": [
     "github_pat_public-test-canary",
-    "-----BEGIN PRIVATE KEY-----public-test-canary",
     "https://user:public-test-canary@example.invalid",
     "/private/public-test-canary",
     "C:\\Users\\public-test-canary",
     "hostile public test error detail",
     "rawImportPublicTestCanary"
-  ]
+  ],
+  "pemHeaderParts": ["-----BEGIN PRIVATE", " KEY-----public-test-canary"]
 }

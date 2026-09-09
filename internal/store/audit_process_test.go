@@ -126,10 +126,12 @@ func TestAuditArtifactsExcludeEveryPublicCanary(t *testing.T) {
 	}
 	var fixture struct {
 		ForbiddenValues []string `json:"forbiddenValues"`
+		PEMHeaderParts  []string `json:"pemHeaderParts"`
 	}
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
+	fixture.ForbiddenValues = append(fixture.ForbiddenValues, strings.Join(fixture.PEMHeaderParts, ""))
 	var diagnostics strings.Builder
 	for index, canary := range fixture.ForbiddenValues {
 		directory := secureTempDirectory(t)
@@ -174,7 +176,15 @@ func TestAuditArtifactsExcludeEveryPublicCanary(t *testing.T) {
 			}
 		}
 	}
-	hostile := fixture.ForbiddenValues[5]
+	hostile := ""
+	for _, canary := range fixture.ForbiddenValues {
+		if strings.Contains(canary, "hostile") {
+			hostile = canary
+		}
+	}
+	if hostile == "" {
+		t.Fatal("hostile public error canary is missing")
+	}
 	directory := secureTempDirectory(t)
 	path := filepath.Join(directory, "control.db")
 	store, err := Open(context.Background(), auditProcessConfig(path, InitializeNew))

@@ -9,6 +9,7 @@ import (
 
 type publicCanaryFixture struct {
 	ForbiddenValues []string `json:"forbiddenValues"`
+	PEMHeaderParts  []string `json:"pemHeaderParts"`
 }
 
 func TestAuditValidationErrorsExcludeEveryPublicCanary(t *testing.T) {
@@ -39,5 +40,6 @@ func loadPublicCanaries(t *testing.T) publicCanaryFixture {
 	if len(fixture.ForbiddenValues) == 0 {
 		t.Fatal("public canary fixture is empty")
 	}
+	fixture.ForbiddenValues = append(fixture.ForbiddenValues, strings.Join(fixture.PEMHeaderParts, ""))
 	return fixture
 }
