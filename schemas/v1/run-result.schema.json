@@ -22,6 +22,7 @@
             "PREREQUISITE_BLOCKED",
             "RECOVERY_EPOCH_MISMATCH",
             "RECOVERY_REQUIRED",
+            "RESOURCE_NOT_FOUND",
             "SCHEMA_UNSUPPORTED",
             "SESSION_EXPIRED",
             "STATE_CONFLICT",

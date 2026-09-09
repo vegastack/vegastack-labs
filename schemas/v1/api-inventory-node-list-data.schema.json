@@ -1,0 +1,78 @@
+{
+  "$defs": {
+    "api-inventory-node-data": {
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "authority": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "parentId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "validationStatus": {
+          "enum": [
+            "valid",
+            "blocked"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "validationStatus",
+        "id",
+        "assetId",
+        "parentId"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/api-inventory-node-list-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/api-inventory-node-data"
+      },
+      "maxItems": 200,
+      "type": "array"
+    },
+    "nextCursor": {
+      "maxLength": 2048,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "items",
+    "nextCursor",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs api inventory node list data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

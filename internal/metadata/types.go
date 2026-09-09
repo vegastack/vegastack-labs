@@ -39,12 +39,30 @@ const (
 	FlagSwitch FlagKind = "switch"
 )
 
+type StreamKind string
+
+const (
+	StreamFinite StreamKind = "finite"
+	StreamSSE    StreamKind = "sse"
+)
+
 type Registry struct {
 	SchemaVersion string
 	Commands      []CommandDefinition
+	Endpoints     []EndpointDefinition
 	Errors        []ErrorDefinition
 	Exits         []ExitDefinition
 	Schemas       []SchemaDefinition
+}
+
+type EndpointDefinition struct {
+	ID          string     `json:"id"`
+	Method      string     `json:"method"`
+	Path        string     `json:"path"`
+	OwnerPhase  string     `json:"ownerPhase"`
+	QuerySchema string     `json:"querySchema,omitempty"`
+	DataSchema  string     `json:"dataSchema"`
+	Stream      StreamKind `json:"stream"`
 }
 
 type CommandDefinition struct {

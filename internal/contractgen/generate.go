@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	generatedBy             = "go run ./tooling/generate-contracts --write; DO NOT EDIT"
-	commandRegistrySchemaID = "vegastack-labs.dev/command-registry"
-	runResultSchemaID       = "vegastack-labs.dev/run-result"
-	jsonSchemaDialect       = "https://json-schema.org/draft/2020-12/schema"
+	generatedBy              = "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+	commandRegistrySchemaID  = "vegastack-labs.dev/command-registry"
+	endpointRegistrySchemaID = "vegastack-labs.dev/endpoint-registry"
+	runResultSchemaID        = "vegastack-labs.dev/run-result"
+	jsonSchemaDialect        = "https://json-schema.org/draft/2020-12/schema"
 )
 
 type registryDocument struct {
@@ -49,6 +50,13 @@ type registrySchema struct {
 	ArtifactPath string `json:"artifactPath,omitempty"`
 }
 
+type endpointRegistryDocument struct {
+	GeneratedBy   string                        `json:"generatedBy"`
+	Schema        string                        `json:"schema"`
+	SchemaVersion string                        `json:"schemaVersion"`
+	Endpoints     []metadata.EndpointDefinition `json:"endpoints"`
+}
+
 func Generate(registry metadata.Registry) ([]Artifact, error) {
 	if err := metadata.Validate(registry); err != nil {
 		return nil, err
@@ -71,12 +79,25 @@ func Generate(registry metadata.Registry) ([]Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
+	endpointJSON, err := renderEndpointRegistryJSON(registry)
+	if err != nil {
+		return nil, err
+	}
+	endpointSchema, err := renderEndpointRegistrySchema()
+	if err != nil {
+		return nil, err
+	}
+	endpointMarkdown := renderEndpointMarkdown(registry)
 	artifacts := []Artifact{
 		{Path: "docs/generated/command-registry.md", Content: markdown},
+		{Path: "docs/generated/endpoint-registry.md", Content: endpointMarkdown},
 		{Path: "internal/generated/contracts_gen.go", Content: goSource},
 		{Path: "schemas/v1/command-registry.json", Content: registryJSON},
 		{Path: "schemas/v1/command-registry.schema.json", Content: registrySchema},
+		{Path: "schemas/v1/endpoint-registry.json", Content: endpointJSON},
+		{Path: "schemas/v1/endpoint-registry.schema.json", Content: endpointSchema},
 	}
+	baseArtifacts := len(artifacts)
 	for _, definition := range registry.Schemas {
 		if definition.ArtifactPath == "" {
 			continue
@@ -87,8 +108,8 @@ func Generate(registry metadata.Registry) ([]Artifact, error) {
 		}
 		artifacts = append(artifacts, Artifact{Path: definition.ArtifactPath, Content: content})
 	}
-	sort.Slice(artifacts[4:], func(left, right int) bool {
-		return artifacts[4+left].Path < artifacts[4+right].Path
+	sort.Slice(artifacts[baseArtifacts:], func(left, right int) bool {
+		return artifacts[baseArtifacts+left].Path < artifacts[baseArtifacts+right].Path
 	})
 	return artifacts, nil
 }
@@ -122,11 +143,39 @@ func normalizedRegistry(registry metadata.Registry) metadata.Registry {
 	registry.Exits = append([]metadata.ExitDefinition(nil), registry.Exits...)
 	sort.Slice(registry.Exits, func(left, right int) bool { return registry.Exits[left].Code < registry.Exits[right].Code })
 	registry.Schemas = append([]metadata.SchemaDefinition(nil), registry.Schemas...)
+	registry.Endpoints = append([]metadata.EndpointDefinition(nil), registry.Endpoints...)
+	sort.Slice(registry.Endpoints, func(left, right int) bool { return registry.Endpoints[left].ID < registry.Endpoints[right].ID })
 	for index := range registry.Schemas {
 		registry.Schemas[index].Fields = append([]metadata.FieldDefinition(nil), registry.Schemas[index].Fields...)
 	}
 	sort.Slice(registry.Schemas, func(left, right int) bool { return registry.Schemas[left].ID < registry.Schemas[right].ID })
 	return registry
+}
+
+func renderEndpointRegistryJSON(registry metadata.Registry) ([]byte, error) {
+	return encodeJSON(endpointRegistryDocument{GeneratedBy: generatedBy, Schema: endpointRegistrySchemaID, SchemaVersion: registry.SchemaVersion, Endpoints: registry.Endpoints})
+}
+
+func renderEndpointRegistrySchema() ([]byte, error) {
+	endpoint := strictObject([]string{"id", "method", "path", "ownerPhase", "dataSchema", "stream"}, map[string]any{
+		"id":          map[string]any{"type": "string", "pattern": "^api\\.v1\\.[a-z0-9.-]+$"},
+		"method":      map[string]any{"const": "GET"},
+		"path":        map[string]any{"type": "string", "pattern": "^/api/v1/"},
+		"ownerPhase":  map[string]any{"const": "2"},
+		"querySchema": map[string]any{"type": "string"},
+		"dataSchema":  map[string]any{"type": "string", "minLength": 1},
+		"stream":      map[string]any{"enum": []string{"finite", "sse"}},
+	})
+	return encodeJSON(map[string]any{
+		"$schema": jsonSchemaDialect, "$id": endpointRegistrySchemaID, "title": "VegaStack Labs endpoint registry", "x-generated-by": generatedBy,
+		"type": "object", "additionalProperties": false,
+		"required": []string{"generatedBy", "schema", "schemaVersion", "endpoints"},
+		"properties": map[string]any{
+			"generatedBy": map[string]any{"const": generatedBy}, "schema": map[string]any{"const": endpointRegistrySchemaID},
+			"schemaVersion": map[string]any{"type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$"},
+			"endpoints":     map[string]any{"type": "array", "minItems": 1, "items": endpoint},
+		},
+	})
 }
 
 func renderRegistryJSON(registry metadata.Registry) ([]byte, error) {
@@ -471,6 +520,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	}
 
 	output.WriteString("type Command struct {\n\tPath []string `json:\"path\"`\n\tSummary string `json:\"summary\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tRisk string `json:\"risk\"`\n\tFlags []Flag `json:\"flags,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tResultSchema string `json:\"resultSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema,omitempty\"`\n\tExamples []Example `json:\"examples,omitempty\"`\n}\n\n")
+	output.WriteString("type Endpoint struct {\n\tID string `json:\"id\"`\n\tMethod string `json:\"method\"`\n\tPath string `json:\"path\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tQuerySchema string `json:\"querySchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema\"`\n\tStream string `json:\"stream\"`\n}\n\n")
 	output.WriteString("type Flag struct {\n\tName string `json:\"name\"`\n\tKind string `json:\"kind\"`\n\tValueName string `json:\"valueName\"`\n\tRequired bool `json:\"required\"`\n\tRepeatable bool `json:\"repeatable\"`\n\tSummary string `json:\"summary\"`\n\tEnum []string `json:\"enum\"`\n}\n\n")
 	output.WriteString("type Example struct {\n\tSummary string `json:\"summary\"`\n\tArguments []string `json:\"arguments\"`\n}\n\n")
 	output.WriteString("var Commands = []Command{\n")
@@ -500,6 +550,11 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 			output.WriteString("}")
 		}
 		output.WriteString("},\n")
+	}
+	output.WriteString("}\n\n")
+	output.WriteString("var Endpoints = []Endpoint{\n")
+	for _, endpoint := range registry.Endpoints {
+		fmt.Fprintf(&output, "\t{ID: %s, Method: %s, Path: %s, OwnerPhase: %s, QuerySchema: %s, DataSchema: %s, Stream: %s},\n", strconv.Quote(endpoint.ID), strconv.Quote(endpoint.Method), strconv.Quote(endpoint.Path), strconv.Quote(endpoint.OwnerPhase), strconv.Quote(endpoint.QuerySchema), strconv.Quote(endpoint.DataSchema), strconv.Quote(string(endpoint.Stream)))
 	}
 	output.WriteString("}\n\n")
 	output.WriteString("var ErrorExitCodes = map[string]int{\n")
@@ -561,6 +616,17 @@ func renderMarkdown(registry metadata.Registry) ([]byte, error) {
 		}
 	}
 	return output.Bytes(), nil
+}
+
+func renderEndpointMarkdown(registry metadata.Registry) []byte {
+	var output bytes.Buffer
+	output.WriteString("<!-- Generated by go run ./tooling/generate-contracts --write; DO NOT EDIT. -->\n# vsk-labs endpoint registry\n\n")
+	fmt.Fprintf(&output, "Contract schema: `%s`\n\n", registry.SchemaVersion)
+	output.WriteString("| Operation | Method | Path | Stream | Data schema |\n|---|---|---|---|---|\n")
+	for _, endpoint := range registry.Endpoints {
+		fmt.Fprintf(&output, "| `%s` | `%s` | `%s` | `%s` | `%s` |\n", endpoint.ID, endpoint.Method, endpoint.Path, endpoint.Stream, endpoint.DataSchema)
+	}
+	return output.Bytes()
 }
 
 func strictObject(required []string, properties map[string]any) map[string]any {

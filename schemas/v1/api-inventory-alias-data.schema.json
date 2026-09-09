@@ -1,0 +1,42 @@
+{
+  "$id": "vegastack-labs.dev/api-inventory-alias-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "authority": {
+      "enum": [
+        "draft"
+      ],
+      "type": "string"
+    },
+    "id": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "targetId": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "validationStatus": {
+      "enum": [
+        "valid",
+        "blocked"
+      ],
+      "type": "string"
+    },
+    "value": {
+      "maxLength": 1024,
+      "type": "string"
+    }
+  },
+  "required": [
+    "authority",
+    "validationStatus",
+    "id",
+    "targetId",
+    "value"
+  ],
+  "title": "VegaStack Labs api inventory alias data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
