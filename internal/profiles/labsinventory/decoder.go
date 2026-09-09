@@ -86,6 +86,9 @@ func (decoder *Decoder) Decode(ctx context.Context, source io.Reader) (inventory
 	if err != nil {
 		return inventory.DecodedCandidate{}, err
 	}
+	if exceedsCoreLimits(decoded.Candidate) {
+		return inventory.DecodedCandidate{}, decodeError(ErrorCSVLimitExceeded, 0, 0, "candidate")
+	}
 	digest := sha256.Sum256(raw)
 	decoded.Candidate.Source.Digest = "sha256:" + hex.EncodeToString(digest[:])
 	return decoded, nil
@@ -212,6 +215,9 @@ func controlProhibited(value string) bool {
 	return false
 }
 
+// Keep this fail-closed decoder check aligned with inventory/secrets.go. The
+// core helper is deliberately unexported, so the profile cannot import an
+// internal validation implementation or defer until after raw values escape.
 var privatePrefixes = []string{"github_pat_", "ghp_", "gho_", "ghu_", "ghs_", "glpat-", "xoxb-", "xoxp-", "akia"}
 
 func privateDataProhibited(value string) bool {
@@ -231,6 +237,21 @@ func privateDataProhibited(value string) bool {
 		return hasPassword
 	}
 	return false
+}
+
+func exceedsCoreLimits(candidate inventory.DraftCandidate) bool {
+	primary := len(candidate.Assets) + len(candidate.Nodes) + len(candidate.Aliases) + len(candidate.Addresses) + len(candidate.Observations)
+	if primary > inventory.MaxPrimaryRecords || len(candidate.Provenance) > inventory.MaxProvenance {
+		return true
+	}
+	facts := 0
+	for _, asset := range candidate.Assets {
+		facts += len(asset.HardwareFacts)
+		if len(asset.Identities) > inventory.MaxIdentities || len(asset.HardwareFacts) > inventory.MaxFactsPerAsset {
+			return true
+		}
+	}
+	return facts > inventory.MaxHardwareFacts
 }
 
 var _ inventory.CandidateDecoder = (*Decoder)(nil)

@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/inventory"
 )
 
 type countingReader struct {
@@ -189,5 +191,23 @@ func TestDecoderEnforcesExactReadRecordAndFieldLimits(t *testing.T) {
 	}
 	many.WriteString("active,SYNTHETIC-OVER,,,,,,,,,,,,,\n")
 	_, err = newTestDecoder(t).Decode(context.Background(), bytes.NewReader(many.Bytes()))
+	assertDecodeCode(t, err, ErrorCSVLimitExceeded)
+}
+
+func TestDecoderRejectsExpandedCandidateBeyondCoreLimits(t *testing.T) {
+	var provenanceHeavy bytes.Buffer
+	provenanceHeavy.WriteString(strings.Join(expectedHeaderV1, ",") + "\n")
+	for index := 0; index < inventory.MaxProvenance/len(headerV1)+1; index++ {
+		provenanceHeavy.WriteString(fmt.Sprintf("retired,SYNTHETIC-LIMIT-%06d,,,,,,,,,,,,,\n", index))
+	}
+	_, err := newTestDecoder(t).Decode(context.Background(), bytes.NewReader(provenanceHeavy.Bytes()))
+	assertDecodeCode(t, err, ErrorCSVLimitExceeded)
+
+	var primaryHeavy bytes.Buffer
+	primaryHeavy.WriteString(strings.Join(expectedHeaderV1, ",") + "\n")
+	for index := 0; index < inventory.MaxPrimaryRecords/3+1; index++ {
+		primaryHeavy.WriteString(fmt.Sprintf("active,SYNTHETIC-ACTIVE-%06d,,,,,,,,,,,,,\n", index))
+	}
+	_, err = newTestDecoder(t).Decode(context.Background(), bytes.NewReader(primaryHeavy.Bytes()))
 	assertDecodeCode(t, err, ErrorCSVLimitExceeded)
 }

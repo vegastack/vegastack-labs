@@ -1,6 +1,8 @@
 package labsinventory
 
 import (
+	"context"
+	"strings"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/inventory"
@@ -103,4 +105,16 @@ func TestCountsAndTextFactsPreserveTypedSourceValues(t *testing.T) {
 		t.Fatalf("model fact = %#v", model)
 	}
 	assertBlockingFinding(t, decoded.Findings, "UNSUPPORTED_VALUE", "hardwareFacts.sheet1-row-000004-cpu-physical-cores.integerValue")
+}
+
+func TestAbsentHardwareGroupsDoNotCreateObservations(t *testing.T) {
+	raw := strings.Join(expectedHeaderV1, ",") + "\n" +
+		"retired,SYNTHETIC-NO-HARDWARE,,,,,,,,,,,,,\n"
+	decoded, err := newTestDecoder(t).Decode(context.Background(), strings.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded.Candidate.Observations) != 0 {
+		t.Fatalf("observations = %#v", decoded.Candidate.Observations)
+	}
 }

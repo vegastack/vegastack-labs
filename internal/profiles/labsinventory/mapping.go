@@ -11,6 +11,9 @@ import (
 const identityHardwareSerial = "hardware-serial"
 
 func mapRecords(ctx context.Context, config Config, records [][]string) (inventory.DecodedCandidate, error) {
+	if ctx.Err() != nil {
+		return inventory.DecodedCandidate{}, decodeError(ErrorInterrupted, 0, 0, "")
+	}
 	decoded := inventory.DecodedCandidate{Candidate: inventory.DraftCandidate{Source: inventory.SourceDescriptor{
 		Kind:           "csv",
 		AdapterKind:    Format,
@@ -45,9 +48,9 @@ func mapRecords(ctx context.Context, config Config, records [][]string) (invento
 		if lifecycleFinding.Code != "" {
 			decoded.Findings = append(decoded.Findings, lifecycleFinding)
 		}
-		setSourceStatus(decoded.Candidate.Provenance, assetID, "lifecycle", lifecycleStatus)
-		setSourceStatus(decoded.Candidate.Provenance, assetID, "hardware_serial", sourceStatus(row[1], lifecycle))
-		setSourceStatus(decoded.Candidate.Provenance, assetID, "reported_hostname", sourceStatus(row[2], lifecycle))
+		setSourceStatus(decoded.Candidate.Provenance, assetID, sourceFieldPath(record, "lifecycle"), lifecycleStatus)
+		setSourceStatus(decoded.Candidate.Provenance, assetID, sourceFieldPath(record, "hardware_serial"), sourceStatus(row[1], lifecycle))
+		setSourceStatus(decoded.Candidate.Provenance, assetID, sourceFieldPath(record, "reported_hostname"), sourceStatus(row[2], lifecycle))
 		if !active {
 			continue
 		}
@@ -71,11 +74,13 @@ func mapRecords(ctx context.Context, config Config, records [][]string) (invento
 		decoded.Candidate.Aliases = append(decoded.Candidate.Aliases, inventory.DraftAlias{ID: reportedID, TargetID: nodeID, Value: row[2]})
 		decoded.Candidate.Provenance = append(decoded.Candidate.Provenance, aliasProvenance(record, reportedID, "reported_hostname", "reported", config.CapturedAt))
 	}
+	if ctx.Err() != nil {
+		return inventory.DecodedCandidate{}, decodeError(ErrorInterrupted, 0, 0, "")
+	}
 	return decoded, nil
 }
 
-func setSourceStatus(provenance []inventory.FieldProvenance, assetID inventory.LocalID, field, status string) {
-	path := sourceFieldPathFromName(assetID, field)
+func setSourceStatus(provenance []inventory.FieldProvenance, assetID inventory.LocalID, path, status string) {
 	for index := range provenance {
 		if provenance[index].RecordID == assetID && provenance[index].FieldPath == path {
 			provenance[index].ValueStatus = status
@@ -113,16 +118,12 @@ func sourceProvenance(record int, assetID inventory.LocalID, field, status strin
 	return inventory.FieldProvenance{
 		RecordKind:     "asset",
 		RecordID:       assetID,
-		FieldPath:      sourceFieldPathFromName(assetID, field),
+		FieldPath:      sourceFieldPath(record, field),
 		Locator:        rowLocator(record, field),
 		CapturedAt:     capturedAt,
 		AdapterVersion: AdapterVersion,
 		ValueStatus:    status,
 	}
-}
-
-func sourceFieldPathFromName(assetID inventory.LocalID, field string) string {
-	return "assets." + string(assetID[:len(assetID)-len("-asset")]) + "." + field
 }
 
 func aliasProvenance(record int, aliasID inventory.LocalID, field, status string, capturedAt time.Time) inventory.FieldProvenance {
