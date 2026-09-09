@@ -12,7 +12,10 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
+	"github.com/vegastack/vegastack-labs/internal/inventoryops"
 )
 
 func TestInventoryRepositoryPersistsBlockedDraftAtomicallyAndImmutably(t *testing.T) {
@@ -242,6 +245,50 @@ func TestInventoryRepositoryFaultAndCancellationRollBack(t *testing.T) {
 	}
 	if got := readStateRevision(t, store); got != 0 {
 		t.Fatalf("cancel state revision = %d", got)
+	}
+}
+
+func TestInventoryDiffSnapshotIsAuthorizedCompatibleAndPinned(t *testing.T) {
+	store := newInventoryTestStore(t)
+	repository := NewInventoryDraftRepository(store)
+	baselineRequest := inventoryPutRequest("sha256:"+strings.Repeat("a", 64), inventory.DraftValid)
+	baselineRequest.DraftID = "draft-baseline"
+	baselineRequest.Draft.Candidate.Source.SourceRevision = "source-baseline"
+	baselineRequest.CandidateDigest = "sha256:" + strings.Repeat("b", 64)
+	baselineRequest.Draft.ContentDigest = baselineRequest.CandidateDigest
+	syncInventoryAuditRequest(&baselineRequest)
+	baseline, err := repository.Put(context.Background(), baselineRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidateRequest := inventoryPutRequest("sha256:"+strings.Repeat("c", 64), inventory.DraftValid)
+	candidateRequest.DraftID = "draft-candidate"
+	candidateRequest.Draft.Candidate.Source.SourceRevision = "source-candidate"
+	candidateRequest.CandidateDigest = "sha256:" + strings.Repeat("d", 64)
+	candidateRequest.Draft.ContentDigest = candidateRequest.CandidateDigest
+	syncInventoryAuditRequest(&candidateRequest)
+	candidate, err := repository.Put(context.Background(), candidateRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, ref := range []inventory.DraftRef{baseline.Ref, candidate.Ref} {
+		seedReadGrant(t, store, "principal-diff", "inventory.draft.diff", "inventory-draft", authorization.ResourceID(ref), 1, "active")
+	}
+	scope, err := NewReadAuthorizer(store).AuthorizeRead(context.Background(), identity.Principal{ID: "principal-diff", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "inventory.draft.diff", ResourceKind: "inventory-draft"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolved, err := repository.ResolveDiffSnapshot(context.Background(), inventoryops.DiffSnapshotRequest{Scope: scope, Candidate: &candidate.Ref})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Candidate == nil || resolved.Candidate.Ref != candidate.Ref || resolved.Baseline.Ref != baseline.Ref || resolved.StateRevision != candidate.CommitStateRevision || resolved.RecoveryEpoch != candidate.RecoveryEpoch {
+		t.Fatalf("resolved = %#v", resolved)
+	}
+	unauthorized := scope
+	unauthorized.ScopeDigest = "sha256:" + strings.Repeat("0", 64)
+	if _, err := repository.ResolveDiffSnapshot(context.Background(), inventoryops.DiffSnapshotRequest{Scope: unauthorized, Candidate: &candidate.Ref}); Code(err) != "AUTHORIZATION_DENIED" {
+		t.Fatalf("unauthorized code = %q", Code(err))
 	}
 }
 
