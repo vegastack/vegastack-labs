@@ -11,13 +11,20 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.2.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.2.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.3.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.3.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
 	if input.Version != "1.0.0" || result.Version != "1.0.0" {
 		t.Fatalf("inventory versions = (%q, %q)", input.Version, result.Version)
+	}
+	seenEventID := false
+	for _, field := range result.Fields {
+		seenEventID = seenEventID || field.JSONName == "eventId"
+	}
+	if !seenEventID {
+		t.Fatal("inventory import result does not expose its durable event ID")
 	}
 	encoded, err := json.Marshal(struct {
 		Input  []FieldDefinition
@@ -29,6 +36,35 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	forbidden := regexp.MustCompile(`(?i)(labs\.vegastack|google|sheet|provider|vsk-node|spreadsheet|columnName)`)
 	if forbidden.Match(encoded) {
 		t.Fatalf("inventory contract leaks deployment/adapter vocabulary: %s", encoded)
+	}
+}
+
+func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	if registry.SchemaVersion != "1.3.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.3.0", registry.SchemaVersion)
+	}
+	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
+	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
+	if event.ArtifactPath != "schemas/v1/audit-event.schema.json" || outbox.ArtifactPath != "schemas/v1/outbox-record-data.schema.json" {
+		t.Fatalf("audit artifacts = %q, %q", event.ArtifactPath, outbox.ArtifactPath)
+	}
+	encoded, err := json.Marshal([][]FieldDefinition{event.Fields, outbox.Fields})
+	if err != nil {
+		t.Fatal(err)
+	}
+	forbidden := regexp.MustCompile(`(?i)(raw|path|prompt|secret|providerResponse|lastError[^C])`)
+	if forbidden.Match(encoded) {
+		t.Fatalf("audit contract contains unsafe/open field: %s", encoded)
+	}
+	for _, schema := range []SchemaDefinition{event, outbox} {
+		for _, field := range schema.Fields {
+			if !field.Required || field.AdditionalProperties {
+				t.Fatalf("field %s.%s is not closed/required", schema.ID, field.JSONName)
+			}
+		}
 	}
 }
 
@@ -47,8 +83,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.2.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.2.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.3.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.3.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{"help": false, "release inspect": false, "release verify": false, "server run": false, "server status": false, "version": false}

@@ -28,6 +28,9 @@ const (
 	inventoryFieldProvenanceSchemaID   = "vegastack-labs.dev/inventory-field-provenance"
 	inventoryFindingSchemaID           = "vegastack-labs.dev/inventory-finding"
 	inventoryDraftCountsSchemaID       = "vegastack-labs.dev/inventory-draft-counts"
+	auditEventSchemaID                 = "vegastack-labs.dev/audit-event"
+	auditTargetSchemaID                = "vegastack-labs.dev/audit-target"
+	outboxRecordDataSchemaID           = "vegastack-labs.dev/outbox-record-data"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -146,7 +149,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.2.0",
+		SchemaVersion: "1.3.0",
 		Commands:      commands,
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
@@ -433,7 +436,66 @@ func currentSchemas() []SchemaDefinition {
 			},
 		},
 	}
-	return append(schemas, inventorySchemas()...)
+	schemas = append(schemas, inventorySchemas()...)
+	return append(schemas, auditSchemas()...)
+}
+
+func auditSchemas() []SchemaDefinition {
+	tokenPattern := `^[A-Za-z0-9][A-Za-z0-9._:-]*$`
+	fingerprintPattern := `^sha256:[0-9a-f]{64}$`
+	return []SchemaDefinition{
+		{
+			ID: auditTargetSchemaID, Version: "1.0.0",
+			Fields: []FieldDefinition{
+				{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Pattern: tokenPattern, MaxLength: intPointer(64)},
+				{JSONName: "id", GoName: "ID", Kind: ValueString, Required: true, Pattern: tokenPattern, MaxLength: intPointer(128)},
+			},
+		},
+		{
+			ID: auditEventSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/audit-event.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{auditEventSchemaID}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "eventId", GoName: "EventID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+				{JSONName: "occurredAt", GoName: "OccurredAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+				{JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)},
+				{JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)},
+				{JSONName: "type", GoName: "Type", Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9]*(\.[a-z][a-z0-9-]*){1,5}$`, MaxLength: intPointer(96)},
+				{JSONName: "correlationId", GoName: "CorrelationID", Kind: ValueString, Required: true, Pattern: tokenPattern, MaxLength: intPointer(128)},
+				{JSONName: "causationEventId", GoName: "CausationEventID", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(1)},
+				{JSONName: "correctionOfEventId", GoName: "CorrectionOfEventID", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(1)},
+				{JSONName: "principalId", GoName: "PrincipalID", Kind: ValueString, Required: true, Pattern: tokenPattern, MaxLength: intPointer(128)},
+				{JSONName: "principalMethod", GoName: "PrincipalMethod", Kind: ValueString, Required: true, Pattern: tokenPattern, MaxLength: intPointer(64)},
+				{JSONName: "responsibleHumanPrincipalId", GoName: "ResponsibleHumanPrincipalID", Kind: ValueString, Required: true, Nullable: true, Pattern: tokenPattern, MaxLength: intPointer(128)},
+				{JSONName: "agentName", GoName: "AgentName", Kind: ValueString, Required: true, Nullable: true, Pattern: tokenPattern, MaxLength: intPointer(64)},
+				{JSONName: "agentSessionId", GoName: "AgentSessionID", Kind: ValueString, Required: true, Nullable: true, Pattern: tokenPattern, MaxLength: intPointer(128)},
+				{JSONName: "agentSource", GoName: "AgentSource", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"self-reported"}},
+				{JSONName: "target", GoName: "Target", Kind: ValueObject, Required: true, Ref: auditTargetSchemaID},
+				{JSONName: "beforeFingerprint", GoName: "BeforeFingerprint", Kind: ValueString, Required: true, Nullable: true, Pattern: fingerprintPattern},
+				{JSONName: "afterFingerprint", GoName: "AfterFingerprint", Kind: ValueString, Required: true, Nullable: true, Pattern: fingerprintPattern},
+			},
+		},
+		{
+			ID: outboxRecordDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/outbox-record-data.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "outboxId", GoName: "OutboxID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+				{JSONName: "eventId", GoName: "EventID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+				{JSONName: "destinationId", GoName: "DestinationID", Kind: ValueString, Required: true, Pattern: tokenPattern, MaxLength: intPointer(96)},
+				{JSONName: "payloadSchema", GoName: "PayloadSchema", Kind: ValueString, Required: true, Enum: []string{auditEventSchemaID}},
+				{JSONName: "payloadVersion", GoName: "PayloadVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "payloadSha256", GoName: "PayloadSHA256", Kind: ValueString, Required: true, Pattern: fingerprintPattern},
+				{JSONName: "dedupeSha256", GoName: "DedupeSHA256", Kind: ValueString, Required: true, Pattern: fingerprintPattern},
+				{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"pending", "retry_wait", "paused", "delivered", "dead_letter"}},
+				{JSONName: "attemptCount", GoName: "AttemptCount", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(8)},
+				{JSONName: "maxAttempts", GoName: "MaxAttempts", Kind: ValueInteger, Required: true, Minimum: int64Pointer(8), Maximum: int64Pointer(8)},
+				{JSONName: "nextAttemptAt", GoName: "NextAttemptAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)},
+				{JSONName: "lastErrorCode", GoName: "LastErrorCode", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"DESTINATION_UNAVAILABLE", "DELIVERY_REJECTED", "PAYLOAD_INVALID", "INTERRUPTED"}},
+				{JSONName: "createdAt", GoName: "CreatedAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+				{JSONName: "updatedAt", GoName: "UpdatedAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+				{JSONName: "deliveredAt", GoName: "DeliveredAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)},
+			},
+		},
+	}
 }
 
 func inventorySchemas() []SchemaDefinition {
@@ -528,7 +590,7 @@ func inventorySchemas() []SchemaDefinition {
 		{
 			ID: inventoryImportDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-import-data.schema.json",
 			Fields: []FieldDefinition{
-				token("draftId", "DraftID", true), {JSONName: "draftRevision", GoName: "DraftRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, {JSONName: "sourceDigest", GoName: "SourceDigest", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`}, {JSONName: "contentDigest", GoName: "ContentDigest", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`}, {JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "created", GoName: "Created", Kind: ValueBoolean, Required: true}, {JSONName: "counts", GoName: "Counts", Kind: ValueObject, Required: true, Ref: inventoryDraftCountsSchemaID}, {JSONName: "findings", GoName: "Findings", Kind: ValueArray, Required: true, ItemRef: inventoryFindingSchemaID, MaxItems: intPointer(maxFacts)},
+				token("draftId", "DraftID", true), {JSONName: "draftRevision", GoName: "DraftRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, {JSONName: "sourceDigest", GoName: "SourceDigest", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`}, {JSONName: "contentDigest", GoName: "ContentDigest", Kind: ValueString, Required: true, Pattern: `^sha256:[0-9a-f]{64}$`}, {JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}, {JSONName: "eventId", GoName: "EventID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)}, {JSONName: "created", GoName: "Created", Kind: ValueBoolean, Required: true}, {JSONName: "counts", GoName: "Counts", Kind: ValueObject, Required: true, Ref: inventoryDraftCountsSchemaID}, {JSONName: "findings", GoName: "Findings", Kind: ValueArray, Required: true, ItemRef: inventoryFindingSchemaID, MaxItems: intPointer(maxFacts)},
 			},
 		},
 	}

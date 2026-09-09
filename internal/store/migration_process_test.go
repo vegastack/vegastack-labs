@@ -144,7 +144,7 @@ func runRecoveryGateProcessHelper() {
 	if err != nil {
 		os.Exit(51)
 	}
-	pending := append(mustCatalogForProcess(), testMigration(2, "0002_must_not_run", `CREATE TABLE must_not_run(id INTEGER PRIMARY KEY) STRICT;`))
+	pending := append(mustCatalogForProcess(), testMigration(4, "0004_must_not_run", `CREATE TABLE must_not_run(id INTEGER PRIMARY KEY) STRICT;`))
 	if err := store.migrate(context.Background(), pending); Code(err) != "MIGRATION_BLOCKED" {
 		os.Exit(52)
 	}

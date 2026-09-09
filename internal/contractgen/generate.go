@@ -360,7 +360,16 @@ func schemaProperties(definition metadata.SchemaDefinition, errors []metadata.Er
 			property["items"] = map[string]any{"type": string(field.ItemKind)}
 		}
 		if len(field.Enum) != 0 {
-			property["enum"] = field.Enum
+			if field.Nullable {
+				values := make([]any, 0, len(field.Enum)+1)
+				values = append(values, nil)
+				for _, value := range field.Enum {
+					values = append(values, value)
+				}
+				property["enum"] = values
+			} else {
+				property["enum"] = field.Enum
+			}
 		}
 		if definition.ID == "vegastack-labs.dev/result-error" && field.JSONName == "code" {
 			codes := make([]string, 0, len(errors))

@@ -119,6 +119,25 @@ func TestCatalogReservesSecondMigrationForInventoryDrafts(t *testing.T) {
 	}
 }
 
+func TestCatalogAddsAuditOutboxAsExactlyMigrationThree(t *testing.T) {
+	t.Parallel()
+	catalog, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog) != 3 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" {
+		t.Fatalf("third migration = %#v", catalog)
+	}
+	if sha256.Sum256([]byte(catalog[2].SQL)) != catalog[2].SHA256 {
+		t.Fatal("migration 0003 checksum mismatch")
+	}
+	for _, required := range []string{"audit_sequence", "audit_events", "intent_keys", "outbox", "canonical_payload", "payload_sha256", "dedupe_sha256", "retry_wait", "dead_letter", "no_update", "no_delete"} {
+		if !containsFold(catalog[2].SQL, required) {
+			t.Errorf("audit migration is missing %q", required)
+		}
+	}
+}
+
 func TestCatalogDigestIsStableAcrossInputOrder(t *testing.T) {
 	t.Parallel()
 

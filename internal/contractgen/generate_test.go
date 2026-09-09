@@ -30,9 +30,11 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"internal/generated/contracts_gen.go",
 		"schemas/v1/command-registry.json",
 		"schemas/v1/command-registry.schema.json",
+		"schemas/v1/audit-event.schema.json",
 		"schemas/v1/database-status-data.schema.json",
 		"schemas/v1/inventory-draft-input.schema.json",
 		"schemas/v1/inventory-import-data.schema.json",
+		"schemas/v1/outbox-record-data.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
 		"schemas/v1/release-manifest.schema.json",
 		"schemas/v1/release-trust-policy.schema.json",
@@ -82,6 +84,46 @@ func TestGenerateEmitsInventoryArtifactsAndClosedInput(t *testing.T) {
 		"type InventoryDraftAsset struct",
 		"type InventoryFieldProvenance struct",
 	} {
+		if !strings.Contains(generatedGo, declaration) {
+			t.Errorf("missing %q", declaration)
+		}
+	}
+}
+
+func TestGenerateEmitsClosedAuditArtifactsAndTypes(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := map[string][]byte{}
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = artifact.Content
+	}
+	for _, path := range []string{"schemas/v1/audit-event.schema.json", "schemas/v1/outbox-record-data.schema.json"} {
+		var schema map[string]any
+		if err := json.Unmarshal(byPath[path], &schema); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if schema["additionalProperties"] != false {
+			t.Fatalf("%s additionalProperties = %v", path, schema["additionalProperties"])
+		}
+	}
+	var auditSchema struct {
+		Properties map[string]struct {
+			Enum []any `json:"enum"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(byPath["schemas/v1/audit-event.schema.json"], &auditSchema); err != nil {
+		t.Fatal(err)
+	}
+	agentSource := auditSchema.Properties["agentSource"].Enum
+	if len(agentSource) != 2 || agentSource[0] != nil || agentSource[1] != "self-reported" {
+		t.Fatalf("nullable enum excludes null: %#v", agentSource)
+	}
+	generatedGo := string(byPath["internal/generated/contracts_gen.go"])
+	for _, declaration := range []string{"type AuditEvent struct", "type AuditTarget struct", "type OutboxRecordData struct"} {
 		if !strings.Contains(generatedGo, declaration) {
 			t.Errorf("missing %q", declaration)
 		}
@@ -200,7 +242,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.2.0"`,
+		`= "1.3.0"`,
 		`type DatabaseStatusData struct`,
 		`SchemaIDRunResult`,
 		`SchemaIDResultError`,

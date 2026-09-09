@@ -1,0 +1,115 @@
+{
+  "$id": "vegastack-labs.dev/outbox-record-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "attemptCount": {
+      "maximum": 8,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "createdAt": {
+      "maxLength": 64,
+      "type": "string"
+    },
+    "dedupeSha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "deliveredAt": {
+      "maxLength": 64,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "destinationId": {
+      "maxLength": 96,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "eventId": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "lastErrorCode": {
+      "enum": [
+        null,
+        "DESTINATION_UNAVAILABLE",
+        "DELIVERY_REJECTED",
+        "PAYLOAD_INVALID",
+        "INTERRUPTED"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "maxAttempts": {
+      "maximum": 8,
+      "minimum": 8,
+      "type": "integer"
+    },
+    "nextAttemptAt": {
+      "maxLength": 64,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "outboxId": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "payloadSchema": {
+      "enum": [
+        "vegastack-labs.dev/audit-event"
+      ],
+      "type": "string"
+    },
+    "payloadSha256": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "payloadVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "retry_wait",
+        "paused",
+        "delivered",
+        "dead_letter"
+      ],
+      "type": "string"
+    },
+    "updatedAt": {
+      "maxLength": 64,
+      "type": "string"
+    }
+  },
+  "required": [
+    "outboxId",
+    "eventId",
+    "destinationId",
+    "payloadSchema",
+    "payloadVersion",
+    "payloadSha256",
+    "dedupeSha256",
+    "status",
+    "attemptCount",
+    "maxAttempts",
+    "nextAttemptAt",
+    "lastErrorCode",
+    "createdAt",
+    "updatedAt",
+    "deliveredAt"
+  ],
+  "title": "VegaStack Labs outbox record data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
