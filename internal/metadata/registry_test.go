@@ -30,8 +30,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.4.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.4.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.5.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.5.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -62,8 +62,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.4.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.4.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.5.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.5.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -87,6 +87,46 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	}
 }
 
+func TestStateExportContractsAreClosedBoundedAndDraftOnly(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	want := map[string]string{
+		stateExportPayloadSchemaID:   "schemas/v1/inventory-draft-snapshot-payload.schema.json",
+		stateExportSignatureSchemaID: "schemas/v1/inventory-draft-export-signature.schema.json",
+		stateExportDocumentSchemaID:  "schemas/v1/signed-inventory-draft-export.schema.json",
+		stateExportPointerSchemaID:   "schemas/v1/inventory-draft-export-pointer.schema.json",
+	}
+	for identifier, artifact := range want {
+		definition := schemaByID(t, registry, identifier)
+		if definition.Version != "1.0.0" || definition.ArtifactPath != artifact {
+			t.Fatalf("export schema %s = %#v", identifier, definition)
+		}
+		for _, field := range definition.Fields {
+			if !field.Required || field.AdditionalProperties {
+				t.Fatalf("export field %s.%s is not closed and required", identifier, field.JSONName)
+			}
+		}
+	}
+	payload := schemaByID(t, registry, stateExportPayloadSchemaID)
+	encoded, err := json.Marshal(payload.Fields)
+	if err != nil {
+		t.Fatal(err)
+	}
+	forbidden := regexp.MustCompile(`(?i)(secret|credential|session|approval|planId|runId|databasePath|providerResponse|rawInput)`)
+	if forbidden.Match(encoded) {
+		t.Fatalf("state export contract contains private or authoritative vocabulary: %s", encoded)
+	}
+	profile := schemaByID(t, registry, serverProfileSchemaID)
+	foundRoot := false
+	for _, field := range profile.Fields {
+		foundRoot = foundRoot || field.JSONName == "inventoryExportRoot" && field.Required && field.MaxLength != nil && *field.MaxLength == 4096
+	}
+	if !foundRoot {
+		t.Fatal("server profile does not own the protected inventory export root")
+	}
+}
+
 func schemaByID(t *testing.T, registry Registry, id string) SchemaDefinition {
 	t.Helper()
 	for _, schema := range registry.Schemas {
@@ -102,8 +142,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.4.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.4.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.5.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.5.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{"help": false, "release inspect": false, "release verify": false, "server run": false, "server status": false, "version": false}

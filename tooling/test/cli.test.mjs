@@ -532,6 +532,84 @@ test("offline release code accepts local bytes and exact non-regex identity", as
   assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
 });
 
+test("production cannot provide export keys or reuse release trust", async (t) => {
+  const keyRepo = await fixtureRepo(t, {
+    "internal/stateexport/key.go": "package stateexport\nimport \"crypto/ed25519\"\nvar privateKey ed25519.PrivateKey\n",
+  });
+  assert.deepEqual((await verifyCLI(keyRepo, { crossBuild: false })).codes, [
+    "CLI_STATE_EXPORT_TRUST",
+  ]);
+
+  const releaseRepo = await fixtureRepo(t, {
+    "internal/stateexport/release.go": "package stateexport\nimport _ \"example.test/internal/release\"\n",
+    "internal/release/policy.go": "package release\ntype ReleaseTrustPolicy struct{}\n",
+  });
+  assert.deepEqual((await verifyCLI(releaseRepo, { crossBuild: false })).codes, [
+    "CLI_STATE_EXPORT_RELEASE_COUPLING",
+  ]);
+});
+
+test("production cannot compose concrete export signer and verifier implementations", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/stateexport/types.go": "package stateexport\ntype Config struct { Signer any; Verifier any }\n",
+    "internal/server/export.go": "package server\nimport se \"example.test/internal/stateexport\"\nvar configured = se.Config{Signer: struct{}{}, Verifier: struct{}{}}\n",
+  });
+  assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
+    "CLI_STATE_EXPORT_TRUST",
+  ]);
+});
+
+test("production cannot assign export trust fields before NewService", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/server")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/stateexport/types.go": [
+      "package stateexport",
+      "type Config struct { Signer any; Verifier any }",
+      "func NewService(Config) {}",
+      "",
+    ].join("\n"),
+    "internal/server/export.go": [
+      "package server",
+      'import se "example.test/internal/stateexport"',
+      "var adapter = struct{}{}",
+      "func wire() {",
+      "  cfg := se.Config{}",
+      "  cfg.Signer, cfg.Verifier = adapter, adapter",
+      "  se.NewService(cfg)",
+      "}",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
+    "CLI_STATE_EXPORT_TRUST",
+  ]);
+});
+
+test("production executable closure cannot import asymmetric signing packages", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/exportadapter")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/exportadapter/sign.go": [
+      "package exportadapter",
+      'import "crypto/ed25519"',
+      "var publicKey ed25519.PublicKey",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
+    "CLI_STATE_EXPORT_TRUST",
+  ]);
+});
+
 test("the CLI verifier scans target-specific dependency closures", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/escape_windows.go": [
@@ -593,6 +671,8 @@ test("the CLI verifier fails closed when the analyzer reports a mismatched targe
           releaseNetworkAccess: false,
           sqliteAccess: false,
           shellDispatch: false,
+          stateExportReleaseCoupling: false,
+          stateExportTrust: false,
           targetsAnalyzed: [target],
         })}\n`,
       };
@@ -616,6 +696,8 @@ test("the CLI verifier fails closed on missing or nonboolean analyzer fields", a
       releaseNetworkAccess: false,
       sqliteAccess: false,
       shellDispatch: false,
+      stateExportReleaseCoupling: false,
+      stateExportTrust: false,
       targetsAnalyzed: ["linux/amd64"],
     },
   ];

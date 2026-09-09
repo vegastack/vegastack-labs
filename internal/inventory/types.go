@@ -207,6 +207,10 @@ type RecordListQuery struct {
 	Sort         string
 }
 
+// CanonicalDraftSnapshot preserves normalization's total order: top-level
+// records use their canonical JSON keys, identities use kind/value, hardware
+// facts use their canonical JSON keys, findings use the deterministic finding
+// rank, and related IDs are ordered. It is still an inert draft projection.
 type CanonicalDraftSnapshot struct {
 	Kind             string                `json:"kind"`
 	Ref              DraftRef              `json:"ref"`

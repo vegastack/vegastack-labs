@@ -1,0 +1,682 @@
+{
+  "$defs": {
+    "inventory-draft-address": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "nodeId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "nodeId",
+        "value"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-alias": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "targetId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "targetId",
+        "value"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-asset": {
+      "additionalProperties": false,
+      "properties": {
+        "hardwareFacts": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-hardware-fact"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-identity"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "physical",
+            "virtual",
+            "network",
+            "storage",
+            "other"
+          ],
+          "type": "string"
+        },
+        "lifecycle": {
+          "enum": [
+            "candidate",
+            "available",
+            "quarantined",
+            "retired"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "lifecycle",
+        "identities",
+        "hardwareFacts"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-export-signature": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {
+          "enum": [
+            "ed25519"
+          ],
+          "type": "string"
+        },
+        "keyFingerprint": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "keyId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 86,
+          "minLength": 86,
+          "pattern": "^[A-Za-z0-9_-]{86}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "algorithm",
+        "keyId",
+        "keyFingerprint",
+        "value"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-hardware-fact": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "integerValue": {
+          "minimum": 0,
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "manufacturer",
+            "model",
+            "chassis",
+            "firmware-version",
+            "cpu-architecture",
+            "cpu-model",
+            "cpu-physical-cores",
+            "cpu-logical-threads",
+            "memory-capacity",
+            "storage-capacity"
+          ],
+          "type": "string"
+        },
+        "textValue": {
+          "maxLength": 1024,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "unit": {
+          "enum": [
+            "",
+            "bytes",
+            "count"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "kind",
+        "integerValue",
+        "textValue",
+        "unit"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-identity": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "hardware-serial",
+            "installation",
+            "machine",
+            "virtual-instance",
+            "ssh-host-key-fingerprint"
+          ],
+          "type": "string"
+        },
+        "quarantined": {
+          "type": "boolean"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "value",
+        "quarantined"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-node": {
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "parentId": {
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "assetId",
+        "parentId"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-observation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "observedAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "subjectId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "value": {
+          "maxLength": 1024,
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "subjectId",
+        "kind",
+        "value",
+        "observedAt"
+      ],
+      "type": "object"
+    },
+    "inventory-draft-snapshot-payload": {
+      "additionalProperties": false,
+      "properties": {
+        "contents": {
+          "items": {
+            "$ref": "#/$defs/state-export-kind-count"
+          },
+          "maxItems": 1,
+          "minItems": 1,
+          "type": "array"
+        },
+        "draft": {
+          "$ref": "#/$defs/state-export-draft"
+        },
+        "exportKind": {
+          "enum": [
+            "inventory-draft-snapshot"
+          ],
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "releaseBuildId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/inventory-draft-snapshot-payload"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "sourceRevision": {
+          "pattern": "^[0-9a-f]{40,64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "stateRevision": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "subjectKind": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        },
+        "toolVersion": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "exportKind",
+        "subjectKind",
+        "recoveryEpoch",
+        "stateRevision",
+        "toolVersion",
+        "releaseBuildId",
+        "sourceRevision",
+        "contents",
+        "draft"
+      ],
+      "type": "object"
+    },
+    "inventory-field-provenance": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterVersion": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "capturedAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "fieldPath": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "locator": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "recordId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "recordKind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "valueStatus": {
+          "enum": [
+            "observed",
+            "declared",
+            "unrecognized",
+            "invalid"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "recordKind",
+        "recordId",
+        "fieldPath",
+        "locator",
+        "capturedAt",
+        "adapterVersion",
+        "valueStatus"
+      ],
+      "type": "object"
+    },
+    "inventory-finding": {
+      "additionalProperties": false,
+      "properties": {
+        "blocking": {
+          "type": "boolean"
+        },
+        "code": {
+          "enum": [
+            "DUPLICATE_RECORD_ID",
+            "DUPLICATE_IDENTITY",
+            "DUPLICATE_ALIAS",
+            "DUPLICATE_ADDRESS",
+            "MISSING_REFERENCE",
+            "REFERENCE_CYCLE",
+            "IDENTITY_CONFLICT",
+            "IDENTITY_QUARANTINED",
+            "IDENTITY_UNSUPPORTED",
+            "UNSUPPORTED_VALUE",
+            "INVALID_CAPACITY",
+            "MISSING_REQUIRED_FIELD",
+            "PROHIBITED_SECRET_VALUE"
+          ],
+          "type": "string"
+        },
+        "fieldPath": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "location": {
+          "maxLength": 256,
+          "type": "string"
+        },
+        "recordId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "recordKind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "relatedIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 64,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "severity": {
+          "enum": [
+            "error"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "severity",
+        "blocking",
+        "recordKind",
+        "recordId",
+        "fieldPath",
+        "location",
+        "relatedIds"
+      ],
+      "type": "object"
+    },
+    "state-export-draft": {
+      "additionalProperties": false,
+      "properties": {
+        "addresses": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-address"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "aliases": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-alias"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "assets": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-asset"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "contentDigest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "findings": {
+          "items": {
+            "$ref": "#/$defs/inventory-finding"
+          },
+          "maxItems": 16384,
+          "type": "array"
+        },
+        "kind": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        },
+        "nodes": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-node"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "observations": {
+          "items": {
+            "$ref": "#/$defs/inventory-draft-observation"
+          },
+          "maxItems": 4096,
+          "type": "array"
+        },
+        "provenance": {
+          "items": {
+            "$ref": "#/$defs/inventory-field-provenance"
+          },
+          "maxItems": 32768,
+          "type": "array"
+        },
+        "ref": {
+          "$ref": "#/$defs/state-export-draft-ref"
+        },
+        "source": {
+          "$ref": "#/$defs/state-export-source"
+        },
+        "validationStatus": {
+          "enum": [
+            "blocked",
+            "valid"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "ref",
+        "validationStatus",
+        "source",
+        "assets",
+        "nodes",
+        "aliases",
+        "addresses",
+        "observations",
+        "provenance",
+        "findings",
+        "contentDigest"
+      ],
+      "type": "object"
+    },
+    "state-export-draft-ref": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "revision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "id",
+        "revision"
+      ],
+      "type": "object"
+    },
+    "state-export-kind-count": {
+      "additionalProperties": false,
+      "properties": {
+        "count": {
+          "maximum": 1,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "kind": {
+          "enum": [
+            "inventory-draft"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "count"
+      ],
+      "type": "object"
+    },
+    "state-export-source": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterKind": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "adapterVersion": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "capturedAt": {
+          "maxLength": 64,
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[0-9a-f]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceRevision": {
+          "maxLength": 128,
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "adapterKind",
+        "adapterVersion",
+        "sourceRevision",
+        "digest",
+        "capturedAt"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/signed-inventory-draft-export",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "contentDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "payload": {
+      "$ref": "#/$defs/inventory-draft-snapshot-payload"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/signed-inventory-draft-export"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "signature": {
+      "$ref": "#/$defs/inventory-draft-export-signature"
+    },
+    "verificationStatus": {
+      "enum": [
+        "verified"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "payload",
+    "contentDigest",
+    "signature",
+    "verificationStatus"
+  ],
+  "title": "VegaStack Labs signed inventory draft export",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -18,12 +18,13 @@ import (
 const maxProfileBytes = 64 * 1024
 
 type Profile struct {
-	SocketPath        string
-	SocketOwnerUID    uint32
-	SocketGroupGID    *uint32
-	SocketMode        fs.FileMode
-	ShutdownGrace     time.Duration
-	PrincipalBindings []identity.Binding
+	SocketPath          string
+	InventoryExportRoot string
+	SocketOwnerUID      uint32
+	SocketGroupGID      *uint32
+	SocketMode          fs.FileMode
+	ShutdownGrace       time.Duration
+	PrincipalBindings   []identity.Binding
 }
 
 type Loader interface {
@@ -55,7 +56,9 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if input.Schema != generated.SchemaIDServerProfile || input.SchemaVersion != "1.0.0" ||
 		input.SocketOwnerUID < 0 || input.SocketOwnerUID > int64(^uint32(0)) || uint32(input.SocketOwnerUID) != expectedOwnerUID ||
 		input.ShutdownGraceSeconds != 5 || len(input.SocketPath) > 107 || strings.ContainsRune(input.SocketPath, 0) ||
-		!filepath.IsAbs(input.SocketPath) || filepath.Clean(input.SocketPath) != input.SocketPath {
+		!filepath.IsAbs(input.SocketPath) || filepath.Clean(input.SocketPath) != input.SocketPath ||
+		len(input.InventoryExportRoot) < 2 || len(input.InventoryExportRoot) > 4096 || strings.ContainsRune(input.InventoryExportRoot, 0) ||
+		!filepath.IsAbs(input.InventoryExportRoot) || filepath.Clean(input.InventoryExportRoot) != input.InventoryExportRoot || input.InventoryExportRoot == string(filepath.Separator) {
 		return invalid()
 	}
 
@@ -92,11 +95,12 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		return invalid()
 	}
 	return Profile{
-		SocketPath:        input.SocketPath,
-		SocketOwnerUID:    expectedOwnerUID,
-		SocketGroupGID:    group,
-		SocketMode:        mode,
-		ShutdownGrace:     5 * time.Second,
-		PrincipalBindings: append([]identity.Binding(nil), bindings...),
+		SocketPath:          input.SocketPath,
+		InventoryExportRoot: input.InventoryExportRoot,
+		SocketOwnerUID:      expectedOwnerUID,
+		SocketGroupGID:      group,
+		SocketMode:          mode,
+		ShutdownGrace:       5 * time.Second,
+		PrincipalBindings:   append([]identity.Binding(nil), bindings...),
 	}, nil
 }

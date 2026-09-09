@@ -1,0 +1,37 @@
+{
+  "$id": "vegastack-labs.dev/inventory-draft-export-signature",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "algorithm": {
+      "enum": [
+        "ed25519"
+      ],
+      "type": "string"
+    },
+    "keyFingerprint": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "keyId": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+      "type": "string"
+    },
+    "value": {
+      "maxLength": 86,
+      "minLength": 86,
+      "pattern": "^[A-Za-z0-9_-]{86}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "algorithm",
+    "keyId",
+    "keyFingerprint",
+    "value"
+  ],
+  "title": "VegaStack Labs inventory draft export signature",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
