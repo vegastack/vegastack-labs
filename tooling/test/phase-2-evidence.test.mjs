@@ -27,7 +27,7 @@ test("contract drift, mutation availability, fixture reachability, and stale chi
   for (const [field, mutate, expected] of [
     ["routes", (copy) => copy.endpointIds.push("api.v1.plans.create"), "PHASE2_CONTRACT_DRIFT"],
     ["commands", (copy) => copy.availableCommands.push("apply"), "PHASE2_MUTATION_AVAILABLE"],
-    ["production", (copy) => { copy.productionImports.push("internal/phase2fixture"); }, "PHASE2_PRODUCTION_BYPASS"],
+    ["production", (copy) => { copy.productionImports.push("github.com/vegastack/vegastack-labs/internal/testsupport"); }, "PHASE2_PRODUCTION_BYPASS"],
     ["children", (copy) => { copy.children[0].state = "OPEN"; }, "PHASE2_CHILD_INCOMPLETE"],
   ]) {
     const copy = structuredClone(facts);

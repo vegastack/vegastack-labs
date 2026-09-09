@@ -5,6 +5,7 @@
   "contract": {
     "schemaVersion": "1.6.0",
     "productionExecutable": "cmd/vsk-labs",
+    "productionDependencyDigest": "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133",
     "mutationAvailable": false,
     "availableCommands": [
       "database status",
@@ -86,7 +87,7 @@
     { "id": "export.production-trust-blocked", "category": "denial", "ownerIssue": 37, "proof": "go-test:./internal/stateexport:TestMissingProductionTrustBlocksBeforeArtifactStore" },
     { "id": "export.tamper-wrong-key", "category": "denial", "ownerIssue": 37, "proof": "go-test:./internal/stateexport:TestVerifySignedExportRejectsEveryBindingTamper" },
     { "id": "export.interrupted-publication", "category": "recovery", "ownerIssue": 37, "proof": "go-test:./internal/stateexport:TestReconcileRestoresPriorPointerAndRecordsInterrupted" },
-    { "id": "phase2.no-mutation", "category": "denial", "ownerIssue": 38, "proof": "node-test:tooling/test/phase-2-evidence.test.mjs" },
+    { "id": "phase2.no-mutation", "category": "denial", "ownerIssue": 38, "proof": "node-test:tooling/test/phase-2-mutation.test.mjs" },
     { "id": "phase2.production-closure", "category": "denial", "ownerIssue": 38, "proof": "node-test:tooling/test/phase-2-evidence.test.mjs" }
   ],
   "requirements": [

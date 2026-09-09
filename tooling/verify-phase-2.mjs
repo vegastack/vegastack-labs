@@ -9,6 +9,7 @@ import { runCommand } from "./lib/process.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = "tooling/phase-2-evidence.json";
+const MODULE_PREFIX = "github.com/vegastack/vegastack-labs/";
 const CODE_ORDER = [
   "PHASE2_CHILD_INCOMPLETE",
   "PHASE2_TRACEABILITY_GAP",
@@ -88,8 +89,15 @@ async function filesBelow(root) {
   return found.sort();
 }
 
-async function commandOutput(root, command, args) {
-  return (await runCommand(command, args, { cwd: root, capture: true, timeoutMs: 120_000 })).stdout.trim();
+async function commandOutput(root, command, args, options = {}) {
+  return (await runCommand(command, args, {
+    ...options, cwd: root, capture: true, timeoutMs: 120_000,
+  })).stdout.trim();
+}
+
+function productionDependencyDigest(imports) {
+  const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX)).sort();
+  return `sha256:${createHash("sha256").update(`${localImports.join("\n")}\n`).digest("hex")}`;
 }
 
 async function proofExists(root, proof) {
@@ -234,8 +242,8 @@ export async function collectIntegratedFacts(root = ROOT) {
   }
   const productionImports = (await commandOutput(root, "go", [
     "list", "-deps", "-f", "{{.ImportPath}}", "./cmd/vsk-labs",
-  ])).split("\n").filter(Boolean).sort();
-  const serviceSource = await readFile(path.join(root, "internal/server/service.go"), "utf8");
+  ], { env: { ...process.env, CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" } }))
+    .split("\n").filter(Boolean).sort();
   const fixtureFiles = await filesBelow(path.join(root, "tooling/testdata/phase-2"));
   let privateFixture = false;
   for (const filename of fixtureFiles) {
@@ -253,8 +261,8 @@ export async function collectIntegratedFacts(root = ROOT) {
     endpointIds: endpoints.endpoints.map(({ id }) => id).sort(),
     migrations,
     productionExecutable: "cmd/vsk-labs",
-    mutationAvailable: /MutationAvailable:\s*true/.test(serviceSource) ||
-      !/MutationAvailable:\s*false/.test(serviceSource),
+    mutationAvailable: commands.commands.some(({ availability, ownerPhase }) =>
+      availability === "available" && Number(ownerPhase) >= 4),
     productionImports,
     privateFixture,
     children,
@@ -267,7 +275,7 @@ export function validateEvidence(manifest, facts) {
   if (!exactKeys(manifest, ["schemaVersion", "phase", "status", "contract", "children", "scenarios", "requirements"]) ||
       manifest.schemaVersion !== 1 || manifest.phase !== "2" ||
       manifest.status !== "implemented-awaiting-operator-acceptance" ||
-      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
+      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
       !Array.isArray(manifest.children) || !Array.isArray(manifest.scenarios) || !Array.isArray(manifest.requirements)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   } else {
@@ -319,7 +327,8 @@ export function validateEvidence(manifest, facts) {
       !same(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
-  if (facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name))) {
+  if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports) ||
+      facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");
   }
   if (facts.privateFixture) codes.add("PHASE2_PRIVATE_FIXTURE");
