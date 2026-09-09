@@ -1,0 +1,44 @@
+{
+  "schema": "vegastack-labs.dev/inventory-draft-input",
+  "schemaVersion": "1.0.0",
+  "source": {
+    "kind": "operator-file",
+    "adapterKind": "strict-json",
+    "adapterVersion": "1.0.0",
+    "sourceRevision": "public-conflict-fixture-1",
+    "capturedAt": "2026-09-08T12:00:00Z"
+  },
+  "assets": [
+    {
+      "id": "asset-1",
+      "kind": "physical",
+      "lifecycle": "candidate",
+      "identities": [{"kind": "hardware-serial", "value": "PUBLIC-001", "quarantined": false}],
+      "hardwareFacts": [{"id": "memory-1", "kind": "memory-capacity", "integerValue": 8589934592, "textValue": null, "unit": "bytes"}]
+    },
+    {
+      "id": "asset-2",
+      "kind": "physical",
+      "lifecycle": "unexpected",
+      "identities": [{"kind": "hardware-serial", "value": "public-001", "quarantined": false}],
+      "hardwareFacts": [{"id": "memory-2", "kind": "memory-capacity", "integerValue": 5, "textValue": null, "unit": "count"}]
+    }
+  ],
+  "nodes": [
+    {"id": "node-1", "assetId": "asset-1", "parentId": ""},
+    {"id": "node-2", "assetId": "missing-asset", "parentId": "node-3"},
+    {"id": "node-3", "assetId": "asset-2", "parentId": "node-2"}
+  ],
+  "aliases": [
+    {"id": "alias-1", "targetId": "node-1", "value": "example-node"},
+    {"id": "alias-2", "targetId": "node-2", "value": "EXAMPLE-NODE"}
+  ],
+  "addresses": [
+    {"id": "address-1", "nodeId": "node-1", "value": "192.0.2.10"},
+    {"id": "address-2", "nodeId": "node-2", "value": "192.0.2.10"}
+  ],
+  "observations": [],
+  "provenance": [
+    {"recordKind": "asset", "recordId": "asset-1", "fieldPath": "identities[0]", "locator": "records/1/identity", "capturedAt": "2026-09-08T12:00:00Z", "adapterVersion": "1.0.0", "valueStatus": "observed"}
+  ]
+}

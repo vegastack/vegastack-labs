@@ -80,6 +80,13 @@ func TestLoadManifestEnforcesMetadataBoundAndCancellation(t *testing.T) {
 	assertReleaseError(t, err, generated.ErrorCodeInterrupted)
 }
 
+func TestReleaseJSONScannerRetainsDepthLimit(t *testing.T) {
+	t.Parallel()
+	raw := []byte(strings.Repeat(`[`, maxJSONDepth+2) + strings.Repeat(`]`, maxJSONDepth+2))
+	err := validateJSON(context.Background(), raw, generated.SchemaIDReleaseManifest, manifestSchemaVersion, targetManifestSchema)
+	assertReleaseError(t, err, generated.ErrorCodeInputInvalid)
+}
+
 func TestLoadManifestAllowsExplicitHostPathCharactersAndRejectsFileSymlink(t *testing.T) {
 	directory := filepath.Join(t.TempDir(), "release set #1")
 	if err := os.Mkdir(directory, 0o700); err != nil {

@@ -1,0 +1,39 @@
+{
+  "schema": "vegastack-labs.dev/inventory-draft-input",
+  "schemaVersion": "1.0.0",
+  "source": {
+    "kind": "operator-file",
+    "adapterKind": "strict-json",
+    "adapterVersion": "1.0.0",
+    "sourceRevision": "public-fixture-1",
+    "capturedAt": "2026-09-08T12:00:00Z"
+  },
+  "assets": [
+    {
+      "id": "asset-1",
+      "kind": "physical",
+      "lifecycle": "candidate",
+      "identities": [
+        {"kind": "hardware-serial", "value": "PUBLIC-001", "quarantined": false}
+      ],
+      "hardwareFacts": [
+        {"id": "memory", "kind": "memory-capacity", "integerValue": 8589934592, "textValue": null, "unit": "bytes"}
+      ]
+    }
+  ],
+  "nodes": [
+    {"id": "node-1", "assetId": "asset-1", "parentId": ""}
+  ],
+  "aliases": [
+    {"id": "alias-1", "targetId": "node-1", "value": "example-node"}
+  ],
+  "addresses": [
+    {"id": "address-1", "nodeId": "node-1", "value": "192.0.2.10"}
+  ],
+  "observations": [
+    {"id": "observation-1", "subjectId": "asset-1", "kind": "link-state", "value": "up", "observedAt": "2026-09-08T12:00:00Z"}
+  ],
+  "provenance": [
+    {"recordKind": "asset", "recordId": "asset-1", "fieldPath": "identities[0]", "locator": "records/1/identity", "capturedAt": "2026-09-08T12:00:00Z", "adapterVersion": "1.0.0", "valueStatus": "observed"}
+  ]
+}

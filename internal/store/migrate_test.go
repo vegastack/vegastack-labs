@@ -13,7 +13,7 @@ import (
 
 func TestExistingMigrationCannotRunWithoutVerifiedSnapshot(t *testing.T) {
 	store := openTestStore(t)
-	pending := append(mustCatalog(t), testMigration(2, "0002_fixture", `CREATE TABLE must_not_exist(id INTEGER);`))
+	pending := append(mustCatalog(t), testMigration(3, "0003_fixture", `CREATE TABLE must_not_exist(id INTEGER);`))
 	err := store.migrate(context.Background(), pending)
 	if Code(err) != "MIGRATION_BLOCKED" {
 		t.Fatalf("code = %q", Code(err))
@@ -28,10 +28,10 @@ func TestMigrationFailureVerifiesOnlyIsolatedRestore(t *testing.T) {
 	store := openTestStoreWithRecovery(t, recovery)
 	recovery.snapshot = VerifiedSnapshot{
 		SnapshotID:    "fixture",
-		SchemaVersion: 1,
+		SchemaVersion: 2,
 		Revision:      RevisionToken{},
 	}
-	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(2, "0002_bad", `CREATE TABLE broken(`)))
+	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(3, "0003_bad", `CREATE TABLE broken(`)))
 	if err == nil || recovery.prepareCalls != 1 || recovery.verifyCalls != 1 {
 		t.Fatalf("err/calls = %v/%d/%d", err, recovery.prepareCalls, recovery.verifyCalls)
 	}
@@ -48,12 +48,12 @@ func TestMigrationAppliesExactLedgerAfterRecoveryGate(t *testing.T) {
 	recovery := &recordingRecovery{}
 	store := openTestStoreWithRecovery(t, recovery)
 	base := mustCatalog(t)
-	recovery.snapshot = VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 1, Revision: RevisionToken{}}
-	err := store.migrate(context.Background(), append(base, testMigration(2, "0002_fixture", `CREATE TABLE migrated(id INTEGER PRIMARY KEY) STRICT;`)))
+	recovery.snapshot = VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 2, Revision: RevisionToken{}}
+	err := store.migrate(context.Background(), append(base, testMigration(3, "0003_fixture", `CREATE TABLE migrated(id INTEGER PRIMARY KEY) STRICT;`)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !tableExistsForTest(t, store, "migrated") || store.health.SchemaVersion != 2 || recovery.verifyCalls != 0 {
+	if !tableExistsForTest(t, store, "migrated") || store.health.SchemaVersion != 3 || recovery.verifyCalls != 0 {
 		t.Fatalf("migration result health=%#v verify=%d", store.health, recovery.verifyCalls)
 	}
 }
@@ -109,7 +109,7 @@ func TestRecoverySourceCreatesAndVerifiesIsolatedCopies(t *testing.T) {
 	if err := source.OnlineBackup(context.Background(), snapshot, BackupStepPolicy{PagesPerStep: 1}); err != nil {
 		t.Fatal(err)
 	}
-	expectation := SnapshotExpectation{SchemaVersion: 1, Revision: RevisionToken{}, CatalogSHA256: catalogSHA256(catalog)}
+	expectation := SnapshotExpectation{SchemaVersion: 2, Revision: RevisionToken{}, CatalogSHA256: catalogSHA256(catalog)}
 	inspection, err := source.InspectSnapshot(context.Background(), snapshot, expectation)
 	if err != nil || inspection.IntegrityStatus != IntegrityVerified {
 		t.Fatalf("inspection = %#v, %v", inspection, err)
@@ -150,9 +150,9 @@ func TestRecoverySourceCreatesAndVerifiesIsolatedCopies(t *testing.T) {
 }
 
 func TestMigrationFailureKeepsStableSafeModeWhenVerificationFails(t *testing.T) {
-	recovery := &recordingRecovery{snapshot: VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 1}, verifyErr: errors.New("injected verification failure")}
+	recovery := &recordingRecovery{snapshot: VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 2}, verifyErr: errors.New("injected verification failure")}
 	store := openTestStoreWithRecovery(t, recovery)
-	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(2, "0002_bad", `CREATE TABLE broken(`)))
+	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(3, "0003_bad", `CREATE TABLE broken(`)))
 	if Code(err) != "MIGRATION_BLOCKED" {
 		t.Fatalf("code = %q", Code(err))
 	}
@@ -170,7 +170,7 @@ func TestMigrationFailureKeepsStableSafeModeWhenVerificationFails(t *testing.T) 
 func TestMigrationBackupFailureBlocksBeforeSQL(t *testing.T) {
 	recovery := &recordingRecovery{prepareErr: errors.New("injected backup disk full")}
 	store := openTestStoreWithRecovery(t, recovery)
-	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(2, "0002_never_runs", `CREATE TABLE backup_gate_failed(id INTEGER) STRICT;`)))
+	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(3, "0003_never_runs", `CREATE TABLE backup_gate_failed(id INTEGER) STRICT;`)))
 	if Code(err) != "MIGRATION_BLOCKED" || tableExistsForTest(t, store, "backup_gate_failed") || recovery.prepareCalls != 1 || recovery.verifyCalls != 0 {
 		t.Fatalf("err/table/calls = %v/%t/%d/%d", err, tableExistsForTest(t, store, "backup_gate_failed"), recovery.prepareCalls, recovery.verifyCalls)
 	}
@@ -180,7 +180,7 @@ func TestMigrationBackupFailureBlocksBeforeSQL(t *testing.T) {
 }
 
 func TestMigrationPostCheckFailureRollsBackBeforeVerification(t *testing.T) {
-	recovery := &recordingRecovery{snapshot: VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 1}}
+	recovery := &recordingRecovery{snapshot: VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 2}}
 	store := openTestStoreWithRecovery(t, recovery)
 	body := `
 CREATE TABLE postcheck_parent(id INTEGER PRIMARY KEY) STRICT;
@@ -190,17 +190,17 @@ CREATE TABLE postcheck_child(
   FOREIGN KEY(parent_id) REFERENCES postcheck_parent(id) DEFERRABLE INITIALLY DEFERRED
 ) STRICT;
 INSERT INTO postcheck_child(id, parent_id) VALUES (1, 999);`
-	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(2, "0002_postcheck", body)))
+	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(3, "0003_postcheck", body)))
 	if Code(err) != "INTEGRITY_FAILURE" || tableExistsForTest(t, store, "postcheck_child") || recovery.verifyCalls != 1 {
 		t.Fatalf("err/table/verify = %v/%t/%d", err, tableExistsForTest(t, store, "postcheck_child"), recovery.verifyCalls)
 	}
 }
 
 func TestMigrationSyncFailurePreservesCommittedAuthorityInSafeMode(t *testing.T) {
-	recovery := &recordingRecovery{snapshot: VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 1}}
+	recovery := &recordingRecovery{snapshot: VerifiedSnapshot{SnapshotID: "fixture", SchemaVersion: 2}}
 	store := openTestStoreWithRecovery(t, recovery)
 	store.filesystem = syncFailFilesystem{linuxFilesystem: linuxFilesystem{}}
-	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(2, "0002_committed", `CREATE TABLE committed_before_sync_failure(id INTEGER) STRICT;`)))
+	err := store.migrate(context.Background(), append(mustCatalog(t), testMigration(3, "0003_committed", `CREATE TABLE committed_before_sync_failure(id INTEGER) STRICT;`)))
 	if Code(err) != "INTEGRITY_FAILURE" || !tableExistsForTest(t, store, "committed_before_sync_failure") || recovery.verifyCalls != 1 {
 		t.Fatalf("err/table/verify = %v/%t/%d", err, tableExistsForTest(t, store, "committed_before_sync_failure"), recovery.verifyCalls)
 	}

@@ -43,6 +43,13 @@ func (err *StoreError) Retryable() bool {
 	return err != nil && err.retryable
 }
 
+func (err *StoreError) Code() string {
+	if err == nil {
+		return ""
+	}
+	return err.code
+}
+
 func Code(err error) string {
 	var storeError *StoreError
 	if errors.As(err, &storeError) {
