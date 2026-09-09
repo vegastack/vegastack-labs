@@ -15,7 +15,7 @@ test("Phase 2 starts with one protected service and frozen dependent ports", asy
   assert.match(phase, /UID.*principal.*permissions.*SQLite/is);
   assert.match(phase, /#38.*combined.*acceptance/is);
   assert.match(phase, /synthetic fixtures/i);
-  assert.doesNotMatch(phase, /Phase 2 (?:is )?accepted/i);
+  assert.doesNotMatch(phase, /^Status: accepted\./m);
 });
 
 test("Phase 2 documents draft-only CLI/API parity without a second authority", async () => {
@@ -32,10 +32,10 @@ test("Phase 2 documents draft-only CLI/API parity without a second authority", a
   assert.match(phase, /Issue #37.*publish.*signed/is);
   assert.match(phase, /human.*JSON.*exact.*envelope/is);
   assert.match(phase, /never edit SQLite.*source Sheet.*export root.*infrastructure/is);
-  assert.doesNotMatch(phase, /Phase 2 (?:is )?accepted/i);
+  assert.doesNotMatch(phase, /^Status: accepted\./m);
 });
 
-test("current development pointers advance only to active Phase 2", async () => {
+test("current development pointers record implemented Phase 2 awaiting operator acceptance", async () => {
   const [index, roadmap, phaseOne, readme, contributing] = await Promise.all([
     readFile(path.join(ROOT, "docs/development/README.md"), "utf8"),
     readFile(path.join(ROOT, "docs/development/roadmap.md"), "utf8"),
@@ -46,12 +46,28 @@ test("current development pointers advance only to active Phase 2", async () => 
     readFile(path.join(ROOT, "README.md"), "utf8"),
     readFile(path.join(ROOT, "CONTRIBUTING.md"), "utf8"),
   ]);
-  assert.match(index, /Phase 1.*accepted.*Phase 2.*active/is);
-  assert.match(roadmap, /Phase 1.*accepted.*Phase 2.*active/is);
+  assert.match(index, /Phase 1.*accepted.*Phase 2.*implemented; awaiting operator acceptance/is);
+  assert.match(roadmap, /Phase 1.*accepted.*Phase 2.*implemented; awaiting operator acceptance/is);
   assert.match(phaseOne, /^Status: accepted\./m);
   assert.match(readme, /protected Unix-domain.*kernel peer credentials/is);
   assert.match(readme, /does not.*SQLite.*inventory.*permissions/is);
   assert.match(contributing, /server run --config .*fixture\/server-profile\.json/);
   assert.match(contributing, /server status --config .*fixture\/server-profile\.json --output json/);
   assert.match(contributing, /synthetic.*no real operational data/is);
+});
+
+test("the Phase 2 record links every child and keeps fixture proof separate from live evidence", async () => {
+  const [phase, manifest] = await Promise.all([
+    readFile(path.join(ROOT, "docs/development/phases/02-authoritative-control-service-and-inventory.md"), "utf8"),
+    readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8").then(JSON.parse),
+  ]);
+  assert.match(phase, /^Status: implemented; awaiting operator acceptance\./m);
+  assert.doesNotMatch(phase, /^Status: accepted\./m);
+  assert.match(phase, /fixture proof.*not live evidence/is);
+  assert.match(phase, /Phase 3 handoff/i);
+  for (const child of manifest.children) {
+    assert.match(phase, new RegExp(`Issue 2\\.${child.issue - 28} \\(#${child.issue}\\).*PR #${child.pr}`, "s"));
+    assert.ok(phase.includes(child.evidence));
+    assert.ok(phase.includes(child.review));
+  }
 });
