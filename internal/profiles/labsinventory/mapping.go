@@ -36,16 +36,18 @@ func mapRecords(ctx context.Context, config Config, records [][]string) (invento
 				Quarantined: lifecycle == inventory.LifecycleQuarantined,
 			})
 		}
+		observations, facts, provenance, findings := mapHardwareRow(record, row, assetID, config.CapturedAt)
+		asset.HardwareFacts = append(asset.HardwareFacts, facts...)
 		decoded.Candidate.Assets = append(decoded.Candidate.Assets, asset)
+		decoded.Candidate.Observations = append(decoded.Candidate.Observations, observations...)
+		decoded.Candidate.Provenance = append(decoded.Candidate.Provenance, provenance...)
+		decoded.Findings = append(decoded.Findings, findings...)
 		if lifecycleFinding.Code != "" {
 			decoded.Findings = append(decoded.Findings, lifecycleFinding)
 		}
-
-		decoded.Candidate.Provenance = append(decoded.Candidate.Provenance,
-			sourceProvenance(record, assetID, "lifecycle", lifecycleStatus, config.CapturedAt),
-			sourceProvenance(record, assetID, "hardware_serial", sourceStatus(row[1], lifecycle), config.CapturedAt),
-			sourceProvenance(record, assetID, "reported_hostname", sourceStatus(row[2], lifecycle), config.CapturedAt),
-		)
+		setSourceStatus(decoded.Candidate.Provenance, assetID, "lifecycle", lifecycleStatus)
+		setSourceStatus(decoded.Candidate.Provenance, assetID, "hardware_serial", sourceStatus(row[1], lifecycle))
+		setSourceStatus(decoded.Candidate.Provenance, assetID, "reported_hostname", sourceStatus(row[2], lifecycle))
 		if !active {
 			continue
 		}
@@ -70,6 +72,16 @@ func mapRecords(ctx context.Context, config Config, records [][]string) (invento
 		decoded.Candidate.Provenance = append(decoded.Candidate.Provenance, aliasProvenance(record, reportedID, "reported_hostname", "reported", config.CapturedAt))
 	}
 	return decoded, nil
+}
+
+func setSourceStatus(provenance []inventory.FieldProvenance, assetID inventory.LocalID, field, status string) {
+	path := sourceFieldPathFromName(assetID, field)
+	for index := range provenance {
+		if provenance[index].RecordID == assetID && provenance[index].FieldPath == path {
+			provenance[index].ValueStatus = status
+			return
+		}
+	}
 }
 
 func mapLifecycle(record int, value string, assetID inventory.LocalID) (inventory.AssetLifecycle, bool, string, inventory.Finding) {
@@ -101,12 +113,16 @@ func sourceProvenance(record int, assetID inventory.LocalID, field, status strin
 	return inventory.FieldProvenance{
 		RecordKind:     "asset",
 		RecordID:       assetID,
-		FieldPath:      sourceFieldPath(record, field),
+		FieldPath:      sourceFieldPathFromName(assetID, field),
 		Locator:        rowLocator(record, field),
 		CapturedAt:     capturedAt,
 		AdapterVersion: AdapterVersion,
 		ValueStatus:    status,
 	}
+}
+
+func sourceFieldPathFromName(assetID inventory.LocalID, field string) string {
+	return "assets." + string(assetID[:len(assetID)-len("-asset")]) + "." + field
 }
 
 func aliasProvenance(record int, aliasID inventory.LocalID, field, status string, capturedAt time.Time) inventory.FieldProvenance {
