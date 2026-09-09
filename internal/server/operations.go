@@ -6,9 +6,12 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/inventory"
+	"github.com/vegastack/vegastack-labs/internal/inventoryops"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
+	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
@@ -58,6 +61,32 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	if err != nil {
 		streamer.Close()
 		_ = authority.Close()
+		return err
+	}
+	decoders := inventoryops.NewDecoderRegistry()
+	imports, err := inventory.NewService(store.NewInventoryDraftRepository(authority), nil, nil)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	diffs, err := inventoryops.NewDiffService(store.NewInventoryDraftRepository(authority), decoders)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	artifacts, err := store.NewInventoryExportArtifactStore(store.InventoryExportArtifactConfig{Root: profile.InventoryExportRoot, ExpectedUID: profile.SocketOwnerUID})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	exportRepository := store.NewInventoryExportRepository(authority)
+	exports, err := stateexport.NewService(stateexport.Config{Source: exportRepository, Audit: exportRepository, Artifacts: artifacts, Build: operations.build})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterInventoryOperations(application, api.InventoryOperationConfig{Authorizer: authorizer, Decoders: decoders, Imports: imports, Diffs: diffs, Exports: exports, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
 		return err
 	}
 	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}})

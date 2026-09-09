@@ -15,39 +15,59 @@ import (
 )
 
 type route struct {
-	id, pattern, capability, kind string
-	handler                       func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
+	id, method, pattern, capability, kind string
+	handler                               func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
 }
 
 var pathToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 
 func finiteRoutes(app *Application) []route {
 	return []route{
-		{"api.v1.database-status.get", "/api/v1/database/status", "database.status.read", "database", app.databaseStatus},
-		{"api.v1.summary.get", "/api/v1/summary", "platform.summary.read", "platform-summary", app.summary},
-		{"api.v1.inventory-drafts.list", "/api/v1/inventory-drafts", "inventory.draft.read", "inventory-draft", app.draftList},
-		{"api.v1.inventory-drafts.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", "inventory.draft.read", "inventory-draft", app.draftGet},
-		{"api.v1.inventory-draft-assets.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", "inventory.draft.read", "inventory-draft", app.recordList("asset")},
-		{"api.v1.inventory-draft-assets.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("asset")},
-		{"api.v1.inventory-draft-nodes.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", "inventory.draft.read", "inventory-draft", app.recordList("node")},
-		{"api.v1.inventory-draft-nodes.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("node")},
-		{"api.v1.inventory-draft-aliases.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", "inventory.draft.read", "inventory-draft", app.recordList("alias")},
-		{"api.v1.inventory-draft-aliases.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("alias")},
-		{"api.v1.inventory-draft-observations.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", "inventory.draft.read", "inventory-draft", app.recordList("observation")},
-		{"api.v1.inventory-draft-observations.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("observation")},
+		{"api.v1.database-status.get", http.MethodGet, "/api/v1/database/status", "database.status.read", "database", app.databaseStatus},
+		{"api.v1.summary.get", http.MethodGet, "/api/v1/summary", "platform.summary.read", "platform-summary", app.summary},
+		{"api.v1.inventory-drafts.list", http.MethodGet, "/api/v1/inventory-drafts", "inventory.draft.read", "inventory-draft", app.draftList},
+		{"api.v1.inventory-drafts.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", "inventory.draft.read", "inventory-draft", app.draftGet},
+		{"api.v1.inventory-draft-assets.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", "inventory.draft.read", "inventory-draft", app.recordList("asset")},
+		{"api.v1.inventory-draft-assets.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("asset")},
+		{"api.v1.inventory-draft-nodes.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", "inventory.draft.read", "inventory-draft", app.recordList("node")},
+		{"api.v1.inventory-draft-nodes.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("node")},
+		{"api.v1.inventory-draft-aliases.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", "inventory.draft.read", "inventory-draft", app.recordList("alias")},
+		{"api.v1.inventory-draft-aliases.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("alias")},
+		{"api.v1.inventory-draft-observations.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", "inventory.draft.read", "inventory-draft", app.recordList("observation")},
+		{"api.v1.inventory-draft-observations.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("observation")},
 	}
 }
 
-func routesMatchGenerated(routes []route) bool {
-	implemented := map[string]string{"api.v1.health.get": "/api/v1/health", "api.v1.events.stream": "/api/v1/events"}
+type registeredRoute struct{ method, path string }
+
+func implementedRoutes(routes []route) map[string]registeredRoute {
+	implemented := map[string]registeredRoute{"api.v1.health.get": {http.MethodGet, "/api/v1/health"}, "api.v1.events.stream": {http.MethodGet, "/api/v1/events"}}
 	for _, candidate := range routes {
-		implemented[candidate.id] = candidate.pattern
+		implemented[candidate.id] = registeredRoute{candidate.method, candidate.pattern}
 	}
+	return implemented
+}
+
+func routesAreGeneratedSubset(routes []route) bool {
+	want := make(map[string]registeredRoute, len(generated.Endpoints))
+	for _, endpoint := range generated.Endpoints {
+		want[endpoint.ID] = registeredRoute{endpoint.Method, endpoint.Path}
+	}
+	for id, candidate := range implementedRoutes(routes) {
+		if want[id] != candidate {
+			return false
+		}
+	}
+	return true
+}
+
+func routesMatchGenerated(routes []route) bool {
+	implemented := implementedRoutes(routes)
 	if len(implemented) != len(generated.Endpoints) {
 		return false
 	}
 	for _, endpoint := range generated.Endpoints {
-		if endpoint.Method != http.MethodGet || implemented[endpoint.ID] != endpoint.Path {
+		if implemented[endpoint.ID] != (registeredRoute{endpoint.Method, endpoint.Path}) {
 			return false
 		}
 	}
@@ -68,7 +88,7 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if !ok {
 			continue
 		}
-		if request.Method != http.MethodGet {
+		if candidate.method == http.MethodGet && request.Method != candidate.method {
 			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
 			return
 		}
@@ -81,12 +101,19 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if rawDraft, exists := params["draftId"]; exists {
 			resourceID = rawDraft + ":" + params["revision"]
 		}
+		if candidate.id == "api.v1.inventory-drafts.import" {
+			resourceID = "inventory-drafts"
+		}
 		scope, err := app.config.Authorizer.AuthorizeRead(request.Context(), principal, authorization.ReadTarget{Capability: candidate.capability, ResourceKind: candidate.kind, ResourceID: resourceID})
 		if err != nil {
 			app.failure(writer, candidate.id, err)
 			return
 		}
-		if request.Body != nil && request.ContentLength != 0 {
+		if candidate.method == http.MethodPost && request.Method != candidate.method {
+			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
+			return
+		}
+		if candidate.method == http.MethodGet && request.Body != nil && request.ContentLength != 0 {
 			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "request-body"))
 			return
 		}

@@ -35,19 +35,45 @@ func NewFactory(build BuildInfo, requestIDs RequestIDSource) *Factory {
 }
 
 func (factory *Factory) Success(command string, recoveryEpoch, stateRevision int64, data any) (generated.RunResult, error) {
-	return factory.buildResult(command, generated.RunStatusSucceeded, nil, recoveryEpoch, stateRevision, data)
+	requestID, err := factory.RequestID()
+	if err != nil {
+		return generated.RunResult{}, err
+	}
+	return factory.SuccessWithRequestID(command, requestID, false, recoveryEpoch, stateRevision, data)
 }
 
 func (factory *Factory) Failure(command, status, code, target string, retryable bool, recoveryEpoch, stateRevision int64, data any) (generated.RunResult, error) {
 	if _, ok := generated.ErrorExitCodes[code]; !ok || target == "" {
 		return generated.RunResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "result-error", false)
 	}
-	return factory.buildResult(command, status, []generated.ResultError{{Code: code, Target: target, Retryable: retryable}}, recoveryEpoch, stateRevision, data)
+	requestID, err := factory.RequestID()
+	if err != nil {
+		return generated.RunResult{}, err
+	}
+	return factory.FailureWithRequestID(command, requestID, status, code, target, retryable, recoveryEpoch, stateRevision, data)
 }
 
-func (factory *Factory) buildResult(command, status string, resultErrors []generated.ResultError, recoveryEpoch, stateRevision int64, data any) (generated.RunResult, error) {
+func (factory *Factory) RequestID() (string, error) {
 	requestID, err := factory.requestIDs()
 	if err != nil || requestID == "" {
+		return "", failure.New(generated.ErrorCodeIntegrityFailure, "request-id", false)
+	}
+	return requestID, nil
+}
+
+func (factory *Factory) SuccessWithRequestID(command, requestID string, changed bool, recoveryEpoch, stateRevision int64, data any) (generated.RunResult, error) {
+	return factory.buildResult(command, requestID, generated.RunStatusSucceeded, changed, nil, recoveryEpoch, stateRevision, data)
+}
+
+func (factory *Factory) FailureWithRequestID(command, requestID, status, code, target string, retryable bool, recoveryEpoch, stateRevision int64, data any) (generated.RunResult, error) {
+	if _, ok := generated.ErrorExitCodes[code]; !ok || target == "" {
+		return generated.RunResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "result-error", false)
+	}
+	return factory.buildResult(command, requestID, status, false, []generated.ResultError{{Code: code, Target: target, Retryable: retryable}}, recoveryEpoch, stateRevision, data)
+}
+
+func (factory *Factory) buildResult(command, requestID, status string, changed bool, resultErrors []generated.ResultError, recoveryEpoch, stateRevision int64, data any) (generated.RunResult, error) {
+	if requestID == "" {
 		return generated.RunResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "request-id", false)
 	}
 	raw, err := json.Marshal(data)
@@ -60,7 +86,7 @@ func (factory *Factory) buildResult(command, status string, resultErrors []gener
 	return generated.RunResult{
 		Schema: generated.SchemaIDRunResult, SchemaVersion: generated.RegistrySchemaVersion,
 		ToolVersion: factory.build.ToolVersion, Command: command, RequestID: requestID,
-		Status: status, Changed: false, RecoveryEpoch: recoveryEpoch, StateRevision: stateRevision,
+		Status: status, Changed: changed, RecoveryEpoch: recoveryEpoch, StateRevision: stateRevision,
 		ReleaseBuildID: factory.build.ReleaseBuildID, SourceRevision: factory.build.SourceRevision,
 		Errors: resultErrors, Data: json.RawMessage(raw),
 	}, nil
