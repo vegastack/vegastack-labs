@@ -61,7 +61,7 @@ func TestInventoryRepositoryRollsBackEveryRowOnChildFailure(t *testing.T) {
 
 func TestFreshInitializationAppliesWholeCheckedCatalogWithoutRecovery(t *testing.T) {
 	store := newInventoryTestStore(t)
-	if store.health.SchemaVersion != 2 || !tableExistsForTest(t, store, "inventory_drafts") {
+	if store.health.SchemaVersion != 3 || !tableExistsForTest(t, store, "inventory_drafts") || !tableExistsForTest(t, store, "audit_events") {
 		t.Fatalf("fresh store health = %#v", store.health)
 	}
 }
