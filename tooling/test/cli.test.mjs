@@ -559,6 +559,57 @@ test("production cannot compose concrete export signer and verifier implementati
   ]);
 });
 
+test("production cannot assign export trust fields before NewService", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/server")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/stateexport/types.go": [
+      "package stateexport",
+      "type Config struct { Signer any; Verifier any }",
+      "func NewService(Config) {}",
+      "",
+    ].join("\n"),
+    "internal/server/export.go": [
+      "package server",
+      'import se "example.test/internal/stateexport"',
+      "var adapter = struct{}{}",
+      "func wire() {",
+      "  cfg := se.Config{}",
+      "  cfg.Signer, cfg.Verifier = adapter, adapter",
+      "  se.NewService(cfg)",
+      "}",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
+    "CLI_STATE_EXPORT_TRUST",
+  ]);
+});
+
+test("production executable closure cannot import asymmetric signing packages", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/exportadapter")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/exportadapter/sign.go": [
+      "package exportadapter",
+      'import "crypto/ed25519"',
+      "var publicKey ed25519.PublicKey",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
+    "CLI_STATE_EXPORT_TRUST",
+  ]);
+});
+
 test("the CLI verifier scans target-specific dependency closures", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/escape_windows.go": [

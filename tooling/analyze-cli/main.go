@@ -106,7 +106,9 @@ func analyze(root, goos, goarch string) (analysis, error) {
 		return analysis{}, fmt.Errorf("list %s/%s module packages: %w", goos, goarch, err)
 	}
 	result.SQLiteAccess = hasSQLiteAccessOutsideStore(modulePackages)
-	result.StateExportTrust, result.StateExportReleaseCoupling = stateExportFacts(modulePackages)
+	moduleTrust, moduleReleaseCoupling := stateExportFacts(modulePackages)
+	result.StateExportTrust = result.StateExportTrust || moduleTrust
+	result.StateExportReleaseCoupling = result.StateExportReleaseCoupling || moduleReleaseCoupling
 	result.TargetsAnalyzed = []string{goos + "/" + goarch}
 	return result, nil
 }
@@ -323,6 +325,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	mainImport := modulePath + "/cmd/vsk-labs"
 	generatedImport := modulePath + "/internal/generated"
 	releaseImport := modulePath + "/internal/release"
+	stateExportImport := modulePath + "/internal/stateexport"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -345,6 +348,10 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			if imported == "os/exec" && !isReleasePackage {
 				result.ShellDispatch = true
 			}
+			switch imported {
+			case "crypto/ecdsa", "crypto/ed25519", "crypto/rsa":
+				result.StateExportTrust = true
+			}
 			if isReleasePackage {
 				switch imported {
 				case "net", "net/http", "github.com/sigstore/sigstore-go/pkg/tuf":
@@ -354,7 +361,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 		}
-		inspectPackage(parsed, generatedImport, isReleasePackage, &result)
+		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, &result)
 	}
 	return result, nil
 }
@@ -421,7 +428,7 @@ func parseAndCheck(candidate listedPackage, loader types.Importer) (checkedSourc
 	}, nil
 }
 
-func inspectPackage(candidate checkedSourcePackage, generatedImport string, isReleasePackage bool, result *analysis) {
+func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExportImport string, isReleasePackage bool, result *analysis) {
 	context := analysisContext{
 		generatedImport: generatedImport,
 		derivedCommands: derivedCommandTypes(candidate, generatedImport),
@@ -444,14 +451,104 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport string, isRe
 				if candidate.listed.ImportPath != generatedImport && assignmentIsRegistry(typed, candidate.info, context) {
 					result.HandwrittenRegistry = true
 				}
+				if assignmentProvidesStateExportTrust(typed, candidate.info, stateExportImport) {
+					result.StateExportTrust = true
+				}
 			case *ast.CompositeLit:
 				if candidate.listed.ImportPath != generatedImport && isDispatchCollection(candidate.info.TypeOf(typed), context) {
 					result.HandwrittenRegistry = true
+				}
+				if stateExportConfigProvidesTrust(typed, candidate.info, stateExportImport) {
+					result.StateExportTrust = true
+				}
+			case *ast.CallExpr:
+				if stateExportNewServiceMayReceiveTrust(typed, candidate.info, stateExportImport) {
+					result.StateExportTrust = true
 				}
 			}
 			return true
 		})
 	}
+}
+
+func assignmentProvidesStateExportTrust(statement *ast.AssignStmt, info *types.Info, stateExportImport string) bool {
+	for index, left := range statement.Lhs {
+		selector, ok := unparenthesized(left).(*ast.SelectorExpr)
+		if !ok || !isStateExportTrustField(info.ObjectOf(selector.Sel), stateExportImport) {
+			continue
+		}
+		// A tuple-producing right-hand side cannot be proved to assign nil to the
+		// trust field, so the production guard fails closed.
+		if index >= len(statement.Rhs) || len(statement.Rhs) != len(statement.Lhs) || !isNilExpression(statement.Rhs[index]) {
+			return true
+		}
+	}
+	return false
+}
+
+func stateExportConfigProvidesTrust(literal *ast.CompositeLit, info *types.Info, stateExportImport string) bool {
+	structure, ok := stateExportConfigStruct(info.TypeOf(literal), stateExportImport)
+	if !ok {
+		return false
+	}
+	for index, element := range literal.Elts {
+		if pair, keyed := element.(*ast.KeyValueExpr); keyed {
+			identifier, identifierOK := unparenthesized(pair.Key).(*ast.Ident)
+			if identifierOK && isStateExportTrustField(info.ObjectOf(identifier), stateExportImport) && !isNilExpression(pair.Value) {
+				return true
+			}
+			continue
+		}
+		if index < structure.NumFields() && isStateExportTrustField(structure.Field(index), stateExportImport) && !isNilExpression(element) {
+			return true
+		}
+	}
+	return false
+}
+
+func stateExportNewServiceMayReceiveTrust(call *ast.CallExpr, info *types.Info, stateExportImport string) bool {
+	function := calledFunction(call.Fun, info)
+	if function == nil || function.Pkg() == nil || function.Pkg().Path() != stateExportImport || function.Name() != "NewService" || len(call.Args) == 0 {
+		return false
+	}
+	argument := unparenthesized(call.Args[0])
+	if !isStateExportConfigType(info.TypeOf(argument), stateExportImport) {
+		return false
+	}
+	if literal, ok := argument.(*ast.CompositeLit); ok {
+		return stateExportConfigProvidesTrust(literal, info, stateExportImport)
+	}
+	// Non-literal configuration flowing into the constructor can be populated
+	// outside the call site. Require production composition to use an explicit
+	// Config literal whose Signer and Verifier are absent or nil.
+	return true
+}
+
+func stateExportConfigStruct(value types.Type, stateExportImport string) (*types.Struct, bool) {
+	if value == nil {
+		return nil, false
+	}
+	named, ok := types.Unalias(value).(*types.Named)
+	if !ok || named.Obj() == nil || named.Obj().Pkg() == nil || named.Obj().Pkg().Path() != stateExportImport || named.Obj().Name() != "Config" {
+		return nil, false
+	}
+	structure, ok := named.Underlying().(*types.Struct)
+	return structure, ok
+}
+
+func isStateExportConfigType(value types.Type, stateExportImport string) bool {
+	_, ok := stateExportConfigStruct(value, stateExportImport)
+	return ok
+}
+
+func isStateExportTrustField(object types.Object, stateExportImport string) bool {
+	field, ok := object.(*types.Var)
+	return ok && field.IsField() && field.Pkg() != nil && field.Pkg().Path() == stateExportImport && (field.Name() == "Signer" || field.Name() == "Verifier")
+}
+
+func isNilExpression(expression ast.Expr) bool {
+	identifier, ok := unparenthesized(expression).(*ast.Ident)
+	return ok && identifier.Name == "nil"
 }
 
 func inspectReleaseNode(node ast.Node, info *types.Info, result *analysis) {
