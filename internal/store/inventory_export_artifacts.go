@@ -162,8 +162,13 @@ func (store *inventoryExportArtifactStore) RestoreCurrent(ctx context.Context, e
 		return artifactError("STATE_CONFLICT")
 	}
 	if previous != nil {
-		if _, err := store.ReadArtifact(ctx, previous.ArtifactID); err != nil {
+		raw, err := store.ReadArtifact(ctx, previous.ArtifactID)
+		if err != nil {
 			return err
+		}
+		document, err := stateexport.DecodeSignedExport(raw)
+		if err != nil || document.ContentDigest != previous.ContentDigest || previous.Schema != stateexport.PointerSchema || previous.SchemaVersion != stateexport.SchemaVersion || previous.ExportKind != stateexport.ExportKind {
+			return artifactError("INTEGRITY_FAILURE")
 		}
 	}
 	root, err := store.openRoot(ctx)

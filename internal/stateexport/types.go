@@ -57,3 +57,31 @@ type CurrentPointer struct {
 	ArtifactID    string `json:"artifactId"`
 	ContentDigest string `json:"contentDigest"`
 }
+
+type Request struct {
+	CorrelationID  string
+	IdempotencyKey string
+	Draft          inventory.DraftRef
+}
+
+type Result struct {
+	ExportID           string
+	SubjectKind        string
+	Draft              inventory.DraftRef
+	StateRevision      int64
+	RecoveryEpoch      int64
+	ContentDigest      string
+	Algorithm          string
+	KeyID              string
+	KeyFingerprint     string
+	VerificationStatus string
+	PublicationStatus  string
+	SignedExport       SignedExport
+	CanonicalBytes     []byte
+	Created            bool
+}
+
+type ReconcileResult struct {
+	Examined    int
+	Interrupted int
+}

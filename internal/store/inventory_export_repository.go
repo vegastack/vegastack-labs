@@ -4,19 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
-	"regexp"
-	"strconv"
-	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 )
-
-const exportTargetPrefix = "inventory-draft-export-r"
-
-var exportTargetPattern = regexp.MustCompile(`^inventory-draft-export-r([1-9][0-9]*)$`)
 
 type InventoryExportRepository struct {
 	store *Store
@@ -135,7 +127,7 @@ func sameOptionalFingerprint(value *audit.Fingerprint, stored sql.NullString) bo
 }
 
 func validExportEvent(event audit.EventDraft) bool {
-	revision, ok := exportTargetRevision(event.Target.Kind)
+	revision, ok := stateexport.ExportTargetRevision(event.Target.Kind)
 	if !ok || revision < 1 || event.Target.ID == "" || event.After == nil || !audit.ValidFingerprint(*event.After) || (event.Before != nil && !audit.ValidFingerprint(*event.Before)) || event.CorrectionOf != nil {
 		return false
 	}
@@ -147,32 +139,6 @@ func validExportEvent(event audit.EventDraft) bool {
 	default:
 		return false
 	}
-}
-
-func exportTargetRevision(kind audit.TargetKind) (int64, bool) {
-	match := exportTargetPattern.FindStringSubmatch(string(kind))
-	if len(match) != 2 {
-		return 0, false
-	}
-	revision, err := strconv.ParseInt(match[1], 10, 64)
-	return revision, err == nil && revision > 0
-}
-
-func ExportTarget(ref inventory.DraftRef) (audit.Target, error) {
-	if ref.ID == "" || ref.Revision < 1 {
-		return audit.Target{}, newStoreError("INPUT_INVALID", "inventory-export-draft", false, nil)
-	}
-	target := audit.Target{Kind: audit.TargetKind(fmt.Sprintf("%s%d", exportTargetPrefix, ref.Revision)), ID: string(ref.ID)}
-	if len(target.Kind) > 64 || audit.ValidateEventDraft(audit.EventDraft{
-		Type: "inventory.export.requested", CorrelationID: "validation", Attribution: audit.Attribution{AuthenticatedPrincipalID: "validation", AuthenticatedPrincipalMethod: "local-os-peer"},
-		Target: target, After: func() *audit.Fingerprint {
-			value := audit.Fingerprint("sha256:" + strings.Repeat("0", 64))
-			return &value
-		}(),
-	}) != nil {
-		return audit.Target{}, newStoreError("INPUT_INVALID", "inventory-export-draft", false, nil)
-	}
-	return target, nil
 }
 
 func (repository *InventoryExportRepository) PendingExportRequests(ctx context.Context, limit int) ([]stateexport.PendingExportRequest, error) {
@@ -198,7 +164,7 @@ func (repository *InventoryExportRepository) PendingExportRequests(ctx context.C
 			if err := rows.Scan(&pending.EventID, &pending.CorrelationID, &principalID, &principalMethod, &human, &agentName, &agentSession, &targetKind, &targetID, &pending.StateRevision, &pending.RecoveryEpoch, &before, &after); err != nil {
 				return err
 			}
-			revision, ok := exportTargetRevision(audit.TargetKind(targetKind))
+			revision, ok := stateexport.ExportTargetRevision(audit.TargetKind(targetKind))
 			if !ok || !audit.ValidFingerprint(audit.Fingerprint(after)) {
 				return newStoreError("INTEGRITY_FAILURE", "inventory-export-pending", false, nil)
 			}
