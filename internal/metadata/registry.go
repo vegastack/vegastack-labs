@@ -15,6 +15,14 @@ const (
 	localPrincipalBindingSchemaID      = "vegastack-labs.dev/local-principal-binding"
 	serverProfileSchemaID              = "vegastack-labs.dev/server-profile"
 	serverStatusDataSchemaID           = "vegastack-labs.dev/server-status-data"
+	stateExportKindCountSchemaID       = "vegastack-labs.dev/state-export-kind-count"
+	stateExportDraftRefSchemaID        = "vegastack-labs.dev/state-export-draft-ref"
+	stateExportSourceSchemaID          = "vegastack-labs.dev/state-export-source"
+	stateExportDraftSchemaID           = "vegastack-labs.dev/state-export-draft"
+	stateExportPayloadSchemaID         = "vegastack-labs.dev/inventory-draft-snapshot-payload"
+	stateExportSignatureSchemaID       = "vegastack-labs.dev/inventory-draft-export-signature"
+	stateExportDocumentSchemaID        = "vegastack-labs.dev/signed-inventory-draft-export"
+	stateExportPointerSchemaID         = "vegastack-labs.dev/inventory-draft-export-pointer"
 	inventoryDraftInputSchemaID        = "vegastack-labs.dev/inventory-draft-input"
 	inventoryImportDataSchemaID        = "vegastack-labs.dev/inventory-import-data"
 	inventoryDraftSourceSchemaID       = "vegastack-labs.dev/inventory-draft-source"
@@ -149,7 +157,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.3.0",
+		SchemaVersion: "1.4.0",
 		Commands:      commands,
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
@@ -420,6 +428,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "socketGroupGid", GoName: "SocketGroupGID", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
 				{JSONName: "socketMode", GoName: "SocketMode", Kind: ValueString, Required: true, Enum: []string{"0600", "0660"}},
 				{JSONName: "shutdownGraceSeconds", GoName: "ShutdownGraceSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(5), Maximum: int64Pointer(5)},
+				{JSONName: "inventoryExportRoot", GoName: "InventoryExportRoot", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
 				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
 			},
 		},
@@ -437,7 +446,79 @@ func currentSchemas() []SchemaDefinition {
 		},
 	}
 	schemas = append(schemas, inventorySchemas()...)
+	schemas = append(schemas, stateExportSchemas()...)
 	return append(schemas, auditSchemas()...)
+}
+
+func stateExportSchemas() []SchemaDefinition {
+	token := `^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$`
+	digest := `^sha256:[0-9a-f]{64}$`
+	return []SchemaDefinition{
+		{ID: stateExportKindCountSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Enum: []string{"inventory-draft"}},
+			{JSONName: "count", GoName: "Count", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1), Maximum: int64Pointer(1)},
+		}},
+		{ID: stateExportDraftRefSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "id", GoName: "ID", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "revision", GoName: "Revision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+		}},
+		{ID: stateExportSourceSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "adapterKind", GoName: "AdapterKind", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "adapterVersion", GoName: "AdapterVersion", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true, MaxLength: intPointer(128)},
+			{JSONName: "digest", GoName: "Digest", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "capturedAt", GoName: "CapturedAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+		}},
+		{ID: stateExportDraftSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "kind", GoName: "Kind", Kind: ValueString, Required: true, Enum: []string{"draft"}},
+			{JSONName: "ref", GoName: "Ref", Kind: ValueObject, Required: true, Ref: stateExportDraftRefSchemaID},
+			{JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"blocked", "valid"}},
+			{JSONName: "source", GoName: "Source", Kind: ValueObject, Required: true, Ref: stateExportSourceSchemaID},
+			{JSONName: "assets", GoName: "Assets", Kind: ValueArray, Required: true, ItemRef: inventoryDraftAssetSchemaID, MaxItems: intPointer(4096)},
+			{JSONName: "nodes", GoName: "Nodes", Kind: ValueArray, Required: true, ItemRef: inventoryDraftNodeSchemaID, MaxItems: intPointer(4096)},
+			{JSONName: "aliases", GoName: "Aliases", Kind: ValueArray, Required: true, ItemRef: inventoryDraftAliasSchemaID, MaxItems: intPointer(4096)},
+			{JSONName: "addresses", GoName: "Addresses", Kind: ValueArray, Required: true, ItemRef: inventoryDraftAddressSchemaID, MaxItems: intPointer(4096)},
+			{JSONName: "observations", GoName: "Observations", Kind: ValueArray, Required: true, ItemRef: inventoryDraftObservationSchemaID, MaxItems: intPointer(4096)},
+			{JSONName: "provenance", GoName: "Provenance", Kind: ValueArray, Required: true, ItemRef: inventoryFieldProvenanceSchemaID, MaxItems: intPointer(32768)},
+			{JSONName: "findings", GoName: "Findings", Kind: ValueArray, Required: true, ItemRef: inventoryFindingSchemaID, MaxItems: intPointer(16384)},
+			{JSONName: "contentDigest", GoName: "ContentDigest", Kind: ValueString, Required: true, Pattern: digest},
+		}},
+		{ID: stateExportPayloadSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-draft-snapshot-payload.schema.json", Fields: []FieldDefinition{
+			{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{stateExportPayloadSchemaID}},
+			{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+			{JSONName: "exportKind", GoName: "ExportKind", Kind: ValueString, Required: true, Enum: []string{"inventory-draft-snapshot"}},
+			{JSONName: "subjectKind", GoName: "SubjectKind", Kind: ValueString, Required: true, Enum: []string{"draft"}},
+			{JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)},
+			{JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)},
+			{JSONName: "toolVersion", GoName: "ToolVersion", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "releaseBuildId", GoName: "ReleaseBuildID", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true, Nullable: true, Pattern: `^[0-9a-f]{40,64}$`},
+			{JSONName: "contents", GoName: "Contents", Kind: ValueArray, Required: true, ItemRef: stateExportKindCountSchemaID, MinItems: intPointer(1), MaxItems: intPointer(1)},
+			{JSONName: "draft", GoName: "Draft", Kind: ValueObject, Required: true, Ref: stateExportDraftSchemaID},
+		}},
+		{ID: stateExportSignatureSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-draft-export-signature.schema.json", Fields: []FieldDefinition{
+			{JSONName: "algorithm", GoName: "Algorithm", Kind: ValueString, Required: true, Enum: []string{"ed25519"}},
+			{JSONName: "keyId", GoName: "KeyID", Kind: ValueString, Required: true, Pattern: token, MaxLength: intPointer(128)},
+			{JSONName: "keyFingerprint", GoName: "KeyFingerprint", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "value", GoName: "Value", Kind: ValueString, Required: true, Pattern: `^[A-Za-z0-9_-]{86}$`, MinLength: intPointer(86), MaxLength: intPointer(86)},
+		}},
+		{ID: stateExportDocumentSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/signed-inventory-draft-export.schema.json", Fields: []FieldDefinition{
+			{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{stateExportDocumentSchemaID}},
+			{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+			{JSONName: "payload", GoName: "Payload", Kind: ValueObject, Required: true, Ref: stateExportPayloadSchemaID},
+			{JSONName: "contentDigest", GoName: "ContentDigest", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "signature", GoName: "Signature", Kind: ValueObject, Required: true, Ref: stateExportSignatureSchemaID},
+			{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"verified"}},
+		}},
+		{ID: stateExportPointerSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/inventory-draft-export-pointer.schema.json", Fields: []FieldDefinition{
+			{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{stateExportPointerSchemaID}},
+			{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+			{JSONName: "exportKind", GoName: "ExportKind", Kind: ValueString, Required: true, Enum: []string{"inventory-draft-snapshot"}},
+			{JSONName: "artifactId", GoName: "ArtifactID", Kind: ValueString, Required: true, Pattern: digest},
+			{JSONName: "contentDigest", GoName: "ContentDigest", Kind: ValueString, Required: true, Pattern: digest},
+		}},
+	}
 }
 
 func auditSchemas() []SchemaDefinition {

@@ -32,7 +32,10 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/command-registry.schema.json",
 		"schemas/v1/audit-event.schema.json",
 		"schemas/v1/database-status-data.schema.json",
+		"schemas/v1/inventory-draft-export-pointer.schema.json",
+		"schemas/v1/inventory-draft-export-signature.schema.json",
 		"schemas/v1/inventory-draft-input.schema.json",
+		"schemas/v1/inventory-draft-snapshot-payload.schema.json",
 		"schemas/v1/inventory-import-data.schema.json",
 		"schemas/v1/outbox-record-data.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
@@ -42,6 +45,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/run-result.schema.json",
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
+		"schemas/v1/signed-inventory-draft-export.schema.json",
 	}
 	gotPaths := make([]string, len(first))
 	for index, artifact := range first {
@@ -242,7 +246,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.3.0"`,
+		`= "1.4.0"`,
 		`type DatabaseStatusData struct`,
 		`SchemaIDRunResult`,
 		`SchemaIDResultError`,
@@ -260,6 +264,10 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 		`type LocalPrincipalBinding struct`,
 		`type ServerProfile struct`,
 		`type ServerStatusData struct`,
+		`type InventoryDraftSnapshotPayload struct`,
+		`type InventoryDraftExportSignature struct`,
+		`type SignedInventoryDraftExport struct`,
+		`type InventoryDraftExportPointer struct`,
 		`CommandNameServerRun`,
 		`CommandNameServerStatus`,
 		`FlagConfig`,

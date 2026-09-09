@@ -5,84 +5,92 @@ package generated
 import "encoding/json"
 
 const (
-	SchemaMajor                        = 1
-	RegistrySchemaVersion              = "1.3.0"
-	AvailabilityAvailable              = "available"
-	AvailabilityPlanned                = "planned"
-	FlagKindValue                      = "value"
-	FlagKindSwitch                     = "switch"
-	SchemaIDAuditEvent                 = "vegastack-labs.dev/audit-event"
-	SchemaIDAuditTarget                = "vegastack-labs.dev/audit-target"
-	SchemaIDDatabaseStatusData         = "vegastack-labs.dev/database-status-data"
-	SchemaIDInventoryDraftAddress      = "vegastack-labs.dev/inventory-draft-address"
-	SchemaIDInventoryDraftAlias        = "vegastack-labs.dev/inventory-draft-alias"
-	SchemaIDInventoryDraftAsset        = "vegastack-labs.dev/inventory-draft-asset"
-	SchemaIDInventoryDraftCounts       = "vegastack-labs.dev/inventory-draft-counts"
-	SchemaIDInventoryDraftHardwareFact = "vegastack-labs.dev/inventory-draft-hardware-fact"
-	SchemaIDInventoryDraftIdentity     = "vegastack-labs.dev/inventory-draft-identity"
-	SchemaIDInventoryDraftInput        = "vegastack-labs.dev/inventory-draft-input"
-	SchemaIDInventoryDraftNode         = "vegastack-labs.dev/inventory-draft-node"
-	SchemaIDInventoryDraftObservation  = "vegastack-labs.dev/inventory-draft-observation"
-	SchemaIDInventoryDraftSource       = "vegastack-labs.dev/inventory-draft-source"
-	SchemaIDInventoryFieldProvenance   = "vegastack-labs.dev/inventory-field-provenance"
-	SchemaIDInventoryFinding           = "vegastack-labs.dev/inventory-finding"
-	SchemaIDInventoryImportData        = "vegastack-labs.dev/inventory-import-data"
-	SchemaIDLocalPrincipalBinding      = "vegastack-labs.dev/local-principal-binding"
-	SchemaIDOutboxRecordData           = "vegastack-labs.dev/outbox-record-data"
-	SchemaIDReleaseAsset               = "vegastack-labs.dev/release-asset"
-	SchemaIDReleaseAssetVerification   = "vegastack-labs.dev/release-asset-verification"
-	SchemaIDReleaseInspectData         = "vegastack-labs.dev/release-inspect-data"
-	SchemaIDReleaseManifest            = "vegastack-labs.dev/release-manifest"
-	SchemaIDReleaseTrustPolicy         = "vegastack-labs.dev/release-trust-policy"
-	SchemaIDReleaseVerifyData          = "vegastack-labs.dev/release-verify-data"
-	SchemaIDResultError                = "vegastack-labs.dev/result-error"
-	SchemaIDRunResult                  = "vegastack-labs.dev/run-result"
-	RunStatusBlocked                   = "blocked"
-	RunStatusCancelled                 = "cancelled"
-	RunStatusFailed                    = "failed"
-	RunStatusInterrupted               = "interrupted"
-	RunStatusPartial                   = "partial"
-	RunStatusSucceeded                 = "succeeded"
-	SchemaIDServerProfile              = "vegastack-labs.dev/server-profile"
-	SchemaIDServerStatusData           = "vegastack-labs.dev/server-status-data"
-	CommandNameHelp                    = "help"
-	FlagOutput                         = "--output"
-	OutputHuman                        = "human"
-	OutputJSON                         = "json"
-	FlagSchemaVersion                  = "--schema-version"
-	CommandNameReleaseInspect          = "release inspect"
-	FlagManifest                       = "--manifest"
-	CommandNameReleaseVerify           = "release verify"
-	FlagAll                            = "--all"
-	FlagAsset                          = "--asset"
-	FlagPolicy                         = "--policy"
-	CommandNameServerRun               = "server run"
-	FlagConfig                         = "--config"
-	CommandNameServerStatus            = "server status"
-	CommandNameVersion                 = "version"
-	ErrorCodeApprovalRequired          = "APPROVAL_REQUIRED"
-	ErrorCodeAuthenticationRequired    = "AUTHENTICATION_REQUIRED"
-	ErrorCodeAuthorizationDenied       = "AUTHORIZATION_DENIED"
-	ErrorCodeDependencyUnavailable     = "DEPENDENCY_UNAVAILABLE"
-	ErrorCodeEvidenceExpired           = "EVIDENCE_EXPIRED"
-	ErrorCodeEvidenceInvalid           = "EVIDENCE_INVALID"
-	ErrorCodeExecutionFailed           = "EXECUTION_FAILED"
-	ErrorCodeExecutionPartial          = "EXECUTION_PARTIAL"
-	ErrorCodeGateBlocked               = "GATE_BLOCKED"
-	ErrorCodeInputInvalid              = "INPUT_INVALID"
-	ErrorCodeIntegrityFailure          = "INTEGRITY_FAILURE"
-	ErrorCodeInterrupted               = "INTERRUPTED"
-	ErrorCodeMigrationBlocked          = "MIGRATION_BLOCKED"
-	ErrorCodePlanStale                 = "PLAN_STALE"
-	ErrorCodePrerequisiteBlocked       = "PREREQUISITE_BLOCKED"
-	ErrorCodeRecoveryEpochMismatch     = "RECOVERY_EPOCH_MISMATCH"
-	ErrorCodeRecoveryRequired          = "RECOVERY_REQUIRED"
-	ErrorCodeSchemaUnsupported         = "SCHEMA_UNSUPPORTED"
-	ErrorCodeSessionExpired            = "SESSION_EXPIRED"
-	ErrorCodeStateConflict             = "STATE_CONFLICT"
-	ErrorCodeTargetUnreachable         = "TARGET_UNREACHABLE"
-	ErrorCodeUnsupportedPlatform       = "UNSUPPORTED_PLATFORM"
-	ErrorCodeVersionIncompatible       = "VERSION_INCOMPATIBLE"
+	SchemaMajor                           = 1
+	RegistrySchemaVersion                 = "1.4.0"
+	AvailabilityAvailable                 = "available"
+	AvailabilityPlanned                   = "planned"
+	FlagKindValue                         = "value"
+	FlagKindSwitch                        = "switch"
+	SchemaIDAuditEvent                    = "vegastack-labs.dev/audit-event"
+	SchemaIDAuditTarget                   = "vegastack-labs.dev/audit-target"
+	SchemaIDDatabaseStatusData            = "vegastack-labs.dev/database-status-data"
+	SchemaIDInventoryDraftAddress         = "vegastack-labs.dev/inventory-draft-address"
+	SchemaIDInventoryDraftAlias           = "vegastack-labs.dev/inventory-draft-alias"
+	SchemaIDInventoryDraftAsset           = "vegastack-labs.dev/inventory-draft-asset"
+	SchemaIDInventoryDraftCounts          = "vegastack-labs.dev/inventory-draft-counts"
+	SchemaIDInventoryDraftExportPointer   = "vegastack-labs.dev/inventory-draft-export-pointer"
+	SchemaIDInventoryDraftExportSignature = "vegastack-labs.dev/inventory-draft-export-signature"
+	SchemaIDInventoryDraftHardwareFact    = "vegastack-labs.dev/inventory-draft-hardware-fact"
+	SchemaIDInventoryDraftIdentity        = "vegastack-labs.dev/inventory-draft-identity"
+	SchemaIDInventoryDraftInput           = "vegastack-labs.dev/inventory-draft-input"
+	SchemaIDInventoryDraftNode            = "vegastack-labs.dev/inventory-draft-node"
+	SchemaIDInventoryDraftObservation     = "vegastack-labs.dev/inventory-draft-observation"
+	SchemaIDInventoryDraftSnapshotPayload = "vegastack-labs.dev/inventory-draft-snapshot-payload"
+	SchemaIDInventoryDraftSource          = "vegastack-labs.dev/inventory-draft-source"
+	SchemaIDInventoryFieldProvenance      = "vegastack-labs.dev/inventory-field-provenance"
+	SchemaIDInventoryFinding              = "vegastack-labs.dev/inventory-finding"
+	SchemaIDInventoryImportData           = "vegastack-labs.dev/inventory-import-data"
+	SchemaIDLocalPrincipalBinding         = "vegastack-labs.dev/local-principal-binding"
+	SchemaIDOutboxRecordData              = "vegastack-labs.dev/outbox-record-data"
+	SchemaIDReleaseAsset                  = "vegastack-labs.dev/release-asset"
+	SchemaIDReleaseAssetVerification      = "vegastack-labs.dev/release-asset-verification"
+	SchemaIDReleaseInspectData            = "vegastack-labs.dev/release-inspect-data"
+	SchemaIDReleaseManifest               = "vegastack-labs.dev/release-manifest"
+	SchemaIDReleaseTrustPolicy            = "vegastack-labs.dev/release-trust-policy"
+	SchemaIDReleaseVerifyData             = "vegastack-labs.dev/release-verify-data"
+	SchemaIDResultError                   = "vegastack-labs.dev/result-error"
+	SchemaIDRunResult                     = "vegastack-labs.dev/run-result"
+	RunStatusBlocked                      = "blocked"
+	RunStatusCancelled                    = "cancelled"
+	RunStatusFailed                       = "failed"
+	RunStatusInterrupted                  = "interrupted"
+	RunStatusPartial                      = "partial"
+	RunStatusSucceeded                    = "succeeded"
+	SchemaIDServerProfile                 = "vegastack-labs.dev/server-profile"
+	SchemaIDServerStatusData              = "vegastack-labs.dev/server-status-data"
+	SchemaIDSignedInventoryDraftExport    = "vegastack-labs.dev/signed-inventory-draft-export"
+	SchemaIDStateExportDraft              = "vegastack-labs.dev/state-export-draft"
+	SchemaIDStateExportDraftRef           = "vegastack-labs.dev/state-export-draft-ref"
+	SchemaIDStateExportKindCount          = "vegastack-labs.dev/state-export-kind-count"
+	SchemaIDStateExportSource             = "vegastack-labs.dev/state-export-source"
+	CommandNameHelp                       = "help"
+	FlagOutput                            = "--output"
+	OutputHuman                           = "human"
+	OutputJSON                            = "json"
+	FlagSchemaVersion                     = "--schema-version"
+	CommandNameReleaseInspect             = "release inspect"
+	FlagManifest                          = "--manifest"
+	CommandNameReleaseVerify              = "release verify"
+	FlagAll                               = "--all"
+	FlagAsset                             = "--asset"
+	FlagPolicy                            = "--policy"
+	CommandNameServerRun                  = "server run"
+	FlagConfig                            = "--config"
+	CommandNameServerStatus               = "server status"
+	CommandNameVersion                    = "version"
+	ErrorCodeApprovalRequired             = "APPROVAL_REQUIRED"
+	ErrorCodeAuthenticationRequired       = "AUTHENTICATION_REQUIRED"
+	ErrorCodeAuthorizationDenied          = "AUTHORIZATION_DENIED"
+	ErrorCodeDependencyUnavailable        = "DEPENDENCY_UNAVAILABLE"
+	ErrorCodeEvidenceExpired              = "EVIDENCE_EXPIRED"
+	ErrorCodeEvidenceInvalid              = "EVIDENCE_INVALID"
+	ErrorCodeExecutionFailed              = "EXECUTION_FAILED"
+	ErrorCodeExecutionPartial             = "EXECUTION_PARTIAL"
+	ErrorCodeGateBlocked                  = "GATE_BLOCKED"
+	ErrorCodeInputInvalid                 = "INPUT_INVALID"
+	ErrorCodeIntegrityFailure             = "INTEGRITY_FAILURE"
+	ErrorCodeInterrupted                  = "INTERRUPTED"
+	ErrorCodeMigrationBlocked             = "MIGRATION_BLOCKED"
+	ErrorCodePlanStale                    = "PLAN_STALE"
+	ErrorCodePrerequisiteBlocked          = "PREREQUISITE_BLOCKED"
+	ErrorCodeRecoveryEpochMismatch        = "RECOVERY_EPOCH_MISMATCH"
+	ErrorCodeRecoveryRequired             = "RECOVERY_REQUIRED"
+	ErrorCodeSchemaUnsupported            = "SCHEMA_UNSUPPORTED"
+	ErrorCodeSessionExpired               = "SESSION_EXPIRED"
+	ErrorCodeStateConflict                = "STATE_CONFLICT"
+	ErrorCodeTargetUnreachable            = "TARGET_UNREACHABLE"
+	ErrorCodeUnsupportedPlatform          = "UNSUPPORTED_PLATFORM"
+	ErrorCodeVersionIncompatible          = "VERSION_INCOMPATIBLE"
 )
 
 type AuditEvent struct {
@@ -154,6 +162,21 @@ type InventoryDraftCounts struct {
 	Findings      int64 `json:"findings"`
 }
 
+type InventoryDraftExportPointer struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ExportKind    string `json:"exportKind"`
+	ArtifactID    string `json:"artifactId"`
+	ContentDigest string `json:"contentDigest"`
+}
+
+type InventoryDraftExportSignature struct {
+	Algorithm      string `json:"algorithm"`
+	KeyID          string `json:"keyId"`
+	KeyFingerprint string `json:"keyFingerprint"`
+	Value          string `json:"value"`
+}
+
 type InventoryDraftHardwareFact struct {
 	ID           string  `json:"id"`
 	Kind         string  `json:"kind"`
@@ -192,6 +215,20 @@ type InventoryDraftObservation struct {
 	Kind       string `json:"kind"`
 	Value      string `json:"value"`
 	ObservedAt string `json:"observedAt"`
+}
+
+type InventoryDraftSnapshotPayload struct {
+	Schema         string                 `json:"schema"`
+	SchemaVersion  string                 `json:"schemaVersion"`
+	ExportKind     string                 `json:"exportKind"`
+	SubjectKind    string                 `json:"subjectKind"`
+	RecoveryEpoch  int64                  `json:"recoveryEpoch"`
+	StateRevision  int64                  `json:"stateRevision"`
+	ToolVersion    string                 `json:"toolVersion"`
+	ReleaseBuildID string                 `json:"releaseBuildId"`
+	SourceRevision *string                `json:"sourceRevision"`
+	Contents       []StateExportKindCount `json:"contents"`
+	Draft          StateExportDraft       `json:"draft"`
 }
 
 type InventoryDraftSource struct {
@@ -359,6 +396,7 @@ type ServerProfile struct {
 	SocketGroupGID       *int64                  `json:"socketGroupGid"`
 	SocketMode           string                  `json:"socketMode"`
 	ShutdownGraceSeconds int64                   `json:"shutdownGraceSeconds"`
+	InventoryExportRoot  string                  `json:"inventoryExportRoot"`
 	PrincipalBindings    []LocalPrincipalBinding `json:"principalBindings"`
 }
 
@@ -368,6 +406,49 @@ type ServerStatusData struct {
 	MutationAvailable bool   `json:"mutationAvailable"`
 	RecoveryEpoch     int64  `json:"recoveryEpoch"`
 	StateRevision     int64  `json:"stateRevision"`
+}
+
+type SignedInventoryDraftExport struct {
+	Schema             string                        `json:"schema"`
+	SchemaVersion      string                        `json:"schemaVersion"`
+	Payload            InventoryDraftSnapshotPayload `json:"payload"`
+	ContentDigest      string                        `json:"contentDigest"`
+	Signature          InventoryDraftExportSignature `json:"signature"`
+	VerificationStatus string                        `json:"verificationStatus"`
+}
+
+type StateExportDraft struct {
+	Kind             string                      `json:"kind"`
+	Ref              StateExportDraftRef         `json:"ref"`
+	ValidationStatus string                      `json:"validationStatus"`
+	Source           StateExportSource           `json:"source"`
+	Assets           []InventoryDraftAsset       `json:"assets"`
+	Nodes            []InventoryDraftNode        `json:"nodes"`
+	Aliases          []InventoryDraftAlias       `json:"aliases"`
+	Addresses        []InventoryDraftAddress     `json:"addresses"`
+	Observations     []InventoryDraftObservation `json:"observations"`
+	Provenance       []InventoryFieldProvenance  `json:"provenance"`
+	Findings         []InventoryFinding          `json:"findings"`
+	ContentDigest    string                      `json:"contentDigest"`
+}
+
+type StateExportDraftRef struct {
+	ID       string `json:"id"`
+	Revision int64  `json:"revision"`
+}
+
+type StateExportKindCount struct {
+	Kind  string `json:"kind"`
+	Count int64  `json:"count"`
+}
+
+type StateExportSource struct {
+	Kind           string `json:"kind"`
+	AdapterKind    string `json:"adapterKind"`
+	AdapterVersion string `json:"adapterVersion"`
+	SourceRevision string `json:"sourceRevision"`
+	Digest         string `json:"digest"`
+	CapturedAt     string `json:"capturedAt"`
 }
 
 type Command struct {

@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.3.0",
+  "schemaVersion": "1.4.0",
   "commands": [
     {
       "path": [
@@ -976,6 +976,16 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/inventory-draft-export-pointer",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-draft-export-pointer.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-export-signature",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-draft-export-signature.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/inventory-draft-hardware-fact",
       "version": "1.0.0"
     },
@@ -995,6 +1005,11 @@
     {
       "id": "vegastack-labs.dev/inventory-draft-observation",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-draft-snapshot-payload",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-draft-snapshot-payload.schema.json"
     },
     {
       "id": "vegastack-labs.dev/inventory-draft-source",
@@ -1068,6 +1083,27 @@
       "id": "vegastack-labs.dev/server-status-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/server-status-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/signed-inventory-draft-export",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/signed-inventory-draft-export.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/state-export-draft",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/state-export-draft-ref",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/state-export-kind-count",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/state-export-source",
+      "version": "1.0.0"
     }
   ]
 }
