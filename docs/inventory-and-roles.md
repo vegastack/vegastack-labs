@@ -4,7 +4,7 @@
 
 This document is the concrete VegaStack Labs inventory profile, not the generic node schema. Other installations use the [typed identity and profile contract](platform-lifecycle.md#identity-and-configuration), without Sheet row order or mandatory physical serials.
 
-The control-plane SQLite accepted inventory is the deployment source of truth. An import first creates an immutable generic draft; it does not become accepted inventory merely because it was decoded, stored, or has `valid` status. The later Phase 4 plan transition remains the only path from reviewed intent to accepted declaration. For the Labs profile, that later process reconciles a read-only Google Sheet and physical discovery; the Sheet's dedicated current `RAM` and `ROM` columns override Lenovo factory text for capacity. Factory text remains provenance only. An infrastructure admin owns reconciliation; neither automation nor this specification writes the Sheet. Each accepted declaration increments the database state revision and emits a signed declarative snapshot. [D-014](decisions-and-sources.md#d-014) [D-100](decisions-and-sources.md#d-100)
+The control-plane SQLite accepted inventory is the deployment source of truth. An import first creates an immutable generic draft; it does not become accepted inventory merely because it was decoded, stored, or has `valid` status. The later Phase 4 plan transition remains the only path from reviewed intent to accepted declaration. For the Labs profile, that later process reconciles a read-only Google Sheet and physical discovery; dedicated current capacity values take precedence while distinct numeric factory values remain reported evidence. Unstructured factory prose is never parsed into capacity. An infrastructure admin owns reconciliation; neither automation nor this specification writes the Sheet. Each accepted declaration increments the database state revision and emits a signed declarative snapshot. [D-014](decisions-and-sources.md#d-014) [D-100](decisions-and-sources.md#d-100)
 
 ## Generic import drafts versus accepted inventory
 
@@ -13,6 +13,47 @@ The portable inventory-draft input contains assets, nodes, aliases, addresses, o
 Fatal structure, limit, cancellation or secret checks persist nothing. An exact retry using the same opaque request key and canonical candidate is a no-op returning the original draft reference; corrections use a new key and immutable draft. Operators inspect the complete ordered findings, correct the source through its own human-owned workflow and submit a new revision. They never edit SQLite or delete/rewrite a prior draft. A future signed draft export must identify itself as `kind=draft`; only a later accepted declaration may be described as authoritative inventory.
 
 Every persisted `valid` or `blocked` draft now shares one SQLite transaction with its canonical `inventory.draft.persisted` event, exact-replay binding and required destination-neutral outbox rows. The event records the principal verified by the protected server context, the server-issued correlation ID, draft target and canonical content fingerprint; the import body has no authenticated-principal, responsible-human or agent field. This attribution records who submitted the inert draft but grants no authority, acknowledgement, qualification, admission or declaration transition. A disabled audit destination becomes `paused` without blocking the local draft, while any failure before commit leaves all business and audit layers absent.
+
+## Offline Labs Sheet1 CSV profile
+
+`internal/profiles/labsinventory` implements profile format `labs-sheet1-csv`, adapter version `1.0.0`, and header-contract version `1.0.0`. It consumes one explicit local UTF-8 CSV snapshot and returns Issue 2.3's provider-neutral `inventory.DecodedCandidate`. It has no file-opening, command, API, database, provider, source-write, Google, OAuth, or network path. Issue 2.8 (#36) owns the later authenticated CLI/API composition that will supply the local reader plus a trusted source revision and UTC capture time.
+
+Start from the [header-only template](examples/labs-sheet1-import-v1-header.csv), or inspect the [populated synthetic example](examples/labs-sheet1-import-v1-example.csv). Every column is required once, with the exact case-sensitive order below; reordering, omission, duplication, or any adjacent column is a fatal header error.
+
+| Position | CSV header | Accepted v1 value | Mapping |
+|---:|---|---|---|
+| 1 | `lifecycle` | exact `active`, `quarantined`, `retired`, or blank | `active` becomes core `available`; the other named states remain unchanged; blank or another token creates a blocking safe finding |
+| 2 | `hardware_serial` | exact text or blank | the only source identity; blank creates a blocking finding and never falls back to hostname, row, ordinal, model, or address |
+| 3 | `reported_hostname` | exact text or blank | display-alias observation only; it is never identity |
+| 4 | `manufacturer` | exact text or blank | `manufacturer` text fact or missing provenance |
+| 5 | `model` | exact text or blank | `model` text fact or missing provenance |
+| 6 | `cpu_architecture` | exact text or blank | `cpu-architecture` text fact or missing provenance |
+| 7 | `cpu_model` | exact text or blank | `cpu-model` text fact or missing provenance |
+| 8 | `cpu_physical_cores` | blank or ASCII digits | nonnegative base-10 `count`; no sign, decimal, unit, range, or prose |
+| 9 | `cpu_logical_threads` | blank or ASCII digits | nonnegative base-10 `count`; no inference |
+| 10 | `factory_ram_gb` | blank or ASCII digits | distinct factory `memory-capacity`, multiplied by exactly 1,000,000,000 bytes |
+| 11 | `factory_ssd_gb` | blank or ASCII digits | distinct factory SSD `storage-capacity` in decimal bytes |
+| 12 | `factory_hdd_gb` | blank or ASCII digits | distinct factory HDD `storage-capacity` in decimal bytes |
+| 13 | `current_ram_gb` | blank or ASCII digits | preferred current `memory-capacity` in decimal bytes |
+| 14 | `current_ssd_gb` | blank or ASCII digits | preferred current SSD `storage-capacity` in decimal bytes |
+| 15 | `current_hdd_gb` | blank or ASCII digits | preferred current HDD `storage-capacity` in decimal bytes |
+
+The decoder reads at most 4 MiB plus one limit-detection byte, permits at most 4,097 CSV records including the header, requires 15 fields per data record, and permits at most 1,024 UTF-8 bytes per field. The expanded candidate must also fit Issue 2.3's provider-neutral primary-record, hardware-fact, identity, and provenance bounds; expansion beyond those bounds fails at this adapter as `CSV_LIMIT_EXCEEDED` rather than reaching persistence as an opaque core error. One UTF-8 BOM is allowed only at byte zero. LF and CRLF records plus standard quoted commas and newlines are accepted. The source digest covers the exact original bytes, including the BOM and line endings.
+
+Every data row produces one physical draft asset in source order. Exact `active` rows alone produce nodes and consume proposed ordinals `vsk-node-01`, `vsk-node-02`, and so on, even when another field on that active row is missing or conflicting. Quarantined, retired, blank-lifecycle, and unsupported-lifecycle rows produce no node, alias, or ordinal. A proposed alias that exactly matches the reported hostname is one alias with both sources; cross-node collisions remain distinct records so generic validation blocks only the affected bindings.
+
+Factory and current values remain separate facts and source observations. A valid current fact is marked preferred without deleting the factory report. An invalid nonblank current cell is recorded only as `invalid` provenance plus `INVALID_CAPACITY`; its raw token is not retained, and the factory value is not relabelled as current. Every blank remains `missing` provenance. Counts and capacities are overflow-checked, and no prose is interpreted.
+
+Fatal byte, CSV, header, size, formula, prohibited-control/private-data, or cancellation failure returns only a stable code and safe record/column/field position; no candidate is available to persist. High-confidence private-data cells share the approved `CSV_CONTROL_PROHIBITED` unsafe-cell classification; v1 adds no unapproved public error code. Blank or unsupported lifecycle, missing serial, invalid count/capacity, and generic duplicate identity/alias conflicts remain ordered blocking findings on the complete inert candidate. Formula prefixes `=`, `+`, `-`, or `@` after leading Unicode whitespace, NUL/C0/C1 controls other than CSV record separators, bidi overrides/isolates, Unicode noncharacters, and credential-shaped cells are rejected without echoing their value.
+
+The human-equivalent correction procedure is:
+
+1. Copy the header-only template, fill only the 15 allowlisted columns, and export one UTF-8 CSV locally; do not add Sheet2 or adjacent notes/credential columns.
+2. When Issue #36 makes the route available, supply the file together with an explicit trusted source revision and UTC capture time. Neither is inferred from its filename or filesystem timestamp.
+3. Inspect every ordered safe finding. Treat proposed ordinal and reported hostname only as observations, never trusted host identity.
+4. Correct the private source through its normal human-owned workflow, export a new immutable snapshot, and submit a new revision. Never edit SQLite or rewrite an earlier draft.
+
+A successful decode or later import is not declaration, acceptance, admission, naming, configuration, qualification, or live authority. No command/API route exists in Issue #32 itself.
 
 ## Deterministic identity
 

@@ -1,0 +1,4 @@
+lifecycle,hardware_serial,reported_hostname,manufacturer,model,cpu_architecture,cpu_model,cpu_physical_cores,cpu_logical_threads,factory_ram_gb,factory_ssd_gb,factory_hdd_gb,current_ram_gb,current_ssd_gb,current_hdd_gb
+active,SYNTHETIC-CONFLICT-001,,ExampleCorp,ExampleModel,amd64,ExampleCPU,4,8,8,256,0,16,512,0
+active,SYNTHETIC-CONFLICT-002,vsk-node-01,ExampleCorp,ExampleModel,amd64,ExampleCPU,4,8,8,256,0,16,512,0
+retired,SYNTHETIC-CONFLICT-003,example-retired,ExampleCorp,ExampleModel,amd64,ExampleCPU,4,8,8,256,0,16,512,0
