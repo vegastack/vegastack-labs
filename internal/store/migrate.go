@@ -35,7 +35,7 @@ func (store *Store) migrateLocked(ctx context.Context, catalog []Migration) erro
 		return newStoreError("MIGRATION_BLOCKED", "migration-recovery", false, nil)
 	}
 	request := MigrationRequest{
-		Purpose:              "pre-migration-recovery",
+		Purpose:              "pre-migration",
 		ToolVersion:          store.config.ToolVersion,
 		BuildVersion:         store.config.BuildVersion,
 		CurrentSchemaVersion: currentSchema,
@@ -45,7 +45,7 @@ func (store *Store) migrateLocked(ctx context.Context, catalog []Migration) erro
 		BusyBudget:           store.config.BusyTimeout,
 		RequestedAt:          store.config.Clock().UTC(),
 	}
-	source := &recoverySource{store: store}
+	source := &recoverySource{store: store, catalog: catalog}
 	snapshot, err := store.config.Recovery.Prepare(ctx, source, request)
 	if err != nil || snapshot.SnapshotID == "" || snapshot.SchemaVersion != currentSchema || snapshot.Revision != currentRevision || snapshot.CatalogSHA256 != request.CatalogSHA256 {
 		if err == nil {

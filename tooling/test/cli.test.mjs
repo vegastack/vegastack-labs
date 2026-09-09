@@ -389,6 +389,27 @@ test("raw SQLite imports are allowed only in internal/store", async (t) => {
   ]);
 });
 
+test("the recovery artifact package cannot become a second SQLite owner", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/backup"; "example.test/internal/generated")',
+      "func init() { backup.Build() }",
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/backup/service.go": [
+      "package backup",
+      'import "database/sql"',
+      "func Build() { _ = sql.ErrNoRows }",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
+    "CLI_SQLITE_ACCESS",
+  ]);
+});
+
 test("offline release code rejects network and artifact execution", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/run.go": [
