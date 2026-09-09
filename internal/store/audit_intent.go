@@ -85,6 +85,9 @@ func (store *Store) executeAuditIntent(ctx context.Context, request intentReques
 		store.enterSafeMode("commit-failure")
 		return intentResult{}, store.transactionError(ctx, err)
 	}
+	if result.Created {
+		store.events.signal()
+	}
 	if result.Commit.Changed {
 		store.health.Revision = RevisionToken{StateRevision: result.Commit.StateRevision, RecoveryEpoch: result.Commit.RecoveryEpoch}
 	}

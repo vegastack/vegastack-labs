@@ -13,6 +13,12 @@ type RevisionToken struct {
 	RecoveryEpoch int64
 }
 
+type ApplicationHealth struct {
+	SafeMode      bool
+	RecoveryEpoch int64
+	StateRevision int64
+}
+
 type DatabaseStatus struct {
 	Mode                 string
 	SchemaVersion        uint64
@@ -49,19 +55,20 @@ type DraftPage struct {
 }
 
 type Record struct {
-	Kind            string
-	LocalID         inventory.LocalID
-	AssetKind       inventory.AssetKind
-	Lifecycle       inventory.AssetLifecycle
-	AssetID         inventory.LocalID
-	ParentID        inventory.LocalID
-	TargetID        inventory.LocalID
-	Value           string
-	SubjectID       inventory.LocalID
-	ObservationKind string
-	State           string
-	ObservedAt      *time.Time
-	Source          string
+	Kind             string
+	LocalID          inventory.LocalID
+	AssetKind        inventory.AssetKind
+	Lifecycle        inventory.AssetLifecycle
+	AssetID          inventory.LocalID
+	ParentID         inventory.LocalID
+	TargetID         inventory.LocalID
+	Value            string
+	SubjectID        inventory.LocalID
+	ObservationKind  string
+	State            string
+	ObservedAt       *time.Time
+	Source           string
+	ValidationStatus string
 }
 
 type RecordPage struct {

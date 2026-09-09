@@ -20,6 +20,17 @@ type ReadRepository struct{ store *Store }
 
 func NewReadRepository(store *Store) *ReadRepository { return &ReadRepository{store: store} }
 
+func (repository *ReadRepository) CurrentRevision(ctx context.Context, scope authorization.ReadScope) (RevisionToken, error) {
+	var result RevisionToken
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if err := verifyReadScope(ctx, tx, scope, ""); err != nil {
+			return err
+		}
+		return tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&result.StateRevision, &result.RecoveryEpoch)
+	})
+	return result, err
+}
+
 func (repository *ReadRepository) DatabaseStatus(ctx context.Context, scope authorization.ReadScope) (readmodel.DatabaseStatus, error) {
 	var result readmodel.DatabaseStatus
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
@@ -216,7 +227,7 @@ func readRecordRows(ctx context.Context, tx ReadTx, scope authorization.ReadScop
 			after = inventory.LocalID(strings.Repeat("z", 128))
 		}
 	}
-	statement := fmt.Sprintf(`SELECT r.%s FROM %s r JOIN read_grants g ON g.principal_id=? AND g.capability=? AND g.resource_kind=? AND g.resource_id=r.draft_id||':'||CAST(r.draft_revision AS TEXT) AND g.status='active' AND g.grant_revision=? WHERE r.draft_id=? AND r.draft_revision=? AND (?='' OR r.local_id=?) AND r.local_id%s? ORDER BY r.local_id %s LIMIT ?`, strings.ReplaceAll(columns, ",", ",r."), table, comparison, direction)
+	statement := fmt.Sprintf(`SELECT r.%s,d.validation_status FROM %s r JOIN inventory_drafts d ON d.draft_id=r.draft_id AND d.draft_revision=r.draft_revision JOIN read_grants g ON g.principal_id=? AND g.capability=? AND g.resource_kind=? AND g.resource_id=r.draft_id||':'||CAST(r.draft_revision AS TEXT) AND g.status='active' AND g.grant_revision=? WHERE r.draft_id=? AND r.draft_revision=? AND (?='' OR r.local_id=?) AND r.local_id%s? ORDER BY r.local_id %s LIMIT ?`, strings.ReplaceAll(columns, ",", ",r."), table, comparison, direction)
 	rows, err := tx.query(ctx, statement, scope.PrincipalID, scope.Capability, scope.ResourceKind, scope.GrantRevision, ref.ID, ref.Revision, exact, exact, after, limit)
 	if err != nil {
 		return nil, err
@@ -227,14 +238,14 @@ func readRecordRows(ctx context.Context, tx ReadTx, scope authorization.ReadScop
 		item := readmodel.Record{Kind: kind}
 		switch kind {
 		case "asset":
-			err = rows.Scan(&item.LocalID, &item.AssetKind, &item.Lifecycle)
+			err = rows.Scan(&item.LocalID, &item.AssetKind, &item.Lifecycle, &item.ValidationStatus)
 		case "node":
-			err = rows.Scan(&item.LocalID, &item.AssetID, &item.ParentID)
+			err = rows.Scan(&item.LocalID, &item.AssetID, &item.ParentID, &item.ValidationStatus)
 		case "alias":
-			err = rows.Scan(&item.LocalID, &item.TargetID, &item.Value)
+			err = rows.Scan(&item.LocalID, &item.TargetID, &item.Value, &item.ValidationStatus)
 		case "observation":
 			var observed string
-			err = rows.Scan(&item.LocalID, &item.SubjectID, &item.ObservationKind, &observed)
+			err = rows.Scan(&item.LocalID, &item.SubjectID, &item.ObservationKind, &observed, &item.ValidationStatus)
 			if err == nil {
 				parsed, parseErr := time.Parse(time.RFC3339Nano, observed)
 				if parseErr != nil {

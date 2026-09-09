@@ -167,7 +167,8 @@ func (service *service) shutdown(listener localapi.Listener, httpServer *http.Se
 }
 
 func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	if _, ok := identity.PrincipalFromContext(request.Context()); !ok {
+	principal, ok := identity.PrincipalFromContext(request.Context())
+	if !ok {
 		service.writeFailure(writer, request, http.StatusUnauthorized, generated.ErrorCodeAuthenticationRequired, "local-peer", false)
 		return
 	}
@@ -184,6 +185,12 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	if request.Method != http.MethodGet {
 		service.writeFailure(writer, request, http.StatusMethodNotAllowed, generated.ErrorCodeInputInvalid, "method", false)
 		return
+	}
+	if authorizer, ok := service.config.Application.(HealthAuthorizer); ok {
+		if err := authorizer.AuthorizeHealth(request.Context(), principal); err != nil {
+			service.writeFailure(writer, request, http.StatusForbidden, generated.ErrorCodeAuthorizationDenied, "health", false)
+			return
+		}
 	}
 	if request.Body != nil {
 		content, err := io.ReadAll(io.LimitReader(request.Body, 1))
@@ -215,7 +222,7 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 
 func (service *service) writeFailure(writer http.ResponseWriter, request *http.Request, statusCode int, code, target string, retryable bool) {
 	var health ApplicationHealth
-	if _, authenticated := identity.PrincipalFromContext(request.Context()); authenticated {
+	if _, authenticated := identity.PrincipalFromContext(request.Context()); authenticated && code != generated.ErrorCodeAuthorizationDenied && code != generated.ErrorCodeAuthenticationRequired {
 		health, _ = service.config.Application.Health(request.Context())
 	}
 	data := generated.ServerStatusData{State: string(service.currentState()), RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision}

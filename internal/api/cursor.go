@@ -112,12 +112,14 @@ func (codec *cursorCodec) Decode(token string, binding CursorBinding) (DecodedCu
 	if err := decoder.Decode(&payload); err != nil {
 		return conflict()
 	}
-	if payload.Version != 1 || payload.SchemaMajor != binding.SchemaMajor || payload.EndpointID != binding.EndpointID || payload.QueryDigest != binding.QueryDigest || payload.ScopeDigest != binding.ScopeDigest || payload.GrantRevision != binding.GrantRevision || payload.StateRevision != binding.Snapshot.StateRevision || payload.RecoveryEpoch != binding.Snapshot.RecoveryEpoch || codec.now().UTC().Unix() > payload.ExpiresAt || len(payload.SortValues) == 0 || len(payload.SortValues) > 4 || payload.ImmutableID == "" {
+	wildcardSnapshot := binding.Snapshot.StateRevision == -1 && binding.Snapshot.RecoveryEpoch == -1
+	if payload.Version != 1 || payload.SchemaMajor != binding.SchemaMajor || payload.EndpointID != binding.EndpointID || payload.QueryDigest != binding.QueryDigest || payload.ScopeDigest != binding.ScopeDigest || payload.GrantRevision != binding.GrantRevision || (!wildcardSnapshot && (payload.StateRevision != binding.Snapshot.StateRevision || payload.RecoveryEpoch != binding.Snapshot.RecoveryEpoch)) || codec.now().UTC().Unix() > payload.ExpiresAt || len(payload.SortValues) == 0 || len(payload.SortValues) > 4 || payload.ImmutableID == "" {
 		return conflict()
 	}
 	return DecodedCursor{Position: CursorPosition{SortValues: append([]string(nil), payload.SortValues...), ImmutableID: payload.ImmutableID}, Snapshot: store.RevisionToken{StateRevision: payload.StateRevision, RecoveryEpoch: payload.RecoveryEpoch}}, nil
 }
 
 func validCursorBinding(binding CursorBinding) bool {
-	return binding.SchemaMajor == 1 && binding.EndpointID != "" && len(binding.EndpointID) <= 128 && binding.QueryDigest != "" && len(binding.QueryDigest) <= 128 && binding.ScopeDigest != "" && len(binding.ScopeDigest) <= 128 && binding.GrantRevision > 0 && binding.Snapshot.StateRevision >= 0 && binding.Snapshot.RecoveryEpoch >= 0
+	wildcard := binding.Snapshot.StateRevision == -1 && binding.Snapshot.RecoveryEpoch == -1
+	return binding.SchemaMajor == 1 && binding.EndpointID != "" && len(binding.EndpointID) <= 128 && binding.QueryDigest != "" && len(binding.QueryDigest) <= 128 && binding.ScopeDigest != "" && len(binding.ScopeDigest) <= 128 && binding.GrantRevision > 0 && ((binding.Snapshot.StateRevision >= 0 && binding.Snapshot.RecoveryEpoch >= 0) || wildcard)
 }

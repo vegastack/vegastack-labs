@@ -1,0 +1,277 @@
+package api
+
+import (
+	"net/http"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/inventory"
+	"github.com/vegastack/vegastack-labs/internal/store"
+)
+
+type route struct {
+	id, pattern, capability, kind string
+	handler                       func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
+}
+
+var pathToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
+
+func finiteRoutes(app *Application) []route {
+	return []route{
+		{"api.v1.database-status.get", "/api/v1/database/status", "database.status.read", "database", app.databaseStatus},
+		{"api.v1.summary.get", "/api/v1/summary", "platform.summary.read", "platform-summary", app.summary},
+		{"api.v1.inventory-drafts.list", "/api/v1/inventory-drafts", "inventory.draft.read", "inventory-draft", app.draftList},
+		{"api.v1.inventory-drafts.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", "inventory.draft.read", "inventory-draft", app.draftGet},
+		{"api.v1.inventory-draft-assets.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", "inventory.draft.read", "inventory-draft", app.recordList("asset")},
+		{"api.v1.inventory-draft-assets.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("asset")},
+		{"api.v1.inventory-draft-nodes.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", "inventory.draft.read", "inventory-draft", app.recordList("node")},
+		{"api.v1.inventory-draft-nodes.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("node")},
+		{"api.v1.inventory-draft-aliases.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", "inventory.draft.read", "inventory-draft", app.recordList("alias")},
+		{"api.v1.inventory-draft-aliases.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("alias")},
+		{"api.v1.inventory-draft-observations.list", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", "inventory.draft.read", "inventory-draft", app.recordList("observation")},
+		{"api.v1.inventory-draft-observations.get", "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("observation")},
+	}
+}
+
+func (app *Application) serve(writer http.ResponseWriter, request *http.Request) {
+	if strings.HasPrefix(request.URL.Path, "/api/v") && !strings.HasPrefix(request.URL.Path, "/api/v1/") {
+		app.failure(writer, "api", apiFailure(generated.ErrorCodeSchemaUnsupported, "schema-major"))
+		return
+	}
+	if request.URL.Path == "/api/v1/events" && app.config.Streams != nil {
+		app.serveEvents(writer, request)
+		return
+	}
+	for _, candidate := range app.routes {
+		params, ok := matchPath(candidate.pattern, request.URL.Path)
+		if !ok {
+			continue
+		}
+		if request.Method != http.MethodGet {
+			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
+			return
+		}
+		principal, ok := identity.PrincipalFromContext(request.Context())
+		if !ok {
+			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))
+			return
+		}
+		resourceID := ""
+		if rawDraft, exists := params["draftId"]; exists {
+			resourceID = rawDraft + ":" + params["revision"]
+		}
+		scope, err := app.config.Authorizer.AuthorizeRead(request.Context(), principal, authorization.ReadTarget{Capability: candidate.capability, ResourceKind: candidate.kind, ResourceID: resourceID})
+		if err != nil {
+			app.failure(writer, candidate.id, err)
+			return
+		}
+		if request.Body != nil && request.ContentLength != 0 {
+			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "request-body"))
+			return
+		}
+		candidate.handler(writer, request, scope, params)
+		return
+	}
+	app.failure(writer, "api", apiFailure(generated.ErrorCodeResourceNotFound, "route"))
+}
+
+func matchPath(pattern, path string) (map[string]string, bool) {
+	want, got := strings.Split(strings.Trim(pattern, "/"), "/"), strings.Split(strings.Trim(path, "/"), "/")
+	if len(want) != len(got) {
+		return nil, false
+	}
+	params := map[string]string{}
+	for i := range want {
+		if strings.HasPrefix(want[i], "{") {
+			params[strings.Trim(want[i], "{}")] = got[i]
+			continue
+		}
+		if want[i] != got[i] {
+			return nil, false
+		}
+	}
+	return params, true
+}
+
+func parseRef(params map[string]string) (inventory.DraftRef, error) {
+	revision, err := strconv.ParseInt(params["revision"], 10, 64)
+	ref := inventory.DraftRef{ID: inventory.DraftID(params["draftId"]), Revision: revision}
+	if err != nil || authorization.ResourceID(ref) == "" {
+		return inventory.DraftRef{}, apiFailure(generated.ErrorCodeInputInvalid, "path")
+	}
+	return ref, nil
+}
+
+func (app *Application) databaseStatus(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, _ map[string]string) {
+	value, err := app.config.Reads.DatabaseStatus(r.Context(), scope)
+	if err != nil {
+		app.failure(w, "api.v1.database-status.get", err)
+		return
+	}
+	app.success(w, "api.v1.database-status.get", value.Revision.StateRevision, value.Revision.RecoveryEpoch, projectDatabaseStatus(value))
+}
+
+func (app *Application) summary(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, _ map[string]string) {
+	value, err := app.config.Reads.Summary(r.Context(), scope)
+	if err != nil {
+		app.failure(w, "api.v1.summary.get", err)
+		return
+	}
+	app.success(w, "api.v1.summary.get", value.StateRevision, value.RecoveryEpoch, projectSummary(value))
+}
+
+func (app *Application) draftList(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, _ map[string]string) {
+	const endpoint = "api.v1.inventory-drafts.list"
+	query, err := app.config.Queries.Decode(r.URL.Query(), QuerySpec{EndpointID: endpoint, AllowedSorts: []string{"created-at-asc", "created-at-desc"}, DefaultSort: "created-at-asc"})
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	snapshot, position, err := app.pageState(r, scope, endpoint, query)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	request := inventory.DraftListQuery{Limit: query.Limit, Sort: query.Sort}
+	if position != nil {
+		request.AfterCreatedAt, err = time.Parse(time.RFC3339Nano, position.SortValues[0])
+		if err != nil {
+			app.failure(w, endpoint, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
+			return
+		}
+		parts := strings.LastIndex(position.ImmutableID, ":")
+		if parts < 1 {
+			app.failure(w, endpoint, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
+			return
+		}
+		request.AfterDraftID = inventory.DraftID(position.ImmutableID[:parts])
+		request.AfterRevision, err = strconv.ParseInt(position.ImmutableID[parts+1:], 10, 64)
+		if err != nil {
+			app.failure(w, endpoint, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
+			return
+		}
+	}
+	page, err := app.config.Reads.ListDrafts(r.Context(), scope, request, snapshot)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	var next *string
+	if page.HasMore && page.Last != nil {
+		token, encodeErr := app.config.Cursors.Encode(cursorBinding(endpoint, query, scope, snapshot), CursorPosition{SortValues: []string{page.Last.AfterCreatedAt.UTC().Format(time.RFC3339Nano)}, ImmutableID: string(page.Last.AfterDraftID) + ":" + strconv.FormatInt(page.Last.AfterRevision, 10)})
+		if encodeErr != nil {
+			app.failure(w, endpoint, encodeErr)
+			return
+		}
+		next = &token
+	}
+	app.success(w, endpoint, snapshot.StateRevision, snapshot.RecoveryEpoch, projectDraftPage(page, next))
+}
+
+func (app *Application) draftGet(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, params map[string]string) {
+	const endpoint = "api.v1.inventory-drafts.get"
+	ref, err := parseRef(params)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	value, err := app.config.Reads.GetDraft(r.Context(), scope, ref)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	health, err := app.config.Reads.CurrentRevision(r.Context(), scope)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	app.success(w, endpoint, health.StateRevision, health.RecoveryEpoch, projectDraft(value.Summary))
+}
+
+func (app *Application) recordList(kind string) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, params map[string]string) {
+		endpoint := "api.v1.inventory-draft-" + kind + "s.list"
+		ref, err := parseRef(params)
+		if err != nil {
+			app.failure(w, endpoint, err)
+			return
+		}
+		query, err := app.config.Queries.Decode(r.URL.Query(), QuerySpec{EndpointID: endpoint, AllowedSorts: []string{"id-asc", "id-desc"}, DefaultSort: "id-asc"})
+		if err != nil {
+			app.failure(w, endpoint, err)
+			return
+		}
+		snapshot, position, err := app.pageState(r, scope, endpoint, query)
+		if err != nil {
+			app.failure(w, endpoint, err)
+			return
+		}
+		rq := inventory.RecordListQuery{AfterKind: kind, Limit: query.Limit, Sort: query.Sort}
+		if position != nil {
+			rq.AfterLocalID = inventory.LocalID(position.ImmutableID)
+		}
+		page, err := app.config.Reads.ListRecords(r.Context(), scope, ref, rq, snapshot)
+		if err != nil {
+			app.failure(w, endpoint, err)
+			return
+		}
+		var next *string
+		if page.HasMore && page.Last != nil {
+			token, e := app.config.Cursors.Encode(cursorBinding(endpoint, query, scope, snapshot), CursorPosition{SortValues: []string{string(page.Last.AfterLocalID)}, ImmutableID: string(page.Last.AfterLocalID)})
+			if e != nil {
+				app.failure(w, endpoint, e)
+				return
+			}
+			next = &token
+		}
+		app.success(w, endpoint, snapshot.StateRevision, snapshot.RecoveryEpoch, projectRecordPage(kind, page, next))
+	}
+}
+
+func (app *Application) recordGet(kind string) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, params map[string]string) {
+		endpoint := "api.v1.inventory-draft-" + kind + "s.get"
+		ref, err := parseRef(params)
+		if err != nil {
+			app.failure(w, endpoint, err)
+			return
+		}
+		if !pathToken.MatchString(params["recordId"]) {
+			app.failure(w, endpoint, apiFailure(generated.ErrorCodeInputInvalid, "path"))
+			return
+		}
+		value, err := app.config.Reads.GetRecord(r.Context(), scope, ref, kind, inventory.LocalID(params["recordId"]))
+		if err != nil {
+			app.failure(w, endpoint, err)
+			return
+		}
+		revision, err := app.config.Reads.CurrentRevision(r.Context(), scope)
+		if err != nil {
+			app.failure(w, endpoint, err)
+			return
+		}
+		app.success(w, endpoint, revision.StateRevision, revision.RecoveryEpoch, projectRecord(kind, value))
+	}
+}
+
+func cursorBinding(endpoint string, query ValidatedQuery, scope authorization.ReadScope, snapshot store.RevisionToken) CursorBinding {
+	return CursorBinding{SchemaMajor: 1, EndpointID: endpoint, QueryDigest: query.FilterDigest, ScopeDigest: scope.ScopeDigest, GrantRevision: scope.GrantRevision, Snapshot: snapshot}
+}
+
+func (app *Application) pageState(r *http.Request, scope authorization.ReadScope, endpoint string, query ValidatedQuery) (store.RevisionToken, *CursorPosition, error) {
+	if query.Cursor == "" {
+		revision, err := app.config.Reads.CurrentRevision(r.Context(), scope)
+		return revision, nil, err
+	}
+	binding := cursorBinding(endpoint, query, scope, store.RevisionToken{StateRevision: -1, RecoveryEpoch: -1})
+	decoded, err := app.config.Cursors.Decode(query.Cursor, binding)
+	if err != nil {
+		return store.RevisionToken{}, nil, err
+	}
+	return decoded.Snapshot, &decoded.Position, nil
+}
