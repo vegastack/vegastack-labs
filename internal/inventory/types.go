@@ -197,12 +197,14 @@ type DraftListQuery struct {
 	AfterDraftID   DraftID
 	AfterRevision  int64
 	Limit          int
+	Sort           string
 }
 
 type RecordListQuery struct {
 	AfterKind    string
 	AfterLocalID LocalID
 	Limit        int
+	Sort         string
 }
 
 type CanonicalDraftSnapshot struct {
