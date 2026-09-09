@@ -1,5 +1,7 @@
 import { createHash } from "node:crypto";
-import { readFile, readdir } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -150,6 +152,61 @@ export async function executeScenarioProofs(manifest, root = ROOT, selected = nu
     return { status: "fail", codes: ["PHASE2_EVIDENCE_STALE"], scenarios: requested };
   }
   return { status: "pass", codes: [], scenarios: requested };
+}
+
+async function treeFingerprint(root) {
+  const digest = createHash("sha256");
+  for (const filename of await filesBelow(root)) {
+    digest.update(path.relative(root, filename).split(path.sep).join("/"));
+    digest.update("\0");
+    digest.update(await readFile(filename));
+    digest.update("\0");
+  }
+  return `sha256:${digest.digest("hex")}`;
+}
+
+export async function proveUnavailableMutations(root = ROOT) {
+  const temporary = await mkdtemp(path.join(tmpdir(), "vsk-phase2-mutations-"));
+  try {
+    const binary = path.join(temporary, process.platform === "win32" ? "vsk-labs.exe" : "vsk-labs");
+    const state = path.join(temporary, "state");
+    await mkdir(path.join(state, "artifacts"), { recursive: true, mode: 0o700 });
+    await writeFile(path.join(state, "authority.json"), `${JSON.stringify({
+      recoveryEpoch: 1, stateRevision: 9, eventCount: 4, outboxCount: 2,
+    })}\n`, { mode: 0o600 });
+    await writeFile(path.join(state, "database.sqlite"), "synthetic-phase-2-database-fingerprint\n", { mode: 0o600 });
+    await writeFile(path.join(state, "artifacts", "current.json"), "{\"synthetic\":true}\n", { mode: 0o600 });
+    await runCommand("go", ["build", "-o", binary, "./cmd/vsk-labs"], {
+      cwd: root, capture: true, timeoutMs: 120_000,
+    });
+    const registry = JSON.parse(await readFile(path.join(root, "schemas/v1/command-registry.json"), "utf8"));
+    const planned = registry.commands.filter(({ availability }) => availability === "planned")
+      .map(({ path: commandPath }) => commandPath.join(" ")).sort();
+    const before = await treeFingerprint(state);
+    for (const command of planned) {
+      const invocation = spawnSync(binary, [...command.split(" "), "--output", "json", "--state-root", state, "private-canary"], {
+        cwd: root, encoding: "utf8", shell: false,
+      });
+      let envelope;
+      try {
+        envelope = JSON.parse(invocation.stdout);
+      } catch {
+        return { status: "fail", codes: ["PHASE2_MUTATION_AVAILABLE"], commands: [], fingerprint: before };
+      }
+      if (invocation.status !== 2 || invocation.signal !== null || envelope.changed !== false ||
+          envelope.status !== "failed" || envelope.errors?.[0]?.code !== "INPUT_INVALID" ||
+          /private-canary|state-root|database\.sqlite/.test(invocation.stdout + invocation.stderr)) {
+        return { status: "fail", codes: ["PHASE2_MUTATION_AVAILABLE"], commands: [], fingerprint: before };
+      }
+    }
+    const after = await treeFingerprint(state);
+    if (after !== before) {
+      return { status: "fail", codes: ["PHASE2_MUTATION_AVAILABLE"], commands: [], fingerprint: before };
+    }
+    return { status: "pass", codes: [], commands: planned, fingerprint: before };
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 }
 
 export async function collectIntegratedFacts(root = ROOT) {
