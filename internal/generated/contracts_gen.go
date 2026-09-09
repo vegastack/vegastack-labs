@@ -231,6 +231,7 @@ type InventoryImportData struct {
 	ContentDigest    string               `json:"contentDigest"`
 	StateRevision    int64                `json:"stateRevision"`
 	RecoveryEpoch    int64                `json:"recoveryEpoch"`
+	EventID          int64                `json:"eventId"`
 	Created          bool                 `json:"created"`
 	Counts           InventoryDraftCounts `json:"counts"`
 	Findings         []InventoryFinding   `json:"findings"`

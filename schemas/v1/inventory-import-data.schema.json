@@ -138,6 +138,10 @@
       "minimum": 1,
       "type": "integer"
     },
+    "eventId": {
+      "minimum": 1,
+      "type": "integer"
+    },
     "findings": {
       "items": {
         "$ref": "#/$defs/inventory-finding"
@@ -173,6 +177,7 @@
     "contentDigest",
     "stateRevision",
     "recoveryEpoch",
+    "eventId",
     "created",
     "counts",
     "findings"

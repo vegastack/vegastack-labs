@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 )
 
@@ -39,6 +40,25 @@ func TestInventoryRepositoryPersistsBlockedDraftAtomicallyAndImmutably(t *testin
 	if _, err := store.conn.ExecContext(context.Background(), `UPDATE inventory_drafts SET validation_status='valid' WHERE draft_id=? AND draft_revision=?`, result.Ref.ID, result.Ref.Revision); err == nil {
 		t.Fatal("immutable draft UPDATE succeeded")
 	}
+}
+
+func TestInventoryRepositoryPersistsAttributedEventAndOutboxAtomically(t *testing.T) {
+	store := newInventoryTestStore(t)
+	repository := NewInventoryDraftRepository(store)
+	request := inventoryPutRequest("sha256:"+strings.Repeat("9", 64), inventory.DraftValid)
+	result, err := repository.Put(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var eventType, principalID, principalMethod, targetKind, targetID, after, payloadDigest string
+	var stateRevision int64
+	if err := store.conn.QueryRowContext(context.Background(), `SELECT event_type,principal_id,principal_method,target_kind,target_id,after_fingerprint,state_revision,payload_sha256 FROM audit_events WHERE event_id=?`, result.EventID).Scan(&eventType, &principalID, &principalMethod, &targetKind, &targetID, &after, &stateRevision, &payloadDigest); err != nil {
+		t.Fatal(err)
+	}
+	if eventType != "inventory.draft.persisted" || principalID != "principal-test-1" || principalMethod != "local-os-peer" || targetKind != "inventory-draft" || targetID != string(result.Ref.ID) || after != request.CandidateDigest || stateRevision != result.CommitStateRevision || !inventoryDigestPattern.MatchString(payloadDigest) {
+		t.Fatalf("persisted event fields = %q/%q/%q/%q/%q/%q/%d/%q", eventType, principalID, principalMethod, targetKind, targetID, after, stateRevision, payloadDigest)
+	}
+	assertAuditCounts(t, store, map[string]int{"inventory_drafts": 1, "audit_events": 1, "intent_keys": 1, "outbox": 1})
 }
 
 func TestInventoryRepositoryRollsBackEveryRowOnChildFailure(t *testing.T) {
@@ -84,6 +104,7 @@ func TestInventoryImportIdempotencyAndSourceRevisionConflicts(t *testing.T) {
 	changed := request
 	changed.CandidateDigest = "sha256:" + strings.Repeat("c", 64)
 	changed.Draft.ContentDigest = changed.CandidateDigest
+	syncInventoryAuditRequest(&changed)
 	if _, err := repository.Put(context.Background(), changed); Code(err) != "STATE_CONFLICT" {
 		t.Fatalf("changed key code = %q", Code(err))
 	}
@@ -96,6 +117,38 @@ func TestInventoryImportIdempotencyAndSourceRevisionConflicts(t *testing.T) {
 	if got := readStateRevision(t, store); got != first.CommitStateRevision {
 		t.Fatalf("state revision after conflicts = %d", got)
 	}
+	assertAuditCounts(t, store, map[string]int{"audit_events": 1, "intent_keys": 1, "outbox": 1})
+}
+
+func TestInventoryExactReplayAfterRestartReturnsOriginalEvent(t *testing.T) {
+	config := testConfig(t)
+	config.Clock = func() time.Time { return time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC) }
+	firstStore, err := Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := inventoryPutRequest("sha256:"+strings.Repeat("a", 64), inventory.DraftValid)
+	first, err := NewInventoryDraftRepository(firstStore).Put(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := firstStore.Close(); err != nil {
+		t.Fatal(err)
+	}
+	config.Mode = OpenExisting
+	reopened, err := Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	replay, err := NewInventoryDraftRepository(reopened).Put(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if replay.Created || replay.Ref != first.Ref || replay.EventID != first.EventID || replay.CommitStateRevision != first.CommitStateRevision {
+		t.Fatalf("first/replay = %#v / %#v", first, replay)
+	}
+	assertAuditCounts(t, reopened, map[string]int{"inventory_drafts": 1, "audit_events": 1, "intent_keys": 1, "outbox": 1})
 }
 
 func TestInventoryRepositoryListsAndSnapshotsCanonicalDrafts(t *testing.T) {
@@ -105,10 +158,12 @@ func TestInventoryRepositoryListsAndSnapshotsCanonicalDrafts(t *testing.T) {
 	second.DraftID = "draft-public-b"
 	second.CandidateDigest = "sha256:" + strings.Repeat("d", 64)
 	second.Draft.ContentDigest = second.CandidateDigest
+	syncInventoryAuditRequest(&second)
 	first := inventoryPutRequest("sha256:"+strings.Repeat("5", 64), inventory.DraftValid)
 	first.DraftID = "draft-public-a"
 	first.CandidateDigest = "sha256:" + strings.Repeat("c", 64)
 	first.Draft.ContentDigest = first.CandidateDigest
+	syncInventoryAuditRequest(&first)
 	if _, err := repository.Put(context.Background(), second); err != nil {
 		t.Fatal(err)
 	}
@@ -175,6 +230,7 @@ func TestInventoryRepositoryFaultAndCancellationRollBack(t *testing.T) {
 			t.Errorf("%s rows = %d", table, got)
 		}
 	}
+	assertAuditCounts(t, store, map[string]int{"audit_events": 0, "intent_keys": 0, "outbox": 0})
 	if got := readStateRevision(t, store); got != 0 {
 		t.Fatalf("fault state revision = %d", got)
 	}
@@ -215,7 +271,26 @@ func inventoryPutRequest(key string, status inventory.DraftValidationStatus) inv
 		Provenance:   []inventory.FieldProvenance{{RecordKind: "asset", RecordID: "asset-a", FieldPath: "kind", Locator: "records/1/kind", CapturedAt: time.Date(2026, 9, 8, 12, 0, 0, 0, time.UTC), AdapterVersion: "1.0.0", ValueStatus: "observed"}},
 	}
 	counts := inventory.DraftCounts{Assets: 1, Nodes: 1, Aliases: 1, Addresses: 1, Observations: 1, HardwareFacts: 1, Provenance: 1}
-	return inventory.PutDraftRequest{IdempotencyKeyDigest: key, CandidateDigest: "sha256:" + strings.Repeat("b", 64), DraftID: "draft-public-1", Draft: inventory.NormalizedDraft{Candidate: candidate, ValidationStatus: status, ContentDigest: "sha256:" + strings.Repeat("b", 64), Counts: counts}}
+	digest := "sha256:" + strings.Repeat("b", 64)
+	after := audit.Fingerprint(digest)
+	return inventory.PutDraftRequest{
+		IdempotencyKeyDigest: key,
+		CandidateDigest:      digest,
+		DraftID:              "draft-public-1",
+		Draft:                inventory.NormalizedDraft{Candidate: candidate, ValidationStatus: status, ContentDigest: digest, Counts: counts},
+		Event: audit.EventDraft{
+			Type: "inventory.draft.persisted", CorrelationID: "request-public-1",
+			Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"},
+			Target:      audit.Target{Kind: "inventory-draft", ID: "draft-public-1"}, After: &after,
+		},
+		Destinations: []audit.OutboxRequirement{{Destination: "audit-primary", Enabled: true}},
+	}
+}
+
+func syncInventoryAuditRequest(request *inventory.PutDraftRequest) {
+	after := audit.Fingerprint(request.CandidateDigest)
+	request.Event.Target.ID = string(request.DraftID)
+	request.Event.After = &after
 }
 
 func countRows(t *testing.T, store *Store, table string) int {

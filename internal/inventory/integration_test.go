@@ -9,6 +9,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -32,11 +34,12 @@ func TestDecodeValidatePersistAndProjectDraft(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := inventory.NewService(store.NewInventoryDraftRepository(database), func() (inventory.DraftID, error) { return "draft-public-integration", nil })
+	service, err := inventory.NewService(store.NewInventoryDraftRepository(database), func() (inventory.DraftID, error) { return "draft-public-integration", nil }, []audit.OutboxRequirement{{Destination: "audit-primary", Enabled: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := service.ValidateAndStore(context.Background(), inventory.ImportRequest{IdempotencyKey: "integration-public", Decoded: decoded})
+	ctx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "principal-test-1", Method: identity.LocalOSPeerMethod})
+	result, err := service.ValidateAndStore(ctx, inventory.ImportRequest{IdempotencyKey: "integration-public", CorrelationID: "request-integration-public", Decoded: decoded})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,11 +72,12 @@ func TestDanglingProvenancePersistsAsCompleteBlockedDraft(t *testing.T) {
 		t.Fatal(err)
 	}
 	decoded.Candidate.Provenance[0].RecordID = "missing-record"
-	service, err := inventory.NewService(store.NewInventoryDraftRepository(database), func() (inventory.DraftID, error) { return "draft-public-dangling-provenance", nil })
+	service, err := inventory.NewService(store.NewInventoryDraftRepository(database), func() (inventory.DraftID, error) { return "draft-public-dangling-provenance", nil }, []audit.OutboxRequirement{{Destination: "audit-primary", Enabled: true}})
 	if err != nil {
 		t.Fatal(err)
 	}
-	result, err := service.ValidateAndStore(context.Background(), inventory.ImportRequest{IdempotencyKey: "integration-dangling-provenance", Decoded: decoded})
+	ctx := identity.WithVerifiedPrincipal(context.Background(), identity.Principal{ID: "principal-test-1", Method: identity.LocalOSPeerMethod})
+	result, err := service.ValidateAndStore(ctx, inventory.ImportRequest{IdempotencyKey: "integration-dangling-provenance", CorrelationID: "request-dangling-provenance", Decoded: decoded})
 	if err != nil {
 		t.Fatal(err)
 	}

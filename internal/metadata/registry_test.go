@@ -19,6 +19,13 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	if input.Version != "1.0.0" || result.Version != "1.0.0" {
 		t.Fatalf("inventory versions = (%q, %q)", input.Version, result.Version)
 	}
+	seenEventID := false
+	for _, field := range result.Fields {
+		seenEventID = seenEventID || field.JSONName == "eventId"
+	}
+	if !seenEventID {
+		t.Fatal("inventory import result does not expose its durable event ID")
+	}
 	encoded, err := json.Marshal(struct {
 		Input  []FieldDefinition
 		Result []FieldDefinition

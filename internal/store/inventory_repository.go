@@ -9,6 +9,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 )
 
@@ -24,7 +25,8 @@ func NewInventoryDraftRepository(store *Store) *InventoryDraftRepository {
 }
 
 func (repository *InventoryDraftRepository) Put(ctx context.Context, request inventory.PutDraftRequest) (inventory.PutDraftResult, error) {
-	if repository == nil || repository.store == nil || request.DraftID == "" || !inventoryDigestPattern.MatchString(request.IdempotencyKeyDigest) || !inventoryDigestPattern.MatchString(request.CandidateDigest) || request.CandidateDigest != request.Draft.ContentDigest || !inventoryDigestPattern.MatchString(request.Draft.Candidate.Source.Digest) || (request.Draft.ValidationStatus != inventory.DraftValid && request.Draft.ValidationStatus != inventory.DraftBlocked) {
+	intentKey := audit.IntentKey{Scope: "inventory-draft", KeyDigest: audit.Fingerprint(request.IdempotencyKeyDigest), RequestDigest: audit.Fingerprint(request.CandidateDigest)}
+	if repository == nil || repository.store == nil || request.DraftID == "" || !inventoryDigestPattern.MatchString(request.IdempotencyKeyDigest) || !inventoryDigestPattern.MatchString(request.CandidateDigest) || request.CandidateDigest != request.Draft.ContentDigest || !inventoryDigestPattern.MatchString(request.Draft.Candidate.Source.Digest) || (request.Draft.ValidationStatus != inventory.DraftValid && request.Draft.ValidationStatus != inventory.DraftBlocked) || audit.ValidateIntentKey(intentKey) != nil || audit.ValidateEventDraft(request.Event) != nil || audit.ValidateOutboxRequirements(request.Destinations) != nil || request.Event.Type != "inventory.draft.persisted" || request.Event.Target.Kind != "inventory-draft" || request.Event.Target.ID != string(request.DraftID) || request.Event.Before != nil || request.Event.After == nil || string(*request.Event.After) != request.CandidateDigest {
 		return inventory.PutDraftResult{}, newStoreError("INPUT_INVALID", "inventory-draft", false, nil)
 	}
 	if request.Draft.ValidationStatus == inventory.DraftValid {
@@ -46,17 +48,13 @@ func (repository *InventoryDraftRepository) Put(ctx context.Context, request inv
 		expected = &token
 	}
 	var result inventory.PutDraftResult
-	commit, err := repository.store.WriteIntent(ctx, expected, func(tx IntentTx) error {
+	intent, err := repository.store.writeIntent(ctx, intentRequest{Expected: expected, Idempotency: intentKey, Event: request.Event, Destinations: request.Destinations}, func(ctx context.Context, transaction *sql.Tx) error {
+		tx := IntentTx{handle: &intentHandle{transaction: transaction}}
 		var candidateDigest, draftID string
 		var revision int64
 		err := tx.queryRow(ctx, `SELECT candidate_digest,draft_id,draft_revision FROM inventory_import_keys WHERE key_digest=?`, request.IdempotencyKeyDigest).Scan(&candidateDigest, &draftID, &revision)
 		if err == nil {
-			if candidateDigest != request.CandidateDigest {
-				return newStoreError("STATE_CONFLICT", "inventory-import-key", false, nil)
-			}
-			result.Ref = inventory.DraftRef{ID: inventory.DraftID(draftID), Revision: revision}
-			result.Created = false
-			return nil
+			return newStoreError("INTEGRITY_FAILURE", "inventory-audit-binding", false, nil)
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
 			return classifySQLiteError(ctx, err)
@@ -103,8 +101,18 @@ func (repository *InventoryDraftRepository) Put(ctx context.Context, request inv
 	if err != nil {
 		return inventory.PutDraftResult{}, err
 	}
-	result.CommitStateRevision = commit.StateRevision
-	result.RecoveryEpoch = commit.RecoveryEpoch
+	if !intent.Created {
+		if err := repository.store.Read(ctx, func(tx ReadTx) error {
+			var candidateDigest string
+			return tx.queryRow(ctx, `SELECT candidate_digest,draft_id,draft_revision FROM inventory_import_keys WHERE key_digest=?`, request.IdempotencyKeyDigest).Scan(&candidateDigest, &result.Ref.ID, &result.Ref.Revision)
+		}); err != nil {
+			return inventory.PutDraftResult{}, err
+		}
+		result.Created = false
+	}
+	result.CommitStateRevision = intent.Commit.StateRevision
+	result.RecoveryEpoch = intent.Commit.RecoveryEpoch
+	result.EventID = intent.EventID
 	return result, nil
 }
 
