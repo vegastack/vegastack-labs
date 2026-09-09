@@ -41,6 +41,14 @@ func TestJSONDecoderIsStrictBoundedAndSanitized(t *testing.T) {
 	}
 }
 
+func TestJSONDecoderRejectsCallerForgedAuthenticatedPrincipal(t *testing.T) {
+	t.Parallel()
+	raw := strings.TrimSpace(readMinimal(t))
+	raw = strings.TrimSuffix(raw, "}") + `,"authenticatedPrincipalId":"principal-admin"}`
+	_, err := (JSONDecoder{}).Decode(context.Background(), strings.NewReader(raw))
+	assertInventoryCode(t, err, generated.ErrorCodeInputInvalid)
+}
+
 func TestJSONDecoderRejectsUnsafeEnvelopesWithoutValues(t *testing.T) {
 	t.Parallel()
 	valid, err := os.ReadFile("testdata/minimal.json")

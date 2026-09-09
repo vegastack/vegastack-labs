@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.2.0",
+  "schemaVersion": "1.3.0",
   "commands": [
     {
       "path": [
@@ -946,6 +946,15 @@
   ],
   "schemas": [
     {
+      "id": "vegastack-labs.dev/audit-event",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/audit-event.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/audit-target",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/database-status-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/database-status-data.schema.json"
@@ -1007,6 +1016,11 @@
     {
       "id": "vegastack-labs.dev/local-principal-binding",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/outbox-record-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/outbox-record-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/release-asset",

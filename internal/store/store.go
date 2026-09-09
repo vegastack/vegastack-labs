@@ -27,6 +27,7 @@ type Store struct {
 	health       Health
 	closed       bool
 	beforeCommit func() error
+	auditFault   func(auditIntentStage) error
 }
 
 func Open(ctx context.Context, config Config) (*Store, error) {

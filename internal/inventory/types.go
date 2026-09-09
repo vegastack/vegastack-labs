@@ -6,6 +6,8 @@ package inventory
 import (
 	"context"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/audit"
 )
 
 const (
@@ -232,6 +234,8 @@ type PutDraftRequest struct {
 	CandidateDigest       string
 	DraftID               DraftID
 	Draft                 NormalizedDraft
+	Event                 audit.EventDraft
+	Destinations          []audit.OutboxRequirement
 }
 
 type PutDraftResult struct {
@@ -239,6 +243,7 @@ type PutDraftResult struct {
 	Created             bool
 	CommitStateRevision int64
 	RecoveryEpoch       int64
+	EventID             audit.EventID
 }
 
 type DraftRepository interface {
@@ -254,6 +259,7 @@ type ExportProjection interface {
 
 type ImportRequest struct {
 	IdempotencyKey        string
+	CorrelationID         string
 	ExpectedStateRevision *int64
 	Decoded               DecodedCandidate
 }
@@ -266,6 +272,7 @@ type ImportResult struct {
 	ContentDigest    string
 	StateRevision    int64
 	RecoveryEpoch    int64
+	EventID          audit.EventID
 	Created          bool
 	Counts           DraftCounts
 	Findings         []Finding
