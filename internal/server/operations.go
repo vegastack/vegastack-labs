@@ -85,7 +85,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterInventoryOperations(application, api.InventoryOperationConfig{Authorizer: authorizer, Decoders: decoders, Imports: imports, Diffs: diffs, Exports: exports, Results: factory}); err != nil {
+	if err := api.RegisterInventoryOperations(application, api.InventoryOperationConfig{Decoders: decoders, Imports: imports, Diffs: diffs, Exports: exports, Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}

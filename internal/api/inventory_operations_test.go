@@ -174,7 +174,7 @@ func newOperationTestApplication(t *testing.T, authorizer authorization.ReadAuth
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := RegisterInventoryOperations(app, InventoryOperationConfig{Authorizer: authorizer, Decoders: operationDecoder{}, Imports: imports, Diffs: diff, Exports: exports, Results: factory, MaxBodyBytes: MaxOperationRequestBytes}); err != nil {
+	if err := RegisterInventoryOperations(app, InventoryOperationConfig{Decoders: operationDecoder{}, Imports: imports, Diffs: diff, Exports: exports, Results: factory, MaxBodyBytes: MaxOperationRequestBytes}); err != nil {
 		t.Fatal(err)
 	}
 	return app

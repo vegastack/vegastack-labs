@@ -30,7 +30,6 @@ type ExportService interface {
 }
 
 type InventoryOperationConfig struct {
-	Authorizer   authorization.ReadAuthorizer
 	Decoders     inventoryops.DecoderRegistry
 	Imports      inventory.ImportService
 	Diffs        *inventoryops.DiffService
@@ -40,7 +39,7 @@ type InventoryOperationConfig struct {
 }
 
 func RegisterInventoryOperations(app *Application, config InventoryOperationConfig) error {
-	if app == nil || config.Authorizer == nil || config.Decoders == nil || config.Imports == nil || config.Diffs == nil || config.Exports == nil || config.Results == nil || config.Results != app.config.Results {
+	if app == nil || config.Decoders == nil || config.Imports == nil || config.Diffs == nil || config.Exports == nil || config.Results == nil || config.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "inventory-operation-config")
 	}
 	if config.MaxBodyBytes == 0 {
@@ -49,7 +48,6 @@ func RegisterInventoryOperations(app *Application, config InventoryOperationConf
 	if config.MaxBodyBytes < 1 || config.MaxBodyBytes > MaxOperationRequestBytes {
 		return apiFailure(generated.ErrorCodeInputInvalid, "inventory-operation-limit")
 	}
-	app.config.Authorizer = config.Authorizer
 	app.routes = append(app.routes,
 		route{"api.v1.inventory-drafts.import", http.MethodPost, "/api/v1/inventory-drafts/import", "inventory.draft.create", "inventory-drafts", app.importDraft(config)},
 		route{"api.v1.inventory-diffs.create", http.MethodPost, "/api/v1/inventory-diffs", "inventory.draft.diff", "inventory-draft", app.diffDraft(config)},
@@ -164,7 +162,7 @@ func (app *Application) exportDraft(config InventoryOperationConfig) func(http.R
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))
 			return
 		}
-		if _, err := config.Authorizer.AuthorizeRead(request.Context(), principal, authorization.ReadTarget{Capability: "inventory.draft.export", ResourceKind: "inventory-draft", ResourceID: authorization.ResourceID(ref)}); err != nil {
+		if _, err := app.config.Authorizer.AuthorizeRead(request.Context(), principal, authorization.ReadTarget{Capability: "inventory.draft.export", ResourceKind: "inventory-draft", ResourceID: authorization.ResourceID(ref)}); err != nil {
 			app.failure(writer, operation, err)
 			return
 		}
