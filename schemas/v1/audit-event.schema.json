@@ -1,0 +1,165 @@
+{
+  "$defs": {
+    "audit-target": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 64,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "id"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/audit-event",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "afterFingerprint": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agentName": {
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agentSessionId": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "agentSource": {
+      "enum": [
+        "self-reported"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "beforeFingerprint": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "causationEventId": {
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "correctionOfEventId": {
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "correlationId": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "eventId": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "occurredAt": {
+      "maxLength": 64,
+      "type": "string"
+    },
+    "principalId": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "principalMethod": {
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "responsibleHumanPrincipalId": {
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/audit-event"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "target": {
+      "$ref": "#/$defs/audit-target"
+    },
+    "type": {
+      "maxLength": 96,
+      "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*){1,5}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "eventId",
+    "occurredAt",
+    "recoveryEpoch",
+    "stateRevision",
+    "type",
+    "correlationId",
+    "causationEventId",
+    "correctionOfEventId",
+    "principalId",
+    "principalMethod",
+    "responsibleHumanPrincipalId",
+    "agentName",
+    "agentSessionId",
+    "agentSource",
+    "target",
+    "beforeFingerprint",
+    "afterFingerprint"
+  ],
+  "title": "VegaStack Labs audit event",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

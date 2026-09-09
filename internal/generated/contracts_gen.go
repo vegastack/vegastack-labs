@@ -6,11 +6,13 @@ import "encoding/json"
 
 const (
 	SchemaMajor                        = 1
-	RegistrySchemaVersion              = "1.2.0"
+	RegistrySchemaVersion              = "1.3.0"
 	AvailabilityAvailable              = "available"
 	AvailabilityPlanned                = "planned"
 	FlagKindValue                      = "value"
 	FlagKindSwitch                     = "switch"
+	SchemaIDAuditEvent                 = "vegastack-labs.dev/audit-event"
+	SchemaIDAuditTarget                = "vegastack-labs.dev/audit-target"
 	SchemaIDDatabaseStatusData         = "vegastack-labs.dev/database-status-data"
 	SchemaIDInventoryDraftAddress      = "vegastack-labs.dev/inventory-draft-address"
 	SchemaIDInventoryDraftAlias        = "vegastack-labs.dev/inventory-draft-alias"
@@ -26,6 +28,7 @@ const (
 	SchemaIDInventoryFinding           = "vegastack-labs.dev/inventory-finding"
 	SchemaIDInventoryImportData        = "vegastack-labs.dev/inventory-import-data"
 	SchemaIDLocalPrincipalBinding      = "vegastack-labs.dev/local-principal-binding"
+	SchemaIDOutboxRecordData           = "vegastack-labs.dev/outbox-record-data"
 	SchemaIDReleaseAsset               = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification   = "vegastack-labs.dev/release-asset-verification"
 	SchemaIDReleaseInspectData         = "vegastack-labs.dev/release-inspect-data"
@@ -81,6 +84,33 @@ const (
 	ErrorCodeUnsupportedPlatform       = "UNSUPPORTED_PLATFORM"
 	ErrorCodeVersionIncompatible       = "VERSION_INCOMPATIBLE"
 )
+
+type AuditEvent struct {
+	Schema                      string      `json:"schema"`
+	SchemaVersion               string      `json:"schemaVersion"`
+	EventID                     int64       `json:"eventId"`
+	OccurredAt                  string      `json:"occurredAt"`
+	RecoveryEpoch               int64       `json:"recoveryEpoch"`
+	StateRevision               int64       `json:"stateRevision"`
+	Type                        string      `json:"type"`
+	CorrelationID               string      `json:"correlationId"`
+	CausationEventID            *int64      `json:"causationEventId"`
+	CorrectionOfEventID         *int64      `json:"correctionOfEventId"`
+	PrincipalID                 string      `json:"principalId"`
+	PrincipalMethod             string      `json:"principalMethod"`
+	ResponsibleHumanPrincipalID *string     `json:"responsibleHumanPrincipalId"`
+	AgentName                   *string     `json:"agentName"`
+	AgentSessionID              *string     `json:"agentSessionId"`
+	AgentSource                 *string     `json:"agentSource"`
+	Target                      AuditTarget `json:"target"`
+	BeforeFingerprint           *string     `json:"beforeFingerprint"`
+	AfterFingerprint            *string     `json:"afterFingerprint"`
+}
+
+type AuditTarget struct {
+	Kind string `json:"kind"`
+	ID   string `json:"id"`
+}
 
 type DatabaseStatusData struct {
 	Mode                 string  `json:"mode"`
@@ -209,6 +239,24 @@ type InventoryImportData struct {
 type LocalPrincipalBinding struct {
 	UID         int64  `json:"uid"`
 	PrincipalID string `json:"principalId"`
+}
+
+type OutboxRecordData struct {
+	OutboxID       int64   `json:"outboxId"`
+	EventID        int64   `json:"eventId"`
+	DestinationID  string  `json:"destinationId"`
+	PayloadSchema  string  `json:"payloadSchema"`
+	PayloadVersion string  `json:"payloadVersion"`
+	PayloadSHA256  string  `json:"payloadSha256"`
+	DedupeSHA256   string  `json:"dedupeSha256"`
+	Status         string  `json:"status"`
+	AttemptCount   int64   `json:"attemptCount"`
+	MaxAttempts    int64   `json:"maxAttempts"`
+	NextAttemptAt  *string `json:"nextAttemptAt"`
+	LastErrorCode  *string `json:"lastErrorCode"`
+	CreatedAt      string  `json:"createdAt"`
+	UpdatedAt      string  `json:"updatedAt"`
+	DeliveredAt    *string `json:"deliveredAt"`
 }
 
 type ReleaseAsset struct {
