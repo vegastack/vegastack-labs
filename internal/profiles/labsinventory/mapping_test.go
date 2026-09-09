@@ -5,6 +5,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/inventory"
@@ -115,5 +116,29 @@ func TestMatchingReportedAndProposedAliasCoalescesWithTwoSources(t *testing.T) {
 	}
 	if provenance != 2 {
 		t.Fatalf("matching alias provenance = %d", provenance)
+	}
+}
+
+func TestMapRecordsHonorsCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err := mapRecords(ctx, newTestDecoder(t).config, [][]string{make([]string, len(headerV1))})
+	assertDecodeCode(t, err, ErrorInterrupted)
+}
+
+func TestDuplicateSerialsStayCompleteAndBlockedByCore(t *testing.T) {
+	raw := strings.Join(expectedHeaderV1, ",") + "\n" +
+		"active,SYNTHETIC-DUPLICATE,,ExampleCorp,ExampleModel,amd64,ExampleCPU,4,8,8,256,0,16,512,0\n" +
+		"active,SYNTHETIC-DUPLICATE,,ExampleCorp,ExampleModel,amd64,ExampleCPU,4,8,8,256,0,16,512,0\n"
+	decoded, err := newTestDecoder(t).Decode(context.Background(), strings.NewReader(raw))
+	if err != nil {
+		t.Fatal(err)
+	}
+	normalized, err := inventory.NormalizeAndValidate(context.Background(), decoded)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if normalized.ValidationStatus != inventory.DraftBlocked || len(normalized.Candidate.Assets) != 2 || len(findingRecordIDs(normalized.Findings, "DUPLICATE_IDENTITY")) != 2 {
+		t.Fatalf("duplicate serial result = %#v", normalized)
 	}
 }

@@ -1,6 +1,7 @@
 package labsinventory
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -11,6 +12,17 @@ import (
 	"testing"
 	"time"
 )
+
+type countingReader struct {
+	reader *strings.Reader
+	read   int
+}
+
+func (reader *countingReader) Read(buffer []byte) (int, error) {
+	read, err := reader.reader.Read(buffer)
+	reader.read += read
+	return read, err
+}
 
 var expectedHeaderV1 = []string{
 	"lifecycle", "hardware_serial", "reported_hostname", "manufacturer", "model",
@@ -105,4 +117,77 @@ func TestNewDecoderRejectsUntrustedSourceMetadata(t *testing.T) {
 			t.Fatalf("NewDecoder(%#v) succeeded", config)
 		}
 	}
+}
+
+func TestDecoderClassifiesHeaderAndCSVFailuresWithoutEcho(t *testing.T) {
+	header := strings.Join(expectedHeaderV1, ",")
+	duplicate := append([]string(nil), expectedHeaderV1...)
+	duplicate[1] = duplicate[0]
+	missing := expectedHeaderV1[:len(expectedHeaderV1)-1]
+	unknown := append([]string(nil), expectedHeaderV1...)
+	unknown[4] = "unexpected_public_column"
+	cases := []struct {
+		name string
+		raw  string
+		code string
+	}{
+		{"duplicate-header", strings.Join(duplicate, ",") + "\n", ErrorCSVHeaderDuplicate},
+		{"missing-header", strings.Join(missing, ",") + "\n", ErrorCSVHeaderMissing},
+		{"unknown-header", strings.Join(unknown, ",") + "\n", ErrorCSVHeaderUnknown},
+		{"malformed-quote", header + "\nactive,\"unterminated\n", ErrorCSVMalformed},
+		{"wrong-row-width", header + "\nactive,too-short\n", ErrorCSVMalformed},
+		{"invalid-utf8", header + "\n" + string([]byte{0xff}), ErrorCSVUTF8Invalid},
+		{"misplaced-bom", header + "\nactive,SYNTHETIC-1,\ufeffbad,,,,,,,,,,,,\n", ErrorCSVControlProhibited},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := newTestDecoder(t).Decode(context.Background(), strings.NewReader(tc.raw))
+			assertDecodeCode(t, err, tc.code)
+			if strings.Contains(fmt.Sprint(err), "unexpected_public_column") || strings.Contains(fmt.Sprint(err), "unterminated") {
+				t.Fatal("error echoed rejected source")
+			}
+		})
+	}
+}
+
+func TestDecoderAcceptsLineEndingsAndRejectsEveryProhibitedCellClass(t *testing.T) {
+	for _, raw := range []string{
+		strings.Join(expectedHeaderV1, ",") + "\n",
+		strings.Join(expectedHeaderV1, ",") + "\r\n",
+		"\ufeff" + strings.Join(expectedHeaderV1, ",") + "\n",
+	} {
+		if _, err := newTestDecoder(t).Decode(context.Background(), strings.NewReader(raw)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, cell := range []string{"=1", "+1", "-1", "@value", "\u00a0=1"} {
+		_, err := newTestDecoder(t).Decode(context.Background(), strings.NewReader(csvWithModel(cell)))
+		assertDecodeCode(t, err, ErrorCSVFormulaProhibited)
+	}
+	for _, cell := range []string{"bad\tvalue", "bad\x7fvalue", "bad\u0085value", "bad\u202dvalue", "bad\u2067value", "bad\ufdd0value", "bad\ufffevalue"} {
+		_, err := newTestDecoder(t).Decode(context.Background(), strings.NewReader(csvWithModel(cell)))
+		assertDecodeCode(t, err, ErrorCSVControlProhibited)
+	}
+}
+
+func TestDecoderEnforcesExactReadRecordAndFieldLimits(t *testing.T) {
+	tooLarge := &countingReader{reader: strings.NewReader(strings.Repeat("x", MaxInputBytes+100))}
+	_, err := newTestDecoder(t).Decode(context.Background(), tooLarge)
+	assertDecodeCode(t, err, ErrorCSVLimitExceeded)
+	if tooLarge.read != MaxInputBytes+1 {
+		t.Fatalf("bytes read = %d, want %d", tooLarge.read, MaxInputBytes+1)
+	}
+
+	longModel := strings.Repeat("x", MaxFieldBytes+1)
+	_, err = newTestDecoder(t).Decode(context.Background(), strings.NewReader(csvWithModel(longModel)))
+	assertDecodeCode(t, err, ErrorCSVLimitExceeded)
+
+	var many bytes.Buffer
+	many.WriteString(strings.Join(expectedHeaderV1, ",") + "\n")
+	for index := 1; index < MaxCSVRecords; index++ {
+		many.WriteString("active,SYNTHETIC-ROW,,,,,,,,,,,,,\n")
+	}
+	many.WriteString("active,SYNTHETIC-OVER,,,,,,,,,,,,,\n")
+	_, err = newTestDecoder(t).Decode(context.Background(), bytes.NewReader(many.Bytes()))
+	assertDecodeCode(t, err, ErrorCSVLimitExceeded)
 }

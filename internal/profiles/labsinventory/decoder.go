@@ -7,6 +7,7 @@ import (
 	"encoding/csv"
 	"encoding/hex"
 	"io"
+	"net/url"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -59,9 +60,6 @@ func (decoder *Decoder) Decode(ctx context.Context, source io.Reader) (inventory
 	if err != nil {
 		return inventory.DecodedCandidate{}, err
 	}
-	if err := validateHeader(records[0]); err != nil {
-		return inventory.DecodedCandidate{}, err
-	}
 	for recordIndex, record := range records {
 		if recordIndex > 0 && len(record) != len(headerV1) {
 			return inventory.DecodedCandidate{}, decodeError(ErrorCSVMalformed, recordIndex+1, 0, "")
@@ -76,7 +74,13 @@ func (decoder *Decoder) Decode(ctx context.Context, source io.Reader) (inventory
 			if controlProhibited(cell) {
 				return inventory.DecodedCandidate{}, decodeError(ErrorCSVControlProhibited, recordIndex+1, columnIndex+1, fieldFor(columnIndex))
 			}
+			if privateDataProhibited(cell) {
+				return inventory.DecodedCandidate{}, decodeError(ErrorCSVControlProhibited, recordIndex+1, columnIndex+1, fieldFor(columnIndex))
+			}
 		}
+	}
+	if err := validateHeader(records[0]); err != nil {
+		return inventory.DecodedCandidate{}, err
 	}
 	decoded, err := mapRecords(ctx, decoder.config, records[1:])
 	if err != nil {
@@ -94,12 +98,20 @@ func readBounded(ctx context.Context, source io.Reader) ([]byte, error) {
 		if ctx.Err() != nil {
 			return nil, decodeError(ErrorInterrupted, 0, 0, "")
 		}
-		read, err := source.Read(chunk)
+		remaining := MaxInputBytes + 1 - buffer.Len()
+		if remaining <= 0 {
+			return nil, decodeError(ErrorCSVLimitExceeded, 0, 0, "")
+		}
+		window := chunk
+		if remaining < len(window) {
+			window = window[:remaining]
+		}
+		read, err := source.Read(window)
 		if read > 0 {
-			if buffer.Len()+read > MaxInputBytes {
+			_, _ = buffer.Write(window[:read])
+			if buffer.Len() > MaxInputBytes {
 				return nil, decodeError(ErrorCSVLimitExceeded, 0, 0, "")
 			}
-			_, _ = buffer.Write(chunk[:read])
 		}
 		if err == io.EOF {
 			return buffer.Bytes(), nil
@@ -196,6 +208,27 @@ func controlProhibited(value string) bool {
 		if (r >= 0 && r < 0x20 && r != '\n' && r != '\r') || (r >= 0x7f && r <= 0x9f) || (r >= 0x202a && r <= 0x202e) || (r >= 0x2066 && r <= 0x2069) || (r >= 0xfdd0 && r <= 0xfdef) || (r&0xffff == 0xfffe) || (r&0xffff == 0xffff) {
 			return true
 		}
+	}
+	return false
+}
+
+var privatePrefixes = []string{"github_pat_", "ghp_", "gho_", "ghu_", "ghs_", "glpat-", "xoxb-", "xoxp-", "akia"}
+
+func privateDataProhibited(value string) bool {
+	lower := strings.ToLower(value)
+	if strings.Contains(lower, "-----begin private key-----") || strings.Contains(lower, "-----begin rsa private key-----") || strings.Contains(lower, "-----begin openssh private key-----") {
+		return true
+	}
+	trimmed := strings.TrimSpace(lower)
+	for _, prefix := range privatePrefixes {
+		if strings.HasPrefix(trimmed, prefix) {
+			return true
+		}
+	}
+	parsed, err := url.Parse(value)
+	if err == nil && parsed.IsAbs() && parsed.User != nil {
+		_, hasPassword := parsed.User.Password()
+		return hasPassword
 	}
 	return false
 }
