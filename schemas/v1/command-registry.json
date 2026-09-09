@@ -882,6 +882,10 @@
       "exitCode": 7
     },
     {
+      "code": "RESOURCE_NOT_FOUND",
+      "exitCode": 6
+    },
+    {
       "code": "SCHEMA_UNSUPPORTED",
       "exitCode": 2
     },
@@ -945,6 +949,75 @@
     }
   ],
   "schemas": [
+    {
+      "id": "vegastack-labs.dev/api-audit-event-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-audit-event-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-alias-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-alias-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-alias-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-alias-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-asset-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-asset-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-asset-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-asset-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-draft-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-draft-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-draft-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-draft-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-node-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-node-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-node-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-node-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-observation-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-observation-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-inventory-observation-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-inventory-observation-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-page-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-page-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-page-query",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/api-summary-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-summary-data.schema.json"
+    },
     {
       "id": "vegastack-labs.dev/audit-event",
       "version": "1.0.0",

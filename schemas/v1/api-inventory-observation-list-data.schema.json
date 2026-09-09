@@ -1,0 +1,102 @@
+{
+  "$defs": {
+    "api-inventory-observation-data": {
+      "additionalProperties": false,
+      "properties": {
+        "authority": {
+          "enum": [
+            "draft"
+          ],
+          "type": "string"
+        },
+        "id": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "kind": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "observedAt": {
+          "maxLength": 64,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "declared",
+            "observed",
+            "drifted",
+            "stale",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "subjectId": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "validationStatus": {
+          "enum": [
+            "valid",
+            "blocked"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "authority",
+        "validationStatus",
+        "id",
+        "subjectId",
+        "kind",
+        "state",
+        "observedAt",
+        "source"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/api-inventory-observation-list-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/api-inventory-observation-data"
+      },
+      "maxItems": 200,
+      "type": "array"
+    },
+    "nextCursor": {
+      "maxLength": 2048,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "items",
+    "nextCursor",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs api inventory observation list data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

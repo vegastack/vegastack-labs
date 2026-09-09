@@ -19,6 +19,7 @@
     "check:phase-0-3": "node tooling/verify-phase-0-3.mjs",
     "check:phase-0-4": "node tooling/verify-phase-0-4.mjs",
     "check:phase-0-5": "node tooling/verify-phase-0-5.mjs",
+    "check:read-api": "node tooling/verify-read-api.mjs",
     "check:repository": "node tooling/verify-repository.mjs",
     "check:server": "node tooling/verify-server.mjs",
     "check:workflow": "node tooling/verify-workflow.mjs",

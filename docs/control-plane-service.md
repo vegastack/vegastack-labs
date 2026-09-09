@@ -352,6 +352,14 @@ If no database backup survives, initialize a clean database from the latest sign
 
 ## Reliability and acceptance
 
+## Implemented local read API
+
+The protected Unix-domain service now composes generated schema-major-1 reads for health, database status, platform summary, immutable inventory drafts and their asset/node/alias/observation children, plus durable audit events. Every route uses the kernel-authenticated local principal. SQLite grants are empty by default, exact capability/resource scopes are checked before input parsing and again in the row query, and revocation closes an event stream at its next batch. Safe mode keeps mutation unavailable and exposes only an authorized store-certified read projection.
+
+Finite pages default to 50 and stop at 200. Their opaque process-keyed cursors bind endpoint, query, scope, grant revision, recovery epoch, state snapshot and keyset position; they expire after 15 minutes and after restart. Event IDs are durable and resume strictly after `Last-Event-ID`. Streams batch 200 events, retain 64 coalesced wakeups, heartbeat every 15 seconds, use a 5-second write deadline, and cap concurrency at 16 total and 4 per principal.
+
+The human-equivalent procedure uses the same protected socket and API: authenticate as an explicitly bound OS peer, obtain an explicit database-backed read grant through the later trusted setup workflow, issue the generated local request, verify the result schema/revision and `no-store` response, and for events retain only the last successfully received durable ID. On denial, stale cursor, revocation, restart-expired cursor, slow connection, or safe-mode limitation, stop and resolve the grant/recovery prerequisite; never open SQLite, add a TCP listener, infer health from absence, or bypass the API. Before merge, abandon the branch to roll back. After migration `0004` reaches a database, correct forward and recover from a verified database copy under the normal recovery procedure.
+
 The service is implementation-complete only when tests prove:
 
 - schema migrations upgrade and restore the previous release without data loss;

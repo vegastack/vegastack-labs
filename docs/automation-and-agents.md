@@ -400,6 +400,10 @@ The iMac starts with Hermes Blank Slate and no bundled/catalog skills. An admini
 
 ## Human-manual fallback
 
+## Shared local read surface
+
+Humans and agents consume the same generated `/api/v1` contracts over the protected local socket and receive the same database-backed resource checks, cursors, revisions, safe-mode distinctions, redaction, and durable event IDs. Agent autonomy does not create a grant and cannot widen a draft scope. This surface adds no browser session, TCP/HTTPS listener, SSH transport, provider request, external notification, second daemon, or direct SQLite client path.
+
 Every automated workflow ships a generated manual runbook using the same facts:
 
 - exact prerequisites and targets;

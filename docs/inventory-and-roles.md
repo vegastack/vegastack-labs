@@ -146,6 +146,10 @@ The Macs add 32 GB RAM and 1,024 GB SSD capacity. These are label totals, not us
 
 ## Role rationale and limits
 
+## Draft-only API reads
+
+The local schema-major-1 API reads immutable inventory candidates only through `/api/v1/inventory-drafts/{draftId}/revisions/{revision}` and its `assets`, `nodes`, `aliases`, and `observations` children. Each projection states `authority=draft` and preserves `validationStatus`; a blocked draft is not silently filtered into a valid subset. There are no top-level authoritative asset or node endpoints, no admitted/effective transition, and no provider refresh in this read layer. Missing observation remains distinct from observed health, and the observation projection retains source and nullable observation time without returning the captured raw value.
+
 ### Control plane — `vsk-node-04`
 
 One of the two strongest ThinkPads hosts Coolify, the `vsk-labs` server service (launched with `server run`), the embedded Console/API, local SQLite, central plan/run coordination, backup orchestration, Beszel hub and control-plane supporting services. It hosts no user application or CI job. Its 474 GB SSD avoids coupling control-plane recovery to a spinning disk. The service has explicit CPU/memory/disk limits, and its database is backed up off-node; the control plane is rebuildable, not highly available. This node assignment and every capacity value in this document belong to the VegaStack Labs deployment profile, not to the portable platform contract. [D-020](decisions-and-sources.md#d-020) [D-050](decisions-and-sources.md#d-050) [D-099](decisions-and-sources.md#d-099) [D-103](decisions-and-sources.md#d-103)

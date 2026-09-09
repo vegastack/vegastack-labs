@@ -2,22 +2,27 @@ package server
 
 import (
 	"context"
-	"net/http"
 
+	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
+const productionDatabasePath = "/var/lib/vsk-labs/control.db"
+
 type Operations struct {
-	build      result.BuildInfo
-	requestIDs result.RequestIDSource
+	build        result.BuildInfo
+	requestIDs   result.RequestIDSource
+	openStore    func(context.Context, store.Config) (*store.Store, error)
+	databasePath string
 }
 
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource) *Operations {
-	return &Operations{build: build, requestIDs: requestIDs}
+	return &Operations{build: build, requestIDs: requestIDs, openStore: store.Open, databasePath: productionDatabasePath}
 }
 
 func (operations *Operations) Run(ctx context.Context, configPath string) error {
@@ -38,8 +43,26 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	factory := result.NewFactory(operations.build, operations.requestIDs)
-	service, err := New(Config{Profile: profile, Application: initialApplication{}, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}})
+	authority, err := operations.openStore(ctx, store.Config{DatabasePath: operations.databasePath, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
 	if err != nil {
+		return err
+	}
+	authorizer := store.NewReadAuthorizer(authority)
+	reads := store.NewReadRepository(authority)
+	streamer, err := api.NewEventStreamer(api.NewStoreEventSource(reads, authority), authorizer, api.ProductionStreamLimits)
+	if err != nil {
+		_ = authority.Close()
+		return err
+	}
+	application, err := api.NewApplication(api.Config{Authority: authority, Authorizer: authorizer, Reads: reads, Results: factory, Cursors: nil, Queries: nil, Streams: streamer})
+	if err != nil {
+		streamer.Close()
+		_ = authority.Close()
+		return err
+	}
+	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}})
+	if err != nil {
+		_ = application.Shutdown(ctx)
 		return err
 	}
 	return service.Run(ctx)
@@ -62,14 +85,3 @@ type fixedPlatformProbe struct{ platform Platform }
 func (probe fixedPlatformProbe) Current(context.Context) (Platform, error) {
 	return probe.platform, nil
 }
-
-type initialApplication struct{}
-
-func (initialApplication) Start(context.Context) error { return nil }
-func (initialApplication) Health(context.Context) (ApplicationHealth, error) {
-	return ApplicationHealth{}, nil
-}
-func (initialApplication) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	http.NotFound(writer, request)
-}
-func (initialApplication) Shutdown(context.Context) error { return nil }

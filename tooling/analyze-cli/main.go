@@ -37,15 +37,16 @@ type listedPackage struct {
 }
 
 type analysis struct {
-	GeneratedCommandsReference bool     `json:"generatedCommandsReference"`
-	HandwrittenRegistry        bool     `json:"handwrittenRegistry"`
-	ReleaseArtifactExecution   bool     `json:"releaseArtifactExecution"`
-	ReleaseNetworkAccess       bool     `json:"releaseNetworkAccess"`
-	SQLiteAccess               bool     `json:"sqliteAccess"`
-	ShellDispatch              bool     `json:"shellDispatch"`
-	StateExportTrust           bool     `json:"stateExportTrust"`
-	StateExportReleaseCoupling bool     `json:"stateExportReleaseCoupling"`
-	TargetsAnalyzed            []string `json:"targetsAnalyzed"`
+	GeneratedCommandsReference  bool     `json:"generatedCommandsReference"`
+	GeneratedEndpointsReference bool     `json:"generatedEndpointsReference"`
+	HandwrittenRegistry         bool     `json:"handwrittenRegistry"`
+	ReleaseArtifactExecution    bool     `json:"releaseArtifactExecution"`
+	ReleaseNetworkAccess        bool     `json:"releaseNetworkAccess"`
+	SQLiteAccess                bool     `json:"sqliteAccess"`
+	ShellDispatch               bool     `json:"shellDispatch"`
+	StateExportTrust            bool     `json:"stateExportTrust"`
+	StateExportReleaseCoupling  bool     `json:"stateExportReleaseCoupling"`
+	TargetsAnalyzed             []string `json:"targetsAnalyzed"`
 }
 
 type sourcePackage struct {
@@ -326,6 +327,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	generatedImport := modulePath + "/internal/generated"
 	releaseImport := modulePath + "/internal/release"
 	stateExportImport := modulePath + "/internal/stateexport"
+	apiImport := modulePath + "/internal/api"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -361,7 +363,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 		}
-		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, &result)
+		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport, &result)
 	}
 	return result, nil
 }
@@ -428,13 +430,18 @@ func parseAndCheck(candidate listedPackage, loader types.Importer) (checkedSourc
 	}, nil
 }
 
-func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExportImport string, isReleasePackage bool, result *analysis) {
+func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExportImport string, isReleasePackage, isAPIPackage bool, result *analysis) {
 	context := analysisContext{
 		generatedImport: generatedImport,
 		derivedCommands: derivedCommandTypes(candidate, generatedImport),
 	}
 	for _, file := range candidate.files {
 		ast.Inspect(file, func(node ast.Node) bool {
+			if selector, ok := node.(*ast.SelectorExpr); ok {
+				if object := candidate.info.ObjectOf(selector.Sel); object != nil && object.Pkg() != nil && object.Pkg().Path() == generatedImport && object.Name() == "Endpoints" {
+					result.GeneratedEndpointsReference = true
+				}
+			}
 			if isReleasePackage {
 				inspectReleaseNode(node, candidate.info, result)
 			}
@@ -444,18 +451,18 @@ func inspectPackage(candidate checkedSourcePackage, generatedImport, stateExport
 					result.GeneratedCommandsReference = true
 				}
 			case *ast.ValueSpec:
-				if candidate.listed.ImportPath != generatedImport && valueSpecIsRegistry(typed, candidate.info, context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && valueSpecIsRegistry(typed, candidate.info, context) {
 					result.HandwrittenRegistry = true
 				}
 			case *ast.AssignStmt:
-				if candidate.listed.ImportPath != generatedImport && assignmentIsRegistry(typed, candidate.info, context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && assignmentIsRegistry(typed, candidate.info, context) {
 					result.HandwrittenRegistry = true
 				}
 				if assignmentProvidesStateExportTrust(typed, candidate.info, stateExportImport) {
 					result.StateExportTrust = true
 				}
 			case *ast.CompositeLit:
-				if candidate.listed.ImportPath != generatedImport && isDispatchCollection(candidate.info.TypeOf(typed), context) {
+				if candidate.listed.ImportPath != generatedImport && !isAPIPackage && isDispatchCollection(candidate.info.TypeOf(typed), context) {
 					result.HandwrittenRegistry = true
 				}
 				if stateExportConfigProvidesTrust(typed, candidate.info, stateExportImport) {

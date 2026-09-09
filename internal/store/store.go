@@ -28,6 +28,7 @@ type Store struct {
 	closed       bool
 	beforeCommit func() error
 	auditFault   func(auditIntentStage) error
+	events       *eventNotifier
 }
 
 func Open(ctx context.Context, config Config) (*Store, error) {
@@ -109,6 +110,7 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 			IntegrityStatus: IntegrityUnknown,
 			SafeModeReason:  "startup-validation",
 		},
+		events: newEventNotifier(),
 	}
 	if err := store.configure(ctx); err != nil {
 		return nil, err
@@ -356,6 +358,7 @@ func (store *Store) Close() error {
 		return nil
 	}
 	store.closed = true
+	store.events.closeAll()
 	var first error
 	if store.conn != nil {
 		if err := store.conn.Close(); err != nil {

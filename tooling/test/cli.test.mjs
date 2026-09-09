@@ -665,6 +665,7 @@ test("the CLI verifier fails closed when the analyzer reports a mismatched targe
       return {
         stdout: `${JSON.stringify({
           generatedCommandsReference: true,
+          generatedEndpointsReference: true,
           handwrittenRegistry: false,
           releaseArtifactExecution: false,
           releaseNetworkAccess: false,

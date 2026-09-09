@@ -3,42 +3,56 @@ package metadata
 import "strings"
 
 const (
-	runResultSchemaID                  = "vegastack-labs.dev/run-result"
-	resultErrorSchemaID                = "vegastack-labs.dev/result-error"
-	releaseManifestSchemaID            = "vegastack-labs.dev/release-manifest"
-	releaseAssetSchemaID               = "vegastack-labs.dev/release-asset"
-	releaseTrustPolicySchemaID         = "vegastack-labs.dev/release-trust-policy"
-	releaseInspectDataSchemaID         = "vegastack-labs.dev/release-inspect-data"
-	releaseVerifyDataSchemaID          = "vegastack-labs.dev/release-verify-data"
-	releaseAssetVerificationSchemaID   = "vegastack-labs.dev/release-asset-verification"
-	databaseStatusDataSchemaID         = "vegastack-labs.dev/database-status-data"
-	localPrincipalBindingSchemaID      = "vegastack-labs.dev/local-principal-binding"
-	serverProfileSchemaID              = "vegastack-labs.dev/server-profile"
-	serverStatusDataSchemaID           = "vegastack-labs.dev/server-status-data"
-	stateExportKindCountSchemaID       = "vegastack-labs.dev/state-export-kind-count"
-	stateExportDraftRefSchemaID        = "vegastack-labs.dev/state-export-draft-ref"
-	stateExportSourceSchemaID          = "vegastack-labs.dev/state-export-source"
-	stateExportDraftSchemaID           = "vegastack-labs.dev/state-export-draft"
-	stateExportPayloadSchemaID         = "vegastack-labs.dev/inventory-draft-snapshot-payload"
-	stateExportSignatureSchemaID       = "vegastack-labs.dev/inventory-draft-export-signature"
-	stateExportDocumentSchemaID        = "vegastack-labs.dev/signed-inventory-draft-export"
-	stateExportPointerSchemaID         = "vegastack-labs.dev/inventory-draft-export-pointer"
-	inventoryDraftInputSchemaID        = "vegastack-labs.dev/inventory-draft-input"
-	inventoryImportDataSchemaID        = "vegastack-labs.dev/inventory-import-data"
-	inventoryDraftSourceSchemaID       = "vegastack-labs.dev/inventory-draft-source"
-	inventoryDraftAssetSchemaID        = "vegastack-labs.dev/inventory-draft-asset"
-	inventoryDraftIdentitySchemaID     = "vegastack-labs.dev/inventory-draft-identity"
-	inventoryDraftNodeSchemaID         = "vegastack-labs.dev/inventory-draft-node"
-	inventoryDraftAliasSchemaID        = "vegastack-labs.dev/inventory-draft-alias"
-	inventoryDraftAddressSchemaID      = "vegastack-labs.dev/inventory-draft-address"
-	inventoryDraftObservationSchemaID  = "vegastack-labs.dev/inventory-draft-observation"
-	inventoryDraftHardwareFactSchemaID = "vegastack-labs.dev/inventory-draft-hardware-fact"
-	inventoryFieldProvenanceSchemaID   = "vegastack-labs.dev/inventory-field-provenance"
-	inventoryFindingSchemaID           = "vegastack-labs.dev/inventory-finding"
-	inventoryDraftCountsSchemaID       = "vegastack-labs.dev/inventory-draft-counts"
-	auditEventSchemaID                 = "vegastack-labs.dev/audit-event"
-	auditTargetSchemaID                = "vegastack-labs.dev/audit-target"
-	outboxRecordDataSchemaID           = "vegastack-labs.dev/outbox-record-data"
+	runResultSchemaID                       = "vegastack-labs.dev/run-result"
+	resultErrorSchemaID                     = "vegastack-labs.dev/result-error"
+	releaseManifestSchemaID                 = "vegastack-labs.dev/release-manifest"
+	releaseAssetSchemaID                    = "vegastack-labs.dev/release-asset"
+	releaseTrustPolicySchemaID              = "vegastack-labs.dev/release-trust-policy"
+	releaseInspectDataSchemaID              = "vegastack-labs.dev/release-inspect-data"
+	releaseVerifyDataSchemaID               = "vegastack-labs.dev/release-verify-data"
+	releaseAssetVerificationSchemaID        = "vegastack-labs.dev/release-asset-verification"
+	databaseStatusDataSchemaID              = "vegastack-labs.dev/database-status-data"
+	localPrincipalBindingSchemaID           = "vegastack-labs.dev/local-principal-binding"
+	serverProfileSchemaID                   = "vegastack-labs.dev/server-profile"
+	serverStatusDataSchemaID                = "vegastack-labs.dev/server-status-data"
+	stateExportKindCountSchemaID            = "vegastack-labs.dev/state-export-kind-count"
+	stateExportDraftRefSchemaID             = "vegastack-labs.dev/state-export-draft-ref"
+	stateExportSourceSchemaID               = "vegastack-labs.dev/state-export-source"
+	stateExportDraftSchemaID                = "vegastack-labs.dev/state-export-draft"
+	stateExportPayloadSchemaID              = "vegastack-labs.dev/inventory-draft-snapshot-payload"
+	stateExportSignatureSchemaID            = "vegastack-labs.dev/inventory-draft-export-signature"
+	stateExportDocumentSchemaID             = "vegastack-labs.dev/signed-inventory-draft-export"
+	stateExportPointerSchemaID              = "vegastack-labs.dev/inventory-draft-export-pointer"
+	inventoryDraftInputSchemaID             = "vegastack-labs.dev/inventory-draft-input"
+	inventoryImportDataSchemaID             = "vegastack-labs.dev/inventory-import-data"
+	inventoryDraftSourceSchemaID            = "vegastack-labs.dev/inventory-draft-source"
+	inventoryDraftAssetSchemaID             = "vegastack-labs.dev/inventory-draft-asset"
+	inventoryDraftIdentitySchemaID          = "vegastack-labs.dev/inventory-draft-identity"
+	inventoryDraftNodeSchemaID              = "vegastack-labs.dev/inventory-draft-node"
+	inventoryDraftAliasSchemaID             = "vegastack-labs.dev/inventory-draft-alias"
+	inventoryDraftAddressSchemaID           = "vegastack-labs.dev/inventory-draft-address"
+	inventoryDraftObservationSchemaID       = "vegastack-labs.dev/inventory-draft-observation"
+	inventoryDraftHardwareFactSchemaID      = "vegastack-labs.dev/inventory-draft-hardware-fact"
+	inventoryFieldProvenanceSchemaID        = "vegastack-labs.dev/inventory-field-provenance"
+	inventoryFindingSchemaID                = "vegastack-labs.dev/inventory-finding"
+	inventoryDraftCountsSchemaID            = "vegastack-labs.dev/inventory-draft-counts"
+	auditEventSchemaID                      = "vegastack-labs.dev/audit-event"
+	auditTargetSchemaID                     = "vegastack-labs.dev/audit-target"
+	outboxRecordDataSchemaID                = "vegastack-labs.dev/outbox-record-data"
+	apiPageQuerySchemaID                    = "vegastack-labs.dev/api-page-query"
+	apiPageDataSchemaID                     = "vegastack-labs.dev/api-page-data"
+	apiSummaryDataSchemaID                  = "vegastack-labs.dev/api-summary-data"
+	apiInventoryDraftListDataSchemaID       = "vegastack-labs.dev/api-inventory-draft-list-data"
+	apiInventoryDraftDataSchemaID           = "vegastack-labs.dev/api-inventory-draft-data"
+	apiInventoryAssetListDataSchemaID       = "vegastack-labs.dev/api-inventory-asset-list-data"
+	apiInventoryAssetDataSchemaID           = "vegastack-labs.dev/api-inventory-asset-data"
+	apiInventoryNodeListDataSchemaID        = "vegastack-labs.dev/api-inventory-node-list-data"
+	apiInventoryNodeDataSchemaID            = "vegastack-labs.dev/api-inventory-node-data"
+	apiInventoryAliasListDataSchemaID       = "vegastack-labs.dev/api-inventory-alias-list-data"
+	apiInventoryAliasDataSchemaID           = "vegastack-labs.dev/api-inventory-alias-data"
+	apiInventoryObservationListDataSchemaID = "vegastack-labs.dev/api-inventory-observation-list-data"
+	apiInventoryObservationDataSchemaID     = "vegastack-labs.dev/api-inventory-observation-data"
+	apiAuditEventDataSchemaID               = "vegastack-labs.dev/api-audit-event-data"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -59,6 +73,7 @@ var requiredErrors = []ErrorDefinition{
 	{Code: "PREREQUISITE_BLOCKED", ExitCode: 6},
 	{Code: "RECOVERY_EPOCH_MISMATCH", ExitCode: 5},
 	{Code: "RECOVERY_REQUIRED", ExitCode: 7},
+	{Code: "RESOURCE_NOT_FOUND", ExitCode: 6},
 	{Code: "SCHEMA_UNSUPPORTED", ExitCode: 2},
 	{Code: "SESSION_EXPIRED", ExitCode: 3},
 	{Code: "STATE_CONFLICT", ExitCode: 5},
@@ -159,9 +174,38 @@ func Current() Registry {
 	return Registry{
 		SchemaVersion: "1.4.0",
 		Commands:      commands,
+		Endpoints:     readEndpoints(),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
 		Schemas:       currentSchemas(),
+	}
+}
+
+func readEndpoints() []EndpointDefinition {
+	finite := func(id, path, data string) EndpointDefinition {
+		return EndpointDefinition{ID: id, Method: "GET", Path: path, OwnerPhase: "2", DataSchema: data, Stream: StreamFinite}
+	}
+	list := func(id, path, data string) EndpointDefinition {
+		value := finite(id, path, data)
+		value.QuerySchema = apiPageQuerySchemaID
+		return value
+	}
+	base := "/api/v1/inventory-drafts/{draftId}/revisions/{revision}"
+	return []EndpointDefinition{
+		finite("api.v1.health.get", "/api/v1/health", serverStatusDataSchemaID),
+		finite("api.v1.database-status.get", "/api/v1/database/status", databaseStatusDataSchemaID),
+		finite("api.v1.summary.get", "/api/v1/summary", apiSummaryDataSchemaID),
+		list("api.v1.inventory-drafts.list", "/api/v1/inventory-drafts", apiInventoryDraftListDataSchemaID),
+		finite("api.v1.inventory-drafts.get", base, apiInventoryDraftDataSchemaID),
+		list("api.v1.inventory-draft-assets.list", base+"/assets", apiInventoryAssetListDataSchemaID),
+		finite("api.v1.inventory-draft-assets.get", base+"/assets/{recordId}", apiInventoryAssetDataSchemaID),
+		list("api.v1.inventory-draft-nodes.list", base+"/nodes", apiInventoryNodeListDataSchemaID),
+		finite("api.v1.inventory-draft-nodes.get", base+"/nodes/{recordId}", apiInventoryNodeDataSchemaID),
+		list("api.v1.inventory-draft-aliases.list", base+"/aliases", apiInventoryAliasListDataSchemaID),
+		finite("api.v1.inventory-draft-aliases.get", base+"/aliases/{recordId}", apiInventoryAliasDataSchemaID),
+		list("api.v1.inventory-draft-observations.list", base+"/observations", apiInventoryObservationListDataSchemaID),
+		finite("api.v1.inventory-draft-observations.get", base+"/observations/{recordId}", apiInventoryObservationDataSchemaID),
+		{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", OwnerPhase: "2", DataSchema: apiAuditEventDataSchemaID, Stream: StreamSSE},
 	}
 }
 
@@ -447,7 +491,61 @@ func currentSchemas() []SchemaDefinition {
 	}
 	schemas = append(schemas, inventorySchemas()...)
 	schemas = append(schemas, stateExportSchemas()...)
-	return append(schemas, auditSchemas()...)
+	schemas = append(schemas, auditSchemas()...)
+	return append(schemas, readAPISchemas()...)
+}
+
+func readAPISchemas() []SchemaDefinition {
+	intMin0 := func(name, goName string) FieldDefinition {
+		return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueInteger, Required: true, Minimum: int64Pointer(0)}
+	}
+	pageFields := func(itemRef string) []FieldDefinition {
+		return []FieldDefinition{
+			{JSONName: "items", GoName: "Items", Kind: ValueArray, Required: true, ItemRef: itemRef, MaxItems: intPointer(200)},
+			{JSONName: "nextCursor", GoName: "NextCursor", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(2048)},
+			intMin0("stateRevision", "StateRevision"), intMin0("recoveryEpoch", "RecoveryEpoch"),
+		}
+	}
+	token := func(name, goName string) FieldDefinition {
+		return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, MaxLength: intPointer(128)}
+	}
+	return []SchemaDefinition{
+		{ID: apiPageQuerySchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			{JSONName: "limit", GoName: "Limit", Kind: ValueInteger, Required: false, Minimum: int64Pointer(1), Maximum: int64Pointer(200)},
+			{JSONName: "sort", GoName: "Sort", Kind: ValueString, Required: false, MaxLength: intPointer(64)},
+			{JSONName: "cursor", GoName: "Cursor", Kind: ValueString, Required: false, MaxLength: intPointer(2048)},
+		}},
+		{ID: apiPageDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-page-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "nextCursor", GoName: "NextCursor", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(2048)}, intMin0("stateRevision", "StateRevision"), intMin0("recoveryEpoch", "RecoveryEpoch"),
+		}},
+		{ID: apiSummaryDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-summary-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "databaseMode", GoName: "DatabaseMode", Kind: ValueString, Required: true, Enum: []string{"ready", "safe-mode"}},
+			{JSONName: "readAvailable", GoName: "ReadAvailable", Kind: ValueBoolean, Required: true},
+			{JSONName: "mutationAvailable", GoName: "MutationAvailable", Kind: ValueBoolean, Required: true},
+			intMin0("draftCount", "DraftCount"), intMin0("validDraftCount", "ValidDraftCount"), intMin0("blockedDraftCount", "BlockedDraftCount"), intMin0("lastEventId", "LastEventID"), intMin0("recoveryEpoch", "RecoveryEpoch"), intMin0("stateRevision", "StateRevision"),
+		}},
+		{ID: apiInventoryDraftDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-draft-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "authority", GoName: "Authority", Kind: ValueString, Required: true, Enum: []string{"draft"}}, token("draftId", "DraftID"),
+			{JSONName: "revision", GoName: "Revision", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1)},
+			{JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}},
+			token("contentDigest", "ContentDigest"), {JSONName: "createdAt", GoName: "CreatedAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+			{JSONName: "counts", GoName: "Counts", Kind: ValueObject, Required: true, Ref: inventoryDraftCountsSchemaID},
+		}},
+		{ID: apiInventoryDraftListDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-draft-list-data.schema.json", Fields: pageFields(apiInventoryDraftDataSchemaID)},
+		{ID: apiInventoryAssetDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-asset-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "authority", GoName: "Authority", Kind: ValueString, Required: true, Enum: []string{"draft"}}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, token("id", "ID"), token("kind", "Kind"), token("lifecycle", "Lifecycle"),
+		}},
+		{ID: apiInventoryAssetListDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-asset-list-data.schema.json", Fields: pageFields(apiInventoryAssetDataSchemaID)},
+		{ID: apiInventoryNodeDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-node-data.schema.json", Fields: []FieldDefinition{{JSONName: "authority", GoName: "Authority", Kind: ValueString, Required: true, Enum: []string{"draft"}}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, token("id", "ID"), token("assetId", "AssetID"), {JSONName: "parentId", GoName: "ParentID", Kind: ValueString, Required: true, MaxLength: intPointer(128)}}},
+		{ID: apiInventoryNodeListDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-node-list-data.schema.json", Fields: pageFields(apiInventoryNodeDataSchemaID)},
+		{ID: apiInventoryAliasDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-alias-data.schema.json", Fields: []FieldDefinition{{JSONName: "authority", GoName: "Authority", Kind: ValueString, Required: true, Enum: []string{"draft"}}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, token("id", "ID"), token("targetId", "TargetID"), {JSONName: "value", GoName: "Value", Kind: ValueString, Required: true, MaxLength: intPointer(1024)}}},
+		{ID: apiInventoryAliasListDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-alias-list-data.schema.json", Fields: pageFields(apiInventoryAliasDataSchemaID)},
+		{ID: apiInventoryObservationDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-observation-data.schema.json", Fields: []FieldDefinition{{JSONName: "authority", GoName: "Authority", Kind: ValueString, Required: true, Enum: []string{"draft"}}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, token("id", "ID"), token("subjectId", "SubjectID"), token("kind", "Kind"), {JSONName: "state", GoName: "State", Kind: ValueString, Required: true, Enum: []string{"declared", "observed", "drifted", "stale", "unknown"}}, {JSONName: "observedAt", GoName: "ObservedAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)}, token("source", "Source")}},
+		{ID: apiInventoryObservationListDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-observation-list-data.schema.json", Fields: pageFields(apiInventoryObservationDataSchemaID)},
+		{ID: apiAuditEventDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-audit-event-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "event", GoName: "Event", Kind: ValueObject, Required: true, Ref: auditEventSchemaID},
+		}},
+	}
 }
 
 func stateExportSchemas() []SchemaDefinition {

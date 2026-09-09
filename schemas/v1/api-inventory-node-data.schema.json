@@ -1,0 +1,42 @@
+{
+  "$id": "vegastack-labs.dev/api-inventory-node-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "assetId": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "authority": {
+      "enum": [
+        "draft"
+      ],
+      "type": "string"
+    },
+    "id": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "parentId": {
+      "maxLength": 128,
+      "type": "string"
+    },
+    "validationStatus": {
+      "enum": [
+        "valid",
+        "blocked"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "authority",
+    "validationStatus",
+    "id",
+    "assetId",
+    "parentId"
+  ],
+  "title": "VegaStack Labs api inventory node data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

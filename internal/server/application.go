@@ -3,6 +3,9 @@ package server
 import (
 	"context"
 	"net/http"
+
+	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/readmodel"
 )
 
 type LifecycleState string
@@ -14,10 +17,10 @@ const (
 	StateStopping LifecycleState = "stopping"
 )
 
-type ApplicationHealth struct {
-	SafeMode      bool
-	RecoveryEpoch int64
-	StateRevision int64
+type ApplicationHealth = readmodel.ApplicationHealth
+
+type HealthAuthorizer interface {
+	AuthorizeHealth(context.Context, identity.Principal) error
 }
 
 type Application interface {

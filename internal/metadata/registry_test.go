@@ -7,6 +7,25 @@ import (
 	"testing"
 )
 
+func TestPhaseTwoReadEndpointsAreGeneratedAndDraftScoped(t *testing.T) {
+	registry := Current()
+	byID := make(map[string]EndpointDefinition, len(registry.Endpoints))
+	for _, endpoint := range registry.Endpoints {
+		byID[endpoint.ID] = endpoint
+		if endpoint.Path == "/api/v1/assets" || endpoint.Path == "/api/v1/nodes" {
+			t.Fatalf("authoritative-looking endpoint generated: %#v", endpoint)
+		}
+	}
+	got := byID["api.v1.inventory-draft-assets.list"]
+	if got.Method != "GET" || got.Path != "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets" || got.Stream != StreamFinite {
+		t.Fatalf("asset endpoint = %#v", got)
+	}
+	events := byID["api.v1.events.stream"]
+	if events.Path != "/api/v1/events" || events.Stream != StreamSSE || events.DataSchema != apiAuditEventDataSchemaID {
+		t.Fatalf("events endpoint = %#v", events)
+	}
+}
+
 func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
@@ -288,7 +307,7 @@ func TestCurrentErrorExitMapping(t *testing.T) {
 		"AUTHENTICATION_REQUIRED": 3, "SESSION_EXPIRED": 3,
 		"AUTHORIZATION_DENIED": 4, "APPROVAL_REQUIRED": 4,
 		"STATE_CONFLICT": 5, "PLAN_STALE": 5, "EVIDENCE_EXPIRED": 5, "RECOVERY_EPOCH_MISMATCH": 5, "VERSION_INCOMPATIBLE": 5,
-		"PREREQUISITE_BLOCKED": 6, "GATE_BLOCKED": 6, "TARGET_UNREACHABLE": 6, "DEPENDENCY_UNAVAILABLE": 6,
+		"PREREQUISITE_BLOCKED": 6, "GATE_BLOCKED": 6, "TARGET_UNREACHABLE": 6, "DEPENDENCY_UNAVAILABLE": 6, "RESOURCE_NOT_FOUND": 6,
 		"EXECUTION_FAILED": 7, "EXECUTION_PARTIAL": 7, "RECOVERY_REQUIRED": 7,
 		"INTEGRITY_FAILURE": 8, "MIGRATION_BLOCKED": 8,
 		"INTERRUPTED": 9,

@@ -59,6 +59,7 @@ function validAnalyzerResult(value) {
   if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
   const expectedKeys = [
     "generatedCommandsReference",
+    "generatedEndpointsReference",
     "handwrittenRegistry",
     "releaseArtifactExecution",
     "releaseNetworkAccess",
@@ -71,6 +72,7 @@ function validAnalyzerResult(value) {
   if (JSON.stringify(Object.keys(value).sort()) !== JSON.stringify(expectedKeys)) return false;
   if (
     typeof value.generatedCommandsReference !== "boolean" ||
+    typeof value.generatedEndpointsReference !== "boolean" ||
     typeof value.handwrittenRegistry !== "boolean" ||
     typeof value.releaseArtifactExecution !== "boolean" ||
     typeof value.releaseNetworkAccess !== "boolean" ||

@@ -34,6 +34,7 @@ try {
     throw new Error(`Go files require formatting:\n${gofmt.stdout.trim()}`);
   }
   await stage("generated contracts", "go", ["run", "./tooling/generate-contracts", "--check"]);
+  await stage("authorized read API boundary", process.execPath, ["tooling/verify-read-api.mjs"]);
   await stage("portable CLI boundary and target builds", process.execPath, ["tooling/verify-cli.mjs"]);
   await stage("local control service boundary", process.execPath, ["tooling/verify-server.mjs"]);
   await stage("Go vet", "go", ["vet", "./..."]);

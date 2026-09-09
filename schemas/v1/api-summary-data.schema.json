@@ -1,0 +1,58 @@
+{
+  "$id": "vegastack-labs.dev/api-summary-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "blockedDraftCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "databaseMode": {
+      "enum": [
+        "ready",
+        "safe-mode"
+      ],
+      "type": "string"
+    },
+    "draftCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "lastEventId": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "mutationAvailable": {
+      "type": "boolean"
+    },
+    "readAvailable": {
+      "type": "boolean"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "validDraftCount": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "databaseMode",
+    "readAvailable",
+    "mutationAvailable",
+    "draftCount",
+    "validDraftCount",
+    "blockedDraftCount",
+    "lastEventId",
+    "recoveryEpoch",
+    "stateRevision"
+  ],
+  "title": "VegaStack Labs api summary data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
