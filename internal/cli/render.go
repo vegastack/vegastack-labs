@@ -90,6 +90,71 @@ func renderHumanServerStatus(output io.Writer, data generated.ServerStatusData, 
 	return exitCode
 }
 
+func renderHumanSummary(output io.Writer, data generated.ApiSummaryData) int {
+	if _, err := fmt.Fprintf(output,
+		"Database mode %s\nRead available %t\nMutation available %t\nDrafts %d (valid %d, blocked %d)\nLast event %d\nState revision %d\nRecovery epoch %d\n",
+		data.DatabaseMode, data.ReadAvailable, data.MutationAvailable, data.DraftCount, data.ValidDraftCount, data.BlockedDraftCount, data.LastEventID, data.StateRevision, data.RecoveryEpoch,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return 0
+}
+
+func renderHumanDatabaseStatus(output io.Writer, data generated.DatabaseStatusData) int {
+	if _, err := fmt.Fprintf(output,
+		"Mode %s\nSchema version %d\nSQLite version %s\nMutation enabled %t\nRecovery pending %t\nIntegrity %s\n",
+		data.Mode, data.SchemaVersion, data.SQLiteVersion, data.MutationEnabled, data.RecoveryPending, data.IntegrityStatus,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	if data.LastIntegrityCheckAt != nil {
+		if _, err := fmt.Fprintf(output, "Last integrity check %s\n", *data.LastIntegrityCheckAt); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	if data.SafeModeReason != "" {
+		if _, err := fmt.Fprintf(output, "Safe mode reason %s\n", data.SafeModeReason); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	return 0
+}
+
+func renderHumanInventoryImport(output io.Writer, data generated.InventoryImportData) int {
+	if _, err := fmt.Fprintf(output,
+		"Inert draft %s revision %d\nValidation %s\nCreated %t\nRecords assets=%d nodes=%d aliases=%d addresses=%d observations=%d\nFindings %d\nState revision %d\nRecovery epoch %d\n",
+		data.DraftID, data.DraftRevision, data.ValidationStatus, data.Created, data.Counts.Assets, data.Counts.Nodes, data.Counts.Aliases, data.Counts.Addresses, data.Counts.Observations, len(data.Findings), data.StateRevision, data.RecoveryEpoch,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return 0
+}
+
+func renderHumanInventoryDiff(output io.Writer, data generated.InventoryDiffData) int {
+	if _, err := fmt.Fprintf(output,
+		"Candidate %s %s\nBaseline inert draft %s revision %d\nChanges added=%d removed=%d changed=%d unchanged=%d\nFindings %d\nState revision %d\nRecovery epoch %d\n",
+		data.CandidateKind, data.CandidateDigest, data.BaselineDraft.DraftID, data.BaselineDraft.DraftRevision, data.Counts.Added, data.Counts.Removed, data.Counts.Changed, data.Counts.Unchanged, len(data.Findings), data.StateRevision, data.RecoveryEpoch,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, record := range data.Records {
+		if _, err := fmt.Fprintf(output, "%s %s %s (%d field changes)\n", record.Change, record.RecordKind, record.LocalID, len(record.Fields)); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	return 0
+}
+
+func renderHumanInventoryExport(output io.Writer, data generated.InventoryExportData) int {
+	if _, err := fmt.Fprintf(output,
+		"Verified inert-draft export %s\nDraft %s revision %d\nContent digest %s\nSignature %s key %s fingerprint %s\nVerification %s\nPublication %s\nState revision %d\nRecovery epoch %d\n",
+		data.ExportID, data.Draft.DraftID, data.Draft.DraftRevision, data.ContentDigest, data.Algorithm, data.KeyID, data.KeyFingerprint, data.VerificationStatus, data.PublicationStatus, data.StateRevision, data.RecoveryEpoch,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return 0
+}
+
 func renderHumanVersion(output io.Writer, build BuildInfo) int {
 	if _, err := fmt.Fprintf(output, "vsk-labs %s\ncontract %s\nbuild %s\n", build.ToolVersion, generated.RegistrySchemaVersion, build.ReleaseBuildID); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)

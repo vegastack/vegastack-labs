@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.5.0",
+  "schemaVersion": "1.6.0",
   "endpoints": [
     {
       "id": "api.v1.database-status.get",
@@ -25,6 +25,15 @@
       "path": "/api/v1/health",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/server-status-data",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.inventory-diffs.create",
+      "method": "POST",
+      "path": "/api/v1/inventory-diffs",
+      "ownerPhase": "2",
+      "requestSchema": "vegastack-labs.dev/inventory-diff-request",
+      "dataSchema": "vegastack-labs.dev/inventory-diff-data",
       "stream": "finite"
     },
     {
@@ -104,12 +113,30 @@
       "stream": "finite"
     },
     {
+      "id": "api.v1.inventory-drafts.import",
+      "method": "POST",
+      "path": "/api/v1/inventory-drafts/import",
+      "ownerPhase": "2",
+      "requestSchema": "vegastack-labs.dev/inventory-import-request",
+      "dataSchema": "vegastack-labs.dev/inventory-import-data",
+      "stream": "finite"
+    },
+    {
       "id": "api.v1.inventory-drafts.list",
       "method": "GET",
       "path": "/api/v1/inventory-drafts",
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-draft-list-data",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.inventory-exports.create",
+      "method": "POST",
+      "path": "/api/v1/inventory-exports",
+      "ownerPhase": "2",
+      "requestSchema": "vegastack-labs.dev/inventory-export-request",
+      "dataSchema": "vegastack-labs.dev/inventory-export-data",
       "stream": "finite"
     },
     {

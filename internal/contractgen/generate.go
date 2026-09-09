@@ -158,14 +158,19 @@ func renderEndpointRegistryJSON(registry metadata.Registry) ([]byte, error) {
 
 func renderEndpointRegistrySchema() ([]byte, error) {
 	endpoint := strictObject([]string{"id", "method", "path", "ownerPhase", "dataSchema", "stream"}, map[string]any{
-		"id":          map[string]any{"type": "string", "pattern": "^api\\.v1\\.[a-z0-9.-]+$"},
-		"method":      map[string]any{"const": "GET"},
-		"path":        map[string]any{"type": "string", "pattern": "^/api/v1/"},
-		"ownerPhase":  map[string]any{"const": "2"},
-		"querySchema": map[string]any{"type": "string"},
-		"dataSchema":  map[string]any{"type": "string", "minLength": 1},
-		"stream":      map[string]any{"enum": []string{"finite", "sse"}},
+		"id":            map[string]any{"type": "string", "pattern": "^api\\.v1\\.[a-z0-9.-]+$"},
+		"method":        map[string]any{"enum": []string{"GET", "POST"}},
+		"path":          map[string]any{"type": "string", "pattern": "^/api/v1/"},
+		"ownerPhase":    map[string]any{"const": "2"},
+		"querySchema":   map[string]any{"type": "string"},
+		"requestSchema": map[string]any{"type": "string"},
+		"dataSchema":    map[string]any{"type": "string", "minLength": 1},
+		"stream":        map[string]any{"enum": []string{"finite", "sse"}},
 	})
+	endpoint["allOf"] = []any{
+		map[string]any{"if": map[string]any{"properties": map[string]any{"method": map[string]any{"const": "POST"}}, "required": []string{"method"}}, "then": map[string]any{"required": []string{"requestSchema"}}},
+		map[string]any{"if": map[string]any{"properties": map[string]any{"method": map[string]any{"const": "GET"}}, "required": []string{"method"}}, "then": map[string]any{"not": map[string]any{"required": []string{"requestSchema"}}}},
+	}
 	return encodeJSON(map[string]any{
 		"$schema": jsonSchemaDialect, "$id": endpointRegistrySchemaID, "title": "VegaStack Labs endpoint registry", "x-generated-by": generatedBy,
 		"type": "object", "additionalProperties": false,
@@ -401,7 +406,11 @@ func schemaProperties(definition metadata.SchemaDefinition, errors []metadata.Er
 		property["type"] = typeValue
 		if field.Ref != "" {
 			delete(property, "type")
-			property["$ref"] = "#/$defs/" + schemaShortName(field.Ref)
+			if field.Nullable {
+				property["anyOf"] = []any{map[string]any{"$ref": "#/$defs/" + schemaShortName(field.Ref)}, map[string]any{"type": "null"}}
+			} else {
+				property["$ref"] = "#/$defs/" + schemaShortName(field.Ref)
+			}
 		}
 		if field.ItemRef != "" {
 			property["items"] = map[string]any{"$ref": "#/$defs/" + schemaShortName(field.ItemRef)}
@@ -520,7 +529,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	}
 
 	output.WriteString("type Command struct {\n\tPath []string `json:\"path\"`\n\tSummary string `json:\"summary\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tRisk string `json:\"risk\"`\n\tFlags []Flag `json:\"flags,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tResultSchema string `json:\"resultSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema,omitempty\"`\n\tExamples []Example `json:\"examples,omitempty\"`\n}\n\n")
-	output.WriteString("type Endpoint struct {\n\tID string `json:\"id\"`\n\tMethod string `json:\"method\"`\n\tPath string `json:\"path\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tQuerySchema string `json:\"querySchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema\"`\n\tStream string `json:\"stream\"`\n}\n\n")
+	output.WriteString("type Endpoint struct {\n\tID string `json:\"id\"`\n\tMethod string `json:\"method\"`\n\tPath string `json:\"path\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tQuerySchema string `json:\"querySchema,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema\"`\n\tStream string `json:\"stream\"`\n}\n\n")
 	output.WriteString("type Flag struct {\n\tName string `json:\"name\"`\n\tKind string `json:\"kind\"`\n\tValueName string `json:\"valueName\"`\n\tRequired bool `json:\"required\"`\n\tRepeatable bool `json:\"repeatable\"`\n\tSummary string `json:\"summary\"`\n\tEnum []string `json:\"enum\"`\n}\n\n")
 	output.WriteString("type Example struct {\n\tSummary string `json:\"summary\"`\n\tArguments []string `json:\"arguments\"`\n}\n\n")
 	output.WriteString("var Commands = []Command{\n")
@@ -554,7 +563,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	output.WriteString("}\n\n")
 	output.WriteString("var Endpoints = []Endpoint{\n")
 	for _, endpoint := range registry.Endpoints {
-		fmt.Fprintf(&output, "\t{ID: %s, Method: %s, Path: %s, OwnerPhase: %s, QuerySchema: %s, DataSchema: %s, Stream: %s},\n", strconv.Quote(endpoint.ID), strconv.Quote(endpoint.Method), strconv.Quote(endpoint.Path), strconv.Quote(endpoint.OwnerPhase), strconv.Quote(endpoint.QuerySchema), strconv.Quote(endpoint.DataSchema), strconv.Quote(string(endpoint.Stream)))
+		fmt.Fprintf(&output, "\t{ID: %s, Method: %s, Path: %s, OwnerPhase: %s, QuerySchema: %s, RequestSchema: %s, DataSchema: %s, Stream: %s},\n", strconv.Quote(endpoint.ID), strconv.Quote(endpoint.Method), strconv.Quote(endpoint.Path), strconv.Quote(endpoint.OwnerPhase), strconv.Quote(endpoint.QuerySchema), strconv.Quote(endpoint.RequestSchema), strconv.Quote(endpoint.DataSchema), strconv.Quote(string(endpoint.Stream)))
 	}
 	output.WriteString("}\n\n")
 	output.WriteString("var ErrorExitCodes = map[string]int{\n")
@@ -622,9 +631,9 @@ func renderEndpointMarkdown(registry metadata.Registry) []byte {
 	var output bytes.Buffer
 	output.WriteString("<!-- Generated by go run ./tooling/generate-contracts --write; DO NOT EDIT. -->\n# vsk-labs endpoint registry\n\n")
 	fmt.Fprintf(&output, "Contract schema: `%s`\n\n", registry.SchemaVersion)
-	output.WriteString("| Operation | Method | Path | Stream | Data schema |\n|---|---|---|---|---|\n")
+	output.WriteString("| Operation | Method | Path | Stream | Request schema | Data schema |\n|---|---|---|---|---|---|\n")
 	for _, endpoint := range registry.Endpoints {
-		fmt.Fprintf(&output, "| `%s` | `%s` | `%s` | `%s` | `%s` |\n", endpoint.ID, endpoint.Method, endpoint.Path, endpoint.Stream, endpoint.DataSchema)
+		fmt.Fprintf(&output, "| `%s` | `%s` | `%s` | `%s` | `%s` | `%s` |\n", endpoint.ID, endpoint.Method, endpoint.Path, endpoint.Stream, endpoint.RequestSchema, endpoint.DataSchema)
 	}
 	return output.Bytes()
 }

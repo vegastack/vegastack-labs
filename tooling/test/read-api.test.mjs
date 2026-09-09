@@ -16,6 +16,11 @@ async function fixtureRepo(t, files) {
   return root;
 }
 
+test("the read API verifier accepts the generated Phase 2 operation endpoints", async () => {
+  const result = await verifyReadAPI();
+  assert.ok(!result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
+});
+
 test("the read API verifier rejects query-before-authorization and offset SQL", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/api/handler.go": "package api\nfunc handle(r *http.Request) { _ = r.URL.Query(); AuthorizeRead(r.Context()) }\n",

@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.5.0"
+	RegistrySchemaVersion                   = "1.6.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -28,6 +28,10 @@ const (
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
 	SchemaIDDatabaseStatusData              = "vegastack-labs.dev/database-status-data"
+	SchemaIDInventoryDiffCounts             = "vegastack-labs.dev/inventory-diff-counts"
+	SchemaIDInventoryDiffData               = "vegastack-labs.dev/inventory-diff-data"
+	SchemaIDInventoryDiffRecord             = "vegastack-labs.dev/inventory-diff-record"
+	SchemaIDInventoryDiffRequest            = "vegastack-labs.dev/inventory-diff-request"
 	SchemaIDInventoryDraftAddress           = "vegastack-labs.dev/inventory-draft-address"
 	SchemaIDInventoryDraftAlias             = "vegastack-labs.dev/inventory-draft-alias"
 	SchemaIDInventoryDraftAsset             = "vegastack-labs.dev/inventory-draft-asset"
@@ -39,11 +43,16 @@ const (
 	SchemaIDInventoryDraftInput             = "vegastack-labs.dev/inventory-draft-input"
 	SchemaIDInventoryDraftNode              = "vegastack-labs.dev/inventory-draft-node"
 	SchemaIDInventoryDraftObservation       = "vegastack-labs.dev/inventory-draft-observation"
+	SchemaIDInventoryDraftRef               = "vegastack-labs.dev/inventory-draft-ref"
 	SchemaIDInventoryDraftSnapshotPayload   = "vegastack-labs.dev/inventory-draft-snapshot-payload"
 	SchemaIDInventoryDraftSource            = "vegastack-labs.dev/inventory-draft-source"
+	SchemaIDInventoryExportData             = "vegastack-labs.dev/inventory-export-data"
+	SchemaIDInventoryExportRequest          = "vegastack-labs.dev/inventory-export-request"
+	SchemaIDInventoryFieldChange            = "vegastack-labs.dev/inventory-field-change"
 	SchemaIDInventoryFieldProvenance        = "vegastack-labs.dev/inventory-field-provenance"
 	SchemaIDInventoryFinding                = "vegastack-labs.dev/inventory-finding"
 	SchemaIDInventoryImportData             = "vegastack-labs.dev/inventory-import-data"
+	SchemaIDInventoryImportRequest          = "vegastack-labs.dev/inventory-import-request"
 	SchemaIDLocalPrincipalBinding           = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDOutboxRecordData                = "vegastack-labs.dev/outbox-record-data"
 	SchemaIDReleaseAsset                    = "vegastack-labs.dev/release-asset"
@@ -67,11 +76,24 @@ const (
 	SchemaIDStateExportDraftRef             = "vegastack-labs.dev/state-export-draft-ref"
 	SchemaIDStateExportKindCount            = "vegastack-labs.dev/state-export-kind-count"
 	SchemaIDStateExportSource               = "vegastack-labs.dev/state-export-source"
-	CommandNameHelp                         = "help"
+	CommandNameDatabaseStatus               = "database status"
+	FlagConfig                              = "--config"
 	FlagOutput                              = "--output"
 	OutputHuman                             = "human"
 	OutputJSON                              = "json"
 	FlagSchemaVersion                       = "--schema-version"
+	CommandNameHelp                         = "help"
+	CommandNameInventoryDiff                = "inventory diff"
+	FlagCapturedAt                          = "--captured-at"
+	FlagDraftID                             = "--draft-id"
+	FlagDraftRevision                       = "--draft-revision"
+	FlagFile                                = "--file"
+	FlagFormat                              = "--format"
+	FlagSourceRevision                      = "--source-revision"
+	CommandNameInventoryExport              = "inventory export"
+	CommandNameInventoryImport              = "inventory import"
+	FlagExpectedStateRevision               = "--expected-state-revision"
+	FlagIdempotencyKey                      = "--idempotency-key"
 	CommandNameReleaseInspect               = "release inspect"
 	FlagManifest                            = "--manifest"
 	CommandNameReleaseVerify                = "release verify"
@@ -79,8 +101,8 @@ const (
 	FlagAsset                               = "--asset"
 	FlagPolicy                              = "--policy"
 	CommandNameServerRun                    = "server run"
-	FlagConfig                              = "--config"
 	CommandNameServerStatus                 = "server status"
+	CommandNameStatus                       = "status"
 	CommandNameVersion                      = "version"
 	ErrorCodeApprovalRequired               = "APPROVAL_REQUIRED"
 	ErrorCodeAuthenticationRequired         = "AUTHENTICATION_REQUIRED"
@@ -254,6 +276,42 @@ type DatabaseStatusData struct {
 	SafeModeReason       string  `json:"safeModeReason"`
 }
 
+type InventoryDiffCounts struct {
+	Added     int64 `json:"added"`
+	Removed   int64 `json:"removed"`
+	Changed   int64 `json:"changed"`
+	Unchanged int64 `json:"unchanged"`
+}
+
+type InventoryDiffData struct {
+	CandidateKind   string                `json:"candidateKind"`
+	CandidateDraft  *InventoryDraftRef    `json:"candidateDraft"`
+	CandidateDigest string                `json:"candidateDigest"`
+	BaselineKind    string                `json:"baselineKind"`
+	BaselineDraft   InventoryDraftRef     `json:"baselineDraft"`
+	StateRevision   int64                 `json:"stateRevision"`
+	RecoveryEpoch   int64                 `json:"recoveryEpoch"`
+	Counts          InventoryDiffCounts   `json:"counts"`
+	Records         []InventoryDiffRecord `json:"records"`
+	Findings        []InventoryFinding    `json:"findings"`
+}
+
+type InventoryDiffRecord struct {
+	Change     string                 `json:"change"`
+	RecordKind string                 `json:"recordKind"`
+	LocalID    string                 `json:"localId"`
+	Fields     []InventoryFieldChange `json:"fields"`
+}
+
+type InventoryDiffRequest struct {
+	CandidateKind  string             `json:"candidateKind"`
+	Draft          *InventoryDraftRef `json:"draft"`
+	Format         *string            `json:"format"`
+	SourceRevision *string            `json:"sourceRevision"`
+	CapturedAt     *string            `json:"capturedAt"`
+	Content        *string            `json:"content"`
+}
+
 type InventoryDraftAddress struct {
 	ID     string `json:"id"`
 	NodeID string `json:"nodeId"`
@@ -340,6 +398,11 @@ type InventoryDraftObservation struct {
 	ObservedAt string `json:"observedAt"`
 }
 
+type InventoryDraftRef struct {
+	DraftID       string `json:"draftId"`
+	DraftRevision int64  `json:"draftRevision"`
+}
+
 type InventoryDraftSnapshotPayload struct {
 	Schema         string                 `json:"schema"`
 	SchemaVersion  string                 `json:"schemaVersion"`
@@ -360,6 +423,31 @@ type InventoryDraftSource struct {
 	AdapterVersion string `json:"adapterVersion"`
 	SourceRevision string `json:"sourceRevision"`
 	CapturedAt     string `json:"capturedAt"`
+}
+
+type InventoryExportData struct {
+	ExportID           string            `json:"exportId"`
+	SubjectKind        string            `json:"subjectKind"`
+	Draft              InventoryDraftRef `json:"draft"`
+	StateRevision      int64             `json:"stateRevision"`
+	RecoveryEpoch      int64             `json:"recoveryEpoch"`
+	ContentDigest      string            `json:"contentDigest"`
+	Algorithm          string            `json:"algorithm"`
+	KeyID              string            `json:"keyId"`
+	KeyFingerprint     string            `json:"keyFingerprint"`
+	VerificationStatus string            `json:"verificationStatus"`
+	PublicationStatus  string            `json:"publicationStatus"`
+	SignedBytesBase64  string            `json:"signedBytesBase64"`
+}
+
+type InventoryExportRequest struct {
+	Draft InventoryDraftRef `json:"draft"`
+}
+
+type InventoryFieldChange struct {
+	Path   string  `json:"path"`
+	Before *string `json:"before"`
+	After  *string `json:"after"`
 }
 
 type InventoryFieldProvenance struct {
@@ -395,6 +483,15 @@ type InventoryImportData struct {
 	Created          bool                 `json:"created"`
 	Counts           InventoryDraftCounts `json:"counts"`
 	Findings         []InventoryFinding   `json:"findings"`
+}
+
+type InventoryImportRequest struct {
+	Format                string `json:"format"`
+	SourceRevision        string `json:"sourceRevision"`
+	CapturedAt            string `json:"capturedAt"`
+	IdempotencyKey        string `json:"idempotencyKey"`
+	ExpectedStateRevision *int64 `json:"expectedStateRevision"`
+	Content               string `json:"content"`
 }
 
 type LocalPrincipalBinding struct {
@@ -588,13 +685,14 @@ type Command struct {
 }
 
 type Endpoint struct {
-	ID          string `json:"id"`
-	Method      string `json:"method"`
-	Path        string `json:"path"`
-	OwnerPhase  string `json:"ownerPhase"`
-	QuerySchema string `json:"querySchema,omitempty"`
-	DataSchema  string `json:"dataSchema"`
-	Stream      string `json:"stream"`
+	ID            string `json:"id"`
+	Method        string `json:"method"`
+	Path          string `json:"path"`
+	OwnerPhase    string `json:"ownerPhase"`
+	QuerySchema   string `json:"querySchema,omitempty"`
+	RequestSchema string `json:"requestSchema,omitempty"`
+	DataSchema    string `json:"dataSchema"`
+	Stream        string `json:"stream"`
 }
 
 type Flag struct {
@@ -625,7 +723,7 @@ var Commands = []Command{
 	{Path: []string{"database", "backup"}, Summary: "Create a verified control-database backup.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"database", "export"}, Summary: "Export authorized sanitized control data.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"database", "restore"}, Summary: "Create an inert control-database restore change.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
-	{Path: []string{"database", "status"}, Summary: "Inspect control-database status.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
+	{Path: []string{"database", "status"}, Summary: "Inspect control-database status.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/database-status-data", Examples: []Example{{Summary: "Inspect control-database status.", Arguments: []string{"database", "status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"database", "verify"}, Summary: "Verify control-database integrity or backup content.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"device", "approve"}, Summary: "Create an inert device-approval change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"device", "request"}, Summary: "Create an inert device-enrollment request.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
@@ -636,9 +734,9 @@ var Commands = []Command{
 	{Path: []string{"gate", "inspect"}, Summary: "Inspect one gate and its evidence requirements.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"gate", "list"}, Summary: "List applicable implementation gates.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"help"}, Summary: "Show generated command help.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show all generated command help.", Arguments: []string{"help"}}}},
-	{Path: []string{"inventory", "diff"}, Summary: "Compare declared and supplied inventory.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
-	{Path: []string{"inventory", "export"}, Summary: "Export authorized inventory data.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
-	{Path: []string{"inventory", "import"}, Summary: "Import typed inventory as an inert change.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
+	{Path: []string{"inventory", "diff"}, Summary: "Compare one inert draft or local candidate with a compatible inert draft.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--captured-at", Kind: "value", ValueName: "timestamp", Required: false, Repeatable: false, Summary: "Record an RFC 3339 UTC capture time.", Enum: []string(nil)}, {Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--draft-id", Kind: "value", ValueName: "id", Required: false, Repeatable: false, Summary: "Select an existing inert draft.", Enum: []string(nil)}, {Name: "--draft-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Select the exact inert draft revision.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: false, Repeatable: false, Summary: "Read one protected local candidate file.", Enum: []string(nil)}, {Name: "--format", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select the explicit candidate format.", Enum: []string{"labs-sheet1-csv", "typed-json"}}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--source-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Record the source revision supplied by its owner.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/inventory-diff-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/inventory-diff-data", Examples: []Example{{Summary: "Compare one inert draft or local candidate with a compatible inert draft.", Arguments: []string{"inventory", "diff", "--config", "fixture/server-profile.json", "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"}}}},
+	{Path: []string{"inventory", "export"}, Summary: "Publish one verified signed inert-draft export.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--draft-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select an existing inert draft.", Enum: []string(nil)}, {Name: "--draft-revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Select the exact inert draft revision.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/inventory-export-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/inventory-export-data", Examples: []Example{{Summary: "Publish one verified signed inert-draft export.", Arguments: []string{"inventory", "export", "--config", "fixture/server-profile.json", "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"}}}},
+	{Path: []string{"inventory", "import"}, Summary: "Validate and store one inventory candidate as an inert draft.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--captured-at", Kind: "value", ValueName: "timestamp", Required: true, Repeatable: false, Summary: "Record an RFC 3339 UTC capture time.", Enum: []string(nil)}, {Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--expected-state-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Require this current state revision.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local candidate file.", Enum: []string(nil)}, {Name: "--format", Kind: "value", ValueName: "format", Required: true, Repeatable: false, Summary: "Select the explicit candidate format.", Enum: []string{"labs-sheet1-csv", "typed-json"}}, {Name: "--idempotency-key", Kind: "value", ValueName: "key", Required: true, Repeatable: false, Summary: "Supply one opaque retry key.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--source-revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Record the source revision supplied by its owner.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/inventory-import-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/inventory-import-data", Examples: []Example{{Summary: "Validate and store one inventory candidate as an inert draft.", Arguments: []string{"inventory", "import", "--config", "fixture/server-profile.json", "--file", "fixture/inventory.json", "--format", "typed-json", "--source-revision", "source-1", "--captured-at", "2026-09-08T06:00:00Z", "--idempotency-key", "opaque-1", "--output", "json"}}}},
 	{Path: []string{"maintenance", "plan"}, Summary: "Create an immutable maintenance plan.", Availability: "planned", OwnerPhase: "10", Risk: "unassigned"},
 	{Path: []string{"maintenance", "run"}, Summary: "Run one authorized maintenance plan.", Availability: "planned", OwnerPhase: "10", Risk: "unassigned"},
 	{Path: []string{"node", "add"}, Summary: "Create an inert managed-node change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
@@ -658,7 +756,7 @@ var Commands = []Command{
 	{Path: []string{"service", "deploy"}, Summary: "Create an inert service-deployment change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
 	{Path: []string{"service", "plan"}, Summary: "Create an inert service change and request its plan.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
 	{Path: []string{"service", "rollback"}, Summary: "Create an inert service-rollback change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
-	{Path: []string{"status"}, Summary: "Show the current platform summary.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
+	{Path: []string{"status"}, Summary: "Show the current platform summary.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/api-summary-data", Examples: []Example{{Summary: "Show the current platform summary.", Arguments: []string{"status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"user", "offboard"}, Summary: "Create an inert user-offboarding change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"user", "onboard"}, Summary: "Create an inert user-onboarding change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"user", "resume"}, Summary: "Create an inert user-resumption change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
@@ -667,20 +765,23 @@ var Commands = []Command{
 }
 
 var Endpoints = []Endpoint{
-	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite"},
-	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse"},
-	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-aliases.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", DataSchema: "vegastack-labs.dev/api-inventory-alias-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-assets.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/api-inventory-asset-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-assets.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", DataSchema: "vegastack-labs.dev/api-inventory-asset-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-nodes.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/api-inventory-node-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-nodes.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", DataSchema: "vegastack-labs.dev/api-inventory-node-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-observations.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/api-inventory-observation-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-observations.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", DataSchema: "vegastack-labs.dev/api-inventory-observation-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-drafts.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-data", Stream: "finite"},
-	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite"},
-	{ID: "api.v1.summary.get", Method: "GET", Path: "/api/v1/summary", OwnerPhase: "2", QuerySchema: "", DataSchema: "vegastack-labs.dev/api-summary-data", Stream: "finite"},
+	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite"},
+	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse"},
+	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite"},
+	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-aliases.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-assets.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-asset-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-assets.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-asset-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-nodes.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-node-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-nodes.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-node-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-observations.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-observation-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-observations.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-observation-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-drafts.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-data", Stream: "finite"},
+	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite"},
+	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite"},
+	{ID: "api.v1.summary.get", Method: "GET", Path: "/api/v1/summary", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-summary-data", Stream: "finite"},
 }
 
 var ErrorExitCodes = map[string]int{

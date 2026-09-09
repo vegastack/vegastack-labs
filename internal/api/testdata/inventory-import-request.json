@@ -1,0 +1,8 @@
+{
+  "format": "typed-json",
+  "sourceRevision": "synthetic-source-1",
+  "capturedAt": "2026-09-08T06:00:00Z",
+  "idempotencyKey": "synthetic-idempotency-1",
+  "expectedStateRevision": null,
+  "content": "{\"schema\":\"vsk-labs.inventory-draft-input\",\"schemaVersion\":\"1.0.0\",\"source\":{\"kind\":\"fixture\",\"adapterKind\":\"typed-json\",\"adapterVersion\":\"1.0.0\",\"sourceRevision\":\"synthetic-source-1\",\"capturedAt\":\"2026-09-08T06:00:00Z\"},\"assets\":[],\"nodes\":[],\"aliases\":[],\"addresses\":[],\"observations\":[],\"provenance\":[]}"
+}

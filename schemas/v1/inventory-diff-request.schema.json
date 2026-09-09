@@ -1,0 +1,88 @@
+{
+  "$defs": {
+    "inventory-draft-ref": {
+      "additionalProperties": false,
+      "properties": {
+        "draftId": {
+          "maxLength": 128,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+:-]{0,127}$",
+          "type": "string"
+        },
+        "draftRevision": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "draftId",
+        "draftRevision"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/inventory-diff-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "candidateKind": {
+      "enum": [
+        "draft",
+        "file"
+      ],
+      "type": "string"
+    },
+    "capturedAt": {
+      "maxLength": 64,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "content": {
+      "maxLength": 4194304,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "draft": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/inventory-draft-ref"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "format": {
+      "enum": [
+        null,
+        "typed-json",
+        "labs-sheet1-csv"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sourceRevision": {
+      "maxLength": 128,
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "candidateKind",
+    "draft",
+    "format",
+    "sourceRevision",
+    "capturedAt",
+    "content"
+  ],
+  "title": "VegaStack Labs inventory diff request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

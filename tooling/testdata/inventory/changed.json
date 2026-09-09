@@ -1,0 +1,25 @@
+{
+  "schema": "vegastack-labs.dev/inventory-draft-input",
+  "schemaVersion": "1.0.0",
+  "source": {
+    "kind": "synthetic-fixture",
+    "adapterKind": "typed-json",
+    "adapterVersion": "1.0.0",
+    "sourceRevision": "synthetic-2",
+    "capturedAt": "2026-09-08T07:00:00Z"
+  },
+  "assets": [
+    {
+      "id": "asset-example-1",
+      "kind": "physical",
+      "lifecycle": "candidate",
+      "identities": [{"kind": "hardware-serial", "value": "SYNTHETIC-001", "quarantined": false}],
+      "hardwareFacts": []
+    }
+  ],
+  "nodes": [{"id": "node-example-1", "assetId": "asset-example-1", "parentId": ""}],
+  "aliases": [],
+  "addresses": [],
+  "observations": [],
+  "provenance": []
+}

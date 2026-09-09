@@ -49,11 +49,19 @@ Fatal byte, CSV, header, size, formula, prohibited-control/private-data, or canc
 The human-equivalent correction procedure is:
 
 1. Copy the header-only template, fill only the 15 allowlisted columns, and export one UTF-8 CSV locally; do not add Sheet2 or adjacent notes/credential columns.
-2. When Issue #36 makes the route available, supply the file together with an explicit trusted source revision and UTC capture time. Neither is inferred from its filename or filesystem timestamp.
+2. Through Issue #36's protected client, supply the file together with an explicit format, trusted source revision, UTC capture time, and opaque idempotency key. None is inferred from its filename or filesystem timestamp.
 3. Inspect every ordered safe finding. Treat proposed ordinal and reported hostname only as observations, never trusted host identity.
 4. Correct the private source through its normal human-owned workflow, export a new immutable snapshot, and submit a new revision. Never edit SQLite or rewrite an earlier draft.
 
-A successful decode or later import is not declaration, acceptance, admission, naming, configuration, qualification, or live authority. No command/API route exists in Issue #32 itself.
+A successful decode or import is not declaration, acceptance, admission, naming, configuration, qualification, or live authority. Issue #36 exposes the route through the protected API; Issue #32 itself still owns no command or API route.
+
+### Draft import, diff, and export workflow
+
+Use an explicit protected client configuration and one explicit local candidate. `inventory import` accepts only `typed-json` or `labs-sheet1-csv`, and requires the source revision, UTC capture time, and an opaque idempotency key. The server authenticates and authorizes the exact draft scope before reading the body, then either creates the complete inert draft or returns a sanitized failure. An exact retry returns the original draft without changing state.
+
+`inventory diff` compares either an exact stored draft or a supplied file against the latest authorized compatible draft at one pinned revision. Its baseline is always labeled `draft`; no compatible baseline produces `PREREQUISITE_BLOCKED`, never an invented empty or effective inventory. A file diff stays read-only and is not persisted. `inventory export` selects one exact inert draft and delegates publication to Issue #37's verified signed-export service. The client cannot choose the server export path, provide signing material, or receive a private path.
+
+Human and JSON views come from the same typed server result; JSON preserves the validated response bytes exactly. Redirecting stdout saves only a client-side response and is not the server's signed artifact. If a finding or diff is wrong, correct the source through its human-owned workflow, create a new immutable snapshot, and import with a new key. Never edit SQLite, the source Sheet, the protected export root, a stored draft, or infrastructure directly.
 
 ## Deterministic identity
 

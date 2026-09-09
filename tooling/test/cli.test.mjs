@@ -58,6 +58,39 @@ test("the CLI verifier accepts one generated-registry consumer", async (t) => {
   assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
 });
 
+test("inventory control commands cannot reach SQLite, shells, providers, arbitrary HTTP, server paths, or domain engines", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      "import (",
+      '  _ "database/sql"',
+      '  _ "net/http"',
+      '  _ "os/exec"',
+      '  _ "example.test/internal/cloudflare"',
+      '  _ "example.test/internal/google"',
+      '  _ "example.test/internal/inventory"',
+      '  "example.test/internal/generated"',
+      ")",
+      'const ServerPath = "/var/lib/private/control.db"',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/cloudflare/client.go": "package cloudflare\n",
+    "internal/google/client.go": "package google\n",
+    "internal/inventory/service.go": "package inventory\n",
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, [
+    "CLI_CONTROL_SQLITE_ACCESS",
+    "CLI_CONTROL_SHELL_DISPATCH",
+    "CLI_CONTROL_GOOGLE_ACCESS",
+    "CLI_CONTROL_PROVIDER_ACCESS",
+    "CLI_CONTROL_ARBITRARY_HTTP",
+    "CLI_CONTROL_SERVER_PATH",
+    "CLI_INVENTORY_DIRECT_DOMAIN",
+  ]);
+});
+
 test("the CLI verifier permits HTTP only as ordinary code in the named local service packages", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/run.go": [
@@ -667,6 +700,13 @@ test("the CLI verifier fails closed when the analyzer reports a mismatched targe
           generatedCommandsReference: true,
           generatedEndpointsReference: true,
           handwrittenRegistry: false,
+          controlArbitraryHTTP: false,
+          controlGoogleAccess: false,
+          controlProviderAccess: false,
+          controlSQLiteAccess: false,
+          controlServerPath: false,
+          controlShellDispatch: false,
+          inventoryDirectDomain: false,
           releaseArtifactExecution: false,
           releaseNetworkAccess: false,
           sqliteAccess: false,

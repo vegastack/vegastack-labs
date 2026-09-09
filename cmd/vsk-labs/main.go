@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/vegastack/vegastack-labs/internal/cli"
+	"github.com/vegastack/vegastack-labs/internal/clientfile"
 	"github.com/vegastack/vegastack-labs/internal/release"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/server"
@@ -34,9 +35,11 @@ func main() {
 		ReleaseBuildID: releaseBuildID,
 		SourceRevision: revision,
 	}
+	operations := server.NewOperations(build, newRequestID)
 	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,
 		cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})),
-		cli.WithServerOperations(server.NewOperations(build, newRequestID)),
+		cli.WithServerOperations(operations),
+		cli.WithControlOperations(operations, clientfile.NewReader()),
 	)
 	os.Exit(app.Run(ctx, os.Args[1:]))
 }

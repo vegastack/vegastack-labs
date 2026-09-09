@@ -37,7 +37,9 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				arguments = command.Examples[0].Arguments
 			}
 			serverOperations := &stubServerOperations{status: successfulServerResponse(t)}
-			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithReleaseOperations(operations), WithServerOperations(serverOperations))
+			controlOperations := successfulControlOperations(t)
+			files := &stubFileReader{content: []byte("synthetic fixture")}
+			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files))
 			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {
 					t.Fatalf("planned command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)

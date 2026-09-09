@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.5.0",
+  "schemaVersion": "1.6.0",
   "commands": [
     {
       "path": [
@@ -126,9 +126,58 @@
         "status"
       ],
       "summary": "Inspect control-database status.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "2",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/database-status-data",
+      "examples": [
+        {
+          "summary": "Inspect control-database status.",
+          "arguments": [
+            "database",
+            "status",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -267,30 +316,330 @@
         "inventory",
         "diff"
       ],
-      "summary": "Compare declared and supplied inventory.",
-      "availability": "planned",
+      "summary": "Compare one inert draft or local candidate with a compatible inert draft.",
+      "availability": "available",
       "ownerPhase": "2",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--captured-at",
+          "kind": "value",
+          "valueName": "timestamp",
+          "required": false,
+          "repeatable": false,
+          "summary": "Record an RFC 3339 UTC capture time.",
+          "enum": null
+        },
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--draft-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select an existing inert draft.",
+          "enum": null
+        },
+        {
+          "name": "--draft-revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the exact inert draft revision.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": false,
+          "repeatable": false,
+          "summary": "Read one protected local candidate file.",
+          "enum": null
+        },
+        {
+          "name": "--format",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the explicit candidate format.",
+          "enum": [
+            "labs-sheet1-csv",
+            "typed-json"
+          ]
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--source-revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": false,
+          "repeatable": false,
+          "summary": "Record the source revision supplied by its owner.",
+          "enum": null
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/inventory-diff-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/inventory-diff-data",
+      "examples": [
+        {
+          "summary": "Compare one inert draft or local candidate with a compatible inert draft.",
+          "arguments": [
+            "inventory",
+            "diff",
+            "--config",
+            "fixture/server-profile.json",
+            "--draft-id",
+            "draft-test",
+            "--draft-revision",
+            "1",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "inventory",
         "export"
       ],
-      "summary": "Export authorized inventory data.",
-      "availability": "planned",
+      "summary": "Publish one verified signed inert-draft export.",
+      "availability": "available",
       "ownerPhase": "2",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--draft-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select an existing inert draft.",
+          "enum": null
+        },
+        {
+          "name": "--draft-revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the exact inert draft revision.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/inventory-export-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/inventory-export-data",
+      "examples": [
+        {
+          "summary": "Publish one verified signed inert-draft export.",
+          "arguments": [
+            "inventory",
+            "export",
+            "--config",
+            "fixture/server-profile.json",
+            "--draft-id",
+            "draft-test",
+            "--draft-revision",
+            "1",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "inventory",
         "import"
       ],
-      "summary": "Import typed inventory as an inert change.",
-      "availability": "planned",
+      "summary": "Validate and store one inventory candidate as an inert draft.",
+      "availability": "available",
       "ownerPhase": "2",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--captured-at",
+          "kind": "value",
+          "valueName": "timestamp",
+          "required": true,
+          "repeatable": false,
+          "summary": "Record an RFC 3339 UTC capture time.",
+          "enum": null
+        },
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--expected-state-revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": false,
+          "repeatable": false,
+          "summary": "Require this current state revision.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected local candidate file.",
+          "enum": null
+        },
+        {
+          "name": "--format",
+          "kind": "value",
+          "valueName": "format",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the explicit candidate format.",
+          "enum": [
+            "labs-sheet1-csv",
+            "typed-json"
+          ]
+        },
+        {
+          "name": "--idempotency-key",
+          "kind": "value",
+          "valueName": "key",
+          "required": true,
+          "repeatable": false,
+          "summary": "Supply one opaque retry key.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--source-revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": true,
+          "repeatable": false,
+          "summary": "Record the source revision supplied by its owner.",
+          "enum": null
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/inventory-import-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/inventory-import-data",
+      "examples": [
+        {
+          "summary": "Validate and store one inventory candidate as an inert draft.",
+          "arguments": [
+            "inventory",
+            "import",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/inventory.json",
+            "--format",
+            "typed-json",
+            "--source-revision",
+            "source-1",
+            "--captured-at",
+            "2026-09-08T06:00:00Z",
+            "--idempotency-key",
+            "opaque-1",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -722,9 +1071,57 @@
         "status"
       ],
       "summary": "Show the current platform summary.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "2",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/api-summary-data",
+      "examples": [
+        {
+          "summary": "Show the current platform summary.",
+          "arguments": [
+            "status",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -1033,6 +1430,24 @@
       "artifactPath": "schemas/v1/database-status-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/inventory-diff-counts",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-diff-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-diff-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-diff-record",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-diff-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-diff-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/inventory-draft-address",
       "version": "1.0.0"
     },
@@ -1080,12 +1495,30 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/inventory-draft-ref",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/inventory-draft-snapshot-payload",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/inventory-draft-snapshot-payload.schema.json"
     },
     {
       "id": "vegastack-labs.dev/inventory-draft-source",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-export-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-export-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-export-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-export-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-field-change",
       "version": "1.0.0"
     },
     {
@@ -1100,6 +1533,11 @@
       "id": "vegastack-labs.dev/inventory-import-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/inventory-import-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/inventory-import-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/inventory-import-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/local-principal-binding",
