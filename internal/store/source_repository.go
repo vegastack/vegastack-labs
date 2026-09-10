@@ -34,7 +34,7 @@ func newSourceRepositoryWithFixtures(store *Store, fixtures map[readmodel.Source
 }
 
 func (repository *SourceRepository) ListSources(ctx context.Context, scope authorization.ReadScope, query readmodel.SourceListQuery, snapshot RevisionToken) (readmodel.SourcePage, error) {
-	if query.Limit < 1 || query.Limit > 200 || (query.Sort != "id-asc" && query.Sort != "id-desc") || !sourceFilterValid(query.Source) || !stateFilterValid(query.State) {
+	if query.Limit < 1 || query.Limit > 200 || (query.Sort != "id-asc" && query.Sort != "id-desc") || !sourceFilterValid(query.Source) || !sourceFilterValid(query.AfterID) || !stateFilterValid(query.State) {
 		return readmodel.SourcePage{}, newStoreError(generated.ErrorCodeInputInvalid, "source-read", false, nil)
 	}
 	result := readmodel.SourcePage{Snapshot: readmodel.RevisionToken{StateRevision: snapshot.StateRevision, RecoveryEpoch: snapshot.RecoveryEpoch}}
@@ -49,7 +49,7 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 		if err != nil {
 			return err
 		}
-		statuses, err := repository.evaluate(ctx, tx)
+		statuses, err := repository.evaluate(ctx, tx, snapshot.StateRevision)
 		if err != nil {
 			return err
 		}
@@ -87,8 +87,8 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 	return result, err
 }
 
-func (repository *SourceRepository) evaluate(ctx context.Context, tx ReadTx) ([]readmodel.SourceStatus, error) {
-	observations, err := repository.observations(ctx, tx)
+func (repository *SourceRepository) evaluate(ctx context.Context, tx ReadTx, stateRevision int64) ([]readmodel.SourceStatus, error) {
+	observations, err := repository.observations(ctx, tx, stateRevision)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ func (repository *SourceRepository) evaluate(ctx context.Context, tx ReadTx) ([]
 	return statuses, nil
 }
 
-func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx) ([]readmodel.SourceObservation, error) {
+func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx, stateRevision int64) ([]readmodel.SourceObservation, error) {
 	health := repository.store.health
 	database := readmodel.SourceObservation{
 		ID:            readmodel.SourceDatabase,
@@ -122,7 +122,10 @@ func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx)
 	}
 
 	var observed sql.NullString
-	if err := tx.queryRow(ctx, `SELECT MAX(observed_at) FROM inventory_draft_observations`).Scan(&observed); err != nil {
+	if err := tx.queryRow(ctx, `SELECT MAX(o.observed_at)
+FROM inventory_draft_observations o
+JOIN inventory_drafts d ON d.draft_id=o.draft_id AND d.draft_revision=o.draft_revision
+JOIN audit_events e ON e.event_type='inventory.draft.persisted' AND e.target_kind='inventory-draft' AND e.target_id=d.draft_id AND e.after_fingerprint=d.content_digest AND e.state_revision<=?`, stateRevision).Scan(&observed); err != nil {
 		return nil, err
 	}
 	nodes := readmodel.SourceObservation{ID: readmodel.SourceNodes, Capability: readmodel.SourceCapability(readmodel.SourceNodes), Available: true}

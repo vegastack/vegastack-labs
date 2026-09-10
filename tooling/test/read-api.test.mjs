@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -16,9 +16,19 @@ async function fixtureRepo(t, files) {
   return root;
 }
 
-test("the read API verifier accepts the generated Phase 2 operation endpoints", async () => {
+test("the read API verifier accepts the generated operation endpoints including source health", async () => {
   const result = await verifyReadAPI();
   assert.ok(!result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
+});
+
+test("the read API verifier rejects a registry without the source health endpoint", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  registry.endpoints = registry.endpoints.filter((endpoint) => endpoint.id !== "api.v1.sources.list");
+  const root = await fixtureRepo(t, {
+    "schemas/v1/endpoint-registry.json": `${JSON.stringify(registry)}\n`,
+  });
+  const result = await verifyReadAPI(root);
+  assert.ok(result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
 });
 
 test("the read API verifier rejects query-before-authorization and offset SQL", async (t) => {

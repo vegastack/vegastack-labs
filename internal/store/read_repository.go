@@ -62,7 +62,7 @@ func (repository *ReadRepository) Summary(ctx context.Context, scope authorizati
 		result.DatabaseMode = mode
 		result.ReadAvailable = true
 		result.MutationAvailable = false
-		statuses, sourceErr := NewSourceRepository(repository.store).evaluate(ctx, tx)
+		statuses, sourceErr := NewSourceRepository(repository.store).evaluate(ctx, tx, result.StateRevision)
 		if sourceErr != nil {
 			return sourceErr
 		}
