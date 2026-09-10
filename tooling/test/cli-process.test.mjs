@@ -54,7 +54,7 @@ function assertEnvelope(actual, expected) {
   const result = JSON.parse(actual.stdout);
   assert.deepEqual(Object.keys(result), RESULT_KEYS);
   assert.equal(result.schema, "vegastack-labs.dev/run-result");
-  assert.equal(result.schemaVersion, "1.7.0");
+  assert.equal(result.schemaVersion, "1.8.0");
   assert.equal(result.toolVersion, "0.0.0-dev");
   assert.equal(result.command, expected.command);
   assert.match(result.requestId, /^request-[0-9a-f]{32}$/);
@@ -81,7 +81,7 @@ function assertEnvelope(actual, expected) {
 function apiEnvelope(command, changed, recoveryEpoch, stateRevision, data) {
   return `${JSON.stringify({
     schema: "vegastack-labs.dev/run-result",
-    schemaVersion: "1.7.0",
+    schemaVersion: "1.8.0",
     toolVersion: "0.0.0-dev",
     command,
     requestId: `request-${command.replaceAll(/[^a-z0-9]/g, "").padEnd(32, "0").slice(0, 32)}`,
@@ -143,7 +143,7 @@ test("the built vsk-labs executable preserves its complete process contract", as
   });
   assert.deepEqual(run(binary, ["version"]), {
     code: 0,
-    stdout: "vsk-labs 0.0.0-dev\ncontract 1.7.0\nbuild development\n",
+    stdout: "vsk-labs 0.0.0-dev\ncontract 1.8.0\nbuild development\n",
     stderr: "",
   });
 

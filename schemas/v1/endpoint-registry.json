@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.7.0",
+  "schemaVersion": "1.8.0",
   "endpoints": [
     {
       "id": "api.v1.database-status.get",

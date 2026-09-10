@@ -77,6 +77,9 @@ func (reads integrationReads) DatabaseStatus(context.Context, authorization.Read
 func (reads integrationReads) Summary(context.Context, authorization.ReadScope) (readmodel.Summary, error) {
 	return readmodel.Summary{DatabaseMode: "ready", ReadAvailable: true, MutationAvailable: false, StateRevision: 7, RecoveryEpoch: 2}, nil
 }
+func (reads integrationReads) ListSources(context.Context, authorization.ReadScope, readmodel.SourceListQuery, store.RevisionToken) (readmodel.SourcePage, error) {
+	return readmodel.SourcePage{}, nil
+}
 func (reads integrationReads) ListDrafts(context.Context, authorization.ReadScope, inventory.DraftListQuery, store.RevisionToken) (readmodel.DraftPage, error) {
 	return readmodel.DraftPage{}, nil
 }

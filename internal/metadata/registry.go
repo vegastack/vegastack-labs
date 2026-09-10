@@ -195,7 +195,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.7.0",
+		SchemaVersion: "1.8.0",
 		Commands:      commands,
 		Endpoints:     readEndpoints(),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
