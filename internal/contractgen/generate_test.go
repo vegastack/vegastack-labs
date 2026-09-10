@@ -96,11 +96,31 @@ func TestGenerateSelectsOnlyBrowserSafeAvailableReads(t *testing.T) {
 		byPath[artifact.Path] = artifact.Content
 	}
 	client := string(byPath["web/generated/read-api.ts"])
-	if strings.Contains(client, "inventory-drafts.import") || strings.Contains(client, "https://") {
-		t.Fatal("unsafe endpoint entered browser client")
+	for _, forbidden := range []string{"inventory-drafts.import", "http://", "https://", "/var/", "SELECT ", "apiToken", "secretValue"} {
+		if strings.Contains(client, forbidden) {
+			t.Fatalf("unsafe value %q entered browser client", forbidden)
+		}
 	}
 	if !strings.Contains(client, "api.v1.events.stream") || !strings.Contains(client, "api.v1.summary.get") {
 		t.Fatal("implemented reads missing")
+	}
+}
+
+func TestGenerateRejectsSecretShapedBrowserSchema(t *testing.T) {
+	t.Parallel()
+
+	registry := metadata.Current()
+	registry.Schemas = append(registry.Schemas, metadata.SchemaDefinition{
+		ID: "vegastack-labs.dev/unsafe-browser-data", Version: "1.0.0",
+		Fields: []metadata.FieldDefinition{{JSONName: "apiToken", GoName: "APIToken", Kind: metadata.ValueString, Required: true}},
+	})
+	registry.Endpoints = append(registry.Endpoints, metadata.EndpointDefinition{
+		ID: "api.v1.unsafe.get", Method: "GET", Path: "/api/v1/unsafe", Availability: metadata.AvailabilityAvailable,
+		OwnerPhase: "2", DataSchema: "vegastack-labs.dev/unsafe-browser-data", Stream: metadata.StreamFinite,
+	})
+	_, err := Generate(registry)
+	if err == nil || !strings.Contains(err.Error(), "GENERATED_BROWSER_SCHEMA_UNSAFE") {
+		t.Fatalf("Generate() error = %v", err)
 	}
 }
 

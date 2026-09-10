@@ -1363,7 +1363,7 @@ function decodeSchema(identifier: string, value: unknown, path = identifier): Re
   }
   const result: Record<string, unknown> = {};
   for (const field of rule.fields) {
-    if (!(field.name in value)) {
+    if (!Object.hasOwn(value, field.name)) {
       if (field.required) return mismatch(path + "." + field.name, "required property is missing");
       continue;
     }

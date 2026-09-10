@@ -89,7 +89,7 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 
 func browserSecretField(name string) bool {
 	lower := strings.ToLower(name)
-	for _, forbidden := range []string{"password", "plaintext", "privatekey", "secretvalue", "credentialvalue", "accesstoken", "refreshtoken"} {
+	for _, forbidden := range []string{"password", "plaintext", "privatekey", "secret", "credential", "token"} {
 		if strings.Contains(lower, forbidden) {
 			return true
 		}
@@ -265,7 +265,7 @@ function decodeSchema(identifier: string, value: unknown, path = identifier): Re
   }
   const result: Record<string, unknown> = {};
   for (const field of rule.fields) {
-    if (!(field.name in value)) {
+    if (!Object.hasOwn(value, field.name)) {
       if (field.required) return mismatch(path + "." + field.name, "required property is missing");
       continue;
     }

@@ -252,8 +252,16 @@ func TestServiceHealthGrantDenialDoesNotProbeOrDiscloseHealth(t *testing.T) {
 	if response.Code != http.StatusForbidden || application.healthCalls.Load() != 0 {
 		t.Fatalf("status/health calls = %d/%d", response.Code, application.healthCalls.Load())
 	}
-	if strings.Contains(response.Body.String(), "42") || strings.Contains(response.Body.String(), "7") {
-		t.Fatal("denial disclosed health")
+	var envelope generated.RunResult
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	var status generated.ServerStatusData
+	if err := json.Unmarshal(envelope.Data, &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.RecoveryEpoch != 0 || status.StateRevision != 0 || status.ReadAvailable || status.MutationAvailable {
+		t.Fatalf("denial disclosed health: %#v", status)
 	}
 }
 

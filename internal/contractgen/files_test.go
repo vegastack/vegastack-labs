@@ -68,6 +68,26 @@ func TestWriteAndCheckDetectDriftWithoutMutating(t *testing.T) {
 	}
 }
 
+func TestCheckDetectsBrowserClientDrift(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	if err := Write(root, artifacts); err != nil {
+		t.Fatal(err)
+	}
+	target := filepath.Join(root, filepath.FromSlash(browserClientPath))
+	if err := os.WriteFile(target, []byte("drift\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Check(root, artifacts); err == nil || !strings.Contains(err.Error(), "GENERATED_STALE") || !strings.Contains(err.Error(), browserClientPath) {
+		t.Fatalf("browser drift error = %v", err)
+	}
+}
+
 func TestWriteRejectsUnsafeArtifactPaths(t *testing.T) {
 	t.Parallel()
 

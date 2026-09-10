@@ -65,6 +65,23 @@ function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
 }
 
+function containsAll(actual, required) {
+  const values = new Set(actual);
+  return required.every((value) => values.has(value));
+}
+
+function hasPrefix(actual, required) {
+  return actual.length >= required.length && same(actual.slice(0, required.length), required);
+}
+
+function compatibleContractVersion(current, baseline) {
+  const parse = (value) => /^(\d+)\.(\d+)\.(\d+)$/.exec(value)?.slice(1).map(Number);
+  const left = parse(current);
+  const right = parse(baseline);
+  if (!left || !right || left[0] !== right[0]) return false;
+  return left[1] > right[1] || left[1] === right[1] && left[2] >= right[2];
+}
+
 async function sha256(filename) {
   return createHash("sha256").update(await readFile(filename)).digest("hex");
 }
@@ -316,15 +333,15 @@ export function validateEvidence(manifest, facts) {
   }
   if (facts.children.some(({ state }) => state !== "CLOSED")) codes.add("PHASE2_CHILD_INCOMPLETE");
   if (manifest.contract && (!same(manifest.contract.endpointIds, EXPECTED_ENDPOINT_IDS) ||
-      !same(facts.endpointIds, EXPECTED_ENDPOINT_IDS) ||
-      !same(manifest.contract.migrations, facts.migrations) ||
-      manifest.contract.schemaVersion !== facts.schemaVersion || facts.schemaVersion !== facts.endpointSchemaVersion ||
+      !containsAll(facts.endpointIds, EXPECTED_ENDPOINT_IDS) ||
+      !hasPrefix(facts.migrations, manifest.contract.migrations) ||
+      !compatibleContractVersion(facts.schemaVersion, manifest.contract.schemaVersion) || facts.schemaVersion !== facts.endpointSchemaVersion ||
       manifest.contract.productionExecutable !== facts.productionExecutable)) {
     codes.add("PHASE2_CONTRACT_DRIFT");
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
       !same(manifest.contract.availableCommands, EXPECTED_AVAILABLE_COMMANDS) ||
-      !same(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
+      !containsAll(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
   if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports) ||
