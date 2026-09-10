@@ -45,7 +45,7 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 		if err := verifyReadScope(ctx, tx, scope, ""); err != nil {
 			return err
 		}
-		allowed, all, err := allowedSources(ctx, tx, scope)
+		allowed, err := allowedSources(ctx, tx, scope)
 		if err != nil {
 			return err
 		}
@@ -54,7 +54,7 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 			return err
 		}
 		for _, status := range statuses {
-			if !all && !allowed[status.ID] {
+			if !allowed[status.ID] {
 				continue
 			}
 			if query.Source != "" && query.Source != status.ID || query.State != "" && query.State != status.State {
@@ -151,29 +151,24 @@ JOIN audit_events e ON e.event_type='inventory.draft.persisted' AND e.target_kin
 	return result, nil
 }
 
-func allowedSources(ctx context.Context, tx ReadTx, scope authorization.ReadScope) (map[readmodel.SourceID]bool, bool, error) {
+func allowedSources(ctx context.Context, tx ReadTx, scope authorization.ReadScope) (map[readmodel.SourceID]bool, error) {
 	rows, err := tx.query(ctx, `SELECT resource_id FROM read_grants WHERE principal_id=? AND capability=? AND resource_kind=? AND status='active' AND grant_revision=? ORDER BY resource_id`, scope.PrincipalID, scope.Capability, scope.ResourceKind, scope.GrantRevision)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	defer rows.Close()
 	allowed := make(map[readmodel.SourceID]bool)
-	all := false
 	for rows.Next() {
 		var resource string
 		if err := rows.Scan(&resource); err != nil {
-			return nil, false, err
-		}
-		if resource == "" {
-			all = true
-			continue
+			return nil, err
 		}
 		id := readmodel.SourceID(resource)
 		if sourceFilterValid(id) {
 			allowed[id] = true
 		}
 	}
-	return allowed, all, rows.Err()
+	return allowed, rows.Err()
 }
 
 func sourceFilterValid(value readmodel.SourceID) bool {

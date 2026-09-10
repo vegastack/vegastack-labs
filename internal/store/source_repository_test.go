@@ -25,7 +25,9 @@ func TestSourceRepositoryProjectsLocalStateAndIsolatesOptionalFailure(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	seedReadGrant(t, s, "principal-source-reader", "platform.source.read", "platform-source", "", 1, "active")
+	for _, id := range readmodel.SourceIDValues() {
+		seedReadGrant(t, s, "principal-source-reader", "platform.source.read", "platform-source", string(id), 1, "active")
+	}
 	seedReadGrant(t, s, "principal-source-reader", "inventory.draft.read", "inventory-draft", authorization.ResourceID(draft.Ref), 1, "active")
 	scope, err := NewReadAuthorizer(s).AuthorizeRead(context.Background(), identity.Principal{ID: "principal-source-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "platform.source.read", ResourceKind: "platform-source"})
 	if err != nil {
