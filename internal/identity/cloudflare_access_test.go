@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -64,7 +65,15 @@ func (fixture *accessFixture) token(t *testing.T, key *rsa.PrivateKey, kid, issu
 		t.Fatal(err)
 	}
 	claims := jwt.Claims{Issuer: issuer, Subject: "opaque-subject", Audience: audience, IssuedAt: jwt.NewNumericDate(issuedAt), NotBefore: jwt.NewNumericDate(notBefore), Expiry: jwt.NewNumericDate(expiry)}
-	token, err := jwt.Signed(signer).Claims(claims).Claims(map[string]any{"email": "private@example.test", "secret": "private-claim"}).Serialize()
+	privateClaims := map[string]any{}
+	raw, err := os.ReadFile("testdata/cloudflare_access_claims.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &privateClaims); err != nil {
+		t.Fatal(err)
+	}
+	token, err := jwt.Signed(signer).Claims(claims).Claims(privateClaims).Serialize()
 	if err != nil {
 		t.Fatal(err)
 	}

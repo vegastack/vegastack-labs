@@ -1,5 +1,5 @@
 CREATE TABLE remote_identity_bindings (
-    binding_digest TEXT PRIMARY KEY CHECK (length(binding_digest) = 71 AND substr(binding_digest, 1, 7) = 'sha256:'),
+    binding_digest TEXT PRIMARY KEY CHECK (length(binding_digest) = 71 AND substr(binding_digest, 1, 7) = 'sha256:' AND substr(binding_digest, 8) NOT GLOB '*[^0-9a-f]*'),
     principal_id TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'suspended', 'revoked')),
     created_at TEXT NOT NULL CHECK (length(created_at) BETWEEN 20 AND 64),
@@ -10,7 +10,7 @@ CREATE TABLE remote_identity_bindings (
 CREATE INDEX remote_identity_bindings_principal_idx ON remote_identity_bindings(principal_id, status);
 
 CREATE TABLE browser_sessions (
-    session_digest TEXT PRIMARY KEY CHECK (length(session_digest) = 71 AND substr(session_digest, 1, 7) = 'sha256:'),
+    session_digest TEXT PRIMARY KEY CHECK (length(session_digest) = 71 AND substr(session_digest, 1, 7) = 'sha256:' AND substr(session_digest, 8) NOT GLOB '*[^0-9a-f]*'),
     binding_digest TEXT NOT NULL,
     principal_id TEXT NOT NULL,
     status TEXT NOT NULL CHECK (status IN ('active', 'rotated', 'logged-out', 'revoked', 'expired')),

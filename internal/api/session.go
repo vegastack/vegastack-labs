@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -42,8 +43,12 @@ func (app *Application) serveSessionOperation(writer http.ResponseWriter, reques
 		app.failure(writer, operation, apiFailure(generated.ErrorCodeInputInvalid, "content-type"))
 		return
 	}
-	limited := io.LimitReader(request.Body, maxSessionRequestBytes+1)
-	decoder := json.NewDecoder(limited)
+	raw, err := io.ReadAll(io.LimitReader(request.Body, maxSessionRequestBytes+1))
+	if err != nil || len(raw) > maxSessionRequestBytes {
+		app.failure(writer, operation, apiFailure(generated.ErrorCodeInputInvalid, "request-body"))
+		return
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var input generated.ApiBrowserSessionRequest
 	if err := decoder.Decode(&input); err != nil || input.RequestVersion != "1.0.0" {

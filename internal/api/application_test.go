@@ -202,6 +202,13 @@ func TestSessionAPIUsesStrictBodyAndSecureCookie(t *testing.T) {
 	if response.Code != http.StatusBadRequest || sessions.calls != 1 || strings.Contains(response.Body.String(), "canary") {
 		t.Fatalf("malformed response/calls = %d/%d/%s", response.Code, sessions.calls, response.Body.String())
 	}
+	request = httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(`{"requestVersion":"1.0.0"}`+strings.Repeat(" ", maxSessionRequestBytes)))
+	request.Header.Set("Content-Type", "application/json")
+	response = httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest || sessions.calls != 1 {
+		t.Fatalf("oversized response/calls = %d/%d/%s", response.Code, sessions.calls, response.Body.String())
+	}
 }
 
 type summaryReads struct{ testReads }

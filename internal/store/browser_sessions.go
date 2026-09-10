@@ -274,11 +274,11 @@ func (store *Store) InvalidateBrowserSessionsForRecoveryEpoch(ctx context.Contex
 	if !identity.ValidPrincipal(actor) {
 		return newStoreError(generated.ErrorCodeInputInvalid, "browser-session-invalidation", false, nil)
 	}
-	health, err := store.Health(ctx)
-	if err != nil {
-		return err
+	var recoveryEpoch int64
+	if err := store.conn.QueryRowContext(ctx, `SELECT recovery_epoch FROM system_meta WHERE id=1`).Scan(&recoveryEpoch); err != nil {
+		return sessionOperationError(err)
 	}
-	target := sessionFingerprint("recovery-epoch", strconv.FormatInt(health.Revision.RecoveryEpoch, 10))
+	target := sessionFingerprint("recovery-epoch", strconv.FormatInt(recoveryEpoch, 10))
 	request, err := browserSessionAudit("invalidated", actor, target, nil, audit.Fingerprint(target))
 	if err != nil {
 		return newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
