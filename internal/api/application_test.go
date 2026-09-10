@@ -149,6 +149,8 @@ func (reads *sourceReads) ListSources(_ context.Context, _ authorization.ReadSco
 			{ID: readmodel.SourceDatabase, Capability: "secret-capability", State: readmodel.SourceHealthy, CollectedAt: &recent, LastSuccessAt: &recent, Reason: "provider-secret"},
 			{ID: readmodel.SourceBackups, State: readmodel.SourceUnavailable},
 			{ID: readmodel.SourceNodes, State: readmodel.SourceUnknown},
+			{ID: readmodel.SourceGates, State: readmodel.SourceStale},
+			{ID: readmodel.SourceServices, State: readmodel.SourceFailed},
 		},
 		HasMore: true,
 		Last:    readmodel.SourceNodes,
@@ -199,21 +201,28 @@ func TestSourcesServeMixedSafeStatesWithBoundedFilters(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := httptest.NewRequest(http.MethodGet, "/api/v1/sources?limit=3&sort=id-desc&source=services&state=failed", nil)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/sources?limit=5&sort=id-desc&source=services&state=failed", nil)
 	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, request)
 	body := response.Body.String()
-	if response.Code != http.StatusOK || reads.query.Limit != 3 || reads.query.Sort != "id-desc" || reads.query.Source != readmodel.SourceServices || reads.query.State != readmodel.SourceFailed {
+	if response.Code != http.StatusOK || reads.query.Limit != 5 || reads.query.Sort != "id-desc" || reads.query.Source != readmodel.SourceServices || reads.query.State != readmodel.SourceFailed {
 		t.Fatalf("response/query = %d/%#v/%s", response.Code, reads.query, body)
 	}
-	for _, want := range []string{`"state":"healthy"`, `"state":"unavailable"`, `"state":"unknown"`, `"nextCursor":"cursor"`, `"capability":"database.status.read"`} {
+	for _, want := range []string{`"state":"healthy"`, `"state":"stale"`, `"state":"unknown"`, `"state":"unavailable"`, `"state":"failed"`, `"nextCursor":"cursor"`, `"capability":"database.status.read"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("response missing %s: %s", want, body)
 		}
 	}
 	if strings.Contains(body, "provider-secret") || strings.Contains(body, "secret-capability") {
 		t.Fatalf("unsafe fixture data escaped: %s", body)
+	}
+}
+
+func TestProjectSourcePagePreservesAnExplicitEmptyCollection(t *testing.T) {
+	page := projectSourcePage(readmodel.SourcePage{Snapshot: readmodel.RevisionToken{StateRevision: 7, RecoveryEpoch: 2}}, nil)
+	if page.Items == nil || len(page.Items) != 0 || page.NextCursor != nil || page.StateRevision != 7 || page.RecoveryEpoch != 2 {
+		t.Fatalf("empty page = %#v", page)
 	}
 }
 
