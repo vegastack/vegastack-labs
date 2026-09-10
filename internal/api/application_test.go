@@ -56,6 +56,10 @@ func (r testReads) Summary(context.Context, authorization.ReadScope) (readmodel.
 	r.call()
 	return readmodel.Summary{}, nil
 }
+func (r testReads) ListSources(context.Context, authorization.ReadScope, readmodel.SourceListQuery, store.RevisionToken) (readmodel.SourcePage, error) {
+	r.call()
+	return readmodel.SourcePage{}, nil
+}
 func (r testReads) ListDrafts(context.Context, authorization.ReadScope, inventory.DraftListQuery, store.RevisionToken) (readmodel.DraftPage, error) {
 	r.call()
 	return readmodel.DraftPage{}, nil

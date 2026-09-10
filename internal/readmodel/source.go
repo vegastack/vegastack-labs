@@ -80,6 +80,21 @@ type SourceCounts struct {
 	Failed      int64
 }
 
+type SourceListQuery struct {
+	Limit   int
+	Sort    string
+	Source  SourceID
+	State   SourceState
+	AfterID SourceID
+}
+
+type SourcePage struct {
+	Items    []SourceStatus
+	HasMore  bool
+	Last     SourceID
+	Snapshot RevisionToken
+}
+
 func EvaluateSource(observation SourceObservation, policy SourcePolicy, now time.Time) (SourceStatus, error) {
 	if !validSourceID(observation.ID) || observation.Capability == "" || policy.StaleAfter <= 0 || now.IsZero() {
 		return SourceStatus{}, ErrInvalidSource
