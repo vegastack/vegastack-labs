@@ -196,6 +196,10 @@ func (store *Store) RenewBrowserSession(ctx context.Context, raw, bindingDigest 
 		replacement.LastSeenAt = now
 		replacement.ExternalExpiresAt = externalExpiresAt.UTC()
 		replacement.IdleExpiresAt = earliestTime(now.Add(BrowserSessionIdleLimit), current.AbsoluteExpiresAt, replacement.ExternalExpiresAt)
+		_, err = tx.ExecContext(ctx, `INSERT INTO browser_sessions(session_digest,binding_digest,principal_id,status,recovery_epoch,grant_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,external_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, replacement.Digest, replacement.BindingDigest, replacement.PrincipalID, replacement.Status, replacement.RecoveryEpoch, replacement.GrantRevision, formatSessionTime(replacement.IssuedAt), formatSessionTime(replacement.LastSeenAt), formatSessionTime(replacement.IdleExpiresAt), formatSessionTime(replacement.AbsoluteExpiresAt), formatSessionTime(replacement.ExternalExpiresAt))
+		if err != nil {
+			return err
+		}
 		updated, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='rotated',replaced_by_digest=?,ended_at=?,end_reason='renewed' WHERE session_digest=? AND status='active'`, nextDigest, formatSessionTime(now), oldDigest)
 		if err != nil {
 			return err
@@ -203,8 +207,7 @@ func (store *Store) RenewBrowserSession(ctx context.Context, raw, bindingDigest 
 		if rows, rowsErr := updated.RowsAffected(); rowsErr != nil || rows != 1 {
 			return authenticationStoreError()
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO browser_sessions(session_digest,binding_digest,principal_id,status,recovery_epoch,grant_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,external_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, replacement.Digest, replacement.BindingDigest, replacement.PrincipalID, replacement.Status, replacement.RecoveryEpoch, replacement.GrantRevision, formatSessionTime(replacement.IssuedAt), formatSessionTime(replacement.LastSeenAt), formatSessionTime(replacement.IdleExpiresAt), formatSessionTime(replacement.AbsoluteExpiresAt), formatSessionTime(replacement.ExternalExpiresAt))
-		return err
+		return nil
 	})
 	if err != nil {
 		return BrowserSession{}, "", sessionOperationError(err)
