@@ -117,6 +117,8 @@ func EvaluateSource(observation SourceObservation, policy SourcePolicy, now time
 		status.State, status.Reason = SourceFailed, SourceReasonFailed
 	case observation.CollectedAt == nil:
 		status.State, status.Reason = SourceUnknown, SourceReasonUnknown
+	case observation.CollectedAt.After(now):
+		status.State, status.Reason = SourceFailed, SourceReasonFailed
 	case now.Sub(*observation.CollectedAt) > policy.StaleAfter:
 		status.State, status.Reason = SourceStale, SourceReasonStale
 	default:

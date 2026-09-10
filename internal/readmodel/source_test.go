@@ -10,6 +10,7 @@ func TestEvaluateSourceStatesAndPrecedence(t *testing.T) {
 	now := time.Date(2026, time.September, 10, 9, 0, 0, 0, time.UTC)
 	recent := now.Add(-5 * time.Minute)
 	old := now.Add(-2 * time.Hour)
+	future := now.Add(time.Minute)
 	lastSuccess := now.Add(-3 * time.Hour)
 	lastError := now.Add(-time.Minute)
 
@@ -23,6 +24,7 @@ func TestEvaluateSourceStatesAndPrecedence(t *testing.T) {
 		{"no timestamp", SourceObservation{ID: SourceNodes, Capability: "node-read", Available: true}, SourceUnknown, SourceReasonUnknown},
 		{"failure wins", SourceObservation{ID: SourceServices, Capability: "service-read", Available: true, CollectedAt: &recent, LastSuccessAt: &lastSuccess, LastErrorAt: &lastError, FailureCode: "PROVIDER_super-secret"}, SourceFailed, SourceReasonFailed},
 		{"stale", SourceObservation{ID: SourceBackups, Capability: "backup-read", Available: true, CollectedAt: &old, LastSuccessAt: &old}, SourceStale, SourceReasonStale},
+		{"future timestamp fails closed", SourceObservation{ID: SourceProviders, Capability: "provider-read", Available: true, CollectedAt: &future, LastSuccessAt: &future}, SourceFailed, SourceReasonFailed},
 		{"healthy", SourceObservation{ID: SourceDatabase, Capability: "database-read", Available: true, CollectedAt: &recent, LastSuccessAt: &recent}, SourceHealthy, SourceReasonHealthy},
 	}
 	for _, test := range tests {
