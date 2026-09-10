@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 10-09-2026 — Platform reads now say when their information is stale or unavailable ([#52](https://github.com/vegastack/vegastack-labs/issues/52))
+
+- **What:** Authorized clients can read one provider-neutral source list covering the database, nodes, gates, people, services, backups, and providers. Each source reports `healthy`, `stale`, `unknown`, `unavailable`, or `failed`, and the existing summary includes counts plus the worst current state.
+- **Why:** The Console must distinguish current evidence from missing, old, failed, or impossible future information instead of showing absent future adapters as healthy.
+- **How it went:** Linux-only verification caught that an empty grant could not exist under the accepted authorization schema, so full access was represented by seven explicit least-privilege grants. Review also bound node freshness to the requested revision snapshot, kept optional fixtures outside SQLite transactions, rejected future-dated evidence, and preserved the exact Phase 2 evidence while Phase 3 added contracts. Integration with Issue #51 then generated and exercised strict browser types, decoding, and bounded source-filter serialization.
+- **Changed:** Fixed source-state evaluator and safe reasons · exact source grants · revision-bound source pagination · `/api/v1/sources` · source summary counts · generated Go, JSON Schema, docs, and strict browser client · failure-isolation and redaction proof.
+- **Decisions:** 24-hour local database/inventory freshness · one-hour default for future optional adapters · seven exact source grants with no wildcard · unavailable future capabilities remain visible but create no live adapter, worker, provider dependency, or operational authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/52-source-health-read-contracts
+
 ## 10-09-2026 — Browser reads now share one generated safe contract ([#51](https://github.com/vegastack/vegastack-labs/issues/51))
 
 - **What:** The canonical endpoint and schema metadata now generates a dependency-free TypeScript client for every available finite read and event stream. Console code gets fixed same-origin functions, strict response decoding, pagination, cancellation, resumable events, and stable failures without constructing URLs or importing Go, provider, or database internals.
