@@ -16,8 +16,8 @@ test("the web scaffold remains a static server component", async () => {
   assert.match(config, /unoptimized:\s*true/);
   assert.doesNotMatch(`${layout}\n${page}`, /["']use client["']/);
   assert.doesNotMatch(`${layout}\n${page}`, /next\/(font|headers|server)/);
-  assert.match(page, /Development scaffold/);
-  assert.match(page, /does not expose/);
+  assert.match(page, /ConsoleShell/);
+  assert.match(page, /Data integration is not implemented/);
 });
 
 test("the public stylesheet has one design-system import", async () => {

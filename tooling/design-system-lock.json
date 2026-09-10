@@ -130,7 +130,7 @@
       "files": [
         {
           "path": "web/app/dashboard/page.tsx",
-          "sha256": "sha256-tjkTDDKOutk1EKs/JN3ddPsc4zj0tEYMsXTlIKeSKig="
+          "sha256": "sha256-2V4mIaQCSHk439OXQK7ksjqNikmiMV/wV7o8IxsmOis="
         },
         {
           "path": "web/app/dashboard/loading.tsx",
@@ -142,7 +142,7 @@
         },
         {
           "path": "web/app/dashboard/components/app-sidebar.tsx",
-          "sha256": "sha256-3vWKYgBE0Zu+u3yGbS3bl+/yylUTqYFCKnO/LmwhpXw="
+          "sha256": "sha256-72o8OX5Od4zdZor8QoLkEtHJK6+rli4P+xuupdAfYk4="
         },
         {
           "path": "web/app/dashboard/components/stat-cards.tsx",
@@ -362,5 +362,6 @@
         }
       ]
     }
-  ]
+  ],
+  "ownedBlockAcceptedAt": "10-09-2026"
 }

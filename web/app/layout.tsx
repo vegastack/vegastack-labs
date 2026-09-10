@@ -3,8 +3,8 @@ import { VegaStackProvider } from "@/components/ui/provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "VegaStack Labs — Development scaffold",
-  description: "Credential-free public development scaffold for VegaStack Labs.",
+  title: { default: "VegaStack Labs Console", template: "%s — VegaStack Labs Console" },
+  description: "Credential-free static Console foundation for VegaStack Labs.",
 };
 
 export default function RootLayout({

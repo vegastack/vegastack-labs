@@ -155,12 +155,29 @@ export async function refreshPinnedDesignSystem({ root = ROOT, registryOrigin = 
   return verifyPinnedDesignSystem({ root });
 }
 
+export async function acceptOwnedBlock({ root = ROOT, lockPath = LOCK } = {}) {
+  const absoluteLock = path.resolve(root, lockPath);
+  const lock = JSON.parse(await readFile(absoluteLock, "utf8"));
+  const owned = lock.items.filter(item => item.type === "registry:block");
+  if (owned.length !== 1 || owned[0].name !== "dashboard-01") {
+    throw new Error("the approved dashboard block is not the sole repository-owned block");
+  }
+  for (const file of owned[0].files) {
+    file.sha256 = digest(await readFile(path.resolve(root, assertSafeRelative(file.path, "owned block file"))));
+  }
+  lock.ownedBlockAcceptedAt = "10-09-2026";
+  assertNoSecrets(lock);
+  await writeFile(absoluteLock, `${JSON.stringify(lock, null, 2)}\n`, { mode: 0o644 });
+  return verifyPinnedDesignSystem({ root, lockPath });
+}
+
 async function main() {
   const [mode, ...args] = process.argv.slice(2);
   let result;
   if (mode === "--check" && args.length === 0) result = await verifyPinnedDesignSystem();
   else if (mode === "--refresh" && args.join(" ") === "--approve-version 0.6.0") result = await refreshPinnedDesignSystem();
-  else throw new Error("usage: node tooling/design-system.mjs --check | --refresh --approve-version 0.6.0");
+  else if (mode === "--accept-owned-block" && args.join(" ") === "--approve-version 0.6.0") result = await acceptOwnedBlock();
+  else throw new Error("usage: node tooling/design-system.mjs --check | --refresh --approve-version 0.6.0 | --accept-owned-block --approve-version 0.6.0");
   process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "design-system", status: "pass", ...result })}\n`);
 }
 
