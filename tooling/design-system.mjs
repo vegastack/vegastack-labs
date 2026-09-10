@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -15,6 +15,8 @@ const ACCESS_SECRET_ENV = ["CF", "ACCESS", "CLIENT", "SECRET"].join("_");
 const ACCESS_ID_HEADER = ["CF", "Access", "Client", "Id"].join("-");
 const ACCESS_SECRET_HEADER = ["CF", "Access", "Client", "Secret"].join("-");
 const REVIEWED_SOURCE_CLOSURE_SHA256 = "764d3be59f87db154bee8a1ee063a73732182e5ac882bb39362f40207bb1eff7";
+const SHADCN_VERSION = "4.21.0";
+const SHADCN_INTEGRITY = "sha512-UU2mFNusW8C5rvadKdH69vERYZqUlOOlXBcf0MYhYLdTGP6DPti7X4qovCu+RTfCqsAgq/T+YfE0Vnttxh9aiw==";
 const ROOTS = new Map([
   ["provider", "sha256-j7RJm9M0bbnthF2SXN8AfSKfoZqUnnPm169og/MPM8E="],
   ["dashboard-01", "sha256-H3abUSAP+yCnOjs0Qy0Y1R9PhqJQJ3wR7w7/ZX2dI58="],
@@ -50,9 +52,9 @@ export function sourceClosureDigest(lock) {
   return createHash("sha256").update(JSON.stringify(closure)).digest("hex");
 }
 
-function installedPath(target) {
-  if (target.startsWith("@ui/")) return `web/components/ui/${target.slice(4)}`;
-  return `web/${assertSafeRelative(target, "registry target")}`;
+export function installedPath(target) {
+  if (target.startsWith("@ui/")) return assertSafeRelative(`web/components/ui/${assertSafeRelative(target.slice(4), "registry UI target")}`, "installed UI target");
+  return assertSafeRelative(`web/${assertSafeRelative(target, "registry target")}`, "installed target");
 }
 
 function assertNoSecrets(value) {
@@ -123,18 +125,6 @@ async function loadMaintainerEnv(root) {
   return env;
 }
 
-async function listFiles(directory, root = directory) {
-  const files = [];
-  let entries = [];
-  try { entries = await readdir(directory, { withFileTypes: true }); } catch (error) { if (error.code === "ENOENT") return files; throw error; }
-  for (const entry of entries) {
-    const child = path.join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...await listFiles(child, root));
-    else if (entry.isFile()) files.push(path.relative(root, child).split(path.sep).join("/"));
-  }
-  return files.sort();
-}
-
 async function readVerifiedItem(file, expectedName) {
   const item = JSON.parse(await readFile(file, "utf8"));
   if (item.name !== expectedName || item.meta?.version !== VERSION || !Array.isArray(item.files)) {
@@ -146,6 +136,8 @@ async function readVerifiedItem(file, expectedName) {
 export async function refreshPinnedDesignSystem({ root = ROOT, registryOrigin = ORIGIN, expectedVersion = VERSION } = {}) {
   if (registryOrigin !== ORIGIN || expectedVersion !== VERSION) throw new Error("refresh origin or version is not operator-approved");
   const env = await loadMaintainerEnv(root);
+  const initialStatus = await runCommand("git", ["status", "--porcelain=v1", "-z"], { cwd: root, capture: true, timeoutMs: 30_000 });
+  if (initialStatus.stdout) throw new Error("maintainer refresh requires a clean Git worktree");
   const indexResponse = await fetch(`${ORIGIN}/r/registry.json`, {
     redirect: "error",
     signal: AbortSignal.timeout(30_000),
@@ -177,20 +169,16 @@ export async function refreshPinnedDesignSystem({ root = ROOT, registryOrigin = 
   }
   items.sort((a, b) => a.item.name.localeCompare(b.item.name));
   const expectedTargets = new Set(items.flatMap(({ item }) => item.files.map(file => installedPath(file.target ?? file.path))));
-  for (const { item } of items) {
-    for (const file of item.files) {
-      if (typeof file.content !== "string") throw new Error(`${item.name} contains a file without verified text content`);
-      const target = path.join(root, installedPath(file.target ?? file.path));
-      await mkdir(path.dirname(target), { recursive: true });
-      await writeFile(target, file.content, { mode: 0o644 });
-    }
-  }
-  const installedTargets = [
-    ...(await listFiles(path.join(root, "web/components/ui"), path.join(root, "web"))).map(file => `web/${file}`),
-    ...(await listFiles(path.join(root, "web/app/dashboard"), path.join(root, "web"))).map(file => `web/${file}`),
-  ];
-  const unexpected = installedTargets.filter(file => !expectedTargets.has(file));
-  if (unexpected.length) throw new Error(`refresh target directories contain files outside the verified source set: ${unexpected.join(", ")}`);
+  const packageEnv = { ...env };
+  delete packageEnv[ACCESS_ID_ENV];
+  delete packageEnv[ACCESS_SECRET_ENV];
+  const published = await runCommand("pnpm", ["view", `shadcn@${SHADCN_VERSION}`, "dist.integrity", "--json"], { cwd: root, env: packageEnv, capture: true, timeoutMs: 30_000 });
+  if (JSON.parse(published.stdout) !== SHADCN_INTEGRITY) throw new Error("shadcn installer integrity differs from the reviewed release");
+  await runCommand("pnpm", ["dlx", `shadcn@${SHADCN_VERSION}`, "add", "-c", "web", "-y", "@vegastack/provider", "@vegastack/dashboard-01"], { cwd: root, env, timeoutMs: 180_000 });
+  const changedStatus = await runCommand("git", ["status", "--porcelain=v1", "-z"], { cwd: root, capture: true, timeoutMs: 30_000 });
+  const changedPaths = changedStatus.stdout.split("\0").filter(Boolean).map(entry => entry.slice(3));
+  const unexpected = changedPaths.filter(file => !expectedTargets.has(file));
+  if (unexpected.length) throw new Error(`shadcn wrote outside the verified source target set: ${unexpected.join(", ")}`);
   const lockedItems = [];
   for (const { item, savePath } of items) {
     await runCommand("pnpm", ["--dir", "web", "exec", "vegastack-design", "verify", "--post-write", "--item", savePath, "--expected-integrity", item.meta.integrity, "--target-dir", "."], { cwd: root, env, timeoutMs: 120_000 });

@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { sourceClosureDigest, verifyPinnedDesignSystem } from "../design-system.mjs";
+import { installedPath, sourceClosureDigest, verifyPinnedDesignSystem } from "../design-system.mjs";
 
 async function fixture() {
   const root = await mkdtemp(path.join(tmpdir(), "vsk-design-lock-"));
@@ -66,6 +66,12 @@ test("non-owned components cannot use the owned-block digest escape", async () =
   await writeFile(path.join(root, providerFile.path), changed);
   await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
   await assert.rejects(verifyPinnedDesignSystem({ root, expectedClosureSha256 }), /cannot declare an owned-block upstream digest/);
+});
+
+test("registry aliases cannot escape their installation roots", () => {
+  assert.equal(installedPath("@ui/button.tsx"), "web/components/ui/button.tsx");
+  assert.throws(() => installedPath("@ui/../../outside.tsx"), /escapes the repository/);
+  assert.throws(() => installedPath("../outside.tsx"), /escapes the repository/);
 });
 
 test("lock rejects unsafe paths, duplicates, versions, and secret material", async () => {
