@@ -13,6 +13,8 @@ const summary = {
   lastEventId: 4,
   recoveryEpoch: 2,
   stateRevision: 8,
+  sourceCounts: { total: 7, healthy: 2, stale: 0, unknown: 0, unavailable: 5, failed: 0 },
+  worstSourceState: "unavailable",
 };
 
 function envelope(data, schemaVersion = "1.0.0") {
@@ -73,6 +75,25 @@ test("finite reads use only generated same-origin GET paths and encoded queries"
   });
   await listClient.listInventoryDrafts({ limit: 25, sort: "created-at", cursor: "opaque/value" });
   assert.equal(seen.url, "/api/v1/inventory-drafts?limit=25&sort=created-at&cursor=opaque%2Fvalue");
+  assert.equal(seen.init.method, "GET");
+
+  const sourceData = {
+    items: [{
+      id: "backups", capability: "backup.status.read", state: "unavailable",
+      collectedAt: null, lastSuccessAt: null, lastErrorAt: null,
+      reason: "source capability is unavailable",
+    }],
+    nextCursor: null,
+    stateRevision: 8,
+    recoveryEpoch: 2,
+  };
+  const sourceClient = createReadClient(async (url, init) => {
+    seen = { url, init };
+    return new Response(JSON.stringify(envelope(sourceData)));
+  });
+  const sources = await sourceClient.listSources({ limit: 25, sort: "id-desc", cursor: "opaque/value", source: "backups", state: "unavailable" });
+  assert.deepEqual(sources.data, sourceData);
+  assert.equal(seen.url, "/api/v1/sources?limit=25&sort=id-desc&cursor=opaque%2Fvalue&source=backups&state=unavailable");
   assert.equal(seen.init.method, "GET");
 });
 
