@@ -16,17 +16,21 @@ const (
 	optionalSourceStaleAfter = time.Hour
 )
 
-type SourceObserver interface {
-	Observe(context.Context, readmodel.SourceID) (readmodel.SourceObservation, error)
-}
-
 type SourceRepository struct {
 	store    *Store
-	observer SourceObserver
+	fixtures map[readmodel.SourceID]readmodel.SourceObservation
 }
 
-func NewSourceRepository(store *Store, observer SourceObserver) *SourceRepository {
-	return &SourceRepository{store: store, observer: observer}
+func NewSourceRepository(store *Store) *SourceRepository {
+	return &SourceRepository{store: store}
+}
+
+func newSourceRepositoryWithFixtures(store *Store, fixtures map[readmodel.SourceID]readmodel.SourceObservation) *SourceRepository {
+	copyFixtures := make(map[readmodel.SourceID]readmodel.SourceObservation, len(fixtures))
+	for id, observation := range fixtures {
+		copyFixtures[id] = observation
+	}
+	return &SourceRepository{store: store, fixtures: copyFixtures}
 }
 
 func (repository *SourceRepository) ListSources(ctx context.Context, scope authorization.ReadScope, query readmodel.SourceListQuery, snapshot RevisionToken) (readmodel.SourcePage, error) {
@@ -132,20 +136,12 @@ func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx)
 	result := []readmodel.SourceObservation{database, nodes}
 	for _, id := range []readmodel.SourceID{readmodel.SourceGates, readmodel.SourcePeople, readmodel.SourceServices, readmodel.SourceBackups, readmodel.SourceProviders} {
 		observation := readmodel.SourceObservation{ID: id, Capability: readmodel.SourceCapability(id), Available: false}
-		if repository.observer != nil {
-			candidate, err := repository.observer.Observe(ctx, id)
-			if err != nil {
-				observation.Available = true
-				observation.FailureCode = "SOURCE_FAILED"
-				now := repository.store.config.Clock().UTC()
-				observation.LastErrorAt = &now
-			} else {
-				observation.Available = candidate.Available
-				observation.CollectedAt = candidate.CollectedAt
-				observation.LastSuccessAt = candidate.LastSuccessAt
-				observation.LastErrorAt = candidate.LastErrorAt
-				observation.FailureCode = candidate.FailureCode
-			}
+		if candidate, ok := repository.fixtures[id]; ok {
+			observation.Available = candidate.Available
+			observation.CollectedAt = candidate.CollectedAt
+			observation.LastSuccessAt = candidate.LastSuccessAt
+			observation.LastErrorAt = candidate.LastErrorAt
+			observation.FailureCode = candidate.FailureCode
 		}
 		result = append(result, observation)
 	}

@@ -4,7 +4,6 @@ package store
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -13,12 +12,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/readmodel"
 )
-
-type failingSourceObserver struct{}
-
-func (failingSourceObserver) Observe(context.Context, readmodel.SourceID) (readmodel.SourceObservation, error) {
-	return readmodel.SourceObservation{}, errors.New("provider response super-secret")
-}
 
 func TestSourceRepositoryProjectsLocalStateAndIsolatesOptionalFailure(t *testing.T) {
 	s := newInventoryTestStore(t)
@@ -36,7 +29,9 @@ func TestSourceRepositoryProjectsLocalStateAndIsolatesOptionalFailure(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	repository := NewSourceRepository(s, failingSourceObserver{})
+	repository := newSourceRepositoryWithFixtures(s, map[readmodel.SourceID]readmodel.SourceObservation{
+		readmodel.SourceBackups: {Available: true, FailureCode: "PROVIDER_RESPONSE_super-secret"},
+	})
 	page, err := repository.ListSources(context.Background(), scope, readmodel.SourceListQuery{Limit: 7, Sort: "id-asc"}, s.health.Revision)
 	if err != nil {
 		t.Fatal(err)
@@ -71,7 +66,7 @@ func TestSourceRepositoryEnforcesResourceScopeAndPagination(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	repository := NewSourceRepository(s, nil)
+	repository := NewSourceRepository(s)
 	page, err := repository.ListSources(context.Background(), scope, readmodel.SourceListQuery{Limit: 1, Sort: "id-asc"}, s.health.Revision)
 	if err != nil {
 		t.Fatal(err)

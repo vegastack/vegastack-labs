@@ -21,7 +21,7 @@ type ReadRepository struct{ store *Store }
 func NewReadRepository(store *Store) *ReadRepository { return &ReadRepository{store: store} }
 
 func (repository *ReadRepository) ListSources(ctx context.Context, scope authorization.ReadScope, query readmodel.SourceListQuery, snapshot RevisionToken) (readmodel.SourcePage, error) {
-	return NewSourceRepository(repository.store, nil).ListSources(ctx, scope, query, snapshot)
+	return NewSourceRepository(repository.store).ListSources(ctx, scope, query, snapshot)
 }
 
 func (repository *ReadRepository) CurrentRevision(ctx context.Context, scope authorization.ReadScope) (RevisionToken, error) {
@@ -62,7 +62,7 @@ func (repository *ReadRepository) Summary(ctx context.Context, scope authorizati
 		result.DatabaseMode = mode
 		result.ReadAvailable = true
 		result.MutationAvailable = false
-		statuses, sourceErr := NewSourceRepository(repository.store, nil).evaluate(ctx, tx)
+		statuses, sourceErr := NewSourceRepository(repository.store).evaluate(ctx, tx)
 		if sourceErr != nil {
 			return sourceErr
 		}
