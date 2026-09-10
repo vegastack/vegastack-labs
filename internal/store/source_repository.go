@@ -34,10 +34,11 @@ func newSourceRepositoryWithFixtures(store *Store, fixtures map[readmodel.Source
 }
 
 func (repository *SourceRepository) ListSources(ctx context.Context, scope authorization.ReadScope, query readmodel.SourceListQuery, snapshot RevisionToken) (readmodel.SourcePage, error) {
-	if query.Limit < 1 || query.Limit > 200 || (query.Sort != "id-asc" && query.Sort != "id-desc") || !sourceFilterValid(query.Source) || !sourceFilterValid(query.AfterID) || !stateFilterValid(query.State) {
+	if query.Limit < 1 || query.Limit > 200 || (query.Sort != "id-asc" && query.Sort != "id-desc") || !sourceFilterValid(query.Source) || !sourceFilterValid(query.AfterID) || !stateFilterValid(query.State) || query.EvaluationAt.IsZero() {
 		return readmodel.SourcePage{}, newStoreError(generated.ErrorCodeInputInvalid, "source-read", false, nil)
 	}
-	result := readmodel.SourcePage{Snapshot: readmodel.RevisionToken{StateRevision: snapshot.StateRevision, RecoveryEpoch: snapshot.RecoveryEpoch}}
+	evaluationAt := query.EvaluationAt.UTC()
+	result := readmodel.SourcePage{Snapshot: readmodel.RevisionToken{StateRevision: snapshot.StateRevision, RecoveryEpoch: snapshot.RecoveryEpoch}, EvaluationAt: evaluationAt}
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
 		if err := verifySnapshot(ctx, tx, snapshot); err != nil {
 			return err
@@ -49,7 +50,7 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 		if err != nil {
 			return err
 		}
-		statuses, err := repository.evaluate(ctx, tx, snapshot.StateRevision)
+		statuses, err := repository.evaluateAt(ctx, tx, snapshot.StateRevision, evaluationAt)
 		if err != nil {
 			return err
 		}
@@ -88,18 +89,21 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 }
 
 func (repository *SourceRepository) evaluate(ctx context.Context, tx ReadTx, stateRevision int64) ([]readmodel.SourceStatus, error) {
+	return repository.evaluateAt(ctx, tx, stateRevision, repository.store.config.Clock().UTC())
+}
+
+func (repository *SourceRepository) evaluateAt(ctx context.Context, tx ReadTx, stateRevision int64, evaluationAt time.Time) ([]readmodel.SourceStatus, error) {
 	observations, err := repository.observations(ctx, tx, stateRevision)
 	if err != nil {
 		return nil, err
 	}
-	now := repository.store.config.Clock().UTC()
 	statuses := make([]readmodel.SourceStatus, 0, len(observations))
 	for _, observation := range observations {
 		policy := readmodel.SourcePolicy{StaleAfter: optionalSourceStaleAfter}
 		if observation.ID == readmodel.SourceDatabase || observation.ID == readmodel.SourceNodes {
 			policy.StaleAfter = localSourceStaleAfter
 		}
-		status, evaluateErr := readmodel.EvaluateSource(observation, policy, now)
+		status, evaluateErr := readmodel.EvaluateSource(observation, policy, evaluationAt)
 		if evaluateErr != nil {
 			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "source-observation", false, evaluateErr)
 		}

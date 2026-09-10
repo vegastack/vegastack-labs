@@ -85,18 +85,20 @@ type SourceCounts struct {
 }
 
 type SourceListQuery struct {
-	Limit   int
-	Sort    string
-	Source  SourceID
-	State   SourceState
-	AfterID SourceID
+	Limit        int
+	Sort         string
+	Source       SourceID
+	State        SourceState
+	AfterID      SourceID
+	EvaluationAt time.Time
 }
 
 type SourcePage struct {
-	Items    []SourceStatus
-	HasMore  bool
-	Last     SourceID
-	Snapshot RevisionToken
+	Items        []SourceStatus
+	HasMore      bool
+	Last         SourceID
+	Snapshot     RevisionToken
+	EvaluationAt time.Time
 }
 
 func EvaluateSource(observation SourceObservation, policy SourcePolicy, now time.Time) (SourceStatus, error) {

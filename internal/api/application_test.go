@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -94,6 +96,7 @@ type testCursor struct{}
 
 func (testCursor) Encode(CursorBinding, CursorPosition) (string, error) { return "cursor", nil }
 func (testCursor) Decode(string, CursorBinding) (DecodedCursor, error)  { return DecodedCursor{}, nil }
+func (testCursor) Now() time.Time                                       { return time.Date(2026, 9, 10, 8, 0, 0, 0, time.UTC) }
 
 func TestHandlerAuthorizesBeforeQueryCursorOrResourceLookup(t *testing.T) {
 	var calls []string
@@ -134,7 +137,7 @@ func (summaryReads) Summary(context.Context, authorization.ReadScope) (readmodel
 
 type sourceReads struct {
 	testReads
-	query readmodel.SourceListQuery
+	queries []readmodel.SourceListQuery
 }
 
 func (reads *sourceReads) CurrentRevision(context.Context, authorization.ReadScope) (store.RevisionToken, error) {
@@ -142,18 +145,18 @@ func (reads *sourceReads) CurrentRevision(context.Context, authorization.ReadSco
 }
 
 func (reads *sourceReads) ListSources(_ context.Context, _ authorization.ReadScope, query readmodel.SourceListQuery, snapshot store.RevisionToken) (readmodel.SourcePage, error) {
-	reads.query = query
+	reads.queries = append(reads.queries, query)
 	recent := time.Date(2026, time.September, 10, 8, 0, 0, 0, time.UTC)
+	items := []readmodel.SourceStatus{{ID: readmodel.SourceServices, Capability: "secret-capability", State: readmodel.SourceFailed, CollectedAt: &recent, LastSuccessAt: &recent, Reason: "provider-secret"}}
+	hasMore := query.AfterID == ""
+	if !hasMore {
+		items = []readmodel.SourceStatus{}
+	}
 	return readmodel.SourcePage{
-		Items: []readmodel.SourceStatus{
-			{ID: readmodel.SourceDatabase, Capability: "secret-capability", State: readmodel.SourceHealthy, CollectedAt: &recent, LastSuccessAt: &recent, Reason: "provider-secret"},
-			{ID: readmodel.SourceBackups, State: readmodel.SourceUnavailable},
-			{ID: readmodel.SourceNodes, State: readmodel.SourceUnknown},
-			{ID: readmodel.SourceGates, State: readmodel.SourceStale},
-			{ID: readmodel.SourceServices, State: readmodel.SourceFailed},
-		},
-		HasMore: true,
-		Last:    readmodel.SourceNodes,
+		Items:        items,
+		HasMore:      hasMore,
+		Last:         readmodel.SourceServices,
+		EvaluationAt: query.EvaluationAt,
 		Snapshot: readmodel.RevisionToken{
 			StateRevision: snapshot.StateRevision,
 			RecoveryEpoch: snapshot.RecoveryEpoch,
@@ -185,7 +188,7 @@ func TestSourcesAuthorizesBeforeInvalidFilters(t *testing.T) {
 	}
 }
 
-func TestSourcesServeMixedSafeStatesWithBoundedFilters(t *testing.T) {
+func TestSourcesServeOnlyTheBoundedFilteredState(t *testing.T) {
 	reads := &sourceReads{}
 	scope := authorization.ReadScope{PrincipalID: "principal.test", Capability: "platform.source.read", ResourceKind: "platform-source", GrantRevision: 1, ScopeDigest: "sha256:scope"}
 	app, err := NewApplication(Config{
@@ -206,16 +209,76 @@ func TestSourcesServeMixedSafeStatesWithBoundedFilters(t *testing.T) {
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, request)
 	body := response.Body.String()
-	if response.Code != http.StatusOK || reads.query.Limit != 5 || reads.query.Sort != "id-desc" || reads.query.Source != readmodel.SourceServices || reads.query.State != readmodel.SourceFailed {
-		t.Fatalf("response/query = %d/%#v/%s", response.Code, reads.query, body)
+	query := reads.queries[0]
+	if response.Code != http.StatusOK || query.Limit != 5 || query.Sort != "id-desc" || query.Source != readmodel.SourceServices || query.State != readmodel.SourceFailed {
+		t.Fatalf("response/query = %d/%#v/%s", response.Code, query, body)
 	}
-	for _, want := range []string{`"state":"healthy"`, `"state":"stale"`, `"state":"unknown"`, `"state":"unavailable"`, `"state":"failed"`, `"nextCursor":"cursor"`, `"capability":"database.status.read"`} {
+	for _, want := range []string{`"state":"failed"`, `"nextCursor":"cursor"`, `"capability":"service.read"`} {
 		if !strings.Contains(body, want) {
 			t.Errorf("response missing %s: %s", want, body)
 		}
 	}
 	if strings.Contains(body, "provider-secret") || strings.Contains(body, "secret-capability") {
 		t.Fatalf("unsafe fixture data escaped: %s", body)
+	}
+	for _, unwanted := range []string{`"state":"healthy"`, `"state":"stale"`, `"state":"unknown"`, `"state":"unavailable"`} {
+		if strings.Contains(body, unwanted) {
+			t.Fatalf("filtered response contained %s: %s", unwanted, body)
+		}
+	}
+}
+
+func TestSourceCursorKeepsTheInitialEvaluationTimeAndRejectsTamperOrExpiry(t *testing.T) {
+	now := time.Date(2026, 9, 10, 8, 0, 0, 0, time.UTC)
+	codec, err := NewCursorCodec(bytes.NewReader(bytes.Repeat([]byte{9}, 32)), func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	reads := &sourceReads{}
+	scope := authorization.ReadScope{PrincipalID: "principal.test", Capability: "platform.source.read", ResourceKind: "platform-source", GrantRevision: 1, ScopeDigest: "sha256:scope"}
+	app, err := NewApplication(Config{
+		Authority: testAuthority{},
+		Authorizer: authorizerFunc(func(context.Context, identity.Principal, authorization.ReadTarget) (authorization.ReadScope, error) {
+			return scope, nil
+		}),
+		Reads: reads, Results: result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-test", nil }), Cursors: codec,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	path := "/api/v1/sources?limit=1&sort=id-asc&source=services&state=failed"
+	serve := func(path string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodGet, path, nil)
+		request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, request)
+		return response
+	}
+	first := serve(path)
+	var envelope generated.RunResult
+	var data generated.ApiSourceListData
+	if err := json.Unmarshal(first.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(envelope.Data, &data); err != nil || data.NextCursor == nil {
+		t.Fatalf("first page = %#v, %v, %s", data, err, first.Body.String())
+	}
+	initialEvaluationAt := reads.queries[0].EvaluationAt
+	now = now.Add(10 * time.Minute)
+	second := serve(path + "&cursor=" + url.QueryEscape(*data.NextCursor))
+	if second.Code != http.StatusOK || len(reads.queries) != 2 || !reads.queries[1].EvaluationAt.Equal(initialEvaluationAt) || reads.queries[1].AfterID != readmodel.SourceServices {
+		t.Fatalf("second page/evaluation = %d/%#v/%s", second.Code, reads.queries, second.Body.String())
+	}
+	tampered := (*data.NextCursor)[:len(*data.NextCursor)-1] + "A"
+	if tampered == *data.NextCursor {
+		tampered = (*data.NextCursor)[:len(*data.NextCursor)-1] + "B"
+	}
+	if response := serve(path + "&cursor=" + url.QueryEscape(tampered)); response.Code != http.StatusConflict || len(reads.queries) != 2 {
+		t.Fatalf("tampered cursor = %d/%d/%s", response.Code, len(reads.queries), response.Body.String())
+	}
+	now = initialEvaluationAt.Add(CursorLifetime + time.Second)
+	if response := serve(path + "&cursor=" + url.QueryEscape(*data.NextCursor)); response.Code != http.StatusConflict || len(reads.queries) != 2 {
+		t.Fatalf("expired cursor = %d/%d/%s", response.Code, len(reads.queries), response.Body.String())
 	}
 }
 

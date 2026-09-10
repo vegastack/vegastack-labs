@@ -22,6 +22,7 @@ type CursorBinding struct {
 	ScopeDigest   string
 	GrantRevision int64
 	Snapshot      store.RevisionToken
+	EvaluationAt  time.Time
 }
 
 type CursorPosition struct {
@@ -29,12 +30,14 @@ type CursorPosition struct {
 	ImmutableID string
 }
 type DecodedCursor struct {
-	Position CursorPosition
-	Snapshot store.RevisionToken
+	Position     CursorPosition
+	Snapshot     store.RevisionToken
+	EvaluationAt time.Time
 }
 type CursorCodec interface {
 	Encode(CursorBinding, CursorPosition) (string, error)
 	Decode(string, CursorBinding) (DecodedCursor, error)
+	Now() time.Time
 }
 
 type cursorCodec struct {
@@ -53,6 +56,7 @@ type cursorPayload struct {
 	SortValues    []string `json:"o"`
 	ImmutableID   string   `json:"i"`
 	ExpiresAt     int64    `json:"x"`
+	EvaluationAt  string   `json:"a,omitempty"`
 }
 
 func NewCursorCodec(random io.Reader, now func() time.Time) (CursorCodec, error) {
@@ -70,7 +74,10 @@ func (codec *cursorCodec) Encode(binding CursorBinding, position CursorPosition)
 	if !validCursorBinding(binding) || len(position.SortValues) == 0 || len(position.SortValues) > 4 || position.ImmutableID == "" || len(position.ImmutableID) > 256 {
 		return "", failure.New("STATE_CONFLICT", "cursor", false)
 	}
-	payload := cursorPayload{Version: 1, SchemaMajor: binding.SchemaMajor, EndpointID: binding.EndpointID, QueryDigest: binding.QueryDigest, ScopeDigest: binding.ScopeDigest, GrantRevision: binding.GrantRevision, StateRevision: binding.Snapshot.StateRevision, RecoveryEpoch: binding.Snapshot.RecoveryEpoch, SortValues: append([]string(nil), position.SortValues...), ImmutableID: position.ImmutableID, ExpiresAt: codec.now().UTC().Add(CursorLifetime).Unix()}
+	payload := cursorPayload{Version: 1, SchemaMajor: binding.SchemaMajor, EndpointID: binding.EndpointID, QueryDigest: binding.QueryDigest, ScopeDigest: binding.ScopeDigest, GrantRevision: binding.GrantRevision, StateRevision: binding.Snapshot.StateRevision, RecoveryEpoch: binding.Snapshot.RecoveryEpoch, SortValues: append([]string(nil), position.SortValues...), ImmutableID: position.ImmutableID, ExpiresAt: codec.Now().Add(CursorLifetime).Unix()}
+	if !binding.EvaluationAt.IsZero() {
+		payload.EvaluationAt = binding.EvaluationAt.UTC().Format(time.RFC3339Nano)
+	}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", failure.New("STATE_CONFLICT", "cursor", false)
@@ -112,11 +119,25 @@ func (codec *cursorCodec) Decode(token string, binding CursorBinding) (DecodedCu
 	if err := decoder.Decode(&payload); err != nil {
 		return conflict()
 	}
+	var evaluationAt time.Time
+	if payload.EvaluationAt != "" {
+		evaluationAt, err = time.Parse(time.RFC3339Nano, payload.EvaluationAt)
+		if err != nil || payload.EvaluationAt != evaluationAt.UTC().Format(time.RFC3339Nano) {
+			return conflict()
+		}
+	}
 	wildcardSnapshot := binding.Snapshot.StateRevision == -1 && binding.Snapshot.RecoveryEpoch == -1
-	if payload.Version != 1 || payload.SchemaMajor != binding.SchemaMajor || payload.EndpointID != binding.EndpointID || payload.QueryDigest != binding.QueryDigest || payload.ScopeDigest != binding.ScopeDigest || payload.GrantRevision != binding.GrantRevision || (!wildcardSnapshot && (payload.StateRevision != binding.Snapshot.StateRevision || payload.RecoveryEpoch != binding.Snapshot.RecoveryEpoch)) || codec.now().UTC().Unix() > payload.ExpiresAt || len(payload.SortValues) == 0 || len(payload.SortValues) > 4 || payload.ImmutableID == "" {
+	if payload.Version != 1 || payload.SchemaMajor != binding.SchemaMajor || payload.EndpointID != binding.EndpointID || payload.QueryDigest != binding.QueryDigest || payload.ScopeDigest != binding.ScopeDigest || payload.GrantRevision != binding.GrantRevision || (!wildcardSnapshot && (payload.StateRevision != binding.Snapshot.StateRevision || payload.RecoveryEpoch != binding.Snapshot.RecoveryEpoch)) || (!binding.EvaluationAt.IsZero() && !evaluationAt.Equal(binding.EvaluationAt)) || codec.Now().Unix() > payload.ExpiresAt || len(payload.SortValues) == 0 || len(payload.SortValues) > 4 || payload.ImmutableID == "" {
 		return conflict()
 	}
-	return DecodedCursor{Position: CursorPosition{SortValues: append([]string(nil), payload.SortValues...), ImmutableID: payload.ImmutableID}, Snapshot: store.RevisionToken{StateRevision: payload.StateRevision, RecoveryEpoch: payload.RecoveryEpoch}}, nil
+	return DecodedCursor{Position: CursorPosition{SortValues: append([]string(nil), payload.SortValues...), ImmutableID: payload.ImmutableID}, Snapshot: store.RevisionToken{StateRevision: payload.StateRevision, RecoveryEpoch: payload.RecoveryEpoch}, EvaluationAt: evaluationAt}, nil
+}
+
+func (codec *cursorCodec) Now() time.Time {
+	if codec == nil || codec.now == nil {
+		return time.Time{}
+	}
+	return codec.now().UTC()
 }
 
 func validCursorBinding(binding CursorBinding) bool {

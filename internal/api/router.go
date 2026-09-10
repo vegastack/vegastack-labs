@@ -182,14 +182,17 @@ func (app *Application) sourceList(w http.ResponseWriter, r *http.Request, scope
 		app.failure(w, endpoint, err)
 		return
 	}
-	snapshot, position, err := app.pageState(r, scope, endpoint, validated)
+	snapshot, decoded, err := app.pageState(r, scope, endpoint, validated)
 	if err != nil {
 		app.failure(w, endpoint, err)
 		return
 	}
-	if position != nil {
+	query.EvaluationAt = app.config.Cursors.Now()
+	if decoded != nil {
+		position := decoded.Position
+		query.EvaluationAt = decoded.EvaluationAt
 		query.AfterID = readmodel.SourceID(position.ImmutableID)
-		if len(position.SortValues) != 1 || position.SortValues[0] != position.ImmutableID || !readmodel.ValidSourceID(query.AfterID) {
+		if query.EvaluationAt.IsZero() || len(position.SortValues) != 1 || position.SortValues[0] != position.ImmutableID || !readmodel.ValidSourceID(query.AfterID) {
 			app.failure(w, endpoint, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
 			return
 		}
@@ -199,7 +202,7 @@ func (app *Application) sourceList(w http.ResponseWriter, r *http.Request, scope
 		app.failure(w, endpoint, err)
 		return
 	}
-	if page.Snapshot.StateRevision != snapshot.StateRevision || page.Snapshot.RecoveryEpoch != snapshot.RecoveryEpoch || len(page.Items) > query.Limit {
+	if query.EvaluationAt.IsZero() || !page.EvaluationAt.Equal(query.EvaluationAt) || page.Snapshot.StateRevision != snapshot.StateRevision || page.Snapshot.RecoveryEpoch != snapshot.RecoveryEpoch || len(page.Items) > query.Limit {
 		app.failure(w, endpoint, apiFailure(generated.ErrorCodeIntegrityFailure, "source-page"))
 		return
 	}
@@ -215,7 +218,9 @@ func (app *Application) sourceList(w http.ResponseWriter, r *http.Request, scope
 			app.failure(w, endpoint, apiFailure(generated.ErrorCodeIntegrityFailure, "source-page"))
 			return
 		}
-		token, encodeErr := app.config.Cursors.Encode(cursorBinding(endpoint, validated, scope, snapshot), CursorPosition{SortValues: []string{string(page.Last)}, ImmutableID: string(page.Last)})
+		binding := cursorBinding(endpoint, validated, scope, snapshot)
+		binding.EvaluationAt = query.EvaluationAt
+		token, encodeErr := app.config.Cursors.Encode(binding, CursorPosition{SortValues: []string{string(page.Last)}, ImmutableID: string(page.Last)})
 		if encodeErr != nil {
 			app.failure(w, endpoint, encodeErr)
 			return
@@ -232,13 +237,14 @@ func (app *Application) draftList(w http.ResponseWriter, r *http.Request, scope 
 		app.failure(w, endpoint, err)
 		return
 	}
-	snapshot, position, err := app.pageState(r, scope, endpoint, query)
+	snapshot, decoded, err := app.pageState(r, scope, endpoint, query)
 	if err != nil {
 		app.failure(w, endpoint, err)
 		return
 	}
 	request := inventory.DraftListQuery{Limit: query.Limit, Sort: query.Sort}
-	if position != nil {
+	if decoded != nil {
+		position := decoded.Position
 		request.AfterCreatedAt, err = time.Parse(time.RFC3339Nano, position.SortValues[0])
 		if err != nil {
 			app.failure(w, endpoint, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
@@ -306,13 +312,14 @@ func (app *Application) recordList(kind string) func(http.ResponseWriter, *http.
 			app.failure(w, endpoint, err)
 			return
 		}
-		snapshot, position, err := app.pageState(r, scope, endpoint, query)
+		snapshot, decoded, err := app.pageState(r, scope, endpoint, query)
 		if err != nil {
 			app.failure(w, endpoint, err)
 			return
 		}
 		rq := inventory.RecordListQuery{AfterKind: kind, Limit: query.Limit, Sort: query.Sort}
-		if position != nil {
+		if decoded != nil {
+			position := decoded.Position
 			rq.AfterLocalID = inventory.LocalID(position.ImmutableID)
 		}
 		page, err := app.config.Reads.ListRecords(r.Context(), scope, ref, rq, snapshot)
@@ -363,7 +370,7 @@ func cursorBinding(endpoint string, query ValidatedQuery, scope authorization.Re
 	return CursorBinding{SchemaMajor: 1, EndpointID: endpoint, QueryDigest: query.FilterDigest, ScopeDigest: scope.ScopeDigest, GrantRevision: scope.GrantRevision, Snapshot: snapshot}
 }
 
-func (app *Application) pageState(r *http.Request, scope authorization.ReadScope, endpoint string, query ValidatedQuery) (store.RevisionToken, *CursorPosition, error) {
+func (app *Application) pageState(r *http.Request, scope authorization.ReadScope, endpoint string, query ValidatedQuery) (store.RevisionToken, *DecodedCursor, error) {
 	if query.Cursor == "" {
 		revision, err := app.config.Reads.CurrentRevision(r.Context(), scope)
 		return revision, nil, err
@@ -373,5 +380,5 @@ func (app *Application) pageState(r *http.Request, scope authorization.ReadScope
 	if err != nil {
 		return store.RevisionToken{}, nil, err
 	}
-	return decoded.Snapshot, &decoded.Position, nil
+	return decoded.Snapshot, &decoded, nil
 }
