@@ -3,5 +3,7 @@ Read available true
 Mutation available false
 Drafts 2 (valid 1, blocked 1)
 Last event 9
+Sources 7 (healthy 1, stale 1, unknown 1, unavailable 3, failed 1)
+Worst source state failed
 State revision 7
 Recovery epoch 2

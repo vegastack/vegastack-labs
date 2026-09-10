@@ -263,7 +263,26 @@ func validRemoteStatus(status generated.ServerStatusData, envelope generated.Run
 }
 
 func validSummary(value generated.ApiSummaryData, envelope generated.RunResult) bool {
-	return value.StateRevision == envelope.StateRevision && value.RecoveryEpoch == envelope.RecoveryEpoch && value.DatabaseMode != ""
+	counts := value.SourceCounts
+	counted := counts.Healthy + counts.Stale + counts.Unknown + counts.Unavailable + counts.Failed
+	return value.StateRevision == envelope.StateRevision && value.RecoveryEpoch == envelope.RecoveryEpoch && value.DatabaseMode != "" &&
+		counts.Total == 7 && counted == counts.Total && counts.Healthy >= 0 && counts.Stale >= 0 && counts.Unknown >= 0 && counts.Unavailable >= 0 && counts.Failed >= 0 &&
+		value.WorstSourceState == worstSourceState(counts)
+}
+
+func worstSourceState(counts generated.ApiSourceCountsData) string {
+	switch {
+	case counts.Failed > 0:
+		return "failed"
+	case counts.Stale > 0:
+		return "stale"
+	case counts.Unknown > 0:
+		return "unknown"
+	case counts.Unavailable > 0:
+		return "unavailable"
+	default:
+		return "healthy"
+	}
 }
 
 func validDatabaseStatus(value generated.DatabaseStatusData, _ generated.RunResult) bool {

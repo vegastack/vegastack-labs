@@ -26,7 +26,7 @@ type capturedRequest struct {
 
 func TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes(t *testing.T) {
 	client := NewClient(clientTestFactory())
-	summary := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, RecoveryEpoch: 2, StateRevision: 7}
+	summary := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, RecoveryEpoch: 2, StateRevision: 7, SourceCounts: generated.ApiSourceCountsData{Total: 7, Healthy: 1, Unknown: 1, Unavailable: 5}, WorstSourceState: "unknown"}
 	raw, profile, captured := serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.summary.get", false, 2, 7, summary))
 	response, err := client.Summary(context.Background(), profile)
 	if err != nil || !bytes.Equal(response.Raw, raw) || (<-captured).path != "/api/v1/summary" {
@@ -74,7 +74,7 @@ func TestInventoryClientUsesFixedRoutesAndRetainsExactEnvelopes(t *testing.T) {
 }
 
 func TestTypedClientRejectsCommandStatusAndDataDisagreement(t *testing.T) {
-	validData := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, RecoveryEpoch: 2, StateRevision: 7}
+	validData := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, RecoveryEpoch: 2, StateRevision: 7, SourceCounts: generated.ApiSourceCountsData{Total: 7, Healthy: 1, Unknown: 1, Unavailable: 5}, WorstSourceState: "unknown"}
 	valid := operationEnvelope(t, "api.v1.summary.get", false, 2, 7, validData)
 	fixtures := []struct {
 		status int
@@ -83,6 +83,8 @@ func TestTypedClientRejectsCommandStatusAndDataDisagreement(t *testing.T) {
 		{http.StatusCreated, valid},
 		{http.StatusOK, []byte(strings.Replace(string(valid), `"command":"api.v1.summary.get"`, `"command":"help"`, 1))},
 		{http.StatusOK, []byte(strings.Replace(string(valid), `"databaseMode":"read-write"`, `"databaseMode":""`, 1))},
+		{http.StatusOK, []byte(strings.Replace(string(valid), `"worstSourceState":"unknown"`, `"worstSourceState":"green"`, 1))},
+		{http.StatusOK, []byte(strings.Replace(string(valid), `"total":7`, `"total":6`, 1))},
 		{http.StatusOK, append(append([]byte(nil), valid...), []byte("{}\n")...)},
 	}
 	for _, fixture := range fixtures {
