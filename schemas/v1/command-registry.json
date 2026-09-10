@@ -1352,6 +1352,16 @@
       "artifactPath": "schemas/v1/api-audit-event-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/api-browser-session-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-browser-session-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-browser-session-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-browser-session-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/api-inventory-alias-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/api-inventory-alias-data.schema.json"

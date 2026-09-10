@@ -156,6 +156,36 @@
       "stream": "finite"
     },
     {
+      "id": "api.v1.session.create",
+      "method": "POST",
+      "path": "/api/v1/session",
+      "availability": "available",
+      "ownerPhase": "3",
+      "requestSchema": "vegastack-labs.dev/api-browser-session-request",
+      "dataSchema": "vegastack-labs.dev/api-browser-session-data",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.session.logout",
+      "method": "POST",
+      "path": "/api/v1/session/logout",
+      "availability": "available",
+      "ownerPhase": "3",
+      "requestSchema": "vegastack-labs.dev/api-browser-session-request",
+      "dataSchema": "vegastack-labs.dev/api-browser-session-data",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.session.renew",
+      "method": "POST",
+      "path": "/api/v1/session/renew",
+      "availability": "available",
+      "ownerPhase": "3",
+      "requestSchema": "vegastack-labs.dev/api-browser-session-request",
+      "dataSchema": "vegastack-labs.dev/api-browser-session-data",
+      "stream": "finite"
+    },
+    {
       "id": "api.v1.sources.list",
       "method": "GET",
       "path": "/api/v1/sources",

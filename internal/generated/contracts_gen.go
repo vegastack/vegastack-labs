@@ -12,6 +12,8 @@ const (
 	FlagKindValue                           = "value"
 	FlagKindSwitch                          = "switch"
 	SchemaIDApiAuditEventData               = "vegastack-labs.dev/api-audit-event-data"
+	SchemaIDApiBrowserSessionData           = "vegastack-labs.dev/api-browser-session-data"
+	SchemaIDApiBrowserSessionRequest        = "vegastack-labs.dev/api-browser-session-request"
 	SchemaIDApiInventoryAliasData           = "vegastack-labs.dev/api-inventory-alias-data"
 	SchemaIDApiInventoryAliasListData       = "vegastack-labs.dev/api-inventory-alias-list-data"
 	SchemaIDApiInventoryAssetData           = "vegastack-labs.dev/api-inventory-asset-data"
@@ -136,6 +138,17 @@ const (
 
 type ApiAuditEventData struct {
 	Event AuditEvent `json:"event"`
+}
+
+type ApiBrowserSessionData struct {
+	PrincipalID       string `json:"principalId"`
+	IdleExpiresAt     string `json:"idleExpiresAt"`
+	AbsoluteExpiresAt string `json:"absoluteExpiresAt"`
+	LogoutScope       string `json:"logoutScope"`
+}
+
+type ApiBrowserSessionRequest struct {
+	RequestVersion string `json:"requestVersion"`
 }
 
 type ApiInventoryAliasData struct {
@@ -822,6 +835,9 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite"},
 	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite"},
 	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite"},
+	{ID: "api.v1.session.create", Method: "POST", Path: "/api/v1/session", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite"},
+	{ID: "api.v1.session.logout", Method: "POST", Path: "/api/v1/session/logout", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite"},
+	{ID: "api.v1.session.renew", Method: "POST", Path: "/api/v1/session/renew", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite"},
 	{ID: "api.v1.sources.list", Method: "GET", Path: "/api/v1/sources", Availability: "available", OwnerPhase: "3", QuerySchema: "vegastack-labs.dev/api-source-list-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-source-list-data", Stream: "finite"},
 	{ID: "api.v1.summary.get", Method: "GET", Path: "/api/v1/summary", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-summary-data", Stream: "finite"},
 }

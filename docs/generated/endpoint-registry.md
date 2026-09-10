@@ -21,5 +21,8 @@ Contract schema: `1.7.0`
 | `api.v1.inventory-drafts.import` | `POST` | `/api/v1/inventory-drafts/import` | `available` | `finite` | `vegastack-labs.dev/inventory-import-request` | `vegastack-labs.dev/inventory-import-data` |
 | `api.v1.inventory-drafts.list` | `GET` | `/api/v1/inventory-drafts` | `available` | `finite` | `` | `vegastack-labs.dev/api-inventory-draft-list-data` |
 | `api.v1.inventory-exports.create` | `POST` | `/api/v1/inventory-exports` | `available` | `finite` | `vegastack-labs.dev/inventory-export-request` | `vegastack-labs.dev/inventory-export-data` |
+| `api.v1.session.create` | `POST` | `/api/v1/session` | `available` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
+| `api.v1.session.logout` | `POST` | `/api/v1/session/logout` | `available` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
+| `api.v1.session.renew` | `POST` | `/api/v1/session/renew` | `available` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
 | `api.v1.sources.list` | `GET` | `/api/v1/sources` | `available` | `finite` | `` | `vegastack-labs.dev/api-source-list-data` |
 | `api.v1.summary.get` | `GET` | `/api/v1/summary` | `available` | `finite` | `` | `vegastack-labs.dev/api-summary-data` |

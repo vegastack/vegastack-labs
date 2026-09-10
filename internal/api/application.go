@@ -9,6 +9,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/readmodel"
@@ -39,6 +40,17 @@ type ReadRepository interface {
 	EventExists(context.Context, authorization.ReadScope, audit.EventID) (bool, error)
 }
 
+type BrowserSessionResult struct {
+	Data   generated.ApiBrowserSessionData
+	Cookie *http.Cookie
+}
+
+type BrowserSessionService interface {
+	Create(context.Context) (BrowserSessionResult, error)
+	Renew(context.Context) (BrowserSessionResult, error)
+	Logout(context.Context) (BrowserSessionResult, error)
+}
+
 type Config struct {
 	Authority  Authority
 	Authorizer authorization.ReadAuthorizer
@@ -47,6 +59,7 @@ type Config struct {
 	Cursors    CursorCodec
 	Queries    QueryDecoder
 	Streams    *EventStreamer
+	Sessions   BrowserSessionService
 }
 
 type Application struct {

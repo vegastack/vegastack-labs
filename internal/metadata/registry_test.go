@@ -59,6 +59,41 @@ func TestPhaseTwoReadEndpointsAreGeneratedAndDraftScoped(t *testing.T) {
 	}
 }
 
+func TestBrowserSessionContractsAreStrictAndSecretFree(t *testing.T) {
+	registry := Current()
+	for _, route := range []string{
+		"POST /api/v1/session",
+		"POST /api/v1/session/renew",
+		"POST /api/v1/session/logout",
+	} {
+		var got *EndpointDefinition
+		for index := range registry.Endpoints {
+			candidate := &registry.Endpoints[index]
+			if candidate.Method+" "+candidate.Path == route {
+				got = candidate
+				break
+			}
+		}
+		if got == nil || got.OwnerPhase != "3" || got.RequestSchema != apiBrowserSessionRequestSchemaID || got.DataSchema != apiBrowserSessionDataSchemaID || got.Stream != StreamFinite {
+			t.Fatalf("session endpoint %q = %#v", route, got)
+		}
+	}
+	request := schemaByID(t, registry, apiBrowserSessionRequestSchemaID)
+	data := schemaByID(t, registry, apiBrowserSessionDataSchemaID)
+	encoded, err := json.Marshal([][]FieldDefinition{request.Fields, data.Fields})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if regexp.MustCompile(`(?i)(jwt|cookie|email|claim|secret|token|provider)`).Match(encoded) {
+		t.Fatalf("session contracts expose private data: %s", encoded)
+	}
+	for _, field := range data.Fields {
+		if !field.Required || field.Nullable || field.AdditionalProperties {
+			t.Fatalf("session data field is not closed: %#v", field)
+		}
+	}
+}
+
 func TestInventoryOperatorContractsAreGeneratedAndDraftScoped(t *testing.T) {
 	registry := Current()
 	for _, name := range []string{"status", "database status", "inventory import", "inventory diff", "inventory export"} {
