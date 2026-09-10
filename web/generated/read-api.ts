@@ -167,7 +167,7 @@ export interface InventoryDraftCounts {
 }
 
 export interface ResultError {
-  readonly "code": string;
+  readonly "code": "APPROVAL_REQUIRED" | "AUTHENTICATION_REQUIRED" | "AUTHORIZATION_DENIED" | "DEPENDENCY_UNAVAILABLE" | "EVIDENCE_EXPIRED" | "EVIDENCE_INVALID" | "EXECUTION_FAILED" | "EXECUTION_PARTIAL" | "GATE_BLOCKED" | "INPUT_INVALID" | "INTEGRITY_FAILURE" | "INTERRUPTED" | "MIGRATION_BLOCKED" | "PLAN_STALE" | "PREREQUISITE_BLOCKED" | "RECOVERY_EPOCH_MISMATCH" | "RECOVERY_REQUIRED" | "RESOURCE_NOT_FOUND" | "SCHEMA_UNSUPPORTED" | "SESSION_EXPIRED" | "STATE_CONFLICT" | "TARGET_UNREACHABLE" | "UNSUPPORTED_PLATFORM" | "VERSION_INCOMPATIBLE";
   readonly "target": string;
   readonly "retryable": boolean;
 }
@@ -1088,7 +1088,33 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "name": "code",
         "kind": "string",
         "required": true,
-        "nullable": false
+        "nullable": false,
+        "enum": [
+          "APPROVAL_REQUIRED",
+          "AUTHENTICATION_REQUIRED",
+          "AUTHORIZATION_DENIED",
+          "DEPENDENCY_UNAVAILABLE",
+          "EVIDENCE_EXPIRED",
+          "EVIDENCE_INVALID",
+          "EXECUTION_FAILED",
+          "EXECUTION_PARTIAL",
+          "GATE_BLOCKED",
+          "INPUT_INVALID",
+          "INTEGRITY_FAILURE",
+          "INTERRUPTED",
+          "MIGRATION_BLOCKED",
+          "PLAN_STALE",
+          "PREREQUISITE_BLOCKED",
+          "RECOVERY_EPOCH_MISMATCH",
+          "RECOVERY_REQUIRED",
+          "RESOURCE_NOT_FOUND",
+          "SCHEMA_UNSUPPORTED",
+          "SESSION_EXPIRED",
+          "STATE_CONFLICT",
+          "TARGET_UNREACHABLE",
+          "UNSUPPORTED_PLATFORM",
+          "VERSION_INCOMPATIBLE"
+        ]
       },
       {
         "name": "target",
@@ -1430,37 +1456,172 @@ export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => P
 export type RequestOptions = { readonly signal?: AbortSignal };
 export type ReadResult<T> = Omit<RunResult, "data"> & { readonly data: T };
 
-function decodeReadResult<T>(value: unknown, operation: string, decodeData: (data: unknown) => T): ReadResult<T> {
+function decodeReadEnvelope(value: unknown, operation: string): RunResult {
   if (!isRecord(value)) return mismatch(operation, "expected result object");
   const version = value.schemaVersion;
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/.test(version)) return mismatch(operation + ".schemaVersion", "invalid version");
   if (Number.parseInt(version.split(".")[0] ?? "", 10) !== 1) {
     throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", operation);
   }
-  const envelope = decodeRunResult(value);
-  const data = decodeData(envelope.data);
-  return { ...envelope, data };
+  return decodeRunResult(value);
 }
 
-async function readJSON(response: Response, operation: string): Promise<unknown> {
+async function readJSON(response: Response, operation: string, signal?: AbortSignal): Promise<unknown> {
+  const contentLength = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > 4_194_304) return mismatch(operation, "response is too large");
+  let body: Uint8Array;
   try {
-    return await response.json();
+    if (!response.body) throw new SyntaxError("empty response");
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > 4_194_304) {
+        await reader.cancel();
+        return mismatch(operation, "response is too large");
+      }
+      chunks.push(next.value);
+    }
+    body = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+  } catch (error) {
+    if (error instanceof ReadClientError) throw error;
+    if (cancelled(signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+    if (!(error instanceof SyntaxError)) throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
+    throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+  }
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
   } catch {
     throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
   }
 }
 
+function cancelled(signal: AbortSignal | undefined, error: unknown): boolean {
+  return signal?.aborted === true || (typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError");
+}
+
+async function performRead<T>(fetchTransport: FetchTransport, url: string, options: RequestOptions, operation: string, decodeData: (data: unknown) => T): Promise<ReadResult<T>> {
+  let response: Response;
+  try {
+    response = await fetchTransport(url, { method: "GET", cache: "no-store", credentials: "same-origin", signal: options.signal });
+  } catch (error) {
+    if (cancelled(options.signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+    throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
+  }
+  let value: unknown;
+  try {
+    value = await readJSON(response, operation, options.signal);
+  } catch (error) {
+    if (cancelled(options.signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+    throw error;
+  }
+  const envelope = decodeReadEnvelope(value, operation);
+  if (!response.ok || envelope.status !== "succeeded" || envelope.errors.length !== 0) {
+    const failure = envelope.errors[0];
+    if (!failure) return mismatch(operation, "failure response has no stable error");
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+  }
+  return { ...envelope, data: decodeData(envelope.data) };
+}
+
+function encodePathString(value: string, name: string): string {
+  if (value.length === 0 || value.length > 128) return mismatch(name, "invalid path value");
+  return encodeURIComponent(value);
+}
+
+function encodePathInteger(value: number, name: string): string {
+  if (!Number.isSafeInteger(value) || value < 1) return mismatch(name, "invalid path integer");
+  return String(value);
+}
+
+function pageQuery(value: ApiPageQuery | undefined): string {
+  if (value === undefined) return "";
+  const query = decodeApiPageQuery(value);
+  const params = new URLSearchParams();
+  if (query.limit !== undefined) params.set("limit", String(query.limit));
+  if (query.sort !== undefined) params.set("sort", query.sort);
+  if (query.cursor !== undefined) params.set("cursor", query.cursor);
+  const encoded = params.toString();
+  return encoded === "" ? "" : "?" + encoded;
+}
+
 export type ReadClient = {
+  readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
+  readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
+  readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
+  readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
+  readonly getInventoryDraftAsset: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAssetData>>;
+  readonly listInventoryDraftAssets: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAssetListData>>;
+  readonly getInventoryDraftNode: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryNodeData>>;
+  readonly listInventoryDraftNodes: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryNodeListData>>;
+  readonly getInventoryDraftObservation: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationData>>;
+  readonly listInventoryDraftObservations: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationListData>>;
+  readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
+  readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
 
 export function createReadClient(fetchTransport: FetchTransport): ReadClient {
   return {
+    async getDatabaseStatus(options = {}) {
+      const operation = "api.v1.database-status.get";
+      return performRead(fetchTransport, "/api/v1/database/status", options, operation, decodeDatabaseStatusData);
+    },
+    async getHealth(options = {}) {
+      const operation = "api.v1.health.get";
+      return performRead(fetchTransport, "/api/v1/health", options, operation, decodeServerStatusData);
+    },
+    async getInventoryDraftAlias(path, options = {}) {
+      const operation = "api.v1.inventory-draft-aliases.get";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/aliases/" + encodePathString(path.recordId, "recordId") + "", options, operation, decodeApiInventoryAliasData);
+    },
+    async listInventoryDraftAliases(path, query = {}, options = {}) {
+      const operation = "api.v1.inventory-draft-aliases.list";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/aliases" + pageQuery(query), options, operation, decodeApiInventoryAliasListData);
+    },
+    async getInventoryDraftAsset(path, options = {}) {
+      const operation = "api.v1.inventory-draft-assets.get";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/assets/" + encodePathString(path.recordId, "recordId") + "", options, operation, decodeApiInventoryAssetData);
+    },
+    async listInventoryDraftAssets(path, query = {}, options = {}) {
+      const operation = "api.v1.inventory-draft-assets.list";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/assets" + pageQuery(query), options, operation, decodeApiInventoryAssetListData);
+    },
+    async getInventoryDraftNode(path, options = {}) {
+      const operation = "api.v1.inventory-draft-nodes.get";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/nodes/" + encodePathString(path.recordId, "recordId") + "", options, operation, decodeApiInventoryNodeData);
+    },
+    async listInventoryDraftNodes(path, query = {}, options = {}) {
+      const operation = "api.v1.inventory-draft-nodes.list";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/nodes" + pageQuery(query), options, operation, decodeApiInventoryNodeListData);
+    },
+    async getInventoryDraftObservation(path, options = {}) {
+      const operation = "api.v1.inventory-draft-observations.get";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/observations/" + encodePathString(path.recordId, "recordId") + "", options, operation, decodeApiInventoryObservationData);
+    },
+    async listInventoryDraftObservations(path, query = {}, options = {}) {
+      const operation = "api.v1.inventory-draft-observations.list";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/observations" + pageQuery(query), options, operation, decodeApiInventoryObservationListData);
+    },
+    async getInventoryDraft(path, options = {}) {
+      const operation = "api.v1.inventory-drafts.get";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts/" + encodePathString(path.draftId, "draftId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "", options, operation, decodeApiInventoryDraftData);
+    },
+    async listInventoryDrafts(query = {}, options = {}) {
+      const operation = "api.v1.inventory-drafts.list";
+      return performRead(fetchTransport, "/api/v1/inventory-drafts" + pageQuery(query), options, operation, decodeApiInventoryDraftListData);
+    },
     async getSummary(options = {}) {
       const operation = "api.v1.summary.get";
-      const response = await fetchTransport("/api/v1/summary", { method: "GET", cache: "no-store", credentials: "same-origin", signal: options.signal });
-      const value = await readJSON(response, operation);
-      return decodeReadResult(value, operation, decodeApiSummaryData);
+      return performRead(fetchTransport, "/api/v1/summary", options, operation, decodeApiSummaryData);
     },
   };
 }

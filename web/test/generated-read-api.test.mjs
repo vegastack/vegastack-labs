@@ -15,7 +15,7 @@ const summary = {
   stateRevision: 8,
 };
 
-function envelope(data, schemaVersion = "1.7.0") {
+function envelope(data, schemaVersion = "1.0.0") {
   return {
     schema: "vegastack-labs.dev/run-result",
     schemaVersion,
@@ -50,4 +50,90 @@ test("generated decoder rejects another contract major", async () => {
     () => client.getSummary(),
     (error) => error instanceof ReadClientError && error.kind === "unsupported-version",
   );
+});
+
+test("finite reads use only generated same-origin GET paths and encoded queries", async () => {
+  let seen;
+  const client = createReadClient(async (url, init) => {
+    seen = { url, init };
+    return new Response(JSON.stringify(envelope(summary)));
+  });
+  const result = await client.getSummary();
+  assert.deepEqual(result.data, summary);
+  assert.equal(seen.url, "/api/v1/summary");
+  assert.equal(seen.init.method, "GET");
+  assert.equal(seen.init.cache, "no-store");
+  assert.equal(seen.init.credentials, "same-origin");
+
+  const listClient = createReadClient(async (url, init) => {
+    seen = { url, init };
+    return new Response(JSON.stringify(envelope({ items: [], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 })));
+  });
+  await listClient.listInventoryDrafts({ limit: 25, sort: "created-at", cursor: "opaque/value" });
+  assert.equal(seen.url, "/api/v1/inventory-drafts?limit=25&sort=created-at&cursor=opaque%2Fvalue");
+  assert.equal(seen.init.method, "GET");
+});
+
+test("path values are encoded inside a generated route", async () => {
+  let seen;
+  const client = createReadClient(async (url) => {
+    seen = url;
+    return new Response(JSON.stringify(envelope({
+      authority: "draft",
+      draftId: "draft/one",
+      revision: 2,
+      validationStatus: "valid",
+      contentDigest: "sha256:" + "a".repeat(64),
+      createdAt: "2026-09-10T08:00:00Z",
+      counts: { assets: 0, nodes: 0, aliases: 0, addresses: 0, observations: 0, hardwareFacts: 0, provenance: 0, findings: 0 },
+    })));
+  });
+  await client.getInventoryDraft({ draftId: "draft/one", revision: 2 });
+  assert.equal(seen, "/api/v1/inventory-drafts/draft%2Fone/revisions/2");
+});
+
+test("stable API failures preserve code, target, retryability, and correlation", async () => {
+  const failed = envelope({});
+  failed.status = "failed";
+  failed.errors = [{ code: "AUTHORIZATION_DENIED", target: "read", retryable: false }];
+  const denied = createReadClient(async () => new Response(JSON.stringify(failed), { status: 403 }));
+  await assert.rejects(
+    () => denied.getSummary(),
+    (error) => error instanceof ReadClientError && error.kind === "api" &&
+      error.code === "AUTHORIZATION_DENIED" && error.target === "read" &&
+      error.retryable === false && error.correlationId === "request-1",
+  );
+
+  failed.errors = [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: true }];
+  const unavailable = createReadClient(async () => new Response(JSON.stringify(failed), { status: 503 }));
+  await assert.rejects(
+    () => unavailable.getSummary(),
+    (error) => error.kind === "api" && error.code === "DEPENDENCY_UNAVAILABLE" && error.retryable === true,
+  );
+});
+
+test("malformed JSON, expired cursors, cancellation, and network loss stay distinct", async () => {
+  const malformed = createReadClient(async () => new Response("{"));
+  await assert.rejects(() => malformed.getSummary(), (error) => error.kind === "malformed-json");
+
+  const expiredEnvelope = envelope({});
+  expiredEnvelope.status = "failed";
+  expiredEnvelope.errors = [{ code: "STATE_CONFLICT", target: "cursor", retryable: false }];
+  const expired = createReadClient(async () => new Response(JSON.stringify(expiredEnvelope), { status: 409 }));
+  await assert.rejects(() => expired.listInventoryDrafts({ cursor: "expired" }), (error) => error.kind === "api" && error.code === "STATE_CONFLICT" && error.target === "cursor");
+
+  const controller = new AbortController();
+  controller.abort();
+  const cancelled = createReadClient(async (_url, init) => {
+    throw init.signal.reason;
+  });
+  await assert.rejects(() => cancelled.getSummary({ signal: controller.signal }), (error) => error.kind === "cancelled");
+
+  const offline = createReadClient(async () => { throw new TypeError("offline detail"); });
+  await assert.rejects(() => offline.getSummary(), (error) => error.kind === "network" && !error.message.includes("offline detail"));
+
+  const lostBody = createReadClient(async () => new Response(new ReadableStream({
+    start(controller) { controller.error(new TypeError("socket detail")); },
+  })));
+  await assert.rejects(() => lostBody.getSummary(), (error) => error.kind === "network" && !error.message.includes("socket detail"));
 });

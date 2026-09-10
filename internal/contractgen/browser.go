@@ -31,6 +31,18 @@ func browserReadEndpoints(registry metadata.Registry) ([]metadata.EndpointDefini
 func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.EndpointDefinition) ([]metadata.SchemaDefinition, error) {
 	definitions := make(map[string]metadata.SchemaDefinition, len(registry.Schemas))
 	for _, definition := range registry.Schemas {
+		definition.Fields = append([]metadata.FieldDefinition(nil), definition.Fields...)
+		if definition.ID == "vegastack-labs.dev/result-error" {
+			codes := make([]string, 0, len(registry.Errors))
+			for _, failure := range registry.Errors {
+				codes = append(codes, failure.Code)
+			}
+			for index := range definition.Fields {
+				if definition.Fields[index].JSONName == "code" {
+					definition.Fields[index].Enum = codes
+				}
+			}
+		}
 		definitions[definition.ID] = definition
 	}
 	wanted := map[string]bool{runResultSchemaID: true}
@@ -271,42 +283,221 @@ function decodeSchema(identifier: string, value: unknown, path = identifier): Re
 export type RequestOptions = { readonly signal?: AbortSignal };
 export type ReadResult<T> = Omit<RunResult, "data"> & { readonly data: T };
 
-function decodeReadResult<T>(value: unknown, operation: string, decodeData: (data: unknown) => T): ReadResult<T> {
+function decodeReadEnvelope(value: unknown, operation: string): RunResult {
   if (!isRecord(value)) return mismatch(operation, "expected result object");
   const version = value.schemaVersion;
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/.test(version)) return mismatch(operation + ".schemaVersion", "invalid version");
   if (Number.parseInt(version.split(".")[0] ?? "", 10) !== 1) {
     throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", operation);
   }
-  const envelope = decodeRunResult(value);
-  const data = decodeData(envelope.data);
-  return { ...envelope, data };
+  return decodeRunResult(value);
 }
 
-async function readJSON(response: Response, operation: string): Promise<unknown> {
+async function readJSON(response: Response, operation: string, signal?: AbortSignal): Promise<unknown> {
+  const contentLength = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(contentLength) && contentLength > 4_194_304) return mismatch(operation, "response is too large");
+  let body: Uint8Array;
   try {
-    return await response.json();
+    if (!response.body) throw new SyntaxError("empty response");
+    const reader = response.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const next = await reader.read();
+      if (next.done) break;
+      size += next.value.byteLength;
+      if (size > 4_194_304) {
+        await reader.cancel();
+        return mismatch(operation, "response is too large");
+      }
+      chunks.push(next.value);
+    }
+    body = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      body.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+  } catch (error) {
+    if (error instanceof ReadClientError) throw error;
+    if (cancelled(signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+    if (!(error instanceof SyntaxError)) throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
+    throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+  }
+  try {
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
   } catch {
     throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
   }
 }
 
-export type ReadClient = {
-  readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
-};
-
-export function createReadClient(fetchTransport: FetchTransport): ReadClient {
-  return {
-    async getSummary(options = {}) {
-      const operation = "api.v1.summary.get";
-      const response = await fetchTransport("/api/v1/summary", { method: "GET", cache: "no-store", credentials: "same-origin", signal: options.signal });
-      const value = await readJSON(response, operation);
-      return decodeReadResult(value, operation, decodeApiSummaryData);
-    },
-  };
+function cancelled(signal: AbortSignal | undefined, error: unknown): boolean {
+  return signal?.aborted === true || (typeof DOMException !== "undefined" && error instanceof DOMException && error.name === "AbortError");
 }
+
+async function performRead<T>(fetchTransport: FetchTransport, url: string, options: RequestOptions, operation: string, decodeData: (data: unknown) => T): Promise<ReadResult<T>> {
+  let response: Response;
+  try {
+    response = await fetchTransport(url, { method: "GET", cache: "no-store", credentials: "same-origin", signal: options.signal });
+  } catch (error) {
+    if (cancelled(options.signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+    throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
+  }
+  let value: unknown;
+  try {
+    value = await readJSON(response, operation, options.signal);
+  } catch (error) {
+    if (cancelled(options.signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+    throw error;
+  }
+  const envelope = decodeReadEnvelope(value, operation);
+  if (!response.ok || envelope.status !== "succeeded" || envelope.errors.length !== 0) {
+    const failure = envelope.errors[0];
+    if (!failure) return mismatch(operation, "failure response has no stable error");
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+  }
+  return { ...envelope, data: decodeData(envelope.data) };
+}
+
+function encodePathString(value: string, name: string): string {
+  if (value.length === 0 || value.length > 128) return mismatch(name, "invalid path value");
+  return encodeURIComponent(value);
+}
+
+function encodePathInteger(value: number, name: string): string {
+  if (!Number.isSafeInteger(value) || value < 1) return mismatch(name, "invalid path integer");
+  return String(value);
+}
+
+function pageQuery(value: ApiPageQuery | undefined): string {
+  if (value === undefined) return "";
+  const query = decodeApiPageQuery(value);
+  const params = new URLSearchParams();
+  if (query.limit !== undefined) params.set("limit", String(query.limit));
+  if (query.sort !== undefined) params.set("sort", query.sort);
+  if (query.cursor !== undefined) params.set("cursor", query.cursor);
+  const encoded = params.toString();
+  return encoded === "" ? "" : "?" + encoded;
+}
+
 `)
+	renderFiniteReadClient(&output, endpoints)
 	return output.Bytes()
+}
+
+func renderFiniteReadClient(output *bytes.Buffer, endpoints []metadata.EndpointDefinition) {
+	output.WriteString("export type ReadClient = {\n")
+	for _, endpoint := range endpoints {
+		if endpoint.Stream != metadata.StreamFinite {
+			continue
+		}
+		fmt.Fprintf(output, "  readonly %s: %s;\n", browserMethodName(endpoint), browserMethodType(endpoint))
+	}
+	output.WriteString("};\n\nexport function createReadClient(fetchTransport: FetchTransport): ReadClient {\n  return {\n")
+	for _, endpoint := range endpoints {
+		if endpoint.Stream != metadata.StreamFinite {
+			continue
+		}
+		renderFiniteMethod(output, endpoint)
+	}
+	output.WriteString("  };\n}\n")
+}
+
+func browserMethodType(endpoint metadata.EndpointDefinition) string {
+	parameters := browserMethodParameters(endpoint, true)
+	return "(" + parameters + ") => Promise<ReadResult<" + schemaGoName(endpoint.DataSchema) + ">>"
+}
+
+func browserMethodParameters(endpoint metadata.EndpointDefinition, typed bool) string {
+	parts := []string{}
+	params := browserPathParameters(endpoint.Path)
+	if len(params) != 0 {
+		fields := make([]string, len(params))
+		for index, name := range params {
+			kind := "string"
+			if name == "revision" {
+				kind = "number"
+			}
+			fields[index] = "readonly " + name + ": " + kind
+		}
+		value := "path"
+		if typed {
+			value += ": { " + strings.Join(fields, "; ") + " }"
+		}
+		parts = append(parts, value)
+	}
+	if endpoint.QuerySchema != "" {
+		value := "query = {}"
+		if typed {
+			value = "query?: " + schemaGoName(endpoint.QuerySchema)
+		}
+		parts = append(parts, value)
+	}
+	value := "options = {}"
+	if typed {
+		value = "options?: RequestOptions"
+	}
+	parts = append(parts, value)
+	return strings.Join(parts, ", ")
+}
+
+func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefinition) {
+	method := browserMethodName(endpoint)
+	fmt.Fprintf(output, "    async %s(%s) {\n", method, browserMethodParameters(endpoint, false))
+	fmt.Fprintf(output, "      const operation = %s;\n", strconv.Quote(endpoint.ID))
+	pathExpression := strconv.Quote(endpoint.Path)
+	for _, name := range browserPathParameters(endpoint.Path) {
+		encoder := "encodePathString"
+		if name == "revision" {
+			encoder = "encodePathInteger"
+		}
+		pathExpression = strings.Replace(pathExpression, "{"+name+"}", `" + `+encoder+`(path.`+name+`, "`+name+`") + "`, 1)
+	}
+	if endpoint.QuerySchema != "" {
+		pathExpression += " + pageQuery(query)"
+	}
+	fmt.Fprintf(output, "      return performRead(fetchTransport, %s, options, operation, decode%s);\n", pathExpression, schemaGoName(endpoint.DataSchema))
+	output.WriteString("    },\n")
+}
+
+func browserPathParameters(path string) []string {
+	parameters := []string{}
+	for {
+		start := strings.IndexByte(path, '{')
+		if start < 0 {
+			return parameters
+		}
+		end := strings.IndexByte(path[start:], '}')
+		if end < 0 {
+			return parameters
+		}
+		parameters = append(parameters, path[start+1:start+end])
+		path = path[start+end+1:]
+	}
+}
+
+func browserMethodName(endpoint metadata.EndpointDefinition) string {
+	parts := strings.Split(strings.TrimPrefix(endpoint.ID, "api.v1."), ".")
+	resource, action := parts[0], parts[len(parts)-1]
+	words := strings.Split(resource, "-")
+	if action == "get" {
+		last := len(words) - 1
+		switch words[last] {
+		case "drafts", "assets", "nodes", "aliases", "observations":
+			words[last] = strings.TrimSuffix(words[last], "s")
+			if words[last] == "aliase" {
+				words[last] = "alias"
+			}
+		}
+	}
+	for index, word := range words {
+		words[index] = strings.ToUpper(word[:1]) + word[1:]
+	}
+	prefix := "get"
+	if action == "list" {
+		prefix = "list"
+	}
+	return prefix + strings.Join(words, "")
 }
 
 func renderBrowserType(output *bytes.Buffer, schema metadata.SchemaDefinition) {
