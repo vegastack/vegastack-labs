@@ -177,7 +177,7 @@ func sourceFilterValid(value readmodel.SourceID) bool {
 	if value == "" {
 		return true
 	}
-	for _, id := range readmodel.SourceIDs {
+	for _, id := range readmodel.SourceIDValues() {
 		if value == id {
 			return true
 		}

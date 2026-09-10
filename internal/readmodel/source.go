@@ -17,7 +17,7 @@ const (
 	SourceProviders SourceID = "providers"
 )
 
-var SourceIDs = []SourceID{
+var sourceIDs = [...]SourceID{
 	SourceDatabase,
 	SourceNodes,
 	SourceGates,
@@ -25,6 +25,10 @@ var SourceIDs = []SourceID{
 	SourceServices,
 	SourceBackups,
 	SourceProviders,
+}
+
+func SourceIDValues() []SourceID {
+	return append([]SourceID(nil), sourceIDs[:]...)
 }
 
 type SourceState string
@@ -152,7 +156,7 @@ func SummarizeSources(statuses []SourceStatus) (SourceCounts, SourceState) {
 }
 
 func validSourceID(id SourceID) bool {
-	for _, candidate := range SourceIDs {
+	for _, candidate := range sourceIDs {
 		if candidate == id {
 			return true
 		}
