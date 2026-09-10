@@ -5,6 +5,8 @@ node_modules/
 .pnpm-store/
 .next/
 out/
+playwright-report/
+test-results/
 coverage/
 *.tsbuildinfo
 next-env.d.ts
