@@ -1411,8 +1411,28 @@
       "version": "1.0.0"
     },
     {
-      "id": "vegastack-labs.dev/api-summary-data",
+      "id": "vegastack-labs.dev/api-source-counts-data",
       "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-source-counts-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-source-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-source-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-source-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-source-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-source-list-query",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-source-list-query.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-summary-data",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/api-summary-data.schema.json"
     },
     {

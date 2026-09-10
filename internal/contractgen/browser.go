@@ -408,6 +408,19 @@ function pageQuery(value: ApiPageQuery | undefined): string {
   return encoded === "" ? "" : "?" + encoded;
 }
 
+function sourceListQuery(value: ApiSourceListQuery | undefined): string {
+  if (value === undefined) return "";
+  const query = decodeApiSourceListQuery(value);
+  const params = new URLSearchParams();
+  if (query.limit !== undefined) params.set("limit", String(query.limit));
+  if (query.sort !== undefined) params.set("sort", query.sort);
+  if (query.cursor !== undefined) params.set("cursor", query.cursor);
+  if (query.source !== undefined) params.set("source", query.source);
+  if (query.state !== undefined) params.set("state", query.state);
+  const encoded = params.toString();
+  return encoded === "" ? "" : "?" + encoded;
+}
+
 function parseSSEFrame<T>(frame: string, operation: string, eventName: string, decodeData: (data: unknown) => T, eventIdOf: (data: T) => number): T | null {
   const normalized = frame.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (normalized === "" || normalized.split("\n").every((line) => line === "" || line.startsWith(":"))) return null;
@@ -590,7 +603,11 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 		pathExpression = strings.Replace(pathExpression, "{"+name+"}", `" + `+encoder+`(path.`+name+`, "`+name+`") + "`, 1)
 	}
 	if endpoint.QuerySchema != "" {
-		pathExpression += " + pageQuery(query)"
+		queryFunction := "pageQuery"
+		if endpoint.QuerySchema == "vegastack-labs.dev/api-source-list-query" {
+			queryFunction = "sourceListQuery"
+		}
+		pathExpression += " + " + queryFunction + "(query)"
 	}
 	fmt.Fprintf(output, "      return performRead(fetchTransport, %s, options, operation, decode%s);\n", pathExpression, schemaGoName(endpoint.DataSchema))
 	output.WriteString("    },\n")

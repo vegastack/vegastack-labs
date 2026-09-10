@@ -1,0 +1,42 @@
+{
+  "$id": "vegastack-labs.dev/api-source-counts-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "failed": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "healthy": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stale": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "total": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "unavailable": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "unknown": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "total",
+    "healthy",
+    "stale",
+    "unknown",
+    "unavailable",
+    "failed"
+  ],
+  "title": "VegaStack Labs api source counts data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

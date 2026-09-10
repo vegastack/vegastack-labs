@@ -1,0 +1,49 @@
+{
+  "$id": "vegastack-labs.dev/api-source-list-query",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cursor": {
+      "maxLength": 2048,
+      "type": "string"
+    },
+    "limit": {
+      "maximum": 200,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "sort": {
+      "enum": [
+        "id-asc",
+        "id-desc"
+      ],
+      "type": "string"
+    },
+    "source": {
+      "enum": [
+        "database",
+        "nodes",
+        "gates",
+        "people",
+        "services",
+        "backups",
+        "providers"
+      ],
+      "type": "string"
+    },
+    "state": {
+      "enum": [
+        "healthy",
+        "stale",
+        "unknown",
+        "unavailable",
+        "failed"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [],
+  "title": "VegaStack Labs api source list query",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

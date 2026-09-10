@@ -220,6 +220,45 @@ func TestGenerateBrowserClientHasStrictTypesAndDecoders(t *testing.T) {
 	}
 }
 
+func TestGenerateEmitsStrictSourceHealthContracts(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := make(map[string][]byte, len(artifacts))
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = artifact.Content
+	}
+	for _, path := range []string{
+		"schemas/v1/api-source-data.schema.json",
+		"schemas/v1/api-source-list-data.schema.json",
+		"schemas/v1/api-source-counts-data.schema.json",
+		"schemas/v1/api-source-list-query.schema.json",
+	} {
+		var schema map[string]any
+		if err := json.Unmarshal(byPath[path], &schema); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if schema["additionalProperties"] != false {
+			t.Fatalf("%s is open", path)
+		}
+	}
+	generatedGo := string(byPath["internal/generated/contracts_gen.go"])
+	for _, declaration := range []string{"type ApiSourceData struct", "type ApiSourceListData struct", "type ApiSourceCountsData struct", "type ApiSourceListQuery struct"} {
+		if !strings.Contains(generatedGo, declaration) {
+			t.Errorf("missing %q", declaration)
+		}
+	}
+	client := string(byPath["web/generated/read-api.ts"])
+	for _, declaration := range []string{"export interface ApiSourceData", "export interface ApiSourceListData", "export interface ApiSourceListQuery", "readonly listSources:", "decodeApiSourceListData", "sourceListQuery(query)"} {
+		if !strings.Contains(client, declaration) {
+			t.Errorf("browser client missing %q", declaration)
+		}
+	}
+}
+
 func TestGenerateEmitsInventoryArtifactsAndClosedInput(t *testing.T) {
 	t.Parallel()
 
