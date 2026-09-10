@@ -1,0 +1,76 @@
+{
+  "generatedAt": "2026-07-14T09:00:00.000Z",
+  "stats": [
+    {
+      "key": "activeAgents",
+      "label": "Active agents",
+      "value": 128,
+      "delta": 12.4
+    },
+    {
+      "key": "tasksCompleted",
+      "label": "Tasks completed today",
+      "value": 946,
+      "delta": 4.1
+    },
+    {
+      "key": "apiCalls",
+      "label": "API calls (24h)",
+      "value": 18452,
+      "delta": -2.3
+    },
+    {
+      "key": "avgResponseMs",
+      "label": "Avg. response time",
+      "value": 284,
+      "delta": -6.8,
+      "unit": "ms"
+    }
+  ],
+  "usage": [
+    { "date": "Jul 08", "requests": 3120, "errors": 42 },
+    { "date": "Jul 09", "requests": 3480, "errors": 38 },
+    { "date": "Jul 10", "requests": 3050, "errors": 51 },
+    { "date": "Jul 11", "requests": 3960, "errors": 29 },
+    { "date": "Jul 12", "requests": 4210, "errors": 33 },
+    { "date": "Jul 13", "requests": 4530, "errors": 22 },
+    { "date": "Jul 14", "requests": 4890, "errors": 18 }
+  ],
+  "activity": [
+    {
+      "id": "task-1042",
+      "name": "Summarize Q2 investor report",
+      "status": "done",
+      "startedAt": "2026-07-14T08:42:00.000Z",
+      "durationMs": 84000
+    },
+    {
+      "id": "task-1041",
+      "name": "Sync CRM contacts",
+      "status": "progress",
+      "startedAt": "2026-07-14T08:51:00.000Z",
+      "durationMs": 41000
+    },
+    {
+      "id": "task-1040",
+      "name": "Draft onboarding email sequence",
+      "status": "done",
+      "startedAt": "2026-07-14T07:58:00.000Z",
+      "durationMs": 22000
+    },
+    {
+      "id": "task-1039",
+      "name": "Classify inbound support tickets",
+      "status": "blocked",
+      "startedAt": "2026-07-14T07:30:00.000Z",
+      "durationMs": 9000
+    },
+    {
+      "id": "task-1038",
+      "name": "Generate weekly usage digest",
+      "status": "done",
+      "startedAt": "2026-07-14T06:15:00.000Z",
+      "durationMs": 133000
+    }
+  ]
+}

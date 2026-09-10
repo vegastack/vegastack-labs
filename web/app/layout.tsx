@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { VegaStackProvider } from "@/components/ui/provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -12,9 +13,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
-        {children}
+        <VegaStackProvider>{children}</VegaStackProvider>
       </body>
     </html>
   );
