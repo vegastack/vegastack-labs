@@ -2,16 +2,18 @@ package api_test
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/readmodel"
@@ -55,14 +57,16 @@ func (sessions integrationSessions) LogoutBrowserSession(context.Context, string
 	return nil
 }
 
-type integrationAuthorizer struct{ calls *atomic.Int32 }
+type integrationAuthorizer struct{}
 
 func (authorizer integrationAuthorizer) AuthorizeRead(_ context.Context, principal identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
-	authorizer.calls.Add(1)
+	if principal.ID != "principal.remote" || principal.Method != identity.CloudflareAccessMethod || target.Capability != "platform.summary.read" || target.ResourceKind != "platform-summary" {
+		return authorization.ReadScope{}, failure.New(generated.ErrorCodeAuthorizationDenied, "read-scope", false)
+	}
 	return authorization.ReadScope{PrincipalID: principal.ID, Capability: target.Capability, ResourceKind: target.ResourceKind, GrantRevision: 1, ScopeDigest: "sha256:" + strings.Repeat("a", 64)}, nil
 }
 
-type integrationReads struct{ summaryCalls *atomic.Int32 }
+type integrationReads struct{}
 
 func (reads integrationReads) CurrentRevision(context.Context, authorization.ReadScope) (store.RevisionToken, error) {
 	return store.RevisionToken{StateRevision: 7, RecoveryEpoch: 2}, nil
@@ -71,7 +75,6 @@ func (reads integrationReads) DatabaseStatus(context.Context, authorization.Read
 	return readmodel.DatabaseStatus{}, nil
 }
 func (reads integrationReads) Summary(context.Context, authorization.ReadScope) (readmodel.Summary, error) {
-	reads.summaryCalls.Add(1)
 	return readmodel.Summary{DatabaseMode: "ready", ReadAvailable: true, MutationAvailable: false, StateRevision: 7, RecoveryEpoch: 2}, nil
 }
 func (reads integrationReads) ListDrafts(context.Context, authorization.ReadScope, inventory.DraftListQuery, store.RevisionToken) (readmodel.DraftPage, error) {
@@ -96,7 +99,7 @@ func (reads integrationReads) EventExists(context.Context, authorization.ReadSco
 	return false, nil
 }
 
-func TestRemoteBrowserMiddlewareReachesRealResourceAuthorizerAndSummaryHandler(t *testing.T) {
+func TestRemoteBrowserMiddlewareReachesAPIResourceAuthorizationBeforeParsing(t *testing.T) {
 	now := time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC)
 	verified := identity.VerifiedIdentity{Issuer: "https://access.example", Subject: "subject", Audiences: []string{"aud-console"}, IssuedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour), Method: identity.CloudflareAccessMethod}
 	binding, err := identity.BindingDigest(verified)
@@ -110,8 +113,7 @@ func TestRemoteBrowserMiddlewareReachesRealResourceAuthorizerAndSummaryHandler(t
 	if err != nil {
 		t.Fatal(err)
 	}
-	var authorizations, summaries atomic.Int32
-	app, err := api.NewApplication(api.Config{Authority: integrationAuthority{}, Authorizer: integrationAuthorizer{calls: &authorizations}, Reads: integrationReads{summaryCalls: &summaries}, Results: factory, Sessions: authenticator.SessionService()})
+	app, err := api.NewApplication(api.Config{Authority: integrationAuthority{}, Authorizer: integrationAuthorizer{}, Reads: integrationReads{}, Results: factory, Sessions: authenticator.SessionService()})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -130,8 +132,29 @@ func TestRemoteBrowserMiddlewareReachesRealResourceAuthorizerAndSummaryHandler(t
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || authorizations.Load() != 1 || summaries.Load() != 1 {
-		t.Fatalf("status/authorization/summary = %d/%d/%d", response.StatusCode, authorizations.Load(), summaries.Load())
+	if response.StatusCode != http.StatusOK {
+		t.Fatalf("allowed summary status = %d", response.StatusCode)
+	}
+
+	denied, err := http.NewRequest(http.MethodGet, host.URL+"/api/v1/inventory-drafts/private-canary/revisions/not-a-number", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denied.Host = "console.example"
+	denied.Header.Set("Origin", "https://console.example")
+	denied.Header.Set("Cf-Access-Jwt-Assertion", "fixture-assertion")
+	denied.AddCookie(&http.Cookie{Name: server.BrowserSessionCookieName, Value: raw})
+	deniedResponse, err := host.Client().Do(denied)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer deniedResponse.Body.Close()
+	deniedBody := new(strings.Builder)
+	if _, err := io.Copy(deniedBody, deniedResponse.Body); err != nil {
+		t.Fatal(err)
+	}
+	if deniedResponse.StatusCode != http.StatusForbidden || strings.Contains(deniedBody.String(), "private-canary") || strings.Contains(deniedBody.String(), "not-a-number") {
+		t.Fatalf("denied response = %d %s", deniedResponse.StatusCode, deniedBody.String())
 	}
 }
 
