@@ -40,6 +40,7 @@ test("contract drift, mutation availability, fixture reachability, and stale chi
 test("later additive contracts do not rewrite accepted Phase 2 evidence", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
+  assert.ok(facts.endpointIds.includes("api.v1.sources.list"));
   facts.endpointIds.push("api.v1.future-read.get");
   facts.availableCommands.push("future read");
   facts.migrations.push({ file: "0005_future.sql", sha256: "future" });
