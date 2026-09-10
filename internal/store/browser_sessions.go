@@ -118,8 +118,11 @@ func (store *Store) CreateBrowserSession(ctx context.Context, request BrowserSes
 		_, err := tx.ExecContext(ctx, `INSERT INTO browser_sessions(session_digest,binding_digest,principal_id,status,recovery_epoch,grant_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,external_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, session.Digest, session.BindingDigest, session.PrincipalID, session.Status, session.RecoveryEpoch, session.GrantRevision, formatSessionTime(session.IssuedAt), formatSessionTime(session.LastSeenAt), formatSessionTime(session.IdleExpiresAt), formatSessionTime(session.AbsoluteExpiresAt), formatSessionTime(session.ExternalExpiresAt))
 		return err
 	})
-	if err != nil || !result.Created {
+	if err != nil {
 		return BrowserSession{}, "", sessionOperationError(err)
+	}
+	if !result.Created {
+		return BrowserSession{}, "", authenticationStoreError()
 	}
 	return session, raw, nil
 }
@@ -203,8 +206,11 @@ func (store *Store) RenewBrowserSession(ctx context.Context, raw, bindingDigest 
 		_, err = tx.ExecContext(ctx, `INSERT INTO browser_sessions(session_digest,binding_digest,principal_id,status,recovery_epoch,grant_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,external_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, replacement.Digest, replacement.BindingDigest, replacement.PrincipalID, replacement.Status, replacement.RecoveryEpoch, replacement.GrantRevision, formatSessionTime(replacement.IssuedAt), formatSessionTime(replacement.LastSeenAt), formatSessionTime(replacement.IdleExpiresAt), formatSessionTime(replacement.AbsoluteExpiresAt), formatSessionTime(replacement.ExternalExpiresAt))
 		return err
 	})
-	if err != nil || !result.Created {
+	if err != nil {
 		return BrowserSession{}, "", sessionOperationError(err)
+	}
+	if !result.Created {
+		return BrowserSession{}, "", authenticationStoreError()
 	}
 	return replacement, nextRaw, nil
 }
