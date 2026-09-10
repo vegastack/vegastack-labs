@@ -144,6 +144,51 @@ func TestBrowserSessionCreateRollsBackWhenAuditFails(t *testing.T) {
 	}
 }
 
+func TestBrowserSessionDenialAndRecoveryInvalidationAreSanitizedAndAudited(t *testing.T) {
+	s, now := newSessionStore(t)
+	principal, binding := seedRemoteBinding(t, s, "principal-reader")
+	session, raw, err := s.CreateBrowserSession(context.Background(), BrowserSessionCreate{Principal: principal, BindingDigest: binding, ExternalExpiresAt: now.Now().Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AuditBrowserSessionDenial(context.Background(), principal, "session-invalid"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.conn.ExecContext(context.Background(), `UPDATE system_meta SET recovery_epoch=recovery_epoch+1 WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.InvalidateBrowserSessionsForRecoveryEpoch(context.Background(), identity.Principal{ID: "principal.local", Method: identity.LocalOSPeerMethod}); err != nil {
+		t.Fatal(err)
+	}
+	var status string
+	if err := s.conn.QueryRowContext(context.Background(), `SELECT status FROM browser_sessions WHERE session_digest=?`, session.Digest).Scan(&status); err != nil || status != string(BrowserSessionRevoked) {
+		t.Fatalf("status=%q err=%v", status, err)
+	}
+	rows, err := s.conn.QueryContext(context.Background(), `SELECT canonical_payload FROM audit_events WHERE event_type IN ('identity.session-denied','identity.session-invalidated') ORDER BY event_id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	var payloads strings.Builder
+	for rows.Next() {
+		var payload []byte
+		if err := rows.Scan(&payload); err != nil {
+			t.Fatal(err)
+		}
+		payloads.Write(payload)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	encoded := payloads.String()
+	if !strings.Contains(encoded, "identity.session-denied") || !strings.Contains(encoded, "identity.session-invalidated") || strings.Contains(encoded, raw) || strings.Contains(encoded, "private-claim") {
+		t.Fatalf("unsafe or incomplete audit payload: %s", encoded)
+	}
+	if err := s.AuditBrowserSessionDenial(context.Background(), principal, "private-claim"); Code(err) != generated.ErrorCodeInputInvalid {
+		t.Fatalf("unsafe denial reason error=%v", err)
+	}
+}
+
 type mutableClock struct {
 	mu sync.Mutex
 	at time.Time
@@ -187,7 +232,8 @@ func seedRemoteBinding(t *testing.T, s *Store, principalID string) (identity.Pri
 }
 
 func TestBrowserSessionDigestNeverContainsRawValue(t *testing.T) {
-	digest, err := BrowserSessionDigest("this-is-a-raw-session-value-with-enough-entropy")
+	raw := strings.Repeat("A", 43)
+	digest, err := BrowserSessionDigest(raw)
 	if err != nil || strings.Contains(digest, "raw-session") {
 		t.Fatalf("digest=%q err=%v", digest, err)
 	}

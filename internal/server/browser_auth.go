@@ -36,6 +36,10 @@ type browserSessionContextValue struct {
 	session store.BrowserSession
 }
 
+type browserDenialAuditor interface {
+	AuditBrowserSessionDenial(context.Context, identity.Principal, string) error
+}
+
 func NewBrowserAuthenticator(config BrowserAuthConfig) (*BrowserAuthenticator, error) {
 	origin, err := url.Parse(config.ExactOrigin)
 	if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.RawQuery != "" || origin.Fragment != "" || (origin.Path != "" && origin.Path != "/") || config.ExactHost == "" || origin.Host != config.ExactHost || config.Identities == nil || config.Sessions == nil || config.Results == nil {
@@ -47,6 +51,17 @@ func NewBrowserAuthenticator(config BrowserAuthConfig) (*BrowserAuthenticator, e
 
 func (authenticator *BrowserAuthenticator) SessionService() api.BrowserSessionService {
 	return authenticator.manager
+}
+
+// Start primes adapters that own refreshable verification material. A remote
+// listener must call this before accepting requests; refresh failure prevents
+// remote admission and never affects the independent local Unix listener.
+func (authenticator *BrowserAuthenticator) Start(ctx context.Context) error {
+	refresher, ok := authenticator.config.Identities.(interface{ Refresh(context.Context) error })
+	if !ok {
+		return nil
+	}
+	return refresher.Refresh(ctx)
 }
 
 func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler {
@@ -82,11 +97,13 @@ func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler 
 		}
 		raw, ok := exactSessionCookie(request)
 		if !ok {
+			authenticator.auditSessionDenial(ctx, bindingDigest)
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
 		session, err := authenticator.config.Sessions.ValidateAndTouchBrowserSession(ctx, raw, bindingDigest, verified.ExpiresAt)
 		if err != nil {
+			authenticator.auditSessionDenial(ctx, bindingDigest)
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
@@ -95,6 +112,18 @@ func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler 
 		ctx = withBrowserSessionContext(ctx, raw, session)
 		next.ServeHTTP(writer, request.WithContext(ctx))
 	})
+}
+
+func (authenticator *BrowserAuthenticator) auditSessionDenial(ctx context.Context, bindingDigest string) {
+	auditor, ok := authenticator.config.Sessions.(browserDenialAuditor)
+	if !ok {
+		return
+	}
+	principal, err := authenticator.config.Sessions.ResolveRemoteIdentity(ctx, bindingDigest)
+	if err != nil {
+		return
+	}
+	_ = auditor.AuditBrowserSessionDenial(ctx, principal, "session-invalid")
 }
 
 func exactSessionCookie(request *http.Request) (string, bool) {

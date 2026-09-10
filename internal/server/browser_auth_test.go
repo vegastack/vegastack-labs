@@ -32,6 +32,7 @@ type browserSessionStore struct {
 	creates   atomic.Int32
 	renews    atomic.Int32
 	logouts   atomic.Int32
+	denials   atomic.Int32
 }
 
 func (sessions *browserSessionStore) ResolveRemoteIdentity(context.Context, string) (identity.Principal, error) {
@@ -53,6 +54,10 @@ func (sessions *browserSessionStore) LogoutBrowserSession(context.Context, strin
 	sessions.logouts.Add(1)
 	return nil
 }
+func (sessions *browserSessionStore) AuditBrowserSessionDenial(context.Context, identity.Principal, string) error {
+	sessions.denials.Add(1)
+	return nil
+}
 
 func newBrowserAuthFixture(t *testing.T) (*BrowserAuthenticator, *browserIdentityAdapter, *browserSessionStore) {
 	t.Helper()
@@ -65,7 +70,7 @@ func newBrowserAuthFixture(t *testing.T) (*BrowserAuthenticator, *browserIdentit
 	}
 	sessions := &browserSessionStore{
 		principal: identity.Principal{ID: "principal.reader", Method: identity.CloudflareAccessMethod},
-		raw:       strings.Repeat("a", 43),
+		raw:       strings.Repeat("A", 43),
 		session: store.BrowserSession{BindingDigest: binding, PrincipalID: "principal.reader", Status: store.BrowserSessionActive,
 			IssuedAt: now, LastSeenAt: now, IdleExpiresAt: now.Add(15 * time.Minute), AbsoluteExpiresAt: now.Add(8 * time.Hour), ExternalExpiresAt: now.Add(time.Hour)},
 	}
@@ -131,6 +136,9 @@ func TestBrowserAuthenticatorFailsClosedBeforeDownstreamParsing(t *testing.T) {
 			authenticator.Wrap(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })).ServeHTTP(response, request)
 			if response.Code != http.StatusUnauthorized || called || strings.Contains(response.Body.String(), "private-canary") || strings.Contains(response.Body.String(), "private@example") {
 				t.Fatalf("response = %d called=%t body=%s", response.Code, called, response.Body.String())
+			}
+			if (test.name == "missing session") != (sessions.denials.Load() == 1) {
+				t.Fatalf("denial audit count = %d", sessions.denials.Load())
 			}
 		})
 	}

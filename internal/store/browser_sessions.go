@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"strconv"
 	"strings"
 	"time"
 
@@ -60,7 +61,8 @@ type BrowserSessionStore interface {
 }
 
 func BrowserSessionDigest(raw string) (string, error) {
-	if len(raw) < 32 || len(raw) > 256 || strings.TrimSpace(raw) != raw {
+	decoded, decodeErr := base64.RawURLEncoding.DecodeString(raw)
+	if decodeErr != nil || len(decoded) != 32 || base64.RawURLEncoding.EncodeToString(decoded) != raw {
 		return "", newStoreError(generated.ErrorCodeAuthenticationRequired, "browser-session", false, nil)
 	}
 	sum := sha256.Sum256([]byte(raw))
@@ -235,7 +237,7 @@ func (store *Store) LogoutBrowserSession(ctx context.Context, raw, bindingDigest
 }
 
 func (store *Store) RevokeBrowserSessions(ctx context.Context, principal identity.Principal, reason string) error {
-	if !identity.ValidPrincipal(principal) || principal.Method != identity.CloudflareAccessMethod || reason == "" || len(reason) > 64 {
+	if !identity.ValidPrincipal(principal) || principal.Method != identity.CloudflareAccessMethod || (reason != "principal-revoked" && reason != "grant-revoked" && reason != "emergency-revocation") {
 		return newStoreError(generated.ErrorCodeInputInvalid, "browser-session-revocation", false, nil)
 	}
 	target := sessionFingerprint("principal", principal.ID)
@@ -246,6 +248,44 @@ func (store *Store) RevokeBrowserSessions(ctx context.Context, principal identit
 	_, err = store.executeAuditIntent(ctx, request, false, func(ctx context.Context, tx *sql.Tx) error {
 		now := formatSessionTime(store.config.Clock().UTC())
 		_, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='revoked',ended_at=?,end_reason=? WHERE principal_id=? AND status='active'`, now, reason, principal.ID)
+		return err
+	})
+	return sessionOperationError(err)
+}
+
+func (store *Store) AuditBrowserSessionDenial(ctx context.Context, principal identity.Principal, reason string) error {
+	if !identity.ValidPrincipal(principal) || reason != "session-invalid" {
+		return newStoreError(generated.ErrorCodeInputInvalid, "browser-session-denial", false, nil)
+	}
+	_, target, err := newBrowserSessionID()
+	if err != nil {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-random", false, nil)
+	}
+	after := audit.Fingerprint(sessionFingerprint("browser-session-denial", reason))
+	request, err := browserSessionAudit("denied", principal, target, nil, after)
+	if err != nil {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
+	}
+	_, err = store.executeAuditIntent(ctx, request, false, func(context.Context, *sql.Tx) error { return nil })
+	return sessionOperationError(err)
+}
+
+func (store *Store) InvalidateBrowserSessionsForRecoveryEpoch(ctx context.Context, actor identity.Principal) error {
+	if !identity.ValidPrincipal(actor) {
+		return newStoreError(generated.ErrorCodeInputInvalid, "browser-session-invalidation", false, nil)
+	}
+	health, err := store.Health(ctx)
+	if err != nil {
+		return err
+	}
+	target := sessionFingerprint("recovery-epoch", strconv.FormatInt(health.Revision.RecoveryEpoch, 10))
+	request, err := browserSessionAudit("invalidated", actor, target, nil, audit.Fingerprint(target))
+	if err != nil {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
+	}
+	_, err = store.executeAuditIntent(ctx, request, false, func(ctx context.Context, tx *sql.Tx) error {
+		now := formatSessionTime(store.config.Clock().UTC())
+		_, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='revoked',ended_at=?,end_reason='recovery-epoch' WHERE status='active' AND recovery_epoch != (SELECT recovery_epoch FROM system_meta WHERE id=1)`, now)
 		return err
 	})
 	return sessionOperationError(err)
