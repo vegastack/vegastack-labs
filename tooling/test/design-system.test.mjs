@@ -55,6 +55,19 @@ test("public verification fails closed on copied-source drift", async () => {
   await assert.rejects(verifyPinnedDesignSystem({ root, expectedClosureSha256 }), /provider\.tsx.*digest/i);
 });
 
+test("non-owned components cannot use the owned-block digest escape", async () => {
+  const { root, expectedClosureSha256 } = await fixture();
+  const lockPath = path.join(root, "tooling/design-system-lock.json");
+  const lock = JSON.parse(await readFile(lockPath, "utf8"));
+  const providerFile = lock.items.find(item => item.name === "provider").files[0];
+  providerFile.upstreamSha256 = providerFile.sha256;
+  const changed = "export const Provider = 'changed';\n";
+  providerFile.sha256 = "sha256-" + (await import("node:crypto")).createHash("sha256").update(changed).digest("base64");
+  await writeFile(path.join(root, providerFile.path), changed);
+  await writeFile(lockPath, `${JSON.stringify(lock, null, 2)}\n`);
+  await assert.rejects(verifyPinnedDesignSystem({ root, expectedClosureSha256 }), /cannot declare an owned-block upstream digest/);
+});
+
 test("lock rejects unsafe paths, duplicates, versions, and secret material", async () => {
   for (const mutate of [
     lock => { lock.registryVersion = "0.7.0"; },

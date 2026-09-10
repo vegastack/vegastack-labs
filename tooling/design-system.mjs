@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -91,6 +91,9 @@ export async function verifyPinnedDesignSystem({ root = ROOT, lockPath = LOCK, e
     if (!Array.isArray(item.files) || item.files.length === 0) throw new Error(`${item.name} has no locked files`);
     for (const file of item.files) {
       const relative = assertSafeRelative(file.path, `${item.name} file`);
+      const ownedBlock = item.name === "dashboard-01" && item.type === "registry:block";
+      if (file.upstreamSha256 !== undefined && !ownedBlock) throw new Error(`${relative} cannot declare an owned-block upstream digest`);
+      if (file.upstreamSha256 !== undefined && !/^sha256-[A-Za-z0-9+/]+=*$/.test(file.upstreamSha256)) throw new Error(`${relative} has an invalid upstream digest`);
       if (targets.has(relative)) throw new Error(`duplicate design-system target ${relative}`);
       targets.add(relative);
       const bytes = await readFile(path.resolve(root, relative));
@@ -174,13 +177,20 @@ export async function refreshPinnedDesignSystem({ root = ROOT, registryOrigin = 
   }
   items.sort((a, b) => a.item.name.localeCompare(b.item.name));
   const expectedTargets = new Set(items.flatMap(({ item }) => item.files.map(file => installedPath(file.target ?? file.path))));
-  await runCommand("pnpm", ["--dir", "web", "exec", "shadcn", "add", "-c", ".", "-y", "@vegastack/provider", "@vegastack/dashboard-01"], { cwd: root, env, timeoutMs: 180_000 });
+  for (const { item } of items) {
+    for (const file of item.files) {
+      if (typeof file.content !== "string") throw new Error(`${item.name} contains a file without verified text content`);
+      const target = path.join(root, installedPath(file.target ?? file.path));
+      await mkdir(path.dirname(target), { recursive: true });
+      await writeFile(target, file.content, { mode: 0o644 });
+    }
+  }
   const installedTargets = [
     ...(await listFiles(path.join(root, "web/components/ui"), path.join(root, "web"))).map(file => `web/${file}`),
     ...(await listFiles(path.join(root, "web/app/dashboard"), path.join(root, "web"))).map(file => `web/${file}`),
   ];
   const unexpected = installedTargets.filter(file => !expectedTargets.has(file));
-  if (unexpected.length) throw new Error(`shadcn wrote files outside the verified target set: ${unexpected.join(", ")}`);
+  if (unexpected.length) throw new Error(`refresh target directories contain files outside the verified source set: ${unexpected.join(", ")}`);
   const lockedItems = [];
   for (const { item, savePath } of items) {
     await runCommand("pnpm", ["--dir", "web", "exec", "vegastack-design", "verify", "--post-write", "--item", savePath, "--expected-integrity", item.meta.integrity, "--target-dir", "."], { cwd: root, env, timeoutMs: 120_000 });
