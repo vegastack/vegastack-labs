@@ -54,3 +54,20 @@ func (remoteAdapterStub) Verify(context.Context, string) (VerifiedIdentity, erro
 }
 
 var _ VerifiedIdentityAdapter = remoteAdapterStub{}
+
+func TestVerifiedRemoteIdentityContextRejectsForgedValuesAndCopiesAudiences(t *testing.T) {
+	now := time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC)
+	value := VerifiedIdentity{Issuer: "https://access.example", Subject: "subject", Audiences: []string{"aud"}, IssuedAt: now, ExpiresAt: now.Add(time.Hour), Method: CloudflareAccessMethod}
+	ctx, err := WithVerifiedRemoteIdentity(context.Background(), value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.Audiences[0] = "changed"
+	got, ok := RemoteIdentityFromContext(ctx)
+	if !ok || got.Audiences[0] != "aud" {
+		t.Fatalf("context identity = %#v, %t", got, ok)
+	}
+	if _, err := WithVerifiedRemoteIdentity(context.Background(), VerifiedIdentity{Method: CloudflareAccessMethod}); err == nil {
+		t.Fatal("invalid remote identity entered context")
+	}
+}

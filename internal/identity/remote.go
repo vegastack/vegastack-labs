@@ -38,6 +38,26 @@ type VerifiedIdentityAdapter interface {
 	Verify(context.Context, string) (VerifiedIdentity, error)
 }
 
+type remoteIdentityContextKey struct{}
+type remoteIdentityContextValue struct{ identity VerifiedIdentity }
+
+func WithVerifiedRemoteIdentity(ctx context.Context, value VerifiedIdentity) (context.Context, error) {
+	if !validRemoteIdentity(value) {
+		return ctx, failure.New("AUTHENTICATION_REQUIRED", "remote-identity", false)
+	}
+	value.Audiences = append([]string(nil), value.Audiences...)
+	return context.WithValue(ctx, remoteIdentityContextKey{}, remoteIdentityContextValue{identity: value}), nil
+}
+
+func RemoteIdentityFromContext(ctx context.Context) (VerifiedIdentity, bool) {
+	wrapped, ok := ctx.Value(remoteIdentityContextKey{}).(remoteIdentityContextValue)
+	if !ok || !validRemoteIdentity(wrapped.identity) {
+		return VerifiedIdentity{}, false
+	}
+	wrapped.identity.Audiences = append([]string(nil), wrapped.identity.Audiences...)
+	return wrapped.identity, true
+}
+
 func BindingDigest(value VerifiedIdentity) (string, error) {
 	if !validRemoteIdentity(value) {
 		return "", failure.New("AUTHENTICATION_REQUIRED", "remote-identity", false)

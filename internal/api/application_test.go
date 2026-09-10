@@ -35,6 +35,24 @@ func (fn queryDecoderFunc) Decode(values url.Values, spec QuerySpec) (ValidatedQ
 	return fn(values, spec)
 }
 
+type testBrowserSessions struct {
+	calls int
+}
+
+func (sessions *testBrowserSessions) result() (BrowserSessionResult, error) {
+	sessions.calls++
+	return BrowserSessionResult{Data: generated.ApiBrowserSessionData{PrincipalID: "principal.remote", IdleExpiresAt: "2026-09-10T09:15:00Z", AbsoluteExpiresAt: "2026-09-10T17:00:00Z", LogoutScope: "vsk-labs-session-only"}, Cookie: &http.Cookie{Name: "vsk_labs_session", Value: "opaque", Path: "/", Secure: true, HttpOnly: true, SameSite: http.SameSiteStrictMode}}, nil
+}
+func (sessions *testBrowserSessions) Create(context.Context) (BrowserSessionResult, error) {
+	return sessions.result()
+}
+func (sessions *testBrowserSessions) Renew(context.Context) (BrowserSessionResult, error) {
+	return sessions.result()
+}
+func (sessions *testBrowserSessions) Logout(context.Context) (BrowserSessionResult, error) {
+	return sessions.result()
+}
+
 type testAuthority struct{}
 
 func (testAuthority) Health(context.Context) (store.Health, error) { return store.Health{}, nil }
@@ -126,6 +144,63 @@ func TestHandlerAuthorizesBeforeQueryCursorOrResourceLookup(t *testing.T) {
 	}
 	if strings.Contains(response.Body.String(), "secret-canary") {
 		t.Fatal("denial echoed protected query")
+	}
+}
+
+func TestVerifiedRemotePrincipalUsesRealHandlerResourceAuthorizationBeforeParsing(t *testing.T) {
+	var calls []string
+	app, err := NewApplication(Config{
+		Authority: testAuthority{},
+		Authorizer: authorizerFunc(func(_ context.Context, principal identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
+			calls = append(calls, "authorize")
+			if principal.Method != identity.CloudflareAccessMethod || target.Capability != "inventory.draft.read" {
+				t.Fatalf("principal/target = %#v/%#v", principal, target)
+			}
+			return authorization.ReadScope{}, failure.New(generated.ErrorCodeAuthorizationDenied, "read", false)
+		}),
+		Reads: testReads{onCall: func() { calls = append(calls, "lookup") }}, Results: result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-test", nil }), Cursors: testCursor{},
+		Queries: queryDecoderFunc(func(url.Values, QuerySpec) (ValidatedQuery, error) {
+			calls = append(calls, "query")
+			return ValidatedQuery{}, nil
+		}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/inventory-drafts?cursor=private-malformed", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.remote", Method: identity.CloudflareAccessMethod}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden || !reflect.DeepEqual(calls, []string{"authorize"}) || strings.Contains(response.Body.String(), "private-malformed") {
+		t.Fatalf("response/calls = %d/%v/%s", response.Code, calls, response.Body.String())
+	}
+}
+
+func TestSessionAPIUsesStrictBodyAndSecureCookie(t *testing.T) {
+	sessions := &testBrowserSessions{}
+	app, err := NewApplication(Config{Authority: testAuthority{}, Authorizer: authorizerFunc(func(context.Context, identity.Principal, authorization.ReadTarget) (authorization.ReadScope, error) {
+		return authorization.ReadScope{}, nil
+	}), Reads: testReads{}, Results: result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-test", nil }), Cursors: testCursor{}, Sessions: sessions})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(`{"requestVersion":"1.0.0"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || sessions.calls != 1 {
+		t.Fatalf("response/calls = %d/%d/%s", response.Code, sessions.calls, response.Body.String())
+	}
+	cookies := response.Result().Cookies()
+	if len(cookies) != 1 || cookies[0].Name != "vsk_labs_session" || !cookies[0].Secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode {
+		t.Fatalf("cookies = %#v", cookies)
+	}
+	request = httptest.NewRequest(http.MethodPost, "/api/v1/session", strings.NewReader(`{"requestVersion":"1.0.0","private":"canary"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response = httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusBadRequest || sessions.calls != 1 || strings.Contains(response.Body.String(), "canary") {
+		t.Fatalf("malformed response/calls = %d/%d/%s", response.Code, sessions.calls, response.Body.String())
 	}
 }
 
