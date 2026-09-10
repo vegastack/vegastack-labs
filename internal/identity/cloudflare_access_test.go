@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -19,12 +20,17 @@ import (
 )
 
 type accessFixture struct {
-	server   *httptest.Server
-	key      *rsa.PrivateKey
-	kid      string
-	now      time.Time
-	requests atomic.Int64
-	fail     atomic.Bool
+	server    *httptest.Server
+	key       *rsa.PrivateKey
+	kid       string
+	extraKeys []jose.JSONWebKey
+	now       time.Time
+	requests  atomic.Int64
+	fail      atomic.Bool
+
+	blockRequest   atomic.Int64
+	refreshStarted chan struct{}
+	releaseRefresh chan struct{}
 }
 
 func newAccessFixture(t *testing.T) *accessFixture {
@@ -34,13 +40,21 @@ func newAccessFixture(t *testing.T) *accessFixture {
 		t.Fatal(err)
 	}
 	fixture := &accessFixture{key: key, kid: "key-current", now: time.Date(2026, 9, 10, 9, 0, 0, 0, time.UTC)}
+	fixture.refreshStarted = make(chan struct{})
+	fixture.releaseRefresh = make(chan struct{})
 	fixture.server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		fixture.requests.Add(1)
+		requestNumber := fixture.requests.Add(1)
+		if fixture.blockRequest.Load() == requestNumber {
+			close(fixture.refreshStarted)
+			<-fixture.releaseRefresh
+		}
 		if fixture.fail.Load() {
 			http.Error(w, "provider detail that must remain private", http.StatusServiceUnavailable)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &fixture.key.PublicKey, KeyID: fixture.kid, Algorithm: string(jose.RS256), Use: "sig"}}})
+		keys := []jose.JSONWebKey{{Key: &fixture.key.PublicKey, KeyID: fixture.kid, Algorithm: string(jose.RS256), Use: "sig"}}
+		keys = append(keys, fixture.extraKeys...)
+		_ = json.NewEncoder(w).Encode(jose.JSONWebKeySet{Keys: keys})
 	}))
 	t.Cleanup(fixture.server.Close)
 	return fixture
@@ -110,6 +124,83 @@ func TestCloudflareAccessAdapterValidatesRS256AndRefreshesUnknownKey(t *testing.
 	}
 }
 
+func TestCloudflareAccessAdapterCoalescesConcurrentUnknownKeyRefresh(t *testing.T) {
+	for _, test := range []struct {
+		name              string
+		publishUnknownKey bool
+		providerFails     bool
+		wantCode          string
+	}{
+		{name: "rotated key becomes available", publishUnknownKey: true},
+		{name: "key remains unknown", wantCode: "AUTHENTICATION_REQUIRED"},
+		{name: "key provider fails", providerFails: true, wantCode: "AUTHENTICATION_REQUIRED"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			fixture := newAccessFixture(t)
+			now := fixture.now
+			adapter := fixture.adapter(t, func() time.Time { return now })
+			if err := adapter.Refresh(context.Background()); err != nil {
+				t.Fatal(err)
+			}
+
+			unknownKey, err := rsa.GenerateKey(rand.Reader, 2048)
+			if err != nil {
+				t.Fatal(err)
+			}
+			const unknownKID = "key-unknown-to-cache"
+			token := fixture.token(t, unknownKey, unknownKID, fixture.server.URL, jwt.Audience{"aud-console"}, now.Add(-time.Minute), now.Add(-time.Minute), now.Add(time.Hour))
+			if test.publishUnknownKey {
+				fixture.key = unknownKey
+				fixture.kid = unknownKID
+			}
+			fixture.fail.Store(test.providerFails)
+
+			baselineRequests := fixture.requests.Load()
+			fixture.blockRequest.Store(baselineRequests + 1)
+			const workers = 8
+			start := make(chan struct{})
+			var ready sync.WaitGroup
+			ready.Add(workers)
+			results := make(chan error, workers)
+			for range workers {
+				go func() {
+					<-start
+					ready.Done()
+					_, verifyErr := adapter.Verify(context.Background(), token)
+					results <- verifyErr
+				}()
+			}
+			close(start)
+			ready.Wait()
+			<-fixture.refreshStarted
+			// Keep the first network refresh in flight long enough for every
+			// verifier to queue behind the same observed cache generation.
+			time.Sleep(25 * time.Millisecond)
+			close(fixture.releaseRefresh)
+
+			for range workers {
+				if code := authCode(<-results); code != test.wantCode {
+					t.Fatalf("verification code = %q, want %q", code, test.wantCode)
+				}
+			}
+			if got := fixture.requests.Load() - baselineRequests; got != 1 {
+				t.Fatalf("concurrent unknown key caused %d JWKS fetches, want 1", got)
+			}
+			if test.providerFails {
+				fixture.fail.Store(false)
+				fixture.key = unknownKey
+				fixture.kid = unknownKID
+				if _, err := adapter.Verify(context.Background(), token); err != nil {
+					t.Fatalf("later request did not retry recovered provider: %v", err)
+				}
+				if got := fixture.requests.Load() - baselineRequests; got != 2 {
+					t.Fatalf("recovery request count = %d, want 2", got)
+				}
+			}
+		})
+	}
+}
+
 func TestCloudflareAccessAdapterRejectsAdversarialTokens(t *testing.T) {
 	fixture := newAccessFixture(t)
 	now := fixture.now
@@ -119,6 +210,8 @@ func TestCloudflareAccessAdapterRejectsAdversarialTokens(t *testing.T) {
 	}
 	other, _ := rsa.GenerateKey(rand.Reader, 2048)
 	tests := map[string]string{
+		"unsigned":       "eyJhbGciOiJub25lIn0.eyJzdWIiOiJvcGFxdWUtc3ViamVjdCJ9.",
+		"missing key id": signedAccessTokenWithoutKeyID(t, fixture.key, fixture.server.URL, now),
 		"unknown key":    fixture.token(t, other, "unknown", fixture.server.URL, jwt.Audience{"aud-console"}, now.Add(-time.Minute), now.Add(-time.Minute), now.Add(time.Hour)),
 		"wrong issuer":   fixture.token(t, fixture.key, fixture.kid, "https://wrong.example", jwt.Audience{"aud-console"}, now.Add(-time.Minute), now.Add(-time.Minute), now.Add(time.Hour)),
 		"wrong audience": fixture.token(t, fixture.key, fixture.kid, fixture.server.URL, jwt.Audience{"aud-other"}, now.Add(-time.Minute), now.Add(-time.Minute), now.Add(time.Hour)),
@@ -136,6 +229,47 @@ func TestCloudflareAccessAdapterRejectsAdversarialTokens(t *testing.T) {
 	if _, err := adapter.Verify(context.Background(), strings.Repeat("x", 16*1024+1)); authCode(err) != "AUTHENTICATION_REQUIRED" {
 		t.Fatalf("oversized token error = %v", err)
 	}
+}
+
+func TestCloudflareAccessAdapterAcceptsCurrentAndPreviousProviderKeys(t *testing.T) {
+	fixture := newAccessFixture(t)
+	previous, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.extraKeys = []jose.JSONWebKey{{Key: &previous.PublicKey, KeyID: "key-previous", Algorithm: string(jose.RS256), Use: "sig"}}
+	adapter := fixture.adapter(t, func() time.Time { return fixture.now })
+	if err := adapter.Refresh(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	for _, candidate := range []struct {
+		name string
+		key  *rsa.PrivateKey
+		kid  string
+	}{{"current", fixture.key, fixture.kid}, {"previous", previous, "key-previous"}} {
+		t.Run(candidate.name, func(t *testing.T) {
+			token := fixture.token(t, candidate.key, candidate.kid, fixture.server.URL, jwt.Audience{"aud-console"}, fixture.now.Add(-time.Minute), fixture.now.Add(-time.Minute), fixture.now.Add(time.Hour))
+			if _, err := adapter.Verify(context.Background(), token); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func signedAccessTokenWithoutKeyID(t *testing.T, key *rsa.PrivateKey, issuer string, now time.Time) string {
+	t.Helper()
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: key}, (&jose.SignerOptions{}).WithType("JWT"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	token, err := jwt.Signed(signer).Claims(jwt.Claims{
+		Issuer: issuer, Subject: "opaque-subject", Audience: jwt.Audience{"aud-console"},
+		IssuedAt: jwt.NewNumericDate(now.Add(-time.Minute)), NotBefore: jwt.NewNumericDate(now.Add(-time.Minute)), Expiry: jwt.NewNumericDate(now.Add(time.Hour)),
+	}).Serialize()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
 }
 
 func TestCloudflareAccessAdapterRejectsWrongAlgorithm(t *testing.T) {

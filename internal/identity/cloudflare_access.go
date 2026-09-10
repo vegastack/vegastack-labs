@@ -41,10 +41,12 @@ type CloudflareAccessAdapter struct {
 	client *http.Client
 	clock  func() time.Time
 
-	refreshMu sync.Mutex
-	cacheMu   sync.RWMutex
-	keys      map[string]jose.JSONWebKey
-	lastFetch time.Time
+	refreshMu         sync.Mutex
+	cacheMu           sync.RWMutex
+	keys              map[string]jose.JSONWebKey
+	lastFetch         time.Time
+	refreshGeneration uint64
+	lastRefreshFailed bool
 }
 
 func NewCloudflareAccessAdapter(config CloudflareAccessConfig, client *http.Client, clock func() time.Time) (*CloudflareAccessAdapter, error) {
@@ -77,7 +79,36 @@ func (adapter *CloudflareAccessAdapter) Refresh(ctx context.Context) error {
 	}
 	adapter.refreshMu.Lock()
 	defer adapter.refreshMu.Unlock()
+	return adapter.refreshAndRecord(ctx)
+}
 
+func (adapter *CloudflareAccessAdapter) refreshIfGeneration(ctx context.Context, observed uint64) error {
+	adapter.refreshMu.Lock()
+	defer adapter.refreshMu.Unlock()
+
+	adapter.cacheMu.RLock()
+	current := adapter.refreshGeneration
+	failed := adapter.lastRefreshFailed
+	adapter.cacheMu.RUnlock()
+	if current != observed {
+		if failed {
+			return authenticationFailure("remote-key-set")
+		}
+		return nil
+	}
+	return adapter.refreshAndRecord(ctx)
+}
+
+func (adapter *CloudflareAccessAdapter) refreshAndRecord(ctx context.Context) error {
+	err := adapter.refresh(ctx)
+	adapter.cacheMu.Lock()
+	adapter.refreshGeneration++
+	adapter.lastRefreshFailed = err != nil
+	adapter.cacheMu.Unlock()
+	return err
+}
+
+func (adapter *CloudflareAccessAdapter) refresh(ctx context.Context) error {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, adapter.config.CertificatesURL, nil)
 	if err != nil {
 		return authenticationFailure("remote-key-set")
@@ -130,14 +161,14 @@ func (adapter *CloudflareAccessAdapter) Verify(ctx context.Context, assertion st
 	if header.Algorithm != string(jose.RS256) || header.KeyID == "" || len(header.KeyID) > 256 || header.JSONWebKey != nil {
 		return VerifiedIdentity{}, authenticationFailure("access-assertion")
 	}
-	key, found, current := adapter.cachedKey(header.KeyID)
+	key, found, current, generation := adapter.cachedKey(header.KeyID)
 	if !found || !current {
-		if err := adapter.Refresh(ctx); err != nil {
+		if err := adapter.refreshIfGeneration(ctx, generation); err != nil {
 			if !found || !current {
 				return VerifiedIdentity{}, authenticationFailure("access-assertion")
 			}
 		}
-		key, found, current = adapter.cachedKey(header.KeyID)
+		key, found, current, _ = adapter.cachedKey(header.KeyID)
 	}
 	if !found || !current {
 		return VerifiedIdentity{}, authenticationFailure("access-assertion")
@@ -165,13 +196,13 @@ func (adapter *CloudflareAccessAdapter) Verify(ctx context.Context, assertion st
 	return verified, nil
 }
 
-func (adapter *CloudflareAccessAdapter) cachedKey(kid string) (jose.JSONWebKey, bool, bool) {
+func (adapter *CloudflareAccessAdapter) cachedKey(kid string) (jose.JSONWebKey, bool, bool, uint64) {
 	adapter.cacheMu.RLock()
 	defer adapter.cacheMu.RUnlock()
 	key, found := adapter.keys[kid]
 	age := adapter.clock().UTC().Sub(adapter.lastFetch)
 	current := !adapter.lastFetch.IsZero() && age >= 0 && age <= adapter.config.KnownKeyOutageLimit
-	return key, found, current
+	return key, found, current, adapter.refreshGeneration
 }
 
 func authenticationFailure(target string) error {

@@ -45,6 +45,202 @@ func TestBrowserSessionLifecycleStoresOnlyDigestsAndAuditsAtomically(t *testing.
 	}
 }
 
+func TestBrowserSessionExpiryTransitionsAndAuditsExactlyOnce(t *testing.T) {
+	tests := []struct {
+		name           string
+		advance        time.Duration
+		prepare        func(*testing.T, *Store, BrowserSession)
+		externalAt     func(*mutableClock) time.Time
+		operation      func(*Store, string, string, time.Time) error
+		expectedReason string
+	}{
+		{
+			name:           "idle",
+			advance:        BrowserSessionIdleLimit + time.Second,
+			externalAt:     func(now *mutableClock) time.Time { return now.Now().Add(time.Hour) },
+			operation:      validateBrowserSessionForExpiryTest,
+			expectedReason: "idle-timeout",
+		},
+		{
+			name:    "absolute",
+			advance: BrowserSessionAbsoluteLimit + time.Second,
+			prepare: func(t *testing.T, s *Store, session BrowserSession) {
+				t.Helper()
+				if _, err := s.conn.ExecContext(context.Background(), `UPDATE browser_sessions SET idle_expires_at=absolute_expires_at WHERE session_digest=? AND status='active'`, session.Digest); err != nil {
+					t.Fatal(err)
+				}
+			},
+			externalAt:     func(now *mutableClock) time.Time { return now.Now().Add(time.Hour) },
+			operation:      renewBrowserSessionForExpiryTest,
+			expectedReason: "absolute-timeout",
+		},
+		{
+			name:           "external",
+			advance:        time.Minute,
+			externalAt:     func(now *mutableClock) time.Time { return now.Now().Add(-time.Second) },
+			operation:      validateBrowserSessionForExpiryTest,
+			expectedReason: "external-expiry",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			s, now := newSessionStore(t)
+			principal, binding := seedRemoteBinding(t, s, "principal-reader")
+			session, raw, err := s.CreateBrowserSession(context.Background(), BrowserSessionCreate{Principal: principal, BindingDigest: binding, ExternalExpiresAt: now.Now().Add(10 * time.Hour)})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.prepare != nil {
+				test.prepare(t, s, session)
+			}
+			now.Set(now.Now().Add(test.advance))
+			externalAt := test.externalAt(now)
+			if err := test.operation(s, raw, binding, externalAt); Code(err) != generated.ErrorCodeAuthenticationRequired {
+				t.Fatalf("expiry error = %v", err)
+			}
+
+			var status, endedAt, reason string
+			if err := s.conn.QueryRowContext(context.Background(), `SELECT status,ended_at,end_reason FROM browser_sessions WHERE session_digest=?`, session.Digest).Scan(&status, &endedAt, &reason); err != nil {
+				t.Fatal(err)
+			}
+			if status != string(BrowserSessionExpired) || endedAt != formatSessionTime(now.Now()) || reason != test.expectedReason {
+				t.Fatalf("expired row = status %q ended %q reason %q", status, endedAt, reason)
+			}
+			var auditCount int
+			var payload []byte
+			if err := s.conn.QueryRowContext(context.Background(), `SELECT count(*),canonical_payload FROM audit_events WHERE event_type='identity.session-expired' AND target_id=?`, session.Digest).Scan(&auditCount, &payload); err != nil {
+				t.Fatal(err)
+			}
+			if auditCount != 1 || !strings.Contains(string(payload), "identity.session-expired") || strings.Contains(string(payload), raw) {
+				t.Fatalf("expiry audit count=%d payload=%s", auditCount, payload)
+			}
+
+			if err := test.operation(s, raw, binding, externalAt); Code(err) != generated.ErrorCodeAuthenticationRequired {
+				t.Fatalf("replayed expiry error = %v", err)
+			}
+			if err := s.conn.QueryRowContext(context.Background(), `SELECT count(*) FROM audit_events WHERE event_type='identity.session-expired' AND target_id=?`, session.Digest).Scan(&auditCount); err != nil || auditCount != 1 {
+				t.Fatalf("replayed expiry audit count=%d err=%v", auditCount, err)
+			}
+		})
+	}
+}
+
+func TestBrowserSessionExpiryRollsBackWhenAuditFails(t *testing.T) {
+	s, now := newSessionStore(t)
+	principal, binding := seedRemoteBinding(t, s, "principal-reader")
+	session, raw, err := s.CreateBrowserSession(context.Background(), BrowserSessionCreate{Principal: principal, BindingDigest: binding, ExternalExpiresAt: now.Now().Add(time.Hour)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	now.Set(now.Now().Add(BrowserSessionIdleLimit + time.Second))
+	s.auditFault = func(stage auditIntentStage) error {
+		if stage == auditAfterEvent {
+			return errors.New("injected expiry audit failure")
+		}
+		return nil
+	}
+	if _, err := s.ValidateAndTouchBrowserSession(context.Background(), raw, binding, now.Now().Add(time.Hour)); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("expiry audit failure = %v", err)
+	}
+	var status string
+	var endedAt, reason *string
+	if err := s.conn.QueryRowContext(context.Background(), `SELECT status,ended_at,end_reason FROM browser_sessions WHERE session_digest=?`, session.Digest).Scan(&status, &endedAt, &reason); err != nil {
+		t.Fatal(err)
+	}
+	if status != string(BrowserSessionActive) || endedAt != nil || reason != nil {
+		t.Fatalf("failed audit left row status=%q ended=%v reason=%v", status, endedAt, reason)
+	}
+	var auditCount int
+	if err := s.conn.QueryRowContext(context.Background(), `SELECT count(*) FROM audit_events WHERE event_type='identity.session-expired' AND target_id=?`, session.Digest).Scan(&auditCount); err != nil || auditCount != 0 {
+		t.Fatalf("rolled-back expiry audits=%d err=%v", auditCount, err)
+	}
+}
+
+func TestRepeatedBrowserSessionRevocationUsesCurrentSessionGeneration(t *testing.T) {
+	s, now := newSessionStore(t)
+	principal, binding := seedRemoteBinding(t, s, "principal-reader")
+
+	create := func() (BrowserSession, string) {
+		t.Helper()
+		session, raw, err := s.CreateBrowserSession(context.Background(), BrowserSessionCreate{Principal: principal, BindingDigest: binding, ExternalExpiresAt: now.Now().Add(time.Hour)})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return session, raw
+	}
+	assertRevoked := func(session BrowserSession, raw, reason string) {
+		t.Helper()
+		var status, storedReason string
+		if err := s.conn.QueryRowContext(context.Background(), `SELECT status,end_reason FROM browser_sessions WHERE session_digest=?`, session.Digest).Scan(&status, &storedReason); err != nil {
+			t.Fatal(err)
+		}
+		if status != string(BrowserSessionRevoked) || storedReason != reason {
+			t.Fatalf("revoked row = status %q reason %q", status, storedReason)
+		}
+		if _, err := s.ValidateAndTouchBrowserSession(context.Background(), raw, binding, now.Now().Add(time.Hour)); Code(err) != generated.ErrorCodeAuthenticationRequired {
+			t.Fatalf("revoked session remained valid: %v", err)
+		}
+	}
+	auditCount := func() int {
+		t.Helper()
+		var count int
+		if err := s.conn.QueryRowContext(context.Background(), `SELECT count(*) FROM audit_events WHERE event_type='identity.session-revoked'`).Scan(&count); err != nil {
+			t.Fatal(err)
+		}
+		return count
+	}
+
+	first, firstRaw := create()
+	if err := s.RevokeBrowserSessions(context.Background(), principal, "emergency-revocation"); err != nil {
+		t.Fatal(err)
+	}
+	assertRevoked(first, firstRaw, "emergency-revocation")
+	if count := auditCount(); count != 1 {
+		t.Fatalf("first revocation audit count=%d", count)
+	}
+	if err := s.RevokeBrowserSessions(context.Background(), principal, "emergency-revocation"); err != nil {
+		t.Fatal(err)
+	}
+	if count := auditCount(); count != 1 {
+		t.Fatalf("same-generation replay audit count=%d", count)
+	}
+
+	second, secondRaw := create()
+	if err := s.RevokeBrowserSessions(context.Background(), principal, "emergency-revocation"); err != nil {
+		t.Fatal(err)
+	}
+	assertRevoked(second, secondRaw, "emergency-revocation")
+	if count := auditCount(); count != 2 {
+		t.Fatalf("second generation audit count=%d", count)
+	}
+
+	third, thirdRaw := create()
+	if err := s.RevokeBrowserSessions(context.Background(), principal, "grant-revoked"); err != nil {
+		t.Fatal(err)
+	}
+	assertRevoked(third, thirdRaw, "grant-revoked")
+	if count := auditCount(); count != 3 {
+		t.Fatalf("different-reason generation audit count=%d", count)
+	}
+	if err := s.RevokeBrowserSessions(context.Background(), principal, "grant-revoked"); err != nil {
+		t.Fatal(err)
+	}
+	var active int
+	if err := s.conn.QueryRowContext(context.Background(), `SELECT count(*) FROM browser_sessions WHERE principal_id=? AND status='active'`, principal.ID).Scan(&active); err != nil || active != 0 || auditCount() != 3 {
+		t.Fatalf("revocation postcondition active=%d audit=%d err=%v", active, auditCount(), err)
+	}
+}
+
+func validateBrowserSessionForExpiryTest(s *Store, raw, binding string, externalAt time.Time) error {
+	_, err := s.ValidateAndTouchBrowserSession(context.Background(), raw, binding, externalAt)
+	return err
+}
+
+func renewBrowserSessionForExpiryTest(s *Store, raw, binding string, externalAt time.Time) error {
+	_, _, err := s.RenewBrowserSession(context.Background(), raw, binding, externalAt)
+	return err
+}
+
 func TestBrowserSessionRenewalIsExactlyOnceAndOldValueCannotReplay(t *testing.T) {
 	s, now := newSessionStore(t)
 	principal, binding := seedRemoteBinding(t, s, "principal-reader")

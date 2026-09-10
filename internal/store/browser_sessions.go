@@ -132,35 +132,37 @@ func (store *Store) ValidateAndTouchBrowserSession(ctx context.Context, raw, bin
 	if err != nil || !validSessionDigest(bindingDigest) {
 		return BrowserSession{}, authenticationStoreError()
 	}
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if err := store.readyForTransaction(ctx); err != nil {
-		return BrowserSession{}, err
-	}
-	tx, err := store.conn.BeginTx(ctx, nil)
+	var session BrowserSession
+	var expired bool
+	_, err = store.executePreparedBrowserSessionAudit(ctx, func(ctx context.Context, tx *sql.Tx) (preparedBrowserSessionAudit, error) {
+		current, err := loadActiveBrowserSession(ctx, tx, digest, bindingDigest)
+		if err != nil {
+			return preparedBrowserSessionAudit{}, err
+		}
+		now := store.config.Clock().UTC()
+		if reason, isExpired := browserSessionExpiryReason(current, now, externalExpiresAt); isExpired {
+			expired = true
+			return prepareBrowserSessionExpiry(current, digest, bindingDigest, reason, now)
+		}
+		session = current
+		session.LastSeenAt = now
+		session.IdleExpiresAt = earliestTime(now.Add(BrowserSessionIdleLimit), session.AbsoluteExpiresAt, session.ExternalExpiresAt, externalExpiresAt.UTC())
+		return preparedBrowserSessionAudit{Business: func(ctx context.Context, tx *sql.Tx) error {
+			result, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET last_seen_at=?,idle_expires_at=? WHERE session_digest=? AND status='active'`, formatSessionTime(session.LastSeenAt), formatSessionTime(session.IdleExpiresAt), digest)
+			if err != nil {
+				return err
+			}
+			if rows, rowsErr := result.RowsAffected(); rowsErr != nil || rows != 1 {
+				return authenticationStoreError()
+			}
+			return nil
+		}}, nil
+	})
 	if err != nil {
-		return BrowserSession{}, store.transactionError(ctx, err)
+		return BrowserSession{}, sessionOperationError(err)
 	}
-	defer func() { _ = tx.Rollback() }()
-	session, err := loadActiveBrowserSession(ctx, tx, digest, bindingDigest)
-	if err != nil || !sessionCurrent(session, store.config.Clock().UTC(), externalExpiresAt) {
+	if expired {
 		return BrowserSession{}, authenticationStoreError()
-	}
-	now := store.config.Clock().UTC()
-	session.LastSeenAt = now
-	session.IdleExpiresAt = earliestTime(now.Add(BrowserSessionIdleLimit), session.AbsoluteExpiresAt, session.ExternalExpiresAt, externalExpiresAt.UTC())
-	result, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET last_seen_at=?,idle_expires_at=? WHERE session_digest=? AND status='active'`, formatSessionTime(session.LastSeenAt), formatSessionTime(session.IdleExpiresAt), digest)
-	if err != nil {
-		return BrowserSession{}, store.transactionError(ctx, err)
-	}
-	if rows, rowsErr := result.RowsAffected(); rowsErr != nil || rows != 1 {
-		return BrowserSession{}, authenticationStoreError()
-	}
-	if err := store.checkIdentity(ctx); err != nil {
-		return BrowserSession{}, err
-	}
-	if err := tx.Commit(); err != nil {
-		return BrowserSession{}, store.transactionError(ctx, err)
 	}
 	return session, nil
 }
@@ -179,38 +181,47 @@ func (store *Store) RenewBrowserSession(ctx context.Context, raw, bindingDigest 
 		return BrowserSession{}, "", authenticationStoreError()
 	}
 	principal := resolved
-	auditRequest, err := browserSessionAudit("renewed", principal, oldDigest, auditFingerprintPointer(oldDigest), audit.Fingerprint(nextDigest))
-	if err != nil {
-		return BrowserSession{}, "", newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
-	}
 	var replacement BrowserSession
-	result, err := store.executeAuditIntent(ctx, auditRequest, false, func(ctx context.Context, tx *sql.Tx) error {
+	var expired bool
+	result, err := store.executePreparedBrowserSessionAudit(ctx, func(ctx context.Context, tx *sql.Tx) (preparedBrowserSessionAudit, error) {
 		current, err := loadActiveBrowserSession(ctx, tx, oldDigest, bindingDigest)
-		if err != nil || current.PrincipalID != principal.ID || !sessionCurrent(current, store.config.Clock().UTC(), externalExpiresAt) {
-			return authenticationStoreError()
+		if err != nil || current.PrincipalID != principal.ID {
+			return preparedBrowserSessionAudit{}, authenticationStoreError()
 		}
 		now := store.config.Clock().UTC()
+		if reason, isExpired := browserSessionExpiryReason(current, now, externalExpiresAt); isExpired {
+			expired = true
+			return prepareBrowserSessionExpiry(current, oldDigest, bindingDigest, reason, now)
+		}
+		auditRequest, err := browserSessionAudit("renewed", principal, oldDigest, auditFingerprintPointer(oldDigest), audit.Fingerprint(nextDigest))
+		if err != nil {
+			return preparedBrowserSessionAudit{}, newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
+		}
 		replacement = current
 		replacement.Digest = nextDigest
 		replacement.Status = BrowserSessionActive
 		replacement.LastSeenAt = now
 		replacement.ExternalExpiresAt = externalExpiresAt.UTC()
 		replacement.IdleExpiresAt = earliestTime(now.Add(BrowserSessionIdleLimit), current.AbsoluteExpiresAt, replacement.ExternalExpiresAt)
-		_, err = tx.ExecContext(ctx, `INSERT INTO browser_sessions(session_digest,binding_digest,principal_id,status,recovery_epoch,grant_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,external_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, replacement.Digest, replacement.BindingDigest, replacement.PrincipalID, replacement.Status, replacement.RecoveryEpoch, replacement.GrantRevision, formatSessionTime(replacement.IssuedAt), formatSessionTime(replacement.LastSeenAt), formatSessionTime(replacement.IdleExpiresAt), formatSessionTime(replacement.AbsoluteExpiresAt), formatSessionTime(replacement.ExternalExpiresAt))
-		if err != nil {
-			return err
-		}
-		updated, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='rotated',replaced_by_digest=?,ended_at=?,end_reason='renewed' WHERE session_digest=? AND status='active'`, nextDigest, formatSessionTime(now), oldDigest)
-		if err != nil {
-			return err
-		}
-		if rows, rowsErr := updated.RowsAffected(); rowsErr != nil || rows != 1 {
-			return authenticationStoreError()
-		}
-		return nil
+		return preparedBrowserSessionAudit{Request: &auditRequest, Business: func(ctx context.Context, tx *sql.Tx) error {
+			if _, insertErr := tx.ExecContext(ctx, `INSERT INTO browser_sessions(session_digest,binding_digest,principal_id,status,recovery_epoch,grant_revision,issued_at,last_seen_at,idle_expires_at,absolute_expires_at,external_expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, replacement.Digest, replacement.BindingDigest, replacement.PrincipalID, replacement.Status, replacement.RecoveryEpoch, replacement.GrantRevision, formatSessionTime(replacement.IssuedAt), formatSessionTime(replacement.LastSeenAt), formatSessionTime(replacement.IdleExpiresAt), formatSessionTime(replacement.AbsoluteExpiresAt), formatSessionTime(replacement.ExternalExpiresAt)); insertErr != nil {
+				return insertErr
+			}
+			updated, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='rotated',replaced_by_digest=?,ended_at=?,end_reason='renewed' WHERE session_digest=? AND status='active'`, nextDigest, formatSessionTime(now), oldDigest)
+			if err != nil {
+				return err
+			}
+			if rows, rowsErr := updated.RowsAffected(); rowsErr != nil || rows != 1 {
+				return authenticationStoreError()
+			}
+			return nil
+		}}, nil
 	})
 	if err != nil {
 		return BrowserSession{}, "", sessionOperationError(err)
+	}
+	if expired {
+		return BrowserSession{}, "", authenticationStoreError()
 	}
 	if !result.Created {
 		return BrowserSession{}, "", authenticationStoreError()
@@ -250,16 +261,176 @@ func (store *Store) RevokeBrowserSessions(ctx context.Context, principal identit
 		return newStoreError(generated.ErrorCodeInputInvalid, "browser-session-revocation", false, nil)
 	}
 	target := sessionFingerprint("principal", principal.ID)
-	request, err := browserSessionAudit("revoked", principal, target, nil, audit.Fingerprint(target))
-	if err != nil {
-		return newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
-	}
-	_, err = store.executeAuditIntent(ctx, request, false, func(ctx context.Context, tx *sql.Tx) error {
-		now := formatSessionTime(store.config.Clock().UTC())
-		_, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='revoked',ended_at=?,end_reason=? WHERE principal_id=? AND status='active'`, now, reason, principal.ID)
-		return err
+	_, err := store.executePreparedBrowserSessionAudit(ctx, func(ctx context.Context, tx *sql.Tx) (preparedBrowserSessionAudit, error) {
+		generation, err := browserSessionGeneration(ctx, tx, principal.ID)
+		if err != nil {
+			return preparedBrowserSessionAudit{}, store.transactionError(ctx, err)
+		}
+		requestIdentity := sessionFingerprint("principal-revocation", principal.ID, strconv.FormatInt(generation, 10), reason)
+		request, err := browserSessionAuditForRequest("revoked", principal, target, requestIdentity, nil, audit.Fingerprint(target))
+		if err != nil {
+			return preparedBrowserSessionAudit{}, newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
+		}
+		return preparedBrowserSessionAudit{
+			Request: &request,
+			Business: func(ctx context.Context, tx *sql.Tx) error {
+				now := formatSessionTime(store.config.Clock().UTC())
+				_, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='revoked',ended_at=?,end_reason=? WHERE principal_id=? AND status='active'`, now, reason, principal.ID)
+				return err
+			},
+			Postcondition: func(ctx context.Context, tx *sql.Tx) error {
+				var active int
+				if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM browser_sessions WHERE principal_id=? AND status='active'`, principal.ID).Scan(&active); err != nil {
+					return err
+				}
+				if active != 0 {
+					return newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-revocation-postcondition", false, nil)
+				}
+				return nil
+			},
+		}, nil
 	})
 	return sessionOperationError(err)
+}
+
+type preparedBrowserSessionAudit struct {
+	Request       *intentRequest
+	Business      func(context.Context, *sql.Tx) error
+	Postcondition func(context.Context, *sql.Tx) error
+}
+
+type prepareBrowserSessionAudit func(context.Context, *sql.Tx) (preparedBrowserSessionAudit, error)
+
+// executePreparedBrowserSessionAudit derives the idempotency request while the
+// store write lock and transaction are already held. Session generations
+// cannot change between dedupe selection and the guarded business mutation.
+func (store *Store) executePreparedBrowserSessionAudit(ctx context.Context, prepare prepareBrowserSessionAudit) (intentResult, error) {
+	if store == nil || prepare == nil {
+		return intentResult{}, newStoreError(generated.ErrorCodeInputInvalid, "browser-session-audit", false, nil)
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if err := store.readyForTransaction(ctx); err != nil {
+		return intentResult{}, err
+	}
+	tx, err := store.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return intentResult{}, store.transactionError(ctx, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	prepared, err := prepare(ctx, tx)
+	if err != nil {
+		return intentResult{}, store.preparedBrowserSessionAuditError(ctx, err)
+	}
+	var result intentResult
+	if prepared.Request == nil {
+		if prepared.Business == nil {
+			return intentResult{}, newStoreError(generated.ErrorCodeInputInvalid, "browser-session-business", false, nil)
+		}
+		if err := prepared.Business(ctx, tx); err != nil {
+			return intentResult{}, store.preparedBrowserSessionAuditError(ctx, err)
+		}
+	} else {
+		if audit.ValidateIntentKey(prepared.Request.Idempotency) != nil || audit.ValidateEventDraft(prepared.Request.Event) != nil || audit.ValidateOutboxRequirements(prepared.Request.Destinations) != nil {
+			return intentResult{}, newStoreError(generated.ErrorCodeInputInvalid, "browser-session-audit", false, nil)
+		}
+		result, err = store.appendAuditInTx(ctx, tx, *prepared.Request, false, prepared.Business)
+		if err != nil {
+			return intentResult{}, store.preparedBrowserSessionAuditError(ctx, err)
+		}
+	}
+	if prepared.Postcondition != nil {
+		if err := prepared.Postcondition(ctx, tx); err != nil {
+			return intentResult{}, store.preparedBrowserSessionAuditError(ctx, err)
+		}
+	}
+	if err := store.checkIdentity(ctx); err != nil {
+		return intentResult{}, err
+	}
+	if prepared.Request != nil {
+		if err := store.runAuditFault(auditBeforeCommit); err != nil {
+			return intentResult{}, err
+		}
+		if store.beforeCommit != nil {
+			if err := store.beforeCommit(); err != nil {
+				store.enterSafeMode("commit-failure")
+				return intentResult{}, databaseError(generated.ErrorCodeIntegrityFailure, err)
+			}
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		store.enterSafeMode("commit-failure")
+		return intentResult{}, store.transactionError(ctx, err)
+	}
+	if result.Created {
+		store.events.signal()
+	}
+	if prepared.Request != nil {
+		if err := store.runAuditFault(auditAfterCommit); err != nil {
+			store.enterSafeMode("commit-uncertain")
+			return intentResult{}, err
+		}
+	}
+	return result, nil
+}
+
+func (store *Store) preparedBrowserSessionAuditError(ctx context.Context, err error) error {
+	if ctx.Err() != nil {
+		return interruptedError("browser-session-audit", ctx.Err())
+	}
+	if Code(err) == generated.ErrorCodeIntegrityFailure {
+		store.enterSafeMode("browser-session-audit-failure")
+		return err
+	}
+	if Code(err) != "" {
+		return err
+	}
+	return classifySQLiteError(ctx, err)
+}
+
+func prepareBrowserSessionExpiry(session BrowserSession, digest, bindingDigest, reason string, now time.Time) (preparedBrowserSessionAudit, error) {
+	principal := identity.Principal{ID: session.PrincipalID, Method: identity.CloudflareAccessMethod}
+	request, err := browserSessionAudit("expired", principal, digest, auditFingerprintPointer(digest), audit.Fingerprint(sessionFingerprint("expired", digest)))
+	if err != nil {
+		return preparedBrowserSessionAudit{}, newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-audit", false, nil)
+	}
+	return preparedBrowserSessionAudit{
+		Request: &request,
+		Business: func(ctx context.Context, tx *sql.Tx) error {
+			result, err := tx.ExecContext(ctx, `UPDATE browser_sessions SET status='expired',ended_at=?,end_reason=? WHERE session_digest=? AND binding_digest=? AND status='active'`, formatSessionTime(now), reason, digest, bindingDigest)
+			if err != nil {
+				return err
+			}
+			if rows, rowsErr := result.RowsAffected(); rowsErr != nil || rows != 1 {
+				return authenticationStoreError()
+			}
+			return nil
+		},
+		Postcondition: func(ctx context.Context, tx *sql.Tx) error {
+			var status, endedAt, storedReason string
+			if err := tx.QueryRowContext(ctx, `SELECT status,ended_at,end_reason FROM browser_sessions WHERE session_digest=? AND binding_digest=?`, digest, bindingDigest).Scan(&status, &endedAt, &storedReason); err != nil {
+				return err
+			}
+			if status != string(BrowserSessionExpired) || endedAt != formatSessionTime(now) || storedReason != reason {
+				return newStoreError(generated.ErrorCodeIntegrityFailure, "browser-session-expiry-postcondition", false, nil)
+			}
+			return nil
+		},
+	}, nil
+}
+
+func browserSessionGeneration(ctx context.Context, tx *sql.Tx, principalID string) (int64, error) {
+	var generation int64
+	// Every supported session birth is paired atomically with one of these
+	// append-only events. A later created or renewed session therefore always
+	// advances the generation used by principal-wide revocation idempotency.
+	err := tx.QueryRowContext(ctx, `SELECT COALESCE(MAX(event_id),0) FROM (
+SELECT e.event_id FROM audit_events e JOIN browser_sessions s ON s.session_digest=e.target_id WHERE e.event_type='identity.session-created' AND s.principal_id=?
+UNION ALL
+SELECT e.event_id FROM audit_events e JOIN browser_sessions s ON s.session_digest=e.after_fingerprint WHERE e.event_type='identity.session-renewed' AND s.principal_id=?
+)`, principalID, principalID).Scan(&generation)
+	return generation, err
 }
 
 func (store *Store) AuditBrowserSessionDenial(ctx context.Context, principal identity.Principal, reason string) error {
@@ -323,8 +494,23 @@ func loadActiveBrowserSession(ctx context.Context, tx *sql.Tx, digest, bindingDi
 	return session, nil
 }
 
-func sessionCurrent(session BrowserSession, now, externalExpiry time.Time) bool {
-	return session.Status == BrowserSessionActive && externalExpiry.After(now) && now.Before(session.IdleExpiresAt) && now.Before(session.AbsoluteExpiresAt) && now.Before(session.ExternalExpiresAt)
+func browserSessionExpiryReason(session BrowserSession, now, externalExpiry time.Time) (string, bool) {
+	deadline := session.IdleExpiresAt
+	reason := "idle-timeout"
+	for _, candidate := range []struct {
+		at     time.Time
+		reason string
+	}{
+		{at: session.AbsoluteExpiresAt, reason: "absolute-timeout"},
+		{at: session.ExternalExpiresAt, reason: "external-expiry"},
+		{at: externalExpiry.UTC(), reason: "external-expiry"},
+	} {
+		if !candidate.at.After(deadline) {
+			deadline = candidate.at
+			reason = candidate.reason
+		}
+	}
+	return reason, !now.Before(deadline)
 }
 
 func newBrowserSessionID() (string, string, error) {
@@ -338,12 +524,16 @@ func newBrowserSessionID() (string, string, error) {
 }
 
 func browserSessionAudit(action string, principal identity.Principal, target string, before *audit.Fingerprint, after audit.Fingerprint) (intentRequest, error) {
+	return browserSessionAuditForRequest(action, principal, target, target, before, after)
+}
+
+func browserSessionAuditForRequest(action string, principal identity.Principal, target, requestIdentity string, before *audit.Fingerprint, after audit.Fingerprint) (intentRequest, error) {
 	attribution, err := audit.NewAttribution(principal, &principal, nil)
 	if err != nil {
 		return intentRequest{}, err
 	}
 	afterCopy := after
-	key := sessionFingerprint("audit", action, target)
+	key := sessionFingerprint("audit", action, requestIdentity)
 	return intentRequest{
 		Idempotency: audit.IntentKey{Scope: "browser-session", KeyDigest: audit.Fingerprint(key), RequestDigest: audit.Fingerprint(key)},
 		Event:       audit.EventDraft{Type: audit.EventType("identity.session-" + action), CorrelationID: "browser-session-" + strings.TrimPrefix(key, "sha256:")[:32], Attribution: attribution, Target: audit.Target{Kind: "browser-session", ID: target}, Before: before, After: &afterCopy},

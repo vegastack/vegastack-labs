@@ -81,7 +81,7 @@ func newBrowserAuthFixture(t *testing.T) (*BrowserAuthenticator, *browserIdentit
 	return authenticator, adapter, sessions
 }
 
-func TestBrowserAuthenticatorOrdersOriginJWTSessionAndPrincipal(t *testing.T) {
+func TestBrowserAuthenticatorAcceptsBrowserSafeFetchMetadataBeforeJWTSessionAndPrincipal(t *testing.T) {
 	authenticator, adapter, sessions := newBrowserAuthFixture(t)
 	downstreamCalls := atomic.Int32{}
 	downstream := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
@@ -94,7 +94,9 @@ func TestBrowserAuthenticatorOrdersOriginJWTSessionAndPrincipal(t *testing.T) {
 	})
 	request := httptest.NewRequest(http.MethodGet, "https://console.example/api/v1/summary?unknown=private-canary", nil)
 	request.Host = "console.example"
-	request.Header.Set("Origin", "https://console.example")
+	request.Header.Set("Sec-Fetch-Site", "same-origin")
+	request.Header.Set("Sec-Fetch-Mode", "cors")
+	request.Header.Set("Sec-Fetch-Dest", "empty")
 	request.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
 	request.AddCookie(&http.Cookie{Name: BrowserSessionCookieName, Value: sessions.raw})
 	response := httptest.NewRecorder()
@@ -110,6 +112,27 @@ func TestBrowserAuthenticatorFailsClosedBeforeDownstreamParsing(t *testing.T) {
 		mutate func(*http.Request, *browserSessionStore)
 	}{
 		{name: "missing origin", mutate: func(request *http.Request, _ *browserSessionStore) { request.Header.Del("Origin") }},
+		{name: "duplicate origin", mutate: func(request *http.Request, _ *browserSessionStore) {
+			request.Header.Add("Origin", "https://console.example")
+		}},
+		{name: "incomplete fetch metadata", mutate: func(request *http.Request, _ *browserSessionStore) {
+			request.Header.Del("Origin")
+			request.Header.Set("Sec-Fetch-Site", "same-origin")
+			request.Header.Set("Sec-Fetch-Mode", "cors")
+		}},
+		{name: "duplicate fetch metadata", mutate: func(request *http.Request, _ *browserSessionStore) {
+			request.Header.Del("Origin")
+			request.Header.Set("Sec-Fetch-Site", "same-origin")
+			request.Header.Add("Sec-Fetch-Site", "same-origin")
+			request.Header.Set("Sec-Fetch-Mode", "cors")
+			request.Header.Set("Sec-Fetch-Dest", "empty")
+		}},
+		{name: "cross-site fetch metadata", mutate: func(request *http.Request, _ *browserSessionStore) {
+			request.Header.Del("Origin")
+			request.Header.Set("Sec-Fetch-Site", "cross-site")
+			request.Header.Set("Sec-Fetch-Mode", "cors")
+			request.Header.Set("Sec-Fetch-Dest", "empty")
+		}},
 		{name: "wrong origin", mutate: func(request *http.Request, _ *browserSessionStore) {
 			request.Header.Set("Origin", "https://evil.example")
 		}},
@@ -141,6 +164,28 @@ func TestBrowserAuthenticatorFailsClosedBeforeDownstreamParsing(t *testing.T) {
 				t.Fatalf("denial audit count = %d", sessions.denials.Load())
 			}
 		})
+	}
+}
+
+func TestBrowserAuthenticatorRequiresExactOriginForSessionPOST(t *testing.T) {
+	authenticator, _, _ := newBrowserAuthFixture(t)
+	for _, origin := range []string{"", "https://evil.example"} {
+		request := httptest.NewRequest(http.MethodPost, "https://console.example/api/v1/session", strings.NewReader(`{"requestVersion":"1.0.0"}`))
+		request.Host = "console.example"
+		if origin != "" {
+			request.Header.Set("Origin", origin)
+		}
+		request.Header.Set("Sec-Fetch-Site", "same-origin")
+		request.Header.Set("Sec-Fetch-Mode", "cors")
+		request.Header.Set("Sec-Fetch-Dest", "empty")
+		request.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
+		response := httptest.NewRecorder()
+		authenticator.Wrap(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			t.Fatal("unsafe request reached the session handler")
+		})).ServeHTTP(response, request)
+		if response.Code != http.StatusUnauthorized {
+			t.Fatalf("origin %q status = %d", origin, response.Code)
+		}
 	}
 }
 

@@ -127,7 +127,9 @@ func TestRemoteBrowserMiddlewareReachesAPIResourceAuthorizationBeforeParsing(t *
 		t.Fatal(err)
 	}
 	request.Host = "console.example"
-	request.Header.Set("Origin", "https://console.example")
+	request.Header.Set("Sec-Fetch-Site", "same-origin")
+	request.Header.Set("Sec-Fetch-Mode", "cors")
+	request.Header.Set("Sec-Fetch-Dest", "empty")
 	request.Header.Set("Cf-Access-Jwt-Assertion", "fixture-assertion")
 	request.AddCookie(&http.Cookie{Name: server.BrowserSessionCookieName, Value: raw})
 	response, err := host.Client().Do(request)
@@ -144,7 +146,9 @@ func TestRemoteBrowserMiddlewareReachesAPIResourceAuthorizationBeforeParsing(t *
 		t.Fatal(err)
 	}
 	denied.Host = "console.example"
-	denied.Header.Set("Origin", "https://console.example")
+	denied.Header.Set("Sec-Fetch-Site", "same-origin")
+	denied.Header.Set("Sec-Fetch-Mode", "cors")
+	denied.Header.Set("Sec-Fetch-Dest", "empty")
 	denied.Header.Set("Cf-Access-Jwt-Assertion", "fixture-assertion")
 	denied.AddCookie(&http.Cookie{Name: server.BrowserSessionCookieName, Value: raw})
 	deniedResponse, err := host.Client().Do(denied)

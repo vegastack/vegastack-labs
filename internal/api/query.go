@@ -108,5 +108,11 @@ func apiErrorCode(err error) string {
 	if stable, ok := failure.As(err); ok {
 		return stable.Code
 	}
+	if coded, ok := err.(interface{ Code() string }); ok {
+		code := coded.Code()
+		if _, known := generated.ErrorExitCodes[code]; known {
+			return code
+		}
+	}
 	return ""
 }

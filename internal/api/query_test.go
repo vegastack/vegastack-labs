@@ -1,9 +1,15 @@
 package api
 
 import (
+	"errors"
 	"net/url"
 	"testing"
 )
+
+type testCodedAPIError struct{ code string }
+
+func (err testCodedAPIError) Error() string { return "private backend detail" }
+func (err testCodedAPIError) Code() string  { return err.code }
 
 func TestQueryDecoderRejectsUnknownDuplicateAndOverflow(t *testing.T) {
 	decoder := NewQueryDecoder()
@@ -38,5 +44,17 @@ func TestSourceListQueryRejectsUnknownSourceAndState(t *testing.T) {
 	query, err := sourceListQuery(decoded)
 	if err != nil || query.Source != "nodes" || query.State != "stale" {
 		t.Fatalf("query = %#v, %v", query, err)
+	}
+}
+
+func TestAPIErrorCodeAcceptsOnlyGeneratedStableCodesFromTypedBackends(t *testing.T) {
+	if code := apiErrorCode(testCodedAPIError{code: "AUTHORIZATION_DENIED"}); code != "AUTHORIZATION_DENIED" {
+		t.Fatalf("generated code = %q", code)
+	}
+	if code := apiErrorCode(testCodedAPIError{code: "PRIVATE_BACKEND_DETAIL"}); code != "" {
+		t.Fatalf("unknown code escaped = %q", code)
+	}
+	if code := apiErrorCode(errors.New("private backend detail")); code != "" {
+		t.Fatalf("untyped error escaped = %q", code)
 	}
 }

@@ -66,8 +66,7 @@ func (authenticator *BrowserAuthenticator) Start(ctx context.Context) error {
 
 func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		origins := request.Header.Values("Origin")
-		if next == nil || request.TLS == nil || request.Host != authenticator.config.ExactHost || len(origins) != 1 || origins[0] != authenticator.config.ExactOrigin {
+		if next == nil || request.TLS == nil || request.Host != authenticator.config.ExactHost || !authenticator.browserOriginAllowed(request) {
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
@@ -112,6 +111,27 @@ func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler 
 		ctx = withBrowserSessionContext(ctx, raw, session)
 		next.ServeHTTP(writer, request.WithContext(ctx))
 	})
+}
+
+func (authenticator *BrowserAuthenticator) browserOriginAllowed(request *http.Request) bool {
+	origins := request.Header.Values("Origin")
+	if len(origins) > 1 || (len(origins) == 1 && origins[0] != authenticator.config.ExactOrigin) {
+		return false
+	}
+	if request.Method != http.MethodGet && request.Method != http.MethodHead {
+		return len(origins) == 1
+	}
+	if len(origins) == 1 {
+		return true
+	}
+	return exactHeaderValue(request, "Sec-Fetch-Site", "same-origin") &&
+		exactHeaderValue(request, "Sec-Fetch-Mode", "cors") &&
+		exactHeaderValue(request, "Sec-Fetch-Dest", "empty")
+}
+
+func exactHeaderValue(request *http.Request, name, expected string) bool {
+	values := request.Header.Values(name)
+	return len(values) == 1 && values[0] == expected
 }
 
 func (authenticator *BrowserAuthenticator) auditSessionDenial(ctx context.Context, bindingDigest string) {
