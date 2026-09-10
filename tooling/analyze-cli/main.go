@@ -334,6 +334,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	generatedImport := modulePath + "/internal/generated"
 	releaseImport := modulePath + "/internal/release"
 	stateExportImport := modulePath + "/internal/stateexport"
+	identityImport := modulePath + "/internal/identity"
 	apiImport := modulePath + "/internal/api"
 	localAPIImport := modulePath + "/internal/localapi"
 	cliImport := modulePath + "/internal/cli"
@@ -362,8 +363,15 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				result.ShellDispatch = true
 			}
 			switch imported {
-			case "crypto/ecdsa", "crypto/ed25519", "crypto/rsa":
+			case "crypto/ecdsa", "crypto/ed25519":
 				result.StateExportTrust = true
+			case "crypto/rsa":
+				// The remote-identity adapter verifies RSA public keys. Keep the
+				// executable-wide signing guard everywhere else; state-export
+				// composition is independently checked below.
+				if candidate.ImportPath != identityImport {
+					result.StateExportTrust = true
+				}
 			}
 			if isReleasePackage {
 				switch imported {

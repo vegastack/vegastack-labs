@@ -643,6 +643,24 @@ test("production executable closure cannot import asymmetric signing packages", 
   ]);
 });
 
+test("remote identity may inspect RSA public keys without enabling export trust", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/identity")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/identity/verify.go": [
+      "package identity",
+      'import "crypto/rsa"',
+      "var PublicKeyType *rsa.PublicKey",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, []);
+});
+
 test("the CLI verifier scans target-specific dependency closures", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/escape_windows.go": [
