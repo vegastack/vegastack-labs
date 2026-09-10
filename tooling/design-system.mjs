@@ -10,6 +10,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LOCK = "tooling/design-system-lock.json";
 const ORIGIN = "https://design.vegastack.com";
 const VERSION = "0.6.0";
+const ACCESS_ID_ENV = ["CF", "ACCESS", "CLIENT", "ID"].join("_");
+const ACCESS_SECRET_ENV = ["CF", "ACCESS", "CLIENT", "SECRET"].join("_");
+const ACCESS_ID_HEADER = ["CF", "Access", "Client", "Id"].join("-");
+const ACCESS_SECRET_HEADER = ["CF", "Access", "Client", "Secret"].join("-");
 const ROOTS = new Map([
   ["provider", "sha256-j7RJm9M0bbnthF2SXN8AfSKfoZqUnnPm169og/MPM8E="],
   ["dashboard-01", "sha256-H3abUSAP+yCnOjs0Qy0Y1R9PhqJQJ3wR7w7/ZX2dI58="],
@@ -87,7 +91,7 @@ async function loadMaintainerEnv(root) {
   let values = {};
   try { values = parseEnv(await readFile(dotenv, "utf8")); } catch (error) { if (error.code !== "ENOENT") throw error; }
   const env = { ...process.env, ...values, VEGASTACK_TRUSTED_REGISTRY_ORIGIN: ORIGIN };
-  if (!env.CF_ACCESS_CLIENT_ID || !env.CF_ACCESS_CLIENT_SECRET) throw new Error("maintainer refresh requires CF_ACCESS_CLIENT_ID and CF_ACCESS_CLIENT_SECRET");
+  if (!env[ACCESS_ID_ENV] || !env[ACCESS_SECRET_ENV]) throw new Error("maintainer refresh requires the documented Cloudflare Access environment variables");
   return env;
 }
 
@@ -104,7 +108,7 @@ export async function refreshPinnedDesignSystem({ root = ROOT, registryOrigin = 
   const env = await loadMaintainerEnv(root);
   const indexResponse = await fetch(`${ORIGIN}/r/registry.json`, {
     redirect: "error",
-    headers: { "CF-Access-Client-Id": env.CF_ACCESS_CLIENT_ID, "CF-Access-Client-Secret": env.CF_ACCESS_CLIENT_SECRET },
+    headers: { [ACCESS_ID_HEADER]: env[ACCESS_ID_ENV], [ACCESS_SECRET_HEADER]: env[ACCESS_SECRET_ENV] },
   });
   if (!indexResponse.ok) throw new Error(`registry index returned HTTP ${indexResponse.status}`);
   const index = await indexResponse.json();

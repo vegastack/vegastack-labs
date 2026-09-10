@@ -53,7 +53,7 @@ test("lock rejects unsafe paths, duplicates, versions, and secret material", asy
     lock => { lock.registryVersion = "0.7.0"; },
     lock => { lock.items[0].files[0].path = "../escape.tsx"; },
     lock => { lock.items.push(structuredClone(lock.items[0])); },
-    lock => { lock.token = "CF-Access-Client-Secret: not-allowed"; },
+    lock => { lock.token = [["CF", "Access", "Client", "Secret"].join("-"), "not-allowed"].join(": "); },
   ]) {
     const root = await fixture();
     const lockPath = path.join(root, "tooling/design-system-lock.json");

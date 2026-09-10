@@ -19,7 +19,7 @@ corepack pnpm install --frozen-lockfile
 corepack pnpm check
 ```
 
-After the frozen install, the checks need no private registry or VegaStack credential. They verify repository safety, local documentation links and JSON, dependency provenance and licenses, historical artifacts, Go packages, tooling tests, and the static web export.
+After the frozen install, the checks need no private registry or VegaStack credential. They verify repository safety, local documentation links and JSON, dependency provenance and licenses, the pinned Design System source, historical artifacts, Go packages, tooling tests, the static web export, and Chromium browser behavior.
 
 For focused executable work, build and smoke-test the only shipped command directly:
 
@@ -56,7 +56,27 @@ go run ./cmd/vsk-labs inventory export --config fixture/server-profile.json --dr
 
 The fixture server must grant only the synthetic test principal and use a disposable database/export root. Production composition intentionally has no signer, so export should return `PREREQUISITE_BLOCKED`; never add a private key merely to make a development smoke test pass. Do not use real inventory, source Sheet rows, machine paths, UIDs, credentials, provider responses, or signer material in a fixture, log, golden, issue, or commit. Redirected JSON stdout is only a client-side response record, not the verified server artifact.
 
-The public scaffold does not contain private design-system registry components. `web/components.json` documents the optional authenticated registry shape for a future approved maintainer lane, but public checks never contact it.
+The repository contains the approved `provider` and `dashboard-01` Design System `0.6.0` source closure. Ordinary builds verify its checked-in integrity lock and never contact the authenticated registry.
+
+For an approved component refresh, put `CF_ACCESS_CLIENT_ID` and `CF_ACCESS_CLIENT_SECRET` in the gitignored root `.env.local`, then run:
+
+```text
+corepack pnpm refresh:design-system
+corepack pnpm check:design-system
+git diff -- tooling/design-system-lock.json web/components web/app/dashboard
+```
+
+Review the complete source and dependency diff before accepting an owned dashboard block with `node tooling/design-system.mjs --accept-owned-block --approve-version 0.6.0`. Run `corepack pnpm generate:provenance` only after reviewing the new exact dependency and license set, then run the full public check without credential variables. Roll back a rejected refresh through a normal Git revert; never paste registry responses or credentials into a commit, issue, log, screenshot, or artifact.
+
+Build and preview the generated static Console on loopback with:
+
+```text
+corepack pnpm --filter @vegastack/labs-web build
+corepack pnpm --filter @vegastack/labs-web preview
+corepack pnpm --filter @vegastack/labs-web test:e2e
+```
+
+The preview serves only `web/out` on `127.0.0.1`. It is development tooling, not a production application server.
 
 ## Generated platform contracts
 
@@ -71,14 +91,14 @@ Review the metadata change together with the resulting files under `internal/gen
 
 ## Registry credentials
 
-Do not commit credentials. After the ignore rules in this repository are present, a maintainer may put the following values in `web/.env.local` for a separately approved registry operation:
+Do not commit credentials. A maintainer may put the following values in the root `.env.local` only for a separately approved registry refresh:
 
 ```text
 CF_ACCESS_CLIENT_ID=
 CF_ACCESS_CLIENT_SECRET=
 ```
 
-The checked-in `web/.env.example` contains names only. GitHub automation must use separately approved protected environment secrets; ordinary public CI and forks receive none.
+The checked-in examples contain names only. Ordinary public CI and forks receive no registry secret; a future automated refresh would require a separately approved protected maintainer environment.
 
 ## Delivery
 

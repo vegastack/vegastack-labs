@@ -169,7 +169,9 @@ export async function verifyRepository(root = ROOT, runtimeVersion = process.ver
     }
   }
 
-  for (const relative of ["package.json", "web/package.json", "pnpm-lock.yaml"]) {
+  // Lockfile resolution origins are schema-checked by provenance.mjs. Free-form
+  // lock metadata can legitimately contain project/support URLs.
+  for (const relative of ["package.json", "web/package.json"]) {
     const text = await readFile(path.join(root, relative), "utf8");
     for (const match of text.matchAll(/https?:\/\/[^\s'"}]+/g)) {
       const url = new URL(match[0]);

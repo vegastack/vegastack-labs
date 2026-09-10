@@ -8,6 +8,7 @@ const FORBIDDEN_NAMES = new Set([
   "middleware-manifest.json",
   "required-server-files.json",
   "server.js",
+  "server-artifact.json",
 ]);
 const FORBIDDEN_BUILD_MARKERS = ["axe-core", "MPL-2.0", "Mozilla Public License"];
 
@@ -27,8 +28,8 @@ async function walk(directory) {
 
 export async function verifyStaticExport(output = OUTPUT) {
   const index = await readFile(path.join(output, "index.html"), "utf8");
-  if (!index.includes("Development scaffold") || !index.includes("does not expose")) {
-    throw new Error("static index does not contain the truthful scaffold markers");
+  if (!index.includes("Data integration is not implemented") || !index.includes("No control-plane data yet")) {
+    throw new Error("static index does not contain the truthful Console markers");
   }
 
   const files = await walk(output);
@@ -41,11 +42,17 @@ export async function verifyStaticExport(output = OUTPUT) {
     if (FORBIDDEN_NAMES.has(basename) || basename.endsWith(".node")) {
       throw new Error(`static output contains server runtime artifact ${relative}`);
     }
+    if (relative.split(path.sep).includes("api")) {
+      throw new Error(`static output contains an API artifact ${relative}`);
+    }
     const buffer = await readFile(file);
     if (!buffer.includes(0)) {
       const text = buffer.toString("utf8");
-      if (/CF_ACCESS_CLIENT_(?:ID|SECRET)/.test(text)) {
+      if (/CF[_-]ACCESS[_-]CLIENT[_-](?:ID|SECRET)|CF-Access-Client-(?:Id|Secret)|cfast_[A-Za-z0-9]+/i.test(text)) {
         throw new Error(`static output contains a registry credential name: ${relative}`);
+      }
+      if ([".html", ".css"].includes(path.extname(file)) && (/(?:src|href)=["']https?:\/\//i.test(text) || /url\(["']?https?:\/\//i.test(text))) {
+        throw new Error(`static output contains an unexpected remote asset origin: ${relative}`);
       }
       const marker = FORBIDDEN_BUILD_MARKERS.find((value) => text.includes(value));
       if (marker) {
