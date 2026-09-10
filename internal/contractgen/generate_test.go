@@ -104,6 +104,33 @@ func TestGenerateSelectsOnlyBrowserSafeAvailableReads(t *testing.T) {
 	}
 }
 
+func TestGenerateBrowserClientHasStrictTypesAndDecoders(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var client string
+	for _, artifact := range artifacts {
+		if artifact.Path == browserClientPath {
+			client = string(artifact.Content)
+		}
+	}
+	for _, want := range []string{
+		"export interface ApiSummaryData",
+		"export type ApiFailureKind",
+		"export class ReadClientError",
+		"function decodeApiSummaryData",
+		"additional property",
+		"unsupported-version",
+	} {
+		if !strings.Contains(client, want) {
+			t.Errorf("browser client missing %q", want)
+		}
+	}
+}
+
 func TestGenerateEmitsInventoryArtifactsAndClosedInput(t *testing.T) {
 	t.Parallel()
 

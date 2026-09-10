@@ -14,24 +14,1453 @@
 // api.v1.inventory-drafts.get
 // api.v1.inventory-drafts.list
 // api.v1.summary.get
-// Reachable schemas:
-// vegastack-labs.dev/api-audit-event-data
-// vegastack-labs.dev/api-inventory-alias-data
-// vegastack-labs.dev/api-inventory-alias-list-data
-// vegastack-labs.dev/api-inventory-asset-data
-// vegastack-labs.dev/api-inventory-asset-list-data
-// vegastack-labs.dev/api-inventory-draft-data
-// vegastack-labs.dev/api-inventory-draft-list-data
-// vegastack-labs.dev/api-inventory-node-data
-// vegastack-labs.dev/api-inventory-node-list-data
-// vegastack-labs.dev/api-inventory-observation-data
-// vegastack-labs.dev/api-inventory-observation-list-data
-// vegastack-labs.dev/api-page-query
-// vegastack-labs.dev/api-summary-data
-// vegastack-labs.dev/audit-event
-// vegastack-labs.dev/audit-target
-// vegastack-labs.dev/database-status-data
-// vegastack-labs.dev/inventory-draft-counts
-// vegastack-labs.dev/result-error
-// vegastack-labs.dev/run-result
-// vegastack-labs.dev/server-status-data
+
+export interface ApiAuditEventData {
+  readonly "event": AuditEvent;
+}
+
+export interface ApiInventoryAliasData {
+  readonly "authority": "draft";
+  readonly "validationStatus": "valid" | "blocked";
+  readonly "id": string;
+  readonly "targetId": string;
+  readonly "value": string;
+}
+
+export interface ApiInventoryAliasListData {
+  readonly "items": ReadonlyArray<ApiInventoryAliasData>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ApiInventoryAssetData {
+  readonly "authority": "draft";
+  readonly "validationStatus": "valid" | "blocked";
+  readonly "id": string;
+  readonly "kind": string;
+  readonly "lifecycle": string;
+}
+
+export interface ApiInventoryAssetListData {
+  readonly "items": ReadonlyArray<ApiInventoryAssetData>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ApiInventoryDraftData {
+  readonly "authority": "draft";
+  readonly "draftId": string;
+  readonly "revision": number;
+  readonly "validationStatus": "valid" | "blocked";
+  readonly "contentDigest": string;
+  readonly "createdAt": string;
+  readonly "counts": InventoryDraftCounts;
+}
+
+export interface ApiInventoryDraftListData {
+  readonly "items": ReadonlyArray<ApiInventoryDraftData>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ApiInventoryNodeData {
+  readonly "authority": "draft";
+  readonly "validationStatus": "valid" | "blocked";
+  readonly "id": string;
+  readonly "assetId": string;
+  readonly "parentId": string;
+}
+
+export interface ApiInventoryNodeListData {
+  readonly "items": ReadonlyArray<ApiInventoryNodeData>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ApiInventoryObservationData {
+  readonly "authority": "draft";
+  readonly "validationStatus": "valid" | "blocked";
+  readonly "id": string;
+  readonly "subjectId": string;
+  readonly "kind": string;
+  readonly "state": "declared" | "observed" | "drifted" | "stale" | "unknown";
+  readonly "observedAt": string | null;
+  readonly "source": string;
+}
+
+export interface ApiInventoryObservationListData {
+  readonly "items": ReadonlyArray<ApiInventoryObservationData>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ApiPageQuery {
+  readonly "limit"?: number;
+  readonly "sort"?: string;
+  readonly "cursor"?: string;
+}
+
+export interface ApiSummaryData {
+  readonly "databaseMode": "ready" | "safe-mode";
+  readonly "readAvailable": boolean;
+  readonly "mutationAvailable": boolean;
+  readonly "draftCount": number;
+  readonly "validDraftCount": number;
+  readonly "blockedDraftCount": number;
+  readonly "lastEventId": number;
+  readonly "recoveryEpoch": number;
+  readonly "stateRevision": number;
+}
+
+export interface AuditEvent {
+  readonly "schema": "vegastack-labs.dev/audit-event";
+  readonly "schemaVersion": "1.0.0";
+  readonly "eventId": number;
+  readonly "occurredAt": string;
+  readonly "recoveryEpoch": number;
+  readonly "stateRevision": number;
+  readonly "type": string;
+  readonly "correlationId": string;
+  readonly "causationEventId": number | null;
+  readonly "correctionOfEventId": number | null;
+  readonly "principalId": string;
+  readonly "principalMethod": string;
+  readonly "responsibleHumanPrincipalId": string | null;
+  readonly "agentName": string | null;
+  readonly "agentSessionId": string | null;
+  readonly "agentSource": "self-reported" | null;
+  readonly "target": AuditTarget;
+  readonly "beforeFingerprint": string | null;
+  readonly "afterFingerprint": string | null;
+}
+
+export interface AuditTarget {
+  readonly "kind": string;
+  readonly "id": string;
+}
+
+export interface DatabaseStatusData {
+  readonly "mode": "ready" | "safe-mode";
+  readonly "schemaVersion": number;
+  readonly "sqliteVersion": string;
+  readonly "mutationEnabled": boolean;
+  readonly "recoveryPending": boolean;
+  readonly "integrityStatus": "unknown" | "verified" | "failed";
+  readonly "lastIntegrityCheckAt": string | null;
+  readonly "safeModeReason": string;
+}
+
+export interface InventoryDraftCounts {
+  readonly "assets": number;
+  readonly "nodes": number;
+  readonly "aliases": number;
+  readonly "addresses": number;
+  readonly "observations": number;
+  readonly "hardwareFacts": number;
+  readonly "provenance": number;
+  readonly "findings": number;
+}
+
+export interface ResultError {
+  readonly "code": string;
+  readonly "target": string;
+  readonly "retryable": boolean;
+}
+
+export interface RunResult {
+  readonly "schema": "vegastack-labs.dev/run-result";
+  readonly "schemaVersion": "1.0.0";
+  readonly "toolVersion": string;
+  readonly "command": string;
+  readonly "requestId": string;
+  readonly "runId": string | null;
+  readonly "status": "blocked" | "cancelled" | "failed" | "interrupted" | "partial" | "succeeded";
+  readonly "changed": boolean;
+  readonly "recoveryEpoch": number;
+  readonly "stateRevision": number;
+  readonly "snapshotDigest": string | null;
+  readonly "releaseBuildId": string;
+  readonly "sourceRevision": string | null;
+  readonly "planId": string | null;
+  readonly "errors": ReadonlyArray<ResultError>;
+  readonly "data": Readonly<Record<string, unknown>>;
+}
+
+export interface ServerStatusData {
+  readonly "state": "starting" | "ready" | "safe-mode" | "stopping" | "unavailable";
+  readonly "readAvailable": boolean;
+  readonly "mutationAvailable": boolean;
+  readonly "recoveryEpoch": number;
+  readonly "stateRevision": number;
+}
+
+export type ApiFailureKind = "api" | "network" | "malformed-json" | "schema-mismatch" | "unsupported-version" | "cancelled";
+
+export class ReadClientError extends Error {
+  readonly kind: ApiFailureKind;
+  readonly code: string;
+  readonly target: string;
+  readonly retryable: boolean;
+  readonly correlationId: string | null;
+
+  constructor(kind: ApiFailureKind, code: string, target: string, retryable = false, correlationId: string | null = null) {
+    super(code);
+    this.name = "ReadClientError";
+    this.kind = kind;
+    this.code = code;
+    this.target = target;
+    this.retryable = retryable;
+    this.correlationId = correlationId;
+  }
+}
+
+type SchemaRule = { readonly id: string; readonly fields: ReadonlyArray<FieldRule> };
+type FieldRule = {
+  readonly name: string;
+  readonly kind: "string" | "boolean" | "integer" | "object" | "array";
+  readonly required: boolean;
+  readonly nullable: boolean;
+  readonly ref?: string;
+  readonly itemRef?: string;
+  readonly itemKind?: "string" | "boolean" | "integer" | "object" | "array";
+  readonly enum?: ReadonlyArray<string>;
+  readonly additionalProperties?: boolean;
+  readonly pattern?: string;
+  readonly minLength?: number;
+  readonly maxLength?: number;
+  readonly minimum?: number;
+  readonly maximum?: number;
+  readonly minItems?: number;
+  readonly maxItems?: number;
+  readonly uniqueItems?: boolean;
+};
+
+const SCHEMAS: ReadonlyArray<SchemaRule> = [
+  {
+    "id": "vegastack-labs.dev/api-audit-event-data",
+    "fields": [
+      {
+        "name": "event",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/audit-event"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-alias-data",
+    "fields": [
+      {
+        "name": "authority",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "draft"
+        ]
+      },
+      {
+        "name": "validationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "valid",
+          "blocked"
+        ]
+      },
+      {
+        "name": "id",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "value",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 1024
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-alias-list-data",
+    "fields": [
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/api-inventory-alias-data",
+        "maxItems": 200
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-asset-data",
+    "fields": [
+      {
+        "name": "authority",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "draft"
+        ]
+      },
+      {
+        "name": "validationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "valid",
+          "blocked"
+        ]
+      },
+      {
+        "name": "id",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "lifecycle",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-asset-list-data",
+    "fields": [
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/api-inventory-asset-data",
+        "maxItems": 200
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-draft-data",
+    "fields": [
+      {
+        "name": "authority",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "draft"
+        ]
+      },
+      {
+        "name": "draftId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "revision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "validationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "valid",
+          "blocked"
+        ]
+      },
+      {
+        "name": "contentDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "createdAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 64
+      },
+      {
+        "name": "counts",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/inventory-draft-counts"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-draft-list-data",
+    "fields": [
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/api-inventory-draft-data",
+        "maxItems": 200
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-node-data",
+    "fields": [
+      {
+        "name": "authority",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "draft"
+        ]
+      },
+      {
+        "name": "validationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "valid",
+          "blocked"
+        ]
+      },
+      {
+        "name": "id",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "assetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "parentId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-node-list-data",
+    "fields": [
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/api-inventory-node-data",
+        "maxItems": 200
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-observation-data",
+    "fields": [
+      {
+        "name": "authority",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "draft"
+        ]
+      },
+      {
+        "name": "validationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "valid",
+          "blocked"
+        ]
+      },
+      {
+        "name": "id",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "subjectId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      },
+      {
+        "name": "state",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "declared",
+          "observed",
+          "drifted",
+          "stale",
+          "unknown"
+        ]
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 64
+      },
+      {
+        "name": "source",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-inventory-observation-list-data",
+    "fields": [
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/api-inventory-observation-data",
+        "maxItems": 200
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-page-query",
+    "fields": [
+      {
+        "name": "limit",
+        "kind": "integer",
+        "required": false,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 200
+      },
+      {
+        "name": "sort",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 64
+      },
+      {
+        "name": "cursor",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 2048
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-summary-data",
+    "fields": [
+      {
+        "name": "databaseMode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "ready",
+          "safe-mode"
+        ]
+      },
+      {
+        "name": "readAvailable",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "mutationAvailable",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "draftCount",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "validDraftCount",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "blockedDraftCount",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "lastEventId",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/audit-event",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/audit-event"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "eventId",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "occurredAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "maxLength": 64
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "type",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9]*(\\.[a-z][a-z0-9-]*){1,5}$",
+        "maxLength": 96
+      },
+      {
+        "name": "correlationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 128
+      },
+      {
+        "name": "causationEventId",
+        "kind": "integer",
+        "required": true,
+        "nullable": true,
+        "minimum": 1
+      },
+      {
+        "name": "correctionOfEventId",
+        "kind": "integer",
+        "required": true,
+        "nullable": true,
+        "minimum": 1
+      },
+      {
+        "name": "principalId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 128
+      },
+      {
+        "name": "principalMethod",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 64
+      },
+      {
+        "name": "responsibleHumanPrincipalId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 128
+      },
+      {
+        "name": "agentName",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 64
+      },
+      {
+        "name": "agentSessionId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 128
+      },
+      {
+        "name": "agentSource",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "enum": [
+          "self-reported"
+        ]
+      },
+      {
+        "name": "target",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/audit-target"
+      },
+      {
+        "name": "beforeFingerprint",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      },
+      {
+        "name": "afterFingerprint",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/audit-target",
+    "fields": [
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 64
+      },
+      {
+        "name": "id",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
+        "maxLength": 128
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/database-status-data",
+    "fields": [
+      {
+        "name": "mode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "ready",
+          "safe-mode"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "sqliteVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "mutationEnabled",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "recoveryPending",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "integrityStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "unknown",
+          "verified",
+          "failed"
+        ]
+      },
+      {
+        "name": "lastIntegrityCheckAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true
+      },
+      {
+        "name": "safeModeReason",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/inventory-draft-counts",
+    "fields": [
+      {
+        "name": "assets",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "nodes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "aliases",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "addresses",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "observations",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "hardwareFacts",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "provenance",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "findings",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/result-error",
+    "fields": [
+      {
+        "name": "code",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "target",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "retryable",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/run-result",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/run-result"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "toolVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "command",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "requestId",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": true
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "blocked",
+          "cancelled",
+          "failed",
+          "interrupted",
+          "partial",
+          "succeeded"
+        ]
+      },
+      {
+        "name": "changed",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "snapshotDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": true
+      },
+      {
+        "name": "releaseBuildId",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "sourceRevision",
+        "kind": "string",
+        "required": true,
+        "nullable": true
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": true
+      },
+      {
+        "name": "errors",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/result-error"
+      },
+      {
+        "name": "data",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "additionalProperties": true
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/server-status-data",
+    "fields": [
+      {
+        "name": "state",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "starting",
+          "ready",
+          "safe-mode",
+          "stopping",
+          "unavailable"
+        ]
+      },
+      {
+        "name": "readAvailable",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "mutationAvailable",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  }
+];
+
+function mismatch(path: string, reason: string): never {
+  throw new ReadClientError("schema-mismatch", "SCHEMA_MISMATCH", path + ": " + reason);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function stringLength(value: string): number {
+  return Array.from(value).length;
+}
+
+function decodePrimitive(kind: FieldRule["kind"], value: unknown, path: string): unknown {
+  if (kind === "string" && typeof value === "string") return value;
+  if (kind === "boolean" && typeof value === "boolean") return value;
+  if (kind === "integer" && typeof value === "number" && Number.isSafeInteger(value)) return value;
+  if (kind === "object" && isRecord(value)) return value;
+  if (kind === "array" && Array.isArray(value)) return value;
+  return mismatch(path, "wrong value kind");
+}
+
+function decodeField(rule: FieldRule, value: unknown, path: string): unknown {
+  if (value === null) {
+    if (rule.nullable) return null;
+    return mismatch(path, "null is not allowed");
+  }
+  let decoded: unknown;
+  if (rule.ref) {
+    decoded = decodeSchema(rule.ref, value, path);
+  } else if (rule.kind === "array") {
+    if (!Array.isArray(value)) return mismatch(path, "wrong value kind");
+    decoded = value.map((item, index) => rule.itemRef
+      ? decodeSchema(rule.itemRef, item, path + "[" + index + "]")
+      : decodePrimitive(rule.itemKind ?? "object", item, path + "[" + index + "]"));
+  } else {
+    decoded = decodePrimitive(rule.kind, value, path);
+    if (rule.kind === "object" && !rule.additionalProperties && Object.keys(decoded as object).length !== 0) {
+      return mismatch(path, "additional property is not allowed");
+    }
+  }
+  if (typeof decoded === "string") {
+    const length = stringLength(decoded);
+    if (rule.enum && !rule.enum.includes(decoded)) return mismatch(path, "value is not in enum");
+    if (rule.pattern && !(new RegExp(rule.pattern, "u")).test(decoded)) return mismatch(path, "pattern mismatch");
+    if (rule.minLength !== undefined && length < rule.minLength) return mismatch(path, "string is too short");
+    if (rule.maxLength !== undefined && length > rule.maxLength) return mismatch(path, "string is too long");
+  }
+  if (typeof decoded === "number") {
+    if (rule.minimum !== undefined && decoded < rule.minimum) return mismatch(path, "number is below minimum");
+    if (rule.maximum !== undefined && decoded > rule.maximum) return mismatch(path, "number is above maximum");
+  }
+  if (Array.isArray(decoded)) {
+    if (rule.minItems !== undefined && decoded.length < rule.minItems) return mismatch(path, "array is too short");
+    if (rule.maxItems !== undefined && decoded.length > rule.maxItems) return mismatch(path, "array is too long");
+    if (rule.uniqueItems) {
+      const fingerprints = decoded.map((item) => JSON.stringify(item));
+      if (new Set(fingerprints).size !== fingerprints.length) return mismatch(path, "array items are not unique");
+    }
+  }
+  return decoded;
+}
+
+function decodeSchema(identifier: string, value: unknown, path = identifier): Record<string, unknown> {
+  const rule = SCHEMAS.find((candidate) => candidate.id === identifier);
+  if (!rule) return mismatch(path, "schema is unavailable");
+  if (!isRecord(value)) return mismatch(path, "expected object");
+  const fieldNames = new Set(rule.fields.map((field) => field.name));
+  for (const name of Object.keys(value)) {
+    if (!fieldNames.has(name)) return mismatch(path + "." + name, "additional property is not allowed");
+  }
+  const result: Record<string, unknown> = {};
+  for (const field of rule.fields) {
+    if (!(field.name in value)) {
+      if (field.required) return mismatch(path + "." + field.name, "required property is missing");
+      continue;
+    }
+    result[field.name] = decodeField(field, value[field.name], path + "." + field.name);
+  }
+  return result;
+}
+
+function decodeApiAuditEventData(value: unknown): ApiAuditEventData {
+  return decodeSchema("vegastack-labs.dev/api-audit-event-data", value) as unknown as ApiAuditEventData;
+}
+
+function decodeApiInventoryAliasData(value: unknown): ApiInventoryAliasData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-alias-data", value) as unknown as ApiInventoryAliasData;
+}
+
+function decodeApiInventoryAliasListData(value: unknown): ApiInventoryAliasListData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-alias-list-data", value) as unknown as ApiInventoryAliasListData;
+}
+
+function decodeApiInventoryAssetData(value: unknown): ApiInventoryAssetData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-asset-data", value) as unknown as ApiInventoryAssetData;
+}
+
+function decodeApiInventoryAssetListData(value: unknown): ApiInventoryAssetListData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-asset-list-data", value) as unknown as ApiInventoryAssetListData;
+}
+
+function decodeApiInventoryDraftData(value: unknown): ApiInventoryDraftData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-draft-data", value) as unknown as ApiInventoryDraftData;
+}
+
+function decodeApiInventoryDraftListData(value: unknown): ApiInventoryDraftListData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-draft-list-data", value) as unknown as ApiInventoryDraftListData;
+}
+
+function decodeApiInventoryNodeData(value: unknown): ApiInventoryNodeData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-node-data", value) as unknown as ApiInventoryNodeData;
+}
+
+function decodeApiInventoryNodeListData(value: unknown): ApiInventoryNodeListData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-node-list-data", value) as unknown as ApiInventoryNodeListData;
+}
+
+function decodeApiInventoryObservationData(value: unknown): ApiInventoryObservationData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-observation-data", value) as unknown as ApiInventoryObservationData;
+}
+
+function decodeApiInventoryObservationListData(value: unknown): ApiInventoryObservationListData {
+  return decodeSchema("vegastack-labs.dev/api-inventory-observation-list-data", value) as unknown as ApiInventoryObservationListData;
+}
+
+function decodeApiPageQuery(value: unknown): ApiPageQuery {
+  return decodeSchema("vegastack-labs.dev/api-page-query", value) as unknown as ApiPageQuery;
+}
+
+function decodeApiSummaryData(value: unknown): ApiSummaryData {
+  return decodeSchema("vegastack-labs.dev/api-summary-data", value) as unknown as ApiSummaryData;
+}
+
+function decodeAuditEvent(value: unknown): AuditEvent {
+  return decodeSchema("vegastack-labs.dev/audit-event", value) as unknown as AuditEvent;
+}
+
+function decodeAuditTarget(value: unknown): AuditTarget {
+  return decodeSchema("vegastack-labs.dev/audit-target", value) as unknown as AuditTarget;
+}
+
+function decodeDatabaseStatusData(value: unknown): DatabaseStatusData {
+  return decodeSchema("vegastack-labs.dev/database-status-data", value) as unknown as DatabaseStatusData;
+}
+
+function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
+  return decodeSchema("vegastack-labs.dev/inventory-draft-counts", value) as unknown as InventoryDraftCounts;
+}
+
+function decodeResultError(value: unknown): ResultError {
+  return decodeSchema("vegastack-labs.dev/result-error", value) as unknown as ResultError;
+}
+
+function decodeRunResult(value: unknown): RunResult {
+  return decodeSchema("vegastack-labs.dev/run-result", value) as unknown as RunResult;
+}
+
+function decodeServerStatusData(value: unknown): ServerStatusData {
+  return decodeSchema("vegastack-labs.dev/server-status-data", value) as unknown as ServerStatusData;
+}
+
+export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+export type RequestOptions = { readonly signal?: AbortSignal };
+export type ReadResult<T> = Omit<RunResult, "data"> & { readonly data: T };
+
+function decodeReadResult<T>(value: unknown, operation: string, decodeData: (data: unknown) => T): ReadResult<T> {
+  if (!isRecord(value)) return mismatch(operation, "expected result object");
+  const version = value.schemaVersion;
+  if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/.test(version)) return mismatch(operation + ".schemaVersion", "invalid version");
+  if (Number.parseInt(version.split(".")[0] ?? "", 10) !== 1) {
+    throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", operation);
+  }
+  const envelope = decodeRunResult(value);
+  const data = decodeData(envelope.data);
+  return { ...envelope, data };
+}
+
+async function readJSON(response: Response, operation: string): Promise<unknown> {
+  try {
+    return await response.json();
+  } catch {
+    throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+  }
+}
+
+export type ReadClient = {
+  readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
+};
+
+export function createReadClient(fetchTransport: FetchTransport): ReadClient {
+  return {
+    async getSummary(options = {}) {
+      const operation = "api.v1.summary.get";
+      const response = await fetchTransport("/api/v1/summary", { method: "GET", cache: "no-store", credentials: "same-origin", signal: options.signal });
+      const value = await readJSON(response, operation);
+      return decodeReadResult(value, operation, decodeApiSummaryData);
+    },
+  };
+}
