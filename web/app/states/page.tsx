@@ -1,5 +1,8 @@
+import type { Metadata } from "next";
 import { ConsoleShell } from "@/components/console-shell";
 import { ConsoleState, type ConsoleStateKind } from "@/components/console-state";
+
+export const metadata: Metadata = { title: "Foundation states" };
 
 const states: Array<{ kind: ConsoleStateKind; title: string; description: string }> = [
   { kind: "loading", title: "Loading", description: "Waiting for a future local API response." },

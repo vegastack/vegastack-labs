@@ -1,21 +1,15 @@
-"use client";
-
 import type { ReactNode } from "react";
-import { Moon, Sun } from "lucide-react";
 import { AppShell, AppShellContent, AppShellHeader } from "@/components/ui/app-shell";
 import { Breadcrumb, BreadcrumbTrail } from "@/components/ui/breadcrumb";
-import { Button } from "@/components/ui/button";
-import { useVegaStackTheme } from "@/components/ui/provider";
 import { AppSidebar } from "@/app/dashboard/components/app-sidebar";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export function ConsoleShell({ children, title }: { children: ReactNode; title: string }) {
-  const { resolvedTheme, setTheme } = useVegaStackTheme();
-  const dark = resolvedTheme === "dark";
   return (
     <AppShell defaultOpen skipLinkLabel="Skip to main content">
       <AppSidebar />
       <div className="flex h-svh min-w-0 flex-1 flex-col">
-        <AppShellHeader actions={<Button aria-label={`Use ${dark ? "light" : "dark"} theme`} variant="outline" size="icon-sm" onClick={() => setTheme(dark ? "light" : "dark")}>{dark ? <Sun aria-hidden /> : <Moon aria-hidden />}</Button>}>
+        <AppShellHeader actions={<ThemeToggle />}>
           <Breadcrumb><BreadcrumbTrail items={[{ label: "VegaStack Labs", href: "/" }, { label: title }]} /></Breadcrumb>
         </AppShellHeader>
         <AppShellContent aria-label={title}>

@@ -18,7 +18,7 @@ export function AppSidebar() {
   return (
     <AppShellSidebar aria-label="Console navigation">
       <SidebarHeader>
-        <Link href="/" className="flex items-center gap-2 px-2 py-1.5 font-medium text-sidebar-foreground">
+        <Link href="/" prefetch={false} className="flex items-center gap-2 px-2 py-1.5 font-medium text-sidebar-foreground">
           <span aria-hidden className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">V</span>
           <span className="group-data-[state=collapsed]/sidebar:hidden">VegaStack Labs</span>
         </Link>
@@ -29,7 +29,7 @@ export function AppSidebar() {
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.label}>
-                <SidebarMenuButton render={<Link href={item.href} />}>
+                <SidebarMenuButton render={<Link href={item.href} prefetch={false} />}>
                   <item.icon aria-hidden /><span>{item.label}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>

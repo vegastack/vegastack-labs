@@ -130,31 +130,38 @@
       "files": [
         {
           "path": "web/app/dashboard/page.tsx",
-          "sha256": "sha256-2V4mIaQCSHk439OXQK7ksjqNikmiMV/wV7o8IxsmOis="
+          "sha256": "sha256-ugQj3FY1aTalmRr8Wh4UiES+aYwEMYGEGoiz8pKp9lM=",
+          "upstreamSha256": "sha256-tjkTDDKOutk1EKs/JN3ddPsc4zj0tEYMsXTlIKeSKig="
         },
         {
           "path": "web/app/dashboard/loading.tsx",
-          "sha256": "sha256-gvMyFeYC/PCFc+YSZJdD40bguqwgWjIcH91699iVYok="
+          "sha256": "sha256-gvMyFeYC/PCFc+YSZJdD40bguqwgWjIcH91699iVYok=",
+          "upstreamSha256": "sha256-gvMyFeYC/PCFc+YSZJdD40bguqwgWjIcH91699iVYok="
         },
         {
           "path": "web/app/dashboard/data.json",
-          "sha256": "sha256-STqyoDu4+68pJU6BWhlG91V6IPMd63IHNArzFGRWMY4="
+          "sha256": "sha256-STqyoDu4+68pJU6BWhlG91V6IPMd63IHNArzFGRWMY4=",
+          "upstreamSha256": "sha256-STqyoDu4+68pJU6BWhlG91V6IPMd63IHNArzFGRWMY4="
         },
         {
           "path": "web/app/dashboard/components/app-sidebar.tsx",
-          "sha256": "sha256-72o8OX5Od4zdZor8QoLkEtHJK6+rli4P+xuupdAfYk4="
+          "sha256": "sha256-/QG8DI/IfIU83r+/fPfLbi5owKu1QCTe90k4sb9dzjU=",
+          "upstreamSha256": "sha256-3vWKYgBE0Zu+u3yGbS3bl+/yylUTqYFCKnO/LmwhpXw="
         },
         {
           "path": "web/app/dashboard/components/stat-cards.tsx",
-          "sha256": "sha256-lGgnnUuennX2JTSBv8J9xFLt5dJGxQp8c1iUOXvFkPU="
+          "sha256": "sha256-lGgnnUuennX2JTSBv8J9xFLt5dJGxQp8c1iUOXvFkPU=",
+          "upstreamSha256": "sha256-lGgnnUuennX2JTSBv8J9xFLt5dJGxQp8c1iUOXvFkPU="
         },
         {
           "path": "web/app/dashboard/components/dashboard-chart.tsx",
-          "sha256": "sha256-Ydafwc0PsSDH5hcXJys0+QFowzQpIB4DzHcmMWUBCZc="
+          "sha256": "sha256-Ydafwc0PsSDH5hcXJys0+QFowzQpIB4DzHcmMWUBCZc=",
+          "upstreamSha256": "sha256-Ydafwc0PsSDH5hcXJys0+QFowzQpIB4DzHcmMWUBCZc="
         },
         {
           "path": "web/app/dashboard/components/recent-activity.tsx",
-          "sha256": "sha256-MzJ1AI+Ghk26fR0mIhy3NO9vLNtvnLNVUy7MnAMlTrU="
+          "sha256": "sha256-MzJ1AI+Ghk26fR0mIhy3NO9vLNtvnLNVUy7MnAMlTrU=",
+          "upstreamSha256": "sha256-MzJ1AI+Ghk26fR0mIhy3NO9vLNtvnLNVUy7MnAMlTrU="
         }
       ]
     },
@@ -363,5 +370,6 @@
       ]
     }
   ],
-  "ownedBlockAcceptedAt": "10-09-2026"
+  "ownedBlockAcceptedAt": "10-09-2026",
+  "sourceClosureSha256": "764d3be59f87db154bee8a1ee063a73732182e5ac882bb39362f40207bb1eff7"
 }
