@@ -38,7 +38,7 @@ const ALLOWED_SOURCE_HOSTS = new Set([
 // role, decision, and reason have been reviewed. Resolution checks cannot
 // approve changed metadata by themselves.
 const REVIEWED_METADATA_SHA256 =
-  "da7c2142f176425c64c2aeea1bad26ff2f47c3048a23364b6e11a7c1831d19b7";
+  "d429492c376c028b2c2d4d8c305f75fef5d9c8a45040015c044880fd9f5a43de";
 
 export class GoDependencyError extends Error {
   constructor(code, target) {

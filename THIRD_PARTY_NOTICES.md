@@ -431,6 +431,7 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/cyberphone/json-canonicalization` | `v0.0.0-20241213102144-19d51d7fe467` | `Apache-2.0` | [source](https://github.com/cyberphone/json-canonicalization) |
 | `github.com/digitorus/pkcs7` | `v0.0.0-20230818184609-3a137a874352` | `MIT` | [source](https://github.com/digitorus/pkcs7) |
 | `github.com/digitorus/timestamp` | `v0.0.0-20231217203849-220c5c2851b7` | `BSD-2-Clause` | [source](https://github.com/digitorus/timestamp) |
+| `github.com/go-jose/go-jose/v4` | `v4.1.4` | `Apache-2.0` | [source](https://github.com/go-jose/go-jose) |
 | `github.com/go-logr/logr` | `v1.4.4` | `Apache-2.0` | [source](https://github.com/go-logr/logr) |
 | `github.com/go-logr/stdr` | `v1.2.2` | `Apache-2.0` | [source](https://github.com/go-logr/stdr) |
 | `github.com/go-openapi/analysis` | `v0.25.5` | `Apache-2.0` | [source](https://github.com/go-openapi/analysis) |
