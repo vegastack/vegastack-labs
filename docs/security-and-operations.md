@@ -66,6 +66,14 @@ Profiles preserve the support matrix, encryption decisions, maintenance policy a
 
 Google Workspace account creation, suspension and licensing are prerequisites performed in Workspace; v1 does not automate the Workspace Admin lifecycle. Cloudflare's Workspace integration supports login, device enrollment and group-aware Access policy. [Cloudflare Google Workspace IdP](https://developers.cloudflare.com/cloudflare-one/integrations/identity-providers/google-workspace/) [D-060](decisions-and-sources.md#d-060) [D-061](decisions-and-sources.md#d-061)
 
+### Browser identity and session response
+
+Remote Console requests pass the fixed order `TLS and exact Host/Origin → Cloudflare Access JWT → local session → mapped principal → resource grant → input parsing`. The server accepts only the Access JWT assertion, verifies it independently, and stores only opaque identity and session digests. A browser session is idle-limited to 15 minutes, absolute-limited to 8 hours, bounded by the external JWT, rotated on renewal, and invalidated by logout, replay, principal/binding revocation, grant-revision change, or recovery-epoch change. Local logout ends only the `vsk-labs` session; it does not claim to end Cloudflare or Workspace login. [D-125](decisions-and-sources.md#d-125)
+
+An invalid origin, token, key, session or grant returns only a stable safe error. Operators must not paste JWTs/cookies into logs or retry through a direct origin. A signing-key outage permits an already-known key only until 24 hours after the last successful key fetch; an unknown key or older cache is denied. Diagnose sanitized server health, system time, configured issuer/audience/origin and key-cache age, then restore the provider path or use protected local OS-peer CLI recovery. Local recovery is deliberately independent of Cloudflare and browser-session state.
+
+The session tables are durable, hash-only and additive. Before applying their migration, retain and verify the standard local pre-migration copy. If migration or startup verification fails, preserve both files and diagnostics, restore the verified copy into an isolated path, run the previous executable against that copy, and only then perform an acknowledged authority cutover. Never delete session/audit rows or edit a migration checksum to force rollback.
+
 ### Roles
 
 - `vegastack-labs-admins`: logical fleet, network, identity, secret-provider and control-plane authority.
