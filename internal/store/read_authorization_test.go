@@ -64,6 +64,26 @@ func TestReadAuthorizationReturnsCanonicalScopedDigest(t *testing.T) {
 	}
 }
 
+func TestReadAuthorizationAcceptsOnlyRecognizedVerifiedPrincipalMethods(t *testing.T) {
+	if runtime.GOOS != "linux" {
+		t.Skip("SQLite authority is supported on Linux")
+	}
+	s, err := Open(context.Background(), testConfig(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	seedReadGrant(t, s, "principal-reader", "platform.summary.read", "platform-summary", "current", 1, "active")
+	authorizer := NewReadAuthorizer(s)
+	target := authorization.ReadTarget{Capability: "platform.summary.read", ResourceKind: "platform-summary", ResourceID: "current"}
+	if _, err := authorizer.AuthorizeRead(context.Background(), identity.Principal{ID: "principal-reader", Method: identity.CloudflareAccessMethod}, target); err != nil {
+		t.Fatalf("verified remote principal denied: %v", err)
+	}
+	if _, err := authorizer.AuthorizeRead(context.Background(), identity.Principal{ID: "principal-reader", Method: "forged"}, target); Code(err) != generated.ErrorCodeAuthenticationRequired {
+		t.Fatalf("forged method error = %v", err)
+	}
+}
+
 func seedReadGrant(t *testing.T, s *Store, principal, capability, kind, resource string, revision int64, status string) {
 	t.Helper()
 	now := "2026-09-09T12:00:00Z"

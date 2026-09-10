@@ -62,3 +62,16 @@ func TestVerifiedPrincipalContext(t *testing.T) {
 		t.Fatal("empty context contained a principal")
 	}
 }
+
+func TestVerifiedPrincipalContextRejectsInvalidMethodsAndIDs(t *testing.T) {
+	for _, principal := range []Principal{
+		{ID: "principal.operator", Method: "forged"},
+		{ID: "", Method: LocalOSPeerMethod},
+		{ID: "UPPER", Method: CloudflareAccessMethod},
+	} {
+		ctx := WithVerifiedPrincipal(context.Background(), principal)
+		if _, ok := PrincipalFromContext(ctx); ok {
+			t.Fatalf("PrincipalFromContext accepted %#v", principal)
+		}
+	}
+}

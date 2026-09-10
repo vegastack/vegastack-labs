@@ -19,7 +19,7 @@ type ReadAuthorizer struct{ store *Store }
 func NewReadAuthorizer(store *Store) *ReadAuthorizer { return &ReadAuthorizer{store: store} }
 
 func (authorizer *ReadAuthorizer) AuthorizeRead(ctx context.Context, principal identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
-	if principal.ID == "" || principal.Method != identity.LocalOSPeerMethod {
+	if !identity.ValidPrincipal(principal) {
 		return authorization.ReadScope{}, newStoreError(generated.ErrorCodeAuthenticationRequired, "read", false, nil)
 	}
 	if authorizer == nil || authorizer.store == nil || !authorization.ValidTarget(target) {
