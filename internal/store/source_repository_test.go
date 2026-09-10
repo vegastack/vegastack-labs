@@ -10,6 +10,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/readmodel"
 )
 
@@ -21,7 +22,16 @@ func (failingSourceObserver) Observe(context.Context, readmodel.SourceID) (readm
 
 func TestSourceRepositoryProjectsLocalStateAndIsolatesOptionalFailure(t *testing.T) {
 	s := newInventoryTestStore(t)
+	draftRepository := NewInventoryDraftRepository(s)
+	request := inventoryPutRequest("sha256:"+strings.Repeat("9", 64), "valid")
+	request.DraftID = "draft-source-isolation"
+	request.Event.Target.ID = string(request.DraftID)
+	draft, err := draftRepository.Put(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
 	seedReadGrant(t, s, "principal-source-reader", "platform.source.read", "platform-source", "", 1, "active")
+	seedReadGrant(t, s, "principal-source-reader", "inventory.draft.read", "inventory-draft", authorization.ResourceID(draft.Ref), 1, "active")
 	scope, err := NewReadAuthorizer(s).AuthorizeRead(context.Background(), identity.Principal{ID: "principal-source-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "platform.source.read", ResourceKind: "platform-source"})
 	if err != nil {
 		t.Fatal(err)
@@ -42,6 +52,14 @@ func TestSourceRepositoryProjectsLocalStateAndIsolatesOptionalFailure(t *testing
 	}
 	if encoded := strings.Join(sourceReasons(page.Items), " "); strings.Contains(encoded, "super-secret") || strings.Contains(encoded, "provider response") {
 		t.Fatalf("raw source error escaped: %q", encoded)
+	}
+	inventoryScope, err := NewReadAuthorizer(s).AuthorizeRead(context.Background(), identity.Principal{ID: "principal-source-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "inventory.draft.read", ResourceKind: "inventory-draft"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	drafts, err := NewReadRepository(s).ListDrafts(context.Background(), inventoryScope, inventory.DraftListQuery{Limit: 1}, s.health.Revision)
+	if err != nil || len(drafts.Items) != 1 || drafts.Items[0].Ref != draft.Ref {
+		t.Fatalf("inventory read after optional failure = %#v, %v", drafts, err)
 	}
 }
 
