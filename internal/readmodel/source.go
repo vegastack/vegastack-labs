@@ -160,6 +160,55 @@ func validSourceID(id SourceID) bool {
 	return false
 }
 
+func ValidSourceID(id SourceID) bool { return validSourceID(id) }
+
+func ValidSourceState(state SourceState) bool {
+	switch state {
+	case SourceHealthy, SourceStale, SourceUnknown, SourceUnavailable, SourceFailed:
+		return true
+	default:
+		return false
+	}
+}
+
+func SourceCapability(id SourceID) string {
+	switch id {
+	case SourceDatabase:
+		return "database.status.read"
+	case SourceNodes:
+		return "inventory.node.read"
+	case SourceGates:
+		return "gate.read"
+	case SourcePeople:
+		return "identity.person.read"
+	case SourceServices:
+		return "service.read"
+	case SourceBackups:
+		return "backup.status.read"
+	case SourceProviders:
+		return "adapter.status.read"
+	default:
+		return ""
+	}
+}
+
+func SourceReason(state SourceState) string {
+	switch state {
+	case SourceHealthy:
+		return SourceReasonHealthy
+	case SourceStale:
+		return SourceReasonStale
+	case SourceUnknown:
+		return SourceReasonUnknown
+	case SourceUnavailable:
+		return SourceReasonUnavailable
+	case SourceFailed:
+		return SourceReasonFailed
+	default:
+		return ""
+	}
+}
+
 func copyTime(value *time.Time) *time.Time {
 	if value == nil {
 		return nil

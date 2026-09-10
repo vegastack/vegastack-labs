@@ -45,22 +45,13 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 		if err != nil {
 			return err
 		}
-		observations, err := repository.observations(ctx, tx)
+		statuses, err := repository.evaluate(ctx, tx)
 		if err != nil {
 			return err
 		}
-		now := repository.store.config.Clock().UTC()
-		for _, observation := range observations {
-			if !all && !allowed[observation.ID] {
+		for _, status := range statuses {
+			if !all && !allowed[status.ID] {
 				continue
-			}
-			policy := readmodel.SourcePolicy{StaleAfter: optionalSourceStaleAfter}
-			if observation.ID == readmodel.SourceDatabase || observation.ID == readmodel.SourceNodes {
-				policy.StaleAfter = localSourceStaleAfter
-			}
-			status, evaluateErr := readmodel.EvaluateSource(observation, policy, now)
-			if evaluateErr != nil {
-				return newStoreError(generated.ErrorCodeIntegrityFailure, "source-observation", false, evaluateErr)
 			}
 			if query.Source != "" && query.Source != status.ID || query.State != "" && query.State != status.State {
 				continue
@@ -92,11 +83,32 @@ func (repository *SourceRepository) ListSources(ctx context.Context, scope autho
 	return result, err
 }
 
+func (repository *SourceRepository) evaluate(ctx context.Context, tx ReadTx) ([]readmodel.SourceStatus, error) {
+	observations, err := repository.observations(ctx, tx)
+	if err != nil {
+		return nil, err
+	}
+	now := repository.store.config.Clock().UTC()
+	statuses := make([]readmodel.SourceStatus, 0, len(observations))
+	for _, observation := range observations {
+		policy := readmodel.SourcePolicy{StaleAfter: optionalSourceStaleAfter}
+		if observation.ID == readmodel.SourceDatabase || observation.ID == readmodel.SourceNodes {
+			policy.StaleAfter = localSourceStaleAfter
+		}
+		status, evaluateErr := readmodel.EvaluateSource(observation, policy, now)
+		if evaluateErr != nil {
+			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "source-observation", false, evaluateErr)
+		}
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
+
 func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx) ([]readmodel.SourceObservation, error) {
 	health := repository.store.health
 	database := readmodel.SourceObservation{
 		ID:            readmodel.SourceDatabase,
-		Capability:    sourceCapability(readmodel.SourceDatabase),
+		Capability:    readmodel.SourceCapability(readmodel.SourceDatabase),
 		Available:     true,
 		CollectedAt:   health.LastIntegrityCheckAt,
 		LastSuccessAt: health.LastIntegrityCheckAt,
@@ -109,7 +121,7 @@ func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx)
 	if err := tx.queryRow(ctx, `SELECT MAX(observed_at) FROM inventory_draft_observations`).Scan(&observed); err != nil {
 		return nil, err
 	}
-	nodes := readmodel.SourceObservation{ID: readmodel.SourceNodes, Capability: sourceCapability(readmodel.SourceNodes), Available: true}
+	nodes := readmodel.SourceObservation{ID: readmodel.SourceNodes, Capability: readmodel.SourceCapability(readmodel.SourceNodes), Available: true}
 	if observed.Valid {
 		value, err := time.Parse(time.RFC3339Nano, observed.String)
 		if err != nil {
@@ -119,7 +131,7 @@ func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx)
 	}
 	result := []readmodel.SourceObservation{database, nodes}
 	for _, id := range []readmodel.SourceID{readmodel.SourceGates, readmodel.SourcePeople, readmodel.SourceServices, readmodel.SourceBackups, readmodel.SourceProviders} {
-		observation := readmodel.SourceObservation{ID: id, Capability: sourceCapability(id), Available: false}
+		observation := readmodel.SourceObservation{ID: id, Capability: readmodel.SourceCapability(id), Available: false}
 		if repository.observer != nil {
 			candidate, err := repository.observer.Observe(ctx, id)
 			if err != nil {
@@ -163,27 +175,6 @@ func allowedSources(ctx context.Context, tx ReadTx, scope authorization.ReadScop
 		}
 	}
 	return allowed, all, rows.Err()
-}
-
-func sourceCapability(id readmodel.SourceID) string {
-	switch id {
-	case readmodel.SourceDatabase:
-		return "database.status.read"
-	case readmodel.SourceNodes:
-		return "inventory.node.read"
-	case readmodel.SourceGates:
-		return "gate.read"
-	case readmodel.SourcePeople:
-		return "identity.person.read"
-	case readmodel.SourceServices:
-		return "service.read"
-	case readmodel.SourceBackups:
-		return "backup.status.read"
-	case readmodel.SourceProviders:
-		return "adapter.status.read"
-	default:
-		return ""
-	}
 }
 
 func sourceFilterValid(value readmodel.SourceID) bool {

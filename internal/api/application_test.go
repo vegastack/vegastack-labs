@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
@@ -128,7 +129,92 @@ func TestHandlerAuthorizesBeforeQueryCursorOrResourceLookup(t *testing.T) {
 type summaryReads struct{ testReads }
 
 func (summaryReads) Summary(context.Context, authorization.ReadScope) (readmodel.Summary, error) {
-	return readmodel.Summary{DatabaseMode: "safe-mode", ReadAvailable: true, MutationAvailable: false, DraftCount: 3, LastEventID: 9, RecoveryEpoch: 2, StateRevision: 7}, nil
+	return readmodel.Summary{DatabaseMode: "safe-mode", ReadAvailable: true, MutationAvailable: false, DraftCount: 3, LastEventID: 9, RecoveryEpoch: 2, StateRevision: 7, SourceCounts: readmodel.SourceCounts{Total: 7, Healthy: 1, Unknown: 1, Unavailable: 5}, WorstSourceState: readmodel.SourceUnknown}, nil
+}
+
+type sourceReads struct {
+	testReads
+	query readmodel.SourceListQuery
+}
+
+func (reads *sourceReads) CurrentRevision(context.Context, authorization.ReadScope) (store.RevisionToken, error) {
+	return store.RevisionToken{StateRevision: 7, RecoveryEpoch: 2}, nil
+}
+
+func (reads *sourceReads) ListSources(_ context.Context, _ authorization.ReadScope, query readmodel.SourceListQuery, snapshot store.RevisionToken) (readmodel.SourcePage, error) {
+	reads.query = query
+	recent := time.Date(2026, time.September, 10, 8, 0, 0, 0, time.UTC)
+	return readmodel.SourcePage{
+		Items: []readmodel.SourceStatus{
+			{ID: readmodel.SourceDatabase, Capability: "secret-capability", State: readmodel.SourceHealthy, CollectedAt: &recent, LastSuccessAt: &recent, Reason: "provider-secret"},
+			{ID: readmodel.SourceBackups, State: readmodel.SourceUnavailable},
+			{ID: readmodel.SourceNodes, State: readmodel.SourceUnknown},
+		},
+		HasMore: true,
+		Last:    readmodel.SourceNodes,
+		Snapshot: readmodel.RevisionToken{
+			StateRevision: snapshot.StateRevision,
+			RecoveryEpoch: snapshot.RecoveryEpoch,
+		},
+	}, nil
+}
+
+func TestSourcesAuthorizesBeforeInvalidFilters(t *testing.T) {
+	var calls []string
+	app, err := NewApplication(Config{
+		Authority: testAuthority{},
+		Authorizer: authorizerFunc(func(context.Context, identity.Principal, authorization.ReadTarget) (authorization.ReadScope, error) {
+			calls = append(calls, "authorize")
+			return authorization.ReadScope{}, failure.New(generated.ErrorCodeAuthorizationDenied, "read", false)
+		}),
+		Reads:   testReads{onCall: func() { calls = append(calls, "lookup") }},
+		Results: result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-test", nil }),
+		Cursors: testCursor{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/sources?state=not-a-state&source=secret-canary", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden || !reflect.DeepEqual(calls, []string{"authorize"}) || strings.Contains(response.Body.String(), "secret-canary") {
+		t.Fatalf("response = %d/%v/%s", response.Code, calls, response.Body.String())
+	}
+}
+
+func TestSourcesServeMixedSafeStatesWithBoundedFilters(t *testing.T) {
+	reads := &sourceReads{}
+	scope := authorization.ReadScope{PrincipalID: "principal.test", Capability: "platform.source.read", ResourceKind: "platform-source", GrantRevision: 1, ScopeDigest: "sha256:scope"}
+	app, err := NewApplication(Config{
+		Authority: testAuthority{},
+		Authorizer: authorizerFunc(func(_ context.Context, _ identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
+			if target != (authorization.ReadTarget{Capability: "platform.source.read", ResourceKind: "platform-source"}) {
+				t.Fatalf("target = %#v", target)
+			}
+			return scope, nil
+		}),
+		Reads: reads, Results: result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-test", nil }), Cursors: testCursor{},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/sources?limit=3&sort=id-desc&source=services&state=failed", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	body := response.Body.String()
+	if response.Code != http.StatusOK || reads.query.Limit != 3 || reads.query.Sort != "id-desc" || reads.query.Source != readmodel.SourceServices || reads.query.State != readmodel.SourceFailed {
+		t.Fatalf("response/query = %d/%#v/%s", response.Code, reads.query, body)
+	}
+	for _, want := range []string{`"state":"healthy"`, `"state":"unavailable"`, `"state":"unknown"`, `"nextCursor":"cursor"`, `"capability":"database.status.read"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("response missing %s: %s", want, body)
+		}
+	}
+	if strings.Contains(body, "provider-secret") || strings.Contains(body, "secret-capability") {
+		t.Fatalf("unsafe fixture data escaped: %s", body)
+	}
 }
 
 func TestSummaryUsesGeneratedEnvelopeAndNoStoreCaching(t *testing.T) {
@@ -146,7 +232,7 @@ func TestSummaryUsesGeneratedEnvelopeAndNoStoreCaching(t *testing.T) {
 	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, request)
-	if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != "no-store" || !strings.Contains(response.Body.String(), `"command":"api.v1.summary.get"`) || !strings.Contains(response.Body.String(), `"databaseMode":"safe-mode"`) {
+	if response.Code != http.StatusOK || response.Header().Get("Cache-Control") != "no-store" || !strings.Contains(response.Body.String(), `"command":"api.v1.summary.get"`) || !strings.Contains(response.Body.String(), `"databaseMode":"safe-mode"`) || !strings.Contains(response.Body.String(), `"sourceCounts":{"total":7,"healthy":1`) || !strings.Contains(response.Body.String(), `"worstSourceState":"unknown"`) {
 		t.Fatalf("response = %d %v %s", response.Code, response.Header(), response.Body.String())
 	}
 }

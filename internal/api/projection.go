@@ -1,6 +1,8 @@
 package api
 
 import (
+	"time"
+
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/readmodel"
@@ -28,7 +30,39 @@ func projectDatabaseStatus(value readmodel.DatabaseStatus) generated.DatabaseSta
 	return generated.DatabaseStatusData{Mode: value.Mode, SchemaVersion: int64(value.SchemaVersion), SQLiteVersion: value.SQLiteVersion, MutationEnabled: value.MutationEnabled, RecoveryPending: value.RecoveryPending, IntegrityStatus: value.IntegrityStatus, LastIntegrityCheckAt: checked, SafeModeReason: value.SafeModeReason}
 }
 func projectSummary(v readmodel.Summary) generated.ApiSummaryData {
-	return generated.ApiSummaryData{DatabaseMode: v.DatabaseMode, ReadAvailable: v.ReadAvailable, MutationAvailable: v.MutationAvailable, DraftCount: v.DraftCount, ValidDraftCount: v.ValidDraftCount, BlockedDraftCount: v.BlockedDraftCount, LastEventID: v.LastEventID, RecoveryEpoch: v.RecoveryEpoch, StateRevision: v.StateRevision}
+	return generated.ApiSummaryData{DatabaseMode: v.DatabaseMode, ReadAvailable: v.ReadAvailable, MutationAvailable: v.MutationAvailable, DraftCount: v.DraftCount, ValidDraftCount: v.ValidDraftCount, BlockedDraftCount: v.BlockedDraftCount, LastEventID: v.LastEventID, RecoveryEpoch: v.RecoveryEpoch, StateRevision: v.StateRevision, SourceCounts: projectSourceCounts(v.SourceCounts), WorstSourceState: string(v.WorstSourceState)}
+}
+
+func projectSourceCounts(value readmodel.SourceCounts) generated.ApiSourceCountsData {
+	return generated.ApiSourceCountsData{Total: value.Total, Healthy: value.Healthy, Stale: value.Stale, Unknown: value.Unknown, Unavailable: value.Unavailable, Failed: value.Failed}
+}
+
+func projectSource(value readmodel.SourceStatus) generated.ApiSourceData {
+	return generated.ApiSourceData{
+		ID:            string(value.ID),
+		Capability:    readmodel.SourceCapability(value.ID),
+		State:         string(value.State),
+		CollectedAt:   projectTime(value.CollectedAt),
+		LastSuccessAt: projectTime(value.LastSuccessAt),
+		LastErrorAt:   projectTime(value.LastErrorAt),
+		Reason:        readmodel.SourceReason(value.State),
+	}
+}
+
+func projectSourcePage(value readmodel.SourcePage, next *string) generated.ApiSourceListData {
+	items := make([]generated.ApiSourceData, 0, len(value.Items))
+	for _, item := range value.Items {
+		items = append(items, projectSource(item))
+	}
+	return generated.ApiSourceListData{Items: items, NextCursor: next, StateRevision: value.Snapshot.StateRevision, RecoveryEpoch: value.Snapshot.RecoveryEpoch}
+}
+
+func projectTime(value *time.Time) *string {
+	if value == nil {
+		return nil
+	}
+	formatted := value.UTC().Format(time.RFC3339Nano)
+	return &formatted
 }
 func projectRecord(kind string, v readmodel.Record) any {
 	switch kind {
