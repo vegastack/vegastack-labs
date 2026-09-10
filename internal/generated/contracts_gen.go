@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.6.0"
+	RegistrySchemaVersion                   = "1.7.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -688,6 +688,7 @@ type Endpoint struct {
 	ID            string `json:"id"`
 	Method        string `json:"method"`
 	Path          string `json:"path"`
+	Availability  string `json:"availability"`
 	OwnerPhase    string `json:"ownerPhase"`
 	QuerySchema   string `json:"querySchema,omitempty"`
 	RequestSchema string `json:"requestSchema,omitempty"`
@@ -765,23 +766,23 @@ var Commands = []Command{
 }
 
 var Endpoints = []Endpoint{
-	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite"},
-	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse"},
-	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite"},
-	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-aliases.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-assets.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-asset-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-assets.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-asset-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-nodes.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-node-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-nodes.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-node-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-observations.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-observation-data", Stream: "finite"},
-	{ID: "api.v1.inventory-draft-observations.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-observation-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-drafts.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-data", Stream: "finite"},
-	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite"},
-	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite"},
-	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite"},
-	{ID: "api.v1.summary.get", Method: "GET", Path: "/api/v1/summary", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-summary-data", Stream: "finite"},
+	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite"},
+	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse"},
+	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite"},
+	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-aliases.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-assets.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-asset-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-assets.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-asset-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-nodes.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-node-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-nodes.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-node-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-observations.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-observation-data", Stream: "finite"},
+	{ID: "api.v1.inventory-draft-observations.list", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-observation-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-drafts.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-data", Stream: "finite"},
+	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite"},
+	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite"},
+	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite"},
+	{ID: "api.v1.summary.get", Method: "GET", Path: "/api/v1/summary", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-summary-data", Stream: "finite"},
 }
 
 var ErrorExitCodes = map[string]int{

@@ -33,6 +33,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/command-registry.schema.json",
 		"schemas/v1/endpoint-registry.json",
 		"schemas/v1/endpoint-registry.schema.json",
+		"web/generated/read-api.ts",
 		"schemas/v1/api-audit-event-data.schema.json",
 		"schemas/v1/api-inventory-alias-data.schema.json",
 		"schemas/v1/api-inventory-alias-list-data.schema.json",
@@ -80,6 +81,26 @@ func TestGenerateIsByteStable(t *testing.T) {
 	}
 	if !reflect.DeepEqual(gotPaths, wantPaths) {
 		t.Fatalf("artifact paths = %v, want %v", gotPaths, wantPaths)
+	}
+}
+
+func TestGenerateSelectsOnlyBrowserSafeAvailableReads(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := make(map[string][]byte, len(artifacts))
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = artifact.Content
+	}
+	client := string(byPath["web/generated/read-api.ts"])
+	if strings.Contains(client, "inventory-drafts.import") || strings.Contains(client, "https://") {
+		t.Fatal("unsafe endpoint entered browser client")
+	}
+	if !strings.Contains(client, "api.v1.events.stream") || !strings.Contains(client, "api.v1.summary.get") {
+		t.Fatal("implemented reads missing")
 	}
 }
 
@@ -299,7 +320,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.6.0"`,
+		`= "1.7.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

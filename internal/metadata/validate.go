@@ -52,6 +52,11 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || endpoint.OwnerPhase != "2" {
 			return validationError("METADATA_INVALID", location)
 		}
+		switch endpoint.Availability {
+		case AvailabilityAvailable, AvailabilityPlanned:
+		default:
+			return validationError("METADATA_INVALID", location+".availability")
+		}
 		if _, exists := ids[endpoint.ID]; exists {
 			return validationError("METADATA_DUPLICATE", location+".id")
 		}

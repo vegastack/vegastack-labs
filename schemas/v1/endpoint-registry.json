@@ -1,12 +1,13 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.6.0",
+  "schemaVersion": "1.7.0",
   "endpoints": [
     {
       "id": "api.v1.database-status.get",
       "method": "GET",
       "path": "/api/v1/database/status",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/database-status-data",
       "stream": "finite"
@@ -15,6 +16,7 @@
       "id": "api.v1.events.stream",
       "method": "GET",
       "path": "/api/v1/events",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-audit-event-data",
       "stream": "sse"
@@ -23,6 +25,7 @@
       "id": "api.v1.health.get",
       "method": "GET",
       "path": "/api/v1/health",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/server-status-data",
       "stream": "finite"
@@ -31,6 +34,7 @@
       "id": "api.v1.inventory-diffs.create",
       "method": "POST",
       "path": "/api/v1/inventory-diffs",
+      "availability": "available",
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-diff-request",
       "dataSchema": "vegastack-labs.dev/inventory-diff-data",
@@ -40,6 +44,7 @@
       "id": "api.v1.inventory-draft-aliases.get",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-alias-data",
       "stream": "finite"
@@ -48,6 +53,7 @@
       "id": "api.v1.inventory-draft-aliases.list",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases",
+      "availability": "available",
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-alias-list-data",
@@ -57,6 +63,7 @@
       "id": "api.v1.inventory-draft-assets.get",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-asset-data",
       "stream": "finite"
@@ -65,6 +72,7 @@
       "id": "api.v1.inventory-draft-assets.list",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets",
+      "availability": "available",
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-asset-list-data",
@@ -74,6 +82,7 @@
       "id": "api.v1.inventory-draft-nodes.get",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-node-data",
       "stream": "finite"
@@ -82,6 +91,7 @@
       "id": "api.v1.inventory-draft-nodes.list",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes",
+      "availability": "available",
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-node-list-data",
@@ -91,6 +101,7 @@
       "id": "api.v1.inventory-draft-observations.get",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-observation-data",
       "stream": "finite"
@@ -99,6 +110,7 @@
       "id": "api.v1.inventory-draft-observations.list",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations",
+      "availability": "available",
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-observation-list-data",
@@ -108,6 +120,7 @@
       "id": "api.v1.inventory-drafts.get",
       "method": "GET",
       "path": "/api/v1/inventory-drafts/{draftId}/revisions/{revision}",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-draft-data",
       "stream": "finite"
@@ -116,6 +129,7 @@
       "id": "api.v1.inventory-drafts.import",
       "method": "POST",
       "path": "/api/v1/inventory-drafts/import",
+      "availability": "available",
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-import-request",
       "dataSchema": "vegastack-labs.dev/inventory-import-data",
@@ -125,6 +139,7 @@
       "id": "api.v1.inventory-drafts.list",
       "method": "GET",
       "path": "/api/v1/inventory-drafts",
+      "availability": "available",
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-draft-list-data",
@@ -134,6 +149,7 @@
       "id": "api.v1.inventory-exports.create",
       "method": "POST",
       "path": "/api/v1/inventory-exports",
+      "availability": "available",
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-export-request",
       "dataSchema": "vegastack-labs.dev/inventory-export-data",
@@ -143,6 +159,7 @@
       "id": "api.v1.summary.get",
       "method": "GET",
       "path": "/api/v1/summary",
+      "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-summary-data",
       "stream": "finite"

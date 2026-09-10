@@ -45,6 +45,12 @@
           }
         ],
         "properties": {
+          "availability": {
+            "enum": [
+              "available",
+              "planned"
+            ]
+          },
           "dataSchema": {
             "minLength": 1,
             "type": "string"
@@ -83,6 +89,7 @@
           "id",
           "method",
           "path",
+          "availability",
           "ownerPhase",
           "dataSchema",
           "stream"
