@@ -1454,6 +1454,7 @@ function decodeServerStatusData(value: unknown): ServerStatusData {
 
 export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 export type RequestOptions = { readonly signal?: AbortSignal };
+export type StreamOptions = RequestOptions & { readonly lastEventId?: string };
 export type ReadResult<T> = Omit<RunResult, "data"> & { readonly data: T };
 
 function decodeReadEnvelope(value: unknown, operation: string): RunResult {
@@ -1553,8 +1554,115 @@ function pageQuery(value: ApiPageQuery | undefined): string {
   return encoded === "" ? "" : "?" + encoded;
 }
 
+function parseSSEFrame<T>(frame: string, operation: string, eventName: string, decodeData: (data: unknown) => T, eventIdOf: (data: T) => number): T | null {
+  const normalized = frame.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+  if (normalized === "" || normalized.split("\n").every((line) => line === "" || line.startsWith(":"))) return null;
+  let id = "";
+  let event = "message";
+  const data: string[] = [];
+  for (const line of normalized.split("\n")) {
+    if (line === "" || line.startsWith(":")) continue;
+    const separator = line.indexOf(":");
+    const field = separator < 0 ? line : line.slice(0, separator);
+    let value = separator < 0 ? "" : line.slice(separator + 1);
+    if (value.startsWith(" ")) value = value.slice(1);
+    if (field === "id") id = value;
+    if (field === "event") event = value;
+    if (field === "data") data.push(value);
+  }
+  if (event !== eventName || !/^[1-9]\d*$/.test(id) || data.length === 0) return mismatch(operation, "invalid event frame");
+  const numericId = Number(id);
+  if (!Number.isSafeInteger(numericId)) return mismatch(operation, "invalid event identifier");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(data.join("\n"));
+  } catch {
+    throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+  }
+  const decoded = decodeData(raw);
+  if (eventIdOf(decoded) !== numericId) return mismatch(operation, "event identifier mismatch");
+  return decoded;
+}
+
+function readStreamChunk(reader: ReadableStreamDefaultReader<Uint8Array>, signal: AbortSignal | undefined, operation: string): Promise<ReadableStreamReadResult<Uint8Array>> {
+  if (!signal) return reader.read();
+  if (signal.aborted) return Promise.reject(new ReadClientError("cancelled", "INTERRUPTED", operation));
+  return new Promise((resolve, reject) => {
+    const abort = () => {
+      void reader.cancel();
+      reject(new ReadClientError("cancelled", "INTERRUPTED", operation));
+    };
+    signal.addEventListener("abort", abort, { once: true });
+    reader.read().then(
+      (value) => { signal.removeEventListener("abort", abort); resolve(value); },
+      (error) => { signal.removeEventListener("abort", abort); reject(error); },
+    );
+  });
+}
+
+async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, options: StreamOptions, operation: string, eventName: string, decodeData: (data: unknown) => T, eventIdOf: (data: T) => number): AsyncIterable<T> {
+  if (options.signal?.aborted) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+  const headers: Record<string, string> = { Accept: "text/event-stream" };
+  if (options.lastEventId !== undefined) {
+    if (options.lastEventId.length === 0 || options.lastEventId.length > 2048 || /[\r\n]/.test(options.lastEventId)) return mismatch(operation, "invalid last event identifier");
+    headers["Last-Event-ID"] = options.lastEventId;
+  }
+  let response: Response;
+  try {
+    response = await fetchTransport(url, { method: "GET", cache: "no-store", credentials: "same-origin", headers, signal: options.signal });
+  } catch (error) {
+    if (cancelled(options.signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+    throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
+  }
+  if (!response.ok) {
+    const envelope = decodeReadEnvelope(await readJSON(response, operation, options.signal), operation);
+    const failure = envelope.errors[0];
+    if (!failure) return mismatch(operation, "failure response has no stable error");
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+  }
+  if (!(response.headers.get("content-type") ?? "").toLowerCase().startsWith("text/event-stream") || !response.body) {
+    return mismatch(operation, "invalid event stream response");
+  }
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8", { fatal: true });
+  let buffer = "";
+  try {
+    for (;;) {
+      if (options.signal?.aborted) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+      let next: ReadableStreamReadResult<Uint8Array>;
+      try {
+        next = await readStreamChunk(reader, options.signal, operation);
+      } catch (error) {
+        if (cancelled(options.signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+        throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
+      }
+      if (next.done) {
+        if (options.signal?.aborted) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
+        throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
+      }
+      try {
+        buffer += decoder.decode(next.value, { stream: true });
+      } catch {
+        throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+      }
+      if (buffer.length > 1_048_576) return mismatch(operation, "event frame is too large");
+      for (;;) {
+        const boundary = /\r\n\r\n|\n\n|\r\r/.exec(buffer);
+        if (!boundary || boundary.index === undefined) break;
+        const frame = buffer.slice(0, boundary.index);
+        buffer = buffer.slice(boundary.index + boundary[0].length);
+        const decoded = parseSSEFrame(frame, operation, eventName, decodeData, eventIdOf);
+        if (decoded !== null) yield decoded;
+      }
+    }
+  } finally {
+    try { await reader.cancel(); } catch { /* stream is already closed */ }
+  }
+}
+
 export type ReadClient = {
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
+  readonly streamEvents: (options?: StreamOptions) => AsyncIterable<ApiAuditEventData>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
   readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
@@ -1574,6 +1682,9 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getDatabaseStatus(options = {}) {
       const operation = "api.v1.database-status.get";
       return performRead(fetchTransport, "/api/v1/database/status", options, operation, decodeDatabaseStatusData);
+    },
+    streamEvents(options = {}) {
+      return streamSSE(fetchTransport, "/api/v1/events", options, "api.v1.events.stream", "audit-event", decodeApiAuditEventData, (data) => data.event.eventId);
     },
     async getHealth(options = {}) {
       const operation = "api.v1.health.get";

@@ -137,3 +137,89 @@ test("malformed JSON, expired cursors, cancellation, and network loss stay disti
   })));
   await assert.rejects(() => lostBody.getSummary(), (error) => error.kind === "network" && !error.message.includes("socket detail"));
 });
+
+function auditEvent(eventId = 42) {
+  return {
+    event: {
+      schema: "vegastack-labs.dev/audit-event",
+      schemaVersion: "1.0.0",
+      eventId,
+      occurredAt: "2026-09-10T08:00:00Z",
+      recoveryEpoch: 2,
+      stateRevision: 8,
+      type: "inventory.draft-created",
+      correlationId: "request-1",
+      causationEventId: null,
+      correctionOfEventId: null,
+      principalId: "person-1",
+      principalMethod: "local-peer",
+      responsibleHumanPrincipalId: "person-1",
+      agentName: null,
+      agentSessionId: null,
+      agentSource: null,
+      target: { kind: "inventory-draft", id: "draft-1" },
+      beforeFingerprint: null,
+      afterFingerprint: null,
+    },
+  };
+}
+
+function chunkedResponse(chunks, status = 200, headers = { "content-type": "text/event-stream" }) {
+  const encoder = new TextEncoder();
+  return new Response(new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+      controller.close();
+    },
+  }), { status, headers });
+}
+
+test("event streaming parses split frames and sends an explicit resume header", async () => {
+  let seen;
+  const payload = JSON.stringify(auditEvent());
+  const client = createReadClient(async (url, init) => {
+    seen = { url, init };
+    return chunkedResponse(["id: 42\nevent: audit-", "event\ndata: " + payload.slice(0, 23), payload.slice(23) + "\n\n"]);
+  });
+  const iterator = client.streamEvents({ lastEventId: "41" })[Symbol.asyncIterator]();
+  const next = await iterator.next();
+  assert.equal(seen.url, "/api/v1/events");
+  assert.equal(seen.init.method, "GET");
+  assert.equal(seen.init.headers["Last-Event-ID"], "41");
+  assert.equal(next.value.event.eventId, 42);
+});
+
+test("event streaming distinguishes denied, malformed, cancelled, and lost streams", async () => {
+  const deniedEnvelope = envelope({});
+  deniedEnvelope.status = "failed";
+  deniedEnvelope.errors = [{ code: "AUTHORIZATION_DENIED", target: "read", retryable: false }];
+  const denied = createReadClient(async () => new Response(JSON.stringify(deniedEnvelope), { status: 403 }));
+  await assert.rejects(() => denied.streamEvents()[Symbol.asyncIterator]().next(), (error) => error.kind === "api" && error.code === "AUTHORIZATION_DENIED");
+
+  const malformed = createReadClient(async () => chunkedResponse(["id: 42\nevent: audit-event\ndata: {\n\n"]));
+  await assert.rejects(() => malformed.streamEvents()[Symbol.asyncIterator]().next(), (error) => error.kind === "malformed-json");
+
+  const controller = new AbortController();
+  controller.abort();
+  const cancelled = createReadClient(async () => chunkedResponse([]));
+  await assert.rejects(() => cancelled.streamEvents({ signal: controller.signal })[Symbol.asyncIterator]().next(), (error) => error.kind === "cancelled");
+
+  const activeController = new AbortController();
+  const active = createReadClient(async () => new Response(new ReadableStream({}), { headers: { "content-type": "text/event-stream" } }));
+  const pending = active.streamEvents({ signal: activeController.signal })[Symbol.asyncIterator]().next();
+  activeController.abort();
+  await assert.rejects(() => pending, (error) => error.kind === "cancelled");
+
+  const lost = createReadClient(async () => chunkedResponse([]));
+  await assert.rejects(() => lost.streamEvents()[Symbol.asyncIterator]().next(), (error) => error.kind === "network");
+});
+
+test("event streaming rejects mismatched IDs and never reconnects", async () => {
+  let calls = 0;
+  const client = createReadClient(async () => {
+    calls += 1;
+    return chunkedResponse(["id: 43\nevent: audit-event\ndata: " + JSON.stringify(auditEvent(42)) + "\n\n"]);
+  });
+  await assert.rejects(() => client.streamEvents()[Symbol.asyncIterator]().next(), (error) => error.kind === "schema-mismatch");
+  assert.equal(calls, 1);
+});
