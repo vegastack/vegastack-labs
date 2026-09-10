@@ -109,15 +109,77 @@ func TestGenerateSelectsOnlyBrowserSafeAvailableReads(t *testing.T) {
 func TestGenerateRejectsSecretShapedBrowserSchema(t *testing.T) {
 	t.Parallel()
 
-	registry := metadata.Current()
-	registry.Schemas = append(registry.Schemas, metadata.SchemaDefinition{
-		ID: "vegastack-labs.dev/unsafe-browser-data", Version: "1.0.0",
-		Fields: []metadata.FieldDefinition{{JSONName: "apiToken", GoName: "APIToken", Kind: metadata.ValueString, Required: true}},
+	for _, name := range []string{
+		"apiToken", "apiKey", "API_KEY", "accessKey", "Access-Key", "privateKeyMaterial",
+		"bearer", "Authorization", "authHeader", "cookie", "Set-Cookie", "sessionCookie", "clientSecret",
+	} {
+		name := name
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			registry := browserTestRegistry(metadata.SchemaDefinition{
+				ID: "vegastack-labs.dev/unsafe-browser-data", Version: "1.0.0",
+				Fields: []metadata.FieldDefinition{{JSONName: name, GoName: "Sensitive", Kind: metadata.ValueString, Required: true}},
+			})
+			assertUnsafeBrowserSchema(t, registry)
+		})
+	}
+}
+
+func TestGenerateRejectsNestedAndOpenBrowserSchemas(t *testing.T) {
+	t.Parallel()
+
+	t.Run("nested secret", func(t *testing.T) {
+		registry := browserTestRegistry(
+			metadata.SchemaDefinition{
+				ID: "vegastack-labs.dev/unsafe-browser-data", Version: "1.0.0",
+				Fields: []metadata.FieldDefinition{{JSONName: "details", GoName: "Details", Kind: metadata.ValueObject, Required: true, Ref: "vegastack-labs.dev/unsafe-browser-details"}},
+			},
+			metadata.SchemaDefinition{
+				ID: "vegastack-labs.dev/unsafe-browser-details", Version: "1.0.0",
+				Fields: []metadata.FieldDefinition{{JSONName: "authorization", GoName: "Authorization", Kind: metadata.ValueString, Required: true}},
+			},
+		)
+		assertUnsafeBrowserSchema(t, registry)
 	})
+
+	t.Run("open object", func(t *testing.T) {
+		registry := browserTestRegistry(metadata.SchemaDefinition{
+			ID: "vegastack-labs.dev/unsafe-browser-data", Version: "1.0.0",
+			Fields: []metadata.FieldDefinition{{JSONName: "headers", GoName: "Headers", Kind: metadata.ValueObject, Required: true, AdditionalProperties: true}},
+		})
+		assertUnsafeBrowserSchema(t, registry)
+	})
+}
+
+func TestGenerateAllowsSafeKeyIdentifiersInBrowserSchema(t *testing.T) {
+	t.Parallel()
+
+	registry := browserTestRegistry(metadata.SchemaDefinition{
+		ID: "vegastack-labs.dev/unsafe-browser-data", Version: "1.0.0",
+		Fields: []metadata.FieldDefinition{
+			{JSONName: "keyId", GoName: "KeyID", Kind: metadata.ValueString, Required: true},
+			{JSONName: "keyFingerprint", GoName: "KeyFingerprint", Kind: metadata.ValueString, Required: true},
+			{JSONName: "publicKeyId", GoName: "PublicKeyID", Kind: metadata.ValueString, Required: true},
+			{JSONName: "idempotencyKey", GoName: "IdempotencyKey", Kind: metadata.ValueString, Required: true},
+		},
+	})
+	if _, err := Generate(registry); err != nil {
+		t.Fatalf("Generate() rejected safe key identifiers: %v", err)
+	}
+}
+
+func browserTestRegistry(schemas ...metadata.SchemaDefinition) metadata.Registry {
+	registry := metadata.Current()
+	registry.Schemas = append(registry.Schemas, schemas...)
 	registry.Endpoints = append(registry.Endpoints, metadata.EndpointDefinition{
 		ID: "api.v1.unsafe.get", Method: "GET", Path: "/api/v1/unsafe", Availability: metadata.AvailabilityAvailable,
 		OwnerPhase: "2", DataSchema: "vegastack-labs.dev/unsafe-browser-data", Stream: metadata.StreamFinite,
 	})
+	return registry
+}
+
+func assertUnsafeBrowserSchema(t *testing.T, registry metadata.Registry) {
+	t.Helper()
 	_, err := Generate(registry)
 	if err == nil || !strings.Contains(err.Error(), "GENERATED_BROWSER_SCHEMA_UNSAFE") {
 		t.Fatalf("Generate() error = %v", err)
@@ -140,6 +202,8 @@ func TestGenerateBrowserClientHasStrictTypesAndDecoders(t *testing.T) {
 	for _, want := range []string{
 		"export interface ApiSummaryData",
 		"export type ApiFailureKind",
+		"export type StableErrorCode",
+		"export const STABLE_ERROR_CODES",
 		"export class ReadClientError",
 		"function decodeApiSummaryData",
 		"additional property",
@@ -147,6 +211,11 @@ func TestGenerateBrowserClientHasStrictTypesAndDecoders(t *testing.T) {
 	} {
 		if !strings.Contains(client, want) {
 			t.Errorf("browser client missing %q", want)
+		}
+	}
+	for _, forbidden := range []string{"SCHEMA_MISMATCH", "MALFORMED_JSON", "readonly code: string"} {
+		if strings.Contains(client, forbidden) {
+			t.Errorf("browser client contains non-canonical error declaration %q", forbidden)
 		}
 	}
 }

@@ -96,7 +96,7 @@ func Generate(registry metadata.Registry) ([]Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
-	browserClient := renderBrowserContractGraph(browserEndpoints, browserSchemas)
+	browserClient := renderBrowserContractGraph(browserEndpoints, browserSchemas, registry.Errors)
 	artifacts := []Artifact{
 		{Path: "docs/generated/command-registry.md", Content: markdown},
 		{Path: "docs/generated/endpoint-registry.md", Content: endpointMarkdown},

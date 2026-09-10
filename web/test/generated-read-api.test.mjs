@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createReadClient, ReadClientError } from "../generated/read-api.ts";
+import { createReadClient, ReadClientError, STABLE_ERROR_CODES } from "../generated/read-api.ts";
 
 const summary = {
   databaseMode: "ready",
@@ -40,7 +40,8 @@ test("generated decoder rejects closed-object additions", async () => {
   const client = createReadClient(async () => new Response(JSON.stringify(envelope({ ...summary, unexpected: true }))));
   await assert.rejects(
     () => client.getSummary(),
-    (error) => error instanceof ReadClientError && error.kind === "schema-mismatch",
+    (error) => error instanceof ReadClientError && error.kind === "schema-mismatch" &&
+      error.code === "INTEGRITY_FAILURE" && STABLE_ERROR_CODES.includes(error.code),
   );
 });
 
@@ -48,7 +49,8 @@ test("generated decoder rejects another contract major", async () => {
   const client = createReadClient(async () => new Response(JSON.stringify(envelope(summary, "2.0.0"))));
   await assert.rejects(
     () => client.getSummary(),
-    (error) => error instanceof ReadClientError && error.kind === "unsupported-version",
+    (error) => error instanceof ReadClientError && error.kind === "unsupported-version" &&
+      error.code === "SCHEMA_UNSUPPORTED" && STABLE_ERROR_CODES.includes(error.code),
   );
 });
 
@@ -101,7 +103,7 @@ test("stable API failures preserve code, target, retryability, and correlation",
     () => denied.getSummary(),
     (error) => error instanceof ReadClientError && error.kind === "api" &&
       error.code === "AUTHORIZATION_DENIED" && error.target === "read" &&
-      error.retryable === false && error.correlationId === "request-1",
+      error.retryable === false && error.correlationId === "request-1" && STABLE_ERROR_CODES.includes(error.code),
   );
 
   failed.errors = [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: true }];
@@ -114,7 +116,8 @@ test("stable API failures preserve code, target, retryability, and correlation",
 
 test("malformed JSON, expired cursors, cancellation, and network loss stay distinct", async () => {
   const malformed = createReadClient(async () => new Response("{"));
-  await assert.rejects(() => malformed.getSummary(), (error) => error.kind === "malformed-json");
+  await assert.rejects(() => malformed.getSummary(), (error) => error.kind === "malformed-json" &&
+    error.code === "INTEGRITY_FAILURE" && STABLE_ERROR_CODES.includes(error.code));
 
   const expiredEnvelope = envelope({});
   expiredEnvelope.status = "failed";
@@ -127,10 +130,12 @@ test("malformed JSON, expired cursors, cancellation, and network loss stay disti
   const cancelled = createReadClient(async (_url, init) => {
     throw init.signal.reason;
   });
-  await assert.rejects(() => cancelled.getSummary({ signal: controller.signal }), (error) => error.kind === "cancelled");
+  await assert.rejects(() => cancelled.getSummary({ signal: controller.signal }), (error) => error.kind === "cancelled" &&
+    error.code === "INTERRUPTED" && STABLE_ERROR_CODES.includes(error.code));
 
   const offline = createReadClient(async () => { throw new TypeError("offline detail"); });
-  await assert.rejects(() => offline.getSummary(), (error) => error.kind === "network" && !error.message.includes("offline detail"));
+  await assert.rejects(() => offline.getSummary(), (error) => error.kind === "network" &&
+    error.code === "DEPENDENCY_UNAVAILABLE" && STABLE_ERROR_CODES.includes(error.code) && !error.message.includes("offline detail"));
 
   const lostBody = createReadClient(async () => new Response(new ReadableStream({
     start(controller) { controller.error(new TypeError("socket detail")); },

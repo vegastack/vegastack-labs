@@ -199,16 +199,18 @@ export interface ServerStatusData {
   readonly "stateRevision": number;
 }
 
+export const STABLE_ERROR_CODES = ["APPROVAL_REQUIRED","AUTHENTICATION_REQUIRED","AUTHORIZATION_DENIED","DEPENDENCY_UNAVAILABLE","EVIDENCE_EXPIRED","EVIDENCE_INVALID","EXECUTION_FAILED","EXECUTION_PARTIAL","GATE_BLOCKED","INPUT_INVALID","INTEGRITY_FAILURE","INTERRUPTED","MIGRATION_BLOCKED","PLAN_STALE","PREREQUISITE_BLOCKED","RECOVERY_EPOCH_MISMATCH","RECOVERY_REQUIRED","RESOURCE_NOT_FOUND","SCHEMA_UNSUPPORTED","SESSION_EXPIRED","STATE_CONFLICT","TARGET_UNREACHABLE","UNSUPPORTED_PLATFORM","VERSION_INCOMPATIBLE"] as const;
+export type StableErrorCode = (typeof STABLE_ERROR_CODES)[number];
 export type ApiFailureKind = "api" | "network" | "malformed-json" | "schema-mismatch" | "unsupported-version" | "cancelled";
 
 export class ReadClientError extends Error {
   readonly kind: ApiFailureKind;
-  readonly code: string;
+  readonly code: StableErrorCode;
   readonly target: string;
   readonly retryable: boolean;
   readonly correlationId: string | null;
 
-  constructor(kind: ApiFailureKind, code: string, target: string, retryable = false, correlationId: string | null = null) {
+  constructor(kind: ApiFailureKind, code: StableErrorCode, target: string, retryable = false, correlationId: string | null = null) {
     super(code);
     this.name = "ReadClientError";
     this.kind = kind;
@@ -1292,7 +1294,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
 ];
 
 function mismatch(path: string, reason: string): never {
-  throw new ReadClientError("schema-mismatch", "SCHEMA_MISMATCH", path + ": " + reason);
+  throw new ReadClientError("schema-mismatch", "INTEGRITY_FAILURE", path + ": " + reason);
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -1496,12 +1498,12 @@ async function readJSON(response: Response, operation: string, signal?: AbortSig
     if (error instanceof ReadClientError) throw error;
     if (cancelled(signal, error)) throw new ReadClientError("cancelled", "INTERRUPTED", operation);
     if (!(error instanceof SyntaxError)) throw new ReadClientError("network", "DEPENDENCY_UNAVAILABLE", operation, true);
-    throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+    throw new ReadClientError("malformed-json", "INTEGRITY_FAILURE", operation);
   }
   try {
     return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(body));
   } catch {
-    throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+    throw new ReadClientError("malformed-json", "INTEGRITY_FAILURE", operation);
   }
 }
 
@@ -1577,7 +1579,7 @@ function parseSSEFrame<T>(frame: string, operation: string, eventName: string, d
   try {
     raw = JSON.parse(data.join("\n"));
   } catch {
-    throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+    throw new ReadClientError("malformed-json", "INTEGRITY_FAILURE", operation);
   }
   const decoded = decodeData(raw);
   if (eventIdOf(decoded) !== numericId) return mismatch(operation, "event identifier mismatch");
@@ -1643,7 +1645,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
       try {
         buffer += decoder.decode(next.value, { stream: true });
       } catch {
-        throw new ReadClientError("malformed-json", "MALFORMED_JSON", operation);
+        throw new ReadClientError("malformed-json", "INTEGRITY_FAILURE", operation);
       }
       if (buffer.length > 1_048_576) return mismatch(operation, "event frame is too large");
       for (;;) {
