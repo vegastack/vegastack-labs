@@ -1,0 +1,366 @@
+{
+  "schemaVersion": 1,
+  "registryOrigin": "https://design.vegastack.com",
+  "registryVersion": "0.6.0",
+  "acceptedAt": "10-09-2026",
+  "roots": [
+    {
+      "name": "provider",
+      "integrity": "sha256-j7RJm9M0bbnthF2SXN8AfSKfoZqUnnPm169og/MPM8E="
+    },
+    {
+      "name": "dashboard-01",
+      "integrity": "sha256-H3abUSAP+yCnOjs0Qy0Y1R9PhqJQJ3wR7w7/ZX2dI58="
+    }
+  ],
+  "items": [
+    {
+      "name": "animated-number",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-PHHB+pBhUo+qygnn/pTVDbIRY2TRKBtDZ1zzOuWFd2I=",
+      "files": [
+        {
+          "path": "web/components/ui/animated-number.tsx",
+          "sha256": "sha256-6SvBUUDZ+15/j2f5RRjNZBfDHTGgll3ZNyCWkoHoGH0="
+        }
+      ]
+    },
+    {
+      "name": "app-shell",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-o8zN9agV/fIVGC9J5hXOvC193lQqGpLKqcY47wEp+is=",
+      "files": [
+        {
+          "path": "web/components/ui/app-shell.tsx",
+          "sha256": "sha256-AetGjTOnsfr/gioMq9IaxpVV3buWonCkl2q65Hw4P/E="
+        }
+      ]
+    },
+    {
+      "name": "avatar",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-i2uEi3KoM39Xa1gZ/N2cM3P3ZUKdLKrvOzmUBqzOEqY=",
+      "files": [
+        {
+          "path": "web/components/ui/avatar.tsx",
+          "sha256": "sha256-mnVOfqy+Rv4Mf6ViGhpX5sQCNNplUm3mydCSd1u+v4Q="
+        }
+      ]
+    },
+    {
+      "name": "badge",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-oG+nww82h6+pgyWImCngnvpPhoPTRDkImwXPY5hDT3A=",
+      "files": [
+        {
+          "path": "web/components/ui/badge.tsx",
+          "sha256": "sha256-nEjl7190zhFeY35pxROMvwNasnE6GHeYcxq+IuHGMTw="
+        }
+      ]
+    },
+    {
+      "name": "breadcrumb",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-lriNPuBpy6S6tFVXeZXfFV/ig2/omqNaFF8qyB1lxIA=",
+      "files": [
+        {
+          "path": "web/components/ui/breadcrumb.tsx",
+          "sha256": "sha256-+/UoesK8Nals+o4xp3hCC4ixZIHqaJQ1psGZ0P6SKi8="
+        }
+      ]
+    },
+    {
+      "name": "button",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-BAjKx5xdL3lTfFQthauR2HOgxlxRdjEIAyryG3Neyw8=",
+      "files": [
+        {
+          "path": "web/components/ui/button.tsx",
+          "sha256": "sha256-YU/ZJyxKXIsAS4fowzvYUJIqtU3Y7X65PPYGXCNPMXI="
+        }
+      ]
+    },
+    {
+      "name": "card",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-1xYbtlzw7incZEVF7diaexUDsNv+sLq006aUbSfvOAA=",
+      "files": [
+        {
+          "path": "web/components/ui/card.tsx",
+          "sha256": "sha256-PNtoWK6IWHSRlm7J0QdCsybXW6Hp1ASbjdKWx/3/TNs="
+        }
+      ]
+    },
+    {
+      "name": "chart",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-koO/nVTEVX1F0u5R4DPUdUYeRymbMELK8o4qKsnMYps=",
+      "files": [
+        {
+          "path": "web/components/ui/chart.tsx",
+          "sha256": "sha256-AWc76eeoAYQomMSo7i68p30SwH9eiRaDWNtyTVgIUF0="
+        }
+      ]
+    },
+    {
+      "name": "checkbox",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-/hWvTGVBTNGZcM8l0khkeRIiuz8Ksu7fmS8mORHF8c4=",
+      "files": [
+        {
+          "path": "web/components/ui/checkbox.tsx",
+          "sha256": "sha256-2E118Cb6caMHvokPeoMPUwixkDwH9aj6lUcsLVC5Nd4="
+        }
+      ]
+    },
+    {
+      "name": "dashboard-01",
+      "type": "registry:block",
+      "version": "0.6.0",
+      "integrity": "sha256-H3abUSAP+yCnOjs0Qy0Y1R9PhqJQJ3wR7w7/ZX2dI58=",
+      "files": [
+        {
+          "path": "web/app/dashboard/page.tsx",
+          "sha256": "sha256-tjkTDDKOutk1EKs/JN3ddPsc4zj0tEYMsXTlIKeSKig="
+        },
+        {
+          "path": "web/app/dashboard/loading.tsx",
+          "sha256": "sha256-gvMyFeYC/PCFc+YSZJdD40bguqwgWjIcH91699iVYok="
+        },
+        {
+          "path": "web/app/dashboard/data.json",
+          "sha256": "sha256-STqyoDu4+68pJU6BWhlG91V6IPMd63IHNArzFGRWMY4="
+        },
+        {
+          "path": "web/app/dashboard/components/app-sidebar.tsx",
+          "sha256": "sha256-3vWKYgBE0Zu+u3yGbS3bl+/yylUTqYFCKnO/LmwhpXw="
+        },
+        {
+          "path": "web/app/dashboard/components/stat-cards.tsx",
+          "sha256": "sha256-lGgnnUuennX2JTSBv8J9xFLt5dJGxQp8c1iUOXvFkPU="
+        },
+        {
+          "path": "web/app/dashboard/components/dashboard-chart.tsx",
+          "sha256": "sha256-Ydafwc0PsSDH5hcXJys0+QFowzQpIB4DzHcmMWUBCZc="
+        },
+        {
+          "path": "web/app/dashboard/components/recent-activity.tsx",
+          "sha256": "sha256-MzJ1AI+Ghk26fR0mIhy3NO9vLNtvnLNVUy7MnAMlTrU="
+        }
+      ]
+    },
+    {
+      "name": "data-list",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-5zl6PXEaxhxefgmeEnux//fzlWYTNmLmvjH3jgAeC2U=",
+      "files": [
+        {
+          "path": "web/components/ui/data-list.tsx",
+          "sha256": "sha256-wvuzTsq3c3g0w7Plrl585zeX2ESxhA80/lIDuhsc058="
+        }
+      ]
+    },
+    {
+      "name": "dropdown-menu",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-cps+BUlTg5cT0obZoCPsTdMYpTyQx1uZTuITpfQS5NM=",
+      "files": [
+        {
+          "path": "web/components/ui/dropdown-menu.tsx",
+          "sha256": "sha256-iRUxFcWx/fNKRI1IjiWNBwDgyof+R/+eE9kRFH2s8fM="
+        }
+      ]
+    },
+    {
+      "name": "empty",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-eVY+rBS9iT1kfLwI8QdkVpXFWoLR+nGAX7iN4Sf3Ldk=",
+      "files": [
+        {
+          "path": "web/components/ui/empty.tsx",
+          "sha256": "sha256-lcwAWcQZq05zQmhnlF9d+YiHYv/mPrpTYcWtAQp/4L0="
+        }
+      ]
+    },
+    {
+      "name": "provider",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-j7RJm9M0bbnthF2SXN8AfSKfoZqUnnPm169og/MPM8E=",
+      "files": [
+        {
+          "path": "web/components/ui/provider.tsx",
+          "sha256": "sha256-Kxce8BjnZIgKIrnLuxpYoHR8qzNmnjphzudDCOO0ZnE="
+        }
+      ]
+    },
+    {
+      "name": "relative-time",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-JHwvXmOuCLI7tMgyihtLiba9BIo/IaOH3ijGccBjU9o=",
+      "files": [
+        {
+          "path": "web/components/ui/relative-time.tsx",
+          "sha256": "sha256-njO473q8KdqvZ98JCATATVj+UZZ/LD7qKQPyzKGJigI="
+        }
+      ]
+    },
+    {
+      "name": "separator",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-jNwU+v6YVacu9Hr0f8waI+nIfUZcFnPgmRz1CZwU4DQ=",
+      "files": [
+        {
+          "path": "web/components/ui/separator.tsx",
+          "sha256": "sha256-0C8Db0e5FM4Qd1ZKDed36gk8sPVtkkd4qFwR7tPjCb4="
+        }
+      ]
+    },
+    {
+      "name": "sheet",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-WZeufCZQl0Mntio4zhwVZNO89V0A9Ct5SEPAjbpOmBc=",
+      "files": [
+        {
+          "path": "web/components/ui/sheet.tsx",
+          "sha256": "sha256-Ic1Xzmt/boHbsVT+m/8VuplMDjDcFe4OTa5KM4gyqVo="
+        }
+      ]
+    },
+    {
+      "name": "sidebar",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-5/CSREnOhK9zM79Hp6dPxZZOcHt5QiQBoYTZORfzLE0=",
+      "files": [
+        {
+          "path": "web/components/ui/sidebar.tsx",
+          "sha256": "sha256-FX5otXpKMyrhgaP6+cJ3R45BFDyTJaBWniv+fevo9Sk="
+        }
+      ]
+    },
+    {
+      "name": "skeleton",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-arqL25xLohZ3jxCL/jHnuEGR0EP3ujE7vMd6J5DBe38=",
+      "files": [
+        {
+          "path": "web/components/ui/skeleton.tsx",
+          "sha256": "sha256-A6XP3cPyCkgwEtBRUsS34XK5TJXnFcBhro7iHyVPSY8="
+        }
+      ]
+    },
+    {
+      "name": "sonner",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-UlHc8pqsmClx1VxntWSsyUzG4PAjQvX6iDXEBJEcxtQ=",
+      "files": [
+        {
+          "path": "web/components/ui/sonner.tsx",
+          "sha256": "sha256-FEsnoY61Wi6uQ08U2vjUcXO72jOGvjtwKbLOGXaMVwg="
+        }
+      ]
+    },
+    {
+      "name": "spinner",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-e9JjL8PgH4hyZ2rhvQ/O3NuHSKdX2wpvNfeU2uDOE3o=",
+      "files": [
+        {
+          "path": "web/components/ui/spinner.tsx",
+          "sha256": "sha256-3DYPTTrSRGEtPFzThiggRSuwRe4p8BfOhvKa9bjrSVM="
+        }
+      ]
+    },
+    {
+      "name": "status-icon",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-CQ2yv0b3eIdhMiBsoSdc7NMetInTuy/wQGoBqwps9hY=",
+      "files": [
+        {
+          "path": "web/components/ui/status-icon.tsx",
+          "sha256": "sha256-xwgcEy2m2rFPpUAlQMMcYeoyCI0rZ9lHqNMvtyQ5N3s="
+        }
+      ]
+    },
+    {
+      "name": "table",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-5+KQLYjFP3MOwcbhLz9M12xI0Ty6i4JVuKEWvDZZ/uU=",
+      "files": [
+        {
+          "path": "web/components/ui/table.tsx",
+          "sha256": "sha256-h/xIXic/84Aqc1PEfweE3S7Tmgft0mOUm/vamiKC4g8="
+        }
+      ]
+    },
+    {
+      "name": "tooltip",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-oYL7KSMBLkQphLb6YSchEeevTKESnIFF/KqvcsRJ+6I=",
+      "files": [
+        {
+          "path": "web/components/ui/tooltip.tsx",
+          "sha256": "sha256-pNuYArQzUnvt6TQIQg8VdZwMJwyE0wZRBz+V5D0tPEY="
+        }
+      ]
+    },
+    {
+      "name": "truncated-text",
+      "type": "registry:ui",
+      "version": "0.6.0",
+      "integrity": "sha256-hBju6rcpL9INYyotL4j+JjbhbKMZv4YnUeLokIUFvBs=",
+      "files": [
+        {
+          "path": "web/components/ui/truncated-text.tsx",
+          "sha256": "sha256-cZNak2L1g6JeUTFCl7t+ckBpzdn1qX+LidJyDlAV6sA="
+        }
+      ]
+    },
+    {
+      "name": "use-animation-replay",
+      "type": "registry:hook",
+      "version": "0.6.0",
+      "integrity": "sha256-tqTGShxmRmLHN8Sf3ERdTL4L5K1sFpb4+hRu99S++wc=",
+      "files": [
+        {
+          "path": "web/components/ui/use-animation-replay.ts",
+          "sha256": "sha256-K2KuLWXeFm7u+Fl6YuRpK0lPxSk5gyBC3bWid6BG0vY="
+        }
+      ]
+    },
+    {
+      "name": "use-mobile",
+      "type": "registry:hook",
+      "version": "0.6.0",
+      "integrity": "sha256-C1iO36W8Q2MxhgC85TYv6GJR5PHKkBThb3pn6bfXMtY=",
+      "files": [
+        {
+          "path": "web/components/ui/use-mobile.ts",
+          "sha256": "sha256-fiU80Bbo06/BUOxKylHEmnjqnPj7bPZmXMR0YKPHciY="
+        }
+      ]
+    }
+  ]
+}
