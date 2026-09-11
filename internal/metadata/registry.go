@@ -189,7 +189,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.6.0",
+		SchemaVersion: "1.7.0",
 		Commands:      commands,
 		Endpoints:     readEndpoints(),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
@@ -200,7 +200,7 @@ func Current() Registry {
 
 func readEndpoints() []EndpointDefinition {
 	finite := func(id, path, data string) EndpointDefinition {
-		return EndpointDefinition{ID: id, Method: "GET", Path: path, OwnerPhase: "2", DataSchema: data, Stream: StreamFinite}
+		return EndpointDefinition{ID: id, Method: "GET", Path: path, Availability: AvailabilityAvailable, OwnerPhase: "2", DataSchema: data, Stream: StreamFinite}
 	}
 	list := func(id, path, data string) EndpointDefinition {
 		value := finite(id, path, data)
@@ -222,10 +222,10 @@ func readEndpoints() []EndpointDefinition {
 		finite("api.v1.inventory-draft-aliases.get", base+"/aliases/{recordId}", apiInventoryAliasDataSchemaID),
 		list("api.v1.inventory-draft-observations.list", base+"/observations", apiInventoryObservationListDataSchemaID),
 		finite("api.v1.inventory-draft-observations.get", base+"/observations/{recordId}", apiInventoryObservationDataSchemaID),
-		{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", OwnerPhase: "2", DataSchema: apiAuditEventDataSchemaID, Stream: StreamSSE},
-		{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", OwnerPhase: "2", RequestSchema: inventoryImportRequestSchemaID, DataSchema: inventoryImportDataSchemaID, Stream: StreamFinite},
-		{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", OwnerPhase: "2", RequestSchema: inventoryDiffRequestSchemaID, DataSchema: inventoryDiffDataSchemaID, Stream: StreamFinite},
-		{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", OwnerPhase: "2", RequestSchema: inventoryExportRequestSchemaID, DataSchema: inventoryExportDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: AvailabilityAvailable, OwnerPhase: "2", DataSchema: apiAuditEventDataSchemaID, Stream: StreamSSE},
+		{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryImportRequestSchemaID, DataSchema: inventoryImportDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryDiffRequestSchemaID, DataSchema: inventoryDiffDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryExportRequestSchemaID, DataSchema: inventoryExportDataSchemaID, Stream: StreamFinite},
 	}
 }
 

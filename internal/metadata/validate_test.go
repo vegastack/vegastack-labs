@@ -44,12 +44,14 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		"duplicate schema": func(registry *Registry) {
 			registry.Schemas = append(registry.Schemas, registry.Schemas[0])
 		},
-		"missing result schema":      func(registry *Registry) { registry.Commands[0].ResultSchema = "missing" },
-		"available risk unassigned":  func(registry *Registry) { registry.Commands[0].Risk = RiskUnassigned },
-		"read command local service": func(registry *Registry) { commandByNameForMutation(registry, "server status").Risk = RiskLocalService },
-		"non-server local service":   func(registry *Registry) { registry.Commands[0].Risk = RiskLocalService },
-		"available example missing":  func(registry *Registry) { registry.Commands[0].Examples = nil },
-		"owner phase is not numeric": func(registry *Registry) { registry.Commands[0].OwnerPhase = "later" },
+		"endpoint availability missing": func(registry *Registry) { registry.Endpoints[0].Availability = "" },
+		"endpoint availability unknown": func(registry *Registry) { registry.Endpoints[0].Availability = Availability("enabled") },
+		"missing result schema":         func(registry *Registry) { registry.Commands[0].ResultSchema = "missing" },
+		"available risk unassigned":     func(registry *Registry) { registry.Commands[0].Risk = RiskUnassigned },
+		"read command local service":    func(registry *Registry) { commandByNameForMutation(registry, "server status").Risk = RiskLocalService },
+		"non-server local service":      func(registry *Registry) { registry.Commands[0].Risk = RiskLocalService },
+		"available example missing":     func(registry *Registry) { registry.Commands[0].Examples = nil },
+		"owner phase is not numeric":    func(registry *Registry) { registry.Commands[0].OwnerPhase = "later" },
 		"planned has flags": func(registry *Registry) {
 			for index := range registry.Commands {
 				if registry.Commands[index].Availability == AvailabilityPlanned {
@@ -133,6 +135,16 @@ func TestMetadataTypesHaveNoProviderOrVendorField(t *testing.T) {
 			if strings.Contains(name, "provider") || strings.Contains(name, "vendor") {
 				t.Fatalf("%s exposes provider-specific field %s", typ, typ.Field(index).Name)
 			}
+		}
+	}
+}
+
+func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
+	t.Parallel()
+
+	for _, endpoint := range Current().Endpoints {
+		if endpoint.Availability != AvailabilityAvailable {
+			t.Fatalf("endpoint %s availability = %q, want available", endpoint.ID, endpoint.Availability)
 		}
 	}
 }

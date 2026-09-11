@@ -91,6 +91,45 @@ type testListener struct {
 	once      sync.Once
 }
 
+type delayedCloseListener struct {
+	acceptStarted chan struct{}
+	closed        chan struct{}
+	release       chan struct{}
+	closeCount    atomic.Int32
+}
+
+func newDelayedCloseListener() *delayedCloseListener {
+	return &delayedCloseListener{
+		acceptStarted: make(chan struct{}),
+		closed:        make(chan struct{}),
+		release:       make(chan struct{}),
+	}
+}
+
+func (listener *delayedCloseListener) Accept() (net.Conn, error) {
+	close(listener.acceptStarted)
+	<-listener.closed
+	<-listener.release
+	return nil, net.ErrClosed
+}
+
+func (listener *delayedCloseListener) Close() error {
+	if listener.closeCount.Add(1) == 1 {
+		close(listener.closed)
+		return nil
+	}
+	select {
+	case <-listener.release:
+	default:
+		close(listener.release)
+	}
+	return net.ErrClosed
+}
+
+func (*delayedCloseListener) Addr() net.Addr   { return &net.TCPAddr{} }
+func (*delayedCloseListener) CheckPath() error { return nil }
+func (*delayedCloseListener) Cleanup() error   { return nil }
+
 func newTestListener(t *testing.T, auth bool) *testListener {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -130,6 +169,44 @@ func testServerProfile() serverconfig.Profile {
 
 func testSupportedPlatform() Platform {
 	return Platform{OS: "linux", Architecture: "amd64", Distribution: "debian", Major: 13}
+}
+
+func TestShutdownToleratesExpectedHTTPListenerDoubleClose(t *testing.T) {
+	listener := newDelayedCloseListener()
+	httpServer := &http.Server{Handler: http.NotFoundHandler()}
+	serveDone := make(chan error, 1)
+	go func() { serveDone <- httpServer.Serve(listener) }()
+	select {
+	case <-listener.acceptStarted:
+	case <-time.After(time.Second):
+		t.Fatal("Serve() did not enter Accept")
+	}
+
+	service := &service{config: Config{
+		Profile:     testServerProfile(),
+		Application: &testApplication{},
+	}}
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- service.shutdown(listener, httpServer) }()
+	select {
+	case err := <-shutdownDone:
+		if err != nil {
+			t.Fatalf("shutdown = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("shutdown did not finish")
+	}
+	select {
+	case err := <-serveDone:
+		if !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("Serve() = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Serve() did not finish")
+	}
+	if got := listener.closeCount.Load(); got != 2 {
+		t.Fatalf("listener Close() calls = %d, want 2", got)
+	}
 }
 
 func TestServiceReportsAuthenticatedHealthAndRejectsSpoofHeaders(t *testing.T) {
@@ -252,8 +329,16 @@ func TestServiceHealthGrantDenialDoesNotProbeOrDiscloseHealth(t *testing.T) {
 	if response.Code != http.StatusForbidden || application.healthCalls.Load() != 0 {
 		t.Fatalf("status/health calls = %d/%d", response.Code, application.healthCalls.Load())
 	}
-	if strings.Contains(response.Body.String(), "42") || strings.Contains(response.Body.String(), "7") {
-		t.Fatal("denial disclosed health")
+	var envelope generated.RunResult
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatal(err)
+	}
+	var status generated.ServerStatusData
+	if err := json.Unmarshal(envelope.Data, &status); err != nil {
+		t.Fatal(err)
+	}
+	if status.RecoveryEpoch != 0 || status.StateRevision != 0 || status.ReadAvailable || status.MutationAvailable {
+		t.Fatalf("denial disclosed health: %#v", status)
 	}
 }
 

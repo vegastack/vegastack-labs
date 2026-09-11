@@ -56,14 +56,15 @@ type Registry struct {
 }
 
 type EndpointDefinition struct {
-	ID            string     `json:"id"`
-	Method        string     `json:"method"`
-	Path          string     `json:"path"`
-	OwnerPhase    string     `json:"ownerPhase"`
-	QuerySchema   string     `json:"querySchema,omitempty"`
-	RequestSchema string     `json:"requestSchema,omitempty"`
-	DataSchema    string     `json:"dataSchema"`
-	Stream        StreamKind `json:"stream"`
+	ID            string       `json:"id"`
+	Method        string       `json:"method"`
+	Path          string       `json:"path"`
+	Availability  Availability `json:"availability"`
+	OwnerPhase    string       `json:"ownerPhase"`
+	QuerySchema   string       `json:"querySchema,omitempty"`
+	RequestSchema string       `json:"requestSchema,omitempty"`
+	DataSchema    string       `json:"dataSchema"`
+	Stream        StreamKind   `json:"stream"`
 }
 
 type CommandDefinition struct {
