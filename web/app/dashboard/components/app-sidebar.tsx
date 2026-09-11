@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, ClipboardCheck, FileClock, LayoutDashboard, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Boxes, ClipboardCheck, FileClock, LayoutDashboard, Server, Settings, ShieldCheck, Users, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AppShellSidebar } from "@/components/ui/app-shell";
@@ -10,6 +10,8 @@ interface NavItem { label: string; href: string; icon: LucideIcon }
 const navItems: readonly NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
   { label: "Nodes", href: "/nodes", icon: Boxes },
+  { label: "People", href: "/people", icon: Users },
+  { label: "Services", href: "/services", icon: Server },
   { label: "Gates", href: "/gates", icon: ShieldCheck },
   { label: "Plans", href: "/unavailable", icon: ClipboardCheck },
   { label: "Audit", href: "/unavailable", icon: FileClock },
