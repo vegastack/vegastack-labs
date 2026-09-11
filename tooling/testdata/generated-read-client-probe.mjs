@@ -1,7 +1,13 @@
 import { readFile } from "node:fs/promises";
 import https from "node:https";
 
-import { createReadClient } from "../../web/generated/read-api.ts";
+let createReadClient;
+try {
+  ({ createReadClient } = await import("../../web/generated/read-api.ts"));
+} catch {
+  process.stderr.write("CLIENT_IMPORT_FAILED\n");
+  process.exit(1);
+}
 
 const required = (name) => {
   const value = process.env[name];
@@ -48,5 +54,10 @@ const transport = (input, init = {}) => new Promise((resolve, reject) => {
   request.end();
 });
 
-const result = await createReadClient(transport).getSummary();
-process.stdout.write(`${JSON.stringify(result.data)}\n`);
+try {
+  const result = await createReadClient(transport).getSummary();
+  process.stdout.write(`${JSON.stringify(result.data)}\n`);
+} catch {
+  process.stderr.write("CLIENT_REQUEST_FAILED\n");
+  process.exit(1);
+}

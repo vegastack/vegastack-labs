@@ -3,6 +3,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -568,24 +569,48 @@ func generatedReadClientSummary(t *testing.T, address, certificatePath, assertio
 	t.Helper()
 	probe := filepath.Join("..", "..", "tooling", "testdata", "generated-read-client-probe.mjs")
 	command := exec.Command("node", probe)
-	command.Env = append(os.Environ(),
-		"VSK_CONSOLE_TEST_BASE_URL=https://"+address,
-		"VSK_CONSOLE_TEST_CERTIFICATE="+certificatePath,
-		"VSK_CONSOLE_TEST_ASSERTION="+assertion,
-		"VSK_CONSOLE_TEST_COOKIE="+BrowserSessionCookieName+"="+session.Value,
-	)
-	output, err := command.CombinedOutput()
+	command.Env = []string{
+		"PATH=" + os.Getenv("PATH"),
+		"NODE_NO_WARNINGS=1",
+		"VSK_CONSOLE_TEST_BASE_URL=https://" + address,
+		"VSK_CONSOLE_TEST_CERTIFICATE=" + certificatePath,
+		"VSK_CONSOLE_TEST_ASSERTION=" + assertion,
+		"VSK_CONSOLE_TEST_COOKIE=" + BrowserSessionCookieName + "=" + session.Value,
+	}
+	stdout := &boundedProbeOutput{limit: 64 * 1024}
+	stderr := &boundedProbeOutput{limit: 256}
+	command.Stdout = stdout
+	command.Stderr = stderr
+	err := command.Run()
 	if err != nil {
-		if len(output) > 2048 {
-			output = output[:2048]
+		diagnostic := strings.TrimSpace(stderr.String())
+		if diagnostic != "CLIENT_IMPORT_FAILED" && diagnostic != "CLIENT_REQUEST_FAILED" {
+			diagnostic = "UNEXPECTED_CLIENT_PROBE_FAILURE"
 		}
-		t.Fatalf("generated read client probe failed: %v: %s", err, strings.TrimSpace(string(output)))
+		t.Fatalf("generated read client probe failed: %v: %s", err, diagnostic)
 	}
 	var summary generated.ApiSummaryData
-	if err := json.Unmarshal(output, &summary); err != nil {
+	if err := json.Unmarshal(stdout.Bytes(), &summary); err != nil {
 		t.Fatalf("generated read client returned invalid data: %v", err)
 	}
 	return summary
+}
+
+type boundedProbeOutput struct {
+	bytes.Buffer
+	limit int
+}
+
+func (output *boundedProbeOutput) Write(value []byte) (int, error) {
+	written := len(value)
+	remaining := output.limit - output.Len()
+	if remaining > 0 {
+		if len(value) > remaining {
+			value = value[:remaining]
+		}
+		_, _ = output.Buffer.Write(value)
+	}
+	return written, nil
 }
 
 func consoleStackRequest(t *testing.T, method, target, assertion string, session *http.Cookie) *http.Request {
