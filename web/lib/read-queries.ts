@@ -10,16 +10,23 @@ export const readKeys = {
   observations: (reference: { draftId: string; revision: number }, query: ApiPageQuery = {}) => ["read", "observations", reference, query] as const,
 };
 
+const deniedCodes = new Set(["AUTHENTICATION_REQUIRED", "AUTHORIZATION_DENIED", "SESSION_EXPIRED"]);
+
+export type ReadFailureState = "stale" | "denied" | "unavailable" | "error";
+
 export function isHardReadFailure(error: unknown): boolean {
-  return error instanceof ReadClientError && (
-    error.code === "AUTHENTICATION_REQUIRED" || error.code === "AUTHORIZATION_DENIED" ||
-    error.code === "SESSION_EXPIRED" || error.code === "INTEGRITY_FAILURE" ||
-    error.code === "SCHEMA_UNSUPPORTED"
-  );
+  return !mayRetainStaleData(error);
 }
 
 export function mayRetainStaleData(error: unknown): boolean {
   return error instanceof ReadClientError && error.code === "DEPENDENCY_UNAVAILABLE" && error.retryable;
+}
+
+export function classifyReadFailure(error: unknown, hasRetainedData = false): ReadFailureState {
+  if (mayRetainStaleData(error) && hasRetainedData) return "stale";
+  if (error instanceof ReadClientError && deniedCodes.has(error.code)) return "denied";
+  if (error instanceof ReadClientError && (error.kind === "network" || error.code === "DEPENDENCY_UNAVAILABLE" || error.code === "TARGET_UNREACHABLE")) return "unavailable";
+  return "error";
 }
 
 export const readQueries = {

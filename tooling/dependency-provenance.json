@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "authority": "node tooling/provenance.mjs --write --approve-current-lock",
   "reviewedOn": "11-09-2026",
-  "lockfileSha256": "1d12d269c5aa4980c6dd3c02fe8c932791d9969879e4d8fe92b1d36aae015ac1",
+  "lockfileSha256": "9b33e39b3d21cd7ff0dfeb6fc91abb35589c374127ef8f9fa0116185c2a2c7d9",
   "registry": "https://registry.npmjs.org",
   "packages": [
     {

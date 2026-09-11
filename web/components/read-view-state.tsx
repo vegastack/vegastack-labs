@@ -11,15 +11,17 @@ const icons = { loading: LoaderCircle, empty: PackageOpen, stale: Clock3, unknow
 export function ReadViewState({ kind, title, description, staleData, onRetry }: { kind: ReadStateKind; title: string; description: string; staleData?: ReactNode; onRetry?: () => void }) {
   const Icon = icons[kind];
   return (
-    <section className="space-y-4" aria-live="polite" role={kind === "denied" || kind === "error" ? "alert" : "status"} data-read-state={kind}>
+    <div className="space-y-4" data-read-state={kind}>
       {staleData}
-      <Empty bordered className="min-h-56 bg-card">
-        <EmptyHeader>
-          <EmptyMedia intent={kind === "error" || kind === "denied" ? "destructive" : "info"}><Icon aria-hidden className={kind === "loading" ? "animate-spin" : undefined} /></EmptyMedia>
-          <EmptyTitle>{title}</EmptyTitle><EmptyDescription>{description}</EmptyDescription>
-        </EmptyHeader>
-        {onRetry ? <EmptyContent><Button className="min-h-11" variant="outline" onClick={onRetry}>Refresh</Button></EmptyContent> : null}
-      </Empty>
-    </section>
+      <section aria-live={kind === "denied" || kind === "error" ? "assertive" : "polite"} role={kind === "denied" || kind === "error" ? "alert" : "status"}>
+        <Empty bordered className="min-h-56 bg-card">
+          <EmptyHeader>
+            <EmptyMedia intent={kind === "error" || kind === "denied" ? "destructive" : "info"}><Icon aria-hidden className={kind === "loading" ? "animate-spin" : undefined} /></EmptyMedia>
+            <EmptyTitle>{title}</EmptyTitle><EmptyDescription>{description}</EmptyDescription>
+          </EmptyHeader>
+          {onRetry ? <EmptyContent><Button className="min-h-11" variant="outline" onClick={onRetry}>Refresh</Button></EmptyContent> : null}
+        </Empty>
+      </section>
+    </div>
   );
 }

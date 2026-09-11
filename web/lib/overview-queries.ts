@@ -1,18 +1,30 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ReadClientError } from "@/generated/read-api";
-import { mayRetainStaleData, readQueries, readKeys } from "@/lib/read-queries";
+import { classifyReadFailure, mayRetainStaleData, readQueries, readKeys } from "@/lib/read-queries";
+
+export const overviewSourceIds = ["database", "nodes", "gates", "people", "services", "backups", "providers"] as const;
 
 export function useOverview() {
   const queryClient = useQueryClient();
   const summary = useQuery(readQueries.summary());
   const sources = useQuery(readQueries.sources({ limit: 25, sort: "id-asc" }));
-  const errors = [summary.error, sources.error].filter(Boolean);
-  const denied = errors.some(error => error instanceof ReadClientError && ["AUTHENTICATION_REQUIRED", "AUTHORIZATION_DENIED", "SESSION_EXPIRED"].includes(error.code));
-  const retryable = errors.some(mayRetainStaleData);
-  const hasData = Boolean(summary.data || sources.data);
-  const state = denied ? "denied" : errors.length > 0 && retryable && hasData ? "stale" : errors.length === 1 && hasData ? "partial" : errors.length > 0 ? "error" : summary.isPending || sources.isPending ? "loading" : !summary.data && !sources.data ? "empty" : "success";
+  const failures = [
+    ...(summary.error ? [{ error: summary.error, retained: Boolean(summary.data) }] : []),
+    ...(sources.error ? [{ error: sources.error, retained: Boolean(sources.data) }] : []),
+  ];
+  const failureStates = failures.map(failure => classifyReadFailure(failure.error, failure.retained));
+  const sourceIds = new Set(sources.data?.data.items.map(source => source.id) ?? []);
+  const missingSources = overviewSourceIds.some(id => !sourceIds.has(id));
+  const state = failureStates.includes("denied") ? "denied"
+    : failureStates.includes("error") ? "error"
+    : failureStates.includes("unavailable") ? (summary.data || sources.data ? "partial" : "unavailable")
+    : failures.length > 0 && failures.every(failure => mayRetainStaleData(failure.error) && failure.retained) ? "stale"
+    : failures.length > 0 ? "partial"
+    : summary.isPending || sources.isPending ? "loading"
+    : !summary.data && !sources.data ? "empty"
+    : missingSources ? "partial"
+    : "success";
   const refresh = async () => {
     await queryClient.cancelQueries({ queryKey: ["read"] });
     await Promise.all([summary.refetch(), sources.refetch()]);

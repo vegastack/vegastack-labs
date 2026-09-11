@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { installReadFixture } from "./api-fixture";
 
 const ORIGIN = "http://127.0.0.1:4173";
+const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events)|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
 
 function monitorBrowser(page: Page) {
   const failures: string[] = [];
@@ -10,7 +11,7 @@ function monitorBrowser(page: Page) {
   page.on("requestfailed", request => failures.push(`request: ${request.url()}`));
   page.on("request", request => {
     const url = new URL(request.url());
-    const allowedRead = url.origin === ORIGIN && request.method() === "GET" && url.pathname.startsWith("/api/v1/") && ["fetch", "xhr"].includes(request.resourceType());
+    const allowedRead = url.origin === ORIGIN && request.method() === "GET" && GENERATED_READ_PATH.test(url.pathname) && ["fetch", "xhr", "eventsource"].includes(request.resourceType());
     if (url.origin !== ORIGIN || (["fetch", "xhr", "websocket", "eventsource"].includes(request.resourceType()) && !allowedRead)) failures.push(`unexpected: ${request.resourceType()} ${url.href}`);
   });
   page.on("response", response => response.status() >= 400 && failures.push(`response: ${response.status()} ${response.url()}`));
@@ -33,6 +34,9 @@ test("skip link, focus order, and named landmarks work", async ({ page }) => {
   await expect(page.getByRole("main", { name: "Overview" })).toBeFocused();
   await expect(page.getByRole("banner")).toBeVisible();
   await expect(page.getByRole("navigation", { name: "Console navigation" })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Console navigation" }).getByRole("link", { name: "Overview", exact: true })).toHaveAttribute("aria-current", "page");
+  const targets = await page.getByRole("button", { name: /theme/i }).evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
+  expect(targets.every(target => target.width >= 44 && target.height >= 44)).toBeTruthy();
   assertClean();
 });
 
@@ -99,4 +103,6 @@ test("same-origin server requests are detected", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => fetch("/health").catch(() => undefined));
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/fetch .*\/health|404 .*\/health/));
+  await page.evaluate(() => fetch("/api/v1/unapproved-operation").catch(() => undefined));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unapproved-operation/));
 });

@@ -7,10 +7,12 @@ import { isHardReadFailure } from "@/lib/read-queries";
 export function ConsoleQueryProvider({ children }: { children: ReactNode }) {
   const [client] = useState(() => {
     const queryCache = new QueryCache({
-      onError: (error, query) => {
-        // Keep the error state while replacing any prior authorized payload.
-        // Views treat null as no readable data and render the hard failure.
-        if (isHardReadFailure(error)) query.setState({ data: null });
+      onError: (error) => {
+        if (!isHardReadFailure(error)) return;
+        // A hard failure can represent a revoked shared grant or session. Clear
+        // every operational read payload before React paints the failure so a
+        // sibling query cannot leave records from the old scope visible.
+        for (const cached of queryCache.findAll({ queryKey: ["read"] })) cached.setState({ data: null });
       },
     });
     return new QueryClient({
