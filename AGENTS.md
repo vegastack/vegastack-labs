@@ -12,7 +12,7 @@ The checked-in material is a reviewed specification with unresolved deployment g
 
 Repository development has a separate, narrow authority path. Within a user-approved development batch, agents may create or update its named GitHub issues and milestone, branches, commits, pull requests, development comments and reviews, and may merge only when that batch permits it and its required checks and fresh review pass. Approval of one batch grants no authority over another. Repository settings/rulesets, releases, credentials, provider resources and live infrastructure always require separate explicit authorization.
 
-The user selected complete v1 development and verification before the first lab onboarding rehearsal. Use isolated, explicitly scoped development test environments; do not use the inventory fleet as an early rollout. A separately authorized disposable test-host exception may run only the named development checks, carries no workload admission or fleet evidence, and ends with that issue. Read the development roadmap's delivery path and D-117. Software acceptance does not close live deployment gates or authorize rollout.
+The user selected complete v1 development and verification before the first lab onboarding rehearsal. Use isolated, explicitly scoped development test environments; do not use the inventory fleet as an early rollout. A separately authorized disposable test-host exception may run only the named development checks, carries no workload admission or fleet evidence, and ends when the operator revokes it or the Phase 9 managed-runner path replaces it. Read the development roadmap's delivery path and D-117. Software acceptance does not close live deployment gates or authorize rollout.
 
 ## Invariants
 
