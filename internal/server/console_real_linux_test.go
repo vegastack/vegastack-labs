@@ -516,6 +516,7 @@ func productionOperationsFixture(t *testing.T, remote generated.RemoteReadProfil
 	factory := result.NewFactory(build, func() (string, error) { return "request-production-console", nil })
 	operations := NewOperations(build, func() (string, error) { return "request-production-console", nil })
 	operations.databasePath = databasePath
+	operations.platformProbe = fixedPlatformProbe{platform: testSupportedPlatform()}
 	return operations, profile, configPath, factory
 }
 
@@ -573,9 +574,12 @@ func generatedReadClientSummary(t *testing.T, address, certificatePath, assertio
 		"VSK_CONSOLE_TEST_ASSERTION="+assertion,
 		"VSK_CONSOLE_TEST_COOKIE="+BrowserSessionCookieName+"="+session.Value,
 	)
-	output, err := command.Output()
+	output, err := command.CombinedOutput()
 	if err != nil {
-		t.Fatalf("generated read client probe failed: %v", err)
+		if len(output) > 2048 {
+			output = output[:2048]
+		}
+		t.Fatalf("generated read client probe failed: %v: %s", err, strings.TrimSpace(string(output)))
 	}
 	var summary generated.ApiSummaryData
 	if err := json.Unmarshal(output, &summary); err != nil {

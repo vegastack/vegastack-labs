@@ -22,19 +22,19 @@ import (
 const productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build        result.BuildInfo
-	requestIDs   result.RequestIDSource
-	openStore    func(context.Context, store.Config) (*store.Store, error)
-	databasePath string
+	build         result.BuildInfo
+	requestIDs    result.RequestIDSource
+	openStore     func(context.Context, store.Config) (*store.Store, error)
+	databasePath  string
+	platformProbe PlatformProbe
 }
 
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource) *Operations {
-	return &Operations{build: build, requestIDs: requestIDs, openStore: store.Open, databasePath: productionDatabasePath}
+	return &Operations{build: build, requestIDs: requestIDs, openStore: store.Open, databasePath: productionDatabasePath, platformProbe: NewRuntimePlatformProbe()}
 }
 
 func (operations *Operations) Run(ctx context.Context, configPath string) error {
-	probe := NewRuntimePlatformProbe()
-	platform, err := probe.Current(ctx)
+	platform, err := operations.platformProbe.Current(ctx)
 	if err != nil {
 		return stableOr(err, generated.ErrorCodeUnsupportedPlatform, "server-platform")
 	}
