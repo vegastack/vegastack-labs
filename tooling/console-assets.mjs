@@ -119,7 +119,16 @@ async function exists(candidate, statPath) {
   }
 }
 
-async function recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, renamePath, removePath, statPath }) {
+async function recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, commitMarker, renamePath, removePath, statPath }) {
+  if (await exists(commitMarker, statPath)) {
+    if (!(await exists(destination, statPath)) || !(await exists(manifestPath, statPath))) {
+      throw new Error("Console asset committed replacement is incomplete");
+    }
+    await removePath(backupDestination, { recursive: true, force: true });
+    await removePath(backupManifest, { force: true });
+    await removePath(commitMarker, { force: true });
+    return;
+  }
   if (await exists(backupDestination, statPath)) {
     await removePath(destination, { recursive: true, force: true });
     await renamePath(backupDestination, destination);
@@ -145,34 +154,39 @@ export async function writeConsoleAssets({
   const stagingRoot = await mkdtemp(path.join(parent, ".console-assets-"));
   const temporary = path.join(stagingRoot, "dist");
   const temporaryManifest = path.join(stagingRoot, "manifest.json");
+  const temporaryCommit = path.join(stagingRoot, "committed");
   const backupDestination = `${destination}.previous`;
   const backupManifest = `${manifestPath}.previous`;
+  const commitMarker = `${manifestPath}.replacement-committed`;
   await mkdir(temporary);
   try {
-    await recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, renamePath, removePath, statPath });
+    await recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, commitMarker, renamePath, removePath, statPath });
     for (const file of files) {
       const target = path.join(temporary, ...file.relative.split("/"));
       await mkdir(path.dirname(target), { recursive: true });
       await copyFile(file.absolute, target);
     }
     await writeFile(temporaryManifest, `${JSON.stringify(manifest, null, 2)}\n`, { flag: "wx" });
+    await writeFile(temporaryCommit, "", { flag: "wx" });
     await removePath(backupDestination, { recursive: true, force: true });
     await removePath(backupManifest, { force: true });
     if (await exists(destination, statPath)) await renamePath(destination, backupDestination);
     if (await exists(manifestPath, statPath)) await renamePath(manifestPath, backupManifest);
     await renamePath(temporary, destination);
     await renamePath(temporaryManifest, manifestPath);
+    await renamePath(temporaryCommit, commitMarker);
     await removePath(backupDestination, { recursive: true, force: true });
     await removePath(backupManifest, { force: true });
+    await removePath(commitMarker, { force: true });
   } catch (error) {
     try {
-      await recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, renamePath, removePath, statPath });
+      await recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, commitMarker, renamePath, removePath, statPath });
     } catch {
       throw new Error("Console asset replacement recovery failed", { cause: error });
     }
     throw error;
   } finally {
-    await removePath(stagingRoot, { recursive: true, force: true });
+    await rm(stagingRoot, { recursive: true, force: true });
   }
   return { files: files.length, digest: manifest.buildDigest };
 }

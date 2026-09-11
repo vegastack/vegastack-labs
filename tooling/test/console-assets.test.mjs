@@ -41,7 +41,7 @@ test("fixed build manifests are never cached as immutable", async () => {
 });
 
 test("a failed replacement restores the complete previously accepted set", async () => {
-  for (const failAt of [1, 2, 3, 4]) {
+  for (const failAt of [1, 2, 3, 4, 5]) {
     const target = await fixture();
     await writeConsoleAssets(target);
     const acceptedIndex = await readFile(path.join(target.destination, "index.html"));
@@ -56,6 +56,25 @@ test("a failed replacement restores the complete previously accepted set", async
     await assert.rejects(() => writeConsoleAssets({ ...target, renamePath, removePath: rm, statPath: stat }), /injected replacement failure/);
     assert.deepEqual(await readFile(path.join(target.destination, "index.html")), acceptedIndex);
     assert.deepEqual(await readFile(target.manifestPath), acceptedManifest);
+  }
+});
+
+test("interrupted committed cleanup keeps the complete new pair", async () => {
+  for (const failAt of [3, 4]) {
+    const target = await fixture();
+    await writeConsoleAssets(target);
+    await writeFile(path.join(target.source, "index.html"), `<!doctype html><title>Committed ${failAt}</title>\n`);
+    let removals = 0;
+    const removePath = async (...args) => {
+      removals++;
+      if (removals >= failAt) throw new Error(`injected committed cleanup interruption ${failAt}`);
+      return rm(...args);
+    };
+    await assert.rejects(() => writeConsoleAssets({ ...target, renamePath: rename, removePath, statPath: stat }), /replacement recovery failed/);
+    await verifyConsoleAssets(target);
+    assert.match(await readFile(path.join(target.destination, "index.html"), "utf8"), /Committed/);
+    await writeConsoleAssets(target);
+    await verifyConsoleAssets(target);
   }
 });
 

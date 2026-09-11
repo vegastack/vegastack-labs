@@ -114,6 +114,24 @@ func TestBrowserRouterRejectsLocalMutationRoutesBeforeDispatch(t *testing.T) {
 	}
 }
 
+func TestBrowserRouterAuthenticatesBeforeRejectingLocalMutationRoutes(t *testing.T) {
+	apiCalls := 0
+	authenticator, _, _ := newBrowserAuthFixture(t)
+	handler, err := NewBrowserHandler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { apiCalls++ }), testConsoleHandler(t), authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "https://console.example/api/v1/inventory-drafts/import", strings.NewReader(`{"requestVersion":"1.0.0"}`))
+	request.Host = "console.example"
+	request.Header.Set("Origin", "https://console.example")
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || apiCalls != 0 {
+		t.Fatalf("unauthenticated mutation response/calls = %d/%d", response.Code, apiCalls)
+	}
+}
+
 type sessionProbeApplication struct {
 	testApplication
 	called bool

@@ -117,16 +117,19 @@ func NewBrowserHandler(apiHandler, staticHandler http.Handler, authenticator *Br
 	if apiHandler == nil || staticHandler == nil || authenticator == nil {
 		return nil, failure.New(generated.ErrorCodeInputInvalid, "browser-handler", false)
 	}
-	protectedAPI := authenticator.Wrap(apiHandler)
+	remoteAPI := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if !api.RemoteReadRequestAllowed(request.Method, request.URL.Path) {
+			writer.Header().Set("Cache-Control", "no-store")
+			writer.Header().Set("X-Content-Type-Options", "nosniff")
+			http.Error(writer, "NOT_FOUND", http.StatusNotFound)
+			return
+		}
+		apiHandler.ServeHTTP(writer, request)
+	})
+	protectedAPI := authenticator.Wrap(remoteAPI)
 	protectedAssets := authenticator.WrapAssets(staticHandler)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/api" || strings.HasPrefix(request.URL.Path, "/api/") {
-			if !api.RemoteReadRequestAllowed(request.Method, request.URL.Path) {
-				writer.Header().Set("Cache-Control", "no-store")
-				writer.Header().Set("X-Content-Type-Options", "nosniff")
-				http.Error(writer, "NOT_FOUND", http.StatusNotFound)
-				return
-			}
 			protectedAPI.ServeHTTP(writer, request)
 			return
 		}
