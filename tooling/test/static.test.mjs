@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
-import { copyFile, mkdtemp, writeFile } from "node:fs/promises";
+import { copyFile, mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { writeConsoleAssets } from "../console-assets.mjs";
 import { verifyStaticExport } from "../verify-static.mjs";
 
 test("server runtime artifacts fail the static export check", async () => {
@@ -37,4 +38,22 @@ test("credential markers and disguised server artifacts fail the static export c
   await writeFile(path.join(serverOutput, "index.html"), "<p>No control-plane data yet. Data integration is not implemented.</p>");
   await copyFile(new URL("../testdata/static/server-artifact.json", import.meta.url), path.join(serverOutput, "server-artifact.json"));
   await assert.rejects(verifyStaticExport(serverOutput), /server runtime/i);
+});
+
+test("embedded Console byte drift fails the static export check", async () => {
+  const root = await mkdtemp(path.join(tmpdir(), "vegastack-static-embedded-"));
+  const output = path.join(root, "out");
+  const destination = path.join(root, "embedded", "dist");
+  const manifestPath = path.join(root, "embedded", "manifest.json");
+  await mkdir(output, { recursive: true });
+  await writeFile(path.join(output, "index.html"), "<p>No control-plane data yet. Data integration is not implemented.</p>");
+  await writeConsoleAssets({ source: output, destination, manifestPath });
+  await writeFile(path.join(destination, "index.html"), "changed");
+  await assert.rejects(verifyStaticExport(output, { destination, manifestPath }), /asset manifest/i);
+});
+
+test("a random or missing Console build ID fails the production static check", async () => {
+  const output = await mkdtemp(path.join(tmpdir(), "vegastack-static-build-id-"));
+  await writeFile(path.join(output, "index.html"), "<p>No control-plane data yet. Data integration is not implemented.</p>");
+  await assert.rejects(verifyStaticExport(output, false, true), /deterministic Console build ID/i);
 });

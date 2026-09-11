@@ -14,7 +14,7 @@ const (
 	databaseStatusDataSchemaID              = "vegastack-labs.dev/database-status-data"
 	localPrincipalBindingSchemaID           = "vegastack-labs.dev/local-principal-binding"
 	remoteReadProfileSchemaID               = "vegastack-labs.dev/remote-read-profile"
-	cloudflareAccessProfileSchemaID          = "vegastack-labs.dev/cloudflare-access-profile"
+	cloudflareAccessProfileSchemaID         = "vegastack-labs.dev/cloudflare-access-profile"
 	serverProfileSchemaID                   = "vegastack-labs.dev/server-profile"
 	serverStatusDataSchemaID                = "vegastack-labs.dev/server-status-data"
 	stateExportKindCountSchemaID            = "vegastack-labs.dev/state-export-kind-count"

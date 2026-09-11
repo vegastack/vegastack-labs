@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 11-09-2026 — The Console and protected reads now run inside one service ([#53](https://github.com/vegastack/vegastack-labs/issues/53))
+
+- **What:** `vsk-labs server run` now contains the verified static Console and can serve it beside the existing versioned read API on one protected TLS origin. The local Unix-socket path remains independently available and reports whether remote reads are disabled, starting, ready, or unavailable.
+- **Why:** Operators need one installable control service and one authorization path, without a Node.js production server or a browser failure taking away local recovery.
+- **How it went:** Deterministic asset verification exposed a cross-language file-ordering difference, and the combined router exposed that initial session creation must carry a verified external identity before a local principal exists. Both boundaries were made explicit and covered by focused and real-stack tests.
+- **Changed:** Manifest-verified embedded Console · exact static/API routing · build-derived browser security policy · server-profile 1.1 remote-read configuration · protected Cloudflare adapter profile · TLS 1.3 remote listener · separate remote health and local recovery · build and CI drift checks.
+- **Decisions:** none; the work implements the approved one-executable, same-origin, local-authority architecture without activating a live listener or provider.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/53-embed-console-and-reads
+
 ## 10-09-2026 — Remote browser access now has revocable local sessions ([#54](https://github.com/vegastack/vegastack-labs/issues/54))
 
 - **What:** The Go control server can verify a Cloudflare Access identity through a provider-neutral adapter and bind it to existing local grants. Browser requests also require a short-lived, digest-only SQLite session that can be renewed, logged out, revoked, or invalidated after a grant or recovery change.

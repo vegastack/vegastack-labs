@@ -1,6 +1,7 @@
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { verifyConsoleAssets } from "./console-assets.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUTPUT = path.join(ROOT, "web/out");
@@ -11,6 +12,7 @@ const FORBIDDEN_NAMES = new Set([
   "server-artifact.json",
 ]);
 const FORBIDDEN_BUILD_MARKERS = ["axe-core", "MPL-2.0", "Mozilla Public License"];
+const EXPECTED_BUILD_ID = "vegastack-console-v1";
 
 async function walk(directory) {
   const entries = await readdir(directory, { withFileTypes: true });
@@ -26,7 +28,7 @@ async function walk(directory) {
   return files;
 }
 
-export async function verifyStaticExport(output = OUTPUT) {
+export async function verifyStaticExport(output = OUTPUT, embedded = output === OUTPUT ? {} : false, requireDeterministicBuildID = output === OUTPUT) {
   const index = await readFile(path.join(output, "index.html"), "utf8");
   if (!index.includes("Data integration is not implemented") || !index.includes("No control-plane data yet")) {
     throw new Error("static index does not contain the truthful Console markers");
@@ -62,8 +64,12 @@ export async function verifyStaticExport(output = OUTPUT) {
       }
     }
   }
+  if (requireDeterministicBuildID && !files.some((file) => path.relative(output, file).split(path.sep).includes(EXPECTED_BUILD_ID))) {
+    throw new Error("static output does not use the deterministic Console build ID");
+  }
 
-  return { files: files.length };
+  const embeddedResult = embedded === false ? undefined : await verifyConsoleAssets({ source: output, ...embedded });
+  return { files: files.length, ...(embeddedResult ? { embeddedDigest: embeddedResult.digest } : {}) };
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {

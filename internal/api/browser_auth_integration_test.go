@@ -12,6 +12,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/consoleassets"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
@@ -120,8 +121,37 @@ func TestRemoteBrowserMiddlewareReachesAPIResourceAuthorizationBeforeParsing(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	host := httptest.NewTLSServer(authenticator.Wrap(app))
+	files, manifest, err := consoleassets.Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	console, err := server.NewConsoleHandler(files, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	browser, err := server.NewBrowserHandler(app, console, authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host := httptest.NewTLSServer(browser)
 	defer host.Close()
+	navigation, err := http.NewRequest(http.MethodGet, host.URL+"/dashboard", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	navigation.Host = "console.example"
+	navigation.Header.Set("Sec-Fetch-Site", "none")
+	navigation.Header.Set("Sec-Fetch-Mode", "navigate")
+	navigation.Header.Set("Sec-Fetch-Dest", "document")
+	navigation.Header.Set("Cf-Access-Jwt-Assertion", "fixture-assertion")
+	navigationResponse, err := host.Client().Do(navigation)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if navigationResponse.StatusCode != http.StatusOK || navigationResponse.Header.Get("Content-Security-Policy") == "" {
+		t.Fatalf("embedded navigation status = %d", navigationResponse.StatusCode)
+	}
+	_ = navigationResponse.Body.Close()
 	request, err := http.NewRequest(http.MethodGet, host.URL+"/api/v1/summary", nil)
 	if err != nil {
 		t.Fatal(err)

@@ -36,6 +36,8 @@ try {
     throw new Error(`Go files require formatting:\n${gofmt.stdout.trim()}`);
   }
   await stage("generated contracts", "go", ["run", "./tooling/generate-contracts", "--check"]);
+  await packageStage("web static build", ["--filter", "@vegastack/labs-web", "build"]);
+  await stage("static export and embedded asset contract", process.execPath, ["tooling/verify-static.mjs"]);
   await stage("authorized read API boundary", process.execPath, ["tooling/verify-read-api.mjs"]);
   await stage("portable CLI boundary and target builds", process.execPath, ["tooling/verify-cli.mjs"]);
   await stage("local control service boundary", process.execPath, ["tooling/verify-server.mjs"]);
@@ -47,8 +49,6 @@ try {
   await packageStage("web lint", ["--filter", "@vegastack/labs-web", "lint"]);
   await packageStage("web typecheck", ["--filter", "@vegastack/labs-web", "typecheck"]);
   await packageStage("web unit tests", ["--filter", "@vegastack/labs-web", "test"]);
-  await packageStage("web static build", ["--filter", "@vegastack/labs-web", "build"]);
-  await stage("static export contract", process.execPath, ["tooling/verify-static.mjs"]);
   await packageStage("Console browser evidence", ["--filter", "@vegastack/labs-web", "test:e2e"]);
   await stage("Git whitespace", "git", ["diff", "--check"]);
 

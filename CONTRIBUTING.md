@@ -42,6 +42,33 @@ go run ./cmd/vsk-labs server run --config fixture/server-profile.json
 go run ./cmd/vsk-labs server status --config fixture/server-profile.json --output json
 ```
 
+Server-profile schema `1.1.0` always includes the complete remote-read object. Keep the development fixture disabled unless the test explicitly owns an isolated TLS listener and identity fixture:
+
+```json
+{
+  "remoteRead": {
+    "enabled": false,
+    "bindAddress": null,
+    "publicOrigin": null,
+    "tlsCertificatePath": null,
+    "tlsPrivateKeyPath": null,
+    "identityAdapter": null,
+    "identityConfigPath": null
+  }
+}
+```
+
+Refresh the committed embedded Console only from the pinned static build, then verify that the source output, manifest, and embedded bytes agree:
+
+```text
+corepack pnpm --filter @vegastack/labs-web build
+node tooling/console-assets.mjs --write
+node tooling/console-assets.mjs --check
+go test ./internal/consoleassets ./internal/server
+```
+
+The write step intentionally changes generated files under `internal/consoleassets/`; inspect that complete diff before committing it. Ordinary Go build and server execution use those embedded files and require no Node.js process. Do not point this workflow at a live Console, real certificate, real adapter profile, or inventory fleet.
+
 The profile is protected non-secret configuration: it contains local socket facts and UID-to-principal bindings, but no permissions, authorization grants, credential values, or private inventory. Use synthetic fixtures only and no real operational data. Never commit a machine-specific profile, real UID mapping, private path, fleet row, credential, or provider response. `corepack pnpm check:server` enforces the one-service, Unix-only, authenticated-context, no-SQLite and supported-platform boundaries.
 
 With an isolated protected test server and explicit synthetic input, exercise the Issue #36 client surface through the same API:

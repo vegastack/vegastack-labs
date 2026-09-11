@@ -1,2 +1,2 @@
 :HL["/_next/static/chunks/016sdzlx85s-6.css","style"]
-0:{"tree":{"name":"","param":null,"prefetchHints":4188,"slots":{"children":{"name":"dashboard","param":null,"prefetchHints":4196,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}},"staleTime":300,"buildId":"y3haGZmx4N_lVrLybIafS"}
+0:{"tree":{"name":"","param":null,"prefetchHints":4188,"slots":{"children":{"name":"dashboard","param":null,"prefetchHints":4196,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}},"staleTime":300,"buildId":"vegastack-console-v1"}
