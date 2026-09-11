@@ -115,7 +115,9 @@ Each implementation issue receives a fresh review agent, separate from the imple
 
 Review proportionately for contract mismatches, unsafe assumptions, secret/authorization failures, state transitions, concurrency/idempotence, compatibility, failure/recovery, and tests that can pass despite broken behavior. UI work also needs applicable workflow, accessibility, and visual checks. Documentation changes need correctness/consistency checks, not irrelevant runtime tests.
 
-Run existing narrow unit/schema/fixture checks first, then relevant integration, plan/idempotence, failure/recovery, and supported-platform checks. Add tests for meaningful gaps and reuse fixtures. Check relevant denials as well as success. Fixtures are not live provider or hardware evidence.
+During implementation and review fixes, run only the narrow unit, schema, fixture, integration, plan/idempotence, failure/recovery, security, and supported-platform checks affected by the current change. Add tests for meaningful gaps and reuse fixtures. Check relevant denials as well as success. Fixtures are not live provider or hardware evidence.
+
+Run one successful complete `pnpm check` at the exact clean branch head immediately before asking the operator to create a pull request. Do not repeat the complete lane as a ritual during implementation. If review, rebase, or conflict-resolution work changes that head, rerun only the affected checks; PR CI verifies the actual candidate through `pnpm check:affected`. PR and post-merge CI install and run browser tests only for browser-impacting changes. Missing, invalid, or unclassifiable diff evidence fails closed to the full suite. An issue's named phase-acceptance command remains separately required.
 
 Record actionable findings, their disposition, and the reviewed commit in the PR. Fix findings and rerun affected checks. Later changes, including conflict resolution, require relevant renewed checks and review; old review cannot certify unseen changes. No ritual review rounds or unrelated perfectionism.
 

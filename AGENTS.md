@@ -99,7 +99,9 @@ An agent's own prompt-bypass or autonomy setting is not infrastructure authoriza
 
 ## Verification
 
-For changed code/configuration, run the narrow unit/schema/fixture tests first, then plan/idempotence tests and relevant integration checks. A mutation is incomplete until postconditions and the documented recovery path are both proven. Never use live production-like targets for an unreviewed test.
+During implementation and review fixes, run only the narrow unit, schema, fixture, security, failure, recovery, and integration checks affected by the current change. Run one successful complete `pnpm check` at the exact clean branch head immediately before asking the operator to create a pull request. If review or conflict-resolution changes that head afterward, rerun only the affected checks; the pull-request candidate is verified again by CI.
+
+Pull-request and `main` CI use `pnpm check:affected` with explicit base and head commits. The selector installs and runs browser tests only for browser-impacting changes, always runs the cheap repository/workflow/document/format guards, and fails closed to the full suite when it cannot safely read or classify the diff. An owning phase's explicit acceptance command remains required and is not replaced by generic affected checks. A mutation is incomplete until postconditions and the documented recovery path are both proven. Never use live production-like targets for an unreviewed test.
 
 ## Skills
 

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -26,4 +26,13 @@ test("valid links, fragments, and JSON pass", async () => {
 
   const result = await verifyDocumentation(root);
   assert.deepEqual(result, { markdownFiles: 2, jsonFiles: 1 });
+});
+
+test("all future-session mandates require one pre-PR full run and affected CI", async () => {
+  for (const file of ["AGENTS.md", "docs/development/operating-mandate.md", ".vegastack/dev.md"]) {
+    const text = await readFile(new URL(`../../${file}`, import.meta.url), "utf8");
+    assert.match(text, /one successful.*pnpm check.*immediately before.*pull request/is, file);
+    assert.match(text, /browser.*only.*browser-(?:facing|impacting)/is, file);
+    assert.match(text, /fail(?:s|ed)? closed.*full/is, file);
+  }
 });
