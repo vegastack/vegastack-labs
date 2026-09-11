@@ -122,7 +122,7 @@ func writeRemoteTestCertificate(t *testing.T) (string, string) {
 		SerialNumber: big.NewInt(1), Subject: pkix.Name{CommonName: "localhost"},
 		NotBefore: time.Now().Add(-time.Minute), NotAfter: time.Now().Add(time.Hour),
 		KeyUsage: x509.KeyUsageDigitalSignature, ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
-		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")},
+		IPAddresses: []net.IP{net.ParseIP("127.0.0.1")}, DNSNames: []string{"console.example"},
 	}
 	certificateDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {

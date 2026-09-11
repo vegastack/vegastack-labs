@@ -243,6 +243,8 @@ func TestGenerateBrowserClientHasStrictTypesAndDecoders(t *testing.T) {
 		"export const STABLE_ERROR_CODES",
 		"export class ReadClientError",
 		"function decodeApiSummaryData",
+		"export type ReadEnvelope",
+		"schemaVersion: canonicalVersion",
 		"additional property",
 		"unsupported-version",
 	} {

@@ -1778,16 +1778,21 @@ function decodeServerStatusData(value: unknown): ServerStatusData {
 export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 export type RequestOptions = { readonly signal?: AbortSignal };
 export type StreamOptions = RequestOptions & { readonly lastEventId?: string };
-export type ReadResult<T> = Omit<RunResult, "data"> & { readonly data: T };
+export type ReadEnvelope = Omit<RunResult, "schemaVersion"> & { readonly schemaVersion: string };
+export type ReadResult<T> = Omit<ReadEnvelope, "data"> & { readonly data: T };
 
-function decodeReadEnvelope(value: unknown, operation: string): RunResult {
+function decodeReadEnvelope(value: unknown, operation: string): ReadEnvelope {
   if (!isRecord(value)) return mismatch(operation, "expected result object");
   const version = value.schemaVersion;
   if (typeof version !== "string" || !/^\d+\.\d+\.\d+$/.test(version)) return mismatch(operation + ".schemaVersion", "invalid version");
   if (Number.parseInt(version.split(".")[0] ?? "", 10) !== 1) {
     throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", operation);
   }
-  return decodeRunResult(value);
+  const runResultRule = SCHEMAS.find((candidate) => candidate.id === "vegastack-labs.dev/run-result");
+  const canonicalVersion = runResultRule?.fields.find((field) => field.name === "schemaVersion")?.enum?.[0];
+  if (!canonicalVersion) return mismatch(operation + ".schemaVersion", "version rule is unavailable");
+  const envelope = decodeRunResult({ ...value, schemaVersion: canonicalVersion });
+  return { ...envelope, schemaVersion: version };
 }
 
 async function readJSON(response: Response, operation: string, signal?: AbortSignal): Promise<unknown> {
