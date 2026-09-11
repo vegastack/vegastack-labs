@@ -14,8 +14,26 @@ function validLength(value: string | null, maximum: number) {
   return value === null || value.length <= maximum;
 }
 
+function validPathValue(value: string | undefined) {
+  if (!value) return false;
+  try {
+    const decoded = decodeURIComponent(value);
+    return decoded.length >= 1 && decoded.length <= 128;
+  } catch {
+    return false;
+  }
+}
+
+function validGeneratedPath(pathname: string) {
+  if (!pathname.startsWith("/api/v1/inventory-drafts/")) return true;
+  const segments = pathname.split("/").filter(Boolean);
+  const revision = segments[5];
+  if (!validPathValue(segments[3]) || !revision || !/^[1-9]\d*$/.test(revision) || !Number.isSafeInteger(Number(revision))) return false;
+  return segments.length < 8 || validPathValue(segments[7]);
+}
+
 function isGeneratedReadRequest(url: URL) {
-  if (!GENERATED_READ_PATH.test(url.pathname)) return false;
+  if (!GENERATED_READ_PATH.test(url.pathname) || !validGeneratedPath(url.pathname)) return false;
   const keys = [...url.searchParams.keys()];
   if (new Set(keys).size !== keys.length) return false;
   if (url.pathname === "/api/v1/sources") return keys.every(key => ["cursor", "limit", "sort", "source", "state"].includes(key))
@@ -137,11 +155,15 @@ test("same-origin server requests are detected", async ({ page }) => {
   await page.evaluate(() => Promise.all([
     fetch("/api/v1/sources?source=private-canary"),
     fetch("/api/v1/sources?limit=999999"),
+    fetch("/api/v1/inventory-drafts/node/revisions/0/nodes"),
+    fetch(`/api/v1/inventory-drafts/${"a".repeat(129)}/revisions/1/nodes`),
     new Promise<void>(resolve => { const request = new XMLHttpRequest(); request.open("GET", "/api/v1/summary"); request.onloadend = () => resolve(); request.send(); }),
     new Promise<void>(resolve => { const source = new EventSource("/api/v1/events"); const done = () => { source.close(); resolve(); }; source.onerror = done; setTimeout(done, 200); }),
   ]));
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/source=private-canary/));
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/limit=999999/));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/revisions\/0\/nodes/));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(new RegExp(`inventory-drafts/${"a".repeat(129)}`)));
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unexpected: xhr .*\/summary/));
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unexpected: eventsource .*\/events/));
 });
