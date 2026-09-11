@@ -91,6 +91,45 @@ type testListener struct {
 	once      sync.Once
 }
 
+type delayedCloseListener struct {
+	acceptStarted chan struct{}
+	closed        chan struct{}
+	release       chan struct{}
+	closeCount    atomic.Int32
+}
+
+func newDelayedCloseListener() *delayedCloseListener {
+	return &delayedCloseListener{
+		acceptStarted: make(chan struct{}),
+		closed:        make(chan struct{}),
+		release:       make(chan struct{}),
+	}
+}
+
+func (listener *delayedCloseListener) Accept() (net.Conn, error) {
+	close(listener.acceptStarted)
+	<-listener.closed
+	<-listener.release
+	return nil, net.ErrClosed
+}
+
+func (listener *delayedCloseListener) Close() error {
+	if listener.closeCount.Add(1) == 1 {
+		close(listener.closed)
+		return nil
+	}
+	select {
+	case <-listener.release:
+	default:
+		close(listener.release)
+	}
+	return net.ErrClosed
+}
+
+func (*delayedCloseListener) Addr() net.Addr   { return &net.TCPAddr{} }
+func (*delayedCloseListener) CheckPath() error { return nil }
+func (*delayedCloseListener) Cleanup() error   { return nil }
+
 func newTestListener(t *testing.T, auth bool) *testListener {
 	t.Helper()
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -130,6 +169,25 @@ func testServerProfile() serverconfig.Profile {
 
 func testSupportedPlatform() Platform {
 	return Platform{OS: "linux", Architecture: "amd64", Distribution: "debian", Major: 13}
+}
+
+func TestShutdownDoesNotDoubleCloseTheHTTPListener(t *testing.T) {
+	listener := newDelayedCloseListener()
+	httpServer := &http.Server{Handler: http.NotFoundHandler()}
+	serveDone := make(chan error, 1)
+	go func() { serveDone <- httpServer.Serve(listener) }()
+	<-listener.acceptStarted
+
+	service := &service{config: Config{
+		Profile:     testServerProfile(),
+		Application: &testApplication{},
+	}}
+	if err := service.shutdown(listener, httpServer); err != nil {
+		t.Fatalf("shutdown = %v", err)
+	}
+	if err := <-serveDone; !errors.Is(err, http.ErrServerClosed) {
+		t.Fatalf("Serve() = %v", err)
+	}
 }
 
 func TestServiceReportsAuthenticatedHealthAndRejectsSpoofHeaders(t *testing.T) {
