@@ -283,6 +283,8 @@ The browser never calls providers directly. Adapter refreshes happen outside req
 
 The VegaStack Labs Console uses the supported VegaStack Design System path: Next.js 16, React 19, TypeScript, Tailwind CSS v4, Base UI and `@vegastack/design`. It is built as static assets and embedded into the `vsk-labs` executable; server-side Next.js APIs are prohibited in production so there is no Node runtime. This design-system choice does not alter the provider-neutral API/domain contract. [VegaStack quickstart](https://design.vegastack.com/docs/guides/quickstart) [D-102](decisions-and-sources.md#d-102)
 
+The repository pins the verified `provider` and `dashboard-01` registry closure at Design System `0.6.0`. The authenticated maintainer refresh verifies signed upstream items, copies their source, and records local hashes; ordinary public CI verifies only those committed bytes and needs no registry credential. The dashboard block is repository-owned after copy-in, so an intentional adaptation requires an explicit local acceptance command and review of both its source and lock diff. The generated `web/out` tree is served during development only by the loopback preview helper and is tested in pinned Chromium; production continues to embed the same static files in `vsk-labs server run`.
+
 Build requirements:
 
 1. Install `@vegastack/design` and import only `@vegastack/design/preset.css`; do not duplicate the Tailwind import.

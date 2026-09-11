@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "authority": "node tooling/provenance.mjs --write --approve-current-lock",
-  "reviewedOn": "27-08-2026",
-  "lockfileSha256": "2165af96de27f4712ca68cab949e9f15e1ac52b2397d11ee667fbeffa63ed34e",
+  "reviewedOn": "10-09-2026",
+  "lockfileSha256": "b80052efe07a63e3bb9f6121af1f8b4b768bcda044f9e3a3aacb4b40b680c25f",
   "registry": "https://registry.npmjs.org",
   "packages": [
     {
@@ -202,6 +202,20 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "@babel/runtime",
+      "version": "7.29.7",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==",
+      "lockKeys": [
+        "@babel/runtime@7.29.7"
+      ],
+      "license": "MIT",
+      "homepage": "https://babel.dev/docs/en/next/babel-runtime",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "@babel/template",
       "version": "7.29.7",
       "source": "https://registry.npmjs.org",
@@ -239,6 +253,34 @@
       ],
       "license": "MIT",
       "homepage": "https://babel.dev/docs/en/next/babel-types",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@base-ui/react",
+      "version": "1.8.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-P0/1sxo6SBVZOklKMIedvTWqw2s2IQzi9x5bIVsXu980cuSOD4NeuRSs+/L7LZQfDkZP/uRZyGPyfFl/B1oH+Q==",
+      "lockKeys": [
+        "@base-ui/react@1.8.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://base-ui.com",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@base-ui/utils",
+      "version": "0.4.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-bO9fz25kKtPf+aZVyfQrC0PDmJdmVni31W2hCS5/Owb+inwdIL3XU26pCPRPlt4LSxZrBgLwubXQXQlKaFEZzw==",
+      "lockKeys": [
+        "@base-ui/utils@0.4.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/mui/base-ui#readme",
       "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
@@ -422,6 +464,62 @@
       "license": "Apache-2.0",
       "homepage": "https://github.com/eslint/rewrite/tree/main/packages/plugin-kit#readme",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@floating-ui/core",
+      "version": "1.8.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-0CIZ5itps/8x7BG8dEIhs53BvCUH2PCoogtakwRTut+Arm58sJooJ0AuZhLw2HJYIR5cMLNPBSS728sPho2khQ==",
+      "lockKeys": [
+        "@floating-ui/core@1.8.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://floating-ui.com",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@floating-ui/dom",
+      "version": "1.8.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-yXSrzeHZBTZadLOlfyhCkJHNeLJnHRnRInwdZ40L7ZiaAtrBwoYlsDrX3v5zB1Utk7CLfzcOVnVVWoXEky7Ceg==",
+      "lockKeys": [
+        "@floating-ui/dom@1.8.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://floating-ui.com",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@floating-ui/react-dom",
+      "version": "2.1.9",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-JDjEFGCpImxDCA7JJKviA0M9+RtmJdj0m/NVU5IMgBK+AmZouAQQ7/+2GLH0GXXY0YMw9oXPB8hKdbPYg5QLYg==",
+      "lockKeys": [
+        "@floating-ui/react-dom@2.1.9"
+      ],
+      "license": "MIT",
+      "homepage": "https://floating-ui.com/docs/react-dom",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@floating-ui/utils",
+      "version": "0.2.12",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-HpCo8tmWzLVad5s2d19EhAz5zqrrQ6s69qd6moPMQvkOuSwDT1YgRfWSVuc4ennqrgv3OHppiOGMQ7oC13yIww==",
+      "lockKeys": [
+        "@floating-ui/utils@0.2.12"
+      ],
+      "license": "MIT",
+      "homepage": "https://floating-ui.com",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -776,6 +874,34 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "@playwright/test",
+      "version": "1.63.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-oxMK4vllB9RK5NQ2l1pq1IfOf2AvnEuj/vYGDj0H2nMtmtZpKtCwt/l00GEO6xjGfpBNAvjovvYdCm50dRQkpQ==",
+      "lockKeys": [
+        "@playwright/test@1.63.0"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://playwright.dev",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@reduxjs/toolkit",
+      "version": "2.12.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-KiT+RzZbp6mQET+Mg+h2c97+9j1sNflUxQkIHI7Yuzf6Peu+OYpmkn6nbHWmLLWj+1ZODUJFwGZ7gx3L9R9EOw==",
+      "lockKeys": [
+        "@reduxjs/toolkit@2.12.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://redux-toolkit.js.org",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "@rtsao/scc",
       "version": "1.1.0",
       "source": "https://registry.npmjs.org",
@@ -786,6 +912,34 @@
       "license": "MIT",
       "homepage": "https://github.com/rtsao/scc#readme",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@standard-schema/spec",
+      "version": "1.1.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-l2aFy5jALhniG5HgqrD6jXLi/rUWrKvqN/qJx6yoJsgKhblVd+iqqU4RCXavm/jPityDo5TCvKMnpjKnOriy0w==",
+      "lockKeys": [
+        "@standard-schema/spec@1.1.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://standardschema.dev",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@standard-schema/utils",
+      "version": "0.3.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-e7Mew686owMaPJVNNLs55PUvgz371nKgwsc4vxE49zsODpJEnxgxRo2y/OKrqueavXgZNMDVj3DdHFlaSAeU8g==",
+      "lockKeys": [
+        "@standard-schema/utils@0.3.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/standard-schema/standard-schema#readme",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -1042,6 +1196,132 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "@types/d3-array",
+      "version": "3.2.2",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-hOLWVbm7uRza0BYXpIIW5pxfrKe0W+D5lrFiAEYR+pb6w3N2SwSMaJbXdUfSEv+dT4MfHBLtn5js0LAWaO6otw==",
+      "lockKeys": [
+        "@types/d3-array@3.2.2"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-color",
+      "version": "3.1.3",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-iO90scth9WAbmgv7ogoq57O9YpKmFBbmoEoCHDB2xMBY0+/KVrqAaCDyCE16dUspeOvIxFFRI+0sEtqDqy2b4A==",
+      "lockKeys": [
+        "@types/d3-color@3.1.3"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-ease",
+      "version": "3.0.2",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-NcV1JjO5oDzoK26oMzbILE6HW7uVXOHLQvHshBUW4UMdZGfiY6v5BeQwh9a9tCzv+CeefZQHJt5SRgK154RtiA==",
+      "lockKeys": [
+        "@types/d3-ease@3.0.2"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-interpolate",
+      "version": "3.0.4",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-mgLPETlrpVV1YRJIglr4Ez47g7Yxjl1lj7YKsiMCb27VJH9W8NVM6Bb9d8kkpG/uAQS5AmbA48q2IAolKKo1MA==",
+      "lockKeys": [
+        "@types/d3-interpolate@3.0.4"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-interpolate",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-path",
+      "version": "3.1.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-VMZBYyQvbGmWyWVea0EHs/BwLgxc+MKi1zLDCONksozI4YJMcTt8ZEuIR4Sb1MMTE8MMW49v0IwI5+b7RmfWlg==",
+      "lockKeys": [
+        "@types/d3-path@3.1.1"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-path",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-scale",
+      "version": "4.0.9",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-dLmtwB8zkAeO/juAMfnV+sItKjlsw2lKdZVVy6LRr0cBmegxSABiLEpGVmSJJ8O08i4+sGR6qQtb6WtuwJdvVw==",
+      "lockKeys": [
+        "@types/d3-scale@4.0.9"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-scale",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-shape",
+      "version": "3.2.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-kVd74ta9eof3eJOvbNd1vGKS/XERRyQbT26Og63hIsvDO84cjD5gEOhsXf26w3FSoNlPVz84DOFcKv/oou+fMw==",
+      "lockKeys": [
+        "@types/d3-shape@3.2.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-shape",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-time",
+      "version": "3.0.4",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-yuzZug1nkAAaBlBBikKZTgzCeA+k1uy4ZFwWANOfKw5z5LRhV0gNA7gNkKm7HoK+HRN0wX3EkxGk0fpbWhmB7g==",
+      "lockKeys": [
+        "@types/d3-time@3.0.4"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-time",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/d3-timer",
+      "version": "3.0.2",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-Ps3T8E8dZDam6fUyNiMkekK3XUsaUEik+idO9/YjPtfj2qruF8tFBXS7XhtE4iIXBLxhmLjP3SXpLhVf21I9Lw==",
+      "lockKeys": [
+        "@types/d3-timer@3.0.2"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-timer",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "@types/estree",
       "version": "1.0.9",
       "source": "https://registry.npmjs.org",
@@ -1107,7 +1387,7 @@
       ],
       "license": "MIT",
       "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react",
-      "role": "build",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -1122,6 +1402,20 @@
       "license": "MIT",
       "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react-dom",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@types/use-sync-external-store",
+      "version": "0.0.6",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-zFDAD+tlpf2r4asuHEj0XH6pY6i0g5NeAHPn+15wk3BV6JA69eERFXC1gyGThDkVa1zCyKr5jox1+2LbV/AMLg==",
+      "lockKeys": [
+        "@types/use-sync-external-store@0.0.6"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/use-sync-external-store",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -1575,11 +1869,11 @@
     },
     {
       "name": "@vegastack/design",
-      "version": "0.3.0",
+      "version": "0.3.2",
       "source": "https://registry.npmjs.org",
-      "integrity": "sha512-6HJFqWMSWs5qPUtwE7NItk7W3ffgUB4FX9+fNzTkNhNnCqWKNe0H6UkpJJtm+ObQISeQzVmQiNi2D6iFOhfugg==",
+      "integrity": "sha512-66rsbkMTy3kqNTNd2aiN05JD0fKL/LsJi0YP4YXkufnSI9EogevdzfpsUk+YKBEUuenBX/8uRI+K4Cihb7A1Tg==",
       "lockKeys": [
-        "@vegastack/design@0.3.0"
+        "@vegastack/design@0.3.2"
       ],
       "license": "MIT",
       "homepage": "https://github.com/VegaStack/vegastack-design#readme",
@@ -2050,6 +2344,20 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "class-variance-authority",
+      "version": "0.7.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-Ka+9Trutv7G8M6WT6SeiRWz792K5qEqIGEGzXKhAE6xOWAY6pPH8U+9IY3oCMv6kqTmLsv7Xh/2w2RigkePMsg==",
+      "lockKeys": [
+        "class-variance-authority@0.7.1"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://github.com/joe-bell/cva#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "client-only",
       "version": "0.0.1",
       "source": "https://registry.npmjs.org",
@@ -2157,7 +2465,161 @@
       ],
       "license": "MIT",
       "homepage": "https://github.com/frenic/csstype#readme",
-      "role": "build",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-array",
+      "version": "3.2.4",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-tdQAmyA18i4J7wprpYq8ClcxZy3SC31QMeByyCFyRt7BVHdREQZ5lpzoe5mFEYZUWe+oq8HBvk9JjpibyEV4Jg==",
+      "lockKeys": [
+        "d3-array@3.2.4"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-array/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-color",
+      "version": "3.1.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-zg/chbXyeBtMQ1LbD/WSoW2DpC3I0mpmPdW+ynRTj/x2DAWYrIY7qeZIHidozwV24m4iavr15lNwIwLxRmOxhA==",
+      "lockKeys": [
+        "d3-color@3.1.0"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-color/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-ease",
+      "version": "3.0.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-wR/XK3D3XcLIZwpbvQwQ5fK+8Ykds1ip7A2Txe0yxncXSdq1L9skcG7blcedkOX+ZcgxGAmLX1FrRGbADwzi0w==",
+      "lockKeys": [
+        "d3-ease@3.0.1"
+      ],
+      "license": "BSD-3-Clause",
+      "homepage": "https://d3js.org/d3-ease/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-format",
+      "version": "3.1.2",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-AJDdYOdnyRDV5b6ArilzCPPwc1ejkHcoyFarqlPqT7zRYjhavcT3uSrqcMvsgh2CgoPbK3RCwyHaVyxYcP2Arg==",
+      "lockKeys": [
+        "d3-format@3.1.2"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-format/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-interpolate",
+      "version": "3.0.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-3bYs1rOD33uo8aqJfKP3JWPAibgw8Zm2+L9vBKEHJ2Rg+viTR7o5Mmv5mZcieN+FRYaAOWX5SJATX6k1PWz72g==",
+      "lockKeys": [
+        "d3-interpolate@3.0.1"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-interpolate/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-path",
+      "version": "3.1.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-p3KP5HCf/bvjBSSKuXid6Zqijx7wIfNW+J/maPs+iwR35at5JCbLUT0LzF1cnjbCHWhqzQTIN2Jpe8pRebIEFQ==",
+      "lockKeys": [
+        "d3-path@3.1.0"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-path/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-scale",
+      "version": "4.0.2",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-GZW464g1SH7ag3Y7hXjf8RoUuAFIqklOAq3MRl4OaWabTFJY9PN/E1YklhXLh+OQ3fM9yS2nOkCoS+WLZ6kvxQ==",
+      "lockKeys": [
+        "d3-scale@4.0.2"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-scale/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-shape",
+      "version": "3.2.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-SaLBuwGm3MOViRq2ABk3eLoxwZELpH6zhl3FbAoJ7Vm1gofKx6El1Ib5z23NUEhF9AsGl7y+dzLe5Cw2AArGTA==",
+      "lockKeys": [
+        "d3-shape@3.2.0"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-shape/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-time",
+      "version": "3.1.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-VqKjzBLejbSMT4IgbmVgDjpkYrNWUYJnbCGo874u7MMKIWsILRX+OpX/gTk8MqjpT1A/c6HY2dCA77ZN0lkQ2Q==",
+      "lockKeys": [
+        "d3-time@3.1.0"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-time/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-time-format",
+      "version": "4.1.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-dJxPBlzC7NugB2PDLwo9Q8JiTR3M3e4/XANkreKSUxF8vvXKqm1Yfq4Q5dl8budlunRVlUUaDUgFt7eA8D6NLg==",
+      "lockKeys": [
+        "d3-time-format@4.1.0"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-time-format/",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "d3-timer",
+      "version": "3.0.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-ndfJ/JxxMd3nw31uyKoY2naivF+r29V+Lc0svZxe1JvvIRmi8hUsrMvdOwgS1o6uBHmiz91geQ0ylPP0aj1VUA==",
+      "lockKeys": [
+        "d3-timer@3.0.1"
+      ],
+      "license": "ISC",
+      "homepage": "https://d3js.org/d3-timer/",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -2241,6 +2703,20 @@
       ],
       "license": "MIT",
       "homepage": "https://github.com/debug-js/debug#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "decimal.js-light",
+      "version": "2.5.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-qIMFpTMZmny+MMIitAB6D7iVPEorVw6YQRWkvarTkT4tBeSLLiHzcwj6q0MmYSFCiVpiqPJTJEYIrpcPzVEIvg==",
+      "lockKeys": [
+        "decimal.js-light@2.5.1"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/MikeMcl/decimal.js-light#readme",
       "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
@@ -2494,6 +2970,20 @@
       "license": "MIT",
       "homepage": "https://github.com/ljharb/es-to-primitive#readme",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "es-toolkit",
+      "version": "1.52.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-XTNEJQh1tY1ZJVcf6ayP/2n4ZPyaHlW2FWs7xvw5ddPuhUVjLD3olQVQS7kf58JbAB48iL0uL/jerTrjtV3lDA==",
+      "lockKeys": [
+        "es-toolkit@1.52.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://es-toolkit.dev",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -2774,6 +3264,20 @@
       "license": "BSD-2-Clause",
       "homepage": "https://github.com/estools/esutils",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "eventemitter3",
+      "version": "5.0.4",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==",
+      "lockKeys": [
+        "eventemitter3@5.0.4"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/primus/eventemitter3#readme",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -3324,6 +3828,20 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "immer",
+      "version": "11.1.18",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-EQyQtLiYW029lyoczMl/Hh4Xu7cDecSc58JRYpHyL4tIAu3eqd1yJzQX04d2BZHDkzFFvm6qJEJWOtfDSWAXbQ==",
+      "lockKeys": [
+        "immer@11.1.18"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/immerjs/immer#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "import-fresh",
       "version": "3.3.1",
       "source": "https://registry.npmjs.org",
@@ -3362,6 +3880,20 @@
       "license": "MIT",
       "homepage": "https://github.com/ljharb/internal-slot#readme",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "internmap",
+      "version": "2.0.3",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-5Hh7Y1wQbvY5ooGgPbDaL5iYLAPzMTUrjMulskHLH6wnv/A+1q5rgEaiuqEjB+oxGXIVZs1FF+R/KPN3ZSQYYg==",
+      "lockKeys": [
+        "internmap@2.0.3"
+      ],
+      "license": "ISC",
+      "homepage": "https://github.com/mbostock/internmap/",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -4262,6 +4794,20 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "next-themes",
+      "version": "0.4.6",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-pZvgD5L0IEvX5/9GWyHMf3m8BKiVQwsCMHfoFosXtXBMnaS0ZnIJ9ST4b4NqLVKDEm8QBxoNNGNaBv2JNF6XNA==",
+      "lockKeys": [
+        "next-themes@0.4.6"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/pacocoursey/next-themes#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "node-exports-info",
       "version": "1.6.2",
       "source": "https://registry.npmjs.org",
@@ -4556,6 +5102,34 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "playwright",
+      "version": "1.63.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==",
+      "lockKeys": [
+        "playwright@1.63.0"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://playwright.dev",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "playwright-core",
+      "version": "1.63.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-rYCsBF/M5HjUch52bbtVONEFjv6Xu8sm8h72dNlR5bzIE1fvC/bxgspzkjSfU+MweEMmPM8KJebG6nnyxo5mCg==",
+      "lockKeys": [
+        "playwright-core@1.63.0"
+      ],
+      "license": "Apache-2.0",
+      "homepage": "https://playwright.dev",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "possible-typed-array-names",
       "version": "1.1.0",
       "source": "https://registry.npmjs.org",
@@ -4691,7 +5265,63 @@
       ],
       "license": "MIT",
       "homepage": "https://reactjs.org/",
-      "role": "build",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "react-redux",
+      "version": "9.3.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-KQopgqFo/p/fgmAs5qz6p5RWaNAzq40WAu7fJIXnQpYxFPbJYtsJPWvGeF2rOBaY/kEuV77AVsX8TsQzKm+A/g==",
+      "lockKeys": [
+        "react-redux@9.3.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/reduxjs/react-redux",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "recharts",
+      "version": "3.10.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-QXFrvt6IVcw7eeZCoyXTwkIJAX3Dv1nyVhMicXJ47GsGDDpcN8z6o644DibE9XjpBTThtsomLKnTV6lc+cVFUA==",
+      "lockKeys": [
+        "recharts@3.10.1"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/recharts/recharts",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "redux",
+      "version": "5.0.1",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w==",
+      "lockKeys": [
+        "redux@5.0.1"
+      ],
+      "license": "MIT",
+      "homepage": "http://redux.js.org",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "redux-thunk",
+      "version": "3.1.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-NW2r5T6ksUKXCabzhL9z+h206HQw/NJkcLm1GPImRQ8IzfXwRGqjVhKJGauHirT0DAuyy6hjdnMZaRoAcy0Klw==",
+      "lockKeys": [
+        "redux-thunk@3.1.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/reduxjs/redux-thunk",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -4720,6 +5350,34 @@
       "license": "MIT",
       "homepage": "https://github.com/es-shims/RegExp.prototype.flags#readme",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "reselect",
+      "version": "5.2.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-AgZ3UOZm3YndfrJ4OYjgrT7bmCm/1iqkjvEfH/oYjzh6PD2qw4QuT3jjnXIrpdt4MTpMXclMT3lXbmRY+XRakw==",
+      "lockKeys": [
+        "reselect@5.2.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/reduxjs/reselect#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "reselect",
+      "version": "5.3.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-XGoLeRAVzUTcJ1qkxPQhDJyIZ5d6zzZD9nT7AEZOaaU9UbWclhycElmhO+VD5bFeLuzhPBaOV2oXC8uG35ZSpg==",
+      "lockKeys": [
+        "reselect@5.3.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/reduxjs/reselect#readme",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -5000,6 +5658,20 @@
       "license": "MIT",
       "homepage": "https://github.com/ljharb/side-channel-weakmap#readme",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "sonner",
+      "version": "2.0.8",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-UM/ByIoFra8yzV75n1o0Puu0bw5U/9UNnDacrJNspekBewIfsQ3D6ez1nvlWpt7aTsO6rujQtifBpycwIivqlg==",
+      "lockKeys": [
+        "sonner@2.0.8"
+      ],
+      "license": "MIT",
+      "homepage": "https://sonner.emilkowal.ski/",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -5298,6 +5970,20 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "tiny-invariant",
+      "version": "1.3.3",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-+FbBPE1o9QAYvviau/qC5SE3caw21q3xkvWKBtja5vgqOWIHHJ3ioaq1VPfn/Szqctz2bU/oYeKd9/z5BL+PVg==",
+      "lockKeys": [
+        "tiny-invariant@1.3.3"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/alexreardon/tiny-invariant#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "tinyglobby",
       "version": "0.2.17",
       "source": "https://registry.npmjs.org",
@@ -5564,6 +6250,34 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "use-sync-external-store",
+      "version": "1.6.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-Pp6GSwGP/NrPIrxVFAIkOQeyw8lFenOHijQWkUTrDvrF4ALqylP2C/KCkeS9dpUM3KvYRQhna5vt7IL95+ZQ9w==",
+      "lockKeys": [
+        "use-sync-external-store@1.6.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/facebook/react#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "victory-vendor",
+      "version": "37.3.6",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-SbPDPdDBYp+5MJHhBCAyI7wKM3d5ivekigc2Dk2s7pgbZ9wIgIBYGVw4zGHBml/qTFbexrofXW6Gu4noGxrOwQ==",
+      "lockKeys": [
+        "victory-vendor@37.3.6"
+      ],
+      "license": "MIT AND ISC",
+      "homepage": "https://commerce.nearform.com/open-source/victory",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "which",
       "version": "2.0.2",
       "source": "https://registry.npmjs.org",
@@ -5718,5 +6432,5 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     }
   ],
-  "reviewMetadataSha256": "a61af5e78107b373ff0d566071150abc771db497c3a1dad4033264320e112885"
+  "reviewMetadataSha256": "ad23318a9d7007529cd632f7eceee4f81d989b86f2337ae857493139d4025634"
 }
