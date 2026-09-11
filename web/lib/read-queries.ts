@@ -26,4 +26,7 @@ export const readQueries = {
   summary: () => ({ queryKey: readKeys.summary(), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.getSummary({ signal }) }),
   sources: (query: ApiSourceListQuery = {}) => ({ queryKey: readKeys.sources(query), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listSources(query, { signal }) }),
   drafts: (query: ApiPageQuery = {}) => ({ queryKey: readKeys.drafts(query), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listInventoryDrafts(query, { signal }) }),
+  nodes: (reference: { draftId: string; revision: number }, query: ApiPageQuery = {}) => ({ queryKey: readKeys.nodes(reference, query), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listInventoryDraftNodes(reference, query, { signal }) }),
+  aliases: (reference: { draftId: string; revision: number }, query: ApiPageQuery = {}) => ({ queryKey: readKeys.aliases(reference, query), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listInventoryDraftAliases(reference, query, { signal }) }),
+  observations: (reference: { draftId: string; revision: number }, query: ApiPageQuery = {}) => ({ queryKey: readKeys.observations(reference, query), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listInventoryDraftObservations(reference, query, { signal }) }),
 };
