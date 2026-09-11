@@ -72,7 +72,7 @@ func (stub *stubServerOperations) Status(_ context.Context, config string) (loca
 
 func successfulServerResponse(t *testing.T) localapi.Response {
 	t.Helper()
-	status := generated.ServerStatusData{State: "ready", ReadAvailable: true, RecoveryEpoch: 7, StateRevision: 42}
+	status := generated.ServerStatusData{State: "ready", ReadAvailable: true, RecoveryEpoch: 7, StateRevision: 42, RemoteReadState: "disabled", RemoteReadReason: "none"}
 	result := generated.RunResult{
 		Schema: generated.SchemaIDRunResult, SchemaVersion: generated.RegistrySchemaVersion,
 		ToolVersion: "0.2.0-test", Command: generated.CommandNameServerStatus, RequestID: "request-server-1",

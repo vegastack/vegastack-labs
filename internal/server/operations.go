@@ -2,10 +2,14 @@ package server
 
 import (
 	"context"
+	"net/http"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/api"
+	"github.com/vegastack/vegastack-labs/internal/consoleassets"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/inventoryops"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
@@ -52,12 +56,13 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	}
 	authorizer := store.NewReadAuthorizer(authority)
 	reads := store.NewReadRepository(authority)
+	remote, sessions := operations.remoteRead(ctx, profile, authority, factory)
 	streamer, err := api.NewEventStreamer(api.NewStoreEventSource(reads, authority), authorizer, api.ProductionStreamLimits)
 	if err != nil {
 		_ = authority.Close()
 		return err
 	}
-	application, err := api.NewApplication(api.Config{Authority: authority, Authorizer: authorizer, Reads: reads, Results: factory, Cursors: nil, Queries: nil, Streams: streamer})
+	application, err := api.NewApplication(api.Config{Authority: authority, Authorizer: authorizer, Reads: reads, Results: factory, Cursors: nil, Queries: nil, Streams: streamer, Sessions: sessions})
 	if err != nil {
 		streamer.Close()
 		_ = authority.Close()
@@ -89,12 +94,56 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}})
+	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
 	return service.Run(ctx)
+}
+
+func (operations *Operations) remoteRead(ctx context.Context, profile serverconfig.Profile, authority *store.Store, factory *result.Factory) (*RemoteConfig, api.BrowserSessionService) {
+	if !profile.RemoteRead.Enabled {
+		return nil, nil
+	}
+	unavailable := func(reason string) (*RemoteConfig, api.BrowserSessionService) {
+		return &RemoteConfig{PreflightFailure: reason}, nil
+	}
+	adapterConfig, err := identity.LoadCloudflareAccessProfile(ctx, profile.RemoteRead.IdentityConfigPath)
+	if err != nil {
+		return unavailable("authentication-unavailable")
+	}
+	adapter, err := identity.NewCloudflareAccessAdapter(adapterConfig, &http.Client{Timeout: 10 * time.Second}, time.Now)
+	if err != nil {
+		return unavailable("authentication-unavailable")
+	}
+	files, manifest, err := consoleassets.Open()
+	if err != nil {
+		return unavailable("preflight-unavailable")
+	}
+	console, err := NewConsoleHandler(files, manifest)
+	if err != nil {
+		return unavailable("preflight-unavailable")
+	}
+	authenticator, err := NewBrowserAuthenticator(BrowserAuthConfig{
+		ExactOrigin: profile.RemoteRead.PublicOrigin,
+		ExactHost:   profile.RemoteRead.ExactHost,
+		Identities:  adapter,
+		Sessions:    authority,
+		Results:     factory,
+	})
+	if err != nil {
+		return unavailable("authentication-unavailable")
+	}
+	return &RemoteConfig{
+		Authenticator: authenticator,
+		Console:       console,
+		ListenConfig: RemoteListenConfig{
+			Address:         profile.RemoteRead.BindAddress,
+			CertificatePath: profile.RemoteRead.TLSCertificatePath,
+			PrivateKeyPath:  profile.RemoteRead.TLSPrivateKeyPath,
+		},
+	}, authenticator.SessionService()
 }
 
 func (operations *Operations) Status(ctx context.Context, configPath string) (localapi.Response, error) {

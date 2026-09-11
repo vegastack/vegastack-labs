@@ -9,6 +9,7 @@ import (
 	"testing/fstest"
 
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 func testConsoleHandler(t *testing.T) http.Handler {
@@ -92,6 +93,38 @@ func TestBrowserRouterNeverFallsBackFromAPIToConsole(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "<title>Console") {
 		t.Fatalf("API path used Console fallback: %d %s", response.Code, response.Body.String())
+	}
+}
+
+type sessionProbeApplication struct {
+	testApplication
+	called bool
+}
+
+func (application *sessionProbeApplication) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	_, remote := identity.RemoteIdentityFromContext(request.Context())
+	_, principal := identity.PrincipalFromContext(request.Context())
+	if !remote || principal {
+		http.Error(writer, "missing remote bootstrap identity", http.StatusUnauthorized)
+		return
+	}
+	application.called = true
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func TestBrowserRouterAllowsSessionBootstrapThroughService(t *testing.T) {
+	authenticator, _, _ := newBrowserAuthFixture(t)
+	application := &sessionProbeApplication{}
+	service := &service{config: Config{Application: application, Results: testResultFactory()}, state: StateReady}
+	handler, err := NewBrowserHandler(service, testConsoleHandler(t), authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authorizedBrowserRequest(t, http.MethodPost, "/api/v1/session", "")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || !application.called {
+		t.Fatalf("session bootstrap = %d, called %t", response.Code, application.called)
 	}
 }
 

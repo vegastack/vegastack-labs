@@ -703,6 +703,8 @@ type ServerStatusData struct {
 	MutationAvailable bool   `json:"mutationAvailable"`
 	RecoveryEpoch     int64  `json:"recoveryEpoch"`
 	StateRevision     int64  `json:"stateRevision"`
+	RemoteReadState   string `json:"remoteReadState"`
+	RemoteReadReason  string `json:"remoteReadReason"`
 }
 
 type SignedInventoryDraftExport struct {

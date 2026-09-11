@@ -234,6 +234,8 @@ export interface ServerStatusData {
   readonly "mutationAvailable": boolean;
   readonly "recoveryEpoch": number;
   readonly "stateRevision": number;
+  readonly "remoteReadState": "disabled" | "starting" | "ready" | "unavailable";
+  readonly "remoteReadReason": "none" | "preflight-unavailable" | "authentication-unavailable" | "listener-unavailable" | "serve-failed";
 }
 
 export const STABLE_ERROR_CODES = ["APPROVAL_REQUIRED","AUTHENTICATION_REQUIRED","AUTHORIZATION_DENIED","DEPENDENCY_UNAVAILABLE","EVIDENCE_EXPIRED","EVIDENCE_INVALID","EXECUTION_FAILED","EXECUTION_PARTIAL","GATE_BLOCKED","INPUT_INVALID","INTEGRITY_FAILURE","INTERRUPTED","MIGRATION_BLOCKED","PLAN_STALE","PREREQUISITE_BLOCKED","RECOVERY_EPOCH_MISMATCH","RECOVERY_REQUIRED","RESOURCE_NOT_FOUND","SCHEMA_UNSUPPORTED","SESSION_EXPIRED","STATE_CONFLICT","TARGET_UNREACHABLE","UNSUPPORTED_PLATFORM","VERSION_INCOMPATIBLE"] as const;
@@ -1566,6 +1568,31 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "integer",
         "required": true,
         "nullable": false
+      },
+      {
+        "name": "remoteReadState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "disabled",
+          "starting",
+          "ready",
+          "unavailable"
+        ]
+      },
+      {
+        "name": "remoteReadReason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "preflight-unavailable",
+          "authentication-unavailable",
+          "listener-unavailable",
+          "serve-failed"
+        ]
       }
     ]
   }

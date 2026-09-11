@@ -592,7 +592,7 @@ func currentSchemas() []SchemaDefinition {
 		},
 		{
 			ID:           serverStatusDataSchemaID,
-			Version:      "1.0.0",
+			Version:      "1.1.0",
 			ArtifactPath: "schemas/v1/server-status-data.schema.json",
 			Fields: []FieldDefinition{
 				{JSONName: "state", GoName: "State", Kind: ValueString, Required: true, Enum: []string{"starting", "ready", "safe-mode", "stopping", "unavailable"}},
@@ -600,6 +600,8 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "mutationAvailable", GoName: "MutationAvailable", Kind: ValueBoolean, Required: true},
 				{JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true},
 				{JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true},
+				{JSONName: "remoteReadState", GoName: "RemoteReadState", Kind: ValueString, Required: true, Enum: []string{"disabled", "starting", "ready", "unavailable"}},
+				{JSONName: "remoteReadReason", GoName: "RemoteReadReason", Kind: ValueString, Required: true, Enum: []string{"none", "preflight-unavailable", "authentication-unavailable", "listener-unavailable", "serve-failed"}},
 			},
 		},
 	}

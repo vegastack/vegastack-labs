@@ -263,6 +263,53 @@ func TestServiceReportsAuthenticatedHealthAndRejectsSpoofHeaders(t *testing.T) {
 	}
 }
 
+func TestRemoteBindFailureLeavesLocalControlAvailable(t *testing.T) {
+	listener := newTestListener(t, true)
+	profile := testServerProfile()
+	profile.RemoteRead.Enabled = true
+	authenticator, _, _ := newBrowserAuthFixture(t)
+	service, err := New(Config{
+		Profile: profile, Application: &testApplication{health: ApplicationHealth{RecoveryEpoch: 7, StateRevision: 42}}, Results: testResultFactory(),
+		ListenerFactory: func(context.Context, localapi.ListenConfig) (localapi.Listener, error) { return listener, nil },
+		PlatformProbe:   staticPlatformProbe{platform: testSupportedPlatform()}, IntegrityInterval: 10 * time.Millisecond,
+		Remote: &RemoteConfig{
+			Authenticator: authenticator,
+			Console:       testConsoleHandler(t),
+			ListenConfig:  RemoteListenConfig{Address: "127.0.0.1:8443", CertificatePath: "/private/cert", PrivateKeyPath: "/private/key"},
+			ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) {
+				return nil, errors.New("address-in-use private detail")
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- service.Run(ctx) }()
+	client := &http.Client{Timeout: time.Second}
+	var status generated.ServerStatusData
+	for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
+		response, requestErr := client.Get("http://" + listener.Addr().String() + "/api/v1/health")
+		if requestErr == nil {
+			var envelope generated.RunResult
+			if json.NewDecoder(response.Body).Decode(&envelope) == nil && json.Unmarshal(envelope.Data, &status) == nil && status.RemoteReadState == "unavailable" {
+				_ = response.Body.Close()
+				break
+			}
+			_ = response.Body.Close()
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if status.State != "ready" || status.RemoteReadState != "unavailable" || status.RemoteReadReason != "listener-unavailable" {
+		t.Fatalf("health = %#v", status)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("Run() after remote failure = %v", err)
+	}
+}
+
 func TestServiceAuthenticatesBeforeReadingBody(t *testing.T) {
 	listener := newTestListener(t, false)
 	service, err := New(Config{

@@ -1,5 +1,7 @@
 State ready
 Read available true
 Mutation available false
+Remote read disabled
+Remote read reason none
 State revision 42
 Recovery epoch 7
