@@ -4,10 +4,10 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 ## 11-09-2026 — Development checks stay thorough without repeating the slowest lane ([#81](https://github.com/vegastack/vegastack-labs/issues/81))
 
-- **What:** Development now has one shared check catalog and a deterministic Git-diff selector. Local work runs only affected checks, while one complete clean-head check remains required before a pull request. PR and `main` CI use a GitHub-hosted macOS 15 primary job, add a small Ubuntu 24.04 Go-test job only for Linux-impacting changes, and install Chromium only when browser-facing code changed.
+- **What:** Development now has one shared check catalog and a deterministic Git-diff selector. Local work runs only affected checks, while one complete clean-head check remains required before a pull request. Pull requests use fresh GitHub-hosted Ubuntu machines; trusted `main` and manual checks may temporarily use disposable Debian `vsk-node-01` or `vsk-node-06`. Chromium installs only when browser-facing code changed.
 - **Why:** Repeating the complete Go, web build, and browser suite after every small edit was slowing Phase 3 without adding proof at each intermediate state.
 - **How it went:** A concurrent planning session created a newer equivalent Plan v1 while implementation was starting; the branch switched to that current plan, kept the safe work already committed, and recorded the reconciliation instead of hiding it.
-- **Changed:** Shared ordered check groups · fail-closed changed-path plan · macOS primary CI · conditional Ubuntu Linux compatibility CI · conditional Chromium CI · one-full-run-before-PR rule in every agent mandate.
+- **Changed:** Shared ordered check groups · fail-closed changed-path plan · hosted pull-request CI · hostname-gated disposable Debian CI for trusted events · conditional Chromium CI · one-full-run-before-PR rule in every agent mandate.
 - **Decisions:** none; the selector and its fixture matrix enforce the approved workflow directly.
 
 — approved by (omkarmohanta09) · built by Codex · branch chore/81-change-aware-ci

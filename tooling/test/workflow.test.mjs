@@ -19,7 +19,7 @@ test("the public workflow retains the commit history required by Phase 2 evidenc
   );
   const workflow = parseYaml(source);
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
-  delete workflow.jobs.verify.steps.find(({ uses }) => uses?.startsWith("actions/checkout@"))
+  delete workflow.jobs.verify_pr.steps.find(({ uses }) => uses?.startsWith("actions/checkout@"))
     .with["fetch-depth"];
   assert.throws(
     () => verifyWorkflowDocument(workflow, source),
@@ -34,19 +34,27 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   );
   const workflow = parseYaml(source);
   const planSteps = workflow.jobs.plan.steps;
-  const steps = workflow.jobs.verify.steps;
+  const hostedSteps = workflow.jobs.verify_pr.steps;
+  const trustedSteps = workflow.jobs.verify_trusted.steps;
   const plan = planSteps.find(({ id }) => id === "check-plan");
-  const chromium = steps.find(({ name }) => name === "Install pinned Chromium");
-  const checks = steps.find(({ name }) => name === "Run affected public checks");
+  const hostedChromium = hostedSteps.find(({ name }) => name === "Install pinned Chromium");
+  const trustedChromium = trustedSteps.find(({ name }) => name === "Install pinned Chromium");
+  const hostedChecks = hostedSteps.find(({ name }) => name === "Run affected public checks");
+  const trustedChecks = trustedSteps.find(({ name }) => name === "Run affected public checks");
 
   assert.ok(plan);
   assert.match(plan.run, /node tooling\/check-affected\.mjs[\s\S]*--format github/);
-  assert.equal(workflow.jobs.verify["runs-on"], "macos-15");
-  assert.equal(workflow.jobs.linux["runs-on"], "ubuntu-24.04");
-  assert.equal(chromium.if, "needs.plan.outputs.browser == 'true'");
-  assert.equal(workflow.jobs.linux.if, "needs.plan.outputs.linux == 'true'");
-  assert.equal(workflow.jobs.linux.steps.at(-1).run, "go test ./...");
-  assert.match(checks.run, /pnpm check:affected/);
+  assert.equal(workflow.jobs.plan["runs-on"], "ubuntu-24.04");
+  assert.equal(workflow.jobs.verify_pr["runs-on"], "ubuntu-24.04");
+  assert.deepEqual(workflow.jobs.verify_trusted["runs-on"], ["self-hosted", "linux", "x64"]);
+  assert.equal(workflow.jobs.verify_pr.if, "github.event_name == 'pull_request'");
+  assert.equal(workflow.jobs.verify_trusted.if, "github.event_name != 'pull_request'");
+  assert.equal(hostedChromium.if, "needs.plan.outputs.browser == 'true'");
+  assert.equal(trustedChromium.if, "needs.plan.outputs.browser == 'true'");
+  assert.match(hostedChecks.run, /pnpm check:affected/);
+  assert.match(trustedChecks.run, /pnpm check:affected/);
+  assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
+  assert.equal(trustedSteps[1].name, "Check out repository");
   assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
 });
@@ -57,16 +65,37 @@ test("the workflow guard rejects unconditional Chromium and a repeated full lane
     "utf8",
   );
   const unconditional = parseYaml(source);
-  delete unconditional.jobs.verify.steps.find(({ name }) => name === "Install pinned Chromium").if;
+  delete unconditional.jobs.verify_pr.steps.find(({ name }) => name === "Install pinned Chromium").if;
   assert.throws(
     () => verifyWorkflowDocument(unconditional, source),
     /Chromium only when the affected plan selects browser/,
   );
 
   const repeated = parseYaml(source);
-  repeated.jobs.verify.steps.find(({ name }) => name === "Run affected public checks").run = "pnpm check";
+  repeated.jobs.verify_pr.steps.find(({ name }) => name === "Run affected public checks").run = "pnpm check";
   assert.throws(
     () => verifyWorkflowDocument(repeated, `${source}\n- run: pnpm check\n`),
     /execute the affected check plan|must not repeat the complete local check lane/,
+  );
+});
+
+test("the workflow guard keeps pull requests off disposable machines and checks hostname before checkout", async () => {
+  const source = await readFile(
+    new URL("../../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  const unsafeEvent = parseYaml(source);
+  unsafeEvent.jobs.verify_trusted.if = "github.event_name == 'pull_request'";
+  assert.throws(
+    () => verifyWorkflowDocument(unsafeEvent, source),
+    /self-hosted checks must exclude pull requests/,
+  );
+
+  const lateGuard = parseYaml(source);
+  const steps = lateGuard.jobs.verify_trusted.steps;
+  [steps[0], steps[1]] = [steps[1], steps[0]];
+  assert.throws(
+    () => verifyWorkflowDocument(lateGuard, source),
+    /hostname before repository checkout/,
   );
 });

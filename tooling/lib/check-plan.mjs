@@ -86,7 +86,6 @@ function completePlan(reason, changedPaths = []) {
     changedPaths,
     groups: CHECK_GROUPS,
     browser: true,
-    linux: true,
   });
 }
 
@@ -123,6 +122,11 @@ function knownDocumentationPath(file) {
     /^docs\//.test(file) || /^\.vegastack\/(?:chronicle|dev|review-known-patterns)\.md$/.test(file);
 }
 
+function testPolicyPath(file) {
+  return file === "AGENTS.md" || file === "docs/development/operating-mandate.md" ||
+    file === ".vegastack/dev.md";
+}
+
 function selfPolicyPath(file) {
   return file === "tooling/lib/check-plan.mjs" || file === "tooling/check-affected.mjs" ||
     file === "tooling/check.mjs" || file === ".github/workflows/ci.yml" ||
@@ -132,6 +136,11 @@ function selfPolicyPath(file) {
 
 function classifyPath(file, selected, reasons) {
   if (selfPolicyPath(file)) return "selector-or-dependency-change";
+  if (testPolicyPath(file)) {
+    selected.add("tooling");
+    reasons.add("test-policy-documentation");
+    return null;
+  }
   if (knownDocumentationPath(file) || file === ".gitignore" || file === ".gitattributes") {
     reasons.add("documentation-or-repository-metadata");
     return null;
@@ -214,7 +223,6 @@ export function classifyChangedPaths(changes) {
     changedPaths,
     groups: orderedGroups(selected),
     browser: selected.has("browser"),
-    linux: selected.has("go"),
   });
 }
 

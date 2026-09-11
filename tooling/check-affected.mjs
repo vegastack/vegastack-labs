@@ -62,7 +62,7 @@ export async function planForCommits(base, head) {
 function githubOutput(plan, base, head) {
   const baseSha = validCommit(base) ? base : "";
   const headSha = validCommit(head) ? head : "";
-  return `browser=${plan.browser}\nlinux=${plan.linux}\nmode=${plan.mode}\nfail_closed=${plan.failClosed}\nbase_sha=${baseSha}\nhead_sha=${headSha}\n`;
+  return `browser=${plan.browser}\nmode=${plan.mode}\nfail_closed=${plan.failClosed}\nbase_sha=${baseSha}\nhead_sha=${headSha}\n`;
 }
 
 async function main() {
