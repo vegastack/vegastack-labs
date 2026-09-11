@@ -181,6 +181,7 @@ All browser and CLI behavior uses one versioned API. HTTP JSON uses `/api/v1`; t
 | Method and path | Purpose |
 |---|---|
 | `GET /api/v1/summary` | fleet, service, CI, backup, alert and change totals |
+| `GET /api/v1/sources` | bounded health and freshness state for the database, nodes and optional domain capabilities |
 | `GET /api/v1/nodes`, `GET /api/v1/nodes/{id}` | declared identity, role, qualification and observed state |
 | `GET /api/v1/services`, `GET /api/v1/services/{id}` | declaration, placement, exposure, health and provider links |
 | `GET /api/v1/people`, `/devices`, `/grants` | authorized lifecycle and access views |
@@ -375,6 +376,14 @@ The browser read boundary is generated at `web/generated/read-api.ts` from the s
 The generated SSE iterator sends an optional opaque `Last-Event-ID`, accepts only the registered audit-event stream, checks each frame ID against its decoded durable event ID, bounds frames, and never reconnects or retries by itself. Consumers retain the last successfully processed ID and explicitly start a new iterator to resume. `go run ./tooling/generate-contracts --write` owns the file, and `go run ./tooling/generate-contracts --check` fails when it is missing or changed; Console code must not hand-maintain parallel models or bypass this client to reach SQLite or a provider.
 
 The human-equivalent procedure uses the same protected socket and API: authenticate as an explicitly bound OS peer, obtain an explicit database-backed read grant through the later trusted setup workflow, issue the generated local request, verify the result schema/revision and `no-store` response, and for events retain only the last successfully received durable ID. On denial, stale cursor, revocation, restart-expired cursor, slow connection, or safe-mode limitation, stop and resolve the grant/recovery prerequisite; never open SQLite, add a TCP listener, infer health from absence, or bypass the API. Before merge, abandon the branch to roll back. After migration `0004` reaches a database, correct forward and recover from a verified database copy under the normal recovery procedure.
+
+### Implemented Phase 3 source-health projection
+
+`GET /api/v1/sources` is the provider-neutral source-status list. Its fixed source IDs are `database`, `nodes`, `gates`, `people`, `services`, `backups`, and `providers`. Database health and the newest immutable inventory observation come from the existing authoritative SQLite read transaction. The other five entries are capability slots: until their owning typed adapters exist, they report `unavailable` and do not pretend that a live provider was checked. This issue adds no provider SDK, refresh worker, alert route, accepted inventory, or new persistence owner.
+
+The server, never the caller, owns freshness. Database-integrity and local-inventory observations become `stale` after 24 hours. A later optional adapter receives its own one-hour default until its owning issue records a more specific policy. State precedence is `unavailable` for an absent capability, `failed` for a present source whose collection failed or reports an impossible future collection time, `unknown` when no collection time exists, `stale` after the source limit, and otherwise `healthy`. The response exposes only those stable states, safe fixed reasons and known timestamps. Adapter failure text, provider-native identifiers, credentials and private evidence are discarded before projection.
+
+Source pages use the same 1–200 limit, process-keyed opaque cursor, revision/epoch snapshot and authorization-first handling as the other finite lists. The `source` and `state` filters and `id-asc`/`id-desc` sorting are bounded and included in the cursor binding. A `platform.source.read` grant names one exact source ID; granting the full fixed set requires seven explicit grants, with no implicit wildcard. Ungranted sources are omitted without an existence oracle. `/api/v1/summary` adds only counts by source state and the worst current state. A failed or stale optional source never disables database, inventory or unrelated authorized reads.
 
 ## Implemented draft-operation API and CLI
 

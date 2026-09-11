@@ -7,6 +7,39 @@ import (
 	"testing"
 )
 
+func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
+	registry := Current()
+	if registry.SchemaVersion != "1.7.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.7.0", registry.SchemaVersion)
+	}
+	var endpoint EndpointDefinition
+	for _, candidate := range registry.Endpoints {
+		if candidate.ID == "api.v1.sources.list" {
+			endpoint = candidate
+			break
+		}
+	}
+	if endpoint.Method != "GET" || endpoint.Path != "/api/v1/sources" || endpoint.Availability != AvailabilityAvailable || endpoint.OwnerPhase != "3" || endpoint.QuerySchema != apiSourceListQuerySchemaID || endpoint.DataSchema != apiSourceListDataSchemaID {
+		t.Fatalf("endpoint = %#v", endpoint)
+	}
+	for _, identifier := range []string{apiSourceDataSchemaID, apiSourceListDataSchemaID, apiSourceCountsDataSchemaID, apiSourceListQuerySchemaID} {
+		definition := schemaByID(t, registry, identifier)
+		if definition.Version != "1.0.0" || definition.ArtifactPath == "" {
+			t.Fatalf("schema %s = %#v", identifier, definition)
+		}
+		encoded, err := json.Marshal(definition.Fields)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if regexp.MustCompile(`(?i)(secret|credential|providerResponse|rawError|evidence)`).Match(encoded) {
+			t.Fatalf("unsafe source contract %s: %s", identifier, encoded)
+		}
+	}
+	if summary := schemaByID(t, registry, apiSummaryDataSchemaID); summary.Version != "1.1.0" {
+		t.Fatalf("summary schema version = %q", summary.Version)
+	}
+}
+
 func TestPhaseTwoReadEndpointsAreGeneratedAndDraftScoped(t *testing.T) {
 	registry := Current()
 	byID := make(map[string]EndpointDefinition, len(registry.Endpoints))

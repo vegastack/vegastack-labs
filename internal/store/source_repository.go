@@ -1,0 +1,197 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"sort"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/readmodel"
+)
+
+const (
+	localSourceStaleAfter    = 24 * time.Hour
+	optionalSourceStaleAfter = time.Hour
+)
+
+type SourceRepository struct {
+	store    *Store
+	fixtures map[readmodel.SourceID]readmodel.SourceObservation
+}
+
+func NewSourceRepository(store *Store) *SourceRepository {
+	return &SourceRepository{store: store}
+}
+
+func newSourceRepositoryWithFixtures(store *Store, fixtures map[readmodel.SourceID]readmodel.SourceObservation) *SourceRepository {
+	copyFixtures := make(map[readmodel.SourceID]readmodel.SourceObservation, len(fixtures))
+	for id, observation := range fixtures {
+		copyFixtures[id] = observation
+	}
+	return &SourceRepository{store: store, fixtures: copyFixtures}
+}
+
+func (repository *SourceRepository) ListSources(ctx context.Context, scope authorization.ReadScope, query readmodel.SourceListQuery, snapshot RevisionToken) (readmodel.SourcePage, error) {
+	if query.Limit < 1 || query.Limit > 200 || (query.Sort != "id-asc" && query.Sort != "id-desc") || !sourceFilterValid(query.Source) || !sourceFilterValid(query.AfterID) || !stateFilterValid(query.State) || query.EvaluationAt.IsZero() {
+		return readmodel.SourcePage{}, newStoreError(generated.ErrorCodeInputInvalid, "source-read", false, nil)
+	}
+	evaluationAt := query.EvaluationAt.UTC()
+	result := readmodel.SourcePage{Snapshot: readmodel.RevisionToken{StateRevision: snapshot.StateRevision, RecoveryEpoch: snapshot.RecoveryEpoch}, EvaluationAt: evaluationAt}
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if err := verifySnapshot(ctx, tx, snapshot); err != nil {
+			return err
+		}
+		if err := verifyReadScope(ctx, tx, scope, ""); err != nil {
+			return err
+		}
+		allowed, err := allowedSources(ctx, tx, scope)
+		if err != nil {
+			return err
+		}
+		statuses, err := repository.evaluateAt(ctx, tx, snapshot.StateRevision, evaluationAt)
+		if err != nil {
+			return err
+		}
+		for _, status := range statuses {
+			if !allowed[status.ID] {
+				continue
+			}
+			if query.Source != "" && query.Source != status.ID || query.State != "" && query.State != status.State {
+				continue
+			}
+			result.Items = append(result.Items, status)
+		}
+		sort.Slice(result.Items, func(i, j int) bool {
+			if query.Sort == "id-desc" {
+				return result.Items[i].ID > result.Items[j].ID
+			}
+			return result.Items[i].ID < result.Items[j].ID
+		})
+		if query.AfterID != "" {
+			items := result.Items[:0]
+			for _, item := range result.Items {
+				if query.Sort == "id-desc" && item.ID < query.AfterID || query.Sort == "id-asc" && item.ID > query.AfterID {
+					items = append(items, item)
+				}
+			}
+			result.Items = items
+		}
+		if len(result.Items) > query.Limit {
+			result.Items = result.Items[:query.Limit]
+			result.HasMore = true
+			result.Last = result.Items[len(result.Items)-1].ID
+		}
+		return nil
+	})
+	return result, err
+}
+
+func (repository *SourceRepository) evaluate(ctx context.Context, tx ReadTx, stateRevision int64) ([]readmodel.SourceStatus, error) {
+	return repository.evaluateAt(ctx, tx, stateRevision, repository.store.config.Clock().UTC())
+}
+
+func (repository *SourceRepository) evaluateAt(ctx context.Context, tx ReadTx, stateRevision int64, evaluationAt time.Time) ([]readmodel.SourceStatus, error) {
+	observations, err := repository.observations(ctx, tx, stateRevision)
+	if err != nil {
+		return nil, err
+	}
+	statuses := make([]readmodel.SourceStatus, 0, len(observations))
+	for _, observation := range observations {
+		policy := readmodel.SourcePolicy{StaleAfter: optionalSourceStaleAfter}
+		if observation.ID == readmodel.SourceDatabase || observation.ID == readmodel.SourceNodes {
+			policy.StaleAfter = localSourceStaleAfter
+		}
+		status, evaluateErr := readmodel.EvaluateSource(observation, policy, evaluationAt)
+		if evaluateErr != nil {
+			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "source-observation", false, evaluateErr)
+		}
+		statuses = append(statuses, status)
+	}
+	return statuses, nil
+}
+
+func (repository *SourceRepository) observations(ctx context.Context, tx ReadTx, stateRevision int64) ([]readmodel.SourceObservation, error) {
+	health := repository.store.health
+	database := readmodel.SourceObservation{
+		ID:            readmodel.SourceDatabase,
+		Capability:    readmodel.SourceCapability(readmodel.SourceDatabase),
+		Available:     true,
+		CollectedAt:   health.LastIntegrityCheckAt,
+		LastSuccessAt: health.LastIntegrityCheckAt,
+	}
+	if health.Mode == DatabaseSafeMode || health.IntegrityStatus == IntegrityFailed {
+		database.FailureCode = "DATABASE_UNHEALTHY"
+	}
+
+	var observed sql.NullString
+	if err := tx.queryRow(ctx, `SELECT MAX(o.observed_at)
+FROM inventory_draft_observations o
+JOIN inventory_drafts d ON d.draft_id=o.draft_id AND d.draft_revision=o.draft_revision
+JOIN audit_events e ON e.event_type='inventory.draft.persisted' AND e.target_kind='inventory-draft' AND e.target_id=d.draft_id AND e.after_fingerprint=d.content_digest AND e.state_revision<=?`, stateRevision).Scan(&observed); err != nil {
+		return nil, err
+	}
+	nodes := readmodel.SourceObservation{ID: readmodel.SourceNodes, Capability: readmodel.SourceCapability(readmodel.SourceNodes), Available: true}
+	if observed.Valid {
+		value, err := time.Parse(time.RFC3339Nano, observed.String)
+		if err != nil {
+			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "source-observation", false, err)
+		}
+		nodes.CollectedAt, nodes.LastSuccessAt = &value, &value
+	}
+	result := []readmodel.SourceObservation{database, nodes}
+	for _, id := range []readmodel.SourceID{readmodel.SourceGates, readmodel.SourcePeople, readmodel.SourceServices, readmodel.SourceBackups, readmodel.SourceProviders} {
+		observation := readmodel.SourceObservation{ID: id, Capability: readmodel.SourceCapability(id), Available: false}
+		if candidate, ok := repository.fixtures[id]; ok {
+			observation.Available = candidate.Available
+			observation.CollectedAt = candidate.CollectedAt
+			observation.LastSuccessAt = candidate.LastSuccessAt
+			observation.LastErrorAt = candidate.LastErrorAt
+			observation.FailureCode = candidate.FailureCode
+		}
+		result = append(result, observation)
+	}
+	return result, nil
+}
+
+func allowedSources(ctx context.Context, tx ReadTx, scope authorization.ReadScope) (map[readmodel.SourceID]bool, error) {
+	rows, err := tx.query(ctx, `SELECT resource_id FROM read_grants WHERE principal_id=? AND capability=? AND resource_kind=? AND status='active' AND grant_revision=? ORDER BY resource_id`, scope.PrincipalID, scope.Capability, scope.ResourceKind, scope.GrantRevision)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	allowed := make(map[readmodel.SourceID]bool)
+	for rows.Next() {
+		var resource string
+		if err := rows.Scan(&resource); err != nil {
+			return nil, err
+		}
+		id := readmodel.SourceID(resource)
+		if sourceFilterValid(id) {
+			allowed[id] = true
+		}
+	}
+	return allowed, rows.Err()
+}
+
+func sourceFilterValid(value readmodel.SourceID) bool {
+	if value == "" {
+		return true
+	}
+	for _, id := range readmodel.SourceIDValues() {
+		if value == id {
+			return true
+		}
+	}
+	return false
+}
+
+func stateFilterValid(value readmodel.SourceState) bool {
+	switch value {
+	case "", readmodel.SourceHealthy, readmodel.SourceStale, readmodel.SourceUnknown, readmodel.SourceUnavailable, readmodel.SourceFailed:
+		return true
+	default:
+		return false
+	}
+}

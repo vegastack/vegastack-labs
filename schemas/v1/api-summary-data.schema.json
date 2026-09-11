@@ -1,4 +1,44 @@
 {
+  "$defs": {
+    "api-source-counts-data": {
+      "additionalProperties": false,
+      "properties": {
+        "failed": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "healthy": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "stale": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "total": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unavailable": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "unknown": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "total",
+        "healthy",
+        "stale",
+        "unknown",
+        "unavailable",
+        "failed"
+      ],
+      "type": "object"
+    }
+  },
   "$id": "vegastack-labs.dev/api-summary-data",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
@@ -32,6 +72,9 @@
       "minimum": 0,
       "type": "integer"
     },
+    "sourceCounts": {
+      "$ref": "#/$defs/api-source-counts-data"
+    },
     "stateRevision": {
       "minimum": 0,
       "type": "integer"
@@ -39,6 +82,16 @@
     "validDraftCount": {
       "minimum": 0,
       "type": "integer"
+    },
+    "worstSourceState": {
+      "enum": [
+        "healthy",
+        "stale",
+        "unknown",
+        "unavailable",
+        "failed"
+      ],
+      "type": "string"
     }
   },
   "required": [
@@ -50,7 +103,9 @@
     "blockedDraftCount",
     "lastEventId",
     "recoveryEpoch",
-    "stateRevision"
+    "stateRevision",
+    "sourceCounts",
+    "worstSourceState"
   ],
   "title": "VegaStack Labs api summary data",
   "type": "object",

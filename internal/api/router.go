@@ -11,6 +11,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
+	"github.com/vegastack/vegastack-labs/internal/readmodel"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
@@ -25,6 +26,7 @@ func finiteRoutes(app *Application) []route {
 	return []route{
 		{"api.v1.database-status.get", http.MethodGet, "/api/v1/database/status", "database.status.read", "database", app.databaseStatus},
 		{"api.v1.summary.get", http.MethodGet, "/api/v1/summary", "platform.summary.read", "platform-summary", app.summary},
+		{"api.v1.sources.list", http.MethodGet, "/api/v1/sources", "platform.source.read", "platform-source", app.sourceList},
 		{"api.v1.inventory-drafts.list", http.MethodGet, "/api/v1/inventory-drafts", "inventory.draft.read", "inventory-draft", app.draftList},
 		{"api.v1.inventory-drafts.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", "inventory.draft.read", "inventory-draft", app.draftGet},
 		{"api.v1.inventory-draft-assets.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", "inventory.draft.read", "inventory-draft", app.recordList("asset")},
@@ -168,6 +170,66 @@ func (app *Application) summary(w http.ResponseWriter, r *http.Request, scope au
 	app.success(w, "api.v1.summary.get", value.StateRevision, value.RecoveryEpoch, projectSummary(value))
 }
 
+func (app *Application) sourceList(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, _ map[string]string) {
+	const endpoint = "api.v1.sources.list"
+	validated, err := app.config.Queries.Decode(r.URL.Query(), QuerySpec{EndpointID: endpoint, AllowedFilters: []string{"source", "state"}, AllowedSorts: []string{"id-asc", "id-desc"}, DefaultSort: "id-asc"})
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	query, err := sourceListQuery(validated)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	snapshot, decoded, err := app.pageState(r, scope, endpoint, validated)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	query.EvaluationAt = app.config.Cursors.Now()
+	if decoded != nil {
+		position := decoded.Position
+		query.EvaluationAt = decoded.EvaluationAt
+		query.AfterID = readmodel.SourceID(position.ImmutableID)
+		if query.EvaluationAt.IsZero() || len(position.SortValues) != 1 || position.SortValues[0] != position.ImmutableID || !readmodel.ValidSourceID(query.AfterID) {
+			app.failure(w, endpoint, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
+			return
+		}
+	}
+	page, err := app.config.Reads.ListSources(r.Context(), scope, query, snapshot)
+	if err != nil {
+		app.failure(w, endpoint, err)
+		return
+	}
+	if query.EvaluationAt.IsZero() || !page.EvaluationAt.Equal(query.EvaluationAt) || page.Snapshot.StateRevision != snapshot.StateRevision || page.Snapshot.RecoveryEpoch != snapshot.RecoveryEpoch || len(page.Items) > query.Limit {
+		app.failure(w, endpoint, apiFailure(generated.ErrorCodeIntegrityFailure, "source-page"))
+		return
+	}
+	for _, item := range page.Items {
+		if !readmodel.ValidSourceID(item.ID) || !readmodel.ValidSourceState(item.State) {
+			app.failure(w, endpoint, apiFailure(generated.ErrorCodeIntegrityFailure, "source-page"))
+			return
+		}
+	}
+	var next *string
+	if page.HasMore {
+		if !readmodel.ValidSourceID(page.Last) {
+			app.failure(w, endpoint, apiFailure(generated.ErrorCodeIntegrityFailure, "source-page"))
+			return
+		}
+		binding := cursorBinding(endpoint, validated, scope, snapshot)
+		binding.EvaluationAt = query.EvaluationAt
+		token, encodeErr := app.config.Cursors.Encode(binding, CursorPosition{SortValues: []string{string(page.Last)}, ImmutableID: string(page.Last)})
+		if encodeErr != nil {
+			app.failure(w, endpoint, encodeErr)
+			return
+		}
+		next = &token
+	}
+	app.success(w, endpoint, snapshot.StateRevision, snapshot.RecoveryEpoch, projectSourcePage(page, next))
+}
+
 func (app *Application) draftList(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, _ map[string]string) {
 	const endpoint = "api.v1.inventory-drafts.list"
 	query, err := app.config.Queries.Decode(r.URL.Query(), QuerySpec{EndpointID: endpoint, AllowedSorts: []string{"created-at-asc", "created-at-desc"}, DefaultSort: "created-at-asc"})
@@ -175,13 +237,14 @@ func (app *Application) draftList(w http.ResponseWriter, r *http.Request, scope 
 		app.failure(w, endpoint, err)
 		return
 	}
-	snapshot, position, err := app.pageState(r, scope, endpoint, query)
+	snapshot, decoded, err := app.pageState(r, scope, endpoint, query)
 	if err != nil {
 		app.failure(w, endpoint, err)
 		return
 	}
 	request := inventory.DraftListQuery{Limit: query.Limit, Sort: query.Sort}
-	if position != nil {
+	if decoded != nil {
+		position := decoded.Position
 		request.AfterCreatedAt, err = time.Parse(time.RFC3339Nano, position.SortValues[0])
 		if err != nil {
 			app.failure(w, endpoint, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
@@ -249,13 +312,14 @@ func (app *Application) recordList(kind string) func(http.ResponseWriter, *http.
 			app.failure(w, endpoint, err)
 			return
 		}
-		snapshot, position, err := app.pageState(r, scope, endpoint, query)
+		snapshot, decoded, err := app.pageState(r, scope, endpoint, query)
 		if err != nil {
 			app.failure(w, endpoint, err)
 			return
 		}
 		rq := inventory.RecordListQuery{AfterKind: kind, Limit: query.Limit, Sort: query.Sort}
-		if position != nil {
+		if decoded != nil {
+			position := decoded.Position
 			rq.AfterLocalID = inventory.LocalID(position.ImmutableID)
 		}
 		page, err := app.config.Reads.ListRecords(r.Context(), scope, ref, rq, snapshot)
@@ -306,7 +370,7 @@ func cursorBinding(endpoint string, query ValidatedQuery, scope authorization.Re
 	return CursorBinding{SchemaMajor: 1, EndpointID: endpoint, QueryDigest: query.FilterDigest, ScopeDigest: scope.ScopeDigest, GrantRevision: scope.GrantRevision, Snapshot: snapshot}
 }
 
-func (app *Application) pageState(r *http.Request, scope authorization.ReadScope, endpoint string, query ValidatedQuery) (store.RevisionToken, *CursorPosition, error) {
+func (app *Application) pageState(r *http.Request, scope authorization.ReadScope, endpoint string, query ValidatedQuery) (store.RevisionToken, *DecodedCursor, error) {
 	if query.Cursor == "" {
 		revision, err := app.config.Reads.CurrentRevision(r.Context(), scope)
 		return revision, nil, err
@@ -316,5 +380,5 @@ func (app *Application) pageState(r *http.Request, scope authorization.ReadScope
 	if err != nil {
 		return store.RevisionToken{}, nil, err
 	}
-	return decoded.Snapshot, &decoded.Position, nil
+	return decoded.Snapshot, &decoded, nil
 }

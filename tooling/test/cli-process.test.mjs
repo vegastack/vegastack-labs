@@ -403,6 +403,8 @@ test("five operator commands preserve protected API bytes in the built process",
       databaseMode: "read-write", readAvailable: true, mutationAvailable: false,
       draftCount: 2, validDraftCount: 1, blockedDraftCount: 1, lastEventId: 9,
       recoveryEpoch: 2, stateRevision: 7,
+      sourceCounts: { total: 7, healthy: 2, stale: 0, unknown: 0, unavailable: 5, failed: 0 },
+      worstSourceState: "unavailable",
     }),
     "GET /api/v1/database/status": apiEnvelope("api.v1.database-status.get", false, 2, 7, {
       mode: "read-write", schemaVersion: 1, sqliteVersion: "3.synthetic", mutationEnabled: false,

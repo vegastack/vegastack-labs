@@ -24,6 +24,10 @@ const (
 	SchemaIDApiInventoryObservationListData = "vegastack-labs.dev/api-inventory-observation-list-data"
 	SchemaIDApiPageData                     = "vegastack-labs.dev/api-page-data"
 	SchemaIDApiPageQuery                    = "vegastack-labs.dev/api-page-query"
+	SchemaIDApiSourceCountsData             = "vegastack-labs.dev/api-source-counts-data"
+	SchemaIDApiSourceData                   = "vegastack-labs.dev/api-source-data"
+	SchemaIDApiSourceListData               = "vegastack-labs.dev/api-source-list-data"
+	SchemaIDApiSourceListQuery              = "vegastack-labs.dev/api-source-list-query"
 	SchemaIDApiSummaryData                  = "vegastack-labs.dev/api-summary-data"
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
@@ -226,16 +230,52 @@ type ApiPageQuery struct {
 	Cursor string `json:"cursor"`
 }
 
+type ApiSourceCountsData struct {
+	Total       int64 `json:"total"`
+	Healthy     int64 `json:"healthy"`
+	Stale       int64 `json:"stale"`
+	Unknown     int64 `json:"unknown"`
+	Unavailable int64 `json:"unavailable"`
+	Failed      int64 `json:"failed"`
+}
+
+type ApiSourceData struct {
+	ID            string  `json:"id"`
+	Capability    string  `json:"capability"`
+	State         string  `json:"state"`
+	CollectedAt   *string `json:"collectedAt"`
+	LastSuccessAt *string `json:"lastSuccessAt"`
+	LastErrorAt   *string `json:"lastErrorAt"`
+	Reason        string  `json:"reason"`
+}
+
+type ApiSourceListData struct {
+	Items         []ApiSourceData `json:"items"`
+	NextCursor    *string         `json:"nextCursor"`
+	StateRevision int64           `json:"stateRevision"`
+	RecoveryEpoch int64           `json:"recoveryEpoch"`
+}
+
+type ApiSourceListQuery struct {
+	Limit  int64  `json:"limit"`
+	Sort   string `json:"sort"`
+	Cursor string `json:"cursor"`
+	Source string `json:"source"`
+	State  string `json:"state"`
+}
+
 type ApiSummaryData struct {
-	DatabaseMode      string `json:"databaseMode"`
-	ReadAvailable     bool   `json:"readAvailable"`
-	MutationAvailable bool   `json:"mutationAvailable"`
-	DraftCount        int64  `json:"draftCount"`
-	ValidDraftCount   int64  `json:"validDraftCount"`
-	BlockedDraftCount int64  `json:"blockedDraftCount"`
-	LastEventID       int64  `json:"lastEventId"`
-	RecoveryEpoch     int64  `json:"recoveryEpoch"`
-	StateRevision     int64  `json:"stateRevision"`
+	DatabaseMode      string              `json:"databaseMode"`
+	ReadAvailable     bool                `json:"readAvailable"`
+	MutationAvailable bool                `json:"mutationAvailable"`
+	DraftCount        int64               `json:"draftCount"`
+	ValidDraftCount   int64               `json:"validDraftCount"`
+	BlockedDraftCount int64               `json:"blockedDraftCount"`
+	LastEventID       int64               `json:"lastEventId"`
+	RecoveryEpoch     int64               `json:"recoveryEpoch"`
+	StateRevision     int64               `json:"stateRevision"`
+	SourceCounts      ApiSourceCountsData `json:"sourceCounts"`
+	WorstSourceState  string              `json:"worstSourceState"`
 }
 
 type AuditEvent struct {
@@ -782,6 +822,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite"},
 	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite"},
 	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite"},
+	{ID: "api.v1.sources.list", Method: "GET", Path: "/api/v1/sources", Availability: "available", OwnerPhase: "3", QuerySchema: "vegastack-labs.dev/api-source-list-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-source-list-data", Stream: "finite"},
 	{ID: "api.v1.summary.get", Method: "GET", Path: "/api/v1/summary", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-summary-data", Stream: "finite"},
 }
 

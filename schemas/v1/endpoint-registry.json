@@ -156,6 +156,16 @@
       "stream": "finite"
     },
     {
+      "id": "api.v1.sources.list",
+      "method": "GET",
+      "path": "/api/v1/sources",
+      "availability": "available",
+      "ownerPhase": "3",
+      "querySchema": "vegastack-labs.dev/api-source-list-query",
+      "dataSchema": "vegastack-labs.dev/api-source-list-data",
+      "stream": "finite"
+    },
+    {
       "id": "api.v1.summary.get",
       "method": "GET",
       "path": "/api/v1/summary",

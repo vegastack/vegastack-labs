@@ -13,6 +13,7 @@
 // api.v1.inventory-draft-observations.list
 // api.v1.inventory-drafts.get
 // api.v1.inventory-drafts.list
+// api.v1.sources.list
 // api.v1.summary.get
 
 export interface ApiAuditEventData {
@@ -105,6 +106,40 @@ export interface ApiPageQuery {
   readonly "cursor"?: string;
 }
 
+export interface ApiSourceCountsData {
+  readonly "total": number;
+  readonly "healthy": number;
+  readonly "stale": number;
+  readonly "unknown": number;
+  readonly "unavailable": number;
+  readonly "failed": number;
+}
+
+export interface ApiSourceData {
+  readonly "id": "database" | "nodes" | "gates" | "people" | "services" | "backups" | "providers";
+  readonly "capability": "database.status.read" | "inventory.node.read" | "gate.read" | "identity.person.read" | "service.read" | "backup.status.read" | "adapter.status.read";
+  readonly "state": "healthy" | "stale" | "unknown" | "unavailable" | "failed";
+  readonly "collectedAt": string | null;
+  readonly "lastSuccessAt": string | null;
+  readonly "lastErrorAt": string | null;
+  readonly "reason": "source observation is current" | "source observation is stale" | "source has no observation timestamp" | "source capability is unavailable" | "source reported a collection failure";
+}
+
+export interface ApiSourceListData {
+  readonly "items": ReadonlyArray<ApiSourceData>;
+  readonly "nextCursor": string | null;
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+}
+
+export interface ApiSourceListQuery {
+  readonly "limit"?: number;
+  readonly "sort"?: "id-asc" | "id-desc";
+  readonly "cursor"?: string;
+  readonly "source"?: "database" | "nodes" | "gates" | "people" | "services" | "backups" | "providers";
+  readonly "state"?: "healthy" | "stale" | "unknown" | "unavailable" | "failed";
+}
+
 export interface ApiSummaryData {
   readonly "databaseMode": "ready" | "safe-mode";
   readonly "readAvailable": boolean;
@@ -115,6 +150,8 @@ export interface ApiSummaryData {
   readonly "lastEventId": number;
   readonly "recoveryEpoch": number;
   readonly "stateRevision": number;
+  readonly "sourceCounts": ApiSourceCountsData;
+  readonly "worstSourceState": "healthy" | "stale" | "unknown" | "unavailable" | "failed";
 }
 
 export interface AuditEvent {
@@ -719,6 +756,227 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/api-source-counts-data",
+    "fields": [
+      {
+        "name": "total",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "healthy",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stale",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "unknown",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "unavailable",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "failed",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-source-data",
+    "fields": [
+      {
+        "name": "id",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "database",
+          "nodes",
+          "gates",
+          "people",
+          "services",
+          "backups",
+          "providers"
+        ]
+      },
+      {
+        "name": "capability",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "database.status.read",
+          "inventory.node.read",
+          "gate.read",
+          "identity.person.read",
+          "service.read",
+          "backup.status.read",
+          "adapter.status.read"
+        ]
+      },
+      {
+        "name": "state",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "healthy",
+          "stale",
+          "unknown",
+          "unavailable",
+          "failed"
+        ]
+      },
+      {
+        "name": "collectedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 64
+      },
+      {
+        "name": "lastSuccessAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 64
+      },
+      {
+        "name": "lastErrorAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 64
+      },
+      {
+        "name": "reason",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "source observation is current",
+          "source observation is stale",
+          "source has no observation timestamp",
+          "source capability is unavailable",
+          "source reported a collection failure"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-source-list-data",
+    "fields": [
+      {
+        "name": "items",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/api-source-data",
+        "maxItems": 200
+      },
+      {
+        "name": "nextCursor",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "maxLength": 2048
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/api-source-list-query",
+    "fields": [
+      {
+        "name": "limit",
+        "kind": "integer",
+        "required": false,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 200
+      },
+      {
+        "name": "sort",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "enum": [
+          "id-asc",
+          "id-desc"
+        ]
+      },
+      {
+        "name": "cursor",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "maxLength": 2048
+      },
+      {
+        "name": "source",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "enum": [
+          "database",
+          "nodes",
+          "gates",
+          "people",
+          "services",
+          "backups",
+          "providers"
+        ]
+      },
+      {
+        "name": "state",
+        "kind": "string",
+        "required": false,
+        "nullable": false,
+        "enum": [
+          "healthy",
+          "stale",
+          "unknown",
+          "unavailable",
+          "failed"
+        ]
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/api-summary-data",
     "fields": [
       {
@@ -784,6 +1042,26 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 0
+      },
+      {
+        "name": "sourceCounts",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/api-source-counts-data"
+      },
+      {
+        "name": "worstSourceState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "healthy",
+          "stale",
+          "unknown",
+          "unavailable",
+          "failed"
+        ]
       }
     ]
   },
@@ -1422,6 +1700,22 @@ function decodeApiPageQuery(value: unknown): ApiPageQuery {
   return decodeSchema("vegastack-labs.dev/api-page-query", value) as unknown as ApiPageQuery;
 }
 
+function decodeApiSourceCountsData(value: unknown): ApiSourceCountsData {
+  return decodeSchema("vegastack-labs.dev/api-source-counts-data", value) as unknown as ApiSourceCountsData;
+}
+
+function decodeApiSourceData(value: unknown): ApiSourceData {
+  return decodeSchema("vegastack-labs.dev/api-source-data", value) as unknown as ApiSourceData;
+}
+
+function decodeApiSourceListData(value: unknown): ApiSourceListData {
+  return decodeSchema("vegastack-labs.dev/api-source-list-data", value) as unknown as ApiSourceListData;
+}
+
+function decodeApiSourceListQuery(value: unknown): ApiSourceListQuery {
+  return decodeSchema("vegastack-labs.dev/api-source-list-query", value) as unknown as ApiSourceListQuery;
+}
+
 function decodeApiSummaryData(value: unknown): ApiSummaryData {
   return decodeSchema("vegastack-labs.dev/api-summary-data", value) as unknown as ApiSummaryData;
 }
@@ -1556,6 +1850,19 @@ function pageQuery(value: ApiPageQuery | undefined): string {
   return encoded === "" ? "" : "?" + encoded;
 }
 
+function sourceListQuery(value: ApiSourceListQuery | undefined): string {
+  if (value === undefined) return "";
+  const query = decodeApiSourceListQuery(value);
+  const params = new URLSearchParams();
+  if (query.limit !== undefined) params.set("limit", String(query.limit));
+  if (query.sort !== undefined) params.set("sort", query.sort);
+  if (query.cursor !== undefined) params.set("cursor", query.cursor);
+  if (query.source !== undefined) params.set("source", query.source);
+  if (query.state !== undefined) params.set("state", query.state);
+  const encoded = params.toString();
+  return encoded === "" ? "" : "?" + encoded;
+}
+
 function parseSSEFrame<T>(frame: string, operation: string, eventName: string, decodeData: (data: unknown) => T, eventIdOf: (data: T) => number): T | null {
   const normalized = frame.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
   if (normalized === "" || normalized.split("\n").every((line) => line === "" || line.startsWith(":"))) return null;
@@ -1676,6 +1983,7 @@ export type ReadClient = {
   readonly listInventoryDraftObservations: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationListData>>;
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
+  readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
 
@@ -1731,6 +2039,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async listInventoryDrafts(query = {}, options = {}) {
       const operation = "api.v1.inventory-drafts.list";
       return performRead(fetchTransport, "/api/v1/inventory-drafts" + pageQuery(query), options, operation, decodeApiInventoryDraftListData);
+    },
+    async listSources(query = {}, options = {}) {
+      const operation = "api.v1.sources.list";
+      return performRead(fetchTransport, "/api/v1/sources" + sourceListQuery(query), options, operation, decodeApiSourceListData);
     },
     async getSummary(options = {}) {
       const operation = "api.v1.summary.get";

@@ -10,6 +10,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/readmodel"
 )
 
 const (
@@ -24,6 +26,14 @@ type ValidatedQuery struct {
 	Filters      map[string]string
 	FilterDigest string
 	Cursor       string
+}
+
+func sourceListQuery(query ValidatedQuery) (readmodel.SourceListQuery, error) {
+	result := readmodel.SourceListQuery{Limit: query.Limit, Sort: query.Sort, Source: readmodel.SourceID(query.Filters["source"]), State: readmodel.SourceState(query.Filters["state"])}
+	if result.Source != "" && !readmodel.ValidSourceID(result.Source) || result.State != "" && !readmodel.ValidSourceState(result.State) {
+		return readmodel.SourceListQuery{}, failure.New(generated.ErrorCodeInputInvalid, "query", false)
+	}
+	return result, nil
 }
 
 type QuerySpec struct {

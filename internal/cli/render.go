@@ -92,8 +92,10 @@ func renderHumanServerStatus(output io.Writer, data generated.ServerStatusData, 
 
 func renderHumanSummary(output io.Writer, data generated.ApiSummaryData) int {
 	if _, err := fmt.Fprintf(output,
-		"Database mode %s\nRead available %t\nMutation available %t\nDrafts %d (valid %d, blocked %d)\nLast event %d\nState revision %d\nRecovery epoch %d\n",
-		data.DatabaseMode, data.ReadAvailable, data.MutationAvailable, data.DraftCount, data.ValidDraftCount, data.BlockedDraftCount, data.LastEventID, data.StateRevision, data.RecoveryEpoch,
+		"Database mode %s\nRead available %t\nMutation available %t\nDrafts %d (valid %d, blocked %d)\nLast event %d\nSources %d (healthy %d, stale %d, unknown %d, unavailable %d, failed %d)\nWorst source state %s\nState revision %d\nRecovery epoch %d\n",
+		data.DatabaseMode, data.ReadAvailable, data.MutationAvailable, data.DraftCount, data.ValidDraftCount, data.BlockedDraftCount, data.LastEventID,
+		data.SourceCounts.Total, data.SourceCounts.Healthy, data.SourceCounts.Stale, data.SourceCounts.Unknown, data.SourceCounts.Unavailable, data.SourceCounts.Failed, data.WorstSourceState,
+		data.StateRevision, data.RecoveryEpoch,
 	); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}

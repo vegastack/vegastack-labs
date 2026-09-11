@@ -21,7 +21,12 @@ type Authority interface {
 	Close() error
 }
 
+type SourceRepository interface {
+	ListSources(context.Context, authorization.ReadScope, readmodel.SourceListQuery, store.RevisionToken) (readmodel.SourcePage, error)
+}
+
 type ReadRepository interface {
+	SourceRepository
 	CurrentRevision(context.Context, authorization.ReadScope) (store.RevisionToken, error)
 	DatabaseStatus(context.Context, authorization.ReadScope) (readmodel.DatabaseStatus, error)
 	Summary(context.Context, authorization.ReadScope) (readmodel.Summary, error)

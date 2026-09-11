@@ -1,0 +1,120 @@
+{
+  "$defs": {
+    "api-source-data": {
+      "additionalProperties": false,
+      "properties": {
+        "capability": {
+          "enum": [
+            "database.status.read",
+            "inventory.node.read",
+            "gate.read",
+            "identity.person.read",
+            "service.read",
+            "backup.status.read",
+            "adapter.status.read"
+          ],
+          "type": "string"
+        },
+        "collectedAt": {
+          "maxLength": 64,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "id": {
+          "enum": [
+            "database",
+            "nodes",
+            "gates",
+            "people",
+            "services",
+            "backups",
+            "providers"
+          ],
+          "type": "string"
+        },
+        "lastErrorAt": {
+          "maxLength": 64,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lastSuccessAt": {
+          "maxLength": 64,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reason": {
+          "enum": [
+            "source observation is current",
+            "source observation is stale",
+            "source has no observation timestamp",
+            "source capability is unavailable",
+            "source reported a collection failure"
+          ],
+          "type": "string"
+        },
+        "state": {
+          "enum": [
+            "healthy",
+            "stale",
+            "unknown",
+            "unavailable",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "capability",
+        "state",
+        "collectedAt",
+        "lastSuccessAt",
+        "lastErrorAt",
+        "reason"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/api-source-list-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/api-source-data"
+      },
+      "maxItems": 200,
+      "type": "array"
+    },
+    "nextCursor": {
+      "maxLength": 2048,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "items",
+    "nextCursor",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs api source list data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

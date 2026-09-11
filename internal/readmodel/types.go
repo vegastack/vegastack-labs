@@ -41,6 +41,8 @@ type Summary struct {
 	LastEventID       int64
 	RecoveryEpoch     int64
 	StateRevision     int64
+	SourceCounts      SourceCounts
+	WorstSourceState  SourceState
 }
 
 type Draft struct {

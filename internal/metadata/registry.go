@@ -42,6 +42,10 @@ const (
 	apiPageQuerySchemaID                    = "vegastack-labs.dev/api-page-query"
 	apiPageDataSchemaID                     = "vegastack-labs.dev/api-page-data"
 	apiSummaryDataSchemaID                  = "vegastack-labs.dev/api-summary-data"
+	apiSourceListQuerySchemaID              = "vegastack-labs.dev/api-source-list-query"
+	apiSourceCountsDataSchemaID             = "vegastack-labs.dev/api-source-counts-data"
+	apiSourceDataSchemaID                   = "vegastack-labs.dev/api-source-data"
+	apiSourceListDataSchemaID               = "vegastack-labs.dev/api-source-list-data"
 	apiInventoryDraftListDataSchemaID       = "vegastack-labs.dev/api-inventory-draft-list-data"
 	apiInventoryDraftDataSchemaID           = "vegastack-labs.dev/api-inventory-draft-data"
 	apiInventoryAssetListDataSchemaID       = "vegastack-labs.dev/api-inventory-asset-list-data"
@@ -212,6 +216,7 @@ func readEndpoints() []EndpointDefinition {
 		finite("api.v1.health.get", "/api/v1/health", serverStatusDataSchemaID),
 		finite("api.v1.database-status.get", "/api/v1/database/status", databaseStatusDataSchemaID),
 		finite("api.v1.summary.get", "/api/v1/summary", apiSummaryDataSchemaID),
+		{ID: "api.v1.sources.list", Method: "GET", Path: "/api/v1/sources", Availability: AvailabilityAvailable, OwnerPhase: "3", QuerySchema: apiSourceListQuerySchemaID, DataSchema: apiSourceListDataSchemaID, Stream: StreamFinite},
 		list("api.v1.inventory-drafts.list", "/api/v1/inventory-drafts", apiInventoryDraftListDataSchemaID),
 		finite("api.v1.inventory-drafts.get", base, apiInventoryDraftDataSchemaID),
 		list("api.v1.inventory-draft-assets.list", base+"/assets", apiInventoryAssetListDataSchemaID),
@@ -661,11 +666,33 @@ func readAPISchemas() []SchemaDefinition {
 		{ID: apiPageDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-page-data.schema.json", Fields: []FieldDefinition{
 			{JSONName: "nextCursor", GoName: "NextCursor", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(2048)}, intMin0("stateRevision", "StateRevision"), intMin0("recoveryEpoch", "RecoveryEpoch"),
 		}},
-		{ID: apiSummaryDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-summary-data.schema.json", Fields: []FieldDefinition{
+		{ID: apiSourceListQuerySchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-source-list-query.schema.json", Fields: []FieldDefinition{
+			{JSONName: "limit", GoName: "Limit", Kind: ValueInteger, Required: false, Minimum: int64Pointer(1), Maximum: int64Pointer(200)},
+			{JSONName: "sort", GoName: "Sort", Kind: ValueString, Required: false, Enum: []string{"id-asc", "id-desc"}},
+			{JSONName: "cursor", GoName: "Cursor", Kind: ValueString, Required: false, MaxLength: intPointer(2048)},
+			{JSONName: "source", GoName: "Source", Kind: ValueString, Required: false, Enum: []string{"database", "nodes", "gates", "people", "services", "backups", "providers"}},
+			{JSONName: "state", GoName: "State", Kind: ValueString, Required: false, Enum: []string{"healthy", "stale", "unknown", "unavailable", "failed"}},
+		}},
+		{ID: apiSourceCountsDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-source-counts-data.schema.json", Fields: []FieldDefinition{
+			intMin0("total", "Total"), intMin0("healthy", "Healthy"), intMin0("stale", "Stale"), intMin0("unknown", "Unknown"), intMin0("unavailable", "Unavailable"), intMin0("failed", "Failed"),
+		}},
+		{ID: apiSourceDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-source-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "id", GoName: "ID", Kind: ValueString, Required: true, Enum: []string{"database", "nodes", "gates", "people", "services", "backups", "providers"}},
+			{JSONName: "capability", GoName: "Capability", Kind: ValueString, Required: true, Enum: []string{"database.status.read", "inventory.node.read", "gate.read", "identity.person.read", "service.read", "backup.status.read", "adapter.status.read"}},
+			{JSONName: "state", GoName: "State", Kind: ValueString, Required: true, Enum: []string{"healthy", "stale", "unknown", "unavailable", "failed"}},
+			{JSONName: "collectedAt", GoName: "CollectedAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)},
+			{JSONName: "lastSuccessAt", GoName: "LastSuccessAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)},
+			{JSONName: "lastErrorAt", GoName: "LastErrorAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)},
+			{JSONName: "reason", GoName: "Reason", Kind: ValueString, Required: true, Enum: []string{"source observation is current", "source observation is stale", "source has no observation timestamp", "source capability is unavailable", "source reported a collection failure"}},
+		}},
+		{ID: apiSourceListDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-source-list-data.schema.json", Fields: pageFields(apiSourceDataSchemaID)},
+		{ID: apiSummaryDataSchemaID, Version: "1.1.0", ArtifactPath: "schemas/v1/api-summary-data.schema.json", Fields: []FieldDefinition{
 			{JSONName: "databaseMode", GoName: "DatabaseMode", Kind: ValueString, Required: true, Enum: []string{"ready", "safe-mode"}},
 			{JSONName: "readAvailable", GoName: "ReadAvailable", Kind: ValueBoolean, Required: true},
 			{JSONName: "mutationAvailable", GoName: "MutationAvailable", Kind: ValueBoolean, Required: true},
 			intMin0("draftCount", "DraftCount"), intMin0("validDraftCount", "ValidDraftCount"), intMin0("blockedDraftCount", "BlockedDraftCount"), intMin0("lastEventId", "LastEventID"), intMin0("recoveryEpoch", "RecoveryEpoch"), intMin0("stateRevision", "StateRevision"),
+			{JSONName: "sourceCounts", GoName: "SourceCounts", Kind: ValueObject, Required: true, Ref: apiSourceCountsDataSchemaID},
+			{JSONName: "worstSourceState", GoName: "WorstSourceState", Kind: ValueString, Required: true, Enum: []string{"healthy", "stale", "unknown", "unavailable", "failed"}},
 		}},
 		{ID: apiInventoryDraftDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-draft-data.schema.json", Fields: []FieldDefinition{
 			{JSONName: "authority", GoName: "Authority", Kind: ValueString, Required: true, Enum: []string{"draft"}}, token("draftId", "DraftID"),

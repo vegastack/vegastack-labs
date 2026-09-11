@@ -75,7 +75,7 @@ func (stub *stubFileReader) Read(_ context.Context, path string, limit int64) ([
 
 func successfulControlOperations(t *testing.T) *stubControlOperations {
 	t.Helper()
-	summary := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, DraftCount: 2, ValidDraftCount: 1, BlockedDraftCount: 1, LastEventID: 9, StateRevision: 7, RecoveryEpoch: 2}
+	summary := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, DraftCount: 2, ValidDraftCount: 1, BlockedDraftCount: 1, LastEventID: 9, StateRevision: 7, RecoveryEpoch: 2, SourceCounts: generated.ApiSourceCountsData{Total: 7, Healthy: 1, Stale: 1, Unknown: 1, Unavailable: 3, Failed: 1}, WorstSourceState: "failed"}
 	database := generated.DatabaseStatusData{Mode: "read-write", SchemaVersion: 1, SQLiteVersion: "3.synthetic", IntegrityStatus: "ok"}
 	imported := generated.InventoryImportData{DraftID: "draft-test", DraftRevision: 1, ValidationStatus: "valid", StateRevision: 8, RecoveryEpoch: 2, Created: true, Findings: []generated.InventoryFinding{}}
 	diff := generated.InventoryDiffData{CandidateKind: "draft", CandidateDigest: "sha256:" + strings.Repeat("1", 64), BaselineKind: "draft", BaselineDraft: generated.InventoryDraftRef{DraftID: "draft-base", DraftRevision: 1}, StateRevision: 8, RecoveryEpoch: 2, Records: []generated.InventoryDiffRecord{}, Findings: []generated.InventoryFinding{}}
