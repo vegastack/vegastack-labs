@@ -57,3 +57,11 @@ test("a random or missing Console build ID fails the production static check", a
   await writeFile(path.join(output, "index.html"), "<p>Loading Overview</p>");
   await assert.rejects(verifyStaticExport(output, false, true), /deterministic Console build ID/i);
 });
+
+test("production static verification requires every domain status route", async () => {
+  const output = await mkdtemp(path.join(tmpdir(), "vegastack-static-domain-routes-"));
+  await writeFile(path.join(output, "index.html"), "<p>Loading Overview</p>");
+  await mkdir(path.join(output, "vegastack-console-v1"));
+  await writeFile(path.join(output, "vegastack-console-v1", "marker.txt"), "build");
+  await assert.rejects(verifyStaticExport(output, false, true), /nodes\.html|domain status route/i);
+});

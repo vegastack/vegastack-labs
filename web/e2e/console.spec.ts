@@ -87,7 +87,7 @@ test("skip link, focus order, and named landmarks work", async ({ page }) => {
 
 test("each route has a unique browser title", async ({ page }) => {
   const { assertClean } = monitorBrowser(page);
-  const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
+  const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/people", "People — VegaStack Labs Console"], ["/services", "Services — VegaStack Labs Console"], ["/backups", "Backups — VegaStack Labs Console"], ["/providers", "Providers — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
   const titles = new Set<string>();
   for (const [route, title] of routes) {
     await page.goto(route);
