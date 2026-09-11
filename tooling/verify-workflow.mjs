@@ -69,6 +69,26 @@ export function verifyWorkflowDocument(workflow, source = "") {
     throw new Error("workflow does not use the complete approved Action set");
   }
 
+  const steps = job.steps ?? [];
+  const plan = steps.find((step) => step.id === "check-plan");
+  const chromium = steps.find((step) => step.name === "Install pinned Chromium");
+  const affected = steps.find((step) => step.name === "Run affected public checks");
+  if (!plan || !/pnpm check:affected:plan/.test(plan.run ?? "") ||
+      !/github\.event\.pull_request\.base\.sha/.test(plan.env?.BASE_SHA ?? "") ||
+      !/github\.event\.before/.test(plan.env?.BASE_SHA ?? "") ||
+      !/github\.event\.pull_request\.head\.sha/.test(plan.env?.HEAD_SHA ?? "")) {
+    throw new Error("workflow must calculate an affected check plan from explicit event base/head SHAs");
+  }
+  if (chromium?.if !== "steps.check-plan.outputs.browser == 'true'") {
+    throw new Error("workflow must install Chromium only when the affected plan selects browser checks");
+  }
+  if (!affected || !/pnpm check:affected\s+--\s+--base/.test(affected.run ?? "")) {
+    throw new Error("workflow must execute the affected check plan");
+  }
+  if (/run:\s*pnpm check\s*$/m.test(source)) {
+    throw new Error("workflow must not repeat the complete local check lane");
+  }
+
   return { actions: seen.size, jobs: jobs.length };
 }
 

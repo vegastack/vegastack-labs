@@ -26,3 +26,42 @@ test("the public workflow retains the commit history required by Phase 2 evidenc
     /retain complete commit history/,
   );
 });
+
+test("CI uses affected checks and installs Chromium only when selected", async () => {
+  const source = await readFile(
+    new URL("../../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  const workflow = parseYaml(source);
+  const steps = workflow.jobs.verify.steps;
+  const plan = steps.find(({ id }) => id === "check-plan");
+  const chromium = steps.find(({ name }) => name === "Install pinned Chromium");
+  const checks = steps.find(({ name }) => name === "Run affected public checks");
+
+  assert.ok(plan);
+  assert.match(plan.run, /pnpm check:affected:plan/);
+  assert.equal(chromium.if, "steps.check-plan.outputs.browser == 'true'");
+  assert.match(checks.run, /pnpm check:affected/);
+  assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
+  assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
+});
+
+test("the workflow guard rejects unconditional Chromium and a repeated full lane", async () => {
+  const source = await readFile(
+    new URL("../../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  const unconditional = parseYaml(source);
+  delete unconditional.jobs.verify.steps.find(({ name }) => name === "Install pinned Chromium").if;
+  assert.throws(
+    () => verifyWorkflowDocument(unconditional, source),
+    /Chromium only when the affected plan selects browser/,
+  );
+
+  const repeated = parseYaml(source);
+  repeated.jobs.verify.steps.find(({ name }) => name === "Run affected public checks").run = "pnpm check";
+  assert.throws(
+    () => verifyWorkflowDocument(repeated, `${source}\n- run: pnpm check\n`),
+    /execute the affected check plan|must not repeat the complete local check lane/,
+  );
+});

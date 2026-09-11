@@ -11,6 +11,7 @@
   "scripts": {
     "check": "node tooling/check.mjs",
     "check:affected": "node tooling/check-affected.mjs",
+    "check:affected:plan": "node tooling/check-affected.mjs --dry-run --format github",
     "check:cli": "node tooling/verify-cli.mjs",
     "check:console-assets": "node tooling/console-assets.mjs --check",
     "check:contracts": "go run ./tooling/generate-contracts --check",
