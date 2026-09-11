@@ -50,15 +50,8 @@ type CloudflareAccessAdapter struct {
 }
 
 func NewCloudflareAccessAdapter(config CloudflareAccessConfig, client *http.Client, clock func() time.Time) (*CloudflareAccessAdapter, error) {
-	if config.MaxTokenBytes == 0 {
-		config.MaxTokenBytes = defaultMaxAccessTokenBytes
-	}
-	if config.KnownKeyOutageLimit == 0 {
-		config.KnownKeyOutageLimit = maximumKnownKeyOutage
-	}
-	issuer, issuerErr := url.Parse(config.Issuer)
-	certificates, certificatesErr := url.Parse(config.CertificatesURL)
-	if issuerErr != nil || certificatesErr != nil || !safeHTTPSURL(issuer) || !safeHTTPSURL(certificates) || !strings.EqualFold(issuer.Hostname(), certificates.Hostname()) || issuer.Port() != certificates.Port() || !boundedOpaque(config.Audience, maxAudienceBytes) || config.ClockSkew < 0 || config.ClockSkew > 5*time.Minute || config.MaxTokenBytes < 1024 || config.MaxTokenBytes > 64*1024 || config.KnownKeyOutageLimit <= 0 || config.KnownKeyOutageLimit > maximumKnownKeyOutage || client == nil || clock == nil {
+	config, err := validateCloudflareAccessConfig(config)
+	if err != nil || client == nil || clock == nil {
 		return nil, failure.New("INPUT_INVALID", "cloudflare-access-config", false)
 	}
 	configuredClient := *client
@@ -67,6 +60,21 @@ func NewCloudflareAccessAdapter(config CloudflareAccessConfig, client *http.Clie
 	}
 	configuredClient.CheckRedirect = func(*http.Request, []*http.Request) error { return errors.New("redirect denied") }
 	return &CloudflareAccessAdapter{config: config, client: &configuredClient, clock: clock, keys: make(map[string]jose.JSONWebKey)}, nil
+}
+
+func validateCloudflareAccessConfig(config CloudflareAccessConfig) (CloudflareAccessConfig, error) {
+	if config.MaxTokenBytes == 0 {
+		config.MaxTokenBytes = defaultMaxAccessTokenBytes
+	}
+	if config.KnownKeyOutageLimit == 0 {
+		config.KnownKeyOutageLimit = maximumKnownKeyOutage
+	}
+	issuer, issuerErr := url.Parse(config.Issuer)
+	certificates, certificatesErr := url.Parse(config.CertificatesURL)
+	if issuerErr != nil || certificatesErr != nil || !safeHTTPSURL(issuer) || !safeHTTPSURL(certificates) || !strings.EqualFold(issuer.Hostname(), certificates.Hostname()) || issuer.Port() != certificates.Port() || !boundedOpaque(config.Audience, maxAudienceBytes) || config.ClockSkew < 0 || config.ClockSkew > 5*time.Minute || config.MaxTokenBytes < 1024 || config.MaxTokenBytes > 64*1024 || config.KnownKeyOutageLimit <= 0 || config.KnownKeyOutageLimit > maximumKnownKeyOutage {
+		return CloudflareAccessConfig{}, failure.New("INPUT_INVALID", "cloudflare-access-config", false)
+	}
+	return config, nil
 }
 
 func safeHTTPSURL(value *url.URL) bool {

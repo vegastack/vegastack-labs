@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.8.0"
+	RegistrySchemaVersion                   = "1.9.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -33,6 +33,7 @@ const (
 	SchemaIDApiSummaryData                  = "vegastack-labs.dev/api-summary-data"
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
+	SchemaIDCloudflareAccessProfile         = "vegastack-labs.dev/cloudflare-access-profile"
 	SchemaIDDatabaseStatusData              = "vegastack-labs.dev/database-status-data"
 	SchemaIDInventoryDiffCounts             = "vegastack-labs.dev/inventory-diff-counts"
 	SchemaIDInventoryDiffData               = "vegastack-labs.dev/inventory-diff-data"
@@ -67,6 +68,7 @@ const (
 	SchemaIDReleaseManifest                 = "vegastack-labs.dev/release-manifest"
 	SchemaIDReleaseTrustPolicy              = "vegastack-labs.dev/release-trust-policy"
 	SchemaIDReleaseVerifyData               = "vegastack-labs.dev/release-verify-data"
+	SchemaIDRemoteReadProfile               = "vegastack-labs.dev/remote-read-profile"
 	SchemaIDResultError                     = "vegastack-labs.dev/result-error"
 	SchemaIDRunResult                       = "vegastack-labs.dev/run-result"
 	RunStatusBlocked                        = "blocked"
@@ -316,6 +318,17 @@ type AuditEvent struct {
 type AuditTarget struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
+}
+
+type CloudflareAccessProfile struct {
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	Issuer                string `json:"issuer"`
+	Audience              string `json:"audience"`
+	CertificatesURL       string `json:"certificatesUrl"`
+	ClockSkewSeconds      int64  `json:"clockSkewSeconds"`
+	MaxTokenBytes         int64  `json:"maxTokenBytes"`
+	KnownKeyOutageSeconds int64  `json:"knownKeyOutageSeconds"`
 }
 
 type DatabaseStatusData struct {
@@ -636,6 +649,16 @@ type ReleaseVerifyData struct {
 	Assets             []ReleaseAssetVerification `json:"assets"`
 }
 
+type RemoteReadProfile struct {
+	Enabled            bool    `json:"enabled"`
+	BindAddress        *string `json:"bindAddress"`
+	PublicOrigin       *string `json:"publicOrigin"`
+	TLSCertificatePath *string `json:"tlsCertificatePath"`
+	TLSPrivateKeyPath  *string `json:"tlsPrivateKeyPath"`
+	IdentityAdapter    *string `json:"identityAdapter"`
+	IdentityConfigPath *string `json:"identityConfigPath"`
+}
+
 type ResultError struct {
 	Code      string `json:"code"`
 	Target    string `json:"target"`
@@ -671,6 +694,7 @@ type ServerProfile struct {
 	ShutdownGraceSeconds int64                   `json:"shutdownGraceSeconds"`
 	InventoryExportRoot  string                  `json:"inventoryExportRoot"`
 	PrincipalBindings    []LocalPrincipalBinding `json:"principalBindings"`
+	RemoteRead           RemoteReadProfile       `json:"remoteRead"`
 }
 
 type ServerStatusData struct {

@@ -10,7 +10,7 @@ import (
 func validGeneratedProfile() generated.ServerProfile {
 	return generated.ServerProfile{
 		Schema:               generated.SchemaIDServerProfile,
-		SchemaVersion:        "1.0.0",
+		SchemaVersion:        "1.1.0",
 		SocketPath:           "/tmp/vsk-labs/control.sock",
 		InventoryExportRoot:  "/tmp/vsk-labs/exports",
 		SocketOwnerUID:       1001,
@@ -19,6 +19,62 @@ func validGeneratedProfile() generated.ServerProfile {
 		PrincipalBindings: []generated.LocalPrincipalBinding{
 			{UID: 1001, PrincipalID: "principal.operator"},
 		},
+		RemoteRead: generated.RemoteReadProfile{Enabled: false},
+	}
+}
+
+func stringPointer(value string) *string { return &value }
+
+func enabledRemoteRead() generated.RemoteReadProfile {
+	return generated.RemoteReadProfile{
+		Enabled:            true,
+		BindAddress:        stringPointer("127.0.0.1:8443"),
+		PublicOrigin:       stringPointer("https://console.example"),
+		TLSCertificatePath: stringPointer("/etc/vsk-labs/console.crt"),
+		TLSPrivateKeyPath:  stringPointer("/etc/vsk-labs/console.key"),
+		IdentityAdapter:    stringPointer("cloudflare-access"),
+		IdentityConfigPath: stringPointer("/etc/vsk-labs/cloudflare-access.json"),
+	}
+}
+
+func TestRemoteReadRequiresCompleteTLSAndIdentityConfiguration(t *testing.T) {
+	profile := validGeneratedProfile()
+	profile.RemoteRead = enabledRemoteRead()
+	got, err := convertGeneratedProfile(profile, 1001)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.RemoteRead.Enabled || got.RemoteRead.ExactHost != "console.example" {
+		t.Fatalf("remote read = %#v", got.RemoteRead)
+	}
+
+	for name, mutate := range map[string]func(*generated.RemoteReadProfile){
+		"missing key": func(remote *generated.RemoteReadProfile) { remote.TLSPrivateKeyPath = nil },
+		"plaintext origin": func(remote *generated.RemoteReadProfile) {
+			remote.PublicOrigin = stringPointer("http://console.example")
+		},
+		"wildcard bind": func(remote *generated.RemoteReadProfile) { remote.BindAddress = stringPointer("0.0.0.0:8443") },
+		"relative identity": func(remote *generated.RemoteReadProfile) {
+			remote.IdentityConfigPath = stringPointer("cloudflare-access.json")
+		},
+		"unknown adapter": func(remote *generated.RemoteReadProfile) { remote.IdentityAdapter = stringPointer("provider-token") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			profile := validGeneratedProfile()
+			profile.RemoteRead = enabledRemoteRead()
+			mutate(&profile.RemoteRead)
+			if _, err := convertGeneratedProfile(profile, 1001); err == nil {
+				t.Fatal("partial or unsafe remote listener accepted")
+			}
+		})
+	}
+}
+
+func TestDisabledRemoteReadRejectsHiddenConfiguration(t *testing.T) {
+	profile := validGeneratedProfile()
+	profile.RemoteRead.BindAddress = stringPointer("127.0.0.1:8443")
+	if _, err := convertGeneratedProfile(profile, 1001); err == nil {
+		t.Fatal("disabled remote listener accepted hidden configuration")
 	}
 }
 
@@ -73,7 +129,7 @@ func TestConvertGeneratedProfileRejectsInvalidContracts(t *testing.T) {
 }
 
 func TestDecodeGeneratedProfileIsStrictAndBounded(t *testing.T) {
-	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.0.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}],"inventoryExportRoot":"/tmp/vsk-labs/exports"}`
+	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.1.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}],"inventoryExportRoot":"/tmp/vsk-labs/exports","remoteRead":{"enabled":false,"bindAddress":null,"publicOrigin":null,"tlsCertificatePath":null,"tlsPrivateKeyPath":null,"identityAdapter":null,"identityConfigPath":null}}`
 	for name, content := range map[string]string{
 		"empty":          "",
 		"unknown":        strings.Replace(valid, `"schema":`, `"unknown":true,"schema":`, 1),

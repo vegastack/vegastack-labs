@@ -9,8 +9,8 @@ import (
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.8.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.8.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.9.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -134,8 +134,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.8.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.8.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.9.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -166,8 +166,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.8.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.8.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.9.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -246,8 +246,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.8.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.8.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.9.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{

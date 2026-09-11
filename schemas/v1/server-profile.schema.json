@@ -18,6 +18,71 @@
         "principalId"
       ],
       "type": "object"
+    },
+    "remote-read-profile": {
+      "additionalProperties": false,
+      "properties": {
+        "bindAddress": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "identityAdapter": {
+          "pattern": "^[a-z][a-z0-9-]{0,63}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "identityConfigPath": {
+          "maxLength": 4096,
+          "minLength": 2,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "publicOrigin": {
+          "maxLength": 2048,
+          "minLength": 1,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tlsCertificatePath": {
+          "maxLength": 4096,
+          "minLength": 2,
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tlsPrivateKeyPath": {
+          "maxLength": 4096,
+          "minLength": 2,
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "enabled",
+        "bindAddress",
+        "publicOrigin",
+        "tlsCertificatePath",
+        "tlsPrivateKeyPath",
+        "identityAdapter",
+        "identityConfigPath"
+      ],
+      "type": "object"
     }
   },
   "$id": "vegastack-labs.dev/server-profile",
@@ -39,6 +104,9 @@
       "type": "array",
       "uniqueItems": true
     },
+    "remoteRead": {
+      "$ref": "#/$defs/remote-read-profile"
+    },
     "schema": {
       "enum": [
         "vegastack-labs.dev/server-profile"
@@ -47,7 +115,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
     },
@@ -92,7 +160,8 @@
     "socketMode",
     "shutdownGraceSeconds",
     "inventoryExportRoot",
-    "principalBindings"
+    "principalBindings",
+    "remoteRead"
   ],
   "title": "VegaStack Labs server profile",
   "type": "object",
