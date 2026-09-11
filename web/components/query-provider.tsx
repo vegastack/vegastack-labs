@@ -5,7 +5,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import { ReadClientError } from "@/generated/read-api";
 import { isHardReadFailure } from "@/lib/read-queries";
 
-type FailureScope = "all" | "inventory" | "overview" | "gates";
+type FailureScope = "all" | "inventory" | "overview" | "gates" | `source:${string}`;
 type FailureNotice = { error: unknown; scope: FailureScope } | null;
 const FailureContext = createContext<{ notice: FailureNotice; clear: () => void }>({ notice: null, clear: () => undefined });
 
@@ -19,6 +19,7 @@ function keyScope(key: readonly unknown[]): Exclude<FailureScope, "all"> {
     const source = (key[2] as { source?: string } | undefined)?.source;
     if (source === "nodes") return "inventory";
     if (source === "gates") return "gates";
+    if (source) return `source:${source}`;
   }
   return "overview";
 }
