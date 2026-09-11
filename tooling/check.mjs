@@ -23,6 +23,7 @@ try {
   await stage("Phase 0.5 exit evidence", process.execPath, ["tooling/verify-phase-0-5.mjs"]);
   await stage("Phase 2 integrated evidence", process.execPath, ["tooling/verify-phase-2.mjs"]);
   await stage("historical artifacts", process.execPath, ["tooling/historical.mjs", "--check"]);
+  await stage("pinned Design System source", process.execPath, ["tooling/design-system.mjs", "--check"]);
   await stage("dependency provenance", process.execPath, ["tooling/provenance.mjs", "--check"]);
   await stage("Go dependency provenance", process.execPath, ["tooling/verify-go-dependencies.mjs", "--check"]);
 
@@ -48,6 +49,7 @@ try {
   await packageStage("web unit tests", ["--filter", "@vegastack/labs-web", "test"]);
   await packageStage("web static build", ["--filter", "@vegastack/labs-web", "build"]);
   await stage("static export contract", process.execPath, ["tooling/verify-static.mjs"]);
+  await packageStage("Console browser evidence", ["--filter", "@vegastack/labs-web", "test:e2e"]);
   await stage("Git whitespace", "git", ["diff", "--check"]);
 
   process.stdout.write(
