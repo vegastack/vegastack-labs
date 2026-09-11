@@ -102,12 +102,12 @@ function validPath(value) {
 function browserServerPath(file) {
   return /^internal\/api\//.test(file) ||
     /^internal\/server\/(?:application|browser_auth|console|remote)/.test(file) ||
-    /^internal\/(?:metadata|contractgen|generated)\//.test(file) ||
+    /^internal\/(?:consoleassets|metadata|contractgen|generated)\//.test(file) ||
     /^internal\/serverconfig\//.test(file);
 }
 
 function browserWebPath(file) {
-  return /^web\/(?:app|components|lib|generated|e2e)\//.test(file) ||
+  return /^web\/(?:app|components|lib|generated|e2e|public)\//.test(file) ||
     /^web\/(?:playwright\.config\.ts|next\.config\.|scripts\/preview\.mjs)/.test(file);
 }
 
@@ -226,12 +226,46 @@ export function classifyChangedPaths(changes) {
   });
 }
 
-export function checkStepsForPlan(plan) {
-  if (!plan || plan.schemaVersion !== 1 || !Array.isArray(plan.groups) ||
-      plan.groups.some((group) => !CHECK_GROUPS.includes(group))) {
-    throw new Error("invalid check plan");
+export function validateCheckPlan(plan) {
+  const expectedKeys = [
+    "browser", "changedPaths", "failClosed", "groups", "mode", "reasons", "schemaVersion",
+  ];
+  if (!plan || typeof plan !== "object" || Array.isArray(plan) ||
+      Object.keys(plan).sort().join(",") !== expectedKeys.sort().join(",")) {
+    throw new Error("invalid check plan shape");
   }
-  const selected = new Set(plan.groups);
+  if (plan.schemaVersion !== 1 || !["affected", "full"].includes(plan.mode) ||
+      typeof plan.failClosed !== "boolean" || typeof plan.browser !== "boolean") {
+    throw new Error("invalid check plan metadata");
+  }
+  if (!Array.isArray(plan.changedPaths) || plan.changedPaths.length > 10_000 ||
+      plan.changedPaths.some((file) => !validPath(file)) ||
+      new Set(plan.changedPaths).size !== plan.changedPaths.length ||
+      JSON.stringify([...plan.changedPaths].sort()) !== JSON.stringify(plan.changedPaths)) {
+    throw new Error("invalid check plan paths");
+  }
+  if (!Array.isArray(plan.reasons) || plan.reasons.length === 0 || plan.reasons.length > 100 ||
+      plan.reasons.some((reason) => typeof reason !== "string" || reason.length === 0 ||
+        reason.length > 256 || /[\r\n\0]/.test(reason))) {
+    throw new Error("invalid check plan reasons");
+  }
+  if (!Array.isArray(plan.groups) || plan.groups.length === 0 ||
+      plan.groups.some((group) => !CHECK_GROUPS.includes(group)) ||
+      new Set(plan.groups).size !== plan.groups.length ||
+      JSON.stringify(orderedGroups(new Set(plan.groups))) !== JSON.stringify(plan.groups) ||
+      plan.groups[0] !== "always" || plan.browser !== plan.groups.includes("browser")) {
+    throw new Error("invalid check plan groups");
+  }
+  if ((plan.mode === "affected" && plan.failClosed) ||
+      (plan.mode === "full" && plan.groups.length !== CHECK_GROUPS.length) ||
+      (plan.failClosed && plan.mode !== "full")) {
+    throw new Error("invalid check plan mode");
+  }
+  return freezePlan(plan);
+}
+
+export function checkStepsForPlan(plan) {
+  const selected = new Set(validateCheckPlan(plan).groups);
   return Object.freeze(steps.filter((step) => selected.has(step.group)));
 }
 

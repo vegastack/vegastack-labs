@@ -21,7 +21,10 @@ export function verifyWorkflowDocument(workflow, source = "") {
       throw new Error(`workflow is missing ${trigger} trigger`);
     }
   }
-  if (!workflow.on.push?.branches?.includes("main")) {
+  if (Object.keys(workflow.on ?? {}).sort().join(",") !== "pull_request,push,workflow_dispatch") {
+    throw new Error("unsupported workflow trigger");
+  }
+  if (JSON.stringify(workflow.on.push?.branches) !== JSON.stringify(["main"])) {
     throw new Error("workflow push trigger must be limited to main");
   }
   if (/\$\{\{\s*secrets\./.test(source)) {
@@ -86,7 +89,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
     throw new Error("hosted checks must run only for pull requests");
   }
   if (jobs.verify_trusted.needs !== "plan" ||
-      jobs.verify_trusted.if !== "github.event_name != 'pull_request'") {
+      jobs.verify_trusted.if !== "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')") {
     throw new Error("self-hosted checks must exclude pull requests");
   }
   for (const jobName of ["verify_pr", "verify_trusted"]) {
@@ -96,10 +99,10 @@ export function verifyWorkflowDocument(workflow, source = "") {
     if (chromium?.if !== "needs.plan.outputs.browser == 'true'") {
       throw new Error("workflow must install Chromium only when the affected plan selects browser checks");
     }
-    if (!affected || !/pnpm check:affected\s+--\s+--base/.test(affected.run ?? "") ||
-        affected.env?.BASE_SHA !== "${{ needs.plan.outputs.base_sha }}" ||
-        affected.env?.HEAD_SHA !== "${{ needs.plan.outputs.head_sha }}") {
-      throw new Error("workflow must execute the affected check plan");
+    if (!affected || !/pnpm check:affected\s+--\s+--execute-plan/.test(affected.run ?? "") ||
+        affected.env?.VSK_CHECK_PLAN_B64 !== "${{ needs.plan.outputs.check_plan }}" ||
+        Object.keys(affected.env ?? {}).length !== 1) {
+      throw new Error("workflow must execute the exact affected check plan");
     }
   }
   const trustedSteps = jobs.verify_trusted.steps ?? [];
@@ -109,7 +112,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
       checkoutIndex !== 1) {
     throw new Error("self-hosted checks must verify the allowed hostname before repository checkout");
   }
-  for (const output of ["base_sha", "browser", "fail_closed", "head_sha", "mode"]) {
+  for (const output of ["base_sha", "browser", "check_plan", "fail_closed", "head_sha", "mode"]) {
     if (jobs.plan.outputs?.[output] !== `\${{ steps.check-plan.outputs.${output} }}`) {
       throw new Error(`planning job must expose ${output}`);
     }

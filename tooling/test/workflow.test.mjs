@@ -48,11 +48,16 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(workflow.jobs.verify_pr["runs-on"], "ubuntu-24.04");
   assert.deepEqual(workflow.jobs.verify_trusted["runs-on"], ["self-hosted", "linux", "x64"]);
   assert.equal(workflow.jobs.verify_pr.if, "github.event_name == 'pull_request'");
-  assert.equal(workflow.jobs.verify_trusted.if, "github.event_name != 'pull_request'");
+  assert.equal(
+    workflow.jobs.verify_trusted.if,
+    "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
+  );
   assert.equal(hostedChromium.if, "needs.plan.outputs.browser == 'true'");
   assert.equal(trustedChromium.if, "needs.plan.outputs.browser == 'true'");
-  assert.match(hostedChecks.run, /pnpm check:affected/);
-  assert.match(trustedChecks.run, /pnpm check:affected/);
+  assert.match(hostedChecks.run, /pnpm check:affected\s+--\s+--execute-plan/);
+  assert.match(trustedChecks.run, /pnpm check:affected\s+--\s+--execute-plan/);
+  assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
+  assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
   assert.equal(trustedSteps[1].name, "Check out repository");
   assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
@@ -75,7 +80,7 @@ test("the workflow guard rejects unconditional Chromium and a repeated full lane
   repeated.jobs.verify_pr.steps.find(({ name }) => name === "Run affected public checks").run = "pnpm check";
   assert.throws(
     () => verifyWorkflowDocument(repeated, `${source}\n- run: pnpm check\n`),
-    /execute the affected check plan|must not repeat the complete local check lane/,
+    /execute the exact affected check plan|must not repeat the complete local check lane/,
   );
 });
 
@@ -98,4 +103,14 @@ test("the workflow guard keeps pull requests off disposable machines and checks 
     () => verifyWorkflowDocument(lateGuard, source),
     /hostname before repository checkout/,
   );
+
+  for (const trigger of ["schedule", "repository_dispatch", "pull_request_target"]) {
+    const extraTrigger = parseYaml(source);
+    extraTrigger.on[trigger] = trigger === "schedule" ? [{ cron: "0 0 * * *" }] : {};
+    assert.throws(
+      () => verifyWorkflowDocument(extraTrigger, source),
+      /unsupported workflow trigger/,
+      trigger,
+    );
+  }
 });

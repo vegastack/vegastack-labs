@@ -6,7 +6,12 @@ import {
   classifyChangedPaths,
   fullCheckPlan,
 } from "../lib/check-plan.mjs";
-import { parseNameStatus, planForCommits } from "../check-affected.mjs";
+import {
+  decodeExecutionPlan,
+  encodeExecutionPlan,
+  parseNameStatus,
+  planForCommits,
+} from "../check-affected.mjs";
 
 const scenarios = JSON.parse(
   await readFile(new URL("../testdata/check-plan/scenarios.json", import.meta.url), "utf8"),
@@ -97,4 +102,37 @@ test("NUL-delimited rename and deletion records retain every affected path", () 
 test("missing and invalid commit inputs select the complete lane", async () => {
   assert.equal((await planForCommits(undefined, undefined)).failClosed, true);
   assert.equal((await planForCommits("bad", "also-bad")).browser, true);
+});
+
+test("execution consumes the exact safely framed plan without reclassifying it", () => {
+  const base = "1".repeat(40);
+  const head = "2".repeat(40);
+  const planned = fullCheckPlan("unreadable-diff");
+  const encoded = encodeExecutionPlan(planned, base, head);
+  const decoded = decodeExecutionPlan(encoded);
+
+  assert.deepEqual(decoded, { schemaVersion: 1, baseSha: base, headSha: head, plan: planned });
+  assert.equal(decoded.plan.mode, "full");
+  assert.equal(decoded.plan.failClosed, true);
+  assert.throws(() => decodeExecutionPlan(`${encoded}x`), /encoded check plan/);
+});
+
+test("embedded and public Console assets always select browser checks", () => {
+  for (const status of ["A", "M", "D"]) {
+    const plan = classifyChangedPaths([
+      { status, path: "internal/consoleassets/dist/index.html" },
+    ]);
+    assert.equal(plan.browser, true);
+    assert.deepEqual(plan.groups, ["always", "go", "tooling", "web", "browser"]);
+  }
+  const publicAsset = classifyChangedPaths([{ status: "A", path: "web/public/icon.svg" }]);
+  assert.equal(publicAsset.browser, true);
+  assert.deepEqual(publicAsset.groups, ["always", "tooling", "web", "browser"]);
+
+  const renamed = classifyChangedPaths([{
+    status: "R100",
+    previousPath: "internal/consoleassets/dist/old.html",
+    path: "docs/old-console.md",
+  }]);
+  assert.equal(renamed.browser, true);
 });

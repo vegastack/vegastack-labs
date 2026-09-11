@@ -22,6 +22,7 @@ jobs:
     outputs:
       base_sha: ${{ steps.check-plan.outputs.base_sha }}
       browser: ${{ steps.check-plan.outputs.browser }}
+      check_plan: ${{ steps.check-plan.outputs.check_plan }}
       fail_closed: ${{ steps.check-plan.outputs.fail_closed }}
       head_sha: ${{ steps.check-plan.outputs.head_sha }}
       mode: ${{ steps.check-plan.outputs.mode }}
@@ -86,9 +87,8 @@ jobs:
 
       - name: Run affected public checks
         env:
-          BASE_SHA: ${{ needs.plan.outputs.base_sha }}
-          HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
-        run: pnpm check:affected -- --base "$BASE_SHA" --head "$HEAD_SHA"
+          VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
+        run: pnpm check:affected -- --execute-plan
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code
@@ -96,7 +96,7 @@ jobs:
   verify_trusted:
     name: Public foundation checks
     needs: plan
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
     steps:
@@ -140,9 +140,8 @@ jobs:
 
       - name: Run affected public checks
         env:
-          BASE_SHA: ${{ needs.plan.outputs.base_sha }}
-          HEAD_SHA: ${{ needs.plan.outputs.head_sha }}
-        run: pnpm check:affected -- --base "$BASE_SHA" --head "$HEAD_SHA"
+          VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
+        run: pnpm check:affected -- --execute-plan
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code
