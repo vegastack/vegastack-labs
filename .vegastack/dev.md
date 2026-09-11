@@ -27,7 +27,7 @@ chronicle: on
 
 - ask: create a pull request only after the operator explicitly requests it for the approved issue.
 - guard: the exact clean branch head has one successful complete `pnpm check` immediately before the pull request is requested, invoked locally through the pinned Node wrapper shown above.
-- guard: later review, rebase, or conflict-resolution edits rerun only affected checks; PR CI verifies the actual candidate through `pnpm check:affected`.
+- guard: later review, rebase, or conflict-resolution edits rerun only affected checks; PR CI verifies the actual candidate through `pnpm check:affected` on the macOS 15 primary job plus the conditional Ubuntu 24.04 Linux job.
 - ask: squash-merge only after a separate explicit operator instruction, required checks, and a fresh review with no unresolved correctness, security, or acceptance findings.
 - auto: verify the integrated `main` commit through the affected post-merge CI plan, post the implementation/evidence summary, and close the approved issue when all acceptance criteria are satisfied.
 - ask: release or deploy only under separate explicit authorization; neither is part of an ordinary merge and no release machinery currently exists.
@@ -38,7 +38,7 @@ chronicle: on
 - Install public dependencies: `pnpm install --frozen-lockfile` under Node.js 24.20.0 and pnpm 11.24.0.
 - During implementation and review fixes, run only the narrow affected Go, tooling, web, security, failure, recovery, or integration checks.
 - Run one successful complete `pnpm check` at the exact clean branch head immediately before asking for pull request creation, using the pinned Node wrapper shown above.
-- PR and `main` CI run `pnpm check:affected` from explicit base/head commits. Browser installation and Playwright run only for browser-impacting changes. A missing, invalid, or unclassifiable diff fails closed to the full suite.
+- PR and `main` CI run `pnpm check:affected` from explicit base/head commits on the GitHub-hosted macOS 15 primary job. A small GitHub-hosted Ubuntu 24.04 Linux compatibility job runs `go test ./...` only when that plan identifies Go/Linux impact; neither job uses fleet machines. Browser installation and Playwright run only for browser-impacting changes. A missing, invalid, or unclassifiable diff fails closed to the full suite and Linux lane.
 - Explicit phase-acceptance commands remain required by their owning issues and are never replaced by the generic selector.
 - UI evidence uses the pinned Playwright lane and the private evidence repository named above.
 - Verification uses isolated local/CI fixtures. It never treats fixture results as live provider, hardware, or deployment-gate evidence.
@@ -46,7 +46,7 @@ chronicle: on
 ## Environments
 
 - Local development: this checkout or an issue-scoped worktree; public dependencies and synthetic fixtures only.
-- Public CI: GitHub Actions on Ubuntu 24.04 with pinned Go, Node.js, pnpm, and immutable action commits.
+- Public CI: a GitHub-hosted macOS 15 primary job with pinned Go, Node.js, pnpm, and immutable action commits, plus a small conditional GitHub-hosted Ubuntu 24.04 Linux compatibility job for `go test ./...`.
 - Production-like and inventory-fleet targets: unavailable to ordinary development; require their own closed gates and explicit authorization.
 - Optional maintainer registry variable names are documented in `web/.env.example`; values never enter Git, prompts, plans, issues, or audit records.
 - Local toolchain gap: the system default is not the pinned Node.js version; use the recorded `npx --yes --package node@24.20.0 -- ...` form for the complete lane.

@@ -50,11 +50,19 @@ test("the complete plan preserves every existing check exactly once and in order
 });
 
 test("browser runs only for browser impact and unknown input fails closed", () => {
-  assert.equal(classifyChangedPaths([{ status: "M", path: "docs/README.md" }]).browser, false);
-  assert.equal(classifyChangedPaths([{ status: "M", path: "internal/server/browser_auth.go" }]).browser, true);
-  assert.equal(classifyChangedPaths([{ status: "M", path: "web/components/console-shell.tsx" }]).browser, true);
-  assert.equal(fullCheckPlan("invalid-base").browser, true);
-  assert.equal(fullCheckPlan("invalid-base").failClosed, true);
+  const docs = classifyChangedPaths([{ status: "M", path: "docs/README.md" }]);
+  const server = classifyChangedPaths([{ status: "M", path: "internal/server/browser_auth.go" }]);
+  const console = classifyChangedPaths([{ status: "M", path: "web/components/console-shell.tsx" }]);
+  const fallback = fullCheckPlan("invalid-base");
+  assert.equal(docs.browser, false);
+  assert.equal(docs.linux, false);
+  assert.equal(server.browser, true);
+  assert.equal(server.linux, true);
+  assert.equal(console.browser, true);
+  assert.equal(console.linux, false);
+  assert.equal(fallback.browser, true);
+  assert.equal(fallback.linux, true);
+  assert.equal(fallback.failClosed, true);
 });
 
 for (const scenario of scenarios) {
@@ -62,6 +70,7 @@ for (const scenario of scenarios) {
     const plan = classifyChangedPaths(scenario.changes);
     assert.equal(plan.mode, scenario.mode);
     assert.equal(plan.browser, scenario.browser);
+    assert.equal(plan.linux, scenario.linux);
     assert.equal(plan.failClosed, scenario.failClosed);
     assert.deepEqual(plan.groups, scenario.groups);
     assert.deepEqual(plan.changedPaths, scenario.changedPaths);

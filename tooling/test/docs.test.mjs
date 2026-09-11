@@ -34,5 +34,7 @@ test("all future-session mandates require one pre-PR full run and affected CI", 
     assert.match(text, /one successful.*pnpm check.*immediately before.*pull request/is, file);
     assert.match(text, /browser.*only.*browser-(?:facing|impacting)/is, file);
     assert.match(text, /fail(?:s|ed)? closed.*full/is, file);
+    assert.match(text, /macOS 15.*primary/is, file);
+    assert.match(text, /Ubuntu 24\.04.*Linux/is, file);
   }
 });

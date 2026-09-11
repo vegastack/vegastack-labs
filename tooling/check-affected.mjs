@@ -59,8 +59,10 @@ export async function planForCommits(base, head) {
   }
 }
 
-function githubOutput(plan) {
-  return `browser=${plan.browser}\nmode=${plan.mode}\nfail_closed=${plan.failClosed}\n`;
+function githubOutput(plan, base, head) {
+  const baseSha = validCommit(base) ? base : "";
+  const headSha = validCommit(head) ? head : "";
+  return `browser=${plan.browser}\nlinux=${plan.linux}\nmode=${plan.mode}\nfail_closed=${plan.failClosed}\nbase_sha=${baseSha}\nhead_sha=${headSha}\n`;
 }
 
 async function main() {
@@ -76,10 +78,12 @@ async function main() {
   }
   const format = argumentValue(args, "--format") || "json";
   if (format !== "json" && format !== "github") throw new Error("format must be json or github");
-  const plan = await planForCommits(argumentValue(args, "--base"), argumentValue(args, "--head"));
+  const base = argumentValue(args, "--base");
+  const head = argumentValue(args, "--head");
+  const plan = await planForCommits(base, head);
   if (format === "github") {
     if (!args.includes("--dry-run")) throw new Error("github format requires --dry-run");
-    process.stdout.write(githubOutput(plan));
+    process.stdout.write(githubOutput(plan, base, head));
     return;
   }
   if (!args.includes("--dry-run")) await runCheckPlan(plan, { root: ROOT });

@@ -4,6 +4,7 @@
     "changes": [{ "status": "M", "path": "docs/README.md" }],
     "mode": "affected",
     "browser": false,
+    "linux": false,
     "failClosed": false,
     "groups": ["always"],
     "changedPaths": ["docs/README.md"]
@@ -13,6 +14,7 @@
     "changes": [{ "status": "M", "path": "internal/store/store.go" }],
     "mode": "affected",
     "browser": false,
+    "linux": true,
     "failClosed": false,
     "groups": ["always", "go"],
     "changedPaths": ["internal/store/store.go"]
@@ -22,6 +24,7 @@
     "changes": [{ "status": "M", "path": "tooling/test/process.test.mjs" }],
     "mode": "affected",
     "browser": false,
+    "linux": false,
     "failClosed": false,
     "groups": ["always", "tooling"],
     "changedPaths": ["tooling/test/process.test.mjs"]
@@ -31,6 +34,7 @@
     "changes": [{ "status": "M", "path": "web/test/query-provider.test.mjs" }],
     "mode": "affected",
     "browser": false,
+    "linux": false,
     "failClosed": false,
     "groups": ["always", "tooling", "web"],
     "changedPaths": ["web/test/query-provider.test.mjs"]
@@ -40,6 +44,7 @@
     "changes": [{ "status": "M", "path": "web/components/console-shell.tsx" }],
     "mode": "affected",
     "browser": true,
+    "linux": false,
     "failClosed": false,
     "groups": ["always", "tooling", "web", "browser"],
     "changedPaths": ["web/components/console-shell.tsx"]
@@ -49,6 +54,7 @@
     "changes": [{ "status": "M", "path": "internal/server/browser_auth.go" }],
     "mode": "affected",
     "browser": true,
+    "linux": true,
     "failClosed": false,
     "groups": ["always", "go", "tooling", "web", "browser"],
     "changedPaths": ["internal/server/browser_auth.go"]
@@ -58,6 +64,7 @@
     "changes": [{ "status": "M", "path": "schemas/v1/api-summary-data.schema.json" }],
     "mode": "affected",
     "browser": true,
+    "linux": true,
     "failClosed": false,
     "groups": ["always", "go", "tooling", "web", "browser"],
     "changedPaths": ["schemas/v1/api-summary-data.schema.json"]
@@ -67,6 +74,7 @@
     "changes": [{ "status": "M", "path": "tooling/testdata/phase-2/expected-scenarios.json" }],
     "mode": "affected",
     "browser": false,
+    "linux": false,
     "failClosed": false,
     "groups": ["always", "phase", "tooling"],
     "changedPaths": ["tooling/testdata/phase-2/expected-scenarios.json"]
@@ -76,6 +84,7 @@
     "changes": [{ "status": "D", "path": "tooling/check-affected.mjs" }],
     "mode": "full",
     "browser": true,
+    "linux": true,
     "failClosed": true,
     "groups": ["always", "phase", "go", "tooling", "web", "browser"],
     "changedPaths": ["tooling/check-affected.mjs"]
@@ -85,6 +94,7 @@
     "changes": [{ "status": "M", "path": "pnpm-lock.yaml" }],
     "mode": "full",
     "browser": true,
+    "linux": true,
     "failClosed": true,
     "groups": ["always", "phase", "go", "tooling", "web", "browser"],
     "changedPaths": ["pnpm-lock.yaml"]
@@ -94,6 +104,7 @@
     "changes": [{ "status": "M", "path": ".github/workflows/ci.yml" }],
     "mode": "full",
     "browser": true,
+    "linux": true,
     "failClosed": true,
     "groups": ["always", "phase", "go", "tooling", "web", "browser"],
     "changedPaths": [".github/workflows/ci.yml"]
@@ -103,6 +114,7 @@
     "changes": [{ "status": "R100", "path": "docs/old.md", "previousPath": "internal/api/session.go" }],
     "mode": "affected",
     "browser": true,
+    "linux": true,
     "failClosed": false,
     "groups": ["always", "go", "tooling", "web", "browser"],
     "changedPaths": ["docs/old.md", "internal/api/session.go"]
@@ -112,6 +124,7 @@
     "changes": [{ "status": "A", "path": "new-system/config.data" }],
     "mode": "full",
     "browser": true,
+    "linux": true,
     "failClosed": true,
     "groups": ["always", "phase", "go", "tooling", "web", "browser"],
     "changedPaths": ["new-system/config.data"]

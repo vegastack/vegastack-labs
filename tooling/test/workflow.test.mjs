@@ -33,14 +33,19 @@ test("CI uses affected checks and installs Chromium only when selected", async (
     "utf8",
   );
   const workflow = parseYaml(source);
+  const planSteps = workflow.jobs.plan.steps;
   const steps = workflow.jobs.verify.steps;
-  const plan = steps.find(({ id }) => id === "check-plan");
+  const plan = planSteps.find(({ id }) => id === "check-plan");
   const chromium = steps.find(({ name }) => name === "Install pinned Chromium");
   const checks = steps.find(({ name }) => name === "Run affected public checks");
 
   assert.ok(plan);
-  assert.match(plan.run, /pnpm check:affected:plan/);
-  assert.equal(chromium.if, "steps.check-plan.outputs.browser == 'true'");
+  assert.match(plan.run, /node tooling\/check-affected\.mjs[\s\S]*--format github/);
+  assert.equal(workflow.jobs.verify["runs-on"], "macos-15");
+  assert.equal(workflow.jobs.linux["runs-on"], "ubuntu-24.04");
+  assert.equal(chromium.if, "needs.plan.outputs.browser == 'true'");
+  assert.equal(workflow.jobs.linux.if, "needs.plan.outputs.linux == 'true'");
+  assert.equal(workflow.jobs.linux.steps.at(-1).run, "go test ./...");
   assert.match(checks.run, /pnpm check:affected/);
   assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));

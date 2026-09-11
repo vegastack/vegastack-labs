@@ -86,6 +86,7 @@ function completePlan(reason, changedPaths = []) {
     changedPaths,
     groups: CHECK_GROUPS,
     browser: true,
+    linux: true,
   });
 }
 
@@ -213,6 +214,7 @@ export function classifyChangedPaths(changes) {
     changedPaths,
     groups: orderedGroups(selected),
     browser: selected.has("browser"),
+    linux: selected.has("go"),
   });
 }
 
