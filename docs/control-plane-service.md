@@ -71,6 +71,25 @@ There is one signed `vsk-labs` executable. On the VegaStack Labs control host, `
 
 The Console is a control-plane supporting service, not a Coolify workload. A Coolify failure must not remove the diagnostic/control UI. For the Labs profile, the HTTPS origin binds the declared reserved LAN interface and its host firewall admits only the selected qualified connector sources. Connectors verify the origin certificate/name; TLS-verification bypass is prohibited. The server independently verifies the configured Access identity on every browser/API request; source filtering alone never authenticates a person. Actual addresses, certificate trust/renewal and allow/deny/direct-origin tests must pass before browser activation. The local API remains on the protected Unix socket. [Cloudflare origin TLS parameters](https://developers.cloudflare.com/tunnel/advanced/origin-parameters/) Generic installations without a browser adapter retain local/SSH CLI operation, not an unauthenticated Console. When Cloudflare/Workspace is unavailable, the web UI fails closed and recovery continues through personal SSH plus the Unix-socket CLI or local console.
 
+### Implemented embedded and remote-read boundary
+
+Issue #53 embeds the verified static export and its SHA-256 manifest in the same Go executable as the API. The server serves only manifest-listed files, maps only known exported routes to their `.html` files, never falls back from `/api` to HTML, and rejects traversal, encoded traversal, directory listing, unknown content types, and write methods. HTML, fixed build manifests and other non-content-addressed entry files use `no-store`; only files under the generated content-addressed `_next/static/chunks/` path use immutable caching. The generated Content Security Policy is derived from the accepted build, and every response denies framing and content sniffing. No Node.js process or runtime website directory is part of serving.
+
+Server-profile schema `1.1.0` contains one provider-neutral `remoteRead` object. It is off only when `enabled` is `false` and every other remote field is `null`. Enabling it requires an exact non-wildcard IP bind address and port, exact lowercase HTTPS public origin, absolute clean certificate/key paths, the registered identity-adapter name, and an absolute protected adapter-profile path. Cloudflare issuer, audience, certificates URL, clock skew, token bound, and known-key outage limit live only in the separate Cloudflare Access adapter profile.
+
+The Unix listener and application start first. An invalid optional remote block is retained as `preflight-unavailable` while the valid local profile starts; remote asset, identity, certificate, bind, or serving failure likewise changes only `remoteReadState` and `remoteReadReason` in `vsk-labs server status`. None stops or widens the local listener. `remoteReadState` is `disabled`, `starting`, `ready`, or `unavailable`, and the reason is a fixed typed value rather than a path, provider response, or raw error. Both listeners drain under the same five-second service shutdown bound.
+
+The remote browser router admits only generated available `GET` API endpoints plus the three explicit session POSTs. Local inventory import, diff and export operations are never reachable through the remote listener. Resource-grant denials write one sanitized append-only audit event containing principal attribution and a one-way target fingerprint; audit failure keeps the request denied and becomes an integrity failure. The remote listener caps open connections and in-flight requests independently so remote load cannot grow without bound inside the process that owns local recovery.
+
+On Linux, the origin certificate and private key must be non-empty regular files with one link, owned by the running service UID, no symlink anywhere in the resolved path, and no more than 1 MiB each. The key is exactly `0600`; the public certificate may be `0600`, `0640`, or `0644`. The server reads both through already-validated descriptors and clears the PEM key bytes after parsing. Rotate them through the approved host-configuration workflow by replacing the real files; do not point the profile at a convenience symlink.
+
+When remote read is unavailable, use the protected local client path only:
+
+1. Run `vsk-labs server status --config <protected-server-profile> --output json` from the control host or an already approved constrained SSH path.
+2. Read `remoteReadState` and `remoteReadReason`; do not add direct HTTP, bypass Access, weaken TLS, or expose the Unix socket.
+3. Correct the protected profile, adapter profile, certificate, or bind conflict through the normal host-configuration workflow, then restart the same `vsk-labs server run` service.
+4. Prove local health first, then authenticated Console navigation, session creation, authorized API reads, direct-origin denial, and clean shutdown. A remote recovery never changes SQLite authority or grants by itself.
+
 ## SQLite contract
 
 ### VegaStack Labs Linux-server files and ownership

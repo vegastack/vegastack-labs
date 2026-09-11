@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"io"
 	"io/fs"
+	"net/netip"
+	"net/url"
 	"path/filepath"
 	"strings"
 	"time"
@@ -25,6 +27,19 @@ type Profile struct {
 	SocketMode          fs.FileMode
 	ShutdownGrace       time.Duration
 	PrincipalBindings   []identity.Binding
+	RemoteRead          RemoteRead
+}
+
+type RemoteRead struct {
+	Enabled            bool
+	ConfigurationValid bool
+	BindAddress        string
+	PublicOrigin       string
+	ExactHost          string
+	TLSCertificatePath string
+	TLSPrivateKeyPath  string
+	IdentityAdapter    string
+	IdentityConfigPath string
 }
 
 type Loader interface {
@@ -53,7 +68,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	invalid := func() (Profile, error) {
 		return Profile{}, failure.New("INPUT_INVALID", "server-config", false)
 	}
-	if input.Schema != generated.SchemaIDServerProfile || input.SchemaVersion != "1.0.0" ||
+	if input.Schema != generated.SchemaIDServerProfile || input.SchemaVersion != "1.1.0" ||
 		input.SocketOwnerUID < 0 || input.SocketOwnerUID > int64(^uint32(0)) || uint32(input.SocketOwnerUID) != expectedOwnerUID ||
 		input.ShutdownGraceSeconds != 5 || len(input.SocketPath) > 107 || strings.ContainsRune(input.SocketPath, 0) ||
 		!filepath.IsAbs(input.SocketPath) || filepath.Clean(input.SocketPath) != input.SocketPath ||
@@ -94,6 +109,13 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if _, err := identity.NewLocalPrincipalResolver(bindings); err != nil {
 		return invalid()
 	}
+	remoteRead, err := convertRemoteRead(input.RemoteRead)
+	if err != nil {
+		// Remote browser configuration is optional. Preserve strict validation,
+		// but carry its failure to the independently supervised remote listener
+		// instead of preventing the protected local Unix service from starting.
+		remoteRead = RemoteRead{Enabled: true}
+	}
 	return Profile{
 		SocketPath:          input.SocketPath,
 		InventoryExportRoot: input.InventoryExportRoot,
@@ -102,5 +124,53 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		SocketMode:          mode,
 		ShutdownGrace:       5 * time.Second,
 		PrincipalBindings:   append([]identity.Binding(nil), bindings...),
+		RemoteRead:          remoteRead,
+	}, nil
+}
+
+func convertRemoteRead(input generated.RemoteReadProfile) (RemoteRead, error) {
+	invalid := func() (RemoteRead, error) {
+		return RemoteRead{}, failure.New("INPUT_INVALID", "server-config", false)
+	}
+	pointers := []*string{input.BindAddress, input.PublicOrigin, input.TLSCertificatePath, input.TLSPrivateKeyPath, input.IdentityAdapter, input.IdentityConfigPath}
+	if !input.Enabled {
+		for _, value := range pointers {
+			if value != nil {
+				return invalid()
+			}
+		}
+		return RemoteRead{ConfigurationValid: true}, nil
+	}
+	for _, value := range pointers {
+		if value == nil || *value == "" || strings.TrimSpace(*value) != *value || strings.ContainsRune(*value, 0) {
+			return invalid()
+		}
+	}
+	address, err := netip.ParseAddrPort(*input.BindAddress)
+	if err != nil || address.Port() == 0 || address.Addr().IsUnspecified() || address.Addr().IsMulticast() {
+		return invalid()
+	}
+	origin, err := url.Parse(*input.PublicOrigin)
+	if err != nil || origin.Scheme != "https" || origin.Host == "" || origin.Hostname() == "" || origin.User != nil || origin.Path != "" || origin.RawPath != "" || origin.RawQuery != "" || origin.Fragment != "" || origin.ForceQuery || origin.Host != strings.ToLower(origin.Host) || origin.String() != *input.PublicOrigin {
+		return invalid()
+	}
+	for _, candidate := range []string{*input.TLSCertificatePath, *input.TLSPrivateKeyPath, *input.IdentityConfigPath} {
+		if len(candidate) > 4096 || !filepath.IsAbs(candidate) || filepath.Clean(candidate) != candidate || candidate == string(filepath.Separator) {
+			return invalid()
+		}
+	}
+	if *input.IdentityAdapter != "cloudflare-access" {
+		return invalid()
+	}
+	return RemoteRead{
+		Enabled:            true,
+		ConfigurationValid: true,
+		BindAddress:        address.String(),
+		PublicOrigin:       origin.String(),
+		ExactHost:          origin.Host,
+		TLSCertificatePath: *input.TLSCertificatePath,
+		TLSPrivateKeyPath:  *input.TLSPrivateKeyPath,
+		IdentityAdapter:    *input.IdentityAdapter,
+		IdentityConfigPath: *input.IdentityConfigPath,
 	}, nil
 }

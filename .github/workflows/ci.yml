@@ -53,5 +53,5 @@ jobs:
       - name: Run public checks
         run: pnpm check
 
-      - name: Verify generation is idempotent
+      - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code

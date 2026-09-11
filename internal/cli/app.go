@@ -341,7 +341,7 @@ func (app *App) failServer(mode outputMode, command string, err error) int {
 func (app *App) failServerStatus(mode outputMode, command string, err error) int {
 	stable, ok := failure.As(err)
 	if ok && stable.Code == generated.ErrorCodeDependencyUnavailable && stable.Target == "control-service" {
-		status := generated.ServerStatusData{State: "unavailable", ReadAvailable: false, MutationAvailable: false, RecoveryEpoch: 0, StateRevision: 0}
+		status := generated.ServerStatusData{State: "unavailable", ReadAvailable: false, MutationAvailable: false, RecoveryEpoch: 0, StateRevision: 0, RemoteReadState: "unavailable", RemoteReadReason: "preflight-unavailable"}
 		if mode != outputJSON {
 			return renderHumanServerStatus(app.stdout, status, generated.ErrorExitCodes[stable.Code])
 		}

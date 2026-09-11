@@ -22,6 +22,29 @@ type route struct {
 
 var pathToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 
+var remoteSessionEndpoints = map[string]bool{
+	"api.v1.session.create": true,
+	"api.v1.session.renew":  true,
+	"api.v1.session.logout": true,
+}
+
+// RemoteReadRequestAllowed is the server-side admission boundary for the
+// browser listener. Generated available GET endpoints are readable remotely;
+// the three browser-session POST operations are the only write-method
+// exceptions. New local operations remain remote-denied until this metadata
+// rule deliberately admits them.
+func RemoteReadRequestAllowed(method, requestPath string) bool {
+	for _, endpoint := range generated.Endpoints {
+		if endpoint.Availability != "available" || endpoint.Method != method || (method != http.MethodGet && !remoteSessionEndpoints[endpoint.ID]) {
+			continue
+		}
+		if _, ok := matchPath(endpoint.Path, requestPath); ok {
+			return true
+		}
+	}
+	return false
+}
+
 func finiteRoutes(app *Application) []route {
 	return []route{
 		{"api.v1.session.create", http.MethodPost, "/api/v1/session", "", "", app.sessionCreate},

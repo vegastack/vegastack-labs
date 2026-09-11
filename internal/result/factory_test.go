@@ -14,7 +14,7 @@ func TestFactoryBuildsOneGeneratedEnvelope(t *testing.T) {
 	factory := NewFactory(BuildInfo{ToolVersion: "0.2.0-test", ReleaseBuildID: "build-test", SourceRevision: &revision}, func() (string, error) {
 		return "request-test", nil
 	})
-	result, err := factory.Success(generated.CommandNameServerStatus, 7, 42, generated.ServerStatusData{State: "ready", ReadAvailable: true, RecoveryEpoch: 7, StateRevision: 42})
+	result, err := factory.Success(generated.CommandNameServerStatus, 7, 42, generated.ServerStatusData{State: "ready", ReadAvailable: true, RecoveryEpoch: 7, StateRevision: 42, RemoteReadState: "disabled", RemoteReadReason: "none"})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.8.0",
+  "schemaVersion": "1.9.0",
   "commands": [
     {
       "path": [
@@ -1455,6 +1455,11 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/cloudflare-access-profile",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/cloudflare-access-profile.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/database-status-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/database-status-data.schema.json"
@@ -1607,6 +1612,10 @@
       "artifactPath": "schemas/v1/release-verify-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/remote-read-profile",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/result-error",
       "version": "1.0.0"
     },
@@ -1617,12 +1626,12 @@
     },
     {
       "id": "vegastack-labs.dev/server-profile",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/server-profile.schema.json"
     },
     {
       "id": "vegastack-labs.dev/server-status-data",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/server-status-data.schema.json"
     },
     {

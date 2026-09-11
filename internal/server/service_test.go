@@ -171,6 +171,51 @@ func testSupportedPlatform() Platform {
 	return Platform{OS: "linux", Architecture: "amd64", Distribution: "debian", Major: 13}
 }
 
+func TestRemoteAdmissionLimitFailsClosed(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	handler := newRemoteAdmissionHandler(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		writer.WriteHeader(http.StatusNoContent)
+	}), 1)
+	firstDone := make(chan struct{})
+	go func() {
+		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "https://console.example/", nil))
+		close(firstDone)
+	}()
+	<-started
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "https://console.example/", nil))
+	if response.Code != http.StatusTooManyRequests || response.Header().Get("Retry-After") != "1" {
+		t.Fatalf("saturated remote response = %d, retry = %q", response.Code, response.Header().Get("Retry-After"))
+	}
+	close(release)
+	<-firstDone
+}
+
+func TestRemoteReadHealthAllowsOnlyGeneratedStateReasonPairs(t *testing.T) {
+	valid := []remoteReadHealth{
+		{RemoteReadDisabled, RemoteReadReasonNone},
+		{RemoteReadStarting, RemoteReadReasonNone},
+		{RemoteReadReady, RemoteReadReasonNone},
+		{RemoteReadUnavailable, RemoteReadReasonPreflightUnavailable},
+		{RemoteReadUnavailable, RemoteReadReasonAuthenticationFailed},
+		{RemoteReadUnavailable, RemoteReadReasonListenerUnavailable},
+		{RemoteReadUnavailable, RemoteReadReasonServeFailed},
+	}
+	for _, health := range valid {
+		if !validRemoteReadHealth(health) {
+			t.Fatalf("valid remote health rejected: %#v", health)
+		}
+	}
+	for _, health := range []remoteReadHealth{{"ready", "serve-failed"}, {"unknown", "none"}, {"unavailable", "none"}} {
+		if validRemoteReadHealth(health) {
+			t.Fatalf("invalid remote health accepted: %#v", health)
+		}
+	}
+}
+
 func TestShutdownToleratesExpectedHTTPListenerDoubleClose(t *testing.T) {
 	listener := newDelayedCloseListener()
 	httpServer := &http.Server{Handler: http.NotFoundHandler()}
@@ -260,6 +305,53 @@ func TestServiceReportsAuthenticatedHealthAndRejectsSpoofHeaders(t *testing.T) {
 	}
 	if !application.shutdownCalled.Load() {
 		t.Fatal("Application.Shutdown() was not called")
+	}
+}
+
+func TestRemoteBindFailureLeavesLocalControlAvailable(t *testing.T) {
+	listener := newTestListener(t, true)
+	profile := testServerProfile()
+	profile.RemoteRead.Enabled = true
+	authenticator, _, _ := newBrowserAuthFixture(t)
+	service, err := New(Config{
+		Profile: profile, Application: &testApplication{health: ApplicationHealth{RecoveryEpoch: 7, StateRevision: 42}}, Results: testResultFactory(),
+		ListenerFactory: func(context.Context, localapi.ListenConfig) (localapi.Listener, error) { return listener, nil },
+		PlatformProbe:   staticPlatformProbe{platform: testSupportedPlatform()}, IntegrityInterval: 10 * time.Millisecond,
+		Remote: &RemoteConfig{
+			Authenticator: authenticator,
+			Console:       testConsoleHandler(t),
+			ListenConfig:  RemoteListenConfig{Address: "127.0.0.1:8443", CertificatePath: "/private/cert", PrivateKeyPath: "/private/key"},
+			ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) {
+				return nil, errors.New("address-in-use private detail")
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- service.Run(ctx) }()
+	client := &http.Client{Timeout: time.Second}
+	var status generated.ServerStatusData
+	for deadline := time.Now().Add(time.Second); time.Now().Before(deadline); {
+		response, requestErr := client.Get("http://" + listener.Addr().String() + "/api/v1/health")
+		if requestErr == nil {
+			var envelope generated.RunResult
+			if json.NewDecoder(response.Body).Decode(&envelope) == nil && json.Unmarshal(envelope.Data, &status) == nil && status.RemoteReadState == "unavailable" {
+				_ = response.Body.Close()
+				break
+			}
+			_ = response.Body.Close()
+		}
+		time.Sleep(time.Millisecond)
+	}
+	if status.State != "ready" || status.RemoteReadState != "unavailable" || status.RemoteReadReason != "listener-unavailable" {
+		t.Fatalf("health = %#v", status)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatalf("Run() after remote failure = %v", err)
 	}
 }
 

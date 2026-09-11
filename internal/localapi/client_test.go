@@ -22,7 +22,7 @@ func clientTestFactory() *result.Factory {
 
 func clientTestEnvelope(t *testing.T) []byte {
 	t.Helper()
-	status := generated.ServerStatusData{State: "ready", ReadAvailable: true, MutationAvailable: false, RecoveryEpoch: 7, StateRevision: 42}
+	status := generated.ServerStatusData{State: "ready", ReadAvailable: true, MutationAvailable: false, RecoveryEpoch: 7, StateRevision: 42, RemoteReadState: "disabled", RemoteReadReason: "none"}
 	factory := clientTestFactory()
 	envelope, err := factory.Success(generated.CommandNameServerStatus, 7, 42, status)
 	if err != nil {
@@ -72,7 +72,7 @@ func TestStatusPreservesExactValidatedEnvelope(t *testing.T) {
 }
 
 func TestStatusPreservesRemoteFailureEnvelopeAndExit(t *testing.T) {
-	status := generated.ServerStatusData{State: "safe-mode", ReadAvailable: true, RecoveryEpoch: 9, StateRevision: 3}
+	status := generated.ServerStatusData{State: "safe-mode", ReadAvailable: true, RecoveryEpoch: 9, StateRevision: 3, RemoteReadState: "disabled", RemoteReadReason: "none"}
 	envelope, err := clientTestFactory().Failure(generated.CommandNameServerStatus, generated.RunStatusFailed, generated.ErrorCodeIntegrityFailure, "application-health", false, 9, 3, status)
 	if err != nil {
 		t.Fatal(err)

@@ -41,6 +41,7 @@ test("later additive contracts do not rewrite accepted Phase 2 evidence", async 
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.ok(facts.endpointIds.includes("api.v1.sources.list"));
+  assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/consoleassets"));
   facts.endpointIds.push("api.v1.future-read.get");
   facts.availableCommands.push("future read");
   facts.migrations.push({ file: "0005_future.sql", sha256: "future" });

@@ -66,27 +66,12 @@ func (authenticator *BrowserAuthenticator) Start(ctx context.Context) error {
 
 func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if next == nil || request.TLS == nil || request.Host != authenticator.config.ExactHost || !authenticator.browserOriginAllowed(request) {
+		if next == nil || !authenticator.browserOriginAllowed(request) {
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
-		assertions := request.Header.Values("Cf-Access-Jwt-Assertion")
-		if len(assertions) != 1 || assertions[0] == "" || strings.Contains(assertions[0], ",") {
-			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
-			return
-		}
-		verified, err := authenticator.config.Identities.Verify(request.Context(), assertions[0])
-		if err != nil {
-			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
-			return
-		}
-		bindingDigest, err := identity.BindingDigest(verified)
-		if err != nil {
-			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
-			return
-		}
-		ctx, err := identity.WithVerifiedRemoteIdentity(request.Context(), verified)
-		if err != nil {
+		ctx, verified, bindingDigest, ok := authenticator.verifyExternalRequest(request)
+		if !ok {
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
@@ -113,6 +98,47 @@ func (authenticator *BrowserAuthenticator) Wrap(next http.Handler) http.Handler 
 	})
 }
 
+// WrapAssets admits only safe browser navigation/subresource requests carrying
+// a verified external identity. Static bytes contain no operational data; API
+// requests continue through Wrap and require the local revocable session.
+func (authenticator *BrowserAuthenticator) WrapAssets(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if next == nil || !authenticator.browserAssetRequestAllowed(request) {
+			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
+			return
+		}
+		ctx, _, _, ok := authenticator.verifyExternalRequest(request)
+		if !ok {
+			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
+			return
+		}
+		next.ServeHTTP(writer, request.WithContext(ctx))
+	})
+}
+
+func (authenticator *BrowserAuthenticator) verifyExternalRequest(request *http.Request) (context.Context, identity.VerifiedIdentity, string, bool) {
+	if request.TLS == nil || request.Host != authenticator.config.ExactHost {
+		return nil, identity.VerifiedIdentity{}, "", false
+	}
+	assertions := request.Header.Values("Cf-Access-Jwt-Assertion")
+	if len(assertions) != 1 || assertions[0] == "" || strings.Contains(assertions[0], ",") {
+		return nil, identity.VerifiedIdentity{}, "", false
+	}
+	verified, err := authenticator.config.Identities.Verify(request.Context(), assertions[0])
+	if err != nil {
+		return nil, identity.VerifiedIdentity{}, "", false
+	}
+	bindingDigest, err := identity.BindingDigest(verified)
+	if err != nil {
+		return nil, identity.VerifiedIdentity{}, "", false
+	}
+	ctx, err := identity.WithVerifiedRemoteIdentity(request.Context(), verified)
+	if err != nil {
+		return nil, identity.VerifiedIdentity{}, "", false
+	}
+	return ctx, verified, bindingDigest, true
+}
+
 func (authenticator *BrowserAuthenticator) browserOriginAllowed(request *http.Request) bool {
 	origins := request.Header.Values("Origin")
 	if len(origins) > 1 || (len(origins) == 1 && origins[0] != authenticator.config.ExactOrigin) {
@@ -127,6 +153,40 @@ func (authenticator *BrowserAuthenticator) browserOriginAllowed(request *http.Re
 	return exactHeaderValue(request, "Sec-Fetch-Site", "same-origin") &&
 		exactHeaderValue(request, "Sec-Fetch-Mode", "cors") &&
 		exactHeaderValue(request, "Sec-Fetch-Dest", "empty")
+}
+
+func (authenticator *BrowserAuthenticator) browserAssetRequestAllowed(request *http.Request) bool {
+	if request.Method != http.MethodGet && request.Method != http.MethodHead {
+		return false
+	}
+	origins := request.Header.Values("Origin")
+	if len(origins) > 1 || (len(origins) == 1 && origins[0] != authenticator.config.ExactOrigin) {
+		return false
+	}
+	site := request.Header.Values("Sec-Fetch-Site")
+	mode := request.Header.Values("Sec-Fetch-Mode")
+	destination := request.Header.Values("Sec-Fetch-Dest")
+	if len(site) != 1 || len(mode) != 1 || len(destination) != 1 {
+		return false
+	}
+	if mode[0] == "navigate" && destination[0] == "document" {
+		return site[0] == "none" || site[0] == "same-origin"
+	}
+	if site[0] != "same-origin" {
+		return false
+	}
+	if mode[0] == "cors" && destination[0] == "empty" {
+		return true
+	}
+	if mode[0] != "no-cors" {
+		return false
+	}
+	switch destination[0] {
+	case "font", "image", "script", "style", "empty":
+		return true
+	default:
+		return false
+	}
 }
 
 func exactHeaderValue(request *http.Request, name, expected string) bool {

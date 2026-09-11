@@ -12,6 +12,25 @@
     "recoveryEpoch": {
       "type": "integer"
     },
+    "remoteReadReason": {
+      "enum": [
+        "none",
+        "preflight-unavailable",
+        "authentication-unavailable",
+        "listener-unavailable",
+        "serve-failed"
+      ],
+      "type": "string"
+    },
+    "remoteReadState": {
+      "enum": [
+        "disabled",
+        "starting",
+        "ready",
+        "unavailable"
+      ],
+      "type": "string"
+    },
     "state": {
       "enum": [
         "starting",
@@ -31,7 +50,9 @@
     "readAvailable",
     "mutationAvailable",
     "recoveryEpoch",
-    "stateRevision"
+    "stateRevision",
+    "remoteReadState",
+    "remoteReadReason"
   ],
   "title": "VegaStack Labs server status data",
   "type": "object",

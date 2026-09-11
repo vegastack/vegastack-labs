@@ -55,6 +55,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/api-source-list-query.schema.json",
 		"schemas/v1/api-summary-data.schema.json",
 		"schemas/v1/audit-event.schema.json",
+		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/database-status-data.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
 		"schemas/v1/inventory-diff-request.schema.json",
@@ -242,6 +243,8 @@ func TestGenerateBrowserClientHasStrictTypesAndDecoders(t *testing.T) {
 		"export const STABLE_ERROR_CODES",
 		"export class ReadClientError",
 		"function decodeApiSummaryData",
+		"export type ReadEnvelope",
+		"schemaVersion: canonicalVersion",
 		"additional property",
 		"unsupported-version",
 	} {
@@ -511,7 +514,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.8.0"`,
+		`= "1.9.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
@@ -529,6 +532,8 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 		`type ReleaseVerifyData struct`,
 		`type ReleaseAssetVerification struct`,
 		`type LocalPrincipalBinding struct`,
+		`type RemoteReadProfile struct`,
+		`type CloudflareAccessProfile struct`,
 		`type ServerProfile struct`,
 		`type ServerStatusData struct`,
 		`type InventoryDraftSnapshotPayload struct`,

@@ -1,4 +1,4 @@
 vsk-labs 0.0.0-test
-contract 1.8.0
+contract 1.9.0
 build build-test
 source revision-test

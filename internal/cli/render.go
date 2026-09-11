@@ -82,8 +82,8 @@ func renderHumanReleaseVerify(output io.Writer, data generated.ReleaseVerifyData
 
 func renderHumanServerStatus(output io.Writer, data generated.ServerStatusData, exitCode int) int {
 	if _, err := fmt.Fprintf(output,
-		"State %s\nRead available %t\nMutation available %t\nState revision %d\nRecovery epoch %d\n",
-		data.State, data.ReadAvailable, data.MutationAvailable, data.StateRevision, data.RecoveryEpoch,
+		"State %s\nRead available %t\nMutation available %t\nRemote read %s\nRemote read reason %s\nState revision %d\nRecovery epoch %d\n",
+		data.State, data.ReadAvailable, data.MutationAvailable, data.RemoteReadState, data.RemoteReadReason, data.StateRevision, data.RecoveryEpoch,
 	); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}

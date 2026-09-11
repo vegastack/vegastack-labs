@@ -13,6 +13,8 @@ const (
 	releaseAssetVerificationSchemaID        = "vegastack-labs.dev/release-asset-verification"
 	databaseStatusDataSchemaID              = "vegastack-labs.dev/database-status-data"
 	localPrincipalBindingSchemaID           = "vegastack-labs.dev/local-principal-binding"
+	remoteReadProfileSchemaID               = "vegastack-labs.dev/remote-read-profile"
+	cloudflareAccessProfileSchemaID         = "vegastack-labs.dev/cloudflare-access-profile"
 	serverProfileSchemaID                   = "vegastack-labs.dev/server-profile"
 	serverStatusDataSchemaID                = "vegastack-labs.dev/server-status-data"
 	stateExportKindCountSchemaID            = "vegastack-labs.dev/state-export-kind-count"
@@ -195,7 +197,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.8.0",
+		SchemaVersion: "1.9.0",
 		Commands:      commands,
 		Endpoints:     readEndpoints(),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
@@ -544,12 +546,40 @@ func currentSchemas() []SchemaDefinition {
 			},
 		},
 		{
-			ID:           serverProfileSchemaID,
+			ID:      remoteReadProfileSchemaID,
+			Version: "1.0.0",
+			Fields: []FieldDefinition{
+				{JSONName: "enabled", GoName: "Enabled", Kind: ValueBoolean, Required: true},
+				{JSONName: "bindAddress", GoName: "BindAddress", Kind: ValueString, Required: true, Nullable: true, MinLength: intPointer(1), MaxLength: intPointer(512)},
+				{JSONName: "publicOrigin", GoName: "PublicOrigin", Kind: ValueString, Required: true, Nullable: true, MinLength: intPointer(1), MaxLength: intPointer(2048)},
+				{JSONName: "tlsCertificatePath", GoName: "TLSCertificatePath", Kind: ValueString, Required: true, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+				{JSONName: "tlsPrivateKeyPath", GoName: "TLSPrivateKeyPath", Kind: ValueString, Required: true, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+				{JSONName: "identityAdapter", GoName: "IdentityAdapter", Kind: ValueString, Required: true, Nullable: true, Pattern: `^[a-z][a-z0-9-]{0,63}$`},
+				{JSONName: "identityConfigPath", GoName: "IdentityConfigPath", Kind: ValueString, Required: true, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+			},
+		},
+		{
+			ID:           cloudflareAccessProfileSchemaID,
 			Version:      "1.0.0",
+			ArtifactPath: "schemas/v1/cloudflare-access-profile.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{cloudflareAccessProfileSchemaID}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "issuer", GoName: "Issuer", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(2048)},
+				{JSONName: "audience", GoName: "Audience", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(4096)},
+				{JSONName: "certificatesUrl", GoName: "CertificatesURL", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(2048)},
+				{JSONName: "clockSkewSeconds", GoName: "ClockSkewSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(300)},
+				{JSONName: "maxTokenBytes", GoName: "MaxTokenBytes", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1024), Maximum: int64Pointer(65536)},
+				{JSONName: "knownKeyOutageSeconds", GoName: "KnownKeyOutageSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1), Maximum: int64Pointer(86400)},
+			},
+		},
+		{
+			ID:           serverProfileSchemaID,
+			Version:      "1.1.0",
 			ArtifactPath: "schemas/v1/server-profile.schema.json",
 			Fields: []FieldDefinition{
 				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{serverProfileSchemaID}},
-				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.1.0"}},
 				{JSONName: "socketPath", GoName: "SocketPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(107)},
 				{JSONName: "socketOwnerUid", GoName: "SocketOwnerUID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
 				{JSONName: "socketGroupGid", GoName: "SocketGroupGID", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
@@ -557,11 +587,12 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "shutdownGraceSeconds", GoName: "ShutdownGraceSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(5), Maximum: int64Pointer(5)},
 				{JSONName: "inventoryExportRoot", GoName: "InventoryExportRoot", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
 				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
+				{JSONName: "remoteRead", GoName: "RemoteRead", Kind: ValueObject, Required: true, Ref: remoteReadProfileSchemaID},
 			},
 		},
 		{
 			ID:           serverStatusDataSchemaID,
-			Version:      "1.0.0",
+			Version:      "1.1.0",
 			ArtifactPath: "schemas/v1/server-status-data.schema.json",
 			Fields: []FieldDefinition{
 				{JSONName: "state", GoName: "State", Kind: ValueString, Required: true, Enum: []string{"starting", "ready", "safe-mode", "stopping", "unavailable"}},
@@ -569,6 +600,8 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "mutationAvailable", GoName: "MutationAvailable", Kind: ValueBoolean, Required: true},
 				{JSONName: "recoveryEpoch", GoName: "RecoveryEpoch", Kind: ValueInteger, Required: true},
 				{JSONName: "stateRevision", GoName: "StateRevision", Kind: ValueInteger, Required: true},
+				{JSONName: "remoteReadState", GoName: "RemoteReadState", Kind: ValueString, Required: true, Enum: []string{"disabled", "starting", "ready", "unavailable"}},
+				{JSONName: "remoteReadReason", GoName: "RemoteReadReason", Kind: ValueString, Required: true, Enum: []string{"none", "preflight-unavailable", "authentication-unavailable", "listener-unavailable", "serve-failed"}},
 			},
 		},
 	}
