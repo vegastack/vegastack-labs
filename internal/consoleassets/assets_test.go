@@ -15,6 +15,9 @@ func TestOpenVerifiesEveryEmbeddedFile(t *testing.T) {
 	if manifest.Files["index.html"].SHA256 == "" {
 		t.Fatal("embedded Console has no index")
 	}
+	if manifest.ContentSecurityPolicy == "" || len(manifest.BuildDigest) != 64 {
+		t.Fatal("embedded Console has no verified security policy")
+	}
 	seen := 0
 	err = fs.WalkDir(files, ".", func(name string, entry fs.DirEntry, walkErr error) error {
 		if walkErr != nil || entry.IsDir() {

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"io/fs"
 	"path"
-	"sort"
 	"strings"
 )
 
@@ -17,16 +16,17 @@ import (
 var embedded embed.FS
 
 type Asset struct {
-	SHA256     string `json:"sha256"`
-	Size       int64  `json:"size"`
+	SHA256      string `json:"sha256"`
+	Size        int64  `json:"size"`
 	ContentType string `json:"contentType"`
-	Immutable  bool   `json:"immutable"`
+	Immutable   bool   `json:"immutable"`
 }
 
 type Manifest struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	BuildDigest   string           `json:"buildDigest"`
-	Files         map[string]Asset `json:"files"`
+	SchemaVersion         int              `json:"schemaVersion"`
+	BuildDigest           string           `json:"buildDigest"`
+	ContentSecurityPolicy string           `json:"contentSecurityPolicy"`
+	Files                 map[string]Asset `json:"files"`
 }
 
 func Open() (fs.FS, Manifest, error) {
@@ -37,7 +37,7 @@ func Open() (fs.FS, Manifest, error) {
 	decoder := json.NewDecoder(strings.NewReader(string(content)))
 	decoder.DisallowUnknownFields()
 	var manifest Manifest
-	if err := decoder.Decode(&manifest); err != nil || manifest.SchemaVersion != 1 || len(manifest.Files) == 0 || manifest.BuildDigest == "" {
+	if err := decoder.Decode(&manifest); err != nil || manifest.SchemaVersion != 1 || len(manifest.Files) == 0 || len(manifest.BuildDigest) != 64 || manifest.ContentSecurityPolicy == "" {
 		return nil, Manifest{}, errors.New("embedded Console manifest invalid")
 	}
 	var trailing any
@@ -80,10 +80,16 @@ func Open() (fs.FS, Manifest, error) {
 	if index, ok := manifest.Files["index.html"]; !ok || index.Size == 0 || index.ContentType != "text/html; charset=utf-8" {
 		return nil, Manifest{}, errors.New("embedded Console index unavailable")
 	}
-	keys := make([]string, 0, len(manifest.Files))
-	for name := range manifest.Files {
-		keys = append(keys, name)
+	digestInput, err := json.Marshal(struct {
+		Files                 map[string]Asset `json:"files"`
+		ContentSecurityPolicy string           `json:"contentSecurityPolicy"`
+	}{Files: manifest.Files, ContentSecurityPolicy: manifest.ContentSecurityPolicy})
+	if err != nil {
+		return nil, Manifest{}, errors.New("embedded Console manifest invalid")
 	}
-	sort.Strings(keys)
+	digest := sha256.Sum256(digestInput)
+	if hex.EncodeToString(digest[:]) != manifest.BuildDigest {
+		return nil, Manifest{}, errors.New("embedded Console manifest digest mismatch")
+	}
 	return files, manifest, nil
 }

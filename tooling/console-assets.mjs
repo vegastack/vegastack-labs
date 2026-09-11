@@ -29,8 +29,33 @@ function sha256(content) {
   return createHash("sha256").update(content).digest("hex");
 }
 
+function contentSecurityPolicy(htmlDocuments) {
+  const hashes = new Set();
+  for (const document of htmlDocuments) {
+    for (const match of document.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)) {
+      hashes.add(`'sha256-${createHash("sha256").update(match[1]).digest("base64")}'`);
+    }
+  }
+  return [
+    "default-src 'self'",
+    "base-uri 'none'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'none'",
+    `script-src 'self' ${[...hashes].sort().join(" ")}`.trim(),
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data:",
+    "font-src 'self'",
+    "connect-src 'self'",
+  ].join("; ");
+}
+
 function immutableAsset(name) {
-  return name.startsWith("_next/static/") && /[0-9a-f]{8,}/i.test(path.basename(name));
+  return name.startsWith("_next/static/");
+}
+
+function canonicalFiles(files) {
+  return Object.fromEntries(Object.entries(files).sort(([left], [right]) => left < right ? -1 : left > right ? 1 : 0));
 }
 
 function assertSafeTargets({ source, destination, manifestPath }) {
@@ -46,7 +71,7 @@ function assertSafeTargets({ source, destination, manifestPath }) {
 async function collect(directory, prefix = "") {
   const entries = await readdir(directory, { withFileTypes: true });
   const files = [];
-  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+  for (const entry of entries.sort((left, right) => left.name < right.name ? -1 : left.name > right.name ? 1 : 0)) {
     const relative = prefix ? `${prefix}/${entry.name}` : entry.name;
     const absolute = path.join(directory, entry.name);
     if (entry.isSymbolicLink()) throw new Error(`Console assets must be regular files: ${relative}`);
@@ -62,11 +87,13 @@ async function describeSource(source) {
   if (!root?.isDirectory()) throw new Error("Console output directory is missing");
   const files = await collect(source);
   const described = {};
+  const htmlDocuments = [];
   for (const file of files) {
     const extension = path.extname(file.relative).toLowerCase();
     const contentType = CONTENT_TYPES.get(extension);
     if (!contentType) throw new Error(`unsupported Console asset: ${file.relative}`);
     const content = await readFile(file.absolute);
+    if (extension === ".html") htmlDocuments.push(content.toString("utf8"));
     described[file.relative] = {
       sha256: sha256(content),
       size: content.byteLength,
@@ -77,18 +104,22 @@ async function describeSource(source) {
   if (!described["index.html"] || described["index.html"].size === 0) {
     throw new Error("Console output requires a non-empty index.html");
   }
-  const buildDigest = sha256(JSON.stringify(described));
-  return { files, manifest: { schemaVersion: 1, buildDigest, files: described } };
+  const csp = contentSecurityPolicy(htmlDocuments);
+  const ordered = canonicalFiles(described);
+  const buildDigest = sha256(JSON.stringify({ files: ordered, contentSecurityPolicy: csp }));
+  return { files, manifest: { schemaVersion: 1, buildDigest, contentSecurityPolicy: csp, files: ordered } };
 }
 
 async function describeDestination(destination) {
   const files = await collect(destination);
   const described = {};
+  const htmlDocuments = [];
   for (const file of files) {
     const content = await readFile(file.absolute);
     const extension = path.extname(file.relative).toLowerCase();
     const contentType = CONTENT_TYPES.get(extension);
     if (!contentType) throw new Error(`unsupported Console asset: ${file.relative}`);
+    if (extension === ".html") htmlDocuments.push(content.toString("utf8"));
     described[file.relative] = {
       sha256: sha256(content),
       size: content.byteLength,
@@ -96,7 +127,9 @@ async function describeDestination(destination) {
       immutable: immutableAsset(file.relative),
     };
   }
-  return { schemaVersion: 1, buildDigest: sha256(JSON.stringify(described)), files: described };
+  const csp = contentSecurityPolicy(htmlDocuments);
+  const ordered = canonicalFiles(described);
+  return { schemaVersion: 1, buildDigest: sha256(JSON.stringify({ files: ordered, contentSecurityPolicy: csp })), contentSecurityPolicy: csp, files: ordered };
 }
 
 export async function writeConsoleAssets({ source = DEFAULT_SOURCE, destination = DEFAULT_DESTINATION, manifestPath = DEFAULT_MANIFEST } = {}) {
