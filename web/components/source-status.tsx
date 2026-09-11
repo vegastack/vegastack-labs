@@ -18,6 +18,8 @@ export function SourceStatus({ source }: { source: ApiSourceData }) {
       <div className="flex flex-wrap items-center justify-between gap-2"><span className="font-medium capitalize">{source.id}</span><Badge intent={intent[source.state]}>{source.state}</Badge></div>
       <p className="text-sm text-muted-foreground">{source.reason}</p>
       <p className="text-xs text-muted-foreground">Collected: {formatConsoleTime(source.collectedAt)}</p>
+      <p className="text-xs text-muted-foreground">Last success: {formatConsoleTime(source.lastSuccessAt)}</p>
+      <p className="text-xs text-muted-foreground">Last error: {formatConsoleTime(source.lastErrorAt)}</p>
     </div>
   );
 }

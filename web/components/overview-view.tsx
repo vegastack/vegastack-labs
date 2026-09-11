@@ -18,7 +18,7 @@ export function OverviewView() {
       unavailable: ["Overview unavailable", "The control-plane read service is temporarily unavailable. Local CLI recovery remains separate."],
       error: ["Overview could not be read", "The response could not be used safely. Refresh after the service is available."],
     }[view.state] ?? ["Overview unavailable", "No safe Overview response is available."];
-    return <ReadViewState kind={view.state === "loading" || view.state === "empty" || view.state === "denied" ? view.state : "error"} title={copy[0]} description={copy[1]} onRetry={view.state === "loading" ? undefined : view.refresh} />;
+    return <ReadViewState kind={view.state === "loading" || view.state === "empty" || view.state === "denied" || view.state === "unavailable" ? view.state : "error"} title={copy[0]} description={copy[1]} onRetry={view.state === "loading" ? undefined : view.refresh} />;
   }
   return <div className="space-y-5">{view.state !== "success" ? <ReadViewState kind={view.state} title={view.state === "stale" ? "Showing last known Overview" : "Overview is partial"} description={view.state === "stale" ? "A temporary source failure occurred. Visible records are older authorized data." : "One authorized source could not be read."} staleData={content} onRetry={view.refresh} /> : content}<Button className="min-h-11" variant="outline" loading={view.isRefreshing} onClick={view.refresh}><RefreshCw aria-hidden />Refresh Overview</Button></div>;
 }

@@ -12,7 +12,6 @@ export function ReadViewState({ kind, title, description, staleData, onRetry }: 
   const Icon = icons[kind];
   return (
     <div className="space-y-4" data-read-state={kind}>
-      {staleData}
       <section aria-live={kind === "denied" || kind === "error" ? "assertive" : "polite"} role={kind === "denied" || kind === "error" ? "alert" : "status"}>
         <Empty bordered className="min-h-56 bg-card">
           <EmptyHeader>
@@ -22,6 +21,7 @@ export function ReadViewState({ kind, title, description, staleData, onRetry }: 
           {onRetry ? <EmptyContent><Button className="min-h-11" variant="outline" onClick={onRetry}>Refresh</Button></EmptyContent> : null}
         </Empty>
       </section>
+      {staleData}
     </div>
   );
 }

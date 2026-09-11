@@ -35,6 +35,18 @@ test("Overview renders every domain and marks omitted domains unknown", async ({
   await expect(page.locator('[data-source-state="unknown"]')).toHaveCount(6);
 });
 
+test("Overview distinguishes loading, empty, unavailable, and rejected responses", async ({ page }) => {
+  fixtureState.delay = 250;
+  await page.goto("/");
+  await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
+  fixtureState.delay = 0;
+  for (const [mode, state] of [["empty", "empty"], ["unavailable", "unavailable"], ["malformed", "error"]] as const) {
+    fixtureState.mode = mode;
+    await page.reload();
+    await expect(page.locator(`[data-read-state="${state}"]`).first()).toBeVisible();
+  }
+});
+
 test("Nodes pages independently with opaque cursors and opens every detail kind", async ({ page }) => {
   await page.goto("/nodes");
   for (const collection of ["nodes", "aliases", "observations"] as const) {
@@ -48,6 +60,10 @@ test("Nodes pages independently with opaque cursors and opens every detail kind"
     const trigger = page.getByRole("button", { name: `View ${kind}` }).first();
     await trigger.click();
     await expect(page.getByText(`${kind} details`, { exact: true })).toBeVisible();
+    if (kind === "observation") await expect(page.getByText("11-09-2026 01:30 PM IST", { exact: true })).toBeVisible();
+    const closeSize = await page.locator('[data-slot="sheet-close"]').evaluate(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height }));
+    expect(closeSize.width).toBeGreaterThanOrEqual(44);
+    expect(closeSize.height).toBeGreaterThanOrEqual(44);
     await page.keyboard.press("Escape");
     await expect(trigger).toBeFocused();
   }
@@ -71,9 +87,17 @@ test("leaving a screen cancels its superseded generated reads", async ({ page })
 });
 
 test("Gates reports capability only and classifies every failure family", async ({ page }) => {
+  fixtureState.delay = 250;
   await page.goto("/gates");
+  await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
+  fixtureState.delay = 0;
   await expect(page.getByText(/gate evaluation is not implemented/i)).toBeVisible();
+  await expect(page.getByText("Last success: 10-09-2026 12:30 PM IST", { exact: true })).toBeVisible();
+  await expect(page.getByText("Last error: 11-09-2026 01:30 PM IST", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /pass|approve|apply/i })).toHaveCount(0);
+  fixtureState.mode = "dependency";
+  await page.getByRole("button", { name: "Refresh" }).click();
+  await expect(page.locator('[data-read-state="stale"]')).toBeVisible();
   for (const [mode, state] of [["empty", "unknown"], ["unavailable", "unavailable"], ["denied", "denied"], ["malformed", "error"]] as const) {
     fixtureState.mode = mode;
     await page.reload();
@@ -91,6 +115,34 @@ test("Nodes classifies loading, empty, unavailable, denied, and rejected respons
     await page.reload();
     await expect(page.locator(`[data-read-state="${state}"]`).first()).toBeVisible();
   }
+});
+
+test("Nodes distinguishes stale, partial, unknown, and scope denial after successful reads", async ({ page }) => {
+  await page.goto("/nodes");
+  await expect(page.getByText("node-one", { exact: true })).toBeVisible();
+
+  fixtureState.mode = "dependency";
+  await page.getByRole("button", { name: "Refresh Nodes" }).click();
+  await expect(page.locator('[data-read-state="stale"]')).toBeVisible();
+
+  fixtureState.mode = "healthy";
+  await page.reload();
+  fixtureState.mode = "dependency-node-page";
+  await page.getByRole("button", { name: "Next nodes page" }).click();
+  await expect(page.locator('[data-read-state="partial"]')).toBeVisible();
+  await expect(page.getByText("Nodes temporarily unavailable", { exact: true })).toBeVisible();
+
+  fixtureState.mode = "healthy";
+  await page.reload();
+  fixtureState.mode = "deny-node-page";
+  await page.getByRole("button", { name: "Next nodes page" }).click();
+  await expect(page.locator('[data-read-state="denied"]')).toBeVisible();
+  await expect(page.getByText("No inventory draft", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "View node" })).toHaveCount(0);
+
+  fixtureState.mode = "missing";
+  await page.reload();
+  await expect(page.locator('[data-source-state="unknown"]')).toContainText(/no health can be inferred/i);
 });
 
 test("private fixture records remain behind the authorized response boundary", async ({ page }) => {
@@ -134,4 +186,18 @@ test("Overview, Nodes, Gates, and the details overlay have no serious accessibil
     await page.goto("/");
     await expectNoSeriousAccessibilityViolations(page);
   }
+});
+
+test("Nodes remains readable and operable on a narrow screen", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/nodes");
+  for (const heading of ["Nodes", "Aliases", "Observations"]) await expect(page.getByRole("heading", { name: heading, exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Toggle sidebar" }).click();
+  await expect(page.getByRole("navigation", { name: "Console navigation" }).getByRole("link", { name: "Nodes", exact: true })).toHaveAttribute("aria-current", "page");
+  await page.keyboard.press("Escape");
+  const layout = await page.evaluate(() => ({ pageWidth: document.documentElement.scrollWidth, viewportWidth: window.innerWidth }));
+  expect(layout.pageWidth).toBeLessThanOrEqual(layout.viewportWidth);
+  const targets = await page.locator("main button:visible").evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
+  expect(targets.length).toBeGreaterThan(0);
+  expect(targets.every(target => target.width >= 44 && target.height >= 44)).toBeTruthy();
 });

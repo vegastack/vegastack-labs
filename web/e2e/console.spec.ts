@@ -4,6 +4,15 @@ import { installReadFixture } from "./api-fixture";
 const ORIGIN = "http://127.0.0.1:4173";
 const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events)|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
 
+function isGeneratedReadRequest(url: URL) {
+  if (!GENERATED_READ_PATH.test(url.pathname)) return false;
+  const keys = [...url.searchParams.keys()];
+  if (new Set(keys).size !== keys.length) return false;
+  if (url.pathname === "/api/v1/sources") return keys.every(key => ["cursor", "limit", "sort", "source", "state"].includes(key));
+  if (url.pathname === "/api/v1/inventory-drafts" || /\/(?:assets|nodes|aliases|observations)$/.test(url.pathname)) return keys.every(key => ["cursor", "limit", "sort"].includes(key));
+  return keys.length === 0;
+}
+
 function monitorBrowser(page: Page) {
   const failures: string[] = [];
   page.on("console", message => message.type() === "error" && failures.push(`console: ${message.text()}`));
@@ -11,7 +20,7 @@ function monitorBrowser(page: Page) {
   page.on("requestfailed", request => failures.push(`request: ${request.url()}`));
   page.on("request", request => {
     const url = new URL(request.url());
-    const allowedRead = url.origin === ORIGIN && request.method() === "GET" && GENERATED_READ_PATH.test(url.pathname) && ["fetch", "xhr", "eventsource"].includes(request.resourceType());
+    const allowedRead = url.origin === ORIGIN && request.method() === "GET" && isGeneratedReadRequest(url) && ["fetch", "xhr", "eventsource"].includes(request.resourceType());
     if (url.origin !== ORIGIN || (["fetch", "xhr", "websocket", "eventsource"].includes(request.resourceType()) && !allowedRead)) failures.push(`unexpected: ${request.resourceType()} ${url.href}`);
   });
   page.on("response", response => response.status() >= 400 && failures.push(`response: ${response.status()} ${response.url()}`));
@@ -105,4 +114,6 @@ test("same-origin server requests are detected", async ({ page }) => {
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/fetch .*\/health|404 .*\/health/));
   await page.evaluate(() => fetch("/api/v1/unapproved-operation").catch(() => undefined));
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unapproved-operation/));
+  await page.evaluate(() => fetch("/api/v1/summary?unapproved=1").catch(() => undefined));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/summary\?unapproved=1/));
 });

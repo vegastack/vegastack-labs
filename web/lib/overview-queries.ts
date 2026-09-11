@@ -16,13 +16,14 @@ export function useOverview() {
   const failureStates = failures.map(failure => classifyReadFailure(failure.error, failure.retained));
   const sourceIds = new Set(sources.data?.data.items.map(source => source.id) ?? []);
   const missingSources = overviewSourceIds.some(id => !sourceIds.has(id));
+  const empty = Boolean(summary.data && sources.data && summary.data.data.draftCount === 0 && sources.data.data.items.length === 0);
   const state = failureStates.includes("denied") ? "denied"
     : failureStates.includes("error") ? "error"
     : failureStates.includes("unavailable") ? (summary.data || sources.data ? "partial" : "unavailable")
     : failures.length > 0 && failures.every(failure => mayRetainStaleData(failure.error) && failure.retained) ? "stale"
     : failures.length > 0 ? "partial"
     : summary.isPending || sources.isPending ? "loading"
-    : !summary.data && !sources.data ? "empty"
+    : empty || (!summary.data && !sources.data) ? "empty"
     : missingSources ? "partial"
     : "success";
   const refresh = async () => {
