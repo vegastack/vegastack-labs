@@ -1,4 +1,4 @@
-import { fullCheckPlan, runCheckPlan } from "./check-groups.mjs";
+import { fullCheckPlan, runCheckPlan } from "./lib/check-plan.mjs";
 
 try {
   await runCheckPlan(fullCheckPlan());
