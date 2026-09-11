@@ -56,6 +56,35 @@ test("the server verifier accepts the protected portable client file reader", as
   assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
 });
 
+test("the server verifier accepts only the reviewed TLS 1.3 remote listener", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/server/remote.go": [
+      "package server",
+      'import ("context"; "crypto/tls"; "net")',
+      "func remote(ctx context.Context) {",
+      '  certificate, _ := tls.LoadX509KeyPair("fixture.crt", "fixture.key")',
+      '  listener, _ := (&net.ListenConfig{}).Listen(ctx, "tcp", "127.0.0.1:0")',
+      "  _ = tls.NewListener(listener, &tls.Config{Certificates: []tls.Certificate{certificate}, MinVersion: tls.VersionTLS13, MaxVersion: tls.VersionTLS13})",
+      "}",
+      "",
+    ].join("\n"),
+    "internal/identity/profile_linux.go": "package identity\nimport _ \"golang.org/x/sys/unix\"\n",
+  });
+  assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
+});
+
+test("the server verifier rejects an incomplete reviewed remote listener", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/server/remote.go": [
+      "package server",
+      'import ("context"; "net")',
+      "func remote(ctx context.Context) { _, _ = (&net.ListenConfig{}).Listen(ctx, \"tcp\", \"127.0.0.1:0\") }",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyServer(root)).codes, ["SERVER_TCP_LISTENER"]);
+});
+
 test("the server verifier rejects a TCP control listener", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/server/service.go": [

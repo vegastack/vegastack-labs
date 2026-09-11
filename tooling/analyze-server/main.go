@@ -45,6 +45,8 @@ func analyze(root string) (analysis, error) {
 	var result analysis
 	mainDirectories := make(map[string]bool)
 	serverSource := strings.Builder{}
+	remoteListenerPresent := false
+	remoteListenerComplete := false
 	err := filepath.WalkDir(root, func(filename string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -80,9 +82,16 @@ func analyze(root string) (analysis, error) {
 			mainDirectories[filepath.ToSlash(filepath.Dir(relative))] = true
 		}
 		isServer := strings.HasPrefix(relative, "internal/server/")
+		isReviewedRemoteListener := relative == "internal/server/remote.go"
 		importAliases := make(map[string]string)
 		if isServer {
 			serverSource.Write(content)
+		}
+		if isReviewedRemoteListener {
+			remoteListenerPresent = true
+			text := string(content)
+			remoteListenerComplete = strings.Contains(text, "tls.LoadX509KeyPair") && strings.Contains(text, "tls.NewListener") &&
+				strings.Contains(text, "MinVersion:") && strings.Contains(text, "MaxVersion:") && strings.Count(text, "tls.VersionTLS13") >= 2
 		}
 		for _, imported := range file.Imports {
 			importPath, err := strconv.Unquote(imported.Path.Value)
@@ -100,7 +109,7 @@ func analyze(root string) (analysis, error) {
 				result.SQLiteAccess = true
 			}
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
-			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/localapi/") || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
+			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
 			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile) {
 				result.XSysOutsideScope = true
 			}
@@ -121,7 +130,11 @@ func analyze(root string) (analysis, error) {
 			case importPath == "net/http" && (selector.Sel.Name == "ListenAndServe" || selector.Sel.Name == "ListenAndServeTLS"):
 				result.TCPListener = true
 			case importPath == "net" && selector.Sel.Name == "Listen":
-				if len(call.Args) == 0 || stringLiteral(call.Args[0]) != "unix" {
+				if len(call.Args) == 0 || (stringLiteral(call.Args[0]) != "unix" && !isReviewedRemoteListener) {
+					result.TCPListener = true
+				}
+			case selector.Sel.Name == "Listen" && importPath == "":
+				if !isReviewedRemoteListener || len(call.Args) < 2 || stringLiteral(call.Args[1]) != "tcp" {
 					result.TCPListener = true
 				}
 			case strings.HasSuffix(importPath, "/internal/identity") && selector.Sel.Name == "WithVerifiedPrincipal":
@@ -139,6 +152,9 @@ func analyze(root string) (analysis, error) {
 	})
 	if err != nil {
 		return analysis{}, err
+	}
+	if remoteListenerPresent && !remoteListenerComplete {
+		result.TCPListener = true
 	}
 	for directory := range mainDirectories {
 		result.ExecutableDirectories = append(result.ExecutableDirectories, directory)
