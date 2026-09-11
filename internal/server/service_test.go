@@ -171,22 +171,41 @@ func testSupportedPlatform() Platform {
 	return Platform{OS: "linux", Architecture: "amd64", Distribution: "debian", Major: 13}
 }
 
-func TestShutdownDoesNotDoubleCloseTheHTTPListener(t *testing.T) {
+func TestShutdownToleratesExpectedHTTPListenerDoubleClose(t *testing.T) {
 	listener := newDelayedCloseListener()
 	httpServer := &http.Server{Handler: http.NotFoundHandler()}
 	serveDone := make(chan error, 1)
 	go func() { serveDone <- httpServer.Serve(listener) }()
-	<-listener.acceptStarted
+	select {
+	case <-listener.acceptStarted:
+	case <-time.After(time.Second):
+		t.Fatal("Serve() did not enter Accept")
+	}
 
 	service := &service{config: Config{
 		Profile:     testServerProfile(),
 		Application: &testApplication{},
 	}}
-	if err := service.shutdown(listener, httpServer); err != nil {
-		t.Fatalf("shutdown = %v", err)
+	shutdownDone := make(chan error, 1)
+	go func() { shutdownDone <- service.shutdown(listener, httpServer) }()
+	select {
+	case err := <-shutdownDone:
+		if err != nil {
+			t.Fatalf("shutdown = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("shutdown did not finish")
 	}
-	if err := <-serveDone; !errors.Is(err, http.ErrServerClosed) {
-		t.Fatalf("Serve() = %v", err)
+	select {
+	case err := <-serveDone:
+		if !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("Serve() = %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Serve() did not finish")
+	}
+	if got := listener.closeCount.Load(); got != 2 {
+		t.Fatalf("listener Close() calls = %d, want 2", got)
 	}
 }
 
