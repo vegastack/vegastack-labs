@@ -189,11 +189,11 @@ test("Phase 0.4 rejects repaired denials, outcome drift, duplicate IDs, and priv
 });
 
 test("Phase 0.4 contracts are composed into checks and reconciled into owning specifications", async () => {
-  const checks = await readFile(path.join(ROOT, "tooling", "check.mjs"), "utf8");
+  const checks = await readFile(path.join(ROOT, "tooling", "lib", "check-plan.mjs"), "utf8");
   assert.match(checks, /Phase 0\.4 contract fixtures/);
   assert.match(
     checks,
-    /verify-phase-0-3\.mjs"\]\);\n\s+await stage\("Phase 0\.4 contract fixtures"[^\n]+verify-phase-0-4\.mjs"\]\);/,
+    /verify-phase-0-3\.mjs"\]\),\n\s+commandStep\("Phase 0\.4 contract fixtures"[^\n]+verify-phase-0-4\.mjs"\]\),/,
     "Phase 0.4 must run immediately after Phase 0.3",
   );
 
