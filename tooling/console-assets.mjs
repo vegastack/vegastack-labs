@@ -51,7 +51,7 @@ function contentSecurityPolicy(htmlDocuments) {
 }
 
 function immutableAsset(name) {
-  return name.startsWith("_next/static/");
+  return name.startsWith("_next/static/chunks/");
 }
 
 function canonicalFiles(files) {
@@ -82,10 +82,10 @@ async function collect(directory, prefix = "") {
   return files;
 }
 
-async function describeSource(source) {
-  const root = await stat(source).catch(() => undefined);
-  if (!root?.isDirectory()) throw new Error("Console output directory is missing");
-  const files = await collect(source);
+async function describeAssetTree(root, { requireIndex = false } = {}) {
+  const rootStatus = await stat(root).catch(() => undefined);
+  if (!rootStatus?.isDirectory()) throw new Error("Console output directory is missing");
+  const files = await collect(root);
   const described = {};
   const htmlDocuments = [];
   for (const file of files) {
@@ -101,7 +101,7 @@ async function describeSource(source) {
       immutable: immutableAsset(file.relative),
     };
   }
-  if (!described["index.html"] || described["index.html"].size === 0) {
+  if (requireIndex && (!described["index.html"] || described["index.html"].size === 0)) {
     throw new Error("Console output requires a non-empty index.html");
   }
   const csp = contentSecurityPolicy(htmlDocuments);
@@ -110,61 +110,81 @@ async function describeSource(source) {
   return { files, manifest: { schemaVersion: 1, buildDigest, contentSecurityPolicy: csp, files: ordered } };
 }
 
-async function describeDestination(destination) {
-  const files = await collect(destination);
-  const described = {};
-  const htmlDocuments = [];
-  for (const file of files) {
-    const content = await readFile(file.absolute);
-    const extension = path.extname(file.relative).toLowerCase();
-    const contentType = CONTENT_TYPES.get(extension);
-    if (!contentType) throw new Error(`unsupported Console asset: ${file.relative}`);
-    if (extension === ".html") htmlDocuments.push(content.toString("utf8"));
-    described[file.relative] = {
-      sha256: sha256(content),
-      size: content.byteLength,
-      contentType,
-      immutable: immutableAsset(file.relative),
-    };
+async function exists(candidate, statPath) {
+  try {
+    await statPath(candidate);
+    return true;
+  } catch {
+    return false;
   }
-  const csp = contentSecurityPolicy(htmlDocuments);
-  const ordered = canonicalFiles(described);
-  return { schemaVersion: 1, buildDigest: sha256(JSON.stringify({ files: ordered, contentSecurityPolicy: csp })), contentSecurityPolicy: csp, files: ordered };
 }
 
-export async function writeConsoleAssets({ source = DEFAULT_SOURCE, destination = DEFAULT_DESTINATION, manifestPath = DEFAULT_MANIFEST } = {}) {
+async function recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, renamePath, removePath, statPath }) {
+  if (await exists(backupDestination, statPath)) {
+    await removePath(destination, { recursive: true, force: true });
+    await renamePath(backupDestination, destination);
+  }
+  if (await exists(backupManifest, statPath)) {
+    await removePath(manifestPath, { force: true });
+    await renamePath(backupManifest, manifestPath);
+  }
+}
+
+export async function writeConsoleAssets({
+  source = DEFAULT_SOURCE,
+  destination = DEFAULT_DESTINATION,
+  manifestPath = DEFAULT_MANIFEST,
+  renamePath = rename,
+  removePath = rm,
+  statPath = stat,
+} = {}) {
   assertSafeTargets({ source, destination, manifestPath });
-  const { files, manifest } = await describeSource(source);
+  const { files, manifest } = await describeAssetTree(source, { requireIndex: true });
   const parent = path.dirname(destination);
   await mkdir(parent, { recursive: true });
-  const temporary = await mkdtemp(path.join(parent, ".console-dist-"));
-  const temporaryManifest = `${manifestPath}.new`;
+  const stagingRoot = await mkdtemp(path.join(parent, ".console-assets-"));
+  const temporary = path.join(stagingRoot, "dist");
+  const temporaryManifest = path.join(stagingRoot, "manifest.json");
+  const backupDestination = `${destination}.previous`;
+  const backupManifest = `${manifestPath}.previous`;
+  await mkdir(temporary);
   try {
+    await recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, renamePath, removePath, statPath });
     for (const file of files) {
       const target = path.join(temporary, ...file.relative.split("/"));
       await mkdir(path.dirname(target), { recursive: true });
       await copyFile(file.absolute, target);
     }
     await writeFile(temporaryManifest, `${JSON.stringify(manifest, null, 2)}\n`, { flag: "wx" });
-    await rm(destination, { recursive: true, force: true });
-    await rename(temporary, destination);
-    await rm(manifestPath, { force: true });
-    await rename(temporaryManifest, manifestPath);
+    await removePath(backupDestination, { recursive: true, force: true });
+    await removePath(backupManifest, { force: true });
+    if (await exists(destination, statPath)) await renamePath(destination, backupDestination);
+    if (await exists(manifestPath, statPath)) await renamePath(manifestPath, backupManifest);
+    await renamePath(temporary, destination);
+    await renamePath(temporaryManifest, manifestPath);
+    await removePath(backupDestination, { recursive: true, force: true });
+    await removePath(backupManifest, { force: true });
+  } catch (error) {
+    try {
+      await recoverReplacement({ destination, manifestPath, backupDestination, backupManifest, renamePath, removePath, statPath });
+    } catch {
+      throw new Error("Console asset replacement recovery failed", { cause: error });
+    }
+    throw error;
   } finally {
-    await rm(temporary, { recursive: true, force: true });
-    await rm(temporaryManifest, { force: true });
+    await removePath(stagingRoot, { recursive: true, force: true });
   }
   return { files: files.length, digest: manifest.buildDigest };
 }
 
 export async function verifyConsoleAssets({ source = DEFAULT_SOURCE, destination = DEFAULT_DESTINATION, manifestPath = DEFAULT_MANIFEST } = {}) {
   assertSafeTargets({ source, destination, manifestPath });
-  const expected = (await describeSource(source)).manifest;
+  const expected = (await describeAssetTree(source, { requireIndex: true })).manifest;
   const actualBytes = await readFile(manifestPath).catch(() => undefined);
   if (!actualBytes) throw new Error("Console asset manifest is missing");
   let recorded;
   try { recorded = JSON.parse(actualBytes); } catch { throw new Error("Console asset manifest is invalid"); }
-  const actual = await describeDestination(destination).catch(() => undefined);
+  const actual = await describeAssetTree(destination).then((description) => description.manifest).catch(() => undefined);
   if (!actual || JSON.stringify(recorded) !== JSON.stringify(expected) || JSON.stringify(actual) !== JSON.stringify(expected)) {
     throw new Error("Console asset manifest does not match the built output");
   }

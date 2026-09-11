@@ -105,6 +105,8 @@ corepack pnpm --filter @vegastack/labs-web test:e2e
 
 The preview serves only `web/out` on `127.0.0.1`. It is development tooling, not a production application server.
 
+The embedded Console generator preserves the exact verified Next.js bytes. Some minified chunks contain intentional trailing spaces, so `.gitattributes` disables Git's whitespace diagnosis only for `internal/consoleassets/dist/**`; the manifest SHA-256 check, not whitespace rewriting, protects those generated files.
+
 ## Generated platform contracts
 
 The typed Go graph under `internal/metadata` is the only editable source for platform command, schema, help, error, and exit metadata. To update it:

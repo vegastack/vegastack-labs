@@ -19,6 +19,7 @@ import (
 )
 
 const productionIntegrityInterval = 250 * time.Millisecond
+const remoteRequestLimit = 64
 
 var forbiddenIdentityHeaders = []string{"X-VSK-Principal", "X-VSK-UID", "X-VSK-GID", "X-VSK-Role"}
 
@@ -37,7 +38,7 @@ type RemoteConfig struct {
 	Console          http.Handler
 	ListenConfig     RemoteListenConfig
 	ListenerFactory  RemoteListenerFactory
-	PreflightFailure string
+	PreflightFailure RemoteReadReason
 }
 
 type service struct {
@@ -47,7 +48,40 @@ type service struct {
 	remote remoteReadHealth
 }
 
-type remoteReadHealth struct{ state, reason string }
+type RemoteReadState string
+type RemoteReadReason string
+
+const (
+	RemoteReadDisabled    RemoteReadState = "disabled"
+	RemoteReadStarting    RemoteReadState = "starting"
+	RemoteReadReady       RemoteReadState = "ready"
+	RemoteReadUnavailable RemoteReadState = "unavailable"
+
+	RemoteReadReasonNone                 RemoteReadReason = "none"
+	RemoteReadReasonPreflightUnavailable RemoteReadReason = "preflight-unavailable"
+	RemoteReadReasonAuthenticationFailed RemoteReadReason = "authentication-unavailable"
+	RemoteReadReasonListenerUnavailable  RemoteReadReason = "listener-unavailable"
+	RemoteReadReasonServeFailed          RemoteReadReason = "serve-failed"
+)
+
+type remoteReadHealth struct {
+	state  RemoteReadState
+	reason RemoteReadReason
+}
+
+func validRemoteReadHealth(health remoteReadHealth) bool {
+	switch health.state {
+	case RemoteReadDisabled, RemoteReadStarting, RemoteReadReady:
+		return health.reason == RemoteReadReasonNone
+	case RemoteReadUnavailable:
+		return health.reason == RemoteReadReasonPreflightUnavailable ||
+			health.reason == RemoteReadReasonAuthenticationFailed ||
+			health.reason == RemoteReadReasonListenerUnavailable ||
+			health.reason == RemoteReadReasonServeFailed
+	default:
+		return false
+	}
+}
 
 func New(config Config) (Service, error) {
 	if config.Application == nil || config.Results == nil || config.Profile.ShutdownGrace != 5*time.Second {
@@ -65,11 +99,11 @@ func New(config Config) (Service, error) {
 	if config.Profile.RemoteRead.Enabled != (config.Remote != nil) {
 		return nil, failure.New("INPUT_INVALID", "remote-control-service", false)
 	}
-	remote := remoteReadHealth{state: "disabled", reason: "none"}
+	remote := remoteReadHealth{state: RemoteReadDisabled, reason: RemoteReadReasonNone}
 	if config.Remote != nil {
-		remote = remoteReadHealth{state: "starting", reason: "none"}
+		remote = remoteReadHealth{state: RemoteReadStarting, reason: RemoteReadReasonNone}
 		if config.Remote.PreflightFailure != "" {
-			if config.Remote.PreflightFailure != "preflight-unavailable" && config.Remote.PreflightFailure != "authentication-unavailable" {
+			if !validRemoteReadHealth(remoteReadHealth{state: RemoteReadUnavailable, reason: config.Remote.PreflightFailure}) {
 				return nil, failure.New("INPUT_INVALID", "remote-control-service", false)
 			}
 		} else if config.Remote.Authenticator == nil || config.Remote.Console == nil {
@@ -155,9 +189,9 @@ selectLoop:
 			break selectLoop
 		case remoteErr := <-remoteDone:
 			if remoteErr != nil && !errors.Is(remoteErr, http.ErrServerClosed) && !errors.Is(remoteErr, net.ErrClosed) {
-				service.setRemote("unavailable", "serve-failed")
+				service.setRemote(RemoteReadUnavailable, RemoteReadReasonServeFailed)
 			} else if ctx.Err() == nil {
-				service.setRemote("unavailable", "serve-failed")
+				service.setRemote(RemoteReadUnavailable, RemoteReadReasonServeFailed)
 			}
 			remoteDone = nil
 		case <-ticker.C:
@@ -180,28 +214,50 @@ func (service *service) startRemote(ctx context.Context) (net.Listener, *http.Se
 		return nil, nil, nil
 	}
 	if remote.PreflightFailure != "" {
-		service.setRemote("unavailable", remote.PreflightFailure)
+		service.setRemote(RemoteReadUnavailable, remote.PreflightFailure)
 		return nil, nil, nil
 	}
 	if err := remote.Authenticator.Start(ctx); err != nil {
-		service.setRemote("unavailable", "authentication-unavailable")
+		service.setRemote(RemoteReadUnavailable, RemoteReadReasonAuthenticationFailed)
 		return nil, nil, nil
 	}
 	handler, err := NewBrowserHandler(service, remote.Console, remote.Authenticator)
 	if err != nil {
-		service.setRemote("unavailable", "preflight-unavailable")
+		service.setRemote(RemoteReadUnavailable, RemoteReadReasonPreflightUnavailable)
 		return nil, nil, nil
 	}
 	listener, err := remote.ListenerFactory(ctx, remote.ListenConfig)
 	if err != nil {
-		service.setRemote("unavailable", "listener-unavailable")
+		service.setRemote(RemoteReadUnavailable, RemoteReadReasonListenerUnavailable)
 		return nil, nil, nil
 	}
-	httpServer := &http.Server{Handler: handler, ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
+	httpServer := &http.Server{Handler: newRemoteAdmissionHandler(handler, remoteRequestLimit), ReadHeaderTimeout: 3 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16 * 1024}
 	done := make(chan error, 1)
 	go func() { done <- httpServer.Serve(listener) }()
-	service.setRemote("ready", "none")
+	service.setRemote(RemoteReadReady, RemoteReadReasonNone)
 	return listener, httpServer, done
+}
+
+type remoteAdmissionHandler struct {
+	next  http.Handler
+	slots chan struct{}
+}
+
+func newRemoteAdmissionHandler(next http.Handler, limit int) http.Handler {
+	return &remoteAdmissionHandler{next: next, slots: make(chan struct{}, limit)}
+}
+
+func (handler *remoteAdmissionHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+	select {
+	case handler.slots <- struct{}{}:
+		defer func() { <-handler.slots }()
+		handler.next.ServeHTTP(writer, request)
+	default:
+		writer.Header().Set("Cache-Control", "no-store")
+		writer.Header().Set("Retry-After", "1")
+		writer.Header().Set("X-Content-Type-Options", "nosniff")
+		http.Error(writer, "REMOTE_CAPACITY_UNAVAILABLE", http.StatusTooManyRequests)
+	}
 }
 
 func (service *service) shutdown(listener localapi.Listener, httpServer *http.Server) error {
@@ -301,7 +357,7 @@ func (service *service) ServeHTTP(writer http.ResponseWriter, request *http.Requ
 	status := generated.ServerStatusData{
 		State: string(state), ReadAvailable: state == StateReady || state == StateSafeMode,
 		MutationAvailable: false, RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision,
-		RemoteReadState: remote.state, RemoteReadReason: remote.reason,
+		RemoteReadState: string(remote.state), RemoteReadReason: string(remote.reason),
 	}
 	envelope, err := service.config.Results.Success(generated.CommandNameServerStatus, health.RecoveryEpoch, health.StateRevision, status)
 	if err != nil {
@@ -317,7 +373,7 @@ func (service *service) writeFailure(writer http.ResponseWriter, request *http.R
 		health, _ = service.config.Application.Health(request.Context())
 	}
 	remote := service.currentRemote()
-	data := generated.ServerStatusData{State: string(service.currentState()), RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision, RemoteReadState: remote.state, RemoteReadReason: remote.reason}
+	data := generated.ServerStatusData{State: string(service.currentState()), RecoveryEpoch: health.RecoveryEpoch, StateRevision: health.StateRevision, RemoteReadState: string(remote.state), RemoteReadReason: string(remote.reason)}
 	envelope, err := service.config.Results.Failure(generated.CommandNameServerStatus, generated.RunStatusFailed, code, target, retryable, health.RecoveryEpoch, health.StateRevision, data)
 	if err != nil {
 		http.Error(writer, "INTEGRITY_FAILURE", http.StatusInternalServerError)
@@ -344,9 +400,13 @@ func (service *service) currentState() LifecycleState {
 	return service.state
 }
 
-func (service *service) setRemote(state, reason string) {
+func (service *service) setRemote(state RemoteReadState, reason RemoteReadReason) {
+	health := remoteReadHealth{state: state, reason: reason}
+	if !validRemoteReadHealth(health) {
+		health = remoteReadHealth{state: RemoteReadUnavailable, reason: RemoteReadReasonPreflightUnavailable}
+	}
 	service.mu.Lock()
-	service.remote = remoteReadHealth{state: state, reason: reason}
+	service.remote = health
 	service.mu.Unlock()
 }
 
@@ -354,7 +414,7 @@ func (service *service) currentRemote() remoteReadHealth {
 	service.mu.RLock()
 	defer service.mu.RUnlock()
 	if service.remote.state == "" {
-		return remoteReadHealth{state: "disabled", reason: "none"}
+		return remoteReadHealth{state: RemoteReadDisabled, reason: RemoteReadReasonNone}
 	}
 	return service.remote
 }

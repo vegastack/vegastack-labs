@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "buildDigest": "92af9211f48b4d97f03b011c61aa8ec4d66e3914f033314e426156b87b9e561d",
+  "buildDigest": "213b1032afb185fd4a79e8909ee8867bed2228f315735bbc512817273fd11203",
   "contentSecurityPolicy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self' 'sha256-7mu4H06fwDCjmnxxr/xNHyuQC6pLTHr4M2E4jXw5WZs=' 'sha256-Ftw8u0ue5V0Nf1w/bSp5jLvvWiRO1HLOSarzNXuqCz4=' 'sha256-GzqBmp+GO6LtsnBhrh4oAICb1wzDWnxNUI6/JnuCTac=' 'sha256-LKZIxa1D68MwFuE9HHg4VJPdTymQ0ShlZPln+3C8+JI=' 'sha256-OBTN3RiyCV4Bq7dFqZ5a2pAXjnCcCYeTJMO2I/LYKeo=' 'sha256-QAlSewaQLi/NPCznjAZSyvQ72heD0VdxmNDDkZeCxgc=' 'sha256-d1LqALuQTQ8qDtBDjeGjCHo5nN1cBu+VseY4Nx8q4XQ=' 'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk=' 'sha256-p7Q8qk8o2vjtkGbWzwN58dLr4QTH2Vv2iOfXPPB3tAw='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'",
   "files": {
     "404.html": {
@@ -133,19 +133,19 @@
       "sha256": "9476e0afd3f9da68a64e6ec58631191fd3eaca62c9f5a377e7517fe9a89e59ea",
       "size": 219,
       "contentType": "text/javascript; charset=utf-8",
-      "immutable": true
+      "immutable": false
     },
     "_next/static/vegastack-console-v1/_clientMiddlewareManifest.js": {
       "sha256": "5483e3295dc35dfe29ea932efc85341c916f10ff78ff5b0e965e003710893a4a",
       "size": 96,
       "contentType": "text/javascript; charset=utf-8",
-      "immutable": true
+      "immutable": false
     },
     "_next/static/vegastack-console-v1/_ssgManifest.js": {
       "sha256": "678f6ce2cb80b1fe72fc67e7412be6e2ab6ada083111b64f7c40d35e3cba5e00",
       "size": 80,
       "contentType": "text/javascript; charset=utf-8",
-      "immutable": true
+      "immutable": false
     },
     "_not-found.html": {
       "sha256": "ae1fe66c0e4373eeaa4c8d69591b1b7d84c9eeaff029f1c793516ba71313704b",

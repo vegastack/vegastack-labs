@@ -112,7 +112,7 @@ func TestRealBrowserStackAndLocalRecoveryRemainIndependent(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	authorizer := store.NewReadAuthorizer(authority)
+	authorizer := newAuditingReadAuthorizer(store.NewReadAuthorizer(authority), authority)
 	application, err := api.NewApplication(api.Config{Authority: authority, Authorizer: authorizer, Reads: store.NewReadRepository(authority), Results: factory, Sessions: authenticator.SessionService()})
 	if err != nil {
 		t.Fatal(err)
@@ -154,6 +154,7 @@ func TestRealBrowserStackAndLocalRecoveryRemainIndependent(t *testing.T) {
 	}
 	assertRemoteStatus(t, remote, assertion, grantDenied, "/api/v1/summary", http.StatusForbidden, false)
 	assertRemoteStatus(t, remote, assertion, grantDenied, "/api/v1/inventory-drafts/private-canary/revisions/not-a-number", http.StatusForbidden, true)
+	assertReadDenialsSanitized(t, databasePath, 2, "private-canary", "not-a-number")
 
 	recoveryBound := createRealBrowserSession(t, remote, assertion)
 	localPrincipal := identity.Principal{ID: "principal.local", Method: identity.LocalOSPeerMethod}
@@ -208,6 +209,39 @@ func TestRealBrowserStackAndLocalRecoveryRemainIndependent(t *testing.T) {
 	}
 }
 
+func assertReadDenialsSanitized(t *testing.T, databasePath string, want int, canaries ...string) {
+	t.Helper()
+	database, err := sql.Open("sqlite3", (&url.URL{Scheme: "file", Path: databasePath}).String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	rows, err := database.Query(`SELECT canonical_payload FROM audit_events WHERE event_type='authorization.read-denied' ORDER BY event_id`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	count := 0
+	for rows.Next() {
+		var payload string
+		if err := rows.Scan(&payload); err != nil {
+			t.Fatal(err)
+		}
+		for _, canary := range canaries {
+			if strings.Contains(payload, canary) {
+				t.Fatalf("authorization denial audit leaked %q", canary)
+			}
+		}
+		count++
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	if count != want {
+		t.Fatalf("authorization denial audits = %d, want %d", count, want)
+	}
+}
+
 func signBrowserIntegrationJWT(t *testing.T, key *rsa.PrivateKey, keyID, issuer string, now time.Time, lifetime time.Duration) string {
 	t.Helper()
 	options := (&jose.SignerOptions{}).WithType("JWT").WithHeader("kid", keyID)
@@ -244,6 +278,7 @@ func seedBrowserIntegrationAuthority(t *testing.T, databasePath, bindingDigest s
 	for _, grant := range []struct{ principal, capability, kind, resource string }{
 		{"principal.remote", "platform.summary.read", "platform-summary", "summary"},
 		{"principal.local", "control.health.read", "control", "health"},
+		{"principal.local", "platform.summary.read", "platform-summary", "summary"},
 	} {
 		if _, err := database.Exec(`INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES(?,?,?,?,1,'active',?,?)`, grant.principal, grant.capability, grant.kind, grant.resource, formatted, formatted); err != nil {
 			t.Fatal(err)

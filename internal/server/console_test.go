@@ -15,16 +15,18 @@ import (
 func testConsoleHandler(t *testing.T) http.Handler {
 	t.Helper()
 	files := fstest.MapFS{
-		"index.html":                      {Data: []byte("<!doctype html><title>Console</title>")},
-		"nodes.html":                      {Data: []byte("<!doctype html><title>Nodes</title>")},
-		"_next/static/app-0123456789.js":  {Data: []byte("export{}")},
-		"nodes/__next.nodes.__PAGE__.txt": {Data: []byte("flight")},
+		"index.html":                           {Data: []byte("<!doctype html><title>Console</title>")},
+		"nodes.html":                           {Data: []byte("<!doctype html><title>Nodes</title>")},
+		"_next/static/app-0123456789.js":       {Data: []byte("export{}")},
+		"_next/static/build/_buildManifest.js": {Data: []byte("manifest")},
+		"nodes/__next.nodes.__PAGE__.txt":      {Data: []byte("flight")},
 	}
 	manifest := consoleassets.Manifest{SchemaVersion: 1, BuildDigest: strings.Repeat("a", 64), ContentSecurityPolicy: "default-src 'self'; frame-ancestors 'none'", Files: map[string]consoleassets.Asset{
-		"index.html":                      {SHA256: strings.Repeat("1", 64), Size: 37, ContentType: "text/html; charset=utf-8"},
-		"nodes.html":                      {SHA256: strings.Repeat("2", 64), Size: 35, ContentType: "text/html; charset=utf-8"},
-		"_next/static/app-0123456789.js":  {SHA256: strings.Repeat("3", 64), Size: 8, ContentType: "text/javascript; charset=utf-8", Immutable: true},
-		"nodes/__next.nodes.__PAGE__.txt": {SHA256: strings.Repeat("4", 64), Size: 6, ContentType: "text/plain; charset=utf-8"},
+		"index.html":                           {SHA256: strings.Repeat("1", 64), Size: 37, ContentType: "text/html; charset=utf-8"},
+		"nodes.html":                           {SHA256: strings.Repeat("2", 64), Size: 35, ContentType: "text/html; charset=utf-8"},
+		"_next/static/app-0123456789.js":       {SHA256: strings.Repeat("3", 64), Size: 8, ContentType: "text/javascript; charset=utf-8", Immutable: true},
+		"_next/static/build/_buildManifest.js": {SHA256: strings.Repeat("5", 64), Size: 8, ContentType: "text/javascript; charset=utf-8"},
+		"nodes/__next.nodes.__PAGE__.txt":      {SHA256: strings.Repeat("4", 64), Size: 6, ContentType: "text/plain; charset=utf-8"},
 	}}
 	handler, err := NewConsoleHandler(files, manifest)
 	if err != nil {
@@ -41,6 +43,7 @@ func TestConsoleHandlerServesOnlyManifestRoutesWithSecurityHeaders(t *testing.T)
 		{"/", "text/html; charset=utf-8", "no-store"},
 		{"/nodes", "text/html; charset=utf-8", "no-store"},
 		{"/_next/static/app-0123456789.js", "text/javascript; charset=utf-8", "public, max-age=31536000, immutable"},
+		{"/_next/static/build/_buildManifest.js", "text/javascript; charset=utf-8", "no-store"},
 		{"/nodes/__next.nodes.__PAGE__.txt", "text/plain; charset=utf-8", "no-store"},
 	} {
 		response := httptest.NewRecorder()
@@ -93,6 +96,21 @@ func TestBrowserRouterNeverFallsBackFromAPIToConsole(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "<title>Console") {
 		t.Fatalf("API path used Console fallback: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestBrowserRouterRejectsLocalMutationRoutesBeforeDispatch(t *testing.T) {
+	apiCalls := 0
+	authenticator, _, sessions := newBrowserAuthFixture(t)
+	handler, err := NewBrowserHandler(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { apiCalls++ }), testConsoleHandler(t), authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authorizedBrowserRequest(t, http.MethodPost, "/api/v1/inventory-drafts/import", sessions.raw)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNotFound || apiCalls != 0 {
+		t.Fatalf("remote mutation response = %d, API calls = %d", response.Code, apiCalls)
 	}
 }
 

@@ -54,7 +54,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	if err != nil {
 		return err
 	}
-	authorizer := store.NewReadAuthorizer(authority)
+	authorizer := newAuditingReadAuthorizer(store.NewReadAuthorizer(authority), authority)
 	reads := store.NewReadRepository(authority)
 	remote, sessions := operations.remoteRead(ctx, profile, authority, factory)
 	streamer, err := api.NewEventStreamer(api.NewStoreEventSource(reads, authority), authorizer, api.ProductionStreamLimits)
@@ -106,24 +106,27 @@ func (operations *Operations) remoteRead(ctx context.Context, profile serverconf
 	if !profile.RemoteRead.Enabled {
 		return nil, nil
 	}
-	unavailable := func(reason string) (*RemoteConfig, api.BrowserSessionService) {
+	unavailable := func(reason RemoteReadReason) (*RemoteConfig, api.BrowserSessionService) {
 		return &RemoteConfig{PreflightFailure: reason}, nil
+	}
+	if !profile.RemoteRead.ConfigurationValid {
+		return unavailable(RemoteReadReasonPreflightUnavailable)
 	}
 	adapterConfig, err := identity.LoadCloudflareAccessProfile(ctx, profile.RemoteRead.IdentityConfigPath)
 	if err != nil {
-		return unavailable("authentication-unavailable")
+		return unavailable(RemoteReadReasonAuthenticationFailed)
 	}
 	adapter, err := identity.NewCloudflareAccessAdapter(adapterConfig, &http.Client{Timeout: 10 * time.Second}, time.Now)
 	if err != nil {
-		return unavailable("authentication-unavailable")
+		return unavailable(RemoteReadReasonAuthenticationFailed)
 	}
 	files, manifest, err := consoleassets.Open()
 	if err != nil {
-		return unavailable("preflight-unavailable")
+		return unavailable(RemoteReadReasonPreflightUnavailable)
 	}
 	console, err := NewConsoleHandler(files, manifest)
 	if err != nil {
-		return unavailable("preflight-unavailable")
+		return unavailable(RemoteReadReasonPreflightUnavailable)
 	}
 	authenticator, err := NewBrowserAuthenticator(BrowserAuthConfig{
 		ExactOrigin: profile.RemoteRead.PublicOrigin,
@@ -133,7 +136,7 @@ func (operations *Operations) remoteRead(ctx context.Context, profile serverconf
 		Results:     factory,
 	})
 	if err != nil {
-		return unavailable("authentication-unavailable")
+		return unavailable(RemoteReadReasonAuthenticationFailed)
 	}
 	return &RemoteConfig{
 		Authenticator: authenticator,

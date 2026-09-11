@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/rsa"
@@ -63,6 +64,51 @@ func TestRemoteListenAcceptsTLS13Only(t *testing.T) {
 	_ = client.Close()
 	if err := <-accepted; err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestRemoteListenRejectsUnsafePrivateKeyFiles(t *testing.T) {
+	for name, mutate := range map[string]func(*testing.T, string) string{
+		"weak mode": func(t *testing.T, keyPath string) string {
+			if err := os.Chmod(keyPath, 0o644); err != nil {
+				t.Fatal(err)
+			}
+			return keyPath
+		},
+		"symlink": func(t *testing.T, keyPath string) string {
+			link := filepath.Join(filepath.Dir(keyPath), "linked.key")
+			if err := os.Symlink(keyPath, link); err != nil {
+				t.Fatal(err)
+			}
+			return link
+		},
+		"non-regular": func(t *testing.T, keyPath string) string {
+			directory := filepath.Join(filepath.Dir(keyPath), "key-directory")
+			if err := os.Mkdir(directory, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			return directory
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			certificatePath, keyPath := writeRemoteTestCertificate(t)
+			keyPath = mutate(t, keyPath)
+			if listener, err := RemoteListen(context.Background(), RemoteListenConfig{Address: "127.0.0.1:0", CertificatePath: certificatePath, PrivateKeyPath: keyPath}); err == nil {
+				_ = listener.Close()
+				t.Fatal("unsafe private key was accepted")
+			}
+		})
+	}
+}
+
+func TestRemoteListenRejectsOversizedTLSMaterial(t *testing.T) {
+	certificatePath, keyPath := writeRemoteTestCertificate(t)
+	if err := os.WriteFile(certificatePath, bytes.Repeat([]byte("x"), maxTLSMaterialBytes+1), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if listener, err := RemoteListen(context.Background(), RemoteListenConfig{Address: "127.0.0.1:0", CertificatePath: certificatePath, PrivateKeyPath: keyPath}); err == nil {
+		_ = listener.Close()
+		t.Fatal("oversized certificate was accepted")
 	}
 }
 

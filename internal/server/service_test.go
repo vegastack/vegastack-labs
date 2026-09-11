@@ -171,6 +171,51 @@ func testSupportedPlatform() Platform {
 	return Platform{OS: "linux", Architecture: "amd64", Distribution: "debian", Major: 13}
 }
 
+func TestRemoteAdmissionLimitFailsClosed(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	handler := newRemoteAdmissionHandler(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		close(started)
+		<-release
+		writer.WriteHeader(http.StatusNoContent)
+	}), 1)
+	firstDone := make(chan struct{})
+	go func() {
+		handler.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "https://console.example/", nil))
+		close(firstDone)
+	}()
+	<-started
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "https://console.example/", nil))
+	if response.Code != http.StatusTooManyRequests || response.Header().Get("Retry-After") != "1" {
+		t.Fatalf("saturated remote response = %d, retry = %q", response.Code, response.Header().Get("Retry-After"))
+	}
+	close(release)
+	<-firstDone
+}
+
+func TestRemoteReadHealthAllowsOnlyGeneratedStateReasonPairs(t *testing.T) {
+	valid := []remoteReadHealth{
+		{RemoteReadDisabled, RemoteReadReasonNone},
+		{RemoteReadStarting, RemoteReadReasonNone},
+		{RemoteReadReady, RemoteReadReasonNone},
+		{RemoteReadUnavailable, RemoteReadReasonPreflightUnavailable},
+		{RemoteReadUnavailable, RemoteReadReasonAuthenticationFailed},
+		{RemoteReadUnavailable, RemoteReadReasonListenerUnavailable},
+		{RemoteReadUnavailable, RemoteReadReasonServeFailed},
+	}
+	for _, health := range valid {
+		if !validRemoteReadHealth(health) {
+			t.Fatalf("valid remote health rejected: %#v", health)
+		}
+	}
+	for _, health := range []remoteReadHealth{{"ready", "serve-failed"}, {"unknown", "none"}, {"unavailable", "none"}} {
+		if validRemoteReadHealth(health) {
+			t.Fatalf("invalid remote health accepted: %#v", health)
+		}
+	}
+}
+
 func TestShutdownToleratesExpectedHTTPListenerDoubleClose(t *testing.T) {
 	listener := newDelayedCloseListener()
 	httpServer := &http.Server{Handler: http.NotFoundHandler()}

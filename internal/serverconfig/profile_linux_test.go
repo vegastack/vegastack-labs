@@ -60,3 +60,30 @@ func TestLoaderRejectsSymlinkWithoutReadingTarget(t *testing.T) {
 		t.Fatalf("Load() leaked target content or path: %v", err)
 	}
 }
+
+func TestLoaderKeepsValidLocalProfileWhenRemoteBlockIsInvalid(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	profile := validGeneratedProfile()
+	profile.SocketOwnerUID = int64(os.Geteuid())
+	profile.InventoryExportRoot = filepath.Join(directory, "exports")
+	if err := os.Mkdir(profile.InventoryExportRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	profile.RemoteRead = enabledRemoteRead()
+	profile.RemoteRead.TLSPrivateKeyPath = nil
+	body, err := json.Marshal(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	profilePath := filepath.Join(directory, "profile.json")
+	if err := os.WriteFile(profilePath, body, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := NewLoader(uint32(os.Geteuid())).Load(context.Background(), profilePath)
+	if err != nil || loaded.SocketPath != profile.SocketPath || !loaded.RemoteRead.Enabled || loaded.RemoteRead.ConfigurationValid {
+		t.Fatalf("invalid remote block disabled local profile: %#v, %v", loaded, err)
+	}
+}

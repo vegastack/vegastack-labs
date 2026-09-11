@@ -25,9 +25,14 @@ func TestOperationsRemoteReadIsDisabledOrFailsClosedBeforeServing(t *testing.T) 
 	if remote, sessions := operations.remoteRead(context.Background(), serverconfig.Profile{}, nil, factory); remote != nil || sessions != nil {
 		t.Fatalf("disabled remote = %#v, %#v", remote, sessions)
 	}
-	profile := serverconfig.Profile{RemoteRead: serverconfig.RemoteRead{Enabled: true, IdentityConfigPath: "/private/missing-cloudflare-profile"}}
-	remote, sessions := operations.remoteRead(context.Background(), profile, nil, factory)
-	if remote == nil || remote.PreflightFailure != "authentication-unavailable" || sessions != nil {
+	invalid := serverconfig.Profile{RemoteRead: serverconfig.RemoteRead{Enabled: true}}
+	remote, sessions := operations.remoteRead(context.Background(), invalid, nil, factory)
+	if remote == nil || remote.PreflightFailure != RemoteReadReasonPreflightUnavailable || sessions != nil {
+		t.Fatalf("invalid remote = %#v, %#v", remote, sessions)
+	}
+	profile := serverconfig.Profile{RemoteRead: serverconfig.RemoteRead{Enabled: true, ConfigurationValid: true, IdentityConfigPath: "/private/missing-cloudflare-profile"}}
+	remote, sessions = operations.remoteRead(context.Background(), profile, nil, factory)
+	if remote == nil || remote.PreflightFailure != RemoteReadReasonAuthenticationFailed || sessions != nil {
 		t.Fatalf("failed remote = %#v, %#v", remote, sessions)
 	}
 }

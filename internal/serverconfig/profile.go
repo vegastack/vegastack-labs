@@ -32,6 +32,7 @@ type Profile struct {
 
 type RemoteRead struct {
 	Enabled            bool
+	ConfigurationValid bool
 	BindAddress        string
 	PublicOrigin       string
 	ExactHost          string
@@ -110,7 +111,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	}
 	remoteRead, err := convertRemoteRead(input.RemoteRead)
 	if err != nil {
-		return invalid()
+		// Remote browser configuration is optional. Preserve strict validation,
+		// but carry its failure to the independently supervised remote listener
+		// instead of preventing the protected local Unix service from starting.
+		remoteRead = RemoteRead{Enabled: true}
 	}
 	return Profile{
 		SocketPath:          input.SocketPath,
@@ -135,7 +139,7 @@ func convertRemoteRead(input generated.RemoteReadProfile) (RemoteRead, error) {
 				return invalid()
 			}
 		}
-		return RemoteRead{}, nil
+		return RemoteRead{ConfigurationValid: true}, nil
 	}
 	for _, value := range pointers {
 		if value == nil || *value == "" || strings.TrimSpace(*value) != *value || strings.ContainsRune(*value, 0) {
@@ -160,6 +164,7 @@ func convertRemoteRead(input generated.RemoteReadProfile) (RemoteRead, error) {
 	}
 	return RemoteRead{
 		Enabled:            true,
+		ConfigurationValid: true,
 		BindAddress:        address.String(),
 		PublicOrigin:       origin.String(),
 		ExactHost:          origin.Host,

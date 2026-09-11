@@ -44,7 +44,7 @@ func TestRemoteReadRequiresCompleteTLSAndIdentityConfiguration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !got.RemoteRead.Enabled || got.RemoteRead.ExactHost != "console.example" {
+	if !got.RemoteRead.Enabled || !got.RemoteRead.ConfigurationValid || got.RemoteRead.ExactHost != "console.example" {
 		t.Fatalf("remote read = %#v", got.RemoteRead)
 	}
 
@@ -63,8 +63,9 @@ func TestRemoteReadRequiresCompleteTLSAndIdentityConfiguration(t *testing.T) {
 			profile := validGeneratedProfile()
 			profile.RemoteRead = enabledRemoteRead()
 			mutate(&profile.RemoteRead)
-			if _, err := convertGeneratedProfile(profile, 1001); err == nil {
-				t.Fatal("partial or unsafe remote listener accepted")
+			got, err := convertGeneratedProfile(profile, 1001)
+			if err != nil || !got.RemoteRead.Enabled || got.RemoteRead.ConfigurationValid {
+				t.Fatalf("unsafe remote configuration was not isolated: %#v, %v", got.RemoteRead, err)
 			}
 		})
 	}
@@ -73,8 +74,9 @@ func TestRemoteReadRequiresCompleteTLSAndIdentityConfiguration(t *testing.T) {
 func TestDisabledRemoteReadRejectsHiddenConfiguration(t *testing.T) {
 	profile := validGeneratedProfile()
 	profile.RemoteRead.BindAddress = stringPointer("127.0.0.1:8443")
-	if _, err := convertGeneratedProfile(profile, 1001); err == nil {
-		t.Fatal("disabled remote listener accepted hidden configuration")
+	got, err := convertGeneratedProfile(profile, 1001)
+	if err != nil || !got.RemoteRead.Enabled || got.RemoteRead.ConfigurationValid {
+		t.Fatalf("hidden remote configuration was not isolated: %#v, %v", got.RemoteRead, err)
 	}
 }
 

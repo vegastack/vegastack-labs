@@ -8,6 +8,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -120,6 +121,12 @@ func NewBrowserHandler(apiHandler, staticHandler http.Handler, authenticator *Br
 	protectedAssets := authenticator.WrapAssets(staticHandler)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/api" || strings.HasPrefix(request.URL.Path, "/api/") {
+			if !api.RemoteReadRequestAllowed(request.Method, request.URL.Path) {
+				writer.Header().Set("Cache-Control", "no-store")
+				writer.Header().Set("X-Content-Type-Options", "nosniff")
+				http.Error(writer, "NOT_FOUND", http.StatusNotFound)
+				return
+			}
 			protectedAPI.ServeHTTP(writer, request)
 			return
 		}
