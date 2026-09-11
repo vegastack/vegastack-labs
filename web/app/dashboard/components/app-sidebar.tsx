@@ -1,6 +1,6 @@
 "use client";
 
-import { Boxes, ClipboardCheck, FileClock, LayoutDashboard, Settings, type LucideIcon } from "lucide-react";
+import { Boxes, ClipboardCheck, FileClock, LayoutDashboard, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { AppShellSidebar } from "@/components/ui/app-shell";
 import { SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
@@ -8,7 +8,8 @@ import { SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, Sidebar
 interface NavItem { label: string; href: string; icon: LucideIcon }
 const navItems: readonly NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
-  { label: "Inventory", href: "/unavailable", icon: Boxes },
+  { label: "Nodes", href: "/nodes", icon: Boxes },
+  { label: "Gates", href: "/gates", icon: ShieldCheck },
   { label: "Plans", href: "/unavailable", icon: ClipboardCheck },
   { label: "Audit", href: "/unavailable", icon: FileClock },
   { label: "Settings", href: "/unavailable", icon: Settings },
