@@ -71,6 +71,7 @@ for (const domain of domains) {
     await page.keyboard.press("Enter");
     await expect(page.locator('[data-read-state="stale"]')).toBeVisible();
     await expect(page.locator('[data-source-state="healthy"]')).toBeVisible();
+    await expect(page.getByRole("button", { name: `Refresh ${domain.title}` })).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBeTruthy();
     await expectNoSeriousAccessibilityViolations(page);
     await page.getByRole("button", { name: "Use dark theme" }).click();
@@ -99,6 +100,7 @@ test("private domain backing records never reach the browser", async ({ page }) 
     await expect(page.getByText(/status observation is current/i)).toBeVisible();
     rendered.push(await page.locator("body").innerText());
   }
+  for (const domain of domains) expect(fixtureAudit.domainProjections).toContainEqual({ source: domain.source, candidates: 2, excluded: 1 });
   const browserState = await page.evaluate(async () => ({ local: Object.entries(localStorage), session: Object.entries(sessionStorage), databases: (await indexedDB.databases()).map(database => database.name), caches: await caches.keys() }));
   const exposed = [rendered.join("\n"), page.url(), JSON.stringify(browserState), JSON.stringify(await page.context().cookies()), logs.join("\n"), fixtureAudit.requests.join("\n"), fixtureAudit.responses.join("\n")].join("\n");
   for (const canary of privateDomainCanaries) expect(exposed).not.toContain(canary);

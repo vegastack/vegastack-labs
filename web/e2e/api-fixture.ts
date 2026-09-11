@@ -3,7 +3,7 @@ import type { Page, Route } from "@playwright/test";
 export type FixtureMode = "healthy" | "dependency" | "dependency-summary" | "dependency-node-page" | "unavailable" | "denied" | "deny-node-page" | "empty" | "missing" | "mismatched-source" | "malformed";
 type DomainFixtureState = "healthy" | "stale" | "unknown" | "unavailable" | "failed";
 export const fixtureState: { mode: FixtureMode; delay: number; domainState: DomainFixtureState } = { mode: "healthy", delay: 0, domainState: "unavailable" };
-export const fixtureAudit: { requests: string[]; responses: string[] } = { requests: [], responses: [] };
+export const fixtureAudit: { requests: string[]; responses: string[]; domainProjections: Array<{ source: string; candidates: number; excluded: number }> } = { requests: [], responses: [], domainProjections: [] };
 const digest = `sha256:${"a".repeat(64)}`;
 const nodeBackingRecords = [
   { scope: "draft-one", page: 1, authority: "draft", validationStatus: "valid", id: "node-one", assetId: "asset-one", parentId: "site-one" },
@@ -12,12 +12,29 @@ const nodeBackingRecords = [
 ] as const;
 export const privateFixtureRecords = [nodeBackingRecords[2].id, nodeBackingRecords[2].assetId, nodeBackingRecords[2].parentId] as const;
 export const privateDomainBackingRecords = [
-  { scope: "another-project", kind: "person", value: "private-person-canary" },
-  { scope: "another-project", kind: "service", value: "private-service-canary" },
-  { scope: "another-project", kind: "backup-evidence", value: "private-backup-canary" },
-  { scope: "another-project", kind: "provider-error", value: "private-provider-canary" },
+  { scope: "another-project", source: "people", kind: "person", value: "private-person-canary" },
+  { scope: "another-project", source: "services", kind: "service", value: "private-service-canary" },
+  { scope: "another-project", source: "backups", kind: "backup-evidence", value: "private-backup-canary" },
+  { scope: "another-project", source: "providers", kind: "provider-error", value: "private-provider-canary" },
 ] as const;
 export const privateDomainCanaries = privateDomainBackingRecords.map(record => record.value);
+const domainSourceBackingRecords = [
+  { scope: "current-project", source: "people", capability: "identity.person.read" },
+  { scope: "current-project", source: "services", capability: "service.read" },
+  { scope: "current-project", source: "backups", capability: "backup.status.read" },
+  { scope: "current-project", source: "providers", capability: "adapter.status.read" },
+  ...privateDomainBackingRecords,
+] as const;
+
+function projectDomainSource(source: string, state: DomainFixtureState) {
+  const candidates = domainSourceBackingRecords.filter(record => record.source === source);
+  const authorized = candidates.filter(record => record.scope === "current-project");
+  fixtureAudit.domainProjections.push({ source, candidates: candidates.length, excluded: candidates.length - authorized.length });
+  const record = authorized[0];
+  if (!record || !("capability" in record)) return undefined;
+  const reason = state === "healthy" ? "source observation is current" : state === "stale" ? "source observation is stale" : state === "unknown" ? "source has no observation timestamp" : state === "failed" ? "source reported a collection failure" : "source capability is unavailable";
+  return { id: record.source, capability: record.capability, state, collectedAt: state === "healthy" ? "2026-09-11T08:00:00Z" : null, lastSuccessAt: state === "healthy" ? "2026-09-11T08:00:00Z" : "2026-09-10T07:00:00Z", lastErrorAt: state === "failed" || state === "unavailable" ? "2026-09-11T08:00:00Z" : null, reason };
+}
 
 function envelope(command: string, data: unknown, status = "succeeded", errors: unknown[] = []) {
   return { schema: "vegastack-labs.dev/run-result", schemaVersion: "1.0.0", toolVersion: "test", command, requestId: "request-browser", runId: null, status, changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null, errors, data };
@@ -50,9 +67,10 @@ async function respond(route: Route) {
     data = { items: ids.map(id => {
       const isDomain = ["people", "services", "backups", "providers"].includes(id);
       const state = id === "database" || id === "nodes" ? "healthy" : isDomain ? fixtureState.domainState : "unavailable";
+      if (isDomain) return projectDomainSource(id, state);
       const reason = state === "healthy" ? "source observation is current" : state === "stale" ? "source observation is stale" : state === "unknown" ? "source has no observation timestamp" : state === "failed" ? "source reported a collection failure" : "source capability is unavailable";
       return { id, capability: id === "database" ? "database.status.read" : id === "nodes" ? "inventory.node.read" : id === "gates" ? "gate.read" : id === "people" ? "identity.person.read" : id === "services" ? "service.read" : id === "backups" ? "backup.status.read" : "adapter.status.read", state, collectedAt: state === "healthy" ? "2026-09-11T08:00:00Z" : null, lastSuccessAt: state === "healthy" ? "2026-09-11T08:00:00Z" : "2026-09-10T07:00:00Z", lastErrorAt: state === "failed" || state === "unavailable" ? "2026-09-11T08:00:00Z" : null, reason };
-    }), nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
+    }).filter(Boolean), nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
   } else if (path === "/api/v1/inventory-drafts") {
     command = "api.v1.inventory-drafts.list";
     data = { items: fixtureState.mode === "empty" ? [] : [{ authority: "draft", draftId: "draft-one", revision: 1, validationStatus: "valid", contentDigest: digest, createdAt: "2026-09-11T08:00:00Z", counts: { assets: 1, nodes: 2, aliases: 2, addresses: 0, observations: 2, hardwareFacts: 0, provenance: 1, findings: 0 } }], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
@@ -81,5 +99,6 @@ export async function installReadFixture(page: Page) {
   fixtureState.domainState = "unavailable";
   fixtureAudit.requests.length = 0;
   fixtureAudit.responses.length = 0;
+  fixtureAudit.domainProjections.length = 0;
   await page.route("**/api/v1/**", respond);
 }
