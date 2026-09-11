@@ -1,6 +1,14 @@
 packages:
   - web
 
+overrides:
+  "@vegastack/design@0.3.2>@vegastack/design-tokens": 0.2.0
+
+packageExtensions:
+  "@vegastack/design@0.3.2":
+    peerDependencies:
+      tailwindcss: 4.3.3
+
 allowBuilds:
   # ESLint can use the published native binary or JavaScript fallback. Its
   # dependency build script receives no execution authority in this repo.
