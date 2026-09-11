@@ -195,7 +195,7 @@ func TestEmbeddedConsoleAndAuthorizedAPIShareOriginWhileLocalRecoverySurvives(t 
 		want   int
 	}{
 		{method: http.MethodGet, path: "/missing-console-asset.js", want: http.StatusNotFound},
-		{method: http.MethodDelete, path: "/dashboard", want: http.StatusMethodNotAllowed},
+		{method: http.MethodDelete, path: "/dashboard", want: http.StatusUnauthorized},
 	} {
 		request = consoleStackRequest(t, negative.method, "https://"+address+negative.path, assertion, nil)
 		request.Header.Set("Sec-Fetch-Site", "same-origin")
@@ -316,6 +316,9 @@ func TestEmbeddedConsoleAndAuthorizedAPIShareOriginWhileLocalRecoverySurvives(t 
 
 func TestInvalidRemoteConfigurationLeavesRealLocalUnixServiceAvailable(t *testing.T) {
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	profile := serverconfig.Profile{
 		SocketPath: filepath.Join(directory, "control.sock"), SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600,
 		ShutdownGrace: 5 * time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}},
@@ -336,6 +339,11 @@ func TestInvalidRemoteConfigurationLeavesRealLocalUnixServiceAvailable(t *testin
 	client := localapi.NewClient(factory)
 	var status localapi.Response
 	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
+		select {
+		case runErr := <-done:
+			t.Fatalf("service stopped before local status: %v", runErr)
+		default:
+		}
 		status, err = client.Status(context.Background(), profile)
 		if err == nil {
 			break
@@ -353,6 +361,9 @@ func TestInvalidRemoteConfigurationLeavesRealLocalUnixServiceAvailable(t *testin
 
 func TestRealRemoteBindFailureLeavesLocalUnixServiceAvailable(t *testing.T) {
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	occupied, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -380,6 +391,11 @@ func TestRealRemoteBindFailureLeavesLocalUnixServiceAvailable(t *testing.T) {
 	client := localapi.NewClient(factory)
 	var status localapi.Response
 	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
+		select {
+		case runErr := <-done:
+			t.Fatalf("service stopped before local status: %v", runErr)
+		default:
+		}
 		status, err = client.Status(context.Background(), profile)
 		if err == nil && status.Status.RemoteReadState == "unavailable" {
 			break
@@ -484,7 +500,7 @@ func productionOperationsFixture(t *testing.T, remote generated.RemoteReadProfil
 	if err := authority.Close(); err != nil {
 		t.Fatal(err)
 	}
-	seedBrowserIntegrationAuthority(t, databasePath, strings.Repeat("f", 64), time.Now())
+	seedBrowserIntegrationAuthority(t, databasePath, "sha256:"+strings.Repeat("f", 64), time.Now())
 	generatedProfile := generated.ServerProfile{
 		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.1.0",
 		SocketPath: filepath.Join(directory, "control.sock"), SocketOwnerUID: int64(uid), SocketMode: "0600", ShutdownGraceSeconds: 5,
