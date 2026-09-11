@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "authority": "node tooling/provenance.mjs --write --approve-current-lock",
-  "reviewedOn": "10-09-2026",
-  "lockfileSha256": "b80052efe07a63e3bb9f6121af1f8b4b768bcda044f9e3a3aacb4b40b680c25f",
+  "reviewedOn": "11-09-2026",
+  "lockfileSha256": "9b33e39b3d21cd7ff0dfeb6fc91abb35589c374127ef8f9fa0116185c2a2c7d9",
   "registry": "https://registry.npmjs.org",
   "packages": [
     {
@@ -1164,6 +1164,34 @@
       "license": "MIT",
       "homepage": "https://tailwindcss.com",
       "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@tanstack/query-core",
+      "version": "5.102.8",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-ZNjkJ33CqvPNec/6lZBnHqLc3EVGPZ9ySLhYahU9TcuRFdmwXewuj0c4hwSWcGHqEUwcSrKeZ+oGcvPBqXcQcg==",
+      "lockKeys": [
+        "@tanstack/query-core@5.102.8"
+      ],
+      "license": "MIT",
+      "homepage": "https://tanstack.com/query",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "@tanstack/react-query",
+      "version": "5.102.8",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-TYBea4OuXWD7MhaSHq069TWbFe7rcwWN6kzT7JF0OKi1K6c1gTv2IzD6A6ExJsCMozdkqBWeuIUZmu4KQg0O5A==",
+      "lockKeys": [
+        "@tanstack/react-query@5.102.8"
+      ],
+      "license": "MIT",
+      "homepage": "https://tanstack.com/query",
+      "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
@@ -6432,5 +6460,5 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     }
   ],
-  "reviewMetadataSha256": "ad23318a9d7007529cd632f7eceee4f81d989b86f2337ae857493139d4025634"
+  "reviewMetadataSha256": "3196fd4aa4f3cfe7feeb8a9a80f32f780ff0f76bc04d1a58228c80e10d495af7"
 }

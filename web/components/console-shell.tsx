@@ -12,7 +12,7 @@ export function ConsoleShell({ children, title }: { children: ReactNode; title: 
         <AppShellHeader actions={<ThemeToggle />}>
           <Breadcrumb><BreadcrumbTrail items={[{ label: "VegaStack Labs", href: "/" }, { label: title }]} /></Breadcrumb>
         </AppShellHeader>
-        <AppShellContent aria-label={title}>
+        <AppShellContent aria-label={title} tabIndex={0}>
           <div className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-6 p-4 sm:p-8">
             <header className="space-y-2">
               <p className="text-label-sm uppercase tracking-wide text-muted-foreground">Console preview</p>

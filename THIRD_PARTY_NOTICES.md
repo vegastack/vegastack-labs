@@ -89,6 +89,8 @@ The exact development-only MPL-2.0 dependencies listed below are unmodified and 
 | `@tailwindcss/oxide-win32-arm64-msvc` | `4.3.3` | `MIT` | build | [source](https://www.npmjs.com/package/%40tailwindcss%2Foxide-win32-arm64-msvc/v/4.3.3) |
 | `@tailwindcss/oxide-win32-x64-msvc` | `4.3.3` | `MIT` | build | [source](https://www.npmjs.com/package/%40tailwindcss%2Foxide-win32-x64-msvc/v/4.3.3) |
 | `@tailwindcss/postcss` | `4.3.3` | `MIT` | build | [source](https://tailwindcss.com) |
+| `@tanstack/query-core` | `5.102.8` | `MIT` | runtime | [source](https://tanstack.com/query) |
+| `@tanstack/react-query` | `5.102.8` | `MIT` | runtime | [source](https://tanstack.com/query) |
 | `@thesvg/icons` | `3.3.1` | `MIT` | runtime | [source](https://thesvg.org) |
 | `@tybys/wasm-util` | `0.10.3` | `MIT` | build | [source](https://github.com/toyobayashi/wasm-util#readme) |
 | `@types/d3-array` | `3.2.2` | `MIT` | runtime | [source](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) |

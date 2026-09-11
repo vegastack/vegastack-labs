@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { VegaStackProvider } from "@/components/ui/provider";
+import { ConsoleQueryProvider } from "@/components/query-provider";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -15,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className="min-h-screen bg-background font-sans text-foreground antialiased">
-        <VegaStackProvider>{children}</VegaStackProvider>
+        <VegaStackProvider><ConsoleQueryProvider>{children}</ConsoleQueryProvider></VegaStackProvider>
       </body>
     </html>
   );

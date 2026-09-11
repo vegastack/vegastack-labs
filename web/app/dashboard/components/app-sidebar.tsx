@@ -1,20 +1,23 @@
 "use client";
 
-import { Boxes, ClipboardCheck, FileClock, LayoutDashboard, Settings, type LucideIcon } from "lucide-react";
+import { Boxes, ClipboardCheck, FileClock, LayoutDashboard, Settings, ShieldCheck, type LucideIcon } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { AppShellSidebar } from "@/components/ui/app-shell";
 import { SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem } from "@/components/ui/sidebar";
 
 interface NavItem { label: string; href: string; icon: LucideIcon }
 const navItems: readonly NavItem[] = [
   { label: "Overview", href: "/", icon: LayoutDashboard },
-  { label: "Inventory", href: "/unavailable", icon: Boxes },
+  { label: "Nodes", href: "/nodes", icon: Boxes },
+  { label: "Gates", href: "/gates", icon: ShieldCheck },
   { label: "Plans", href: "/unavailable", icon: ClipboardCheck },
   { label: "Audit", href: "/unavailable", icon: FileClock },
   { label: "Settings", href: "/unavailable", icon: Settings },
 ];
 
 export function AppSidebar() {
+  const pathname = usePathname();
   return (
     <AppShellSidebar aria-label="Console navigation">
       <SidebarHeader>
@@ -29,7 +32,7 @@ export function AppSidebar() {
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.label}>
-                <SidebarMenuButton render={<Link href={item.href} prefetch={false} />}>
+                <SidebarMenuButton className="min-h-11" isActive={item.href !== "/unavailable" && pathname === item.href} render={<Link href={item.href} prefetch={false} />}>
                   <item.icon aria-hidden /><span>{item.label}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -37,7 +40,7 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter><p className="px-2 py-1 text-xs text-muted-foreground group-data-[state=collapsed]/sidebar:hidden">Static preview · no live connection</p></SidebarFooter>
+      <SidebarFooter><p className="px-2 py-1 text-xs text-muted-foreground group-data-[state=collapsed]/sidebar:hidden">Read-only control-plane connection</p></SidebarFooter>
     </AppShellSidebar>
   );
 }
