@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.7.0",
+  "schemaVersion": "1.8.0",
   "commands": [
     {
       "path": [
@@ -1350,6 +1350,16 @@
       "id": "vegastack-labs.dev/api-audit-event-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/api-audit-event-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-browser-session-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-browser-session-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-browser-session-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-browser-session-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/api-inventory-alias-data",

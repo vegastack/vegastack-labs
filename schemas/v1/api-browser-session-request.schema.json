@@ -1,0 +1,19 @@
+{
+  "$id": "vegastack-labs.dev/api-browser-session-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "requestVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "requestVersion"
+  ],
+  "title": "VegaStack Labs api browser session request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

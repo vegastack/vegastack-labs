@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 10-09-2026 — Remote browser access now has revocable local sessions ([#54](https://github.com/vegastack/vegastack-labs/issues/54))
+
+- **What:** The Go control server can verify a Cloudflare Access identity through a provider-neutral adapter and bind it to existing local grants. Browser requests also require a short-lived, digest-only SQLite session that can be renewed, logged out, revoked, or invalidated after a grant or recovery change.
+- **Why:** The future static Console needs remote access without trusting proxy email headers, putting provider tokens in JavaScript, adding local passwords, or creating a second Node authentication authority.
+- **How it went:** The security boundary stayed inside one executable; adversarial JWT, key-outage, cookie, replay, audit, recovery, and authorization tests drove the implementation. Linux race tests exposed replay-idempotency and renewal foreign-key ordering defects that macOS skips, and both were fixed before review. Independent review then found durable-expiry, repeat-revocation, concurrent-key-refresh, real-integration-proof, and ordinary browser GET Origin gaps; the correction loop made the safe-read origin proof browser-compatible without weakening unsafe-method Origin checks. The new real-stack proof also exposed that the read API flattened a typed authorization denial to a generic dependency error, so it now admits only recognized generated backend error codes and returns the intended safe denial. The reviewed Issue #51/#52 contract chain was integrated, the combined additive contract moved to 1.8.0, and generated browser reads remained mutation-free.
+- **Changed:** Provider-neutral verified identities · strict RS256 Access JWT validation · coalesced lazy key refresh with a 24-hour known-key outage bound · 15-minute idle/8-hour absolute digest-only sessions · exact Host/request-origin/JWT/session ordering · secure local-only logout · audited expiry/revocation and Cloudflare-independent local recovery.
+- **Decisions:** D-125 records the one-Go-executable exception to the general Better Auth default, bounded signing-key cache, session limits, local logout meaning, and independent recovery.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/54-secure-browser-sessions
+
 ## 10-09-2026 — Platform reads now say when their information is stale or unavailable ([#52](https://github.com/vegastack/vegastack-labs/issues/52))
 
 - **What:** Authorized clients can read one provider-neutral source list covering the database, nodes, gates, people, services, backups, and providers. Each source reports `healthy`, `stale`, `unknown`, `unavailable`, or `failed`, and the existing summary includes counts plus the worst current state.

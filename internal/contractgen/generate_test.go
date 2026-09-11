@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -35,6 +36,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/endpoint-registry.schema.json",
 		"web/generated/read-api.ts",
 		"schemas/v1/api-audit-event-data.schema.json",
+		"schemas/v1/api-browser-session-data.schema.json",
+		"schemas/v1/api-browser-session-request.schema.json",
 		"schemas/v1/api-inventory-alias-data.schema.json",
 		"schemas/v1/api-inventory-alias-list-data.schema.json",
 		"schemas/v1/api-inventory-asset-data.schema.json",
@@ -107,6 +110,35 @@ func TestGenerateSelectsOnlyBrowserSafeAvailableReads(t *testing.T) {
 	}
 	if !strings.Contains(client, "api.v1.events.stream") || !strings.Contains(client, "api.v1.summary.get") {
 		t.Fatal("implemented reads missing")
+	}
+}
+
+func TestGenerateEmitsSecretFreeBrowserSessionContracts(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := make(map[string][]byte, len(artifacts))
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = artifact.Content
+	}
+	for _, path := range []string{"schemas/v1/api-browser-session-request.schema.json", "schemas/v1/api-browser-session-data.schema.json"} {
+		var schema map[string]any
+		if err := json.Unmarshal(byPath[path], &schema); err != nil {
+			t.Fatalf("%s: %v", path, err)
+		}
+		if schema["additionalProperties"] != false {
+			t.Fatalf("%s is open", path)
+		}
+	}
+	generatedGo := string(byPath["internal/generated/contracts_gen.go"])
+	if !strings.Contains(generatedGo, "type ApiBrowserSessionData struct") || !strings.Contains(generatedGo, "type ApiBrowserSessionRequest struct") {
+		t.Fatal("generated session types are missing")
+	}
+	if regexp.MustCompile(`(?i)type ApiBrowserSessionData[\\s\\S]{0,500}(jwt|cookie|email|claim|secret|token)`).MatchString(generatedGo) {
+		t.Fatal("generated session data contains a private field")
 	}
 }
 
@@ -479,7 +511,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.7.0"`,
+		`= "1.8.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

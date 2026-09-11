@@ -24,6 +24,9 @@ var pathToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 
 func finiteRoutes(app *Application) []route {
 	return []route{
+		{"api.v1.session.create", http.MethodPost, "/api/v1/session", "", "", app.sessionCreate},
+		{"api.v1.session.renew", http.MethodPost, "/api/v1/session/renew", "", "", app.sessionRenew},
+		{"api.v1.session.logout", http.MethodPost, "/api/v1/session/logout", "", "", app.sessionLogout},
 		{"api.v1.database-status.get", http.MethodGet, "/api/v1/database/status", "database.status.read", "database", app.databaseStatus},
 		{"api.v1.summary.get", http.MethodGet, "/api/v1/summary", "platform.summary.read", "platform-summary", app.summary},
 		{"api.v1.sources.list", http.MethodGet, "/api/v1/sources", "platform.source.read", "platform-source", app.sourceList},
@@ -92,6 +95,14 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		}
 		if candidate.method == http.MethodGet && request.Method != candidate.method {
 			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
+			return
+		}
+		if strings.HasPrefix(candidate.id, "api.v1.session.") {
+			if request.Method != candidate.method {
+				app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
+				return
+			}
+			candidate.handler(writer, request, authorization.ReadScope{}, params)
 			return
 		}
 		principal, ok := identity.PrincipalFromContext(request.Context())

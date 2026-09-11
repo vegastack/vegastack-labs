@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "authority": "manual-review:go-dependency-provenance",
-  "reviewedOn": "08-09-2026",
+  "reviewedOn": "10-09-2026",
   "modules": [
     {
       "path": "bitbucket.org/creachadair/shell",
@@ -1059,9 +1059,9 @@
       "checksum": "h1:moDMcTHmvE6Groj34emNPLs/qtYXRVcd6S7NHbHz3kA=",
       "license": "Apache-2.0",
       "source": "https://github.com/go-jose/go-jose",
-      "role": "build",
+      "role": "runtime",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed test-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed permissive JOSE implementation used by the Cloudflare Access adapter with an explicit RS256 allowlist."
     },
     {
       "path": "github.com/go-logr/logr",
@@ -3944,5 +3944,5 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     }
   ],
-  "reviewMetadataSha256": "da7c2142f176425c64c2aeea1bad26ff2f47c3048a23364b6e11a7c1831d19b7"
+  "reviewMetadataSha256": "d429492c376c028b2c2d4d8c305f75fef5d9c8a45040015c044880fd9f5a43de"
 }

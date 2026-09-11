@@ -57,6 +57,8 @@ const (
 	apiInventoryObservationListDataSchemaID = "vegastack-labs.dev/api-inventory-observation-list-data"
 	apiInventoryObservationDataSchemaID     = "vegastack-labs.dev/api-inventory-observation-data"
 	apiAuditEventDataSchemaID               = "vegastack-labs.dev/api-audit-event-data"
+	apiBrowserSessionRequestSchemaID        = "vegastack-labs.dev/api-browser-session-request"
+	apiBrowserSessionDataSchemaID           = "vegastack-labs.dev/api-browser-session-data"
 	inventoryDraftRefSchemaID               = "vegastack-labs.dev/inventory-draft-ref"
 	inventoryImportRequestSchemaID          = "vegastack-labs.dev/inventory-import-request"
 	inventoryDiffRequestSchemaID            = "vegastack-labs.dev/inventory-diff-request"
@@ -193,7 +195,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.7.0",
+		SchemaVersion: "1.8.0",
 		Commands:      commands,
 		Endpoints:     readEndpoints(),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
@@ -231,6 +233,9 @@ func readEndpoints() []EndpointDefinition {
 		{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryImportRequestSchemaID, DataSchema: inventoryImportDataSchemaID, Stream: StreamFinite},
 		{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryDiffRequestSchemaID, DataSchema: inventoryDiffDataSchemaID, Stream: StreamFinite},
 		{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryExportRequestSchemaID, DataSchema: inventoryExportDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.session.create", Method: "POST", Path: "/api/v1/session", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.session.renew", Method: "POST", Path: "/api/v1/session/renew", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.session.logout", Method: "POST", Path: "/api/v1/session/logout", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite},
 	}
 }
 
@@ -658,6 +663,15 @@ func readAPISchemas() []SchemaDefinition {
 		return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, MaxLength: intPointer(128)}
 	}
 	return []SchemaDefinition{
+		{ID: apiBrowserSessionRequestSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-browser-session-request.schema.json", Fields: []FieldDefinition{
+			{JSONName: "requestVersion", GoName: "RequestVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}},
+		}},
+		{ID: apiBrowserSessionDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-browser-session-data.schema.json", Fields: []FieldDefinition{
+			{JSONName: "principalId", GoName: "PrincipalID", Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+			{JSONName: "idleExpiresAt", GoName: "IdleExpiresAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+			{JSONName: "absoluteExpiresAt", GoName: "AbsoluteExpiresAt", Kind: ValueString, Required: true, MaxLength: intPointer(64)},
+			{JSONName: "logoutScope", GoName: "LogoutScope", Kind: ValueString, Required: true, Enum: []string{"vsk-labs-session-only"}},
+		}},
 		{ID: apiPageQuerySchemaID, Version: "1.0.0", Fields: []FieldDefinition{
 			{JSONName: "limit", GoName: "Limit", Kind: ValueInteger, Required: false, Minimum: int64Pointer(1), Maximum: int64Pointer(200)},
 			{JSONName: "sort", GoName: "Sort", Kind: ValueString, Required: false, MaxLength: intPointer(64)},

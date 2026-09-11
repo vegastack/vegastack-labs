@@ -125,11 +125,16 @@ func TestCatalogAddsAuditOutboxAsExactlyMigrationThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) != 4 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" {
+	if len(catalog) != 5 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" {
 		t.Fatalf("third migration = %#v", catalog)
 	}
 	if sha256.Sum256([]byte(catalog[3].SQL)) != catalog[3].SHA256 {
 		t.Fatal("migration 0004 checksum mismatch")
+	}
+	for _, required := range []string{"remote_identity_bindings", "browser_sessions", "session_digest", "recovery_epoch", "no_delete", "monotonic"} {
+		if !containsFold(catalog[4].SQL, required) {
+			t.Errorf("session migration is missing %q", required)
+		}
 	}
 	if sha256.Sum256([]byte(catalog[2].SQL)) != catalog[2].SHA256 {
 		t.Fatal("migration 0003 checksum mismatch")
