@@ -11,6 +11,7 @@
   "scripts": {
     "check": "node tooling/check.mjs",
     "check:cli": "node tooling/verify-cli.mjs",
+    "check:console-assets": "node tooling/console-assets.mjs --check",
     "check:contracts": "go run ./tooling/generate-contracts --check",
     "check:dependencies": "node tooling/provenance.mjs --check",
     "check:docs": "node tooling/verify-docs.mjs",
@@ -28,6 +29,7 @@
     "generate:historical": "node tooling/historical.mjs --write --approve-current",
     "generate:go-provenance": "node tooling/verify-go-dependencies.mjs --propose",
     "generate:contracts": "go run ./tooling/generate-contracts --write",
+    "generate:console-assets": "node tooling/console-assets.mjs --write",
     "refresh:design-system": "node tooling/design-system.mjs --refresh --approve-version 0.6.0",
     "generate:provenance": "node tooling/provenance.mjs --write --approve-current-lock",
     "test:tooling": "node --test --test-concurrency=1 tooling/test/*.test.mjs"
