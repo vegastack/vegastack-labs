@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 11-09-2026 — Operators can read Overview, Nodes, and honest gate availability ([#55](https://github.com/vegastack/vegastack-labs/issues/55))
+
+- **What:** The embedded Console now reads authorized summary and source status, shows separately paginated inert node, alias, and observation records with bounded details, and reports gate capability without inventing gate results or controls.
+- **Why:** Operators need useful read screens before later phases add declarations and gate evidence, while denied, stale, missing, and unavailable information must remain visibly different.
+- **How it went:** Browser testing first appeared to show a denial loop because the preview was serving an older static build. Rebuilding exposed the real test ambiguity—the framework and the Console both own alert regions—and the assertion was narrowed to the Console state. The final flows preserve retryable stale data with a warning, immediately hide it after denial, restore focus after details, and keep operational data out of browser storage and URLs.
+- **Changed:** Bounded in-memory TanStack Query state · generated-client-only reads · truthful shared view states · authorized Overview · independent Nodes/Aliases/Observations pagination and details · capability-only Gates · browser privacy and responsive evidence · static route drift guards.
+- **Decisions:** Gate records remain deferred to their owning later phases, as selected by the operator; this issue creates no mutation, provider, deployment, or live-fleet authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/55-overview-nodes-gates
+
 ## 11-09-2026 — The Console and protected reads now run inside one service ([#53](https://github.com/vegastack/vegastack-labs/issues/53))
 
 - **What:** `vsk-labs server run` now contains the verified static Console and can serve it beside the existing versioned read API on one protected TLS origin. The local Unix-socket path remains independently available and reports whether remote reads are disabled, starting, ready, or unavailable.

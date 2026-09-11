@@ -8,7 +8,9 @@ export function ConsoleQueryProvider({ children }: { children: ReactNode }) {
   const [client] = useState(() => {
     const queryCache = new QueryCache({
       onError: (error, query) => {
-        if (isHardReadFailure(error)) queryCache.remove(query);
+        // Keep the error state while replacing any prior authorized payload.
+        // Views treat null as no readable data and render the hard failure.
+        if (isHardReadFailure(error)) query.setState({ data: null });
       },
     });
     return new QueryClient({
@@ -19,6 +21,7 @@ export function ConsoleQueryProvider({ children }: { children: ReactNode }) {
           gcTime: 0,
           staleTime: 0,
           refetchOnMount: false,
+          retryOnMount: false,
           refetchOnReconnect: false,
           refetchOnWindowFocus: false,
         },

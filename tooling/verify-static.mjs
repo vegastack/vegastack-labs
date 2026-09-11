@@ -30,7 +30,7 @@ async function walk(directory) {
 
 export async function verifyStaticExport(output = OUTPUT, embedded = output === OUTPUT ? {} : false, requireDeterministicBuildID = output === OUTPUT) {
   const index = await readFile(path.join(output, "index.html"), "utf8");
-  if (!index.includes("Data integration is not implemented") || !index.includes("No control-plane data yet")) {
+  if (!index.includes("Loading Overview")) {
     throw new Error("static index does not contain the truthful Console markers");
   }
 
@@ -66,6 +66,16 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
   }
   if (requireDeterministicBuildID && !files.some((file) => path.relative(output, file).split(path.sep).includes(EXPECTED_BUILD_ID))) {
     throw new Error("static output does not use the deterministic Console build ID");
+  }
+  if (requireDeterministicBuildID) {
+    const routeMarkers = new Map([
+      ["nodes.html", "Loading Nodes"],
+      ["gates.html", "Loading gate capability"],
+    ]);
+    for (const [route, marker] of routeMarkers) {
+      const html = await readFile(path.join(output, route), "utf8");
+      if (!html.includes(marker)) throw new Error(`static ${route} does not contain its truthful Console marker`);
+    }
   }
 
   const embeddedResult = embedded === false ? undefined : await verifyConsoleAssets({ source: output, ...embedded });

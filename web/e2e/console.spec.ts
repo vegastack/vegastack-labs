@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { installReadFixture } from "./api-fixture";
 
 const ORIGIN = "http://127.0.0.1:4173";
 
@@ -9,11 +10,14 @@ function monitorBrowser(page: Page) {
   page.on("requestfailed", request => failures.push(`request: ${request.url()}`));
   page.on("request", request => {
     const url = new URL(request.url());
-    if (url.origin !== ORIGIN || ["fetch", "xhr", "websocket", "eventsource"].includes(request.resourceType())) failures.push(`unexpected: ${request.resourceType()} ${url.href}`);
+    const allowedRead = url.origin === ORIGIN && request.method() === "GET" && url.pathname.startsWith("/api/v1/") && ["fetch", "xhr"].includes(request.resourceType());
+    if (url.origin !== ORIGIN || (["fetch", "xhr", "websocket", "eventsource"].includes(request.resourceType()) && !allowedRead)) failures.push(`unexpected: ${request.resourceType()} ${url.href}`);
   });
   page.on("response", response => response.status() >= 400 && failures.push(`response: ${response.status()} ${response.url()}`));
   return { failures, assertClean: () => expect(failures).toEqual([]) };
 }
+
+test.beforeEach(async ({ page }) => installReadFixture(page));
 
 test("skip link, focus order, and named landmarks work", async ({ page }) => {
   const { assertClean } = monitorBrowser(page);
@@ -34,7 +38,7 @@ test("skip link, focus order, and named landmarks work", async ({ page }) => {
 
 test("each route has a unique browser title", async ({ page }) => {
   const { assertClean } = monitorBrowser(page);
-  const routes = new Map([["/", "Overview"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
+  const routes = new Map([["/", "Overview"], ["/nodes", "Nodes — VegaStack Labs Console"], ["/gates", "Gates — VegaStack Labs Console"], ["/dashboard", "Console foundation — VegaStack Labs Console"], ["/states", "Foundation states — VegaStack Labs Console"], ["/unavailable", "Service unavailable — VegaStack Labs Console"]]);
   const titles = new Set<string>();
   for (const [route, title] of routes) {
     await page.goto(route);
@@ -48,7 +52,7 @@ test("each route has a unique browser title", async ({ page }) => {
 test("truthful empty, loading, error, and unavailable states render", async ({ page }) => {
   const { assertClean } = monitorBrowser(page);
   await page.goto("/");
-  await expect(page.getByText(/data integration is not implemented/i)).toBeVisible();
+  await expect(page.getByText(/State revision 8/i)).toBeVisible();
   await page.goto("/states");
   for (const kind of ["loading", "empty", "error", "unavailable"]) await expect(page.locator(`[data-console-state="${kind}"]`)).toBeVisible();
   assertClean();

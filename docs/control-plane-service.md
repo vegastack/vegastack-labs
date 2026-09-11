@@ -344,6 +344,8 @@ Do not reimplement local lookalikes when the registry owns the behavior. Platfor
 
 Every page shows observation time and source. Unknown is visually distinct from healthy. Destructive buttons are unavailable until a valid plan and required recovery point exist.
 
+The first implemented read slice is deliberately narrower than that final screen contract. Overview reads the authorized service summary and seven independent source states. Nodes reads the newest authorized inert draft plus separately paginated nodes, aliases and observations, and keeps opaque cursors and record identifiers out of the URL. Gates currently reports only whether the gate-source capability is available; it does not display, infer or change gate results. Detailed gate records arrive only with the later phase that owns their schemas and evidence. All three routes use the generated same-origin client through an in-memory TanStack Query boundary: automatic retry, polling, focus/reconnect refresh and persistence are disabled; only retryable dependency failures may retain previously authorized data under an explicit stale warning, while access/session/schema/integrity failures clear it.
+
 ## Control-plane nomination and bootstrap
 
 The generic [local control-plane creation](platform-lifecycle.md#local-control-plane-creation) replaces mandatory workstation-first bootstrap. An authenticated administrator nominates the current supported host; the host does not attest itself or obtain authority from its name. The Labs profile chooses `vsk-node-04`, while another installation chooses its own host without code changes. Normal v1 bootstrap also requires the selected Slack acknowledgement adapter; this is a capability prerequisite, not a Labs hostname or core schema constant.

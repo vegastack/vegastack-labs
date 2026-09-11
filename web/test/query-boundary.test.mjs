@@ -7,7 +7,7 @@ const read = (name) => readFile(new URL(`../${name}`, import.meta.url), "utf8");
 test("hard denials clear cached operational data and requests consume AbortSignal", async () => {
   const boundary = await read("components/query-provider.tsx");
   const queries = await read("lib/read-queries.ts");
-  assert.match(boundary, /removeQueries/);
+  assert.match(boundary, /setState\(\{ data: null \}\)/);
   assert.match(queries, /signal/);
   assert.doesNotMatch(boundary + queries, /persistQueryClient|localStorage|sessionStorage/);
   assert.match(boundary, /retry: false/);
