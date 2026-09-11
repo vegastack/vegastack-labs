@@ -214,6 +214,12 @@ All browser and CLI behavior uses one versioned API. HTTP JSON uses `/api/v1`; t
 | `PATCH /api/v1/declarations/{type}/{id}` | optimistic revision update; cannot execute infrastructure |
 | `POST /api/v1/gates/{id}/evidence-drafts` | validate a typed evidence bundle and create an inert change; never sets the evaluation directly |
 
+#### Implemented Phase 3 domain-status screens
+
+The embedded Console currently exposes People, Services, Backups, and Providers as status-only screens. Each screen calls only the generated `GET /api/v1/sources` client operation with one exact server-side source filter and shows the safe capability state and timestamps. A current observation means only that the status observation is current; it does not mean that domain records or operations exist. Real people, service, recovery-point, and provider record endpoints, filtering, pagination, details, and actions remain owned by their later implementation phases.
+
+The browser never downloads a broad source list and hides rows locally. Authorization and schema failures remove affected cached data; only a retryable temporary dependency failure may show a previously authorized status under an explicit stale warning. These screens add no provider call, credential path, database table, mutation, or operational authority.
+
 List endpoints use stable cursor pagination, explicit sorting and server-side filters. Unknown filters/fields are rejected rather than ignored. API and CLI share generated schemas and fixtures; human UI strings are not an API.
 
 ### Implemented draft-operation endpoints

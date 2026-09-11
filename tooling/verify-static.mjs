@@ -71,6 +71,10 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
     const routeMarkers = new Map([
       ["nodes.html", "Loading Nodes"],
       ["gates.html", "Loading gate capability"],
+      ["people.html", "Loading People status"],
+      ["services.html", "Loading Services status"],
+      ["backups.html", "Loading Backups status"],
+      ["providers.html", "Loading Providers status"],
     ]);
     for (const [route, marker] of routeMarkers) {
       const html = await readFile(path.join(output, route), "utf8");
