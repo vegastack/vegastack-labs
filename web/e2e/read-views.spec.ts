@@ -35,12 +35,28 @@ test("Overview renders every domain and marks omitted domains unknown", async ({
   await expect(page.locator('[data-source-state="unknown"]')).toHaveCount(6);
 });
 
-test("Overview distinguishes loading, empty, unavailable, and rejected responses", async ({ page }) => {
+test("Overview preserves source statuses when its summary is temporarily unavailable", async ({ page }) => {
+  fixtureState.mode = "dependency-summary";
+  await page.goto("/");
+  await expect(page.locator('[data-read-state="partial"]')).toBeVisible();
+  await expect(page.locator('[data-source-state]')).toHaveCount(7);
+  await expect(page.getByText("database", { exact: true })).toBeVisible();
+});
+
+test("Overview treats zero drafts with missing sources as partial, not empty", async ({ page }) => {
+  fixtureState.mode = "empty";
+  await page.goto("/");
+  await expect(page.locator('[data-read-state="partial"]')).toBeVisible();
+  await expect(page.getByText(/Drafts 0 \(0 valid, 0 blocked\)/)).toBeVisible();
+  await expect(page.locator('[data-source-state="unknown"]')).toHaveCount(7);
+});
+
+test("Overview distinguishes loading, unavailable, and rejected responses", async ({ page }) => {
   fixtureState.delay = 250;
   await page.goto("/");
   await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
   fixtureState.delay = 0;
-  for (const [mode, state] of [["empty", "empty"], ["unavailable", "unavailable"], ["malformed", "error"]] as const) {
+  for (const [mode, state] of [["unavailable", "unavailable"], ["malformed", "error"]] as const) {
     fixtureState.mode = mode;
     await page.reload();
     await expect(page.locator(`[data-read-state="${state}"]`).first()).toBeVisible();
@@ -169,9 +185,9 @@ test("private fixture records remain behind the authorized response boundary", a
 });
 
 test("Overview, Nodes, Gates, and the details overlay have no serious accessibility violations", async ({ page }) => {
-  for (const route of ["/", "/nodes", "/gates"]) {
+  for (const [route, ready] of [["/", "[data-overview-records]"], ["/nodes", "text=node-one"], ["/gates", "text=Gate evaluation is not implemented"]] as const) {
     await page.goto(route);
-    await expect(page.locator("main")).toBeVisible();
+    await expect(page.locator(ready)).toBeVisible();
     await expectNoSeriousAccessibilityViolations(page);
   }
   await page.goto("/nodes");
@@ -184,6 +200,7 @@ test("Overview, Nodes, Gates, and the details overlay have no serious accessibil
   for (const mode of ["denied", "malformed"] as const) {
     fixtureState.mode = mode;
     await page.goto("/");
+    await expect(page.locator(`[data-read-state="${mode === "denied" ? "denied" : "error"}"]`)).toBeVisible();
     await expectNoSeriousAccessibilityViolations(page);
   }
 });

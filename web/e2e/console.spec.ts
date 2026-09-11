@@ -3,13 +3,31 @@ import { installReadFixture } from "./api-fixture";
 
 const ORIGIN = "http://127.0.0.1:4173";
 const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events)|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
+const SOURCE_IDS = new Set(["database", "nodes", "gates", "people", "services", "backups", "providers"]);
+const SOURCE_STATES = new Set(["healthy", "stale", "unknown", "unavailable", "failed"]);
+
+function validLimit(value: string | null) {
+  return value === null || (/^[1-9]\d*$/.test(value) && Number(value) <= 200);
+}
+
+function validLength(value: string | null, maximum: number) {
+  return value === null || value.length <= maximum;
+}
 
 function isGeneratedReadRequest(url: URL) {
   if (!GENERATED_READ_PATH.test(url.pathname)) return false;
   const keys = [...url.searchParams.keys()];
   if (new Set(keys).size !== keys.length) return false;
-  if (url.pathname === "/api/v1/sources") return keys.every(key => ["cursor", "limit", "sort", "source", "state"].includes(key));
-  if (url.pathname === "/api/v1/inventory-drafts" || /\/(?:assets|nodes|aliases|observations)$/.test(url.pathname)) return keys.every(key => ["cursor", "limit", "sort"].includes(key));
+  if (url.pathname === "/api/v1/sources") return keys.every(key => ["cursor", "limit", "sort", "source", "state"].includes(key))
+    && validLimit(url.searchParams.get("limit"))
+    && validLength(url.searchParams.get("cursor"), 2048)
+    && (url.searchParams.get("sort") === null || ["id-asc", "id-desc"].includes(url.searchParams.get("sort")!))
+    && (url.searchParams.get("source") === null || SOURCE_IDS.has(url.searchParams.get("source")!))
+    && (url.searchParams.get("state") === null || SOURCE_STATES.has(url.searchParams.get("state")!));
+  if (url.pathname === "/api/v1/inventory-drafts" || /\/(?:assets|nodes|aliases|observations)$/.test(url.pathname)) return keys.every(key => ["cursor", "limit", "sort"].includes(key))
+    && validLimit(url.searchParams.get("limit"))
+    && validLength(url.searchParams.get("sort"), 64)
+    && validLength(url.searchParams.get("cursor"), 2048);
   return keys.length === 0;
 }
 
@@ -20,7 +38,7 @@ function monitorBrowser(page: Page) {
   page.on("requestfailed", request => failures.push(`request: ${request.url()}`));
   page.on("request", request => {
     const url = new URL(request.url());
-    const allowedRead = url.origin === ORIGIN && request.method() === "GET" && isGeneratedReadRequest(url) && ["fetch", "xhr", "eventsource"].includes(request.resourceType());
+    const allowedRead = url.origin === ORIGIN && request.method() === "GET" && isGeneratedReadRequest(url) && request.resourceType() === "fetch";
     if (url.origin !== ORIGIN || (["fetch", "xhr", "websocket", "eventsource"].includes(request.resourceType()) && !allowedRead)) failures.push(`unexpected: ${request.resourceType()} ${url.href}`);
   });
   page.on("response", response => response.status() >= 400 && failures.push(`response: ${response.status()} ${response.url()}`));
@@ -116,4 +134,14 @@ test("same-origin server requests are detected", async ({ page }) => {
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unapproved-operation/));
   await page.evaluate(() => fetch("/api/v1/summary?unapproved=1").catch(() => undefined));
   await expect.poll(() => failures).toContainEqual(expect.stringMatching(/summary\?unapproved=1/));
+  await page.evaluate(() => Promise.all([
+    fetch("/api/v1/sources?source=private-canary"),
+    fetch("/api/v1/sources?limit=999999"),
+    new Promise<void>(resolve => { const request = new XMLHttpRequest(); request.open("GET", "/api/v1/summary"); request.onloadend = () => resolve(); request.send(); }),
+    new Promise<void>(resolve => { const source = new EventSource("/api/v1/events"); const done = () => { source.close(); resolve(); }; source.onerror = done; setTimeout(done, 200); }),
+  ]));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/source=private-canary/));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/limit=999999/));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unexpected: xhr .*\/summary/));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unexpected: eventsource .*\/events/));
 });

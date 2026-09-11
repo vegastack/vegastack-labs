@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 
-export type FixtureMode = "healthy" | "dependency" | "dependency-node-page" | "unavailable" | "denied" | "deny-node-page" | "empty" | "missing" | "malformed";
+export type FixtureMode = "healthy" | "dependency" | "dependency-summary" | "dependency-node-page" | "unavailable" | "denied" | "deny-node-page" | "empty" | "missing" | "malformed";
 export const fixtureState: { mode: FixtureMode; delay: number } = { mode: "healthy", delay: 0 };
 export const fixtureAudit: { requests: string[]; responses: string[] } = { requests: [], responses: [] };
 const digest = `sha256:${"a".repeat(64)}`;
@@ -30,6 +30,7 @@ async function respond(route: Route) {
   if (fixtureState.mode === "malformed") return fulfill(route, 200, "{not-json");
   if (fixtureState.mode === "denied" || (fixtureState.mode === "deny-node-page" && isSecondNodePage)) return fulfill(route, 403, JSON.stringify(envelope("read", {}, "failed", [{ code: "AUTHORIZATION_DENIED", target: "read", retryable: false }])));
   if (fixtureState.mode === "dependency-node-page" && isSecondNodePage) return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: true }])));
+  if (fixtureState.mode === "dependency-summary" && path === "/api/v1/summary") return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "summary", retryable: true }])));
   if (fixtureState.mode === "dependency" || fixtureState.mode === "unavailable") return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: fixtureState.mode === "dependency" }])));
   let command = "api.v1.summary.get";
   let data: unknown;
