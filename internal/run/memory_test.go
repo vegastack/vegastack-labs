@@ -21,6 +21,7 @@ type memoryRepository struct {
 	targets               map[string]string
 	receipts              map[string]generated.ExecutionReceipt
 	releaseRunLeasesError error
+	getRunError           error
 }
 
 func newMemoryRepository(plan generated.Plan) *memoryRepository {
@@ -54,6 +55,9 @@ func (repository *memoryRepository) Create(_ context.Context, request store.RunC
 func (repository *memoryRepository) GetRun(_ context.Context, id string) (generated.Run, error) {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
+	if repository.getRunError != nil {
+		return generated.Run{}, repository.getRunError
+	}
 	run, ok := repository.runs[id]
 	if !ok {
 		return generated.Run{}, runError(generated.ErrorCodeResourceNotFound, "run")

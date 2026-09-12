@@ -294,14 +294,17 @@ func (engine *Engine) Reconcile(ctx context.Context) error {
 func (engine *Engine) start(ctx context.Context, plan generated.Plan, current generated.Run, attribution audit.Attribution) (generated.Run, error) {
 	now := engine.clock().UTC().Truncate(time.Second)
 	if current.Status == "queued" {
-		current, _ = engine.repository.GetRun(ctx, current.RunID)
+		refreshed, err := engine.repository.GetRun(ctx, current.RunID)
+		if err != nil {
+			return current, err
+		}
+		current = refreshed
 		if terminal(current.Status) {
 			return current, nil
 		}
 		if current.CancellationRequested {
 			return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "queued", To: "cancelled", At: now, Attribution: attribution})
 		}
-		var err error
 		current, err = engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "queued", To: "running", At: now, Attribution: attribution})
 		if err != nil {
 			return current, err
@@ -317,7 +320,11 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		return current, err
 	}
 	for _, step := range current.Steps {
-		current, _ = engine.repository.GetRun(ctx, current.RunID)
+		refreshed, err := engine.repository.GetRun(ctx, current.RunID)
+		if err != nil {
+			return current, err
+		}
+		current = refreshed
 		if ctx.Err() != nil {
 			cleanup := context.WithoutCancel(ctx)
 			current, err := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})

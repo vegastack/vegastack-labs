@@ -282,6 +282,20 @@ func TestRestartDoesNotTerminalizeRunWhenLeaseReleaseFails(t *testing.T) {
 	}
 }
 
+func TestRunStateReloadFailureStopsBeforeEffect(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.store.getRunError = errors.New("run state temporarily unavailable")
+	queued, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if err == nil || queued.Status != "queued" || fixture.adapter.calls != 0 {
+		t.Fatalf("reload failure result = %#v calls=%d err=%v", queued, fixture.adapter.calls, err)
+	}
+	fixture.store.getRunError = nil
+	stored, err := fixture.engine.Get(context.Background(), fixture.runID)
+	if err != nil || stored.Status != "queued" {
+		t.Fatalf("durable queued run = %#v, %v", stored, err)
+	}
+}
+
 func TestTargetLeaseConflictInterruptsBeforeEffect(t *testing.T) {
 	fixture := newEngineFixture(t)
 	fixture.store.targets["target-test"] = "lease-other"
