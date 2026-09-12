@@ -120,14 +120,8 @@ func scopeFingerprint(snapshot EffectivePolicySnapshot, grant EffectiveGrant, ta
 
 func BindEffectiveScope(snapshot EffectivePolicySnapshot, grant EffectiveGrant, target Target) (EffectiveScope, bool) {
 	if snapshot.Status != EffectiveActive || snapshot.GrantRevision <= 0 || snapshot.StateRevision < 0 || snapshot.RecoveryEpoch < 0 ||
-		!ValidIdentifier(snapshot.PrincipalID) || !identity.ValidPrincipalKind(snapshot.PrincipalKind) || !ValidRole(grant.Role) || !ValidAction(grant.AllowedAction) ||
+		!ValidIdentifier(snapshot.PrincipalID) || !identity.ValidPrincipalKind(snapshot.PrincipalKind) || !validEffectiveGrant(grant) ||
 		!ValidAuthorizationTarget(target) || grant.Capability != target.Capability || grant.ResourceKind != target.ResourceKind || grant.ResourceID != target.ResourceID {
-		return EffectiveScope{}, false
-	}
-	if (grant.AllowedAction == ActionRead || grant.AllowedAction == ActionAuthor) && grant.Branch != "" {
-		return EffectiveScope{}, false
-	}
-	if (grant.AllowedAction == ActionAcknowledge || grant.AllowedAction == ActionExecute) && !ValidBranch(grant.Branch) {
 		return EffectiveScope{}, false
 	}
 	return EffectiveScope{
@@ -135,4 +129,20 @@ func BindEffectiveScope(snapshot EffectivePolicySnapshot, grant EffectiveGrant, 
 		ResourceID: target.ResourceID, Role: grant.Role, GrantRevision: snapshot.GrantRevision, StateRevision: snapshot.StateRevision,
 		RecoveryEpoch: snapshot.RecoveryEpoch, ScopeDigest: scopeFingerprint(snapshot, grant, target),
 	}, true
+}
+
+func validEffectiveGrant(grant EffectiveGrant) bool {
+	if !ValidRole(grant.Role) || !ValidAction(grant.AllowedAction) || !tokenPattern.MatchString(grant.Capability) || !tokenPattern.MatchString(grant.ResourceKind) || !tokenPattern.MatchString(grant.ResourceID) {
+		return false
+	}
+	if grant.AllowedAction == ActionRead || grant.AllowedAction == ActionAuthor {
+		return grant.Branch == "" && grant.Role != RolePreauthorizedExecutor
+	}
+	if !ValidBranch(grant.Branch) {
+		return false
+	}
+	if grant.Role == RolePreauthorizedExecutor {
+		return grant.AllowedAction == ActionExecute && grant.Branch == BranchPreauthorized
+	}
+	return grant.Branch != BranchPreauthorized
 }

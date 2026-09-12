@@ -167,6 +167,25 @@ func TestRoleActionRiskMatrixMatchesPolicy(t *testing.T) {
 	}
 }
 
+func TestMalformedEffectiveGrantCannotWidenAuthority(t *testing.T) {
+	t.Parallel()
+	principal := identity.Principal{ID: "policy-deployer", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalPolicy}
+	plan := testPlan("application.deploy.low-risk", BranchPreauthorized)
+	target := Target{Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test"}
+	grants := []EffectiveGrant{
+		{Role: RolePreauthorizedExecutor, AllowedAction: ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: "", Branch: BranchPreauthorized},
+		{Role: RoleMaintainer, AllowedAction: ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: BranchPreauthorized},
+		{Role: RolePreauthorizedExecutor, AllowedAction: ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: BranchHuman},
+	}
+	for index, grant := range grants {
+		evaluator := NewEvaluator(policyRepositoryStub{snapshot: EffectivePolicySnapshot{PrincipalKind: identity.PrincipalPolicy, Status: EffectiveActive, GrantRevision: 1, StateRevision: 12, RecoveryEpoch: 3, Grants: []EffectiveGrant{grant}}})
+		decision, err := evaluator.Authorize(context.Background(), principal, Request{Action: ActionExecute, Target: target, Plan: &plan, Branches: []Branch{BranchPreauthorized}})
+		if err != nil || decision.Allowed || decision.Scope.ScopeDigest != "" {
+			t.Fatalf("malformed grant %d widened authority: %#v, %v", index, decision, err)
+		}
+	}
+}
+
 func evaluatorFor(role Role, kind identity.PrincipalKind) *Evaluator {
 	return NewEvaluator(policyRepositoryStub{snapshot: EffectivePolicySnapshot{
 		PrincipalID:   "human-maintainer",

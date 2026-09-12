@@ -158,9 +158,15 @@ func (evaluator *Evaluator) Authorize(ctx context.Context, principal identity.Pr
 		decision.ReasonCode = ReasonRoleInsufficient
 		return decision, nil
 	}
+	scope, ok := BindEffectiveScope(snapshot, grant, request.Target)
+	if !ok {
+		decision.Branch = nil
+		decision.ReasonCode = ReasonPolicyUnavailable
+		return decision, nil
+	}
 	decision.Allowed = true
 	decision.ReasonCode = ReasonAllowed
-	decision.Scope, _ = BindEffectiveScope(snapshot, grant, request.Target)
+	decision.Scope = scope
 	return decision, nil
 }
 
@@ -187,10 +193,10 @@ func requestedBranch(request Request, principal identity.Principal) (*Branch, st
 func matchingGrant(grants []EffectiveGrant, request Request, branch *Branch) (EffectiveGrant, bool, bool) {
 	targetMismatch := false
 	for _, grant := range grants {
-		if !ValidRole(grant.Role) || grant.AllowedAction != request.Action || grant.Capability != request.Target.Capability || grant.ResourceKind != request.Target.ResourceKind {
+		if !validEffectiveGrant(grant) || grant.AllowedAction != request.Action || grant.Capability != request.Target.Capability || grant.ResourceKind != request.Target.ResourceKind {
 			continue
 		}
-		if grant.ResourceID != "" && grant.ResourceID != request.Target.ResourceID {
+		if grant.ResourceID != request.Target.ResourceID {
 			targetMismatch = true
 			continue
 		}
