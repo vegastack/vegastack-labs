@@ -414,7 +414,7 @@ func (engine *Engine) verifyAdmission(ctx context.Context, plan generated.Plan, 
 	if err := engine.plans.ValidateCurrent(ctx, plan); err != nil {
 		return runError(generated.ErrorCodePlanStale, "plan")
 	}
-	if !decision.Allowed || decision.Action != "execute" || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
+	if len(plan.Operations) == 0 || !decision.Allowed || decision.Action != "execute" || decision.TargetID != plan.Operations[0].TargetID || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
 		return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")
 	}
 	if plan.AuthorizationBranch == "human" && acknowledgement == nil {
