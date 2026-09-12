@@ -60,7 +60,7 @@ func createWithDeclaration(t *testing.T, declaration generated.DeclarationRevisi
 
 func newTestService(t *testing.T, repository Repository, observations ObservationReader, clock func() time.Time) *Service {
 	t.Helper()
-	service, err := NewService(Config{Repository: repository, Observations: observations, Clock: clock, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"})
+	service, err := NewService(Config{Repository: repository, Observations: observations, Clock: clock, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -84,6 +84,9 @@ func (repository *fakePlanRepository) CurrentRevision(context.Context) (store.Re
 }
 func (repository *fakePlanRepository) ExistingPlan(context.Context, string, string) (store.PlanCommitResult, bool, error) {
 	return store.PlanCommitResult{}, false, nil
+}
+func (repository *fakePlanRepository) GetPlan(context.Context, string) (store.PlanCommitResult, error) {
+	return store.PlanCommitResult{Plan: repository.committed.Plan, Canonical: repository.committed.CanonicalBytes, Readable: repository.committed.Readable}, nil
 }
 func (repository *fakePlanRepository) CommitDeclarationAndPlan(_ context.Context, request store.PlanCommitRequest) (store.PlanCommitResult, error) {
 	repository.committed = request

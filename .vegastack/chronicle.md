@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — Desired changes now become one stable plan without touching infrastructure ([#76](https://github.com/vegastack/vegastack-labs/issues/76))
+
+- **What:** Authorized local operators can append inert declaration revisions and turn one exact revision into an immutable 30-minute plan. The readable plan and canonical JSON bind the same operations, facts, targets, revisions, recovery epoch, versions, expiry, and digests, while exact retries return the original result.
+- **Why:** Later acknowledgement and execution must authorize stable bytes, not a mutable draft or a plan reconstructed differently by each client.
+- **How it went:** The existing single-writer and audit-intent transaction made the persistence boundary direct; the important tightening was binding reason and readable digests, checking retries before stale-state rejection, and keeping operation sequence distinct from set-like normalization. Policy classification remains deliberately conservative until the parallel authorization work is integrated.
+- **Changed:** Append-only declaration and immutable-plan storage · atomic revision/plan commits · deterministic readable and JSON forms · 30-minute expiry and drift checks · strict local mutation APIs · generated declaration/plan reads · restart, rollback, replay, conflict, and authorization-before-parse tests.
+- **Decisions:** none; provider-neutral operation names pass through unchanged, and current server wiring classifies every plan as destructive/human until Issue #71 supplies the approved policy result.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.2-declarations-immutable-plans
+
 ## 12-09-2026 — Phase 4 now shares one safe contract before any engine runs ([#66](https://github.com/vegastack/vegastack-labs/issues/66))
 
 - **What:** Declarations, immutable plans, authorization decisions, human acknowledgements, runs, steps, short external-worker leases, and receipts now come from one provider-neutral metadata graph. The same closed names, states, bindings, timing rules, Go types, browser types, schemas, and read-only compatibility rules are generated together.

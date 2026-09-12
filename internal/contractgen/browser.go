@@ -21,7 +21,7 @@ func browserReadEndpoints(registry metadata.Registry) ([]metadata.EndpointDefini
 		for _, audience := range endpoint.Audiences {
 			browser = browser || audience == metadata.AudienceBrowser
 		}
-		contractedPhase4 := endpoint.OwnerPhase == "4" && endpoint.Availability == metadata.AvailabilityPlanned
+		contractedPhase4 := endpoint.OwnerPhase == "4"
 		availableRead := endpoint.Availability == metadata.AvailabilityAvailable && endpoint.Method == "GET"
 		if !browser || (!contractedPhase4 && !availableRead) {
 			continue

@@ -8,6 +8,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -86,6 +88,87 @@ func TestDeclarationAndPlanRejectStaleAndConflictingReplay(t *testing.T) {
 	planRequest.RequestDigest = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	if _, err := plans.CommitDeclarationAndPlan(context.Background(), planRequest); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("conflicting plan replay error = %v", err)
+	}
+}
+
+func TestDeclarationConcurrentAuthorsInterruptionAndRestartFailClosed(t *testing.T) {
+	config := testConfig(t)
+	config.Clock = func() time.Time { return time.Date(2026, 9, 12, 18, 30, 0, 0, time.UTC) }
+	s, err := Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository := NewDeclarationRepository(s)
+	first, second := validDeclarationStoreRequest(), validDeclarationStoreRequest()
+	second.Document.DeclarationID = "declaration-test-2"
+	second.Document.Operations[0].OperationID = "operation-test-2"
+	second.KeyDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	second.RequestDigest = second.KeyDigest
+	results := make(chan error, 2)
+	var start sync.WaitGroup
+	start.Add(1)
+	for _, request := range []DeclarationRevisionRequest{first, second} {
+		request := request
+		go func() {
+			start.Wait()
+			_, createErr := repository.CreateRevision(context.Background(), request)
+			results <- createErr
+		}()
+	}
+	start.Done()
+	var succeeded, conflicted int
+	for range 2 {
+		err := <-results
+		if err == nil {
+			succeeded++
+		} else if Code(err) == generated.ErrorCodeStateConflict {
+			conflicted++
+		} else {
+			t.Fatalf("concurrent create error = %v", err)
+		}
+	}
+	if succeeded != 1 || conflicted != 1 {
+		t.Fatalf("concurrent results = %d success, %d conflict", succeeded, conflicted)
+	}
+
+	cancelled, cancel := context.WithCancel(context.Background())
+	cancel()
+	third := validDeclarationStoreRequest()
+	third.Document.DeclarationID = "declaration-test-3"
+	third.Document.StateRevision = 2
+	third.Expected.StateRevision = 1
+	third.KeyDigest = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+	third.RequestDigest = third.KeyDigest
+	if _, err := repository.CreateRevision(cancelled, third); Code(err) != generated.ErrorCodeInterrupted {
+		t.Fatalf("cancelled create error = %v", err)
+	}
+	if _, err := repository.GetRevision(context.Background(), third.Document.DeclarationID, 1); Code(err) != generated.ErrorCodeResourceNotFound {
+		t.Fatalf("cancelled declaration persisted: %v", err)
+	}
+
+	var persistedID string
+	if _, err := repository.GetRevision(context.Background(), first.Document.DeclarationID, 1); err == nil {
+		persistedID = first.Document.DeclarationID
+	} else {
+		persistedID = second.Document.DeclarationID
+	}
+	if err := s.Close(); err != nil {
+		t.Fatal(err)
+	}
+	config.Mode = OpenExisting
+	reopened, err := Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	if _, err := NewDeclarationRepository(reopened).GetRevision(context.Background(), persistedID, 1); err != nil {
+		t.Fatalf("restart lost declaration: %v", err)
+	}
+	if _, err := reopened.conn.ExecContext(context.Background(), `UPDATE declaration_revisions SET status='committed' WHERE declaration_id=?`, persistedID); err == nil {
+		t.Fatal("append-only declaration was mutable")
+	}
+	if _, err := os.Stat(config.DatabasePath); err != nil {
+		t.Fatal(err)
 	}
 }
 

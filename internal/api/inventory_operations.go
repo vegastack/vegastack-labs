@@ -53,7 +53,7 @@ func RegisterInventoryOperations(app *Application, config InventoryOperationConf
 		route{"api.v1.inventory-diffs.create", http.MethodPost, "/api/v1/inventory-diffs", "inventory.draft.diff", "inventory-draft", app.diffDraft(config)},
 		route{"api.v1.inventory-exports.create", http.MethodPost, "/api/v1/inventory-exports", "inventory.draft.export", "inventory-draft", app.exportDraft(config)},
 	)
-	if !routesMatchGenerated(app.routes) {
+	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-3]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}

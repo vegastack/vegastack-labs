@@ -18,6 +18,14 @@ import (
 
 type Repository interface {
 	CreateRevision(context.Context, store.DeclarationRevisionRequest) (store.DeclarationRevisionResult, error)
+	GetRevision(context.Context, string, int64) (generated.DeclarationRevision, error)
+}
+
+func (service *Service) Get(ctx context.Context, declarationID string, revision int64) (generated.DeclarationRevision, error) {
+	if service == nil || declarationID == "" || revision < 1 {
+		return generated.DeclarationRevision{}, inputError()
+	}
+	return service.repository.GetRevision(ctx, declarationID, revision)
 }
 
 type Service struct {

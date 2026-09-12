@@ -30,22 +30,28 @@ type Repository interface {
 	GetDeclarationReason(context.Context, string, int64) (string, error)
 	CurrentRevision(context.Context) (store.RevisionToken, error)
 	ExistingPlan(context.Context, string, string) (store.PlanCommitResult, bool, error)
+	GetPlan(context.Context, string) (store.PlanCommitResult, error)
 	CommitDeclarationAndPlan(context.Context, store.PlanCommitRequest) (store.PlanCommitResult, error)
 }
 
 type Config struct {
-	Repository      Repository
-	Observations    ObservationReader
-	Clock           func() time.Time
-	PolicyVersion   string
-	ToolVersion     string
-	ContractVersion string
+	Repository          Repository
+	Observations        ObservationReader
+	Clock               func() time.Time
+	PolicyVersion       string
+	ToolVersion         string
+	ContractVersion     string
+	Risk                string
+	AuthorizationBranch string
+	ExecutorMode        string
+	ExecutorID          *string
+	OperationExecutorID string
 }
 
 type Service struct{ config Config }
 
 func NewService(config Config) (*Service, error) {
-	if config.Repository == nil || config.Observations == nil || config.PolicyVersion == "" || config.ToolVersion == "" || config.ContractVersion == "" {
+	if config.Repository == nil || config.Observations == nil || config.PolicyVersion == "" || config.ToolVersion == "" || config.ContractVersion == "" || config.Risk == "" || config.AuthorizationBranch == "" || config.ExecutorMode == "" || config.OperationExecutorID == "" {
 		return nil, planError(generated.ErrorCodeInputInvalid)
 	}
 	if config.Clock == nil {
@@ -95,14 +101,14 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		if operation.Sequence != int64(index+1) {
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
 		}
-		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: "executor-central", TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
+		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
 	targets, err := targetDigest(operations)
 	if err != nil {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
 	}
 	created := service.config.Clock().UTC().Truncate(time.Second)
-	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: declaration.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", ExecutorID: nil, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)}
+	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: declaration.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: service.config.Risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)}
 	readable := readablePlan(candidate)
 	candidate.ReadableDigest = sha([]byte(readable))
 	candidate.PlanDigest, err = planDigest(candidate)
@@ -144,6 +150,13 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 		return planError(generated.ErrorCodeStateConflict)
 	}
 	return nil
+}
+
+func (service *Service) Get(ctx context.Context, planID string) (store.PlanCommitResult, error) {
+	if service == nil || planID == "" {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+	}
+	return service.config.Repository.GetPlan(ctx, planID)
 }
 
 func parseTime(value string) time.Time { parsed, _ := time.Parse(time.RFC3339, value); return parsed }

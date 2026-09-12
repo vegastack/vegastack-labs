@@ -33,6 +33,9 @@ func (repository *fakeRepository) CreateRevision(_ context.Context, request stor
 	repository.request = request
 	return store.DeclarationRevisionResult{Document: request.Document, Commit: store.Commit{Changed: true, StateRevision: request.Document.StateRevision, RecoveryEpoch: request.Document.RecoveryEpoch}, Created: true}, nil
 }
+func (repository *fakeRepository) GetRevision(context.Context, string, int64) (generated.DeclarationRevision, error) {
+	return repository.request.Document, nil
+}
 
 func testDigestString(fill string) string {
 	value := ""
