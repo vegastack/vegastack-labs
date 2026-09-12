@@ -88,7 +88,7 @@ jobs:
       - name: Run affected public checks
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
-        run: pnpm check:affected -- --execute-plan
+        run: pnpm check:affected --execute-plan
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code
@@ -141,7 +141,7 @@ jobs:
       - name: Run affected public checks
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
-        run: pnpm check:affected -- --execute-plan
+        run: pnpm check:affected --execute-plan
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code

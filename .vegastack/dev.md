@@ -4,7 +4,7 @@ This is the concise development-workflow profile consumed by the dev-family skil
 
 repo: vegastack/vegastack-labs · default branch main
 stack: Go 1.27 portable CLI/control plane · Node.js 24.20.0 and pnpm 11.24.0 · Next.js 16 static Console
-commands: check `npx --yes --package node@24.20.0 -- pnpm check` · affected `npx --yes --package node@24.20.0 -- pnpm check:affected -- --base <sha> --head <sha>` · build `go build ./...` and `pnpm --filter @vegastack/labs-web build` · dev `TODO — no consolidated development command exists; re-run dev-setup when one is added`
+commands: check `npx --yes --package node@24.20.0 -- pnpm check` · affected `npx --yes --package node@24.20.0 -- pnpm check:affected --base <sha> --head <sha>` · build `go build ./...` and `pnpm --filter @vegastack/labs-web build` · dev `TODO — no consolidated development command exists; re-run dev-setup when one is added`
 authority: `AGENTS.md` → `docs/development/operating-mandate.md` → current approved phase plan → `CONTRIBUTING.md` → this file → skill defaults
 
 ## Knobs

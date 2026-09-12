@@ -99,7 +99,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
     if (chromium?.if !== "needs.plan.outputs.browser == 'true'") {
       throw new Error("workflow must install Chromium only when the affected plan selects browser checks");
     }
-    if (!affected || !/pnpm check:affected\s+--\s+--execute-plan/.test(affected.run ?? "") ||
+    if (!affected || !/^pnpm check:affected --execute-plan$/.test(affected.run ?? "") ||
         affected.env?.VSK_CHECK_PLAN_B64 !== "${{ needs.plan.outputs.check_plan }}" ||
         Object.keys(affected.env ?? {}).length !== 1) {
       throw new Error("workflow must execute the exact affected check plan");

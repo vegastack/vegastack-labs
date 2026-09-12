@@ -54,8 +54,8 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   );
   assert.equal(hostedChromium.if, "needs.plan.outputs.browser == 'true'");
   assert.equal(trustedChromium.if, "needs.plan.outputs.browser == 'true'");
-  assert.match(hostedChecks.run, /pnpm check:affected\s+--\s+--execute-plan/);
-  assert.match(trustedChecks.run, /pnpm check:affected\s+--\s+--execute-plan/);
+  assert.equal(hostedChecks.run, "pnpm check:affected --execute-plan");
+  assert.equal(trustedChecks.run, "pnpm check:affected --execute-plan");
   assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
@@ -81,6 +81,15 @@ test("the workflow guard rejects unconditional Chromium and a repeated full lane
   assert.throws(
     () => verifyWorkflowDocument(repeated, `${source}\n- run: pnpm check\n`),
     /execute the exact affected check plan|must not repeat the complete local check lane/,
+  );
+
+  const literalSeparator = parseYaml(source);
+  literalSeparator.jobs.verify_pr.steps.find(
+    ({ name }) => name === "Run affected public checks",
+  ).run = "pnpm check:affected -- --execute-plan";
+  assert.throws(
+    () => verifyWorkflowDocument(literalSeparator, source),
+    /execute the exact affected check plan/,
   );
 });
 
