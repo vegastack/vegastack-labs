@@ -28,15 +28,20 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build         result.BuildInfo
-	requestIDs    result.RequestIDSource
-	openStore     func(context.Context, store.Config) (*store.Store, error)
-	databasePath  string
-	platformProbe PlatformProbe
+	build              result.BuildInfo
+	requestIDs         result.RequestIDSource
+	openStore          func(context.Context, store.Config) (*store.Store, error)
+	databasePath       string
+	platformProbe      PlatformProbe
+	identityHTTPClient *http.Client
 }
 
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource) *Operations {
-	return &Operations{build: build, requestIDs: requestIDs, openStore: store.Open, databasePath: productionDatabasePath, platformProbe: NewRuntimePlatformProbe()}
+	return &Operations{
+		build: build, requestIDs: requestIDs, openStore: store.Open,
+		databasePath: productionDatabasePath, platformProbe: NewRuntimePlatformProbe(),
+		identityHTTPClient: &http.Client{Timeout: 10 * time.Second},
+	}
 }
 
 func (operations *Operations) Run(ctx context.Context, configPath string) error {
@@ -157,7 +162,7 @@ func (operations *Operations) remoteRead(ctx context.Context, profile serverconf
 	if err != nil {
 		return unavailable(RemoteReadReasonAuthenticationFailed)
 	}
-	adapter, err := identity.NewCloudflareAccessAdapter(adapterConfig, &http.Client{Timeout: 10 * time.Second}, time.Now)
+	adapter, err := identity.NewCloudflareAccessAdapter(adapterConfig, operations.identityHTTPClient, time.Now)
 	if err != nil {
 		return unavailable(RemoteReadReasonAuthenticationFailed)
 	}
