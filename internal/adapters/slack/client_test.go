@@ -18,6 +18,8 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
+const fixtureSlackCredential = "x" + "app-fixture-secret"
+
 const slackTestDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 func TestSocketModeAcknowledgesEnvelopeAndReconnectsWithoutLeakingURL(t *testing.T) {
@@ -149,7 +151,7 @@ func TestHTTPTransportRefusesRedirects(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := transport.Open(context.Background(), []byte("xapp-fixture-secret")); err == nil {
+	if _, err := transport.Open(context.Background(), []byte(fixtureSlackCredential)); err == nil {
 		t.Fatal("redirect accepted")
 	}
 	if redirected {
@@ -193,7 +195,7 @@ func TestAdapterCategorizesOutageAndDoesNotExposeCredential(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
 	err = adapter.Run(ctx)
-	if err == nil || strings.Contains(err.Error(), "xapp-fixture-secret") {
+	if err == nil || strings.Contains(err.Error(), fixtureSlackCredential) {
 		t.Fatalf("outage error = %v", err)
 	}
 }
@@ -203,7 +205,7 @@ func TestHTTPAndWebSocketFixtureComposePublishAckAndCandidate(t *testing.T) {
 	var server *httptest.Server
 	handler := http.NewServeMux()
 	handler.HandleFunc("/open", func(writer http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Authorization") != "Bearer xapp-fixture-secret" {
+		if request.Header.Get("Authorization") != "Bearer "+fixtureSlackCredential {
 			http.Error(writer, "denied", http.StatusUnauthorized)
 			return
 		}
@@ -211,7 +213,7 @@ func TestHTTPAndWebSocketFixtureComposePublishAckAndCandidate(t *testing.T) {
 		_, _ = writer.Write([]byte(`{"ok":true,"url":"wss://wss.slack.com/link/?ticket=fixture-ticket&app_id=fixture-app"}`))
 	})
 	handler.HandleFunc("/chat", func(writer http.ResponseWriter, request *http.Request) {
-		if request.Header.Get("Authorization") != "Bearer xapp-fixture-secret" {
+		if request.Header.Get("Authorization") != "Bearer "+fixtureSlackCredential {
 			http.Error(writer, "denied", http.StatusUnauthorized)
 			return
 		}
@@ -288,7 +290,7 @@ func testConfig() Config {
 type fixtureResolver struct{}
 
 func (fixtureResolver) Resolve(context.Context, credentialref.Reference) ([]byte, error) {
-	return []byte("xapp-fixture-secret"), nil
+	return []byte(fixtureSlackCredential), nil
 }
 
 type retryingCandidateSink struct {

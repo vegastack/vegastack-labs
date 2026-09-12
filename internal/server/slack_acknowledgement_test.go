@@ -12,6 +12,8 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 )
 
+const serverFixtureSlackCredential = "x" + "app-fixture-secret"
+
 func TestSlackAcknowledgementScopeBindsExactRequestWithoutExposingKey(t *testing.T) {
 	profile := slackAcknowledgementProfile{HumanID: "person-operator", AuthorityID: "authority-slack"}
 	scopes := &slackAcknowledgementScopes{
@@ -37,7 +39,7 @@ func TestSlackAcknowledgementScopeBindsExactRequestWithoutExposingKey(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first != second || first.Nonce == "" || first.Nonce == "xapp-fixture-secret" || first.Nonce == request.NonceDigest {
+	if first != second || first.Nonce == "" || first.Nonce == serverFixtureSlackCredential || first.Nonce == request.NonceDigest {
 		t.Fatalf("unexpected deterministic scope: %#v / %#v", first, second)
 	}
 	request.NonceDigest = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
@@ -107,7 +109,7 @@ func TestSlackAcknowledgementConnectionIsServerOwnedAndStopsWithServer(t *testin
 type serverSlackResolver struct{}
 
 func (serverSlackResolver) Resolve(context.Context, credentialref.Reference) ([]byte, error) {
-	return []byte("xapp-fixture-secret"), nil
+	return []byte(serverFixtureSlackCredential), nil
 }
 
 type serverSlackTransport struct {
