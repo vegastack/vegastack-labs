@@ -1,6 +1,6 @@
 # Full-scope development roadmap
 
-Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. The user has adopted the [operating mandate](operating-mandate.md); Phase 0 was accepted on 07-09-2026 and [Phase 1](phases/01-portable-executable-and-generated-contracts.md) was accepted on 08-09-2026. The user directed that the entire documented scope be delivered phase by phase. [Phase 2](phases/02-authoritative-control-service-and-inventory.md) is implemented; awaiting operator acceptance after its combined candidate, merge, and post-merge proof. Later phase solutions, issue batches, and operational authority retain their separate approvals.
+Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. The user has adopted the [operating mandate](operating-mandate.md); Phase 0 was accepted on 07-09-2026, [Phase 1](phases/01-portable-executable-and-generated-contracts.md) on 08-09-2026, and [Phase 2](phases/02-authoritative-control-service-and-inventory.md) on 10-09-2026 at integrated commit `6ef74a4`. The user directed that the entire documented scope be delivered phase by phase. [Phase 3](phases/03-secure-read-console-and-operator-access.md) is implemented; Issue 3.9 owns its exact-commit proof and explicit operator-acceptance checkpoint. Later phase solutions, issue batches, and operational authority retain their separate approvals.
 
 Rollout timing confirmed on 26-08-2026: finish and verify the complete v1 platform before the first lab onboarding rehearsal. Isolated implementation tests still run throughout development; the inventory fleet is not an early deployment pilot. [D-117](../decisions-and-sources.md#d-117)
 
@@ -123,7 +123,7 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Current approved batch:** Phase 0 and Phase 1 are completed and explicitly accepted. Phase 2 briefs and Plan v1 for [2.1 (#29)](https://github.com/vegastack/vegastack-labs/issues/29) through [2.10 (#38)](https://github.com/vegastack/vegastack-labs/issues/38) are approved; Issues 2.1–2.9 are merged and Issue 2.10 owns the final combined proof. Phase 2 exit acceptance, release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
+**Current approved batch:** Phases 0 through 2 are completed and explicitly accepted. Phase 3 briefs and Plan v1 for [3.1 (#50)](https://github.com/vegastack/vegastack-labs/issues/50) through [3.9 (#58)](https://github.com/vegastack/vegastack-labs/issues/58) are approved; Issues 3.1–3.8 are merged and Issue 3.9 owns the clean exact-commit proof and operator checkpoint. Phase 3 acceptance, release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
 
 **Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 
@@ -147,4 +147,6 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 12. Completed on 07-09-2026: merge Issue 1.2 and pass its integrated check.
 13. Completed on 08-09-2026: merge Issue 1.3 through PR #39, pass the integrated public lane, and record explicit operator acceptance of the combined Phase 1 exit at `ed86290`.
 14. Completed on 10-09-2026: merge Phase 2 Issues 2.1 through 2.9 with their focused checks, fresh risky reviews, and post-merge public checks.
-15. Current: complete Issue 2.10's exact-candidate, merge, post-merge, and review proof, then ask the operator once to accept or reject the Phase 2 exit. Do not infer acceptance from a merge or green check.
+15. Completed on 10-09-2026: merge Issue 2.10, pass its exact-main proof and review coverage, and record the operator's explicit Phase 2 acceptance at `6ef74a4`.
+16. Completed on 12-09-2026: merge Phase 3 Issues 3.1 through 3.8 with their focused checks, fresh reviews, post-merge checks, and integrated browser acceptance lane.
+17. Current: complete Issue 3.9's clean exact-commit evidence, merge and post-merge proof, then ask the operator once to accept or reject the Phase 3 exit. Do not infer acceptance from a merge or green check.
