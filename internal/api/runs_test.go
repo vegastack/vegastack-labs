@@ -6,14 +6,17 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"sync"
 	"testing"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -66,7 +69,7 @@ func TestRunExecuteDenialDoesNotReadRequestBody(t *testing.T) {
 	}
 }
 
-func TestConcurrentExactSubmitConsumesHumanProofOnce(t *testing.T) {
+func TestConcurrentExactSubmitReadsHumanProofStatusOnce(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
 	app := newRunTestApplication(t, runs)
@@ -102,28 +105,93 @@ func TestConcurrentExactSubmitConsumesHumanProofOnce(t *testing.T) {
 	}
 	runs.mu.Lock()
 	defer runs.mu.Unlock()
-	if runs.submitCalls != 1 || runs.acknowledgementCalls != 1 {
-		t.Fatalf("submit/proof calls=%d/%d", runs.submitCalls, runs.acknowledgementCalls)
+	if runs.submitCalls != 1 || runs.acknowledgementStatusCalls != 1 {
+		t.Fatalf("submit/status calls=%d/%d", runs.submitCalls, runs.acknowledgementStatusCalls)
 	}
 }
 
-func TestPartialRunReturnsStableConflictEnvelope(t *testing.T) {
+func TestRunExecuteFailureAndExactReplayReturnSameDurableResult(t *testing.T) {
+	for _, test := range []struct {
+		status string
+		cause  string
+		code   string
+		http   int
+	}{
+		{status: generated.RunStatusFailed, cause: generated.ErrorCodeExecutionFailed, code: generated.ErrorCodeExecutionFailed, http: http.StatusBadGateway},
+		{status: generated.RunStatusPartial, cause: generated.ErrorCodeExecutionPartial, code: generated.ErrorCodeRecoveryRequired, http: http.StatusConflict},
+		{status: generated.RunStatusInterrupted, cause: generated.ErrorCodeInterrupted, code: generated.ErrorCodeInterrupted, http: http.StatusRequestTimeout},
+	} {
+		t.Run(test.status, func(t *testing.T) {
+			plan := apiRunPlan()
+			durable := apiRunResult(plan)
+			durable.Status = test.status
+			durable.VerificationStatus = "incomplete"
+			durable.VerificationDigest = nil
+			durable.StateRevision = 41
+			durable.RecoveryEpoch = 7
+			runs := &runAPIStub{plan: plan, run: durable, submitErr: runengineError{code: test.cause}}
+			app := newRunTestApplication(t, runs)
+			input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: test.status + "-submit-test", Extensions: []generated.ContractExtension{}}
+			body, _ := json.Marshal(input)
+
+			var first generated.RunResult
+			for attempt := range 2 {
+				request := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(body))
+				request.Header.Set("Content-Type", "application/json")
+				request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+				response := httptest.NewRecorder()
+				app.ServeHTTP(response, request)
+				if response.Code != test.http {
+					t.Fatalf("attempt %d response=%d body=%s", attempt, response.Code, response.Body.String())
+				}
+				var envelope generated.RunResult
+				if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+					t.Fatal(err)
+				}
+				var data generated.Run
+				if err := json.Unmarshal(envelope.Data, &data); err != nil {
+					t.Fatal(err)
+				}
+				if envelope.Status != test.status || len(envelope.Errors) != 1 || envelope.Errors[0].Code != test.code || envelope.RunID == nil || *envelope.RunID != durable.RunID || envelope.PlanID == nil || *envelope.PlanID != durable.PlanID || !envelope.Changed || envelope.StateRevision != durable.StateRevision || envelope.RecoveryEpoch != durable.RecoveryEpoch || data.RunID != durable.RunID || data.Status != durable.Status {
+					t.Fatalf("attempt %d envelope=%#v data=%#v", attempt, envelope, data)
+				}
+				if attempt == 0 {
+					first = envelope
+				} else if envelope.Status != first.Status || envelope.Errors[0] != first.Errors[0] || envelope.RequestID != first.RequestID {
+					t.Fatalf("replay changed semantic result: first=%#v replay=%#v", first, envelope)
+				}
+			}
+		})
+	}
+}
+
+func TestRunGetAuthorizesExactRunIDBeforeReading(t *testing.T) {
 	plan := apiRunPlan()
-	partial := apiRunResult(plan)
-	partial.Status = "partial"
-	partial.VerificationStatus = "incomplete"
-	partial.VerificationDigest = nil
-	runs := &runAPIStub{plan: plan, run: partial, submitErr: runengineError{code: generated.ErrorCodeRecoveryRequired}}
-	app := newRunTestApplication(t, runs)
-	input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "partial-submit-test", Extensions: []generated.ContractExtension{}}
-	body, _ := json.Marshal(input)
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(body))
-	request.Header.Set("Content-Type", "application/json")
+	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
+	var targets []authorization.ReadTarget
+	authorizer := authorizerFunc(func(_ context.Context, principal identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
+		targets = append(targets, target)
+		if target.ResourceID != runs.run.RunID {
+			return authorization.ReadScope{}, failure.New(generated.ErrorCodeAuthorizationDenied, "read-scope", false)
+		}
+		return authorization.ReadScope{PrincipalID: principal.ID, Capability: target.Capability, ResourceKind: target.ResourceKind, GrantRevision: 1, ScopeDigest: testAPIDigest("9")}, nil
+	})
+	app := newRunTestApplicationWithReadAuthorization(t, runs, &effectiveAuthorizationStub{}, authorizer)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/runs/"+runs.run.RunID, nil)
 	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, request)
-	if response.Code != http.StatusConflict || !bytes.Contains(response.Body.Bytes(), []byte(`"status":"partial"`)) || !bytes.Contains(response.Body.Bytes(), []byte(`"requestId":"partial-submit-test"`)) {
-		t.Fatalf("partial response=%d body=%s", response.Code, response.Body.String())
+	if response.Code != http.StatusOK || len(runs.getIDs) != 1 || runs.getIDs[0] != runs.run.RunID {
+		t.Fatalf("allowed response=%d gets=%v body=%s", response.Code, runs.getIDs, response.Body.String())
+	}
+
+	request = httptest.NewRequest(http.MethodGet, "/api/v1/runs/run-other", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response = httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden || len(runs.getIDs) != 1 || len(targets) != 2 || targets[0].ResourceID != runs.run.RunID || targets[1].ResourceID != "run-other" {
+		t.Fatalf("denied response=%d targets=%v gets=%v body=%s", response.Code, targets, runs.getIDs, response.Body.String())
 	}
 }
 
@@ -148,16 +216,75 @@ func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 	}
 }
 
+func TestRunMutationsPassTheExactOperationAndCanonicalIdempotencyRequest(t *testing.T) {
+	for _, operation := range []string{"cancel", "resume"} {
+		t.Run(operation, func(t *testing.T) {
+			plan := apiRunPlan()
+			runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
+			app := newRunTestApplication(t, runs)
+			input := generated.RunReferenceRequest{Schema: generated.SchemaIDRunReferenceRequest, SchemaVersion: "1.0.0", RunID: runs.run.RunID, IdempotencyKey: operation + "-key", RecoveryEpoch: runs.run.RecoveryEpoch, Extensions: []generated.ContractExtension{{Name: "x-request-binding", ValueDigest: testAPIDigest("8")}}}
+			body, _ := json.Marshal(input)
+
+			for range 2 {
+				request := httptest.NewRequest(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/"+operation, bytes.NewReader(body))
+				request.Header.Set("Content-Type", "application/json")
+				request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+				response := httptest.NewRecorder()
+				app.ServeHTTP(response, request)
+				if response.Code != http.StatusOK {
+					t.Fatalf("response=%d body=%s", response.Code, response.Body.String())
+				}
+				var envelope generated.RunResult
+				if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+					t.Fatal(err)
+				}
+				if envelope.RequestID != input.IdempotencyKey || envelope.RunID == nil || *envelope.RunID != runs.run.RunID || envelope.PlanID == nil || *envelope.PlanID != runs.run.PlanID {
+					t.Fatalf("envelope=%#v", envelope)
+				}
+			}
+
+			if len(runs.mutationCalls) != 2 || len(runs.mutationOperations) != 2 {
+				t.Fatalf("mutations=%v operations=%v", runs.mutationCalls, runs.mutationOperations)
+			}
+			for index := range runs.mutationCalls {
+				if runs.mutationOperations[index] != operation || !reflect.DeepEqual(runs.mutationCalls[index], input) {
+					t.Fatalf("mutation %d operation=%q request=%#v", index, runs.mutationOperations[index], runs.mutationCalls[index])
+				}
+			}
+		})
+	}
+}
+
+func TestRunMutationChangedIdempotencyReuseFailsClosed(t *testing.T) {
+	plan := apiRunPlan()
+	runs := &runAPIStub{plan: plan, run: apiRunResult(plan), mutationErr: failure.New(generated.ErrorCodeStateConflict, "run-mutation-key", false)}
+	app := newRunTestApplication(t, runs)
+	input := generated.RunReferenceRequest{Schema: generated.SchemaIDRunReferenceRequest, SchemaVersion: "1.0.0", RunID: runs.run.RunID, IdempotencyKey: "changed-reuse-key", RecoveryEpoch: runs.run.RecoveryEpoch, Extensions: []generated.ContractExtension{{Name: "x-request-binding", ValueDigest: testAPIDigest("7")}}}
+	body, _ := json.Marshal(input)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/cancel", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict || !bytes.Contains(response.Body.Bytes(), []byte(`"code":"STATE_CONFLICT"`)) || !bytes.Contains(response.Body.Bytes(), []byte(`"requestId":"changed-reuse-key"`)) {
+		t.Fatalf("response=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 type runAPIStub struct {
-	mu                   sync.Mutex
-	plan                 generated.Plan
-	run                  generated.Run
-	submitCalls          int
-	existingCalls        int
-	acknowledgementCalls int
-	existing             bool
-	last                 runengine.SubmitRequest
-	submitErr            error
+	mu                         sync.Mutex
+	plan                       generated.Plan
+	run                        generated.Run
+	submitCalls                int
+	existingCalls              int
+	acknowledgementStatusCalls int
+	existing                   bool
+	last                       runengine.SubmitRequest
+	submitErr                  error
+	getIDs                     []string
+	mutationCalls              []generated.RunReferenceRequest
+	mutationOperations         []string
+	mutationErr                error
 }
 
 func (stub *runAPIStub) Submit(_ context.Context, request runengine.SubmitRequest) (generated.Run, error) {
@@ -179,14 +306,18 @@ func (stub *runAPIStub) Existing(context.Context, generated.PlanReferenceRequest
 	}
 	return generated.Run{}, false, nil
 }
-func (stub *runAPIStub) Get(context.Context, string) (generated.Run, error)    { return stub.run, nil }
-func (stub *runAPIStub) Cancel(context.Context, string) (generated.Run, error) { return stub.run, nil }
-func (stub *runAPIStub) Resume(context.Context, string) (generated.Run, error) { return stub.run, nil }
-func (stub *runAPIStub) CancelAs(context.Context, string, audit.Attribution) (generated.Run, error) {
+func (stub *runAPIStub) Get(_ context.Context, id string) (generated.Run, error) {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
+	stub.getIDs = append(stub.getIDs, id)
 	return stub.run, nil
 }
-func (stub *runAPIStub) ResumeAs(context.Context, string, audit.Attribution) (generated.Run, error) {
-	return stub.run, nil
+func (stub *runAPIStub) MutateAs(_ context.Context, operation string, reference generated.RunReferenceRequest, _ audit.Attribution) (generated.Run, error) {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
+	stub.mutationOperations = append(stub.mutationOperations, operation)
+	stub.mutationCalls = append(stub.mutationCalls, reference)
+	return stub.run, stub.mutationErr
 }
 func (*runAPIStub) Startup(context.Context) error { return nil }
 func (stub *runAPIStub) GetPlan(context.Context, string) (store.PlanCommitResult, error) {
@@ -194,15 +325,10 @@ func (stub *runAPIStub) GetPlan(context.Context, string) (store.PlanCommitResult
 	defer stub.mu.Unlock()
 	return store.PlanCommitResult{Plan: stub.plan}, nil
 }
-func (stub *runAPIStub) VerifyForExecution(context.Context, string) (generated.Acknowledgement, error) {
-	stub.mu.Lock()
-	defer stub.mu.Unlock()
-	stub.acknowledgementCalls++
-	return apiRunAcknowledgement(stub.plan), nil
-}
 func (stub *runAPIStub) Status(context.Context, string) (generated.Acknowledgement, error) {
 	stub.mu.Lock()
 	defer stub.mu.Unlock()
+	stub.acknowledgementStatusCalls++
 	return apiRunAcknowledgement(stub.plan), nil
 }
 
@@ -213,8 +339,17 @@ func newRunTestApplication(t *testing.T, runs *runAPIStub) *Application {
 }
 
 func newRunTestApplicationWithAuthorization(t *testing.T, runs *runAPIStub, effective *effectiveAuthorizationStub) *Application {
+	return newRunTestApplicationWithReadAuthorization(t, runs, effective, allowOperationAuthorizer())
+}
+
+func newRunTestApplicationWithReadAuthorization(t *testing.T, runs *runAPIStub, effective *effectiveAuthorizationStub, reads authorization.ReadAuthorizer) *Application {
 	t.Helper()
-	app := newAuthorizationTestApplication(t, effective, effective)
+	factory := result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-run-test", nil })
+	app, err := NewApplication(Config{Authority: testAuthority{}, Authorizer: reads, Reads: testReads{}, Results: factory, Cursors: testCursor{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	app.effective = EffectiveAuthorizationConfig{Authorizer: effective, Recorder: effective, Clock: func() time.Time { return time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC) }}
 	if err := RegisterRunOperations(app, RunOperationConfig{Runs: runs, Plans: runs, Acknowledgements: runs, Results: app.config.Results, Authorization: app.effective}); err != nil {
 		t.Fatal(err)
 	}

@@ -18,8 +18,7 @@ type RunService interface {
 	Submit(context.Context, runengine.SubmitRequest) (generated.Run, error)
 	Existing(context.Context, generated.PlanReferenceRequest) (generated.Run, bool, error)
 	Get(context.Context, string) (generated.Run, error)
-	CancelAs(context.Context, string, audit.Attribution) (generated.Run, error)
-	ResumeAs(context.Context, string, audit.Attribution) (generated.Run, error)
+	MutateAs(context.Context, string, generated.RunReferenceRequest, audit.Attribution) (generated.Run, error)
 }
 
 type RunLifecycle interface {
@@ -31,7 +30,6 @@ type RunPlanSource interface {
 }
 
 type RunAcknowledgementSource interface {
-	VerifyForExecution(context.Context, string) (generated.Acknowledgement, error)
 	Status(context.Context, string) (generated.Acknowledgement, error)
 }
 
@@ -112,10 +110,9 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 			app.failure(w, operation, apiFailure(generated.ErrorCodeRecoveryEpochMismatch, "plan"))
 			return
 		}
-		// Human proof consumption and durable creation form one in-process lane
-		// per exact submit key. The server is the single writer, so a concurrent exact
-		// duplicate waits and then observes the first run instead of consuming the
-		// one-use proof twice.
+		// Exact submits form one in-process lane per key. The acknowledgement is
+		// inspected here, but its one-use proof is consumed only after the engine has
+		// persisted the unique queued run that owns it.
 		unlock := app.lockRunSubmit(input.PlanID + "\x00" + input.IdempotencyKey)
 		defer unlock()
 		existing, found, err := config.Runs.Existing(request.Context(), input)
@@ -123,10 +120,10 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 			app.operationFailure(w, operation, input.IdempotencyKey, err)
 			return
 		} else if found && existing.Status != "queued" {
-			app.operationSuccess(w, operation, input.IdempotencyKey, existing.Changed, existing.StateRevision, existing.RecoveryEpoch, existing)
+			app.executeRunResult(w, operation, input.IdempotencyKey, existing, nil)
 			return
 		}
-		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan, !found)
+		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan)
 		if err != nil {
 			app.failure(w, operation, err)
 			return
@@ -137,11 +134,15 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 			return
 		}
 		value, err := config.Runs.Submit(request.Context(), runengine.SubmitRequest{Reference: input, Authorization: decision, Acknowledgement: ack, Attribution: attribution})
+		if value.RunID != "" {
+			app.executeRunResult(w, operation, input.IdempotencyKey, value, err)
+			return
+		}
 		if err != nil {
 			app.operationFailure(w, operation, input.IdempotencyKey, err)
 			return
 		}
-		app.operationSuccess(w, operation, input.IdempotencyKey, value.Changed, value.StateRevision, value.RecoveryEpoch, value)
+		app.operationFailure(w, operation, input.IdempotencyKey, apiFailure(generated.ErrorCodeIntegrityFailure, "run-result"))
 	}
 }
 
@@ -203,7 +204,7 @@ func (app *Application) mutateRun(config RunOperationConfig, resume bool) func(h
 		}
 		var ack *generated.Acknowledgement
 		if resume {
-			ack, err = app.runAcknowledgement(request.Context(), config, stored.Plan, false)
+			ack, err = app.runAcknowledgement(request.Context(), config, stored.Plan)
 			if err != nil {
 				app.failure(w, operation, err)
 				return
@@ -214,18 +215,30 @@ func (app *Application) mutateRun(config RunOperationConfig, resume bool) func(h
 			app.failure(w, operation, err)
 			return
 		}
-		var value generated.Run
+		mutation := "cancel"
 		if resume {
-			value, err = config.Runs.ResumeAs(request.Context(), id, attribution)
-		} else {
-			value, err = config.Runs.CancelAs(request.Context(), id, attribution)
+			mutation = "resume"
 		}
+		value, err := config.Runs.MutateAs(request.Context(), mutation, input, attribution)
 		if err != nil {
+			if value.RunID != "" && durableExecutionFailure(err) {
+				app.executeRunResult(w, operation, input.IdempotencyKey, value, err)
+				return
+			}
 			app.operationFailure(w, operation, input.IdempotencyKey, err)
 			return
 		}
-		app.operationSuccess(w, operation, input.IdempotencyKey, value.Changed, value.StateRevision, value.RecoveryEpoch, value)
+		if value.RunID == "" {
+			app.operationFailure(w, operation, input.IdempotencyKey, apiFailure(generated.ErrorCodeIntegrityFailure, "run-result"))
+			return
+		}
+		app.operationRunSuccess(w, operation, input.IdempotencyKey, value)
 	}
+}
+
+func durableExecutionFailure(err error) bool {
+	code, _, _ := classifyOperationError(err)
+	return code == generated.ErrorCodeExecutionFailed || code == generated.ErrorCodeExecutionPartial || code == generated.ErrorCodeRecoveryRequired || code == generated.ErrorCodeInterrupted
 }
 
 func (app *Application) authorizeRunPlan(request *http.Request, plan generated.Plan) (generated.AuthorizationDecision, error) {
@@ -255,20 +268,14 @@ func (app *Application) authorizeRunPlan(request *http.Request, plan generated.P
 	return result, nil
 }
 
-func (app *Application) runAcknowledgement(ctx context.Context, config RunOperationConfig, plan generated.Plan, consume bool) (*generated.Acknowledgement, error) {
+func (app *Application) runAcknowledgement(ctx context.Context, config RunOperationConfig, plan generated.Plan) (*generated.Acknowledgement, error) {
 	if plan.AuthorizationBranch == string(authorization.BranchPreauthorized) {
 		return nil, nil
 	}
 	if config.Acknowledgements == nil {
 		return nil, apiFailure(generated.ErrorCodeApprovalRequired, "acknowledgement")
 	}
-	var acknowledgement generated.Acknowledgement
-	var err error
-	if consume {
-		acknowledgement, err = config.Acknowledgements.VerifyForExecution(ctx, plan.PlanID)
-	} else {
-		acknowledgement, err = config.Acknowledgements.Status(ctx, plan.PlanID)
-	}
+	acknowledgement, err := config.Acknowledgements.Status(ctx, plan.PlanID)
 	if err != nil {
 		return nil, err
 	}

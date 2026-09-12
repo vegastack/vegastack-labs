@@ -32,6 +32,58 @@ func (app *Application) operationSuccess(writer http.ResponseWriter, operation, 
 	app.writeEnvelope(writer, operation, envelope, MaxOperationResponseBytes)
 }
 
+func (app *Application) operationRunSuccess(writer http.ResponseWriter, operation, requestID string, run generated.Run) {
+	envelope, err := app.config.Results.SuccessWithRequestID(operation, requestID, run.Changed, run.RecoveryEpoch, run.StateRevision, run)
+	if err != nil {
+		app.failure(writer, operation, err)
+		return
+	}
+	envelope.RunID, envelope.PlanID = &run.RunID, &run.PlanID
+	app.writeEnvelope(writer, operation, envelope, MaxOperationResponseBytes)
+}
+
+// executeRunResult projects the durable run rather than the transient call
+// outcome. Exact retries must report the same terminal meaning, identity and
+// revision even though no adapter is invoked on the replay.
+func (app *Application) executeRunResult(writer http.ResponseWriter, operation, requestID string, run generated.Run, cause error) {
+	if run.Status == generated.RunStatusSucceeded && cause == nil {
+		app.operationRunSuccess(writer, operation, requestID, run)
+		return
+	}
+
+	status, code, retryable := durableRunFailure(run.Status)
+	envelope, err := app.config.Results.FailureWithRequestID(operation, requestID, status, code, "run", retryable, run.RecoveryEpoch, run.StateRevision, run)
+	if err != nil {
+		app.failure(writer, operation, err)
+		return
+	}
+	envelope.RunID, envelope.PlanID, envelope.Changed = &run.RunID, &run.PlanID, run.Changed
+	var body bytes.Buffer
+	if err := result.Encode(&body, envelope); err != nil || body.Len() > MaxOperationResponseBytes {
+		app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "response"))
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Header().Set("Cache-Control", "no-store")
+	writer.WriteHeader(httpStatus(code))
+	_, _ = writer.Write(body.Bytes())
+}
+
+func durableRunFailure(status string) (string, string, bool) {
+	switch status {
+	case generated.RunStatusFailed:
+		return generated.RunStatusFailed, generated.ErrorCodeExecutionFailed, false
+	case generated.RunStatusPartial:
+		return generated.RunStatusPartial, generated.ErrorCodeRecoveryRequired, false
+	case generated.RunStatusInterrupted:
+		return generated.RunStatusInterrupted, generated.ErrorCodeInterrupted, true
+	case generated.RunStatusCancelled:
+		return generated.RunStatusCancelled, generated.ErrorCodeInterrupted, false
+	default:
+		return generated.RunStatusBlocked, generated.ErrorCodeStateConflict, false
+	}
+}
+
 func (app *Application) writeEnvelope(writer http.ResponseWriter, operation string, envelope generated.RunResult, limit int) {
 	var body bytes.Buffer
 	if err := result.Encode(&body, envelope); err != nil || body.Len() > limit {

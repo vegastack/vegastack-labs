@@ -170,6 +170,9 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if planID, exists := params["planId"]; exists {
 			resourceID = planID
 		}
+		if runID, exists := params["runId"]; exists {
+			resourceID = runID
+		}
 		if candidate.id == "api.v1.inventory-drafts.import" {
 			resourceID = "inventory-drafts"
 		}
