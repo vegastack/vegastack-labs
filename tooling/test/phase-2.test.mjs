@@ -35,7 +35,7 @@ test("Phase 2 documents draft-only CLI/API parity without a second authority", a
   assert.doesNotMatch(phase, /^Status: accepted\./m);
 });
 
-test("current development pointers record implemented Phase 2 awaiting operator acceptance", async () => {
+test("current development pointers preserve Phase 2 acceptance and record Phase 3 awaiting acceptance", async () => {
   const [index, roadmap, phaseOne, readme, contributing] = await Promise.all([
     readFile(path.join(ROOT, "docs/development/README.md"), "utf8"),
     readFile(path.join(ROOT, "docs/development/roadmap.md"), "utf8"),
@@ -46,8 +46,8 @@ test("current development pointers record implemented Phase 2 awaiting operator 
     readFile(path.join(ROOT, "README.md"), "utf8"),
     readFile(path.join(ROOT, "CONTRIBUTING.md"), "utf8"),
   ]);
-  assert.match(index, /Phase 1.*accepted.*Phase 2.*implemented; awaiting operator acceptance/is);
-  assert.match(roadmap, /Phase 1.*accepted.*Phase 2.*implemented; awaiting operator acceptance/is);
+  assert.match(index, /Phase 2.*accepted.*Phase 3.*implemented.*exact-commit.*operator-acceptance/is);
+  assert.match(roadmap, /Phase 2.*10-09-2026.*Phase 3.*implemented.*exact-commit.*operator-acceptance/is);
   assert.match(phaseOne, /^Status: accepted\./m);
   assert.match(readme, /protected Unix-domain.*kernel peer credentials/is);
   assert.match(readme, /does not.*SQLite.*inventory.*permissions/is);
