@@ -99,7 +99,7 @@ func (service *Service) Decide(ctx context.Context, candidate Candidate) (genera
 		return generated.Acknowledgement{}, candidateMismatch(candidate, stored.Request)
 	}
 	if stored.Acknowledgement.Status != "pending" {
-		if (stored.Acknowledgement.Status == candidate.Action) && candidate.DecidedAt.Format(time.RFC3339) == stored.Acknowledgement.ReceivedAt {
+		if stored.Acknowledgement.Status == candidate.Action {
 			return stored.Acknowledgement, nil
 		}
 		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")

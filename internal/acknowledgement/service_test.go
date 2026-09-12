@@ -69,7 +69,10 @@ func TestDecisionRequiresExactBindingsAndProofIsSingleUse(t *testing.T) {
 	if err != nil || approved.Status != "approved" {
 		t.Fatalf("approve = %#v, %v", approved, err)
 	}
-	duplicate, err := service.Decide(context.Background(), valid)
+	delayedDuplicate := valid
+	delayedDuplicate.DecidedAt = delayedDuplicate.DecidedAt.Add(2 * time.Second)
+	service.config.Clock = func() time.Time { return time.Date(2026, 9, 13, 1, 5, 2, 0, time.UTC) }
+	duplicate, err := service.Decide(context.Background(), delayedDuplicate)
 	if err != nil || duplicate.ProofDigest != approved.ProofDigest || repository.decided != 1 {
 		t.Fatalf("duplicate = %#v, %v; writes %d", duplicate, err, repository.decided)
 	}
