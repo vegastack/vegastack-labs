@@ -216,7 +216,7 @@ func validPreauthorized(principal identity.Principal, request Request, risk Risk
 		return false
 	}
 	for _, operation := range request.Plan.Operations {
-		if !preauthorizedOperation(operation.OperationType) {
+		if !preauthorizedOperation(operation.OperationType) || operation.TargetID != request.Target.ResourceID {
 			return false
 		}
 	}

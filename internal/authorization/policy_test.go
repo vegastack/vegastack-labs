@@ -172,29 +172,42 @@ func TestCompleteRoleActionRiskMatrixMatchesClosedPolicy(t *testing.T) {
 	roles := []Role{RoleReader, RoleAuthor, RoleMaintainer, RoleInfrastructureAdmin, RoleControlPlaneAdmin, RolePreauthorizedExecutor}
 	actions := []Action{ActionRead, ActionAuthor, ActionAcknowledge, ActionExecute}
 	risks := []RiskClass{RiskRoutine, RiskProductionLike, RiskInfrastructure, RiskDestructive, RiskControlPlane}
+	// Each bit is one risk in the order above. This literal oracle is kept
+	// separate from production policy logic so an empty or copied branch table
+	// cannot make every tuple pass accidentally.
+	oracle := map[Role]map[Action]uint8{
+		RoleReader:                {ActionRead: 0b11111},
+		RoleAuthor:                {ActionRead: 0b11111, ActionAuthor: 0b11111},
+		RoleMaintainer:            {ActionRead: 0b11111, ActionAuthor: 0b11111, ActionAcknowledge: 0b00011, ActionExecute: 0b00011},
+		RoleInfrastructureAdmin:   {ActionRead: 0b01111, ActionAuthor: 0b01111, ActionAcknowledge: 0b01111, ActionExecute: 0b01111},
+		RoleControlPlaneAdmin:     {ActionRead: 0b11111, ActionAuthor: 0b11111, ActionAcknowledge: 0b11111, ActionExecute: 0b11111},
+		RolePreauthorizedExecutor: {ActionExecute: 0b00001},
+	}
 	for _, role := range roles {
 		for _, action := range actions {
-			for _, risk := range risks {
-				want := false
-				switch role {
-				case RoleReader:
-					want = action == ActionRead
-				case RoleAuthor:
-					want = action == ActionRead || action == ActionAuthor
-				case RoleMaintainer:
-					want = action == ActionRead || action == ActionAuthor || ((action == ActionAcknowledge || action == ActionExecute) && (risk == RiskRoutine || risk == RiskProductionLike))
-				case RoleInfrastructureAdmin:
-					want = risk != RiskControlPlane
-				case RoleControlPlaneAdmin:
-					want = true
-				case RolePreauthorizedExecutor:
-					want = action == ActionExecute && risk == RiskRoutine
-				}
+			for riskIndex, risk := range risks {
+				want := oracle[role][action]&(1<<riskIndex) != 0
 				if got := roleAllows(role, action, risk); got != want {
 					t.Fatalf("role=%q action=%q risk=%q got=%t want=%t", role, action, risk, got, want)
 				}
 			}
 		}
+	}
+}
+
+func TestPreauthorizedDecisionCannotCoverAnAdditionalTarget(t *testing.T) {
+	t.Parallel()
+	principal := identity.Principal{ID: "policy-deployer", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalPolicy}
+	target := Target{Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test"}
+	plan := testPlan("application.deploy.low-risk", BranchPreauthorized)
+	plan.Operations = append(plan.Operations, generated.PlanOperation{Sequence: 2, OperationID: "operation-other", OperationType: "health.check", TargetID: "app-other"})
+	evaluator := NewEvaluator(policyRepositoryStub{snapshot: EffectivePolicySnapshot{
+		PrincipalKind: identity.PrincipalPolicy, Status: EffectiveActive, GrantRevision: 1, StateRevision: 12, RecoveryEpoch: 3,
+		Grants: []EffectiveGrant{{Role: RolePreauthorizedExecutor, AllowedAction: ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: BranchPreauthorized}},
+	}})
+	decision, err := evaluator.Authorize(context.Background(), principal, Request{Action: ActionExecute, Target: target, Plan: &plan, Branches: []Branch{BranchPreauthorized}})
+	if err != nil || decision.Allowed || decision.ReasonCode != ReasonPreauthorizationDenied {
+		t.Fatalf("multi-target preauthorization = %#v, %v", decision, err)
 	}
 }
 
