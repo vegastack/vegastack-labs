@@ -63,12 +63,43 @@ type Config struct {
 }
 
 type Application struct {
-	config    Config
-	effective EffectiveAuthorizationConfig
-	runs      RunLifecycle
-	routes    []route
-	closeOnce sync.Once
-	closeErr  error
+	config         Config
+	effective      EffectiveAuthorizationConfig
+	runs           RunLifecycle
+	routes         []route
+	runSubmitGuard sync.Mutex
+	runSubmits     map[string]*runSubmitLock
+	closeOnce      sync.Once
+	closeErr       error
+}
+
+type runSubmitLock struct {
+	mutex sync.Mutex
+	users int
+}
+
+func (app *Application) lockRunSubmit(key string) func() {
+	app.runSubmitGuard.Lock()
+	if app.runSubmits == nil {
+		app.runSubmits = map[string]*runSubmitLock{}
+	}
+	lock := app.runSubmits[key]
+	if lock == nil {
+		lock = &runSubmitLock{}
+		app.runSubmits[key] = lock
+	}
+	lock.users++
+	app.runSubmitGuard.Unlock()
+	lock.mutex.Lock()
+	return func() {
+		lock.mutex.Unlock()
+		app.runSubmitGuard.Lock()
+		lock.users--
+		if lock.users == 0 {
+			delete(app.runSubmits, key)
+		}
+		app.runSubmitGuard.Unlock()
+	}
 }
 
 func NewApplication(config Config) (*Application, error) {

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -113,6 +114,7 @@ func (service *fakePlanService) Get(context.Context, string) (store.PlanCommitRe
 }
 
 type effectiveAuthorizationStub struct {
+	mu        sync.Mutex
 	decision  authorization.Decision
 	err       error
 	recordErr error
@@ -143,6 +145,8 @@ func (stub *effectiveAuthorizationStub) Authorize(_ context.Context, principal i
 }
 
 func (stub *effectiveAuthorizationStub) RecordDecision(_ context.Context, record authorization.DecisionRecord) error {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
 	stub.records = append(stub.records, record)
 	return stub.recordErr
 }

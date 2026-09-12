@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"sync"
 	"testing"
 	"time"
 
@@ -65,6 +66,47 @@ func TestRunExecuteDenialDoesNotReadRequestBody(t *testing.T) {
 	}
 }
 
+func TestConcurrentExactSubmitConsumesHumanProofOnce(t *testing.T) {
+	plan := apiRunPlan()
+	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
+	app := newRunTestApplication(t, runs)
+	input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "concurrent-submit-test", Extensions: []generated.ContractExtension{}}
+	body, err := json.Marshal(input)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	start := make(chan struct{})
+	statuses := make(chan int, 2)
+	var requests sync.WaitGroup
+	requests.Add(2)
+	for range 2 {
+		go func() {
+			defer requests.Done()
+			<-start
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+			response := httptest.NewRecorder()
+			app.ServeHTTP(response, request)
+			statuses <- response.Code
+		}()
+	}
+	close(start)
+	requests.Wait()
+	close(statuses)
+	for status := range statuses {
+		if status != http.StatusOK {
+			t.Fatalf("concurrent submit response=%d", status)
+		}
+	}
+	runs.mu.Lock()
+	defer runs.mu.Unlock()
+	if runs.submitCalls != 1 || runs.acknowledgementCalls != 1 {
+		t.Fatalf("submit/proof calls=%d/%d", runs.submitCalls, runs.acknowledgementCalls)
+	}
+}
+
 func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
@@ -87,20 +129,26 @@ func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 }
 
 type runAPIStub struct {
-	plan          generated.Plan
-	run           generated.Run
-	submitCalls   int
-	existingCalls int
-	existing      bool
-	last          runengine.SubmitRequest
+	mu                   sync.Mutex
+	plan                 generated.Plan
+	run                  generated.Run
+	submitCalls          int
+	existingCalls        int
+	acknowledgementCalls int
+	existing             bool
+	last                 runengine.SubmitRequest
 }
 
 func (stub *runAPIStub) Submit(_ context.Context, request runengine.SubmitRequest) (generated.Run, error) {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
 	stub.submitCalls++
 	stub.last = request
 	return stub.run, nil
 }
 func (stub *runAPIStub) Existing(context.Context, generated.PlanReferenceRequest) (generated.Run, bool, error) {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
 	stub.existingCalls++
 	if stub.existing {
 		return stub.run, true, nil
@@ -121,12 +169,19 @@ func (stub *runAPIStub) ResumeAs(context.Context, string, audit.Attribution) (ge
 }
 func (*runAPIStub) Startup(context.Context) error { return nil }
 func (stub *runAPIStub) GetPlan(context.Context, string) (store.PlanCommitResult, error) {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
 	return store.PlanCommitResult{Plan: stub.plan}, nil
 }
 func (stub *runAPIStub) VerifyForExecution(context.Context, string) (generated.Acknowledgement, error) {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
+	stub.acknowledgementCalls++
 	return apiRunAcknowledgement(stub.plan), nil
 }
 func (stub *runAPIStub) Status(context.Context, string) (generated.Acknowledgement, error) {
+	stub.mu.Lock()
+	defer stub.mu.Unlock()
 	return apiRunAcknowledgement(stub.plan), nil
 }
 

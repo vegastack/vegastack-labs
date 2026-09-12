@@ -112,6 +112,12 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 			app.failure(w, operation, apiFailure(generated.ErrorCodeRecoveryEpochMismatch, "plan"))
 			return
 		}
+		// Human proof consumption and durable creation form one in-process lane
+		// per exact submit key. The server is the single writer, so a concurrent exact
+		// duplicate waits and then observes the first run instead of consuming the
+		// one-use proof twice.
+		unlock := app.lockRunSubmit(input.PlanID + "\x00" + input.IdempotencyKey)
+		defer unlock()
 		existing, found, err := config.Runs.Existing(request.Context(), input)
 		if err != nil {
 			app.operationFailure(w, operation, decision.DecisionID, err)
