@@ -107,6 +107,25 @@ jobs:
             *) echo "Refusing unapproved self-hosted runner" >&2; exit 1 ;;
           esac
 
+      - name: Prepare protected local test storage
+        run: |
+          umask 077
+          TMPDIR="$(mktemp -d -p /var/tmp vsk.XXXXXX)"
+          cleanup_unexported_temp() {
+            case "$TMPDIR" in
+              /var/tmp/vsk.??????) rm -rf -- "$TMPDIR" ;;
+              *) echo "Refusing unexpected cleanup path" >&2 ;;
+            esac
+          }
+          trap cleanup_unexported_temp EXIT
+          test "$(stat -c '%a:%u' "$TMPDIR")" = "700:$(id -u)"
+          case "$(stat -f -c '%T' "$TMPDIR")" in
+            ext2/ext3|xfs|btrfs|f2fs|zfs) ;;
+            *) echo "Refusing unsupported test filesystem" >&2; exit 1 ;;
+          esac
+          printf 'TMPDIR=%s\n' "$TMPDIR" >> "$GITHUB_ENV"
+          trap - EXIT
+
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -145,3 +164,12 @@ jobs:
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code
+
+      - name: Remove protected local test storage
+        if: always()
+        run: |
+          case "$TMPDIR" in
+            /var/tmp/vsk.??????) ;;
+            *) echo "Refusing unexpected cleanup path" >&2; exit 1 ;;
+          esac
+          rm -rf -- "$TMPDIR"

@@ -59,7 +59,18 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
-  assert.equal(trustedSteps[1].name, "Check out repository");
+  assert.equal(trustedSteps[1].name, "Prepare protected local test storage");
+  assert.match(trustedSteps[1].run, /mktemp -d -p \/var\/tmp vsk\.XXXXXX/);
+  assert.match(trustedSteps[1].run, /umask 077/);
+  assert.match(trustedSteps[1].run, /trap cleanup_unexported_temp EXIT/);
+  assert.match(trustedSteps[1].run, /trap - EXIT/);
+  assert.match(trustedSteps[1].run, /stat -c '%a:%u'/);
+  assert.match(trustedSteps[1].run, /ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/);
+  assert.match(trustedSteps[1].run, /GITHUB_ENV/);
+  const cleanup = trustedSteps.find((step) => step.name === "Remove protected local test storage");
+  assert.equal(cleanup.if, "always()");
+  assert.match(cleanup.run, /rm -rf -- "\$TMPDIR"/);
+  assert.equal(trustedSteps[2].name, "Check out repository");
   assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
 });
@@ -111,6 +122,22 @@ test("the workflow guard keeps pull requests off disposable machines and checks 
   assert.throws(
     () => verifyWorkflowDocument(lateGuard, source),
     /hostname before repository checkout/,
+  );
+
+  const unsafeTemporary = parseYaml(source);
+  unsafeTemporary.jobs.verify_trusted.steps[1].run = "TMPDIR=/tmp";
+  assert.throws(
+    () => verifyWorkflowDocument(unsafeTemporary, source),
+    /protected temporary storage/,
+  );
+
+  const unarmedCleanup = parseYaml(source);
+  unarmedCleanup.jobs.verify_trusted.steps[1].run = unarmedCleanup.jobs.verify_trusted.steps[1].run
+    .replace("trap cleanup_unexported_temp EXIT", "true")
+    .replace("trap - EXIT", "true");
+  assert.throws(
+    () => verifyWorkflowDocument(unarmedCleanup, source),
+    /protected temporary storage/,
   );
 
   for (const trigger of ["schedule", "repository_dispatch", "pull_request_target"]) {
