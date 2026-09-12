@@ -30,7 +30,9 @@ for (const domain of domains) {
     expect(fixtureAudit.requests.some(url => url.includes(`/api/v1/sources?limit=1&source=${domain.source}`))).toBeTruthy();
     await expect(page.getByRole("button", { name: /create|restore|configure|suspend|apply/i })).toHaveCount(0);
     await expect(page.getByText(/records arrive in their owning later phase/i)).toBeVisible();
-    await page.screenshot({ path: testInfo.outputPath(`${domain.source}-current.png`), fullPage: true });
+    if (!process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT) {
+      await page.screenshot({ path: testInfo.outputPath(`${domain.source}-current.png`), fullPage: true });
+    }
   });
 
   test(`${domain.title} distinguishes every safe status and failure`, async ({ page }) => {
@@ -76,7 +78,9 @@ for (const domain of domains) {
     await expectNoSeriousAccessibilityViolations(page);
     await page.getByRole("button", { name: "Use dark theme" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
-    if (domain.source === "backups") await page.screenshot({ path: testInfo.outputPath("backups-stale-mobile-dark.png"), fullPage: true });
+    if (domain.source === "backups" && !process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT) {
+      await page.screenshot({ path: testInfo.outputPath("backups-stale-mobile-dark.png"), fullPage: true });
+    }
   });
 }
 

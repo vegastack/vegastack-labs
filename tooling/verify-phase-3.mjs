@@ -1,4 +1,5 @@
-import { lstat, readFile, readdir } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -101,16 +102,46 @@ export async function runPhase3(root = ROOT, { prepared = false } = {}) {
     await runCommand(build.command, build.args, { cwd: root, timeoutMs: 180_000 });
   }
   const browser = packageManagerInvocation(["--filter", "@vegastack/labs-web", "test:e2e"]);
-  await runCommand(browser.command, browser.args, { cwd: root, timeoutMs: 180_000 });
-  if (process.platform === "linux") {
-    await runCommand("go", ["test", "-race", "-count=1", "./internal/server", "./internal/api", "-run", "Phase3Acceptance"], {
-      cwd: root,
-      capture: true,
-      timeoutMs: 180_000,
-    });
+  const browserArtifacts = await mkdtemp(path.join(tmpdir(), "vsk-phase3-browser-"));
+  let browserFailure;
+  let sanitized;
+  try {
+    try {
+      await runCommand(browser.command, browser.args, {
+        cwd: root,
+        capture: true,
+        env: { ...process.env, VSK_PHASE3_PLAYWRIGHT_OUTPUT: browserArtifacts },
+        timeoutMs: 180_000,
+      });
+    } catch (error) {
+      browserFailure = error;
+    }
+    sanitized = await verifyPhase3({ artifacts: browserArtifacts, root });
+  } finally {
+    await rm(browserArtifacts, { recursive: true, force: true });
   }
-  const sanitized = await verifyPhase3({ root });
   if (sanitized.status !== "pass") throw new Error("Phase 3 evidence sanitation failed");
+  if (browserFailure) throw new Error("Phase 3 browser verification failed");
+  if (process.platform === "linux") {
+    const runtimeRoot = await mkdtemp(path.join(tmpdir(), "vsk-phase3-runtime-"));
+    const binary = path.join(runtimeRoot, "vsk-labs");
+    const database = path.join(runtimeRoot, "control.db");
+    try {
+      await runCommand("go", ["build", "-race", "-ldflags", `-X github.com/vegastack/vegastack-labs/internal/server.productionDatabasePath=${database}`, "-o", binary, "./cmd/vsk-labs"], {
+        cwd: root,
+        capture: true,
+        timeoutMs: 180_000,
+      });
+      await runCommand("go", ["test", "-race", "-count=1", "./internal/server", "./internal/api", "-run", "Phase3Acceptance"], {
+        cwd: root,
+        capture: true,
+        env: { ...process.env, VSK_PHASE3_BINARY: binary, VSK_PHASE3_RUNTIME_ROOT: runtimeRoot },
+        timeoutMs: 180_000,
+      });
+    } finally {
+      await rm(runtimeRoot, { recursive: true, force: true });
+    }
+  }
   return { schemaVersion: 1, check: "phase-3", status: "pass" };
 }
 

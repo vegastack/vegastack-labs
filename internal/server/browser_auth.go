@@ -175,6 +175,12 @@ func (authenticator *BrowserAuthenticator) browserAssetRequestAllowed(request *h
 	if site[0] != "same-origin" {
 		return false
 	}
+	// Cross-origin-enabled subresources send Origin. Require the exact configured
+	// origin before admitting their provider assertion; no-cors assets rely on
+	// the exact same-origin Fetch Metadata tuple instead.
+	if mode[0] == "cors" && destination[0] != "empty" && len(origins) != 1 {
+		return false
+	}
 	if mode[0] != "cors" && mode[0] != "no-cors" {
 		return false
 	}

@@ -8,6 +8,7 @@ import (
 	"crypto/rsa"
 	"crypto/tls"
 	"encoding/json"
+	"encoding/pem"
 	"io"
 	"net"
 	"net/http"
@@ -23,6 +24,7 @@ import (
 	"github.com/go-jose/go-jose/v4"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"github.com/vegastack/vegastack-labs/internal/readmodel"
@@ -42,6 +44,197 @@ type phase3AcceptanceFixture struct {
 	cancel         context.CancelFunc
 	done           chan error
 	remoteListener net.Listener
+}
+
+type phase3ExecutableFixture struct {
+	t              *testing.T
+	baseURL        string
+	controllerURL  string
+	assertion      string
+	authority      *store.Store
+	profile        serverconfig.Profile
+	configPath     string
+	binaryPath     string
+	providerOnline atomic.Bool
+	keyServer      *httptest.Server
+	command        *exec.Cmd
+	done           chan error
+}
+
+func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
+	t.Helper()
+	binaryPath := os.Getenv("VSK_PHASE3_BINARY")
+	runtimeRoot := os.Getenv("VSK_PHASE3_RUNTIME_ROOT")
+	if !filepath.IsAbs(binaryPath) || !filepath.IsAbs(runtimeRoot) {
+		t.Skip("built-executable acceptance runs through pnpm check:phase-3")
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const keyID = "phase3-executable-key"
+	fixture := &phase3ExecutableFixture{t: t, binaryPath: binaryPath, done: make(chan error, 1)}
+	fixture.providerOnline.Store(true)
+	fixture.keyServer = httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		if !fixture.providerOnline.Load() {
+			http.Error(writer, "provider unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		_ = json.NewEncoder(writer).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{Key: &key.PublicKey, KeyID: keyID, Algorithm: string(jose.RS256), Use: "sig"}}})
+	}))
+	t.Cleanup(fixture.keyServer.Close)
+	fixture.assertion = signBrowserIntegrationJWT(t, key, keyID, fixture.keyServer.URL, now, time.Hour)
+	verified := identity.VerifiedIdentity{Issuer: fixture.keyServer.URL, Subject: "subject-real-browser", Audiences: []string{"aud-console"}, IssuedAt: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour), Method: identity.CloudflareAccessMethod}
+	binding, err := identity.BindingDigest(verified)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	databasePath := filepath.Join(runtimeRoot, "control.db")
+	uid := uint32(os.Getuid())
+	initial, err := store.Open(context.Background(), store.Config{DatabasePath: databasePath, Mode: store.InitializeNew, ExpectedUID: uid, ToolVersion: "phase3-test", BuildVersion: "phase3-test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := initial.Close(); err != nil {
+		t.Fatal(err)
+	}
+	seedBrowserIntegrationAuthority(t, databasePath, binding, now)
+	seedPhase3SourceGrants(t, databasePath, now)
+	fixture.authority, err = store.Open(context.Background(), store.Config{DatabasePath: databasePath, Mode: store.OpenExisting, ExpectedUID: uid, ToolVersion: "phase3-test", BuildVersion: "phase3-test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = fixture.authority.Close() })
+
+	certificatePath, keyPath := writeRemoteTestCertificate(t)
+	reserved, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address := reserved.Addr().String()
+	if err := reserved.Close(); err != nil {
+		t.Fatal(err)
+	}
+	fixture.baseURL = "https://" + address
+	exportRoot := filepath.Join(runtimeRoot, "exports")
+	if err := os.Mkdir(exportRoot, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	identityPath := filepath.Join(runtimeRoot, "cloudflare-access.json")
+	writeProtectedJSON(t, identityPath, generated.CloudflareAccessProfile{
+		Schema: generated.SchemaIDCloudflareAccessProfile, SchemaVersion: "1.0.0", Issuer: fixture.keyServer.URL,
+		Audience: "aud-console", CertificatesURL: fixture.keyServer.URL + "/cdn-cgi/access/certs", ClockSkewSeconds: 30,
+		MaxTokenBytes: 16 * 1024, KnownKeyOutageSeconds: 1,
+	})
+	remote := generated.RemoteReadProfile{
+		Enabled: true, BindAddress: testStringPointer(address), PublicOrigin: testStringPointer(fixture.baseURL),
+		TLSCertificatePath: testStringPointer(certificatePath), TLSPrivateKeyPath: testStringPointer(keyPath),
+		IdentityAdapter: testStringPointer("cloudflare-access"), IdentityConfigPath: testStringPointer(identityPath),
+	}
+	generatedProfile := generated.ServerProfile{
+		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.1.0", SocketPath: filepath.Join(runtimeRoot, "control.sock"),
+		SocketOwnerUID: int64(uid), SocketMode: "0600", ShutdownGraceSeconds: 5, InventoryExportRoot: exportRoot,
+		PrincipalBindings: []generated.LocalPrincipalBinding{{UID: int64(uid), PrincipalID: "principal.local"}}, RemoteRead: remote,
+	}
+	fixture.configPath = filepath.Join(runtimeRoot, "server-profile.json")
+	writeProtectedJSON(t, fixture.configPath, generatedProfile)
+	fixture.profile, err = serverconfig.NewLoader(uid).Load(context.Background(), fixture.configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	caPath := filepath.Join(runtimeRoot, "jwks-ca.pem")
+	ca := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: fixture.keyServer.Certificate().Raw})
+	if err := os.WriteFile(caPath, ca, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fixture.command = exec.Command(binaryPath, "server", "run", "--config", fixture.configPath)
+	fixture.command.Env = append(os.Environ(), "SSL_CERT_FILE="+caPath)
+	fixture.command.Stdout = io.Discard
+	fixture.command.Stderr = io.Discard
+	if err := fixture.command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	go func() { fixture.done <- fixture.command.Wait() }()
+	t.Cleanup(func() {
+		_ = fixture.command.Process.Signal(os.Interrupt)
+		select {
+		case runErr := <-fixture.done:
+			if runErr != nil {
+				t.Errorf("built vsk-labs server stopped unsuccessfully")
+			}
+		case <-time.After(7 * time.Second):
+			_ = fixture.command.Process.Kill()
+			t.Error("built vsk-labs server did not stop")
+		}
+	})
+
+	factory := result.NewFactory(result.BuildInfo{ToolVersion: "phase3-test", ReleaseBuildID: "phase3-test"}, func() (string, error) { return "request-phase3-executable", nil })
+	client := localapi.NewClient(factory)
+	ready := false
+	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
+		status, statusErr := client.Status(context.Background(), fixture.profile)
+		if statusErr == nil && status.ExitCode == 0 && status.Status.ReadAvailable && status.Status.RemoteReadState == string(RemoteReadReady) {
+			ready = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatal("built vsk-labs server did not become ready")
+	}
+	controller := httptest.NewServer(fixture.controller())
+	fixture.controllerURL = controller.URL
+	t.Cleanup(controller.Close)
+	return fixture
+}
+
+func (fixture *phase3ExecutableFixture) controller() http.Handler {
+	mux := http.NewServeMux()
+	post := func(path string, operation func() error) {
+		mux.HandleFunc(path, func(writer http.ResponseWriter, request *http.Request) {
+			if request.Method != http.MethodPost {
+				http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			if err := operation(); err != nil {
+				http.Error(writer, "fixture operation failed", http.StatusInternalServerError)
+				return
+			}
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(writer, `{"status":"succeeded"}`)
+		})
+	}
+	post("/expire", func() error {
+		return updateBrowserIntegrationDatabase(filepath.Join(os.Getenv("VSK_PHASE3_RUNTIME_ROOT"), "control.db"), `UPDATE browser_sessions SET idle_expires_at=? WHERE status='active'`, time.Now().Add(-time.Minute).UTC().Format(time.RFC3339Nano))
+	})
+	post("/revoke", func() error {
+		return fixture.authority.RevokeBrowserSessions(context.Background(), identity.Principal{ID: "principal.remote", Method: identity.CloudflareAccessMethod}, "emergency-revocation")
+	})
+	post("/provider-outage", func() error {
+		fixture.providerOnline.Store(false)
+		fixture.keyServer.CloseClientConnections()
+		time.Sleep(1100 * time.Millisecond)
+		return nil
+	})
+	post("/provider-recover", func() error { fixture.providerOnline.Store(true); return nil })
+	mux.HandleFunc("/local-status", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet {
+			http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		command := exec.Command(fixture.binaryPath, "server", "status", "--config", fixture.configPath, "--output", "json")
+		command.Stdout = &boundedProbeOutput{limit: 16 * 1024}
+		command.Stderr = &boundedProbeOutput{limit: 512}
+		if err := command.Run(); err != nil {
+			http.Error(writer, "local recovery unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(writer, `{"status":"succeeded"}`)
+	})
+	return mux
 }
 
 func newPhase3AcceptanceServer(t *testing.T) *phase3AcceptanceFixture {
@@ -260,7 +453,7 @@ func TestPhase3AcceptanceServerFailsClosedAndKeepsLocalRecovery(t *testing.T) {
 }
 
 func TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary(t *testing.T) {
-	fixture := newPhase3AcceptanceServer(t)
+	fixture := newPhase3ExecutableFixture(t)
 	command := exec.Command("node", filepath.Join("..", "..", "web", "e2e", "real-server-probe.mjs"))
 	command.Env = append(os.Environ(),
 		"NODE_NO_WARNINGS=1",

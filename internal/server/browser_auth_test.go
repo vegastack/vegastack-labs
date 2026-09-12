@@ -120,12 +120,22 @@ func TestBrowserAuthenticatorAcceptsSameOriginCORSAndNoCORSAssets(t *testing.T) 
 		{"same-origin", "script", false},
 	} {
 		request := httptest.NewRequest(http.MethodGet, "https://console.example/_next/static/asset.js", nil)
+		if test.mode == "cors" && test.destination != "empty" {
+			request.Header.Set("Origin", "https://console.example")
+		}
 		request.Header.Set("Sec-Fetch-Site", "same-origin")
 		request.Header.Set("Sec-Fetch-Mode", test.mode)
 		request.Header.Set("Sec-Fetch-Dest", test.destination)
 		if actual := authenticator.browserAssetRequestAllowed(request); actual != test.allowed {
 			t.Fatalf("asset %s/%s allowed = %t, want %t", test.mode, test.destination, actual, test.allowed)
 		}
+	}
+	request := httptest.NewRequest(http.MethodGet, "https://console.example/_next/static/asset.js", nil)
+	request.Header.Set("Sec-Fetch-Site", "same-origin")
+	request.Header.Set("Sec-Fetch-Mode", "cors")
+	request.Header.Set("Sec-Fetch-Dest", "script")
+	if authenticator.browserAssetRequestAllowed(request) {
+		t.Fatal("CORS script without the exact Origin was admitted")
 	}
 }
 

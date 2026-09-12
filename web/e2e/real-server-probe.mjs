@@ -10,12 +10,27 @@ if (!baseURL || !controllerURL || !assertion) throw new Error("phase 3 fixture i
 const browser = await chromium.launch({ headless: true });
 let stage = "desktop-session";
 try {
+  let blockedExternalRequest = false;
+  async function protectContext(targetContext) {
+    await targetContext.route("**/*", async route => {
+      const request = route.request();
+      const target = new URL(request.url());
+      if ((target.protocol === "http:" || target.protocol === "https:") && target.origin !== baseURL) {
+        blockedExternalRequest = true;
+        await route.abort("blockedbyclient");
+        return;
+      }
+      const headers = target.origin === baseURL ? { ...request.headers(), "Cf-Access-Jwt-Assertion": assertion } : request.headers();
+      await route.continue({ headers });
+    });
+  }
+
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
     colorScheme: "dark",
     viewport: { width: 1440, height: 900 },
-    extraHTTPHeaders: { "Cf-Access-Jwt-Assertion": assertion },
   });
+  await protectContext(context);
   const page = await context.newPage();
   const browserRequests = [];
   page.on("request", request => {
@@ -30,7 +45,7 @@ try {
 
   async function createSession(targetContext = context) {
     const response = await targetContext.request.post(`${baseURL}/api/v1/session`, {
-      headers: { Origin: baseURL, "Content-Type": "application/json" },
+      headers: { Origin: baseURL, "Content-Type": "application/json", "Cf-Access-Jwt-Assertion": assertion },
       data: { requestVersion: "1.0.0" },
     });
     if (response.status() !== 200) throw new Error("session bootstrap failed");
@@ -54,7 +69,7 @@ try {
     return result.violations.filter(item => item.impact === "serious" || item.impact === "critical").map(item => item.id);
   });
   if (violations.length) throw new Error("serious accessibility violation");
-  if (browserRequests.some(value => new URL(value).origin !== baseURL)) throw new Error("browser attempted a cross-origin data request");
+  if (blockedExternalRequest || browserRequests.some(value => new URL(value).origin !== baseURL)) throw new Error("browser attempted a cross-origin data request");
 
   stage = "keyboard";
   await page.keyboard.press("Tab");
@@ -80,9 +95,9 @@ try {
     colorScheme: "light",
     reducedMotion: "reduce",
     viewport: { width: 390, height: 844 },
-    extraHTTPHeaders: { "Cf-Access-Jwt-Assertion": assertion },
   });
   try {
+    await protectContext(mobileContext);
     stage = "mobile-session";
     await createSession(mobileContext);
     await mobileContext.addInitScript(() => localStorage.setItem("theme", "light"));
@@ -146,7 +161,7 @@ try {
 
   stage = "forbidden-method";
   const forbidden = await context.request.post(`${baseURL}/api/v1/summary`, {
-    headers: { Origin: baseURL, "Content-Type": "application/json" },
+    headers: { Origin: baseURL, "Content-Type": "application/json", "Cf-Access-Jwt-Assertion": assertion },
     data: { requestVersion: "1.0.0" },
   });
   if (forbidden.status() !== 404) throw new Error("forbidden method was not rejected");
@@ -165,11 +180,11 @@ try {
   stage = "logout";
   await createSession();
   const logout = await context.request.post(`${baseURL}/api/v1/session/logout`, {
-    headers: { Origin: baseURL, "Content-Type": "application/json" },
+    headers: { Origin: baseURL, "Content-Type": "application/json", "Cf-Access-Jwt-Assertion": assertion },
     data: { requestVersion: "1.0.0" },
   });
   if (logout.status() !== 200) throw new Error("logout failed");
-  const afterLogout = await context.request.get(`${baseURL}/api/v1/summary`);
+  const afterLogout = await context.request.get(`${baseURL}/api/v1/summary`, { headers: { "Cf-Access-Jwt-Assertion": assertion } });
   if (afterLogout.status() !== 401) throw new Error("logged-out session remained usable");
 
   stage = "identity-outage";
@@ -179,6 +194,13 @@ try {
   if (!outage || outage.status() !== 401) throw new Error("expired JWKS outage was accepted");
   const local = await controller("/local-status", "GET");
   if (local.status !== "succeeded") throw new Error("local recovery failed during identity outage");
+  stage = "identity-recovery";
+  await controller("/provider-recover");
+  await createSession();
+  const recovered = await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
+  if (!recovered || recovered.status() !== 200) throw new Error("identity recovery failed");
+  await page.getByRole("heading", { name: "Overview", exact: true }).waitFor();
+  if (blockedExternalRequest) throw new Error("browser attempted an external request");
 
   process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "phase-3-real-server", status: "pass" })}\n`);
 } catch {
