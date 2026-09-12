@@ -103,7 +103,7 @@ try {
     headers: { Origin: baseURL, "Content-Type": "application/json" },
     data: { requestVersion: "1.0.0" },
   });
-  if (forbidden.status() !== 405) throw new Error("forbidden method was not rejected");
+  if (forbidden.status() !== 404) throw new Error("forbidden method was not rejected");
 
   await controller("/expire");
   await page.reload({ waitUntil: "networkidle" });

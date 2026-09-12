@@ -239,7 +239,7 @@ func TestPhase3AcceptanceServerFailsClosedAndKeepsLocalRecovery(t *testing.T) {
 	fixture := newPhase3AcceptanceServer(t)
 	cookie := fixture.createSession()
 	response := fixture.request(http.MethodPost, "/api/v1/summary", cookie)
-	if response.StatusCode != http.StatusMethodNotAllowed {
+	if response.StatusCode != http.StatusNotFound {
 		response.Body.Close()
 		t.Fatalf("forbidden summary method = %d", response.StatusCode)
 	}

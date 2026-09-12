@@ -458,7 +458,7 @@ func TestProductionOperationsRemoteBindFailureKeepsRealStoreAPIAvailable(t *test
 	var status localapi.Response
 	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
 		status, err = client.Status(context.Background(), profile)
-		if err == nil && status.Status.RemoteReadState == "unavailable" {
+		if err == nil && status.Status.RemoteReadState == "unavailable" && status.Status.RemoteReadReason == "listener-unavailable" {
 			break
 		}
 		time.Sleep(10 * time.Millisecond)
