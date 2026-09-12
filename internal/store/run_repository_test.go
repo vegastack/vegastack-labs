@@ -70,6 +70,17 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: veryOld.RunID, From: "running", To: "succeeded", At: now.Add(-181 * 24 * time.Hour), Attribution: runAttribution(t)}); err != nil {
 		t.Fatal(err)
 	}
+	veryOld, err = repository.Get(context.Background(), veryOld.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operationKey, operationRequest := digestForText("old-operation-key"), digestForText("old-operation-request")
+	if _, err := repository.ClaimRunOperation(context.Background(), "cancel", veryOld.RunID, operationKey, operationRequest, now.Add(-181*24*time.Hour), runAttribution(t)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.CompleteRunOperation(context.Background(), "cancel", veryOld.RunID, operationKey, operationRequest, veryOld, generated.ErrorCodeStateConflict, now.Add(-181*24*time.Hour), runAttribution(t)); err != nil {
+		t.Fatal(err)
+	}
 	result, err = repository.PruneRunHistory(context.Background(), now)
 	if err != nil || result.SummariesDeleted != 1 {
 		t.Fatalf("old summary prune = %#v, %v", result, err)
@@ -182,6 +193,38 @@ func TestConcurrentTargetLeaseClaimsHaveOneAuthoritativeWinner(t *testing.T) {
 	}
 	if succeeded != 1 || conflicted != 1 {
 		t.Fatalf("lease winners/conflicts = %d/%d", succeeded, conflicted)
+	}
+}
+
+func TestRunOperationKeyPersistsExactResultAndRejectsChangedReuse(t *testing.T) {
+	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
+	repository := openRunRepository(t, now)
+	run := testRun("run-operation-key", "submit-operation-key", now)
+	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: run, SubmitKeyDigest: digestForText("submit-operation-key"), RequestDigest: digestForText("request-operation-key"), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	keyDigest := digestForText("cancel-key")
+	requestDigest := digestForText("cancel-request")
+	claim, err := repository.ClaimRunOperation(context.Background(), "cancel", run.RunID, keyDigest, requestDigest, now, runAttribution(t))
+	if err != nil || !claim.Created || claim.Completed {
+		t.Fatalf("initial claim = %#v, %v", claim, err)
+	}
+	replay, err := repository.ClaimRunOperation(context.Background(), "cancel", run.RunID, keyDigest, requestDigest, now, runAttribution(t))
+	if err != nil || replay.Created || replay.Completed {
+		t.Fatalf("pending replay = %#v, %v", replay, err)
+	}
+	if _, err := repository.ClaimRunOperation(context.Background(), "cancel", run.RunID, keyDigest, digestForText("changed-cancel-request"), now, runAttribution(t)); Code(err) != generated.ErrorCodeStateConflict {
+		t.Fatalf("changed reuse code = %q", Code(err))
+	}
+	run.Status = "cancelled"
+	run.Steps[0].Status = "cancelled"
+	completed, err := repository.CompleteRunOperation(context.Background(), "cancel", run.RunID, keyDigest, requestDigest, run, generated.ErrorCodeStateConflict, now.Add(time.Second), runAttribution(t))
+	if err != nil || !completed.Completed || completed.Run.Status != "cancelled" || completed.ErrorCode != generated.ErrorCodeStateConflict {
+		t.Fatalf("completion = %#v, %v", completed, err)
+	}
+	terminalReplay, err := repository.ClaimRunOperation(context.Background(), "cancel", run.RunID, keyDigest, requestDigest, now.Add(2*time.Second), runAttribution(t))
+	if err != nil || terminalReplay.Created || !terminalReplay.Completed || terminalReplay.Run.Status != "cancelled" || terminalReplay.ErrorCode != generated.ErrorCodeStateConflict {
+		t.Fatalf("terminal replay = %#v, %v", terminalReplay, err)
 	}
 }
 

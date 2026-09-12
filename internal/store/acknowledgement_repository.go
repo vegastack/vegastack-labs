@@ -155,6 +155,26 @@ func (repository *AcknowledgementRepository) Consume(ctx context.Context, planID
 	return stored, result.Created, err
 }
 
+// VerifyRunClaim proves that the acknowledgement has exactly one durable,
+// still-queued owner created at the timestamp supplied by the run engine. The
+// partial unique index on plan_runs.acknowledgement_id prevents a second owner.
+func (repository *AcknowledgementRepository) VerifyRunClaim(ctx context.Context, planID, acknowledgementID string, claimedAt time.Time) error {
+	if repository == nil || repository.store == nil || planID == "" || acknowledgementID == "" || claimedAt.IsZero() || claimedAt.Location() != time.UTC {
+		return newStoreError(generated.ErrorCodeInputInvalid, "acknowledgement-run-claim", false, nil)
+	}
+	var count int
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT COUNT(*) FROM plan_runs WHERE plan_id=? AND acknowledgement_id=? AND created_at=? AND status='queued'`, planID, acknowledgementID, claimedAt.Format(time.RFC3339)).Scan(&count)
+	})
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return newStoreError(generated.ErrorCodeAuthorizationDenied, "acknowledgement-run-claim", false, nil)
+	}
+	return nil
+}
+
 func (repository *AcknowledgementRepository) RecordDenial(ctx context.Context, record acknowledgement.DenialRecord) error {
 	if repository == nil || repository.store == nil || record.TargetKind == "" || record.TargetID == "" || record.CorrelationID == "" || !audit.ValidFingerprint(audit.Fingerprint(record.AttemptDigest)) || record.ReasonCode == "" || record.RejectedAt.IsZero() || record.RejectedAt.Location() != time.UTC {
 		return newStoreError(generated.ErrorCodeInputInvalid, "acknowledgement-denial", false, nil)

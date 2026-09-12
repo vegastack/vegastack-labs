@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -138,6 +139,9 @@ func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	if Code(err) != generated.ErrorCodeRecoveryRequired || partial.Status != "partial" {
 		t.Fatalf("verify partial = %#v, code=%q", partial, Code(err))
 	}
+	if _, err := verifyFixture.engine.Resume(context.Background(), partial.RunID); Code(err) != generated.ErrorCodeRecoveryRequired {
+		t.Fatalf("partial resume code = %q", Code(err))
+	}
 
 	resumeFixture := newEngineFixture(t)
 	resumeFixture.engine.testAfterBoundary = func(boundary Boundary) error {
@@ -175,6 +179,110 @@ func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	if _, err := unsafe.engine.Resume(context.Background(), unsafe.runID); Code(err) != generated.ErrorCodeRecoveryRequired {
 		t.Fatalf("unsafe resume code = %q", Code(err))
 	}
+}
+
+func TestCancelAndResumeIdempotencyKeysSerializeExactConcurrentRetries(t *testing.T) {
+	t.Run("cancel", func(t *testing.T) {
+		fixture := newEngineFixture(t)
+		fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+			if boundary == BoundaryRunCreated {
+				return errors.New("leave queued")
+			}
+			return nil
+		}
+		if _, err := fixture.engine.Submit(context.Background(), fixture.request); err == nil {
+			t.Fatal("submit crossed queued crash boundary")
+		}
+		fixture.engine.testAfterBoundary = nil
+		reference := runReference(fixture.runID, "cancel-once")
+		assertConcurrentMutationReplay(t, fixture.engine, "cancel", reference, "cancelled")
+		changed := reference
+		changed.Extensions = []generated.ContractExtension{{Name: "x-request-binding", ValueDigest: digest("changed")}}
+		if _, err := fixture.engine.MutateAs(context.Background(), "cancel", changed, systemAttribution()); Code(err) != generated.ErrorCodeStateConflict {
+			t.Fatalf("changed cancel reuse code = %q", Code(err))
+		}
+	})
+
+	t.Run("resume", func(t *testing.T) {
+		fixture := newEngineFixture(t)
+		fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+			if boundary == BoundaryRunStarted {
+				return errors.New("leave safely interruptible")
+			}
+			return nil
+		}
+		if _, err := fixture.engine.Submit(context.Background(), fixture.request); err == nil {
+			t.Fatal("submit crossed running crash boundary")
+		}
+		fixture.engine.testAfterBoundary = nil
+		if err := fixture.engine.Reconcile(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+		reference := runReference(fixture.runID, "resume-once")
+		assertConcurrentMutationReplay(t, fixture.engine, "resume", reference, "succeeded")
+		if fixture.adapter.calls != 1 {
+			t.Fatalf("resume adapter calls = %d", fixture.adapter.calls)
+		}
+	})
+}
+
+func TestRunMutationRetryCompletesPendingKeyWithoutRepeatingMutation(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+		if boundary == BoundaryRunCreated {
+			return errors.New("leave queued")
+		}
+		return nil
+	}
+	if _, err := fixture.engine.Submit(context.Background(), fixture.request); err == nil {
+		t.Fatal("submit crossed queued crash boundary")
+	}
+	fixture.engine.testAfterBoundary = nil
+	fixture.store.completeOperationErr = errors.New("simulated crash before result persistence")
+	reference := runReference(fixture.runID, "cancel-recover")
+	first, err := fixture.engine.MutateAs(context.Background(), "cancel", reference, systemAttribution())
+	if err == nil || first.Status != "cancelled" {
+		t.Fatalf("first cancellation = %#v, %v", first, err)
+	}
+	restarted := fixture.restart(t)
+	recovered, err := restarted.MutateAs(context.Background(), "cancel", reference, systemAttribution())
+	if err != nil || recovered.Status != "cancelled" {
+		t.Fatalf("recovered cancellation = %#v, %v", recovered, err)
+	}
+	replayed, err := restarted.MutateAs(context.Background(), "cancel", reference, systemAttribution())
+	if err != nil || replayed.Status != "cancelled" {
+		t.Fatalf("terminal cancellation replay = %#v, %v", replayed, err)
+	}
+}
+
+func assertConcurrentMutationReplay(t *testing.T, engine *Engine, operation string, reference generated.RunReferenceRequest, wantStatus string) {
+	t.Helper()
+	start := make(chan struct{})
+	results := make(chan generated.Run, 2)
+	errors := make(chan error, 2)
+	var ready sync.WaitGroup
+	ready.Add(2)
+	for range 2 {
+		go func() {
+			ready.Done()
+			<-start
+			result, err := engine.MutateAs(context.Background(), operation, reference, systemAttribution())
+			results <- result
+			errors <- err
+		}()
+	}
+	ready.Wait()
+	close(start)
+	for range 2 {
+		result, err := <-results, <-errors
+		if err != nil || result.Status != wantStatus {
+			t.Fatalf("%s replay = %#v, %v", operation, result, err)
+		}
+	}
+}
+
+func runReference(runID, key string) generated.RunReferenceRequest {
+	return generated.RunReferenceRequest{Schema: generated.SchemaIDRunReferenceRequest, SchemaVersion: "1.0.0", RunID: runID, IdempotencyKey: key, RecoveryEpoch: 0, Extensions: []generated.ContractExtension{}}
 }
 
 func TestClientDisconnectDoesNotCancelDurableServerOwnedRun(t *testing.T) {
@@ -224,6 +332,37 @@ func TestTimeoutBeforeEffectInterruptsAndReleasesLease(t *testing.T) {
 	if len(fixture.store.targets) != 0 || fixture.store.leases["lease-deterministic-1"].Status != "released" {
 		t.Fatalf("timeout left active target/lease = %#v/%#v", fixture.store.targets, fixture.store.leases)
 	}
+}
+
+func TestLeaseCheckInWindowDoesNotOutliveMaximumAuthority(t *testing.T) {
+	withinWindow := newEngineFixture(t)
+	current := withinWindow.engine.clock()
+	withinWindow.engine.clock = func() time.Time { return current }
+	withinWindow.engine.leaseContext = testLeaseContext
+	withinWindow.adapter.beforeExecute = func() { current = current.Add(21 * time.Second) }
+	succeeded, err := withinWindow.engine.Submit(context.Background(), withinWindow.request)
+	if err != nil || succeeded.Status != "succeeded" {
+		t.Fatalf("21-second execution = %#v, %v", succeeded, err)
+	}
+
+	expired := newEngineFixture(t)
+	current = expired.engine.clock()
+	expired.engine.clock = func() time.Time { return current }
+	expired.engine.leaseContext = testLeaseContext
+	expired.adapter.beforeExecute = func() { current = current.Add(61 * time.Second) }
+	partial, err := expired.engine.Submit(context.Background(), expired.request)
+	if Code(err) != generated.ErrorCodeRecoveryRequired || partial.Status != "partial" || !partial.Changed {
+		t.Fatalf("expired execution = %#v code=%q err=%v", partial, Code(err), err)
+	}
+	expired.store.mu.Lock()
+	defer expired.store.mu.Unlock()
+	if len(expired.store.targets) != 0 || expired.store.leases["lease-deterministic-1"].Status != "released" {
+		t.Fatalf("expired execution left target authority = %#v/%#v", expired.store.targets, expired.store.leases)
+	}
+}
+
+func testLeaseContext(ctx context.Context, _ time.Time) (context.Context, context.CancelFunc) {
+	return context.WithCancel(ctx)
 }
 
 func TestLaterVerifiedFailurePreservesEarlierChange(t *testing.T) {
@@ -379,7 +518,7 @@ func newEngineFixture(t *testing.T) *engineFixture {
 	if err := registry.Register("adapter-test", fixtureAdapter); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: registry, Clock: func() time.Time { return now }, IDs: &deterministicIDs{}})
+	engine, err := NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: registry, Clock: func() time.Time { return now }, IDs: &deterministicIDs{}, LeaseContext: testLeaseContext})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +529,7 @@ func newEngineFixture(t *testing.T) *engineFixture {
 
 func (fixture *engineFixture) restart(t *testing.T) *Engine {
 	t.Helper()
-	engine, err := NewEngine(Config{Repository: fixture.store, Plans: fixture.store, Admission: allowAdmission{}, Adapters: fixture.engine.adapters, Clock: fixture.engine.clock, IDs: fixture.engine.ids})
+	engine, err := NewEngine(Config{Repository: fixture.store, Plans: fixture.store, Admission: allowAdmission{}, Adapters: fixture.engine.adapters, Clock: fixture.engine.clock, IDs: fixture.engine.ids, LeaseContext: fixture.engine.leaseContext})
 	if err != nil {
 		t.Fatal(err)
 	}

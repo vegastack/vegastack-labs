@@ -67,8 +67,8 @@ func TestSQLiteRestartAtEveryDurableRunBoundaryDoesNotRepeatAmbiguousEffect(t *t
 					t.Fatalf("ambiguous boundary reconciled as %q", current.Status)
 				}
 				callsBeforeResume := fixture.adapter.callCount()
-				if _, resumeErr := restarted.Resume(context.Background(), current.RunID); resumeErr == nil {
-					t.Fatalf("ambiguous run was resumable: %v", resumeErr)
+				if _, resumeErr := restarted.Resume(context.Background(), current.RunID); Code(resumeErr) != generated.ErrorCodeRecoveryRequired {
+					t.Fatalf("ambiguous run resume code = %q, err=%v", Code(resumeErr), resumeErr)
 				}
 				if fixture.adapter.callCount() != callsBeforeResume {
 					t.Fatal("denied ambiguous resume repeated the adapter effect")

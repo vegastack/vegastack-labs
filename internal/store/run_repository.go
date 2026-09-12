@@ -84,6 +84,13 @@ type RunPruneResult struct {
 	SummariesDeleted      int64
 }
 
+type RunOperationResult struct {
+	Run       generated.Run
+	Created   bool
+	Completed bool
+	ErrorCode string
+}
+
 type RunRepository struct{ store *Store }
 
 func NewRunRepository(store *Store) *RunRepository { return &RunRepository{store: store} }
@@ -144,6 +151,76 @@ func (repository *RunRepository) Get(ctx context.Context, runID string) (generat
 
 func (repository *RunRepository) GetRun(ctx context.Context, runID string) (generated.Run, error) {
 	return repository.Get(ctx, runID)
+}
+
+func (repository *RunRepository) ClaimRunOperation(ctx context.Context, operation, runID string, keyDigest, requestDigest audit.Fingerprint, at time.Time, attribution audit.Attribution) (RunOperationResult, error) {
+	if repository == nil || repository.store == nil || !validRunOperation(operation) || !validRunToken(runID) || at.IsZero() || at.Location() != time.UTC || audit.ValidateIntentKey(audit.IntentKey{Scope: "run-operation", KeyDigest: keyDigest, RequestDigest: requestDigest}) != nil {
+		return RunOperationResult{}, newStoreError(generated.ErrorCodeInputInvalid, "run-operation", false, nil)
+	}
+	intentKey := digestParts("run-operation-claim", operation, runID, string(keyDigest))
+	eventAfter := digestParts("run-operation", operation, runID, string(keyDigest))
+	event := audit.EventDraft{Type: "run.operation-claimed", CorrelationID: runID, Attribution: attribution, Target: audit.Target{Kind: "run", ID: runID}, After: &eventAfter}
+	intent, err := repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: audit.IntentKey{Scope: "run-operation-claim", KeyDigest: intentKey, RequestDigest: requestDigest}, Event: event}, false, func(ctx context.Context, transaction *sql.Tx) error {
+		var exists int
+		if err := transaction.QueryRowContext(ctx, `SELECT COUNT(*) FROM plan_runs WHERE run_id=?`, runID).Scan(&exists); err != nil || exists != 1 {
+			return newStoreError(generated.ErrorCodeResourceNotFound, "run", false, err)
+		}
+		_, err := transaction.ExecContext(ctx, `INSERT INTO run_operation_keys(operation,run_id,key_digest,request_digest,status,result_bytes,error_code,created_at,completed_at) VALUES(?,?,?,?,'pending',NULL,'',?,NULL)`, operation, runID, keyDigest, requestDigest, at.Format(time.RFC3339))
+		return err
+	})
+	if err != nil {
+		return RunOperationResult{}, err
+	}
+	result, err := repository.runOperation(ctx, operation, runID, keyDigest, requestDigest)
+	result.Created = intent.Created
+	return result, err
+}
+
+func (repository *RunRepository) CompleteRunOperation(ctx context.Context, operation, runID string, keyDigest, requestDigest audit.Fingerprint, run generated.Run, errorCode string, at time.Time, attribution audit.Attribution) (RunOperationResult, error) {
+	if repository == nil || repository.store == nil || !validRunOperation(operation) || run.RunID != runID || !validRunDocument(run) || len(errorCode) > 64 || at.IsZero() || at.Location() != time.UTC {
+		return RunOperationResult{}, newStoreError(generated.ErrorCodeInputInvalid, "run-operation", false, nil)
+	}
+	raw, _ := json.Marshal(run)
+	resultDigest := digestParts("run-operation-result", operation, runID, string(keyDigest), string(requestDigest), string(raw), errorCode)
+	event := audit.EventDraft{Type: "run.operation-completed", CorrelationID: runID, Attribution: attribution, Target: audit.Target{Kind: "run", ID: runID}, After: &resultDigest}
+	_, err := repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: audit.IntentKey{Scope: "run-operation-complete", KeyDigest: digestParts("run-operation-complete", operation, runID, string(keyDigest)), RequestDigest: resultDigest}, Event: event}, false, func(ctx context.Context, transaction *sql.Tx) error {
+		result, err := transaction.ExecContext(ctx, `UPDATE run_operation_keys SET status='completed',result_bytes=?,error_code=?,completed_at=? WHERE operation=? AND run_id=? AND key_digest=? AND request_digest=? AND status='pending'`, raw, errorCode, at.Format(time.RFC3339), operation, runID, keyDigest, requestDigest)
+		if err != nil {
+			return err
+		}
+		rows, err := result.RowsAffected()
+		if err != nil || rows != 1 {
+			return newStoreError(generated.ErrorCodeStateConflict, "run-operation", false, err)
+		}
+		return nil
+	})
+	if err != nil {
+		return RunOperationResult{}, err
+	}
+	return repository.runOperation(ctx, operation, runID, keyDigest, requestDigest)
+}
+
+func (repository *RunRepository) runOperation(ctx context.Context, operation, runID string, keyDigest, requestDigest audit.Fingerprint) (RunOperationResult, error) {
+	var status, storedRequest, errorCode string
+	var raw []byte
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT status,request_digest,result_bytes,error_code FROM run_operation_keys WHERE operation=? AND run_id=? AND key_digest=?`, operation, runID, keyDigest).Scan(&status, &storedRequest, &raw, &errorCode)
+	})
+	if err != nil {
+		return RunOperationResult{}, err
+	}
+	if storedRequest != string(requestDigest) {
+		return RunOperationResult{}, newStoreError(generated.ErrorCodeStateConflict, "run-operation-key", false, nil)
+	}
+	result := RunOperationResult{Completed: status == "completed", ErrorCode: errorCode}
+	if result.Completed {
+		run, err := decodeRun(raw)
+		if err != nil {
+			return RunOperationResult{}, err
+		}
+		result.Run = run
+	}
+	return result, nil
 }
 
 func (repository *RunRepository) TransitionRun(ctx context.Context, request RunTransitionRequest) (generated.Run, error) {
@@ -634,6 +711,7 @@ func terminalRunStatus(status string) bool {
 func validRunToken(value string) bool {
 	return runTokenPattern.MatchString(value)
 }
+func validRunOperation(value string) bool { return value == "cancel" || value == "resume" }
 func runFingerprint(run generated.Run) audit.Fingerprint {
 	raw, _ := json.Marshal(run)
 	sum := sha256.Sum256(raw)

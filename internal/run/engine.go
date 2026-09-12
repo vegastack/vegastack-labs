@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
@@ -29,6 +30,8 @@ type Repository interface {
 	InterruptStepBeforeEffect(context.Context, string, string, time.Time, audit.Attribution) (generated.Run, error)
 	ActiveRuns(context.Context) ([]generated.Run, error)
 	PruneRunHistory(context.Context, time.Time) (store.RunPruneResult, error)
+	ClaimRunOperation(context.Context, string, string, audit.Fingerprint, audit.Fingerprint, time.Time, audit.Attribution) (store.RunOperationResult, error)
+	CompleteRunOperation(context.Context, string, string, audit.Fingerprint, audit.Fingerprint, generated.Run, string, time.Time, audit.Attribution) (store.RunOperationResult, error)
 }
 
 type PlanSource interface {
@@ -38,6 +41,7 @@ type PlanSource interface {
 
 type AdmissionVerifier interface {
 	Verify(context.Context, generated.Plan, generated.AuthorizationDecision, *generated.Acknowledgement) error
+	Activate(context.Context, generated.Plan, generated.AuthorizationDecision, generated.Run, *generated.Acknowledgement) error
 	VerifyRun(context.Context, generated.Plan, generated.Run) error
 }
 
@@ -57,6 +61,7 @@ type Config struct {
 	Clock            func() time.Time
 	IDs              IDSource
 	ExecutionContext context.Context
+	LeaseContext     func(context.Context, time.Time) (context.Context, context.CancelFunc)
 }
 
 type SubmitRequest struct {
@@ -74,7 +79,15 @@ type Engine struct {
 	clock             func() time.Time
 	ids               IDSource
 	executionContext  context.Context
+	leaseContext      func(context.Context, time.Time) (context.Context, context.CancelFunc)
+	operationMu       sync.Mutex
+	operationLanes    map[string]*operationLane
 	testAfterBoundary func(Boundary) error
+}
+
+type operationLane struct {
+	mu   sync.Mutex
+	refs int
 }
 
 func NewEngine(config Config) (*Engine, error) {
@@ -90,7 +103,10 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.ExecutionContext == nil {
 		config.ExecutionContext = context.Background()
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext}, nil
+	if config.LeaseContext == nil {
+		config.LeaseContext = context.WithDeadline
+	}
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -143,12 +159,15 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		if created.Run.Status != "queued" {
 			return created.Run, nil
 		}
-		return engine.start(engine.executionContext, plan, created.Run, request.Attribution)
+	} else {
+		if err := engine.after(BoundaryRunCreated); err != nil {
+			return created.Run, err
+		}
 	}
-	if err := engine.after(BoundaryRunCreated); err != nil {
+	if err := engine.admission.Activate(ctx, plan, request.Authorization, created.Run, request.Acknowledgement); err != nil {
 		return created.Run, err
 	}
-	if err := engine.verifyAdmission(ctx, plan, request.Authorization, request.Acknowledgement); err != nil {
+	if err := engine.after(BoundaryAdmissionActivated); err != nil {
 		return created.Run, err
 	}
 	// Once the run is durably created, client disconnect is no longer execution
@@ -183,6 +202,9 @@ func (engine *Engine) ResumeAs(ctx context.Context, id string, attribution audit
 	run, err := engine.repository.GetRun(ctx, id)
 	if err != nil {
 		return generated.Run{}, err
+	}
+	if run.Status == "partial" {
+		return run, runError(generated.ErrorCodeRecoveryRequired, "run-resume")
 	}
 	if run.Status != "interrupted" {
 		return run, runError(generated.ErrorCodeStateConflict, "run-resume")
@@ -232,6 +254,85 @@ func (engine *Engine) CancelAs(ctx context.Context, id string, attribution audit
 
 func (engine *Engine) Get(ctx context.Context, id string) (generated.Run, error) {
 	return engine.repository.GetRun(ctx, id)
+}
+
+func (engine *Engine) MutateAs(ctx context.Context, operation string, reference generated.RunReferenceRequest, attribution audit.Attribution) (generated.Run, error) {
+	if engine == nil || (operation != "cancel" && operation != "resume") || !exactContract(generated.SchemaIDRunReferenceRequest, reference) {
+		return generated.Run{}, runError(generated.ErrorCodeInputInvalid, "run-operation")
+	}
+	release := engine.lockOperation(operation + ":" + reference.RunID + ":" + reference.IdempotencyKey)
+	defer release()
+	current, err := engine.repository.GetRun(ctx, reference.RunID)
+	if err != nil {
+		return generated.Run{}, err
+	}
+	if current.RecoveryEpoch != reference.RecoveryEpoch {
+		return current, runError(generated.ErrorCodeRecoveryEpochMismatch, "run")
+	}
+	keyDigest := audit.Fingerprint(digest("run-operation-key", operation, reference.IdempotencyKey))
+	requestDigest := audit.Fingerprint(digest("run-operation-request", operation, string(mustJSON(reference))))
+	claim, err := engine.repository.ClaimRunOperation(ctx, operation, reference.RunID, keyDigest, requestDigest, engine.clock().UTC().Truncate(time.Second), attribution)
+	if err != nil {
+		return current, err
+	}
+	if claim.Completed {
+		return claim.Run, storedOperationError(operation, claim.ErrorCode)
+	}
+
+	var result generated.Run
+	var operationErr error
+	switch operation {
+	case "cancel":
+		if current.Status == "cancelled" || current.CancellationRequested {
+			result = current
+		} else {
+			result, operationErr = engine.CancelAs(ctx, reference.RunID, attribution)
+		}
+	case "resume":
+		switch current.Status {
+		case "succeeded":
+			result = current
+		case "failed":
+			result, operationErr = current, runError(generated.ErrorCodeExecutionFailed, "run")
+		case "partial":
+			result, operationErr = current, runError(generated.ErrorCodeRecoveryRequired, "run")
+		case "cancelled", "running", "queued":
+			result, operationErr = current, runError(generated.ErrorCodeStateConflict, "run-resume")
+		default:
+			result, operationErr = engine.ResumeAs(ctx, reference.RunID, attribution)
+		}
+	}
+	errorCode := Code(operationErr)
+	if operationErr != nil && errorCode == "" {
+		errorCode = generated.ErrorCodeIntegrityFailure
+	}
+	completed, err := engine.repository.CompleteRunOperation(context.WithoutCancel(ctx), operation, reference.RunID, keyDigest, requestDigest, result, errorCode, engine.clock().UTC().Truncate(time.Second), attribution)
+	if err != nil {
+		return result, err
+	}
+	return completed.Run, storedOperationError(operation, completed.ErrorCode)
+}
+
+func (engine *Engine) lockOperation(key string) func() {
+	engine.operationMu.Lock()
+	lane := engine.operationLanes[key]
+	if lane == nil {
+		lane = &operationLane{}
+		engine.operationLanes[key] = lane
+	}
+	lane.refs++
+	engine.operationMu.Unlock()
+
+	lane.mu.Lock()
+	return func() {
+		lane.mu.Unlock()
+		engine.operationMu.Lock()
+		lane.refs--
+		if lane.refs == 0 {
+			delete(engine.operationLanes, key)
+		}
+		engine.operationMu.Unlock()
+	}
 }
 
 func (engine *Engine) Startup(ctx context.Context) error {
@@ -387,11 +488,25 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		if err := engine.after(BoundaryIntentRecorded); err != nil {
 			return current, err
 		}
-		effect, executeErr := implementation.Execute(ctx, operation)
+		leaseDeadline := parseTime(lease.MaximumExpiresAt)
+		if !engine.clock().UTC().Before(leaseDeadline) {
+			return engine.interruptBeforeEffect(ctx, current, *live, attribution)
+		}
+		leaseContext, cancelLease := engine.leaseContext(ctx, leaseDeadline)
+		effect, executeErr := implementation.Execute(leaseContext, operation)
 		if boundaryErr := engine.after(BoundaryEffectReturned); boundaryErr != nil {
+			cancelLease()
 			return current, boundaryErr
 		}
+		if !engine.clock().UTC().Before(leaseDeadline) {
+			cancelLease()
+			if effect.EffectObserved {
+				return engine.partial(ctx, current, *live, attribution, context.DeadlineExceeded)
+			}
+			return engine.interruptBeforeEffect(ctx, current, *live, attribution)
+		}
 		if executeErr != nil || adapter.ValidateEffect(effect) != nil {
+			cancelLease()
 			if !effect.EffectObserved {
 				if errors.Is(executeErr, context.Canceled) || errors.Is(executeErr, context.DeadlineExceeded) {
 					return engine.interruptBeforeEffect(ctx, current, *live, attribution)
@@ -405,12 +520,19 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		cleanup := context.WithoutCancel(ctx)
 		current, err = engine.repository.RecordReceipt(cleanup, store.ReceiptRecordRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, At: recorded, Attribution: attribution})
 		if err != nil {
+			cancelLease()
 			return current, err
 		}
 		if err := engine.after(BoundaryReceiptRecorded); err != nil {
+			cancelLease()
 			return current, err
 		}
-		verification, verifyErr := implementation.Verify(ctx, operation, effect)
+		verification, verifyErr := implementation.Verify(leaseContext, operation, effect)
+		expired := !engine.clock().UTC().Before(leaseDeadline)
+		cancelLease()
+		if expired {
+			return engine.partial(ctx, current, *live, attribution, context.DeadlineExceeded)
+		}
 		if verifyErr != nil || adapter.ValidateVerification(verification) != nil || !verification.Verified {
 			return engine.partial(ctx, current, *live, attribution, firstError(verifyErr, adapter.ValidateVerification(verification)))
 		}
@@ -577,6 +699,12 @@ func firstError(values ...error) error {
 		}
 	}
 	return errors.New("unspecified failure")
+}
+func storedOperationError(operation, code string) error {
+	if code == "" {
+		return nil
+	}
+	return runError(code, "run-"+operation)
 }
 func systemAttribution() audit.Attribution {
 	value, _ := audit.NewAttribution(identity.Principal{ID: "system-run-engine", Method: "local-system", Kind: identity.PrincipalPolicy}, nil, nil)

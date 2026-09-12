@@ -38,3 +38,6 @@ type fixedAcknowledgementSource struct{ value generated.Acknowledgement }
 func (source fixedAcknowledgementSource) Status(context.Context, string) (generated.Acknowledgement, error) {
 	return source.value, nil
 }
+func (source fixedAcknowledgementSource) VerifyForRunExecution(context.Context, string, string, time.Time) (generated.Acknowledgement, error) {
+	return source.value, nil
+}

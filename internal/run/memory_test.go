@@ -20,12 +20,19 @@ type memoryRepository struct {
 	leases                map[string]generated.ExecutorLease
 	targets               map[string]string
 	receipts              map[string]generated.ExecutionReceipt
+	operations            map[string]memoryRunOperation
+	completeOperationErr  error
 	releaseRunLeasesError error
 	getRunError           error
 }
 
+type memoryRunOperation struct {
+	requestDigest audit.Fingerprint
+	result        store.RunOperationResult
+}
+
 func newMemoryRepository(plan generated.Plan) *memoryRepository {
-	return &memoryRepository{plan: plan, runs: map[string]generated.Run{}, submits: map[string]string{}, leases: map[string]generated.ExecutorLease{}, targets: map[string]string{}, receipts: map[string]generated.ExecutionReceipt{}}
+	return &memoryRepository{plan: plan, runs: map[string]generated.Run{}, submits: map[string]string{}, leases: map[string]generated.ExecutorLease{}, targets: map[string]string{}, receipts: map[string]generated.ExecutionReceipt{}, operations: map[string]memoryRunOperation{}}
 }
 
 func (repository *memoryRepository) Get(_ context.Context, id string) (store.PlanCommitResult, error) {
@@ -118,6 +125,39 @@ func (repository *memoryRepository) RequestCancellation(_ context.Context, id st
 	run.UpdatedAt = at.Format(time.RFC3339)
 	repository.runs[id] = run
 	return cloneRun(run), nil
+}
+
+func (repository *memoryRepository) ClaimRunOperation(_ context.Context, operation, runID string, keyDigest, requestDigest audit.Fingerprint, _ time.Time, _ audit.Attribution) (store.RunOperationResult, error) {
+	repository.mu.Lock()
+	defer repository.mu.Unlock()
+	key := operation + ":" + runID + ":" + string(keyDigest)
+	if existing, ok := repository.operations[key]; ok {
+		if existing.requestDigest != requestDigest {
+			return store.RunOperationResult{}, runError(generated.ErrorCodeStateConflict, "run-operation-key")
+		}
+		return existing.result, nil
+	}
+	result := store.RunOperationResult{Created: true}
+	repository.operations[key] = memoryRunOperation{requestDigest: requestDigest, result: result}
+	return result, nil
+}
+
+func (repository *memoryRepository) CompleteRunOperation(_ context.Context, operation, runID string, keyDigest, requestDigest audit.Fingerprint, run generated.Run, errorCode string, _ time.Time, _ audit.Attribution) (store.RunOperationResult, error) {
+	repository.mu.Lock()
+	defer repository.mu.Unlock()
+	if repository.completeOperationErr != nil {
+		err := repository.completeOperationErr
+		repository.completeOperationErr = nil
+		return store.RunOperationResult{}, err
+	}
+	key := operation + ":" + runID + ":" + string(keyDigest)
+	existing, ok := repository.operations[key]
+	if !ok || existing.requestDigest != requestDigest || existing.result.Completed {
+		return store.RunOperationResult{}, runError(generated.ErrorCodeStateConflict, "run-operation")
+	}
+	result := store.RunOperationResult{Run: cloneRun(run), Completed: true, ErrorCode: errorCode}
+	repository.operations[key] = memoryRunOperation{requestDigest: requestDigest, result: result}
+	return result, nil
 }
 
 func (repository *memoryRepository) AcquireTargetLease(_ context.Context, lease generated.ExecutorLease, _ audit.Attribution) error {
@@ -252,6 +292,9 @@ func (*memoryRepository) PruneRunHistory(context.Context, time.Time) (store.RunP
 type allowAdmission struct{}
 
 func (allowAdmission) Verify(context.Context, generated.Plan, generated.AuthorizationDecision, *generated.Acknowledgement) error {
+	return nil
+}
+func (allowAdmission) Activate(context.Context, generated.Plan, generated.AuthorizationDecision, generated.Run, *generated.Acknowledgement) error {
 	return nil
 }
 func (allowAdmission) VerifyRun(context.Context, generated.Plan, generated.Run) error { return nil }

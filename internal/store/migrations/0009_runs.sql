@@ -22,8 +22,12 @@ CREATE TABLE plan_runs (
     canonical_bytes BLOB NOT NULL CHECK (length(canonical_bytes) > 0),
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    FOREIGN KEY (plan_id) REFERENCES immutable_plans(plan_id) ON DELETE RESTRICT
+    FOREIGN KEY (plan_id) REFERENCES immutable_plans(plan_id) ON DELETE RESTRICT,
+    FOREIGN KEY (acknowledgement_id) REFERENCES acknowledgement_requests(acknowledgement_id) ON DELETE RESTRICT
 ) STRICT;
+
+CREATE UNIQUE INDEX plan_runs_acknowledgement_idx
+ON plan_runs(acknowledgement_id) WHERE acknowledgement_id IS NOT NULL;
 
 CREATE TABLE plan_run_steps (
     step_id TEXT PRIMARY KEY CHECK (length(step_id) BETWEEN 1 AND 128),
@@ -92,8 +96,26 @@ CREATE TABLE run_detail_events (
     FOREIGN KEY (run_id) REFERENCES plan_runs(run_id) ON DELETE CASCADE
 ) STRICT;
 
+CREATE TABLE run_operation_keys (
+    operation TEXT NOT NULL CHECK (operation IN ('cancel','resume')),
+    run_id TEXT NOT NULL,
+    key_digest TEXT NOT NULL CHECK (length(key_digest) = 71 AND substr(key_digest, 1, 7) = 'sha256:'),
+    request_digest TEXT NOT NULL CHECK (length(request_digest) = 71 AND substr(request_digest, 1, 7) = 'sha256:'),
+    status TEXT NOT NULL CHECK (status IN ('pending','completed')),
+    result_bytes BLOB,
+    error_code TEXT NOT NULL CHECK (length(error_code) <= 64),
+    created_at TEXT NOT NULL,
+    completed_at TEXT,
+    PRIMARY KEY (operation, run_id, key_digest),
+    FOREIGN KEY (run_id) REFERENCES plan_runs(run_id) ON DELETE CASCADE,
+    CHECK ((status = 'pending' AND result_bytes IS NULL AND completed_at IS NULL) OR (status = 'completed' AND result_bytes IS NOT NULL AND completed_at IS NOT NULL))
+) STRICT;
+
 CREATE INDEX run_detail_events_retention_idx ON run_detail_events(occurred_at, detail_event_id);
 CREATE INDEX plan_runs_retention_idx ON plan_runs(updated_at, run_id);
 CREATE INDEX plan_run_steps_run_idx ON plan_run_steps(run_id, sequence);
 
 CREATE TRIGGER execution_receipts_no_update BEFORE UPDATE ON execution_receipts BEGIN SELECT RAISE(ABORT, 'execution receipts are append-only'); END;
+CREATE TRIGGER run_operation_keys_terminal BEFORE UPDATE ON run_operation_keys
+WHEN NEW.operation != OLD.operation OR NEW.run_id != OLD.run_id OR NEW.key_digest != OLD.key_digest OR NEW.request_digest != OLD.request_digest OR NEW.created_at != OLD.created_at OR OLD.status != 'pending' OR NEW.status != 'completed' OR OLD.result_bytes IS NOT NULL OR NEW.result_bytes IS NULL OR OLD.completed_at IS NOT NULL OR NEW.completed_at IS NULL
+BEGIN SELECT RAISE(ABORT, 'invalid run operation key transition'); END;

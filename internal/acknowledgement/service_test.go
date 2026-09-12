@@ -121,6 +121,19 @@ func TestDecisionRequiresExactBindingsAndProofIsSingleUse(t *testing.T) {
 	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); errorCode(err) != generated.ErrorCodePlanStale {
 		t.Fatalf("replay code = %q, err = %v", errorCode(err), err)
 	}
+	claimedAt := time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC)
+	recovered, err := service.VerifyForRunExecution(context.Background(), plan.PlanID, approved.AcknowledgementID, claimedAt)
+	if err != nil || recovered.ProofDigest != approved.ProofDigest {
+		t.Fatalf("claimed run recovery = %#v, %v", recovered, err)
+	}
+	service.config.Clock = func() time.Time { return time.Date(2026, 9, 13, 1, 31, 0, 0, time.UTC) }
+	recovered, err = service.VerifyForRunExecution(context.Background(), plan.PlanID, approved.AcknowledgementID, claimedAt)
+	if err != nil || recovered.ProofDigest != approved.ProofDigest {
+		t.Fatalf("claimed run recovery after proof expiry = %#v, %v", recovered, err)
+	}
+	if _, err := service.VerifyForRunExecution(context.Background(), plan.PlanID, "ack-other", claimedAt); errorCode(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("mismatched run claim code = %q, err = %v", errorCode(err), err)
+	}
 	if repository.denied == 0 {
 		t.Fatal("replayed proof denial was not audited")
 	}
@@ -177,6 +190,52 @@ func TestExecutionReauthorizesHumanBeforeConsumingProof(t *testing.T) {
 	service.config.Authorizer = allowAuthorizer{}
 	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestDurableRunClaimBeforeExpiryCanRecoverConsumptionAfterRestart(t *testing.T) {
+	service, repository, plan := newService(t)
+	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err := service.Decide(context.Background(), candidateFor(card, plan, ActionApprove))
+	if err != nil {
+		t.Fatal(err)
+	}
+	claimedAt := time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC)
+	service.config.Clock = func() time.Time { return time.Date(2026, 9, 13, 1, 31, 0, 0, time.UTC) }
+	recovered, err := service.VerifyForRunExecution(context.Background(), plan.PlanID, approved.AcknowledgementID, claimedAt)
+	if err != nil || recovered.ProofDigest != approved.ProofDigest || !repository.stored.Consumed {
+		t.Fatalf("post-expiry recovery = %#v consumed=%v err=%v", recovered, repository.stored.Consumed, err)
+	}
+
+	service, repository, plan = newService(t)
+	card, err = service.Request(context.Background(), requestScope(), plan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err = service.Decide(context.Background(), candidateFor(card, plan, ActionApprove))
+	if err != nil {
+		t.Fatal(err)
+	}
+	service.config.Clock = func() time.Time { return time.Date(2026, 9, 13, 1, 31, 0, 0, time.UTC) }
+	if _, err := service.VerifyForRunExecution(context.Background(), plan.PlanID, approved.AcknowledgementID, service.config.Clock()); errorCode(err) != generated.ErrorCodePlanStale || repository.stored.Consumed {
+		t.Fatalf("late claim code=%q consumed=%v err=%v", errorCode(err), repository.stored.Consumed, err)
+	}
+
+	service, repository, plan = newService(t)
+	card, err = service.Request(context.Background(), requestScope(), plan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	approved, err = service.Decide(context.Background(), candidateFor(card, plan, ActionApprove))
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository.claimAllowed = false
+	if _, err := service.VerifyForRunExecution(context.Background(), plan.PlanID, approved.AcknowledgementID, claimedAt); errorCode(err) != generated.ErrorCodeAuthorizationDenied || repository.stored.Consumed {
+		t.Fatalf("missing durable claim code=%q consumed=%v err=%v", errorCode(err), repository.stored.Consumed, err)
 	}
 }
 
@@ -249,7 +308,7 @@ func candidateFor(card RequestCard, plan generated.Plan, action string) Candidat
 func newService(t *testing.T) (*Service, *memoryRepository, generated.Plan) {
 	t.Helper()
 	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-test", PlanDigest: testDigest, DeclarationID: "declaration-test", Binding: generated.PlanBinding{RecoveryEpoch: 3, PriorStateRevision: 40, StateRevision: 41, DeclarationRevision: 2, ObservationFingerprint: testDigest, TargetDigest: testDigest, ReasonDigest: testDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test", OperationType: "configuration.update", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "target-test", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-13T01:00:00Z", ExpiresAt: "2026-09-13T01:30:00Z", ReadableDigest: testDigest, Extensions: []generated.ContractExtension{}}
-	repository := &memoryRepository{}
+	repository := &memoryRepository{claimAllowed: true}
 	service, err := NewService(Config{Repository: repository, Plans: fixedPlanReader{plan: plan}, Authorizer: allowAuthorizer{}, Clock: func() time.Time { return time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC) }})
 	if err != nil {
 		t.Fatal(err)
@@ -283,12 +342,20 @@ func (denyAuthorizer) Authorize(_ context.Context, principal identity.Principal,
 }
 
 type memoryRepository struct {
-	stored     Stored
-	created    int
-	decided    int
-	denied     int
-	lastDenial DenialRecord
-	denialErr  error
+	stored       Stored
+	created      int
+	decided      int
+	denied       int
+	lastDenial   DenialRecord
+	denialErr    error
+	claimAllowed bool
+}
+
+func (repository *memoryRepository) VerifyRunClaim(_ context.Context, _, _ string, _ time.Time) error {
+	if !repository.claimAllowed {
+		return failure.New(generated.ErrorCodeAuthorizationDenied, "acknowledgement-run-claim", false)
+	}
+	return nil
 }
 
 func (repository *memoryRepository) Create(_ context.Context, record CreateRecord) (Stored, bool, error) {

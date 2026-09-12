@@ -17,14 +17,15 @@ import (
 type Boundary string
 
 const (
-	BoundaryRunCreated      Boundary = "01-run-created"
-	BoundaryRunStarted      Boundary = "02-run-started"
-	BoundaryLeaseAcquired   Boundary = "03-lease-acquired"
-	BoundaryIntentRecorded  Boundary = "04-intent-recorded"
-	BoundaryEffectReturned  Boundary = "05-effect-returned"
-	BoundaryReceiptRecorded Boundary = "06-receipt-recorded"
-	BoundaryVerified        Boundary = "07-verified"
-	BoundaryRunCompleted    Boundary = "08-run-completed"
+	BoundaryRunCreated         Boundary = "01-run-created"
+	BoundaryAdmissionActivated Boundary = "02-admission-activated"
+	BoundaryRunStarted         Boundary = "03-run-started"
+	BoundaryLeaseAcquired      Boundary = "04-lease-acquired"
+	BoundaryIntentRecorded     Boundary = "05-intent-recorded"
+	BoundaryEffectReturned     Boundary = "06-effect-returned"
+	BoundaryReceiptRecorded    Boundary = "07-receipt-recorded"
+	BoundaryVerified           Boundary = "08-verified"
+	BoundaryRunCompleted       Boundary = "09-run-completed"
 )
 
 type Error struct {
