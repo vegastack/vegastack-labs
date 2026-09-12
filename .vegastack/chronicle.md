@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 12-09-2026 — Phase 3 is proven and accepted at one exact commit ([#58](https://github.com/vegastack/vegastack-labs/issues/58))
+
+- **What:** The embedded read-only Console, generated browser client, truthful source health, secure sessions, status screens, local recovery, and real-server Chromium boundary now form one accepted Phase 3 result. A strict exit command maps every requirement and child issue to exact evidence and accepts only a clean named commit.
+- **Why:** Green child issues were not enough to prove the whole phase or bind the operator's decision to one immutable result.
+- **How it went:** The full run first exposed a package argument mistake, a fake-secret test canary caught by repository safety, and two stale historical-pointer assertions. Independent review then found loose child-evidence bindings and noisy package output; all five defects were fixed, the corrected detached candidate passed twice with the same digest, PR CI passed, and the merged Debian run produced the final accepted proof.
+- **Changed:** Exact child issue/PR/merge/evidence bindings · silent stable exit output · complete catalog plus Go race proof · deterministic artifact digest · guarded merged-main acceptance · explicit Phase 3 acceptance record.
+- **Decisions:** none; the acceptance covers credential-free fixture software at `a0a07a425d6396703d8bec438634d9ec2c2ae980`, not release, deployment, provider access, fleet readiness, or live infrastructure.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/3.9-phase-3-acceptance-record
+
 ## 12-09-2026 — Phase 3 gained one real-server browser acceptance boundary ([#57](https://github.com/vegastack/vegastack-labs/issues/57))
 
 - **What:** A credential-free Chromium probe now exercises the embedded Console through the built `vsk-labs server run` executable over loopback TLS, protected browser sessions, generated reads, signing-key outage and recovery, and the same executable's local status command. A root guard rejects unsafe evidence and documents the remaining manual keyboard checks.

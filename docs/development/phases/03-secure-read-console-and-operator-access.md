@@ -1,6 +1,6 @@
 # Development phase 3 — Secure read Console and operator access
 
-Status: implemented; awaiting exact-commit operator acceptance. Issues 3.1 through 3.8 are merged on `main` at `156cf495de099a54307d55e81cf2469eebcb968f`. Issue 3.9 (#58) owns the clean exact-commit acceptance proof and presents the final result for an explicit operator decision. Neither a green check nor this status accepts Phase 3 automatically.
+Status: accepted by (omkarmohanta09) on 12-09-2026 at exact `main` commit `a0a07a425d6396703d8bec438634d9ec2c2ae980`. [Main run 34703617111](https://github.com/vegastack/vegastack-labs/actions/runs/34703617111) passed the complete Phase 3 exit on the authorized disposable Debian runner with evidence digest `sha256:b051c6f0a81498c09a159c14e16999b7cc3b02cd9ed758376684d31022587f1f`. Issue 3.9 (#58) records the explicit operator words: “Accept Phase 3 at a0a07a425d6396703d8bec438634d9ec2c2ae980”.
 
 ## Outcome and authority boundary
 
@@ -99,10 +99,10 @@ The supported Phase 3 browser lane is repository-pinned Chromium with desktop an
 
 The checked static definition names the required proof but does not claim a current result. Issue #58's exit verifier must start and finish at the requested 40-character commit with an empty working tree, validate every child and requirement binding, run the complete public check catalog plus `go test -race -count=1 ./...`, and digest the checked definition, generated registries/client, and embedded-asset manifest. Any missing, skipped, failed, quarantined, dirty, stale, contradictory, or unsanitized proof blocks the result.
 
-The runtime envelope binds only sanitized facts to the exact tested commit. It is published with the final Issue #58 evidence and matching CI run, not written back into the commit whose identity it records. After merge and exact-`main` proof, the operator must explicitly accept or reject Phase 3. Until then the phase remains implemented and awaiting acceptance.
+The runtime envelope binds only sanitized facts to the exact tested commit. It is published with the final Issue #58 evidence and matching CI run, not written back into the commit whose identity it records. The operator explicitly accepted the Phase 3 result at `a0a07a425d6396703d8bec438634d9ec2c2ae980`; the checked evidence definition preserves that accepted commit, run, digest, date, and operator identity as historical facts.
 
 ## Phase 4 handoff
 
 Phase 4 may consume the accepted generated read client, embedded same-origin Console, source-state semantics, session authorization, local recovery, and status-view patterns. It must add declarations, immutable plans, acknowledgement policy, execution state, and typed adapter ownership through its own approved briefs and plans; it cannot turn a read route or status screen into an alternate mutation path.
 
-Phase 3 acceptance does not itself approve Phase 4 implementation, a Phase 4 pull request or merge, release, deployment, provider access, credentials, or fleet operation. Each remains controlled by its own recorded authority and prerequisites.
+Phase 3 acceptance did not itself approve later work. In the same 12-09-2026 instruction, (omkarmohanta09) separately directed Phase 4 to proceed in go-dark mode. Phase 4 still follows its own approved issue plans, dependency waves, checks, fresh reviews, and merge evidence; release, deployment, provider access, credentials, and fleet operation remain separately gated.
