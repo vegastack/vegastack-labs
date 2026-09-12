@@ -96,16 +96,26 @@ export function verifyWorkflowDocument(workflow, source = "") {
     const steps = jobs[jobName].steps ?? [];
     const chromium = steps.find((step) => step.name === "Install pinned Chromium");
     const affected = steps.find((step) => step.name === "Run affected public checks");
-    if (chromium?.if !== "needs.plan.outputs.browser == 'true'") {
-      throw new Error("workflow must install Chromium only when the affected plan selects browser checks");
+    const expectedChromiumCondition = jobName === "verify_pr"
+      ? "needs.plan.outputs.browser == 'true'"
+      : "needs.plan.outputs.browser == 'true' || github.event_name == 'push'";
+    if (chromium?.if !== expectedChromiumCondition) {
+      throw new Error("workflow must install Chromium only for selected PR/manual checks or the exact main exit");
     }
     if (!affected || !/^pnpm check:affected --execute-plan$/.test(affected.run ?? "") ||
         affected.env?.VSK_CHECK_PLAN_B64 !== "${{ needs.plan.outputs.check_plan }}" ||
-        Object.keys(affected.env ?? {}).length !== 1) {
-      throw new Error("workflow must execute the exact affected check plan");
+        Object.keys(affected.env ?? {}).length !== 1 ||
+        (jobName === "verify_trusted" && affected.if !== "github.event_name == 'workflow_dispatch'") ||
+        (jobName === "verify_pr" && affected.if !== undefined)) {
+      throw new Error("workflow must execute the exact affected check plan in the PR and manual lanes");
     }
   }
   const trustedSteps = jobs.verify_trusted.steps ?? [];
+  const phase3Exit = trustedSteps.find((step) => step.name === "Run exact Phase 3 exit acceptance");
+  if (phase3Exit?.if !== "github.event_name == 'push' && github.ref == 'refs/heads/main'" ||
+      phase3Exit.run !== "pnpm check:phase-3-exit -- --commit \"$GITHUB_SHA\"") {
+    throw new Error("main must run Phase 3 exit against the exact checked-out commit");
+  }
   const guard = trustedSteps[0];
   const temporary = trustedSteps[1];
   const checkoutIndex = trustedSteps.findIndex((step) => step.uses?.startsWith("actions/checkout@"));
