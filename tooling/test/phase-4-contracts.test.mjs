@@ -32,6 +32,12 @@ const makeRun = (plan, step, schemaVersion = "1.0.0") => ({
 test("generated exact and compatible decoders preserve the major-version boundary", async () => {
   const plan = await load("valid-plan.json");
   assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", plan).planId, plan.planId);
+  for (const toolVersion of ["0.0.0-dev", "1.2.3-rc.1+build.5", "10.20.30"]) {
+    assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, toolVersion } }).binding.toolVersion, toolVersion);
+  }
+  for (const toolVersion of ["development", "1.2.3-..", "1.2.3-01", "01.2.3", "1.2.3+"]) {
+    assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, toolVersion } }), rejectsAt("plan.binding.toolVersion: pattern mismatch"));
+  }
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, schemaVersion: "1.7.0" }), rejectsAt("plan.schemaVersion: value is not in enum"));
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, xFuture: "display-only" }), rejectsAt("plan.xFuture: additional property"));
   assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, schemaVersion: "1.7.0", xFuture: "display-only" }, true).planId, plan.planId);

@@ -2664,7 +2664,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\\+([0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*))?$",
+        "maxLength": 64
       },
       {
         "name": "contractVersion",
