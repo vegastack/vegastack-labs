@@ -40,7 +40,7 @@ func TestPlanPreflightRejectsMixedBranchesAndRecordsSanitizedDecision(t *testing
 	recorder := &authorizationRecorderStub{}
 	app := newAuthorizationTestApplication(t, authorization.NewEvaluator(apiPolicyRepository{snapshot: authorization.EffectivePolicySnapshot{
 		PrincipalKind: identity.PrincipalHuman, Status: authorization.EffectiveActive, GrantRevision: 7, StateRevision: 12, RecoveryEpoch: 3,
-		Grants: []authorization.EffectiveGrant{{Role: authorization.RoleMaintainer, Action: authorization.ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: authorization.BranchHuman}},
+		Grants: []authorization.EffectiveGrant{{Role: authorization.RoleMaintainer, AllowedAction: authorization.ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: authorization.BranchHuman}},
 	}}), recorder)
 	request := httptest.NewRequest("POST", "/api/v1/runs", nil)
 	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), principal))
@@ -62,7 +62,7 @@ func TestPlanPreflightRejectsAgentAcknowledgement(t *testing.T) {
 	recorder := &authorizationRecorderStub{}
 	app := newAuthorizationTestApplication(t, authorization.NewEvaluator(apiPolicyRepository{snapshot: authorization.EffectivePolicySnapshot{
 		PrincipalKind: identity.PrincipalAgent, Status: authorization.EffectiveActive, GrantRevision: 4, StateRevision: 12, RecoveryEpoch: 3,
-		Grants: []authorization.EffectiveGrant{{Role: authorization.RoleMaintainer, Action: authorization.ActionAcknowledge, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: authorization.BranchHuman}},
+		Grants: []authorization.EffectiveGrant{{Role: authorization.RoleMaintainer, AllowedAction: authorization.ActionAcknowledge, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: authorization.BranchHuman}},
 	}}), recorder)
 	request := httptest.NewRequest("POST", "/api/v1/acknowledgements", nil)
 	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), principal))

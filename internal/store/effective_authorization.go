@@ -72,7 +72,7 @@ func (repository *EffectiveAuthorizationRepository) Snapshot(ctx context.Context
 		for rows.Next() {
 			var grant authorization.EffectiveGrant
 			var branch sql.NullString
-			if err := rows.Scan(&grant.Role, &grant.Action, &grant.Capability, &grant.ResourceKind, &grant.ResourceID, &branch); err != nil {
+			if err := rows.Scan(&grant.Role, &grant.AllowedAction, &grant.Capability, &grant.ResourceKind, &grant.ResourceID, &branch); err != nil {
 				return err
 			}
 			if branch.Valid {
@@ -186,7 +186,7 @@ func effectiveAuthorScopeMatches(ctx context.Context, transaction *sql.Tx, scope
 	var grant authorization.EffectiveGrant
 	var branch sql.NullString
 	err := transaction.QueryRowContext(ctx, `SELECT role_id,action,capability,resource_kind,resource_id,branch FROM effective_authorization_grants WHERE principal_id=? AND role_id=? AND action=? AND capability=? AND resource_kind=? AND resource_id=? AND status='active' AND grant_revision=?`,
-		scope.PrincipalID, scope.Role, scope.Action, scope.Capability, scope.ResourceKind, scope.ResourceID, scope.GrantRevision).Scan(&grant.Role, &grant.Action, &grant.Capability, &grant.ResourceKind, &grant.ResourceID, &branch)
+		scope.PrincipalID, scope.Role, scope.Action, scope.Capability, scope.ResourceKind, scope.ResourceID, scope.GrantRevision).Scan(&grant.Role, &grant.AllowedAction, &grant.Capability, &grant.ResourceKind, &grant.ResourceID, &branch)
 	if err != nil {
 		return false
 	}

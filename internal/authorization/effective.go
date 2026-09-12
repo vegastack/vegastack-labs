@@ -50,12 +50,12 @@ type Target struct {
 }
 
 type EffectiveGrant struct {
-	Role         Role
-	Action       Action
-	Capability   string
-	ResourceKind string
-	ResourceID   string
-	Branch       Branch
+	Role          Role
+	AllowedAction Action
+	Capability    string
+	ResourceKind  string
+	ResourceID    string
+	Branch        Branch
 }
 
 type EffectivePolicySnapshot struct {
@@ -110,7 +110,7 @@ func ValidAuthorizationTarget(target Target) bool {
 func scopeFingerprint(snapshot EffectivePolicySnapshot, grant EffectiveGrant, target Target) string {
 	parts := []string{
 		"effective-scope-v1", snapshot.PrincipalID, string(snapshot.PrincipalKind),
-		string(grant.Role), string(grant.Action), target.Capability, target.ResourceKind,
+		string(grant.Role), string(grant.AllowedAction), target.Capability, target.ResourceKind,
 		target.ResourceID, strconv.FormatInt(snapshot.GrantRevision, 10),
 		strconv.FormatInt(snapshot.StateRevision, 10), strconv.FormatInt(snapshot.RecoveryEpoch, 10),
 	}
@@ -120,18 +120,18 @@ func scopeFingerprint(snapshot EffectivePolicySnapshot, grant EffectiveGrant, ta
 
 func BindEffectiveScope(snapshot EffectivePolicySnapshot, grant EffectiveGrant, target Target) (EffectiveScope, bool) {
 	if snapshot.Status != EffectiveActive || snapshot.GrantRevision <= 0 || snapshot.StateRevision < 0 || snapshot.RecoveryEpoch < 0 ||
-		!ValidIdentifier(snapshot.PrincipalID) || !identity.ValidPrincipalKind(snapshot.PrincipalKind) || !ValidRole(grant.Role) || !ValidAction(grant.Action) ||
+		!ValidIdentifier(snapshot.PrincipalID) || !identity.ValidPrincipalKind(snapshot.PrincipalKind) || !ValidRole(grant.Role) || !ValidAction(grant.AllowedAction) ||
 		!ValidAuthorizationTarget(target) || grant.Capability != target.Capability || grant.ResourceKind != target.ResourceKind || grant.ResourceID != target.ResourceID {
 		return EffectiveScope{}, false
 	}
-	if (grant.Action == ActionRead || grant.Action == ActionAuthor) && grant.Branch != "" {
+	if (grant.AllowedAction == ActionRead || grant.AllowedAction == ActionAuthor) && grant.Branch != "" {
 		return EffectiveScope{}, false
 	}
-	if (grant.Action == ActionAcknowledge || grant.Action == ActionExecute) && !ValidBranch(grant.Branch) {
+	if (grant.AllowedAction == ActionAcknowledge || grant.AllowedAction == ActionExecute) && !ValidBranch(grant.Branch) {
 		return EffectiveScope{}, false
 	}
 	return EffectiveScope{
-		PrincipalID: snapshot.PrincipalID, Action: grant.Action, Capability: target.Capability, ResourceKind: target.ResourceKind,
+		PrincipalID: snapshot.PrincipalID, Action: grant.AllowedAction, Capability: target.Capability, ResourceKind: target.ResourceKind,
 		ResourceID: target.ResourceID, Role: grant.Role, GrantRevision: snapshot.GrantRevision, StateRevision: snapshot.StateRevision,
 		RecoveryEpoch: snapshot.RecoveryEpoch, ScopeDigest: scopeFingerprint(snapshot, grant, target),
 	}, true

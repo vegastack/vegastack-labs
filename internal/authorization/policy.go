@@ -187,7 +187,7 @@ func requestedBranch(request Request, principal identity.Principal) (*Branch, st
 func matchingGrant(grants []EffectiveGrant, request Request, branch *Branch) (EffectiveGrant, bool, bool) {
 	targetMismatch := false
 	for _, grant := range grants {
-		if !ValidRole(grant.Role) || grant.Action != request.Action || grant.Capability != request.Target.Capability || grant.ResourceKind != request.Target.ResourceKind {
+		if !ValidRole(grant.Role) || grant.AllowedAction != request.Action || grant.Capability != request.Target.Capability || grant.ResourceKind != request.Target.ResourceKind {
 			continue
 		}
 		if grant.ResourceID != "" && grant.ResourceID != request.Target.ResourceID {

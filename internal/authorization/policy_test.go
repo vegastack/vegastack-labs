@@ -125,7 +125,7 @@ func TestAllowedPolicyPathsRemainNarrowAndResourceScoped(t *testing.T) {
 	plan := testPlan("application.deploy.low-risk", BranchPreauthorized)
 	evaluator := NewEvaluator(policyRepositoryStub{snapshot: EffectivePolicySnapshot{
 		PrincipalKind: identity.PrincipalPolicy, Status: EffectiveActive, GrantRevision: 4, StateRevision: 12, RecoveryEpoch: 3,
-		Grants: []EffectiveGrant{{Role: RolePreauthorizedExecutor, Action: ActionExecute, Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test", Branch: BranchPreauthorized}},
+		Grants: []EffectiveGrant{{Role: RolePreauthorizedExecutor, AllowedAction: ActionExecute, Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test", Branch: BranchPreauthorized}},
 	}})
 	request := Request{Action: ActionExecute, Target: Target{Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test"}, Plan: &plan, Branches: []Branch{BranchPreauthorized}}
 	decision, err := evaluator.Authorize(context.Background(), policy, request)
@@ -175,7 +175,7 @@ func evaluatorFor(role Role, kind identity.PrincipalKind) *Evaluator {
 		GrantRevision: 7,
 		StateRevision: 12,
 		RecoveryEpoch: 3,
-		Grants:        []EffectiveGrant{{Role: role, Action: ActionExecute, Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test", Branch: BranchHuman}, {Role: role, Action: ActionAcknowledge, Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test", Branch: BranchHuman}},
+		Grants:        []EffectiveGrant{{Role: role, AllowedAction: ActionExecute, Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test", Branch: BranchHuman}, {Role: role, AllowedAction: ActionAcknowledge, Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test", Branch: BranchHuman}},
 	}})
 }
 
