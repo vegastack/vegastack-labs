@@ -65,6 +65,7 @@ type Config struct {
 type Application struct {
 	config    Config
 	effective EffectiveAuthorizationConfig
+	runs      RunLifecycle
 	routes    []route
 	closeOnce sync.Once
 	closeErr  error
@@ -93,8 +94,13 @@ func NewApplication(config Config) (*Application, error) {
 }
 
 func (app *Application) Start(ctx context.Context) error {
-	_, err := app.config.Authority.Health(ctx)
-	return err
+	if _, err := app.config.Authority.Health(ctx); err != nil {
+		return err
+	}
+	if app.runs != nil {
+		return app.runs.Startup(ctx)
+	}
+	return nil
 }
 
 func (app *Application) Health(ctx context.Context) (readmodel.ApplicationHealth, error) {

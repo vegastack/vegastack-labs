@@ -379,6 +379,19 @@ func (repository *RunRepository) FailStepBeforeEffect(ctx context.Context, runID
 	})
 }
 
+func (repository *RunRepository) InterruptStepBeforeEffect(ctx context.Context, runID, stepID string, at time.Time, attribution audit.Attribution) (generated.Run, error) {
+	return repository.mutateRun(ctx, runID, "run.step-interrupted-before-effect", strings.Join([]string{stepID, at.Format(time.RFC3339Nano)}, ":"), attribution, func(run *generated.Run, transaction *sql.Tx) error {
+		step := findStep(run, stepID)
+		if step == nil || step.Status != "running" || step.EffectState != "intent-recorded" {
+			return newStoreError(generated.ErrorCodeStateConflict, "run-step", false, nil)
+		}
+		step.Status, step.EffectState = "interrupted", "not-started"
+		run.UpdatedAt = at.UTC().Truncate(time.Second).Format(time.RFC3339)
+		_, err := transaction.ExecContext(ctx, `UPDATE plan_run_steps SET status='interrupted',effect_state='not-started',finished_at=? WHERE run_id=? AND step_id=? AND status='running' AND effect_state='intent-recorded'`, run.UpdatedAt, runID, stepID)
+		return err
+	})
+}
+
 func (repository *RunRepository) AppendRunEvent(ctx context.Context, request RunEventRequest) error {
 	if !validRunToken(request.RunID) || !validRunToken(request.EventType) || request.OccurredAt.IsZero() || request.OccurredAt.Location() != time.UTC || !strings.HasPrefix(string(request.EventDigest), "sha256:") {
 		return newStoreError(generated.ErrorCodeInputInvalid, "run-event", false, nil)

@@ -14,6 +14,7 @@ const CODE_ORDER = [
   "SERVER_SQLITE_ACCESS",
   "SERVER_XSYS_SCOPE",
   "SERVER_PLATFORM_SCOPE",
+	"SERVER_TEST_ADAPTER",
 ];
 
 export async function verifyServer(root = ROOT) {
@@ -51,6 +52,12 @@ export async function verifyServer(root = ROOT) {
   if (analysis.sqliteAccess) codes.add("SERVER_SQLITE_ACCESS");
   if (analysis.xSysOutsideScope) codes.add("SERVER_XSYS_SCOPE");
   if (analysis.platformScopeInvalid) codes.add("SERVER_PLATFORM_SCOPE");
+	try {
+		const composition = await readFile(path.join(root, "internal/server/operations.go"), "utf8");
+		if (/test\.fake|adapterRegistry\.Register\s*\(/.test(composition)) codes.add("SERVER_TEST_ADAPTER");
+	} catch {
+		// Partial analyzer fixtures intentionally omit production composition.
+	}
   const ordered = CODE_ORDER.filter((code) => codes.has(code));
   return { status: ordered.length === 0 ? "pass" : "fail", codes: ordered };
 }

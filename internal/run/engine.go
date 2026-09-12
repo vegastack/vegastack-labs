@@ -27,7 +27,9 @@ type Repository interface {
 	FinishStep(context.Context, store.StepFinishRequest) (generated.Run, error)
 	MarkStepUnknown(context.Context, string, string, time.Time, audit.Attribution) (generated.Run, error)
 	FailStepBeforeEffect(context.Context, string, string, time.Time, audit.Attribution) (generated.Run, error)
+	InterruptStepBeforeEffect(context.Context, string, string, time.Time, audit.Attribution) (generated.Run, error)
 	ActiveRuns(context.Context) ([]generated.Run, error)
+	PruneRunHistory(context.Context, time.Time) (store.RunPruneResult, error)
 }
 
 type PlanSource interface {
@@ -136,7 +138,9 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	if err := engine.verifyAdmission(ctx, plan, request.Authorization, request.Acknowledgement); err != nil {
 		return created.Run, err
 	}
-	return engine.start(ctx, plan, created.Run, request.Attribution)
+	// Once the run is durably created, client disconnect is no longer execution
+	// authority. The server-owned run continues and remains observable.
+	return engine.start(context.WithoutCancel(ctx), plan, created.Run, request.Attribution)
 }
 
 func (engine *Engine) Resume(ctx context.Context, id string) (generated.Run, error) {
@@ -193,6 +197,13 @@ func (engine *Engine) CancelAs(ctx context.Context, id string, attribution audit
 
 func (engine *Engine) Get(ctx context.Context, id string) (generated.Run, error) {
 	return engine.repository.GetRun(ctx, id)
+}
+
+func (engine *Engine) Startup(ctx context.Context) error {
+	if _, err := engine.repository.PruneRunHistory(ctx, engine.clock().UTC().Truncate(time.Second)); err != nil {
+		return err
+	}
+	return engine.Reconcile(ctx)
 }
 
 func (engine *Engine) Reconcile(ctx context.Context) error {
@@ -306,6 +317,9 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 		if executeErr != nil || adapter.ValidateEffect(effect) != nil {
 			if !effect.EffectObserved {
+				if errors.Is(executeErr, context.Canceled) || errors.Is(executeErr, context.DeadlineExceeded) {
+					return engine.interruptBeforeEffect(ctx, current, *live, attribution)
+				}
 				return engine.failBeforeEffect(ctx, current, *live, attribution, firstError(executeErr, adapter.ValidateEffect(effect)))
 			}
 			return engine.partial(ctx, current, *live, attribution, firstError(executeErr, adapter.ValidateEffect(effect)))
@@ -355,6 +369,18 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		return current, err
 	}
 	return current, nil
+}
+
+func (engine *Engine) interruptBeforeEffect(ctx context.Context, current generated.Run, step generated.RunStep, attribution audit.Attribution) (generated.Run, error) {
+	current, err := engine.repository.InterruptStepBeforeEffect(ctx, current.RunID, step.StepID, engine.clock().UTC().Truncate(time.Second), attribution)
+	if err != nil {
+		return current, err
+	}
+	current, err = engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
+	if err != nil {
+		return current, err
+	}
+	return current, runError(generated.ErrorCodeInterrupted, "run")
 }
 
 func (engine *Engine) verifyAdmission(ctx context.Context, plan generated.Plan, decision generated.AuthorizationDecision, acknowledgement *generated.Acknowledgement) error {

@@ -47,6 +47,24 @@ func TestRunExecuteAuthorizesBeforeParsingAndPreservesDuplicateSubmit(t *testing
 	}
 }
 
+func TestRunExecuteDenialDoesNotReadRequestBody(t *testing.T) {
+	plan := apiRunPlan()
+	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
+	effective := &effectiveAuthorizationStub{decision: authorization.Decision{ReasonCode: authorization.ReasonGrantMissing}}
+	app := newRunTestApplicationWithAuthorization(t, runs, effective)
+	body := &countingBody{data: bytes.NewReader([]byte(`{"secret":"must-not-read"}`))}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", nil)
+	request.Body = body
+	request.ContentLength = int64(body.data.Len())
+	request.Header.Set("Content-Type", "application/json")
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden || body.reads != 0 || runs.submitCalls != 0 {
+		t.Fatalf("denial response/reads/submits = %d/%d/%d %s", response.Code, body.reads, runs.submitCalls, response.Body.String())
+	}
+}
+
 func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
@@ -89,6 +107,7 @@ func (stub *runAPIStub) CancelAs(context.Context, string, audit.Attribution) (ge
 func (stub *runAPIStub) ResumeAs(context.Context, string, audit.Attribution) (generated.Run, error) {
 	return stub.run, nil
 }
+func (*runAPIStub) Startup(context.Context) error { return nil }
 func (stub *runAPIStub) GetPlan(context.Context, string) (store.PlanCommitResult, error) {
 	return store.PlanCommitResult{Plan: stub.plan}, nil
 }
@@ -100,6 +119,11 @@ func (stub *runAPIStub) ForPlan(context.Context, generated.Plan) (*generated.Ack
 func newRunTestApplication(t *testing.T, runs *runAPIStub) *Application {
 	t.Helper()
 	effective := &effectiveAuthorizationStub{}
+	return newRunTestApplicationWithAuthorization(t, runs, effective)
+}
+
+func newRunTestApplicationWithAuthorization(t *testing.T, runs *runAPIStub, effective *effectiveAuthorizationStub) *Application {
+	t.Helper()
 	app := newAuthorizationTestApplication(t, effective, effective)
 	if err := RegisterRunOperations(app, RunOperationConfig{Runs: runs, Plans: runs, Acknowledgements: runs, Results: app.config.Results, Authorization: app.effective}); err != nil {
 		t.Fatal(err)

@@ -88,6 +88,25 @@ func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	}
 }
 
+func TestClientDisconnectDoesNotCancelDurableServerOwnedRun(t *testing.T) {
+	fixture := newEngineFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+		if boundary == BoundaryRunStarted {
+			cancel()
+		}
+		return nil
+	}
+	completed, err := fixture.engine.Submit(ctx, fixture.request)
+	if err != nil || completed.Status != "succeeded" || fixture.adapter.calls != 1 {
+		t.Fatalf("disconnect result = %#v, calls=%d err=%v", completed, fixture.adapter.calls, err)
+	}
+	stored, err := fixture.engine.Get(context.Background(), fixture.runID)
+	if err != nil || stored.Status != "succeeded" {
+		t.Fatalf("stored disconnect run = %#v, %v", stored, err)
+	}
+}
+
 type engineFixture struct {
 	engine  *Engine
 	store   *memoryRepository
@@ -129,7 +148,10 @@ type fakeAdapter struct {
 	verify bool
 }
 
-func (adapterFixture *fakeAdapter) Execute(context.Context, adapter.Operation) (adapter.Effect, error) {
+func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operation) (adapter.Effect, error) {
+	if err := ctx.Err(); err != nil {
+		return adapter.Effect{Status: "failed", ResultDigest: digest("cancelled-result"), EffectObserved: false}, err
+	}
 	adapterFixture.calls++
 	return adapter.Effect{Status: "succeeded", ResultDigest: digest("result"), Changed: true, EffectObserved: true}, nil
 }

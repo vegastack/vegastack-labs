@@ -21,6 +21,10 @@ type RunService interface {
 	ResumeAs(context.Context, string, audit.Attribution) (generated.Run, error)
 }
 
+type RunLifecycle interface {
+	Startup(context.Context) error
+}
+
 type RunPlanSource interface {
 	GetPlan(context.Context, string) (store.PlanCommitResult, error)
 }
@@ -36,6 +40,7 @@ type RunOperationConfig struct {
 	Results          *result.Factory
 	Authorization    EffectiveAuthorizationConfig
 	MaxBodyBytes     int64
+	Lifecycle        RunLifecycle
 }
 
 func RegisterRunOperations(app *Application, config RunOperationConfig) error {
@@ -52,7 +57,13 @@ func RegisterRunOperations(app *Application, config RunOperationConfig) error {
 		return apiFailure(generated.ErrorCodeInputInvalid, "run-operation-limit")
 	}
 	previous := app.effective
+	previousLifecycle := app.runs
 	app.effective = config.Authorization
+	if config.Lifecycle != nil {
+		app.runs = config.Lifecycle
+	} else if lifecycle, ok := config.Runs.(RunLifecycle); ok {
+		app.runs = lifecycle
+	}
 	app.routes = append(app.routes,
 		route{id: "api.v1.plans.execute", method: http.MethodPost, pattern: "/api/v1/plans/{planId}/execute", deferredAuthorization: true, handler: app.executePlan(config)},
 		route{id: "api.v1.runs.get", method: http.MethodGet, pattern: "/api/v1/runs/{runId}", capability: "run.read", kind: "run", handler: app.getRun(config)},
@@ -62,6 +73,7 @@ func RegisterRunOperations(app *Application, config RunOperationConfig) error {
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-4]
 		app.effective = previous
+		app.runs = previousLifecycle
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil

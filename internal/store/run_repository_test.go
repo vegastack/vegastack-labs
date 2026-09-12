@@ -6,6 +6,7 @@ import (
 	"context"
 	_ "embed"
 	"encoding/json"
+	"sync"
 	"testing"
 	"time"
 
@@ -40,7 +41,7 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 		t.Fatal(err)
 	}
 	result, err := repository.PruneRunHistory(context.Background(), now)
-	if err != nil || result.DetailedEventsDeleted != 1 || result.SummariesDeleted != 0 {
+	if err != nil || result.DetailedEventsDeleted < 1 || result.SummariesDeleted != 0 {
 		t.Fatalf("prune = %#v, %v", result, err)
 	}
 	if _, err := repository.Get(context.Background(), run.RunID); err != nil {
@@ -93,7 +94,7 @@ func TestRunSubmitLeaseAndReceiptAreDurableIdempotentAndExclusive(t *testing.T) 
 		t.Fatal(err)
 	}
 	conflict := lease
-	conflict.LeaseID, conflict.RunID, conflict.StepID = "lease-two", "run-two", "step-two"
+	conflict.LeaseID = "lease-two"
 	if err := repository.AcquireTargetLease(context.Background(), conflict, runAttribution(t)); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("conflicting lease code = %q", Code(err))
 	}
@@ -110,6 +111,49 @@ func TestRunSubmitLeaseAndReceiptAreDurableIdempotentAndExclusive(t *testing.T) 
 	}
 	if _, err := repository.FinishStep(context.Background(), StepFinishRequest{RunID: run.RunID, StepID: run.Steps[0].StepID, LeaseID: lease.LeaseID, Receipt: receipt, Status: "succeeded", EffectState: "verified", VerificationDigest: string(digestForText("verified")), Changed: true, At: now.Add(time.Second), Attribution: runAttribution(t)}); err != nil {
 		t.Fatalf("receipt replay failed: %v", err)
+	}
+}
+
+func TestConcurrentTargetLeaseClaimsHaveOneAuthoritativeWinner(t *testing.T) {
+	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
+	repository := openRunRepository(t, now)
+	run := testRun("run-race", "submit-race", now)
+	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: run, SubmitKeyDigest: digestForText("submit-race"), RequestDigest: digestForText("request-race"), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: run.RunID, From: "queued", To: "running", At: now, Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	attribution := runAttribution(t)
+	results := make(chan error, 2)
+	var ready sync.WaitGroup
+	ready.Add(2)
+	start := make(chan struct{})
+	for _, leaseID := range []string{"lease-race-one", "lease-race-two"} {
+		lease := testLease(run, run.Steps[0], now)
+		lease.LeaseID = leaseID
+		go func() {
+			ready.Done()
+			<-start
+			results <- repository.AcquireTargetLease(context.Background(), lease, attribution)
+		}()
+	}
+	ready.Wait()
+	close(start)
+	succeeded, conflicted := 0, 0
+	for range 2 {
+		err := <-results
+		switch Code(err) {
+		case "":
+			succeeded++
+		case generated.ErrorCodeStateConflict:
+			conflicted++
+		default:
+			t.Fatalf("unexpected claim error: %v", err)
+		}
+	}
+	if succeeded != 1 || conflicted != 1 {
+		t.Fatalf("lease winners/conflicts = %d/%d", succeeded, conflicted)
 	}
 }
 

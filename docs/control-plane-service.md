@@ -240,6 +240,14 @@ Declaration operations are ordered by their explicit sequence; set-like extensio
 
 Every plan expires exactly 30 minutes after creation. Its ID and digest bind the declaration and reason, prior/new state revision, recovery epoch, current-fact fingerprint, sorted target set, authored operation sequence, policy/tool/contract versions, executor binding, readable digest, and expiry. Until Issue #71's policy result is integrated by the authorization issue, production server wiring uses the conservative `destructive` + `human` classification and central executor identifier; it cannot accidentally preauthorize or understate a plan.
 
+### Implemented durable run engine
+
+The server now owns one in-process durable run engine. `POST /api/v1/plans/{planId}/execute`, `GET /api/v1/runs/{runId}`, `POST /api/v1/runs/{runId}/cancel`, and `POST /api/v1/runs/{runId}/resume` are generated available endpoints. Run mutations remain unavailable on the remote browser listener; authorized run reads can use the existing read boundary. Execution loads immutable server state and records a current effective-authorization decision before reading the request body, then binds the exact plan digest, recovery epoch, policy branch, acknowledgement when required, target facts, executor, adapter, operation, artifact, and idempotency key.
+
+Each ordered step records an active target lease and intent before adapter dispatch, records a sanitized receipt after the effect, and requires a separate adapter verification before success. A receipt cannot prove success by itself. The typed adapter value contains only closed plan fields and logical secret references for that adapter; it rejects commands, URLs, filesystem paths, changed targets, and cross-adapter secret references. Production composition starts with an empty registry and explicitly rejects `test.fake`; the deterministic fake exists only in tests.
+
+Exact duplicate submission returns the original durable run. A conflicting target lease fails closed. A client disconnect after durable creation does not cancel server-owned execution. Process restart releases stale in-process leases and reconciles any running step: a known pre-effect interruption is resumable only when the plan declared it idempotent, while an intent or receipt without completed independent verification becomes `partial` with recovery required and is never replayed blindly. Cancellation is observed before the next step or at the current safe boundary and never claims rollback. Startup also prunes detailed local run events older than 30 days and terminal sanitized run summaries older than 180 days; the append-only audit event remains on the existing audit/outbox/SSE spine for its separately governed retention.
+
 ### Plan and execution endpoints
 
 | Method and path | Effect and boundary |

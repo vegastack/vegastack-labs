@@ -211,6 +211,18 @@ func (repository *memoryRepository) FailStepBeforeEffect(_ context.Context, id, 
 	repository.runs[id] = run
 	return cloneRun(run), nil
 }
+func (repository *memoryRepository) InterruptStepBeforeEffect(_ context.Context, id, stepID string, _ time.Time, _ audit.Attribution) (generated.Run, error) {
+	repository.mu.Lock()
+	defer repository.mu.Unlock()
+	run := repository.runs[id]
+	step := findRunStep(run, stepID)
+	if step == nil || step.Status != "running" {
+		return run, runError(generated.ErrorCodeStateConflict, "run-step")
+	}
+	step.Status, step.EffectState = "interrupted", "not-started"
+	repository.runs[id] = run
+	return cloneRun(run), nil
+}
 func (repository *memoryRepository) ActiveRuns(context.Context) ([]generated.Run, error) {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
@@ -221,6 +233,9 @@ func (repository *memoryRepository) ActiveRuns(context.Context) ([]generated.Run
 		}
 	}
 	return result, nil
+}
+func (*memoryRepository) PruneRunHistory(context.Context, time.Time) (store.RunPruneResult, error) {
+	return store.RunPruneResult{}, nil
 }
 
 type allowAdmission struct{}
