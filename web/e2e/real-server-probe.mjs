@@ -123,7 +123,8 @@ try {
     await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(envelope) });
   });
   await page.goto(`${baseURL}/providers`, { waitUntil: "networkidle" });
-  await page.locator('[data-read-state="failed"]').waitFor();
+  await page.locator('[data-read-state="error"]').waitFor();
+  await page.locator('[data-source-state="failed"]').waitFor();
   await page.unroute(sourceFailurePattern);
   await page.reload({ waitUntil: "networkidle" });
   await page.locator('[data-read-state="unavailable"]').waitFor();
