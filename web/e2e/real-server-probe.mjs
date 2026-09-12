@@ -85,6 +85,7 @@ try {
   try {
     stage = "mobile-session";
     await createSession(mobileContext);
+    await mobileContext.addInitScript(() => localStorage.setItem("theme", "light"));
     const mobile = await mobileContext.newPage();
     stage = "mobile-navigation";
     await mobile.goto(`${baseURL}/backups`, { waitUntil: "networkidle" });
