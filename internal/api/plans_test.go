@@ -23,7 +23,7 @@ func TestPlanCreateDeniesBeforeMalformedBodyIsRead(t *testing.T) {
 	body := &countingBody{data: bytes.NewReader([]byte("{broken"))}
 	effective := &effectiveAuthorizationStub{decision: authorization.Decision{ReasonCode: authorization.ReasonGrantMissing}}
 	app := newPlanTestApplication(t, allowOperationAuthorizer(), effective, &fakeDeclarationService{}, &fakePlanService{})
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/plans", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/declarations/declaration-test/plans", nil)
 	request.Body = body
 	request.Header.Set("Content-Type", "application/json")
 	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
@@ -39,8 +39,8 @@ func TestDeclarationAndPlanRoutesReturnCanonicalDomainResultsWithoutExternalCall
 	plans := &fakePlanService{result: store.PlanCommitResult{Plan: generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-test", PlanDigest: testAPIDigest("d"), DeclarationID: "declaration-test", Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 1, StateRevision: 2, DeclarationRevision: 1, ObservationFingerprint: testAPIDigest("e"), TargetDigest: testAPIDigest("f"), ReasonDigest: testAPIDigest("a"), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test", OperationType: "health.check", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "node-test", InputDigest: testAPIDigest("b"), ArtifactDigest: testAPIDigest("c"), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-12T19:00:00Z", ExpiresAt: "2026-09-12T19:30:00Z", ReadableDigest: testAPIDigest("f"), Extensions: []generated.ContractExtension{}}, Commit: store.Commit{Changed: true, StateRevision: 2, RecoveryEpoch: 0}, Created: true}}
 	effective := &effectiveAuthorizationStub{}
 	app := newPlanTestApplication(t, allowOperationAuthorizer(), effective, declarations, plans)
-	revised := serveOperationJSON(t, app, "/api/v1/declarations", map[string]any{"schema": generated.SchemaIDDeclarationRevisionRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-test", "declarationType": "node.configuration", "expectedRevision": 1, "expectedStateRevision": 0, "recoveryEpoch": 0, "operations": declarations.result.Document.Operations, "reasonDigest": testAPIDigest("a"), "extensions": []any{}})
-	planned := serveOperationJSON(t, app, "/api/v1/plans", map[string]any{"schema": generated.SchemaIDPlanCreateRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-test", "declarationRevision": 1, "expectedStateRevision": 1, "recoveryEpoch": 0, "observationFingerprint": testAPIDigest("e"), "idempotencyKey": "request-plan-test", "extensions": []any{}})
+	revised := serveOperationJSON(t, app, "/api/v1/declarations/declaration-test/revisions", map[string]any{"schema": generated.SchemaIDDeclarationRevisionRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-test", "declarationType": "node.configuration", "expectedRevision": 1, "expectedStateRevision": 0, "recoveryEpoch": 0, "operations": declarations.result.Document.Operations, "reasonDigest": testAPIDigest("a"), "extensions": []any{}})
+	planned := serveOperationJSON(t, app, "/api/v1/declarations/declaration-test/plans", map[string]any{"schema": generated.SchemaIDPlanCreateRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-test", "declarationRevision": 1, "expectedStateRevision": 1, "recoveryEpoch": 0, "observationFingerprint": testAPIDigest("e"), "idempotencyKey": "request-plan-test", "extensions": []any{}})
 	if revised.Code != http.StatusOK || planned.Code != http.StatusOK || declarations.calls != 1 || plans.calls != 1 || len(effective.records) != 4 || !strings.Contains(planned.Body.String(), `"planId":"plan-test"`) {
 		t.Fatalf("results = %d/%d calls=%d/%d %s", revised.Code, planned.Code, declarations.calls, plans.calls, planned.Body.String())
 	}
@@ -51,7 +51,7 @@ func TestAuthorizationDecisionReasonUsesStableFailureAndStopsService(t *testing.
 	plans := &fakePlanService{}
 	effective := &effectiveAuthorizationStub{decision: authorization.Decision{ReasonCode: authorization.ReasonStateRevisionStale}}
 	app := newPlanTestApplication(t, allowOperationAuthorizer(), effective, declarations, plans)
-	response := serveOperationJSON(t, app, "/api/v1/plans", map[string]any{})
+	response := serveOperationJSON(t, app, "/api/v1/declarations/declaration-test/plans", map[string]any{})
 	if response.Code != http.StatusConflict || plans.calls != 0 || len(effective.records) != 1 || !strings.Contains(response.Body.String(), generated.ErrorCodePlanStale) {
 		t.Fatalf("response=%d calls=%d records=%d %s", response.Code, plans.calls, len(effective.records), response.Body.String())
 	}
@@ -61,7 +61,7 @@ func TestAuthorizationAuditFailureDeniesBeforeRequestBody(t *testing.T) {
 	body := &countingBody{data: bytes.NewReader([]byte(`{}`))}
 	effective := &effectiveAuthorizationStub{recordErr: failure.New(generated.ErrorCodeStateConflict, "authorization-audit", false)}
 	app := newPlanTestApplication(t, allowOperationAuthorizer(), effective, &fakeDeclarationService{}, &fakePlanService{})
-	request := httptest.NewRequest(http.MethodPost, "/api/v1/plans", nil)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/declarations/declaration-test/plans", nil)
 	request.Body = body
 	request.Header.Set("Content-Type", "application/json")
 	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
@@ -69,6 +69,20 @@ func TestAuthorizationAuditFailureDeniesBeforeRequestBody(t *testing.T) {
 	app.ServeHTTP(response, request)
 	if response.Code != http.StatusConflict || body.reads != 0 || len(effective.records) != 1 {
 		t.Fatalf("response/reads/records = %d/%d/%d %s", response.Code, body.reads, len(effective.records), response.Body.String())
+	}
+}
+
+func TestRouteDeclarationBindingCannotBeChangedByBody(t *testing.T) {
+	declarations := &fakeDeclarationService{}
+	plans := &fakePlanService{}
+	effective := &effectiveAuthorizationStub{}
+	app := newPlanTestApplication(t, allowOperationAuthorizer(), effective, declarations, plans)
+	response := serveOperationJSON(t, app, "/api/v1/declarations/declaration-test/plans", map[string]any{
+		"schema": generated.SchemaIDPlanCreateRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-other", "declarationRevision": 1,
+		"expectedStateRevision": 0, "recoveryEpoch": 0, "observationFingerprint": testAPIDigest("a"), "idempotencyKey": "request-plan-test", "extensions": []any{},
+	})
+	if response.Code != http.StatusBadRequest || plans.calls != 0 || len(effective.records) != 1 {
+		t.Fatalf("response=%d calls=%d records=%d %s", response.Code, plans.calls, len(effective.records), response.Body.String())
 	}
 }
 

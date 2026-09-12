@@ -32,7 +32,7 @@
     {
       "id": "api.v1.declarations.revise",
       "method": "POST",
-      "path": "/api/v1/declarations",
+      "path": "/api/v1/declarations/{declarationId}/revisions",
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/declaration-revision-request",
@@ -298,7 +298,7 @@
     {
       "id": "api.v1.plans.create",
       "method": "POST",
-      "path": "/api/v1/plans",
+      "path": "/api/v1/declarations/{declarationId}/plans",
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/plan-create-request",

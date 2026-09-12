@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http/httptest"
 	"testing"
@@ -52,6 +53,27 @@ func TestPlanPreflightRejectsMixedBranchesAndRecordsSanitizedDecision(t *testing
 	record := recorder.records[0]
 	if record.Decision.ReasonCode != authorization.ReasonAuthorizationBranch || !authorization.ValidDecisionRecord(record) || record.Decision.PlanDigest != plan.PlanDigest {
 		t.Fatalf("decision record = %#v", record)
+	}
+}
+
+func TestAllowedPlanPreflightReturnsPersistedGeneratedDecision(t *testing.T) {
+	principal := identity.Principal{ID: "human-maintainer", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
+	target := authorization.Target{Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test"}
+	plan := apiAuthorizationPlan(authorization.BranchHuman)
+	recorder := &authorizationRecorderStub{}
+	app := newAuthorizationTestApplication(t, authorization.NewEvaluator(apiPolicyRepository{snapshot: authorization.EffectivePolicySnapshot{
+		PrincipalKind: identity.PrincipalHuman, Status: authorization.EffectiveActive, GrantRevision: 7, StateRevision: 12, RecoveryEpoch: 3,
+		Grants: []authorization.EffectiveGrant{{Role: authorization.RoleMaintainer, AllowedAction: authorization.ActionExecute, Capability: target.Capability, ResourceKind: target.ResourceKind, ResourceID: target.ResourceID, Branch: authorization.BranchHuman}},
+	}}), recorder)
+	request := httptest.NewRequest("POST", "/api/v1/plans/plan-test/execute", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), principal))
+	preflight, err := app.authorizePlanAction(request, authorization.ActionExecute, target, plan, []authorization.Branch{authorization.BranchHuman}, authorization.RevisionBinding{GrantRevision: 7, StateRevision: 12, RecoveryEpoch: 3})
+	if err != nil || len(recorder.records) != 1 || preflight.Decision.DecisionID != recorder.records[0].DecisionID || preflight.Decision.Schema != generated.SchemaIDAuthorizationDecision || preflight.Scope.ScopeDigest == "" {
+		t.Fatalf("preflight=%#v records=%#v err=%v", preflight, recorder.records, err)
+	}
+	raw, err := json.Marshal(preflight.Decision)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDAuthorizationDecision, raw, generated.ContractExact) != nil {
+		t.Fatalf("generated decision invalid: %s, %v", raw, err)
 	}
 }
 

@@ -18,7 +18,6 @@ import (
 type route struct {
 	id, method, pattern, capability, kind string
 	action                                authorization.Action
-	resourceID                            string
 	handler                               func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
 }
 
@@ -159,7 +158,12 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		}
 		var scope authorization.ReadScope
 		if candidate.action != "" {
-			_, err := app.authorizeAction(request, candidate.action, authorization.Target{Capability: candidate.capability, ResourceKind: candidate.kind, ResourceID: candidate.resourceID})
+			resourceID = params["declarationId"]
+			if !pathToken.MatchString(resourceID) {
+				app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "authorization-target"))
+				return
+			}
+			_, err := app.authorizeAction(request, candidate.action, authorization.Target{Capability: candidate.capability, ResourceKind: candidate.kind, ResourceID: resourceID})
 			if err != nil {
 				app.failure(writer, candidate.id, err)
 				return

@@ -210,7 +210,7 @@ All browser and CLI behavior uses one versioned API. HTTP JSON uses `/api/v1`; t
 | `GET /api/v1/gates`, `GET /api/v1/gates/{id}` | design/activation state, applicable subjects, evidence age/checks and exact remediation; `?phase=<n>` filters admission gates |
 | `GET /api/v1/plans`, `/runs`, `/audit` | attributed lifecycle history with sanitized evidence |
 | `GET /api/v1/events` | Server-Sent Events stream for refresh/run progress; reconnects from durable event ID |
-| `POST /api/v1/declarations` | validate and append one provider-neutral draft declaration revision using exact optimistic revision and recovery-epoch checks; cannot execute infrastructure |
+| `POST /api/v1/declarations/{declarationId}/revisions` | validate and append one provider-neutral draft declaration revision using exact optimistic revision and recovery-epoch checks; cannot execute infrastructure |
 | `GET /api/v1/declarations/{declarationId}/revisions/{revision}` | read one exact authorized immutable declaration revision |
 | `POST /api/v1/gates/{id}/evidence-drafts` | validate a typed evidence bundle and create an inert change; never sets the evaluation directly |
 
@@ -234,7 +234,7 @@ For all three routes, kernel-backed authentication and exact capability/resource
 
 ### Implemented declaration and immutable-plan endpoints
 
-`POST /api/v1/declarations` and `POST /api/v1/plans` now use the same local server-owned SQLite authority as every other mutation. Authorization completes before strict body decoding, both endpoints are denied by the remote browser mutation admission boundary, and neither handler resolves secret values, invokes an adapter, or performs a network call. The matching exact-revision declaration read and exact-plan read endpoints are available through the generated read contract.
+`POST /api/v1/declarations/{declarationId}/revisions` and `POST /api/v1/declarations/{declarationId}/plans` now use the same local server-owned SQLite authority as every other mutation. The declaration ID in the generated route is authorized before strict body decoding and must exactly match the duplicated body binding; both endpoints are denied by the remote browser mutation admission boundary, and neither handler resolves secret values, invokes an adapter, or performs a network call. The matching exact-revision declaration read and exact-plan read endpoints are available through the generated read contract.
 
 Declaration operations are ordered by their explicit sequence; set-like extensions and plan target bindings are normalized before hashing. Each append-only declaration revision records only generated closed-contract fields and digests. Planning rechecks the current recovery epoch, state revision, source draft revision, and observation fingerprint, then appends a separate `committed` desired declaration revision together with the immutable canonical JSON plan, lossless readable plan, audit event, idempotency binding, and next state revision in one transaction. An interrupted plan insert rolls back the committed declaration and plan while preserving the inert source draft. Authoritative stored bytes require the exact generated contract; compatible-read conversion is presentation-only. Exact retries return the original bytes; changed reuse of the same key fails with `STATE_CONFLICT`.
 
@@ -244,7 +244,7 @@ Every plan expires exactly 30 minutes after creation. Its ID and digest bind the
 
 | Method and path | Effect and boundary |
 |---|---|
-| `POST /api/v1/plans` | load one exact draft revision, verify current local facts, and atomically append its committed desired revision plus an immutable 30-minute plan bound to the active recovery epoch; no external mutation |
+| `POST /api/v1/declarations/{declarationId}/plans` | load one exact draft revision, verify current local facts, and atomically append its committed desired revision plus an immutable 30-minute plan bound to the active recovery epoch; no external mutation |
 | `POST /api/v1/plans/{id}/acknowledgements` | accept only the server-verified provider-neutral proof derived from the configured Slack workspace/user action, bound to the exact request/digests/risk/expiry/nonce/state revision/recovery epoch; a client assertion cannot acknowledge |
 | `POST /api/v1/plans/{id}/execute` | queue only the exact unexpired approved digest after reauthorization and precondition checks |
 | `POST /api/v1/runs/{id}/executor-claims` | allow only the plan-declared enrolled external executor to claim one epoch-bound, target/digest-limited lease; VegaStack Labs uses this for the accepted protected CI→Coolify adapter |

@@ -25,43 +25,63 @@ type EffectiveAuthorizationConfig struct {
 	Clock      func() time.Time
 }
 
+type PlanAuthorization struct {
+	Scope    authorization.EffectiveScope
+	Decision generated.AuthorizationDecision
+}
+
 func (app *Application) authorizeAction(request *http.Request, action authorization.Action, target authorization.Target) (authorization.EffectiveScope, error) {
-	return app.authorize(request, authorization.Request{Action: action, Target: target})
+	outcome, err := app.authorize(request, authorization.Request{Action: action, Target: target})
+	return outcome.Scope, err
 }
 
 // authorizePlanAction is the shared acknowledgement/execution preflight for
 // the later transition endpoints. It intentionally accepts the immutable plan
 // unchanged and leaves all provider-neutral risk classification to the policy
 // evaluator.
-func (app *Application) authorizePlanAction(request *http.Request, action authorization.Action, target authorization.Target, plan generated.Plan, branches []authorization.Branch, expected authorization.RevisionBinding) (authorization.EffectiveScope, error) {
-	return app.authorize(request, authorization.Request{Action: action, Target: target, Plan: &plan, Branches: branches, Expected: &expected})
+func (app *Application) authorizePlanAction(request *http.Request, action authorization.Action, target authorization.Target, plan generated.Plan, branches []authorization.Branch, expected authorization.RevisionBinding) (PlanAuthorization, error) {
+	outcome, err := app.authorize(request, authorization.Request{Action: action, Target: target, Plan: &plan, Branches: branches, Expected: &expected})
+	if err != nil {
+		return PlanAuthorization{}, err
+	}
+	projected, err := projectAuthorizationDecision(outcome.Record)
+	if err != nil {
+		return PlanAuthorization{}, err
+	}
+	return PlanAuthorization{Scope: outcome.Scope, Decision: projected}, nil
 }
 
-func (app *Application) authorize(request *http.Request, policyRequest authorization.Request) (authorization.EffectiveScope, error) {
+type authorizationOutcome struct {
+	Scope  authorization.EffectiveScope
+	Record authorization.DecisionRecord
+}
+
+func (app *Application) authorize(request *http.Request, policyRequest authorization.Request) (authorizationOutcome, error) {
 	if app == nil || request == nil || app.effective.Authorizer == nil || app.effective.Recorder == nil || app.effective.Clock == nil {
-		return authorization.EffectiveScope{}, apiFailure(generated.ErrorCodeIntegrityFailure, "effective-authorization")
+		return authorizationOutcome{}, apiFailure(generated.ErrorCodeIntegrityFailure, "effective-authorization")
 	}
 	principal, ok := identity.PrincipalFromContext(request.Context())
 	if !ok {
-		return authorization.EffectiveScope{}, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal")
+		return authorizationOutcome{}, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal")
 	}
 	decision, evaluationErr := app.effective.Authorizer.Authorize(request.Context(), principal, policyRequest)
 	if evaluationErr != nil || decision.PrincipalID != principal.ID || decision.Action != policyRequest.Action || decision.Target != policyRequest.Target {
 		decision = unavailableAuthorizationDecision(principal, policyRequest, decision)
 	}
-	if err := app.recordAuthorizationDecision(request.Context(), principal, decision); err != nil {
+	record, err := app.recordAuthorizationDecision(request.Context(), principal, decision)
+	if err != nil {
 		if apiErrorCode(err) != "" {
-			return authorization.EffectiveScope{}, err
+			return authorizationOutcome{}, err
 		}
-		return authorization.EffectiveScope{}, apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-audit")
+		return authorizationOutcome{}, apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-audit")
 	}
 	if evaluationErr != nil {
-		return authorization.EffectiveScope{}, apiFailure(generated.ErrorCodeDependencyUnavailable, "effective-authorization")
+		return authorizationOutcome{Record: record}, apiFailure(generated.ErrorCodeDependencyUnavailable, "effective-authorization")
 	}
 	if !decision.Allowed {
-		return authorization.EffectiveScope{}, authorizationDecisionFailure(decision.ReasonCode)
+		return authorizationOutcome{Record: record}, authorizationDecisionFailure(decision.ReasonCode)
 	}
-	return decision.Scope, nil
+	return authorizationOutcome{Scope: decision.Scope, Record: record}, nil
 }
 
 func unavailableAuthorizationDecision(principal identity.Principal, request authorization.Request, previous authorization.Decision) authorization.Decision {
@@ -75,10 +95,10 @@ func unavailableAuthorizationDecision(principal identity.Principal, request auth
 	return decision
 }
 
-func (app *Application) recordAuthorizationDecision(ctx context.Context, principal identity.Principal, decision authorization.Decision) error {
+func (app *Application) recordAuthorizationDecision(ctx context.Context, principal identity.Principal, decision authorization.Decision) (authorization.DecisionRecord, error) {
 	requestID, err := app.config.Results.RequestID()
 	if err != nil {
-		return err
+		return authorization.DecisionRecord{}, err
 	}
 	var responsible *identity.Principal
 	var agent *audit.AgentMetadata
@@ -90,11 +110,11 @@ func (app *Application) recordAuthorizationDecision(ctx context.Context, princip
 	}
 	attribution, err := audit.NewAttribution(principal, responsible, agent)
 	if err != nil {
-		return apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-attribution")
+		return authorization.DecisionRecord{}, apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-attribution")
 	}
 	requestDigest, err := authorizationDecisionDigest(decision)
 	if err != nil {
-		return apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-audit")
+		return authorization.DecisionRecord{}, apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-audit")
 	}
 	keyDigest := sha256.Sum256([]byte("authorization-decision-key-v1\x00" + requestID))
 	record := authorization.DecisionRecord{
@@ -103,9 +123,33 @@ func (app *Application) recordAuthorizationDecision(ctx context.Context, princip
 		Idempotency: audit.IntentKey{Scope: "authorization-decision", KeyDigest: audit.Fingerprint("sha256:" + hex.EncodeToString(keyDigest[:])), RequestDigest: audit.Fingerprint(requestDigest)},
 	}
 	if !authorization.ValidDecisionRecord(record) {
-		return apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-decision")
+		return authorization.DecisionRecord{}, apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-decision")
 	}
-	return app.effective.Recorder.RecordDecision(ctx, record)
+	if err := app.effective.Recorder.RecordDecision(ctx, record); err != nil {
+		return authorization.DecisionRecord{}, err
+	}
+	return record, nil
+}
+
+func projectAuthorizationDecision(record authorization.DecisionRecord) (generated.AuthorizationDecision, error) {
+	decision := record.Decision
+	var branch *string
+	if decision.Branch != nil {
+		value := string(*decision.Branch)
+		branch = &value
+	}
+	projected := generated.AuthorizationDecision{
+		Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: record.DecisionID,
+		PrincipalID: decision.PrincipalID, Action: string(decision.Action), TargetID: decision.Target.ResourceID,
+		Allowed: decision.Allowed, Branch: branch, ReasonCode: decision.ReasonCode, GrantRevision: decision.GrantRevision,
+		RecoveryEpoch: decision.RecoveryEpoch, PlanDigest: decision.PlanDigest, DecidedAt: record.DecidedAt.Format(time.RFC3339),
+		Extensions: []generated.ContractExtension{},
+	}
+	raw, err := json.Marshal(projected)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDAuthorizationDecision, raw, generated.ContractExact) != nil {
+		return generated.AuthorizationDecision{}, apiFailure(generated.ErrorCodeIntegrityFailure, "authorization-decision")
+	}
+	return projected, nil
 }
 
 func authorizationDecisionDigest(decision authorization.Decision) (string, error) {

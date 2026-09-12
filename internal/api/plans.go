@@ -42,9 +42,9 @@ func RegisterDeclarationPlanOperations(app *Application, config DeclarationPlanC
 	previous := app.effective
 	app.effective = config.Authorization
 	app.routes = append(app.routes,
-		route{id: "api.v1.declarations.revise", method: http.MethodPost, pattern: "/api/v1/declarations", capability: "declaration.author", kind: "declaration", action: authorization.ActionAuthor, resourceID: "declarations", handler: app.reviseDeclaration(config)},
+		route{id: "api.v1.declarations.revise", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/revisions", capability: "declaration.author", kind: "declaration", action: authorization.ActionAuthor, handler: app.reviseDeclaration(config)},
 		route{id: "api.v1.declarations.get", method: http.MethodGet, pattern: "/api/v1/declarations/{declarationId}/revisions/{revision}", capability: "declaration.read", kind: "declaration", handler: app.getDeclaration(config)},
-		route{id: "api.v1.plans.create", method: http.MethodPost, pattern: "/api/v1/plans", capability: "plan.author", kind: "declaration", action: authorization.ActionAuthor, resourceID: "declarations", handler: app.createPlan(config)},
+		route{id: "api.v1.plans.create", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/plans", capability: "plan.author", kind: "declaration", action: authorization.ActionAuthor, handler: app.createPlan(config)},
 		route{id: "api.v1.plans.get", method: http.MethodGet, pattern: "/api/v1/plans/{planId}", capability: "plan.read", kind: "plan", handler: app.getPlan(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
@@ -63,11 +63,15 @@ func ValidateRegisteredRoutes(app *Application) error {
 }
 
 func (app *Application) createPlan(config DeclarationPlanConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
-	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, _ map[string]string) {
+	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
 		const operation = "api.v1.plans.create"
 		var input generated.PlanCreateRequest
 		if err := decodeOperationRequest(request, config.MaxBodyBytes, []string{"schema", "schemaVersion", "declarationId", "declarationRevision", "expectedStateRevision", "recoveryEpoch", "observationFingerprint", "idempotencyKey", "extensions"}, &input); err != nil {
 			app.failure(writer, operation, err)
+			return
+		}
+		if input.DeclarationID != params["declarationId"] {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeInputInvalid, "authorization-target"))
 			return
 		}
 		principal, ok := identity.PrincipalFromContext(request.Context())
