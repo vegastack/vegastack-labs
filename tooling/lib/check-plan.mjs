@@ -60,7 +60,7 @@ const steps = Object.freeze([
   packageStep("web lint", "web", ["--filter", "@vegastack/labs-web", "lint"]),
   packageStep("web typecheck", "web", ["--filter", "@vegastack/labs-web", "typecheck"]),
   packageStep("web unit tests", "web", ["--filter", "@vegastack/labs-web", "test"]),
-  packageStep("Console browser evidence", "browser", ["--filter", "@vegastack/labs-web", "test:e2e"]),
+  commandStep("Phase 3 browser evidence", "browser", process.execPath, ["tooling/verify-phase-3.mjs", "--prepared"]),
   commandStep("Git whitespace", "always", "git", ["diff", "--check"]),
 ]);
 
@@ -101,7 +101,7 @@ function validPath(value) {
 
 function browserServerPath(file) {
   return /^internal\/api\//.test(file) ||
-    /^internal\/server\/(?:application|browser_auth|console|remote)/.test(file) ||
+    /^internal\/server\/(?:application|browser_auth|console|phase3_acceptance|remote)/.test(file) ||
     /^internal\/(?:consoleassets|metadata|contractgen|generated)\//.test(file) ||
     /^internal\/serverconfig\//.test(file);
 }
@@ -112,8 +112,8 @@ function browserWebPath(file) {
 }
 
 function browserToolingPath(file) {
-  return /^tooling\/(?:console-assets|verify-static|verify-read-api)\.mjs$/.test(file) ||
-    /^tooling\/test\/(?:console-assets|static|read-api)\.test\.mjs$/.test(file) ||
+  return /^tooling\/(?:console-assets|verify-static|verify-read-api|verify-phase-3)\.mjs$/.test(file) ||
+    /^tooling\/test\/(?:console-assets|static|read-api|phase-3)\.test\.mjs$/.test(file) ||
     /^tooling\/testdata\/(?:static|generated-read-client)/.test(file);
 }
 

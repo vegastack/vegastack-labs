@@ -69,7 +69,11 @@ func newPhase3AcceptanceServer(t *testing.T) *phase3AcceptanceFixture {
 		t.Fatal(err)
 	}
 
-	directory := t.TempDir()
+	directory, err := os.MkdirTemp("", "p3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
 	if err := os.Chmod(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}

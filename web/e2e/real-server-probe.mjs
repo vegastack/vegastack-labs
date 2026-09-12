@@ -27,13 +27,13 @@ try {
     return response.json();
   }
 
-  async function createSession() {
-    const response = await context.request.post(`${baseURL}/api/v1/session`, {
+  async function createSession(targetContext = context) {
+    const response = await targetContext.request.post(`${baseURL}/api/v1/session`, {
       headers: { Origin: baseURL, "Content-Type": "application/json" },
       data: { requestVersion: "1.0.0" },
     });
     if (response.status() !== 200) throw new Error("session bootstrap failed");
-    const cookie = (await context.cookies(baseURL)).find(item => item.name === "vsk_labs_session");
+    const cookie = (await targetContext.cookies(baseURL)).find(item => item.name === "vsk_labs_session");
     if (!cookie || !cookie.httpOnly || !cookie.secure || cookie.sameSite !== "Strict") throw new Error("session cookie policy failed");
   }
 
@@ -53,6 +53,51 @@ try {
   });
   if (violations.length) throw new Error("serious accessibility violation");
   if (browserRequests.some(value => new URL(value).origin !== baseURL)) throw new Error("browser attempted a cross-origin data request");
+
+  await page.keyboard.press("Tab");
+  if (await page.getByRole("link", { name: "Skip to main content" }).evaluate(element => element !== document.activeElement)) throw new Error("keyboard focus order failed");
+  await page.keyboard.press("Enter");
+  if (await page.getByRole("main", { name: "Overview" }).evaluate(element => element !== document.activeElement)) throw new Error("skip-link focus recovery failed");
+
+  const routes = [["/nodes", "Nodes"], ["/gates", "Gates"], ["/people", "People"], ["/services", "Services"], ["/backups", "Backups"], ["/providers", "Providers"]];
+  for (const [route, heading] of routes) {
+    await page.goto(`${baseURL}${route}`, { waitUntil: "networkidle" });
+    await page.getByRole("heading", { name: heading, exact: true }).waitFor();
+  }
+  await page.goBack({ waitUntil: "networkidle" });
+  if (new URL(page.url()).pathname !== "/backups") throw new Error("browser back navigation failed");
+  await page.goForward({ waitUntil: "networkidle" });
+  if (new URL(page.url()).pathname !== "/providers") throw new Error("browser forward navigation failed");
+  await page.reload({ waitUntil: "networkidle" });
+
+  const mobileContext = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    colorScheme: "light",
+    reducedMotion: "reduce",
+    viewport: { width: 390, height: 844 },
+    extraHTTPHeaders: { "Cf-Access-Jwt-Assertion": assertion },
+  });
+  try {
+    await createSession(mobileContext);
+    const mobile = await mobileContext.newPage();
+    await mobile.goto(`${baseURL}/backups`, { waitUntil: "networkidle" });
+    await mobile.getByRole("heading", { name: "Backups", exact: true }).waitFor();
+    const layout = await mobile.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: window.innerWidth }));
+    if (layout.width > layout.viewport) throw new Error("mobile reflow failed");
+    await mobile.evaluate(axe.source);
+    const mobileViolations = await mobile.evaluate(async () => {
+      const result = await globalThis.axe.run(document);
+      return result.violations.filter(item => item.impact === "serious" || item.impact === "critical").map(item => item.id);
+    });
+    if (mobileViolations.length) throw new Error("mobile accessibility violation");
+    const targets = await mobile.locator("button:visible").evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
+    if (!targets.length || targets.some(target => target.width < 44 || target.height < 44)) throw new Error("mobile control target failed");
+    await mobile.getByRole("button", { name: "Use dark theme" }).click();
+    if (!(await mobile.locator("html").getAttribute("class"))?.includes("dark")) throw new Error("theme persistence boundary failed");
+    if ((await mobileContext.cookies(baseURL)).some(cookie => !cookie.httpOnly || !cookie.secure || cookie.sameSite !== "Strict")) throw new Error("mobile session cookie policy failed");
+  } finally {
+    await mobileContext.close();
+  }
 
   const forbidden = await context.request.post(`${baseURL}/api/v1/summary`, {
     headers: { Origin: baseURL, "Content-Type": "application/json" },

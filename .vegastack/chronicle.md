@@ -281,3 +281,12 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none.
 
 — approved by (omkarmohanta09) · built by Codex · branch historical branch not recorded
+# 12-09-2026 — Phase 3 gained one real-server browser acceptance boundary ([#57](https://github.com/vegastack/vegastack-labs/issues/57))
+
+- **What:** A credential-free Chromium probe now exercises the embedded Console through the actual loopback TLS Go server, protected browser session, generated reads, signing-key outage, and independent local recovery. A root guard rejects unsafe evidence and documents the remaining manual keyboard checks.
+- **Why:** Static component tests alone cannot prove the real TLS, cookie, origin, session, and local-recovery boundaries that make the read-only Console safe.
+- **How it went:** The first disposable-Debian run exposed that the runner default temporary filesystem was intentionally rejected and that long Go test paths exceed Linux Unix-socket limits. Issue #81 owns that runner correction; the Phase 3 fixture remains isolated, synthetic, and free of live provider credentials.
+- **Changed:** Real TLS Chromium fixture · session and outage adversarial checks · evidence sanitizer · `check:phase-3` · repeatable manual accessibility notes.
+- **Decisions:** none; Chromium desktop/mobile is the Phase 3 development lane, while the broader browser, OS, and packaged-distribution matrix remains Phase 11.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/57-phase3-browser-acceptance
