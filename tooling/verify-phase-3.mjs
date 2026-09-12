@@ -103,7 +103,7 @@ export async function runPhase3(root = ROOT, { prepared = false } = {}) {
   const browser = packageManagerInvocation(["--filter", "@vegastack/labs-web", "test:e2e"]);
   await runCommand(browser.command, browser.args, { cwd: root, timeoutMs: 180_000 });
   if (process.platform === "linux") {
-    await runCommand("go", ["test", "-count=1", "./internal/server", "./internal/api", "-run", "Phase3Acceptance"], {
+    await runCommand("go", ["test", "-race", "-count=1", "./internal/server", "./internal/api", "-run", "Phase3Acceptance"], {
       cwd: root,
       capture: true,
       timeoutMs: 180_000,
