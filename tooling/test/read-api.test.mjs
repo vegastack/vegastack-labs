@@ -16,7 +16,7 @@ async function fixtureRepo(t, files) {
   return root;
 }
 
-test("the read API verifier accepts source health and browser session endpoints", async () => {
+test("the read API verifier accepts reviewed source, session, plan, and run endpoints", async () => {
   const result = await verifyReadAPI();
   assert.ok(!result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
 });
@@ -34,6 +34,16 @@ test("the read API verifier rejects a registry without the source health endpoin
 test("the read API verifier rejects a registry without a browser session endpoint", async (t) => {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
   registry.endpoints = registry.endpoints.filter((endpoint) => endpoint.id !== "api.v1.session.renew");
+  const root = await fixtureRepo(t, {
+    "schemas/v1/endpoint-registry.json": `${JSON.stringify(registry)}\n`,
+  });
+  const result = await verifyReadAPI(root);
+  assert.ok(result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
+});
+
+test("the read API verifier requires the exact authorized run read endpoint", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  registry.endpoints = registry.endpoints.filter((endpoint) => endpoint.id !== "api.v1.runs.get");
   const root = await fixtureRepo(t, {
     "schemas/v1/endpoint-registry.json": `${JSON.stringify(registry)}\n`,
   });
