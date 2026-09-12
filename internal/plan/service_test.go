@@ -65,6 +65,49 @@ func TestCreateCommitsASeparateDesiredDeclarationWithThePlan(t *testing.T) {
 	}
 }
 
+func TestCreateNormalizesPlanExtensionsForDigestAndReplay(t *testing.T) {
+	repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+	service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, func() time.Time {
+		return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC)
+	})
+	request := validRequest()
+	request.Extensions = []generated.ContractExtension{{Name: "x-z", ValueDigest: testDigestString("c")}, {Name: "x-a", ValueDigest: testDigestString("d")}}
+	first, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-plan"}, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstRequestDigest := repository.committed.RequestDigest
+	request.Extensions[0], request.Extensions[1] = request.Extensions[1], request.Extensions[0]
+	second, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-plan"}, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Plan.PlanDigest != second.Plan.PlanDigest || firstRequestDigest != repository.committed.RequestDigest || second.Plan.Extensions[0].Name != "x-a" {
+		t.Fatal("compatible plan extension reorder changed canonical output or replay digest")
+	}
+}
+
+func TestStateObservationFingerprintDoesNotBecomeStaleWhenPlanCommitAdvancesState(t *testing.T) {
+	repository := &fakePlanRepository{current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+	reader, err := NewStateObservationReader(repository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	declaration := validDeclaration()
+	before, err := reader.CurrentFingerprint(context.Background(), declaration.DeclarationID, declaration.Operations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository.current.StateRevision++
+	after, err := reader.CurrentFingerprint(context.Background(), declaration.DeclarationID, declaration.Operations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if before != after {
+		t.Fatal("the plan's own state commit made its observation fingerprint stale")
+	}
+}
+
 func createWithDeclaration(t *testing.T, declaration generated.DeclarationRevision) store.PlanCommitResult {
 	t.Helper()
 	repository := &fakePlanRepository{declaration: declaration, current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}

@@ -113,6 +113,7 @@ func TestAuthoritativeDeclarationAndPlanReadsRequireExactStoredContracts(t *test
 	draftRequest := validDeclarationStoreRequest()
 	draftRequest.Document.DeclarationID = "declaration-exact-test"
 	draftRequest.Document.Operations[0].OperationID = "operation-exact-test"
+	draftRequest.Document.ContentDigest = declarationContentDigest(draftRequest.Document, draftRequest.ReasonDigest)
 	draftRequest.KeyDigest = "sha256:" + strings.Repeat("b", 64)
 	draftRequest.RequestDigest = draftRequest.KeyDigest
 	draft, err := NewDeclarationRepository(s).CreateRevision(context.Background(), draftRequest)
@@ -153,6 +154,7 @@ func TestDeclarationConcurrentAuthorsInterruptionAndRestartFailClosed(t *testing
 	first, second := validDeclarationStoreRequest(), validDeclarationStoreRequest()
 	second.Document.DeclarationID = "declaration-test-2"
 	second.Document.Operations[0].OperationID = "operation-test-2"
+	second.Document.ContentDigest = declarationContentDigest(second.Document, second.ReasonDigest)
 	second.KeyDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 	second.RequestDigest = second.KeyDigest
 	results := make(chan error, 2)
@@ -188,6 +190,7 @@ func TestDeclarationConcurrentAuthorsInterruptionAndRestartFailClosed(t *testing
 	third.Document.DeclarationID = "declaration-test-3"
 	third.Document.StateRevision = 2
 	third.Expected.StateRevision = 1
+	third.Document.ContentDigest = declarationContentDigest(third.Document, third.ReasonDigest)
 	third.KeyDigest = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	third.RequestDigest = third.KeyDigest
 	if _, err := repository.CreateRevision(cancelled, third); Code(err) != generated.ErrorCodeInterrupted {
@@ -224,10 +227,12 @@ func TestDeclarationConcurrentAuthorsInterruptionAndRestartFailClosed(t *testing
 }
 
 func validDeclarationStoreRequest() DeclarationRevisionRequest {
-	return DeclarationRevisionRequest{
+	request := DeclarationRevisionRequest{
 		Document:     generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "declaration-test-1", DeclarationType: "node.configuration", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, ContentDigest: testDigest, Status: "draft", Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-test-1", OperationType: "configuration.update", AdapterID: "adapter-test-1", TargetID: "target-test-1", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, CreatedAt: "2026-09-12T18:30:00Z", CreatedBy: "principal-test-1", AgentSessionID: "session-test-1", Extensions: []generated.ContractExtension{}},
 		ReasonDigest: testDigest, Expected: RevisionToken{StateRevision: 0, RecoveryEpoch: 0}, KeyDigest: testDigest, RequestDigest: testDigest, Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"},
 	}
+	request.Document.ContentDigest = declarationContentDigest(request.Document, request.ReasonDigest)
+	return request
 }
 
 func validPlanStoreRequest(declaration generated.DeclarationRevision) PlanCommitRequest {

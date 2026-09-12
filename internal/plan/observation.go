@@ -27,17 +27,15 @@ func NewStateObservationReader(revisions RevisionReader) (*StateObservationReade
 }
 
 func (reader *StateObservationReader) CurrentFingerprint(ctx context.Context, declarationID string, operations []generated.DeclarationOperation) (string, error) {
-	revision, err := reader.revisions.CurrentRevision(ctx)
-	if err != nil {
+	if _, err := reader.revisions.CurrentRevision(ctx); err != nil {
 		return "", err
 	}
 	ordered := append([]generated.DeclarationOperation(nil), operations...)
 	sort.Slice(ordered, func(i, j int) bool { return ordered[i].Sequence < ordered[j].Sequence })
 	value := struct {
 		DeclarationID string                           `json:"declarationId"`
-		Revision      store.RevisionToken              `json:"revision"`
 		Operations    []generated.DeclarationOperation `json:"operations"`
-	}{declarationID, revision, ordered}
+	}{declarationID, ordered}
 	_, sum, err := stateexport.CanonicalJSON(value)
 	if err != nil {
 		return "", planError(generated.ErrorCodeInputInvalid)

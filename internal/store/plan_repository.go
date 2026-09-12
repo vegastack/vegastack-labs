@@ -66,7 +66,7 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 		return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "plan", false, nil)
 	}
 	desiredCanonical, desiredErr := json.Marshal(request.DesiredDeclaration)
-	if desiredErr != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, desiredCanonical, generated.ContractExact) != nil || request.DesiredDeclaration.Status != "committed" || request.DesiredDeclaration.DeclarationID != request.Plan.DeclarationID || request.DesiredDeclaration.Revision != request.Plan.Binding.DeclarationRevision || request.DesiredDeclaration.Revision != request.SourceDeclarationRevision+1 || request.DesiredDeclaration.StateRevision != request.Plan.Binding.StateRevision || request.DesiredDeclaration.RecoveryEpoch != request.Expected.RecoveryEpoch {
+	if desiredErr != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, desiredCanonical, generated.ContractExact) != nil || !validDeclarationContent(request.DesiredDeclaration, request.ReasonDigest) || request.DesiredDeclaration.Status != "committed" || request.DesiredDeclaration.DeclarationID != request.Plan.DeclarationID || request.DesiredDeclaration.Revision != request.Plan.Binding.DeclarationRevision || request.DesiredDeclaration.Revision != request.SourceDeclarationRevision+1 || request.DesiredDeclaration.StateRevision != request.Plan.Binding.StateRevision || request.DesiredDeclaration.RecoveryEpoch != request.Expected.RecoveryEpoch {
 		return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "desired-declaration", false, desiredErr)
 	}
 	canonical, err := json.Marshal(request.Plan)

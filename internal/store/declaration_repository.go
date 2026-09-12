@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 
@@ -32,7 +34,7 @@ func NewDeclarationRepository(store *Store) *DeclarationRepository {
 }
 
 func (repository *DeclarationRepository) CreateRevision(ctx context.Context, request DeclarationRevisionRequest) (DeclarationRevisionResult, error) {
-	if repository == nil || repository.store == nil || request.Document.StateRevision != request.Expected.StateRevision+1 || request.Document.RecoveryEpoch != request.Expected.RecoveryEpoch {
+	if repository == nil || repository.store == nil || request.Document.Status != "draft" || request.Document.StateRevision != request.Expected.StateRevision+1 || request.Document.RecoveryEpoch != request.Expected.RecoveryEpoch || !validDeclarationContent(request.Document, request.ReasonDigest) {
 		return DeclarationRevisionResult{}, newStoreError(generated.ErrorCodeInputInvalid, "declaration-revision", false, nil)
 	}
 	canonical, err := json.Marshal(request.Document)
@@ -98,8 +100,9 @@ func (repository *DeclarationRepository) existing(ctx context.Context, request D
 
 func (repository *DeclarationRepository) GetRevision(ctx context.Context, declarationID string, revision int64) (generated.DeclarationRevision, error) {
 	var raw []byte
+	var reasonDigest string
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT canonical_bytes FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, declarationID, revision).Scan(&raw)
+		return tx.queryRow(ctx, `SELECT canonical_bytes,reason_digest FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, declarationID, revision).Scan(&raw, &reasonDigest)
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return generated.DeclarationRevision{}, newStoreError(generated.ErrorCodeResourceNotFound, "declaration-revision", false, nil)
@@ -108,14 +111,38 @@ func (repository *DeclarationRepository) GetRevision(ctx context.Context, declar
 		return generated.DeclarationRevision{}, err
 	}
 	var document generated.DeclarationRevision
-	if json.Unmarshal(raw, &document) != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, raw, generated.ContractExact) != nil {
+	if !decodeStoredDeclaration(raw, reasonDigest, &document) {
 		return generated.DeclarationRevision{}, newStoreError(generated.ErrorCodeIntegrityFailure, "declaration-revision", false, nil)
 	}
-	reencoded, err := json.Marshal(document)
-	if err != nil || string(reencoded) != string(raw) {
-		return generated.DeclarationRevision{}, newStoreError(generated.ErrorCodeIntegrityFailure, "declaration-revision", false, err)
-	}
 	return document, nil
+}
+
+func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generated.DeclarationRevision) bool {
+	if json.Unmarshal(raw, document) != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, raw, generated.ContractExact) != nil || !validDeclarationContent(*document, reasonDigest) {
+		return false
+	}
+	reencoded, err := json.Marshal(document)
+	return err == nil && string(reencoded) == string(raw)
+}
+
+func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
+	return document.ContentDigest == declarationContentDigest(document, reasonDigest)
+}
+
+func declarationContentDigest(document generated.DeclarationRevision, reasonDigest string) string {
+	semantic := struct {
+		DeclarationID   string                           `json:"declarationId"`
+		DeclarationType string                           `json:"declarationType"`
+		Operations      []generated.DeclarationOperation `json:"operations"`
+		ReasonDigest    string                           `json:"reasonDigest"`
+		Extensions      []generated.ContractExtension    `json:"extensions"`
+	}{document.DeclarationID, document.DeclarationType, document.Operations, reasonDigest, document.Extensions}
+	encoded, err := json.Marshal(semantic)
+	if err != nil {
+		return ""
+	}
+	sum := sha256.Sum256(encoded)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func (repository *DeclarationRepository) GetReasonDigest(ctx context.Context, declarationID string, revision int64) (string, error) {

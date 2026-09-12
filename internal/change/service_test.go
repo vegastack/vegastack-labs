@@ -23,6 +23,15 @@ func TestReviseNormalizesSetFieldsAndPreservesDeclaredOperationSequence(t *testi
 	if result.Document.Operations[0].Sequence != 1 || result.Document.Extensions[0].Name != "x-a" || repository.request.Document.ContentDigest == "" {
 		t.Fatalf("revision was not canonical: %#v", result.Document)
 	}
+	firstRequestDigest := repository.request.RequestDigest
+	request.Operations[0], request.Operations[1] = request.Operations[1], request.Operations[0]
+	request.Extensions[0], request.Extensions[1] = request.Extensions[1], request.Extensions[0]
+	if _, err := service.Revise(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-test"}, request); err != nil {
+		t.Fatal(err)
+	}
+	if repository.request.RequestDigest != firstRequestDigest {
+		t.Fatal("compatible reorder changed the idempotency request digest")
+	}
 }
 
 type fakeRepository struct {

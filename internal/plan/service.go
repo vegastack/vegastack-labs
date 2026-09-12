@@ -11,6 +11,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
@@ -68,7 +69,20 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDPlanCreateRequest, raw, generated.ContractExact) != nil {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
 	}
-	keyDigest, requestDigest := sha([]byte(request.IdempotencyKey)), sha(raw)
+	extensions := append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)
+	sort.Slice(extensions, func(i, j int) bool { return extensions[i].Name < extensions[j].Name })
+	for index := 1; index < len(extensions); index++ {
+		if extensions[index-1].Name == extensions[index].Name {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+		}
+	}
+	normalizedRequest := request
+	normalizedRequest.Extensions = extensions
+	normalized, _, err := stateexport.CanonicalJSON(normalizedRequest)
+	if err != nil {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+	}
+	keyDigest, requestDigest := sha([]byte(request.IdempotencyKey)), sha(normalized)
 	if existing, found, err := service.config.Repository.ExistingPlan(ctx, keyDigest, requestDigest); err != nil || found {
 		return existing, err
 	}
@@ -120,7 +134,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	desired.AgentSessionID = author.AgentSessionID
 	desired.Operations = declarationOperations
 	desired.Extensions = append([]generated.ContractExtension(nil), declaration.Extensions...)
-	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: service.config.Risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)}
+	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: service.config.Risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
 	readable := readablePlan(candidate)
 	candidate.ReadableDigest = sha([]byte(readable))
 	candidate.PlanDigest, err = planDigest(candidate)

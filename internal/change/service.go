@@ -60,6 +60,11 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 	}
 	extensions := append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)
 	sort.Slice(extensions, func(i, j int) bool { return extensions[i].Name < extensions[j].Name })
+	for index := 1; index < len(extensions); index++ {
+		if extensions[index-1].Name == extensions[index].Name {
+			return Result{}, inputError()
+		}
+	}
 	semantic := struct {
 		DeclarationID   string                           `json:"declarationId"`
 		DeclarationType string                           `json:"declarationType"`
@@ -72,7 +77,10 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 		return Result{}, inputError()
 	}
 	document := generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: request.DeclarationID, DeclarationType: request.DeclarationType, Revision: request.ExpectedRevision, StateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, ContentDigest: digest(contentSum), Status: "draft", Operations: operations, CreatedAt: service.clock().UTC().Truncate(time.Second).Format(time.RFC3339), CreatedBy: author.PrincipalID, AgentSessionID: author.AgentSessionID, Extensions: extensions}
-	_, requestSum, err := stateexport.CanonicalJSON(request)
+	normalizedRequest := request
+	normalizedRequest.Operations = operations
+	normalizedRequest.Extensions = extensions
+	_, requestSum, err := stateexport.CanonicalJSON(normalizedRequest)
 	if err != nil {
 		return Result{}, inputError()
 	}
