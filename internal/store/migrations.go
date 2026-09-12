@@ -15,7 +15,7 @@ import (
 )
 
 // Migration ownership is fixed: 0001 belongs to #30, 0002 to #31, 0003 to
-// #33, 0004 to #35, 0005 to #54, and 0006 to #76.
+// #33, 0004 to #35, 0005 to #54, 0006 to #76, and 0007 to #71.
 
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
@@ -42,6 +42,7 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 4, Name: "0004_read_authorization", SHA256: mustSHA256("d6a7820902d336726fd2fb6aa7295d9aa29695f0a010628c3edca1f56f40fc3c")},
 	{ID: 5, Name: "0005_browser_sessions", SHA256: mustSHA256("33561ec8fb60b4c9a3bfee670579dbdb85df35cd23a3cd520488f815f560e145")},
 	{ID: 6, Name: "0006_declarations_and_plans", SHA256: mustSHA256("463308cf36bd89a84727d5dfea460b17b638f39e19b4a26b5ffd8d2f8b5abcec")},
+	{ID: 7, Name: "0007_effective_authorization", SHA256: mustSHA256("0cb4342d94f739b9a0531a44bbd5dfa8f089065975a7d83768f544785cd23e33")},
 }
 
 func Catalog() ([]Migration, error) {

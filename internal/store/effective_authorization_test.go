@@ -4,7 +4,6 @@ package store
 
 import (
 	"context"
-	"embed"
 	"testing"
 	"time"
 
@@ -13,9 +12,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 )
-
-//go:embed pending-migrations/0007_effective_authorization.sql
-var pendingEffectiveAuthorizationMigration embed.FS
 
 func TestDesiredGrantCannotAuthorizeItselfAndRevocationIsImmediate(t *testing.T) {
 	store := openEffectiveAuthorizationStore(t)
@@ -62,7 +58,6 @@ func TestEffectivePolicySnapshotSurvivesRestartAndBindsCurrentRevisions(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	installPendingEffectiveAuthorizationMigration(t, store)
 	target := authorization.Target{Capability: "declaration.author", ResourceKind: "project", ResourceID: "project-test"}
 	seedEffectivePrincipal(t, store, "human-author", identity.PrincipalHuman, 3)
 	seedEffectiveGrant(t, store, "grant-author", "human-author", authorization.RoleAuthor, authorization.ActionAuthor, target, "", 3)
@@ -189,19 +184,7 @@ func openEffectiveAuthorizationStore(t *testing.T) *Store {
 	if err != nil {
 		t.Fatal(err)
 	}
-	installPendingEffectiveAuthorizationMigration(t, store)
 	return store
-}
-
-func installPendingEffectiveAuthorizationMigration(t *testing.T, store *Store) {
-	t.Helper()
-	body, err := pendingEffectiveAuthorizationMigration.ReadFile("pending-migrations/0007_effective_authorization.sql")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.conn.ExecContext(context.Background(), string(body)); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func seedEffectivePrincipal(t *testing.T, store *Store, principalID string, kind identity.PrincipalKind, revision int64) {
