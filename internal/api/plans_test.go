@@ -129,6 +129,15 @@ func (stub *effectiveAuthorizationStub) Authorize(_ context.Context, principal i
 		decision.ReasonCode = authorization.ReasonAllowed
 		decision.GrantRevision = 1
 		decision.Scope = authorization.EffectiveScope{PrincipalID: principal.ID, Action: request.Action, Capability: request.Target.Capability, ResourceKind: request.Target.ResourceKind, ResourceID: request.Target.ResourceID, Role: authorization.RoleAuthor, GrantRevision: 1, ScopeDigest: testAPIDigest("f")}
+		if request.Plan != nil {
+			branch := authorization.Branch(request.Plan.AuthorizationBranch)
+			decision.Branch = &branch
+			decision.PlanDigest = request.Plan.PlanDigest
+			decision.StateRevision = request.Plan.Binding.StateRevision
+			decision.RecoveryEpoch = request.Plan.Binding.RecoveryEpoch
+			decision.Scope.StateRevision = decision.StateRevision
+			decision.Scope.RecoveryEpoch = decision.RecoveryEpoch
+		}
 	}
 	return decision, stub.err
 }

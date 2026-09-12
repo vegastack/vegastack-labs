@@ -29,11 +29,11 @@ Contract schema: `1.10.0`
 | `api.v1.plans.acknowledgements.create` | `POST` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `vegastack-labs.dev/acknowledgement-request` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.acknowledgements.get` | `GET` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.create` | `POST` | `/api/v1/declarations/{declarationId}/plans` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-create-request` | `vegastack-labs.dev/plan` |
-| `api.v1.plans.execute` | `POST` | `/api/v1/plans/{planId}/execute` | `planned` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/run` |
+| `api.v1.plans.execute` | `POST` | `/api/v1/plans/{planId}/execute` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/run` |
 | `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan` |
-| `api.v1.runs.cancel` | `POST` | `/api/v1/runs/{runId}/cancel` | `planned` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run` |
-| `api.v1.runs.get` | `GET` | `/api/v1/runs/{runId}` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run` |
-| `api.v1.runs.resume` | `POST` | `/api/v1/runs/{runId}/resume` | `planned` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run` |
+| `api.v1.runs.cancel` | `POST` | `/api/v1/runs/{runId}/cancel` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run` |
+| `api.v1.runs.get` | `GET` | `/api/v1/runs/{runId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run` |
+| `api.v1.runs.resume` | `POST` | `/api/v1/runs/{runId}/resume` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run` |
 | `api.v1.session.create` | `POST` | `/api/v1/session` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
 | `api.v1.session.logout` | `POST` | `/api/v1/session/logout` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
 | `api.v1.session.renew` | `POST` | `/api/v1/session/renew` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |

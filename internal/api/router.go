@@ -18,7 +18,11 @@ import (
 type route struct {
 	id, method, pattern, capability, kind string
 	action                                authorization.Action
-	handler                               func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
+	// deferredAuthorization is reserved for exact-plan run mutations. Their
+	// handlers must load immutable server state and authorize it before reading
+	// any caller-controlled body bytes.
+	deferredAuthorization bool
+	handler               func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
 }
 
 var pathToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
@@ -146,6 +150,14 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		principal, ok := identity.PrincipalFromContext(request.Context())
 		if !ok {
 			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))
+			return
+		}
+		if candidate.deferredAuthorization {
+			if request.Method != candidate.method {
+				app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
+				return
+			}
+			candidate.handler(writer, request, authorization.ReadScope{}, params)
 			return
 		}
 		resourceID := ""
