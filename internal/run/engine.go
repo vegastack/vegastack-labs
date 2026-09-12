@@ -434,11 +434,11 @@ func (engine *Engine) interruptBeforeEffect(ctx context.Context, current generat
 	if err != nil {
 		return current, err
 	}
-	current, err = engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
-	if err != nil {
+	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
 		return current, err
 	}
-	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
+	current, err = engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
+	if err != nil {
 		return current, err
 	}
 	return current, runError(generated.ErrorCodeInterrupted, "run")
@@ -466,12 +466,12 @@ func (engine *Engine) failBeforeEffect(ctx context.Context, current generated.Ru
 	if markErr != nil {
 		return current, markErr
 	}
+	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
+		return current, err
+	}
 	current, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Attribution: attribution})
 	if transitionErr != nil {
 		return current, transitionErr
-	}
-	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
-		return current, err
 	}
 	if Code(cause) != "" {
 		return current, cause
@@ -485,13 +485,13 @@ func (engine *Engine) partial(ctx context.Context, current generated.Run, step g
 	if markErr != nil {
 		return current, markErr
 	}
+	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
+		return current, err
+	}
 	changed := true
 	current, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "partial", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: attribution})
 	if transitionErr != nil {
 		return current, transitionErr
-	}
-	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
-		return current, err
 	}
 	return current, runError(generated.ErrorCodeRecoveryRequired, "run")
 }
