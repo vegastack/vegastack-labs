@@ -29,11 +29,12 @@ test("local acknowledgement request and status endpoints are generated", async (
 });
 
 test("Slack remains outside provider-neutral acknowledgement and stored contracts", async () => {
-  const [types, service, migration, schema] = await Promise.all([
+  const [types, service, migration, schema, serverProfile] = await Promise.all([
     read("internal/acknowledgement/types.go"),
     read("internal/acknowledgement/service.go"),
     read("internal/store/migrations/0008_acknowledgements.sql"),
     read("schemas/v1/acknowledgement.schema.json"),
+    read("schemas/v1/server-profile.schema.json"),
   ]);
   for (const source of [types, service, migration, schema]) {
     assert.doesNotMatch(source, /workspace[_-]?id|slack[_-]?user|websocket[_-]?url|app[_-]?token|bot[_-]?token/i);
@@ -41,6 +42,8 @@ test("Slack remains outside provider-neutral acknowledgement and stored contract
   assert.doesNotMatch(migration, /raw_payload|plaintext|nonce\s+TEXT/i);
   assert.match(migration, /nonce_digest TEXT NOT NULL UNIQUE/);
   assert.match(migration, /acknowledgement_proofs_no_update/);
+  assert.doesNotMatch(serverProfile, /slack/i);
+  assert.match(serverProfile, /acknowledgementAdapterConfigPath/);
 });
 
 test("remote admission does not add acknowledgement mutation", async () => {

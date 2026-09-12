@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
@@ -44,7 +43,7 @@ type slackAcknowledgementRuntime struct {
 }
 
 func composeSlackAcknowledgement(ctx context.Context, path string, ownerUID uint32, service *acknowledgement.Service) (slackAcknowledgementRuntime, error) {
-	profile, err := loadSlackAcknowledgementProfile(ctx, path)
+	profile, err := loadSlackAcknowledgementProfile(ctx, path, ownerUID)
 	if err != nil {
 		return slackAcknowledgementRuntime{}, err
 	}
@@ -73,11 +72,11 @@ func composeSlackAcknowledgement(ctx context.Context, path string, ownerUID uint
 	return slackAcknowledgementRuntime{scopes: scopes, publisher: adapter, background: adapter}, nil
 }
 
-func loadSlackAcknowledgementProfile(ctx context.Context, path string) (slackAcknowledgementProfile, error) {
+func loadSlackAcknowledgementProfile(ctx context.Context, path string, ownerUID uint32) (slackAcknowledgementProfile, error) {
 	if ctx == nil || path == "" {
 		return slackAcknowledgementProfile{}, failure.New(generated.ErrorCodeInputInvalid, "slack-acknowledgement-config", false)
 	}
-	file, err := os.Open(path)
+	file, err := openProtectedSlackAcknowledgementProfile(path, ownerUID)
 	if err != nil {
 		return slackAcknowledgementProfile{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "slack-acknowledgement-config", false)
 	}

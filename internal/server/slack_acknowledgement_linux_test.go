@@ -35,6 +35,35 @@ func TestSlackAcknowledgementProductionCompositionUsesProtectedReferences(t *tes
 	}
 }
 
+func TestSlackAcknowledgementMappingRejectsLinksAndBroadPermissions(t *testing.T) {
+	root := t.TempDir()
+	configPath := filepath.Join(root, "adapter.json")
+	if err := os.WriteFile(configPath, []byte(`{}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	linkedPath := filepath.Join(root, "linked.json")
+	if err := os.Symlink(configPath, linkedPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openProtectedSlackAcknowledgementProfile(linkedPath, uint32(os.Getuid())); err == nil {
+		t.Fatal("linked mapping configuration accepted")
+	}
+	hardLinkPath := filepath.Join(root, "hard-linked.json")
+	if err := os.Link(configPath, hardLinkPath); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openProtectedSlackAcknowledgementProfile(configPath, uint32(os.Getuid())); err == nil {
+		t.Fatal("multiply linked mapping configuration accepted")
+	}
+	broadPath := filepath.Join(root, "broad.json")
+	if err := os.WriteFile(broadPath, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := openProtectedSlackAcknowledgementProfile(broadPath, uint32(os.Getuid())); err == nil {
+		t.Fatal("broad mapping configuration permissions accepted")
+	}
+}
+
 func TestSystemdCredentialResolverRejectsLinksAndBroadPermissions(t *testing.T) {
 	root := t.TempDir()
 	validPath := filepath.Join(root, "valid-token")

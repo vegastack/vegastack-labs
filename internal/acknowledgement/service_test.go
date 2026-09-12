@@ -13,6 +13,27 @@ import (
 
 const testDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
+func TestAdapterRejectionUsesAttemptedIdentityAndRequiresDurableAudit(t *testing.T) {
+	service, repository, _ := newService(t)
+	rejection := AdapterRejection{
+		AttemptedPrincipal: identity.Principal{ID: "slack-attempt-0123456789abcdef", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman},
+		AuthorityID:        "authority-slack", AttemptDigest: testDigest,
+		ReasonCode: generated.ErrorCodeAuthorizationDenied, RejectedAt: time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC),
+	}
+	if err := service.Reject(context.Background(), rejection); err != nil {
+		t.Fatal(err)
+	}
+	if repository.lastDenial.Attribution.AuthenticatedPrincipalID != rejection.AttemptedPrincipal.ID || repository.lastDenial.Attribution.ResponsibleHumanPrincipalID != nil {
+		t.Fatalf("denial attribution = %#v", repository.lastDenial.Attribution)
+	}
+	repository.denialErr = failure.New(generated.ErrorCodeDependencyUnavailable, "audit", true)
+	err := service.Reject(context.Background(), rejection)
+	stable, ok := failure.As(err)
+	if !ok || !stable.Retryable || stable.Code != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("audit outage = %#v, %v", stable, err)
+	}
+}
+
 func TestRejectedPlanCannotBeRequestedAgain(t *testing.T) {
 	service, repository, plan := newService(t)
 	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
@@ -245,10 +266,12 @@ func (denyAuthorizer) Authorize(_ context.Context, principal identity.Principal,
 }
 
 type memoryRepository struct {
-	stored  Stored
-	created int
-	decided int
-	denied  int
+	stored     Stored
+	created    int
+	decided    int
+	denied     int
+	lastDenial DenialRecord
+	denialErr  error
 }
 
 func (repository *memoryRepository) Create(_ context.Context, record CreateRecord) (Stored, bool, error) {
@@ -281,7 +304,8 @@ func (repository *memoryRepository) Consume(_ context.Context, _ string, _ time.
 	return repository.stored, true, nil
 }
 
-func (repository *memoryRepository) RecordDenial(context.Context, DenialRecord) error {
+func (repository *memoryRepository) RecordDenial(_ context.Context, record DenialRecord) error {
 	repository.denied++
-	return nil
+	repository.lastDenial = record
+	return repository.denialErr
 }

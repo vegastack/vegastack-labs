@@ -42,11 +42,11 @@ type Candidate struct {
 }
 
 type AdapterRejection struct {
-	Human         identity.Principal
-	AuthorityID   string
-	AttemptDigest string
-	ReasonCode    string
-	RejectedAt    time.Time
+	AttemptedPrincipal identity.Principal
+	AuthorityID        string
+	AttemptDigest      string
+	ReasonCode         string
+	RejectedAt         time.Time
 }
 
 type RequestCard struct {

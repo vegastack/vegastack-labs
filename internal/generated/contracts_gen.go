@@ -999,17 +999,17 @@ type RunStep struct {
 }
 
 type ServerProfile struct {
-	Schema                         string                  `json:"schema"`
-	SchemaVersion                  string                  `json:"schemaVersion"`
-	SocketPath                     string                  `json:"socketPath"`
-	SocketOwnerUID                 int64                   `json:"socketOwnerUid"`
-	SocketGroupGID                 *int64                  `json:"socketGroupGid"`
-	SocketMode                     string                  `json:"socketMode"`
-	ShutdownGraceSeconds           int64                   `json:"shutdownGraceSeconds"`
-	InventoryExportRoot            string                  `json:"inventoryExportRoot"`
-	PrincipalBindings              []LocalPrincipalBinding `json:"principalBindings"`
-	RemoteRead                     RemoteReadProfile       `json:"remoteRead"`
-	SlackAcknowledgementConfigPath string                  `json:"slackAcknowledgementConfigPath"`
+	Schema                           string                  `json:"schema"`
+	SchemaVersion                    string                  `json:"schemaVersion"`
+	SocketPath                       string                  `json:"socketPath"`
+	SocketOwnerUID                   int64                   `json:"socketOwnerUid"`
+	SocketGroupGID                   *int64                  `json:"socketGroupGid"`
+	SocketMode                       string                  `json:"socketMode"`
+	ShutdownGraceSeconds             int64                   `json:"shutdownGraceSeconds"`
+	InventoryExportRoot              string                  `json:"inventoryExportRoot"`
+	PrincipalBindings                []LocalPrincipalBinding `json:"principalBindings"`
+	RemoteRead                       RemoteReadProfile       `json:"remoteRead"`
+	AcknowledgementAdapterConfigPath string                  `json:"acknowledgementAdapterConfigPath"`
 }
 
 type ServerStatusData struct {

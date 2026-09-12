@@ -150,8 +150,8 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	var acknowledgementScopes api.AcknowledgementScopeResolver = unavailableAcknowledgementScope{}
 	var acknowledgementPublisher api.AcknowledgementPublisher = unavailableAcknowledgementPublisher{}
 	var acknowledgementBackground BackgroundService
-	if profile.SlackAcknowledgementConfigPath != "" {
-		runtime, runtimeErr := composeSlackAcknowledgement(ctx, profile.SlackAcknowledgementConfigPath, profile.SocketOwnerUID, acknowledgements)
+	if profile.AcknowledgementAdapterConfigPath != "" {
+		runtime, runtimeErr := composeSlackAcknowledgement(ctx, profile.AcknowledgementAdapterConfigPath, profile.SocketOwnerUID, acknowledgements)
 		if runtimeErr == nil {
 			acknowledgementScopes = runtime.scopes
 			acknowledgementPublisher = runtime.publisher

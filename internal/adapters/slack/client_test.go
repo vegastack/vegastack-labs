@@ -15,6 +15,7 @@ import (
 	"github.com/coder/websocket"
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -117,6 +118,29 @@ func TestInteractiveEnvelopeAcknowledgesOnlyAfterDurableDecision(t *testing.T) {
 	}
 }
 
+func TestDurablyAuditedSemanticDenialIsAcknowledgedOnce(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	interactive := fixtureInteractive("env-denied", "workspace-approved", "user-approved", "action-reject")
+	transport := &fixtureTransport{sessions: [][]string{{interactive}}}
+	sink := CandidateSinkFuncs{
+		SubmitFunc: func(context.Context, acknowledgement.Candidate) error {
+			return failure.New(generated.ErrorCodeAuthorizationDenied, "acknowledgement", false)
+		},
+		RejectFunc: func(context.Context, acknowledgement.AdapterRejection) error { return nil },
+	}
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("run = %v", err)
+	}
+	if strings.Join(transport.acknowledged, ",") != "env-denied" || transport.opened != 1 {
+		t.Fatalf("acks/opens = %v/%d", transport.acknowledged, transport.opened)
+	}
+}
+
 func TestRejectedAdapterActionIsAuditedBeforeEnvelopeAcknowledgement(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 	defer cancel()
@@ -131,6 +155,9 @@ func TestRejectedAdapterActionIsAuditedBeforeEnvelopeAcknowledgement(t *testing.
 	}
 	if sink.rejections != 2 || strings.Join(transport.acknowledged, ",") != "env-wrong" {
 		t.Fatalf("rejections/acks = %d/%v", sink.rejections, transport.acknowledged)
+	}
+	if sink.lastRejection.AttemptedPrincipal.ID == "person-operator" || sink.lastRejection.AttemptedPrincipal.ID == "" || sink.lastRejection.AttemptedPrincipal.Method != "slack-socket-mode" {
+		t.Fatalf("false attempted attribution = %#v", sink.lastRejection.AttemptedPrincipal)
 	}
 }
 
@@ -294,8 +321,9 @@ func (fixtureResolver) Resolve(context.Context, credentialref.Reference) ([]byte
 }
 
 type retryingCandidateSink struct {
-	submits    int
-	rejections int
+	submits       int
+	rejections    int
+	lastRejection acknowledgement.AdapterRejection
 }
 
 func (sink *retryingCandidateSink) Submit(context.Context, acknowledgement.Candidate) error {
@@ -306,8 +334,9 @@ func (sink *retryingCandidateSink) Submit(context.Context, acknowledgement.Candi
 	return nil
 }
 
-func (sink *retryingCandidateSink) Reject(context.Context, acknowledgement.AdapterRejection) error {
+func (sink *retryingCandidateSink) Reject(_ context.Context, rejection acknowledgement.AdapterRejection) error {
 	sink.rejections++
+	sink.lastRejection = rejection
 	return nil
 }
 

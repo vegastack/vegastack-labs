@@ -47,15 +47,18 @@ func (service *Service) Submit(ctx context.Context, candidate Candidate) error {
 
 func (service *Service) Reject(ctx context.Context, rejection AdapterRejection) error {
 	validReason := rejection.ReasonCode == generated.ErrorCodeInputInvalid || rejection.ReasonCode == generated.ErrorCodeAuthorizationDenied
-	if service == nil || ctx == nil || !identity.ValidPrincipal(rejection.Human) || identity.EffectivePrincipalKind(rejection.Human) != identity.PrincipalHuman || !authorization.ValidIdentifier(rejection.AuthorityID) || !validDigest(rejection.AttemptDigest) || !validReason || rejection.RejectedAt.IsZero() || rejection.RejectedAt.Location() != time.UTC {
+	if service == nil || ctx == nil || !identity.ValidPrincipal(rejection.AttemptedPrincipal) || !authorization.ValidIdentifier(rejection.AuthorityID) || !validDigest(rejection.AttemptDigest) || !validReason || rejection.RejectedAt.IsZero() || rejection.RejectedAt.Location() != time.UTC {
 		return acknowledgementError(generated.ErrorCodeInputInvalid, "acknowledgement-adapter-rejection")
 	}
-	attribution, err := audit.NewAttribution(rejection.Human, &rejection.Human, nil)
+	attribution, err := audit.NewAttribution(rejection.AttemptedPrincipal, nil, nil)
 	if err != nil {
-		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
+		return failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit", true)
 	}
 	correlationID := "denial-" + strings.TrimPrefix(rejection.AttemptDigest, "sha256:")[:32]
-	return service.config.Repository.RecordDenial(ctx, DenialRecord{TargetKind: "acknowledgement-authority", TargetID: rejection.AuthorityID, CorrelationID: correlationID, AttemptDigest: rejection.AttemptDigest, ReasonCode: rejection.ReasonCode, RejectedAt: rejection.RejectedAt, Attribution: attribution})
+	if err := service.config.Repository.RecordDenial(ctx, DenialRecord{TargetKind: "acknowledgement-authority", TargetID: rejection.AuthorityID, CorrelationID: correlationID, AttemptDigest: rejection.AttemptDigest, ReasonCode: rejection.ReasonCode, RejectedAt: rejection.RejectedAt, Attribution: attribution}); err != nil {
+		return failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit", true)
+	}
+	return nil
 }
 
 func (service *Service) Request(ctx context.Context, scope Scope, planID string) (RequestCard, error) {
@@ -237,12 +240,12 @@ func (service *Service) denyCandidate(ctx context.Context, stored Stored, candid
 	}
 	attribution, err := audit.NewAttribution(candidate.Human, &candidate.Human, nil)
 	if err != nil {
-		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
+		return failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit", true)
 	}
 	attempt := strings.Join([]string{"candidate-denial-v1", candidate.Action, candidate.PlanID, candidate.PlanDigest, candidate.TargetDigest, candidate.ReasonDigest, digest(candidate.Nonce), intString(candidate.StateRevision), intString(candidate.RecoveryEpoch), candidate.ExpiresAt.UTC().Format(time.RFC3339)}, "\x00")
 	record := DenialRecord{TargetKind: "plan", TargetID: stored.Request.PlanID, CorrelationID: stored.Acknowledgement.AcknowledgementID, AttemptDigest: digest(attempt), ReasonCode: code, RejectedAt: service.config.Clock().UTC().Truncate(time.Second), Attribution: attribution}
 	if err := service.config.Repository.RecordDenial(ctx, record); err != nil {
-		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
+		return failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit", true)
 	}
 	return cause
 }
