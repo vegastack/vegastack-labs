@@ -350,7 +350,12 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		claimed := engine.clock().UTC().Truncate(time.Second)
 		lease := generated.ExecutorLease{Schema: generated.SchemaIDExecutorLease, SchemaVersion: "1.0.0", LeaseID: engine.ids.LeaseID(*live), PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: current.RunID, StepID: live.StepID, OperationID: live.OperationID, ExecutorID: live.ExecutorID, AdapterID: live.AdapterID, TargetID: live.TargetID, ArtifactDigest: live.ArtifactDigest, BindingDigest: current.ExecutorBindingDigest, NonceDigest: engine.ids.NonceDigest(*live), RecoveryEpoch: current.RecoveryEpoch, ClaimedAt: claimed.Format(time.RFC3339), RenewAfter: claimed.Add(time.Duration(generated.ExecutorCheckInSeconds) * time.Second).Format(time.RFC3339), LeaseExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), MaximumExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), Status: "active", Extensions: []generated.ContractExtension{}}
 		if err := engine.repository.AcquireTargetLease(ctx, lease, attribution); err != nil {
-			return current, err
+			cleanup := context.WithoutCancel(ctx)
+			interrupted, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
+			if transitionErr != nil {
+				return current, transitionErr
+			}
+			return interrupted, err
 		}
 		if err := engine.after(BoundaryLeaseAcquired); err != nil {
 			return current, err

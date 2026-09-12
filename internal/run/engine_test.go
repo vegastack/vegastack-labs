@@ -168,6 +168,57 @@ func TestServerShutdownInterruptsAtSafeBoundaryAndReleasesLease(t *testing.T) {
 	}
 }
 
+func TestTimeoutBeforeEffectInterruptsAndReleasesLease(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.adapter.executeErr = context.DeadlineExceeded
+	interrupted, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if Code(err) != generated.ErrorCodeInterrupted || interrupted.Status != "interrupted" {
+		t.Fatalf("timeout result = %#v code=%q err=%v", interrupted, Code(err), err)
+	}
+	fixture.store.mu.Lock()
+	defer fixture.store.mu.Unlock()
+	if len(fixture.store.targets) != 0 || fixture.store.leases["lease-deterministic"].Status != "released" {
+		t.Fatalf("timeout left active target/lease = %#v/%#v", fixture.store.targets, fixture.store.leases)
+	}
+}
+
+func TestTargetLeaseConflictInterruptsBeforeEffect(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.store.targets["target-test"] = "lease-other"
+	fixture.store.leases["lease-other"] = generated.ExecutorLease{LeaseID: "lease-other", RunID: "run-other", TargetID: "target-test", Status: "active"}
+	interrupted, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if Code(err) != generated.ErrorCodeStateConflict || interrupted.Status != "interrupted" || fixture.adapter.calls != 0 {
+		t.Fatalf("conflict result = %#v code=%q calls=%d err=%v", interrupted, Code(err), fixture.adapter.calls, err)
+	}
+	fixture.store.mu.Lock()
+	defer fixture.store.mu.Unlock()
+	if fixture.store.targets["target-test"] != "lease-other" {
+		t.Fatalf("conflicting owner was changed: %#v", fixture.store.targets)
+	}
+}
+
+func TestRunTransitionTableIsClosed(t *testing.T) {
+	statuses := []string{"queued", "running", "succeeded", "failed", "partial", "interrupted", "cancelled"}
+	allowed := map[string]bool{
+		"queued\x00running":        true,
+		"queued\x00cancelled":      true,
+		"running\x00succeeded":     true,
+		"running\x00failed":        true,
+		"running\x00partial":       true,
+		"running\x00interrupted":   true,
+		"interrupted\x00running":   true,
+		"interrupted\x00cancelled": true,
+	}
+	for _, from := range statuses {
+		for _, to := range statuses {
+			err := generated.ValidateRunTransition(from, to)
+			if (err == nil) != allowed[from+"\x00"+to] {
+				t.Fatalf("transition %s -> %s err=%v", from, to, err)
+			}
+		}
+	}
+}
+
 func TestExpiredPlanAndMissingAdapterFailBeforeEffect(t *testing.T) {
 	expired := newEngineFixture(t)
 	expired.store.plan.ExpiresAt = expired.engine.clock().UTC().Format(time.RFC3339)
@@ -237,11 +288,15 @@ type fakeAdapter struct {
 	verify        bool
 	changed       bool
 	beforeExecute func()
+	executeErr    error
 }
 
 func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operation) (adapter.Effect, error) {
 	if adapterFixture.beforeExecute != nil {
 		adapterFixture.beforeExecute()
+	}
+	if adapterFixture.executeErr != nil {
+		return adapter.Effect{Status: "failed", ResultDigest: digest("failed-result"), EffectObserved: false}, adapterFixture.executeErr
 	}
 	if err := ctx.Err(); err != nil {
 		return adapter.Effect{Status: "failed", ResultDigest: digest("cancelled-result"), EffectObserved: false}, err
