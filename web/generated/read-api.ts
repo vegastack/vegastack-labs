@@ -4124,8 +4124,8 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
 
 export type ChangeClient = {
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
-  readonly reviseDeclaration: (request: DeclarationRevisionRequest, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
-  readonly createPlan: (request: PlanCreateRequest, options?: RequestOptions) => Promise<ReadResult<Plan>>;
+  readonly reviseDeclaration: (path: { readonly declarationId: string }, request: DeclarationRevisionRequest, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
+  readonly createPlan: (path: { readonly declarationId: string }, request: PlanCreateRequest, options?: RequestOptions) => Promise<ReadResult<Plan>>;
   readonly executePlan: (path: { readonly planId: string }, request: PlanReferenceRequest, options?: RequestOptions) => Promise<ReadResult<Run>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<Plan>>;
   readonly cancelRun: (path: { readonly runId: string }, request: RunReferenceRequest, options?: RequestOptions) => Promise<ReadResult<Run>>;
@@ -4139,15 +4139,15 @@ export function createChangeClient(fetchTransport: FetchTransport): ChangeClient
       const operation = "api.v1.declarations.get";
       return performRead(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "", options, operation, decodeDeclarationRevision);
     },
-    async reviseDeclaration(request, options = {}) {
+    async reviseDeclaration(path, request, options = {}) {
       const operation = "api.v1.declarations.revise";
       const body = decodeDeclarationRevisionRequest(request);
-      return performChange(fetchTransport, "/api/v1/declarations", body, options, operation, decodeDeclarationRevision);
+      return performChange(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions", body, options, operation, decodeDeclarationRevision);
     },
-    async createPlan(request, options = {}) {
+    async createPlan(path, request, options = {}) {
       const operation = "api.v1.plans.create";
       const body = decodePlanCreateRequest(request);
-      return performChange(fetchTransport, "/api/v1/plans", body, options, operation, decodePlan);
+      return performChange(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/plans", body, options, operation, decodePlan);
     },
     async executePlan(path, request, options = {}) {
       const operation = "api.v1.plans.execute";

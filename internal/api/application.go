@@ -64,6 +64,7 @@ type Config struct {
 
 type Application struct {
 	config    Config
+	effective EffectiveAuthorizationConfig
 	routes    []route
 	closeOnce sync.Once
 	closeErr  error

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/api"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
 	"github.com/vegastack/vegastack-labs/internal/failure"
@@ -106,6 +107,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	planRepository := store.NewPlanRepository(authority)
+	effectiveAuthorization := store.NewEffectiveAuthorizationRepository(authority)
 	observations, err := planengine.NewStateObservationReader(planRepository)
 	if err != nil {
 		_ = application.Shutdown(ctx)
@@ -116,7 +118,16 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterDeclarationPlanOperations(application, api.DeclarationPlanConfig{Declarations: declarations, Plans: plans, Results: factory}); err != nil {
+	if err := api.RegisterDeclarationPlanOperations(application, api.DeclarationPlanConfig{
+		Declarations: declarations,
+		Plans:        plans,
+		Results:      factory,
+		Authorization: api.EffectiveAuthorizationConfig{
+			Authorizer: authorization.NewEvaluator(effectiveAuthorization),
+			Recorder:   effectiveAuthorization,
+			Clock:      time.Now,
+		},
+	}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}

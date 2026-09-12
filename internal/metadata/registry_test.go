@@ -27,7 +27,7 @@ func TestPhase4ContractsBindPlanAndExecutorScope(t *testing.T) {
 	}
 
 	plan := endpointByID(t, registry, "api.v1.plans.create")
-	if plan.Method != "POST" || plan.Path != "/api/v1/plans" || plan.OwnerPhase != "4" {
+	if plan.Method != "POST" || plan.Path != "/api/v1/declarations/{declarationId}/plans" || plan.OwnerPhase != "4" {
 		t.Fatalf("plan endpoint = %#v", plan)
 	}
 	lease := schemaByID(t, registry, "vegastack-labs.dev/executor-lease")

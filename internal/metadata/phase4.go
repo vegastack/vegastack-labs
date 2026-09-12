@@ -20,9 +20,9 @@ var phase4RunStates = []string{"cancelled", "failed", "interrupted", "partial", 
 
 func phase4Endpoints() []EndpointDefinition {
 	return []EndpointDefinition{
-		phase4Endpoint("api.v1.declarations.revise", "POST", "/api/v1/declarations", declarationRevisionRequestID, declarationRevisionSchemaID),
+		phase4Endpoint("api.v1.declarations.revise", "POST", "/api/v1/declarations/{declarationId}/revisions", declarationRevisionRequestID, declarationRevisionSchemaID),
 		phase4Endpoint("api.v1.declarations.get", "GET", "/api/v1/declarations/{declarationId}/revisions/{revision}", "", declarationRevisionSchemaID),
-		phase4Endpoint("api.v1.plans.create", "POST", "/api/v1/plans", planCreateRequestSchemaID, planSchemaID),
+		phase4Endpoint("api.v1.plans.create", "POST", "/api/v1/declarations/{declarationId}/plans", planCreateRequestSchemaID, planSchemaID),
 		phase4Endpoint("api.v1.plans.get", "GET", "/api/v1/plans/{planId}", "", planSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.create", "POST", "/api/v1/plans/{planId}/acknowledgements", acknowledgementRequestSchemaID, acknowledgementSchemaID),
 		phase4Endpoint("api.v1.plans.execute", "POST", "/api/v1/plans/{planId}/execute", planReferenceRequestSchemaID, runSchemaID),

@@ -3,24 +3,16 @@ package identity
 
 import (
 	"context"
-	"regexp"
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 )
 
 const LocalOSPeerMethod = "local-os-peer"
 
-var principalIDPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
-
 type LocalPeer struct {
 	PID int32
 	UID uint32
 	GID uint32
-}
-
-type Principal struct {
-	ID     string
-	Method string
 }
 
 type Binding struct {
