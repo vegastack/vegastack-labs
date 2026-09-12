@@ -4046,6 +4046,7 @@ export type ReadClient = {
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<Plan>>;
+  readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<Run>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
@@ -4110,6 +4111,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getPlan(path, options = {}) {
       const operation = "api.v1.plans.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodePlan);
+    },
+    async getRun(path, options = {}) {
+      const operation = "api.v1.runs.get";
+      return performRead(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "", options, operation, decodeRun);
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";

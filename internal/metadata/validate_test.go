@@ -142,9 +142,21 @@ func TestMetadataTypesHaveNoProviderOrVendorField(t *testing.T) {
 func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 	t.Parallel()
 
+	availablePhase4 := map[string]bool{
+		"api.v1.declarations.revise":           true,
+		"api.v1.declarations.get":              true,
+		"api.v1.plans.create":                  true,
+		"api.v1.plans.get":                     true,
+		"api.v1.plans.acknowledgements.create": true,
+		"api.v1.plans.acknowledgements.get":    true,
+		"api.v1.plans.execute":                 true,
+		"api.v1.runs.get":                      true,
+		"api.v1.runs.cancel":                   true,
+		"api.v1.runs.resume":                   true,
+	}
 	for _, endpoint := range Current().Endpoints {
 		want := AvailabilityAvailable
-		if endpoint.OwnerPhase == "4" && endpoint.ID != "api.v1.declarations.revise" && endpoint.ID != "api.v1.declarations.get" && endpoint.ID != "api.v1.plans.create" && endpoint.ID != "api.v1.plans.get" && endpoint.ID != "api.v1.plans.acknowledgements.create" && endpoint.ID != "api.v1.plans.acknowledgements.get" {
+		if endpoint.OwnerPhase == "4" && !availablePhase4[endpoint.ID] {
 			want = AvailabilityPlanned
 		}
 		if endpoint.Availability != want {

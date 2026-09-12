@@ -94,6 +94,7 @@ type Repository interface {
 	Get(context.Context, string) (Stored, error)
 	Decide(context.Context, DecisionRecord) (Stored, bool, error)
 	Consume(context.Context, string, time.Time) (Stored, bool, error)
+	VerifyRunClaim(context.Context, string, string, time.Time) error
 	RecordDenial(context.Context, DenialRecord) error
 }
 

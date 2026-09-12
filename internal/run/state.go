@@ -1,0 +1,92 @@
+// Package run owns the in-process durable plan-run state machine.
+package run
+
+import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
+)
+
+type Boundary string
+
+const (
+	BoundaryRunCreated         Boundary = "01-run-created"
+	BoundaryAdmissionActivated Boundary = "02-admission-activated"
+	BoundaryRunStarted         Boundary = "03-run-started"
+	BoundaryLeaseAcquired      Boundary = "04-lease-acquired"
+	BoundaryIntentRecorded     Boundary = "05-intent-recorded"
+	BoundaryEffectReturned     Boundary = "06-effect-returned"
+	BoundaryReceiptRecorded    Boundary = "07-receipt-recorded"
+	BoundaryVerified           Boundary = "08-verified"
+	BoundaryRunCompleted       Boundary = "09-run-completed"
+)
+
+type Error struct {
+	code      string
+	target    string
+	retryable bool
+}
+
+func (err *Error) Error() string   { return fmt.Sprintf("%s: %s", err.code, err.target) }
+func (err *Error) Code() string    { return err.code }
+func (err *Error) Target() string  { return err.target }
+func (err *Error) Retryable() bool { return err.retryable }
+
+func Code(err error) string {
+	var runError *Error
+	if errors.As(err, &runError) {
+		return runError.code
+	}
+	type coded interface{ Code() string }
+	var other coded
+	if errors.As(err, &other) {
+		return other.Code()
+	}
+	return ""
+}
+
+func runError(code, target string) error { return &Error{code: code, target: target} }
+
+func digest(values ...string) string {
+	sum := sha256.Sum256([]byte(strings.Join(values, "\x00")))
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func runID(planID, submitKey string) string {
+	return "run-" + strings.TrimPrefix(digest("run", planID, submitKey), "sha256:")[:32]
+}
+func stepID(id string, sequence int64) string {
+	return fmt.Sprintf("step-%d-%s", sequence, strings.TrimPrefix(digest("step", id, fmt.Sprint(sequence)), "sha256:")[:16])
+}
+
+func receiptID(leaseID string) string {
+	return "receipt-" + strings.TrimPrefix(digest("receipt", leaseID), "sha256:")[:32]
+}
+
+type secureIDSource struct{}
+
+func (secureIDSource) Lease(step generated.RunStep) (string, string, error) {
+	random := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, random); err != nil {
+		return "", "", err
+	}
+	return "lease-" + hex.EncodeToString(random[:16]), digest("lease-nonce", step.StepID, hex.EncodeToString(random)), nil
+}
+
+func terminal(status string) bool {
+	return status == "succeeded" || status == "failed" || status == "partial" || status == "cancelled"
+}
+
+func exactContract(schema string, value any) bool {
+	raw, err := jsonMarshal(value)
+	return err == nil && generated.ValidateContractJSON(schema, raw, generated.ContractExact) == nil
+}
+
+var jsonMarshal = func(value any) ([]byte, error) { return json.Marshal(value) }

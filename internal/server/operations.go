@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
+	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
@@ -18,6 +19,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
 	"github.com/vegastack/vegastack-labs/internal/result"
+	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -124,15 +126,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	effectiveConfig := api.EffectiveAuthorizationConfig{Authorizer: authorization.NewEvaluator(effectiveAuthorization), Recorder: effectiveAuthorization, Clock: time.Now}
 	if err := api.RegisterDeclarationPlanOperations(application, api.DeclarationPlanConfig{
-		Declarations: declarations,
-		Plans:        plans,
-		Results:      factory,
-		Authorization: api.EffectiveAuthorizationConfig{
-			Authorizer: authorization.NewEvaluator(effectiveAuthorization),
-			Recorder:   effectiveAuthorization,
-			Clock:      time.Now,
-		},
+		Declarations:  declarations,
+		Plans:         plans,
+		Results:       factory,
+		Authorization: effectiveConfig,
 	}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -162,6 +161,15 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		Plans: plans, Acknowledgements: acknowledgements, Scopes: acknowledgementScopes,
 		Publisher: acknowledgementPublisher, Results: factory,
 	}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	runs, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(acknowledgements, time.Now), Adapters: adapter.NewRegistry(), Clock: time.Now, ExecutionContext: ctx})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}

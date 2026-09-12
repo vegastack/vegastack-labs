@@ -201,6 +201,21 @@ func (service *Service) expire(ctx context.Context, stored Stored, now time.Time
 }
 
 func (service *Service) VerifyForExecution(ctx context.Context, planID string) (generated.Acknowledgement, error) {
+	return service.verifyExecution(ctx, planID, "", time.Time{}, false)
+}
+
+// VerifyForRunExecution consumes an available proof, or accepts the same
+// already-consumed proof after the caller has durably claimed it with a unique
+// acknowledgement-bound queued run. This makes a crash between proof
+// consumption and execution recoverable without allowing a second run.
+func (service *Service) VerifyForRunExecution(ctx context.Context, planID, acknowledgementID string, claimedAt time.Time) (generated.Acknowledgement, error) {
+	if !authorization.ValidIdentifier(acknowledgementID) || claimedAt.IsZero() || claimedAt.Location() != time.UTC {
+		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodeInputInvalid, "acknowledgement-proof")
+	}
+	return service.verifyExecution(ctx, planID, acknowledgementID, claimedAt, true)
+}
+
+func (service *Service) verifyExecution(ctx context.Context, planID, acknowledgementID string, claimedAt time.Time, allowConsumed bool) (generated.Acknowledgement, error) {
 	if service == nil || ctx == nil || !authorization.ValidIdentifier(planID) {
 		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodeInputInvalid, "acknowledgement-proof")
 	}
@@ -208,9 +223,19 @@ func (service *Service) VerifyForExecution(ctx context.Context, planID string) (
 	if err != nil {
 		return generated.Acknowledgement{}, err
 	}
-	if stored.Acknowledgement.Status != "approved" || stored.Consumed {
+	if stored.Acknowledgement.Status != "approved" || stored.Consumed && !allowConsumed {
 		cause := acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement-proof")
 		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-replay", cause)
+	}
+	if allowConsumed && stored.Acknowledgement.AcknowledgementID != acknowledgementID {
+		cause := acknowledgementError(generated.ErrorCodeAuthorizationDenied, "acknowledgement-proof")
+		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-claim", cause)
+	}
+	if allowConsumed {
+		if err := service.config.Repository.VerifyRunClaim(ctx, planID, acknowledgementID, claimedAt); err != nil {
+			cause := acknowledgementError(generated.ErrorCodeAuthorizationDenied, "acknowledgement-proof")
+			return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-claim", cause)
+		}
 	}
 	plan, err := service.config.Plans.Get(ctx, planID)
 	if err != nil {
@@ -225,13 +250,21 @@ func (service *Service) VerifyForExecution(ctx context.Context, planID string) (
 		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-authorization", err)
 	}
 	now := service.config.Clock().UTC().Truncate(time.Second)
-	if !now.Before(mustTime(stored.Acknowledgement.ExpiresAt)) {
+	// Expiry limits when authority may first be consumed. Once a uniquely bound
+	// durable run has consumed the proof, that same run may cross a restart seam
+	// after the timestamp; all current plan, recovery and human grants are still
+	// revalidated above. A different run cannot claim this acknowledgement.
+	claimedWhileFresh := allowConsumed && claimedAt.Before(mustTime(stored.Acknowledgement.ExpiresAt))
+	if !stored.Consumed && !now.Before(mustTime(stored.Acknowledgement.ExpiresAt)) && !claimedWhileFresh {
 		cause := acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement-proof")
 		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-expired", cause)
 	}
 	if err := service.config.Plans.ValidateCurrent(ctx, plan); err != nil {
 		cause := acknowledgementError(generated.ErrorCodePlanStale, "plan")
 		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-stale", cause)
+	}
+	if stored.Consumed {
+		return stored.Acknowledgement, nil
 	}
 	consumed, changed, err := service.config.Repository.Consume(ctx, planID, now)
 	if err != nil {

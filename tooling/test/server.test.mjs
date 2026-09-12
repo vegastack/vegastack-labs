@@ -165,3 +165,11 @@ test("the server verifier requires exactly one executable and available entrypoi
   const result = await verifyServer(root);
   assert.deepEqual(result.codes, ["SERVER_EXECUTABLE_COUNT", "SERVER_ENTRYPOINT_COUNT"]);
 });
+
+test("the server verifier rejects production registration of the test adapter", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/server/operations.go": 'package server\nfunc compose() { adapterRegistry.Register("test.fake", nil) }\n',
+  });
+  const result = await verifyServer(root);
+  assert.ok(result.codes.includes("SERVER_TEST_ADAPTER"));
+});

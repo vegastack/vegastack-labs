@@ -25,7 +25,8 @@ const EXPECTED_ENDPOINTS = [
   "api.v1.inventory-drafts.get", "api.v1.inventory-drafts.import", "api.v1.inventory-drafts.list",
   "api.v1.inventory-exports.create",
   "api.v1.plans.acknowledgements.create", "api.v1.plans.acknowledgements.get",
-  "api.v1.plans.create", "api.v1.plans.get",
+  "api.v1.plans.create", "api.v1.plans.execute", "api.v1.plans.get",
+  "api.v1.runs.cancel", "api.v1.runs.get", "api.v1.runs.resume",
   "api.v1.session.create", "api.v1.session.logout", "api.v1.session.renew",
   "api.v1.sources.list", "api.v1.summary.get",
 ];

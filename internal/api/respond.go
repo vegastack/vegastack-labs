@@ -32,6 +32,60 @@ func (app *Application) operationSuccess(writer http.ResponseWriter, operation, 
 	app.writeEnvelope(writer, operation, envelope, MaxOperationResponseBytes)
 }
 
+func (app *Application) operationRunSuccess(writer http.ResponseWriter, operation, requestID string, run generated.Run) {
+	envelope, err := app.config.Results.SuccessWithRequestID(operation, requestID, run.Changed, run.RecoveryEpoch, run.StateRevision, run)
+	if err != nil {
+		app.failure(writer, operation, err)
+		return
+	}
+	envelope.RunID, envelope.PlanID = &run.RunID, &run.PlanID
+	app.writeEnvelope(writer, operation, envelope, MaxOperationResponseBytes)
+}
+
+// executeRunResult projects the durable run rather than the transient call
+// outcome. Exact retries must report the same terminal meaning, identity and
+// revision even though no adapter is invoked on the replay.
+func (app *Application) executeRunResult(writer http.ResponseWriter, operation, requestID string, run generated.Run, cause error) {
+	// Durable terminal state is authoritative even when the submit call reports
+	// an injected/transient error after the completed transition committed.
+	if run.Status == generated.RunStatusSucceeded {
+		app.operationRunSuccess(writer, operation, requestID, run)
+		return
+	}
+
+	status, code, retryable := durableRunFailure(run.Status)
+	envelope, err := app.config.Results.FailureWithRequestID(operation, requestID, status, code, "run", retryable, run.RecoveryEpoch, run.StateRevision, run)
+	if err != nil {
+		app.failure(writer, operation, err)
+		return
+	}
+	envelope.RunID, envelope.PlanID, envelope.Changed = &run.RunID, &run.PlanID, run.Changed
+	var body bytes.Buffer
+	if err := result.Encode(&body, envelope); err != nil || body.Len() > MaxOperationResponseBytes {
+		app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "response"))
+		return
+	}
+	writer.Header().Set("Content-Type", "application/json")
+	writer.Header().Set("Cache-Control", "no-store")
+	writer.WriteHeader(httpStatus(code))
+	_, _ = writer.Write(body.Bytes())
+}
+
+func durableRunFailure(status string) (string, string, bool) {
+	switch status {
+	case generated.RunStatusFailed:
+		return generated.RunStatusFailed, generated.ErrorCodeExecutionFailed, false
+	case generated.RunStatusPartial:
+		return generated.RunStatusPartial, generated.ErrorCodeRecoveryRequired, false
+	case generated.RunStatusInterrupted:
+		return generated.RunStatusInterrupted, generated.ErrorCodeInterrupted, true
+	case generated.RunStatusCancelled:
+		return generated.RunStatusCancelled, generated.ErrorCodeInterrupted, false
+	default:
+		return generated.RunStatusBlocked, generated.ErrorCodeStateConflict, false
+	}
+}
+
 func (app *Application) writeEnvelope(writer http.ResponseWriter, operation string, envelope generated.RunResult, limit int) {
 	var body bytes.Buffer
 	if err := result.Encode(&body, envelope); err != nil || body.Len() > limit {
@@ -47,7 +101,9 @@ func (app *Application) writeEnvelope(writer http.ResponseWriter, operation stri
 func (app *Application) operationFailure(writer http.ResponseWriter, operation, requestID string, cause error) {
 	code, target, retryable := classifyOperationError(cause)
 	statusName := generated.RunStatusFailed
-	if code == generated.ErrorCodeInterrupted {
+	if code == generated.ErrorCodeExecutionPartial || code == generated.ErrorCodeRecoveryRequired {
+		statusName = generated.RunStatusPartial
+	} else if code == generated.ErrorCodeInterrupted {
 		statusName = generated.RunStatusInterrupted
 	}
 	envelope, err := app.config.Results.FailureWithRequestID(operation, requestID, statusName, code, target, retryable, 0, 0, struct{}{})
@@ -57,7 +113,11 @@ func (app *Application) operationFailure(writer http.ResponseWriter, operation, 
 	}
 	writer.Header().Set("Content-Type", "application/json")
 	writer.Header().Set("Cache-Control", "no-store")
-	writer.WriteHeader(httpStatus(code))
+	status := httpStatus(code)
+	if status == 0 {
+		status = http.StatusServiceUnavailable
+	}
+	writer.WriteHeader(status)
 	_ = result.Encode(writer, envelope)
 }
 
@@ -96,5 +156,8 @@ func httpStatus(code string) int {
 		generated.ErrorCodeDependencyUnavailable:  http.StatusServiceUnavailable,
 		generated.ErrorCodeIntegrityFailure:       http.StatusServiceUnavailable,
 		generated.ErrorCodePlanStale:              http.StatusConflict,
+		generated.ErrorCodeExecutionFailed:        http.StatusBadGateway,
+		generated.ErrorCodeExecutionPartial:       http.StatusConflict,
+		generated.ErrorCodeRecoveryRequired:       http.StatusConflict,
 	}[code]
 }

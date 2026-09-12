@@ -185,5 +185,11 @@ func (service *Service) Get(ctx context.Context, planID string) (store.PlanCommi
 	return service.config.Repository.GetPlan(ctx, planID)
 }
 
+// GetPlan exposes the same immutable lookup to the run API without requiring
+// that API layer to depend on the plan authoring surface.
+func (service *Service) GetPlan(ctx context.Context, planID string) (store.PlanCommitResult, error) {
+	return service.Get(ctx, planID)
+}
+
 func parseTime(value string) time.Time { parsed, _ := time.Parse(time.RFC3339, value); return parsed }
 func planError(code string) error      { return failure.New(code, "plan", false) }
