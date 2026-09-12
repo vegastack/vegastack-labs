@@ -346,7 +346,6 @@ func (repository *RunRepository) RecordReceipt(ctx context.Context, request Rece
 			return err
 		}
 		step.EffectState = "receipt-recorded"
-		run.Changed = run.Changed || request.Receipt.Status != "failed"
 		run.UpdatedAt = request.At.UTC().Truncate(time.Second).Format(time.RFC3339)
 		_, err := transaction.ExecContext(ctx, `UPDATE plan_run_steps SET effect_state='receipt-recorded',result_digest=? WHERE run_id=? AND step_id=? AND status='running' AND effect_state='intent-recorded'`, request.Receipt.ResultDigest, run.RunID, step.StepID)
 		return err

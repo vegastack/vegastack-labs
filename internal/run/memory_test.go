@@ -170,7 +170,6 @@ func (repository *memoryRepository) RecordReceipt(_ context.Context, request sto
 	}
 	repository.receipts[request.Receipt.ReceiptID] = request.Receipt
 	step.EffectState = "receipt-recorded"
-	run.Changed = run.Changed || request.Receipt.Status != "failed"
 	repository.runs[run.RunID] = run
 	return cloneRun(run), nil
 }

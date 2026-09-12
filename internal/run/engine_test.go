@@ -167,6 +167,15 @@ func TestExpiredPlanAndMissingAdapterFailBeforeEffect(t *testing.T) {
 	}
 }
 
+func TestVerifiedNoopDoesNotClaimInfrastructureChanged(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.adapter.changed = false
+	completed, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if err != nil || completed.Status != "succeeded" || completed.Changed {
+		t.Fatalf("verified noop = %#v, %v", completed, err)
+	}
+}
+
 type engineFixture struct {
 	engine  *Engine
 	store   *memoryRepository
@@ -182,6 +191,7 @@ func newEngineFixture(t *testing.T) *engineFixture {
 	repository := newMemoryRepository(plan)
 	registry := adapter.NewRegistry()
 	fixtureAdapter := &fakeAdapter{verify: true}
+	fixtureAdapter.changed = true
 	if err := registry.Register("adapter-test", fixtureAdapter); err != nil {
 		t.Fatal(err)
 	}
@@ -204,8 +214,9 @@ func (fixture *engineFixture) restart(t *testing.T) *Engine {
 }
 
 type fakeAdapter struct {
-	calls  int
-	verify bool
+	calls   int
+	verify  bool
+	changed bool
 }
 
 func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operation) (adapter.Effect, error) {
@@ -213,7 +224,7 @@ func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operat
 		return adapter.Effect{Status: "failed", ResultDigest: digest("cancelled-result"), EffectObserved: false}, err
 	}
 	adapterFixture.calls++
-	return adapter.Effect{Status: "succeeded", ResultDigest: digest("result"), Changed: true, EffectObserved: true}, nil
+	return adapter.Effect{Status: "succeeded", ResultDigest: digest("result"), Changed: adapterFixture.changed, EffectObserved: true}, nil
 }
 func (adapterFixture *fakeAdapter) Verify(context.Context, adapter.Operation, adapter.Effect) (adapter.Verification, error) {
 	return adapter.Verification{Verified: adapterFixture.verify, Digest: digest("verification")}, nil
