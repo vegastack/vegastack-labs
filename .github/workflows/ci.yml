@@ -165,7 +165,7 @@ jobs:
 
       - name: Run exact Phase 3 exit acceptance
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        run: pnpm check:phase-3-exit --commit "$GITHUB_SHA"
+        run: pnpm --silent check:phase-3-exit --commit "$GITHUB_SHA"
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code

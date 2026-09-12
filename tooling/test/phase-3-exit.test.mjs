@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -13,6 +14,23 @@ import {
 
 const SHA_A = "a".repeat(40);
 const SHA_B = "b".repeat(40);
+const PHASE3_CHILDREN = [
+  [50, "3.1", 59, "8bc4e69eace0762eedacababcfaa4c16cdd515bf", 5623084179, 5623083205],
+  [51, "3.2", 60, "64225ae60bd93e22fa1284643cc7894557627e20", 5617148376, 5630668657],
+  [52, "3.3", 61, "81c875f2b95aea2b4a7f75edc476c3b5964afb24", 5630855928, 5617495894],
+  [53, "3.4", 63, "b142359e27beb399ce25c8f595109648b7e16f66", 5633286695, 5635121993],
+  [54, "3.5", 62, "b621b22be828d30e56ce5e7c97ddde1fd9bb7cbb", 5631040710, 5618249787],
+  [55, "3.6", 64, "9d053b299136e8e9b2afa2bb2b1373ea013d9bf4", 5634067489, 5635286645],
+  [56, "3.7", 65, "92dc2c0491839522fb89a25a89fd1c26c83fa512", 5634424565, 5634357108],
+  [57, "3.8", 84, "156cf495de099a54307d55e81cf2469eebcb968f", 5646322625, 5646595446],
+].map(([issue, phaseIssue, pr, mergeCommit, evidence, review]) => ({
+  issue,
+  phaseIssue,
+  pr,
+  mergeCommit,
+  evidence: `https://github.com/vegastack/vegastack-labs/issues/${issue}#issuecomment-${evidence}`,
+  review: `https://github.com/vegastack/vegastack-labs/issues/${issue}#issuecomment-${review}`,
+}));
 
 test("Phase 3 exit accepts exactly one full lowercase commit", () => {
   assert.deepEqual(parsePhase3ExitArgs(["--commit", SHA_A]), { expectedCommit: SHA_A });
@@ -82,6 +100,30 @@ test("Phase 3 definition rejects runtime fields and incomplete proof", async () 
     mutate(copy);
     assert.throws(() => validatePhase3EvidenceDefinition(copy, { root }), /PHASE3_EXIT_DEFINITION/);
   }
+});
+
+test("Phase 3 definition rejects stale or contradictory child bindings", async () => {
+  const root = await fixtureRoot();
+  for (const mutate of [
+    (copy) => { copy.children[0].pr = 999; },
+    (copy) => { copy.children[0].mergeCommit = "f".repeat(40); },
+    (copy) => { copy.children[0].evidence = "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-999"; },
+    (copy) => { copy.children[0].review = "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-998"; },
+  ]) {
+    const copy = validDefinition();
+    mutate(copy);
+    assert.throws(() => validatePhase3EvidenceDefinition(copy, { root }), /PHASE3_EXIT_DEFINITION/);
+  }
+});
+
+test("the supported package entry point has one stable failure line", () => {
+  const result = spawnSync("pnpm", ["--silent", "check:phase-3-exit", "--commit", SHA_B], {
+    cwd: path.resolve(import.meta.dirname, "../.."),
+    encoding: "utf8",
+  });
+  assert.notEqual(result.status, 0);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr, "phase-3-exit: PHASE3_EXIT_COMMIT\n");
 });
 
 test("identical facts produce an identical envelope and artifact changes alter its digest", async () => {
@@ -184,14 +226,7 @@ function validDefinition() {
     version: "1.0.0",
     phase: 3,
     status: "implemented-awaiting-operator-acceptance",
-    children: issueNumbers.map((issue, index) => ({
-      issue,
-      phaseIssue: `3.${index + 1}`,
-      pr: issue + 27,
-      mergeCommit: String(index + 1).repeat(40),
-      evidence: `https://github.com/vegastack/vegastack-labs/issues/${issue}#issuecomment-${1000 + issue}`,
-      review: `https://github.com/vegastack/vegastack-labs/pull/${issue + 27}#issuecomment-${2000 + issue}`,
-    })),
+    children: structuredClone(PHASE3_CHILDREN),
     requirements: requirementIds.map((id, index) => ({
       id,
       ownerIssue: issueNumbers[index] ?? 57,

@@ -113,7 +113,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
   const trustedSteps = jobs.verify_trusted.steps ?? [];
   const phase3Exit = trustedSteps.find((step) => step.name === "Run exact Phase 3 exit acceptance");
   if (phase3Exit?.if !== "github.event_name == 'push' && github.ref == 'refs/heads/main'" ||
-      phase3Exit.run !== "pnpm check:phase-3-exit --commit \"$GITHUB_SHA\"") {
+      phase3Exit.run !== "pnpm --silent check:phase-3-exit --commit \"$GITHUB_SHA\"") {
     throw new Error("main must run Phase 3 exit against the exact checked-out commit");
   }
   const guard = trustedSteps[0];

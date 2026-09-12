@@ -13,7 +13,16 @@ const EXPECTED_TOP_LEVEL_KEYS = [
   "artifacts", "children", "commands", "limitations", "phase", "proofs",
   "requirements", "schema", "status", "version",
 ];
-const EXPECTED_CHILDREN = Object.freeze([50, 51, 52, 53, 54, 55, 56, 57]);
+const EXPECTED_CHILDREN = Object.freeze([
+  Object.freeze({ issue: 50, phaseIssue: "3.1", pr: 59, mergeCommit: "8bc4e69eace0762eedacababcfaa4c16cdd515bf", evidence: "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-5623084179", review: "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-5623083205" }),
+  Object.freeze({ issue: 51, phaseIssue: "3.2", pr: 60, mergeCommit: "64225ae60bd93e22fa1284643cc7894557627e20", evidence: "https://github.com/vegastack/vegastack-labs/issues/51#issuecomment-5617148376", review: "https://github.com/vegastack/vegastack-labs/issues/51#issuecomment-5630668657" }),
+  Object.freeze({ issue: 52, phaseIssue: "3.3", pr: 61, mergeCommit: "81c875f2b95aea2b4a7f75edc476c3b5964afb24", evidence: "https://github.com/vegastack/vegastack-labs/issues/52#issuecomment-5630855928", review: "https://github.com/vegastack/vegastack-labs/issues/52#issuecomment-5617495894" }),
+  Object.freeze({ issue: 53, phaseIssue: "3.4", pr: 63, mergeCommit: "b142359e27beb399ce25c8f595109648b7e16f66", evidence: "https://github.com/vegastack/vegastack-labs/issues/53#issuecomment-5633286695", review: "https://github.com/vegastack/vegastack-labs/issues/53#issuecomment-5635121993" }),
+  Object.freeze({ issue: 54, phaseIssue: "3.5", pr: 62, mergeCommit: "b621b22be828d30e56ce5e7c97ddde1fd9bb7cbb", evidence: "https://github.com/vegastack/vegastack-labs/issues/54#issuecomment-5631040710", review: "https://github.com/vegastack/vegastack-labs/issues/54#issuecomment-5618249787" }),
+  Object.freeze({ issue: 55, phaseIssue: "3.6", pr: 64, mergeCommit: "9d053b299136e8e9b2afa2bb2b1373ea013d9bf4", evidence: "https://github.com/vegastack/vegastack-labs/issues/55#issuecomment-5634067489", review: "https://github.com/vegastack/vegastack-labs/issues/55#issuecomment-5635286645" }),
+  Object.freeze({ issue: 56, phaseIssue: "3.7", pr: 65, mergeCommit: "92dc2c0491839522fb89a25a89fd1c26c83fa512", evidence: "https://github.com/vegastack/vegastack-labs/issues/56#issuecomment-5634424565", review: "https://github.com/vegastack/vegastack-labs/issues/56#issuecomment-5634357108" }),
+  Object.freeze({ issue: 57, phaseIssue: "3.8", pr: 84, mergeCommit: "156cf495de099a54307d55e81cf2469eebcb968f", evidence: "https://github.com/vegastack/vegastack-labs/issues/57#issuecomment-5646322625", review: "https://github.com/vegastack/vegastack-labs/issues/57#issuecomment-5646595446" }),
+]);
 const EXPECTED_REQUIREMENTS = Object.freeze([
   "roadmap.phase-3",
   "module-1.embedded-read-service",
@@ -129,13 +138,11 @@ export function validatePhase3EvidenceDefinition(definition, { root = ROOT, read
     if (!Array.isArray(definition.children) || definition.children.length !== EXPECTED_CHILDREN.length) {
       fail("PHASE3_EXIT_DEFINITION");
     }
-    const childIssues = definition.children.map(({ issue }) => issue);
-    if (!same(childIssues, EXPECTED_CHILDREN)) fail("PHASE3_EXIT_DEFINITION");
     for (const [index, child] of definition.children.entries()) {
+      const expected = EXPECTED_CHILDREN[index];
       if (!exactKeys(child, ["evidence", "issue", "mergeCommit", "phaseIssue", "pr", "review"]) ||
-          child.issue !== EXPECTED_CHILDREN[index] || child.phaseIssue !== `3.${index + 1}` ||
-          !Number.isInteger(child.pr) || child.pr < 1 || !SHA_PATTERN.test(child.mergeCommit) ||
-          !canonicalRepositoryURL(child.evidence, "issues", child.issue) || !canonicalReviewURL(child.review, child)) {
+          !same(child, expected) || !canonicalRepositoryURL(child.evidence, "issues", child.issue) ||
+          !canonicalReviewURL(child.review, child)) {
         fail("PHASE3_EXIT_DEFINITION");
       }
     }
@@ -161,7 +168,7 @@ export function validatePhase3EvidenceDefinition(definition, { root = ROOT, read
     const usedProofIDs = [];
     for (const requirement of definition.requirements) {
       if (!exactKeys(requirement, ["environment", "expectedStatus", "id", "module", "ownerIssue", "proofIds"]) ||
-          !validID(requirement.id) || ![...EXPECTED_CHILDREN, 58].includes(requirement.ownerIssue) ||
+          !validID(requirement.id) || ![...EXPECTED_CHILDREN.map(({ issue }) => issue), 58].includes(requirement.ownerIssue) ||
           !safePublicText(requirement.module) || requirement.environment !== "fixture" ||
           requirement.expectedStatus !== "pass" || !Array.isArray(requirement.proofIds) ||
           requirement.proofIds.length === 0 || !unique(requirement.proofIds) ||

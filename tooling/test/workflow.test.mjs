@@ -61,7 +61,7 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.if, "github.event_name == 'workflow_dispatch'");
   assert.equal(phase3Exit.if, "github.event_name == 'push' && github.ref == 'refs/heads/main'");
-  assert.equal(phase3Exit.run, "pnpm check:phase-3-exit --commit \"$GITHUB_SHA\"");
+  assert.equal(phase3Exit.run, "pnpm --silent check:phase-3-exit --commit \"$GITHUB_SHA\"");
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
   assert.equal(trustedSteps[1].name, "Prepare protected local test storage");
   assert.match(trustedSteps[1].run, /mktemp -d -p \/var\/tmp vsk\.XXXXXX/);
