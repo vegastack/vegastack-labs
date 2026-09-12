@@ -248,7 +248,9 @@ func (engine *Engine) Reconcile(ctx context.Context) error {
 	}
 	for _, run := range runs {
 		now := engine.clock().UTC().Truncate(time.Second)
-		_ = engine.repository.ReleaseRunLeases(ctx, run.RunID, now)
+		if err := engine.repository.ReleaseRunLeases(ctx, run.RunID, now); err != nil {
+			return err
+		}
 		if run.Status == "queued" || run.Status == "interrupted" {
 			continue
 		}

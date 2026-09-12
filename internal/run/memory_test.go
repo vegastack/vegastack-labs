@@ -13,13 +13,14 @@ import (
 )
 
 type memoryRepository struct {
-	mu       sync.Mutex
-	plan     generated.Plan
-	runs     map[string]generated.Run
-	submits  map[string]string
-	leases   map[string]generated.ExecutorLease
-	targets  map[string]string
-	receipts map[string]generated.ExecutionReceipt
+	mu                    sync.Mutex
+	plan                  generated.Plan
+	runs                  map[string]generated.Run
+	submits               map[string]string
+	leases                map[string]generated.ExecutorLease
+	targets               map[string]string
+	receipts              map[string]generated.ExecutionReceipt
+	releaseRunLeasesError error
 }
 
 func newMemoryRepository(plan generated.Plan) *memoryRepository {
@@ -142,6 +143,9 @@ func (repository *memoryRepository) ReleaseTargetLease(_ context.Context, id str
 func (repository *memoryRepository) ReleaseRunLeases(_ context.Context, id string, _ time.Time) error {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
+	if repository.releaseRunLeasesError != nil {
+		return repository.releaseRunLeasesError
+	}
 	for leaseID, lease := range repository.leases {
 		if lease.RunID == id && lease.Status == "active" {
 			delete(repository.targets, lease.TargetID)

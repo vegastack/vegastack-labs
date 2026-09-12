@@ -253,6 +253,35 @@ func TestLaterVerifiedFailurePreservesEarlierChange(t *testing.T) {
 	}
 }
 
+func TestRestartDoesNotTerminalizeRunWhenLeaseReleaseFails(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+		if boundary == BoundaryLeaseAcquired {
+			return errors.New("simulated crash after lease acquisition")
+		}
+		return nil
+	}
+	if _, err := fixture.engine.Submit(context.Background(), fixture.request); err == nil {
+		t.Fatal("submit unexpectedly crossed injected crash boundary")
+	}
+	fixture.store.releaseRunLeasesError = errors.New("lease cleanup unavailable")
+	if err := fixture.engine.Reconcile(context.Background()); err == nil {
+		t.Fatal("reconciliation ignored lease cleanup failure")
+	}
+	stored, err := fixture.engine.Get(context.Background(), fixture.runID)
+	if err != nil || stored.Status != "running" {
+		t.Fatalf("run terminalized before lease cleanup: %#v, %v", stored, err)
+	}
+	fixture.store.releaseRunLeasesError = nil
+	if err := fixture.engine.Reconcile(context.Background()); err != nil {
+		t.Fatalf("reconciliation after lease cleanup recovery: %v", err)
+	}
+	stored, err = fixture.engine.Get(context.Background(), fixture.runID)
+	if err != nil || stored.Status != "interrupted" {
+		t.Fatalf("reconciled run = %#v, %v", stored, err)
+	}
+}
+
 func TestTargetLeaseConflictInterruptsBeforeEffect(t *testing.T) {
 	fixture := newEngineFixture(t)
 	fixture.store.targets["target-test"] = "lease-other"
