@@ -107,10 +107,28 @@ export function verifyWorkflowDocument(workflow, source = "") {
   }
   const trustedSteps = jobs.verify_trusted.steps ?? [];
   const guard = trustedSteps[0];
+  const temporary = trustedSteps[1];
   const checkoutIndex = trustedSteps.findIndex((step) => step.uses?.startsWith("actions/checkout@"));
   if (!guard?.run || !/hostname/.test(guard.run) || !/vsk-node-01\|vsk-node-06/.test(guard.run) ||
-      checkoutIndex !== 1) {
+      checkoutIndex !== 2) {
     throw new Error("self-hosted checks must verify the allowed hostname before repository checkout");
+  }
+  if (temporary?.name !== "Prepare protected local test storage" ||
+      !/TMPDIR="\$\(mktemp -d -p \/var\/tmp vsk\.XXXXXX\)"/.test(temporary.run ?? "") ||
+      !/umask 077/.test(temporary.run ?? "") ||
+      !/trap cleanup_unexported_temp EXIT/.test(temporary.run ?? "") ||
+      !/trap - EXIT/.test(temporary.run ?? "") ||
+      !/stat -c '%a:%u'/.test(temporary.run ?? "") ||
+      !/stat -f -c '%T'/.test(temporary.run ?? "") ||
+      !/ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/.test(temporary.run ?? "") ||
+      !/printf 'TMPDIR=%s\\n' "\$TMPDIR" >> "\$GITHUB_ENV"/.test(temporary.run ?? "")) {
+    throw new Error("self-hosted checks must use protected temporary storage on an approved local filesystem");
+  }
+  const cleanup = trustedSteps.find((step) => step?.name === "Remove protected local test storage");
+  if (cleanup?.if !== "always()" ||
+      !/\/var\/tmp\/vsk\.\?\?\?\?\?\?/.test(cleanup.run ?? "") ||
+      !/rm -rf -- "\$TMPDIR"/.test(cleanup.run ?? "")) {
+    throw new Error("self-hosted checks must safely remove protected temporary storage");
   }
   for (const output of ["base_sha", "browser", "check_plan", "fail_closed", "head_sha", "mode"]) {
     if (jobs.plan.outputs?.[output] !== `\${{ steps.check-plan.outputs.${output} }}`) {

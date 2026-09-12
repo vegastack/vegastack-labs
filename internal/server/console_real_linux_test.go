@@ -49,10 +49,7 @@ func TestEmbeddedConsoleAndAuthorizedAPIShareOriginWhileLocalRecoverySurvives(t 
 		t.Fatal(err)
 	}
 
-	directory := t.TempDir()
-	if err := os.Chmod(directory, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	directory := shortServerTempDir(t)
 	databasePath := filepath.Join(directory, "control.db")
 	storeConfig := store.Config{DatabasePath: databasePath, Mode: store.InitializeNew, ExpectedUID: uint32(os.Getuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock.Now}
 	initial, err := store.Open(context.Background(), storeConfig)
@@ -316,10 +313,7 @@ func TestEmbeddedConsoleAndAuthorizedAPIShareOriginWhileLocalRecoverySurvives(t 
 }
 
 func TestInvalidRemoteConfigurationLeavesRealLocalUnixServiceAvailable(t *testing.T) {
-	directory := t.TempDir()
-	if err := os.Chmod(directory, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	directory := shortServerTempDir(t)
 	profile := serverconfig.Profile{
 		SocketPath: filepath.Join(directory, "control.sock"), SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600,
 		ShutdownGrace: 5 * time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}},
@@ -361,10 +355,7 @@ func TestInvalidRemoteConfigurationLeavesRealLocalUnixServiceAvailable(t *testin
 }
 
 func TestRealRemoteBindFailureLeavesLocalUnixServiceAvailable(t *testing.T) {
-	directory := t.TempDir()
-	if err := os.Chmod(directory, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	directory := shortServerTempDir(t)
 	occupied, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -483,10 +474,7 @@ func TestProductionOperationsRemoteBindFailureKeepsRealStoreAPIAvailable(t *test
 
 func productionOperationsFixture(t *testing.T, remote generated.RemoteReadProfile) (*Operations, serverconfig.Profile, string, *result.Factory) {
 	t.Helper()
-	directory := t.TempDir()
-	if err := os.Chmod(directory, 0o700); err != nil {
-		t.Fatal(err)
-	}
+	directory := shortServerTempDir(t)
 	exportRoot := filepath.Join(directory, "exports")
 	if err := os.Mkdir(exportRoot, 0o700); err != nil {
 		t.Fatal(err)
@@ -539,6 +527,20 @@ func awaitProductionSummary(t *testing.T, client localapi.Client, profile server
 	}
 	t.Fatalf("production local summary unavailable: %v", err)
 	return summary
+}
+
+func shortServerTempDir(t *testing.T) string {
+	t.Helper()
+	directory, err := os.MkdirTemp("", "v")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(directory, 0o700); err != nil {
+		_ = os.RemoveAll(directory)
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	return directory
 }
 
 func writeProtectedJSON(t *testing.T, target string, value any) {
