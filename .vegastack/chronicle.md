@@ -2,15 +2,15 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
-## 13-09-2026 — Disposable Debian checks no longer wait on a slower remote cache ([#81](https://github.com/vegastack/vegastack-labs/issues/81))
+## 13-09-2026 — Disposable Debian checks are faster and deterministic ([#81](https://github.com/vegastack/vegastack-labs/issues/81))
 
-- **What:** Trusted checks on `vsk-node-01` and `vsk-node-06` install the pinned public dependencies directly instead of asking `actions/setup-node` to restore the remote pnpm store. Hosted pull requests keep their cache.
-- **Why:** Restoring the 157 MB remote cache took about six minutes on the disposable machines, while a clean cache-free dependency install took seconds and produced the same complete check result.
-- **How it went:** Two main attempts exposed the slow restore. A cache-free diagnostic run then passed the complete `pnpm check`, and a second run passed both that lane and `go test -race -count=1 ./...` on the protected Debian test filesystem. A workflow regression now rejects re-enabling the trusted cache.
-- **Changed:** Trusted `setup-node` cache policy · workflow verifier · workflow regression fixture.
+- **What:** Trusted checks on `vsk-node-01` and `vsk-node-06` install the pinned public dependencies directly instead of asking `actions/setup-node` to restore the remote pnpm store. Hosted pull requests keep their cache. The production remote-bind integration test now serves its own temporary signing keys instead of contacting a public Cloudflare URL.
+- **Why:** Restoring the 157 MB remote cache took about six minutes on the disposable machines, while a clean cache-free dependency install took seconds and produced the same complete check result. The external test request could also delay server startup long enough to make an unrelated listener assertion fail.
+- **How it went:** Two main attempts exposed the slow restore. Cache-free diagnostics passed the complete lane, then visible parallel runs identified the intermittent failure as `TestProductionOperationsRemoteBindFailureKeepsRealStoreAPIAvailable`. Its identity refresh still depended on the public network; a local TLS key fixture and injected production-equivalent HTTP client made 20 consecutive Linux race runs pass.
+- **Changed:** Trusted `setup-node` cache policy · workflow verifier and regression · deterministic remote-identity integration fixture.
 - **Decisions:** none; runner allowlists, credentials, checks, versions, hosted pull-request behavior, and infrastructure authority are unchanged.
 
-— approved by (omkarmohanta09) · built by Codex · branch chore/81-disable-trusted-pnpm-cache
+— approved by (omkarmohanta09) · built by Codex · branches chore/81-disable-trusted-pnpm-cache and chore/81-deterministic-remote-test
 
 ## 13-09-2026 — Every Phase 4 change now passes one current authorization policy ([#71](https://github.com/vegastack/vegastack-labs/issues/71))
 

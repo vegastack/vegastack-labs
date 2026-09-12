@@ -424,6 +424,16 @@ func TestProductionOperationsInvalidRemoteConfigurationKeepsRealStoreAPIAvailabl
 }
 
 func TestProductionOperationsRemoteBindFailureKeepsRealStoreAPIAvailable(t *testing.T) {
+	key, err := rsa.GenerateKey(rand.Reader, 2048)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyServer := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(writer).Encode(jose.JSONWebKeySet{Keys: []jose.JSONWebKey{{
+			Key: &key.PublicKey, KeyID: "bind-failure-key", Algorithm: string(jose.RS256), Use: "sig",
+		}}})
+	}))
+	t.Cleanup(keyServer.Close)
 	occupied, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -437,7 +447,7 @@ func TestProductionOperationsRemoteBindFailureKeepsRealStoreAPIAvailable(t *test
 	identityConfigPath := filepath.Join(identityDirectory, "cloudflare-access.json")
 	identityProfile := generated.CloudflareAccessProfile{
 		Schema: generated.SchemaIDCloudflareAccessProfile, SchemaVersion: "1.0.0",
-		Issuer: "https://team.cloudflareaccess.com", Audience: "audience-id", CertificatesURL: "https://team.cloudflareaccess.com/cdn-cgi/access/certs",
+		Issuer: keyServer.URL, Audience: "audience-id", CertificatesURL: keyServer.URL + "/cdn-cgi/access/certs",
 		ClockSkewSeconds: 30, MaxTokenBytes: 16 * 1024, KnownKeyOutageSeconds: 3600,
 	}
 	writeProtectedJSON(t, identityConfigPath, identityProfile)
@@ -447,6 +457,7 @@ func TestProductionOperationsRemoteBindFailureKeepsRealStoreAPIAvailable(t *test
 		IdentityAdapter: testStringPointer("cloudflare-access"), IdentityConfigPath: testStringPointer(identityConfigPath),
 	}
 	operations, profile, configPath, factory := productionOperationsFixture(t, remote)
+	operations.identityHTTPClient = keyServer.Client()
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- operations.Run(ctx, configPath) }()
