@@ -111,9 +111,15 @@ try {
       };
     }));
     if (!targets.length || targets.some(target => target.width < 44 || target.height < 44)) throw new Error("mobile control target failed");
-    stage = "mobile-theme";
-    await mobile.getByRole("button", { name: "Use dark theme" }).click();
-    if (!(await mobile.locator("html").getAttribute("class"))?.includes("dark")) throw new Error("theme persistence boundary failed");
+    stage = "mobile-theme-control";
+    const themeButton = mobile.getByRole("button", { name: /Use (?:light|dark) theme/ });
+    await themeButton.waitFor();
+    const themeLabel = await themeButton.getAttribute("aria-label");
+    const expectedTheme = themeLabel === "Use dark theme" ? "dark" : themeLabel === "Use light theme" ? "light" : undefined;
+    if (!expectedTheme) throw new Error("theme control label failed");
+    stage = "mobile-theme-change";
+    await themeButton.click();
+    await mobile.waitForFunction(theme => document.documentElement.classList.contains(theme), expectedTheme);
     stage = "mobile-cookie";
     if ((await mobileContext.cookies(baseURL)).some(cookie => !cookie.httpOnly || !cookie.secure || cookie.sameSite !== "Strict")) throw new Error("mobile session cookie policy failed");
   } finally {
