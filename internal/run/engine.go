@@ -138,7 +138,10 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		return generated.Run{}, err
 	}
 	if !created.Created {
-		return created.Run, nil
+		if created.Run.Status != "queued" {
+			return created.Run, nil
+		}
+		return engine.start(context.WithoutCancel(ctx), plan, created.Run, request.Attribution)
 	}
 	if err := engine.after(BoundaryRunCreated); err != nil {
 		return created.Run, err

@@ -32,6 +32,7 @@ type RunPlanSource interface {
 
 type RunAcknowledgementSource interface {
 	VerifyForExecution(context.Context, string) (generated.Acknowledgement, error)
+	Status(context.Context, string) (generated.Acknowledgement, error)
 }
 
 type RunOperationConfig struct {
@@ -111,14 +112,15 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 			app.failure(w, operation, apiFailure(generated.ErrorCodeRecoveryEpochMismatch, "plan"))
 			return
 		}
-		if existing, found, err := config.Runs.Existing(request.Context(), input); err != nil {
+		existing, found, err := config.Runs.Existing(request.Context(), input)
+		if err != nil {
 			app.operationFailure(w, operation, decision.DecisionID, err)
 			return
-		} else if found {
+		} else if found && existing.Status != "queued" {
 			app.operationSuccess(w, operation, decision.DecisionID, existing.Changed, existing.StateRevision, existing.RecoveryEpoch, existing)
 			return
 		}
-		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan)
+		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan, !found)
 		if err != nil {
 			app.failure(w, operation, err)
 			return
@@ -195,7 +197,7 @@ func (app *Application) mutateRun(config RunOperationConfig, resume bool) func(h
 		}
 		var ack *generated.Acknowledgement
 		if resume {
-			ack, err = app.runAcknowledgement(request.Context(), config, stored.Plan)
+			ack, err = app.runAcknowledgement(request.Context(), config, stored.Plan, false)
 			if err != nil {
 				app.failure(w, operation, err)
 				return
@@ -247,14 +249,20 @@ func (app *Application) authorizeRunPlan(request *http.Request, plan generated.P
 	return result, nil
 }
 
-func (app *Application) runAcknowledgement(ctx context.Context, config RunOperationConfig, plan generated.Plan) (*generated.Acknowledgement, error) {
+func (app *Application) runAcknowledgement(ctx context.Context, config RunOperationConfig, plan generated.Plan, consume bool) (*generated.Acknowledgement, error) {
 	if plan.AuthorizationBranch == string(authorization.BranchPreauthorized) {
 		return nil, nil
 	}
 	if config.Acknowledgements == nil {
 		return nil, apiFailure(generated.ErrorCodeApprovalRequired, "acknowledgement")
 	}
-	acknowledgement, err := config.Acknowledgements.VerifyForExecution(ctx, plan.PlanID)
+	var acknowledgement generated.Acknowledgement
+	var err error
+	if consume {
+		acknowledgement, err = config.Acknowledgements.VerifyForExecution(ctx, plan.PlanID)
+	} else {
+		acknowledgement, err = config.Acknowledgements.Status(ctx, plan.PlanID)
+	}
 	if err != nil {
 		return nil, err
 	}

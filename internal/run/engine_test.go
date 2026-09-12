@@ -39,6 +39,25 @@ func TestRestartAtEveryDurableBoundaryNeverRepeatsAmbiguousEffect(t *testing.T) 
 	}
 }
 
+func TestQueuedRunAfterCreateCrashContinuesOnExactRetry(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+		if boundary == BoundaryRunCreated {
+			return errors.New("injected crash")
+		}
+		return nil
+	}
+	first, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if err == nil || first.Status != "queued" || fixture.adapter.calls != 0 {
+		t.Fatalf("first = %#v calls=%d err=%v", first, fixture.adapter.calls, err)
+	}
+	fixture.engine.testAfterBoundary = nil
+	continued, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if err != nil || continued.Status != "succeeded" || fixture.adapter.calls != 1 {
+		t.Fatalf("continued = %#v calls=%d err=%v", continued, fixture.adapter.calls, err)
+	}
+}
+
 func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	fixture := newEngineFixture(t)
 	run, err := fixture.engine.Submit(context.Background(), fixture.request)
@@ -91,6 +110,23 @@ func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	resumed, err := resumeFixture.engine.Resume(context.Background(), resumeFixture.runID)
 	if err != nil || resumed.Status != "succeeded" {
 		t.Fatalf("resume = %#v, %v", resumed, err)
+	}
+
+	unsafe := newEngineFixture(t)
+	unsafe.store.plan.Operations[0].Idempotent = false
+	unsafe.engine.testAfterBoundary = func(boundary Boundary) error {
+		if boundary == BoundaryRunStarted {
+			return errors.New("unsafe interruption")
+		}
+		return nil
+	}
+	_, _ = unsafe.engine.Submit(context.Background(), unsafe.request)
+	unsafe.engine.testAfterBoundary = nil
+	if err := unsafe.engine.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := unsafe.engine.Resume(context.Background(), unsafe.runID); Code(err) != generated.ErrorCodeRecoveryRequired {
+		t.Fatalf("unsafe resume code = %q", Code(err))
 	}
 }
 

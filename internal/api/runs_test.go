@@ -126,6 +126,9 @@ func (stub *runAPIStub) GetPlan(context.Context, string) (store.PlanCommitResult
 func (stub *runAPIStub) VerifyForExecution(context.Context, string) (generated.Acknowledgement, error) {
 	return apiRunAcknowledgement(stub.plan), nil
 }
+func (stub *runAPIStub) Status(context.Context, string) (generated.Acknowledgement, error) {
+	return apiRunAcknowledgement(stub.plan), nil
+}
 
 func newRunTestApplication(t *testing.T, runs *runAPIStub) *Application {
 	t.Helper()
