@@ -1,13 +1,15 @@
 import { spawn } from "node:child_process";
 
 export class CommandError extends Error {
-  constructor(message, { command, args, code = null, signal = null, timedOut = false } = {}) {
+  constructor(message, { command, args, code = null, signal = null, stderr = "", stdout = "", timedOut = false } = {}) {
     super(message);
     this.name = "CommandError";
     this.command = command;
     this.args = args;
     this.code = code;
     this.signal = signal;
+    this.stderr = stderr;
+    this.stdout = stdout;
     this.timedOut = timedOut;
   }
 }
@@ -189,6 +191,8 @@ export function runCommand(command, args = [], options = {}) {
             args,
             code,
             signal,
+            stderr,
+            stdout,
           }),
         );
         return;

@@ -15,8 +15,9 @@ test("runCommand returns captured output", async () => {
 
 test("runCommand reports a failing subprocess", async () => {
   await assert.rejects(
-    runCommand(process.execPath, [fixture("failing-command.mjs")], { capture: true }),
-    (error) => error instanceof CommandError && error.code === 7 && error.timedOut === false,
+    runCommand(process.execPath, ["-e", "process.stdout.write('safe stdout\\n'); process.stderr.write('safe stderr\\n'); process.exit(7)"], { capture: true }),
+    (error) => error instanceof CommandError && error.code === 7 && error.timedOut === false &&
+      error.stdout === "safe stdout\n" && error.stderr === "safe stderr\n",
   );
 });
 

@@ -19,7 +19,10 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
-const productionDatabasePath = "/var/lib/vsk-labs/control.db"
+// productionDatabasePath remains fixed in normal builds. The Phase 3 acceptance
+// verifier replaces this string at link time in its isolated test executable so
+// it can exercise the real command boundary without adding a runtime override.
+var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
 	build         result.BuildInfo

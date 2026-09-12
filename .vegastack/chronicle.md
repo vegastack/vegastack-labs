@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 12-09-2026 — Phase 3 gained one real-server browser acceptance boundary ([#57](https://github.com/vegastack/vegastack-labs/issues/57))
+
+- **What:** A credential-free Chromium probe now exercises the embedded Console through the built `vsk-labs server run` executable over loopback TLS, protected browser sessions, generated reads, signing-key outage and recovery, and the same executable's local status command. A root guard rejects unsafe evidence and documents the remaining manual keyboard checks.
+- **Why:** Static component tests alone cannot prove the real executable, TLS, cookie, origin, session, and local-recovery boundaries that make the read-only Console safe.
+- **How it went:** Disposable-Debian runs exposed unsafe runner temporary storage, Linux Unix-socket path limits, cross-origin script authentication, and several assumptions that browser mocks did not reveal. Each failure was corrected at the boundary and the exact branch head was rerun twice before independent review.
+- **Changed:** Built-executable TLS Chromium fixture · session and outage adversarial checks · same-origin credential containment · evidence sanitizer · `check:phase-3` · repeatable manual accessibility notes.
+- **Decisions:** none; Chromium desktop/mobile is the Phase 3 development lane, while the broader browser, OS, and packaged-distribution matrix remains Phase 11.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/57-phase3-browser-acceptance
+
 ## 11-09-2026 — Development checks stay thorough without repeating the slowest lane ([#81](https://github.com/vegastack/vegastack-labs/issues/81))
 
 - **What:** Development now has one shared check catalog and a deterministic Git-diff selector. Local work runs only affected checks, while one complete clean-head check remains required before a pull request. Pull requests use fresh GitHub-hosted Ubuntu machines; trusted `main` and manual checks may temporarily use disposable Debian `vsk-node-01` or `vsk-node-06`. Chromium installs only when browser-facing code changed.

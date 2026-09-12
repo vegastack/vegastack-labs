@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "canaries": [
+    "private-canary",
+    "private-person-canary",
+    "private-service-canary",
+    "private-backup-canary",
+    "private-provider-canary",
+    "op://secret-canary"
+  ]
+}

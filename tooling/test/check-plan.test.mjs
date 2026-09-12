@@ -44,7 +44,7 @@ const expectedCurrentStageNames = [
   "web lint",
   "web typecheck",
   "web unit tests",
-  "Console browser evidence",
+  "Phase 3 browser evidence",
   "Git whitespace",
 ];
 
