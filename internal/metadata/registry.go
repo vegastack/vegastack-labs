@@ -70,6 +70,13 @@ const (
 	inventoryDiffDataSchemaID               = "vegastack-labs.dev/inventory-diff-data"
 	inventoryExportRequestSchemaID          = "vegastack-labs.dev/inventory-export-request"
 	inventoryExportDataSchemaID             = "vegastack-labs.dev/inventory-export-data"
+	declarationRevisionSchemaID             = "vegastack-labs.dev/declaration-revision"
+	planSchemaID                            = "vegastack-labs.dev/plan"
+	authorizationDecisionSchemaID           = "vegastack-labs.dev/authorization-decision"
+	acknowledgementSchemaID                 = "vegastack-labs.dev/acknowledgement"
+	runSchemaID                             = "vegastack-labs.dev/run"
+	executorLeaseSchemaID                   = "vegastack-labs.dev/executor-lease"
+	executionReceiptSchemaID                = "vegastack-labs.dev/execution-receipt"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -197,9 +204,9 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.9.0",
+		SchemaVersion: "1.10.0",
 		Commands:      commands,
-		Endpoints:     readEndpoints(),
+		Endpoints:     append(readEndpoints(), phase4Endpoints()...),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
 		Schemas:       currentSchemas(),
@@ -609,7 +616,8 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, stateExportSchemas()...)
 	schemas = append(schemas, auditSchemas()...)
 	schemas = append(schemas, readAPISchemas()...)
-	return append(schemas, inventoryOperationSchemas()...)
+	schemas = append(schemas, inventoryOperationSchemas()...)
+	return append(schemas, phase4Schemas()...)
 }
 
 func inventoryOperationSchemas() []SchemaDefinition {

@@ -1,0 +1,67 @@
+{
+  "$defs": {
+    "contract-extension": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^x-[a-z][a-z0-9.-]{0,62}$",
+          "type": "string"
+        },
+        "valueDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "valueDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/run-reference-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "extensions": {
+      "items": {
+        "$ref": "#/$defs/contract-extension"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "idempotencyKey": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/run-reference-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "runId",
+    "idempotencyKey",
+    "recoveryEpoch",
+    "extensions"
+  ],
+  "title": "VegaStack Labs run reference request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

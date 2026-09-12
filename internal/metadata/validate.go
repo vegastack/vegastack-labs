@@ -17,7 +17,7 @@ var (
 	errorCodePattern    = regexp.MustCompile(`^[A-Z][A-Z0-9_]*$`)
 	jsonPatternPattern  = regexp.MustCompile(`^.{1,512}$`)
 	endpointIDPattern   = regexp.MustCompile(`^api\.v1\.[a-z0-9.-]+$`)
-	endpointPathPattern = regexp.MustCompile(`^/api/v1(?:/[a-z0-9-]+|/\{(?:draftId|revision|recordId)\})+$`)
+	endpointPathPattern = regexp.MustCompile(`^/api/v1(?:/[a-z0-9-]+|/\{[a-z][A-Za-z0-9]*\})+$`)
 )
 
 func Validate(registry Registry) error {
@@ -49,7 +49,7 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 	routes := make(map[string]struct{}, len(endpoints))
 	for index, endpoint := range endpoints {
 		location := fmt.Sprintf("endpoints[%d]", index)
-		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || (endpoint.OwnerPhase != "2" && endpoint.OwnerPhase != "3") {
+		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || (endpoint.OwnerPhase != "2" && endpoint.OwnerPhase != "3" && endpoint.OwnerPhase != "4") {
 			return validationError("METADATA_INVALID", location)
 		}
 		switch endpoint.Availability {

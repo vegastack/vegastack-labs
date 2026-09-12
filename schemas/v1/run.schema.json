@@ -1,0 +1,202 @@
+{
+  "$defs": {
+    "contract-extension": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^x-[a-z][a-z0-9.-]{0,62}$",
+          "type": "string"
+        },
+        "valueDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "valueDigest"
+      ],
+      "type": "object"
+    },
+    "run-step": {
+      "additionalProperties": false,
+      "properties": {
+        "adapterId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "artifactDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "effectState": {
+          "enum": [
+            "effect-unknown",
+            "intent-recorded",
+            "not-started",
+            "receipt-recorded",
+            "verified"
+          ],
+          "type": "string"
+        },
+        "executorId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "idempotent": {
+          "type": "boolean"
+        },
+        "inputDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "operationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "operationType": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sequence": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "status": {
+          "enum": [
+            "cancelled",
+            "failed",
+            "interrupted",
+            "partial",
+            "queued",
+            "running",
+            "succeeded"
+          ],
+          "type": "string"
+        },
+        "stepId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "sequence",
+        "operationId",
+        "operationType",
+        "adapterId",
+        "executorId",
+        "targetId",
+        "inputDigest",
+        "artifactDigest",
+        "idempotent",
+        "stepId",
+        "status",
+        "effectState"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/run",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "cancellationRequested": {
+      "type": "boolean"
+    },
+    "createdAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "extensions": {
+      "items": {
+        "$ref": "#/$defs/contract-extension"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "planDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "rollbackStatus": {
+      "enum": [
+        "not-requested",
+        "required",
+        "separate-plan"
+      ],
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/run"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "cancelled",
+        "failed",
+        "interrupted",
+        "partial",
+        "queued",
+        "running",
+        "succeeded"
+      ],
+      "type": "string"
+    },
+    "steps": {
+      "items": {
+        "$ref": "#/$defs/run-step"
+      },
+      "maxItems": 256,
+      "type": "array"
+    },
+    "updatedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "runId",
+    "planId",
+    "planDigest",
+    "status",
+    "steps",
+    "cancellationRequested",
+    "rollbackStatus",
+    "stateRevision",
+    "recoveryEpoch",
+    "createdAt",
+    "updatedAt",
+    "extensions"
+  ],
+  "title": "VegaStack Labs run",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

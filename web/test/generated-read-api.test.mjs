@@ -57,9 +57,9 @@ test("generated decoder rejects another contract major", async () => {
 });
 
 test("generated decoder accepts and preserves another compatible contract version", async () => {
-  const client = createReadClient(async () => new Response(JSON.stringify(envelope(summary, "1.9.0"))));
+  const client = createReadClient(async () => new Response(JSON.stringify(envelope(summary, "1.10.0"))));
   const result = await client.getSummary();
-  assert.equal(result.schemaVersion, "1.9.0");
+  assert.equal(result.schemaVersion, "1.10.0");
   assert.deepEqual(result.data, summary);
 });
 

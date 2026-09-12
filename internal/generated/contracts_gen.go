@@ -6,11 +6,13 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.9.0"
+	RegistrySchemaVersion                   = "1.10.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
 	FlagKindSwitch                          = "switch"
+	SchemaIDAcknowledgement                 = "vegastack-labs.dev/acknowledgement"
+	SchemaIDAcknowledgementRequest          = "vegastack-labs.dev/acknowledgement-request"
 	SchemaIDApiAuditEventData               = "vegastack-labs.dev/api-audit-event-data"
 	SchemaIDApiBrowserSessionData           = "vegastack-labs.dev/api-browser-session-data"
 	SchemaIDApiBrowserSessionRequest        = "vegastack-labs.dev/api-browser-session-request"
@@ -33,8 +35,18 @@ const (
 	SchemaIDApiSummaryData                  = "vegastack-labs.dev/api-summary-data"
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
+	SchemaIDAuthorizationDecision           = "vegastack-labs.dev/authorization-decision"
 	SchemaIDCloudflareAccessProfile         = "vegastack-labs.dev/cloudflare-access-profile"
+	SchemaIDContractExtension               = "vegastack-labs.dev/contract-extension"
 	SchemaIDDatabaseStatusData              = "vegastack-labs.dev/database-status-data"
+	SchemaIDDeclarationOperation            = "vegastack-labs.dev/declaration-operation"
+	SchemaIDDeclarationRevision             = "vegastack-labs.dev/declaration-revision"
+	SchemaIDDeclarationRevisionRequest      = "vegastack-labs.dev/declaration-revision-request"
+	SchemaIDExecutionReceipt                = "vegastack-labs.dev/execution-receipt"
+	SchemaIDExecutionReceiptRequest         = "vegastack-labs.dev/execution-receipt-request"
+	SchemaIDExecutorClaimRequest            = "vegastack-labs.dev/executor-claim-request"
+	SchemaIDExecutorLease                   = "vegastack-labs.dev/executor-lease"
+	SchemaIDExecutorRenewRequest            = "vegastack-labs.dev/executor-renew-request"
 	SchemaIDInventoryDiffCounts             = "vegastack-labs.dev/inventory-diff-counts"
 	SchemaIDInventoryDiffData               = "vegastack-labs.dev/inventory-diff-data"
 	SchemaIDInventoryDiffRecord             = "vegastack-labs.dev/inventory-diff-record"
@@ -62,6 +74,11 @@ const (
 	SchemaIDInventoryImportRequest          = "vegastack-labs.dev/inventory-import-request"
 	SchemaIDLocalPrincipalBinding           = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDOutboxRecordData                = "vegastack-labs.dev/outbox-record-data"
+	SchemaIDPlan                            = "vegastack-labs.dev/plan"
+	SchemaIDPlanBinding                     = "vegastack-labs.dev/plan-binding"
+	SchemaIDPlanCreateRequest               = "vegastack-labs.dev/plan-create-request"
+	SchemaIDPlanOperation                   = "vegastack-labs.dev/plan-operation"
+	SchemaIDPlanReferenceRequest            = "vegastack-labs.dev/plan-reference-request"
 	SchemaIDReleaseAsset                    = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification        = "vegastack-labs.dev/release-asset-verification"
 	SchemaIDReleaseInspectData              = "vegastack-labs.dev/release-inspect-data"
@@ -70,6 +87,8 @@ const (
 	SchemaIDReleaseVerifyData               = "vegastack-labs.dev/release-verify-data"
 	SchemaIDRemoteReadProfile               = "vegastack-labs.dev/remote-read-profile"
 	SchemaIDResultError                     = "vegastack-labs.dev/result-error"
+	SchemaIDRun                             = "vegastack-labs.dev/run"
+	SchemaIDRunReferenceRequest             = "vegastack-labs.dev/run-reference-request"
 	SchemaIDRunResult                       = "vegastack-labs.dev/run-result"
 	RunStatusBlocked                        = "blocked"
 	RunStatusCancelled                      = "cancelled"
@@ -77,6 +96,7 @@ const (
 	RunStatusInterrupted                    = "interrupted"
 	RunStatusPartial                        = "partial"
 	RunStatusSucceeded                      = "succeeded"
+	SchemaIDRunStep                         = "vegastack-labs.dev/run-step"
 	SchemaIDServerProfile                   = "vegastack-labs.dev/server-profile"
 	SchemaIDServerStatusData                = "vegastack-labs.dev/server-status-data"
 	SchemaIDSignedInventoryDraftExport      = "vegastack-labs.dev/signed-inventory-draft-export"
@@ -137,6 +157,40 @@ const (
 	ErrorCodeUnsupportedPlatform            = "UNSUPPORTED_PLATFORM"
 	ErrorCodeVersionIncompatible            = "VERSION_INCOMPATIBLE"
 )
+
+type Acknowledgement struct {
+	Schema        string              `json:"schema"`
+	SchemaVersion string              `json:"schemaVersion"`
+	PlanID        string              `json:"planId"`
+	PlanDigest    string              `json:"planDigest"`
+	TargetDigest  string              `json:"targetDigest"`
+	ReasonDigest  string              `json:"reasonDigest"`
+	HumanID       string              `json:"humanId"`
+	AuthorityID   string              `json:"authorityId"`
+	NonceDigest   string              `json:"nonceDigest"`
+	StateRevision int64               `json:"stateRevision"`
+	RecoveryEpoch int64               `json:"recoveryEpoch"`
+	ExpiresAt     string              `json:"expiresAt"`
+	Status        string              `json:"status"`
+	CreatedAt     string              `json:"createdAt"`
+	Extensions    []ContractExtension `json:"extensions"`
+}
+
+type AcknowledgementRequest struct {
+	Schema        string              `json:"schema"`
+	SchemaVersion string              `json:"schemaVersion"`
+	PlanID        string              `json:"planId"`
+	PlanDigest    string              `json:"planDigest"`
+	TargetDigest  string              `json:"targetDigest"`
+	ReasonDigest  string              `json:"reasonDigest"`
+	HumanID       string              `json:"humanId"`
+	AuthorityID   string              `json:"authorityId"`
+	NonceDigest   string              `json:"nonceDigest"`
+	StateRevision int64               `json:"stateRevision"`
+	RecoveryEpoch int64               `json:"recoveryEpoch"`
+	ExpiresAt     string              `json:"expiresAt"`
+	Extensions    []ContractExtension `json:"extensions"`
+}
 
 type ApiAuditEventData struct {
 	Event AuditEvent `json:"event"`
@@ -320,6 +374,23 @@ type AuditTarget struct {
 	ID   string `json:"id"`
 }
 
+type AuthorizationDecision struct {
+	Schema        string              `json:"schema"`
+	SchemaVersion string              `json:"schemaVersion"`
+	DecisionID    string              `json:"decisionId"`
+	PrincipalID   string              `json:"principalId"`
+	Action        string              `json:"action"`
+	TargetID      string              `json:"targetId"`
+	Allowed       bool                `json:"allowed"`
+	Branch        *string             `json:"branch"`
+	ReasonCode    string              `json:"reasonCode"`
+	GrantRevision int64               `json:"grantRevision"`
+	RecoveryEpoch int64               `json:"recoveryEpoch"`
+	PlanDigest    string              `json:"planDigest"`
+	DecidedAt     string              `json:"decidedAt"`
+	Extensions    []ContractExtension `json:"extensions"`
+}
+
 type CloudflareAccessProfile struct {
 	Schema                string `json:"schema"`
 	SchemaVersion         string `json:"schemaVersion"`
@@ -331,6 +402,11 @@ type CloudflareAccessProfile struct {
 	KnownKeyOutageSeconds int64  `json:"knownKeyOutageSeconds"`
 }
 
+type ContractExtension struct {
+	Name        string `json:"name"`
+	ValueDigest string `json:"valueDigest"`
+}
+
 type DatabaseStatusData struct {
 	Mode                 string  `json:"mode"`
 	SchemaVersion        int64   `json:"schemaVersion"`
@@ -340,6 +416,122 @@ type DatabaseStatusData struct {
 	IntegrityStatus      string  `json:"integrityStatus"`
 	LastIntegrityCheckAt *string `json:"lastIntegrityCheckAt"`
 	SafeModeReason       string  `json:"safeModeReason"`
+}
+
+type DeclarationOperation struct {
+	Sequence       int64  `json:"sequence"`
+	OperationID    string `json:"operationId"`
+	OperationType  string `json:"operationType"`
+	AdapterID      string `json:"adapterId"`
+	TargetID       string `json:"targetId"`
+	InputDigest    string `json:"inputDigest"`
+	ArtifactDigest string `json:"artifactDigest"`
+	Idempotent     bool   `json:"idempotent"`
+}
+
+type DeclarationRevision struct {
+	Schema          string                 `json:"schema"`
+	SchemaVersion   string                 `json:"schemaVersion"`
+	DeclarationID   string                 `json:"declarationId"`
+	DeclarationType string                 `json:"declarationType"`
+	Revision        int64                  `json:"revision"`
+	StateRevision   int64                  `json:"stateRevision"`
+	RecoveryEpoch   int64                  `json:"recoveryEpoch"`
+	ContentDigest   string                 `json:"contentDigest"`
+	Status          string                 `json:"status"`
+	Operations      []DeclarationOperation `json:"operations"`
+	CreatedAt       string                 `json:"createdAt"`
+	CreatedBy       string                 `json:"createdBy"`
+	AgentSessionID  string                 `json:"agentSessionId"`
+	Extensions      []ContractExtension    `json:"extensions"`
+}
+
+type DeclarationRevisionRequest struct {
+	Schema                string                 `json:"schema"`
+	SchemaVersion         string                 `json:"schemaVersion"`
+	DeclarationID         string                 `json:"declarationId"`
+	DeclarationType       string                 `json:"declarationType"`
+	ExpectedRevision      int64                  `json:"expectedRevision"`
+	ExpectedStateRevision int64                  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                  `json:"recoveryEpoch"`
+	Operations            []DeclarationOperation `json:"operations"`
+	ReasonDigest          string                 `json:"reasonDigest"`
+	Extensions            []ContractExtension    `json:"extensions"`
+}
+
+type ExecutionReceipt struct {
+	Schema         string              `json:"schema"`
+	SchemaVersion  string              `json:"schemaVersion"`
+	LeaseID        string              `json:"leaseId"`
+	PlanID         string              `json:"planId"`
+	PlanDigest     string              `json:"planDigest"`
+	RunID          string              `json:"runId"`
+	StepID         string              `json:"stepId"`
+	OperationID    string              `json:"operationId"`
+	ExecutorID     string              `json:"executorId"`
+	AdapterID      string              `json:"adapterId"`
+	TargetID       string              `json:"targetId"`
+	ArtifactDigest string              `json:"artifactDigest"`
+	BindingDigest  string              `json:"bindingDigest"`
+	NonceDigest    string              `json:"nonceDigest"`
+	RecoveryEpoch  int64               `json:"recoveryEpoch"`
+	ReceiptID      string              `json:"receiptId"`
+	Status         string              `json:"status"`
+	ResultDigest   string              `json:"resultDigest"`
+	RecordedAt     string              `json:"recordedAt"`
+	Extensions     []ContractExtension `json:"extensions"`
+}
+
+type ExecutionReceiptRequest struct {
+	Schema                string              `json:"schema"`
+	SchemaVersion         string              `json:"schemaVersion"`
+	Receipt               ExecutionReceipt    `json:"receipt"`
+	ExpectedBindingDigest string              `json:"expectedBindingDigest"`
+	Extensions            []ContractExtension `json:"extensions"`
+}
+
+type ExecutorClaimRequest struct {
+	Schema        string              `json:"schema"`
+	SchemaVersion string              `json:"schemaVersion"`
+	ExecutorID    string              `json:"executorId"`
+	PrincipalID   string              `json:"principalId"`
+	AdapterID     string              `json:"adapterId"`
+	RecoveryEpoch int64               `json:"recoveryEpoch"`
+	NonceDigest   string              `json:"nonceDigest"`
+	Extensions    []ContractExtension `json:"extensions"`
+}
+
+type ExecutorLease struct {
+	Schema         string              `json:"schema"`
+	SchemaVersion  string              `json:"schemaVersion"`
+	LeaseID        string              `json:"leaseId"`
+	PlanID         string              `json:"planId"`
+	PlanDigest     string              `json:"planDigest"`
+	RunID          string              `json:"runId"`
+	StepID         string              `json:"stepId"`
+	OperationID    string              `json:"operationId"`
+	ExecutorID     string              `json:"executorId"`
+	AdapterID      string              `json:"adapterId"`
+	TargetID       string              `json:"targetId"`
+	ArtifactDigest string              `json:"artifactDigest"`
+	BindingDigest  string              `json:"bindingDigest"`
+	NonceDigest    string              `json:"nonceDigest"`
+	RecoveryEpoch  int64               `json:"recoveryEpoch"`
+	ClaimedAt      string              `json:"claimedAt"`
+	RenewAfter     string              `json:"renewAfter"`
+	LeaseExpiresAt string              `json:"leaseExpiresAt"`
+	Status         string              `json:"status"`
+	Extensions     []ContractExtension `json:"extensions"`
+}
+
+type ExecutorRenewRequest struct {
+	Schema        string              `json:"schema"`
+	SchemaVersion string              `json:"schemaVersion"`
+	LeaseID       string              `json:"leaseId"`
+	BindingDigest string              `json:"bindingDigest"`
+	NonceDigest   string              `json:"nonceDigest"`
+	RecoveryEpoch int64               `json:"recoveryEpoch"`
+	Extensions    []ContractExtension `json:"extensions"`
 }
 
 type InventoryDiffCounts struct {
@@ -583,6 +775,69 @@ type OutboxRecordData struct {
 	DeliveredAt    *string `json:"deliveredAt"`
 }
 
+type Plan struct {
+	Schema              string              `json:"schema"`
+	SchemaVersion       string              `json:"schemaVersion"`
+	PlanID              string              `json:"planId"`
+	PlanDigest          string              `json:"planDigest"`
+	DeclarationID       string              `json:"declarationId"`
+	Binding             PlanBinding         `json:"binding"`
+	Operations          []PlanOperation     `json:"operations"`
+	Risk                string              `json:"risk"`
+	AuthorizationBranch string              `json:"authorizationBranch"`
+	CreatedAt           string              `json:"createdAt"`
+	ExpiresAt           string              `json:"expiresAt"`
+	ReadableDigest      string              `json:"readableDigest"`
+	Extensions          []ContractExtension `json:"extensions"`
+}
+
+type PlanBinding struct {
+	RecoveryEpoch          int64  `json:"recoveryEpoch"`
+	PriorStateRevision     int64  `json:"priorStateRevision"`
+	StateRevision          int64  `json:"stateRevision"`
+	DeclarationRevision    int64  `json:"declarationRevision"`
+	ObservationFingerprint string `json:"observationFingerprint"`
+	TargetDigest           string `json:"targetDigest"`
+	ReasonDigest           string `json:"reasonDigest"`
+	PolicyVersion          string `json:"policyVersion"`
+	ToolVersion            string `json:"toolVersion"`
+	ContractVersion        string `json:"contractVersion"`
+}
+
+type PlanCreateRequest struct {
+	Schema                 string              `json:"schema"`
+	SchemaVersion          string              `json:"schemaVersion"`
+	DeclarationID          string              `json:"declarationId"`
+	DeclarationRevision    int64               `json:"declarationRevision"`
+	ExpectedStateRevision  int64               `json:"expectedStateRevision"`
+	RecoveryEpoch          int64               `json:"recoveryEpoch"`
+	ObservationFingerprint string              `json:"observationFingerprint"`
+	IdempotencyKey         string              `json:"idempotencyKey"`
+	Extensions             []ContractExtension `json:"extensions"`
+}
+
+type PlanOperation struct {
+	Sequence       int64  `json:"sequence"`
+	OperationID    string `json:"operationId"`
+	OperationType  string `json:"operationType"`
+	AdapterID      string `json:"adapterId"`
+	ExecutorID     string `json:"executorId"`
+	TargetID       string `json:"targetId"`
+	InputDigest    string `json:"inputDigest"`
+	ArtifactDigest string `json:"artifactDigest"`
+	Idempotent     bool   `json:"idempotent"`
+}
+
+type PlanReferenceRequest struct {
+	Schema         string              `json:"schema"`
+	SchemaVersion  string              `json:"schemaVersion"`
+	PlanID         string              `json:"planId"`
+	PlanDigest     string              `json:"planDigest"`
+	RecoveryEpoch  int64               `json:"recoveryEpoch"`
+	IdempotencyKey string              `json:"idempotencyKey"`
+	Extensions     []ContractExtension `json:"extensions"`
+}
+
 type ReleaseAsset struct {
 	ID             string  `json:"id"`
 	Kind           string  `json:"kind"`
@@ -665,6 +920,32 @@ type ResultError struct {
 	Retryable bool   `json:"retryable"`
 }
 
+type Run struct {
+	Schema                string              `json:"schema"`
+	SchemaVersion         string              `json:"schemaVersion"`
+	RunID                 string              `json:"runId"`
+	PlanID                string              `json:"planId"`
+	PlanDigest            string              `json:"planDigest"`
+	Status                string              `json:"status"`
+	Steps                 []RunStep           `json:"steps"`
+	CancellationRequested bool                `json:"cancellationRequested"`
+	RollbackStatus        string              `json:"rollbackStatus"`
+	StateRevision         int64               `json:"stateRevision"`
+	RecoveryEpoch         int64               `json:"recoveryEpoch"`
+	CreatedAt             string              `json:"createdAt"`
+	UpdatedAt             string              `json:"updatedAt"`
+	Extensions            []ContractExtension `json:"extensions"`
+}
+
+type RunReferenceRequest struct {
+	Schema         string              `json:"schema"`
+	SchemaVersion  string              `json:"schemaVersion"`
+	RunID          string              `json:"runId"`
+	IdempotencyKey string              `json:"idempotencyKey"`
+	RecoveryEpoch  int64               `json:"recoveryEpoch"`
+	Extensions     []ContractExtension `json:"extensions"`
+}
+
 type RunResult struct {
 	Schema         string          `json:"schema"`
 	SchemaVersion  string          `json:"schemaVersion"`
@@ -682,6 +963,21 @@ type RunResult struct {
 	PlanID         *string         `json:"planId"`
 	Errors         []ResultError   `json:"errors"`
 	Data           json.RawMessage `json:"data"`
+}
+
+type RunStep struct {
+	Sequence       int64  `json:"sequence"`
+	OperationID    string `json:"operationId"`
+	OperationType  string `json:"operationType"`
+	AdapterID      string `json:"adapterId"`
+	ExecutorID     string `json:"executorId"`
+	TargetID       string `json:"targetId"`
+	InputDigest    string `json:"inputDigest"`
+	ArtifactDigest string `json:"artifactDigest"`
+	Idempotent     bool   `json:"idempotent"`
+	StepID         string `json:"stepId"`
+	Status         string `json:"status"`
+	EffectState    string `json:"effectState"`
 }
 
 type ServerProfile struct {
@@ -846,7 +1142,12 @@ var Commands = []Command{
 
 var Endpoints = []Endpoint{
 	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite"},
+	{ID: "api.v1.declarations.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite"},
+	{ID: "api.v1.declarations.revise", Method: "POST", Path: "/api/v1/declarations", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/declaration-revision-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite"},
 	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse"},
+	{ID: "api.v1.execution-receipts.create", Method: "POST", Path: "/api/v1/execution-receipts", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/execution-receipt-request", DataSchema: "vegastack-labs.dev/execution-receipt", Stream: "finite"},
+	{ID: "api.v1.executor-leases.claim", Method: "POST", Path: "/api/v1/executor-leases/claim", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/executor-claim-request", DataSchema: "vegastack-labs.dev/executor-lease", Stream: "finite"},
+	{ID: "api.v1.executor-leases.renew", Method: "POST", Path: "/api/v1/executor-leases/{leaseId}/renew", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/executor-renew-request", DataSchema: "vegastack-labs.dev/executor-lease", Stream: "finite"},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite"},
 	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite"},
 	{ID: "api.v1.inventory-draft-aliases.get", Method: "GET", Path: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-alias-data", Stream: "finite"},
@@ -861,6 +1162,13 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite"},
 	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite"},
 	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite"},
+	{ID: "api.v1.plans.acknowledgements.create", Method: "POST", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/acknowledgement-request", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite"},
+	{ID: "api.v1.plans.create", Method: "POST", Path: "/api/v1/plans", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-create-request", DataSchema: "vegastack-labs.dev/plan", Stream: "finite"},
+	{ID: "api.v1.plans.execute", Method: "POST", Path: "/api/v1/plans/{planId}/execute", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite"},
+	{ID: "api.v1.plans.get", Method: "GET", Path: "/api/v1/plans/{planId}", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan", Stream: "finite"},
+	{ID: "api.v1.runs.cancel", Method: "POST", Path: "/api/v1/runs/{runId}/cancel", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite"},
+	{ID: "api.v1.runs.get", Method: "GET", Path: "/api/v1/runs/{runId}", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/run", Stream: "finite"},
+	{ID: "api.v1.runs.resume", Method: "POST", Path: "/api/v1/runs/{runId}/resume", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite"},
 	{ID: "api.v1.session.create", Method: "POST", Path: "/api/v1/session", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite"},
 	{ID: "api.v1.session.logout", Method: "POST", Path: "/api/v1/session/logout", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite"},
 	{ID: "api.v1.session.renew", Method: "POST", Path: "/api/v1/session/renew", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite"},

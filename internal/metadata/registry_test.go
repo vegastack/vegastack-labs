@@ -7,10 +7,64 @@ import (
 	"testing"
 )
 
+func TestPhase4ContractsBindPlanAndExecutorScope(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	for _, identifier := range []string{
+		"vegastack-labs.dev/declaration-revision",
+		"vegastack-labs.dev/plan",
+		"vegastack-labs.dev/authorization-decision",
+		"vegastack-labs.dev/acknowledgement",
+		"vegastack-labs.dev/run",
+		"vegastack-labs.dev/executor-lease",
+		"vegastack-labs.dev/execution-receipt",
+	} {
+		definition := schemaByID(t, registry, identifier)
+		if definition.ArtifactPath == "" {
+			t.Fatalf("schema %s has no generated artifact", identifier)
+		}
+	}
+
+	plan := endpointByID(t, registry, "api.v1.plans.create")
+	if plan.Method != "POST" || plan.Path != "/api/v1/plans" || plan.OwnerPhase != "4" {
+		t.Fatalf("plan endpoint = %#v", plan)
+	}
+	lease := schemaByID(t, registry, "vegastack-labs.dev/executor-lease")
+	wantLeaseFields := map[string]bool{"planId": false, "planDigest": false, "executorId": false, "adapterId": false, "targetId": false, "artifactDigest": false, "recoveryEpoch": false}
+	for _, field := range lease.Fields {
+		if _, ok := wantLeaseFields[field.JSONName]; ok {
+			wantLeaseFields[field.JSONName] = true
+		}
+	}
+	for name, found := range wantLeaseFields {
+		if !found {
+			t.Errorf("executor lease is missing %s", name)
+		}
+	}
+	for _, name := range []string{"plan", "apply"} {
+		command := commandByName(t, registry, name)
+		if command.Availability != AvailabilityPlanned || command.OwnerPhase != "4" {
+			t.Errorf("command %s = %#v", name, command)
+		}
+	}
+}
+
+func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition {
+	t.Helper()
+	for _, endpoint := range registry.Endpoints {
+		if endpoint.ID == id {
+			return endpoint
+		}
+	}
+	t.Fatalf("endpoint %q is missing", id)
+	return EndpointDefinition{}
+}
+
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.9.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.10.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -134,8 +188,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.9.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.10.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -166,8 +220,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.9.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.10.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -246,8 +300,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.9.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.9.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.10.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{

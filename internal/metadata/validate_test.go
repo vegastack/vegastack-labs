@@ -143,8 +143,12 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 	t.Parallel()
 
 	for _, endpoint := range Current().Endpoints {
-		if endpoint.Availability != AvailabilityAvailable {
-			t.Fatalf("endpoint %s availability = %q, want available", endpoint.ID, endpoint.Availability)
+		want := AvailabilityAvailable
+		if endpoint.OwnerPhase == "4" {
+			want = AvailabilityPlanned
+		}
+		if endpoint.Availability != want {
+			t.Fatalf("endpoint %s availability = %q, want %q", endpoint.ID, endpoint.Availability, want)
 		}
 	}
 }

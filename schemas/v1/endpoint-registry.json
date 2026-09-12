@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.9.0",
+  "schemaVersion": "1.10.0",
   "endpoints": [
     {
       "id": "api.v1.database-status.get",
@@ -13,6 +13,25 @@
       "stream": "finite"
     },
     {
+      "id": "api.v1.declarations.get",
+      "method": "GET",
+      "path": "/api/v1/declarations/{declarationId}/revisions/{revision}",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.declarations.revise",
+      "method": "POST",
+      "path": "/api/v1/declarations",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/declaration-revision-request",
+      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "stream": "finite"
+    },
+    {
       "id": "api.v1.events.stream",
       "method": "GET",
       "path": "/api/v1/events",
@@ -20,6 +39,36 @@
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-audit-event-data",
       "stream": "sse"
+    },
+    {
+      "id": "api.v1.execution-receipts.create",
+      "method": "POST",
+      "path": "/api/v1/execution-receipts",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/execution-receipt-request",
+      "dataSchema": "vegastack-labs.dev/execution-receipt",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.executor-leases.claim",
+      "method": "POST",
+      "path": "/api/v1/executor-leases/claim",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/executor-claim-request",
+      "dataSchema": "vegastack-labs.dev/executor-lease",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.executor-leases.renew",
+      "method": "POST",
+      "path": "/api/v1/executor-leases/{leaseId}/renew",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/executor-renew-request",
+      "dataSchema": "vegastack-labs.dev/executor-lease",
+      "stream": "finite"
     },
     {
       "id": "api.v1.health.get",
@@ -153,6 +202,74 @@
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-export-request",
       "dataSchema": "vegastack-labs.dev/inventory-export-data",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.plans.acknowledgements.create",
+      "method": "POST",
+      "path": "/api/v1/plans/{planId}/acknowledgements",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/acknowledgement-request",
+      "dataSchema": "vegastack-labs.dev/acknowledgement",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.plans.create",
+      "method": "POST",
+      "path": "/api/v1/plans",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/plan-create-request",
+      "dataSchema": "vegastack-labs.dev/plan",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.plans.execute",
+      "method": "POST",
+      "path": "/api/v1/plans/{planId}/execute",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/plan-reference-request",
+      "dataSchema": "vegastack-labs.dev/run",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.plans.get",
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/plan",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.runs.cancel",
+      "method": "POST",
+      "path": "/api/v1/runs/{runId}/cancel",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/run-reference-request",
+      "dataSchema": "vegastack-labs.dev/run",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.runs.get",
+      "method": "GET",
+      "path": "/api/v1/runs/{runId}",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/run",
+      "stream": "finite"
+    },
+    {
+      "id": "api.v1.runs.resume",
+      "method": "POST",
+      "path": "/api/v1/runs/{runId}/resume",
+      "availability": "planned",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/run-reference-request",
+      "dataSchema": "vegastack-labs.dev/run",
       "stream": "finite"
     },
     {
