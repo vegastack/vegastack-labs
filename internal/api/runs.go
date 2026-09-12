@@ -185,10 +185,13 @@ func (app *Application) mutateRun(config RunOperationConfig, resume bool) func(h
 			app.failure(w, operation, apiFailure(generated.ErrorCodeRecoveryEpochMismatch, "run"))
 			return
 		}
-		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan)
-		if err != nil {
-			app.failure(w, operation, err)
-			return
+		var ack *generated.Acknowledgement
+		if resume {
+			ack, err = app.runAcknowledgement(request.Context(), config, stored.Plan)
+			if err != nil {
+				app.failure(w, operation, err)
+				return
+			}
 		}
 		attribution, err := runAttribution(request, ack, config.Results)
 		if err != nil {
