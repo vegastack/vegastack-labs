@@ -49,6 +49,12 @@ func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	if err != nil || replay.RunID != run.RunID || fixture.adapter.calls != 1 {
 		t.Fatalf("replay = %#v, calls=%d, err=%v", replay, fixture.adapter.calls, err)
 	}
+	refreshed := fixture.request
+	refreshed.Authorization.DecisionID = "decision-refreshed-test"
+	refreshedReplay, err := fixture.engine.Submit(context.Background(), refreshed)
+	if err != nil || refreshedReplay.AuthorizationDecisionID != run.AuthorizationDecisionID || fixture.adapter.calls != 1 {
+		t.Fatalf("refreshed authorization replay = %#v, calls=%d, err=%v", refreshedReplay, fixture.adapter.calls, err)
+	}
 
 	cancelFixture := newEngineFixture(t)
 	cancelFixture.engine.testAfterBoundary = func(boundary Boundary) error {

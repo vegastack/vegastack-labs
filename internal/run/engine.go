@@ -125,7 +125,15 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		acknowledgementID = &value
 	}
 	run := generated.Run{Schema: generated.SchemaIDRun, SchemaVersion: "1.0.0", RunID: id, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, AuthorizationDecisionID: request.Authorization.DecisionID, AcknowledgementID: acknowledgementID, PolicyVersion: plan.Binding.PolicyVersion, ExecutorMode: plan.ExecutorMode, ExecutorID: executorID, ExecutorBindingDigest: digest("executor-binding", plan.PlanID, plan.PlanDigest, executorID, request.Authorization.DecisionID), Status: "queued", Steps: steps, CancellationRequested: false, RollbackStatus: "not-requested", VerificationStatus: "pending", VerificationDigest: nil, Changed: false, StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch, CreatedAt: now.Format(time.RFC3339), UpdatedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
-	created, err := engine.repository.Create(ctx, store.RunCreateRequest{Run: run, SubmitKeyDigest: audit.Fingerprint(digest("run-submit-key", request.Reference.IdempotencyKey)), RequestDigest: audit.Fingerprint(digest("run-submit-request", string(mustJSON(request.Reference)), string(mustJSON(request.Authorization)), string(mustJSON(request.Acknowledgement)))), Attribution: request.Attribution})
+	branch := ""
+	if request.Authorization.Branch != nil {
+		branch = *request.Authorization.Branch
+	}
+	acknowledgementBinding := ""
+	if request.Acknowledgement != nil {
+		acknowledgementBinding = request.Acknowledgement.AcknowledgementID
+	}
+	created, err := engine.repository.Create(ctx, store.RunCreateRequest{Run: run, SubmitKeyDigest: audit.Fingerprint(digest("run-submit-key", request.Reference.IdempotencyKey)), RequestDigest: audit.Fingerprint(digest("run-submit-request", string(mustJSON(request.Reference)), request.Authorization.PrincipalID, branch, acknowledgementBinding)), Attribution: request.Attribution})
 	if err != nil {
 		return generated.Run{}, err
 	}
@@ -141,6 +149,25 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	// Once the run is durably created, client disconnect is no longer execution
 	// authority. The server-owned run continues and remains observable.
 	return engine.start(context.WithoutCancel(ctx), plan, created.Run, request.Attribution)
+}
+
+// Existing resolves an exact duplicate before a single-use human proof is
+// consumed again. Current authorization still happens in the API first.
+func (engine *Engine) Existing(ctx context.Context, reference generated.PlanReferenceRequest) (generated.Run, bool, error) {
+	if engine == nil || !exactContract(generated.SchemaIDPlanReferenceRequest, reference) {
+		return generated.Run{}, false, runError(generated.ErrorCodeInputInvalid, "run-submit")
+	}
+	value, err := engine.repository.GetRun(ctx, runID(reference.PlanID, reference.IdempotencyKey))
+	if Code(err) == generated.ErrorCodeResourceNotFound {
+		return generated.Run{}, false, nil
+	}
+	if err != nil {
+		return generated.Run{}, false, err
+	}
+	if value.PlanID != reference.PlanID || value.PlanDigest != reference.PlanDigest || value.RecoveryEpoch != reference.RecoveryEpoch {
+		return generated.Run{}, false, runError(generated.ErrorCodeStateConflict, "run-submit-key")
+	}
+	return value, true, nil
 }
 
 func (engine *Engine) Resume(ctx context.Context, id string) (generated.Run, error) {

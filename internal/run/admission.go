@@ -9,7 +9,7 @@ import (
 )
 
 type AcknowledgementSource interface {
-	GetAcknowledgement(context.Context, string) (generated.Acknowledgement, error)
+	Status(context.Context, string) (generated.Acknowledgement, error)
 }
 
 // AdmissionGate validates only provider-neutral immutable proof bindings. A
@@ -55,9 +55,12 @@ func (gate *AdmissionGate) VerifyRun(ctx context.Context, plan generated.Plan, c
 	if current.AcknowledgementID == nil || gate.acknowledgements == nil {
 		return runError(generated.ErrorCodeApprovalRequired, "acknowledgement")
 	}
-	acknowledgement, err := gate.acknowledgements.GetAcknowledgement(ctx, *current.AcknowledgementID)
+	acknowledgement, err := gate.acknowledgements.Status(ctx, current.PlanID)
 	if err != nil {
 		return err
+	}
+	if acknowledgement.AcknowledgementID != *current.AcknowledgementID {
+		return runError(generated.ErrorCodeAuthorizationDenied, "acknowledgement")
 	}
 	branch := plan.AuthorizationBranch
 	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: current.AuthorizationDecisionID, PrincipalID: acknowledgement.HumanID, Action: string(authorization.ActionExecute), TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, RecoveryEpoch: current.RecoveryEpoch, PlanDigest: current.PlanDigest, DecidedAt: current.CreatedAt, Extensions: []generated.ContractExtension{}}

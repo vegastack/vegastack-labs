@@ -42,8 +42,8 @@ func TestRunExecuteAuthorizesBeforeParsingAndPreservesDuplicateSubmit(t *testing
 			t.Fatalf("submit %d response=%d body=%s", index, response.Code, response.Body.String())
 		}
 	}
-	if runs.submitCalls != 2 || runs.last.Reference.IdempotencyKey != request.IdempotencyKey {
-		t.Fatalf("submit calls=%d last=%#v", runs.submitCalls, runs.last)
+	if runs.submitCalls != 1 || runs.existingCalls != 2 || runs.last.Reference.IdempotencyKey != request.IdempotencyKey {
+		t.Fatalf("submit/existing calls=%d/%d last=%#v", runs.submitCalls, runs.existingCalls, runs.last)
 	}
 }
 
@@ -87,16 +87,28 @@ func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 }
 
 type runAPIStub struct {
-	plan        generated.Plan
-	run         generated.Run
-	submitCalls int
-	last        runengine.SubmitRequest
+	plan          generated.Plan
+	run           generated.Run
+	submitCalls   int
+	existingCalls int
+	existing      bool
+	last          runengine.SubmitRequest
 }
 
 func (stub *runAPIStub) Submit(_ context.Context, request runengine.SubmitRequest) (generated.Run, error) {
 	stub.submitCalls++
 	stub.last = request
 	return stub.run, nil
+}
+func (stub *runAPIStub) Existing(context.Context, generated.PlanReferenceRequest) (generated.Run, bool, error) {
+	stub.existingCalls++
+	if stub.existing {
+		return stub.run, true, nil
+	}
+	if stub.submitCalls > 0 {
+		return stub.run, true, nil
+	}
+	return generated.Run{}, false, nil
 }
 func (stub *runAPIStub) Get(context.Context, string) (generated.Run, error)    { return stub.run, nil }
 func (stub *runAPIStub) Cancel(context.Context, string) (generated.Run, error) { return stub.run, nil }
@@ -111,9 +123,8 @@ func (*runAPIStub) Startup(context.Context) error { return nil }
 func (stub *runAPIStub) GetPlan(context.Context, string) (store.PlanCommitResult, error) {
 	return store.PlanCommitResult{Plan: stub.plan}, nil
 }
-func (stub *runAPIStub) ForPlan(context.Context, generated.Plan) (*generated.Acknowledgement, error) {
-	acknowledgement := apiRunAcknowledgement(stub.plan)
-	return &acknowledgement, nil
+func (stub *runAPIStub) VerifyForExecution(context.Context, string) (generated.Acknowledgement, error) {
+	return apiRunAcknowledgement(stub.plan), nil
 }
 
 func newRunTestApplication(t *testing.T, runs *runAPIStub) *Application {

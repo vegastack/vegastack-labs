@@ -16,6 +16,7 @@ import (
 
 type RunService interface {
 	Submit(context.Context, runengine.SubmitRequest) (generated.Run, error)
+	Existing(context.Context, generated.PlanReferenceRequest) (generated.Run, bool, error)
 	Get(context.Context, string) (generated.Run, error)
 	CancelAs(context.Context, string, audit.Attribution) (generated.Run, error)
 	ResumeAs(context.Context, string, audit.Attribution) (generated.Run, error)
@@ -30,7 +31,7 @@ type RunPlanSource interface {
 }
 
 type RunAcknowledgementSource interface {
-	ForPlan(context.Context, generated.Plan) (*generated.Acknowledgement, error)
+	VerifyForExecution(context.Context, string) (generated.Acknowledgement, error)
 }
 
 type RunOperationConfig struct {
@@ -97,11 +98,6 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 			app.failure(w, operation, err)
 			return
 		}
-		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan)
-		if err != nil {
-			app.failure(w, operation, err)
-			return
-		}
 		var input generated.PlanReferenceRequest
 		if err := decodeOperationRequest(request, config.MaxBodyBytes, []string{"schema", "schemaVersion", "planId", "planDigest", "recoveryEpoch", "idempotencyKey", "extensions"}, &input); err != nil {
 			app.failure(w, operation, err)
@@ -113,6 +109,18 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 		}
 		if input.RecoveryEpoch != stored.Plan.Binding.RecoveryEpoch {
 			app.failure(w, operation, apiFailure(generated.ErrorCodeRecoveryEpochMismatch, "plan"))
+			return
+		}
+		if existing, found, err := config.Runs.Existing(request.Context(), input); err != nil {
+			app.operationFailure(w, operation, decision.DecisionID, err)
+			return
+		} else if found {
+			app.operationSuccess(w, operation, decision.DecisionID, existing.Changed, existing.StateRevision, existing.RecoveryEpoch, existing)
+			return
+		}
+		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan)
+		if err != nil {
+			app.failure(w, operation, err)
 			return
 		}
 		attribution, err := runAttribution(request, ack, config.Results)
@@ -246,7 +254,11 @@ func (app *Application) runAcknowledgement(ctx context.Context, config RunOperat
 	if config.Acknowledgements == nil {
 		return nil, apiFailure(generated.ErrorCodeApprovalRequired, "acknowledgement")
 	}
-	return config.Acknowledgements.ForPlan(ctx, plan)
+	acknowledgement, err := config.Acknowledgements.VerifyForExecution(ctx, plan.PlanID)
+	if err != nil {
+		return nil, err
+	}
+	return &acknowledgement, nil
 }
 
 func runAttribution(request *http.Request, acknowledgement *generated.Acknowledgement, results *result.Factory) (audit.Attribution, error) {

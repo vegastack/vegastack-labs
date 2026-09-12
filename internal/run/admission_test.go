@@ -35,6 +35,6 @@ func TestAdmissionGateBindsCurrentHumanProofAndDeniesExpiredOrMissingProof(t *te
 
 type fixedAcknowledgementSource struct{ value generated.Acknowledgement }
 
-func (source fixedAcknowledgementSource) GetAcknowledgement(context.Context, string) (generated.Acknowledgement, error) {
+func (source fixedAcknowledgementSource) Status(context.Context, string) (generated.Acknowledgement, error) {
 	return source.value, nil
 }
