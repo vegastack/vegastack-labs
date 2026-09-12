@@ -12,6 +12,7 @@ import (
 
 type DeclarationRevisionRequest struct {
 	Document      generated.DeclarationRevision
+	ReasonDigest  string
 	Expected      RevisionToken
 	KeyDigest     string
 	RequestDigest string
@@ -44,6 +45,9 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 	if audit.ValidateIntentKey(key) != nil || audit.ValidateEventDraft(event) != nil {
 		return DeclarationRevisionResult{}, newStoreError(generated.ErrorCodeInputInvalid, "declaration-revision", false, nil)
 	}
+	if existing, found, err := repository.existing(ctx, request); err != nil || found {
+		return existing, err
+	}
 	result := DeclarationRevisionResult{Document: request.Document}
 	intent, err := repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, transaction *sql.Tx) error {
 		var latest int64
@@ -53,7 +57,7 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 		if request.Document.Revision != latest+1 {
 			return newStoreError(generated.ErrorCodeStateConflict, "declaration-revision", false, nil)
 		}
-		_, err := transaction.ExecContext(ctx, `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, request.Document.DeclarationID, request.Document.Revision, request.Document.DeclarationType, request.Document.StateRevision, request.Document.RecoveryEpoch, request.Document.ContentDigest, request.Document.Status, canonical, request.Document.CreatedAt, request.Document.CreatedBy, request.Document.AgentSessionID)
+		_, err := transaction.ExecContext(ctx, `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, request.Document.DeclarationID, request.Document.Revision, request.Document.DeclarationType, request.Document.StateRevision, request.Document.RecoveryEpoch, request.Document.ContentDigest, request.ReasonDigest, request.Document.Status, canonical, request.Document.CreatedAt, request.Document.CreatedBy, request.Document.AgentSessionID)
 		return err
 	})
 	if err != nil {
@@ -68,6 +72,28 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 	}
 	result.Commit, result.Created = intent.Commit, intent.Created
 	return result, nil
+}
+
+func (repository *DeclarationRepository) existing(ctx context.Context, request DeclarationRevisionRequest) (DeclarationRevisionResult, bool, error) {
+	var storedDigest string
+	var revision, epoch int64
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT request_digest,state_revision,recovery_epoch FROM intent_keys WHERE scope='declaration-revision' AND key_digest=?`, request.KeyDigest).Scan(&storedDigest, &revision, &epoch)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return DeclarationRevisionResult{}, false, nil
+	}
+	if err != nil {
+		return DeclarationRevisionResult{}, false, err
+	}
+	if storedDigest != request.RequestDigest {
+		return DeclarationRevisionResult{}, true, newStoreError(generated.ErrorCodeStateConflict, "declaration-intent-key", false, nil)
+	}
+	document, err := repository.GetRevision(ctx, request.Document.DeclarationID, request.Document.Revision)
+	if err != nil {
+		return DeclarationRevisionResult{}, true, err
+	}
+	return DeclarationRevisionResult{Document: document, Commit: Commit{Changed: false, StateRevision: revision, RecoveryEpoch: epoch}, Created: false}, true, nil
 }
 
 func (repository *DeclarationRepository) GetRevision(ctx context.Context, declarationID string, revision int64) (generated.DeclarationRevision, error) {
@@ -86,4 +112,15 @@ func (repository *DeclarationRepository) GetRevision(ctx context.Context, declar
 		return generated.DeclarationRevision{}, newStoreError(generated.ErrorCodeIntegrityFailure, "declaration-revision", false, nil)
 	}
 	return document, nil
+}
+
+func (repository *DeclarationRepository) GetReasonDigest(ctx context.Context, declarationID string, revision int64) (string, error) {
+	var result string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT reason_digest FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, declarationID, revision).Scan(&result)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", newStoreError(generated.ErrorCodeResourceNotFound, "declaration-revision", false, nil)
+	}
+	return result, err
 }

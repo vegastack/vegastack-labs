@@ -5,6 +5,7 @@ CREATE TABLE declaration_revisions (
     state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     content_digest TEXT NOT NULL CHECK (content_digest GLOB 'sha256:[0-9a-f]*' AND length(content_digest) = 71),
+    reason_digest TEXT NOT NULL CHECK (reason_digest GLOB 'sha256:[0-9a-f]*' AND length(reason_digest) = 71),
     status TEXT NOT NULL CHECK (status IN ('draft','committed','superseded')),
     canonical_bytes BLOB NOT NULL CHECK (length(canonical_bytes) > 0),
     created_at TEXT NOT NULL,

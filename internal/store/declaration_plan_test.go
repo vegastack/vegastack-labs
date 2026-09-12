@@ -4,6 +4,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"testing"
 	"time"
@@ -88,11 +91,19 @@ func TestDeclarationAndPlanRejectStaleAndConflictingReplay(t *testing.T) {
 
 func validDeclarationStoreRequest() DeclarationRevisionRequest {
 	return DeclarationRevisionRequest{
-		Document: generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "declaration-test-1", DeclarationType: "node.configuration", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, ContentDigest: testDigest, Status: "draft", Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-test-1", OperationType: "configuration.update", AdapterID: "adapter-test-1", TargetID: "target-test-1", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, CreatedAt: "2026-09-12T18:30:00Z", CreatedBy: "principal-test-1", AgentSessionID: "session-test-1", Extensions: []generated.ContractExtension{}},
-		Expected: RevisionToken{StateRevision: 0, RecoveryEpoch: 0}, KeyDigest: testDigest, RequestDigest: testDigest, Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"},
+		Document:     generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "declaration-test-1", DeclarationType: "node.configuration", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, ContentDigest: testDigest, Status: "draft", Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-test-1", OperationType: "configuration.update", AdapterID: "adapter-test-1", TargetID: "target-test-1", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, CreatedAt: "2026-09-12T18:30:00Z", CreatedBy: "principal-test-1", AgentSessionID: "session-test-1", Extensions: []generated.ContractExtension{}},
+		ReasonDigest: testDigest, Expected: RevisionToken{StateRevision: 0, RecoveryEpoch: 0}, KeyDigest: testDigest, RequestDigest: testDigest, Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"},
 	}
 }
 
 func validPlanStoreRequest(declaration generated.DeclarationRevision) PlanCommitRequest {
-	return PlanCommitRequest{Plan: generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-test-1", PlanDigest: testDigest, DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 1, StateRevision: 2, DeclarationRevision: declaration.Revision, ObservationFingerprint: testDigest, TargetDigest: testDigest, ReasonDigest: testDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test-1", OperationType: "configuration.update", AdapterID: "adapter-test-1", ExecutorID: "executor-central", TargetID: "target-test-1", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-12T18:30:00Z", ExpiresAt: "2026-09-12T19:00:00Z", ReadableDigest: testDigest, Extensions: []generated.ContractExtension{}}, CanonicalBytes: []byte(`{"plan":"canonical"}`), Readable: "readable\n", Expected: RevisionToken{StateRevision: 1, RecoveryEpoch: 0}, KeyDigest: testDigest, RequestDigest: testDigest, Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"}}
+	readable := "readable\n"
+	readableSum := sha256.Sum256([]byte(readable))
+	value := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 1, StateRevision: 2, DeclarationRevision: declaration.Revision, ObservationFingerprint: testDigest, TargetDigest: testDigest, ReasonDigest: testDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test-1", OperationType: "configuration.update", AdapterID: "adapter-test-1", ExecutorID: "executor-central", TargetID: "target-test-1", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-12T18:30:00Z", ExpiresAt: "2026-09-12T19:00:00Z", ReadableDigest: "sha256:" + hex.EncodeToString(readableSum[:]), Extensions: []generated.ContractExtension{}}
+	preimage, _ := json.Marshal(value)
+	planSum := sha256.Sum256(preimage)
+	value.PlanDigest = "sha256:" + hex.EncodeToString(planSum[:])
+	value.PlanID = "plan-" + hex.EncodeToString(planSum[:16])
+	canonical, _ := json.Marshal(value)
+	return PlanCommitRequest{Plan: value, CanonicalBytes: canonical, Readable: readable, Expected: RevisionToken{StateRevision: 1, RecoveryEpoch: 0}, KeyDigest: testDigest, RequestDigest: testDigest, Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"}}
 }
