@@ -49,9 +49,9 @@ func RegisterInventoryOperations(app *Application, config InventoryOperationConf
 		return apiFailure(generated.ErrorCodeInputInvalid, "inventory-operation-limit")
 	}
 	app.routes = append(app.routes,
-		route{"api.v1.inventory-drafts.import", http.MethodPost, "/api/v1/inventory-drafts/import", "inventory.draft.create", "inventory-drafts", app.importDraft(config)},
-		route{"api.v1.inventory-diffs.create", http.MethodPost, "/api/v1/inventory-diffs", "inventory.draft.diff", "inventory-draft", app.diffDraft(config)},
-		route{"api.v1.inventory-exports.create", http.MethodPost, "/api/v1/inventory-exports", "inventory.draft.export", "inventory-draft", app.exportDraft(config)},
+		route{id: "api.v1.inventory-drafts.import", method: http.MethodPost, pattern: "/api/v1/inventory-drafts/import", capability: "inventory.draft.create", kind: "inventory-drafts", handler: app.importDraft(config)},
+		route{id: "api.v1.inventory-diffs.create", method: http.MethodPost, pattern: "/api/v1/inventory-diffs", capability: "inventory.draft.diff", kind: "inventory-draft", handler: app.diffDraft(config)},
+		route{id: "api.v1.inventory-exports.create", method: http.MethodPost, pattern: "/api/v1/inventory-exports", capability: "inventory.draft.export", kind: "inventory-draft", handler: app.exportDraft(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-3]

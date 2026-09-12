@@ -83,6 +83,7 @@ func (app *Application) failure(writer http.ResponseWriter, operation string, ca
 
 func httpStatus(code string) int {
 	return map[string]int{
+		generated.ErrorCodeApprovalRequired:       http.StatusPreconditionFailed,
 		generated.ErrorCodeAuthenticationRequired: http.StatusUnauthorized,
 		generated.ErrorCodeAuthorizationDenied:    http.StatusForbidden,
 		generated.ErrorCodeInputInvalid:           http.StatusBadRequest,
@@ -94,5 +95,6 @@ func httpStatus(code string) int {
 		generated.ErrorCodeInterrupted:            http.StatusRequestTimeout,
 		generated.ErrorCodeDependencyUnavailable:  http.StatusServiceUnavailable,
 		generated.ErrorCodeIntegrityFailure:       http.StatusServiceUnavailable,
+		generated.ErrorCodePlanStale:              http.StatusConflict,
 	}[code]
 }

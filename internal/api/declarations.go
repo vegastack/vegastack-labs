@@ -29,6 +29,10 @@ func (app *Application) reviseDeclaration(config DeclarationPlanConfig) func(htt
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal"))
 			return
 		}
+		if _, err := app.authorizeAction(request, authorization.ActionAuthor, authorization.Target{Capability: "declaration.author", ResourceKind: "declaration", ResourceID: input.DeclarationID}); err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
 		requestID, err := config.Results.RequestID()
 		if err != nil {
 			app.failure(writer, operation, err)

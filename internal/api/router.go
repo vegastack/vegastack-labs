@@ -17,6 +17,8 @@ import (
 
 type route struct {
 	id, method, pattern, capability, kind string
+	action                                authorization.Action
+	resourceID                            string
 	handler                               func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
 }
 
@@ -47,22 +49,22 @@ func RemoteReadRequestAllowed(method, requestPath string) bool {
 
 func finiteRoutes(app *Application) []route {
 	return []route{
-		{"api.v1.session.create", http.MethodPost, "/api/v1/session", "", "", app.sessionCreate},
-		{"api.v1.session.renew", http.MethodPost, "/api/v1/session/renew", "", "", app.sessionRenew},
-		{"api.v1.session.logout", http.MethodPost, "/api/v1/session/logout", "", "", app.sessionLogout},
-		{"api.v1.database-status.get", http.MethodGet, "/api/v1/database/status", "database.status.read", "database", app.databaseStatus},
-		{"api.v1.summary.get", http.MethodGet, "/api/v1/summary", "platform.summary.read", "platform-summary", app.summary},
-		{"api.v1.sources.list", http.MethodGet, "/api/v1/sources", "platform.source.read", "platform-source", app.sourceList},
-		{"api.v1.inventory-drafts.list", http.MethodGet, "/api/v1/inventory-drafts", "inventory.draft.read", "inventory-draft", app.draftList},
-		{"api.v1.inventory-drafts.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", "inventory.draft.read", "inventory-draft", app.draftGet},
-		{"api.v1.inventory-draft-assets.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", "inventory.draft.read", "inventory-draft", app.recordList("asset")},
-		{"api.v1.inventory-draft-assets.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("asset")},
-		{"api.v1.inventory-draft-nodes.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", "inventory.draft.read", "inventory-draft", app.recordList("node")},
-		{"api.v1.inventory-draft-nodes.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("node")},
-		{"api.v1.inventory-draft-aliases.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", "inventory.draft.read", "inventory-draft", app.recordList("alias")},
-		{"api.v1.inventory-draft-aliases.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("alias")},
-		{"api.v1.inventory-draft-observations.list", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", "inventory.draft.read", "inventory-draft", app.recordList("observation")},
-		{"api.v1.inventory-draft-observations.get", http.MethodGet, "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", "inventory.draft.read", "inventory-draft", app.recordGet("observation")},
+		{id: "api.v1.session.create", method: http.MethodPost, pattern: "/api/v1/session", handler: app.sessionCreate},
+		{id: "api.v1.session.renew", method: http.MethodPost, pattern: "/api/v1/session/renew", handler: app.sessionRenew},
+		{id: "api.v1.session.logout", method: http.MethodPost, pattern: "/api/v1/session/logout", handler: app.sessionLogout},
+		{id: "api.v1.database-status.get", method: http.MethodGet, pattern: "/api/v1/database/status", capability: "database.status.read", kind: "database", handler: app.databaseStatus},
+		{id: "api.v1.summary.get", method: http.MethodGet, pattern: "/api/v1/summary", capability: "platform.summary.read", kind: "platform-summary", handler: app.summary},
+		{id: "api.v1.sources.list", method: http.MethodGet, pattern: "/api/v1/sources", capability: "platform.source.read", kind: "platform-source", handler: app.sourceList},
+		{id: "api.v1.inventory-drafts.list", method: http.MethodGet, pattern: "/api/v1/inventory-drafts", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.draftList},
+		{id: "api.v1.inventory-drafts.get", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.draftGet},
+		{id: "api.v1.inventory-draft-assets.list", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordList("asset")},
+		{id: "api.v1.inventory-draft-assets.get", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/assets/{recordId}", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordGet("asset")},
+		{id: "api.v1.inventory-draft-nodes.list", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordList("node")},
+		{id: "api.v1.inventory-draft-nodes.get", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/nodes/{recordId}", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordGet("node")},
+		{id: "api.v1.inventory-draft-aliases.list", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordList("alias")},
+		{id: "api.v1.inventory-draft-aliases.get", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordGet("alias")},
+		{id: "api.v1.inventory-draft-observations.list", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordList("observation")},
+		{id: "api.v1.inventory-draft-observations.get", method: http.MethodGet, pattern: "/api/v1/inventory-drafts/{draftId}/revisions/{revision}/observations/{recordId}", capability: "inventory.draft.read", kind: "inventory-draft", handler: app.recordGet("observation")},
 	}
 }
 
@@ -155,10 +157,20 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if candidate.id == "api.v1.inventory-drafts.import" {
 			resourceID = "inventory-drafts"
 		}
-		scope, err := app.config.Authorizer.AuthorizeRead(request.Context(), principal, authorization.ReadTarget{Capability: candidate.capability, ResourceKind: candidate.kind, ResourceID: resourceID})
-		if err != nil {
-			app.failure(writer, candidate.id, err)
-			return
+		var scope authorization.ReadScope
+		if candidate.action != "" {
+			_, err := app.authorizeAction(request, candidate.action, authorization.Target{Capability: candidate.capability, ResourceKind: candidate.kind, ResourceID: candidate.resourceID})
+			if err != nil {
+				app.failure(writer, candidate.id, err)
+				return
+			}
+		} else {
+			var err error
+			scope, err = app.config.Authorizer.AuthorizeRead(request.Context(), principal, authorization.ReadTarget{Capability: candidate.capability, ResourceKind: candidate.kind, ResourceID: resourceID})
+			if err != nil {
+				app.failure(writer, candidate.id, err)
+				return
+			}
 		}
 		if candidate.method == http.MethodPost && request.Method != candidate.method {
 			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
