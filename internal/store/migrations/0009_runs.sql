@@ -1,3 +1,4 @@
+-- Issue #74: durable plan runs, steps, leases, receipts, and detail retention.
 CREATE TABLE plan_runs (
     run_id TEXT PRIMARY KEY CHECK (length(run_id) BETWEEN 1 AND 128),
     plan_id TEXT NOT NULL,

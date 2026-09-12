@@ -4,7 +4,6 @@ package store
 
 import (
 	"context"
-	_ "embed"
 	"encoding/json"
 	"sync"
 	"testing"
@@ -14,9 +13,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 )
-
-//go:embed pending-migrations/0009_runs.sql
-var pendingRunMigration string
 
 func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
@@ -207,9 +203,6 @@ func openRunRepository(t *testing.T, now time.Time) *RunRepository {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = authority.Close() })
-	if _, err := authority.conn.ExecContext(context.Background(), pendingRunMigration); err != nil {
-		t.Fatal(err)
-	}
 	if _, err := authority.conn.ExecContext(context.Background(), `UPDATE system_meta SET state_revision=1 WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}

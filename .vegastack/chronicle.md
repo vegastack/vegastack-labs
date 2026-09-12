@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — Approved plans now run through durable, interruption-safe steps ([#74](https://github.com/vegastack/vegastack-labs/issues/74))
+
+- **What:** One current authorized immutable plan can create a durable run, execute its ordered typed steps through a narrow adapter boundary, record intent and receipts around every effect, verify the result independently, and report succeeded, failed, partial, interrupted, or cancelled truthfully. Exact retries reuse the original run; conflicting targets are protected by short leases; restart and resume never silently repeat an ambiguous effect.
+- **Why:** Plans and acknowledgements are safe only if the server can carry them through real execution without widening targets, losing progress on disconnect, treating a receipt as proof, or guessing after a crash.
+- **How it went:** Failure injection exercised every durable boundary, cancellation point, lease conflict, verification failure, partial result, and safe resume. Integration waited for Slack acknowledgement migration 0008, then registered run migration 0009 directly after it and wired the same durable proof service into execution. Preliminary review also caught three fail-closed edges: later failures must preserve earlier changes, restart must not ignore lease-release errors, and a failed durable reload must stop before any adapter call.
+- **Changed:** Run/step/lease/receipt persistence and 30/180-day retention · typed provider-neutral adapter registry · state-before/effect/receipt/verification engine · exact submit idempotency · safe cancel/interruption/restart/resume · current plan/policy/acknowledgement/fact prechecks · generated run APIs · audit/outbox/SSE publication · production-inaccessible fake adapter.
+- **Decisions:** none; `vsk-labs server run` remains the only orchestrator, SQLite remains authoritative, no provider adapter or fleet access was added, and ambiguous effects require recovery instead of automatic retry.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.5-durable-plan-runs
+
 ## 13-09-2026 — Slack can carry one exact human plan decision without becoming an authority ([#77](https://github.com/vegastack/vegastack-labs/issues/77))
 
 - **What:** An authorized operator can request a short-lived Slack card for one immutable plan, and the server can accept exactly one matching approve or reject action through a server-owned Socket Mode connection. The resulting provider-neutral proof is durable, terminal, single-use, and rechecked against current plan and human authority immediately before execution.

@@ -169,7 +169,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: runs, Plans: plans, Results: factory, Authorization: effectiveConfig}); err != nil {
+	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
