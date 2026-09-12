@@ -114,7 +114,7 @@ func (repository *memoryRepository) RequestCancellation(_ context.Context, id st
 	return cloneRun(run), nil
 }
 
-func (repository *memoryRepository) AcquireTargetLease(_ context.Context, lease generated.ExecutorLease) error {
+func (repository *memoryRepository) AcquireTargetLease(_ context.Context, lease generated.ExecutorLease, _ audit.Attribution) error {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
 	if _, exists := repository.targets[lease.TargetID]; exists {

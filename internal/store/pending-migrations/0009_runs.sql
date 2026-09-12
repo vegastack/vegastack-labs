@@ -77,7 +77,7 @@ CREATE TABLE execution_receipts (
     result_digest TEXT NOT NULL CHECK (length(result_digest) = 71 AND substr(result_digest, 1, 7) = 'sha256:'),
     canonical_bytes BLOB NOT NULL CHECK (length(canonical_bytes) > 0),
     recorded_at TEXT NOT NULL,
-    FOREIGN KEY (lease_id) REFERENCES target_execution_leases(lease_id) ON DELETE RESTRICT,
+    FOREIGN KEY (lease_id) REFERENCES target_execution_leases(lease_id) ON DELETE CASCADE,
     FOREIGN KEY (run_id) REFERENCES plan_runs(run_id) ON DELETE CASCADE,
     FOREIGN KEY (step_id) REFERENCES plan_run_steps(step_id) ON DELETE CASCADE
 ) STRICT;

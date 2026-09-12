@@ -30,6 +30,9 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: run.RunID, From: "queued", To: "running", At: now.Add(-178 * 24 * time.Hour), Attribution: runAttribution(t)}); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: run.RunID, From: "running", To: "succeeded", At: now.Add(-177 * 24 * time.Hour), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: run.RunID, From: "succeeded", To: "running", At: now, Attribution: runAttribution(t)}); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("illegal transition code = %q", Code(err))
 	}
@@ -46,6 +49,12 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 
 	veryOld := testRun("run-expired", "submit-expired", now.Add(-181*24*time.Hour))
 	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: veryOld, SubmitKeyDigest: digestForText("submit-expired"), RequestDigest: digestForText("request-expired"), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: veryOld.RunID, From: "queued", To: "running", At: now.Add(-181 * 24 * time.Hour), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: veryOld.RunID, From: "running", To: "succeeded", At: now.Add(-181 * 24 * time.Hour), Attribution: runAttribution(t)}); err != nil {
 		t.Fatal(err)
 	}
 	result, err = repository.PruneRunHistory(context.Background(), now)
@@ -75,14 +84,17 @@ func TestRunSubmitLeaseAndReceiptAreDurableIdempotentAndExclusive(t *testing.T) 
 	if _, err := repository.Create(context.Background(), changed); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("changed replay code = %q", Code(err))
 	}
+	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: run.RunID, From: "queued", To: "running", At: now, Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
 
 	lease := testLease(run, run.Steps[0], now)
-	if err := repository.AcquireTargetLease(context.Background(), lease); err != nil {
+	if err := repository.AcquireTargetLease(context.Background(), lease, runAttribution(t)); err != nil {
 		t.Fatal(err)
 	}
 	conflict := lease
 	conflict.LeaseID, conflict.RunID, conflict.StepID = "lease-two", "run-two", "step-two"
-	if err := repository.AcquireTargetLease(context.Background(), conflict); Code(err) != generated.ErrorCodeStateConflict {
+	if err := repository.AcquireTargetLease(context.Background(), conflict, runAttribution(t)); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("conflicting lease code = %q", Code(err))
 	}
 	if _, err := repository.BeginStep(context.Background(), StepBeginRequest{RunID: run.RunID, StepID: run.Steps[0].StepID, LeaseID: lease.LeaseID, At: now, Attribution: runAttribution(t)}); err != nil {

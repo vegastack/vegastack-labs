@@ -19,7 +19,7 @@ type Repository interface {
 	GetRun(context.Context, string) (generated.Run, error)
 	TransitionRun(context.Context, store.RunTransitionRequest) (generated.Run, error)
 	RequestCancellation(context.Context, string, time.Time, audit.Attribution) (generated.Run, error)
-	AcquireTargetLease(context.Context, generated.ExecutorLease) error
+	AcquireTargetLease(context.Context, generated.ExecutorLease, audit.Attribution) error
 	ReleaseTargetLease(context.Context, string, time.Time) error
 	ReleaseRunLeases(context.Context, string, time.Time) error
 	BeginStep(context.Context, store.StepBeginRequest) (generated.Run, error)
@@ -140,6 +140,10 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 }
 
 func (engine *Engine) Resume(ctx context.Context, id string) (generated.Run, error) {
+	return engine.ResumeAs(ctx, id, systemAttribution())
+}
+
+func (engine *Engine) ResumeAs(ctx context.Context, id string, attribution audit.Attribution) (generated.Run, error) {
 	run, err := engine.repository.GetRun(ctx, id)
 	if err != nil {
 		return generated.Run{}, err
@@ -162,10 +166,14 @@ func (engine *Engine) Resume(ctx context.Context, id string) (generated.Run, err
 	if err := engine.admission.VerifyRun(ctx, stored.Plan, run); err != nil {
 		return run, err
 	}
-	return engine.start(ctx, stored.Plan, run, systemAttribution())
+	return engine.start(ctx, stored.Plan, run, attribution)
 }
 
 func (engine *Engine) Cancel(ctx context.Context, id string) (generated.Run, error) {
+	return engine.CancelAs(ctx, id, systemAttribution())
+}
+
+func (engine *Engine) CancelAs(ctx context.Context, id string, attribution audit.Attribution) (generated.Run, error) {
 	run, err := engine.repository.GetRun(ctx, id)
 	if err != nil {
 		return generated.Run{}, err
@@ -173,11 +181,11 @@ func (engine *Engine) Cancel(ctx context.Context, id string) (generated.Run, err
 	now := engine.clock().UTC().Truncate(time.Second)
 	switch run.Status {
 	case "queued":
-		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "queued", To: "cancelled", At: now, Attribution: systemAttribution()})
+		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "queued", To: "cancelled", At: now, Attribution: attribution})
 	case "running":
-		return engine.repository.RequestCancellation(ctx, id, now, systemAttribution())
+		return engine.repository.RequestCancellation(ctx, id, now, attribution)
 	case "interrupted":
-		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "interrupted", To: "cancelled", At: now, Attribution: systemAttribution()})
+		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "interrupted", To: "cancelled", At: now, Attribution: attribution})
 	default:
 		return run, runError(generated.ErrorCodeStateConflict, "run-cancel")
 	}
@@ -279,7 +287,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 		claimed := engine.clock().UTC().Truncate(time.Second)
 		lease := generated.ExecutorLease{Schema: generated.SchemaIDExecutorLease, SchemaVersion: "1.0.0", LeaseID: engine.ids.LeaseID(*live), PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: current.RunID, StepID: live.StepID, OperationID: live.OperationID, ExecutorID: live.ExecutorID, AdapterID: live.AdapterID, TargetID: live.TargetID, ArtifactDigest: live.ArtifactDigest, BindingDigest: current.ExecutorBindingDigest, NonceDigest: engine.ids.NonceDigest(*live), RecoveryEpoch: current.RecoveryEpoch, ClaimedAt: claimed.Format(time.RFC3339), RenewAfter: claimed.Add(time.Duration(generated.ExecutorCheckInSeconds) * time.Second).Format(time.RFC3339), LeaseExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), MaximumExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), Status: "active", Extensions: []generated.ContractExtension{}}
-		if err := engine.repository.AcquireTargetLease(ctx, lease); err != nil {
+		if err := engine.repository.AcquireTargetLease(ctx, lease, attribution); err != nil {
 			return current, err
 		}
 		if err := engine.after(BoundaryLeaseAcquired); err != nil {

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -19,6 +20,8 @@ const (
 	runDetailRetention  = 30 * 24 * time.Hour
 	runSummaryRetention = 180 * 24 * time.Hour
 )
+
+var runTokenPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 
 type RunCreateRequest struct {
 	Run             generated.Run
@@ -212,13 +215,13 @@ func (repository *RunRepository) RequestCancellation(ctx context.Context, runID 
 	})
 }
 
-func (repository *RunRepository) AcquireTargetLease(ctx context.Context, lease generated.ExecutorLease) error {
+func (repository *RunRepository) AcquireTargetLease(ctx context.Context, lease generated.ExecutorLease, attribution audit.Attribution) error {
 	if repository == nil || repository.store == nil || !validLease(lease) {
 		return newStoreError(generated.ErrorCodeInputInvalid, "target-lease", false, nil)
 	}
 	canonical, _ := json.Marshal(lease)
 	requestDigest := digestParts("target-lease", lease.LeaseID, lease.BindingDigest, lease.NonceDigest)
-	event := audit.EventDraft{Type: "run.lease-acquired", CorrelationID: lease.RunID, Attribution: systemRunAttribution(), Target: audit.Target{Kind: "run", ID: lease.RunID}, After: ptrFingerprint(audit.Fingerprint(lease.BindingDigest))}
+	event := audit.EventDraft{Type: "run.lease-acquired", CorrelationID: lease.RunID, Attribution: attribution, Target: audit.Target{Kind: "run", ID: lease.RunID}, After: ptrFingerprint(audit.Fingerprint(lease.BindingDigest))}
 	_, err := repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: audit.IntentKey{Scope: "run-lease", KeyDigest: digestParts("lease-key", lease.LeaseID), RequestDigest: requestDigest}, Event: event}, false, func(ctx context.Context, transaction *sql.Tx) error {
 		run, plan, err := runAndPlanInTx(ctx, transaction, lease.RunID)
 		if err != nil {
@@ -617,7 +620,7 @@ func terminalRunStatus(status string) bool {
 	return status == "succeeded" || status == "failed" || status == "partial" || status == "cancelled"
 }
 func validRunToken(value string) bool {
-	return len(value) > 0 && len(value) <= 128 && value[0] >= 'a' && value[0] <= 'z' && !strings.ContainsAny(value, " /\\\n\r\t")
+	return runTokenPattern.MatchString(value)
 }
 func runFingerprint(run generated.Run) audit.Fingerprint {
 	raw, _ := json.Marshal(run)
@@ -629,6 +632,3 @@ func digestParts(parts ...string) audit.Fingerprint {
 	return audit.Fingerprint("sha256:" + hex.EncodeToString(sum[:]))
 }
 func ptrFingerprint(value audit.Fingerprint) *audit.Fingerprint { return &value }
-func systemRunAttribution() audit.Attribution {
-	return audit.Attribution{AuthenticatedPrincipalID: "system-run-engine", AuthenticatedPrincipalMethod: "local-system"}
-}
