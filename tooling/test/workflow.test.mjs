@@ -62,6 +62,8 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(trustedSteps[1].name, "Prepare protected local test storage");
   assert.match(trustedSteps[1].run, /mktemp -d -p \/var\/tmp vsk\.XXXXXX/);
   assert.match(trustedSteps[1].run, /umask 077/);
+  assert.match(trustedSteps[1].run, /trap cleanup_unexported_temp EXIT/);
+  assert.match(trustedSteps[1].run, /trap - EXIT/);
   assert.match(trustedSteps[1].run, /stat -c '%a:%u'/);
   assert.match(trustedSteps[1].run, /ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/);
   assert.match(trustedSteps[1].run, /GITHUB_ENV/);
@@ -126,6 +128,15 @@ test("the workflow guard keeps pull requests off disposable machines and checks 
   unsafeTemporary.jobs.verify_trusted.steps[1].run = "TMPDIR=/tmp";
   assert.throws(
     () => verifyWorkflowDocument(unsafeTemporary, source),
+    /protected temporary storage/,
+  );
+
+  const unarmedCleanup = parseYaml(source);
+  unarmedCleanup.jobs.verify_trusted.steps[1].run = unarmedCleanup.jobs.verify_trusted.steps[1].run
+    .replace("trap cleanup_unexported_temp EXIT", "true")
+    .replace("trap - EXIT", "true");
+  assert.throws(
+    () => verifyWorkflowDocument(unarmedCleanup, source),
     /protected temporary storage/,
   );
 

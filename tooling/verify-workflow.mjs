@@ -116,6 +116,8 @@ export function verifyWorkflowDocument(workflow, source = "") {
   if (temporary?.name !== "Prepare protected local test storage" ||
       !/TMPDIR="\$\(mktemp -d -p \/var\/tmp vsk\.XXXXXX\)"/.test(temporary.run ?? "") ||
       !/umask 077/.test(temporary.run ?? "") ||
+      !/trap cleanup_unexported_temp EXIT/.test(temporary.run ?? "") ||
+      !/trap - EXIT/.test(temporary.run ?? "") ||
       !/stat -c '%a:%u'/.test(temporary.run ?? "") ||
       !/stat -f -c '%T'/.test(temporary.run ?? "") ||
       !/ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/.test(temporary.run ?? "") ||
