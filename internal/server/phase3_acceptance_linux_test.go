@@ -63,7 +63,7 @@ func newPhase3AcceptanceServer(t *testing.T) *phase3AcceptanceFixture {
 	}))
 	t.Cleanup(keyServer.Close)
 	assertion := signBrowserIntegrationJWT(t, key, keyID, keyServer.URL, clock.Now(), 30*time.Hour)
-	verified := identity.VerifiedIdentity{Issuer: keyServer.URL, Subject: "phase3-operator", Audiences: []string{"phase3-console"}, IssuedAt: clock.Now().Add(-time.Minute), ExpiresAt: clock.Now().Add(30 * time.Hour), Method: identity.CloudflareAccessMethod}
+	verified := identity.VerifiedIdentity{Issuer: keyServer.URL, Subject: "subject-real-browser", Audiences: []string{"aud-console"}, IssuedAt: clock.Now().Add(-time.Minute), ExpiresAt: clock.Now().Add(30 * time.Hour), Method: identity.CloudflareAccessMethod}
 	binding, err := identity.BindingDigest(verified)
 	if err != nil {
 		t.Fatal(err)
@@ -105,7 +105,7 @@ func newPhase3AcceptanceServer(t *testing.T) *phase3AcceptanceFixture {
 	baseURL := "https://" + address
 	factory := result.NewFactory(result.BuildInfo{ToolVersion: "phase3-test", ReleaseBuildID: "phase3-test"}, func() (string, error) { return "request-phase3-acceptance", nil })
 	adapter, err := identity.NewCloudflareAccessAdapter(identity.CloudflareAccessConfig{
-		Issuer: keyServer.URL, Audience: "phase3-console", CertificatesURL: keyServer.URL + "/cdn-cgi/access/certs",
+		Issuer: keyServer.URL, Audience: "aud-console", CertificatesURL: keyServer.URL + "/cdn-cgi/access/certs",
 		ClockSkew: time.Minute, MaxTokenBytes: 16 * 1024, KnownKeyOutageLimit: 24 * time.Hour,
 	}, keyServer.Client(), clock.Now)
 	if err != nil {
