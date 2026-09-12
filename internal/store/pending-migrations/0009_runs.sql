@@ -59,7 +59,7 @@ CREATE TABLE target_execution_leases (
     renew_after TEXT NOT NULL,
     expires_at TEXT NOT NULL,
     maximum_expires_at TEXT NOT NULL,
-    status TEXT NOT NULL CHECK (status IN ('active','released','expired')),
+    status TEXT NOT NULL CHECK (status IN ('active','released','expired','revoked')),
     canonical_bytes BLOB NOT NULL CHECK (length(canonical_bytes) > 0),
     FOREIGN KEY (run_id) REFERENCES plan_runs(run_id) ON DELETE CASCADE,
     FOREIGN KEY (step_id) REFERENCES plan_run_steps(step_id) ON DELETE CASCADE
