@@ -45,6 +45,19 @@
           }
         ],
         "properties": {
+          "audiences": {
+            "items": {
+              "enum": [
+                "browser",
+                "executor",
+                "operator",
+                "server-adapter"
+              ]
+            },
+            "minItems": 1,
+            "type": "array",
+            "uniqueItems": true
+          },
           "availability": {
             "enum": [
               "available",
@@ -66,7 +79,12 @@
             ]
           },
           "ownerPhase": {
-            "const": "2"
+            "enum": [
+              "2",
+              "3",
+              "4"
+            ],
+            "type": "string"
           },
           "path": {
             "pattern": "^/api/v1/",
@@ -92,7 +110,8 @@
           "availability",
           "ownerPhase",
           "dataSchema",
-          "stream"
+          "stream",
+          "audiences"
         ],
         "type": "object"
       },

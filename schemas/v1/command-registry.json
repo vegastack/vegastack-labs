@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.9.0",
+  "schemaVersion": "1.10.0",
   "commands": [
     {
       "path": [
@@ -1347,6 +1347,16 @@
   ],
   "schemas": [
     {
+      "id": "vegastack-labs.dev/acknowledgement",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/acknowledgement.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/acknowledgement-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/acknowledgement-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/api-audit-event-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/api-audit-event-data.schema.json"
@@ -1455,14 +1465,62 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/authorization-decision",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/authorization-decision.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/cloudflare-access-profile",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/cloudflare-access-profile.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/contract-extension",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/database-status-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/database-status-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/declaration-operation",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/declaration-revision",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/declaration-revision.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/declaration-revision-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/declaration-revision-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/execution-receipt",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/execution-receipt.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/execution-receipt-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/execution-receipt-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/executor-claim-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/executor-claim-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/executor-lease",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/executor-lease.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/executor-renew-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/executor-renew-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/inventory-diff-counts",
@@ -1584,6 +1642,29 @@
       "artifactPath": "schemas/v1/outbox-record-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/plan",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/plan.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/plan-binding",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/plan-create-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/plan-create-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/plan-operation",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/plan-reference-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/plan-reference-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/release-asset",
       "version": "1.0.0"
     },
@@ -1620,9 +1701,23 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/run",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/run.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/run-reference-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/run-reference-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/run-result",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/run-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/run-step",
+      "version": "1.0.0"
     },
     {
       "id": "vegastack-labs.dev/server-profile",
@@ -1655,5 +1750,44 @@
       "id": "vegastack-labs.dev/state-export-source",
       "version": "1.0.0"
     }
-  ]
+  ],
+  "lifecycle": {
+    "planValiditySeconds": 1800,
+    "leaseDurationSeconds": 60,
+    "executorCheckInSeconds": 20,
+    "runTransitions": [
+      {
+        "from": "interrupted",
+        "to": "cancelled"
+      },
+      {
+        "from": "interrupted",
+        "to": "running"
+      },
+      {
+        "from": "queued",
+        "to": "cancelled"
+      },
+      {
+        "from": "queued",
+        "to": "running"
+      },
+      {
+        "from": "running",
+        "to": "failed"
+      },
+      {
+        "from": "running",
+        "to": "interrupted"
+      },
+      {
+        "from": "running",
+        "to": "partial"
+      },
+      {
+        "from": "running",
+        "to": "succeeded"
+      }
+    ]
+  }
 }

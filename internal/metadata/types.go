@@ -46,6 +46,27 @@ const (
 	StreamSSE    StreamKind = "sse"
 )
 
+type EndpointAudience string
+
+const (
+	AudienceBrowser       EndpointAudience = "browser"
+	AudienceExecutor      EndpointAudience = "executor"
+	AudienceOperator      EndpointAudience = "operator"
+	AudienceServerAdapter EndpointAudience = "server-adapter"
+)
+
+type TransitionDefinition struct {
+	From string `json:"from"`
+	To   string `json:"to"`
+}
+
+type LifecycleDefinition struct {
+	PlanValiditySeconds    int                    `json:"planValiditySeconds"`
+	LeaseDurationSeconds   int                    `json:"leaseDurationSeconds"`
+	ExecutorCheckInSeconds int                    `json:"executorCheckInSeconds"`
+	RunTransitions         []TransitionDefinition `json:"runTransitions"`
+}
+
 type Registry struct {
 	SchemaVersion string
 	Commands      []CommandDefinition
@@ -53,18 +74,20 @@ type Registry struct {
 	Errors        []ErrorDefinition
 	Exits         []ExitDefinition
 	Schemas       []SchemaDefinition
+	Lifecycle     LifecycleDefinition
 }
 
 type EndpointDefinition struct {
-	ID            string       `json:"id"`
-	Method        string       `json:"method"`
-	Path          string       `json:"path"`
-	Availability  Availability `json:"availability"`
-	OwnerPhase    string       `json:"ownerPhase"`
-	QuerySchema   string       `json:"querySchema,omitempty"`
-	RequestSchema string       `json:"requestSchema,omitempty"`
-	DataSchema    string       `json:"dataSchema"`
-	Stream        StreamKind   `json:"stream"`
+	ID            string             `json:"id"`
+	Method        string             `json:"method"`
+	Path          string             `json:"path"`
+	Availability  Availability       `json:"availability"`
+	OwnerPhase    string             `json:"ownerPhase"`
+	QuerySchema   string             `json:"querySchema,omitempty"`
+	RequestSchema string             `json:"requestSchema,omitempty"`
+	DataSchema    string             `json:"dataSchema"`
+	Stream        StreamKind         `json:"stream"`
+	Audiences     []EndpointAudience `json:"audiences"`
 }
 
 type CommandDefinition struct {

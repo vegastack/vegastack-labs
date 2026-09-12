@@ -70,6 +70,13 @@ const (
 	inventoryDiffDataSchemaID               = "vegastack-labs.dev/inventory-diff-data"
 	inventoryExportRequestSchemaID          = "vegastack-labs.dev/inventory-export-request"
 	inventoryExportDataSchemaID             = "vegastack-labs.dev/inventory-export-data"
+	declarationRevisionSchemaID             = "vegastack-labs.dev/declaration-revision"
+	planSchemaID                            = "vegastack-labs.dev/plan"
+	authorizationDecisionSchemaID           = "vegastack-labs.dev/authorization-decision"
+	acknowledgementSchemaID                 = "vegastack-labs.dev/acknowledgement"
+	runSchemaID                             = "vegastack-labs.dev/run"
+	executorLeaseSchemaID                   = "vegastack-labs.dev/executor-lease"
+	executionReceiptSchemaID                = "vegastack-labs.dev/execution-receipt"
 )
 
 var requiredErrors = []ErrorDefinition{
@@ -197,18 +204,28 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.9.0",
+		SchemaVersion: "1.10.0",
 		Commands:      commands,
-		Endpoints:     readEndpoints(),
+		Endpoints:     append(readEndpoints(), phase4Endpoints()...),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
 		Schemas:       currentSchemas(),
+		Lifecycle: LifecycleDefinition{
+			PlanValiditySeconds:    30 * 60,
+			LeaseDurationSeconds:   60,
+			ExecutorCheckInSeconds: 20,
+			RunTransitions: []TransitionDefinition{
+				{From: "queued", To: "running"}, {From: "queued", To: "cancelled"},
+				{From: "running", To: "succeeded"}, {From: "running", To: "failed"}, {From: "running", To: "partial"}, {From: "running", To: "interrupted"},
+				{From: "interrupted", To: "running"}, {From: "interrupted", To: "cancelled"},
+			},
+		},
 	}
 }
 
 func readEndpoints() []EndpointDefinition {
 	finite := func(id, path, data string) EndpointDefinition {
-		return EndpointDefinition{ID: id, Method: "GET", Path: path, Availability: AvailabilityAvailable, OwnerPhase: "2", DataSchema: data, Stream: StreamFinite}
+		return EndpointDefinition{ID: id, Method: "GET", Path: path, Availability: AvailabilityAvailable, OwnerPhase: "2", DataSchema: data, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser, AudienceOperator}}
 	}
 	list := func(id, path, data string) EndpointDefinition {
 		value := finite(id, path, data)
@@ -220,7 +237,7 @@ func readEndpoints() []EndpointDefinition {
 		finite("api.v1.health.get", "/api/v1/health", serverStatusDataSchemaID),
 		finite("api.v1.database-status.get", "/api/v1/database/status", databaseStatusDataSchemaID),
 		finite("api.v1.summary.get", "/api/v1/summary", apiSummaryDataSchemaID),
-		{ID: "api.v1.sources.list", Method: "GET", Path: "/api/v1/sources", Availability: AvailabilityAvailable, OwnerPhase: "3", QuerySchema: apiSourceListQuerySchemaID, DataSchema: apiSourceListDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.sources.list", Method: "GET", Path: "/api/v1/sources", Availability: AvailabilityAvailable, OwnerPhase: "3", QuerySchema: apiSourceListQuerySchemaID, DataSchema: apiSourceListDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser, AudienceOperator}},
 		list("api.v1.inventory-drafts.list", "/api/v1/inventory-drafts", apiInventoryDraftListDataSchemaID),
 		finite("api.v1.inventory-drafts.get", base, apiInventoryDraftDataSchemaID),
 		list("api.v1.inventory-draft-assets.list", base+"/assets", apiInventoryAssetListDataSchemaID),
@@ -231,13 +248,13 @@ func readEndpoints() []EndpointDefinition {
 		finite("api.v1.inventory-draft-aliases.get", base+"/aliases/{recordId}", apiInventoryAliasDataSchemaID),
 		list("api.v1.inventory-draft-observations.list", base+"/observations", apiInventoryObservationListDataSchemaID),
 		finite("api.v1.inventory-draft-observations.get", base+"/observations/{recordId}", apiInventoryObservationDataSchemaID),
-		{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: AvailabilityAvailable, OwnerPhase: "2", DataSchema: apiAuditEventDataSchemaID, Stream: StreamSSE},
-		{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryImportRequestSchemaID, DataSchema: inventoryImportDataSchemaID, Stream: StreamFinite},
-		{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryDiffRequestSchemaID, DataSchema: inventoryDiffDataSchemaID, Stream: StreamFinite},
-		{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryExportRequestSchemaID, DataSchema: inventoryExportDataSchemaID, Stream: StreamFinite},
-		{ID: "api.v1.session.create", Method: "POST", Path: "/api/v1/session", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite},
-		{ID: "api.v1.session.renew", Method: "POST", Path: "/api/v1/session/renew", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite},
-		{ID: "api.v1.session.logout", Method: "POST", Path: "/api/v1/session/logout", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite},
+		{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: AvailabilityAvailable, OwnerPhase: "2", DataSchema: apiAuditEventDataSchemaID, Stream: StreamSSE, Audiences: []EndpointAudience{AudienceBrowser, AudienceOperator}},
+		{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryImportRequestSchemaID, DataSchema: inventoryImportDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryDiffRequestSchemaID, DataSchema: inventoryDiffDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: AvailabilityAvailable, OwnerPhase: "2", RequestSchema: inventoryExportRequestSchemaID, DataSchema: inventoryExportDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.session.create", Method: "POST", Path: "/api/v1/session", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser}},
+		{ID: "api.v1.session.renew", Method: "POST", Path: "/api/v1/session/renew", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser}},
+		{ID: "api.v1.session.logout", Method: "POST", Path: "/api/v1/session/logout", Availability: AvailabilityAvailable, OwnerPhase: "3", RequestSchema: apiBrowserSessionRequestSchemaID, DataSchema: apiBrowserSessionDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser}},
 	}
 }
 
@@ -609,7 +626,8 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, stateExportSchemas()...)
 	schemas = append(schemas, auditSchemas()...)
 	schemas = append(schemas, readAPISchemas()...)
-	return append(schemas, inventoryOperationSchemas()...)
+	schemas = append(schemas, inventoryOperationSchemas()...)
+	return append(schemas, phase4Schemas()...)
 }
 
 func inventoryOperationSchemas() []SchemaDefinition {

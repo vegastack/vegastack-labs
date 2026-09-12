@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 12-09-2026 — Phase 4 now shares one safe contract before any engine runs ([#66](https://github.com/vegastack/vegastack-labs/issues/66))
+
+- **What:** Declarations, immutable plans, authorization decisions, human acknowledgements, runs, steps, short external-worker leases, and receipts now come from one provider-neutral metadata graph. The same closed names, states, bindings, timing rules, Go types, browser types, schemas, and read-only compatibility rules are generated together.
+- **Why:** Every later Phase 4 engine needs an identical contract that cannot drift between CLI, server, browser, and external executors or silently widen approved work.
+- **How it went:** The implementation stayed inside the existing generator, but completeness review caught loose exact-version handling, a missing plan-to-lease link, shape-only missing-binding proof, and secret-shaped nested additions. Those were fixed and re-tested; a stale plan word was corrected so complete contracts do not falsely claim runnable engines, and the full check caught the generated Console embed that needed refreshing after its browser client changed.
+- **Changed:** Closed declaration/plan/authorization/acknowledgement/run/lease/receipt schemas · exact 30-minute plan and 60/20-second lease timing · generated Go/browser validators · plan→run step→lease→receipt widening denial · safe same-major read compatibility · generated API/CLI reference and drift proof.
+- **Decisions:** none; `plan`, `apply`, and all Phase 4 endpoints remain `planned` until Issues #74, #76, and #78 implement and activate their tested engines.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.1-phase4-contracts
+
 ## 12-09-2026 — Phase 3 is proven and accepted at one exact commit ([#58](https://github.com/vegastack/vegastack-labs/issues/58))
 
 - **What:** The embedded read-only Console, generated browser client, truthful source health, secure sessions, status screens, local recovery, and real-server Chromium boundary now form one accepted Phase 3 result. A strict exit command maps every requirement and child issue to exact evidence and accepts only a clean named commit.

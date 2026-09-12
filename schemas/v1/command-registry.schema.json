@@ -322,6 +322,62 @@
       "const": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
       "type": "string"
     },
+    "lifecycle": {
+      "additionalProperties": false,
+      "properties": {
+        "executorCheckInSeconds": {
+          "const": 20
+        },
+        "leaseDurationSeconds": {
+          "const": 60
+        },
+        "planValiditySeconds": {
+          "const": 1800
+        },
+        "runTransitions": {
+          "items": {
+            "additionalProperties": false,
+            "properties": {
+              "from": {
+                "enum": [
+                  "interrupted",
+                  "queued",
+                  "running"
+                ],
+                "type": "string"
+              },
+              "to": {
+                "enum": [
+                  "cancelled",
+                  "failed",
+                  "interrupted",
+                  "partial",
+                  "queued",
+                  "running",
+                  "succeeded"
+                ],
+                "type": "string"
+              }
+            },
+            "required": [
+              "from",
+              "to"
+            ],
+            "type": "object"
+          },
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "planValiditySeconds",
+        "leaseDurationSeconds",
+        "executorCheckInSeconds",
+        "runTransitions"
+      ],
+      "type": "object"
+    },
     "schema": {
       "const": "vegastack-labs.dev/command-registry",
       "type": "string"
@@ -363,7 +419,8 @@
     "commands",
     "errors",
     "exits",
-    "schemas"
+    "schemas",
+    "lifecycle"
   ],
   "title": "VegaStack Labs command registry",
   "type": "object",

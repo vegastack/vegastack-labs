@@ -11,6 +11,43 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/metadata"
 )
 
+func TestGeneratedPhase4StatesMatchEveryTarget(t *testing.T) {
+	t.Parallel()
+
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := make(map[string]string, len(artifacts))
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = string(artifact.Content)
+	}
+	for _, path := range []string{
+		"internal/generated/contracts_gen.go",
+		"internal/generated/contracts_validate_gen.go",
+		"web/generated/read-api.ts",
+		"docs/generated/cli-reference.md",
+		"docs/generated/api-reference.md",
+	} {
+		content, ok := byPath[path]
+		if !ok {
+			t.Errorf("generated artifact %s is missing", path)
+			continue
+		}
+		for _, value := range []string{"partial", "interrupted", "cancelled", "leaseExpiresAt", "planDigest"} {
+			if !strings.Contains(content, value) {
+				t.Errorf("%s is missing %q", path, value)
+			}
+		}
+	}
+	client := byPath["web/generated/read-api.ts"]
+	for _, method := range []string{"createPlan", "getPlan", "executePlan", "getRun", "cancelRun", "resumeRun"} {
+		if !strings.Contains(client, method) {
+			t.Errorf("browser client is missing %s", method)
+		}
+	}
+}
+
 func TestGenerateIsByteStable(t *testing.T) {
 	t.Parallel()
 
@@ -30,11 +67,16 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"docs/generated/command-registry.md",
 		"docs/generated/endpoint-registry.md",
 		"internal/generated/contracts_gen.go",
+		"internal/generated/contracts_validate_gen.go",
 		"schemas/v1/command-registry.json",
 		"schemas/v1/command-registry.schema.json",
 		"schemas/v1/endpoint-registry.json",
 		"schemas/v1/endpoint-registry.schema.json",
 		"web/generated/read-api.ts",
+		"docs/generated/cli-reference.md",
+		"docs/generated/api-reference.md",
+		"schemas/v1/acknowledgement-request.schema.json",
+		"schemas/v1/acknowledgement.schema.json",
 		"schemas/v1/api-audit-event-data.schema.json",
 		"schemas/v1/api-browser-session-data.schema.json",
 		"schemas/v1/api-browser-session-request.schema.json",
@@ -55,8 +97,16 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/api-source-list-query.schema.json",
 		"schemas/v1/api-summary-data.schema.json",
 		"schemas/v1/audit-event.schema.json",
+		"schemas/v1/authorization-decision.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/database-status-data.schema.json",
+		"schemas/v1/declaration-revision-request.schema.json",
+		"schemas/v1/declaration-revision.schema.json",
+		"schemas/v1/execution-receipt-request.schema.json",
+		"schemas/v1/execution-receipt.schema.json",
+		"schemas/v1/executor-claim-request.schema.json",
+		"schemas/v1/executor-lease.schema.json",
+		"schemas/v1/executor-renew-request.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
 		"schemas/v1/inventory-diff-request.schema.json",
 		"schemas/v1/inventory-draft-export-pointer.schema.json",
@@ -68,11 +118,16 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/inventory-import-data.schema.json",
 		"schemas/v1/inventory-import-request.schema.json",
 		"schemas/v1/outbox-record-data.schema.json",
+		"schemas/v1/plan-create-request.schema.json",
+		"schemas/v1/plan-reference-request.schema.json",
+		"schemas/v1/plan.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
 		"schemas/v1/release-manifest.schema.json",
 		"schemas/v1/release-trust-policy.schema.json",
 		"schemas/v1/release-verify-data.schema.json",
+		"schemas/v1/run-reference-request.schema.json",
 		"schemas/v1/run-result.schema.json",
+		"schemas/v1/run.schema.json",
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
 		"schemas/v1/signed-inventory-draft-export.schema.json",
@@ -210,7 +265,7 @@ func browserTestRegistry(schemas ...metadata.SchemaDefinition) metadata.Registry
 	registry.Schemas = append(registry.Schemas, schemas...)
 	registry.Endpoints = append(registry.Endpoints, metadata.EndpointDefinition{
 		ID: "api.v1.unsafe.get", Method: "GET", Path: "/api/v1/unsafe", Availability: metadata.AvailabilityAvailable,
-		OwnerPhase: "2", DataSchema: "vegastack-labs.dev/unsafe-browser-data", Stream: metadata.StreamFinite,
+		OwnerPhase: "2", DataSchema: "vegastack-labs.dev/unsafe-browser-data", Stream: metadata.StreamFinite, Audiences: []metadata.EndpointAudience{metadata.AudienceBrowser},
 	})
 	return registry
 }
@@ -514,7 +569,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.9.0"`,
+		`= "1.10.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

@@ -91,10 +91,19 @@ func routesAreGeneratedSubset(routes []route) bool {
 
 func routesMatchGenerated(routes []route) bool {
 	implemented := implementedRoutes(routes)
-	if len(implemented) != len(generated.Endpoints) {
+	available := 0
+	for _, endpoint := range generated.Endpoints {
+		if endpoint.Availability == generated.AvailabilityAvailable {
+			available++
+		}
+	}
+	if len(implemented) != available {
 		return false
 	}
 	for _, endpoint := range generated.Endpoints {
+		if endpoint.Availability != generated.AvailabilityAvailable {
+			continue
+		}
 		if implemented[endpoint.ID] != (registeredRoute{endpoint.Method, endpoint.Path}) {
 			return false
 		}

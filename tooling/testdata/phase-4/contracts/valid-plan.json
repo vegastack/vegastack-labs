@@ -1,0 +1,41 @@
+{
+  "schema": "vegastack-labs.dev/plan",
+  "schemaVersion": "1.0.0",
+  "planId": "plan-synthetic-001",
+  "planDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "declarationId": "declaration-synthetic-001",
+  "binding": {
+    "recoveryEpoch": 4,
+    "priorStateRevision": 10,
+    "stateRevision": 11,
+    "declarationRevision": 2,
+    "observationFingerprint": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "targetDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "reasonDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "policyVersion": "1.0.0",
+    "toolVersion": "1.0.0",
+    "contractVersion": "1.0.0"
+  },
+  "operations": [
+    {
+      "sequence": 1,
+      "operationId": "operation-synthetic-001",
+      "operationType": "configuration.update",
+      "adapterId": "adapter-synthetic-001",
+      "executorId": "executor-synthetic-001",
+      "targetId": "target-synthetic-001",
+      "inputDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "artifactDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "idempotent": true
+    }
+  ],
+  "status": "awaiting-acknowledgement",
+  "risk": "routine",
+  "authorizationBranch": "human",
+  "executorMode": "external",
+  "executorId": "executor-synthetic-001",
+  "createdAt": "2026-09-12T17:00:00Z",
+  "expiresAt": "2026-09-12T17:30:00Z",
+  "readableDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "extensions": []
+}
