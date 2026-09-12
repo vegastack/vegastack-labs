@@ -99,8 +99,6 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
-    env:
-      TMPDIR: ${{ runner.temp }}/vsk-labs-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Allow only the disposable Debian hosts
         run: |
@@ -111,12 +109,14 @@ jobs:
 
       - name: Prepare protected local test storage
         run: |
+          TMPDIR="$RUNNER_TEMP/vsk-labs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           install -d -m 700 "$TMPDIR"
           test "$(stat -c '%a' "$TMPDIR")" = 700
           case "$(stat -f -c '%T' "$TMPDIR")" in
             ext2/ext3|xfs|btrfs|f2fs|zfs) ;;
             *) echo "Refusing unsupported test filesystem" >&2; exit 1 ;;
           esac
+          printf 'TMPDIR=%s\n' "$TMPDIR" >> "$GITHUB_ENV"
 
       - name: Check out repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

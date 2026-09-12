@@ -59,10 +59,11 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
-  assert.equal(workflow.jobs.verify_trusted.env.TMPDIR, "${{ runner.temp }}/vsk-labs-${{ github.run_id }}-${{ github.run_attempt }}");
   assert.equal(trustedSteps[1].name, "Prepare protected local test storage");
+  assert.match(trustedSteps[1].run, /RUNNER_TEMP\/vsk-labs-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT/);
   assert.match(trustedSteps[1].run, /install -d -m 700/);
   assert.match(trustedSteps[1].run, /ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/);
+  assert.match(trustedSteps[1].run, /GITHUB_ENV/);
   assert.equal(trustedSteps[2].name, "Check out repository");
   assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
@@ -118,7 +119,7 @@ test("the workflow guard keeps pull requests off disposable machines and checks 
   );
 
   const unsafeTemporary = parseYaml(source);
-  unsafeTemporary.jobs.verify_trusted.env.TMPDIR = "/tmp";
+  unsafeTemporary.jobs.verify_trusted.steps[1].run = "TMPDIR=/tmp";
   assert.throws(
     () => verifyWorkflowDocument(unsafeTemporary, source),
     /protected temporary storage/,
