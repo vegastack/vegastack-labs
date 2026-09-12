@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "authority": "manual-review:go-dependency-provenance",
-  "reviewedOn": "10-09-2026",
+  "reviewedOn": "13-09-2026",
   "modules": [
     {
       "path": "bitbucket.org/creachadair/shell",
@@ -692,6 +692,16 @@
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/coder/websocket",
+      "version": "v1.8.14",
+      "checksum": "h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9g=",
+      "license": "ISC",
+      "source": "https://github.com/coder/websocket",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency used for the bounded Slack Socket Mode WebSocket connection."
     },
     {
       "path": "github.com/common-nighthawk/go-figure",
@@ -3944,5 +3954,5 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     }
   ],
-  "reviewMetadataSha256": "d429492c376c028b2c2d4d8c305f75fef5d9c8a45040015c044880fd9f5a43de"
+  "reviewMetadataSha256": "cacb62f21b7ea40690c5c6850753c159bd5ae3297f67cc86967c104a6607aedb"
 }

@@ -261,7 +261,13 @@ func validContract(schema string, value any) bool {
 	return err == nil && generated.ValidateContractJSON(schema, raw, generated.ContractExact) == nil
 }
 
-func validDigest(value string) bool { return len(value) == 71 && strings.HasPrefix(value, "sha256:") }
+func validDigest(value string) bool {
+	if len(value) != 71 || !strings.HasPrefix(value, "sha256:") {
+		return false
+	}
+	decoded, err := hex.DecodeString(strings.TrimPrefix(value, "sha256:"))
+	return err == nil && len(decoded) == sha256.Size
+}
 
 func secureEqual(left, right string) bool {
 	return len(left) == len(right) && subtle.ConstantTimeCompare([]byte(left), []byte(right)) == 1
