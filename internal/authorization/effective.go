@@ -1,7 +1,6 @@
 package authorization
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"strconv"
@@ -82,10 +81,6 @@ type EffectiveScope struct {
 	ScopeDigest   string
 }
 
-type EffectivePolicyRepository interface {
-	Snapshot(context.Context, string, Target) (EffectivePolicySnapshot, error)
-}
-
 func ValidAction(action Action) bool {
 	switch action {
 	case ActionRead, ActionAuthor, ActionAcknowledge, ActionExecute:
@@ -106,6 +101,8 @@ func ValidRole(role Role) bool {
 
 func ValidBranch(branch Branch) bool { return branch == BranchHuman || branch == BranchPreauthorized }
 
+func ValidIdentifier(value string) bool { return tokenPattern.MatchString(value) }
+
 func ValidAuthorizationTarget(target Target) bool {
 	return tokenPattern.MatchString(target.Capability) && tokenPattern.MatchString(target.ResourceKind) && tokenPattern.MatchString(target.ResourceID)
 }
@@ -119,4 +116,23 @@ func scopeFingerprint(snapshot EffectivePolicySnapshot, grant EffectiveGrant, ta
 	}
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func BindEffectiveScope(snapshot EffectivePolicySnapshot, grant EffectiveGrant, target Target) (EffectiveScope, bool) {
+	if snapshot.Status != EffectiveActive || snapshot.GrantRevision <= 0 || snapshot.StateRevision < 0 || snapshot.RecoveryEpoch < 0 ||
+		!ValidIdentifier(snapshot.PrincipalID) || !identity.ValidPrincipalKind(snapshot.PrincipalKind) || !ValidRole(grant.Role) || !ValidAction(grant.Action) ||
+		!ValidAuthorizationTarget(target) || grant.Capability != target.Capability || grant.ResourceKind != target.ResourceKind || grant.ResourceID != target.ResourceID {
+		return EffectiveScope{}, false
+	}
+	if (grant.Action == ActionRead || grant.Action == ActionAuthor) && grant.Branch != "" {
+		return EffectiveScope{}, false
+	}
+	if (grant.Action == ActionAcknowledge || grant.Action == ActionExecute) && !ValidBranch(grant.Branch) {
+		return EffectiveScope{}, false
+	}
+	return EffectiveScope{
+		PrincipalID: snapshot.PrincipalID, Action: grant.Action, Capability: target.Capability, ResourceKind: target.ResourceKind,
+		ResourceID: target.ResourceID, Role: grant.Role, GrantRevision: snapshot.GrantRevision, StateRevision: snapshot.StateRevision,
+		RecoveryEpoch: snapshot.RecoveryEpoch, ScopeDigest: scopeFingerprint(snapshot, grant, target),
+	}, true
 }

@@ -154,7 +154,7 @@ func (evaluator *Evaluator) Authorize(ctx context.Context, principal identity.Pr
 	}
 	decision.Allowed = true
 	decision.ReasonCode = ReasonAllowed
-	decision.Scope = EffectiveScope{PrincipalID: principal.ID, Action: request.Action, Capability: request.Target.Capability, ResourceKind: request.Target.ResourceKind, ResourceID: request.Target.ResourceID, Role: grant.Role, GrantRevision: snapshot.GrantRevision, StateRevision: snapshot.StateRevision, RecoveryEpoch: snapshot.RecoveryEpoch, ScopeDigest: scopeFingerprint(snapshot, grant, request.Target)}
+	decision.Scope, _ = BindEffectiveScope(snapshot, grant, request.Target)
 	return decision, nil
 }
 
