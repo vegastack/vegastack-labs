@@ -256,6 +256,7 @@ func (engine *Engine) Reconcile(ctx context.Context) error {
 			continue
 		}
 		ambiguous := false
+		failed := false
 		allSucceeded := len(run.Steps) > 0
 		for _, step := range run.Steps {
 			if step.Status != "succeeded" || step.EffectState != "verified" {
@@ -263,6 +264,8 @@ func (engine *Engine) Reconcile(ctx context.Context) error {
 			}
 			if step.Status == "partial" || step.EffectState == "effect-unknown" {
 				ambiguous = true
+			} else if step.Status == "failed" {
+				failed = true
 			} else if step.Status == "running" && (step.EffectState == "intent-recorded" || step.EffectState == "receipt-recorded") {
 				_, markErr := engine.repository.MarkStepUnknown(ctx, run.RunID, step.StepID, now, systemAttribution())
 				if markErr != nil {
@@ -274,6 +277,8 @@ func (engine *Engine) Reconcile(ctx context.Context) error {
 		if ambiguous {
 			changed := true
 			_, err = engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: run.RunID, From: "running", To: "partial", At: now, VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: systemAttribution()})
+		} else if failed {
+			_, err = engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: run.RunID, From: "running", To: "failed", At: now, VerificationStatus: "failed", Attribution: systemAttribution()})
 		} else if allSucceeded {
 			verification := digest("run-verified", run.RunID)
 			_, err = engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: run.RunID, From: "running", To: "succeeded", At: now, VerificationStatus: "verified", VerificationDigest: &verification, Attribution: systemAttribution()})

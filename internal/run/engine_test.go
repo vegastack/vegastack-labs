@@ -58,6 +58,26 @@ func TestQueuedRunAfterCreateCrashContinuesOnExactRetry(t *testing.T) {
 	}
 }
 
+func TestRestartAfterVerifiedFailurePreservesFailedOutcome(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.adapter.status = "failed"
+	fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+		if boundary == BoundaryVerified {
+			return errors.New("injected crash")
+		}
+		return nil
+	}
+	_, _ = fixture.engine.Submit(context.Background(), fixture.request)
+	restarted := fixture.restart(t)
+	if err := restarted.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	failed, err := restarted.Get(context.Background(), fixture.runID)
+	if err != nil || failed.Status != "failed" || fixture.adapter.calls != 1 {
+		t.Fatalf("reconciled failure = %#v calls=%d err=%v", failed, fixture.adapter.calls, err)
+	}
+}
+
 func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	fixture := newEngineFixture(t)
 	run, err := fixture.engine.Submit(context.Background(), fixture.request)
@@ -289,6 +309,7 @@ type fakeAdapter struct {
 	changed       bool
 	beforeExecute func()
 	executeErr    error
+	status        string
 }
 
 func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operation) (adapter.Effect, error) {
@@ -302,7 +323,11 @@ func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operat
 		return adapter.Effect{Status: "failed", ResultDigest: digest("cancelled-result"), EffectObserved: false}, err
 	}
 	adapterFixture.calls++
-	return adapter.Effect{Status: "succeeded", ResultDigest: digest("result"), Changed: adapterFixture.changed, EffectObserved: true}, nil
+	status := adapterFixture.status
+	if status == "" {
+		status = "succeeded"
+	}
+	return adapter.Effect{Status: status, ResultDigest: digest("result"), Changed: adapterFixture.changed, EffectObserved: true}, nil
 }
 func (adapterFixture *fakeAdapter) Verify(context.Context, adapter.Operation, adapter.Effect) (adapter.Verification, error) {
 	return adapter.Verification{Verified: adapterFixture.verify, Digest: digest("verification")}, nil
