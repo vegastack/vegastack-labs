@@ -46,7 +46,9 @@ func (app *Application) operationRunSuccess(writer http.ResponseWriter, operatio
 // outcome. Exact retries must report the same terminal meaning, identity and
 // revision even though no adapter is invoked on the replay.
 func (app *Application) executeRunResult(writer http.ResponseWriter, operation, requestID string, run generated.Run, cause error) {
-	if run.Status == generated.RunStatusSucceeded && cause == nil {
+	// Durable terminal state is authoritative even when the submit call reports
+	// an injected/transient error after the completed transition committed.
+	if run.Status == generated.RunStatusSucceeded {
 		app.operationRunSuccess(writer, operation, requestID, run)
 		return
 	}

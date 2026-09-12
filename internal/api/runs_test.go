@@ -165,6 +165,36 @@ func TestRunExecuteFailureAndExactReplayReturnSameDurableResult(t *testing.T) {
 	}
 }
 
+func TestRunExecuteSucceededAfterCommitErrorAndReplayStaySuccessful(t *testing.T) {
+	plan := apiRunPlan()
+	durable := apiRunResult(plan)
+	runs := &runAPIStub{plan: plan, run: durable, submitErr: runengineError{code: generated.ErrorCodeIntegrityFailure}}
+	app := newRunTestApplication(t, runs)
+	input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "succeeded-after-commit-error", Extensions: []generated.ContractExtension{}}
+	body, _ := json.Marshal(input)
+
+	for attempt := range 2 {
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+		response := httptest.NewRecorder()
+		app.ServeHTTP(response, request)
+		if response.Code != http.StatusOK {
+			t.Fatalf("attempt %d response=%d body=%s", attempt, response.Code, response.Body.String())
+		}
+		var envelope generated.RunResult
+		if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+			t.Fatal(err)
+		}
+		if envelope.Status != generated.RunStatusSucceeded || len(envelope.Errors) != 0 || envelope.RunID == nil || *envelope.RunID != durable.RunID {
+			t.Fatalf("attempt %d envelope=%#v", attempt, envelope)
+		}
+	}
+	if runs.submitCalls != 1 {
+		t.Fatalf("submit calls = %d", runs.submitCalls)
+	}
+}
+
 func TestRunGetAuthorizesExactRunIDBeforeReading(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
