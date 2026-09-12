@@ -1,0 +1,128 @@
+[
+  {
+    "name": "documentation only",
+    "changes": [{ "status": "M", "path": "docs/README.md" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always"],
+    "changedPaths": ["docs/README.md"]
+  },
+  {
+    "name": "test policy documentation",
+    "changes": [{ "status": "M", "path": "docs/development/operating-mandate.md" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always", "tooling"],
+    "changedPaths": ["docs/development/operating-mandate.md"]
+  },
+  {
+    "name": "ordinary Go source",
+    "changes": [{ "status": "M", "path": "internal/store/store.go" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always", "go"],
+    "changedPaths": ["internal/store/store.go"]
+  },
+  {
+    "name": "tooling only",
+    "changes": [{ "status": "M", "path": "tooling/test/process.test.mjs" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always", "tooling"],
+    "changedPaths": ["tooling/test/process.test.mjs"]
+  },
+  {
+    "name": "web unit test without browser impact",
+    "changes": [{ "status": "M", "path": "web/test/query-provider.test.mjs" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always", "tooling", "web"],
+    "changedPaths": ["web/test/query-provider.test.mjs"]
+  },
+  {
+    "name": "Console component",
+    "changes": [{ "status": "M", "path": "web/components/console-shell.tsx" }],
+    "mode": "affected",
+    "browser": true,
+    "failClosed": false,
+    "groups": ["always", "tooling", "web", "browser"],
+    "changedPaths": ["web/components/console-shell.tsx"]
+  },
+  {
+    "name": "browser session server code",
+    "changes": [{ "status": "M", "path": "internal/server/browser_auth.go" }],
+    "mode": "affected",
+    "browser": true,
+    "failClosed": false,
+    "groups": ["always", "go", "tooling", "web", "browser"],
+    "changedPaths": ["internal/server/browser_auth.go"]
+  },
+  {
+    "name": "schema and generated browser contract",
+    "changes": [{ "status": "M", "path": "schemas/v1/api-summary-data.schema.json" }],
+    "mode": "affected",
+    "browser": true,
+    "failClosed": false,
+    "groups": ["always", "go", "tooling", "web", "browser"],
+    "changedPaths": ["schemas/v1/api-summary-data.schema.json"]
+  },
+  {
+    "name": "phase fixture",
+    "changes": [{ "status": "M", "path": "tooling/testdata/phase-2/expected-scenarios.json" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always", "phase", "tooling"],
+    "changedPaths": ["tooling/testdata/phase-2/expected-scenarios.json"]
+  },
+  {
+    "name": "selector deletion fails closed",
+    "changes": [{ "status": "D", "path": "tooling/check-affected.mjs" }],
+    "mode": "full",
+    "browser": true,
+    "failClosed": true,
+    "groups": ["always", "phase", "go", "tooling", "web", "browser"],
+    "changedPaths": ["tooling/check-affected.mjs"]
+  },
+  {
+    "name": "dependency change fails closed",
+    "changes": [{ "status": "M", "path": "pnpm-lock.yaml" }],
+    "mode": "full",
+    "browser": true,
+    "failClosed": true,
+    "groups": ["always", "phase", "go", "tooling", "web", "browser"],
+    "changedPaths": ["pnpm-lock.yaml"]
+  },
+  {
+    "name": "workflow change fails closed",
+    "changes": [{ "status": "M", "path": ".github/workflows/ci.yml" }],
+    "mode": "full",
+    "browser": true,
+    "failClosed": true,
+    "groups": ["always", "phase", "go", "tooling", "web", "browser"],
+    "changedPaths": [".github/workflows/ci.yml"]
+  },
+  {
+    "name": "rename evaluates old and new paths",
+    "changes": [{ "status": "R100", "path": "docs/old.md", "previousPath": "internal/api/session.go" }],
+    "mode": "affected",
+    "browser": true,
+    "failClosed": false,
+    "groups": ["always", "go", "tooling", "web", "browser"],
+    "changedPaths": ["docs/old.md", "internal/api/session.go"]
+  },
+  {
+    "name": "unknown root fails closed",
+    "changes": [{ "status": "A", "path": "new-system/config.data" }],
+    "mode": "full",
+    "browser": true,
+    "failClosed": true,
+    "groups": ["always", "phase", "go", "tooling", "web", "browser"],
+    "changedPaths": ["new-system/config.data"]
+  }
+]

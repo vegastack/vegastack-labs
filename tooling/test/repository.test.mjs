@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -85,6 +85,15 @@ test("environment filename classification distinguishes redacted examples", () =
   assert.equal(isSecretEnvironmentFile("web/.env.local"), true);
   assert.equal(isSecretEnvironmentFile("web/.env"), true);
   assert.equal(isSecretEnvironmentFile("web/.env.example"), false);
+});
+
+test("the repository exposes complete and affected check commands", async () => {
+  const packageJson = JSON.parse(
+    await readFile(new URL("../../package.json", import.meta.url), "utf8"),
+  );
+  assert.equal(packageJson.scripts.check, "node tooling/check.mjs");
+  assert.equal(packageJson.scripts["check:affected"], "node tooling/check-affected.mjs");
+  assert.match(packageJson.scripts["check:affected:plan"], /--dry-run --format github/);
 });
 
 test("ignored local credentials pass while the same tracked file fails", async () => {

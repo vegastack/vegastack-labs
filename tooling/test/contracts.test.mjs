@@ -17,10 +17,10 @@ test("the public lane checks generated contracts without writing them", async ()
     "go run ./tooling/generate-contracts --check",
   );
 
-  const check = await readFile(path.join(ROOT, "tooling/check.mjs"), "utf8");
+  const check = await readFile(path.join(ROOT, "tooling/lib/check-plan.mjs"), "utf8");
   assert.match(
     check,
-    /stage\("generated contracts", "go", \["run", "\.\/tooling\/generate-contracts", "--check"\]\)/,
+    /commandStep\("generated contracts", "go", "go", \["run", "\.\/tooling\/generate-contracts", "--check"\]\)/,
   );
   assert.doesNotMatch(check, /generate-contracts", "--write"/);
 });

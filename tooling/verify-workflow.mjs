@@ -21,55 +21,107 @@ export function verifyWorkflowDocument(workflow, source = "") {
       throw new Error(`workflow is missing ${trigger} trigger`);
     }
   }
-  if (!workflow.on.push?.branches?.includes("main")) {
+  if (Object.keys(workflow.on ?? {}).sort().join(",") !== "pull_request,push,workflow_dispatch") {
+    throw new Error("unsupported workflow trigger");
+  }
+  if (JSON.stringify(workflow.on.push?.branches) !== JSON.stringify(["main"])) {
     throw new Error("workflow push trigger must be limited to main");
   }
   if (/\$\{\{\s*secrets\./.test(source)) {
     throw new Error("public workflow must not reference secrets");
   }
 
-  const jobs = Object.values(workflow.jobs ?? {});
-  if (jobs.length !== 1) {
-    throw new Error("public workflow must contain exactly one job");
+  const jobs = workflow.jobs ?? {};
+  if (Object.keys(jobs).sort().join(",") !== "plan,verify_pr,verify_trusted") {
+    throw new Error("public workflow must contain only plan, hosted PR, and trusted disposable jobs");
   }
-  const [job] = jobs;
-  if (job["runs-on"] !== "ubuntu-24.04") {
-    throw new Error("public workflow must pin ubuntu-24.04");
-  }
-  if (!Number.isInteger(job["timeout-minutes"]) || job["timeout-minutes"] > 15) {
-    throw new Error("public workflow must have a timeout of at most 15 minutes");
+  const expectedJobs = {
+    plan: { runner: "ubuntu-24.04", timeout: 5, actions: ["actions/checkout", "actions/setup-node"] },
+    verify_pr: { runner: "ubuntu-24.04", timeout: 15, actions: [...ACTIONS.keys()] },
+    verify_trusted: { runner: ["self-hosted", "linux", "x64"], timeout: 15, actions: [...ACTIONS.keys()] },
+  };
+  let actionCount = 0;
+  for (const [jobName, expected] of Object.entries(expectedJobs)) {
+    const job = jobs[jobName];
+    if (JSON.stringify(job["runs-on"]) !== JSON.stringify(expected.runner)) {
+      throw new Error(`${jobName} job must use ${JSON.stringify(expected.runner)}`);
+    }
+    if (!Number.isInteger(job["timeout-minutes"]) || job["timeout-minutes"] > expected.timeout) {
+      throw new Error(`${jobName} job timeout must be at most ${expected.timeout} minutes`);
+    }
+    const seen = new Set();
+    for (const step of job.steps ?? []) {
+      if (!step.uses) continue;
+      const match = step.uses.match(/^([^@]+)@([0-9a-f]{40})$/);
+      if (!match) throw new Error(`action is not pinned by full commit: ${step.uses}`);
+      const [, action, commit] = match;
+      if (ACTIONS.get(action) !== commit) {
+        throw new Error(`action is not in the approved immutable set: ${action}`);
+      }
+      if (seen.has(action)) throw new Error(`action appears more than once in ${jobName}: ${action}`);
+      seen.add(action);
+      actionCount++;
+      if (action === "actions/checkout" && step.with?.["persist-credentials"] !== false) {
+        throw new Error("checkout must disable persisted credentials");
+      }
+      if (action === "actions/checkout" && step.with?.["fetch-depth"] !== 0) {
+        throw new Error("checkout must retain complete commit history for ancestry evidence");
+      }
+    }
+    if ([...expected.actions].sort().join(",") !== [...seen].sort().join(",")) {
+      throw new Error(`${jobName} job does not use its exact approved Action set`);
+    }
   }
 
-  const seen = new Set();
-  for (const step of job.steps ?? []) {
-    if (!step.uses) {
-      continue;
+  if (jobs.verify_pr.name !== "Public foundation checks" ||
+      jobs.verify_trusted.name !== "Public foundation checks") {
+    throw new Error("both execution paths must retain the Public foundation checks name");
+  }
+  const planSteps = jobs.plan.steps ?? [];
+  const plan = planSteps.find((step) => step.id === "check-plan");
+  if (!plan || !/node tooling\/check-affected\.mjs[\s\S]*--format github/.test(plan.run ?? "") ||
+      !/github\.event\.pull_request\.base\.sha/.test(plan.env?.BASE_SHA ?? "") ||
+      !/github\.event\.before/.test(plan.env?.BASE_SHA ?? "") ||
+      !/github\.event\.pull_request\.head\.sha/.test(plan.env?.HEAD_SHA ?? "")) {
+    throw new Error("workflow must calculate an affected check plan from explicit event base/head SHAs");
+  }
+  if (jobs.verify_pr.needs !== "plan" || jobs.verify_pr.if !== "github.event_name == 'pull_request'") {
+    throw new Error("hosted checks must run only for pull requests");
+  }
+  if (jobs.verify_trusted.needs !== "plan" ||
+      jobs.verify_trusted.if !== "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')") {
+    throw new Error("self-hosted checks must exclude pull requests");
+  }
+  for (const jobName of ["verify_pr", "verify_trusted"]) {
+    const steps = jobs[jobName].steps ?? [];
+    const chromium = steps.find((step) => step.name === "Install pinned Chromium");
+    const affected = steps.find((step) => step.name === "Run affected public checks");
+    if (chromium?.if !== "needs.plan.outputs.browser == 'true'") {
+      throw new Error("workflow must install Chromium only when the affected plan selects browser checks");
     }
-    const match = step.uses.match(/^([^@]+)@([0-9a-f]{40})$/);
-    if (!match) {
-      throw new Error(`action is not pinned by full commit: ${step.uses}`);
-    }
-    const [, action, commit] = match;
-    if (ACTIONS.get(action) !== commit) {
-      throw new Error(`action is not in the approved immutable set: ${action}`);
-    }
-    if (seen.has(action)) {
-      throw new Error(`action appears more than once: ${action}`);
-    }
-    seen.add(action);
-
-    if (action === "actions/checkout" && step.with?.["persist-credentials"] !== false) {
-      throw new Error("checkout must disable persisted credentials");
-    }
-    if (action === "actions/checkout" && step.with?.["fetch-depth"] !== 0) {
-      throw new Error("checkout must retain complete commit history for ancestry evidence");
+    if (!affected || !/^pnpm check:affected --execute-plan$/.test(affected.run ?? "") ||
+        affected.env?.VSK_CHECK_PLAN_B64 !== "${{ needs.plan.outputs.check_plan }}" ||
+        Object.keys(affected.env ?? {}).length !== 1) {
+      throw new Error("workflow must execute the exact affected check plan");
     }
   }
-  if (seen.size !== ACTIONS.size) {
-    throw new Error("workflow does not use the complete approved Action set");
+  const trustedSteps = jobs.verify_trusted.steps ?? [];
+  const guard = trustedSteps[0];
+  const checkoutIndex = trustedSteps.findIndex((step) => step.uses?.startsWith("actions/checkout@"));
+  if (!guard?.run || !/hostname/.test(guard.run) || !/vsk-node-01\|vsk-node-06/.test(guard.run) ||
+      checkoutIndex !== 1) {
+    throw new Error("self-hosted checks must verify the allowed hostname before repository checkout");
+  }
+  for (const output of ["base_sha", "browser", "check_plan", "fail_closed", "head_sha", "mode"]) {
+    if (jobs.plan.outputs?.[output] !== `\${{ steps.check-plan.outputs.${output} }}`) {
+      throw new Error(`planning job must expose ${output}`);
+    }
+  }
+  if (/run:\s*pnpm check\s*$/m.test(source)) {
+    throw new Error("workflow must not repeat the complete local check lane");
   }
 
-  return { actions: seen.size, jobs: jobs.length };
+  return { actions: actionCount, jobs: Object.keys(jobs).length };
 }
 
 export async function verifyWorkflow(workflowPath = WORKFLOW) {
