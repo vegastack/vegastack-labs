@@ -10,9 +10,16 @@ import { runCommand } from "./lib/process.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const EXPECTED_TOP_LEVEL_KEYS = [
-  "artifacts", "children", "commands", "limitations", "phase", "proofs",
+  "acceptance", "artifacts", "children", "commands", "limitations", "phase", "proofs",
   "requirements", "schema", "status", "version",
 ];
+const EXPECTED_ACCEPTANCE = Object.freeze({
+  operator: "omkarmohanta09",
+  acceptedOn: "12-09-2026",
+  sourceCommit: "a0a07a425d6396703d8bec438634d9ec2c2ae980",
+  evidenceDigest: "sha256:b051c6f0a81498c09a159c14e16999b7cc3b02cd9ed758376684d31022587f1f",
+  run: "https://github.com/vegastack/vegastack-labs/actions/runs/34703617111",
+});
 const EXPECTED_CHILDREN = Object.freeze([
   Object.freeze({ issue: 50, phaseIssue: "3.1", pr: 59, mergeCommit: "8bc4e69eace0762eedacababcfaa4c16cdd515bf", evidence: "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-5623084179", review: "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-5623083205" }),
   Object.freeze({ issue: 51, phaseIssue: "3.2", pr: 60, mergeCommit: "64225ae60bd93e22fa1284643cc7894557627e20", evidence: "https://github.com/vegastack/vegastack-labs/issues/51#issuecomment-5617148376", review: "https://github.com/vegastack/vegastack-labs/issues/51#issuecomment-5630668657" }),
@@ -131,7 +138,9 @@ export function validatePhase3EvidenceDefinition(definition, { root = ROOT, read
     if (!exactKeys(definition, EXPECTED_TOP_LEVEL_KEYS) ||
         definition.schema !== "vegastack-labs.dev/phase-evidence-definition" ||
         definition.version !== "1.0.0" || definition.phase !== 3 ||
-        definition.status !== "implemented-awaiting-operator-acceptance") {
+        definition.status !== "accepted" || !exactKeys(definition.acceptance, [
+          "acceptedOn", "evidenceDigest", "operator", "run", "sourceCommit",
+        ]) || !same(definition.acceptance, EXPECTED_ACCEPTANCE)) {
       fail("PHASE3_EXIT_DEFINITION");
     }
 

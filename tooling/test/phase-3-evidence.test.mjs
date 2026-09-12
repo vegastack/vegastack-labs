@@ -7,6 +7,7 @@ const ROOT = path.resolve(import.meta.dirname, "../..");
 const DEFINITION_PATH = path.join(ROOT, "tooling/phase-3-evidence.json");
 
 const TOP_LEVEL_KEYS = [
+  "acceptance",
   "artifacts",
   "children",
   "commands",
@@ -29,7 +30,7 @@ const REQUIREMENT_IDS = [
   "shared.privacy-local-recovery",
 ];
 
-const RUNTIME_ONLY_KEYS = new Set([
+const RUNTIME_ONLY_TOP_LEVEL_KEYS = new Set([
   "artifactDigests",
   "cleanTree",
   "evidenceDigest",
@@ -40,18 +41,6 @@ export async function loadDefinition(root = ROOT) {
   return JSON.parse(await readFile(path.join(root, "tooling/phase-3-evidence.json"), "utf8"));
 }
 
-function collectKeys(value, found = []) {
-  if (Array.isArray(value)) {
-    for (const item of value) collectKeys(item, found);
-  } else if (value && typeof value === "object") {
-    for (const [key, item] of Object.entries(value)) {
-      found.push(key);
-      collectKeys(item, found);
-    }
-  }
-  return found;
-}
-
 test("Phase 3 evidence definition has a closed static envelope", async () => {
   const definition = await loadDefinition();
 
@@ -59,9 +48,16 @@ test("Phase 3 evidence definition has a closed static envelope", async () => {
   assert.equal(definition.schema, "vegastack-labs.dev/phase-evidence-definition");
   assert.equal(definition.version, "1.0.0");
   assert.equal(definition.phase, 3);
-  assert.equal(definition.status, "implemented-awaiting-operator-acceptance");
+  assert.equal(definition.status, "accepted");
+  assert.deepEqual(definition.acceptance, {
+    operator: "omkarmohanta09",
+    acceptedOn: "12-09-2026",
+    sourceCommit: "a0a07a425d6396703d8bec438634d9ec2c2ae980",
+    evidenceDigest: "sha256:b051c6f0a81498c09a159c14e16999b7cc3b02cd9ed758376684d31022587f1f",
+    run: "https://github.com/vegastack/vegastack-labs/actions/runs/34703617111",
+  });
 
-  const forbidden = collectKeys(definition).filter((key) => RUNTIME_ONLY_KEYS.has(key));
+  const forbidden = Object.keys(definition).filter((key) => RUNTIME_ONLY_TOP_LEVEL_KEYS.has(key));
   assert.deepEqual(forbidden, [], "runtime facts must be generated for the commit being tested");
 });
 
@@ -140,4 +136,19 @@ test("proofs, commands, artifacts, and limitations stay reproducible and truthfu
     assert.equal(limitation.status, "not-exercised");
     assert.ok(limitation.statement.length > 20);
   }
+});
+
+test("development records bind accepted Phase 3 to its exact main proof", async () => {
+  const [phase, overview, roadmap, chronicle] = await Promise.all([
+    readFile(path.join(ROOT, "docs/development/phases/03-secure-read-console-and-operator-access.md"), "utf8"),
+    readFile(path.join(ROOT, "docs/development/README.md"), "utf8"),
+    readFile(path.join(ROOT, "docs/development/roadmap.md"), "utf8"),
+    readFile(path.join(ROOT, ".vegastack/chronicle.md"), "utf8"),
+  ]);
+  for (const document of [phase, overview, roadmap, chronicle]) {
+    assert.match(document, /Phase 3.*accepted/is);
+    assert.match(document, /a0a07a425d6396703d8bec438634d9ec2c2ae980/);
+  }
+  assert.match(phase, /34703617111/);
+  assert.match(phase, /sha256:b051c6f0a81498c09a159c14e16999b7cc3b02cd9ed758376684d31022587f1f/);
 });

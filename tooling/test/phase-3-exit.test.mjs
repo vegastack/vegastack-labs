@@ -92,6 +92,8 @@ test("Phase 3 definition rejects runtime fields and incomplete proof", async () 
 
   for (const mutate of [
     (copy) => { copy.sourceCommit = SHA_A; },
+    (copy) => { copy.acceptance.sourceCommit = SHA_A; },
+    (copy) => { copy.acceptance.evidenceDigest = `sha256:${"a".repeat(64)}`; },
     (copy) => { copy.requirements[0].proofIds = []; },
     (copy) => { copy.proofs[0].expectedStatus = "skipped"; },
     (copy) => { copy.proofs[0].quarantined = true; },
@@ -225,7 +227,14 @@ function validDefinition() {
     schema: "vegastack-labs.dev/phase-evidence-definition",
     version: "1.0.0",
     phase: 3,
-    status: "implemented-awaiting-operator-acceptance",
+    status: "accepted",
+    acceptance: {
+      operator: "omkarmohanta09",
+      acceptedOn: "12-09-2026",
+      sourceCommit: "a0a07a425d6396703d8bec438634d9ec2c2ae980",
+      evidenceDigest: "sha256:b051c6f0a81498c09a159c14e16999b7cc3b02cd9ed758376684d31022587f1f",
+      run: "https://github.com/vegastack/vegastack-labs/actions/runs/34703617111",
+    },
     children: structuredClone(PHASE3_CHILDREN),
     requirements: requirementIds.map((id, index) => ({
       id,
