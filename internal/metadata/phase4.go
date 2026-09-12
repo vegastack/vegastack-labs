@@ -25,6 +25,7 @@ func phase4Endpoints() []EndpointDefinition {
 		phase4Endpoint("api.v1.plans.create", "POST", "/api/v1/declarations/{declarationId}/plans", planCreateRequestSchemaID, planSchemaID),
 		phase4Endpoint("api.v1.plans.get", "GET", "/api/v1/plans/{planId}", "", planSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.create", "POST", "/api/v1/plans/{planId}/acknowledgements", acknowledgementRequestSchemaID, acknowledgementSchemaID),
+		phase4Endpoint("api.v1.plans.acknowledgements.get", "GET", "/api/v1/plans/{planId}/acknowledgements", "", acknowledgementSchemaID),
 		phase4Endpoint("api.v1.plans.execute", "POST", "/api/v1/plans/{planId}/execute", planReferenceRequestSchemaID, runSchemaID),
 		phase4Endpoint("api.v1.runs.get", "GET", "/api/v1/runs/{runId}", "", runSchemaID),
 		phase4Endpoint("api.v1.runs.cancel", "POST", "/api/v1/runs/{runId}/cancel", runReferenceRequestSchemaID, runSchemaID),
@@ -37,12 +38,12 @@ func phase4Endpoints() []EndpointDefinition {
 
 func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
 	availability := AvailabilityPlanned
-	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" {
+	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" {
 		availability = AvailabilityAvailable
 	}
 	audiences := []EndpointAudience{AudienceBrowser, AudienceOperator}
-	if id == "api.v1.plans.acknowledgements.create" {
-		audiences = []EndpointAudience{AudienceServerAdapter}
+	if id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" {
+		audiences = []EndpointAudience{AudienceOperator, AudienceServerAdapter}
 	}
 	if id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
 		audiences = []EndpointAudience{AudienceExecutor}

@@ -36,7 +36,11 @@ var remoteSessionEndpoints = map[string]bool{
 // rule deliberately admits them.
 func RemoteReadRequestAllowed(method, requestPath string) bool {
 	for _, endpoint := range generated.Endpoints {
-		if endpoint.Availability != "available" || endpoint.Method != method || (method != http.MethodGet && !remoteSessionEndpoints[endpoint.ID]) {
+		browserAudience := false
+		for _, audience := range endpoint.Audiences {
+			browserAudience = browserAudience || audience == "browser"
+		}
+		if endpoint.Availability != "available" || endpoint.Method != method || (method == http.MethodGet && !browserAudience) || (method != http.MethodGet && !remoteSessionEndpoints[endpoint.ID]) {
 			continue
 		}
 		if _, ok := matchPath(endpoint.Path, requestPath); ok {
@@ -121,14 +125,15 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		app.serveEvents(writer, request)
 		return
 	}
+	pathMatched := false
 	for _, candidate := range app.routes {
 		params, ok := matchPath(candidate.pattern, request.URL.Path)
 		if !ok {
 			continue
 		}
-		if candidate.method == http.MethodGet && request.Method != candidate.method {
-			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
-			return
+		pathMatched = true
+		if request.Method != candidate.method {
+			continue
 		}
 		if strings.HasPrefix(candidate.id, "api.v1.session.") {
 			if request.Method != candidate.method {
@@ -158,7 +163,6 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		}
 		var scope authorization.ReadScope
 		if candidate.action != "" {
-			resourceID = params["declarationId"]
 			if !pathToken.MatchString(resourceID) {
 				app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "authorization-target"))
 				return
@@ -176,15 +180,15 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 				return
 			}
 		}
-		if candidate.method == http.MethodPost && request.Method != candidate.method {
-			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "method"))
-			return
-		}
 		if candidate.method == http.MethodGet && request.Body != nil && request.ContentLength != 0 {
 			app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "request-body"))
 			return
 		}
 		candidate.handler(writer, request, scope, params)
+		return
+	}
+	if pathMatched {
+		app.failure(writer, "api", apiFailure(generated.ErrorCodeInputInvalid, "method"))
 		return
 	}
 	app.failure(writer, "api", apiFailure(generated.ErrorCodeResourceNotFound, "route"))

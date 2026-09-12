@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
@@ -136,11 +137,39 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	acknowledgements, err := acknowledgement.NewService(acknowledgement.Config{
+		Repository: store.NewAcknowledgementRepository(authority),
+		Plans:      acknowledgementPlanReader{plans: plans},
+		Authorizer: authorization.NewEvaluator(effectiveAuthorization),
+		Clock:      time.Now,
+	})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	var acknowledgementScopes api.AcknowledgementScopeResolver = unavailableAcknowledgementScope{}
+	var acknowledgementPublisher api.AcknowledgementPublisher = unavailableAcknowledgementPublisher{}
+	var acknowledgementBackground BackgroundService
+	if profile.AcknowledgementAdapterConfigPath != "" {
+		runtime, runtimeErr := composeSlackAcknowledgement(ctx, profile.AcknowledgementAdapterConfigPath, profile.SocketOwnerUID, acknowledgements)
+		if runtimeErr == nil {
+			acknowledgementScopes = runtime.scopes
+			acknowledgementPublisher = runtime.publisher
+			acknowledgementBackground = runtime.background
+		}
+	}
+	if err := api.RegisterAcknowledgementOperations(application, api.AcknowledgementOperationConfig{
+		Plans: plans, Acknowledgements: acknowledgements, Scopes: acknowledgementScopes,
+		Publisher: acknowledgementPublisher, Results: factory,
+	}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := api.ValidateRegisteredRoutes(application); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote})
+	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote, Background: acknowledgementBackground})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -259,4 +288,30 @@ type fixedPlatformProbe struct{ platform Platform }
 
 func (probe fixedPlatformProbe) Current(context.Context) (Platform, error) {
 	return probe.platform, nil
+}
+
+type acknowledgementPlanReader struct{ plans *planengine.Service }
+
+func (reader acknowledgementPlanReader) Get(ctx context.Context, planID string) (generated.Plan, error) {
+	result, err := reader.plans.Get(ctx, planID)
+	return result.Plan, err
+}
+
+func (reader acknowledgementPlanReader) ValidateCurrent(ctx context.Context, plan generated.Plan) error {
+	return reader.plans.ValidateCurrent(ctx, plan)
+}
+
+// The Slack deployment profile and credential material are intentionally a
+// later operator-controlled setup concern. Until supplied, the available local
+// endpoint fails closed instead of adding a weaker approval path.
+type unavailableAcknowledgementScope struct{}
+
+func (unavailableAcknowledgementScope) Resolve(context.Context, generated.AcknowledgementRequest) (acknowledgement.Scope, error) {
+	return acknowledgement.Scope{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "slack-acknowledgement", false)
+}
+
+type unavailableAcknowledgementPublisher struct{}
+
+func (unavailableAcknowledgementPublisher) Publish(context.Context, acknowledgement.RequestCard) error {
+	return failure.New(generated.ErrorCodeDependencyUnavailable, "slack-acknowledgement", true)
 }

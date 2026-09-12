@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — Slack can carry one exact human plan decision without becoming an authority ([#77](https://github.com/vegastack/vegastack-labs/issues/77))
+
+- **What:** An authorized operator can request a short-lived Slack card for one immutable plan, and the server can accept exactly one matching approve or reject action through a server-owned Socket Mode connection. The resulting provider-neutral proof is durable, terminal, single-use, and rechecked against current plan and human authority immediately before execution.
+- **Why:** Infrastructure changes need a convenient human acknowledgement path without trusting Slack as policy, allowing an agent to approve its own work, or letting stale, replayed, widened, or mismatched interactions authorize execution.
+- **How it went:** Deterministic local HTTP/WebSocket fixtures drove reconnect, refresh, outage, malformed action, redaction, and duplicate-delivery behavior without live Slack or credentials. The first independent review found that the production server had not composed the adapter, execution did not repeat the human authorization check, envelopes were acknowledged before durable decisions, denial auditing was incomplete, and a test-host URL exception was compiled into production. The correction added strict optional profile composition with protected native credential references, a local status read, decision-or-denial durability before Slack acknowledgement, complete execution and adapter denial evidence, and production-only Slack URL validation. Focused race tests and a Debian ext4 fixture proved the SQLite and Linux credential boundaries.
+- **Changed:** Generated local request/status endpoints · migration 0008 acknowledgement authority · exact plan/workspace/user/action/digest/nonce/revision/expiry/epoch binding · terminal approve/reject/expire states · consume-once execution proof · Slack Socket Mode reconnect and refresh lifecycle · systemd native credential resolution · sanitized denial audit.
+- **Decisions:** none; Slack remains an optional typed adapter, local SQLite and current authorization remain authoritative, and absence or failure of Slack cannot disable local core operation or grant execution authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.4-slack-acknowledgement
+
 ## 13-09-2026 — Disposable Debian checks are faster and deterministic ([#81](https://github.com/vegastack/vegastack-labs/issues/81))
 
 - **What:** Trusted checks on `vsk-node-01` and `vsk-node-06` install the pinned public dependencies directly instead of asking `actions/setup-node` to restore the remote pnpm store. Hosted pull requests keep their cache. The production remote-bind integration test now serves its own temporary signing keys instead of contacting a public Cloudflare URL.

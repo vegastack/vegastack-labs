@@ -89,6 +89,12 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "acknowledgementAdapterConfigPath": {
+      "maxLength": 4096,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": "string"
+    },
     "inventoryExportRoot": {
       "maxLength": 4096,
       "minLength": 2,

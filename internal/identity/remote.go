@@ -11,7 +11,10 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/failure"
 )
 
-const CloudflareAccessMethod = "cloudflare-access"
+const (
+	CloudflareAccessMethod = "cloudflare-access"
+	SlackSocketModeMethod  = "slack-socket-mode"
+)
 
 const (
 	maxIssuerBytes   = 2048
@@ -75,7 +78,7 @@ func ValidPrincipal(principal Principal) bool {
 		return false
 	}
 	switch principal.Method {
-	case LocalOSPeerMethod, CloudflareAccessMethod:
+	case LocalOSPeerMethod, CloudflareAccessMethod, SlackSocketModeMethod:
 		return true
 	default:
 		return false

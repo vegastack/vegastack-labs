@@ -48,6 +48,16 @@ test("the server verifier accepts reviewed Linux filesystem access in backup and
   assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
 });
 
+test("the server verifier accepts only the reviewed acknowledgement credential files", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/server/slack_acknowledgement_config_linux.go":
+      "package server\nimport _ \"golang.org/x/sys/unix\"\n",
+    "internal/server/systemd_credentials_linux.go":
+      "package server\nimport _ \"golang.org/x/sys/unix\"\n",
+  });
+  assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
+});
+
 test("the server verifier accepts the protected portable client file reader", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/clientfile/read_unix.go":

@@ -1,0 +1,7 @@
+{
+  "hello": {"type": "hello"},
+  "refresh": {"type": "disconnect", "reason": "refresh_requested"},
+  "warning": {"type": "disconnect", "reason": "warning"},
+  "interactiveType": "block_actions",
+  "eventType": "events_api"
+}

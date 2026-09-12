@@ -3,6 +3,7 @@ module github.com/vegastack/vegastack-labs
 go 1.27.0
 
 require (
+	github.com/coder/websocket v1.8.14
 	github.com/go-jose/go-jose/v4 v4.1.4
 	github.com/google/certificate-transparency-go v1.3.3
 	github.com/ncruces/go-sqlite3 v0.35.4

@@ -286,12 +286,26 @@
       "id": "api.v1.plans.acknowledgements.create",
       "method": "POST",
       "path": "/api/v1/plans/{planId}/acknowledgements",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/acknowledgement-request",
       "dataSchema": "vegastack-labs.dev/acknowledgement",
       "stream": "finite",
       "audiences": [
+        "operator",
+        "server-adapter"
+      ]
+    },
+    {
+      "id": "api.v1.plans.acknowledgements.get",
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}/acknowledgements",
+      "availability": "available",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/acknowledgement",
+      "stream": "finite",
+      "audiences": [
+        "operator",
         "server-adapter"
       ]
     },
