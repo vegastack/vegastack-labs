@@ -83,22 +83,29 @@ try {
     extraHTTPHeaders: { "Cf-Access-Jwt-Assertion": assertion },
   });
   try {
+    stage = "mobile-session";
     await createSession(mobileContext);
     const mobile = await mobileContext.newPage();
+    stage = "mobile-navigation";
     await mobile.goto(`${baseURL}/backups`, { waitUntil: "networkidle" });
     await mobile.getByRole("heading", { name: "Backups", exact: true }).waitFor();
+    stage = "mobile-reflow";
     const layout = await mobile.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: window.innerWidth }));
     if (layout.width > layout.viewport) throw new Error("mobile reflow failed");
+    stage = "mobile-accessibility";
     await mobile.evaluate(axe.source);
     const mobileViolations = await mobile.evaluate(async () => {
       const result = await globalThis.axe.run(document);
       return result.violations.filter(item => item.impact === "serious" || item.impact === "critical").map(item => item.id);
     });
     if (mobileViolations.length) throw new Error("mobile accessibility violation");
+    stage = "mobile-targets";
     const targets = await mobile.locator("button:visible").evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
     if (!targets.length || targets.some(target => target.width < 44 || target.height < 44)) throw new Error("mobile control target failed");
+    stage = "mobile-theme";
     await mobile.getByRole("button", { name: "Use dark theme" }).click();
     if (!(await mobile.locator("html").getAttribute("class"))?.includes("dark")) throw new Error("theme persistence boundary failed");
+    stage = "mobile-cookie";
     if ((await mobileContext.cookies(baseURL)).some(cookie => !cookie.httpOnly || !cookie.secure || cookie.sameSite !== "Strict")) throw new Error("mobile session cookie policy failed");
   } finally {
     await mobileContext.close();

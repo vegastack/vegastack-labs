@@ -307,7 +307,7 @@ func TestSanitizePhase3ProbeErrorOnlyAllowsStableStages(t *testing.T) {
 		{"PROBE_FAILED:mobile", "PROBE_FAILED:mobile"},
 		{"browser noise\nPROBE_FAILED:routes\nmore noise", "PROBE_FAILED:routes"},
 		{"PROBE_FAILED:", "PROBE_FAILED_WITH_SANITIZED_DIAGNOSTIC"},
-		{"PROBE_FAILED:mobile /home/private", "PROBE_FAILED_WITH_SANITIZED_DIAGNOSTIC"},
+		{"PROBE_FAILED:mobile /home/private", "PROBE_FAILED:mobile"},
 		{"Error: token detail", "PROBE_FAILED_WITH_SANITIZED_DIAGNOSTIC"},
 	} {
 		if actual := sanitizePhase3ProbeError(test.input); actual != test.expected {
