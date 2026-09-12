@@ -186,7 +186,10 @@ func (engine *Engine) ResumeAs(ctx context.Context, id string, attribution audit
 		return run, runError(generated.ErrorCodeStateConflict, "run-resume")
 	}
 	for _, step := range run.Steps {
-		if step.Status == "interrupted" && (!step.Idempotent || step.EffectState != "not-started") {
+		if step.Status == "succeeded" {
+			continue
+		}
+		if step.Status != "interrupted" || !step.Idempotent || step.EffectState != "not-started" {
 			return run, runError(generated.ErrorCodeRecoveryRequired, "run-resume")
 		}
 	}
@@ -244,7 +247,7 @@ func (engine *Engine) Reconcile(ctx context.Context) error {
 	for _, run := range runs {
 		now := engine.clock().UTC().Truncate(time.Second)
 		_ = engine.repository.ReleaseRunLeases(ctx, run.RunID, now)
-		if run.Status == "queued" {
+		if run.Status == "queued" || run.Status == "interrupted" {
 			continue
 		}
 		ambiguous := false
@@ -253,7 +256,9 @@ func (engine *Engine) Reconcile(ctx context.Context) error {
 			if step.Status != "succeeded" || step.EffectState != "verified" {
 				allSucceeded = false
 			}
-			if step.Status == "running" && (step.EffectState == "intent-recorded" || step.EffectState == "receipt-recorded") {
+			if step.Status == "partial" || step.EffectState == "effect-unknown" {
+				ambiguous = true
+			} else if step.Status == "running" && (step.EffectState == "intent-recorded" || step.EffectState == "receipt-recorded") {
 				_, markErr := engine.repository.MarkStepUnknown(ctx, run.RunID, step.StepID, now, systemAttribution())
 				if markErr != nil {
 					return markErr

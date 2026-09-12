@@ -107,6 +107,9 @@ func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	if err := resumeFixture.engine.Reconcile(context.Background()); err != nil {
 		t.Fatal(err)
 	}
+	if err := resumeFixture.engine.Startup(context.Background()); err != nil {
+		t.Fatalf("second startup reconciliation was not idempotent: %v", err)
+	}
 	resumed, err := resumeFixture.engine.Resume(context.Background(), resumeFixture.runID)
 	if err != nil || resumed.Status != "succeeded" {
 		t.Fatalf("resume = %#v, %v", resumed, err)
