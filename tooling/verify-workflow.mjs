@@ -111,6 +111,10 @@ export function verifyWorkflowDocument(workflow, source = "") {
     }
   }
   const trustedSteps = jobs.verify_trusted.steps ?? [];
+  const trustedNode = trustedSteps.find((step) => step.uses?.startsWith("actions/setup-node@"));
+  if (trustedNode?.with?.cache !== undefined) {
+    throw new Error("trusted runner must install dependencies without restoring the remote pnpm cache");
+  }
   const phase3Exit = trustedSteps.find((step) => step.name === "Run exact Phase 3 exit acceptance");
   if (phase3Exit?.if !== "github.event_name == 'push' && github.ref == 'refs/heads/main'" ||
       phase3Exit.run !== "pnpm --silent check:phase-3-exit --commit \"$GITHUB_SHA\"") {

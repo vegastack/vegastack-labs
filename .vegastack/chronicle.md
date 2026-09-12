@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — Disposable Debian checks no longer wait on a slower remote cache ([#81](https://github.com/vegastack/vegastack-labs/issues/81))
+
+- **What:** Trusted checks on `vsk-node-01` and `vsk-node-06` install the pinned public dependencies directly instead of asking `actions/setup-node` to restore the remote pnpm store. Hosted pull requests keep their cache.
+- **Why:** Restoring the 157 MB remote cache took about six minutes on the disposable machines, while a clean cache-free dependency install took seconds and produced the same complete check result.
+- **How it went:** Two main attempts exposed the slow restore. A cache-free diagnostic run then passed the complete `pnpm check`, and a second run passed both that lane and `go test -race -count=1 ./...` on the protected Debian test filesystem. A workflow regression now rejects re-enabling the trusted cache.
+- **Changed:** Trusted `setup-node` cache policy · workflow verifier · workflow regression fixture.
+- **Decisions:** none; runner allowlists, credentials, checks, versions, hosted pull-request behavior, and infrastructure authority are unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/81-disable-trusted-pnpm-cache
+
 ## 13-09-2026 — Every Phase 4 change now passes one current authorization policy ([#71](https://github.com/vegastack/vegastack-labs/issues/71))
 
 - **What:** The server now resolves current resource-scoped author, acknowledge, and execute authority from SQLite, derives plan risk from a closed provider-neutral operation table, and permits exactly one human or narrowly preauthorized branch. Declaration and plan writes are checked before their body is read and again for the exact declaration immediately before the service call; future acknowledgement and execution endpoints share the same preflight.
