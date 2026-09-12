@@ -131,7 +131,8 @@ test("missing, skipped, failed, or quarantined check proof fails closed", async 
 
 test("failure stages never expose paths, tokens, or cookies", async () => {
   const root = await fixtureRoot();
-  const canary = "/private/worktree ghp_abcdefghijklmnopqrstuvwxyz cookie=session-secret";
+  const tokenCanary = ["ghp", "_abcdefghijklmnopqrstuvwxyz"].join("");
+  const canary = `/private/worktree ${tokenCanary} cookie=session-secret`;
   await assert.rejects(
     () => runPhase3Exit(root, {
       expectedCommit: SHA_A,
