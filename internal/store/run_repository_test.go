@@ -112,6 +112,10 @@ func TestRunSubmitLeaseAndReceiptAreDurableIdempotentAndExclusive(t *testing.T) 
 	if _, err := repository.FinishStep(context.Background(), StepFinishRequest{RunID: run.RunID, StepID: run.Steps[0].StepID, LeaseID: lease.LeaseID, Receipt: receipt, Status: "succeeded", EffectState: "verified", VerificationDigest: string(digestForText("verified")), Changed: true, At: now.Add(time.Second), Attribution: runAttribution(t)}); err != nil {
 		t.Fatalf("receipt replay failed: %v", err)
 	}
+	var eventCount int
+	if err := repository.store.conn.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM audit_events WHERE correlation_id=? AND target_kind='run'`, run.RunID).Scan(&eventCount); err != nil || eventCount < 6 {
+		t.Fatalf("durable run audit events = %d, %v", eventCount, err)
+	}
 }
 
 func TestConcurrentTargetLeaseClaimsHaveOneAuthoritativeWinner(t *testing.T) {

@@ -113,6 +113,24 @@ func TestClientDisconnectDoesNotCancelDurableServerOwnedRun(t *testing.T) {
 	}
 }
 
+func TestExpiredPlanAndMissingAdapterFailBeforeEffect(t *testing.T) {
+	expired := newEngineFixture(t)
+	expired.store.plan.ExpiresAt = expired.engine.clock().UTC().Format(time.RFC3339)
+	if _, err := expired.engine.Submit(context.Background(), expired.request); Code(err) != generated.ErrorCodePlanStale || expired.adapter.calls != 0 {
+		t.Fatalf("expired plan code/calls = %q/%d", Code(err), expired.adapter.calls)
+	}
+
+	missing := newEngineFixture(t)
+	engine, err := NewEngine(Config{Repository: missing.store, Plans: missing.store, Admission: allowAdmission{}, Adapters: adapter.NewRegistry(), Clock: missing.engine.clock, IDs: deterministicIDs{}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	failed, err := engine.Submit(context.Background(), missing.request)
+	if adapter.Code(err) != generated.ErrorCodePrerequisiteBlocked || failed.Status != "failed" || missing.adapter.calls != 0 {
+		t.Fatalf("missing adapter run/code/calls = %#v/%q/%d", failed, adapter.Code(err), missing.adapter.calls)
+	}
+}
+
 type engineFixture struct {
 	engine  *Engine
 	store   *memoryRepository
