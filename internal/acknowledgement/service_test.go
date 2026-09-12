@@ -34,6 +34,23 @@ func TestAdapterRejectionUsesAttemptedIdentityAndRequiresDurableAudit(t *testing
 	}
 }
 
+func TestOnlyDurablyAuditedCandidateDenialIsTerminalForAdapter(t *testing.T) {
+	service, _, plan := newService(t)
+	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	candidate := candidateFor(card, plan, ActionApprove)
+	candidate.Human.ID = "person-wrong"
+	err = service.Submit(context.Background(), candidate)
+	if !IsTerminalDenial(err) {
+		t.Fatalf("audited denial was not terminal: %v", err)
+	}
+	if IsTerminalDenial(failure.New(generated.ErrorCodeAuthorizationDenied, "acknowledgement", false)) {
+		t.Fatal("ordinary nonretryable error was treated as an audited terminal denial")
+	}
+}
+
 func TestRejectedPlanCannotBeRequestedAgain(t *testing.T) {
 	service, repository, plan := newService(t)
 	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)

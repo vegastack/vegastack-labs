@@ -125,7 +125,7 @@ func TestDurablyAuditedSemanticDenialIsAcknowledgedOnce(t *testing.T) {
 	transport := &fixtureTransport{sessions: [][]string{{interactive}}}
 	sink := CandidateSinkFuncs{
 		SubmitFunc: func(context.Context, acknowledgement.Candidate) error {
-			return failure.New(generated.ErrorCodeAuthorizationDenied, "acknowledgement", false)
+			return failure.New(generated.ErrorCodeAuthorizationDenied, "acknowledgement-terminal-denial", false)
 		},
 		RejectFunc: func(context.Context, acknowledgement.AdapterRejection) error { return nil },
 	}

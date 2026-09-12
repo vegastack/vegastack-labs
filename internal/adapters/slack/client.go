@@ -198,7 +198,7 @@ func (adapter *Adapter) consume(ctx context.Context, socket Socket) (bool, error
 			}
 			if err := adapter.sink.Submit(ctx, candidate); err != nil {
 				adapter.log("decision-rejected")
-				if stable, ok := failure.As(err); ok && !stable.Retryable {
+				if acknowledgement.IsTerminalDenial(err) {
 					if ackErr := acknowledgeEnvelope(ctx, socket, header.EnvelopeID); ackErr != nil {
 						return true, ackErr
 					}

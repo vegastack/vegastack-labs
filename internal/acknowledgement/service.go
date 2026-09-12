@@ -21,6 +21,8 @@ import (
 
 const decisionClockSkew = 5 * time.Second
 
+const terminalDenialTarget = "acknowledgement-terminal-denial"
+
 type Config struct {
 	Repository Repository
 	Plans      PlanReader
@@ -43,6 +45,13 @@ func NewService(config Config) (*Service, error) {
 func (service *Service) Submit(ctx context.Context, candidate Candidate) error {
 	_, err := service.Decide(ctx, candidate)
 	return err
+}
+
+// IsTerminalDenial is true only after a candidate denial has been durably
+// audited. Adapters may then acknowledge the provider envelope without replay.
+func IsTerminalDenial(err error) bool {
+	stable, ok := failure.As(err)
+	return ok && !stable.Retryable && stable.Target == terminalDenialTarget
 }
 
 func (service *Service) Reject(ctx context.Context, rejection AdapterRejection) error {
@@ -247,7 +256,7 @@ func (service *Service) denyCandidate(ctx context.Context, stored Stored, candid
 	if err := service.config.Repository.RecordDenial(ctx, record); err != nil {
 		return failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit", true)
 	}
-	return cause
+	return failure.New(code, terminalDenialTarget, false)
 }
 
 func (service *Service) denyStored(ctx context.Context, stored Stored, kind string, cause error) error {
