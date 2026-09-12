@@ -30,6 +30,12 @@ type Application interface {
 	Shutdown(context.Context) error
 }
 
+// BackgroundService is an optional capability owned by the single server
+// process. Its failure cannot disable provider-neutral local core operation.
+type BackgroundService interface {
+	Run(context.Context) error
+}
+
 type AuthorityHealth struct {
 	SafeMode      bool
 	RecoveryEpoch int64

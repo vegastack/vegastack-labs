@@ -105,7 +105,11 @@ func (service *Service) Decide(ctx context.Context, candidate Candidate) (genera
 		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
 	}
 	now := service.config.Clock().UTC().Truncate(time.Second)
-	if !now.Before(mustTime(stored.Request.ExpiresAt)) || candidate.DecidedAt.Before(now.Add(-decisionClockSkew)) || candidate.DecidedAt.After(now.Add(decisionClockSkew)) {
+	if !now.Before(mustTime(stored.Request.ExpiresAt)) {
+		_, _ = service.expire(ctx, stored, now)
+		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
+	}
+	if candidate.DecidedAt.Before(now.Add(-decisionClockSkew)) || candidate.DecidedAt.After(now.Add(decisionClockSkew)) {
 		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
 	}
 	plan, err := service.config.Plans.Get(ctx, candidate.PlanID)
@@ -128,6 +132,39 @@ func (service *Service) Decide(ctx context.Context, candidate Candidate) (genera
 		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
 	}
 	return decided.Acknowledgement, nil
+}
+
+// Status returns the durable provider-neutral state and terminalizes a pending
+// request whose exact plan expiry has elapsed. Expiry never grants authority.
+func (service *Service) Status(ctx context.Context, planID string) (generated.Acknowledgement, error) {
+	if service == nil || ctx == nil || !authorization.ValidIdentifier(planID) {
+		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodeInputInvalid, "acknowledgement")
+	}
+	stored, err := service.config.Repository.Get(ctx, planID)
+	if err != nil {
+		return generated.Acknowledgement{}, err
+	}
+	now := service.config.Clock().UTC().Truncate(time.Second)
+	if stored.Acknowledgement.Status == "pending" && !now.Before(mustTime(stored.Request.ExpiresAt)) {
+		stored, err = service.expire(ctx, stored, now)
+		if err != nil {
+			return generated.Acknowledgement{}, err
+		}
+	}
+	return stored.Acknowledgement, nil
+}
+
+func (service *Service) expire(ctx context.Context, stored Stored, now time.Time) (Stored, error) {
+	outcome := outcomeFrom(stored.Request, stored.Acknowledgement.AcknowledgementID, "expired", now, proofDigest(stored.Request, "expired", now))
+	attribution := audit.Attribution{AuthenticatedPrincipalID: ExpiryPrincipalID, AuthenticatedPrincipalMethod: ExpiryPrincipalMode}
+	expired, changed, err := service.config.Repository.Decide(ctx, DecisionRecord{Expected: stored.Request, Outcome: outcome, DecidedAt: now, Attribution: attribution})
+	if err != nil {
+		return Stored{}, err
+	}
+	if !changed && expired.Acknowledgement.Status != "expired" {
+		return Stored{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
+	}
+	return expired, nil
 }
 
 func (service *Service) VerifyForExecution(ctx context.Context, planID string) (generated.Acknowledgement, error) {

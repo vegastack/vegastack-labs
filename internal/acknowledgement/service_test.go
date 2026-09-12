@@ -81,8 +81,40 @@ func TestDecisionRequiresExactBindingsAndProofIsSingleUse(t *testing.T) {
 	}
 }
 
-func TestDecisionReauthorizesHumanAndRejectsExpiredOrChangedEpoch(t *testing.T) {
+func TestAgentCredentialsCannotForgeOrReplaySlackApproval(t *testing.T) {
 	service, _, plan := newService(t)
+	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := candidateFor(card, plan, ActionApprove)
+	hostile := []Candidate{valid, valid, valid, valid, valid}
+	hostile[0].Human = identity.Principal{ID: "agent-local", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalAgent}
+	hostile[1].Nonce = "replayed-or-guessed-nonce"
+	hostile[2].PlanDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	hostile[3].StateRevision++
+	hostile[4].RecoveryEpoch++
+	for index, candidate := range hostile {
+		if _, err := service.Decide(context.Background(), candidate); err == nil {
+			t.Fatalf("hostile candidate %d accepted", index)
+		}
+	}
+	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); err == nil {
+		t.Fatal("hostile candidates created executable approval")
+	}
+	if _, err := service.Decide(context.Background(), valid); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); errorCode(err) != generated.ErrorCodePlanStale {
+		t.Fatalf("replay code = %q, err = %v", errorCode(err), err)
+	}
+}
+
+func TestDecisionReauthorizesHumanAndRejectsExpiredOrChangedEpoch(t *testing.T) {
+	service, repository, plan := newService(t)
 	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
 	if err != nil {
 		t.Fatal(err)
@@ -91,9 +123,17 @@ func TestDecisionReauthorizesHumanAndRejectsExpiredOrChangedEpoch(t *testing.T) 
 	if _, err := service.Decide(context.Background(), candidateFor(card, plan, "approved")); errorCode(err) != generated.ErrorCodePlanStale {
 		t.Fatalf("expired code = %q, err = %v", errorCode(err), err)
 	}
-	service.config.Clock = func() time.Time { return time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC) }
-	service.config.Authorizer = denyAuthorizer{}
-	if _, err := service.Decide(context.Background(), candidateFor(card, plan, "approved")); errorCode(err) != generated.ErrorCodeAuthorizationDenied {
+	status, err := service.Status(context.Background(), plan.PlanID)
+	if err != nil || status.Status != "expired" || repository.decided != 1 {
+		t.Fatalf("expired status = %#v, %v; writes %d", status, err, repository.decided)
+	}
+	revokedService, _, revokedPlan := newService(t)
+	revokedCard, err := revokedService.Request(context.Background(), requestScope(), revokedPlan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revokedService.config.Authorizer = denyAuthorizer{}
+	if _, err := revokedService.Decide(context.Background(), candidateFor(revokedCard, revokedPlan, "approved")); errorCode(err) != generated.ErrorCodeAuthorizationDenied {
 		t.Fatalf("revoked code = %q, err = %v", errorCode(err), err)
 	}
 }

@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 func TestAcknowledgementTerminalOutcomeSurvivesRestartAndCannotBeReplayed(t *testing.T) {
@@ -29,7 +31,8 @@ func TestAcknowledgementTerminalOutcomeSurvivesRestartAndCannotBeReplayed(t *tes
 	outcome.Status = "approved"
 	outcome.ReceivedAt = "2026-09-13T01:05:00Z"
 	outcome.ProofDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-	stored, changed, err := repository.Decide(context.Background(), acknowledgement.DecisionRecord{Expected: request.Request, Outcome: outcome, DecidedAt: time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC)})
+	attribution := audit.Attribution{AuthenticatedPrincipalID: request.Request.HumanID, AuthenticatedPrincipalMethod: identity.SlackSocketModeMethod}
+	stored, changed, err := repository.Decide(context.Background(), acknowledgement.DecisionRecord{Expected: request.Request, Outcome: outcome, DecidedAt: time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC), Attribution: attribution})
 	if err != nil || !changed || stored.Acknowledgement.Status != "approved" {
 		t.Fatalf("decide = %#v, %v, %v", stored, changed, err)
 	}
@@ -77,5 +80,6 @@ func seedAcknowledgementPlan(t *testing.T, s *Store) generated.Plan {
 func acknowledgementTestCreate(plan generated.Plan) acknowledgement.CreateRecord {
 	request := generated.AcknowledgementRequest{Schema: generated.SchemaIDAcknowledgementRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: plan.Binding.TargetDigest, ReasonDigest: plan.Binding.ReasonDigest, HumanID: "person-operator", AuthorityID: "authority-slack", NonceDigest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc", StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch, ExpiresAt: plan.ExpiresAt, Extensions: []generated.ContractExtension{}}
 	pending := generated.Acknowledgement{Schema: generated.SchemaIDAcknowledgement, SchemaVersion: "1.0.0", PlanID: request.PlanID, PlanDigest: request.PlanDigest, TargetDigest: request.TargetDigest, ReasonDigest: request.ReasonDigest, HumanID: request.HumanID, AuthorityID: request.AuthorityID, NonceDigest: request.NonceDigest, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, ExpiresAt: request.ExpiresAt, AcknowledgementID: "ack-test", ProofDigest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", Status: "pending", ReceivedAt: "2026-09-13T01:05:00Z", Extensions: []generated.ContractExtension{}}
-	return acknowledgement.CreateRecord{Request: request, Pending: pending, CreatedAt: time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC)}
+	attribution := audit.Attribution{AuthenticatedPrincipalID: request.HumanID, AuthenticatedPrincipalMethod: identity.SlackSocketModeMethod}
+	return acknowledgement.CreateRecord{Request: request, Pending: pending, CreatedAt: time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC), Attribution: attribution}
 }

@@ -158,7 +158,6 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		}
 		var scope authorization.ReadScope
 		if candidate.action != "" {
-			resourceID = params["declarationId"]
 			if !pathToken.MatchString(resourceID) {
 				app.failure(writer, candidate.id, apiFailure(generated.ErrorCodeInputInvalid, "authorization-target"))
 				return

@@ -37,7 +37,7 @@ func phase4Endpoints() []EndpointDefinition {
 
 func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
 	availability := AvailabilityPlanned
-	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" {
+	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" {
 		availability = AvailabilityAvailable
 	}
 	audiences := []EndpointAudience{AudienceBrowser, AudienceOperator}

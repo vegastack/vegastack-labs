@@ -31,6 +31,7 @@ type Config struct {
 	PlatformProbe     PlatformProbe
 	IntegrityInterval time.Duration
 	Remote            *RemoteConfig
+	Background        BackgroundService
 }
 
 type RemoteConfig struct {
@@ -173,6 +174,13 @@ func (service *service) Run(ctx context.Context) error {
 	}
 
 	remoteListener, remoteServer, remoteDone := service.startRemote(ctx)
+	backgroundCtx, stopBackground := context.WithCancel(ctx)
+	var backgroundDone <-chan error
+	if service.config.Background != nil {
+		done := make(chan error, 1)
+		backgroundDone = done
+		go func() { done <- service.config.Background.Run(backgroundCtx) }()
+	}
 
 	ticker := time.NewTicker(service.config.IntegrityInterval)
 	defer ticker.Stop()
@@ -194,6 +202,10 @@ selectLoop:
 				service.setRemote(RemoteReadUnavailable, RemoteReadReasonServeFailed)
 			}
 			remoteDone = nil
+		case <-backgroundDone:
+			// Slack acknowledgement is optional capability. A stopped adapter
+			// makes approval unavailable but never stops the local control core.
+			backgroundDone = nil
 		case <-ticker.C:
 			if err := listener.CheckPath(); err != nil {
 				terminal = stableOr(err, generated.ErrorCodeIntegrityFailure, "control-socket")
@@ -201,9 +213,19 @@ selectLoop:
 			}
 		}
 	}
+	stopBackground()
 	service.setState(StateStopping)
 	if shutdownErr := service.shutdownAll(listener, httpServer, remoteListener, remoteServer); terminal == nil {
 		terminal = shutdownErr
+	}
+	if backgroundDone != nil {
+		select {
+		case <-backgroundDone:
+		case <-time.After(service.config.Profile.ShutdownGrace):
+			if terminal == nil {
+				terminal = failure.New(generated.ErrorCodeExecutionFailed, "background-service-shutdown", false)
+			}
+		}
 	}
 	return terminal
 }

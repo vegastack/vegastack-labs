@@ -286,7 +286,7 @@
       "id": "api.v1.plans.acknowledgements.create",
       "method": "POST",
       "path": "/api/v1/plans/{planId}/acknowledgements",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/acknowledgement-request",
       "dataSchema": "vegastack-labs.dev/acknowledgement",

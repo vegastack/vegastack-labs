@@ -14,8 +14,10 @@ import (
 )
 
 const (
-	ActionApprove = "approved"
-	ActionReject  = "rejected"
+	ActionApprove       = "approved"
+	ActionReject        = "rejected"
+	ExpiryPrincipalID   = "policy.acknowledgement-expiry"
+	ExpiryPrincipalMode = "internal-policy"
 )
 
 type Scope struct {

@@ -87,7 +87,11 @@ func (repository *AcknowledgementRepository) Get(ctx context.Context, planID str
 }
 
 func (repository *AcknowledgementRepository) Decide(ctx context.Context, record acknowledgement.DecisionRecord) (acknowledgement.Stored, bool, error) {
-	if repository == nil || repository.store == nil || record.DecidedAt.IsZero() || record.DecidedAt.Location() != time.UTC || record.Attribution.AuthenticatedPrincipalID != record.Expected.HumanID || !validAcknowledgementDecision(record) {
+	expectedAttribution := record.Attribution.AuthenticatedPrincipalID == record.Expected.HumanID
+	if record.Outcome.Status == "expired" {
+		expectedAttribution = record.Attribution.AuthenticatedPrincipalID == acknowledgement.ExpiryPrincipalID && record.Attribution.AuthenticatedPrincipalMethod == acknowledgement.ExpiryPrincipalMode && record.Attribution.ResponsibleHumanPrincipalID == nil && record.Attribution.Agent == nil
+	}
+	if repository == nil || repository.store == nil || record.DecidedAt.IsZero() || record.DecidedAt.Location() != time.UTC || !expectedAttribution || !validAcknowledgementDecision(record) {
 		return acknowledgement.Stored{}, false, newStoreError(generated.ErrorCodeInputInvalid, "acknowledgement-decision", false, nil)
 	}
 	expectedBytes, _ := json.Marshal(record.Expected)
