@@ -107,6 +107,26 @@ func TestConcurrentExactSubmitConsumesHumanProofOnce(t *testing.T) {
 	}
 }
 
+func TestPartialRunReturnsStableConflictEnvelope(t *testing.T) {
+	plan := apiRunPlan()
+	partial := apiRunResult(plan)
+	partial.Status = "partial"
+	partial.VerificationStatus = "incomplete"
+	partial.VerificationDigest = nil
+	runs := &runAPIStub{plan: plan, run: partial, submitErr: runengineError{code: generated.ErrorCodeRecoveryRequired}}
+	app := newRunTestApplication(t, runs)
+	input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "partial-submit-test", Extensions: []generated.ContractExtension{}}
+	body, _ := json.Marshal(input)
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusConflict || !bytes.Contains(response.Body.Bytes(), []byte(`"status":"partial"`)) || !bytes.Contains(response.Body.Bytes(), []byte(`"requestId":"partial-submit-test"`)) {
+		t.Fatalf("partial response=%d body=%s", response.Code, response.Body.String())
+	}
+}
+
 func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
@@ -137,6 +157,7 @@ type runAPIStub struct {
 	acknowledgementCalls int
 	existing             bool
 	last                 runengine.SubmitRequest
+	submitErr            error
 }
 
 func (stub *runAPIStub) Submit(_ context.Context, request runengine.SubmitRequest) (generated.Run, error) {
@@ -144,7 +165,7 @@ func (stub *runAPIStub) Submit(_ context.Context, request runengine.SubmitReques
 	defer stub.mu.Unlock()
 	stub.submitCalls++
 	stub.last = request
-	return stub.run, nil
+	return stub.run, stub.submitErr
 }
 func (stub *runAPIStub) Existing(context.Context, generated.PlanReferenceRequest) (generated.Run, bool, error) {
 	stub.mu.Lock()
@@ -217,6 +238,11 @@ func apiRunResult(plan generated.Plan) generated.Run {
 }
 
 func ptrAPITestDigest(fill string) *string { value := testAPIDigest(fill); return &value }
+
+type runengineError struct{ code string }
+
+func (err runengineError) Error() string { return err.code }
+func (err runengineError) Code() string  { return err.code }
 
 func apiRunAcknowledgement(plan generated.Plan) generated.Acknowledgement {
 	return generated.Acknowledgement{Schema: generated.SchemaIDAcknowledgement, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: plan.Binding.TargetDigest, ReasonDigest: plan.Binding.ReasonDigest, HumanID: "human-run-test", AuthorityID: "authority-test", NonceDigest: testAPIDigest("1"), StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch, ExpiresAt: plan.ExpiresAt, AcknowledgementID: "ack-test", ProofDigest: testAPIDigest("2"), Status: "approved", ReceivedAt: plan.CreatedAt, Extensions: []generated.ContractExtension{}}

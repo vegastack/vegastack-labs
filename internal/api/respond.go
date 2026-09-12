@@ -47,7 +47,9 @@ func (app *Application) writeEnvelope(writer http.ResponseWriter, operation stri
 func (app *Application) operationFailure(writer http.ResponseWriter, operation, requestID string, cause error) {
 	code, target, retryable := classifyOperationError(cause)
 	statusName := generated.RunStatusFailed
-	if code == generated.ErrorCodeInterrupted {
+	if code == generated.ErrorCodeExecutionPartial || code == generated.ErrorCodeRecoveryRequired {
+		statusName = generated.RunStatusPartial
+	} else if code == generated.ErrorCodeInterrupted {
 		statusName = generated.RunStatusInterrupted
 	}
 	envelope, err := app.config.Results.FailureWithRequestID(operation, requestID, statusName, code, target, retryable, 0, 0, struct{}{})
@@ -57,7 +59,11 @@ func (app *Application) operationFailure(writer http.ResponseWriter, operation, 
 	}
 	writer.Header().Set("Content-Type", "application/json")
 	writer.Header().Set("Cache-Control", "no-store")
-	writer.WriteHeader(httpStatus(code))
+	status := httpStatus(code)
+	if status == 0 {
+		status = http.StatusServiceUnavailable
+	}
+	writer.WriteHeader(status)
 	_ = result.Encode(writer, envelope)
 }
 
@@ -96,5 +102,8 @@ func httpStatus(code string) int {
 		generated.ErrorCodeDependencyUnavailable:  http.StatusServiceUnavailable,
 		generated.ErrorCodeIntegrityFailure:       http.StatusServiceUnavailable,
 		generated.ErrorCodePlanStale:              http.StatusConflict,
+		generated.ErrorCodeExecutionFailed:        http.StatusBadGateway,
+		generated.ErrorCodeExecutionPartial:       http.StatusConflict,
+		generated.ErrorCodeRecoveryRequired:       http.StatusConflict,
 	}[code]
 }
