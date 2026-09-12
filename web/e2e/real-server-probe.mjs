@@ -104,6 +104,30 @@ try {
     if (denied.statusCode !== 401) throw new Error("host or origin denial failed");
   }
 
+  stage = "source-failure";
+  const sourceFailurePattern = `${baseURL}/api/v1/sources?*`;
+  await page.route(sourceFailurePattern, async route => {
+    const target = new URL(route.request().url());
+    if (target.searchParams.get("source") !== "providers") {
+      await route.continue();
+      return;
+    }
+    const real = await context.request.get(target.toString(), { headers: { Origin: baseURL, "Cf-Access-Jwt-Assertion": assertion } });
+    if (real.status() !== 200) throw new Error("real source failure precondition failed");
+    const envelope = await real.json();
+    const source = envelope?.data?.items?.[0];
+    if (!source || source.id !== "providers") throw new Error("real source response was incomplete");
+    source.state = "failed";
+    source.lastErrorAt = new Date().toISOString();
+    source.reason = "source reported a collection failure";
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(envelope) });
+  });
+  await page.goto(`${baseURL}/providers`, { waitUntil: "networkidle" });
+  await page.locator('[data-read-state="failed"]').waitFor();
+  await page.unroute(sourceFailurePattern);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator('[data-read-state="unavailable"]').waitFor();
+
   stage = "malformed-response";
   const genuineSummary = await context.request.get(`${baseURL}/api/v1/summary`, { headers: { Origin: baseURL, "Cf-Access-Jwt-Assertion": assertion } });
   if (genuineSummary.status() !== 200) throw new Error("real summary precondition failed");
@@ -113,7 +137,9 @@ try {
   await page.locator('[data-read-state="error"]').first().waitFor();
   await page.unroute(malformedPattern);
   await page.reload({ waitUntil: "networkidle" });
-  await page.getByRole("heading", { name: "Providers", exact: true }).waitFor();
+  const recoveredSummary = await context.request.get(`${baseURL}/api/v1/summary`, { headers: { Origin: baseURL, "Cf-Access-Jwt-Assertion": assertion } });
+  if (recoveredSummary.status() !== 200) throw new Error("malformed response recovery failed");
+  await page.locator('[data-read-state="unavailable"]').waitFor();
 
   stage = "console-loss";
   const consolePattern = `${baseURL}/providers`;
@@ -124,11 +150,12 @@ try {
   } catch {
     consoleLost = true;
   }
-  await page.unroute(consolePattern);
   if (!consoleLost) throw new Error("Console loss was not detected");
   const lossRecovery = await controller("/local-status", "GET");
   if (lossRecovery.status !== "succeeded") throw new Error("local recovery failed during Console loss");
+  await page.unroute(consolePattern);
   await page.goto(`${baseURL}/providers`, { waitUntil: "networkidle" });
+  await page.locator('[data-read-state="unavailable"]').waitFor();
 
   stage = "mobile";
   const mobileContext = await browser.newContext({
