@@ -25,6 +25,8 @@ function safeFailureStage(error, fallback) {
   const captured = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}`;
   const probe = captured.match(/PROBE_FAILED:([a-z]+(?:-[a-z]+)*)/);
   if (probe) return probe[1];
+  const startup = captured.match(/REMOTE_REASON:([a-z]+(?:-[a-z]+)*)/);
+  if (startup) return `server-startup-${startup[1]}`;
   if (/built vsk-labs server did not become ready/.test(captured)) return "server-startup";
   if (/built vsk-labs server (?:stopped|did not stop)/.test(captured)) return "server-lifecycle";
   return fallback;

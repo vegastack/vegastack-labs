@@ -173,8 +173,12 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 	factory := result.NewFactory(result.BuildInfo{ToolVersion: "phase3-test", ReleaseBuildID: "phase3-test"}, func() (string, error) { return "request-phase3-executable", nil })
 	client := localapi.NewClient(factory)
 	ready := false
+	startupReason := "unreachable"
 	for deadline := time.Now().Add(5 * time.Second); time.Now().Before(deadline); {
 		status, statusErr := client.Status(context.Background(), fixture.profile)
+		if statusErr == nil {
+			startupReason = status.Status.RemoteReadReason
+		}
 		if statusErr == nil && status.ExitCode == 0 && status.Status.ReadAvailable && status.Status.RemoteReadState == string(RemoteReadReady) {
 			ready = true
 			break
@@ -182,7 +186,7 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 		time.Sleep(20 * time.Millisecond)
 	}
 	if !ready {
-		t.Fatal("built vsk-labs server did not become ready")
+		t.Fatalf("built vsk-labs server did not become ready: REMOTE_REASON:%s", startupReason)
 	}
 	controller := httptest.NewServer(fixture.controller())
 	fixture.controllerURL = controller.URL
