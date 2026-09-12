@@ -87,16 +87,18 @@ try {
     await createSession(mobileContext);
     await mobileContext.addInitScript(() => localStorage.setItem("theme", "light"));
     const mobile = await mobileContext.newPage();
-    const mobileHealth = { csp: false, page: false, script: false };
+    const mobileHealth = { csp: false, page: false, script: "" };
     mobile.on("console", message => {
       if (message.type() === "error" && /content security policy|refused to execute/i.test(message.text())) mobileHealth.csp = true;
     });
     mobile.on("pageerror", () => { mobileHealth.page = true; });
     mobile.on("requestfailed", request => {
-      if (request.resourceType() === "script") mobileHealth.script = true;
+      if (request.resourceType() === "script" && !mobileHealth.script) mobileHealth.script = "transport";
     });
     mobile.on("response", response => {
-      if (response.request().resourceType() === "script" && response.status() >= 400) mobileHealth.script = true;
+      if (response.request().resourceType() === "script" && response.status() >= 400) {
+        mobileHealth.script = response.status() === 401 ? "authentication" : response.status() === 404 ? "missing" : "response";
+      }
     });
     stage = "mobile-navigation";
     await mobile.goto(`${baseURL}/backups`, { waitUntil: "networkidle" });
@@ -127,7 +129,7 @@ try {
     try {
       await themeButton.waitFor({ timeout: 5_000 });
     } catch {
-      stage = mobileHealth.csp ? "mobile-csp" : mobileHealth.script ? "mobile-script" : mobileHealth.page ? "mobile-page-error" : "mobile-hydration";
+      stage = mobileHealth.csp ? "mobile-csp" : mobileHealth.script ? `mobile-script-${mobileHealth.script}` : mobileHealth.page ? "mobile-page-error" : "mobile-hydration";
       throw new Error("mobile hydration failed");
     }
     const themeLabel = await themeButton.getAttribute("aria-label");
