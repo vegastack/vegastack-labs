@@ -78,6 +78,30 @@ func TestRestartAfterVerifiedFailurePreservesFailedOutcome(t *testing.T) {
 	}
 }
 
+func TestResumeAfterLeaseOnlyCrashUsesFreshAttemptIdentity(t *testing.T) {
+	fixture := newEngineFixture(t)
+	fixture.engine.testAfterBoundary = func(boundary Boundary) error {
+		if boundary == BoundaryLeaseAcquired {
+			return errors.New("injected crash")
+		}
+		return nil
+	}
+	_, _ = fixture.engine.Submit(context.Background(), fixture.request)
+	restarted := fixture.restart(t)
+	if err := restarted.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	resumed, err := restarted.Resume(context.Background(), fixture.runID)
+	if err != nil || resumed.Status != "succeeded" || fixture.adapter.calls != 1 {
+		t.Fatalf("lease-crash resume = %#v calls=%d err=%v", resumed, fixture.adapter.calls, err)
+	}
+	fixture.store.mu.Lock()
+	defer fixture.store.mu.Unlock()
+	if fixture.store.leases["lease-deterministic-1"].Status != "released" || fixture.store.leases["lease-deterministic-2"].Status != "released" {
+		t.Fatalf("lease attempts = %#v", fixture.store.leases)
+	}
+}
+
 func TestCancellationConflictFailureVerifyAndSafeResume(t *testing.T) {
 	fixture := newEngineFixture(t)
 	run, err := fixture.engine.Submit(context.Background(), fixture.request)
@@ -183,7 +207,7 @@ func TestServerShutdownInterruptsAtSafeBoundaryAndReleasesLease(t *testing.T) {
 	}
 	fixture.store.mu.Lock()
 	defer fixture.store.mu.Unlock()
-	if len(fixture.store.targets) != 0 || fixture.store.leases["lease-deterministic"].Status != "released" {
+	if len(fixture.store.targets) != 0 || fixture.store.leases["lease-deterministic-1"].Status != "released" {
 		t.Fatalf("shutdown left active target/lease = %#v/%#v", fixture.store.targets, fixture.store.leases)
 	}
 }
@@ -197,7 +221,7 @@ func TestTimeoutBeforeEffectInterruptsAndReleasesLease(t *testing.T) {
 	}
 	fixture.store.mu.Lock()
 	defer fixture.store.mu.Unlock()
-	if len(fixture.store.targets) != 0 || fixture.store.leases["lease-deterministic"].Status != "released" {
+	if len(fixture.store.targets) != 0 || fixture.store.leases["lease-deterministic-1"].Status != "released" {
 		t.Fatalf("timeout left active target/lease = %#v/%#v", fixture.store.targets, fixture.store.leases)
 	}
 }
@@ -247,7 +271,7 @@ func TestExpiredPlanAndMissingAdapterFailBeforeEffect(t *testing.T) {
 	}
 
 	missing := newEngineFixture(t)
-	engine, err := NewEngine(Config{Repository: missing.store, Plans: missing.store, Admission: allowAdmission{}, Adapters: adapter.NewRegistry(), Clock: missing.engine.clock, IDs: deterministicIDs{}})
+	engine, err := NewEngine(Config{Repository: missing.store, Plans: missing.store, Admission: allowAdmission{}, Adapters: adapter.NewRegistry(), Clock: missing.engine.clock, IDs: &deterministicIDs{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -285,7 +309,7 @@ func newEngineFixture(t *testing.T) *engineFixture {
 	if err := registry.Register("adapter-test", fixtureAdapter); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: registry, Clock: func() time.Time { return now }, IDs: deterministicIDs{}})
+	engine, err := NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: registry, Clock: func() time.Time { return now }, IDs: &deterministicIDs{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -296,7 +320,7 @@ func newEngineFixture(t *testing.T) *engineFixture {
 
 func (fixture *engineFixture) restart(t *testing.T) *Engine {
 	t.Helper()
-	engine, err := NewEngine(Config{Repository: fixture.store, Plans: fixture.store, Admission: allowAdmission{}, Adapters: fixture.engine.adapters, Clock: fixture.engine.clock, IDs: deterministicIDs{}})
+	engine, err := NewEngine(Config{Repository: fixture.store, Plans: fixture.store, Admission: allowAdmission{}, Adapters: fixture.engine.adapters, Clock: fixture.engine.clock, IDs: fixture.engine.ids})
 	if err != nil {
 		t.Fatal(err)
 	}

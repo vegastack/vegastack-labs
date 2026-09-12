@@ -2,11 +2,13 @@
 package run
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -61,6 +63,20 @@ func runID(planID, submitKey string) string {
 }
 func stepID(id string, sequence int64) string {
 	return fmt.Sprintf("step-%d-%s", sequence, strings.TrimPrefix(digest("step", id, fmt.Sprint(sequence)), "sha256:")[:16])
+}
+
+func receiptID(leaseID string) string {
+	return "receipt-" + strings.TrimPrefix(digest("receipt", leaseID), "sha256:")[:32]
+}
+
+type secureIDSource struct{}
+
+func (secureIDSource) Lease(step generated.RunStep) (string, string, error) {
+	random := make([]byte, 32)
+	if _, err := io.ReadFull(rand.Reader, random); err != nil {
+		return "", "", err
+	}
+	return "lease-" + hex.EncodeToString(random[:16]), digest("lease-nonce", step.StepID, hex.EncodeToString(random)), nil
 }
 
 func terminal(status string) bool {

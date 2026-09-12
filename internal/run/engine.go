@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
@@ -47,9 +46,7 @@ type AdapterRegistry interface {
 }
 
 type IDSource interface {
-	LeaseID(generated.RunStep) string
-	NonceDigest(generated.RunStep) string
-	ReceiptID(generated.RunStep) string
+	Lease(generated.RunStep) (string, string, error)
 }
 
 type Config struct {
@@ -88,7 +85,7 @@ func NewEngine(config Config) (*Engine, error) {
 		config.Clock = time.Now
 	}
 	if config.IDs == nil {
-		config.IDs = deterministicIDSource{}
+		config.IDs = secureIDSource{}
 	}
 	if config.ExecutionContext == nil {
 		config.ExecutionContext = context.Background()
@@ -353,7 +350,16 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return current, err
 		}
 		claimed := engine.clock().UTC().Truncate(time.Second)
-		lease := generated.ExecutorLease{Schema: generated.SchemaIDExecutorLease, SchemaVersion: "1.0.0", LeaseID: engine.ids.LeaseID(*live), PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: current.RunID, StepID: live.StepID, OperationID: live.OperationID, ExecutorID: live.ExecutorID, AdapterID: live.AdapterID, TargetID: live.TargetID, ArtifactDigest: live.ArtifactDigest, BindingDigest: current.ExecutorBindingDigest, NonceDigest: engine.ids.NonceDigest(*live), RecoveryEpoch: current.RecoveryEpoch, ClaimedAt: claimed.Format(time.RFC3339), RenewAfter: claimed.Add(time.Duration(generated.ExecutorCheckInSeconds) * time.Second).Format(time.RFC3339), LeaseExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), MaximumExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), Status: "active", Extensions: []generated.ContractExtension{}}
+		leaseID, nonceDigest, err := engine.ids.Lease(*live)
+		if err != nil {
+			cleanup := context.WithoutCancel(ctx)
+			interrupted, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
+			if transitionErr != nil {
+				return current, transitionErr
+			}
+			return interrupted, runError(generated.ErrorCodeIntegrityFailure, "lease-identity")
+		}
+		lease := generated.ExecutorLease{Schema: generated.SchemaIDExecutorLease, SchemaVersion: "1.0.0", LeaseID: leaseID, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: current.RunID, StepID: live.StepID, OperationID: live.OperationID, ExecutorID: live.ExecutorID, AdapterID: live.AdapterID, TargetID: live.TargetID, ArtifactDigest: live.ArtifactDigest, BindingDigest: current.ExecutorBindingDigest, NonceDigest: nonceDigest, RecoveryEpoch: current.RecoveryEpoch, ClaimedAt: claimed.Format(time.RFC3339), RenewAfter: claimed.Add(time.Duration(generated.ExecutorCheckInSeconds) * time.Second).Format(time.RFC3339), LeaseExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), MaximumExpiresAt: claimed.Add(time.Duration(generated.ExecutorLeaseSeconds) * time.Second).Format(time.RFC3339), Status: "active", Extensions: []generated.ContractExtension{}}
 		if err := engine.repository.AcquireTargetLease(ctx, lease, attribution); err != nil {
 			cleanup := context.WithoutCancel(ctx)
 			interrupted, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
@@ -386,7 +392,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return engine.partial(ctx, current, *live, attribution, firstError(executeErr, adapter.ValidateEffect(effect)))
 		}
 		recorded := engine.clock().UTC().Truncate(time.Second)
-		receipt := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", LeaseID: lease.LeaseID, PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, OperationID: lease.OperationID, ExecutorID: lease.ExecutorID, AdapterID: lease.AdapterID, TargetID: lease.TargetID, ArtifactDigest: lease.ArtifactDigest, BindingDigest: lease.BindingDigest, NonceDigest: lease.NonceDigest, RecoveryEpoch: lease.RecoveryEpoch, ReceiptID: engine.ids.ReceiptID(*live), Status: effect.Status, ResultDigest: effect.ResultDigest, RecordedAt: recorded.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+		receipt := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", LeaseID: lease.LeaseID, PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, OperationID: lease.OperationID, ExecutorID: lease.ExecutorID, AdapterID: lease.AdapterID, TargetID: lease.TargetID, ArtifactDigest: lease.ArtifactDigest, BindingDigest: lease.BindingDigest, NonceDigest: lease.NonceDigest, RecoveryEpoch: lease.RecoveryEpoch, ReceiptID: receiptID(lease.LeaseID), Status: effect.Status, ResultDigest: effect.ResultDigest, RecordedAt: recorded.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 		cleanup := context.WithoutCancel(ctx)
 		current, err = engine.repository.RecordReceipt(cleanup, store.ReceiptRecordRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, At: recorded, Attribution: attribution})
 		if err != nil {
@@ -565,16 +571,4 @@ func firstError(values ...error) error {
 func systemAttribution() audit.Attribution {
 	value, _ := audit.NewAttribution(identity.Principal{ID: "system-run-engine", Method: "local-system", Kind: identity.PrincipalPolicy}, nil, nil)
 	return value
-}
-
-type deterministicIDSource struct{}
-
-func (deterministicIDSource) LeaseID(step generated.RunStep) string {
-	return "lease-" + strings.TrimPrefix(digest("lease", step.StepID), "sha256:")[:32]
-}
-func (deterministicIDSource) NonceDigest(step generated.RunStep) string {
-	return digest("lease-nonce", step.StepID)
-}
-func (deterministicIDSource) ReceiptID(step generated.RunStep) string {
-	return "receipt-" + strings.TrimPrefix(digest("receipt", step.StepID), "sha256:")[:32]
 }

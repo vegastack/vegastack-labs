@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"strconv"
 	"sync"
 	"time"
 
@@ -117,6 +118,9 @@ func (repository *memoryRepository) RequestCancellation(_ context.Context, id st
 func (repository *memoryRepository) AcquireTargetLease(_ context.Context, lease generated.ExecutorLease, _ audit.Attribution) error {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
+	if _, exists := repository.leases[lease.LeaseID]; exists {
+		return runError(generated.ErrorCodeStateConflict, "target-lease")
+	}
 	if _, exists := repository.targets[lease.TargetID]; exists {
 		return runError(generated.ErrorCodeStateConflict, "target-lease")
 	}
@@ -244,11 +248,18 @@ func (allowAdmission) Verify(context.Context, generated.Plan, generated.Authoriz
 }
 func (allowAdmission) VerifyRun(context.Context, generated.Plan, generated.Run) error { return nil }
 
-type deterministicIDs struct{}
+type deterministicIDs struct {
+	mu      sync.Mutex
+	attempt int
+}
 
-func (deterministicIDs) LeaseID(generated.RunStep) string     { return "lease-deterministic" }
-func (deterministicIDs) NonceDigest(generated.RunStep) string { return digest("nonce") }
-func (deterministicIDs) ReceiptID(generated.RunStep) string   { return "receipt-deterministic" }
+func (source *deterministicIDs) Lease(step generated.RunStep) (string, string, error) {
+	source.mu.Lock()
+	defer source.mu.Unlock()
+	source.attempt++
+	attempt := strconv.Itoa(source.attempt)
+	return "lease-deterministic-" + attempt, digest("nonce", step.StepID, attempt), nil
+}
 
 func testPlan(now time.Time) generated.Plan {
 	return generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-test", PlanDigest: digest("plan"), DeclarationID: "declaration-test", Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 0, StateRevision: 1, DeclarationRevision: 1, ObservationFingerprint: digest("observation"), TargetDigest: digest("target"), ReasonDigest: digest("reason"), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test", OperationType: "application.deploy.low-risk", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "target-test", InputDigest: digest("input"), ArtifactDigest: digest("artifact"), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "preauthorized", ExecutorMode: "central", ExecutorID: nil, CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339), ReadableDigest: digest("readable"), Extensions: []generated.ContractExtension{}}
