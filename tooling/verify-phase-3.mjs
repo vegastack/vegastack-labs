@@ -21,6 +21,15 @@ const PRIVATE_MARKERS = [
   /https?:\/\/(?!127\.0\.0\.1(?::\d+)?(?:[\/"'\s]|$)|localhost(?::\d+)?(?:[\/"'\s]|$))[^\s"']+/i,
 ];
 
+function safeFailureStage(error, fallback) {
+  const captured = `${error?.stdout ?? ""}\n${error?.stderr ?? ""}`;
+  const probe = captured.match(/PROBE_FAILED:([a-z]+(?:-[a-z]+)*)/);
+  if (probe) return probe[1];
+  if (/built vsk-labs server did not become ready/.test(captured)) return "server-startup";
+  if (/built vsk-labs server (?:stopped|did not stop)/.test(captured)) return "server-lifecycle";
+  return fallback;
+}
+
 async function canaries(root) {
   const parsed = JSON.parse(await readFile(path.join(root, CANARY_FILE), "utf8"));
   if (parsed?.schemaVersion !== 1 || !Array.isArray(parsed.canaries) ||
@@ -120,8 +129,8 @@ export async function runPhase3(root = ROOT, { prepared = false } = {}) {
   } finally {
     await rm(browserArtifacts, { recursive: true, force: true });
   }
-  if (sanitized.status !== "pass") throw new Error("Phase 3 evidence sanitation failed");
-  if (browserFailure) throw new Error("Phase 3 browser verification failed");
+  if (sanitized.status !== "pass") throw new Error("PHASE3_FAILED:evidence-sanitizer");
+  if (browserFailure) throw new Error(`PHASE3_FAILED:${safeFailureStage(browserFailure, "browser-suite")}`);
   if (process.platform === "linux") {
     const runtimeRoot = await mkdtemp(path.join(tmpdir(), "vsk-phase3-runtime-"));
     const binary = path.join(runtimeRoot, "vsk-labs");
@@ -132,12 +141,16 @@ export async function runPhase3(root = ROOT, { prepared = false } = {}) {
         capture: true,
         timeoutMs: 180_000,
       });
-      await runCommand("go", ["test", "-race", "-count=1", "./internal/server", "./internal/api", "-run", "Phase3Acceptance"], {
-        cwd: root,
-        capture: true,
-        env: { ...process.env, VSK_PHASE3_BINARY: binary, VSK_PHASE3_RUNTIME_ROOT: runtimeRoot },
-        timeoutMs: 180_000,
-      });
+      try {
+        await runCommand("go", ["test", "-race", "-count=1", "./internal/server", "./internal/api", "-run", "Phase3Acceptance"], {
+          cwd: root,
+          capture: true,
+          env: { ...process.env, VSK_PHASE3_BINARY: binary, VSK_PHASE3_RUNTIME_ROOT: runtimeRoot },
+          timeoutMs: 180_000,
+        });
+      } catch (error) {
+        throw new Error(`PHASE3_FAILED:${safeFailureStage(error, "real-server")}`);
+      }
     } finally {
       await rm(runtimeRoot, { recursive: true, force: true });
     }
@@ -154,7 +167,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     const result = await runPhase3(ROOT, { prepared: args.includes("--prepared") });
     process.stdout.write(`${JSON.stringify(result)}\n`);
   } catch (error) {
-    process.stderr.write("Phase 3 verification failed with a sanitized diagnostic\n");
+    const stage = /^PHASE3_FAILED:([a-z]+(?:-[a-z]+)*)$/.exec(error?.message ?? "")?.[1] ?? "verification";
+    process.stderr.write(`Phase 3 verification failed at ${stage}\n`);
     process.exitCode = 1;
   }
 }
