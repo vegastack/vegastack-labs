@@ -57,9 +57,17 @@ try {
   stage = "desktop-navigation";
   const navigation = await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
   if (!navigation || navigation.status() !== 200) throw new Error("embedded Console navigation failed");
-  for (const header of ["content-security-policy", "x-content-type-options", "x-frame-options", "referrer-policy", "cache-control"]) {
-    if (!navigation.headers()[header]) throw new Error("browser security header missing");
+  const securityHeaders = navigation.headers();
+  if (securityHeaders["x-content-type-options"] !== "nosniff" || securityHeaders["x-frame-options"] !== "DENY" ||
+      securityHeaders["referrer-policy"] !== "no-referrer" || securityHeaders["cache-control"] !== "no-store" ||
+      securityHeaders["permissions-policy"] !== "camera=(), geolocation=(), microphone=(), payment=(), usb=()") {
+    throw new Error("browser security header policy failed");
   }
+  const csp = securityHeaders["content-security-policy"] ?? "";
+  for (const directive of ["default-src 'self'", "base-uri 'none'", "object-src 'none'", "frame-ancestors 'none'", "form-action 'none'", "connect-src 'self'"]) {
+    if (!csp.includes(directive)) throw new Error("content security policy failed");
+  }
+  if (csp.includes("'unsafe-eval'")) throw new Error("content security policy allowed unsafe evaluation");
   await page.getByRole("heading", { name: "Overview", exact: true }).waitFor();
   const summaryStatus = await page.evaluate(async () => (await fetch("/api/v1/summary")).status);
   if (summaryStatus !== 200) throw new Error("same-origin generated read failed");
@@ -82,12 +90,45 @@ try {
   for (const [route, heading] of routes) {
     await page.goto(`${baseURL}${route}`, { waitUntil: "networkidle" });
     await page.getByRole("heading", { name: heading, exact: true }).waitFor();
+    if (route === "/providers") await page.locator('[data-read-state="unavailable"]').waitFor();
   }
   await page.goBack({ waitUntil: "networkidle" });
   if (new URL(page.url()).pathname !== "/backups") throw new Error("browser back navigation failed");
   await page.goForward({ waitUntil: "networkidle" });
   if (new URL(page.url()).pathname !== "/providers") throw new Error("browser forward navigation failed");
   await page.reload({ waitUntil: "networkidle" });
+
+  stage = "host-origin-denial";
+  for (const denialPath of ["/wrong-host", "/wrong-origin"]) {
+    const denied = await controller(denialPath, "GET");
+    if (denied.statusCode !== 401) throw new Error("host or origin denial failed");
+  }
+
+  stage = "malformed-response";
+  const genuineSummary = await context.request.get(`${baseURL}/api/v1/summary`, { headers: { Origin: baseURL, "Cf-Access-Jwt-Assertion": assertion } });
+  if (genuineSummary.status() !== 200) throw new Error("real summary precondition failed");
+  const malformedPattern = `${baseURL}/api/v1/**`;
+  await page.route(malformedPattern, route => route.fulfill({ status: 200, contentType: "application/json", body: "{not-json" }));
+  await page.reload({ waitUntil: "networkidle" });
+  await page.locator('[data-read-state="error"]').first().waitFor();
+  await page.unroute(malformedPattern);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.getByRole("heading", { name: "Providers", exact: true }).waitFor();
+
+  stage = "console-loss";
+  const consolePattern = `${baseURL}/providers`;
+  await page.route(consolePattern, route => route.abort("connectionfailed"));
+  let consoleLost = false;
+  try {
+    await page.goto(`${baseURL}/providers`, { waitUntil: "commit" });
+  } catch {
+    consoleLost = true;
+  }
+  await page.unroute(consolePattern);
+  if (!consoleLost) throw new Error("Console loss was not detected");
+  const lossRecovery = await controller("/local-status", "GET");
+  if (lossRecovery.status !== "succeeded") throw new Error("local recovery failed during Console loss");
+  await page.goto(`${baseURL}/providers`, { waitUntil: "networkidle" });
 
   stage = "mobile";
   const mobileContext = await browser.newContext({

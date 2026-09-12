@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -265,6 +266,35 @@ func (fixture *phase3ExecutableFixture) controller() http.Handler {
 		return nil
 	})
 	post("/provider-recover", func() error { fixture.providerOnline.Store(true); return nil })
+	denial := func(path string, mutate func(*http.Request)) {
+		mux.HandleFunc(path, func(writer http.ResponseWriter, request *http.Request) {
+			if request.Method != http.MethodGet {
+				http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+				return
+			}
+			probe, err := http.NewRequest(http.MethodGet, fixture.baseURL+"/", nil)
+			if err != nil {
+				http.Error(writer, "fixture operation failed", http.StatusInternalServerError)
+				return
+			}
+			probe.Header.Set("Cf-Access-Jwt-Assertion", fixture.assertion)
+			probe.Header.Set("Origin", fixture.baseURL)
+			probe.Header.Set("Sec-Fetch-Site", "same-origin")
+			probe.Header.Set("Sec-Fetch-Mode", "cors")
+			probe.Header.Set("Sec-Fetch-Dest", "empty")
+			mutate(probe)
+			response, err := (&http.Client{Transport: &http.Transport{TLSClientConfig: insecurePhase3TLSConfig()}, Timeout: 5 * time.Second}).Do(probe)
+			if err != nil {
+				http.Error(writer, "fixture operation failed", http.StatusInternalServerError)
+				return
+			}
+			defer response.Body.Close()
+			writer.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(writer, fmt.Sprintf(`{"statusCode":%d}`, response.StatusCode))
+		})
+	}
+	denial("/wrong-host", func(request *http.Request) { request.Host = "wrong.invalid" })
+	denial("/wrong-origin", func(request *http.Request) { request.Header.Set("Origin", "https://wrong.invalid") })
 	mux.HandleFunc("/local-status", func(writer http.ResponseWriter, request *http.Request) {
 		if request.Method != http.MethodGet {
 			http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
