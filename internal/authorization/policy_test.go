@@ -71,22 +71,28 @@ func TestEvaluatorDeniesStaleBindingsUnknownPolicyAndRepositoryFailure(t *testin
 	principal := identity.Principal{ID: "human-maintainer", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}
 	plan := testPlan("application.deploy.production-like", BranchHuman)
 	evaluator := evaluatorFor(RoleMaintainer, identity.PrincipalHuman)
-	request := Request{Action: ActionExecute, Target: Target{Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test"}, Plan: &plan, Branches: []Branch{BranchHuman}, ExpectedGrantRevision: 8, ExpectedStateRevision: 12, ExpectedRecoveryEpoch: 3}
+	request := Request{Action: ActionExecute, Target: Target{Capability: "application.deploy", ResourceKind: "application", ResourceID: "app-test"}, Plan: &plan, Branches: []Branch{BranchHuman}, Expected: &RevisionBinding{GrantRevision: 8, StateRevision: 12, RecoveryEpoch: 3}}
 	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed || decision.ReasonCode != ReasonGrantRevisionStale {
 		t.Fatalf("stale grant = %#v", decision)
 	}
 
-	request.ExpectedGrantRevision = 7
-	request.ExpectedRecoveryEpoch = 4
+	request.Expected.GrantRevision = 7
+	request.Expected.RecoveryEpoch = 4
 	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed || decision.ReasonCode != ReasonRecoveryEpochMismatch {
 		t.Fatalf("recovery mismatch = %#v", decision)
 	}
 
 	unknownPlan := testPlan("provider.magic", BranchHuman)
-	request.ExpectedRecoveryEpoch = 3
+	request.Expected.RecoveryEpoch = 3
 	request.Plan = &unknownPlan
 	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed || decision.ReasonCode != ReasonRiskUnknown {
 		t.Fatalf("unknown risk = %#v", decision)
+	}
+
+	request.Plan = &plan
+	request.Expected.RecoveryEpoch = 0
+	if decision, _ := evaluator.Authorize(context.Background(), principal, request); decision.Allowed || decision.ReasonCode != ReasonRecoveryEpochMismatch {
+		t.Fatalf("initial-epoch replay = %#v", decision)
 	}
 
 	repositoryFailure := errors.New("database unavailable")

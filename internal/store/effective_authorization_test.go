@@ -82,11 +82,11 @@ func TestEffectivePolicySnapshotSurvivesRestartAndBindsCurrentRevisions(t *testi
 	}
 
 	evaluator := authorization.NewEvaluator(NewEffectiveAuthorizationRepository(store))
-	decision, err := evaluator.Authorize(context.Background(), identity.Principal{ID: "human-author", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}, authorization.Request{Action: authorization.ActionAuthor, Target: target, ExpectedGrantRevision: 2})
+	decision, err := evaluator.Authorize(context.Background(), identity.Principal{ID: "human-author", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}, authorization.Request{Action: authorization.ActionAuthor, Target: target, Expected: &authorization.RevisionBinding{GrantRevision: 2, StateRevision: 0, RecoveryEpoch: 0}})
 	if err != nil || decision.Allowed || decision.ReasonCode != authorization.ReasonGrantRevisionStale {
 		t.Fatalf("stale grant decision = %#v, %v", decision, err)
 	}
-	decision, err = evaluator.Authorize(context.Background(), identity.Principal{ID: "human-author", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}, authorization.Request{Action: authorization.ActionAuthor, Target: target, ExpectedRecoveryEpoch: 9})
+	decision, err = evaluator.Authorize(context.Background(), identity.Principal{ID: "human-author", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}, authorization.Request{Action: authorization.ActionAuthor, Target: target, Expected: &authorization.RevisionBinding{GrantRevision: 3, StateRevision: 0, RecoveryEpoch: 9}})
 	if err != nil || decision.Allowed || decision.ReasonCode != authorization.ReasonRecoveryEpochMismatch {
 		t.Fatalf("recovery mismatch decision = %#v, %v", decision, err)
 	}

@@ -26,13 +26,17 @@ const (
 )
 
 type Request struct {
-	Action                Action
-	Target                Target
-	Plan                  *generated.Plan
-	Branches              []Branch
-	ExpectedGrantRevision int64
-	ExpectedStateRevision int64
-	ExpectedRecoveryEpoch int64
+	Action   Action
+	Target   Target
+	Plan     *generated.Plan
+	Branches []Branch
+	Expected *RevisionBinding
+}
+
+type RevisionBinding struct {
+	GrantRevision int64
+	StateRevision int64
+	RecoveryEpoch int64
 }
 
 type Decision struct {
@@ -74,17 +78,19 @@ func (evaluator *Evaluator) Authorize(ctx context.Context, principal identity.Pr
 		decision.ReasonCode = ReasonPolicyInactive
 		return decision, nil
 	}
-	if request.ExpectedGrantRevision > 0 && request.ExpectedGrantRevision != snapshot.GrantRevision {
-		decision.ReasonCode = ReasonGrantRevisionStale
-		return decision, nil
-	}
-	if request.ExpectedRecoveryEpoch != 0 && request.ExpectedRecoveryEpoch != snapshot.RecoveryEpoch {
-		decision.ReasonCode = ReasonRecoveryEpochMismatch
-		return decision, nil
-	}
-	if request.ExpectedStateRevision > 0 && request.ExpectedStateRevision != snapshot.StateRevision {
-		decision.ReasonCode = ReasonStateRevisionStale
-		return decision, nil
+	if request.Expected != nil {
+		if request.Expected.GrantRevision != snapshot.GrantRevision {
+			decision.ReasonCode = ReasonGrantRevisionStale
+			return decision, nil
+		}
+		if request.Expected.RecoveryEpoch != snapshot.RecoveryEpoch {
+			decision.ReasonCode = ReasonRecoveryEpochMismatch
+			return decision, nil
+		}
+		if request.Expected.StateRevision != snapshot.StateRevision {
+			decision.ReasonCode = ReasonStateRevisionStale
+			return decision, nil
+		}
 	}
 
 	branch, reason := requestedBranch(request, principal)
