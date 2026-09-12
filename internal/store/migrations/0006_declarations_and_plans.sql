@@ -11,8 +11,7 @@ CREATE TABLE declaration_revisions (
     created_at TEXT NOT NULL,
     created_by TEXT NOT NULL,
     agent_session_id TEXT NOT NULL,
-    PRIMARY KEY (declaration_id, declaration_revision),
-    UNIQUE (declaration_id, content_digest)
+    PRIMARY KEY (declaration_id, declaration_revision)
 ) STRICT;
 
 CREATE TABLE immutable_plans (

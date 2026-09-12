@@ -14,13 +14,16 @@ import (
 )
 
 type PlanCommitRequest struct {
-	Plan           generated.Plan
-	CanonicalBytes []byte
-	Readable       string
-	Expected       RevisionToken
-	KeyDigest      string
-	RequestDigest  string
-	Attribution    audit.Attribution
+	Plan                      generated.Plan
+	DesiredDeclaration        generated.DeclarationRevision
+	SourceDeclarationRevision int64
+	ReasonDigest              string
+	CanonicalBytes            []byte
+	Readable                  string
+	Expected                  RevisionToken
+	KeyDigest                 string
+	RequestDigest             string
+	Attribution               audit.Attribution
 }
 
 type PlanCommitResult struct {
@@ -59,8 +62,12 @@ func (repository *PlanRepository) ExistingPlan(ctx context.Context, keyDigest, r
 }
 
 func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, request PlanCommitRequest) (PlanCommitResult, error) {
-	if repository == nil || repository.store == nil || request.Plan.Binding.PriorStateRevision != request.Expected.StateRevision || request.Plan.Binding.StateRevision != request.Expected.StateRevision+1 || request.Plan.Binding.RecoveryEpoch != request.Expected.RecoveryEpoch || len(request.CanonicalBytes) == 0 || request.Readable == "" {
+	if repository == nil || repository.store == nil || request.Plan.Binding.PriorStateRevision != request.Expected.StateRevision || request.Plan.Binding.StateRevision != request.Expected.StateRevision+1 || request.Plan.Binding.RecoveryEpoch != request.Expected.RecoveryEpoch || request.SourceDeclarationRevision < 1 || len(request.CanonicalBytes) == 0 || request.Readable == "" {
 		return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "plan", false, nil)
+	}
+	desiredCanonical, desiredErr := json.Marshal(request.DesiredDeclaration)
+	if desiredErr != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, desiredCanonical, generated.ContractExact) != nil || request.DesiredDeclaration.Status != "committed" || request.DesiredDeclaration.DeclarationID != request.Plan.DeclarationID || request.DesiredDeclaration.Revision != request.Plan.Binding.DeclarationRevision || request.DesiredDeclaration.Revision != request.SourceDeclarationRevision+1 || request.DesiredDeclaration.StateRevision != request.Plan.Binding.StateRevision || request.DesiredDeclaration.RecoveryEpoch != request.Expected.RecoveryEpoch {
+		return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "desired-declaration", false, desiredErr)
 	}
 	canonical, err := json.Marshal(request.Plan)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDPlan, canonical, generated.ContractExact) != nil || generated.ValidatePlanTiming(request.Plan) != nil || string(canonical) != string(request.CanonicalBytes) || !validPlanDigests(request.Plan, request.Readable) {
@@ -77,11 +84,21 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 	}
 	result := PlanCommitResult{Plan: request.Plan, Canonical: append([]byte(nil), request.CanonicalBytes...), Readable: request.Readable}
 	intent, err := repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, transaction *sql.Tx) error {
-		var contentDigest string
-		if err := transaction.QueryRowContext(ctx, `SELECT content_digest FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, request.Plan.DeclarationID, request.Plan.Binding.DeclarationRevision).Scan(&contentDigest); err != nil {
+		var contentDigest, reasonDigest, status string
+		if err := transaction.QueryRowContext(ctx, `SELECT content_digest,reason_digest,status FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, request.Plan.DeclarationID, request.SourceDeclarationRevision).Scan(&contentDigest, &reasonDigest, &status); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return newStoreError(generated.ErrorCodeResourceNotFound, "declaration-revision", false, nil)
 			}
+			return err
+		}
+		var latest int64
+		if err := transaction.QueryRowContext(ctx, `SELECT COALESCE(MAX(declaration_revision),0) FROM declaration_revisions WHERE declaration_id=?`, request.Plan.DeclarationID).Scan(&latest); err != nil {
+			return err
+		}
+		if status != "draft" || latest != request.SourceDeclarationRevision || contentDigest != request.DesiredDeclaration.ContentDigest || reasonDigest != request.ReasonDigest {
+			return newStoreError(generated.ErrorCodeStateConflict, "desired-declaration", false, nil)
+		}
+		if _, err := transaction.ExecContext(ctx, `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, request.DesiredDeclaration.DeclarationID, request.DesiredDeclaration.Revision, request.DesiredDeclaration.DeclarationType, request.DesiredDeclaration.StateRevision, request.DesiredDeclaration.RecoveryEpoch, request.DesiredDeclaration.ContentDigest, request.ReasonDigest, request.DesiredDeclaration.Status, desiredCanonical, request.DesiredDeclaration.CreatedAt, request.DesiredDeclaration.CreatedBy, request.DesiredDeclaration.AgentSessionID); err != nil {
 			return err
 		}
 		if repository.testFailBeforePlanInsert != nil {
@@ -140,7 +157,7 @@ func (repository *PlanRepository) existing(ctx context.Context, key, requestDige
 		return PlanCommitResult{}, true, newStoreError(generated.ErrorCodeStateConflict, "plan-intent-key", false, nil)
 	}
 	var document generated.Plan
-	if json.Unmarshal(canonical, &document) != nil || generated.ValidateContractJSON(generated.SchemaIDPlan, canonical, generated.ContractCompatibleRead) != nil {
+	if !decodeStoredPlan(canonical, readable, &document) {
 		return PlanCommitResult{}, true, newStoreError(generated.ErrorCodeIntegrityFailure, "plan", false, nil)
 	}
 	return PlanCommitResult{Plan: document, Canonical: canonical, Readable: readable, Commit: Commit{Changed: false, StateRevision: revision, RecoveryEpoch: epoch}, Created: false}, true, nil
@@ -165,8 +182,16 @@ func (repository *PlanRepository) get(ctx context.Context, query string, argumen
 		return PlanCommitResult{}, err
 	}
 	var document generated.Plan
-	if json.Unmarshal(canonical, &document) != nil || generated.ValidateContractJSON(generated.SchemaIDPlan, canonical, generated.ContractCompatibleRead) != nil {
+	if !decodeStoredPlan(canonical, readable, &document) {
 		return PlanCommitResult{}, newStoreError(generated.ErrorCodeIntegrityFailure, "plan", false, nil)
 	}
 	return PlanCommitResult{Plan: document, Canonical: canonical, Readable: readable}, nil
+}
+
+func decodeStoredPlan(canonical []byte, readable string, document *generated.Plan) bool {
+	if json.Unmarshal(canonical, document) != nil || generated.ValidateContractJSON(generated.SchemaIDPlan, canonical, generated.ContractExact) != nil || generated.ValidatePlanTiming(*document) != nil || !validPlanDigests(*document, readable) {
+		return false
+	}
+	reencoded, err := json.Marshal(document)
+	return err == nil && string(reencoded) == string(canonical)
 }

@@ -108,8 +108,12 @@ func (repository *DeclarationRepository) GetRevision(ctx context.Context, declar
 		return generated.DeclarationRevision{}, err
 	}
 	var document generated.DeclarationRevision
-	if json.Unmarshal(raw, &document) != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, raw, generated.ContractCompatibleRead) != nil {
+	if json.Unmarshal(raw, &document) != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, raw, generated.ContractExact) != nil {
 		return generated.DeclarationRevision{}, newStoreError(generated.ErrorCodeIntegrityFailure, "declaration-revision", false, nil)
+	}
+	reencoded, err := json.Marshal(document)
+	if err != nil || string(reencoded) != string(raw) {
+		return generated.DeclarationRevision{}, newStoreError(generated.ErrorCodeIntegrityFailure, "declaration-revision", false, err)
 	}
 	return document, nil
 }

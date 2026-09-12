@@ -76,6 +76,9 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	if err != nil {
 		return store.PlanCommitResult{}, err
 	}
+	if declaration.Status != "draft" || declaration.DeclarationID != request.DeclarationID || declaration.Revision != request.DeclarationRevision {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeStateConflict)
+	}
 	reason, err := service.config.Repository.GetDeclarationReason(ctx, request.DeclarationID, request.DeclarationRevision)
 	if err != nil {
 		return store.PlanCommitResult{}, err
@@ -108,7 +111,16 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
 	}
 	created := service.config.Clock().UTC().Truncate(time.Second)
-	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: declaration.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: service.config.Risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)}
+	desired := declaration
+	desired.Revision = declaration.Revision + 1
+	desired.StateRevision = current.StateRevision + 1
+	desired.Status = "committed"
+	desired.CreatedAt = created.Format(time.RFC3339)
+	desired.CreatedBy = author.PrincipalID
+	desired.AgentSessionID = author.AgentSessionID
+	desired.Operations = declarationOperations
+	desired.Extensions = append([]generated.ContractExtension(nil), declaration.Extensions...)
+	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: service.config.Risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)}
 	readable := readablePlan(candidate)
 	candidate.ReadableDigest = sha([]byte(readable))
 	candidate.PlanDigest, err = planDigest(candidate)
@@ -124,7 +136,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	if author.AgentName != "" {
 		attribution.Agent = &audit.AgentMetadata{Name: author.AgentName, SessionID: author.AgentSessionID}
 	}
-	return service.config.Repository.CommitDeclarationAndPlan(ctx, store.PlanCommitRequest{Plan: candidate, CanonicalBytes: canonical, Readable: readable, Expected: current, KeyDigest: keyDigest, RequestDigest: requestDigest, Attribution: attribution})
+	return service.config.Repository.CommitDeclarationAndPlan(ctx, store.PlanCommitRequest{Plan: candidate, DesiredDeclaration: desired, SourceDeclarationRevision: declaration.Revision, ReasonDigest: reason, CanonicalBytes: canonical, Readable: readable, Expected: current, KeyDigest: keyDigest, RequestDigest: requestDigest, Attribution: attribution})
 }
 
 func (service *Service) ValidateCurrent(ctx context.Context, candidate generated.Plan) error {

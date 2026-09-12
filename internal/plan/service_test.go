@@ -47,6 +47,24 @@ func TestValidateCurrentRejectsExpiryFactsRevisionAndRecoveryDrift(t *testing.T)
 	}
 }
 
+func TestCreateCommitsASeparateDesiredDeclarationWithThePlan(t *testing.T) {
+	repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+	service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, func() time.Time {
+		return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC)
+	})
+	result, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-plan"}, validRequest())
+	if err != nil {
+		t.Fatal(err)
+	}
+	desired := repository.committed.DesiredDeclaration
+	if desired.Status != "committed" || desired.Revision != 2 || desired.StateRevision != 10 || desired.AgentSessionID != "session-plan" {
+		t.Fatalf("desired declaration = %#v", desired)
+	}
+	if repository.committed.SourceDeclarationRevision != 1 || result.Plan.Binding.DeclarationRevision != desired.Revision || desired.ContentDigest != repository.declaration.ContentDigest {
+		t.Fatal("plan did not bind the atomically committed desired declaration")
+	}
+}
+
 func createWithDeclaration(t *testing.T, declaration generated.DeclarationRevision) store.PlanCommitResult {
 	t.Helper()
 	repository := &fakePlanRepository{declaration: declaration, current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}

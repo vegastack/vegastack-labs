@@ -15,7 +15,8 @@ const CODE_ORDER = [
   "READ_API_SQLITE_SCOPE",
 ];
 const EXPECTED_ENDPOINTS = [
-  "api.v1.database-status.get", "api.v1.events.stream", "api.v1.health.get",
+  "api.v1.database-status.get", "api.v1.declarations.get", "api.v1.declarations.revise",
+  "api.v1.events.stream", "api.v1.health.get",
   "api.v1.inventory-diffs.create",
   "api.v1.inventory-draft-aliases.get", "api.v1.inventory-draft-aliases.list",
   "api.v1.inventory-draft-assets.get", "api.v1.inventory-draft-assets.list",
@@ -23,6 +24,7 @@ const EXPECTED_ENDPOINTS = [
   "api.v1.inventory-draft-observations.get", "api.v1.inventory-draft-observations.list",
   "api.v1.inventory-drafts.get", "api.v1.inventory-drafts.import", "api.v1.inventory-drafts.list",
   "api.v1.inventory-exports.create",
+  "api.v1.plans.create", "api.v1.plans.get",
   "api.v1.session.create", "api.v1.session.logout", "api.v1.session.renew",
   "api.v1.sources.list", "api.v1.summary.get",
 ];

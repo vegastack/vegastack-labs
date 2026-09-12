@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -19,7 +20,7 @@ import (
 
 const testDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 
-func TestDeclarationAndPlanCommitRollsBackTogether(t *testing.T) {
+func TestCommittedDeclarationAndPlanRollBackTogether(t *testing.T) {
 	config := testConfig(t)
 	config.Clock = func() time.Time { return time.Date(2026, 9, 12, 18, 30, 0, 0, time.UTC) }
 	s, err := Open(context.Background(), config)
@@ -41,6 +42,12 @@ func TestDeclarationAndPlanCommitRollsBackTogether(t *testing.T) {
 	}
 	if _, err := plans.GetPlan(context.Background(), "plan-test-1"); Code(err) != generated.ErrorCodeResourceNotFound {
 		t.Fatalf("plan lookup error = %v", err)
+	}
+	if _, err := declarations.GetRevision(context.Background(), created.Document.DeclarationID, created.Document.Revision+1); Code(err) != generated.ErrorCodeResourceNotFound {
+		t.Fatalf("committed declaration survived rollback: %v", err)
+	}
+	if _, err := declarations.GetRevision(context.Background(), created.Document.DeclarationID, created.Document.Revision); err != nil {
+		t.Fatalf("source draft was lost on rollback: %v", err)
 	}
 	health, err := s.Health(context.Background())
 	if err != nil {
@@ -81,6 +88,10 @@ func TestDeclarationAndPlanRejectStaleAndConflictingReplay(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	desired, err := declarations.GetRevision(context.Background(), first.Document.DeclarationID, first.Document.Revision+1)
+	if err != nil || desired.Status != "committed" || desired.StateRevision != committed.Commit.StateRevision || committed.Plan.Binding.DeclarationRevision != desired.Revision {
+		t.Fatalf("committed declaration = %#v, %v", desired, err)
+	}
 	replayedPlan, err := plans.CommitDeclarationAndPlan(context.Background(), planRequest)
 	if err != nil || replayedPlan.Created || replayedPlan.Plan.PlanID != committed.Plan.PlanID {
 		t.Fatalf("plan replay = %#v, %v", replayedPlan, err)
@@ -88,6 +99,46 @@ func TestDeclarationAndPlanRejectStaleAndConflictingReplay(t *testing.T) {
 	planRequest.RequestDigest = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	if _, err := plans.CommitDeclarationAndPlan(context.Background(), planRequest); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("conflicting plan replay error = %v", err)
+	}
+}
+
+func TestAuthoritativeDeclarationAndPlanReadsRequireExactStoredContracts(t *testing.T) {
+	config := testConfig(t)
+	s, err := Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = s.Close() })
+
+	draftRequest := validDeclarationStoreRequest()
+	draftRequest.Document.DeclarationID = "declaration-exact-test"
+	draftRequest.Document.Operations[0].OperationID = "operation-exact-test"
+	draftRequest.KeyDigest = "sha256:" + strings.Repeat("b", 64)
+	draftRequest.RequestDigest = draftRequest.KeyDigest
+	draft, err := NewDeclarationRepository(s).CreateRevision(context.Background(), draftRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	unknownDeclaration := draftRequest.Document
+	unknownDeclaration.DeclarationID = "declaration-forward-field"
+	declarationBytes, _ := json.Marshal(unknownDeclaration)
+	declarationBytes = append(declarationBytes[:len(declarationBytes)-1], []byte(`,"futureField":true}`)...)
+	if _, err := s.conn.ExecContext(context.Background(), `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, unknownDeclaration.DeclarationID, unknownDeclaration.Revision, unknownDeclaration.DeclarationType, unknownDeclaration.StateRevision, unknownDeclaration.RecoveryEpoch, unknownDeclaration.ContentDigest, testDigest, unknownDeclaration.Status, declarationBytes, unknownDeclaration.CreatedAt, unknownDeclaration.CreatedBy, unknownDeclaration.AgentSessionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewDeclarationRepository(s).GetRevision(context.Background(), unknownDeclaration.DeclarationID, unknownDeclaration.Revision); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("forward declaration field became authoritative: %v", err)
+	}
+
+	planRequest := validPlanStoreRequest(draft.Document)
+	planBytes := append([]byte(nil), planRequest.CanonicalBytes...)
+	planBytes = append(planBytes[:len(planBytes)-1], []byte(`,"futureField":true}`)...)
+	if _, err := s.conn.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, "plan-forward-field", "sha256:"+strings.Repeat("b", 64), draft.Document.DeclarationID, draft.Document.Revision, 2, 0, testDigest, "sha256:"+strings.Repeat("c", 64), "sha256:"+strings.Repeat("d", 64), planBytes, planRequest.Readable, planRequest.Plan.ReadableDigest, planRequest.Plan.CreatedAt, planRequest.Plan.ExpiresAt); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewPlanRepository(s).GetPlan(context.Background(), "plan-forward-field"); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("forward plan field became authoritative: %v", err)
 	}
 }
 
@@ -182,11 +233,16 @@ func validDeclarationStoreRequest() DeclarationRevisionRequest {
 func validPlanStoreRequest(declaration generated.DeclarationRevision) PlanCommitRequest {
 	readable := "readable\n"
 	readableSum := sha256.Sum256([]byte(readable))
-	value := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 1, StateRevision: 2, DeclarationRevision: declaration.Revision, ObservationFingerprint: testDigest, TargetDigest: testDigest, ReasonDigest: testDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test-1", OperationType: "configuration.update", AdapterID: "adapter-test-1", ExecutorID: "executor-central", TargetID: "target-test-1", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-12T18:30:00Z", ExpiresAt: "2026-09-12T19:00:00Z", ReadableDigest: "sha256:" + hex.EncodeToString(readableSum[:]), Extensions: []generated.ContractExtension{}}
+	desired := declaration
+	desired.Revision++
+	desired.StateRevision++
+	desired.Status = "committed"
+	desired.CreatedAt = "2026-09-12T18:30:00Z"
+	value := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 1, StateRevision: 2, DeclarationRevision: desired.Revision, ObservationFingerprint: testDigest, TargetDigest: testDigest, ReasonDigest: testDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test-1", OperationType: "configuration.update", AdapterID: "adapter-test-1", ExecutorID: "executor-central", TargetID: "target-test-1", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-12T18:30:00Z", ExpiresAt: "2026-09-12T19:00:00Z", ReadableDigest: "sha256:" + hex.EncodeToString(readableSum[:]), Extensions: []generated.ContractExtension{}}
 	preimage, _ := json.Marshal(value)
 	planSum := sha256.Sum256(preimage)
 	value.PlanDigest = "sha256:" + hex.EncodeToString(planSum[:])
 	value.PlanID = "plan-" + hex.EncodeToString(planSum[:16])
 	canonical, _ := json.Marshal(value)
-	return PlanCommitRequest{Plan: value, CanonicalBytes: canonical, Readable: readable, Expected: RevisionToken{StateRevision: 1, RecoveryEpoch: 0}, KeyDigest: testDigest, RequestDigest: testDigest, Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"}}
+	return PlanCommitRequest{Plan: value, DesiredDeclaration: desired, SourceDeclarationRevision: declaration.Revision, ReasonDigest: testDigest, CanonicalBytes: canonical, Readable: readable, Expected: RevisionToken{StateRevision: 1, RecoveryEpoch: 0}, KeyDigest: testDigest, RequestDigest: testDigest, Attribution: audit.Attribution{AuthenticatedPrincipalID: "principal-test-1", AuthenticatedPrincipalMethod: "local-os-peer"}}
 }
