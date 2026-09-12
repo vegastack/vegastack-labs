@@ -123,7 +123,7 @@ try {
     }));
     if (!targets.length || targets.some(target => target.width < 44 || target.height < 44)) throw new Error("mobile control target failed");
     stage = "mobile-theme-control";
-    const themeButton = mobile.getByRole("button", { name: /Use (?:light|dark) theme/ });
+    const themeButton = mobile.locator('button[aria-label^="Use "][aria-label$=" theme"]:visible').first();
     try {
       await themeButton.waitFor({ timeout: 5_000 });
     } catch {
