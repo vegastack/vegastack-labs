@@ -109,9 +109,8 @@ jobs:
 
       - name: Prepare protected local test storage
         run: |
-          TMPDIR="/var/tmp/vsk-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           umask 077
-          mkdir -m 700 "$TMPDIR"
+          TMPDIR="$(mktemp -d -p /var/tmp vsk.XXXXXX)"
           test "$(stat -c '%a:%u' "$TMPDIR")" = "700:$(id -u)"
           case "$(stat -f -c '%T' "$TMPDIR")" in
             ext2/ext3|xfs|btrfs|f2fs|zfs) ;;
@@ -162,7 +161,7 @@ jobs:
         if: always()
         run: |
           case "$TMPDIR" in
-            /var/tmp/vsk-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT) ;;
+            /var/tmp/vsk.??????) ;;
             *) echo "Refusing unexpected cleanup path" >&2; exit 1 ;;
           esac
           rm -rf -- "$TMPDIR"

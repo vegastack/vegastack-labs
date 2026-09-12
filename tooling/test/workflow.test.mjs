@@ -60,8 +60,8 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
   assert.equal(trustedSteps[1].name, "Prepare protected local test storage");
-  assert.match(trustedSteps[1].run, /\/var\/tmp\/vsk-\$GITHUB_RUN_ID-\$GITHUB_RUN_ATTEMPT/);
-  assert.match(trustedSteps[1].run, /mkdir -m 700/);
+  assert.match(trustedSteps[1].run, /mktemp -d -p \/var\/tmp vsk\.XXXXXX/);
+  assert.match(trustedSteps[1].run, /umask 077/);
   assert.match(trustedSteps[1].run, /stat -c '%a:%u'/);
   assert.match(trustedSteps[1].run, /ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/);
   assert.match(trustedSteps[1].run, /GITHUB_ENV/);
