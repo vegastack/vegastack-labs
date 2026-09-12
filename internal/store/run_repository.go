@@ -421,7 +421,7 @@ func (repository *RunRepository) PruneRunHistory(ctx context.Context, now time.T
 	if err != nil {
 		return RunPruneResult{}, classifySQLiteError(ctx, err)
 	}
-	summaries, err := transaction.ExecContext(ctx, `DELETE FROM plan_runs WHERE created_at < ? AND status IN ('succeeded','failed','partial','interrupted','cancelled')`, now.Add(-runSummaryRetention).Format(time.RFC3339))
+	summaries, err := transaction.ExecContext(ctx, `DELETE FROM plan_runs WHERE updated_at < ? AND status IN ('succeeded','failed','partial','interrupted','cancelled')`, now.Add(-runSummaryRetention).Format(time.RFC3339))
 	if err != nil {
 		return RunPruneResult{}, classifySQLiteError(ctx, err)
 	}

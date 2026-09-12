@@ -47,6 +47,22 @@ func TestRunStateAndRetentionNeverEraseRequiredSummary(t *testing.T) {
 	if _, err := repository.Get(context.Background(), run.RunID); err != nil {
 		t.Fatalf("179-day summary missing: %v", err)
 	}
+	longRunning := testRun("run-long-running", "submit-long-running", now.Add(-181*24*time.Hour))
+	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: longRunning, SubmitKeyDigest: digestForText("submit-long-running"), RequestDigest: digestForText("request-long-running"), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: longRunning.RunID, From: "queued", To: "running", At: now.Add(-time.Hour), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.TransitionRun(context.Background(), RunTransitionRequest{RunID: longRunning.RunID, From: "running", To: "succeeded", At: now.Add(-time.Minute), Attribution: runAttribution(t)}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.PruneRunHistory(context.Background(), now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.Get(context.Background(), longRunning.RunID); err != nil {
+		t.Fatalf("recently completed long-running summary missing: %v", err)
+	}
 
 	veryOld := testRun("run-expired", "submit-expired", now.Add(-181*24*time.Hour))
 	if _, err := repository.Create(context.Background(), RunCreateRequest{Run: veryOld, SubmitKeyDigest: digestForText("submit-expired"), RequestDigest: digestForText("request-expired"), Attribution: runAttribution(t)}); err != nil {

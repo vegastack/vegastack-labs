@@ -92,7 +92,7 @@ CREATE TABLE run_detail_events (
 ) STRICT;
 
 CREATE INDEX run_detail_events_retention_idx ON run_detail_events(occurred_at, detail_event_id);
-CREATE INDEX plan_runs_retention_idx ON plan_runs(created_at, run_id);
+CREATE INDEX plan_runs_retention_idx ON plan_runs(updated_at, run_id);
 CREATE INDEX plan_run_steps_run_idx ON plan_run_steps(run_id, sequence);
 
 CREATE TRIGGER execution_receipts_no_update BEFORE UPDATE ON execution_receipts BEGIN SELECT RAISE(ABORT, 'execution receipts are append-only'); END;

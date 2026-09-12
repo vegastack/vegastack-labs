@@ -152,6 +152,22 @@ func TestClientDisconnectDoesNotCancelDurableServerOwnedRun(t *testing.T) {
 	}
 }
 
+func TestServerShutdownInterruptsAtSafeBoundaryAndReleasesLease(t *testing.T) {
+	fixture := newEngineFixture(t)
+	executionContext, stop := context.WithCancel(context.Background())
+	fixture.engine.executionContext = executionContext
+	fixture.adapter.beforeExecute = stop
+	interrupted, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if Code(err) != generated.ErrorCodeInterrupted || interrupted.Status != "interrupted" {
+		t.Fatalf("shutdown result = %#v code=%q err=%v", interrupted, Code(err), err)
+	}
+	fixture.store.mu.Lock()
+	defer fixture.store.mu.Unlock()
+	if len(fixture.store.targets) != 0 || fixture.store.leases["lease-deterministic"].Status != "released" {
+		t.Fatalf("shutdown left active target/lease = %#v/%#v", fixture.store.targets, fixture.store.leases)
+	}
+}
+
 func TestExpiredPlanAndMissingAdapterFailBeforeEffect(t *testing.T) {
 	expired := newEngineFixture(t)
 	expired.store.plan.ExpiresAt = expired.engine.clock().UTC().Format(time.RFC3339)
@@ -217,12 +233,16 @@ func (fixture *engineFixture) restart(t *testing.T) *Engine {
 }
 
 type fakeAdapter struct {
-	calls   int
-	verify  bool
-	changed bool
+	calls         int
+	verify        bool
+	changed       bool
+	beforeExecute func()
 }
 
 func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operation) (adapter.Effect, error) {
+	if adapterFixture.beforeExecute != nil {
+		adapterFixture.beforeExecute()
+	}
 	if err := ctx.Err(); err != nil {
 		return adapter.Effect{Status: "failed", ResultDigest: digest("cancelled-result"), EffectObserved: false}, err
 	}

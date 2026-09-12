@@ -53,12 +53,13 @@ type IDSource interface {
 }
 
 type Config struct {
-	Repository Repository
-	Plans      PlanSource
-	Admission  AdmissionVerifier
-	Adapters   AdapterRegistry
-	Clock      func() time.Time
-	IDs        IDSource
+	Repository       Repository
+	Plans            PlanSource
+	Admission        AdmissionVerifier
+	Adapters         AdapterRegistry
+	Clock            func() time.Time
+	IDs              IDSource
+	ExecutionContext context.Context
 }
 
 type SubmitRequest struct {
@@ -75,6 +76,7 @@ type Engine struct {
 	adapters          AdapterRegistry
 	clock             func() time.Time
 	ids               IDSource
+	executionContext  context.Context
 	testAfterBoundary func(Boundary) error
 }
 
@@ -88,7 +90,10 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.IDs == nil {
 		config.IDs = deterministicIDSource{}
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, clock: config.Clock, ids: config.IDs}, nil
+	if config.ExecutionContext == nil {
+		config.ExecutionContext = context.Background()
+	}
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -141,7 +146,7 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		if created.Run.Status != "queued" {
 			return created.Run, nil
 		}
-		return engine.start(context.WithoutCancel(ctx), plan, created.Run, request.Attribution)
+		return engine.start(engine.executionContext, plan, created.Run, request.Attribution)
 	}
 	if err := engine.after(BoundaryRunCreated); err != nil {
 		return created.Run, err
@@ -151,7 +156,7 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	}
 	// Once the run is durably created, client disconnect is no longer execution
 	// authority. The server-owned run continues and remains observable.
-	return engine.start(context.WithoutCancel(ctx), plan, created.Run, request.Attribution)
+	return engine.start(engine.executionContext, plan, created.Run, request.Attribution)
 }
 
 // Existing resolves an exact duplicate before a single-use human proof is
@@ -203,7 +208,7 @@ func (engine *Engine) ResumeAs(ctx context.Context, id string, attribution audit
 	if err := engine.admission.VerifyRun(ctx, stored.Plan, run); err != nil {
 		return run, err
 	}
-	return engine.start(ctx, stored.Plan, run, attribution)
+	return engine.start(engine.executionContext, stored.Plan, run, attribution)
 }
 
 func (engine *Engine) Cancel(ctx context.Context, id string) (generated.Run, error) {
@@ -309,6 +314,17 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 	}
 	for _, step := range current.Steps {
 		current, _ = engine.repository.GetRun(ctx, current.RunID)
+		if ctx.Err() != nil {
+			cleanup := context.WithoutCancel(ctx)
+			current, err := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
+			if err != nil {
+				return current, err
+			}
+			if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
+				return current, err
+			}
+			return current, runError(generated.ErrorCodeInterrupted, "run")
+		}
 		if current.CancellationRequested {
 			return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
 		}
@@ -361,7 +377,8 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 		recorded := engine.clock().UTC().Truncate(time.Second)
 		receipt := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", LeaseID: lease.LeaseID, PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, OperationID: lease.OperationID, ExecutorID: lease.ExecutorID, AdapterID: lease.AdapterID, TargetID: lease.TargetID, ArtifactDigest: lease.ArtifactDigest, BindingDigest: lease.BindingDigest, NonceDigest: lease.NonceDigest, RecoveryEpoch: lease.RecoveryEpoch, ReceiptID: engine.ids.ReceiptID(*live), Status: effect.Status, ResultDigest: effect.ResultDigest, RecordedAt: recorded.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
-		current, err = engine.repository.RecordReceipt(ctx, store.ReceiptRecordRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, At: recorded, Attribution: attribution})
+		cleanup := context.WithoutCancel(ctx)
+		current, err = engine.repository.RecordReceipt(cleanup, store.ReceiptRecordRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, At: recorded, Attribution: attribution})
 		if err != nil {
 			return current, err
 		}
@@ -372,23 +389,23 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		if verifyErr != nil || adapter.ValidateVerification(verification) != nil || !verification.Verified {
 			return engine.partial(ctx, current, *live, attribution, firstError(verifyErr, adapter.ValidateVerification(verification)))
 		}
-		current, err = engine.repository.FinishStep(ctx, store.StepFinishRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, Status: effect.Status, EffectState: "verified", VerificationDigest: verification.Digest, Changed: effect.Changed, At: engine.clock().UTC().Truncate(time.Second), Attribution: attribution})
+		current, err = engine.repository.FinishStep(cleanup, store.StepFinishRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, Status: effect.Status, EffectState: "verified", VerificationDigest: verification.Digest, Changed: effect.Changed, At: engine.clock().UTC().Truncate(time.Second), Attribution: attribution})
 		if err != nil {
 			return current, err
 		}
-		if err := engine.repository.ReleaseTargetLease(ctx, lease.LeaseID, engine.clock().UTC().Truncate(time.Second)); err != nil {
+		if err := engine.repository.ReleaseTargetLease(cleanup, lease.LeaseID, engine.clock().UTC().Truncate(time.Second)); err != nil {
 			return current, err
 		}
 		if err := engine.after(BoundaryVerified); err != nil {
 			return current, err
 		}
 		if effect.Status == "failed" {
-			current, err = engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Changed: &effect.Changed, Attribution: attribution})
+			current, err = engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Changed: &effect.Changed, Attribution: attribution})
 			return current, firstError(err, runError(generated.ErrorCodeExecutionFailed, "run"))
 		}
 		if effect.Status == "partial" {
 			changed := current.Changed || effect.Changed
-			current, transitionErr := engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "partial", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: attribution})
+			current, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "partial", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: attribution})
 			if transitionErr != nil {
 				return current, transitionErr
 			}
@@ -396,7 +413,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 	}
 	verification := digest("run-verification", current.RunID, current.PlanDigest)
-	current, err := engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "succeeded", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "verified", VerificationDigest: &verification, Attribution: attribution})
+	current, err := engine.repository.TransitionRun(context.WithoutCancel(ctx), store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "succeeded", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "verified", VerificationDigest: &verification, Attribution: attribution})
 	if err != nil {
 		return current, err
 	}
@@ -407,12 +424,16 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 }
 
 func (engine *Engine) interruptBeforeEffect(ctx context.Context, current generated.Run, step generated.RunStep, attribution audit.Attribution) (generated.Run, error) {
-	current, err := engine.repository.InterruptStepBeforeEffect(ctx, current.RunID, step.StepID, engine.clock().UTC().Truncate(time.Second), attribution)
+	cleanup := context.WithoutCancel(ctx)
+	current, err := engine.repository.InterruptStepBeforeEffect(cleanup, current.RunID, step.StepID, engine.clock().UTC().Truncate(time.Second), attribution)
 	if err != nil {
 		return current, err
 	}
-	current, err = engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
+	current, err = engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "interrupted", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", Attribution: attribution})
 	if err != nil {
+		return current, err
+	}
+	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
 		return current, err
 	}
 	return current, runError(generated.ErrorCodeInterrupted, "run")
@@ -435,13 +456,17 @@ func (engine *Engine) verifyAdmission(ctx context.Context, plan generated.Plan, 
 }
 
 func (engine *Engine) failBeforeEffect(ctx context.Context, current generated.Run, step generated.RunStep, attribution audit.Attribution, cause error) (generated.Run, error) {
-	current, markErr := engine.repository.FailStepBeforeEffect(ctx, current.RunID, step.StepID, engine.clock().UTC().Truncate(time.Second), attribution)
+	cleanup := context.WithoutCancel(ctx)
+	current, markErr := engine.repository.FailStepBeforeEffect(cleanup, current.RunID, step.StepID, engine.clock().UTC().Truncate(time.Second), attribution)
 	if markErr != nil {
 		return current, markErr
 	}
-	current, transitionErr := engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Attribution: attribution})
+	current, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Attribution: attribution})
 	if transitionErr != nil {
 		return current, transitionErr
+	}
+	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
+		return current, err
 	}
 	if Code(cause) != "" {
 		return current, cause
@@ -450,14 +475,18 @@ func (engine *Engine) failBeforeEffect(ctx context.Context, current generated.Ru
 }
 
 func (engine *Engine) partial(ctx context.Context, current generated.Run, step generated.RunStep, attribution audit.Attribution, cause error) (generated.Run, error) {
-	current, markErr := engine.repository.MarkStepUnknown(ctx, current.RunID, step.StepID, engine.clock().UTC().Truncate(time.Second), attribution)
+	cleanup := context.WithoutCancel(ctx)
+	current, markErr := engine.repository.MarkStepUnknown(cleanup, current.RunID, step.StepID, engine.clock().UTC().Truncate(time.Second), attribution)
 	if markErr != nil {
 		return current, markErr
 	}
 	changed := true
-	current, transitionErr := engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "partial", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: attribution})
+	current, transitionErr := engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "partial", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: attribution})
 	if transitionErr != nil {
 		return current, transitionErr
+	}
+	if err := engine.repository.ReleaseRunLeases(cleanup, current.RunID, engine.clock().UTC().Truncate(time.Second)); err != nil {
+		return current, err
 	}
 	return current, runError(generated.ErrorCodeRecoveryRequired, "run")
 }
