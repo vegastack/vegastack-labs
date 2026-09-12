@@ -119,7 +119,7 @@ func ValidatePlanTiming(plan Plan) error {
 }
 
 func ValidateLeaseTiming(lease ExecutorLease) error {
-	claimed, err := time.Parse(time.RFC3339, lease.ClaimedAt); if err != nil { return errors.New("invalid lease claim time") }; renew, err := time.Parse(time.RFC3339, lease.RenewAfter); if err != nil || !renew.Equal(claimed.Add(time.Duration(ExecutorCheckInSeconds)*time.Second)) { return errors.New("lease check-in must be exactly 20 seconds") }; expires, err := time.Parse(time.RFC3339, lease.LeaseExpiresAt); if err != nil || !expires.Equal(claimed.Add(time.Duration(ExecutorLeaseSeconds)*time.Second)) { return errors.New("lease expiry must be exactly 60 seconds") }; return nil
+	claimed, err := time.Parse(time.RFC3339, lease.ClaimedAt); if err != nil { return errors.New("invalid lease claim time") }; renew, err := time.Parse(time.RFC3339, lease.RenewAfter); if err != nil || !renew.Equal(claimed.Add(time.Duration(ExecutorCheckInSeconds)*time.Second)) { return errors.New("lease check-in must be exactly 20 seconds") }; expires, err := time.Parse(time.RFC3339, lease.LeaseExpiresAt); if err != nil || !expires.Equal(claimed.Add(time.Duration(ExecutorLeaseSeconds)*time.Second)) { return errors.New("lease expiry must be exactly 60 seconds") }; maximum, err := time.Parse(time.RFC3339, lease.MaximumExpiresAt); if err != nil || !maximum.Equal(expires) { return errors.New("lease maximum expiry must match its 60-second authority window") }; return nil
 }
 
 func ValidateExecutionReceiptBinding(lease ExecutorLease, receipt ExecutionReceipt) error {

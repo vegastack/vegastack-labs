@@ -31,7 +31,7 @@ func TestPhase4ContractsBindPlanAndExecutorScope(t *testing.T) {
 		t.Fatalf("plan endpoint = %#v", plan)
 	}
 	lease := schemaByID(t, registry, "vegastack-labs.dev/executor-lease")
-	wantLeaseFields := map[string]bool{"planId": false, "planDigest": false, "executorId": false, "adapterId": false, "targetId": false, "artifactDigest": false, "recoveryEpoch": false}
+	wantLeaseFields := map[string]bool{"planId": false, "planDigest": false, "executorId": false, "adapterId": false, "targetId": false, "artifactDigest": false, "recoveryEpoch": false, "maximumExpiresAt": false}
 	for _, field := range lease.Fields {
 		if _, ok := wantLeaseFields[field.JSONName]; ok {
 			wantLeaseFields[field.JSONName] = true
@@ -40,6 +40,23 @@ func TestPhase4ContractsBindPlanAndExecutorScope(t *testing.T) {
 	for name, found := range wantLeaseFields {
 		if !found {
 			t.Errorf("executor lease is missing %s", name)
+		}
+	}
+	wantContractFields := map[string][]string{
+		"vegastack-labs.dev/plan":            {"status", "executorMode", "executorId"},
+		"vegastack-labs.dev/acknowledgement": {"acknowledgementId", "proofDigest", "receivedAt"},
+		"vegastack-labs.dev/run":             {"authorizationDecisionId", "acknowledgementId", "policyVersion", "executorMode", "executorId", "executorBindingDigest", "verificationStatus", "verificationDigest", "changed"},
+	}
+	for identifier, names := range wantContractFields {
+		definition := schemaByID(t, registry, identifier)
+		got := make(map[string]bool, len(definition.Fields))
+		for _, field := range definition.Fields {
+			got[field.JSONName] = true
+		}
+		for _, name := range names {
+			if !got[name] {
+				t.Errorf("%s is missing %s", identifier, name)
+			}
 		}
 	}
 	for _, name := range []string{"plan", "apply"} {

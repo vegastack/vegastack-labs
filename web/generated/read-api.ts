@@ -24,6 +24,11 @@
 // api.v1.sources.list
 // api.v1.summary.get
 
+export const PLAN_VALIDITY_SECONDS = 1800;
+export const EXECUTOR_LEASE_SECONDS = 60;
+export const EXECUTOR_CHECK_IN_SECONDS = 20;
+export const RUN_TRANSITIONS = [{"from":"interrupted","to":"cancelled"},{"from":"interrupted","to":"running"},{"from":"queued","to":"cancelled"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"interrupted"},{"from":"running","to":"partial"},{"from":"running","to":"succeeded"}] as const;
+
 export interface Acknowledgement {
   readonly "schema": "vegastack-labs.dev/acknowledgement";
   readonly "schemaVersion": string;
@@ -37,8 +42,10 @@ export interface Acknowledgement {
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
   readonly "expiresAt": string;
+  readonly "acknowledgementId": string;
+  readonly "proofDigest": string;
   readonly "status": "approved" | "expired" | "pending" | "rejected";
-  readonly "createdAt": string;
+  readonly "receivedAt": string;
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
@@ -298,7 +305,7 @@ export interface ExecutionReceipt {
   readonly "nonceDigest": string;
   readonly "recoveryEpoch": number;
   readonly "receiptId": string;
-  readonly "status": "failed" | "partial" | "succeeded" | "unknown";
+  readonly "status": "failed" | "partial" | "running" | "succeeded";
   readonly "resultDigest": string;
   readonly "recordedAt": string;
   readonly "extensions": ReadonlyArray<ContractExtension>;
@@ -323,7 +330,8 @@ export interface ExecutorLease {
   readonly "claimedAt": string;
   readonly "renewAfter": string;
   readonly "leaseExpiresAt": string;
-  readonly "status": "active" | "expired" | "reconciliation-required" | "released";
+  readonly "maximumExpiresAt": string;
+  readonly "status": "active" | "expired" | "released" | "revoked";
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
@@ -346,8 +354,11 @@ export interface Plan {
   readonly "declarationId": string;
   readonly "binding": PlanBinding;
   readonly "operations": ReadonlyArray<PlanOperation>;
+  readonly "status": "approved" | "awaiting-acknowledgement" | "cancelled" | "expired" | "planned";
   readonly "risk": "control-plane" | "destructive" | "infrastructure" | "production-like" | "routine";
   readonly "authorizationBranch": "human" | "preauthorized";
+  readonly "executorMode": "central" | "external";
+  readonly "executorId": string | null;
   readonly "createdAt": string;
   readonly "expiresAt": string;
   readonly "readableDigest": string;
@@ -413,10 +424,19 @@ export interface Run {
   readonly "runId": string;
   readonly "planId": string;
   readonly "planDigest": string;
+  readonly "authorizationDecisionId": string;
+  readonly "acknowledgementId": string | null;
+  readonly "policyVersion": string;
+  readonly "executorMode": "central" | "external";
+  readonly "executorId": string;
+  readonly "executorBindingDigest": string;
   readonly "status": "cancelled" | "failed" | "interrupted" | "partial" | "queued" | "running" | "succeeded";
   readonly "steps": ReadonlyArray<RunStep>;
   readonly "cancellationRequested": boolean;
   readonly "rollbackStatus": "not-requested" | "required" | "separate-plan";
+  readonly "verificationStatus": "failed" | "incomplete" | "pending" | "verified";
+  readonly "verificationDigest": string | null;
+  readonly "changed": boolean;
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
   readonly "createdAt": string;
@@ -611,6 +631,20 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
       },
       {
+        "name": "acknowledgementId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "proofDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
         "name": "status",
         "kind": "string",
         "required": true,
@@ -623,7 +657,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
-        "name": "createdAt",
+        "name": "receivedAt",
         "kind": "string",
         "required": true,
         "nullable": false,
@@ -2163,8 +2197,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "failed",
           "partial",
-          "succeeded",
-          "unknown"
+          "running",
+          "succeeded"
         ]
       },
       {
@@ -2323,6 +2357,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
       },
       {
+        "name": "maximumExpiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
         "name": "status",
         "kind": "string",
         "required": true,
@@ -2330,8 +2371,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "active",
           "expired",
-          "reconciliation-required",
-          "released"
+          "released",
+          "revoked"
         ]
       },
       {
@@ -2462,6 +2503,19 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "maxItems": 256
       },
       {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "approved",
+          "awaiting-acknowledgement",
+          "cancelled",
+          "expired",
+          "planned"
+        ]
+      },
+      {
         "name": "risk",
         "kind": "string",
         "required": true,
@@ -2483,6 +2537,23 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "human",
           "preauthorized"
         ]
+      },
+      {
+        "name": "executorMode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "central",
+          "external"
+        ]
+      },
+      {
+        "name": "executorId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
         "name": "createdAt",
@@ -2875,6 +2946,51 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
+        "name": "authorizationDecisionId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "acknowledgementId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "policyVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+      },
+      {
+        "name": "executorMode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "central",
+          "external"
+        ]
+      },
+      {
+        "name": "executorId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "executorBindingDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
         "name": "status",
         "kind": "string",
         "required": true,
@@ -2913,6 +3029,31 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "required",
           "separate-plan"
         ]
+      },
+      {
+        "name": "verificationStatus",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "failed",
+          "incomplete",
+          "pending",
+          "verified"
+        ]
+      },
+      {
+        "name": "verificationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "changed",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
       },
       {
         "name": "stateRevision",
@@ -3392,6 +3533,36 @@ export function decodePhase4Contract(identifier: string, value: unknown, compati
     else if (unsafeCompatibleField(name)) return mismatch(identifier + "." + name, "unsafe additive field");
   }
   return decodeSchema(identifier, known);
+}
+
+export function validateRunTransition(from: string, to: string): void {
+  if (!RUN_TRANSITIONS.some((transition) => transition.from === from && transition.to === to)) {
+    return mismatch("run.status", "invalid run transition");
+  }
+}
+
+export function validateExecutionReceiptBinding(leaseValue: unknown, receiptValue: unknown): void {
+  const lease = decodeSchema("vegastack-labs.dev/executor-lease", leaseValue);
+  const receipt = decodeSchema("vegastack-labs.dev/execution-receipt", receiptValue);
+  for (const name of ["leaseId", "planId", "planDigest", "runId", "stepId", "operationId", "executorId", "adapterId", "targetId", "artifactDigest", "bindingDigest", "nonceDigest", "recoveryEpoch"]) {
+    if (lease[name] !== receipt[name]) return mismatch("execution-receipt." + name, "binding widened or changed");
+  }
+}
+
+export function validatePlanTiming(value: unknown): void {
+  const plan = decodeSchema("vegastack-labs.dev/plan", value);
+  const created = Date.parse(plan.createdAt as string);
+  const expires = Date.parse(plan.expiresAt as string);
+  if (!Number.isFinite(created) || expires - created !== PLAN_VALIDITY_SECONDS * 1000) return mismatch("plan.expiresAt", "plan expiry must be exactly 30 minutes");
+}
+
+export function validateLeaseTiming(value: unknown): void {
+  const lease = decodeSchema("vegastack-labs.dev/executor-lease", value);
+  const claimed = Date.parse(lease.claimedAt as string);
+  const renew = Date.parse(lease.renewAfter as string);
+  const expires = Date.parse(lease.leaseExpiresAt as string);
+  const maximum = Date.parse(lease.maximumExpiresAt as string);
+  if (!Number.isFinite(claimed) || renew - claimed !== EXECUTOR_CHECK_IN_SECONDS * 1000 || expires - claimed !== EXECUTOR_LEASE_SECONDS * 1000 || maximum !== expires) return mismatch("executor-lease", "invalid lease timing or maximum expiry");
 }
 
 function decodeAcknowledgement(value: unknown): Acknowledgement {

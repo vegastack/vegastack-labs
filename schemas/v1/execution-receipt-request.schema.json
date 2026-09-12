@@ -98,8 +98,8 @@
           "enum": [
             "failed",
             "partial",
-            "succeeded",
-            "unknown"
+            "running",
+            "succeeded"
           ],
           "type": "string"
         },

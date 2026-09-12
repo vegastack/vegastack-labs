@@ -162,21 +162,23 @@ const (
 )
 
 type Acknowledgement struct {
-	Schema        string              `json:"schema"`
-	SchemaVersion string              `json:"schemaVersion"`
-	PlanID        string              `json:"planId"`
-	PlanDigest    string              `json:"planDigest"`
-	TargetDigest  string              `json:"targetDigest"`
-	ReasonDigest  string              `json:"reasonDigest"`
-	HumanID       string              `json:"humanId"`
-	AuthorityID   string              `json:"authorityId"`
-	NonceDigest   string              `json:"nonceDigest"`
-	StateRevision int64               `json:"stateRevision"`
-	RecoveryEpoch int64               `json:"recoveryEpoch"`
-	ExpiresAt     string              `json:"expiresAt"`
-	Status        string              `json:"status"`
-	CreatedAt     string              `json:"createdAt"`
-	Extensions    []ContractExtension `json:"extensions"`
+	Schema            string              `json:"schema"`
+	SchemaVersion     string              `json:"schemaVersion"`
+	PlanID            string              `json:"planId"`
+	PlanDigest        string              `json:"planDigest"`
+	TargetDigest      string              `json:"targetDigest"`
+	ReasonDigest      string              `json:"reasonDigest"`
+	HumanID           string              `json:"humanId"`
+	AuthorityID       string              `json:"authorityId"`
+	NonceDigest       string              `json:"nonceDigest"`
+	StateRevision     int64               `json:"stateRevision"`
+	RecoveryEpoch     int64               `json:"recoveryEpoch"`
+	ExpiresAt         string              `json:"expiresAt"`
+	AcknowledgementID string              `json:"acknowledgementId"`
+	ProofDigest       string              `json:"proofDigest"`
+	Status            string              `json:"status"`
+	ReceivedAt        string              `json:"receivedAt"`
+	Extensions        []ContractExtension `json:"extensions"`
 }
 
 type AcknowledgementRequest struct {
@@ -505,26 +507,27 @@ type ExecutorClaimRequest struct {
 }
 
 type ExecutorLease struct {
-	Schema         string              `json:"schema"`
-	SchemaVersion  string              `json:"schemaVersion"`
-	LeaseID        string              `json:"leaseId"`
-	PlanID         string              `json:"planId"`
-	PlanDigest     string              `json:"planDigest"`
-	RunID          string              `json:"runId"`
-	StepID         string              `json:"stepId"`
-	OperationID    string              `json:"operationId"`
-	ExecutorID     string              `json:"executorId"`
-	AdapterID      string              `json:"adapterId"`
-	TargetID       string              `json:"targetId"`
-	ArtifactDigest string              `json:"artifactDigest"`
-	BindingDigest  string              `json:"bindingDigest"`
-	NonceDigest    string              `json:"nonceDigest"`
-	RecoveryEpoch  int64               `json:"recoveryEpoch"`
-	ClaimedAt      string              `json:"claimedAt"`
-	RenewAfter     string              `json:"renewAfter"`
-	LeaseExpiresAt string              `json:"leaseExpiresAt"`
-	Status         string              `json:"status"`
-	Extensions     []ContractExtension `json:"extensions"`
+	Schema           string              `json:"schema"`
+	SchemaVersion    string              `json:"schemaVersion"`
+	LeaseID          string              `json:"leaseId"`
+	PlanID           string              `json:"planId"`
+	PlanDigest       string              `json:"planDigest"`
+	RunID            string              `json:"runId"`
+	StepID           string              `json:"stepId"`
+	OperationID      string              `json:"operationId"`
+	ExecutorID       string              `json:"executorId"`
+	AdapterID        string              `json:"adapterId"`
+	TargetID         string              `json:"targetId"`
+	ArtifactDigest   string              `json:"artifactDigest"`
+	BindingDigest    string              `json:"bindingDigest"`
+	NonceDigest      string              `json:"nonceDigest"`
+	RecoveryEpoch    int64               `json:"recoveryEpoch"`
+	ClaimedAt        string              `json:"claimedAt"`
+	RenewAfter       string              `json:"renewAfter"`
+	LeaseExpiresAt   string              `json:"leaseExpiresAt"`
+	MaximumExpiresAt string              `json:"maximumExpiresAt"`
+	Status           string              `json:"status"`
+	Extensions       []ContractExtension `json:"extensions"`
 }
 
 type ExecutorRenewRequest struct {
@@ -786,8 +789,11 @@ type Plan struct {
 	DeclarationID       string              `json:"declarationId"`
 	Binding             PlanBinding         `json:"binding"`
 	Operations          []PlanOperation     `json:"operations"`
+	Status              string              `json:"status"`
 	Risk                string              `json:"risk"`
 	AuthorizationBranch string              `json:"authorizationBranch"`
+	ExecutorMode        string              `json:"executorMode"`
+	ExecutorID          *string             `json:"executorId"`
 	CreatedAt           string              `json:"createdAt"`
 	ExpiresAt           string              `json:"expiresAt"`
 	ReadableDigest      string              `json:"readableDigest"`
@@ -924,20 +930,29 @@ type ResultError struct {
 }
 
 type Run struct {
-	Schema                string              `json:"schema"`
-	SchemaVersion         string              `json:"schemaVersion"`
-	RunID                 string              `json:"runId"`
-	PlanID                string              `json:"planId"`
-	PlanDigest            string              `json:"planDigest"`
-	Status                string              `json:"status"`
-	Steps                 []RunStep           `json:"steps"`
-	CancellationRequested bool                `json:"cancellationRequested"`
-	RollbackStatus        string              `json:"rollbackStatus"`
-	StateRevision         int64               `json:"stateRevision"`
-	RecoveryEpoch         int64               `json:"recoveryEpoch"`
-	CreatedAt             string              `json:"createdAt"`
-	UpdatedAt             string              `json:"updatedAt"`
-	Extensions            []ContractExtension `json:"extensions"`
+	Schema                  string              `json:"schema"`
+	SchemaVersion           string              `json:"schemaVersion"`
+	RunID                   string              `json:"runId"`
+	PlanID                  string              `json:"planId"`
+	PlanDigest              string              `json:"planDigest"`
+	AuthorizationDecisionID string              `json:"authorizationDecisionId"`
+	AcknowledgementID       *string             `json:"acknowledgementId"`
+	PolicyVersion           string              `json:"policyVersion"`
+	ExecutorMode            string              `json:"executorMode"`
+	ExecutorID              string              `json:"executorId"`
+	ExecutorBindingDigest   string              `json:"executorBindingDigest"`
+	Status                  string              `json:"status"`
+	Steps                   []RunStep           `json:"steps"`
+	CancellationRequested   bool                `json:"cancellationRequested"`
+	RollbackStatus          string              `json:"rollbackStatus"`
+	VerificationStatus      string              `json:"verificationStatus"`
+	VerificationDigest      *string             `json:"verificationDigest"`
+	Changed                 bool                `json:"changed"`
+	StateRevision           int64               `json:"stateRevision"`
+	RecoveryEpoch           int64               `json:"recoveryEpoch"`
+	CreatedAt               string              `json:"createdAt"`
+	UpdatedAt               string              `json:"updatedAt"`
+	Extensions              []ContractExtension `json:"extensions"`
 }
 
 type RunReferenceRequest struct {

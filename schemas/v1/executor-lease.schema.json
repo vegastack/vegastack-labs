@@ -58,6 +58,10 @@
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
+    "maximumExpiresAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
     "nonceDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
@@ -100,8 +104,8 @@
       "enum": [
         "active",
         "expired",
-        "reconciliation-required",
-        "released"
+        "released",
+        "revoked"
       ],
       "type": "string"
     },
@@ -133,6 +137,7 @@
     "claimedAt",
     "renewAfter",
     "leaseExpiresAt",
+    "maximumExpiresAt",
     "status",
     "extensions"
   ],

@@ -414,8 +414,10 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `stateRevision`
 - `recoveryEpoch`
 - `expiresAt`
+- `acknowledgementId`
+- `proofDigest`
 - `status`: `approved`, `expired`, `pending`, `rejected`
-- `createdAt`
+- `receivedAt`
 - `extensions`
 
 ### `vegastack-labs.dev/acknowledgement-request`
@@ -499,7 +501,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `nonceDigest`
 - `recoveryEpoch`
 - `receiptId`
-- `status`: `failed`, `partial`, `succeeded`, `unknown`
+- `status`: `failed`, `partial`, `running`, `succeeded`
 - `resultDigest`
 - `recordedAt`
 - `extensions`
@@ -543,7 +545,8 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `claimedAt`
 - `renewAfter`
 - `leaseExpiresAt`
-- `status`: `active`, `expired`, `reconciliation-required`, `released`
+- `maximumExpiresAt`
+- `status`: `active`, `expired`, `released`, `revoked`
 - `extensions`
 
 ### `vegastack-labs.dev/executor-renew-request`
@@ -565,8 +568,11 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `declarationId`
 - `binding`
 - `operations`
+- `status`: `approved`, `awaiting-acknowledgement`, `cancelled`, `expired`, `planned`
 - `risk`: `control-plane`, `destructive`, `infrastructure`, `production-like`, `routine`
 - `authorizationBranch`: `human`, `preauthorized`
+- `executorMode`: `central`, `external`
+- `executorId`
 - `createdAt`
 - `expiresAt`
 - `readableDigest`
@@ -601,10 +607,19 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `runId`
 - `planId`
 - `planDigest`
+- `authorizationDecisionId`
+- `acknowledgementId`
+- `policyVersion`
+- `executorMode`: `central`, `external`
+- `executorId`
+- `executorBindingDigest`
 - `status`: `cancelled`, `failed`, `interrupted`, `partial`, `queued`, `running`, `succeeded`
 - `steps`
 - `cancellationRequested`
 - `rollbackStatus`: `not-requested`, `required`, `separate-plan`
+- `verificationStatus`: `failed`, `incomplete`, `pending`, `verified`
+- `verificationDigest`
+- `changed`
 - `stateRevision`
 - `recoveryEpoch`
 - `createdAt`

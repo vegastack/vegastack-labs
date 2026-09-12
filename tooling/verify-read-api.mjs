@@ -54,7 +54,10 @@ export async function verifyReadAPI(root = ROOT) {
   if (registrySource) {
     try {
       const registry = JSON.parse(registrySource);
-      const ids = registry.endpoints.map((endpoint) => endpoint.id).sort();
+      const ids = registry.endpoints
+        .filter((endpoint) => endpoint.availability === "available")
+        .map((endpoint) => endpoint.id)
+        .sort();
       if (JSON.stringify(ids) !== JSON.stringify(EXPECTED_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
     } catch { codes.add("READ_API_ENDPOINT_DRIFT"); }
   }
