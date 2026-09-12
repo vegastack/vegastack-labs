@@ -109,9 +109,10 @@ jobs:
 
       - name: Prepare protected local test storage
         run: |
-          TMPDIR="$RUNNER_TEMP/vsk-labs-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
-          install -d -m 700 "$TMPDIR"
-          test "$(stat -c '%a' "$TMPDIR")" = 700
+          TMPDIR="/var/tmp/vsk-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          umask 077
+          mkdir -m 700 "$TMPDIR"
+          test "$(stat -c '%a:%u' "$TMPDIR")" = "700:$(id -u)"
           case "$(stat -f -c '%T' "$TMPDIR")" in
             ext2/ext3|xfs|btrfs|f2fs|zfs) ;;
             *) echo "Refusing unsupported test filesystem" >&2; exit 1 ;;
@@ -156,3 +157,12 @@ jobs:
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code
+
+      - name: Remove protected local test storage
+        if: always()
+        run: |
+          case "$TMPDIR" in
+            /var/tmp/vsk-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT) ;;
+            *) echo "Refusing unexpected cleanup path" >&2; exit 1 ;;
+          esac
+          rm -rf -- "$TMPDIR"
