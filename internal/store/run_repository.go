@@ -245,7 +245,7 @@ func (repository *RunRepository) ReleaseTargetLease(ctx context.Context, leaseID
 	if err := repository.store.readyForTransaction(ctx); err != nil {
 		return err
 	}
-	result, err := repository.store.conn.ExecContext(ctx, `UPDATE target_execution_leases SET status='released' WHERE lease_id=? AND status='active'`, leaseID)
+	result, err := repository.store.conn.ExecContext(ctx, `UPDATE target_execution_leases SET status='released',canonical_bytes=CAST(json_set(canonical_bytes,'$.status','released') AS BLOB) WHERE lease_id=? AND status='active'`, leaseID)
 	if err != nil {
 		return classifySQLiteError(ctx, err)
 	}
@@ -265,7 +265,7 @@ func (repository *RunRepository) ReleaseRunLeases(ctx context.Context, runID str
 	if err := repository.store.readyForTransaction(ctx); err != nil {
 		return err
 	}
-	_, err := repository.store.conn.ExecContext(ctx, `UPDATE target_execution_leases SET status='released' WHERE run_id=? AND status='active'`, runID)
+	_, err := repository.store.conn.ExecContext(ctx, `UPDATE target_execution_leases SET status='released',canonical_bytes=CAST(json_set(canonical_bytes,'$.status','released') AS BLOB) WHERE run_id=? AND status='active'`, runID)
 	if err != nil {
 		return classifySQLiteError(ctx, err)
 	}
