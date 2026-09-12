@@ -11,8 +11,11 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = "tooling/phase-2-evidence.json";
 const MODULE_PREFIX = "github.com/vegastack/vegastack-labs/";
 const REVIEWED_POST_PHASE2_IMPORTS = new Set([
+  `${MODULE_PREFIX}internal/acknowledgement`,
+  `${MODULE_PREFIX}internal/adapters/slack`,
   `${MODULE_PREFIX}internal/change`,
   `${MODULE_PREFIX}internal/consoleassets`,
+  `${MODULE_PREFIX}internal/credentialref`,
   `${MODULE_PREFIX}internal/plan`,
 ]);
 const CODE_ORDER = [
