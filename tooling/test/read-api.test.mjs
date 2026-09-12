@@ -16,7 +16,7 @@ async function fixtureRepo(t, files) {
   return root;
 }
 
-test("the read API verifier accepts reviewed source, session, plan, and run endpoints", async () => {
+test("the read API verifier accepts source health and browser session endpoints", async () => {
   const result = await verifyReadAPI();
   assert.ok(!result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
 });
