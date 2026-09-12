@@ -202,7 +202,7 @@ func (fixture *phase3AcceptanceFixture) controller(setProvider func(bool), close
 	}
 	post("/expire", func() error { fixture.clock.Advance(16 * time.Minute); return nil })
 	post("/revoke", func() error {
-		return fixture.authority.RevokeBrowserSessions(context.Background(), identity.Principal{ID: "principal.remote", Method: identity.CloudflareAccessMethod}, "phase3-acceptance-revocation")
+		return fixture.authority.RevokeBrowserSessions(context.Background(), identity.Principal{ID: "principal.remote", Method: identity.CloudflareAccessMethod}, "emergency-revocation")
 	})
 	post("/provider-outage", func() error {
 		setProvider(false)
@@ -244,7 +244,7 @@ func TestPhase3AcceptanceServerFailsClosedAndKeepsLocalRecovery(t *testing.T) {
 		t.Fatalf("forbidden summary method = %d", response.StatusCode)
 	}
 	response.Body.Close()
-	if err := fixture.authority.RevokeBrowserSessions(context.Background(), identity.Principal{ID: "principal.remote", Method: identity.CloudflareAccessMethod}, "phase3-test-revocation"); err != nil {
+	if err := fixture.authority.RevokeBrowserSessions(context.Background(), identity.Principal{ID: "principal.remote", Method: identity.CloudflareAccessMethod}, "emergency-revocation"); err != nil {
 		t.Fatal(err)
 	}
 	response = fixture.request(http.MethodGet, "/api/v1/summary", cookie)
