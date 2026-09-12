@@ -121,6 +121,33 @@ func TestHTTPTransportRefusesRedirects(t *testing.T) {
 	}
 }
 
+func TestSocketURLAcceptsDocumentedTicketAndRejectsWidenedAuthority(t *testing.T) {
+	transport := &HTTPTransport{}
+	for _, raw := range []string{
+		"wss://wss.slack.com/link/?ticket=1234-5678",
+		"wss://wss-primary.slack.com/link/?ticket=12348&app_id=5678",
+		"wss://wss-123.slack.com/link/?ticket=12348&app_id=5678",
+	} {
+		if !transport.allowedSocketURL(raw) {
+			t.Fatalf("documented Slack URL rejected: %s", raw)
+		}
+	}
+	for _, raw := range []string{
+		"wss://evil.example/link/?ticket=12348",
+		"wss://wss.slack.com.evil.example/link/?ticket=12348",
+		"wss://wss.slack.com:443/link/?ticket=12348",
+		"wss://wss.slack.com/other/?ticket=12348",
+		"wss://wss.slack.com/link/",
+		"wss://wss.slack.com/link/?ticket=one&ticket=two",
+		"wss://wss.slack.com/link/?ticket=one&redirect=evil",
+		"wss://user@wss.slack.com/link/?ticket=12348",
+	} {
+		if transport.allowedSocketURL(raw) {
+			t.Fatalf("widened Slack URL accepted: %s", raw)
+		}
+	}
+}
+
 func TestAdapterCategorizesOutageAndDoesNotExposeCredential(t *testing.T) {
 	transport := &fixtureTransport{openErr: errors.New("fixture outage")}
 	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, CandidateSinkFunc(func(context.Context, acknowledgement.Candidate) error { return nil }))

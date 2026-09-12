@@ -11,6 +11,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/coder/websocket"
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
@@ -22,7 +24,7 @@ const (
 	slackPostMessageURL     = "https://slack.com/api/chat.postMessage"
 )
 
-var numberedSlackSocketHost = regexp.MustCompile(`^wss-[0-9]+\.slack\.com$`)
+var dynamicSlackSocketHost = regexp.MustCompile(`^wss-[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.slack\.com$`)
 
 type HTTPTransport struct {
 	client          *http.Client
@@ -120,17 +122,44 @@ func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, ch
 
 func (transport *HTTPTransport) allowedSocketURL(raw string) bool {
 	parsed, err := url.Parse(raw)
-	if err != nil || parsed.Scheme != "wss" || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
+	if err != nil || parsed.Scheme != "wss" || parsed.User != nil || parsed.Fragment != "" {
 		return false
 	}
 	if transport.allowedTestHost != "" {
 		return parsed.Host == transport.allowedTestHost
 	}
-	if parsed.Port() != "" {
+	if parsed.Port() != "" || parsed.Path != "/link/" || parsed.RawPath != "" || parsed.ForceQuery {
 		return false
 	}
 	host := strings.ToLower(parsed.Hostname())
-	return host == "wss-primary.slack.com" || numberedSlackSocketHost.MatchString(host)
+	if host != "wss.slack.com" && host != "wss-primary.slack.com" && !dynamicSlackSocketHost.MatchString(host) {
+		return false
+	}
+	query, err := url.ParseQuery(parsed.RawQuery)
+	if err != nil || len(query) < 1 || len(query) > 2 || len(query["ticket"]) != 1 || !boundedSocketParameter(query["ticket"][0], 4096) {
+		return false
+	}
+	for key, values := range query {
+		if key != "ticket" && key != "app_id" {
+			return false
+		}
+		if len(values) != 1 || !boundedSocketParameter(values[0], 256) {
+			return false
+		}
+	}
+	return true
+}
+
+func boundedSocketParameter(value string, maximum int) bool {
+	if value == "" || len(value) > maximum || !utf8.ValidString(value) {
+		return false
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) {
+			return false
+		}
+	}
+	return true
 }
 
 type websocketSocket struct{ connection *websocket.Conn }
