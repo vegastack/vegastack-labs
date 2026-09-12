@@ -154,13 +154,18 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Install pinned Chromium
-        if: needs.plan.outputs.browser == 'true'
+        if: needs.plan.outputs.browser == 'true' || github.event_name == 'push'
         run: pnpm --filter @vegastack/labs-web exec playwright install --with-deps chromium
 
       - name: Run affected public checks
+        if: github.event_name == 'workflow_dispatch'
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
         run: pnpm check:affected --execute-plan
+
+      - name: Run exact Phase 3 exit acceptance
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: pnpm --silent check:phase-3-exit --commit "$GITHUB_SHA"
 
       - name: Verify generated contracts and embedded Console stay unchanged
         run: git diff --exit-code

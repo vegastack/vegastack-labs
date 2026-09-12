@@ -9,16 +9,20 @@ const STATUS_PATTERN = /^(?:[AMDTUXB]|[RC][0-9]{1,3})$/;
 export const CHECK_GROUPS = Object.freeze(["always", "phase", "go", "tooling", "web", "browser"]);
 
 function commandStep(name, group, command, args, options = {}) {
-  return Object.freeze({ name, group, run: (root) => runCommand(command, args, { cwd: root, ...options }) });
+  return Object.freeze({
+    name,
+    group,
+    run: (root, { capture = false } = {}) => runCommand(command, args, { cwd: root, ...options, capture }),
+  });
 }
 
 function packageStep(name, group, args) {
   return Object.freeze({
     name,
     group,
-    run: (root) => {
+    run: (root, { capture = false } = {}) => {
       const invocation = packageManagerInvocation(args);
-      return runCommand(invocation.command, invocation.args, { cwd: root });
+      return runCommand(invocation.command, invocation.args, { cwd: root, capture });
     },
   });
 }
@@ -269,10 +273,10 @@ export function checkStepsForPlan(plan) {
   return Object.freeze(steps.filter((step) => selected.has(step.group)));
 }
 
-export async function runCheckPlan(plan, { root = DEFAULT_ROOT } = {}) {
+export async function runCheckPlan(plan, { root = DEFAULT_ROOT, quiet = false } = {}) {
   for (const step of checkStepsForPlan(plan)) {
-    process.stderr.write(`check: ${step.name}\n`);
-    await step.run(root);
+    if (!quiet) process.stderr.write(`check: ${step.name}\n`);
+    await step.run(root, { capture: quiet });
   }
 }
 

@@ -1,0 +1,69 @@
+{
+  "schema": "vegastack-labs.dev/phase-evidence-definition",
+  "version": "1.0.0",
+  "phase": 3,
+  "status": "implemented-awaiting-operator-acceptance",
+  "children": [
+    { "issue": 50, "phaseIssue": "3.1", "pr": 59, "mergeCommit": "8bc4e69eace0762eedacababcfaa4c16cdd515bf", "evidence": "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-5623084179", "review": "https://github.com/vegastack/vegastack-labs/issues/50#issuecomment-5623083205" },
+    { "issue": 51, "phaseIssue": "3.2", "pr": 60, "mergeCommit": "64225ae60bd93e22fa1284643cc7894557627e20", "evidence": "https://github.com/vegastack/vegastack-labs/issues/51#issuecomment-5617148376", "review": "https://github.com/vegastack/vegastack-labs/issues/51#issuecomment-5630668657" },
+    { "issue": 52, "phaseIssue": "3.3", "pr": 61, "mergeCommit": "81c875f2b95aea2b4a7f75edc476c3b5964afb24", "evidence": "https://github.com/vegastack/vegastack-labs/issues/52#issuecomment-5630855928", "review": "https://github.com/vegastack/vegastack-labs/issues/52#issuecomment-5617495894" },
+    { "issue": 53, "phaseIssue": "3.4", "pr": 63, "mergeCommit": "b142359e27beb399ce25c8f595109648b7e16f66", "evidence": "https://github.com/vegastack/vegastack-labs/issues/53#issuecomment-5633286695", "review": "https://github.com/vegastack/vegastack-labs/issues/53#issuecomment-5635121993" },
+    { "issue": 54, "phaseIssue": "3.5", "pr": 62, "mergeCommit": "b621b22be828d30e56ce5e7c97ddde1fd9bb7cbb", "evidence": "https://github.com/vegastack/vegastack-labs/issues/54#issuecomment-5631040710", "review": "https://github.com/vegastack/vegastack-labs/issues/54#issuecomment-5618249787" },
+    { "issue": 55, "phaseIssue": "3.6", "pr": 64, "mergeCommit": "9d053b299136e8e9b2afa2bb2b1373ea013d9bf4", "evidence": "https://github.com/vegastack/vegastack-labs/issues/55#issuecomment-5634067489", "review": "https://github.com/vegastack/vegastack-labs/issues/55#issuecomment-5635286645" },
+    { "issue": 56, "phaseIssue": "3.7", "pr": 65, "mergeCommit": "92dc2c0491839522fb89a25a89fd1c26c83fa512", "evidence": "https://github.com/vegastack/vegastack-labs/issues/56#issuecomment-5634424565", "review": "https://github.com/vegastack/vegastack-labs/issues/56#issuecomment-5634357108" },
+    { "issue": 57, "phaseIssue": "3.8", "pr": 84, "mergeCommit": "156cf495de099a54307d55e81cf2469eebcb968f", "evidence": "https://github.com/vegastack/vegastack-labs/issues/57#issuecomment-5646322625", "review": "https://github.com/vegastack/vegastack-labs/issues/57#issuecomment-5646595446" }
+  ],
+  "requirements": [
+    { "id": "roadmap.phase-3", "ownerIssue": 58, "module": "cross-module", "environment": "fixture", "proofIds": ["embedded-console.same-origin-recovery", "source-state.browser", "phase3.chromium-session", "console.accessibility", "phase3.failure-recovery", "phase3.sanitized-evidence"], "expectedStatus": "pass" },
+    { "id": "module-1.embedded-read-service", "ownerIssue": 53, "module": "1", "environment": "fixture", "proofIds": ["embedded-console.same-origin-recovery", "static-export.guard", "console-assets.guard"], "expectedStatus": "pass" },
+    { "id": "module-3.protected-browser-transport", "ownerIssue": 54, "module": "3", "environment": "fixture", "proofIds": ["browser-auth.server", "browser-auth.api-order", "phase3.chromium-session", "phase3.host-origin-denial"], "expectedStatus": "pass" },
+    { "id": "module-8.health-source-freshness", "ownerIssue": 52, "module": "8", "environment": "fixture", "proofIds": ["source-state.model", "source-state.api", "source-state.browser", "domain-status.browser"], "expectedStatus": "pass" },
+    { "id": "module-9.console-read-experience", "ownerIssue": 55, "module": "9", "environment": "fixture", "proofIds": ["overview.unit", "nodes.unit", "gates.unit", "domain-status.unit", "read-views.browser", "console.accessibility", "phase3.mobile-theme"], "expectedStatus": "pass" },
+    { "id": "shared.generated-browser-client", "ownerIssue": 51, "module": "shared", "environment": "fixture", "proofIds": ["generated-client.contract", "query-boundary.same-origin", "read-api.guard"], "expectedStatus": "pass" },
+    { "id": "shared.privacy-local-recovery", "ownerIssue": 57, "module": "shared", "environment": "fixture", "proofIds": ["phase3.local-recovery", "phase3.failure-recovery", "phase3.identity-recovery", "phase3.sanitized-evidence", "static-export.guard"], "expectedStatus": "pass" }
+  ],
+  "proofs": [
+    { "id": "embedded-console.same-origin-recovery", "kind": "go-test", "path": "internal/server/console_real_linux_test.go", "selector": "TestEmbeddedConsoleAndAuthorizedAPIShareOriginWhileLocalRecoverySurvives", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "static-export.guard", "kind": "node-test", "path": "tooling/test/static.test.mjs", "selector": "credential markers and disguised server artifacts fail the static export check", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "console-assets.guard", "kind": "node-test", "path": "tooling/test/console-assets.test.mjs", "selector": "write and verify produce a deterministic regular-file manifest", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "generated-client.contract", "kind": "node-test", "path": "web/test/generated-read-api.test.mjs", "selector": "finite reads use only generated same-origin GET paths and encoded queries", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "query-boundary.same-origin", "kind": "node-test", "path": "web/test/query-boundary.test.mjs", "selector": "the browser client is generated and same-origin only", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "read-api.guard", "kind": "node-test", "path": "tooling/test/read-api.test.mjs", "selector": "the read API verifier accepts source health and browser session endpoints", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "source-state.model", "kind": "go-test", "path": "internal/readmodel/source_test.go", "selector": "TestEvaluateSourceStatesAndPrecedence", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "source-state.api", "kind": "go-test", "path": "internal/api/application_test.go", "selector": "TestSourcesServeOnlyTheBoundedFilteredState", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "source-state.browser", "kind": "browser-test", "path": "web/e2e/read-views.spec.ts", "selector": "Overview preserves source statuses when its summary is temporarily unavailable", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "domain-status.browser", "kind": "browser-test", "path": "web/e2e/domain-status-views.spec.ts", "selector": "a valid but wrong source response is rejected", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "browser-auth.server", "kind": "go-test", "path": "internal/server/browser_auth_test.go", "selector": "TestBrowserAuthenticatorFailsClosedBeforeDownstreamParsing", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "browser-auth.api-order", "kind": "go-test", "path": "internal/api/browser_auth_integration_test.go", "selector": "TestRemoteBrowserMiddlewareReachesAPIResourceAuthorizationBeforeParsing", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "phase3.local-recovery", "kind": "go-test", "path": "internal/server/phase3_acceptance_linux_test.go", "selector": "TestPhase3AcceptanceServerFailsClosedAndKeepsLocalRecovery", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "phase3.chromium-session", "kind": "go-test", "path": "internal/server/phase3_acceptance_linux_test.go", "selector": "TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "overview.unit", "kind": "node-test", "path": "web/test/overview-view.test.mjs", "selector": "Overview names stale partial denied and revision truth", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "nodes.unit", "kind": "node-test", "path": "web/test/nodes-view.test.mjs", "selector": "Nodes has generated details, qualification truth, and focus restoration", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "gates.unit", "kind": "node-test", "path": "web/test/gates-view.test.mjs", "selector": "Gates renders capability status without invented gate records or controls", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "domain-status.unit", "kind": "node-test", "path": "web/test/domain-status-view.test.mjs", "selector": "domain status uses one exact generated source read and defines no record loader", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "read-views.browser", "kind": "browser-test", "path": "web/e2e/read-views.spec.ts", "selector": "Overview, Nodes, Gates, and the details overlay have no serious accessibility violations", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "console.accessibility", "kind": "browser-test", "path": "web/e2e/console.spec.ts", "selector": "skip link, focus order, and named landmarks work", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "phase3.host-origin-denial", "kind": "browser-stage", "path": "web/e2e/real-server-probe.mjs", "selector": "host-origin-denial", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "phase3.failure-recovery", "kind": "browser-stage", "path": "web/e2e/real-server-probe.mjs", "selector": "malformed-response", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "phase3.identity-recovery", "kind": "browser-stage", "path": "web/e2e/real-server-probe.mjs", "selector": "identity-recovery", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "phase3.mobile-theme", "kind": "browser-stage", "path": "web/e2e/real-server-probe.mjs", "selector": "mobile-theme-change", "environment": "fixture", "expectedStatus": "pass", "quarantined": false },
+    { "id": "phase3.sanitized-evidence", "kind": "node-test", "path": "tooling/test/phase-3.test.mjs", "selector": "Phase 3 evidence rejects private and credential material", "environment": "fixture", "expectedStatus": "pass", "quarantined": false }
+  ],
+  "commands": [
+    { "id": "public-check-catalog", "argv": ["pnpm", "check"], "environment": "fixture", "expectedStatus": "pass" },
+    { "id": "go-race-full", "argv": ["go", "test", "-race", "-count=1", "./..."], "environment": "fixture", "expectedStatus": "pass" }
+  ],
+  "artifacts": [
+    { "id": "static-definition", "path": "tooling/phase-3-evidence.json", "digestAtRuntime": true },
+    { "id": "command-registry", "path": "schemas/v1/command-registry.json", "digestAtRuntime": true },
+    { "id": "endpoint-registry", "path": "schemas/v1/endpoint-registry.json", "digestAtRuntime": true },
+    { "id": "generated-read-client", "path": "web/generated/read-api.ts", "digestAtRuntime": true },
+    { "id": "console-asset-manifest", "path": "internal/consoleassets/manifest.json", "digestAtRuntime": true }
+  ],
+  "limitations": [
+    { "id": "live.identity-and-ingress", "environment": "live", "status": "not-exercised", "statement": "No live Cloudflare Access, Google Workspace identity, provider ingress, or VegaStack Labs deployment was exercised by this credential-free fixture evidence." },
+    { "id": "live.operations", "environment": "live", "status": "not-exercised", "statement": "No lab host, private inventory, real provider record, workload admission, release, deployment, or infrastructure mutation was used or authorized." },
+    { "id": "phase-11.browser-matrix", "environment": "phase-11", "status": "not-exercised", "statement": "Firefox, WebKit, packaged distributions, and wider supported operating-system coverage remain assigned to Development Phase 11." },
+    { "id": "operator.focus-comfort", "environment": "operator", "status": "not-exercised", "statement": "The subjective keyboard focus-comfort check and installed-browser-version record remain an operator review item; automated keyboard, focus, mobile, and accessibility assertions are fixture proof only." }
+  ]
+}

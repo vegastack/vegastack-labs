@@ -49,8 +49,8 @@ function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
   assert.match(roadmap, /Completed.*Issue 1\.1.*PR #26/is);
   assert.match(roadmap, /Completed.*Issue 1\.2/is);
   assert.match(roadmap, /Completed.*Issue 1\.3.*PR #39/is);
-  assert.match(roadmap, /Current: complete Issue 2\.10.*accept or reject the Phase 2 exit/is);
-  assert.match(overview, /Phase 1.*accepted.*Phase 2.*implemented; awaiting operator acceptance/is);
+  assert.match(roadmap, /Current: complete Issue 3\.9.*accept or reject the Phase 3 exit/is);
+  assert.match(overview, /Phase 2.*accepted.*Phase 3.*implemented.*exact-commit.*operator-acceptance/is);
   assert.doesNotMatch(roadmap, /Current: implement Issue 1\.1/is);
   assert.doesNotMatch(roadmap, /Current: implement Issue 1\.2/is);
 }
