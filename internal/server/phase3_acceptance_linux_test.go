@@ -59,6 +59,8 @@ type phase3ExecutableFixture struct {
 	keyServer      *httptest.Server
 	command        *exec.Cmd
 	done           chan error
+	serverStdout   *boundedProbeOutput
+	serverStderr   *boundedProbeOutput
 }
 
 func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
@@ -149,10 +151,12 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 	if err := os.WriteFile(caPath, ca, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	fixture.command = exec.Command(binaryPath, "server", "run", "--config", fixture.configPath)
+	fixture.command = exec.Command(binaryPath, "server", "run", "--config", fixture.configPath, "--output", "json")
 	fixture.command.Env = append(os.Environ(), "SSL_CERT_FILE="+caPath)
-	fixture.command.Stdout = io.Discard
-	fixture.command.Stderr = io.Discard
+	fixture.serverStdout = &boundedProbeOutput{limit: 16 * 1024}
+	fixture.serverStderr = &boundedProbeOutput{limit: 512}
+	fixture.command.Stdout = fixture.serverStdout
+	fixture.command.Stderr = fixture.serverStderr
 	if err := fixture.command.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -186,12 +190,54 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 		time.Sleep(20 * time.Millisecond)
 	}
 	if !ready {
+		select {
+		case runErr := <-fixture.done:
+			fixture.done <- runErr
+			startupReason = phase3ExecutableStartupReason(fixture.serverStdout.Bytes())
+		default:
+		}
 		t.Fatalf("built vsk-labs server did not become ready: REMOTE_REASON:%s", startupReason)
 	}
 	controller := httptest.NewServer(fixture.controller())
 	fixture.controllerURL = controller.URL
 	t.Cleanup(controller.Close)
 	return fixture
+}
+
+func phase3ExecutableStartupReason(output []byte) string {
+	var envelope struct {
+		Errors []struct {
+			Code   string `json:"code"`
+			Target string `json:"target"`
+		} `json:"errors"`
+	}
+	if json.Unmarshal(output, &envelope) != nil || len(envelope.Errors) != 1 {
+		return "unreachable"
+	}
+	stable := func(value string) bool {
+		return value != "" && len(value) <= 64 && strings.IndexFunc(value, func(character rune) bool {
+			return character != '-' && character != '_' && character != '.' && (character < '0' || character > '9') && (character < 'A' || character > 'Z') && (character < 'a' || character > 'z')
+		}) == -1
+	}
+	if !stable(envelope.Errors[0].Code) || !stable(envelope.Errors[0].Target) {
+		return "unreachable"
+	}
+	return strings.ToLower(strings.ReplaceAll(envelope.Errors[0].Code+"-"+envelope.Errors[0].Target, "_", "-"))
+}
+
+func TestPhase3AcceptanceStartupReasonAllowsOnlyStableEnvelopeFields(t *testing.T) {
+	if got := phase3ExecutableStartupReason([]byte(`{"errors":[{"code":"INPUT_INVALID","target":"server-config"}]}`)); got != "input-invalid-server-config" {
+		t.Fatalf("startup reason = %q", got)
+	}
+	for _, unsafe := range []string{
+		`{"errors":[{"code":"INPUT_INVALID","target":"/private/path"}]}`,
+		`{"errors":[{"code":"INPUT_INVALID","target":"server config"}]}`,
+		`not-json`,
+	} {
+		if got := phase3ExecutableStartupReason([]byte(unsafe)); got != "unreachable" {
+			t.Fatalf("unsafe startup reason = %q", got)
+		}
+	}
 }
 
 func (fixture *phase3ExecutableFixture) controller() http.Handler {
