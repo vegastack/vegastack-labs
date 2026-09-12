@@ -1750,5 +1750,44 @@
       "id": "vegastack-labs.dev/state-export-source",
       "version": "1.0.0"
     }
-  ]
+  ],
+  "lifecycle": {
+    "planValiditySeconds": 1800,
+    "leaseDurationSeconds": 60,
+    "executorCheckInSeconds": 20,
+    "runTransitions": [
+      {
+        "from": "interrupted",
+        "to": "cancelled"
+      },
+      {
+        "from": "interrupted",
+        "to": "running"
+      },
+      {
+        "from": "queued",
+        "to": "cancelled"
+      },
+      {
+        "from": "queued",
+        "to": "running"
+      },
+      {
+        "from": "running",
+        "to": "failed"
+      },
+      {
+        "from": "running",
+        "to": "interrupted"
+      },
+      {
+        "from": "running",
+        "to": "partial"
+      },
+      {
+        "from": "running",
+        "to": "succeeded"
+      }
+    ]
+  }
 }

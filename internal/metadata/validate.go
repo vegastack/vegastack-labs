@@ -35,6 +35,9 @@ func Validate(registry Registry) error {
 	if err := validateEndpoints(registry.Endpoints, schemas); err != nil {
 		return err
 	}
+	if err := validateLifecycle(registry.Lifecycle); err != nil {
+		return err
+	}
 	if err := validateErrors(registry.Errors); err != nil {
 		return err
 	}
@@ -59,6 +62,21 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 		}
 		if _, exists := ids[endpoint.ID]; exists {
 			return validationError("METADATA_DUPLICATE", location+".id")
+		}
+		if len(endpoint.Audiences) == 0 {
+			return validationError("METADATA_REQUIRED", location+".audiences")
+		}
+		seenAudiences := map[EndpointAudience]bool{}
+		for _, audience := range endpoint.Audiences {
+			if seenAudiences[audience] {
+				return validationError("METADATA_DUPLICATE", location+".audiences")
+			}
+			seenAudiences[audience] = true
+			switch audience {
+			case AudienceBrowser, AudienceExecutor, AudienceOperator, AudienceServerAdapter:
+			default:
+				return validationError("METADATA_INVALID", location+".audiences")
+			}
 		}
 		ids[endpoint.ID] = struct{}{}
 		route := endpoint.Method + " " + endpoint.Path
@@ -90,6 +108,28 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 		default:
 			return validationError("METADATA_INVALID", location+".stream")
 		}
+	}
+	return nil
+}
+
+func validateLifecycle(lifecycle LifecycleDefinition) error {
+	if lifecycle.PlanValiditySeconds != 1800 || lifecycle.LeaseDurationSeconds != 60 || lifecycle.ExecutorCheckInSeconds != 20 || len(lifecycle.RunTransitions) == 0 {
+		return validationError("METADATA_INVALID", "lifecycle")
+	}
+	states := map[string]bool{}
+	for _, state := range phase4RunStates {
+		states[state] = true
+	}
+	seen := map[string]bool{}
+	for index, transition := range lifecycle.RunTransitions {
+		if !states[transition.From] || !states[transition.To] || transition.From == transition.To {
+			return validationError("METADATA_INVALID", fmt.Sprintf("lifecycle.runTransitions[%d]", index))
+		}
+		key := transition.From + "\x00" + transition.To
+		if seen[key] {
+			return validationError("METADATA_DUPLICATE", fmt.Sprintf("lifecycle.runTransitions[%d]", index))
+		}
+		seen[key] = true
 	}
 	return nil
 }

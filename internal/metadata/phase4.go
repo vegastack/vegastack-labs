@@ -36,7 +36,14 @@ func phase4Endpoints() []EndpointDefinition {
 }
 
 func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
-	return EndpointDefinition{ID: id, Method: method, Path: path, Availability: AvailabilityPlanned, OwnerPhase: "4", RequestSchema: request, DataSchema: data, Stream: StreamFinite}
+	audiences := []EndpointAudience{AudienceBrowser, AudienceOperator}
+	if id == "api.v1.plans.acknowledgements.create" {
+		audiences = []EndpointAudience{AudienceServerAdapter}
+	}
+	if id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
+		audiences = []EndpointAudience{AudienceExecutor}
+	}
+	return EndpointDefinition{ID: id, Method: method, Path: path, Availability: AvailabilityPlanned, OwnerPhase: "4", RequestSchema: request, DataSchema: data, Stream: StreamFinite, Audiences: audiences}
 }
 
 func phase4Schemas() []SchemaDefinition {

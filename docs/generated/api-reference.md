@@ -38,3 +38,257 @@ Contract schema: `1.10.0`
 | `api.v1.session.renew` | `POST` | `/api/v1/session/renew` | `available` | `browser` | `finite` | `vegastack-labs.dev/api-browser-session-request` | `vegastack-labs.dev/api-browser-session-data` |
 | `api.v1.sources.list` | `GET` | `/api/v1/sources` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-source-list-data` |
 | `api.v1.summary.get` | `GET` | `/api/v1/summary` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-summary-data` |
+
+## Phase 4 contract graph
+
+Plans expire after `1800` seconds. Executor leases expire after `60` seconds and check in every `20` seconds.
+
+### `vegastack-labs.dev/acknowledgement`
+
+- `schema`: `vegastack-labs.dev/acknowledgement`
+- `schemaVersion`
+- `planId`
+- `planDigest`
+- `targetDigest`
+- `reasonDigest`
+- `humanId`
+- `authorityId`
+- `nonceDigest`
+- `stateRevision`
+- `recoveryEpoch`
+- `expiresAt`
+- `status`: `approved`, `expired`, `pending`, `rejected`
+- `createdAt`
+- `extensions`
+
+### `vegastack-labs.dev/acknowledgement-request`
+
+- `schema`: `vegastack-labs.dev/acknowledgement-request`
+- `schemaVersion`
+- `planId`
+- `planDigest`
+- `targetDigest`
+- `reasonDigest`
+- `humanId`
+- `authorityId`
+- `nonceDigest`
+- `stateRevision`
+- `recoveryEpoch`
+- `expiresAt`
+- `extensions`
+
+### `vegastack-labs.dev/authorization-decision`
+
+- `schema`: `vegastack-labs.dev/authorization-decision`
+- `schemaVersion`
+- `decisionId`
+- `principalId`
+- `action`
+- `targetId`
+- `allowed`
+- `branch`: `human`, `preauthorized`
+- `reasonCode`
+- `grantRevision`
+- `recoveryEpoch`
+- `planDigest`
+- `decidedAt`
+- `extensions`
+
+### `vegastack-labs.dev/declaration-revision`
+
+- `schema`: `vegastack-labs.dev/declaration-revision`
+- `schemaVersion`
+- `declarationId`
+- `declarationType`
+- `revision`
+- `stateRevision`
+- `recoveryEpoch`
+- `contentDigest`
+- `status`: `committed`, `draft`, `superseded`
+- `operations`
+- `createdAt`
+- `createdBy`
+- `agentSessionId`
+- `extensions`
+
+### `vegastack-labs.dev/declaration-revision-request`
+
+- `schema`: `vegastack-labs.dev/declaration-revision-request`
+- `schemaVersion`
+- `declarationId`
+- `declarationType`
+- `expectedRevision`
+- `expectedStateRevision`
+- `recoveryEpoch`
+- `operations`
+- `reasonDigest`
+- `extensions`
+
+### `vegastack-labs.dev/execution-receipt`
+
+- `schema`: `vegastack-labs.dev/execution-receipt`
+- `schemaVersion`
+- `leaseId`
+- `planId`
+- `planDigest`
+- `runId`
+- `stepId`
+- `operationId`
+- `executorId`
+- `adapterId`
+- `targetId`
+- `artifactDigest`
+- `bindingDigest`
+- `nonceDigest`
+- `recoveryEpoch`
+- `receiptId`
+- `status`: `failed`, `partial`, `succeeded`, `unknown`
+- `resultDigest`
+- `recordedAt`
+- `extensions`
+
+### `vegastack-labs.dev/execution-receipt-request`
+
+- `schema`: `vegastack-labs.dev/execution-receipt-request`
+- `schemaVersion`
+- `receipt`
+- `expectedBindingDigest`
+- `extensions`
+
+### `vegastack-labs.dev/executor-claim-request`
+
+- `schema`: `vegastack-labs.dev/executor-claim-request`
+- `schemaVersion`
+- `executorId`
+- `principalId`
+- `adapterId`
+- `recoveryEpoch`
+- `nonceDigest`
+- `extensions`
+
+### `vegastack-labs.dev/executor-lease`
+
+- `schema`: `vegastack-labs.dev/executor-lease`
+- `schemaVersion`
+- `leaseId`
+- `planId`
+- `planDigest`
+- `runId`
+- `stepId`
+- `operationId`
+- `executorId`
+- `adapterId`
+- `targetId`
+- `artifactDigest`
+- `bindingDigest`
+- `nonceDigest`
+- `recoveryEpoch`
+- `claimedAt`
+- `renewAfter`
+- `leaseExpiresAt`
+- `status`: `active`, `expired`, `reconciliation-required`, `released`
+- `extensions`
+
+### `vegastack-labs.dev/executor-renew-request`
+
+- `schema`: `vegastack-labs.dev/executor-renew-request`
+- `schemaVersion`
+- `leaseId`
+- `bindingDigest`
+- `nonceDigest`
+- `recoveryEpoch`
+- `extensions`
+
+### `vegastack-labs.dev/plan`
+
+- `schema`: `vegastack-labs.dev/plan`
+- `schemaVersion`
+- `planId`
+- `planDigest`
+- `declarationId`
+- `binding`
+- `operations`
+- `risk`: `control-plane`, `destructive`, `infrastructure`, `production-like`, `routine`
+- `authorizationBranch`: `human`, `preauthorized`
+- `createdAt`
+- `expiresAt`
+- `readableDigest`
+- `extensions`
+
+### `vegastack-labs.dev/plan-create-request`
+
+- `schema`: `vegastack-labs.dev/plan-create-request`
+- `schemaVersion`
+- `declarationId`
+- `declarationRevision`
+- `expectedStateRevision`
+- `recoveryEpoch`
+- `observationFingerprint`
+- `idempotencyKey`
+- `extensions`
+
+### `vegastack-labs.dev/plan-reference-request`
+
+- `schema`: `vegastack-labs.dev/plan-reference-request`
+- `schemaVersion`
+- `planId`
+- `planDigest`
+- `recoveryEpoch`
+- `idempotencyKey`
+- `extensions`
+
+### `vegastack-labs.dev/run`
+
+- `schema`: `vegastack-labs.dev/run`
+- `schemaVersion`
+- `runId`
+- `planId`
+- `planDigest`
+- `status`: `cancelled`, `failed`, `interrupted`, `partial`, `queued`, `running`, `succeeded`
+- `steps`
+- `cancellationRequested`
+- `rollbackStatus`: `not-requested`, `required`, `separate-plan`
+- `stateRevision`
+- `recoveryEpoch`
+- `createdAt`
+- `updatedAt`
+- `extensions`
+
+### `vegastack-labs.dev/run-reference-request`
+
+- `schema`: `vegastack-labs.dev/run-reference-request`
+- `schemaVersion`
+- `runId`
+- `idempotencyKey`
+- `recoveryEpoch`
+- `extensions`
+
+### `vegastack-labs.dev/run-result`
+
+- `schema`: `vegastack-labs.dev/run-result`
+- `schemaVersion`: `1.0.0`
+- `toolVersion`
+- `command`
+- `requestId`
+- `runId`
+- `status`: `blocked`, `cancelled`, `failed`, `interrupted`, `partial`, `succeeded`
+- `changed`
+- `recoveryEpoch`
+- `stateRevision`
+- `snapshotDigest`
+- `releaseBuildId`
+- `sourceRevision`
+- `planId`
+- `errors`
+- `data`
+
+### Run transitions
+
+- `interrupted` → `cancelled`
+- `interrupted` → `running`
+- `queued` → `cancelled`
+- `queued` → `running`
+- `running` → `failed`
+- `running` → `interrupted`
+- `running` → `partial`
+- `running` → `succeeded`

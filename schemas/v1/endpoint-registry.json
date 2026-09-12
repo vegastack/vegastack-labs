@@ -10,7 +10,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/database-status-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.declarations.get",
@@ -19,7 +23,11 @@
       "availability": "planned",
       "ownerPhase": "4",
       "dataSchema": "vegastack-labs.dev/declaration-revision",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.declarations.revise",
@@ -29,7 +37,11 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/declaration-revision-request",
       "dataSchema": "vegastack-labs.dev/declaration-revision",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.events.stream",
@@ -38,7 +50,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-audit-event-data",
-      "stream": "sse"
+      "stream": "sse",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.execution-receipts.create",
@@ -48,7 +64,10 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/execution-receipt-request",
       "dataSchema": "vegastack-labs.dev/execution-receipt",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "executor"
+      ]
     },
     {
       "id": "api.v1.executor-leases.claim",
@@ -58,7 +77,10 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/executor-claim-request",
       "dataSchema": "vegastack-labs.dev/executor-lease",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "executor"
+      ]
     },
     {
       "id": "api.v1.executor-leases.renew",
@@ -68,7 +90,10 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/executor-renew-request",
       "dataSchema": "vegastack-labs.dev/executor-lease",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "executor"
+      ]
     },
     {
       "id": "api.v1.health.get",
@@ -77,7 +102,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/server-status-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-diffs.create",
@@ -87,7 +116,10 @@
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-diff-request",
       "dataSchema": "vegastack-labs.dev/inventory-diff-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-aliases.get",
@@ -96,7 +128,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-alias-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-aliases.list",
@@ -106,7 +142,11 @@
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-alias-list-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-assets.get",
@@ -115,7 +155,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-asset-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-assets.list",
@@ -125,7 +169,11 @@
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-asset-list-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-nodes.get",
@@ -134,7 +182,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-node-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-nodes.list",
@@ -144,7 +196,11 @@
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-node-list-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-observations.get",
@@ -153,7 +209,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-observation-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-draft-observations.list",
@@ -163,7 +223,11 @@
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-observation-list-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-drafts.get",
@@ -172,7 +236,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-inventory-draft-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-drafts.import",
@@ -182,7 +250,10 @@
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-import-request",
       "dataSchema": "vegastack-labs.dev/inventory-import-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-drafts.list",
@@ -192,7 +263,11 @@
       "ownerPhase": "2",
       "querySchema": "vegastack-labs.dev/api-page-query",
       "dataSchema": "vegastack-labs.dev/api-inventory-draft-list-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.inventory-exports.create",
@@ -202,7 +277,10 @@
       "ownerPhase": "2",
       "requestSchema": "vegastack-labs.dev/inventory-export-request",
       "dataSchema": "vegastack-labs.dev/inventory-export-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
     },
     {
       "id": "api.v1.plans.acknowledgements.create",
@@ -212,7 +290,10 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/acknowledgement-request",
       "dataSchema": "vegastack-labs.dev/acknowledgement",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "server-adapter"
+      ]
     },
     {
       "id": "api.v1.plans.create",
@@ -222,7 +303,11 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/plan-create-request",
       "dataSchema": "vegastack-labs.dev/plan",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.plans.execute",
@@ -232,7 +317,11 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/plan-reference-request",
       "dataSchema": "vegastack-labs.dev/run",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.plans.get",
@@ -241,7 +330,11 @@
       "availability": "planned",
       "ownerPhase": "4",
       "dataSchema": "vegastack-labs.dev/plan",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.runs.cancel",
@@ -251,7 +344,11 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/run-reference-request",
       "dataSchema": "vegastack-labs.dev/run",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.runs.get",
@@ -260,7 +357,11 @@
       "availability": "planned",
       "ownerPhase": "4",
       "dataSchema": "vegastack-labs.dev/run",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.runs.resume",
@@ -270,7 +371,11 @@
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/run-reference-request",
       "dataSchema": "vegastack-labs.dev/run",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.session.create",
@@ -280,7 +385,10 @@
       "ownerPhase": "3",
       "requestSchema": "vegastack-labs.dev/api-browser-session-request",
       "dataSchema": "vegastack-labs.dev/api-browser-session-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser"
+      ]
     },
     {
       "id": "api.v1.session.logout",
@@ -290,7 +398,10 @@
       "ownerPhase": "3",
       "requestSchema": "vegastack-labs.dev/api-browser-session-request",
       "dataSchema": "vegastack-labs.dev/api-browser-session-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser"
+      ]
     },
     {
       "id": "api.v1.session.renew",
@@ -300,7 +411,10 @@
       "ownerPhase": "3",
       "requestSchema": "vegastack-labs.dev/api-browser-session-request",
       "dataSchema": "vegastack-labs.dev/api-browser-session-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser"
+      ]
     },
     {
       "id": "api.v1.sources.list",
@@ -310,7 +424,11 @@
       "ownerPhase": "3",
       "querySchema": "vegastack-labs.dev/api-source-list-query",
       "dataSchema": "vegastack-labs.dev/api-source-list-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     },
     {
       "id": "api.v1.summary.get",
@@ -319,7 +437,11 @@
       "availability": "available",
       "ownerPhase": "2",
       "dataSchema": "vegastack-labs.dev/api-summary-data",
-      "stream": "finite"
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
     }
   ]
 }
