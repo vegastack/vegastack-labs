@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — Every Phase 4 change now passes one current authorization policy ([#71](https://github.com/vegastack/vegastack-labs/issues/71))
+
+- **What:** The server now resolves current resource-scoped author, acknowledge, and execute authority from SQLite, derives plan risk from a closed provider-neutral operation table, and permits exactly one human or narrowly preauthorized branch. Declaration and plan writes are checked before their body is read and again for the exact declaration immediately before the service call; future acknowledgement and execution endpoints share the same preflight.
+- **Why:** Immutable plans are safe to act on only when stale, revoked, widened, mixed-branch, recovery-mismatched, and self-authorizing requests all fail closed against current policy.
+- **How it went:** Work paused cleanly while the declaration/plan foundation landed, then migration 0007 was registered after 0006 without weakening the contiguous catalog. The full check caught an authorization field name that resembled a handwritten command registry, and an adversarial pass tightened malformed grant handling so an empty target or invalid role/branch pair can never become an allowed scope.
+- **Changed:** Effective principal and grant snapshots · inert desired grants · append-only sanitized authorization decisions · closed risk and role matrix · exact branch and revision binding · pre-body and pre-service API checks · stable denial responses · Linux restart/race proof.
+- **Decisions:** none; no default effective grant, live identity/provider record, policy service, permission cache, execution path, or infrastructure authority was introduced.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.3-authorization-risk-policy
+
 ## 13-09-2026 — Desired changes now become one stable plan without touching infrastructure ([#76](https://github.com/vegastack/vegastack-labs/issues/76))
 
 - **What:** Authorized local operators can append inert declaration revisions and turn one exact revision into an immutable 30-minute plan. The readable plan and canonical JSON bind the same operations, facts, targets, revisions, recovery epoch, versions, expiry, and digests, while exact retries return the original result.
