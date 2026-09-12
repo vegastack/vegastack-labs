@@ -96,28 +96,30 @@ func (service *Service) Decide(ctx context.Context, candidate Candidate) (genera
 		return generated.Acknowledgement{}, err
 	}
 	if !candidateMatchesRequest(candidate, stored.Request) {
-		return generated.Acknowledgement{}, candidateMismatch(candidate, stored.Request)
+		return generated.Acknowledgement{}, service.denyCandidate(ctx, stored, candidate, candidateMismatch(candidate, stored.Request))
 	}
 	if stored.Acknowledgement.Status != "pending" {
 		if stored.Acknowledgement.Status == candidate.Action {
 			return stored.Acknowledgement, nil
 		}
-		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
+		return generated.Acknowledgement{}, service.denyCandidate(ctx, stored, candidate, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement"))
 	}
 	now := service.config.Clock().UTC().Truncate(time.Second)
 	if !now.Before(mustTime(stored.Request.ExpiresAt)) {
-		_, _ = service.expire(ctx, stored, now)
-		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
+		if _, err := service.expire(ctx, stored, now); err != nil {
+			return generated.Acknowledgement{}, err
+		}
+		return generated.Acknowledgement{}, service.denyCandidate(ctx, stored, candidate, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement"))
 	}
 	if candidate.DecidedAt.Before(now.Add(-decisionClockSkew)) || candidate.DecidedAt.After(now.Add(decisionClockSkew)) {
-		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement")
+		return generated.Acknowledgement{}, service.denyCandidate(ctx, stored, candidate, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement"))
 	}
 	plan, err := service.config.Plans.Get(ctx, candidate.PlanID)
 	if err != nil {
 		return generated.Acknowledgement{}, err
 	}
 	if err := service.validCurrentHumanPlan(ctx, candidate.Human, plan); err != nil {
-		return generated.Acknowledgement{}, err
+		return generated.Acknowledgement{}, service.denyCandidate(ctx, stored, candidate, err)
 	}
 	outcome := outcomeFrom(stored.Request, stored.Acknowledgement.AcknowledgementID, candidate.Action, now, proofDigest(stored.Request, candidate.Action, now))
 	attribution, err := audit.NewAttribution(candidate.Human, &candidate.Human, nil)
@@ -176,14 +178,16 @@ func (service *Service) VerifyForExecution(ctx context.Context, planID string) (
 		return generated.Acknowledgement{}, err
 	}
 	if stored.Acknowledgement.Status != "approved" || stored.Consumed {
-		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement-proof")
+		cause := acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement-proof")
+		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-replay", cause)
 	}
 	plan, err := service.config.Plans.Get(ctx, planID)
 	if err != nil {
 		return generated.Acknowledgement{}, err
 	}
 	if !proofMatchesPlan(stored, plan) {
-		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodeAuthorizationDenied, "acknowledgement-proof")
+		cause := acknowledgementError(generated.ErrorCodeAuthorizationDenied, "acknowledgement-proof")
+		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-binding", cause)
 	}
 	now := service.config.Clock().UTC().Truncate(time.Second)
 	if !now.Before(mustTime(stored.Acknowledgement.ExpiresAt)) {
@@ -200,6 +204,33 @@ func (service *Service) VerifyForExecution(ctx context.Context, planID string) (
 		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement-proof")
 	}
 	return consumed.Acknowledgement, nil
+}
+
+func (service *Service) denyCandidate(ctx context.Context, stored Stored, candidate Candidate, cause error) error {
+	code := errorCode(cause)
+	if code == "" {
+		code = generated.ErrorCodeAuthorizationDenied
+	}
+	attribution, err := audit.NewAttribution(candidate.Human, &candidate.Human, nil)
+	if err != nil {
+		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
+	}
+	attempt := strings.Join([]string{"candidate-denial-v1", candidate.Action, candidate.PlanID, candidate.PlanDigest, candidate.TargetDigest, candidate.ReasonDigest, digest(candidate.Nonce), intString(candidate.StateRevision), intString(candidate.RecoveryEpoch), candidate.ExpiresAt.UTC().Format(time.RFC3339)}, "\x00")
+	record := DenialRecord{PlanID: stored.Request.PlanID, AcknowledgementID: stored.Acknowledgement.AcknowledgementID, AttemptDigest: digest(attempt), ReasonCode: code, RejectedAt: service.config.Clock().UTC().Truncate(time.Second), Attribution: attribution}
+	if err := service.config.Repository.RecordDenial(ctx, record); err != nil {
+		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
+	}
+	return cause
+}
+
+func (service *Service) denyStored(ctx context.Context, stored Stored, kind string, cause error) error {
+	code := errorCode(cause)
+	attribution := audit.Attribution{AuthenticatedPrincipalID: stored.Request.HumanID, AuthenticatedPrincipalMethod: identity.SlackSocketModeMethod}
+	record := DenialRecord{PlanID: stored.Request.PlanID, AcknowledgementID: stored.Acknowledgement.AcknowledgementID, AttemptDigest: digest(strings.Join([]string{"proof-denial-v1", kind, stored.Acknowledgement.ProofDigest, code}, "\x00")), ReasonCode: code, RejectedAt: service.config.Clock().UTC().Truncate(time.Second), Attribution: attribution}
+	if err := service.config.Repository.RecordDenial(ctx, record); err != nil {
+		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
+	}
+	return cause
 }
 
 func (service *Service) validCurrentHumanPlan(ctx context.Context, human identity.Principal, plan generated.Plan) error {

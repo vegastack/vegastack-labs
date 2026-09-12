@@ -82,6 +82,9 @@ func TestDecisionRequiresExactBindingsAndProofIsSingleUse(t *testing.T) {
 	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); errorCode(err) != generated.ErrorCodePlanStale {
 		t.Fatalf("replay code = %q, err = %v", errorCode(err), err)
 	}
+	if repository.denied == 0 {
+		t.Fatal("replayed proof denial was not audited")
+	}
 }
 
 func TestAgentCredentialsCannotForgeOrReplaySlackApproval(t *testing.T) {
@@ -184,6 +187,7 @@ type memoryRepository struct {
 	stored  Stored
 	created int
 	decided int
+	denied  int
 }
 
 func (repository *memoryRepository) Create(_ context.Context, record CreateRecord) (Stored, bool, error) {
@@ -214,4 +218,9 @@ func (repository *memoryRepository) Consume(_ context.Context, _ string, _ time.
 	}
 	repository.stored.Consumed = true
 	return repository.stored, true, nil
+}
+
+func (repository *memoryRepository) RecordDenial(context.Context, DenialRecord) error {
+	repository.denied++
+	return nil
 }

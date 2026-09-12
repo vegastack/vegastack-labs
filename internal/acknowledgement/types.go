@@ -67,11 +67,23 @@ type DecisionRecord struct {
 	Attribution audit.Attribution
 }
 
+// DenialRecord contains only fingerprints and stable identifiers. Raw provider
+// payloads and nonces never cross into durable audit storage.
+type DenialRecord struct {
+	PlanID            string
+	AcknowledgementID string
+	AttemptDigest     string
+	ReasonCode        string
+	RejectedAt        time.Time
+	Attribution       audit.Attribution
+}
+
 type Repository interface {
 	Create(context.Context, CreateRecord) (Stored, bool, error)
 	Get(context.Context, string) (Stored, error)
 	Decide(context.Context, DecisionRecord) (Stored, bool, error)
 	Consume(context.Context, string, time.Time) (Stored, bool, error)
+	RecordDenial(context.Context, DenialRecord) error
 }
 
 type PlanReader interface {
