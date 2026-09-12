@@ -100,7 +100,15 @@ try {
     });
     if (mobileViolations.length) throw new Error("mobile accessibility violation");
     stage = "mobile-targets";
-    const targets = await mobile.locator("button:visible").evaluateAll(elements => elements.map(element => ({ width: element.getBoundingClientRect().width, height: element.getBoundingClientRect().height })));
+    const targets = await mobile.locator("button:visible").evaluateAll(elements => elements.map(element => {
+      const bounds = element.getBoundingClientRect();
+      const hitArea = getComputedStyle(element, "::before");
+      const expansion = value => Math.max(0, -(Number.parseFloat(value) || 0));
+      return {
+        width: bounds.width + expansion(hitArea.left) + expansion(hitArea.right),
+        height: bounds.height + expansion(hitArea.top) + expansion(hitArea.bottom),
+      };
+    }));
     if (!targets.length || targets.some(target => target.width < 44 || target.height < 44)) throw new Error("mobile control target failed");
     stage = "mobile-theme";
     await mobile.getByRole("button", { name: "Use dark theme" }).click();
