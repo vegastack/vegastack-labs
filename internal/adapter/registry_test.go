@@ -4,6 +4,8 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -40,6 +42,26 @@ func TestRegistryRejectsUnknownAndWidenedOperations(t *testing.T) {
 	if _, err := resolved.Execute(context.Background(), operation); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func TestAdapterOperationSurfaceStaysClosedAndSecretValueFree(t *testing.T) {
+	assertFields := func(value any, expected []string) {
+		t.Helper()
+		typeOf := reflect.TypeOf(value)
+		actual := make([]string, typeOf.NumField())
+		for index := range typeOf.NumField() {
+			actual[index] = typeOf.Field(index).Name
+		}
+		sort.Strings(actual)
+		sort.Strings(expected)
+		if !reflect.DeepEqual(actual, expected) {
+			t.Fatalf("%s fields widened: got %v want %v", typeOf.Name(), actual, expected)
+		}
+	}
+	assertFields(Operation{}, []string{"AdapterID", "ArtifactDigest", "ExecutorID", "Idempotent", "InputDigest", "OperationID", "OperationType", "SecretReferences", "TargetID"})
+	assertFields(SecretReference{}, []string{"Consumer", "ID"})
+	assertFields(Effect{}, []string{"Changed", "EffectObserved", "ResultDigest", "Status"})
+	assertFields(Verification{}, []string{"Digest", "Verified"})
 }
 
 type recordingAdapter struct{}
