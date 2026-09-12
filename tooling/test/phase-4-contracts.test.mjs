@@ -22,7 +22,7 @@ const makeRun = (plan, step, schemaVersion = "1.0.0") => ({
   planId: plan.planId, planDigest: plan.planDigest, authorizationDecisionId: "decision-synthetic-001",
   acknowledgementId: "acknowledgement-synthetic-001", policyVersion: plan.binding.policyVersion,
   executorMode: plan.executorMode, executorId: plan.executorId,
-  executorBindingDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  executorBindingDigest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
   status: "running", steps: [step], cancellationRequested: false, rollbackStatus: "not-requested",
   verificationStatus: "pending", verificationDigest: null, changed: false,
   stateRevision: plan.binding.stateRevision, recoveryEpoch: plan.binding.recoveryEpoch,
@@ -37,9 +37,9 @@ test("generated exact and compatible decoders preserve the major-version boundar
   assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, schemaVersion: "1.7.0", xFuture: "display-only" }, true).planId, plan.planId);
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, schemaVersion: "2.0.0" }, true), /SCHEMA_UNSUPPORTED/);
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, apiToken: "not-allowed" }, true), rejectsAt("plan.apiToken: unsafe additive field"));
-  assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, xFuture: true } }, true).planId, plan.planId);
+  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, xFuture: true } }, true), rejectsAt("plan.binding.xFuture: additional property"));
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, xFuture: { nested: [{ password: "private-canary" }] } }, true), rejectsAt("plan.xFuture.nested[0].password: unsafe additive field"));
-  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, credentialHint: "private-canary" } }, true), rejectsAt("plan.binding.credentialHint: unsafe additive field"));
+  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, credentialHint: "private-canary" } }, true), rejectsAt("plan.binding.credentialHint: additional property"));
 });
 
 test("receipt cannot widen its exact lease binding", async () => {
@@ -49,6 +49,16 @@ test("receipt cannot widen its exact lease binding", async () => {
   const step = { ...operation, stepId: fixture.lease.stepId, status: "running", effectState: "intent-recorded" };
   const run = makeRun(plan, step);
   validateExecutorLeaseBinding(plan, run, fixture.lease);
+  for (const [name, candidatePlan, candidateRun] of [
+    ["run ID", plan, { ...run, runId: "run-other-999" }],
+    ["executor mode", plan, { ...run, executorMode: "central" }],
+    ["state revision", plan, { ...run, stateRevision: run.stateRevision + 1 }],
+    ["run executor", plan, { ...run, executorId: "executor-other-999" }],
+    ["executor binding", plan, { ...run, executorBindingDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" }],
+    ["plan executor", { ...plan, executorId: "executor-other-999" }, run],
+  ]) {
+    assert.throws(() => validateExecutorLeaseBinding(candidatePlan, candidateRun, fixture.lease), rejectsAt("executor-lease"), name);
+  }
   const mutuallyWidened = { ...fixture.lease, targetId: fixture.receipt.targetId };
   assert.throws(() => validateExecutorLeaseBinding(plan, run, mutuallyWidened), rejectsAt("executor-lease.targetId: run step widened or changed"));
   validateExecutionReceiptBinding(mutuallyWidened, fixture.receipt);

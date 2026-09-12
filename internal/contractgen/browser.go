@@ -280,11 +280,11 @@ function decodeField(rule: FieldRule, value: unknown, path: string, compatibleRe
   }
   let decoded: unknown;
   if (rule.ref) {
-    decoded = decodeSchema(rule.ref, value, path, compatibleRead);
+    decoded = decodeSchema(rule.ref, value, path, false);
   } else if (rule.kind === "array") {
     if (!Array.isArray(value)) return mismatch(path, "wrong value kind");
     decoded = value.map((item, index) => rule.itemRef
-      ? decodeSchema(rule.itemRef, item, path + "[" + index + "]", compatibleRead)
+      ? decodeSchema(rule.itemRef, item, path + "[" + index + "]", false)
       : decodePrimitive(rule.itemKind ?? "object", item, path + "[" + index + "]"));
   } else {
     decoded = decodePrimitive(rule.kind, value, path);
@@ -322,7 +322,7 @@ function decodeSchema(identifier: string, value: unknown, path = identifier, com
   const fieldNames = new Set(rule.fields.map((field) => field.name));
   for (const name of Object.keys(value)) {
     if (!fieldNames.has(name)) {
-      if (!compatibleRead) return mismatch(path + "." + name, "additional property is not allowed");
+      if (!compatibleRead || path !== identifier) return mismatch(path + "." + name, "additional property is not allowed");
       if (unsafeCompatibleField(name)) return mismatch(path + "." + name, "unsafe additive field");
       assertSafeCompatibleValue(value[name], path + "." + name);
     }
@@ -404,7 +404,9 @@ export function validateExecutorLeaseBinding(planValue: unknown, runValue: unkno
   const plan = decodeSchema("vegastack-labs.dev/plan", planValue);
   const run = decodeSchema("vegastack-labs.dev/run", runValue);
   const lease = decodeSchema("vegastack-labs.dev/executor-lease", leaseValue);
-	if (plan.planId !== run.planId || plan.planId !== lease.planId || plan.planDigest !== run.planDigest || plan.planDigest !== lease.planDigest || (plan.binding as Record<string, unknown>).recoveryEpoch !== run.recoveryEpoch || run.recoveryEpoch !== lease.recoveryEpoch || run.executorId !== lease.executorId) return mismatch("executor-lease", "plan/run binding widened or changed");
+  const binding = plan.binding as Record<string, unknown>;
+  if (plan.planId !== run.planId || plan.planId !== lease.planId || plan.planDigest !== run.planDigest || plan.planDigest !== lease.planDigest || binding.recoveryEpoch !== run.recoveryEpoch || run.recoveryEpoch !== lease.recoveryEpoch || binding.stateRevision !== run.stateRevision || run.runId !== lease.runId || plan.executorMode !== run.executorMode || run.executorId !== lease.executorId || run.executorBindingDigest !== lease.bindingDigest) return mismatch("executor-lease", "plan/run binding widened or changed");
+  if (plan.executorMode === "external" && (plan.executorId === null || plan.executorId !== run.executorId)) return mismatch("executor-lease.executorId", "external executor does not match plan");
   const steps = (run.steps as Array<Record<string, unknown>>).filter((candidate) => candidate.stepId === lease.stepId);
   if (steps.length !== 1) return mismatch("executor-lease.stepId", "must name exactly one run step");
   const step = steps[0];

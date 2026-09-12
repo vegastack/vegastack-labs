@@ -64,13 +64,13 @@ func ValidateContractJSON(schemaID string, document []byte, mode ContractValidat
 	return validateContractValue(schemaID, value, schemaID, mode, true)
 }
 
-func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, _ bool) error {
+func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, root bool) error {
 	rule, ok := contractRules[schemaID]; if !ok { return fmt.Errorf("unknown schema at %s", path) }
 	object, ok := value.(map[string]any); if !ok { return fmt.Errorf("expected object at %s", path) }
 	fields := make(map[string]contractFieldRule, len(rule.Fields)); for _, field := range rule.Fields { fields[field.Name] = field }
 	for name := range object {
 		if _, known := fields[name]; known { continue }
-		if mode != ContractCompatibleRead || unsafeContractAddition(name) || unsafeContractValue(object[name]) { return fmt.Errorf("additional property at %s.%s", path, name) }
+		if mode != ContractCompatibleRead || !root || unsafeContractAddition(name) || unsafeContractValue(object[name]) { return fmt.Errorf("additional property at %s.%s", path, name) }
 	}
 	for _, field := range rule.Fields {
 		fieldValue, present := object[field.Name]
@@ -82,7 +82,7 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 }
 
 func validateContractField(rule contractFieldRule, value any, path string, mode ContractValidationMode) error {
-	if rule.Ref != "" { return validateContractValue(rule.Ref, value, path, mode, false) }
+	if rule.Ref != "" { return validateContractValue(rule.Ref, value, path, ContractExact, false) }
 	switch rule.Kind {
 	case "string":
 		text, ok := value.(string); if !ok { return fmt.Errorf("wrong kind at %s", path) }
@@ -96,7 +96,7 @@ func validateContractField(rule contractFieldRule, value any, path string, mode 
 	case "object": object, ok := value.(map[string]any); if !ok { return fmt.Errorf("wrong kind at %s", path) }; if !rule.AdditionalProperties && len(object) != 0 { return fmt.Errorf("additional property at %s", path) }; if mode == ContractCompatibleRead && rule.AdditionalProperties && unsafeContractValue(object) { return fmt.Errorf("unsafe compatible value at %s", path) }
 	case "array":
 		values, ok := value.([]any); if !ok { return fmt.Errorf("wrong kind at %s", path) }; if rule.MinItems != nil && len(values) < *rule.MinItems { return fmt.Errorf("too few items at %s", path) }; if rule.MaxItems != nil && len(values) > *rule.MaxItems { return fmt.Errorf("too many items at %s", path) }
-		seen := map[string]bool{}; for index, item := range values { itemPath := fmt.Sprintf("%s[%d]", path, index); if rule.ItemRef != "" { if err := validateContractValue(rule.ItemRef, item, itemPath, mode, false); err != nil { return err } } else if err := validatePrimitiveKind(rule.ItemKind, item, itemPath); err != nil { return err }; if rule.UniqueItems { raw, _ := json.Marshal(item); key := string(raw); if seen[key] { return fmt.Errorf("duplicate item at %s", itemPath) }; seen[key] = true } }
+		seen := map[string]bool{}; for index, item := range values { itemPath := fmt.Sprintf("%s[%d]", path, index); if rule.ItemRef != "" { if err := validateContractValue(rule.ItemRef, item, itemPath, ContractExact, false); err != nil { return err } } else if err := validatePrimitiveKind(rule.ItemKind, item, itemPath); err != nil { return err }; if rule.UniqueItems { raw, _ := json.Marshal(item); key := string(raw); if seen[key] { return fmt.Errorf("duplicate item at %s", itemPath) }; seen[key] = true } }
 	default: return fmt.Errorf("invalid generated rule at %s", path)
 	}
 	return nil
@@ -142,7 +142,8 @@ func ValidateLeaseTiming(lease ExecutorLease) error {
 }
 
 func ValidateExecutorLeaseBinding(plan Plan, run Run, lease ExecutorLease) error {
-	if plan.PlanID != run.PlanID || plan.PlanID != lease.PlanID || plan.PlanDigest != run.PlanDigest || plan.PlanDigest != lease.PlanDigest || plan.Binding.RecoveryEpoch != run.RecoveryEpoch || plan.Binding.RecoveryEpoch != lease.RecoveryEpoch || run.ExecutorID != lease.ExecutorID { return errors.New("executor lease widens or changes its plan/run binding") }
+	if plan.PlanID != run.PlanID || plan.PlanID != lease.PlanID || plan.PlanDigest != run.PlanDigest || plan.PlanDigest != lease.PlanDigest || plan.Binding.RecoveryEpoch != run.RecoveryEpoch || plan.Binding.RecoveryEpoch != lease.RecoveryEpoch || plan.Binding.StateRevision != run.StateRevision || run.RunID != lease.RunID || plan.ExecutorMode != run.ExecutorMode || run.ExecutorID != lease.ExecutorID || run.ExecutorBindingDigest != lease.BindingDigest { return errors.New("executor lease widens or changes its plan/run binding") }
+	if plan.ExecutorMode == "external" && (plan.ExecutorID == nil || *plan.ExecutorID != run.ExecutorID) { return errors.New("external executor lease does not match plan executor") }
 	stepMatches := 0
 	var step RunStep
 	for _, candidate := range run.Steps { if candidate.StepID == lease.StepID { stepMatches++; step = candidate } }

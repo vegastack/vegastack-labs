@@ -50,6 +50,13 @@ func TestPhase4GeneratedValidationModesAndBindings(t *testing.T) {
 		t.Fatal("compatible validation accepted a secret-shaped field in an open carrier")
 	}
 	delete(value, "xFuture")
+	binding := value["binding"].(map[string]any)
+	binding["xFuture"] = "display-only"
+	nestedAddition, _ := json.Marshal(value)
+	if err := ValidateContractJSON(SchemaIDPlan, nestedAddition, ContractCompatibleRead); err == nil {
+		t.Fatal("compatible validation accepted a nested binding addition")
+	}
+	delete(binding, "xFuture")
 	delete(value, "binding")
 	missingBinding, _ := json.Marshal(value)
 	if err := ValidateContractJSON(SchemaIDPlan, missingBinding, ContractExact); err == nil {
@@ -69,9 +76,25 @@ func TestPhase4GeneratedValidationModesAndBindings(t *testing.T) {
 	}
 	operation := typedPlan.Operations[0]
 	step := RunStep{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: operation.ExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent, StepID: fixture.Lease.StepID, Status: "running", EffectState: "intent-recorded"}
-	run := Run{PlanID: typedPlan.PlanID, PlanDigest: typedPlan.PlanDigest, ExecutorID: operation.ExecutorID, RecoveryEpoch: typedPlan.Binding.RecoveryEpoch, Steps: []RunStep{step}}
+	run := Run{RunID: fixture.Lease.RunID, PlanID: typedPlan.PlanID, PlanDigest: typedPlan.PlanDigest, ExecutorMode: typedPlan.ExecutorMode, ExecutorID: operation.ExecutorID, ExecutorBindingDigest: fixture.Lease.BindingDigest, StateRevision: typedPlan.Binding.StateRevision, RecoveryEpoch: typedPlan.Binding.RecoveryEpoch, Steps: []RunStep{step}}
 	if err := ValidateExecutorLeaseBinding(typedPlan, run, fixture.Lease); err != nil {
 		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*Plan, *Run){
+		"run ID":         func(_ *Plan, candidate *Run) { candidate.RunID = "run-other-999" },
+		"executor mode":  func(_ *Plan, candidate *Run) { candidate.ExecutorMode = "central" },
+		"state revision": func(_ *Plan, candidate *Run) { candidate.StateRevision++ },
+		"run executor":   func(_ *Plan, candidate *Run) { candidate.ExecutorID = "executor-other-999" },
+		"executor binding": func(_ *Plan, candidate *Run) {
+			candidate.ExecutorBindingDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+		},
+		"plan executor": func(candidate *Plan, _ *Run) { other := "executor-other-999"; candidate.ExecutorID = &other },
+	} {
+		candidatePlan, candidateRun := typedPlan, run
+		mutate(&candidatePlan, &candidateRun)
+		if err := ValidateExecutorLeaseBinding(candidatePlan, candidateRun, fixture.Lease); err == nil {
+			t.Fatalf("lease validator accepted mismatched %s", name)
+		}
 	}
 	mutuallyWidenedLease := fixture.Lease
 	mutuallyWidenedLease.TargetID = fixture.Receipt.TargetID
@@ -83,6 +106,13 @@ func TestPhase4GeneratedValidationModesAndBindings(t *testing.T) {
 	}
 	if err := ValidateExecutionReceiptBinding(fixture.Lease, fixture.Receipt); err == nil {
 		t.Fatal("widened receipt accepted")
+	}
+	nestedReceipt := fixture.Receipt
+	nestedReceipt.SchemaVersion = "2.0.0"
+	receiptRequest := ExecutionReceiptRequest{Schema: SchemaIDExecutionReceiptRequest, SchemaVersion: "1.3.0", Receipt: nestedReceipt, ExpectedBindingDigest: fixture.Lease.BindingDigest, Extensions: []ContractExtension{}}
+	receiptRequestJSON, _ := json.Marshal(receiptRequest)
+	if err := ValidateContractJSON(SchemaIDExecutionReceiptRequest, receiptRequestJSON, ContractCompatibleRead); err == nil {
+		t.Fatal("compatible validation accepted an unknown nested contract major")
 	}
 	if err := ValidateLeaseTiming(fixture.Lease); err != nil {
 		t.Fatal(err)

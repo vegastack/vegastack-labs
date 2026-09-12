@@ -86,7 +86,7 @@ func ValidateContractJSON(schemaID string, document []byte, mode ContractValidat
 	return validateContractValue(schemaID, value, schemaID, mode, true)
 }
 
-func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, _ bool) error {
+func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, root bool) error {
 	rule, ok := contractRules[schemaID]
 	if !ok {
 		return fmt.Errorf("unknown schema at %s", path)
@@ -103,7 +103,7 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 		if _, known := fields[name]; known {
 			continue
 		}
-		if mode != ContractCompatibleRead || unsafeContractAddition(name) || unsafeContractValue(object[name]) {
+		if mode != ContractCompatibleRead || !root || unsafeContractAddition(name) || unsafeContractValue(object[name]) {
 			return fmt.Errorf("additional property at %s.%s", path, name)
 		}
 	}
@@ -130,7 +130,7 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 
 func validateContractField(rule contractFieldRule, value any, path string, mode ContractValidationMode) error {
 	if rule.Ref != "" {
-		return validateContractValue(rule.Ref, value, path, mode, false)
+		return validateContractValue(rule.Ref, value, path, ContractExact, false)
 	}
 	switch rule.Kind {
 	case "string":
@@ -202,7 +202,7 @@ func validateContractField(rule contractFieldRule, value any, path string, mode 
 		for index, item := range values {
 			itemPath := fmt.Sprintf("%s[%d]", path, index)
 			if rule.ItemRef != "" {
-				if err := validateContractValue(rule.ItemRef, item, itemPath, mode, false); err != nil {
+				if err := validateContractValue(rule.ItemRef, item, itemPath, ContractExact, false); err != nil {
 					return err
 				}
 			} else if err := validatePrimitiveKind(rule.ItemKind, item, itemPath); err != nil {
@@ -324,8 +324,11 @@ func ValidateLeaseTiming(lease ExecutorLease) error {
 }
 
 func ValidateExecutorLeaseBinding(plan Plan, run Run, lease ExecutorLease) error {
-	if plan.PlanID != run.PlanID || plan.PlanID != lease.PlanID || plan.PlanDigest != run.PlanDigest || plan.PlanDigest != lease.PlanDigest || plan.Binding.RecoveryEpoch != run.RecoveryEpoch || plan.Binding.RecoveryEpoch != lease.RecoveryEpoch || run.ExecutorID != lease.ExecutorID {
+	if plan.PlanID != run.PlanID || plan.PlanID != lease.PlanID || plan.PlanDigest != run.PlanDigest || plan.PlanDigest != lease.PlanDigest || plan.Binding.RecoveryEpoch != run.RecoveryEpoch || plan.Binding.RecoveryEpoch != lease.RecoveryEpoch || plan.Binding.StateRevision != run.StateRevision || run.RunID != lease.RunID || plan.ExecutorMode != run.ExecutorMode || run.ExecutorID != lease.ExecutorID || run.ExecutorBindingDigest != lease.BindingDigest {
 		return errors.New("executor lease widens or changes its plan/run binding")
+	}
+	if plan.ExecutorMode == "external" && (plan.ExecutorID == nil || *plan.ExecutorID != run.ExecutorID) {
+		return errors.New("external executor lease does not match plan executor")
 	}
 	stepMatches := 0
 	var step RunStep
