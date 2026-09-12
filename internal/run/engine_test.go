@@ -226,6 +226,33 @@ func TestTimeoutBeforeEffectInterruptsAndReleasesLease(t *testing.T) {
 	}
 }
 
+func TestLaterVerifiedFailurePreservesEarlierChange(t *testing.T) {
+	fixture := newEngineFixture(t)
+	second := fixture.store.plan.Operations[0]
+	second.Sequence = 2
+	second.OperationID = "operation-second"
+	second.InputDigest = digest("input-second")
+	second.ArtifactDigest = digest("artifact-second")
+	fixture.store.plan.Operations = append(fixture.store.plan.Operations, second)
+	fixture.adapter.beforeExecute = func() {
+		if fixture.adapter.calls == 0 {
+			fixture.adapter.status = "succeeded"
+			fixture.adapter.changed = true
+			return
+		}
+		fixture.adapter.status = "failed"
+		fixture.adapter.changed = false
+	}
+
+	failed, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if Code(err) != generated.ErrorCodeExecutionFailed || failed.Status != "failed" {
+		t.Fatalf("failure result = %#v code=%q err=%v", failed, Code(err), err)
+	}
+	if !failed.Changed {
+		t.Fatal("later unchanged failure erased the earlier successful change")
+	}
+}
+
 func TestTargetLeaseConflictInterruptsBeforeEffect(t *testing.T) {
 	fixture := newEngineFixture(t)
 	fixture.store.targets["target-test"] = "lease-other"

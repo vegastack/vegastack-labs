@@ -416,7 +416,8 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return current, err
 		}
 		if effect.Status == "failed" {
-			current, err = engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Changed: &effect.Changed, Attribution: attribution})
+			changed := current.Changed || effect.Changed
+			current, err = engine.repository.TransitionRun(cleanup, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Changed: &changed, Attribution: attribution})
 			return current, firstError(err, runError(generated.ErrorCodeExecutionFailed, "run"))
 		}
 		if effect.Status == "partial" {
