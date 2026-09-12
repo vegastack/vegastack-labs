@@ -16,14 +16,14 @@ const testDigest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 func TestAdapterRejectionUsesAttemptedIdentityAndRequiresDurableAudit(t *testing.T) {
 	service, repository, _ := newService(t)
 	rejection := AdapterRejection{
-		AttemptedPrincipal: identity.Principal{ID: "slack-attempt-0123456789abcdef", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman},
-		AuthorityID:        "authority-slack", AttemptDigest: testDigest,
+		SourcePrincipal: identity.Principal{ID: "slack-actor-0123456789abcdef", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman},
+		AuthorityID:     "authority-slack", AttemptDigest: testDigest,
 		ReasonCode: generated.ErrorCodeAuthorizationDenied, RejectedAt: time.Date(2026, 9, 13, 1, 5, 0, 0, time.UTC),
 	}
 	if err := service.Reject(context.Background(), rejection); err != nil {
 		t.Fatal(err)
 	}
-	if repository.lastDenial.Attribution.AuthenticatedPrincipalID != rejection.AttemptedPrincipal.ID || repository.lastDenial.Attribution.ResponsibleHumanPrincipalID != nil {
+	if repository.lastDenial.Attribution.AuthenticatedPrincipalID != rejection.SourcePrincipal.ID || repository.lastDenial.Attribution.ResponsibleHumanPrincipalID != nil {
 		t.Fatalf("denial attribution = %#v", repository.lastDenial.Attribution)
 	}
 	repository.denialErr = failure.New(generated.ErrorCodeDependencyUnavailable, "audit", true)

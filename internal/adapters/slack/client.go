@@ -16,6 +16,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/strictjson"
 )
 
 const (
@@ -221,8 +222,21 @@ func (adapter *Adapter) consume(ctx context.Context, socket Socket) (bool, error
 func (adapter *Adapter) recordRejection(ctx context.Context, raw []byte, reason string) error {
 	digest := sha256.Sum256(raw)
 	fingerprint := hex.EncodeToString(digest[:])
-	rejection := acknowledgement.AdapterRejection{AttemptedPrincipal: identity.Principal{ID: "slack-attempt-" + fingerprint[:32], Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}, AuthorityID: adapter.config.AuthorityID, AttemptDigest: "sha256:" + fingerprint, ReasonCode: reason, RejectedAt: adapter.clock().UTC().Truncate(time.Second)}
+	rejection := acknowledgement.AdapterRejection{SourcePrincipal: rejectionSourcePrincipal(ctx, raw), AuthorityID: adapter.config.AuthorityID, AttemptDigest: "sha256:" + fingerprint, ReasonCode: reason, RejectedAt: adapter.clock().UTC().Truncate(time.Second)}
 	return adapter.sink.Reject(ctx, rejection)
+}
+
+func rejectionSourcePrincipal(ctx context.Context, raw []byte) identity.Principal {
+	unknown := identity.Principal{ID: acknowledgement.UnknownSourcePrincipalID, Method: acknowledgement.UnknownSourcePrincipalMode, Kind: identity.PrincipalPolicy}
+	if len(raw) == 0 || len(raw) > MaxEnvelopeBytes || strictjson.Scan(ctx, raw, strictjson.Limits{MaxDepth: MaxJSONDepth}) != nil {
+		return unknown
+	}
+	var envelope interactiveEnvelope
+	if decodeClosed(raw, &envelope) != nil || envelope.Type != "interactive" || !validOpaqueID(envelope.Payload.Team.ID) || !validOpaqueID(envelope.Payload.User.ID) {
+		return unknown
+	}
+	actor := sha256.Sum256([]byte("slack-actor-v1\x00" + envelope.Payload.Team.ID + "\x00" + envelope.Payload.User.ID))
+	return identity.Principal{ID: "slack-actor-" + hex.EncodeToString(actor[:16]), Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}
 }
 
 func acknowledgeEnvelope(ctx context.Context, socket Socket, envelopeID string) error {

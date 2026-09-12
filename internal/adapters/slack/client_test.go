@@ -17,6 +17,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 const fixtureSlackCredential = "x" + "app-fixture-secret"
@@ -156,8 +157,23 @@ func TestRejectedAdapterActionIsAuditedBeforeEnvelopeAcknowledgement(t *testing.
 	if sink.rejections != 2 || strings.Join(transport.acknowledged, ",") != "env-wrong" {
 		t.Fatalf("rejections/acks = %d/%v", sink.rejections, transport.acknowledged)
 	}
-	if sink.lastRejection.AttemptedPrincipal.ID == "person-operator" || sink.lastRejection.AttemptedPrincipal.ID == "" || sink.lastRejection.AttemptedPrincipal.Method != "slack-socket-mode" {
-		t.Fatalf("false attempted attribution = %#v", sink.lastRejection.AttemptedPrincipal)
+	if sink.lastRejection.SourcePrincipal != (identity.Principal{ID: acknowledgement.UnknownSourcePrincipalID, Method: acknowledgement.UnknownSourcePrincipalMode, Kind: identity.PrincipalPolicy}) {
+		t.Fatalf("malformed source attribution = %#v", sink.lastRejection.SourcePrincipal)
+	}
+}
+
+func TestRejectionSourceIsStableByActorAndMalformedIsUnknown(t *testing.T) {
+	ctx := context.Background()
+	first := rejectionSourcePrincipal(ctx, []byte(fixtureInteractive("env-one", "workspace-wrong", "user-wrong", "action-reject")))
+	second := rejectionSourcePrincipal(ctx, []byte(fixtureInteractive("env-two", "workspace-wrong", "user-wrong", "action-approve")))
+	different := rejectionSourcePrincipal(ctx, []byte(fixtureInteractive("env-three", "workspace-wrong", "user-other", "action-reject")))
+	unknown := rejectionSourcePrincipal(ctx, []byte(`{broken`))
+	if first != second || first == different || first.Kind != identity.PrincipalHuman || first.Method != identity.SlackSocketModeMethod {
+		t.Fatalf("actor pseudonyms = %#v / %#v / %#v", first, second, different)
+	}
+	wantUnknown := identity.Principal{ID: acknowledgement.UnknownSourcePrincipalID, Method: acknowledgement.UnknownSourcePrincipalMode, Kind: identity.PrincipalPolicy}
+	if unknown != wantUnknown {
+		t.Fatalf("malformed source = %#v", unknown)
 	}
 }
 

@@ -14,10 +14,12 @@ import (
 )
 
 const (
-	ActionApprove       = "approved"
-	ActionReject        = "rejected"
-	ExpiryPrincipalID   = "policy.acknowledgement-expiry"
-	ExpiryPrincipalMode = "internal-policy"
+	ActionApprove              = "approved"
+	ActionReject               = "rejected"
+	ExpiryPrincipalID          = "policy.acknowledgement-expiry"
+	ExpiryPrincipalMode        = "internal-policy"
+	UnknownSourcePrincipalID   = "policy.acknowledgement-unknown-source"
+	UnknownSourcePrincipalMode = "internal-policy"
 )
 
 type Scope struct {
@@ -42,11 +44,11 @@ type Candidate struct {
 }
 
 type AdapterRejection struct {
-	AttemptedPrincipal identity.Principal
-	AuthorityID        string
-	AttemptDigest      string
-	ReasonCode         string
-	RejectedAt         time.Time
+	SourcePrincipal identity.Principal
+	AuthorityID     string
+	AttemptDigest   string
+	ReasonCode      string
+	RejectedAt      time.Time
 }
 
 type RequestCard struct {

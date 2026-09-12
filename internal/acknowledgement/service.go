@@ -56,10 +56,11 @@ func IsTerminalDenial(err error) bool {
 
 func (service *Service) Reject(ctx context.Context, rejection AdapterRejection) error {
 	validReason := rejection.ReasonCode == generated.ErrorCodeInputInvalid || rejection.ReasonCode == generated.ErrorCodeAuthorizationDenied
-	if service == nil || ctx == nil || !identity.ValidPrincipal(rejection.AttemptedPrincipal) || !authorization.ValidIdentifier(rejection.AuthorityID) || !validDigest(rejection.AttemptDigest) || !validReason || rejection.RejectedAt.IsZero() || rejection.RejectedAt.Location() != time.UTC {
+	validSource := identity.ValidPrincipal(rejection.SourcePrincipal) || (rejection.SourcePrincipal.ID == UnknownSourcePrincipalID && rejection.SourcePrincipal.Method == UnknownSourcePrincipalMode && rejection.SourcePrincipal.Kind == identity.PrincipalPolicy)
+	if service == nil || ctx == nil || !validSource || !authorization.ValidIdentifier(rejection.AuthorityID) || !validDigest(rejection.AttemptDigest) || !validReason || rejection.RejectedAt.IsZero() || rejection.RejectedAt.Location() != time.UTC {
 		return acknowledgementError(generated.ErrorCodeInputInvalid, "acknowledgement-adapter-rejection")
 	}
-	attribution, err := audit.NewAttribution(rejection.AttemptedPrincipal, nil, nil)
+	attribution, err := audit.NewAttribution(rejection.SourcePrincipal, nil, nil)
 	if err != nil {
 		return failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit", true)
 	}
