@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/api"
+	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -13,6 +14,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/inventory"
 	"github.com/vegastack/vegastack-labs/internal/inventoryops"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
+	planengine "github.com/vegastack/vegastack-labs/internal/plan"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
@@ -94,6 +96,31 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	if err := api.RegisterInventoryOperations(application, api.InventoryOperationConfig{Decoders: decoders, Imports: imports, Diffs: diffs, Exports: exports, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	declarationRepository := store.NewDeclarationRepository(authority)
+	declarations, err := change.NewService(declarationRepository, time.Now)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	planRepository := store.NewPlanRepository(authority)
+	observations, err := planengine.NewStateObservationReader(planRepository)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	plans, err := planengine.NewService(planengine.Config{Repository: planRepository, Observations: observations, Clock: time.Now, PolicyVersion: "1.0.0", ToolVersion: operations.build.ToolVersion, ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterDeclarationPlanOperations(application, api.DeclarationPlanConfig{Declarations: declarations, Plans: plans, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.ValidateRegisteredRoutes(application); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}

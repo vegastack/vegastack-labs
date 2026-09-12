@@ -36,6 +36,10 @@ func phase4Endpoints() []EndpointDefinition {
 }
 
 func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
+	availability := AvailabilityPlanned
+	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" {
+		availability = AvailabilityAvailable
+	}
 	audiences := []EndpointAudience{AudienceBrowser, AudienceOperator}
 	if id == "api.v1.plans.acknowledgements.create" {
 		audiences = []EndpointAudience{AudienceServerAdapter}
@@ -43,7 +47,7 @@ func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
 	if id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
 		audiences = []EndpointAudience{AudienceExecutor}
 	}
-	return EndpointDefinition{ID: id, Method: method, Path: path, Availability: AvailabilityPlanned, OwnerPhase: "4", RequestSchema: request, DataSchema: data, Stream: StreamFinite, Audiences: audiences}
+	return EndpointDefinition{ID: id, Method: method, Path: path, Availability: availability, OwnerPhase: "4", RequestSchema: request, DataSchema: data, Stream: StreamFinite, Audiences: audiences}
 }
 
 func phase4Schemas() []SchemaDefinition {
@@ -56,6 +60,7 @@ func phase4Schemas() []SchemaDefinition {
 	version := func(name, goName string) FieldDefinition {
 		return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^1\.[0-9]+\.[0-9]+$`}
 	}
+	toolVersion := FieldDefinition{JSONName: "toolVersion", GoName: "ToolVersion", Kind: ValueString, Required: true, Pattern: `^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\+([0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*))?$`, MaxLength: intPointer(64)}
 	nullableID := func(name, goName string) FieldDefinition {
 		return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Nullable: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`}
 	}
@@ -92,7 +97,7 @@ func phase4Schemas() []SchemaDefinition {
 		{ID: declarationOperationSchemaID, Version: "1.0.0", Fields: operationFields(false)},
 		{ID: declarationRevisionRequestID, Version: "1.0.0", ArtifactPath: schemaPath(declarationRevisionRequestID), Fields: contract(declarationRevisionRequestID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("expectedRevision", "ExpectedRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, digest("reasonDigest", "ReasonDigest"), extensions)},
 		{ID: declarationRevisionSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(declarationRevisionSchemaID), Fields: contract(declarationRevisionSchemaID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("revision", "Revision"), nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("contentDigest", "ContentDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"committed", "draft", "superseded"}}, FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, timestamp("createdAt", "CreatedAt"), id("createdBy", "CreatedBy"), id("agentSessionId", "AgentSessionID"), extensions)},
-		{ID: planBindingSchemaID, Version: "1.0.0", Fields: []FieldDefinition{nonnegative("recoveryEpoch", "RecoveryEpoch"), nonnegative("priorStateRevision", "PriorStateRevision"), positive("stateRevision", "StateRevision"), positive("declarationRevision", "DeclarationRevision"), digest("observationFingerprint", "ObservationFingerprint"), digest("targetDigest", "TargetDigest"), digest("reasonDigest", "ReasonDigest"), version("policyVersion", "PolicyVersion"), version("toolVersion", "ToolVersion"), version("contractVersion", "ContractVersion")}},
+		{ID: planBindingSchemaID, Version: "1.0.0", Fields: []FieldDefinition{nonnegative("recoveryEpoch", "RecoveryEpoch"), nonnegative("priorStateRevision", "PriorStateRevision"), positive("stateRevision", "StateRevision"), positive("declarationRevision", "DeclarationRevision"), digest("observationFingerprint", "ObservationFingerprint"), digest("targetDigest", "TargetDigest"), digest("reasonDigest", "ReasonDigest"), version("policyVersion", "PolicyVersion"), toolVersion, version("contractVersion", "ContractVersion")}},
 		{ID: planOperationSchemaID, Version: "1.0.0", Fields: operationFields(true)},
 		{ID: planCreateRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planCreateRequestSchemaID), Fields: contract(planCreateRequestSchemaID, id("declarationId", "DeclarationID"), positive("declarationRevision", "DeclarationRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("observationFingerprint", "ObservationFingerprint"), id("idempotencyKey", "IdempotencyKey"), extensions)},
 		{ID: planReferenceRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planReferenceRequestSchemaID), Fields: contract(planReferenceRequestSchemaID, id("planId", "PlanID"), digest("planDigest", "PlanDigest"), nonnegative("recoveryEpoch", "RecoveryEpoch"), id("idempotencyKey", "IdempotencyKey"), extensions)},

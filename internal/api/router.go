@@ -146,6 +146,12 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if rawDraft, exists := params["draftId"]; exists {
 			resourceID = rawDraft + ":" + params["revision"]
 		}
+		if declarationID, exists := params["declarationId"]; exists {
+			resourceID = declarationID + ":" + params["revision"]
+		}
+		if planID, exists := params["planId"]; exists {
+			resourceID = planID
+		}
 		if candidate.id == "api.v1.inventory-drafts.import" {
 			resourceID = "inventory-drafts"
 		}

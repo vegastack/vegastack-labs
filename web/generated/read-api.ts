@@ -2664,7 +2664,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\\+([0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*))?$",
+        "maxLength": 64
       },
       {
         "name": "contractVersion",
@@ -4031,6 +4032,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 
 export type ReadClient = {
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
+  readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
   readonly streamEvents: (options?: StreamOptions) => AsyncIterable<ApiAuditEventData>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
@@ -4043,6 +4045,7 @@ export type ReadClient = {
   readonly listInventoryDraftObservations: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationListData>>;
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
+  readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<Plan>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
@@ -4052,6 +4055,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getDatabaseStatus(options = {}) {
       const operation = "api.v1.database-status.get";
       return performRead(fetchTransport, "/api/v1/database/status", options, operation, decodeDatabaseStatusData);
+    },
+    async getDeclaration(path, options = {}) {
+      const operation = "api.v1.declarations.get";
+      return performRead(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "", options, operation, decodeDeclarationRevision);
     },
     streamEvents(options = {}) {
       return streamSSE(fetchTransport, "/api/v1/events", options, "api.v1.events.stream", "audit-event", decodeApiAuditEventData, (data) => data.event.eventId);
@@ -4099,6 +4106,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async listInventoryDrafts(query = {}, options = {}) {
       const operation = "api.v1.inventory-drafts.list";
       return performRead(fetchTransport, "/api/v1/inventory-drafts" + pageQuery(query), options, operation, decodeApiInventoryDraftListData);
+    },
+    async getPlan(path, options = {}) {
+      const operation = "api.v1.plans.get";
+      return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodePlan);
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";

@@ -210,8 +210,8 @@ All browser and CLI behavior uses one versioned API. HTTP JSON uses `/api/v1`; t
 | `GET /api/v1/gates`, `GET /api/v1/gates/{id}` | design/activation state, applicable subjects, evidence age/checks and exact remediation; `?phase=<n>` filters admission gates |
 | `GET /api/v1/plans`, `/runs`, `/audit` | attributed lifecycle history with sanitized evidence |
 | `GET /api/v1/events` | Server-Sent Events stream for refresh/run progress; reconnects from durable event ID |
-| `POST /api/v1/declarations/{type}` | validate and create a revisioned draft declaration |
-| `PATCH /api/v1/declarations/{type}/{id}` | optimistic revision update; cannot execute infrastructure |
+| `POST /api/v1/declarations` | validate and append one provider-neutral draft declaration revision using exact optimistic revision and recovery-epoch checks; cannot execute infrastructure |
+| `GET /api/v1/declarations/{declarationId}/revisions/{revision}` | read one exact authorized immutable declaration revision |
 | `POST /api/v1/gates/{id}/evidence-drafts` | validate a typed evidence bundle and create an inert change; never sets the evaluation directly |
 
 #### Implemented Phase 3 domain-status screens
@@ -232,11 +232,19 @@ List endpoints use stable cursor pagination, explicit sorting and server-side fi
 
 For all three routes, kernel-backed authentication and exact capability/resource authorization finish before any body byte, draft candidate, baseline, or export subject is read. Import creates no accepted or effective declaration. Diff explicitly labels its baseline `draft` and returns `PREREQUISITE_BLOCKED` if none exists. Export also returns `PREREQUISITE_BLOCKED` when production signing trust is unavailable and preserves the prior verified artifact. Responses use the same closed typed envelope as the CLI; raw source rows, paths, private fields, signing material, and internal errors are never returned.
 
+### Implemented declaration and immutable-plan endpoints
+
+`POST /api/v1/declarations` and `POST /api/v1/plans` now use the same local server-owned SQLite authority as every other mutation. Authorization completes before strict body decoding, both endpoints are denied by the remote browser mutation admission boundary, and neither handler resolves secret values, invokes an adapter, or performs a network call. The matching exact-revision declaration read and exact-plan read endpoints are available through the generated read contract.
+
+Declaration operations are ordered by their explicit sequence; set-like extensions and plan target bindings are normalized before hashing. Each append-only declaration revision records only generated closed-contract fields and digests. Planning rechecks the current recovery epoch, state revision, source draft revision, and observation fingerprint, then appends a separate `committed` desired declaration revision together with the immutable canonical JSON plan, lossless readable plan, audit event, idempotency binding, and next state revision in one transaction. An interrupted plan insert rolls back the committed declaration and plan while preserving the inert source draft. Authoritative stored bytes require the exact generated contract; compatible-read conversion is presentation-only. Exact retries return the original bytes; changed reuse of the same key fails with `STATE_CONFLICT`.
+
+Every plan expires exactly 30 minutes after creation. Its ID and digest bind the declaration and reason, prior/new state revision, recovery epoch, current-fact fingerprint, sorted target set, authored operation sequence, policy/tool/contract versions, executor binding, readable digest, and expiry. Until Issue #71's policy result is integrated by the authorization issue, production server wiring uses the conservative `destructive` + `human` classification and central executor identifier; it cannot accidentally preauthorize or understate a plan.
+
 ### Plan and execution endpoints
 
 | Method and path | Effect and boundary |
 |---|---|
-| `POST /api/v1/plans` | normalize a typed draft, refresh observations, atomically commit its inert desired-state revision and create an immutable 30-minute plan bound to the active recovery epoch; no external mutation |
+| `POST /api/v1/plans` | load one exact draft revision, verify current local facts, and atomically append its committed desired revision plus an immutable 30-minute plan bound to the active recovery epoch; no external mutation |
 | `POST /api/v1/plans/{id}/acknowledgements` | accept only the server-verified provider-neutral proof derived from the configured Slack workspace/user action, bound to the exact request/digests/risk/expiry/nonce/state revision/recovery epoch; a client assertion cannot acknowledge |
 | `POST /api/v1/plans/{id}/execute` | queue only the exact unexpired approved digest after reauthorization and precondition checks |
 | `POST /api/v1/runs/{id}/executor-claims` | allow only the plan-declared enrolled external executor to claim one epoch-bound, target/digest-limited lease; VegaStack Labs uses this for the accepted protected CI→Coolify adapter |

@@ -2,6 +2,7 @@ package stateexport
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -14,7 +15,22 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/inventory"
+	"github.com/vegastack/vegastack-labs/internal/strictjson"
 )
+
+// CanonicalJSON is the shared canonical byte encoder for closed generated
+// contracts. Struct field order is stable, maps are ordered by encoding/json,
+// and strict JSON validation rejects duplicate keys and excessive nesting.
+func CanonicalJSON(value any) ([]byte, [32]byte, error) {
+	body, err := json.Marshal(value)
+	if err != nil || len(body) == 0 || len(body) > MaxArtifactBytes {
+		return nil, [32]byte{}, exportError("INPUT_INVALID", "canonical-json")
+	}
+	if err := strictjson.Scan(context.Background(), body, strictjson.Limits{MaxDepth: 32}); err != nil {
+		return nil, [32]byte{}, exportError("INPUT_INVALID", "canonical-json")
+	}
+	return body, sha256.Sum256(body), nil
+}
 
 var (
 	digestPattern   = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
