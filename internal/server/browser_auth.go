@@ -175,10 +175,7 @@ func (authenticator *BrowserAuthenticator) browserAssetRequestAllowed(request *h
 	if site[0] != "same-origin" {
 		return false
 	}
-	if mode[0] == "cors" && destination[0] == "empty" {
-		return true
-	}
-	if mode[0] != "no-cors" {
+	if mode[0] != "cors" && mode[0] != "no-cors" {
 		return false
 	}
 	switch destination[0] {

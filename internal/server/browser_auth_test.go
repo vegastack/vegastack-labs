@@ -106,6 +106,29 @@ func TestBrowserAuthenticatorAcceptsBrowserSafeFetchMetadataBeforeJWTSessionAndP
 	}
 }
 
+func TestBrowserAuthenticatorAcceptsSameOriginCORSAndNoCORSAssets(t *testing.T) {
+	authenticator, _, _ := newBrowserAuthFixture(t)
+	for _, test := range []struct {
+		mode, destination string
+		allowed           bool
+	}{
+		{"cors", "script", true},
+		{"no-cors", "script", true},
+		{"cors", "font", true},
+		{"no-cors", "style", true},
+		{"cors", "document", false},
+		{"same-origin", "script", false},
+	} {
+		request := httptest.NewRequest(http.MethodGet, "https://console.example/_next/static/asset.js", nil)
+		request.Header.Set("Sec-Fetch-Site", "same-origin")
+		request.Header.Set("Sec-Fetch-Mode", test.mode)
+		request.Header.Set("Sec-Fetch-Dest", test.destination)
+		if actual := authenticator.browserAssetRequestAllowed(request); actual != test.allowed {
+			t.Fatalf("asset %s/%s allowed = %t, want %t", test.mode, test.destination, actual, test.allowed)
+		}
+	}
+}
+
 func TestBrowserAuthenticatorFailsClosedBeforeDownstreamParsing(t *testing.T) {
 	for _, test := range []struct {
 		name   string
