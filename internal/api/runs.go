@@ -120,10 +120,10 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 		defer unlock()
 		existing, found, err := config.Runs.Existing(request.Context(), input)
 		if err != nil {
-			app.operationFailure(w, operation, decision.DecisionID, err)
+			app.operationFailure(w, operation, input.IdempotencyKey, err)
 			return
 		} else if found && existing.Status != "queued" {
-			app.operationSuccess(w, operation, decision.DecisionID, existing.Changed, existing.StateRevision, existing.RecoveryEpoch, existing)
+			app.operationSuccess(w, operation, input.IdempotencyKey, existing.Changed, existing.StateRevision, existing.RecoveryEpoch, existing)
 			return
 		}
 		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan, !found)
@@ -138,10 +138,10 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 		}
 		value, err := config.Runs.Submit(request.Context(), runengine.SubmitRequest{Reference: input, Authorization: decision, Acknowledgement: ack, Attribution: attribution})
 		if err != nil {
-			app.operationFailure(w, operation, decision.DecisionID, err)
+			app.operationFailure(w, operation, input.IdempotencyKey, err)
 			return
 		}
-		app.operationSuccess(w, operation, decision.DecisionID, value.Changed, value.StateRevision, value.RecoveryEpoch, value)
+		app.operationSuccess(w, operation, input.IdempotencyKey, value.Changed, value.StateRevision, value.RecoveryEpoch, value)
 	}
 }
 

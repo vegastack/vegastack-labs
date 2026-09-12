@@ -39,7 +39,7 @@ func TestRunExecuteAuthorizesBeforeParsingAndPreservesDuplicateSubmit(t *testing
 		httpRequest = httpRequest.WithContext(identity.WithVerifiedPrincipal(httpRequest.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
 		response := httptest.NewRecorder()
 		app.ServeHTTP(response, httpRequest)
-		if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(runs.run.RunID)) {
+		if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(runs.run.RunID)) || !bytes.Contains(response.Body.Bytes(), []byte(`"requestId":"run-submit-test"`)) {
 			t.Fatalf("submit %d response=%d body=%s", index, response.Code, response.Body.String())
 		}
 	}
