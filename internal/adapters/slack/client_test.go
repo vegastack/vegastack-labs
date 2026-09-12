@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync"
 	"testing"
@@ -26,7 +27,7 @@ func TestSocketModeAcknowledgesEnvelopeAndReconnectsWithoutLeakingURL(t *testing
 		{`{"type":"hello"}`, fixtureInteractive("env-2", "workspace-approved", "user-approved", "action-approve")},
 	}}
 	var candidates []acknowledgement.Candidate
-	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, CandidateSinkFunc(func(_ context.Context, candidate acknowledgement.Candidate) error {
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, testCandidateSink(func(_ context.Context, candidate acknowledgement.Candidate) error {
 		candidates = append(candidates, candidate)
 		cancel()
 		return nil
@@ -77,7 +78,7 @@ func TestSocketModeCoversRejectDuplicateDisconnectAndTimeout(t *testing.T) {
 		{fixtureInteractive("env-reject", "workspace-approved", "user-approved", "action-reject")},
 	}}
 	var candidates []acknowledgement.Candidate
-	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, CandidateSinkFunc(func(_ context.Context, candidate acknowledgement.Candidate) error {
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, testCandidateSink(func(_ context.Context, candidate acknowledgement.Candidate) error {
 		candidates = append(candidates, candidate)
 		return nil
 	}))
@@ -96,6 +97,41 @@ func TestSocketModeCoversRejectDuplicateDisconnectAndTimeout(t *testing.T) {
 	}
 }
 
+func TestInteractiveEnvelopeAcknowledgesOnlyAfterDurableDecision(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	interactive := fixtureInteractive("env-retry", "workspace-approved", "user-approved", "action-reject")
+	transport := &fixtureTransport{sessions: [][]string{{interactive}, {interactive}}}
+	sink := &retryingCandidateSink{}
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("run = %v", err)
+	}
+	if sink.submits != 2 || strings.Join(transport.acknowledged, ",") != "env-retry" {
+		t.Fatalf("submits/acks = %d/%v", sink.submits, transport.acknowledged)
+	}
+}
+
+func TestRejectedAdapterActionIsAuditedBeforeEnvelopeAcknowledgement(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	transport := &fixtureTransport{sessions: [][]string{{fixtureInteractive("env-wrong", "workspace-wrong", "user-approved", "action-reject"), `{broken`}}}
+	sink := &retryingCandidateSink{}
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("run = %v", err)
+	}
+	if sink.rejections != 2 || strings.Join(transport.acknowledged, ",") != "env-wrong" {
+		t.Fatalf("rejections/acks = %d/%v", sink.rejections, transport.acknowledged)
+	}
+}
+
 func TestHTTPTransportRefusesRedirects(t *testing.T) {
 	redirected := false
 	target := httptest.NewTLSServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
@@ -108,11 +144,11 @@ func TestHTTPTransportRefusesRedirects(t *testing.T) {
 	defer source.Close()
 	client := source.Client()
 	client.Timeout = time.Second
+	client.Transport = &slackFixtureRoundTripper{base: client.Transport, origin: source.URL}
 	transport, err := NewHTTPTransport(client)
 	if err != nil {
 		t.Fatal(err)
 	}
-	transport.connectionsURL = source.URL
 	if _, err := transport.Open(context.Background(), []byte("xapp-fixture-secret")); err == nil {
 		t.Fatal("redirect accepted")
 	}
@@ -150,7 +186,7 @@ func TestSocketURLAcceptsDocumentedTicketAndRejectsWidenedAuthority(t *testing.T
 
 func TestAdapterCategorizesOutageAndDoesNotExposeCredential(t *testing.T) {
 	transport := &fixtureTransport{openErr: errors.New("fixture outage")}
-	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, CandidateSinkFunc(func(context.Context, acknowledgement.Candidate) error { return nil }))
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, testCandidateSink(func(context.Context, acknowledgement.Candidate) error { return nil }))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -172,7 +208,7 @@ func TestHTTPAndWebSocketFixtureComposePublishAckAndCandidate(t *testing.T) {
 			return
 		}
 		writer.Header().Set("Content-Type", "application/json")
-		_, _ = writer.Write([]byte(`{"ok":true,"url":"` + strings.Replace(server.URL, "https://", "wss://", 1) + `/socket"}`))
+		_, _ = writer.Write([]byte(`{"ok":true,"url":"wss://wss.slack.com/link/?ticket=fixture-ticket&app_id=fixture-app"}`))
 	})
 	handler.HandleFunc("/chat", func(writer http.ResponseWriter, request *http.Request) {
 		if request.Header.Get("Authorization") != "Bearer xapp-fixture-secret" {
@@ -199,10 +235,15 @@ func TestHTTPAndWebSocketFixtureComposePublishAckAndCandidate(t *testing.T) {
 	defer server.Close()
 	client := server.Client()
 	client.Timeout = 2 * time.Second
-	transport := &HTTPTransport{client: client, connectionsURL: server.URL + "/open", postMessageURL: server.URL + "/chat", allowedTestHost: strings.TrimPrefix(server.URL, "https://")}
+	client.Transport = &slackFixtureRoundTripper{base: client.Transport, origin: server.URL}
+	transport, err := NewHTTPTransport(client)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cancel := context.WithCancel(context.Background())
-	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, CandidateSinkFunc(func(context.Context, acknowledgement.Candidate) error {
-		cancel()
+	candidateReceived := make(chan struct{}, 1)
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, testCandidateSink(func(context.Context, acknowledgement.Candidate) error {
+		candidateReceived <- struct{}{}
 		return nil
 	}))
 	if err != nil {
@@ -213,9 +254,8 @@ func TestHTTPAndWebSocketFixtureComposePublishAckAndCandidate(t *testing.T) {
 	if err := adapter.Publish(context.Background(), acknowledgement.RequestCard{Request: request, AcknowledgementID: "ack-test", Nonce: "nonce-one-time"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := adapter.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-		t.Fatal(err)
-	}
+	runDone := make(chan error, 1)
+	go func() { runDone <- adapter.Run(ctx) }()
 	select {
 	case payload := <-acknowledged:
 		if payload != `{"envelope_id":"env-local"}` {
@@ -223,6 +263,15 @@ func TestHTTPAndWebSocketFixtureComposePublishAckAndCandidate(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("fixture did not receive envelope acknowledgement")
+	}
+	select {
+	case <-candidateReceived:
+	case <-time.After(time.Second):
+		t.Fatal("fixture candidate was not submitted")
+	}
+	cancel()
+	if err := <-runDone; err != nil && !errors.Is(err, context.Canceled) {
+		t.Fatal(err)
 	}
 }
 
@@ -240,6 +289,24 @@ type fixtureResolver struct{}
 
 func (fixtureResolver) Resolve(context.Context, credentialref.Reference) ([]byte, error) {
 	return []byte("xapp-fixture-secret"), nil
+}
+
+type retryingCandidateSink struct {
+	submits    int
+	rejections int
+}
+
+func (sink *retryingCandidateSink) Submit(context.Context, acknowledgement.Candidate) error {
+	sink.submits++
+	if sink.submits == 1 {
+		return errors.New("fixture durable store unavailable")
+	}
+	return nil
+}
+
+func (sink *retryingCandidateSink) Reject(context.Context, acknowledgement.AdapterRejection) error {
+	sink.rejections++
+	return nil
 }
 
 type fixtureTransport struct {
@@ -299,4 +366,38 @@ func fixtureInteractive(envelopeID, workspaceID, userID, actionID string) string
 	envelope := map[string]any{"envelope_id": envelopeID, "type": "interactive", "payload": map[string]any{"type": "block_actions", "team": map[string]string{"id": workspaceID}, "user": map[string]string{"id": userID}, "actions": []any{map[string]string{"action_id": actionID, "value": string(binding)}}}}
 	raw, _ := json.Marshal(envelope)
 	return string(raw)
+}
+
+func testCandidateSink(submit func(context.Context, acknowledgement.Candidate) error) CandidateSinkFuncs {
+	return CandidateSinkFuncs{SubmitFunc: submit, RejectFunc: func(context.Context, acknowledgement.AdapterRejection) error { return nil }}
+}
+
+type slackFixtureRoundTripper struct {
+	base   http.RoundTripper
+	origin string
+}
+
+func (transport *slackFixtureRoundTripper) RoundTrip(request *http.Request) (*http.Response, error) {
+	origin, err := url.Parse(transport.origin)
+	if err != nil {
+		return nil, err
+	}
+	copyRequest := request.Clone(request.Context())
+	copyURL := *request.URL
+	copyRequest.URL = &copyURL
+	copyRequest.URL.Scheme = origin.Scheme
+	copyRequest.URL.Host = origin.Host
+	switch request.URL.Hostname() {
+	case "slack.com":
+		switch request.URL.Path {
+		case "/api/apps.connections.open":
+			copyRequest.URL.Path = "/open"
+		case "/api/chat.postMessage":
+			copyRequest.URL.Path = "/chat"
+		}
+	case "wss.slack.com":
+		copyRequest.URL.Path = "/socket"
+		copyRequest.URL.RawQuery = ""
+	}
+	return transport.base.RoundTrip(copyRequest)
 }

@@ -20,14 +20,15 @@ import (
 const maxProfileBytes = 64 * 1024
 
 type Profile struct {
-	SocketPath          string
-	InventoryExportRoot string
-	SocketOwnerUID      uint32
-	SocketGroupGID      *uint32
-	SocketMode          fs.FileMode
-	ShutdownGrace       time.Duration
-	PrincipalBindings   []identity.Binding
-	RemoteRead          RemoteRead
+	SocketPath                     string
+	InventoryExportRoot            string
+	SocketOwnerUID                 uint32
+	SocketGroupGID                 *uint32
+	SocketMode                     fs.FileMode
+	ShutdownGrace                  time.Duration
+	PrincipalBindings              []identity.Binding
+	RemoteRead                     RemoteRead
+	SlackAcknowledgementConfigPath string
 }
 
 type RemoteRead struct {
@@ -116,15 +117,20 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		// instead of preventing the protected local Unix service from starting.
 		remoteRead = RemoteRead{Enabled: true}
 	}
+	slackConfigPath := input.SlackAcknowledgementConfigPath
+	if slackConfigPath != "" && (len(slackConfigPath) > 4096 || !filepath.IsAbs(slackConfigPath) || filepath.Clean(slackConfigPath) != slackConfigPath || slackConfigPath == string(filepath.Separator)) {
+		return invalid()
+	}
 	return Profile{
-		SocketPath:          input.SocketPath,
-		InventoryExportRoot: input.InventoryExportRoot,
-		SocketOwnerUID:      expectedOwnerUID,
-		SocketGroupGID:      group,
-		SocketMode:          mode,
-		ShutdownGrace:       5 * time.Second,
-		PrincipalBindings:   append([]identity.Binding(nil), bindings...),
-		RemoteRead:          remoteRead,
+		SocketPath:                     input.SocketPath,
+		InventoryExportRoot:            input.InventoryExportRoot,
+		SocketOwnerUID:                 expectedOwnerUID,
+		SocketGroupGID:                 group,
+		SocketMode:                     mode,
+		ShutdownGrace:                  5 * time.Second,
+		PrincipalBindings:              append([]identity.Binding(nil), bindings...),
+		RemoteRead:                     remoteRead,
+		SlackAcknowledgementConfigPath: slackConfigPath,
 	}, nil
 }
 

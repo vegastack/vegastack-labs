@@ -4,13 +4,18 @@ package slack
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 const (
@@ -50,12 +55,20 @@ type Transport interface {
 
 type CandidateSink interface {
 	Submit(context.Context, acknowledgement.Candidate) error
+	Reject(context.Context, acknowledgement.AdapterRejection) error
 }
 
-type CandidateSinkFunc func(context.Context, acknowledgement.Candidate) error
+type CandidateSinkFuncs struct {
+	SubmitFunc func(context.Context, acknowledgement.Candidate) error
+	RejectFunc func(context.Context, acknowledgement.AdapterRejection) error
+}
 
-func (function CandidateSinkFunc) Submit(ctx context.Context, candidate acknowledgement.Candidate) error {
-	return function(ctx, candidate)
+func (sink CandidateSinkFuncs) Submit(ctx context.Context, candidate acknowledgement.Candidate) error {
+	return sink.SubmitFunc(ctx, candidate)
+}
+
+func (sink CandidateSinkFuncs) Reject(ctx context.Context, rejection acknowledgement.AdapterRejection) error {
+	return sink.RejectFunc(ctx, rejection)
 }
 
 type Logger interface{ Event(string) }
@@ -147,33 +160,69 @@ func (adapter *Adapter) consume(ctx context.Context, socket Socket) (bool, error
 		}
 		header, err := decodeHeader(ctx, raw)
 		if err != nil {
+			if rejectErr := adapter.recordRejection(ctx, raw, generated.ErrorCodeInputInvalid); rejectErr != nil {
+				adapter.log("rejection-audit-unavailable")
+				return true, rejectErr
+			}
 			adapter.log("envelope-rejected")
 			continue
 		}
-		if header.EnvelopeID != "" {
-			if err := socket.Acknowledge(ctx, header.EnvelopeID); err != nil {
-				return true, err
-			}
-		}
 		switch header.Type {
 		case "hello", "events_api":
+			if err := acknowledgeEnvelope(ctx, socket, header.EnvelopeID); err != nil {
+				return true, err
+			}
 			continue
 		case "disconnect":
+			if err := acknowledgeEnvelope(ctx, socket, header.EnvelopeID); err != nil {
+				return true, err
+			}
 			adapter.log("refresh-requested")
 			return true, nil
 		case "interactive":
 			candidate, err := decodeCandidate(ctx, adapter.config, raw, adapter.clock().UTC().Truncate(time.Second))
 			if err != nil {
+				reason := generated.ErrorCodeAuthorizationDenied
+				if stable, ok := failure.As(err); ok && stable.Code == generated.ErrorCodeInputInvalid {
+					reason = generated.ErrorCodeInputInvalid
+				}
+				if rejectErr := adapter.recordRejection(ctx, raw, reason); rejectErr != nil {
+					adapter.log("rejection-audit-unavailable")
+					return true, rejectErr
+				}
+				if err := acknowledgeEnvelope(ctx, socket, header.EnvelopeID); err != nil {
+					return true, err
+				}
 				adapter.log("action-rejected")
 				continue
 			}
 			if err := adapter.sink.Submit(ctx, candidate); err != nil {
 				adapter.log("decision-rejected")
+				return true, err
+			}
+			if err := acknowledgeEnvelope(ctx, socket, header.EnvelopeID); err != nil {
+				return true, err
 			}
 		default:
+			if err := acknowledgeEnvelope(ctx, socket, header.EnvelopeID); err != nil {
+				return true, err
+			}
 			adapter.log("envelope-ignored")
 		}
 	}
+}
+
+func (adapter *Adapter) recordRejection(ctx context.Context, raw []byte, reason string) error {
+	digest := sha256.Sum256(raw)
+	rejection := acknowledgement.AdapterRejection{Human: identity.Principal{ID: adapter.config.HumanID, Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}, AuthorityID: adapter.config.AuthorityID, AttemptDigest: "sha256:" + hex.EncodeToString(digest[:]), ReasonCode: reason, RejectedAt: adapter.clock().UTC().Truncate(time.Second)}
+	return adapter.sink.Reject(ctx, rejection)
+}
+
+func acknowledgeEnvelope(ctx context.Context, socket Socket, envelopeID string) error {
+	if envelopeID == "" {
+		return nil
+	}
+	return socket.Acknowledge(ctx, envelopeID)
 }
 
 func (adapter *Adapter) resolve(ctx context.Context, reference credentialref.Reference) ([]byte, error) {
@@ -204,7 +253,15 @@ func validConfig(config Config) bool {
 }
 
 func validToken(value []byte) bool {
-	return len(value) >= 8 && len(value) <= 4096
+	if len(value) < 8 || len(value) > 4096 || !utf8.Valid(value) {
+		return false
+	}
+	for _, character := range string(value) {
+		if unicode.IsSpace(character) || unicode.IsControl(character) {
+			return false
+		}
+	}
+	return true
 }
 
 func zero(value []byte) {

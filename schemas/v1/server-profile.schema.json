@@ -124,6 +124,12 @@
       "minimum": 5,
       "type": "integer"
     },
+    "slackAcknowledgementConfigPath": {
+      "maxLength": 4096,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": "string"
+    },
     "socketGroupGid": {
       "maximum": 4294967295,
       "minimum": 0,

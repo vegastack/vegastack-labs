@@ -26,7 +26,8 @@ Contract schema: `1.10.0`
 | `api.v1.inventory-drafts.import` | `POST` | `/api/v1/inventory-drafts/import` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-import-request` | `vegastack-labs.dev/inventory-import-data` |
 | `api.v1.inventory-drafts.list` | `GET` | `/api/v1/inventory-drafts` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-draft-list-data` |
 | `api.v1.inventory-exports.create` | `POST` | `/api/v1/inventory-exports` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-export-request` | `vegastack-labs.dev/inventory-export-data` |
-| `api.v1.plans.acknowledgements.create` | `POST` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `server-adapter` | `finite` | `vegastack-labs.dev/acknowledgement-request` | `vegastack-labs.dev/acknowledgement` |
+| `api.v1.plans.acknowledgements.create` | `POST` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `vegastack-labs.dev/acknowledgement-request` | `vegastack-labs.dev/acknowledgement` |
+| `api.v1.plans.acknowledgements.get` | `GET` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.create` | `POST` | `/api/v1/declarations/{declarationId}/plans` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-create-request` | `vegastack-labs.dev/plan` |
 | `api.v1.plans.execute` | `POST` | `/api/v1/plans/{planId}/execute` | `planned` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/run` |
 | `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan` |

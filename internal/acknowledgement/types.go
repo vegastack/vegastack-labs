@@ -41,6 +41,14 @@ type Candidate struct {
 	DecidedAt     time.Time
 }
 
+type AdapterRejection struct {
+	Human         identity.Principal
+	AuthorityID   string
+	AttemptDigest string
+	ReasonCode    string
+	RejectedAt    time.Time
+}
+
 type RequestCard struct {
 	Request           generated.AcknowledgementRequest
 	AcknowledgementID string
@@ -70,12 +78,13 @@ type DecisionRecord struct {
 // DenialRecord contains only fingerprints and stable identifiers. Raw provider
 // payloads and nonces never cross into durable audit storage.
 type DenialRecord struct {
-	PlanID            string
-	AcknowledgementID string
-	AttemptDigest     string
-	ReasonCode        string
-	RejectedAt        time.Time
-	Attribution       audit.Attribution
+	TargetKind    string
+	TargetID      string
+	CorrelationID string
+	AttemptDigest string
+	ReasonCode    string
+	RejectedAt    time.Time
+	Attribution   audit.Attribution
 }
 
 type Repository interface {

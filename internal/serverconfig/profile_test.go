@@ -90,6 +90,19 @@ func TestConvertGeneratedProfile(t *testing.T) {
 	}
 }
 
+func TestSlackAcknowledgementConfigPathIsOptionalAndAbsolute(t *testing.T) {
+	profile := validGeneratedProfile()
+	profile.SlackAcknowledgementConfigPath = "/etc/vsk-labs/slack-acknowledgement.json"
+	got, err := convertGeneratedProfile(profile, 1001)
+	if err != nil || got.SlackAcknowledgementConfigPath != profile.SlackAcknowledgementConfigPath {
+		t.Fatalf("slack config = %#v, %v", got, err)
+	}
+	profile.SlackAcknowledgementConfigPath = "relative.json"
+	if _, err := convertGeneratedProfile(profile, 1001); err == nil {
+		t.Fatal("relative Slack config path accepted")
+	}
+}
+
 func TestConvertGeneratedProfileRejectsInvalidContracts(t *testing.T) {
 	group := int64(2001)
 	tests := map[string]func(*generated.ServerProfile){

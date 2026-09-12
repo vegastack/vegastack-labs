@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 
@@ -11,7 +12,8 @@ import (
 func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T) {
 	for _, endpoint := range generated.Endpoints {
 		requestPath := strings.NewReplacer("{draftId}", "draft-test", "{revision}", "1", "{recordId}", "record-test").Replace(endpoint.Path)
-		want := endpoint.Availability == "available" && (endpoint.Method == http.MethodGet || remoteSessionEndpoints[endpoint.ID])
+		browser := slices.Contains(endpoint.Audiences, "browser")
+		want := endpoint.Availability == "available" && ((endpoint.Method == http.MethodGet && browser) || remoteSessionEndpoints[endpoint.ID])
 		if got := RemoteReadRequestAllowed(endpoint.Method, requestPath); got != want {
 			t.Fatalf("%s %s admission = %t, want %t", endpoint.Method, endpoint.ID, got, want)
 		}

@@ -147,9 +147,20 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	var acknowledgementScopes api.AcknowledgementScopeResolver = unavailableAcknowledgementScope{}
+	var acknowledgementPublisher api.AcknowledgementPublisher = unavailableAcknowledgementPublisher{}
+	var acknowledgementBackground BackgroundService
+	if profile.SlackAcknowledgementConfigPath != "" {
+		runtime, runtimeErr := composeSlackAcknowledgement(ctx, profile.SlackAcknowledgementConfigPath, profile.SocketOwnerUID, acknowledgements)
+		if runtimeErr == nil {
+			acknowledgementScopes = runtime.scopes
+			acknowledgementPublisher = runtime.publisher
+			acknowledgementBackground = runtime.background
+		}
+	}
 	if err := api.RegisterAcknowledgementOperations(application, api.AcknowledgementOperationConfig{
-		Plans: plans, Acknowledgements: acknowledgements, Scopes: unavailableAcknowledgementScope{},
-		Publisher: unavailableAcknowledgementPublisher{}, Results: factory,
+		Plans: plans, Acknowledgements: acknowledgements, Scopes: acknowledgementScopes,
+		Publisher: acknowledgementPublisher, Results: factory,
 	}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -158,7 +169,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote})
+	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote, Background: acknowledgementBackground})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

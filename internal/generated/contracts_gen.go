@@ -999,16 +999,17 @@ type RunStep struct {
 }
 
 type ServerProfile struct {
-	Schema               string                  `json:"schema"`
-	SchemaVersion        string                  `json:"schemaVersion"`
-	SocketPath           string                  `json:"socketPath"`
-	SocketOwnerUID       int64                   `json:"socketOwnerUid"`
-	SocketGroupGID       *int64                  `json:"socketGroupGid"`
-	SocketMode           string                  `json:"socketMode"`
-	ShutdownGraceSeconds int64                   `json:"shutdownGraceSeconds"`
-	InventoryExportRoot  string                  `json:"inventoryExportRoot"`
-	PrincipalBindings    []LocalPrincipalBinding `json:"principalBindings"`
-	RemoteRead           RemoteReadProfile       `json:"remoteRead"`
+	Schema                         string                  `json:"schema"`
+	SchemaVersion                  string                  `json:"schemaVersion"`
+	SocketPath                     string                  `json:"socketPath"`
+	SocketOwnerUID                 int64                   `json:"socketOwnerUid"`
+	SocketGroupGID                 *int64                  `json:"socketGroupGid"`
+	SocketMode                     string                  `json:"socketMode"`
+	ShutdownGraceSeconds           int64                   `json:"shutdownGraceSeconds"`
+	InventoryExportRoot            string                  `json:"inventoryExportRoot"`
+	PrincipalBindings              []LocalPrincipalBinding `json:"principalBindings"`
+	RemoteRead                     RemoteReadProfile       `json:"remoteRead"`
+	SlackAcknowledgementConfigPath string                  `json:"slackAcknowledgementConfigPath"`
 }
 
 type ServerStatusData struct {
@@ -1197,7 +1198,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.inventory-drafts.import", Method: "POST", Path: "/api/v1/inventory-drafts/import", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-import-request", DataSchema: "vegastack-labs.dev/inventory-import-data", Stream: "finite", Audiences: []string{"operator"}},
 	{ID: "api.v1.inventory-drafts.list", Method: "GET", Path: "/api/v1/inventory-drafts", Availability: "available", OwnerPhase: "2", QuerySchema: "vegastack-labs.dev/api-page-query", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-inventory-draft-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite", Audiences: []string{"operator"}},
-	{ID: "api.v1.plans.acknowledgements.create", Method: "POST", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/acknowledgement-request", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"server-adapter"}},
+	{ID: "api.v1.plans.acknowledgements.create", Method: "POST", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/acknowledgement-request", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}},
+	{ID: "api.v1.plans.acknowledgements.get", Method: "GET", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}},
 	{ID: "api.v1.plans.create", Method: "POST", Path: "/api/v1/declarations/{declarationId}/plans", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-create-request", DataSchema: "vegastack-labs.dev/plan", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.plans.execute", Method: "POST", Path: "/api/v1/plans/{planId}/execute", Availability: "planned", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.plans.get", Method: "GET", Path: "/api/v1/plans/{planId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan", Stream: "finite", Audiences: []string{"browser", "operator"}},

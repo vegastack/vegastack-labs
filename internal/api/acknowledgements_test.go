@@ -51,6 +51,22 @@ func TestAcknowledgementRoutePublishesOnlyExactServerResolvedBinding(t *testing.
 	}
 }
 
+func TestAcknowledgementStatusIsLocalReadOnlyAndReturnsDurableOutcome(t *testing.T) {
+	input := acknowledgementAPIRequest()
+	service := &fakeAcknowledgementService{outcome: acknowledgementOutcome(input, "approved")}
+	app := newAcknowledgementTestApplication(t, &effectiveAuthorizationStub{}, service, fixedAcknowledgementScope{}, fakeAcknowledgementPublisher{})
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/plans/plan-test/acknowledgements", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `"status":"approved"`) {
+		t.Fatalf("status response = %d %s", response.Code, response.Body.String())
+	}
+	if RemoteReadRequestAllowed(http.MethodGet, "/api/v1/plans/plan-test/acknowledgements") {
+		t.Fatal("remote listener admitted acknowledgement status")
+	}
+}
+
 func newAcknowledgementTestApplication(t *testing.T, effective *effectiveAuthorizationStub, service AcknowledgementService, scopes AcknowledgementScopeResolver, publisher AcknowledgementPublisher) *Application {
 	t.Helper()
 	factory := result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-ack-test", nil })

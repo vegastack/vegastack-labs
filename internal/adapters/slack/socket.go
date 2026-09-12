@@ -27,10 +27,7 @@ const (
 var dynamicSlackSocketHost = regexp.MustCompile(`^wss-[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.slack\.com$`)
 
 type HTTPTransport struct {
-	client          *http.Client
-	connectionsURL  string
-	postMessageURL  string
-	allowedTestHost string
+	client *http.Client
 }
 
 func NewHTTPTransport(client *http.Client) (*HTTPTransport, error) {
@@ -43,11 +40,11 @@ func NewHTTPTransport(client *http.Client) (*HTTPTransport, error) {
 	boundedClient.CheckRedirect = func(*http.Request, []*http.Request) error {
 		return http.ErrUseLastResponse
 	}
-	return &HTTPTransport{client: &boundedClient, connectionsURL: slackConnectionsOpenURL, postMessageURL: slackPostMessageURL}, nil
+	return &HTTPTransport{client: &boundedClient}, nil
 }
 
 func (transport *HTTPTransport) Open(ctx context.Context, appToken []byte) (Socket, error) {
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, transport.connectionsURL, nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, slackConnectionsOpenURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +93,7 @@ func (transport *HTTPTransport) Publish(ctx context.Context, botToken []byte, ch
 	if err != nil {
 		return err
 	}
-	request, err := http.NewRequestWithContext(ctx, http.MethodPost, transport.postMessageURL, bytes.NewReader(body))
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, slackPostMessageURL, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
@@ -124,9 +121,6 @@ func (transport *HTTPTransport) allowedSocketURL(raw string) bool {
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.Scheme != "wss" || parsed.User != nil || parsed.Fragment != "" {
 		return false
-	}
-	if transport.allowedTestHost != "" {
-		return parsed.Host == transport.allowedTestHost
 	}
 	if parsed.Port() != "" || parsed.Path != "/link/" || parsed.RawPath != "" || parsed.ForceQuery {
 		return false

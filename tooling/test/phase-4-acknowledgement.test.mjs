@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const read = (name) => readFile(path.join(ROOT, name), "utf8");
 
-test("acknowledgement endpoint is available only to the server adapter", async () => {
+test("local acknowledgement request and status endpoints are generated", async () => {
   const registry = JSON.parse(await read("schemas/v1/endpoint-registry.json"));
   const endpoint = registry.endpoints.find((item) => item.id === "api.v1.plans.acknowledgements.create");
   assert.deepEqual(endpoint, {
@@ -19,8 +19,13 @@ test("acknowledgement endpoint is available only to the server adapter", async (
     requestSchema: "vegastack-labs.dev/acknowledgement-request",
     dataSchema: "vegastack-labs.dev/acknowledgement",
     stream: "finite",
-    audiences: ["server-adapter"],
+    audiences: ["operator", "server-adapter"],
   });
+  const status = registry.endpoints.find((item) => item.id === "api.v1.plans.acknowledgements.get");
+  assert.equal(status.method, "GET");
+  assert.equal(status.path, endpoint.path);
+  assert.equal(status.availability, "available");
+  assert.deepEqual(status.audiences, ["operator", "server-adapter"]);
 });
 
 test("Slack remains outside provider-neutral acknowledgement and stored contracts", async () => {

@@ -40,6 +40,24 @@ func NewService(config Config) (*Service, error) {
 	return &Service{config: config}, nil
 }
 
+func (service *Service) Submit(ctx context.Context, candidate Candidate) error {
+	_, err := service.Decide(ctx, candidate)
+	return err
+}
+
+func (service *Service) Reject(ctx context.Context, rejection AdapterRejection) error {
+	validReason := rejection.ReasonCode == generated.ErrorCodeInputInvalid || rejection.ReasonCode == generated.ErrorCodeAuthorizationDenied
+	if service == nil || ctx == nil || !identity.ValidPrincipal(rejection.Human) || identity.EffectivePrincipalKind(rejection.Human) != identity.PrincipalHuman || !authorization.ValidIdentifier(rejection.AuthorityID) || !validDigest(rejection.AttemptDigest) || !validReason || rejection.RejectedAt.IsZero() || rejection.RejectedAt.Location() != time.UTC {
+		return acknowledgementError(generated.ErrorCodeInputInvalid, "acknowledgement-adapter-rejection")
+	}
+	attribution, err := audit.NewAttribution(rejection.Human, &rejection.Human, nil)
+	if err != nil {
+		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
+	}
+	correlationID := "denial-" + strings.TrimPrefix(rejection.AttemptDigest, "sha256:")[:32]
+	return service.config.Repository.RecordDenial(ctx, DenialRecord{TargetKind: "acknowledgement-authority", TargetID: rejection.AuthorityID, CorrelationID: correlationID, AttemptDigest: rejection.AttemptDigest, ReasonCode: rejection.ReasonCode, RejectedAt: rejection.RejectedAt, Attribution: attribution})
+}
+
 func (service *Service) Request(ctx context.Context, scope Scope, planID string) (RequestCard, error) {
 	if service == nil || ctx == nil || !validScope(scope) || !authorization.ValidIdentifier(planID) {
 		return RequestCard{}, acknowledgementError(generated.ErrorCodeInputInvalid, "acknowledgement-request")
@@ -189,12 +207,18 @@ func (service *Service) VerifyForExecution(ctx context.Context, planID string) (
 		cause := acknowledgementError(generated.ErrorCodeAuthorizationDenied, "acknowledgement-proof")
 		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-binding", cause)
 	}
+	human := identity.Principal{ID: stored.Request.HumanID, Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}
+	if err := service.validCurrentHumanPlan(ctx, human, plan); err != nil {
+		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-authorization", err)
+	}
 	now := service.config.Clock().UTC().Truncate(time.Second)
 	if !now.Before(mustTime(stored.Acknowledgement.ExpiresAt)) {
-		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement-proof")
+		cause := acknowledgementError(generated.ErrorCodePlanStale, "acknowledgement-proof")
+		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-expired", cause)
 	}
 	if err := service.config.Plans.ValidateCurrent(ctx, plan); err != nil {
-		return generated.Acknowledgement{}, acknowledgementError(generated.ErrorCodePlanStale, "plan")
+		cause := acknowledgementError(generated.ErrorCodePlanStale, "plan")
+		return generated.Acknowledgement{}, service.denyStored(ctx, stored, "execution-stale", cause)
 	}
 	consumed, changed, err := service.config.Repository.Consume(ctx, planID, now)
 	if err != nil {
@@ -216,7 +240,7 @@ func (service *Service) denyCandidate(ctx context.Context, stored Stored, candid
 		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
 	}
 	attempt := strings.Join([]string{"candidate-denial-v1", candidate.Action, candidate.PlanID, candidate.PlanDigest, candidate.TargetDigest, candidate.ReasonDigest, digest(candidate.Nonce), intString(candidate.StateRevision), intString(candidate.RecoveryEpoch), candidate.ExpiresAt.UTC().Format(time.RFC3339)}, "\x00")
-	record := DenialRecord{PlanID: stored.Request.PlanID, AcknowledgementID: stored.Acknowledgement.AcknowledgementID, AttemptDigest: digest(attempt), ReasonCode: code, RejectedAt: service.config.Clock().UTC().Truncate(time.Second), Attribution: attribution}
+	record := DenialRecord{TargetKind: "plan", TargetID: stored.Request.PlanID, CorrelationID: stored.Acknowledgement.AcknowledgementID, AttemptDigest: digest(attempt), ReasonCode: code, RejectedAt: service.config.Clock().UTC().Truncate(time.Second), Attribution: attribution}
 	if err := service.config.Repository.RecordDenial(ctx, record); err != nil {
 		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
 	}
@@ -226,7 +250,7 @@ func (service *Service) denyCandidate(ctx context.Context, stored Stored, candid
 func (service *Service) denyStored(ctx context.Context, stored Stored, kind string, cause error) error {
 	code := errorCode(cause)
 	attribution := audit.Attribution{AuthenticatedPrincipalID: stored.Request.HumanID, AuthenticatedPrincipalMethod: identity.SlackSocketModeMethod}
-	record := DenialRecord{PlanID: stored.Request.PlanID, AcknowledgementID: stored.Acknowledgement.AcknowledgementID, AttemptDigest: digest(strings.Join([]string{"proof-denial-v1", kind, stored.Acknowledgement.ProofDigest, code}, "\x00")), ReasonCode: code, RejectedAt: service.config.Clock().UTC().Truncate(time.Second), Attribution: attribution}
+	record := DenialRecord{TargetKind: "plan", TargetID: stored.Request.PlanID, CorrelationID: stored.Acknowledgement.AcknowledgementID, AttemptDigest: digest(strings.Join([]string{"proof-denial-v1", kind, stored.Acknowledgement.ProofDigest, code}, "\x00")), ReasonCode: code, RejectedAt: service.config.Clock().UTC().Truncate(time.Second), Attribution: attribution}
 	if err := service.config.Repository.RecordDenial(ctx, record); err != nil {
 		return acknowledgementError(generated.ErrorCodeIntegrityFailure, "acknowledgement-denial-audit")
 	}

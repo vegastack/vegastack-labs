@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 )
@@ -119,6 +120,61 @@ func TestAgentCredentialsCannotForgeOrReplaySlackApproval(t *testing.T) {
 	}
 }
 
+func TestExecutionReauthorizesHumanBeforeConsumingProof(t *testing.T) {
+	service, repository, plan := newService(t)
+	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Decide(context.Background(), candidateFor(card, plan, ActionApprove)); err != nil {
+		t.Fatal(err)
+	}
+	service.config.Authorizer = denyAuthorizer{}
+	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); errorCode(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("revoked execution code = %q, err = %v", errorCode(err), err)
+	}
+	if repository.stored.Consumed || repository.denied != 1 {
+		t.Fatalf("consumed/denials = %v/%d", repository.stored.Consumed, repository.denied)
+	}
+	service.config.Authorizer = allowAuthorizer{}
+	if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestExpiredAndStaleExecutionProofsAreAuditedWithoutConsumption(t *testing.T) {
+	for name, mutate := range map[string]func(*Service, generated.Plan){
+		"expired": func(service *Service, _ generated.Plan) {
+			service.config.Clock = func() time.Time { return time.Date(2026, 9, 13, 1, 31, 0, 0, time.UTC) }
+		},
+		"changed-state": func(service *Service, plan generated.Plan) {
+			service.config.Plans = fixedPlanReader{plan: plan, validationErr: failure.New(generated.ErrorCodeStateConflict, "plan", false)}
+		},
+		"changed-epoch": func(service *Service, plan generated.Plan) {
+			plan.Binding.RecoveryEpoch++
+			service.config.Plans = fixedPlanReader{plan: plan}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			service, repository, plan := newService(t)
+			card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := service.Decide(context.Background(), candidateFor(card, plan, ActionApprove)); err != nil {
+				t.Fatal(err)
+			}
+			mutate(service, plan)
+			if _, err := service.VerifyForExecution(context.Background(), plan.PlanID); err == nil {
+				t.Fatal("invalid proof accepted")
+			}
+			if repository.stored.Consumed || repository.denied != 1 {
+				t.Fatalf("consumed/denials = %v/%d", repository.stored.Consumed, repository.denied)
+			}
+		})
+	}
+}
+
 func TestDecisionReauthorizesHumanAndRejectsExpiredOrChangedEpoch(t *testing.T) {
 	service, repository, plan := newService(t)
 	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
@@ -163,12 +219,17 @@ func newService(t *testing.T) (*Service, *memoryRepository, generated.Plan) {
 	return service, repository, plan
 }
 
-type fixedPlanReader struct{ plan generated.Plan }
+type fixedPlanReader struct {
+	plan          generated.Plan
+	validationErr error
+}
 
 func (reader fixedPlanReader) Get(context.Context, string) (generated.Plan, error) {
 	return reader.plan, nil
 }
-func (reader fixedPlanReader) ValidateCurrent(context.Context, generated.Plan) error { return nil }
+func (reader fixedPlanReader) ValidateCurrent(context.Context, generated.Plan) error {
+	return reader.validationErr
+}
 
 type allowAuthorizer struct{}
 

@@ -8,8 +8,47 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapters/slack"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 )
+
+func TestSlackAcknowledgementScopeBindsExactRequestWithoutExposingKey(t *testing.T) {
+	profile := slackAcknowledgementProfile{HumanID: "person-operator", AuthorityID: "authority-slack"}
+	scopes := &slackAcknowledgementScopes{
+		profile:  profile,
+		resolver: serverSlackResolver{},
+		nonceKey: credentialref.Reference{ID: "slack-nonce-key", Consumer: "slack-acknowledgement"},
+	}
+	request := generated.AcknowledgementRequest{
+		Schema: generated.SchemaIDAcknowledgementRequest, SchemaVersion: "1.0.0",
+		PlanID: "plan-approved", PlanDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		TargetDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+		ReasonDigest: "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+		HumanID:      profile.HumanID, AuthorityID: profile.AuthorityID,
+		NonceDigest:   "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+		StateRevision: 4, RecoveryEpoch: 2, ExpiresAt: "2026-09-13T12:00:00Z",
+		Extensions: []generated.ContractExtension{},
+	}
+	first, err := scopes.Resolve(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := scopes.Resolve(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first != second || first.Nonce == "" || first.Nonce == "xapp-fixture-secret" || first.Nonce == request.NonceDigest {
+		t.Fatalf("unexpected deterministic scope: %#v / %#v", first, second)
+	}
+	request.NonceDigest = "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+	changed, err := scopes.Resolve(context.Background(), request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Nonce == first.Nonce {
+		t.Fatal("request binding did not change the derived nonce")
+	}
+}
 
 func TestSlackAcknowledgementConnectionIsServerOwnedAndStopsWithServer(t *testing.T) {
 	listener := newTestListener(t, true)
@@ -19,7 +58,10 @@ func TestSlackAcknowledgementConnectionIsServerOwnedAndStopsWithServer(t *testin
 		BotTokenReference: credentialref.Reference{ID: "slack-bot-token", Consumer: "slack-acknowledgement"},
 		WorkspaceID:       "workspace-approved", SlackUserID: "user-approved", HumanID: "person-operator", AuthorityID: "authority-slack",
 		ChannelID: "channel-approval", ApproveActionID: "action-approve", RejectActionID: "action-reject", ReconnectDelay: time.Millisecond,
-	}, serverSlackResolver{}, transport, slack.CandidateSinkFunc(func(context.Context, acknowledgement.Candidate) error { return nil }))
+	}, serverSlackResolver{}, transport, slack.CandidateSinkFuncs{
+		SubmitFunc: func(context.Context, acknowledgement.Candidate) error { return nil },
+		RejectFunc: func(context.Context, acknowledgement.AdapterRejection) error { return nil },
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

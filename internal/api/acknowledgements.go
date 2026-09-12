@@ -2,9 +2,7 @@ package api
 
 import (
 	"context"
-	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
 	"encoding/json"
 	"net/http"
 
@@ -50,12 +48,32 @@ func RegisterAcknowledgementOperations(app *Application, config AcknowledgementO
 	if config.MaxBodyBytes < 1 || config.MaxBodyBytes > MaxOperationRequestBytes {
 		return apiFailure(generated.ErrorCodeInputInvalid, "acknowledgement-limit")
 	}
-	app.routes = append(app.routes, route{id: "api.v1.plans.acknowledgements.create", method: http.MethodPost, pattern: "/api/v1/plans/{planId}/acknowledgements", capability: "plan.acknowledgement.request", kind: "plan", action: authorization.ActionAuthor, handler: app.createAcknowledgement(config)})
+	app.routes = append(app.routes,
+		route{id: "api.v1.plans.acknowledgements.create", method: http.MethodPost, pattern: "/api/v1/plans/{planId}/acknowledgements", capability: "plan.acknowledgement.request", kind: "plan", action: authorization.ActionAuthor, handler: app.createAcknowledgement(config)},
+		route{id: "api.v1.plans.acknowledgements.get", method: http.MethodGet, pattern: "/api/v1/plans/{planId}/acknowledgements", capability: "plan.acknowledgement.read", kind: "plan", handler: app.getAcknowledgement(config)},
+	)
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-1]
+		app.routes = app.routes[:len(app.routes)-2]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
+}
+
+func (app *Application) getAcknowledgement(config AcknowledgementOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
+		const operation = "api.v1.plans.acknowledgements.get"
+		planID := params["planId"]
+		if !pathToken.MatchString(planID) || request.URL.RawQuery != "" {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeInputInvalid, "path"))
+			return
+		}
+		outcome, err := config.Acknowledgements.Status(request.Context(), planID)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		app.success(writer, operation, outcome.StateRevision, outcome.RecoveryEpoch, outcome)
+	}
 }
 
 func (app *Application) createAcknowledgement(config AcknowledgementOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
@@ -91,7 +109,7 @@ func (app *Application) createAcknowledgement(config AcknowledgementOperationCon
 			}
 			return
 		}
-		if scope.Human.ID != input.HumanID || scope.AuthorityID != input.AuthorityID || !secureAPIEqual(acknowledgementNonceDigest(scope.Nonce), input.NonceDigest) {
+		if scope.Human.ID != input.HumanID || scope.AuthorityID != input.AuthorityID || scope.Nonce == "" {
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthorizationDenied, "acknowledgement-scope"))
 			return
 		}
@@ -105,7 +123,7 @@ func (app *Application) createAcknowledgement(config AcknowledgementOperationCon
 			app.operationFailure(writer, operation, requestID, err)
 			return
 		}
-		if !sameAcknowledgementRequest(card.Request, input) {
+		if !sameAcknowledgementRequestExceptNonce(card.Request, input) {
 			app.operationFailure(writer, operation, requestID, failure.New(generated.ErrorCodeIntegrityFailure, "acknowledgement-binding", false))
 			return
 		}
@@ -127,15 +145,11 @@ func exactAcknowledgementContract(input generated.AcknowledgementRequest) bool {
 	return err == nil && generated.ValidateContractJSON(generated.SchemaIDAcknowledgementRequest, raw, generated.ContractExact) == nil
 }
 
-func sameAcknowledgementRequest(left, right generated.AcknowledgementRequest) bool {
+func sameAcknowledgementRequestExceptNonce(left, right generated.AcknowledgementRequest) bool {
+	right.NonceDigest = left.NonceDigest
 	leftRaw, leftErr := json.Marshal(left)
 	rightRaw, rightErr := json.Marshal(right)
 	return leftErr == nil && rightErr == nil && secureAPIEqual(string(leftRaw), string(rightRaw))
-}
-
-func acknowledgementNonceDigest(nonce string) string {
-	sum := sha256.Sum256([]byte(nonce))
-	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
 func secureAPIEqual(left, right string) bool {

@@ -144,7 +144,7 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 
 	for _, endpoint := range Current().Endpoints {
 		want := AvailabilityAvailable
-		if endpoint.OwnerPhase == "4" && endpoint.ID != "api.v1.declarations.revise" && endpoint.ID != "api.v1.declarations.get" && endpoint.ID != "api.v1.plans.create" && endpoint.ID != "api.v1.plans.get" {
+		if endpoint.OwnerPhase == "4" && endpoint.ID != "api.v1.declarations.revise" && endpoint.ID != "api.v1.declarations.get" && endpoint.ID != "api.v1.plans.create" && endpoint.ID != "api.v1.plans.get" && endpoint.ID != "api.v1.plans.acknowledgements.create" && endpoint.ID != "api.v1.plans.acknowledgements.get" {
 			want = AvailabilityPlanned
 		}
 		if endpoint.Availability != want {

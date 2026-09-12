@@ -156,14 +156,29 @@ func (repository *AcknowledgementRepository) Consume(ctx context.Context, planID
 }
 
 func (repository *AcknowledgementRepository) RecordDenial(ctx context.Context, record acknowledgement.DenialRecord) error {
-	if repository == nil || repository.store == nil || record.PlanID == "" || record.AcknowledgementID == "" || !audit.ValidFingerprint(audit.Fingerprint(record.AttemptDigest)) || record.ReasonCode == "" || record.RejectedAt.IsZero() || record.RejectedAt.Location() != time.UTC {
+	if repository == nil || repository.store == nil || record.TargetKind == "" || record.TargetID == "" || record.CorrelationID == "" || !audit.ValidFingerprint(audit.Fingerprint(record.AttemptDigest)) || record.ReasonCode == "" || record.RejectedAt.IsZero() || record.RejectedAt.Location() != time.UTC {
 		return newStoreError(generated.ErrorCodeInputInvalid, "acknowledgement-denial", false, nil)
 	}
 	after := audit.Fingerprint(record.AttemptDigest)
-	event := audit.EventDraft{Type: "acknowledgement.denied", CorrelationID: record.AcknowledgementID, Attribution: record.Attribution, Target: audit.Target{Kind: "plan", ID: record.PlanID}, After: &after}
+	event := audit.EventDraft{Type: acknowledgementDenialEventType(record.ReasonCode), CorrelationID: record.CorrelationID, Attribution: record.Attribution, Target: audit.Target{Kind: audit.TargetKind(record.TargetKind), ID: record.TargetID}, After: &after}
 	key := audit.IntentKey{Scope: "acknowledgement-denial", KeyDigest: after, RequestDigest: audit.Fingerprint(hashText(record.ReasonCode))}
 	_, err := repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: key, Event: event}, false, func(context.Context, *sql.Tx) error { return nil })
 	return err
+}
+
+func acknowledgementDenialEventType(reason string) audit.EventType {
+	switch reason {
+	case generated.ErrorCodeInputInvalid:
+		return "acknowledgement.input-denied"
+	case generated.ErrorCodePlanStale:
+		return "acknowledgement.stale-denied"
+	case generated.ErrorCodeRecoveryEpochMismatch:
+		return "acknowledgement.epoch-denied"
+	case generated.ErrorCodeAuthorizationDenied:
+		return "acknowledgement.authorization-denied"
+	default:
+		return "acknowledgement.proof-denied"
+	}
 }
 
 func validAcknowledgementCreate(record acknowledgement.CreateRecord) bool {
