@@ -31,7 +31,7 @@ export const RUN_TRANSITIONS = [{"from":"interrupted","to":"cancelled"},{"from":
 
 export interface Acknowledgement {
   readonly "schema": "vegastack-labs.dev/acknowledgement";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "planId": string;
   readonly "planDigest": string;
   readonly "targetDigest": string;
@@ -216,7 +216,7 @@ export interface AuditTarget {
 
 export interface AuthorizationDecision {
   readonly "schema": "vegastack-labs.dev/authorization-decision";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "decisionId": string;
   readonly "principalId": string;
   readonly "action": string;
@@ -260,7 +260,7 @@ export interface DeclarationOperation {
 
 export interface DeclarationRevision {
   readonly "schema": "vegastack-labs.dev/declaration-revision";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "declarationId": string;
   readonly "declarationType": string;
   readonly "revision": number;
@@ -277,7 +277,7 @@ export interface DeclarationRevision {
 
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "declarationId": string;
   readonly "declarationType": string;
   readonly "expectedRevision": number;
@@ -290,7 +290,7 @@ export interface DeclarationRevisionRequest {
 
 export interface ExecutionReceipt {
   readonly "schema": "vegastack-labs.dev/execution-receipt";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "leaseId": string;
   readonly "planId": string;
   readonly "planDigest": string;
@@ -313,7 +313,7 @@ export interface ExecutionReceipt {
 
 export interface ExecutorLease {
   readonly "schema": "vegastack-labs.dev/executor-lease";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "leaseId": string;
   readonly "planId": string;
   readonly "planDigest": string;
@@ -348,7 +348,7 @@ export interface InventoryDraftCounts {
 
 export interface Plan {
   readonly "schema": "vegastack-labs.dev/plan";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "planId": string;
   readonly "planDigest": string;
   readonly "declarationId": string;
@@ -380,7 +380,7 @@ export interface PlanBinding {
 
 export interface PlanCreateRequest {
   readonly "schema": "vegastack-labs.dev/plan-create-request";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "declarationId": string;
   readonly "declarationRevision": number;
   readonly "expectedStateRevision": number;
@@ -404,7 +404,7 @@ export interface PlanOperation {
 
 export interface PlanReferenceRequest {
   readonly "schema": "vegastack-labs.dev/plan-reference-request";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "planId": string;
   readonly "planDigest": string;
   readonly "recoveryEpoch": number;
@@ -420,7 +420,7 @@ export interface ResultError {
 
 export interface Run {
   readonly "schema": "vegastack-labs.dev/run";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "runId": string;
   readonly "planId": string;
   readonly "planDigest": string;
@@ -446,7 +446,7 @@ export interface Run {
 
 export interface RunReferenceRequest {
   readonly "schema": "vegastack-labs.dev/run-reference-request";
-  readonly "schemaVersion": string;
+  readonly "schemaVersion": "1.0.0";
   readonly "runId": string;
   readonly "idempotencyKey": string;
   readonly "recoveryEpoch": number;
@@ -558,7 +558,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "planId",
@@ -1647,7 +1649,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "decisionId",
@@ -1897,7 +1901,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "declarationId",
@@ -2009,7 +2015,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "declarationId",
@@ -2089,7 +2097,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "leaseId",
@@ -2242,7 +2252,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "leaseId",
@@ -2463,7 +2475,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "planId",
@@ -2678,7 +2692,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "declarationId",
@@ -2816,7 +2832,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "planId",
@@ -2922,7 +2940,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "runId",
@@ -3110,7 +3130,9 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "enum": [
+          "1.0.0"
+        ]
       },
       {
         "name": "runId",
@@ -3452,28 +3474,29 @@ function decodePrimitive(kind: FieldRule["kind"], value: unknown, path: string):
   return mismatch(path, "wrong value kind");
 }
 
-function decodeField(rule: FieldRule, value: unknown, path: string): unknown {
+function decodeField(rule: FieldRule, value: unknown, path: string, compatibleRead = false): unknown {
   if (value === null) {
     if (rule.nullable) return null;
     return mismatch(path, "null is not allowed");
   }
   let decoded: unknown;
   if (rule.ref) {
-    decoded = decodeSchema(rule.ref, value, path);
+    decoded = decodeSchema(rule.ref, value, path, compatibleRead);
   } else if (rule.kind === "array") {
     if (!Array.isArray(value)) return mismatch(path, "wrong value kind");
     decoded = value.map((item, index) => rule.itemRef
-      ? decodeSchema(rule.itemRef, item, path + "[" + index + "]")
+      ? decodeSchema(rule.itemRef, item, path + "[" + index + "]", compatibleRead)
       : decodePrimitive(rule.itemKind ?? "object", item, path + "[" + index + "]"));
   } else {
     decoded = decodePrimitive(rule.kind, value, path);
     if (rule.kind === "object" && !rule.additionalProperties && Object.keys(decoded as object).length !== 0) {
       return mismatch(path, "additional property is not allowed");
     }
+    if (compatibleRead && rule.kind === "object" && rule.additionalProperties) assertSafeCompatibleValue(decoded, path);
   }
   if (typeof decoded === "string") {
     const length = stringLength(decoded);
-    if (rule.enum && !rule.enum.includes(decoded)) return mismatch(path, "value is not in enum");
+    if (rule.enum && !(compatibleRead && rule.name === "schemaVersion") && !rule.enum.includes(decoded)) return mismatch(path, "value is not in enum");
     if (rule.pattern && !(new RegExp(rule.pattern, "u")).test(decoded)) return mismatch(path, "pattern mismatch");
     if (rule.minLength !== undefined && length < rule.minLength) return mismatch(path, "string is too short");
     if (rule.maxLength !== undefined && length > rule.maxLength) return mismatch(path, "string is too long");
@@ -3493,13 +3516,17 @@ function decodeField(rule: FieldRule, value: unknown, path: string): unknown {
   return decoded;
 }
 
-function decodeSchema(identifier: string, value: unknown, path = identifier): Record<string, unknown> {
+function decodeSchema(identifier: string, value: unknown, path = identifier, compatibleRead = false): Record<string, unknown> {
   const rule = SCHEMAS.find((candidate) => candidate.id === identifier);
   if (!rule) return mismatch(path, "schema is unavailable");
   if (!isRecord(value)) return mismatch(path, "expected object");
   const fieldNames = new Set(rule.fields.map((field) => field.name));
   for (const name of Object.keys(value)) {
-    if (!fieldNames.has(name)) return mismatch(path + "." + name, "additional property is not allowed");
+    if (!fieldNames.has(name)) {
+      if (!compatibleRead) return mismatch(path + "." + name, "additional property is not allowed");
+      if (unsafeCompatibleField(name)) return mismatch(path + "." + name, "unsafe additive field");
+      assertSafeCompatibleValue(value[name], path + "." + name);
+    }
   }
   const result: Record<string, unknown> = {};
   for (const field of rule.fields) {
@@ -3507,7 +3534,7 @@ function decodeSchema(identifier: string, value: unknown, path = identifier): Re
       if (field.required) return mismatch(path + "." + field.name, "required property is missing");
       continue;
     }
-    result[field.name] = decodeField(field, value[field.name], path + "." + field.name);
+    result[field.name] = decodeField(field, value[field.name], path + "." + field.name, compatibleRead);
   }
   return result;
 }
@@ -3517,6 +3544,23 @@ function unsafeCompatibleField(name: string): boolean {
   return ["password", "passwd", "passphrase", "plaintext", "privatekey", "secret", "credential", "token", "apikey", "accesskey", "bearer", "authorization", "cookie", "jwt"].some((part) => normalized.includes(part));
 }
 
+function assertSafeCompatibleValue(value: unknown, path: string): void {
+  const stack: Array<{ readonly value: unknown; readonly path: string }> = [{ value, path }];
+  for (let visited = 0; stack.length > 0; visited += 1) {
+    if (visited >= 65536) return mismatch(path, "compatible addition is too large");
+    const current = stack.pop();
+    if (!current) break;
+    if (Array.isArray(current.value)) {
+      current.value.forEach((nested, index) => stack.push({ value: nested, path: current.path + "[" + index + "]" }));
+    } else if (isRecord(current.value)) {
+      for (const [name, nested] of Object.entries(current.value)) {
+        if (unsafeCompatibleField(name)) return mismatch(current.path + "." + name, "unsafe additive field");
+        stack.push({ value: nested, path: current.path + "." + name });
+      }
+    }
+  }
+}
+
 export function decodePhase4Contract(identifier: string, value: unknown, compatibleRead = false): Record<string, unknown> {
   if (!compatibleRead) return decodeSchema(identifier, value);
   if (!isRecord(value)) return mismatch(identifier, "expected object");
@@ -3524,15 +3568,7 @@ export function decodePhase4Contract(identifier: string, value: unknown, compati
   if (typeof version !== "string" || !/^1\.\d+\.\d+$/.test(version)) {
     throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", identifier);
   }
-  const rule = SCHEMAS.find((candidate) => candidate.id === identifier);
-  if (!rule) return mismatch(identifier, "schema is unavailable");
-  const fieldNames = new Set(rule.fields.map((field) => field.name));
-  const known: Record<string, unknown> = {};
-  for (const [name, fieldValue] of Object.entries(value)) {
-    if (fieldNames.has(name)) known[name] = fieldValue;
-    else if (unsafeCompatibleField(name)) return mismatch(identifier + "." + name, "unsafe additive field");
-  }
-  return decodeSchema(identifier, known);
+  return decodeSchema(identifier, value, identifier, true);
 }
 
 export function validateRunTransition(from: string, to: string): void {
@@ -3563,6 +3599,25 @@ export function validateLeaseTiming(value: unknown): void {
   const expires = Date.parse(lease.leaseExpiresAt as string);
   const maximum = Date.parse(lease.maximumExpiresAt as string);
   if (!Number.isFinite(claimed) || renew - claimed !== EXECUTOR_CHECK_IN_SECONDS * 1000 || expires - claimed !== EXECUTOR_LEASE_SECONDS * 1000 || maximum !== expires) return mismatch("executor-lease", "invalid lease timing or maximum expiry");
+}
+
+export function validateExecutorLeaseBinding(planValue: unknown, runValue: unknown, leaseValue: unknown): void {
+  const plan = decodeSchema("vegastack-labs.dev/plan", planValue);
+  const run = decodeSchema("vegastack-labs.dev/run", runValue);
+  const lease = decodeSchema("vegastack-labs.dev/executor-lease", leaseValue);
+	if (plan.planId !== run.planId || plan.planId !== lease.planId || plan.planDigest !== run.planDigest || plan.planDigest !== lease.planDigest || (plan.binding as Record<string, unknown>).recoveryEpoch !== run.recoveryEpoch || run.recoveryEpoch !== lease.recoveryEpoch || run.executorId !== lease.executorId) return mismatch("executor-lease", "plan/run binding widened or changed");
+  const steps = (run.steps as Array<Record<string, unknown>>).filter((candidate) => candidate.stepId === lease.stepId);
+  if (steps.length !== 1) return mismatch("executor-lease.stepId", "must name exactly one run step");
+  const step = steps[0];
+  const operations = (plan.operations as Array<Record<string, unknown>>).filter((operation) => operation.operationId === lease.operationId);
+  if (operations.length !== 1) return mismatch("executor-lease.operationId", "must name exactly one plan operation");
+  const operation = operations[0];
+  for (const name of ["sequence", "operationId", "operationType", "executorId", "adapterId", "targetId", "inputDigest", "artifactDigest", "idempotent"]) {
+    if (operation?.[name] !== step[name]) return mismatch("run-step." + name, "plan operation widened or changed");
+  }
+  for (const name of ["executorId", "adapterId", "targetId", "artifactDigest"]) {
+    if (step[name] !== lease[name]) return mismatch("executor-lease." + name, "run step widened or changed");
+  }
 }
 
 function decodeAcknowledgement(value: unknown): Acknowledgement {

@@ -73,7 +73,7 @@ func phase4Schemas() []SchemaDefinition {
 	}
 	extensions := FieldDefinition{JSONName: "extensions", GoName: "Extensions", Kind: ValueArray, Required: true, ItemRef: contractExtensionSchemaID, MaxItems: intPointer(64)}
 	contract := func(schema string, fields ...FieldDefinition) []FieldDefinition {
-		return append([]FieldDefinition{{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{schema}}, version("schemaVersion", "SchemaVersion")}, fields...)
+		return append([]FieldDefinition{{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{schema}}, {JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}}}, fields...)
 	}
 	operationFields := func(withExecutor bool) []FieldDefinition {
 		fields := []FieldDefinition{positive("sequence", "Sequence"), id("operationId", "OperationID"), id("operationType", "OperationType"), id("adapterId", "AdapterID")}

@@ -46,7 +46,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/acknowledgement`
 
 - `schema`: `vegastack-labs.dev/acknowledgement`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `planId`
 - `planDigest`
 - `targetDigest`
@@ -66,7 +66,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/acknowledgement-request`
 
 - `schema`: `vegastack-labs.dev/acknowledgement-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `planId`
 - `planDigest`
 - `targetDigest`
@@ -82,7 +82,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/authorization-decision`
 
 - `schema`: `vegastack-labs.dev/authorization-decision`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `decisionId`
 - `principalId`
 - `action`
@@ -99,7 +99,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/declaration-revision`
 
 - `schema`: `vegastack-labs.dev/declaration-revision`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `declarationId`
 - `declarationType`
 - `revision`
@@ -116,7 +116,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/declaration-revision-request`
 
 - `schema`: `vegastack-labs.dev/declaration-revision-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `declarationId`
 - `declarationType`
 - `expectedRevision`
@@ -129,7 +129,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/execution-receipt`
 
 - `schema`: `vegastack-labs.dev/execution-receipt`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `leaseId`
 - `planId`
 - `planDigest`
@@ -152,7 +152,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/execution-receipt-request`
 
 - `schema`: `vegastack-labs.dev/execution-receipt-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `receipt`
 - `expectedBindingDigest`
 - `extensions`
@@ -160,7 +160,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/executor-claim-request`
 
 - `schema`: `vegastack-labs.dev/executor-claim-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `executorId`
 - `principalId`
 - `adapterId`
@@ -171,7 +171,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/executor-lease`
 
 - `schema`: `vegastack-labs.dev/executor-lease`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `leaseId`
 - `planId`
 - `planDigest`
@@ -195,7 +195,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/executor-renew-request`
 
 - `schema`: `vegastack-labs.dev/executor-renew-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `leaseId`
 - `bindingDigest`
 - `nonceDigest`
@@ -205,7 +205,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/plan`
 
 - `schema`: `vegastack-labs.dev/plan`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `planId`
 - `planDigest`
 - `declarationId`
@@ -224,7 +224,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/plan-create-request`
 
 - `schema`: `vegastack-labs.dev/plan-create-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `declarationId`
 - `declarationRevision`
 - `expectedStateRevision`
@@ -236,7 +236,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/plan-reference-request`
 
 - `schema`: `vegastack-labs.dev/plan-reference-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `planId`
 - `planDigest`
 - `recoveryEpoch`
@@ -246,7 +246,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/run`
 
 - `schema`: `vegastack-labs.dev/run`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `runId`
 - `planId`
 - `planDigest`
@@ -272,7 +272,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 ### `vegastack-labs.dev/run-reference-request`
 
 - `schema`: `vegastack-labs.dev/run-reference-request`
-- `schemaVersion`
+- `schemaVersion`: `1.0.0`
 - `runId`
 - `idempotencyKey`
 - `recoveryEpoch`

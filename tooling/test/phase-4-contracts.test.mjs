@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 
 import {
   decodePhase4Contract,
+  validateExecutorLeaseBinding,
   validateExecutionReceiptBinding,
   validateLeaseTiming,
   validatePlanTiming,
@@ -16,19 +17,41 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..")
 const fixtures = path.join(ROOT, "tooling/testdata/phase-4/contracts");
 const load = async (name) => JSON.parse(await readFile(path.join(fixtures, name), "utf8"));
 const rejectsAt = (fragment) => (error) => error?.code === "INTEGRITY_FAILURE" && error?.target?.includes(fragment);
+const makeRun = (plan, step, schemaVersion = "1.0.0") => ({
+  schema: "vegastack-labs.dev/run", schemaVersion, runId: "run-synthetic-001",
+  planId: plan.planId, planDigest: plan.planDigest, authorizationDecisionId: "decision-synthetic-001",
+  acknowledgementId: "acknowledgement-synthetic-001", policyVersion: plan.binding.policyVersion,
+  executorMode: plan.executorMode, executorId: plan.executorId,
+  executorBindingDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  status: "running", steps: [step], cancellationRequested: false, rollbackStatus: "not-requested",
+  verificationStatus: "pending", verificationDigest: null, changed: false,
+  stateRevision: plan.binding.stateRevision, recoveryEpoch: plan.binding.recoveryEpoch,
+  createdAt: "2026-09-12T17:00:00Z", updatedAt: "2026-09-12T17:01:00Z", extensions: [],
+});
 
 test("generated exact and compatible decoders preserve the major-version boundary", async () => {
   const plan = await load("valid-plan.json");
   assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", plan).planId, plan.planId);
+  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, schemaVersion: "1.7.0" }), rejectsAt("plan.schemaVersion: value is not in enum"));
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, xFuture: "display-only" }), rejectsAt("plan.xFuture: additional property"));
   assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, schemaVersion: "1.7.0", xFuture: "display-only" }, true).planId, plan.planId);
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, schemaVersion: "2.0.0" }, true), /SCHEMA_UNSUPPORTED/);
   assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, apiToken: "not-allowed" }, true), rejectsAt("plan.apiToken: unsafe additive field"));
-  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, xFuture: true } }, true), rejectsAt("plan.binding.xFuture: additional property"));
+  assert.equal(decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, xFuture: true } }, true).planId, plan.planId);
+  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, xFuture: { nested: [{ password: "private-canary" }] } }, true), rejectsAt("plan.xFuture.nested[0].password: unsafe additive field"));
+  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", { ...plan, binding: { ...plan.binding, credentialHint: "private-canary" } }, true), rejectsAt("plan.binding.credentialHint: unsafe additive field"));
 });
 
 test("receipt cannot widen its exact lease binding", async () => {
+  const plan = await load("valid-plan.json");
   const fixture = await load("invalid-widened-receipt.json");
+  const operation = plan.operations[0];
+  const step = { ...operation, stepId: fixture.lease.stepId, status: "running", effectState: "intent-recorded" };
+  const run = makeRun(plan, step);
+  validateExecutorLeaseBinding(plan, run, fixture.lease);
+  const mutuallyWidened = { ...fixture.lease, targetId: fixture.receipt.targetId };
+  assert.throws(() => validateExecutorLeaseBinding(plan, run, mutuallyWidened), rejectsAt("executor-lease.targetId: run step widened or changed"));
+  validateExecutionReceiptBinding(mutuallyWidened, fixture.receipt);
   assert.throws(() => validateExecutionReceiptBinding(fixture.lease, fixture.receipt), rejectsAt("targetId: binding widened or changed"));
 });
 
@@ -49,6 +72,44 @@ test("closed Phase 4 schemas reject unknown states and secret-shaped fields", as
   const schema = JSON.parse(await readFile(path.join(ROOT, "schemas/v1/plan.schema.json"), "utf8"));
   assert.equal(schema.additionalProperties, false);
   assert.doesNotMatch(JSON.stringify(schema.properties), /password|plaintextSecret|apiToken/i);
+});
+
+test("generated decoders reject missing plan and acknowledgement bindings", async () => {
+  const plan = await load("valid-plan.json");
+  const { binding: _binding, ...missingPlanBinding } = plan;
+  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/plan", missingPlanBinding), rejectsAt("plan.binding: required property is missing"));
+  const acknowledgement = {
+    schema: "vegastack-labs.dev/acknowledgement", schemaVersion: "1.0.0",
+    planId: plan.planId, planDigest: plan.planDigest, targetDigest: plan.binding.targetDigest,
+    reasonDigest: plan.binding.reasonDigest, humanId: "human-synthetic-001", authorityId: "authority-synthetic-001",
+    nonceDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    stateRevision: plan.binding.stateRevision, recoveryEpoch: plan.binding.recoveryEpoch, expiresAt: plan.expiresAt,
+    acknowledgementId: "acknowledgement-synthetic-001",
+    proofDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    status: "approved", receivedAt: "2026-09-12T17:01:00Z", extensions: [],
+  };
+  const { authorityId: _authorityId, ...missingAuthority } = acknowledgement;
+  assert.throws(() => decodePhase4Contract("vegastack-labs.dev/acknowledgement", missingAuthority), rejectsAt("acknowledgement.authorityId: required property is missing"));
+});
+
+test("compatible reads keep known authorization IDs and reject secrets in open carriers", async () => {
+  const plan = await load("valid-plan.json");
+  const operation = plan.operations[0];
+  const run = { ...makeRun(plan, { ...operation, stepId: "step-synthetic-001", status: "running", effectState: "intent-recorded" }, "1.4.0"), xFuture: "display-only" };
+  assert.equal(decodePhase4Contract("vegastack-labs.dev/run", run, true).authorizationDecisionId, run.authorizationDecisionId);
+
+  const envelope = {
+    schema: "vegastack-labs.dev/run-result", schemaVersion: "1.2.0", toolVersion: "1.0.0",
+    command: "plan", requestId: "request-synthetic-001", runId: null, status: "succeeded",
+    changed: false, recoveryEpoch: 4, stateRevision: 11, snapshotDigest: null,
+    releaseBuildId: "build-synthetic-001", sourceRevision: null, planId: null, errors: [], data: {},
+  };
+  for (const key of ["password", "privateKey", "token", "credential"]) {
+    assert.throws(
+      () => decodePhase4Contract("vegastack-labs.dev/run-result", { ...envelope, data: { nested: { [key]: "private-canary" } } }, true),
+      rejectsAt(`run-result.data.${key === "nested" ? key : `nested.${key}`}`),
+    );
+  }
 });
 
 test("generated schemas contain every approved lifecycle binding and state", async () => {

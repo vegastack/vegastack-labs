@@ -57,16 +57,20 @@ func ValidateContractJSON(schemaID string, document []byte, mode ContractValidat
 	var value any
 	decoder := json.NewDecoder(strings.NewReader(string(document))); decoder.UseNumber()
 	if err := decoder.Decode(&value); err != nil { return errors.New("invalid JSON") }
+	if mode == ContractCompatibleRead {
+		object, ok := value.(map[string]any); if !ok { return errors.New("compatible contract must be an object") }
+		contractVersion, ok := object["schemaVersion"].(string); if !ok || !regexp.MustCompile("^1\\.[0-9]+\\.[0-9]+$").MatchString(contractVersion) { return errors.New("unsupported contract major") }
+	}
 	return validateContractValue(schemaID, value, schemaID, mode, true)
 }
 
-func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, root bool) error {
+func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, _ bool) error {
 	rule, ok := contractRules[schemaID]; if !ok { return fmt.Errorf("unknown schema at %s", path) }
 	object, ok := value.(map[string]any); if !ok { return fmt.Errorf("expected object at %s", path) }
 	fields := make(map[string]contractFieldRule, len(rule.Fields)); for _, field := range rule.Fields { fields[field.Name] = field }
 	for name := range object {
 		if _, known := fields[name]; known { continue }
-		if mode != ContractCompatibleRead || !root || unsafeContractAddition(name) { return fmt.Errorf("additional property at %s.%s", path, name) }
+		if mode != ContractCompatibleRead || unsafeContractAddition(name) || unsafeContractValue(object[name]) { return fmt.Errorf("additional property at %s.%s", path, name) }
 	}
 	for _, field := range rule.Fields {
 		fieldValue, present := object[field.Name]
@@ -84,12 +88,12 @@ func validateContractField(rule contractFieldRule, value any, path string, mode 
 		text, ok := value.(string); if !ok { return fmt.Errorf("wrong kind at %s", path) }
 		if rule.Pattern != "" && !regexp.MustCompile(rule.Pattern).MatchString(text) { return fmt.Errorf("pattern mismatch at %s", path) }
 		length := len([]rune(text)); if rule.MinLength != nil && length < *rule.MinLength { return fmt.Errorf("too short at %s", path) }; if rule.MaxLength != nil && length > *rule.MaxLength { return fmt.Errorf("too long at %s", path) }
-		if len(rule.Enum) != 0 { found := false; for _, candidate := range rule.Enum { found = found || candidate == text }; if !found { return fmt.Errorf("unknown state or value at %s", path) } }
+		if len(rule.Enum) != 0 && !(mode == ContractCompatibleRead && rule.Name == "schemaVersion") { found := false; for _, candidate := range rule.Enum { found = found || candidate == text }; if !found { return fmt.Errorf("unknown state or value at %s", path) } }
 	case "boolean": if _, ok := value.(bool); !ok { return fmt.Errorf("wrong kind at %s", path) }
 	case "integer":
 		number, ok := value.(json.Number); if !ok { return fmt.Errorf("wrong kind at %s", path) }; integer, err := number.Int64(); if err != nil { return fmt.Errorf("invalid integer at %s", path) }
 		if rule.Minimum != nil && integer < *rule.Minimum { return fmt.Errorf("below minimum at %s", path) }; if rule.Maximum != nil && integer > *rule.Maximum { return fmt.Errorf("above maximum at %s", path) }
-	case "object": object, ok := value.(map[string]any); if !ok { return fmt.Errorf("wrong kind at %s", path) }; if !rule.AdditionalProperties && len(object) != 0 { return fmt.Errorf("additional property at %s", path) }
+	case "object": object, ok := value.(map[string]any); if !ok { return fmt.Errorf("wrong kind at %s", path) }; if !rule.AdditionalProperties && len(object) != 0 { return fmt.Errorf("additional property at %s", path) }; if mode == ContractCompatibleRead && rule.AdditionalProperties && unsafeContractValue(object) { return fmt.Errorf("unsafe compatible value at %s", path) }
 	case "array":
 		values, ok := value.([]any); if !ok { return fmt.Errorf("wrong kind at %s", path) }; if rule.MinItems != nil && len(values) < *rule.MinItems { return fmt.Errorf("too few items at %s", path) }; if rule.MaxItems != nil && len(values) > *rule.MaxItems { return fmt.Errorf("too many items at %s", path) }
 		seen := map[string]bool{}; for index, item := range values { itemPath := fmt.Sprintf("%s[%d]", path, index); if rule.ItemRef != "" { if err := validateContractValue(rule.ItemRef, item, itemPath, mode, false); err != nil { return err } } else if err := validatePrimitiveKind(rule.ItemKind, item, itemPath); err != nil { return err }; if rule.UniqueItems { raw, _ := json.Marshal(item); key := string(raw); if seen[key] { return fmt.Errorf("duplicate item at %s", itemPath) }; seen[key] = true } }
@@ -109,6 +113,21 @@ func unsafeContractAddition(name string) bool {
 	return false
 }
 
+func unsafeContractValue(value any) bool {
+	stack := []any{value}
+	for visited := 0; len(stack) != 0; visited++ {
+		if visited >= 65536 { return true }
+		last := len(stack)-1; current := stack[last]; stack = stack[:last]
+		switch typed := current.(type) {
+		case map[string]any:
+			for name, nested := range typed { if unsafeContractAddition(name) { return true }; stack = append(stack, nested) }
+		case []any:
+			stack = append(stack, typed...)
+		}
+	}
+	return false
+}
+
 func ValidateRunTransition(from, to string) error {
 	for _, transition := range RunTransitions { if transition.From == from && transition.To == to { return nil } }
 	return errors.New("invalid run transition")
@@ -120,6 +139,23 @@ func ValidatePlanTiming(plan Plan) error {
 
 func ValidateLeaseTiming(lease ExecutorLease) error {
 	claimed, err := time.Parse(time.RFC3339, lease.ClaimedAt); if err != nil { return errors.New("invalid lease claim time") }; renew, err := time.Parse(time.RFC3339, lease.RenewAfter); if err != nil || !renew.Equal(claimed.Add(time.Duration(ExecutorCheckInSeconds)*time.Second)) { return errors.New("lease check-in must be exactly 20 seconds") }; expires, err := time.Parse(time.RFC3339, lease.LeaseExpiresAt); if err != nil || !expires.Equal(claimed.Add(time.Duration(ExecutorLeaseSeconds)*time.Second)) { return errors.New("lease expiry must be exactly 60 seconds") }; maximum, err := time.Parse(time.RFC3339, lease.MaximumExpiresAt); if err != nil || !maximum.Equal(expires) { return errors.New("lease maximum expiry must match its 60-second authority window") }; return nil
+}
+
+func ValidateExecutorLeaseBinding(plan Plan, run Run, lease ExecutorLease) error {
+	if plan.PlanID != run.PlanID || plan.PlanID != lease.PlanID || plan.PlanDigest != run.PlanDigest || plan.PlanDigest != lease.PlanDigest || plan.Binding.RecoveryEpoch != run.RecoveryEpoch || plan.Binding.RecoveryEpoch != lease.RecoveryEpoch || run.ExecutorID != lease.ExecutorID { return errors.New("executor lease widens or changes its plan/run binding") }
+	stepMatches := 0
+	var step RunStep
+	for _, candidate := range run.Steps { if candidate.StepID == lease.StepID { stepMatches++; step = candidate } }
+	if stepMatches != 1 { return errors.New("executor lease must name exactly one run step") }
+	operationMatches := 0
+	for _, operation := range plan.Operations {
+		if operation.OperationID != lease.OperationID { continue }
+		operationMatches++
+		if operation.Sequence != step.Sequence || operation.OperationID != step.OperationID || operation.OperationType != step.OperationType || operation.ExecutorID != step.ExecutorID || operation.AdapterID != step.AdapterID || operation.TargetID != step.TargetID || operation.InputDigest != step.InputDigest || operation.ArtifactDigest != step.ArtifactDigest || operation.Idempotent != step.Idempotent { return errors.New("run step widens or changes its plan operation") }
+		if step.ExecutorID != lease.ExecutorID || step.AdapterID != lease.AdapterID || step.TargetID != lease.TargetID || step.ArtifactDigest != lease.ArtifactDigest { return errors.New("executor lease widens or changes its run step") }
+	}
+	if operationMatches != 1 { return errors.New("executor lease operation must name exactly one plan operation") }
+	return nil
 }
 
 func ValidateExecutionReceiptBinding(lease ExecutorLease, receipt ExecutionReceipt) error {
