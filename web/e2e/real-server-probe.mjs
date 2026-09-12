@@ -8,6 +8,7 @@ const assertion = process.env.VSK_PHASE3_ASSERTION;
 if (!baseURL || !controllerURL || !assertion) throw new Error("phase 3 fixture inputs are required");
 
 const browser = await chromium.launch({ headless: true });
+let stage = "desktop-session";
 try {
   const context = await browser.newContext({
     ignoreHTTPSErrors: true,
@@ -38,6 +39,7 @@ try {
   }
 
   await createSession();
+  stage = "desktop-navigation";
   const navigation = await page.goto(`${baseURL}/`, { waitUntil: "networkidle" });
   if (!navigation || navigation.status() !== 200) throw new Error("embedded Console navigation failed");
   for (const header of ["content-security-policy", "x-content-type-options", "x-frame-options", "referrer-policy", "cache-control"]) {
@@ -54,11 +56,13 @@ try {
   if (violations.length) throw new Error("serious accessibility violation");
   if (browserRequests.some(value => new URL(value).origin !== baseURL)) throw new Error("browser attempted a cross-origin data request");
 
+  stage = "keyboard";
   await page.keyboard.press("Tab");
   if (await page.getByRole("link", { name: "Skip to main content" }).evaluate(element => element !== document.activeElement)) throw new Error("keyboard focus order failed");
   await page.keyboard.press("Enter");
   if (await page.getByRole("main", { name: "Overview" }).evaluate(element => element !== document.activeElement)) throw new Error("skip-link focus recovery failed");
 
+  stage = "routes";
   const routes = [["/nodes", "Nodes"], ["/gates", "Gates"], ["/people", "People"], ["/services", "Services"], ["/backups", "Backups"], ["/providers", "Providers"]];
   for (const [route, heading] of routes) {
     await page.goto(`${baseURL}${route}`, { waitUntil: "networkidle" });
@@ -70,6 +74,7 @@ try {
   if (new URL(page.url()).pathname !== "/providers") throw new Error("browser forward navigation failed");
   await page.reload({ waitUntil: "networkidle" });
 
+  stage = "mobile";
   const mobileContext = await browser.newContext({
     ignoreHTTPSErrors: true,
     colorScheme: "light",
@@ -99,21 +104,25 @@ try {
     await mobileContext.close();
   }
 
+  stage = "forbidden-method";
   const forbidden = await context.request.post(`${baseURL}/api/v1/summary`, {
     headers: { Origin: baseURL, "Content-Type": "application/json" },
     data: { requestVersion: "1.0.0" },
   });
   if (forbidden.status() !== 404) throw new Error("forbidden method was not rejected");
 
+  stage = "expiry";
   await controller("/expire");
   await page.reload({ waitUntil: "networkidle" });
   await page.locator('[data-read-state="denied"]').first().waitFor();
 
+  stage = "revocation";
   await createSession();
   await controller("/revoke");
   await page.reload({ waitUntil: "networkidle" });
   await page.locator('[data-read-state="denied"]').first().waitFor();
 
+  stage = "logout";
   await createSession();
   const logout = await context.request.post(`${baseURL}/api/v1/session/logout`, {
     headers: { Origin: baseURL, "Content-Type": "application/json" },
@@ -123,6 +132,7 @@ try {
   const afterLogout = await context.request.get(`${baseURL}/api/v1/summary`);
   if (afterLogout.status() !== 401) throw new Error("logged-out session remained usable");
 
+  stage = "identity-outage";
   await createSession();
   await controller("/provider-outage");
   const outage = await page.goto(`${baseURL}/`, { waitUntil: "domcontentloaded" });
@@ -131,6 +141,9 @@ try {
   if (local.status !== "succeeded") throw new Error("local recovery failed during identity outage");
 
   process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "phase-3-real-server", status: "pass" })}\n`);
+} catch {
+  process.stderr.write(`PROBE_FAILED:${stage}\n`);
+  process.exitCode = 1;
 } finally {
   await browser.close();
 }

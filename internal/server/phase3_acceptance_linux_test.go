@@ -290,7 +290,27 @@ func sanitizePhase3ProbeError(value string) string {
 	if value == "" {
 		return "PROBE_FAILED"
 	}
+	stage := strings.TrimPrefix(value, "PROBE_FAILED:")
+	if stage != value && stage != "" && len(value) <= 64 && strings.IndexFunc(stage, func(character rune) bool {
+		return character != '-' && (character < 'a' || character > 'z')
+	}) == -1 {
+		return value
+	}
 	return "PROBE_FAILED_WITH_SANITIZED_DIAGNOSTIC"
+}
+
+func TestSanitizePhase3ProbeErrorOnlyAllowsStableStages(t *testing.T) {
+	for _, test := range []struct{ input, expected string }{
+		{"", "PROBE_FAILED"},
+		{"PROBE_FAILED:mobile", "PROBE_FAILED:mobile"},
+		{"PROBE_FAILED:", "PROBE_FAILED_WITH_SANITIZED_DIAGNOSTIC"},
+		{"PROBE_FAILED:mobile /home/private", "PROBE_FAILED_WITH_SANITIZED_DIAGNOSTIC"},
+		{"Error: token detail", "PROBE_FAILED_WITH_SANITIZED_DIAGNOSTIC"},
+	} {
+		if actual := sanitizePhase3ProbeError(test.input); actual != test.expected {
+			t.Fatalf("sanitized probe error = %q, want %q", actual, test.expected)
+		}
+	}
 }
 
 func (fixture *phase3AcceptanceFixture) createSession() *http.Cookie {
