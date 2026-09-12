@@ -107,10 +107,18 @@ export function verifyWorkflowDocument(workflow, source = "") {
   }
   const trustedSteps = jobs.verify_trusted.steps ?? [];
   const guard = trustedSteps[0];
+  const temporary = trustedSteps[1];
   const checkoutIndex = trustedSteps.findIndex((step) => step.uses?.startsWith("actions/checkout@"));
   if (!guard?.run || !/hostname/.test(guard.run) || !/vsk-node-01\|vsk-node-06/.test(guard.run) ||
-      checkoutIndex !== 1) {
+      checkoutIndex !== 2) {
     throw new Error("self-hosted checks must verify the allowed hostname before repository checkout");
+  }
+  if (jobs.verify_trusted.env?.TMPDIR !== "${{ runner.temp }}/vsk-labs-${{ github.run_id }}-${{ github.run_attempt }}" ||
+      temporary?.name !== "Prepare protected local test storage" ||
+      !/install -d -m 700 "\$TMPDIR"/.test(temporary.run ?? "") ||
+      !/stat -f -c '%T'/.test(temporary.run ?? "") ||
+      !/ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/.test(temporary.run ?? "")) {
+    throw new Error("self-hosted checks must use protected temporary storage on an approved local filesystem");
   }
   for (const output of ["base_sha", "browser", "check_plan", "fail_closed", "head_sha", "mode"]) {
     if (jobs.plan.outputs?.[output] !== `\${{ steps.check-plan.outputs.${output} }}`) {

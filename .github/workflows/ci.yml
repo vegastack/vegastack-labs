@@ -99,12 +99,23 @@ jobs:
     if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
+    env:
+      TMPDIR: ${{ runner.temp }}/vsk-labs-${{ github.run_id }}-${{ github.run_attempt }}
     steps:
       - name: Allow only the disposable Debian hosts
         run: |
           case "$(hostname)" in
             vsk-node-01|vsk-node-06) ;;
             *) echo "Refusing unapproved self-hosted runner" >&2; exit 1 ;;
+          esac
+
+      - name: Prepare protected local test storage
+        run: |
+          install -d -m 700 "$TMPDIR"
+          test "$(stat -c '%a' "$TMPDIR")" = 700
+          case "$(stat -f -c '%T' "$TMPDIR")" in
+            ext2/ext3|xfs|btrfs|f2fs|zfs) ;;
+            *) echo "Refusing unsupported test filesystem" >&2; exit 1 ;;
           esac
 
       - name: Check out repository
