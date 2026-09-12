@@ -51,7 +51,6 @@ type phase3ExecutableFixture struct {
 	baseURL        string
 	controllerURL  string
 	assertion      string
-	authority      *store.Store
 	profile        serverconfig.Profile
 	configPath     string
 	binaryPath     string
@@ -104,12 +103,6 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 	}
 	seedBrowserIntegrationAuthority(t, databasePath, binding, now)
 	seedPhase3SourceGrants(t, databasePath, now)
-	fixture.authority, err = store.Open(context.Background(), store.Config{DatabasePath: databasePath, Mode: store.OpenExisting, ExpectedUID: uid, ToolVersion: "phase3-test", BuildVersion: "phase3-test"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = fixture.authority.Close() })
-
 	certificatePath, keyPath := writeRemoteTestCertificate(t)
 	reserved, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -241,6 +234,8 @@ func TestPhase3AcceptanceStartupReasonAllowsOnlyStableEnvelopeFields(t *testing.
 }
 
 func (fixture *phase3ExecutableFixture) controller() http.Handler {
+	// The built server remains the only Store owner. These synthetic controls use
+	// short SQLite updates so the fixture never competes for the writer lock.
 	mux := http.NewServeMux()
 	post := func(path string, operation func() error) {
 		mux.HandleFunc(path, func(writer http.ResponseWriter, request *http.Request) {
@@ -260,7 +255,8 @@ func (fixture *phase3ExecutableFixture) controller() http.Handler {
 		return updateBrowserIntegrationDatabase(filepath.Join(os.Getenv("VSK_PHASE3_RUNTIME_ROOT"), "control.db"), `UPDATE browser_sessions SET idle_expires_at=? WHERE status='active'`, time.Now().Add(-time.Minute).UTC().Format(time.RFC3339Nano))
 	})
 	post("/revoke", func() error {
-		return fixture.authority.RevokeBrowserSessions(context.Background(), identity.Principal{ID: "principal.remote", Method: identity.CloudflareAccessMethod}, "emergency-revocation")
+		now := time.Now().UTC().Format(time.RFC3339Nano)
+		return updateBrowserIntegrationDatabase(filepath.Join(os.Getenv("VSK_PHASE3_RUNTIME_ROOT"), "control.db"), `UPDATE browser_sessions SET status='revoked',ended_at=?,end_reason='emergency-revocation' WHERE principal_id='principal.remote' AND status='active'`, now)
 	})
 	post("/provider-outage", func() error {
 		fixture.providerOnline.Store(false)
