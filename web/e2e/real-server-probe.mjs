@@ -87,6 +87,17 @@ try {
     await createSession(mobileContext);
     await mobileContext.addInitScript(() => localStorage.setItem("theme", "light"));
     const mobile = await mobileContext.newPage();
+    const mobileHealth = { csp: false, page: false, script: false };
+    mobile.on("console", message => {
+      if (message.type() === "error" && /content security policy|refused to execute/i.test(message.text())) mobileHealth.csp = true;
+    });
+    mobile.on("pageerror", () => { mobileHealth.page = true; });
+    mobile.on("requestfailed", request => {
+      if (request.resourceType() === "script") mobileHealth.script = true;
+    });
+    mobile.on("response", response => {
+      if (response.request().resourceType() === "script" && response.status() >= 400) mobileHealth.script = true;
+    });
     stage = "mobile-navigation";
     await mobile.goto(`${baseURL}/backups`, { waitUntil: "networkidle" });
     await mobile.getByRole("heading", { name: "Backups", exact: true }).waitFor();
@@ -113,7 +124,12 @@ try {
     if (!targets.length || targets.some(target => target.width < 44 || target.height < 44)) throw new Error("mobile control target failed");
     stage = "mobile-theme-control";
     const themeButton = mobile.getByRole("button", { name: /Use (?:light|dark) theme/ });
-    await themeButton.waitFor();
+    try {
+      await themeButton.waitFor({ timeout: 5_000 });
+    } catch {
+      stage = mobileHealth.csp ? "mobile-csp" : mobileHealth.script ? "mobile-script" : mobileHealth.page ? "mobile-page-error" : "mobile-hydration";
+      throw new Error("mobile hydration failed");
+    }
     const themeLabel = await themeButton.getAttribute("aria-label");
     const expectedTheme = themeLabel === "Use dark theme" ? "dark" : themeLabel === "Use light theme" ? "light" : undefined;
     if (!expectedTheme) throw new Error("theme control label failed");
