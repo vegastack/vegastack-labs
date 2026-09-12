@@ -1,4 +1,4 @@
-import { lstat, mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { lstat, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -85,6 +85,13 @@ export async function verifyPhase3({ artifacts, root = ROOT } = {}) {
   };
 }
 
+export function phase3LinkerFlags({ database, osRelease }) {
+  return [
+    `-X github.com/vegastack/vegastack-labs/internal/server.productionDatabasePath=${database}`,
+    `-X github.com/vegastack/vegastack-labs/internal/server.runtimeOSReleasePath=${osRelease}`,
+  ].join(" ");
+}
+
 async function verifyRequiredSources(root) {
   const [goFixture, browserProbe, evidence, consoleTests, readTests, domainTests] = await Promise.all([
     readFile(path.join(root, "internal/server/phase3_acceptance_linux_test.go"), "utf8"),
@@ -137,8 +144,10 @@ export async function runPhase3(root = ROOT, { prepared = false } = {}) {
     const runtimeRoot = await mkdtemp(path.join(tmpdir(), "vsk-phase3-runtime-"));
     const binary = path.join(runtimeRoot, "vsk-labs");
     const database = path.join(runtimeRoot, "control.db");
+    const osRelease = path.join(runtimeRoot, "os-release");
     try {
-      await runCommand("go", ["build", "-race", "-ldflags", `-X github.com/vegastack/vegastack-labs/internal/server.productionDatabasePath=${database}`, "-o", binary, "./cmd/vsk-labs"], {
+      await writeFile(osRelease, "ID=debian\nVERSION_ID=13\n", { mode: 0o600 });
+      await runCommand("go", ["build", "-race", "-ldflags", phase3LinkerFlags({ database, osRelease }), "-o", binary, "./cmd/vsk-labs"], {
         cwd: root,
         capture: true,
         timeoutMs: 180_000,

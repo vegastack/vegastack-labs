@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { verifyPhase3 } from "../verify-phase-3.mjs";
+import { phase3LinkerFlags, verifyPhase3 } from "../verify-phase-3.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -18,6 +18,14 @@ async function evidenceFixture(t, files) {
   }
   return directory;
 }
+
+test("Phase 3 test executable pins its database and supported platform fixture", () => {
+  assert.equal(
+    phase3LinkerFlags({ database: "/tmp/vsk-phase3/control.db", osRelease: "/tmp/vsk-phase3/os-release" }),
+    "-X github.com/vegastack/vegastack-labs/internal/server.productionDatabasePath=/tmp/vsk-phase3/control.db " +
+      "-X github.com/vegastack/vegastack-labs/internal/server.runtimeOSReleasePath=/tmp/vsk-phase3/os-release",
+  );
+});
 
 test("Phase 3 evidence accepts only sanitized stable results", async (t) => {
   const artifacts = await evidenceFixture(t, {
