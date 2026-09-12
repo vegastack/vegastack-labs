@@ -12,6 +12,7 @@ import (
 
 func TestOperationsFailClosedOnUnsupportedRuntimeBeforeConfigRead(t *testing.T) {
 	operations := NewOperations(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-test", nil })
+	operations.platformProbe = fixedPlatformProbe{platform: Platform{OS: "unsupported", Architecture: "unsupported"}}
 	err := operations.Run(context.Background(), "/private/config-canary-does-not-exist")
 	stable, ok := failure.As(err)
 	if !ok || stable.Code != generated.ErrorCodeUnsupportedPlatform {
