@@ -7,6 +7,7 @@ import (
 	"io"
 	"mime"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/api"
@@ -58,9 +59,20 @@ func (operations *Operations) ServeAPISSH(ctx context.Context, configPath, verif
 func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output io.Writer) error {
 	request, err := apissh.ReadRequest(input)
 	if err != nil {
+		requestID := apissh.RecoverableRequestID(err)
+		if requestID != "" {
+			code := apissh.ErrorCode(err)
+			if code == "" {
+				code = generated.ErrorCodeInputInvalid
+			}
+			return handler.writeFailure(output, requestID, apiSSHCommand, code, "api-ssh-request-frame", 0, 0)
+		}
 		return err
 	}
 	operationID, allowed := api.ConstrainedSSHOperation(request.Method, request.Path)
+	if !allowed && request.Method == localtransport.MethodPost && request.Path == "/api/v1/plans" {
+		operationID, allowed = "api.v1.plans.create", true
+	}
 	if !allowed {
 		return handler.writeFailure(output, request.Header.RequestID, operationID, generated.ErrorCodeInputInvalid, "api-ssh-operation", 0, 0)
 	}
@@ -68,8 +80,8 @@ func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output 
 	if operationID == "api.v1.health.get" {
 		backendCommand = generated.CommandNameServerStatus
 	}
-	commandArguments, allowed := apiSSHCommandArguments(operationID)
-	if !allowed || !reflect.DeepEqual(request.Header.Arguments, commandArguments) {
+	forwardPath, allowed := apiSSHArgumentsAllowed(operationID, request.Path, request.Header.Arguments)
+	if !allowed {
 		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeInputInvalid, "api-ssh-arguments", 0, 0)
 	}
 	if request.Header.SSHPrincipalID != handler.verifiedPrincipalID || request.Header.DeviceID != handler.verifiedDeviceID || !handler.bindingMatches() {
@@ -90,7 +102,7 @@ func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output 
 		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeRecoveryEpochMismatch, "recovery-epoch", healthEnvelope.RecoveryEpoch, healthEnvelope.StateRevision)
 	}
 	response, err := handler.forward(ctx, localtransport.Request{
-		SocketPath: handler.profile.SocketPath, Method: request.Method, Path: request.Path, Body: request.Payload,
+		SocketPath: handler.profile.SocketPath, Method: request.Method, Path: forwardPath, Body: request.Payload,
 		Timeout: 30 * time.Second, ResponseLimit: 24 << 20,
 	})
 	if err != nil {
@@ -105,6 +117,45 @@ func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output 
 	}
 	envelope.RequestID = request.Header.RequestID
 	return apissh.WriteResponse(output, request.Header.RequestID, envelope)
+}
+
+func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string) (string, bool) {
+	commandArguments, available := apiSSHCommandArguments(operationID)
+	if !available {
+		return "", false
+	}
+	if reflect.DeepEqual(arguments, commandArguments) {
+		return requestPath, true
+	}
+	switch operationID {
+	case "api.v1.summary.get":
+		return requestPath, reflect.DeepEqual(arguments, []string{"--output", "json"})
+	case "api.v1.plans.create":
+		if requestPath == "/api/v1/plans" && len(arguments) == 4 && arguments[0] == "--change" && principal.ValidID(arguments[1]) && arguments[2] == "--output" && arguments[3] == "json" {
+			mappedPath := "/api/v1/declarations/" + arguments[1] + "/plans"
+			mappedOperation, mapped := api.ConstrainedSSHOperation(localtransport.MethodPost, mappedPath)
+			if mapped && mappedOperation == operationID {
+				return mappedPath, true
+			}
+		}
+	case "api.v1.plans.execute":
+		if id, ok := apiSSHPathID(requestPath, "/api/v1/plans/", "/execute"); ok && reflect.DeepEqual(arguments, []string{"--plan-id", id, "--output", "json"}) {
+			return requestPath, true
+		}
+	case "api.v1.runs.get":
+		if id, ok := apiSSHPathID(requestPath, "/api/v1/runs/", ""); ok && reflect.DeepEqual(arguments, []string{"--run-id", id, "--output", "json"}) {
+			return requestPath, true
+		}
+	}
+	return "", false
+}
+
+func apiSSHPathID(path, prefix, suffix string) (string, bool) {
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return "", false
+	}
+	id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	return id, principal.ValidID(id)
 }
 
 func apiSSHCommandArguments(operationID string) ([]string, bool) {

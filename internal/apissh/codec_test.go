@@ -97,6 +97,40 @@ func TestRequestRejectsMalformedFraming(t *testing.T) {
 	}
 }
 
+func TestRequestErrorsExposeOnlyBoundedRecoverableRequestIDs(t *testing.T) {
+	payload := []byte("payload")
+	valid, err := NewRequestHeader("request-ssh-recoverable", "ssh-principal-test", "device-test", "GET /api/v1/summary", []string{"--output", "json"}, 3, payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, test := range map[string]struct {
+		header generated.ApiSshRequestFrameHeader
+		body   []byte
+		wantID string
+	}{
+		"unsupported version": {func() generated.ApiSshRequestFrameHeader { header := valid; header.Version = "2.0.0"; return header }(), payload, valid.RequestID},
+		"short payload":       {valid, payload[:3], valid.RequestID},
+		"unsafe request id": {func() generated.ApiSshRequestFrameHeader {
+			header := valid
+			header.RequestID = "../../private"
+			return header
+		}(), payload, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			_, readErr := ReadRequest(bytes.NewReader(rawFrame(t, test.header, test.body)))
+			if readErr == nil || RecoverableRequestID(readErr) != test.wantID {
+				t.Fatalf("ReadRequest() error = %v, recoverable request ID = %q, want %q", readErr, RecoverableRequestID(readErr), test.wantID)
+			}
+		})
+	}
+
+	duplicate := []byte(`{"protocol":"vegastack-labs.api-ssh","version":"2.0.0","requestId":"request-one","requestId":"request-two"}` + "\n")
+	_, readErr := ReadRequest(bytes.NewReader(duplicate))
+	if readErr == nil || RecoverableRequestID(readErr) != "" {
+		t.Fatalf("duplicate request ID error = %v, recoverable request ID = %q", readErr, RecoverableRequestID(readErr))
+	}
+}
+
 func TestResponseRoundTripRequiresCanonicalCorrelatedEnvelope(t *testing.T) {
 	envelope := testEnvelope("request-ssh-test-003")
 	var wire bytes.Buffer

@@ -28,11 +28,13 @@ const (
 )
 
 var operationPathPattern = regexp.MustCompile(`^/api/v1/[A-Za-z0-9._:-]+(?:/[A-Za-z0-9._:-]+)*$`)
+var requestIDPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 
 type Error struct {
-	Code   string
-	Target string
-	cause  error
+	Code      string
+	Target    string
+	requestID string
+	cause     error
 }
 
 func (err *Error) Error() string { return err.Code + ": " + err.Target }
@@ -42,6 +44,17 @@ func ErrorCode(err error) string {
 	var frameError *Error
 	if errors.As(err, &frameError) {
 		return frameError.Code
+	}
+	return ""
+}
+
+// RecoverableRequestID returns a request ID only when the malformed frame
+// carried one unique, syntactically complete, schema-bounded identifier. It is
+// safe to use solely to correlate a framed rejection response.
+func RecoverableRequestID(err error) string {
+	var frameError *Error
+	if errors.As(err, &frameError) {
+		return frameError.requestID
 	}
 	return ""
 }
@@ -97,20 +110,21 @@ func WriteRequest(output io.Writer, header generated.ApiSshRequestFrameHeader, p
 func ReadRequest(input io.Reader) (Request, error) {
 	var zero Request
 	reader, rawHeader, err := readFrameHeader(input, "api-ssh-request-frame")
+	requestID := recoverRequestID(rawHeader)
 	if err != nil {
-		return zero, err
+		return zero, withRequestID(err, requestID)
 	}
 	var header generated.ApiSshRequestFrameHeader
 	if err := decodeHeader(rawHeader, generated.SchemaIDApiSshRequestFrameHeader, &header, "api-ssh-request-frame"); err != nil {
-		return zero, err
+		return zero, withRequestID(err, requestID)
 	}
 	method, path, err := validateRequestHeader(header)
 	if err != nil {
-		return zero, err
+		return zero, withRequestID(err, requestID)
 	}
 	payload, actual, err := readRequestPayload(reader, header)
 	if err != nil {
-		return zero, err
+		return zero, withRequestID(err, requestID)
 	}
 	return Request{Header: header, Method: method, Path: path, Payload: payload, ActualPayloadBytes: actual}, nil
 }
@@ -238,9 +252,58 @@ func readFrameHeader(input io.Reader, target string) (*bufio.Reader, []byte, err
 	reader := bufio.NewReaderSize(input, maxHeaderBytes+1)
 	raw, err := reader.ReadSlice('\n')
 	if err != nil || len(raw) < 3 || len(raw) > maxHeaderBytes+1 {
-		return nil, nil, frameError(generated.ErrorCodeInputInvalid, target, err)
+		return reader, append([]byte(nil), bytes.TrimSuffix(raw, []byte{'\n'})...), frameError(generated.ErrorCodeInputInvalid, target, err)
 	}
 	return reader, append([]byte(nil), raw[:len(raw)-1]...), nil
+}
+
+func recoverRequestID(raw []byte) string {
+	if len(raw) < 2 || len(raw) > maxHeaderBytes {
+		return ""
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	opening, err := decoder.Token()
+	if err != nil || opening != json.Delim('{') {
+		return ""
+	}
+	found := false
+	requestID := ""
+	for decoder.More() {
+		key, err := decoder.Token()
+		if err != nil {
+			return ""
+		}
+		var value json.RawMessage
+		if decoder.Decode(&value) != nil {
+			return ""
+		}
+		if key == "requestId" {
+			if found || json.Unmarshal(value, &requestID) != nil {
+				return ""
+			}
+			found = true
+		}
+	}
+	closing, err := decoder.Token()
+	if err != nil || closing != json.Delim('}') {
+		return ""
+	}
+	var trailing any
+	if decoder.Decode(&trailing) != io.EOF || !found || !requestIDPattern.MatchString(requestID) {
+		return ""
+	}
+	return requestID
+}
+
+func withRequestID(err error, requestID string) error {
+	if requestID == "" {
+		return err
+	}
+	var typed *Error
+	if !errors.As(err, &typed) {
+		return err
+	}
+	return &Error{Code: typed.Code, Target: typed.Target, requestID: requestID, cause: typed.cause}
 }
 
 func readPayload(reader io.Reader, declared, maximum int64, target string) ([]byte, int64, error) {

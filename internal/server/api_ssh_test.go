@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"testing"
@@ -171,11 +173,14 @@ func TestAPISSHGeneratedRouteRequiresExactTokenizedCommandArguments(t *testing.T
 		operation string
 		arguments []string
 	}{
-		"unknown route":           {"GET /api/v1/not-a-route", []string{"server", "status"}},
-		"disallowed operator op":  {"POST /api/v1/plans/plan-test/acknowledgements", []string{"apply"}},
-		"endpoint id":             {"GET /api/v1/health", []string{"api.v1.health.get"}},
-		"wrong generated command": {"GET /api/v1/health", []string{"status"}},
-		"extra token":             {"GET /api/v1/health", []string{"server", "status", "extra"}},
+		"unknown route":            {"GET /api/v1/not-a-route", []string{"server", "status"}},
+		"disallowed operator op":   {"POST /api/v1/plans/plan-test/acknowledgements", []string{"apply"}},
+		"endpoint id":              {"GET /api/v1/health", []string{"api.v1.health.get"}},
+		"wrong generated command":  {"GET /api/v1/health", []string{"status"}},
+		"extra token":              {"GET /api/v1/health", []string{"server", "status", "extra"}},
+		"fixture extra token":      {"GET /api/v1/summary", []string{"--output", "json", "extra"}},
+		"fixture wrong plan id":    {"POST /api/v1/plans/plan-test/execute", []string{"--plan-id", "plan-other", "--output", "json"}},
+		"fixture duplicate option": {"POST /api/v1/plans", []string{"--change", "draft-test", "--output", "json", "--output", "json"}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			recorder := &apiSSHRecorder{}
@@ -193,6 +198,125 @@ func TestAPISSHGeneratedRouteRequiresExactTokenizedCommandArguments(t *testing.T
 				t.Fatalf("response=%#v forwards=%d", response.Envelope, len(recorder.requests))
 			}
 		})
+	}
+}
+
+func TestAPISSHAcceptsEveryApprovedPhaseZeroThreeOptionArgumentFixture(t *testing.T) {
+	fixture := loadAPISSHPhase03Fixture(t)
+	type dispatch struct{ command, path string }
+	wantDispatch := map[string]dispatch{
+		"read-request-accepted":           {"api.v1.summary.get", "/api/v1/summary"},
+		"plan-request-accepted":           {"api.v1.plans.create", "/api/v1/declarations/draft-synthetic-001/plans"},
+		"approved-apply-request-accepted": {"api.v1.plans.execute", "/api/v1/plans/plan-synthetic-001/execute"},
+		"disconnect-queries-durable-run":  {"api.v1.runs.get", "/api/v1/runs/run-synthetic-001"},
+	}
+	seen := map[string]bool{}
+	for _, testCase := range fixture.Cases {
+		expected, approved := wantDispatch[testCase.ID]
+		if !approved {
+			continue
+		}
+		t.Run(testCase.ID, func(t *testing.T) {
+			seen[testCase.ID] = true
+			recorder := &apiSSHRecorder{responses: []localtransport.Response{
+				apiSSHLocalResponse(t, apiSSHEnvelope("server status", "local-health", testCase.Input.RecoveryEpoch, 9)),
+				apiSSHLocalResponse(t, apiSSHEnvelope(expected.command, "local-operation", testCase.Input.RecoveryEpoch, 10)),
+			}}
+			handler := newAPISSHTestHandler(recorder)
+			handler.verifiedPrincipalID = testCase.Input.SSHPrincipalID
+			handler.verifiedDeviceID = testCase.Input.DeviceID
+			handler.profile.PrincipalBindings[0].PrincipalID = testCase.Input.SSHPrincipalID
+			payload := bytes.Repeat([]byte{'p'}, int(testCase.Input.ActualPayloadBytes))
+			header, err := apissh.NewRequestHeader(testCase.Input.RequestID, testCase.Input.SSHPrincipalID, testCase.Input.DeviceID, testCase.Input.Operation, testCase.Input.Arguments, testCase.Input.RecoveryEpoch, payload)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var input, output bytes.Buffer
+			writeAPISSHRequest(t, &input, header, payload)
+			if err := handler.Serve(context.Background(), &input, &output); err != nil {
+				t.Fatalf("Serve() error = %v", err)
+			}
+			response, err := apissh.ReadResponse(&output, testCase.Input.RequestID)
+			if err != nil || len(response.Envelope.Errors) != 0 || response.Envelope.Command != expected.command || len(recorder.requests) != 2 || recorder.requests[1].Path != expected.path {
+				t.Fatalf("response = %#v, error = %v, forwards = %d", response.Envelope, err, len(recorder.requests))
+			}
+		})
+	}
+	if !reflect.DeepEqual(seen, map[string]bool{
+		"read-request-accepted": true, "plan-request-accepted": true,
+		"approved-apply-request-accepted": true, "disconnect-queries-durable-run": true,
+	}) {
+		t.Fatalf("approved fixture cases = %#v", seen)
+	}
+}
+
+func TestAPISSHFramesRecoverableMalformedAndUnsupportedRequests(t *testing.T) {
+	payload := []byte("payload")
+	valid := apiSSHRequestHeader(t, "GET /api/v1/summary", []string{"--output", "json"}, 4, payload)
+	for name, test := range map[string]struct {
+		edit func(*generated.ApiSshRequestFrameHeader)
+		body []byte
+		code string
+	}{
+		"malformed length":    {func(header *generated.ApiSshRequestFrameHeader) { header.DeclaredPayloadBytes++ }, payload, generated.ErrorCodeInputInvalid},
+		"unsupported version": {func(header *generated.ApiSshRequestFrameHeader) { header.Version = "2.0.0" }, payload, generated.ErrorCodeSchemaUnsupported},
+	} {
+		t.Run(name, func(t *testing.T) {
+			header := valid
+			test.edit(&header)
+			recorder := &apiSSHRecorder{}
+			handler := newAPISSHTestHandler(recorder)
+			var output bytes.Buffer
+			if err := handler.Serve(context.Background(), bytes.NewReader(apiSSHRawFrame(t, header, test.body)), &output); err != nil {
+				t.Fatalf("Serve() error = %v", err)
+			}
+			response, err := apissh.ReadResponse(&output, header.RequestID)
+			if err != nil || len(response.Envelope.Errors) != 1 || response.Envelope.Errors[0].Code != test.code || len(recorder.requests) != 0 {
+				t.Fatalf("response = %#v, error = %v, forwards = %d", response.Envelope, err, len(recorder.requests))
+			}
+		})
+	}
+
+	t.Run("unknown header field", func(t *testing.T) {
+		raw, err := json.Marshal(valid)
+		if err != nil {
+			t.Fatal(err)
+		}
+		raw = append(bytes.TrimSuffix(raw, []byte{'}'}), []byte(`,"unknown":true}`+"\n")...)
+		raw = append(raw, payload...)
+		assertAPISSHFramedRequestFailure(t, raw, valid.RequestID, generated.ErrorCodeInputInvalid)
+	})
+	t.Run("missing header newline", func(t *testing.T) {
+		header := apiSSHRequestHeader(t, "GET /api/v1/summary", []string{"--output", "json"}, 4, nil)
+		raw, err := json.Marshal(header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		assertAPISSHFramedRequestFailure(t, raw, header.RequestID, generated.ErrorCodeInputInvalid)
+	})
+}
+
+func assertAPISSHFramedRequestFailure(t *testing.T, wire []byte, requestID, code string) {
+	t.Helper()
+	recorder := &apiSSHRecorder{}
+	handler := newAPISSHTestHandler(recorder)
+	var output bytes.Buffer
+	if err := handler.Serve(context.Background(), bytes.NewReader(wire), &output); err != nil {
+		t.Fatalf("Serve() error = %v", err)
+	}
+	response, err := apissh.ReadResponse(&output, requestID)
+	if err != nil || len(response.Envelope.Errors) != 1 || response.Envelope.Errors[0].Code != code || len(recorder.requests) != 0 {
+		t.Fatalf("response = %#v, error = %v, forwards = %d", response.Envelope, err, len(recorder.requests))
+	}
+}
+
+func TestAPISSHMalformedRequestWithoutSafeCorrelationFailsClosed(t *testing.T) {
+	recorder := &apiSSHRecorder{}
+	handler := newAPISSHTestHandler(recorder)
+	var output bytes.Buffer
+	err := handler.Serve(context.Background(), strings.NewReader(`{"requestId":"../../private"}`+"\n"), &output)
+	if err == nil || output.Len() != 0 || len(recorder.requests) != 0 {
+		t.Fatalf("error = %v, output = %q, forwards = %d", err, output.String(), len(recorder.requests))
 	}
 }
 
@@ -217,7 +341,7 @@ func TestAPISSHDenialAuditEnvelopeIsSanitizedAndNeverForwardsDeniedOperation(t *
 	}
 }
 
-func TestAPISSHRejectsPayloadLengthAndDigestBeforeForward(t *testing.T) {
+func TestAPISSHFramesPayloadLengthAndDigestRejectionsBeforeForward(t *testing.T) {
 	valid := apiSSHRequestHeader(t, "POST /api/v1/plans/plan-test/execute", []string{"apply"}, 4, []byte(`{}`))
 	for name, test := range map[string]struct {
 		edit    func(*generated.ApiSshRequestFrameHeader)
@@ -235,9 +359,13 @@ func TestAPISSHRejectsPayloadLengthAndDigestBeforeForward(t *testing.T) {
 			test.edit(&header)
 			recorder := &apiSSHRecorder{}
 			handler := newAPISSHTestHandler(recorder)
-			err := handler.Serve(context.Background(), bytes.NewReader(apiSSHRawFrame(t, header, test.payload)), io.Discard)
-			if apissh.ErrorCode(err) != test.code || len(recorder.requests) != 0 {
-				t.Fatalf("error=%v forwards=%d", err, len(recorder.requests))
+			var output bytes.Buffer
+			if err := handler.Serve(context.Background(), bytes.NewReader(apiSSHRawFrame(t, header, test.payload)), &output); err != nil {
+				t.Fatalf("Serve() error = %v", err)
+			}
+			response, err := apissh.ReadResponse(&output, header.RequestID)
+			if err != nil || len(response.Envelope.Errors) != 1 || response.Envelope.Errors[0].Code != test.code || len(recorder.requests) != 0 {
+				t.Fatalf("response=%#v error=%v forwards=%d", response.Envelope, err, len(recorder.requests))
 			}
 		})
 	}
@@ -370,4 +498,32 @@ func TestAPISSHGeneratedCommandPathsRemainStable(t *testing.T) {
 	if _, ok := apiSSHCommandArguments("api.v1.events.stream"); ok {
 		t.Fatal("stream route gained a framed command")
 	}
+}
+
+type apiSSHPhase03Fixture struct {
+	Cases []struct {
+		ID    string `json:"id"`
+		Input struct {
+			RequestID          string   `json:"requestId"`
+			SSHPrincipalID     string   `json:"sshPrincipalId"`
+			DeviceID           string   `json:"deviceId"`
+			Operation          string   `json:"operation"`
+			Arguments          []string `json:"arguments"`
+			ActualPayloadBytes int64    `json:"actualPayloadBytes"`
+			RecoveryEpoch      int64    `json:"recoveryEpoch"`
+		} `json:"input"`
+	} `json:"cases"`
+}
+
+func loadAPISSHPhase03Fixture(t *testing.T) apiSSHPhase03Fixture {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join("..", "..", "tooling", "testdata", "phase-0-3", "constrained-ssh.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fixture apiSSHPhase03Fixture
+	if err := json.Unmarshal(raw, &fixture); err != nil {
+		t.Fatal(err)
+	}
+	return fixture
 }
