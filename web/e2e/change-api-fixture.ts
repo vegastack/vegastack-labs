@@ -24,7 +24,7 @@ export const changeFixture: {
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
 function declaration(revision: number, operations = [operation]) {
-  return { schema: "vegastack-labs.dev/declaration-revision", schemaVersion: "1.0.0", declarationId: "declaration-one", declarationType: "fixture.change", revision, stateRevision: 8 + revision, recoveryEpoch: 2, contentDigest: digest(revision === 1 ? "a" : "f"), status: "draft", operations, createdAt: "2026-09-13T12:30:00Z", createdBy: "redacted-browser-principal", agentSessionId: "redacted-browser-session", extensions: [] };
+	return { schema: "vegastack-labs.dev/browser-declaration-revision", schemaVersion: "1.0.0", declarationId: "declaration-one", declarationType: "fixture.change", revision, stateRevision: 8 + revision, recoveryEpoch: 2, contentDigest: digest(revision === 1 ? "a" : "f"), status: "draft", operations, createdAt: "2026-09-13T12:30:00Z", extensions: [] };
 }
 
 const plan = {
@@ -39,15 +39,15 @@ function approval() {
 }
 
 function auditEvent(eventId: number) {
-  return { event: { schema: "vegastack-labs.dev/audit-event", schemaVersion: "1.0.0", eventId, occurredAt: "2026-09-13T12:34:00Z", recoveryEpoch: 2, stateRevision: 11, type: "run.updated", correlationId: "correlation-browser", causationEventId: null, correctionOfEventId: null, principalId: "redacted-browser-principal", principalMethod: "local-session", responsibleHumanPrincipalId: null, agentName: null, agentSessionId: null, agentSource: null, target: { kind: "run", id: "run-one" }, beforeFingerprint: null, afterFingerprint: digest("9") } };
+	return { event: { eventId, occurredAt: "2026-09-13T12:34:00Z", recoveryEpoch: 2, stateRevision: 11, type: "run.updated", target: { kind: "run", id: "run-one" } } };
 }
 
 function runPresentation() {
   const terminal = ["partial", "failed", "cancelled", "interrupted", "succeeded"].includes(changeFixture.run);
-  const effectState = changeFixture.run === "succeeded" ? "verified" : changeFixture.run === "partial" ? "effect-unknown" : changeFixture.run === "running" ? "intent-recorded" : "not-started";
-  const step = { ...operation, executorId: "executor-central", stepId: "step-one", status: changeFixture.run, effectState };
+	const progressState = changeFixture.run === "succeeded" ? "verified" : changeFixture.run === "partial" ? "unknown" : changeFixture.run === "running" ? "started" : "not-started";
+	const step = { sequence: operation.sequence, operationId: operation.operationId, operationType: operation.operationType, targetId: operation.targetId, stepId: "step-one", status: changeFixture.run, progressState };
   const nextSafeAction = changeFixture.run === "succeeded" ? "none; execution completed" : changeFixture.run === "partial" ? "recovery required; inspect the durable run" : changeFixture.run === "interrupted" ? "inspect, then resume or cancel through the server" : changeFixture.run === "queued" || changeFixture.run === "running" ? "inspect or cancel through the server" : "inspect the durable run";
-  return { run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId: "run-one", planId: plan.planId, planDigest: plan.planDigest, policyVersion: "1.0.0", executorMode: "central", executorId: "executor-central", status: changeFixture.run, steps: [step], cancellationRequested: false, rollbackStatus: changeFixture.run === "partial" ? "required" : "not-requested", verificationStatus: changeFixture.run === "succeeded" ? "verified" : terminal ? "incomplete" : "pending", verificationDigest: changeFixture.run === "succeeded" ? digest("5") : null, changed: changeFixture.run !== "queued", stateRevision: 11, recoveryEpoch: 2, createdAt: "2026-09-13T12:33:00Z", updatedAt: "2026-09-13T12:34:00Z", extensions: [] }, completedWork: changeFixture.run === "succeeded" ? [step] : [], incompleteWork: changeFixture.run === "succeeded" ? [] : [step], nextSafeAction };
+	return { run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId: "run-one", planId: plan.planId, planDigest: plan.planDigest, status: changeFixture.run, steps: [step], cancellationRequested: false, rollbackStatus: changeFixture.run === "partial" ? "required" : "not-requested", verificationStatus: changeFixture.run === "succeeded" ? "verified" : terminal ? "incomplete" : "pending", verificationDigest: changeFixture.run === "succeeded" ? digest("5") : null, changed: changeFixture.run !== "queued", stateRevision: 11, recoveryEpoch: 2, createdAt: "2026-09-13T12:33:00Z", updatedAt: "2026-09-13T12:34:00Z", extensions: [] }, completedWork: changeFixture.run === "succeeded" ? [step] : [], incompleteWork: changeFixture.run === "succeeded" ? [] : [step], nextSafeAction };
 }
 
 function envelope(command: string, data: unknown, status = "succeeded", errors: unknown[] = []) {
@@ -80,8 +80,8 @@ async function respond(route: Route) {
     if (body.expectedRevision !== 2) return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify(envelope("api.v1.declarations.revise", {}, "failed", [{ code: "STATE_CONFLICT", target: "revision", retryable: false }])) });
     return reply(route, "api.v1.declarations.revise", declaration(2, body.operations));
   }
-  if (path === "/api/v1/declarations/declaration-one/plans" && request.method() === "POST") return reply(route, "api.v1.plans.create", plan);
-  if (path === "/api/v1/plans/plan-one" && request.method() === "GET") return reply(route, "api.v1.plans.get", plan);
+	if (path === "/api/v1/declarations/declaration-one/plans" && request.method() === "POST") return reply(route, "api.v1.plans.create", { plan, readablePlan: "Exact readable fixture plan", canonicalPlan: JSON.stringify(plan) });
+	if (path === "/api/v1/plans/plan-one" && request.method() === "GET") return reply(route, "api.v1.plans.get", { plan, readablePlan: "Exact readable fixture plan", canonicalPlan: JSON.stringify(plan) });
   if (path === "/api/v1/plans/plan-one/approval-request" && request.method() === "POST") return reply(route, "api.v1.plans.approval-request.create", approval());
   if (path === "/api/v1/plans/plan-one/approval-status") { changeFixture.approvalStatusRequests += 1; return reply(route, "api.v1.plans.approval-status.get", approval()); }
   if (path === "/api/v1/plans/plan-one/execute" && request.method() === "POST") { changeFixture.executeRequests += 1; return reply(route, "api.v1.plans.execute", runPresentation()); }
