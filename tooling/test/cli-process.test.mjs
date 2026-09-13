@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { access, chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { access, chmod, cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -854,7 +854,7 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
 });
 
 test("built CLI uses the same API frame through a constrained SSH profile", async (t) => {
-  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-cli-remote-"));
+  const temporary = await realpath(await mkdtemp(path.join(tmpdir(), "vegastack-cli-remote-")));
   t.after(() => rm(temporary, { recursive: true, force: true }));
   const binary = path.join(temporary, "vsk-labs");
   const ssh = path.join(temporary, "ssh");
