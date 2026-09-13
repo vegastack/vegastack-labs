@@ -55,10 +55,14 @@ test("Phase 4 exit rejects review or post-merge proof from an earlier correction
   issue79.review = "https://github.com/vegastack/vegastack-labs/issues/79#issuecomment-5655518082";
   assert.throws(() => validatePhase4ExitDefinition(staleReview), /PHASE4_EXIT_DEFINITION/);
 
-  const premergeEvidence = structuredClone(source);
-  premergeEvidence.children.find(({ issue }) => issue === 80).evidence =
-    "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5655881078";
-  assert.throws(() => validatePhase4ExitDefinition(premergeEvidence), /PHASE4_EXIT_DEFINITION/);
+  for (const oldEvidence of [
+    "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5655881078",
+    "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5656268555",
+  ]) {
+    const invalidEvidence = structuredClone(source);
+    invalidEvidence.children.find(({ issue }) => issue === 80).evidence = oldEvidence;
+    assert.throws(() => validatePhase4ExitDefinition(invalidEvidence), /PHASE4_EXIT_DEFINITION/);
+  }
 });
 
 test("Phase 4 exit emits stable exact-commit evidence", async () => {
