@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -162,6 +162,53 @@ async function filesBelow(root) {
   return found.sort();
 }
 
+function postPhase2MutationBoundaryDirectories(productionImports = []) {
+  const directories = new Set(POST_PHASE2_MUTATION_BOUNDARY_DIRECTORIES);
+  // Scan the complete internal and executable trees before dependency
+  // discovery so a source link cannot hide the very import that would have
+  // caused its directory to be selected.
+  directories.add("cmd/vsk-labs");
+  directories.add("internal");
+  for (const importPath of productionImports.filter((name) => name.startsWith(MODULE_PREFIX))) {
+    directories.add(importPath.slice(MODULE_PREFIX.length));
+  }
+  return [...directories].sort();
+}
+
+async function firstUnsafeBoundaryEntry(root, productionImports) {
+  for (const relative of POST_PHASE2_MUTATION_BOUNDARY_ROOTS) {
+    try {
+      const value = await lstat(path.join(root, relative));
+      if (!value.isFile()) return relative;
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
+  async function walk(relativeDirectory) {
+    let entries;
+    try {
+      entries = await readdir(path.join(root, relativeDirectory), { withFileTypes: true });
+    } catch (error) {
+      if (error.code === "ENOENT") return "";
+      throw error;
+    }
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const relative = path.posix.join(relativeDirectory.split(path.sep).join("/"), entry.name);
+      if (entry.isSymbolicLink() || !entry.isDirectory() && !entry.isFile()) return relative;
+      if (entry.isDirectory()) {
+        const unsafe = await walk(relative);
+        if (unsafe !== "") return unsafe;
+      }
+    }
+    return "";
+  }
+  for (const directory of postPhase2MutationBoundaryDirectories(productionImports)) {
+    const unsafe = await walk(directory);
+    if (unsafe !== "") return unsafe;
+  }
+  return "";
+}
+
 async function commandOutput(root, command, args, options = {}) {
   return (await runCommand(command, args, {
     ...options, cwd: root, capture: true, timeoutMs: 120_000,
@@ -181,11 +228,7 @@ export async function postPhase2MutationBoundaryFiles(root = ROOT, productionImp
     })).split("\n").filter(Boolean);
   }
   const selected = new Set(POST_PHASE2_MUTATION_BOUNDARY_ROOTS);
-  const directories = new Set(POST_PHASE2_MUTATION_BOUNDARY_DIRECTORIES);
-  for (const importPath of imports.filter((name) => name.startsWith(MODULE_PREFIX)).sort()) {
-    directories.add(importPath.slice(MODULE_PREFIX.length));
-  }
-  for (const relativeDirectory of [...directories].sort()) {
+  for (const relativeDirectory of postPhase2MutationBoundaryDirectories(imports)) {
     for (const filename of await filesBelow(path.join(root, relativeDirectory))) {
       const relative = path.relative(root, filename).split(path.sep).join("/");
       if (relative.endsWith("_test.go") || relative.includes("/testdata/")) continue;
@@ -195,14 +238,24 @@ export async function postPhase2MutationBoundaryFiles(root = ROOT, productionImp
   return [...selected].sort();
 }
 
-export async function postPhase2SourceOverride(root = ROOT) {
+export async function postPhase2SourceOverride(root = ROOT, productionImports = []) {
   for (const relative of ["vendor", "go.work", "go.work.sum"]) {
     if (await pathExists(path.join(root, relative))) return relative;
   }
   const localReplaces = await commandOutput(root, "go", ["list", "-m", "-f", "{{if .Replace}}{{if not .Replace.Version}}{{.Path}}=>{{.Replace.Dir}}{{end}}{{end}}", "all"], {
     env: pinnedGoEnvironment(),
   });
-  return localReplaces === "" ? "" : "local-replace";
+  if (localReplaces !== "") return "local-replace";
+  const unsafe = await firstUnsafeBoundaryEntry(root, productionImports);
+  if (unsafe !== "") return "non-regular-source";
+  try {
+    await runCommand("go", ["mod", "verify"], {
+      cwd: root, capture: true, timeoutMs: 120_000, env: pinnedGoEnvironment(),
+    });
+  } catch {
+    return "module-cache-integrity";
+  }
+  return "";
 }
 
 export async function postPhase2MutationBoundaryDigest(root = ROOT, productionImports = null) {
@@ -378,7 +431,7 @@ export async function collectIntegratedFacts(root = ROOT) {
     migrations,
     productionExecutable: "cmd/vsk-labs",
     postPhase2MutationBoundaryDigest: await postPhase2MutationBoundaryDigest(root, productionImports),
-    postPhase2SourceOverride: await postPhase2SourceOverride(root),
+    postPhase2SourceOverride: await postPhase2SourceOverride(root, productionImports),
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
       !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),

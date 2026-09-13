@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -139,6 +139,21 @@ test("vendor, workspaces, and local source replacements fail the production proo
     await writeFile(path.join(temporary, "dependency/go.mod"), "module example.com/dependency\n\ngo 1.27\n");
     await writeFile(path.join(temporary, "go.mod"), "module example.com/root\n\ngo 1.27\n\nrequire example.com/dependency v0.0.0\nreplace example.com/dependency => ./dependency\n");
     assert.equal(await postPhase2SourceOverride(temporary), "local-replace");
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("a symlinked production source file cannot escape the reviewed boundary", async (t) => {
+  if (process.platform === "win32") return t.skip("ordinary Windows test users cannot create source symlinks");
+  const temporary = await mkdtemp(path.join(tmpdir(), "vsk-phase2-symlink-"));
+  try {
+    await writeFile(path.join(temporary, "go.mod"), "module github.com/vegastack/vegastack-labs\n\ngo 1.27\n");
+    await writeFile(path.join(temporary, "go.sum"), "");
+    await mkdir(path.join(temporary, "internal/api"), { recursive: true });
+    await writeFile(path.join(temporary, "external.go"), "package api\n");
+    await symlink(path.join(temporary, "external.go"), path.join(temporary, "internal/api/bypass.go"));
+    assert.equal(await postPhase2SourceOverride(temporary, ["github.com/vegastack/vegastack-labs/internal/api"]), "non-regular-source");
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

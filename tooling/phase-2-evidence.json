@@ -6,7 +6,7 @@
     "schemaVersion": "1.6.0",
     "productionExecutable": "cmd/vsk-labs",
     "productionDependencyDigest": "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133",
-    "postPhase2MutationBoundaryDigest": "sha256:d217d57c15d8b2f9a7936d92551e5d11d530606cbba1888942d1cd355e7f27c6",
+    "postPhase2MutationBoundaryDigest": "sha256:487342b6b4220562df69d93b405a1b59ba7c211781f95b8f061a6f4263033f6f",
     "mutationAvailable": false,
     "availableCommands": [
       "database status",
