@@ -107,6 +107,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/authorization-decision.schema.json",
 		"schemas/v1/browser-audit-event.schema.json",
 		"schemas/v1/browser-declaration-revision.schema.json",
+		"schemas/v1/browser-run-result.schema.json",
 		"schemas/v1/browser-run.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/database-status-data.schema.json",
