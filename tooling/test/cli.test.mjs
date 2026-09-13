@@ -126,10 +126,10 @@ test("the CLI verifier permits the reviewed fixed Unix-domain socket transport",
       "  transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {",
       '    return dialer.DialContext(ctx, "unix", "/run/vsk-labs/control.sock")',
       "  }}",
-      "  client := &http.Client{Transport: transport}",
+      "  httpClient := &http.Client{Transport: transport}",
       '  request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local"+spec.path, nil)',
       "  if err != nil { return err }",
-      "  _, err = client.Do(request)",
+      "  _, err = httpClient.Do(request)",
       "  return err",
       "}",
       "",
@@ -184,6 +184,44 @@ test("the local client boundary rejects an unreviewed helper and provider depend
       "",
     ].join("\n"),
     "internal/cloudflare/client.go": "package cloudflare\nfunc Connect() {}\n",
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects alternate HTTP clients", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import "net/http"',
+    "func Client(request *http.Request) error {",
+    "  _, err := http.DefaultClient.Do(request)",
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects a provider SDK import", async (t) => {
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import "provider.invalid/sdk"',
+      "func Client() { sdk.Connect() }",
+      "",
+    ].join("\n")),
+    "go.mod": [
+      "module example.test",
+      "",
+      "go 1.27.0",
+      "",
+      "require provider.invalid/sdk v0.0.0",
+      "replace provider.invalid/sdk => ./provider-sdk",
+      "",
+    ].join("\n"),
+    "provider-sdk/go.mod": "module provider.invalid/sdk\n\ngo 1.27.0\n",
+    "provider-sdk/sdk.go": "package sdk\nfunc Connect() {}\n",
   });
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);

@@ -539,7 +539,13 @@ func reviewedHTTPCall(function *types.Func, call *ast.CallExpr) bool {
 	case "NewRequestWithContext":
 		return len(call.Args) == 4 && reviewedLocalURL(call.Args[2])
 	case "Do":
-		return receiverNamed(function, "net/http", "Client")
+		selector, ok := unparenthesized(call.Fun).(*ast.SelectorExpr)
+		if !ok || len(call.Args) != 1 {
+			return false
+		}
+		receiver, receiverOK := selector.X.(*ast.Ident)
+		request, requestOK := unparenthesized(call.Args[0]).(*ast.Ident)
+		return receiverOK && receiver.Name == "httpClient" && requestOK && request.Name == "request" && receiverNamed(function, "net/http", "Client")
 	case "CloseIdleConnections":
 		return receiverNamed(function, "net/http", "Transport") || receiverNamed(function, "net/http", "Client")
 	case "Set", "Get":
