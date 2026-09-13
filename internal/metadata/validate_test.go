@@ -50,6 +50,8 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		"available risk unassigned":     func(registry *Registry) { registry.Commands[0].Risk = RiskUnassigned },
 		"read command local service":    func(registry *Registry) { commandByNameForMutation(registry, "server status").Risk = RiskLocalService },
 		"non-server local service":      func(registry *Registry) { registry.Commands[0].Risk = RiskLocalService },
+		"read command mutation":         func(registry *Registry) { commandByNameForMutation(registry, "run inspect").Risk = RiskMutation },
+		"mutation command read only":    func(registry *Registry) { commandByNameForMutation(registry, "apply").Risk = RiskReadOnly },
 		"available example missing":     func(registry *Registry) { registry.Commands[0].Examples = nil },
 		"owner phase is not numeric":    func(registry *Registry) { registry.Commands[0].OwnerPhase = "later" },
 		"planned has flags": func(registry *Registry) {
@@ -143,19 +145,20 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 	t.Parallel()
 
 	availablePhase4 := map[string]bool{
-		"api.v1.declarations.revise":           true,
-		"api.v1.declarations.get":              true,
-		"api.v1.plans.create":                  true,
-		"api.v1.plans.get":                     true,
-		"api.v1.plans.acknowledgements.create": true,
-		"api.v1.plans.acknowledgements.get":    true,
-		"api.v1.plans.execute":                 true,
-		"api.v1.runs.get":                      true,
-		"api.v1.runs.cancel":                   true,
-		"api.v1.runs.resume":                   true,
-		"api.v1.executor-leases.claim":         true,
-		"api.v1.executor-leases.renew":         true,
-		"api.v1.execution-receipts.create":     true,
+		"api.v1.declarations.revise":               true,
+		"api.v1.declarations.get":                  true,
+		"api.v1.declarations.plan-preparation.get": true,
+		"api.v1.plans.create":                      true,
+		"api.v1.plans.get":                         true,
+		"api.v1.plans.acknowledgements.create":     true,
+		"api.v1.plans.acknowledgements.get":        true,
+		"api.v1.plans.execute":                     true,
+		"api.v1.runs.get":                          true,
+		"api.v1.runs.cancel":                       true,
+		"api.v1.runs.resume":                       true,
+		"api.v1.executor-leases.claim":             true,
+		"api.v1.executor-leases.renew":             true,
+		"api.v1.execution-receipts.create":         true,
 	}
 	for _, endpoint := range Current().Endpoints {
 		want := AvailabilityAvailable

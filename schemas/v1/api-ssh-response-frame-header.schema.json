@@ -1,0 +1,43 @@
+{
+  "$id": "vegastack-labs.dev/api-ssh-response-frame-header",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actualPayloadBytes": {
+      "maximum": 25165824,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "declaredPayloadBytes": {
+      "maximum": 25165824,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "protocol": {
+      "enum": [
+        "vegastack-labs.api-ssh"
+      ],
+      "type": "string"
+    },
+    "requestId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "version": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "version",
+    "requestId",
+    "declaredPayloadBytes",
+    "actualPayloadBytes"
+  ],
+  "title": "VegaStack Labs api ssh response frame header",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

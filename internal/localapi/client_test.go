@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -117,5 +118,38 @@ func TestStatusMapsUnavailableSocketWithoutPathLeak(t *testing.T) {
 	stable, ok := failure.As(err)
 	if !ok || stable.Code != generated.ErrorCodeDependencyUnavailable || !stable.Retryable || strings.Contains(err.Error(), profile.SocketPath) {
 		t.Fatalf("Status() error = %v", err)
+	}
+}
+
+func TestRemoteCommandArgumentsMatchGeneratedOperatorCommands(t *testing.T) {
+	want := map[requestSpec][]string{
+		{command: generated.CommandNameServerStatus}:                                  {"server", "status"},
+		{command: "api.v1.summary.get"}:                                               {"--output", "json"},
+		{command: "api.v1.database-status.get"}:                                       {"database", "status"},
+		{command: "api.v1.inventory-drafts.import"}:                                   {"inventory", "import"},
+		{command: "api.v1.inventory-diffs.create"}:                                    {"inventory", "diff"},
+		{command: "api.v1.inventory-exports.create"}:                                  {"inventory", "export"},
+		{command: "api.v1.declarations.plan-preparation.get"}:                         {"plan"},
+		{command: "api.v1.plans.create", path: "/api/v1/declarations/change-1/plans"}: {"--change", "change-1", "--output", "json"},
+		{command: "api.v1.plans.get"}:                                                 {"apply"},
+		{command: "api.v1.plans.execute", path: "/api/v1/plans/plan-1/execute"}:       {"--plan-id", "plan-1", "--output", "json"},
+		{command: "api.v1.runs.get", path: "/api/v1/runs/run-1"}:                      {"--run-id", "run-1", "--output", "json"},
+		{command: "api.v1.runs.cancel"}:                                               {"run", "cancel"},
+		{command: "api.v1.runs.resume"}:                                               {"run", "resume"},
+	}
+	for spec, expected := range want {
+		if got := remoteCommandArguments(spec); !reflect.DeepEqual(got, expected) {
+			t.Fatalf("%s arguments = %#v, want %#v", spec.command, got, expected)
+		}
+	}
+	for _, spec := range []requestSpec{
+		{command: "api.v1.events.stream"},
+		{command: "api.v1.plans.create", path: "/api/v1/declarations/bad/path/plans"},
+		{command: "api.v1.plans.execute", path: "/api/v1/plans/plan-1"},
+		{command: "api.v1.runs.get", path: "/api/v1/runs/"},
+	} {
+		if got := remoteCommandArguments(spec); len(got) != 0 {
+			t.Fatalf("disallowed operation arguments = %#v", got)
+		}
 	}
 }

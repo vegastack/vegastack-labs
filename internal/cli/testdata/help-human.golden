@@ -1,6 +1,11 @@
 vsk-labs commands
 
 Available commands:
+  apply                    Execute one exact current and authorized immutable plan.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --plan-id <id>         Select the exact immutable plan; this does not acknowledge it.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   database status          Inspect control-database status.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
@@ -34,6 +39,12 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --source-revision <revision> Record the source revision supplied by its owner.
+  plan                     Create an immutable plan from one exact inert declaration revision.
+    --config <path>        Read the protected server profile at this explicit path.
+    --declaration-id <id>  Select one exact inert declaration.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --revision <revision>  Select the exact positive declaration revision.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   release inspect          Inspect a local release manifest and compatibility without claiming cryptographic verification.
     --manifest <path>      Read the local release manifest at this path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
@@ -45,6 +56,25 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --policy <path>        Read the supplied local trust policy at this path.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  run cancel               Request server-owned cancellation of one durable run at a safe boundary.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --run-id <id>          Select the exact durable run.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  run inspect              Inspect one durable run without retrying apply.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --run-id <id>          Select the exact durable run.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  run resume               Request server-owned resumption of one safely resumable durable run.
+    --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --run-id <id>          Select the exact durable run.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  server api-ssh           Serve one constrained SSH API frame through the persistent control service.
+    --config <path>        Read the protected server profile at this explicit path.
+    --device-id <id>       Bind the server-configured forced command to this verified device.
+    --ssh-principal-id <id> Bind the server-configured forced command to this verified SSH principal.
   server run               Run the persistent control service in the foreground.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
@@ -62,7 +92,6 @@ Available commands:
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
 
 Planned commands (unavailable):
-  apply                    Execute one current, authorized immutable plan.
   audit                    Inspect sanitized audit history.
   backup run               Run one exact approved backup policy.
   backup status            Inspect backup status.
@@ -91,7 +120,6 @@ Planned commands (unavailable):
   node nominate            Create an inert role-nomination change.
   node quarantine          Create an inert node-quarantine change.
   node replace             Create an inert node-replacement change.
-  plan                     Create an immutable plan from an inert change.
   restore plan             Create an immutable restore plan.
   restore run              Run one authorized restore plan.
   restore verify           Verify a completed restore.

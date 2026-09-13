@@ -157,6 +157,46 @@ func renderHumanInventoryExport(output io.Writer, data generated.InventoryExport
 	return 0
 }
 
+func renderHumanPlan(output io.Writer, data generated.Plan) int {
+	approval := "explicit human acknowledgement required"
+	if data.AuthorizationBranch == "preauthorized" {
+		approval = "preauthorized by current server policy"
+	}
+	if _, err := fmt.Fprintf(output, "Plan %s\nDigest %s\nDeclaration %s revision %d\nRisk %s\nAuthorization %s\nApproval requirement %s\nExpires %s\n", data.PlanID, data.PlanDigest, data.DeclarationID, data.Binding.DeclarationRevision, data.Risk, data.AuthorizationBranch, approval, data.ExpiresAt); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, operation := range data.Operations {
+		if _, err := fmt.Fprintf(output, "Operation %d target %s via %s\n", operation.Sequence, operation.TargetID, operation.AdapterID); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	return 0
+}
+
+func renderHumanRun(output io.Writer, data generated.RunPresentation) int {
+	run := data.Run
+	if _, err := fmt.Fprintf(output, "Run %s\nPlan %s\nDigest %s\nStatus %s\nCompleted work %d\n", run.RunID, run.PlanID, run.PlanDigest, run.Status, len(data.CompletedWork)); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, step := range data.CompletedWork {
+		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s effect %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.EffectState); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	if _, err := fmt.Fprintf(output, "Incomplete work %d\n", len(data.IncompleteWork)); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, step := range data.IncompleteWork {
+		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s effect %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.EffectState); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	if _, err := fmt.Fprintf(output, "Verification %s\nRollback %s\nChanged %t\nNext safe action: %s\n", run.VerificationStatus, run.RollbackStatus, run.Changed, data.NextSafeAction); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return 0
+}
+
 func renderHumanVersion(output io.Writer, build BuildInfo) int {
 	if _, err := fmt.Fprintf(output, "vsk-labs %s\ncontract %s\nbuild %s\n", build.ToolVersion, generated.RegistrySchemaVersion, build.ReleaseBuildID); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)

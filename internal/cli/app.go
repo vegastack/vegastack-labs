@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vegastack/vegastack-labs/internal/apissh"
 	"github.com/vegastack/vegastack-labs/internal/clientfile"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -42,6 +43,7 @@ type ReleaseOperations interface {
 type ServerOperations interface {
 	Run(context.Context, string) error
 	Status(context.Context, string) (localapi.Response, error)
+	ServeAPISSH(context.Context, string, string, string, io.Reader, io.Writer) error
 }
 
 type ControlOperations interface {
@@ -50,6 +52,11 @@ type ControlOperations interface {
 	ImportInventory(context.Context, string, generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, string, generated.InventoryDiffRequest) (localapi.TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, string, generated.InventoryExportRequest) (localapi.TypedResponse[generated.InventoryExportData], error)
+	Plan(context.Context, string, string, int64) (localapi.TypedResponse[generated.Plan], error)
+	Apply(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
+	InspectRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
+	CancelRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
+	ResumeRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
 }
 
 type Option func(*App)
@@ -66,6 +73,12 @@ func WithServerOperations(operations ServerOperations) Option {
 	}
 }
 
+func WithInput(input io.Reader) Option {
+	return func(app *App) {
+		app.stdin = input
+	}
+}
+
 func WithControlOperations(operations ControlOperations, files clientfile.Reader) Option {
 	return func(app *App) {
 		app.control = operations
@@ -74,6 +87,7 @@ func WithControlOperations(operations ControlOperations, files clientfile.Reader
 }
 
 type App struct {
+	stdin      io.Reader
 	stdout     io.Writer
 	stderr     io.Writer
 	build      BuildInfo
@@ -92,7 +106,7 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	app := &App{stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs}
+	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs}
 	for _, option := range options {
 		if option != nil {
 			option(app)
@@ -170,6 +184,14 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		}
 		if err := app.server.Run(ctx, parsed.Value(generated.FlagConfig)); err != nil {
 			return app.failServer(mode, parsed.commandName(), err)
+		}
+		return 0
+	case generated.CommandNameServerAPISSH:
+		if app.server == nil || app.stdin == nil {
+			return app.failAPISSH(failure.New(generated.ErrorCodeIntegrityFailure, "server-operations", false))
+		}
+		if err := app.server.ServeAPISSH(ctx, parsed.Value(generated.FlagConfig), parsed.Value(generated.FlagSSHPrincipalID), parsed.Value(generated.FlagDeviceID), app.stdin, app.stdout); err != nil {
+			return app.failAPISSH(err)
 		}
 		return 0
 	case generated.CommandNameServerStatus:
@@ -288,10 +310,109 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
 		return renderHumanInventoryExport(app.stdout, response.Data)
+	case generated.CommandNamePlan:
+		if app.control == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		revision, _ := strconv.ParseInt(parsed.Value(generated.FlagRevision), 10, 64)
+		response, err := app.control.Plan(ctx, parsed.Value(generated.FlagConfig), parsed.Value(generated.FlagDeclarationID), revision)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameApply:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagPlanID))
+	case generated.CommandNameRunInspect:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagRunID))
+	case generated.CommandNameRunCancel:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagRunID))
+	case generated.CommandNameRunResume:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagRunID))
 	default:
 		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
 	}
 }
+
+func (app *App) handlePlanResponse(mode outputMode, response localapi.TypedResponse[generated.Plan]) int {
+	if response.ExitCode != 0 {
+		return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+	}
+	if mode == outputJSON {
+		return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+	}
+	return renderHumanPlan(app.stdout, response.Data)
+}
+
+func (app *App) runCommand(ctx context.Context, mode outputMode, parsed parsedArguments, id string) int {
+	if app.control == nil {
+		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+	}
+	var operation func(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
+	switch parsed.commandName() {
+	case generated.CommandNameApply:
+		operation = app.control.Apply
+	case generated.CommandNameRunInspect:
+		operation = app.control.InspectRun
+	case generated.CommandNameRunCancel:
+		operation = app.control.CancelRun
+	case generated.CommandNameRunResume:
+		operation = app.control.ResumeRun
+	default:
+		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
+	}
+	response, err := operation(ctx, parsed.Value(generated.FlagConfig), id)
+	if err != nil {
+		if uncertain, ok := localapi.AsUncertainRun(err); ok {
+			return app.failUncertainRun(mode, parsed.commandName(), uncertain.RunID)
+		}
+		return app.failServer(mode, parsed.commandName(), err)
+	}
+	if mode == outputJSON {
+		return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+	}
+	if !emptyRun(response.Data) {
+		if code := renderHumanRun(app.stdout, response.Data); code != 0 {
+			return code
+		}
+	}
+	if response.ExitCode != 0 {
+		return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+	}
+	return 0
+}
+
+func (app *App) failUncertainRun(mode outputMode, command, runID string) int {
+	guidance := generated.RunUncertainGuidance{RunID: runID, Action: "inspect-only", Command: generated.CommandNameRunInspect}
+	if mode == outputHuman {
+		_, _ = app.stderr.Write([]byte("Submission result is unknown. " + guidance.Action + " with `vsk-labs " + guidance.Command + " --run-id " + guidance.RunID + "`; do not apply again.\n"))
+		return renderHumanFailure(app.stderr, generated.ErrorCodeDependencyUnavailable, "control-service", exitCodeFor(generated.ErrorCodeDependencyUnavailable))
+	}
+	factory := result.NewFactory(app.build, app.requestIDs)
+	envelope, err := factory.Failure(command, generated.RunStatusBlocked, generated.ErrorCodeDependencyUnavailable, "control-service", true, 0, 0, guidance)
+	if err != nil {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "request-id", generated.RunStatusFailed, false)
+	}
+	envelope.RunID = &runID
+	if err := result.Encode(app.stdout, envelope); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return exitCodeFor(generated.ErrorCodeDependencyUnavailable)
+}
+
+func (app *App) failAPISSH(err error) int {
+	code := apissh.ErrorCode(err)
+	if code == "" {
+		if stable, ok := failure.As(err); ok {
+			code = stable.Code
+		}
+	}
+	if _, ok := generated.ErrorExitCodes[code]; !ok {
+		code = generated.ErrorCodeIntegrityFailure
+	}
+	return renderHumanFailure(app.stderr, code, "api-ssh", exitCodeFor(code))
+}
+
+func emptyRun(value generated.RunPresentation) bool { return value.Run.RunID == "" }
 
 var serverErrorTargets = map[string]struct{}{
 	"application-health": {}, "application-shutdown": {}, "application-start": {},

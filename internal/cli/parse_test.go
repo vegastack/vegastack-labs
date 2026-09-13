@@ -2,10 +2,55 @@ package cli
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
+
+func TestApplyRequiresExactPlanAndHasNoApprovalFlag(t *testing.T) {
+	t.Parallel()
+
+	parsed, failure := parseArguments([]string{"apply", "--config", "profile.json", "--plan-id", "plan-123", "--output", "json"})
+	if failure != nil || parsed.Value("--plan-id") != "plan-123" {
+		t.Fatalf("apply contract = (%#v, %#v)", parsed, failure)
+	}
+	if _, failure = parseArguments([]string{"apply", "--config", "profile.json", "--plan-id", "plan-123", "--yes"}); failure == nil {
+		t.Fatal("generic approval flag accepted")
+	}
+}
+
+func TestParsePhase4CommandsRequireBoundedExactSelectors(t *testing.T) {
+	t.Parallel()
+
+	valid := [][]string{
+		{"plan", "--config", "profile.json", "--declaration-id", "change-1", "--revision", "2"},
+		{"apply", "--config", "profile.json", "--plan-id", "plan-1"},
+		{"run", "inspect", "--config", "profile.json", "--run-id", "run-1"},
+		{"run", "cancel", "--config", "profile.json", "--run-id", "run-1"},
+		{"run", "resume", "--config", "profile.json", "--run-id", "run-1"},
+	}
+	for _, args := range valid {
+		if _, failure := parseArguments(args); failure != nil {
+			t.Errorf("args %v failure = %#v", args, failure)
+		}
+	}
+
+	invalid := [][]string{
+		{"plan", "--declaration-id", "change-1", "--revision", "2"},
+		{"plan", "--config", "profile.json", "--declaration-id", "change-1", "--revision", "0"},
+		{"plan", "--config", "profile.json", "--declaration-id", "change-1", "--revision", "9223372036854775808"},
+		{"apply", "--config", "profile.json"},
+		{"apply", "--config", "profile.json", "--plan-id", strings.Repeat("a", 129)},
+		{"run", "inspect", "--config", "profile.json"},
+		{"run", "cancel", "--config", "profile.json", "--run-id", "UPPERCASE"},
+	}
+	for _, args := range invalid {
+		if _, failure := parseArguments(args); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Errorf("args %v failure = %#v", args, failure)
+		}
+	}
+}
 
 func TestParseReleaseFlagsAndSwitches(t *testing.T) {
 	t.Parallel()
@@ -67,6 +112,26 @@ func TestParseServerCommandsRequireOneExplicitConfig(t *testing.T) {
 		parsed, failure := parseArguments([]string{"server", command, "--config", "fixture/server-profile.json"})
 		if failure != nil || parsed.Value(generated.FlagConfig) != "fixture/server-profile.json" {
 			t.Fatalf("server %s parse = (%#v, %#v)", command, parsed, failure)
+		}
+	}
+}
+
+func TestParseServerAPISSHRequiresFixedBindingArguments(t *testing.T) {
+	t.Parallel()
+
+	parsed, parseFailure := parseArguments([]string{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator"})
+	if parseFailure != nil || parsed.commandName() != generated.CommandNameServerAPISSH || parsed.Value(generated.FlagSSHPrincipalID) != "ssh-principal.operator" || parsed.Value(generated.FlagDeviceID) != "device.operator" {
+		t.Fatalf("server api-ssh parse = (%#v, %#v)", parsed, parseFailure)
+	}
+	for _, arguments := range [][]string{
+		{"server", "api-ssh", "--config", "profile.json", "--device-id", "device.operator"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "UPPERCASE", "--device-id", "device.operator"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "../../device"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator", "status"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator", "--output", "json"},
+	} {
+		if _, failure := parseArguments(arguments); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Errorf("server api-ssh args %v failure = %#v", arguments, failure)
 		}
 	}
 }

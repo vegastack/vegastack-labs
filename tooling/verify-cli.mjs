@@ -23,6 +23,7 @@ const CODE_ORDER = [
   "CLI_CONTROL_GOOGLE_ACCESS",
   "CLI_CONTROL_PROVIDER_ACCESS",
   "CLI_CONTROL_ARBITRARY_HTTP",
+  "CLI_LOCAL_CLIENT_BOUNDARY",
   "CLI_CONTROL_SERVER_PATH",
   "CLI_INVENTORY_DIRECT_DOMAIN",
   "CLI_SQLITE_ACCESS",
@@ -75,6 +76,7 @@ function validAnalyzerResult(value) {
     "generatedEndpointsReference",
     "handwrittenRegistry",
     "inventoryDirectDomain",
+    "localClientBoundary",
     "releaseArtifactExecution",
     "releaseNetworkAccess",
     "shellDispatch",
@@ -95,6 +97,7 @@ function validAnalyzerResult(value) {
     typeof value.controlServerPath !== "boolean" ||
     typeof value.controlShellDispatch !== "boolean" ||
     typeof value.inventoryDirectDomain !== "boolean" ||
+    typeof value.localClientBoundary !== "boolean" ||
     typeof value.releaseArtifactExecution !== "boolean" ||
     typeof value.releaseNetworkAccess !== "boolean" ||
     typeof value.shellDispatch !== "boolean" ||
@@ -170,6 +173,7 @@ async function inspectSources(root, execute) {
     if (analysis.controlProviderAccess) codes.add("CLI_CONTROL_PROVIDER_ACCESS");
     if (analysis.controlArbitraryHTTP) codes.add("CLI_CONTROL_ARBITRARY_HTTP");
     if (analysis.controlServerPath) codes.add("CLI_CONTROL_SERVER_PATH");
+    if (!analysis.localClientBoundary) codes.add("CLI_LOCAL_CLIENT_BOUNDARY");
     if (analysis.inventoryDirectDomain) codes.add("CLI_INVENTORY_DIRECT_DOMAIN");
     if (analysis.releaseNetworkAccess) codes.add("CLI_RELEASE_NETWORK_ACCESS");
     if (analysis.releaseArtifactExecution) codes.add("CLI_RELEASE_ARTIFACT_EXECUTION");

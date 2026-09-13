@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -34,6 +35,7 @@ type listedPackage struct {
 	Imports    []string
 	Export     string
 	Module     *module
+	Standard   bool
 }
 
 type analysis struct {
@@ -53,6 +55,7 @@ type analysis struct {
 	ControlArbitraryHTTP        bool     `json:"controlArbitraryHTTP"`
 	ControlServerPath           bool     `json:"controlServerPath"`
 	InventoryDirectDomain       bool     `json:"inventoryDirectDomain"`
+	LocalClientBoundary         bool     `json:"localClientBoundary"`
 	TargetsAnalyzed             []string `json:"targetsAnalyzed"`
 }
 
@@ -336,9 +339,13 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	stateExportImport := modulePath + "/internal/stateexport"
 	identityImport := modulePath + "/internal/identity"
 	apiImport := modulePath + "/internal/api"
+	serverImport := modulePath + "/internal/server"
 	localAPIImport := modulePath + "/internal/localapi"
+	localTransportImport := modulePath + "/internal/localtransport"
+	sshTransportImport := modulePath + "/internal/sshtransport"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
+	serverConfigImport := modulePath + "/internal/serverconfig"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -350,16 +357,60 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	}
 	loader := packageImporter{checked: checked, fallback: targetLoader}
 	var result analysis
+	standardPackages := make(map[string]bool)
+	for _, candidate := range listed {
+		if candidate.Standard {
+			standardPackages[candidate.ImportPath] = true
+		}
+	}
+	standardNetworkPackages := standardNetworkClosure(listed)
+	result.LocalClientBoundary = true
+	localClosure := moduleDependencyClosure(inModule, localAPIImport)
+	controlClosure := moduleDependencyClosure(inModule, cliImport)
+	for importPath := range moduleDependencyClosure(inModule, clientFileImport) {
+		controlClosure[importPath] = true
+	}
+	controlClosure[mainImport] = true
+	for _, candidate := range inModule {
+		if candidate.ImportPath != mainImport {
+			continue
+		}
+		for _, imported := range candidate.Imports {
+			if imported == serverImport || strings.HasPrefix(imported, serverImport+"/") {
+				continue
+			}
+			for importPath := range moduleDependencyClosure(inModule, imported) {
+				controlClosure[importPath] = true
+			}
+		}
+	}
+	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport, sshTransportImport) {
+		result.LocalClientBoundary = false
+	}
 	for _, candidate := range inModule {
 		parsed, err := parseAndCheck(candidate, loader)
 		if err != nil {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		if candidate.ImportPath == mainImport && !reviewedMainComposition(parsed, modulePath, cliImport, clientFileImport, releaseImport, serverImport) {
+			result.ControlProviderAccess = true
+		}
+		// The persistent server's generated forced-command handler forwards one
+		// allowlisted frame back to its own protected socket. Other consumers
+		// remain forbidden; server code is outside the portable client closure.
+		if candidate.ImportPath != serverImport && candidate.ImportPath != localAPIImport && candidate.ImportPath != localTransportImport && candidate.ImportPath != sshTransportImport && containsString(candidate.Imports, localTransportImport) {
+			result.LocalClientBoundary = false
+		}
+		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport, localTransportImport, sshTransportImport) {
+			result.LocalClientBoundary = false
+		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
-		isControlPackage := candidate.ImportPath == cliImport || strings.HasPrefix(candidate.ImportPath, cliImport+"/") || candidate.ImportPath == clientFileImport || strings.HasPrefix(candidate.ImportPath, clientFileImport+"/")
+		isControlPackage := controlClosure[candidate.ImportPath]
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -374,21 +425,32 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 			if isReleasePackage {
-				switch imported {
-				case "net", "net/http", "github.com/sigstore/sigstore-go/pkg/tuf":
+				if standardNetworkPackages[imported] || imported == "github.com/sigstore/sigstore-go/pkg/tuf" {
 					result.ReleaseNetworkAccess = true
+				}
+				switch imported {
 				case "os/exec", "plugin":
 					result.ReleaseArtifactExecution = true
 				}
 			}
-			if isControlPackage {
+			if isControlCapabilityPackage {
 				switch imported {
 				case "database/sql", "github.com/ncruces/go-sqlite3", "github.com/ncruces/go-sqlite3/driver":
 					result.ControlSQLiteAccess = true
 				case "os/exec", "plugin":
-					result.ControlShellDispatch = true
-				case "net/http":
+					if !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) {
+						result.ControlShellDispatch = true
+					}
+				case "crypto/tls", "syscall":
+					if !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) {
+						result.ControlArbitraryHTTP = true
+					}
+				}
+				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) {
 					result.ControlArbitraryHTTP = true
+				}
+				if !reviewedControlExternalImport(parsed, imported, standardPackages[imported], modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
+					result.ControlProviderAccess = true
 				}
 				if strings.Contains(imported, "google.golang.org") || strings.Contains(imported, "/google") || strings.Contains(imported, "sheets") {
 					result.ControlGoogleAccess = true
@@ -401,9 +463,542 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 		}
-		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, isControlPackage, &result)
+		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
 	}
 	return result, nil
+}
+
+const reviewedMainCompositionDigest = "2257058f84305545a1658c7b3b65382535f4f88879111b54260ef5af2d431722"
+
+func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
+	approvedInternal := map[string]bool{
+		cliImport:                       true,
+		clientFileImport:                true,
+		releaseImport:                   true,
+		modulePath + "/internal/result": true,
+		serverImport:                    true,
+	}
+	extendedComposition := false
+	for _, imported := range candidate.listed.Imports {
+		if strings.HasPrefix(imported, modulePath+"/") {
+			if !approvedInternal[imported] {
+				return false
+			}
+			if imported != cliImport {
+				extendedComposition = true
+			}
+		}
+	}
+	if !extendedComposition {
+		return true
+	}
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	return digestSourceFiles(candidate.listed.Dir, names) == reviewedMainCompositionDigest
+}
+
+func standardNetworkClosure(packages []listedPackage) map[string]bool {
+	standard := make(map[string]listedPackage)
+	for _, candidate := range packages {
+		if candidate.Standard {
+			standard[candidate.ImportPath] = candidate
+		}
+	}
+	capable := map[string]bool{"net": true}
+	for changed := true; changed; {
+		changed = false
+		for importPath, candidate := range standard {
+			if capable[importPath] {
+				continue
+			}
+			for _, imported := range candidate.Imports {
+				if capable[imported] {
+					capable[importPath] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	return capable
+}
+
+func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport string) bool {
+	switch candidate.listed.ImportPath {
+	case mainImport:
+		return imported == "syscall" && reviewedMainSyscallUse(candidate)
+	case localAPIImport:
+		return imported == "net" && reviewedLocalAPISource(candidate)
+	case localTransportImport:
+		return (imported == "net" || imported == "net/http") && reviewedLocalTransportPackage(candidate)
+	case sshTransportImport:
+		return imported == "net/http" && reviewedSSHTransportPackage(candidate, localTransportImport)
+	case serverConfigImport:
+		return (imported == "net/url" || imported == "net/netip") && reviewedControlPlatformSource(candidate, "serverconfig")
+	default:
+		return false
+	}
+}
+
+func reviewedMainSyscallUse(candidate checkedSourcePackage) bool {
+	valid := true
+	for _, file := range candidate.files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			selector, ok := node.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			function, ok := candidate.info.ObjectOf(selector.Sel).(*types.Func)
+			if ok && function.Pkg() != nil && function.Pkg().Path() == "syscall" {
+				valid = false
+				return false
+			}
+			return true
+		})
+	}
+	return valid
+}
+
+func reviewedControlExternalImport(candidate checkedSourcePackage, imported string, standard bool, modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport string) bool {
+	if strings.HasPrefix(imported, modulePath+"/") || standard {
+		return true
+	}
+	candidatePath := candidate.listed.ImportPath
+	if candidatePath == localAPIImport && imported == "golang.org/x/sys/unix" && reviewedLocalAPISource(candidate) {
+		return true
+	}
+	if candidatePath == clientFileImport && (imported == "golang.org/x/sys/unix" || imported == "golang.org/x/sys/windows") && reviewedControlPlatformSource(candidate, "clientfile") {
+		return true
+	}
+	if candidatePath == serverConfigImport && imported == "golang.org/x/sys/unix" && reviewedControlPlatformSource(candidate, "serverconfig") {
+		return true
+	}
+	if candidatePath == releaseImport {
+		switch imported {
+		case "github.com/sigstore/sigstore-go/pkg/bundle", "github.com/sigstore/sigstore-go/pkg/root", "github.com/sigstore/sigstore-go/pkg/verify":
+			return true
+		}
+	}
+	return false
+}
+
+func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	var expected string
+	switch kind {
+	case "clientfile":
+		expected = "20cf2e7ef6da35560d59b88a69e75391ae58b22a22d88da619000e019adaf28b"
+		if containsString(names, "read_unix.go") {
+			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
+		}
+	case "serverconfig":
+		expected = "512234421f11cb33db0b150bf72ab232e9a51c6ceedbd0f85b63a2f3d5a39f73"
+		if containsString(names, "profile_linux.go") {
+			expected = "891bdf45132eb531020f812ccc932bb4bbafdcc60e8bcb0c8a75ba3ad94c92e3"
+		}
+	default:
+		return false
+	}
+	return digestSourceFiles(candidate.listed.Dir, names) == expected
+}
+
+func moduleDependencyClosure(packages []listedPackage, root string) map[string]bool {
+	byImport := make(map[string]listedPackage, len(packages))
+	for _, candidate := range packages {
+		byImport[candidate.ImportPath] = candidate
+	}
+	if _, ok := byImport[root]; !ok {
+		return nil
+	}
+	closure := make(map[string]bool)
+	pending := []string{root}
+	for len(pending) > 0 {
+		current := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if closure[current] {
+			continue
+		}
+		closure[current] = true
+		for _, imported := range byImport[current].Imports {
+			if _, ok := byImport[imported]; ok {
+				pending = append(pending, imported)
+			}
+		}
+	}
+	return closure
+}
+
+func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	approved := map[string]bool{
+		localAPIImport:                        true,
+		localTransportImport:                  true,
+		sshTransportImport:                    true,
+		modulePath + "/internal/apissh":       true,
+		modulePath + "/internal/failure":      true,
+		modulePath + "/internal/generated":    true,
+		modulePath + "/internal/principal":    true,
+		modulePath + "/internal/result":       true,
+		modulePath + "/internal/runprotocol":  true,
+		modulePath + "/internal/serverconfig": true,
+		modulePath + "/internal/strictjson":   true,
+	}
+	for importPath := range closure {
+		if !approved[importPath] {
+			return false
+		}
+	}
+	return true
+}
+
+func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
+	approvedExternal := func(imported string) bool {
+		return imported == "golang.org/x/sys/unix" || imported == "github.com/go-jose/go-jose/v4" || imported == "github.com/go-jose/go-jose/v4/jwt"
+	}
+	if candidate.listed.ImportPath == localTransportImport {
+		return reviewedLocalTransportPackage(candidate)
+	}
+	if candidate.listed.ImportPath == sshTransportImport {
+		return reviewedSSHTransportPackage(candidate, localTransportImport)
+	}
+	if candidate.listed.ImportPath != localAPIImport {
+		for _, imported := range candidate.listed.Imports {
+			if imported == "os/exec" || imported == "plugin" || imported == "database/sql" {
+				return false
+			}
+			if !strings.HasPrefix(imported, modulePath+"/") && strings.Contains(imported, ".") && !approvedExternal(imported) {
+				return false
+			}
+		}
+		return true
+	}
+	if !reviewedLocalAPISource(candidate) {
+		return false
+	}
+	for _, imported := range candidate.listed.Imports {
+		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/http" || imported == "net/url" || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" || imported == "syscall" {
+			return false
+		}
+		if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") || approvedExternal(imported) {
+			continue
+		}
+		// The reviewed local client has no third-party dependency. Provider SDKs
+		// and any future external transport must pass a separate design review.
+		return false
+	}
+	approvedCallbacks := reviewedLocalCallbacks(candidate)
+	valid := true
+	for _, file := range candidate.files {
+		directCallees := make(map[ast.Expr]bool)
+		ast.Inspect(file, func(node ast.Node) bool {
+			if call, ok := node.(*ast.CallExpr); ok {
+				directCallees[unparenthesized(call.Fun)] = true
+			}
+			return true
+		})
+		ast.Inspect(file, func(node ast.Node) bool {
+			if !valid {
+				return false
+			}
+			if selector, ok := node.(*ast.SelectorExpr); ok {
+				function, functionOK := candidate.info.ObjectOf(selector.Sel).(*types.Func)
+				if functionOK && function.Pkg() != nil && reviewedNetworkFunctionPackage(function.Pkg().Path()) && !directCallees[unparenthesized(selector)] {
+					valid = false
+					return false
+				}
+			}
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			if variable := calledFunctionVariable(call.Fun, candidate.info); variable != nil {
+				if !reviewedLocalCallbackCall(call.Fun, variable, candidate.info, localAPIImport, approvedCallbacks) {
+					valid = false
+					return false
+				}
+				return true
+			}
+			function := calledFunction(call.Fun, candidate.info)
+			if function == nil {
+				callee := unparenthesized(call.Fun)
+				if identifier, ok := callee.(*ast.Ident); ok {
+					if _, builtin := candidate.info.ObjectOf(identifier).(*types.Builtin); builtin {
+						return true
+					}
+				}
+				if _, literal := callee.(*ast.FuncLit); !literal {
+					if functionType := candidate.info.TypeOf(callee); functionType != nil {
+						if _, indirect := types.Unalias(functionType).Underlying().(*types.Signature); indirect {
+							valid = false
+							return false
+						}
+					}
+				}
+				return true
+			}
+			if function.Pkg() == nil {
+				return true
+			}
+			switch function.Pkg().Path() {
+			case "net":
+				valid = reviewedUnixDial(function, call)
+			case "net/http", "net/url", "crypto/tls":
+				valid = false
+			}
+			return valid
+		})
+	}
+	return valid
+}
+
+const (
+	reviewedLocalAPILinuxDigest       = "4daaabf9c84ece7f0ef1f63e93b07bc04599d7f89184d22efbff23856aa6d0a3"
+	reviewedLocalAPIUnsupportedDigest = "409a099a60348f43c183c05e8593d49fd023313e3243e32db0399100016b2179"
+)
+
+// reviewedLocalAPISource seals every production source file in the package
+// that can reach the value-only local transport. This makes caller provenance
+// part of the reviewed boundary: adding a raw forwarding helper, a new client
+// method, an init hook, a target-specific file, or a syscall path fails closed
+// until the complete package is independently reviewed and resealed.
+func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	expected := reviewedLocalAPIUnsupportedDigest
+	if containsString(names, "listener_linux.go") {
+		expected = reviewedLocalAPILinuxDigest
+	}
+	return digestSourceFiles(candidate.listed.Dir, names) == expected
+}
+
+func reviewedNetworkFunctionPackage(packagePath string) bool {
+	switch packagePath {
+	case "net", "net/http", "net/url", "crypto/tls":
+		return true
+	default:
+		return false
+	}
+}
+
+func reviewedLocalCallbackCall(expression ast.Expr, variable *types.Var, info *types.Info, localAPIImport string, approved map[*types.Var]bool) bool {
+	if approved[variable] {
+		return true
+	}
+	selector, ok := unparenthesized(expression).(*ast.SelectorExpr)
+	return ok && variable.IsField() && variable.Name() == "onClose" && typeNamed(info.TypeOf(selector.X), localAPIImport, "authenticatedConn")
+}
+
+func typeNamed(value types.Type, packagePath, name string) bool {
+	for {
+		value = types.Unalias(value)
+		pointer, ok := value.(*types.Pointer)
+		if !ok {
+			break
+		}
+		value = pointer.Elem()
+	}
+	named, ok := value.(*types.Named)
+	return ok && named.Obj() != nil && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == packagePath && named.Obj().Name() == name
+}
+
+func calledFunctionVariable(expression ast.Expr, info *types.Info) *types.Var {
+	var object types.Object
+	switch typed := unparenthesized(expression).(type) {
+	case *ast.Ident:
+		object = info.ObjectOf(typed)
+	case *ast.SelectorExpr:
+		object = info.ObjectOf(typed.Sel)
+	}
+	variable, ok := object.(*types.Var)
+	if !ok {
+		return nil
+	}
+	if _, ok := types.Unalias(variable.Type()).Underlying().(*types.Signature); !ok {
+		return nil
+	}
+	return variable
+}
+
+// reviewedLocalCallbacks names the three function values required by the
+// socket implementation and binds them to their exact declarations. A caller
+// cannot evade the network guard by reusing one of these names in another
+// scope or by assigning a package function to a local variable.
+func reviewedLocalCallbacks(candidate checkedSourcePackage) map[*types.Var]bool {
+	approved := make(map[*types.Var]bool)
+	for _, file := range candidate.files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch typed := node.(type) {
+			case *ast.FuncDecl:
+				parameter := ""
+				switch typed.Name.Name {
+				case "validateTypedResponse":
+					parameter = "validate"
+				case "newAuthenticatedConn":
+					parameter = "onClose"
+				}
+				if parameter != "" && typed.Type.Params != nil {
+					for _, field := range typed.Type.Params.List {
+						for _, name := range field.Names {
+							if name.Name == parameter {
+								if variable, ok := candidate.info.Defs[name].(*types.Var); ok {
+									approved[variable] = true
+								}
+							}
+						}
+					}
+				}
+			case *ast.AssignStmt:
+				if len(typed.Lhs) != 2 || len(typed.Rhs) != 1 {
+					return true
+				}
+				call, ok := unparenthesized(typed.Rhs[0]).(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				function := calledFunction(call.Fun, candidate.info)
+				if function == nil || function.Pkg() == nil || function.Pkg().Path() != "context" || function.Name() != "WithTimeout" {
+					return true
+				}
+				name, ok := unparenthesized(typed.Lhs[1]).(*ast.Ident)
+				if !ok {
+					return true
+				}
+				object := candidate.info.ObjectOf(name)
+				if variable, ok := object.(*types.Var); ok {
+					approved[variable] = true
+				}
+			}
+			return true
+		})
+	}
+	return approved
+}
+
+func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
+	switch function.Name() {
+	case "DialContext":
+		if len(call.Args) != 3 {
+			return false
+		}
+		signature, ok := function.Type().(*types.Signature)
+		if !ok || signature.Recv() == nil || !strings.Contains(types.TypeString(signature.Recv().Type(), nil), "net.Dialer") {
+			return false
+		}
+		return exactString(call.Args[1], "unix")
+	case "ListenUnix":
+		return len(call.Args) == 2 && exactString(call.Args[0], "unix")
+	case "AcceptUnix", "SetUnlinkOnClose", "SyscallConn", "Close", "Addr":
+		return true
+	default:
+		return false
+	}
+}
+
+const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
+
+const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
+
+func reviewedSSHTransportPackage(candidate checkedSourcePackage, localTransportImport string) bool {
+	modulePath := strings.TrimSuffix(localTransportImport, "/internal/localtransport")
+	approvedImports := map[string]bool{
+		"bytes": true, "context": true, "errors": true, "io": true, "os/exec": true,
+		"path/filepath": true, "regexp": true, "strings": true, "time": true,
+		modulePath + "/internal/apissh": true, modulePath + "/internal/generated": true,
+		localTransportImport: true,
+	}
+	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports) {
+		return false
+	}
+	for _, imported := range candidate.listed.Imports {
+		if !approvedImports[imported] {
+			return false
+		}
+	}
+	expectedAPI := []string{"ErrInvalid", "ErrUnavailable", "Request", "RoundTrip"}
+	actualAPI := slicesMatching(candidate.typed.Scope().Names(), ast.IsExported)
+	if len(actualAPI) != len(expectedAPI) {
+		return false
+	}
+	for index := range expectedAPI {
+		if actualAPI[index] != expectedAPI[index] {
+			return false
+		}
+	}
+	return digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles) == reviewedSSHTransportDigest
+}
+
+func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
+	approvedImports := map[string]bool{
+		"bytes": true, "context": true, "errors": true, "io": true, "net": true,
+		"net/http": true, "path": true, "strings": true, "time": true,
+	}
+	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports) {
+		return false
+	}
+	for _, imported := range candidate.listed.Imports {
+		if !approvedImports[imported] {
+			return false
+		}
+	}
+	expectedAPI := []string{
+		"ErrInvalid", "ErrRedirect", "ErrUnavailable", "Method", "MethodGet", "MethodPost", "Request", "Response", "RoundTrip",
+		"StatusBadGateway", "StatusBadRequest", "StatusConflict", "StatusForbidden", "StatusNotFound", "StatusOK", "StatusPreconditionFailed",
+		"StatusRequestTimeout", "StatusServiceUnavailable", "StatusUnauthorized",
+	}
+	actualAPI := candidate.typed.Scope().Names()
+	actualAPI = slicesMatching(actualAPI, ast.IsExported)
+	if len(actualAPI) != len(expectedAPI) {
+		return false
+	}
+	for index := range expectedAPI {
+		if actualAPI[index] != expectedAPI[index] {
+			return false
+		}
+	}
+	return digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles) == reviewedLocalTransportDigest
+}
+
+func digestSourceFiles(directory string, names []string) string {
+	hash := sha256.New()
+	for _, name := range names {
+		content, err := os.ReadFile(filepath.Join(directory, name))
+		if err != nil {
+			return ""
+		}
+		_, _ = hash.Write([]byte(name))
+		_, _ = hash.Write([]byte{0})
+		_, _ = hash.Write(content)
+		_, _ = hash.Write([]byte{0})
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil))
+}
+
+func slicesMatching(values []string, keep func(string) bool) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if keep(value) {
+			result = append(result, value)
+		}
+	}
+	return result
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
+}
+
+func exactString(expression ast.Expr, expected string) bool {
+	literal, ok := unparenthesized(expression).(*ast.BasicLit)
+	if !ok || literal.Kind != token.STRING {
+		return false
+	}
+	value, err := strconv.Unquote(literal.Value)
+	return err == nil && value == expected
 }
 
 func exportDataImporter(packages []listedPackage) (types.Importer, error) {
@@ -667,6 +1262,10 @@ func calledFunction(expression ast.Expr, info *types.Info) *types.Func {
 	case *ast.SelectorExpr:
 		function, _ := info.ObjectOf(value.Sel).(*types.Func)
 		return function
+	case *ast.IndexExpr:
+		return calledFunction(value.X, info)
+	case *ast.IndexListExpr:
+		return calledFunction(value.X, info)
 	default:
 		return nil
 	}

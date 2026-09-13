@@ -6,18 +6,18 @@ import (
 	"net"
 	"sync"
 
-	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/principal"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
 type ListenConfig struct {
 	Profile  serverconfig.Profile
-	Resolver identity.LocalPrincipalResolver
+	Resolver principal.LocalPrincipalResolver
 }
 
 type AuthenticatedConn interface {
 	net.Conn
-	Principal() identity.Principal
+	Principal() principal.Principal
 }
 
 type Listener interface {
@@ -30,16 +30,16 @@ type ListenerFactory func(context.Context, ListenConfig) (Listener, error)
 
 type authenticatedConn struct {
 	net.Conn
-	principal identity.Principal
+	principal principal.Principal
 	onClose   func()
 	once      sync.Once
 }
 
-func newAuthenticatedConn(connection net.Conn, principal identity.Principal, onClose func()) AuthenticatedConn {
+func newAuthenticatedConn(connection net.Conn, principal principal.Principal, onClose func()) AuthenticatedConn {
 	return &authenticatedConn{Conn: connection, principal: principal, onClose: onClose}
 }
 
-func (connection *authenticatedConn) Principal() identity.Principal {
+func (connection *authenticatedConn) Principal() principal.Principal {
 	return connection.principal
 }
 

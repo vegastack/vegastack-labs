@@ -1,12 +1,15 @@
 package cli
 
 import (
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
+
+var phase4IDPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 
 type outputMode string
 
@@ -106,10 +109,37 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
 	}
-	if invalidInventoryShape(parsed) {
+	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) {
 		return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 	}
 	return parsed, nil
+}
+
+func invalidServerShape(parsed parsedArguments) bool {
+	if parsed.commandName() != generated.CommandNameServerAPISSH {
+		return false
+	}
+	return !phase4IDPattern.MatchString(parsed.Value(generated.FlagSSHPrincipalID)) || !phase4IDPattern.MatchString(parsed.Value(generated.FlagDeviceID))
+}
+
+func invalidPhase4Shape(parsed parsedArguments) bool {
+	validID := func(flag string) bool {
+		return phase4IDPattern.MatchString(parsed.Value(flag))
+	}
+	positiveRevision := func(flag string) bool {
+		value, err := strconv.ParseInt(parsed.Value(flag), 10, 64)
+		return err == nil && value > 0
+	}
+	switch parsed.commandName() {
+	case generated.CommandNamePlan:
+		return !validID(generated.FlagDeclarationID) || !positiveRevision(generated.FlagRevision)
+	case generated.CommandNameApply:
+		return !validID(generated.FlagPlanID)
+	case generated.CommandNameRunInspect, generated.CommandNameRunCancel, generated.CommandNameRunResume:
+		return !validID(generated.FlagRunID)
+	default:
+		return false
+	}
 }
 
 func invalidInventoryShape(parsed parsedArguments) bool {

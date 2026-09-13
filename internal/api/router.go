@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -37,6 +38,16 @@ var remoteExecutorEndpoints = map[string]bool{
 	"api.v1.executor-leases.claim":     true,
 	"api.v1.executor-leases.renew":     true,
 	"api.v1.execution-receipts.create": true,
+}
+
+var constrainedSSHWriteEndpoints = map[string]bool{
+	"api.v1.inventory-diffs.create":   true,
+	"api.v1.inventory-drafts.import":  true,
+	"api.v1.inventory-exports.create": true,
+	"api.v1.plans.create":             true,
+	"api.v1.plans.execute":            true,
+	"api.v1.runs.cancel":              true,
+	"api.v1.runs.resume":              true,
 }
 
 // RemoteReadRequestAllowed is the server-side admission boundary for the
@@ -81,6 +92,32 @@ func RemoteExecutorRequestAllowed(method, requestPath string) bool {
 		}
 	}
 	return false
+}
+
+// ConstrainedSSHRequestAllowed admits only generated operator endpoints that
+// fit the one-request framing protocol. Streaming, browser sessions, executor
+// operations, acknowledgement creation, and undeclared writes stay denied.
+func ConstrainedSSHRequestAllowed(method, requestPath string) bool {
+	_, ok := ConstrainedSSHOperation(method, requestPath)
+	return ok
+}
+
+// ConstrainedSSHOperation returns the generated endpoint identity used to
+// correlate the framed response with the exact admitted API operation.
+func ConstrainedSSHOperation(method, requestPath string) (string, bool) {
+	for _, endpoint := range generated.Endpoints {
+		if endpoint.Availability != generated.AvailabilityAvailable || endpoint.Method != method || !slices.Contains(endpoint.Audiences, "operator") {
+			continue
+		}
+		allowed := (method == http.MethodGet && endpoint.ID != "api.v1.events.stream") || constrainedSSHWriteEndpoints[endpoint.ID]
+		if !allowed {
+			continue
+		}
+		if _, ok := matchPath(endpoint.Path, requestPath); ok {
+			return endpoint.ID, true
+		}
+	}
+	return "", false
 }
 
 func finiteRoutes(app *Application) []route {

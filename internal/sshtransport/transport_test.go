@@ -1,0 +1,150 @@
+package sshtransport
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"testing"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/apissh"
+	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/localtransport"
+)
+
+func TestRoundTripUsesDirectArgumentsAndExactAPISSHFrame(t *testing.T) {
+	if os.Getenv("VSK_SSH_HELPER") == "1" {
+		content, _ := io.ReadAll(os.Stdin)
+		_ = os.WriteFile(os.Getenv("VSK_SSH_CAPTURE"), content, 0o600)
+		request, err := apissh.ReadRequest(bytes.NewReader(content))
+		if err != nil {
+			os.Exit(2)
+		}
+		envelope := generated.RunResult{Schema: generated.SchemaIDRunResult, SchemaVersion: generated.RegistrySchemaVersion, ToolVersion: "0.0.0-test", Command: "api.v1.test", RequestID: request.Header.RequestID, Status: generated.RunStatusSucceeded, RecoveryEpoch: 3, ReleaseBuildID: "test", Errors: []generated.ResultError{}, Data: json.RawMessage(`{}`)}
+		if apissh.WriteResponse(os.Stdout, request.Header.RequestID, envelope) != nil {
+			os.Exit(2)
+		}
+		os.Exit(0)
+	}
+	directory := t.TempDir()
+	capture := filepath.Join(directory, "capture")
+	t.Setenv("VSK_SSH_CAPTURE", capture)
+
+	var gotExecutable string
+	var gotArguments []string
+	arguments := secureSSHArguments("/literal path", "operator@host")
+	response, err := roundTrip(context.Background(), Request{
+		Executable: "/usr/bin/ssh", Arguments: arguments,
+		RequestID: "request-ssh-transport", SSHPrincipalID: "principal.operator", DeviceID: "device.operator", RecoveryEpoch: 3, OperationArgs: []string{"--output", "json"},
+		Method: localtransport.MethodPost, Path: "/api/v1/test", Body: []byte(`{"value":"$(literal)"}`), Timeout: 5 * time.Second, ResponseLimit: 4096,
+	}, func(ctx context.Context, executable string, arguments []string) *exec.Cmd {
+		gotExecutable = executable
+		gotArguments = append([]string(nil), arguments...)
+		command := exec.CommandContext(ctx, os.Args[0], "-test.run=TestRoundTripUsesDirectArgumentsAndExactAPISSHFrame")
+		command.Env = append(os.Environ(), "VSK_SSH_HELPER=1")
+		return command
+	})
+	if err != nil || response.StatusCode != 200 {
+		t.Fatalf("RoundTrip() = %#v, %v", response, err)
+	}
+	decoded, err := apissh.ReadResponse(bytes.NewReader(responseFrame(t, "request-ssh-transport", response.Body)), "request-ssh-transport")
+	if err != nil || decoded.Envelope.Command != "api.v1.test" {
+		t.Fatalf("response envelope = %#v, %v", decoded.Envelope, err)
+	}
+	captured, err := os.ReadFile(capture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantArguments := secureSSHArguments("/literal path", "operator@host")
+	if gotExecutable != "/usr/bin/ssh" || fmt.Sprint(gotArguments) != fmt.Sprint(wantArguments) {
+		t.Fatalf("invocation = %q %#v", gotExecutable, gotArguments)
+	}
+	request, err := apissh.ReadRequest(bytes.NewReader(captured))
+	if err != nil || request.Header.RequestID != "request-ssh-transport" || request.Header.SSHPrincipalID != "principal.operator" || request.Header.DeviceID != "device.operator" || request.Header.RecoveryEpoch != 3 || request.Method != "POST" || request.Path != "/api/v1/test" || string(request.Payload) != `{"value":"$(literal)"}` {
+		t.Fatalf("captured frame = %#v, %v", request, err)
+	}
+}
+
+func responseFrame(t *testing.T, requestID string, envelope []byte) []byte {
+	t.Helper()
+	header := generated.ApiSshResponseFrameHeader{Protocol: apissh.Protocol, Version: apissh.Version, RequestID: requestID, DeclaredPayloadBytes: int64(len(envelope)), ActualPayloadBytes: int64(len(envelope))}
+	raw, err := json.Marshal(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return append(append(raw, '\n'), envelope...)
+}
+
+func TestRoundTripRejectsMissingOrChangedSecurityOptions(t *testing.T) {
+	base := secureSSHArguments("/known", "operator@host")
+	for name, mutate := range map[string]func([]string) []string{
+		"ambient config": func(arguments []string) []string { arguments[1] = "/tmp/ssh-config"; return arguments },
+		"proxy command": func(arguments []string) []string {
+			return replaceArgument(arguments, "ProxyCommand=none", "ProxyCommand=helper")
+		},
+		"proxy jump": func(arguments []string) []string {
+			return replaceArgument(arguments, "ProxyJump=none", "ProxyJump=jump")
+		},
+		"local command": func(arguments []string) []string {
+			return replaceArgument(arguments, "PermitLocalCommand=no", "PermitLocalCommand=yes")
+		},
+		"credential agent": func(arguments []string) []string {
+			return replaceArgument(arguments, "IdentityAgent=none", "IdentityAgent=SSH_AUTH_SOCK")
+		},
+		"interactive password": func(arguments []string) []string {
+			return replaceArgument(arguments, "PasswordAuthentication=no", "PasswordAuthentication=yes")
+		},
+		"extra argument": func(arguments []string) []string { return append(arguments, "uname") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			arguments := mutate(append([]string(nil), base...))
+			_, err := RoundTrip(context.Background(), Request{Executable: "/usr/bin/ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
+			if err != ErrInvalid {
+				t.Fatalf("modified arguments error = %v", err)
+			}
+		})
+	}
+}
+
+func TestRoundTripRejectsAnyRemoteCommandArgument(t *testing.T) {
+	arguments := append(secureSSHArguments("/known", "operator@host"), "uname")
+	_, err := RoundTrip(context.Background(), Request{Executable: "/usr/bin/ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
+	if err != ErrInvalid {
+		t.Fatalf("remote command error = %v", err)
+	}
+}
+
+func TestRoundTripRejectsBareSSHExecutable(t *testing.T) {
+	_, err := RoundTrip(context.Background(), Request{Executable: "ssh", Arguments: secureSSHArguments("/known", "operator@host"), Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
+	if err != ErrInvalid {
+		t.Fatalf("bare executable error = %v", err)
+	}
+}
+
+func secureSSHArguments(knownHosts, destination string) []string {
+	return []string{
+		"-F", "none", "-T",
+		"-o", "AddKeysToAgent=no", "-o", "BatchMode=yes", "-o", "CanonicalizeHostname=no", "-o", "CheckHostIP=yes",
+		"-o", "ClearAllForwardings=yes", "-o", "ControlMaster=no", "-o", "EscapeChar=none", "-o", "ExitOnForwardFailure=yes",
+		"-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "GatewayPorts=no", "-o", "GlobalKnownHostsFile=none",
+		"-o", "HostbasedAuthentication=no", "-o", "IdentityAgent=none", "-o", "IdentitiesOnly=yes", "-o", "KbdInteractiveAuthentication=no",
+		"-o", "PasswordAuthentication=no", "-o", "PermitLocalCommand=no", "-o", "ProxyCommand=none", "-o", "ProxyJump=none",
+		"-o", "RemoteCommand=none", "-o", "RequestTTY=no", "-o", "StrictHostKeyChecking=yes", "-o", "UpdateHostKeys=no",
+		"-o", "UserKnownHostsFile=" + knownHosts, "-o", "VerifyHostKeyDNS=no", destination,
+	}
+}
+
+func replaceArgument(arguments []string, old, replacement string) []string {
+	for index := range arguments {
+		if arguments[index] == old {
+			arguments[index] = replacement
+			return arguments
+		}
+	}
+	panic("test argument not found: " + old)
+}

@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.10.0",
+  "schemaVersion": "1.15.0",
   "endpoints": [
     {
       "id": "api.v1.database-status.get",
@@ -26,6 +26,18 @@
       "stream": "finite",
       "audiences": [
         "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.declarations.plan-preparation.get",
+      "method": "GET",
+      "path": "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation",
+      "availability": "available",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/plan-preparation",
+      "stream": "finite",
+      "audiences": [
         "operator"
       ]
     },
@@ -330,7 +342,7 @@
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/plan-reference-request",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -357,7 +369,7 @@
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/run-reference-request",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -370,7 +382,7 @@
       "path": "/api/v1/runs/{runId}",
       "availability": "available",
       "ownerPhase": "4",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -384,7 +396,7 @@
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/run-reference-request",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",

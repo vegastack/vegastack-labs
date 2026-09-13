@@ -15,7 +15,7 @@ const CODE_ORDER = [
   "READ_API_SQLITE_SCOPE",
 ];
 const EXPECTED_ENDPOINTS = [
-  "api.v1.database-status.get", "api.v1.declarations.get", "api.v1.declarations.revise",
+  "api.v1.database-status.get", "api.v1.declarations.get", "api.v1.declarations.plan-preparation.get", "api.v1.declarations.revise",
   "api.v1.events.stream",
   "api.v1.execution-receipts.create",
   "api.v1.executor-leases.claim", "api.v1.executor-leases.renew",

@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, lstat, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -17,12 +17,42 @@ const REVIEWED_POST_PHASE2_IMPORTS = new Set([
   // dependencies, not test-only escape hatches around Phase 2 acceptance.
   `${MODULE_PREFIX}internal/adapter`,
   `${MODULE_PREFIX}internal/adapters/slack`,
+  // Issue #78's constrained-SSH path is a generated, length-bounded frame
+  // transported through a protected profile. These packages are covered by
+  // the exact mutation-safety boundary digest below.
+  `${MODULE_PREFIX}internal/apissh`,
   `${MODULE_PREFIX}internal/change`,
+  `${MODULE_PREFIX}internal/clientprofile`,
   `${MODULE_PREFIX}internal/consoleassets`,
   `${MODULE_PREFIX}internal/credentialref`,
   `${MODULE_PREFIX}internal/plan`,
   `${MODULE_PREFIX}internal/run`,
+  // Issue #78 confines the protected local client's reviewed HTTP-over-Unix
+  // implementation to a sealed value-only transport package. The package adds
+  // no alternate production route or Phase 2 authority bypass.
+  `${MODULE_PREFIX}internal/localtransport`,
+  // Issue #78 moves the local socket's passive principal and peer contract
+  // out of the remote-capable identity package. This network-free package is
+  // an intentional boundary hardening, not a Phase 2 production bypass.
+  `${MODULE_PREFIX}internal/principal`,
+  // Issue #78 shares this pure provider-neutral ID protocol between the
+  // reviewed run engine and its thin local client. It adds no bypass path.
+  `${MODULE_PREFIX}internal/runprotocol`,
+  `${MODULE_PREFIX}internal/sshtransport`,
 ]);
+const REVIEWED_POST_PHASE2_COMMANDS = new Set([
+  "apply", "plan", "run cancel", "run inspect", "run resume", "server api-ssh",
+]);
+// Phase 2's no-mutation proof predates Phase 4. Later commands are accepted
+// only while the complete local production source closure of cmd/vsk-labs
+// remains byte-for-byte reviewed. This avoids a brittle hand-maintained file
+// allowlist: every production package, target-specific implementation, and
+// embedded production asset is sealed automatically. Tests and testdata do
+// not affect the production digest. Any production edit fails the old
+// acceptance gate until it receives a fresh review and this digest is
+// deliberately updated.
+const POST_PHASE2_MUTATION_BOUNDARY_ROOTS = ["go.mod", "go.sum"];
+const POST_PHASE2_MUTATION_BOUNDARY_DIRECTORIES = ["internal/metadata", "schemas/v1"];
 const CODE_ORDER = [
   "PHASE2_CHILD_INCOMPLETE",
   "PHASE2_TRACEABILITY_GAP",
@@ -95,6 +125,19 @@ function compatibleContractVersion(current, baseline) {
   return left[1] > right[1] || left[1] === right[1] && left[2] >= right[2];
 }
 
+function pinnedGoEnvironment(extra = {}) {
+  return { ...process.env, GOWORK: "off", GOFLAGS: "-mod=readonly", ...extra };
+}
+
+async function pathExists(filename) {
+  try {
+    await access(filename);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function sha256(filename) {
   return createHash("sha256").update(await readFile(filename)).digest("hex");
 }
@@ -119,6 +162,60 @@ async function filesBelow(root) {
   return found.sort();
 }
 
+function postPhase2MutationBoundaryDirectories(productionImports = []) {
+  const directories = new Set(POST_PHASE2_MUTATION_BOUNDARY_DIRECTORIES);
+  // Scan the complete internal and executable trees before dependency
+  // discovery so a source link cannot hide the very import that would have
+  // caused its directory to be selected.
+  directories.add("cmd/vsk-labs");
+  directories.add("internal");
+  for (const importPath of productionImports.filter((name) => name.startsWith(MODULE_PREFIX))) {
+    directories.add(importPath.slice(MODULE_PREFIX.length));
+  }
+  return [...directories].sort();
+}
+
+async function firstUnsafeBoundaryEntry(root, productionImports) {
+  for (const relative of POST_PHASE2_MUTATION_BOUNDARY_ROOTS) {
+    try {
+      const value = await lstat(path.join(root, relative));
+      if (!value.isFile()) return relative;
+    } catch (error) {
+      if (error.code !== "ENOENT") throw error;
+    }
+  }
+  async function walk(relativeDirectory) {
+    let entries;
+    try {
+      entries = await readdir(path.join(root, relativeDirectory), { withFileTypes: true });
+    } catch (error) {
+      if (error.code === "ENOENT") return "";
+      throw error;
+    }
+    for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+      const relative = path.posix.join(relativeDirectory.split(path.sep).join("/"), entry.name);
+      if (entry.isSymbolicLink() || !entry.isDirectory() && !entry.isFile()) return relative;
+      if (entry.isDirectory()) {
+        const unsafe = await walk(relative);
+        if (unsafe !== "") return unsafe;
+      }
+    }
+    return "";
+  }
+  for (const directory of postPhase2MutationBoundaryDirectories(productionImports)) {
+    try {
+      const value = await lstat(path.join(root, directory));
+      if (!value.isDirectory()) return directory;
+    } catch (error) {
+      if (error.code === "ENOENT") return directory;
+      throw error;
+    }
+    const unsafe = await walk(directory);
+    if (unsafe !== "") return unsafe;
+  }
+  return "";
+}
+
 async function commandOutput(root, command, args, options = {}) {
   return (await runCommand(command, args, {
     ...options, cwd: root, capture: true, timeoutMs: 120_000,
@@ -128,6 +225,55 @@ async function commandOutput(root, command, args, options = {}) {
 function productionDependencyDigest(imports) {
   const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX) && !REVIEWED_POST_PHASE2_IMPORTS.has(name)).sort();
   return `sha256:${createHash("sha256").update(`${localImports.join("\n")}\n`).digest("hex")}`;
+}
+
+export async function postPhase2MutationBoundaryFiles(root = ROOT, productionImports = null) {
+  let imports = productionImports;
+  if (imports === null) {
+    imports = (await commandOutput(root, "go", ["list", "-deps", "-f", "{{.ImportPath}}", "./cmd/vsk-labs"], {
+      env: pinnedGoEnvironment({ CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" }),
+    })).split("\n").filter(Boolean);
+  }
+  const selected = new Set(POST_PHASE2_MUTATION_BOUNDARY_ROOTS);
+  for (const relativeDirectory of postPhase2MutationBoundaryDirectories(imports)) {
+    for (const filename of await filesBelow(path.join(root, relativeDirectory))) {
+      const relative = path.relative(root, filename).split(path.sep).join("/");
+      if (relative.endsWith("_test.go") || relative.includes("/testdata/")) continue;
+      selected.add(relative);
+    }
+  }
+  return [...selected].sort();
+}
+
+export async function postPhase2SourceOverride(root = ROOT, productionImports = []) {
+  for (const relative of ["vendor", "go.work", "go.work.sum"]) {
+    if (await pathExists(path.join(root, relative))) return relative;
+  }
+  const localReplaces = await commandOutput(root, "go", ["list", "-m", "-f", "{{if .Replace}}{{if not .Replace.Version}}{{.Path}}=>{{.Replace.Dir}}{{end}}{{end}}", "all"], {
+    env: pinnedGoEnvironment(),
+  });
+  if (localReplaces !== "") return "local-replace";
+  const unsafe = await firstUnsafeBoundaryEntry(root, productionImports);
+  if (unsafe !== "") return "non-regular-source";
+  try {
+    await runCommand("go", ["mod", "verify"], {
+      cwd: root, capture: true, timeoutMs: 120_000, env: pinnedGoEnvironment(),
+    });
+  } catch {
+    return "module-cache-integrity";
+  }
+  return "";
+}
+
+export async function postPhase2MutationBoundaryDigest(root = ROOT, productionImports = null) {
+  const digest = createHash("sha256");
+  for (const relative of await postPhase2MutationBoundaryFiles(root, productionImports)) {
+    digest.update(relative);
+    digest.update("\0");
+    digest.update(await readFile(path.join(root, relative)));
+    digest.update("\0");
+  }
+  return `sha256:${digest.digest("hex")}`;
 }
 
 async function proofExists(root, proof) {
@@ -178,12 +324,12 @@ export async function executeScenarioProofs(manifest, root = ROOT, selected = nu
     for (const [goPackage, names] of [...goGroups].sort(([left], [right]) => left.localeCompare(right))) {
       const pattern = `^(?:${names.map(regexpLiteral).join("|")})$`;
       await runCommand("go", ["test", "-count=1", goPackage, "-run", pattern], {
-        cwd: root, capture: true, timeoutMs: 180_000,
+        cwd: root, capture: true, timeoutMs: 180_000, env: pinnedGoEnvironment(),
       });
     }
     for (const filename of [...nodeFiles].sort()) {
       await runCommand(process.execPath, ["--test", filename], {
-        cwd: root, capture: true, timeoutMs: 180_000,
+        cwd: root, capture: true, timeoutMs: 180_000, env: pinnedGoEnvironment(),
       });
     }
   } catch {
@@ -215,7 +361,7 @@ export async function proveUnavailableMutations(root = ROOT) {
     await writeFile(path.join(state, "database.sqlite"), "synthetic-phase-2-database-fingerprint\n", { mode: 0o600 });
     await writeFile(path.join(state, "artifacts", "current.json"), "{\"synthetic\":true}\n", { mode: 0o600 });
     await runCommand("go", ["build", "-o", binary, "./cmd/vsk-labs"], {
-      cwd: root, capture: true, timeoutMs: 120_000,
+      cwd: root, capture: true, timeoutMs: 120_000, env: pinnedGoEnvironment(),
     });
     const registry = JSON.parse(await readFile(path.join(root, "schemas/v1/command-registry.json"), "utf8"));
     const planned = registry.commands.filter(({ availability }) => availability === "planned")
@@ -272,7 +418,7 @@ export async function collectIntegratedFacts(root = ROOT) {
   }
   const productionImports = (await commandOutput(root, "go", [
     "list", "-deps", "-f", "{{.ImportPath}}", "./cmd/vsk-labs",
-  ], { env: { ...process.env, CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" } }))
+  ], { env: pinnedGoEnvironment({ CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" }) }))
     .split("\n").filter(Boolean).sort();
   const fixtureFiles = await filesBelow(path.join(root, "tooling/testdata/phase-2"));
   let privateFixture = false;
@@ -291,8 +437,11 @@ export async function collectIntegratedFacts(root = ROOT) {
     endpointIds: endpoints.endpoints.map(({ id }) => id).sort(),
     migrations,
     productionExecutable: "cmd/vsk-labs",
-    mutationAvailable: commands.commands.some(({ availability, ownerPhase }) =>
-      availability === "available" && Number(ownerPhase) >= 4),
+    postPhase2MutationBoundaryDigest: await postPhase2MutationBoundaryDigest(root, productionImports),
+    postPhase2SourceOverride: await postPhase2SourceOverride(root, productionImports),
+    mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
+      availability === "available" && Number(ownerPhase) >= 4 &&
+      !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),
     productionImports,
     privateFixture,
     children,
@@ -305,7 +454,7 @@ export function validateEvidence(manifest, facts) {
   if (!exactKeys(manifest, ["schemaVersion", "phase", "status", "contract", "children", "scenarios", "requirements"]) ||
       manifest.schemaVersion !== 1 || manifest.phase !== "2" ||
       manifest.status !== "implemented-awaiting-operator-acceptance" ||
-      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
+      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "postPhase2MutationBoundaryDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
       !Array.isArray(manifest.children) || !Array.isArray(manifest.scenarios) || !Array.isArray(manifest.requirements)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   } else {
@@ -353,11 +502,13 @@ export function validateEvidence(manifest, facts) {
     codes.add("PHASE2_CONTRACT_DRIFT");
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
+      manifest.contract.postPhase2MutationBoundaryDigest !== facts.postPhase2MutationBoundaryDigest ||
       !same(manifest.contract.availableCommands, EXPECTED_AVAILABLE_COMMANDS) ||
       !containsAll(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
   if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports) ||
+      facts.postPhase2SourceOverride !== "" ||
       facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");
   }

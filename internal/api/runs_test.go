@@ -148,11 +148,11 @@ func TestRunExecuteFailureAndExactReplayReturnSameDurableResult(t *testing.T) {
 				if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
 					t.Fatal(err)
 				}
-				var data generated.Run
+				var data generated.RunPresentation
 				if err := json.Unmarshal(envelope.Data, &data); err != nil {
 					t.Fatal(err)
 				}
-				if envelope.Status != test.status || len(envelope.Errors) != 1 || envelope.Errors[0].Code != test.code || envelope.RunID == nil || *envelope.RunID != durable.RunID || envelope.PlanID == nil || *envelope.PlanID != durable.PlanID || !envelope.Changed || envelope.StateRevision != durable.StateRevision || envelope.RecoveryEpoch != durable.RecoveryEpoch || data.RunID != durable.RunID || data.Status != durable.Status {
+				if envelope.Status != test.status || len(envelope.Errors) != 1 || envelope.Errors[0].Code != test.code || envelope.RunID == nil || *envelope.RunID != durable.RunID || envelope.PlanID == nil || *envelope.PlanID != durable.PlanID || !envelope.Changed || envelope.StateRevision != durable.StateRevision || envelope.RecoveryEpoch != durable.RecoveryEpoch || data.Run.RunID != durable.RunID || data.Run.Status != durable.Status || data.NextSafeAction != "recovery required; inspect the durable run" {
 					t.Fatalf("attempt %d envelope=%#v data=%#v", attempt, envelope, data)
 				}
 				if attempt == 0 {
@@ -192,6 +192,34 @@ func TestRunExecuteSucceededAfterCommitErrorAndReplayStaySuccessful(t *testing.T
 	}
 	if runs.submitCalls != 1 {
 		t.Fatalf("submit calls = %d", runs.submitCalls)
+	}
+}
+
+func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
+	base := apiRunResult(apiRunPlan())
+	base.Steps = []generated.RunStep{
+		{StepID: "step-complete", Status: generated.RunStatusSucceeded},
+		{StepID: "step-open", Status: "running"},
+	}
+	tests := []struct {
+		name, status, rollback, verification, next string
+	}{
+		{"succeeded", generated.RunStatusSucceeded, "not-requested", "verified", "none; execution completed"},
+		{"cancelled", generated.RunStatusCancelled, "not-requested", "pending", "inspect before creating another plan"},
+		{"interrupted", generated.RunStatusInterrupted, "not-requested", "pending", "inspect, then resume or cancel through the server"},
+		{"running", "running", "not-requested", "pending", "inspect or cancel through the server"},
+		{"partial", generated.RunStatusPartial, "required", "incomplete", "recovery required; inspect the durable run"},
+		{"failed", generated.RunStatusFailed, "not-requested", "failed", "inspect the durable run"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			run := base
+			run.Status, run.RollbackStatus, run.VerificationStatus = test.status, test.rollback, test.verification
+			presentation := presentRun(run)
+			if presentation.Run.Status != test.status || presentation.NextSafeAction != test.next || len(presentation.CompletedWork) != 1 || presentation.CompletedWork[0].StepID != "step-complete" || len(presentation.IncompleteWork) != 1 || presentation.IncompleteWork[0].StepID != "step-open" {
+				t.Fatalf("presentation = %#v", presentation)
+			}
+		})
 	}
 }
 

@@ -11,7 +11,7 @@ import (
 	"sync"
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
-	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/principal"
 	"golang.org/x/sys/unix"
 )
 
@@ -202,22 +202,22 @@ func (listener *guardedListener) Accept() (net.Conn, error) {
 	}
 }
 
-func peerCredentials(connection *net.UnixConn) (identity.LocalPeer, error) {
+func peerCredentials(connection *net.UnixConn) (principal.LocalPeer, error) {
 	raw, err := connection.SyscallConn()
 	if err != nil {
-		return identity.LocalPeer{}, err
+		return principal.LocalPeer{}, err
 	}
 	var credentials *unix.Ucred
 	var controlErr error
 	if err := raw.Control(func(fd uintptr) {
 		credentials, controlErr = unix.GetsockoptUcred(int(fd), unix.SOL_SOCKET, unix.SO_PEERCRED)
 	}); err != nil {
-		return identity.LocalPeer{}, err
+		return principal.LocalPeer{}, err
 	}
 	if controlErr != nil || credentials == nil {
-		return identity.LocalPeer{}, controlErr
+		return principal.LocalPeer{}, controlErr
 	}
-	return identity.LocalPeer{PID: credentials.Pid, UID: credentials.Uid, GID: credentials.Gid}, nil
+	return principal.LocalPeer{PID: credentials.Pid, UID: credentials.Uid, GID: credentials.Gid}, nil
 }
 
 func (listener *guardedListener) Close() error {

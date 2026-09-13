@@ -19,6 +19,7 @@ type RiskClass string
 const (
 	RiskReadOnly     RiskClass = "read-only"
 	RiskLocalService RiskClass = "local-service"
+	RiskMutation     RiskClass = "mutation"
 	RiskUnassigned   RiskClass = "unassigned"
 )
 

@@ -444,6 +444,13 @@ export interface Run {
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
+export interface RunPresentation {
+  readonly "run": Run;
+  readonly "completedWork": ReadonlyArray<RunStep>;
+  readonly "incompleteWork": ReadonlyArray<RunStep>;
+  readonly "nextSafeAction": "none; execution completed" | "inspect before creating another plan" | "inspect, then resume or cancel through the server" | "inspect or cancel through the server" | "recovery required; inspect the durable run" | "inspect the durable run";
+}
+
 export interface RunReferenceRequest {
   readonly "schema": "vegastack-labs.dev/run-reference-request";
   readonly "schemaVersion": "1.0.0";
@@ -3115,6 +3122,48 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/run-presentation",
+    "fields": [
+      {
+        "name": "run",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/run"
+      },
+      {
+        "name": "completedWork",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/run-step",
+        "maxItems": 256
+      },
+      {
+        "name": "incompleteWork",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/run-step",
+        "maxItems": 256
+      },
+      {
+        "name": "nextSafeAction",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none; execution completed",
+          "inspect before creating another plan",
+          "inspect, then resume or cancel through the server",
+          "inspect or cancel through the server",
+          "recovery required; inspect the durable run",
+          "inspect the durable run"
+        ]
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/run-reference-request",
     "fields": [
       {
@@ -3767,6 +3816,10 @@ function decodeRun(value: unknown): Run {
   return decodeSchema("vegastack-labs.dev/run", value) as unknown as Run;
 }
 
+function decodeRunPresentation(value: unknown): RunPresentation {
+  return decodeSchema("vegastack-labs.dev/run-presentation", value) as unknown as RunPresentation;
+}
+
 function decodeRunReferenceRequest(value: unknown): RunReferenceRequest {
   return decodeSchema("vegastack-labs.dev/run-reference-request", value) as unknown as RunReferenceRequest;
 }
@@ -4046,7 +4099,7 @@ export type ReadClient = {
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<Plan>>;
-  readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<Run>>;
+  readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
@@ -4114,7 +4167,7 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     async getRun(path, options = {}) {
       const operation = "api.v1.runs.get";
-      return performRead(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "", options, operation, decodeRun);
+      return performRead(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "", options, operation, decodeRunPresentation);
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";
@@ -4131,11 +4184,11 @@ export type ChangeClient = {
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
   readonly reviseDeclaration: (path: { readonly declarationId: string }, request: DeclarationRevisionRequest, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
   readonly createPlan: (path: { readonly declarationId: string }, request: PlanCreateRequest, options?: RequestOptions) => Promise<ReadResult<Plan>>;
-  readonly executePlan: (path: { readonly planId: string }, request: PlanReferenceRequest, options?: RequestOptions) => Promise<ReadResult<Run>>;
+  readonly executePlan: (path: { readonly planId: string }, request: PlanReferenceRequest, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<Plan>>;
-  readonly cancelRun: (path: { readonly runId: string }, request: RunReferenceRequest, options?: RequestOptions) => Promise<ReadResult<Run>>;
-  readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<Run>>;
-  readonly resumeRun: (path: { readonly runId: string }, request: RunReferenceRequest, options?: RequestOptions) => Promise<ReadResult<Run>>;
+  readonly cancelRun: (path: { readonly runId: string }, request: RunReferenceRequest, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
+  readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
+  readonly resumeRun: (path: { readonly runId: string }, request: RunReferenceRequest, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
 };
 
 export function createChangeClient(fetchTransport: FetchTransport): ChangeClient {
@@ -4157,7 +4210,7 @@ export function createChangeClient(fetchTransport: FetchTransport): ChangeClient
     async executePlan(path, request, options = {}) {
       const operation = "api.v1.plans.execute";
       const body = decodePlanReferenceRequest(request);
-      return performChange(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/execute", body, options, operation, decodeRun);
+      return performChange(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/execute", body, options, operation, decodeRunPresentation);
     },
     async getPlan(path, options = {}) {
       const operation = "api.v1.plans.get";
@@ -4166,16 +4219,16 @@ export function createChangeClient(fetchTransport: FetchTransport): ChangeClient
     async cancelRun(path, request, options = {}) {
       const operation = "api.v1.runs.cancel";
       const body = decodeRunReferenceRequest(request);
-      return performChange(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "/cancel", body, options, operation, decodeRun);
+      return performChange(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "/cancel", body, options, operation, decodeRunPresentation);
     },
     async getRun(path, options = {}) {
       const operation = "api.v1.runs.get";
-      return performRead(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "", options, operation, decodeRun);
+      return performRead(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "", options, operation, decodeRunPresentation);
     },
     async resumeRun(path, request, options = {}) {
       const operation = "api.v1.runs.resume";
       const body = decodeRunReferenceRequest(request);
-      return performChange(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "/resume", body, options, operation, decodeRun);
+      return performChange(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "/resume", body, options, operation, decodeRunPresentation);
     },
   };
 }

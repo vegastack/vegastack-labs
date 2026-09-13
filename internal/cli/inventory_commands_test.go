@@ -21,6 +21,8 @@ type stubControlOperations struct {
 	importResponse   localapi.TypedResponse[generated.InventoryImportData]
 	diffResponse     localapi.TypedResponse[generated.InventoryDiffData]
 	exportResponse   localapi.TypedResponse[generated.InventoryExportData]
+	planResponse     localapi.TypedResponse[generated.Plan]
+	runResponse      localapi.TypedResponse[generated.RunPresentation]
 	err              error
 	calls            int
 	config           string
@@ -59,6 +61,32 @@ func (stub *stubControlOperations) ExportInventory(_ context.Context, config str
 	return stub.exportResponse, stub.err
 }
 
+func (stub *stubControlOperations) Plan(_ context.Context, config, _ string, _ int64) (localapi.TypedResponse[generated.Plan], error) {
+	stub.calls++
+	stub.config = config
+	return stub.planResponse, stub.err
+}
+func (stub *stubControlOperations) Apply(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
+	stub.calls++
+	stub.config = config
+	return stub.runResponse, stub.err
+}
+func (stub *stubControlOperations) InspectRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
+	stub.calls++
+	stub.config = config
+	return stub.runResponse, stub.err
+}
+func (stub *stubControlOperations) CancelRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
+	stub.calls++
+	stub.config = config
+	return stub.runResponse, stub.err
+}
+func (stub *stubControlOperations) ResumeRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
+	stub.calls++
+	stub.config = config
+	return stub.runResponse, stub.err
+}
+
 type stubFileReader struct {
 	content []byte
 	err     error
@@ -80,12 +108,16 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	imported := generated.InventoryImportData{DraftID: "draft-test", DraftRevision: 1, ValidationStatus: "valid", StateRevision: 8, RecoveryEpoch: 2, Created: true, Findings: []generated.InventoryFinding{}}
 	diff := generated.InventoryDiffData{CandidateKind: "draft", CandidateDigest: "sha256:" + strings.Repeat("1", 64), BaselineKind: "draft", BaselineDraft: generated.InventoryDraftRef{DraftID: "draft-base", DraftRevision: 1}, StateRevision: 8, RecoveryEpoch: 2, Records: []generated.InventoryDiffRecord{}, Findings: []generated.InventoryFinding{}}
 	exported := generated.InventoryExportData{ExportID: "sha256:" + strings.Repeat("2", 64), SubjectKind: "draft", Draft: generated.InventoryDraftRef{DraftID: "draft-test", DraftRevision: 1}, StateRevision: 9, RecoveryEpoch: 2, ContentDigest: "sha256:" + strings.Repeat("3", 64), Algorithm: "ed25519", KeyID: "synthetic-key", KeyFingerprint: "sha256:" + strings.Repeat("4", 64), VerificationStatus: "verified", PublicationStatus: "published", SignedBytesBase64: "e30K"}
+	plan := phase4TestPlan()
+	run := phase4TestRun(plan, generated.RunStatusSucceeded)
 	return &stubControlOperations{
 		summaryResponse:  operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
 		databaseResponse: operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
 		importResponse:   operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
 		diffResponse:     operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
 		exportResponse:   operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
+		planResponse:     operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
+		runResponse:      operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
 	}
 }
 

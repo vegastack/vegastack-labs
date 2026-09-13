@@ -129,6 +129,9 @@ var plannedCommands = []plannedCommand{
 	{path: "doctor", phase: "2", summary: "Diagnose one actionable platform invariant at a time."},
 	{path: "plan", phase: "4", summary: "Create an immutable plan from an inert change."},
 	{path: "apply", phase: "4", summary: "Execute one current, authorized immutable plan."},
+	{path: "run inspect", phase: "4", summary: "Inspect one durable run."},
+	{path: "run cancel", phase: "4", summary: "Request cancellation of one durable run at a safe boundary."},
+	{path: "run resume", phase: "4", summary: "Resume one safely resumable durable run."},
 	{path: "audit", phase: "5", summary: "Inspect sanitized audit history."},
 	{path: "inventory import", phase: "2", summary: "Import typed inventory as an inert change."},
 	{path: "inventory export", phase: "2", summary: "Export authorized inventory data."},
@@ -183,15 +186,21 @@ func Current() Registry {
 		releaseInspectCommand(),
 		releaseVerifyCommand(),
 		serverRunCommand(),
+		serverAPISSHCommand(),
 		serverStatusCommand(),
 		platformStatusCommand(),
 		databaseStatusCommand(),
 		inventoryImportCommand(),
 		inventoryDiffCommand(),
 		inventoryExportCommand(),
+		planCommand(),
+		applyCommand(),
+		runInspectCommand(),
+		runCancelCommand(),
+		runResumeCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		commands = append(commands, CommandDefinition{
@@ -204,7 +213,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.10.0",
+		SchemaVersion: "1.15.0",
 		Commands:      commands,
 		Endpoints:     append(readEndpoints(), phase4Endpoints()...),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
@@ -220,6 +229,15 @@ func Current() Registry {
 				{From: "interrupted", To: "running"}, {From: "interrupted", To: "cancelled"},
 			},
 		},
+	}
+}
+
+func isAvailablePhase4Command(name string) bool {
+	switch name {
+	case "plan", "apply", "run inspect", "run cancel", "run resume":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -262,6 +280,55 @@ func operatorCommand(path []string, summary, requestSchema, dataSchema string, f
 	return CommandDefinition{Path: path, Summary: summary, Availability: AvailabilityAvailable, OwnerPhase: "2", Risk: RiskReadOnly,
 		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
 		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}}}
+}
+
+func phase4OperatorCommand(path []string, summary, requestSchema, dataSchema string, risk RiskClass, flags []FlagDefinition, example []string) CommandDefinition {
+	return CommandDefinition{
+		Path: path, Summary: summary, Availability: AvailabilityAvailable, OwnerPhase: "4", Risk: risk,
+		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
+		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}},
+	}
+}
+
+func planCommand() CommandDefinition {
+	return phase4OperatorCommand([]string{"plan"}, "Create an immutable plan from one exact inert declaration revision.", planCreateRequestSchemaID, planSchemaID, RiskReadOnly,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--declaration-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one exact inert declaration."},
+			{Name: "--revision", Kind: FlagValue, ValueName: "revision", Required: true, Summary: "Select the exact positive declaration revision."},
+		}, []string{"plan", "--config", "fixture/server-profile.json", "--declaration-id", "change-1", "--revision", "2", "--output", "json"})
+}
+
+func applyCommand() CommandDefinition {
+	return phase4OperatorCommand([]string{"apply"}, "Execute one exact current and authorized immutable plan.", planReferenceRequestSchemaID, runPresentationSchemaID, RiskMutation,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--plan-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact immutable plan; this does not acknowledge it."},
+		}, []string{"apply", "--config", "fixture/server-profile.json", "--plan-id", "plan-1", "--output", "json"})
+}
+
+func runInspectCommand() CommandDefinition {
+	return phase4OperatorCommand([]string{"run", "inspect"}, "Inspect one durable run without retrying apply.", "", runPresentationSchemaID, RiskReadOnly,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--run-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact durable run."},
+		}, []string{"run", "inspect", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"})
+}
+
+func runCancelCommand() CommandDefinition {
+	return phase4OperatorCommand([]string{"run", "cancel"}, "Request server-owned cancellation of one durable run at a safe boundary.", runReferenceRequestSchemaID, runPresentationSchemaID, RiskMutation,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--run-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact durable run."},
+		}, []string{"run", "cancel", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"})
+}
+
+func runResumeCommand() CommandDefinition {
+	return phase4OperatorCommand([]string{"run", "resume"}, "Request server-owned resumption of one safely resumable durable run.", runReferenceRequestSchemaID, runPresentationSchemaID, RiskMutation,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--run-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact durable run."},
+		}, []string{"run", "resume", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"})
 }
 
 func platformStatusCommand() CommandDefinition {
@@ -323,6 +390,27 @@ func serverRunCommand() CommandDefinition {
 		}, commonFlags()...),
 		ResultSchema: runResultSchemaID,
 		Examples:     []ExampleDefinition{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}},
+	}
+}
+
+func serverAPISSHCommand() CommandDefinition {
+	return CommandDefinition{
+		Path:         []string{"server", "api-ssh"},
+		Summary:      "Serve one constrained SSH API frame through the persistent control service.",
+		Availability: AvailabilityAvailable,
+		OwnerPhase:   "4",
+		Risk:         RiskLocalService,
+		Flags: []FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--ssh-principal-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the server-configured forced command to this verified SSH principal."},
+			{Name: "--device-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the server-configured forced command to this verified device."},
+		},
+		RequestSchema: apiSshRequestFrameHeaderSchemaID,
+		ResultSchema:  apiSshResponseFrameHeaderSchemaID,
+		Examples: []ExampleDefinition{{
+			Summary:   "Serve one frame from an SSH forced-command configuration.",
+			Arguments: []string{"server", "api-ssh", "--config", "fixture/server-profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator"},
+		}},
 	}
 }
 
@@ -628,7 +716,8 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, auditSchemas()...)
 	schemas = append(schemas, readAPISchemas()...)
 	schemas = append(schemas, inventoryOperationSchemas()...)
-	return append(schemas, phase4Schemas()...)
+	schemas = append(schemas, phase4Schemas()...)
+	return append(schemas, apiSshSchemas()...)
 }
 
 func inventoryOperationSchemas() []SchemaDefinition {

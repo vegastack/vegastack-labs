@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/authorization"
@@ -14,6 +16,7 @@ import (
 )
 
 type PlanService interface {
+	Prepare(context.Context, string, int64) (generated.PlanPreparation, error)
 	Create(context.Context, planengine.AuthorScope, generated.PlanCreateRequest) (store.PlanCommitResult, error)
 	Get(context.Context, string) (store.PlanCommitResult, error)
 }
@@ -44,11 +47,12 @@ func RegisterDeclarationPlanOperations(app *Application, config DeclarationPlanC
 	app.routes = append(app.routes,
 		route{id: "api.v1.declarations.revise", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/revisions", capability: "declaration.author", kind: "declaration", action: authorization.ActionAuthor, handler: app.reviseDeclaration(config)},
 		route{id: "api.v1.declarations.get", method: http.MethodGet, pattern: "/api/v1/declarations/{declarationId}/revisions/{revision}", capability: "declaration.read", kind: "declaration", handler: app.getDeclaration(config)},
+		route{id: "api.v1.declarations.plan-preparation.get", method: http.MethodGet, pattern: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", capability: "declaration.read", kind: "declaration", handler: app.preparePlan(config)},
 		route{id: "api.v1.plans.create", method: http.MethodPost, pattern: "/api/v1/declarations/{declarationId}/plans", capability: "plan.author", kind: "declaration", action: authorization.ActionAuthor, handler: app.createPlan(config)},
 		route{id: "api.v1.plans.get", method: http.MethodGet, pattern: "/api/v1/plans/{planId}", capability: "plan.read", kind: "plan", handler: app.getPlan(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-4]
+		app.routes = app.routes[:len(app.routes)-5]
 		app.effective = previous
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
@@ -60,6 +64,28 @@ func ValidateRegisteredRoutes(app *Application) error {
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
+}
+
+func (app *Application) preparePlan(config DeclarationPlanConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
+		const operation = "api.v1.declarations.plan-preparation.get"
+		revision, err := strconv.ParseInt(params["revision"], 10, 64)
+		if !pathToken.MatchString(params["declarationId"]) || err != nil || revision < 1 || strconv.FormatInt(revision, 10) != params["revision"] || request.URL.RawQuery != "" {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeInputInvalid, "path"))
+			return
+		}
+		preparation, err := config.Plans.Prepare(request.Context(), params["declarationId"], revision)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		raw, err := json.Marshal(preparation)
+		if err != nil || preparation.DeclarationID != params["declarationId"] || preparation.DeclarationRevision != revision || generated.ValidateContractJSON(generated.SchemaIDPlanPreparation, raw, generated.ContractExact) != nil {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "plan-preparation"))
+			return
+		}
+		app.success(writer, operation, preparation.ExpectedStateRevision, preparation.RecoveryEpoch, preparation)
+	}
 }
 
 func (app *Application) createPlan(config DeclarationPlanConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {

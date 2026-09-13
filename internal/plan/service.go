@@ -61,6 +61,47 @@ func NewService(config Config) (*Service, error) {
 	return &Service{config: config}, nil
 }
 
+// Prepare returns only the current server-owned bindings needed to author an
+// inert plan request. Create still reloads and revalidates every binding, so a
+// preparation cannot reserve state or authorize execution.
+func (service *Service) Prepare(ctx context.Context, declarationID string, revision int64) (generated.PlanPreparation, error) {
+	if service == nil || declarationID == "" || revision < 1 {
+		return generated.PlanPreparation{}, planError(generated.ErrorCodeInputInvalid)
+	}
+	declaration, err := service.config.Repository.GetDeclaration(ctx, declarationID, revision)
+	if err != nil {
+		return generated.PlanPreparation{}, err
+	}
+	if declaration.DeclarationID != declarationID || declaration.Revision != revision || declaration.Status != "draft" {
+		return generated.PlanPreparation{}, planError(generated.ErrorCodeStateConflict)
+	}
+	current, err := service.config.Repository.CurrentRevision(ctx)
+	if err != nil {
+		return generated.PlanPreparation{}, err
+	}
+	if declaration.RecoveryEpoch != current.RecoveryEpoch || declaration.StateRevision > current.StateRevision {
+		return generated.PlanPreparation{}, planError(generated.ErrorCodeStateConflict)
+	}
+	fingerprint, err := service.config.Observations.CurrentFingerprint(ctx, declaration.DeclarationID, declaration.Operations)
+	if err != nil {
+		return generated.PlanPreparation{}, err
+	}
+	preparation := generated.PlanPreparation{
+		Schema:                 generated.SchemaIDPlanPreparation,
+		SchemaVersion:          "1.0.0",
+		DeclarationID:          declaration.DeclarationID,
+		DeclarationRevision:    declaration.Revision,
+		ExpectedStateRevision:  current.StateRevision,
+		RecoveryEpoch:          current.RecoveryEpoch,
+		ObservationFingerprint: fingerprint,
+	}
+	raw, err := json.Marshal(preparation)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDPlanPreparation, raw, generated.ContractExact) != nil {
+		return generated.PlanPreparation{}, planError(generated.ErrorCodeIntegrityFailure)
+	}
+	return preparation, nil
+}
+
 func (service *Service) Create(ctx context.Context, author AuthorScope, request generated.PlanCreateRequest) (store.PlanCommitResult, error) {
 	if service == nil || author.PrincipalID == "" || author.PrincipalMethod == "" {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)

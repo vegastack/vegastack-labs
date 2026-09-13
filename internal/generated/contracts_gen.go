@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.10.0"
+	RegistrySchemaVersion                   = "1.15.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -35,6 +35,8 @@ const (
 	SchemaIDApiSourceData                   = "vegastack-labs.dev/api-source-data"
 	SchemaIDApiSourceListData               = "vegastack-labs.dev/api-source-list-data"
 	SchemaIDApiSourceListQuery              = "vegastack-labs.dev/api-source-list-query"
+	SchemaIDApiSshRequestFrameHeader        = "vegastack-labs.dev/api-ssh-request-frame-header"
+	SchemaIDApiSshResponseFrameHeader       = "vegastack-labs.dev/api-ssh-response-frame-header"
 	SchemaIDApiSummaryData                  = "vegastack-labs.dev/api-summary-data"
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
@@ -81,6 +83,7 @@ const (
 	SchemaIDPlanBinding                     = "vegastack-labs.dev/plan-binding"
 	SchemaIDPlanCreateRequest               = "vegastack-labs.dev/plan-create-request"
 	SchemaIDPlanOperation                   = "vegastack-labs.dev/plan-operation"
+	SchemaIDPlanPreparation                 = "vegastack-labs.dev/plan-preparation"
 	SchemaIDPlanReferenceRequest            = "vegastack-labs.dev/plan-reference-request"
 	SchemaIDReleaseAsset                    = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification        = "vegastack-labs.dev/release-asset-verification"
@@ -91,6 +94,7 @@ const (
 	SchemaIDRemoteReadProfile               = "vegastack-labs.dev/remote-read-profile"
 	SchemaIDResultError                     = "vegastack-labs.dev/result-error"
 	SchemaIDRun                             = "vegastack-labs.dev/run"
+	SchemaIDRunPresentation                 = "vegastack-labs.dev/run-presentation"
 	SchemaIDRunReferenceRequest             = "vegastack-labs.dev/run-reference-request"
 	SchemaIDRunResult                       = "vegastack-labs.dev/run-result"
 	RunStatusBlocked                        = "blocked"
@@ -100,6 +104,7 @@ const (
 	RunStatusPartial                        = "partial"
 	RunStatusSucceeded                      = "succeeded"
 	SchemaIDRunStep                         = "vegastack-labs.dev/run-step"
+	SchemaIDRunUncertainGuidance            = "vegastack-labs.dev/run-uncertain-guidance"
 	SchemaIDServerProfile                   = "vegastack-labs.dev/server-profile"
 	SchemaIDServerStatusData                = "vegastack-labs.dev/server-status-data"
 	SchemaIDSignedInventoryDraftExport      = "vegastack-labs.dev/signed-inventory-draft-export"
@@ -107,12 +112,14 @@ const (
 	SchemaIDStateExportDraftRef             = "vegastack-labs.dev/state-export-draft-ref"
 	SchemaIDStateExportKindCount            = "vegastack-labs.dev/state-export-kind-count"
 	SchemaIDStateExportSource               = "vegastack-labs.dev/state-export-source"
-	CommandNameDatabaseStatus               = "database status"
+	CommandNameApply                        = "apply"
 	FlagConfig                              = "--config"
 	FlagOutput                              = "--output"
 	OutputHuman                             = "human"
 	OutputJSON                              = "json"
+	FlagPlanID                              = "--plan-id"
 	FlagSchemaVersion                       = "--schema-version"
+	CommandNameDatabaseStatus               = "database status"
 	CommandNameHelp                         = "help"
 	CommandNameInventoryDiff                = "inventory diff"
 	FlagCapturedAt                          = "--captured-at"
@@ -125,12 +132,22 @@ const (
 	CommandNameInventoryImport              = "inventory import"
 	FlagExpectedStateRevision               = "--expected-state-revision"
 	FlagIdempotencyKey                      = "--idempotency-key"
+	CommandNamePlan                         = "plan"
+	FlagDeclarationID                       = "--declaration-id"
+	FlagRevision                            = "--revision"
 	CommandNameReleaseInspect               = "release inspect"
 	FlagManifest                            = "--manifest"
 	CommandNameReleaseVerify                = "release verify"
 	FlagAll                                 = "--all"
 	FlagAsset                               = "--asset"
 	FlagPolicy                              = "--policy"
+	CommandNameRunCancel                    = "run cancel"
+	FlagRunID                               = "--run-id"
+	CommandNameRunInspect                   = "run inspect"
+	CommandNameRunResume                    = "run resume"
+	CommandNameServerAPISSH                 = "server api-ssh"
+	FlagDeviceID                            = "--device-id"
+	FlagSSHPrincipalID                      = "--ssh-principal-id"
 	CommandNameServerRun                    = "server run"
 	CommandNameServerStatus                 = "server status"
 	CommandNameStatus                       = "status"
@@ -336,6 +353,28 @@ type ApiSourceListQuery struct {
 	Cursor string `json:"cursor"`
 	Source string `json:"source"`
 	State  string `json:"state"`
+}
+
+type ApiSshRequestFrameHeader struct {
+	Protocol             string   `json:"protocol"`
+	Version              string   `json:"version"`
+	RequestID            string   `json:"requestId"`
+	SSHPrincipalID       string   `json:"sshPrincipalId"`
+	DeviceID             string   `json:"deviceId"`
+	Operation            string   `json:"operation"`
+	Arguments            []string `json:"arguments"`
+	PayloadDigest        string   `json:"payloadDigest"`
+	DeclaredPayloadBytes int64    `json:"declaredPayloadBytes"`
+	ActualPayloadBytes   int64    `json:"actualPayloadBytes"`
+	RecoveryEpoch        int64    `json:"recoveryEpoch"`
+}
+
+type ApiSshResponseFrameHeader struct {
+	Protocol             string `json:"protocol"`
+	Version              string `json:"version"`
+	RequestID            string `json:"requestId"`
+	DeclaredPayloadBytes int64  `json:"declaredPayloadBytes"`
+	ActualPayloadBytes   int64  `json:"actualPayloadBytes"`
 }
 
 type ApiSummaryData struct {
@@ -837,6 +876,16 @@ type PlanOperation struct {
 	Idempotent     bool   `json:"idempotent"`
 }
 
+type PlanPreparation struct {
+	Schema                 string `json:"schema"`
+	SchemaVersion          string `json:"schemaVersion"`
+	DeclarationID          string `json:"declarationId"`
+	DeclarationRevision    int64  `json:"declarationRevision"`
+	ExpectedStateRevision  int64  `json:"expectedStateRevision"`
+	RecoveryEpoch          int64  `json:"recoveryEpoch"`
+	ObservationFingerprint string `json:"observationFingerprint"`
+}
+
 type PlanReferenceRequest struct {
 	Schema         string              `json:"schema"`
 	SchemaVersion  string              `json:"schemaVersion"`
@@ -955,6 +1004,13 @@ type Run struct {
 	Extensions              []ContractExtension `json:"extensions"`
 }
 
+type RunPresentation struct {
+	Run            Run       `json:"run"`
+	CompletedWork  []RunStep `json:"completedWork"`
+	IncompleteWork []RunStep `json:"incompleteWork"`
+	NextSafeAction string    `json:"nextSafeAction"`
+}
+
 type RunReferenceRequest struct {
 	Schema         string              `json:"schema"`
 	SchemaVersion  string              `json:"schemaVersion"`
@@ -996,6 +1052,12 @@ type RunStep struct {
 	StepID         string `json:"stepId"`
 	Status         string `json:"status"`
 	EffectState    string `json:"effectState"`
+}
+
+type RunUncertainGuidance struct {
+	RunID   string `json:"runId"`
+	Action  string `json:"action"`
+	Command string `json:"command"`
 }
 
 type ServerProfile struct {
@@ -1123,7 +1185,7 @@ type Example struct {
 }
 
 var Commands = []Command{
-	{Path: []string{"apply"}, Summary: "Execute one current, authorized immutable plan.", Availability: "planned", OwnerPhase: "4", Risk: "unassigned"},
+	{Path: []string{"apply"}, Summary: "Execute one exact current and authorized immutable plan.", Availability: "available", OwnerPhase: "4", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--plan-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact immutable plan; this does not acknowledge it.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-reference-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Execute one exact current and authorized immutable plan.", Arguments: []string{"apply", "--config", "fixture/server-profile.json", "--plan-id", "plan-1", "--output", "json"}}}},
 	{Path: []string{"audit"}, Summary: "Inspect sanitized audit history.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"backup", "run"}, Summary: "Run one exact approved backup policy.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"backup", "status"}, Summary: "Inspect backup status.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
@@ -1157,12 +1219,16 @@ var Commands = []Command{
 	{Path: []string{"node", "nominate"}, Summary: "Create an inert role-nomination change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"node", "quarantine"}, Summary: "Create an inert node-quarantine change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"node", "replace"}, Summary: "Create an inert node-replacement change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
-	{Path: []string{"plan"}, Summary: "Create an immutable plan from an inert change.", Availability: "planned", OwnerPhase: "4", Risk: "unassigned"},
+	{Path: []string{"plan"}, Summary: "Create an immutable plan from one exact inert declaration revision.", Availability: "available", OwnerPhase: "4", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--declaration-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact inert declaration.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Select the exact positive declaration revision.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-create-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/plan", Examples: []Example{{Summary: "Create an immutable plan from one exact inert declaration revision.", Arguments: []string{"plan", "--config", "fixture/server-profile.json", "--declaration-id", "change-1", "--revision", "2", "--output", "json"}}}},
 	{Path: []string{"release", "inspect"}, Summary: "Inspect a local release manifest and compatibility without claiming cryptographic verification.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-inspect-data", Examples: []Example{{Summary: "Inspect a local manifest as versioned JSON.", Arguments: []string{"release", "inspect", "--manifest", "release/manifest.json", "--output", "json"}}}},
 	{Path: []string{"release", "verify"}, Summary: "Verify a signed local manifest and explicitly selected assets against a supplied offline policy.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--all", Kind: "switch", ValueName: "", Required: false, Repeatable: false, Summary: "Explicitly verify every asset in the manifest.", Enum: []string(nil)}, {Name: "--asset", Kind: "value", ValueName: "id", Required: false, Repeatable: true, Summary: "Verify one named asset; repeat for additional assets.", Enum: []string(nil)}, {Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--policy", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the supplied local trust policy at this path.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-verify-data", Examples: []Example{{Summary: "Explicitly verify every local asset.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--all"}}, {Summary: "Verify one local asset against a supplied policy.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--asset", "linux-amd64", "--output", "json"}}}},
 	{Path: []string{"restore", "plan"}, Summary: "Create an immutable restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"restore", "run"}, Summary: "Run one authorized restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
 	{Path: []string{"restore", "verify"}, Summary: "Verify a completed restore.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned"},
+	{Path: []string{"run", "cancel"}, Summary: "Request server-owned cancellation of one durable run at a safe boundary.", Availability: "available", OwnerPhase: "4", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--run-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact durable run.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/run-reference-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Request server-owned cancellation of one durable run at a safe boundary.", Arguments: []string{"run", "cancel", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"}}}},
+	{Path: []string{"run", "inspect"}, Summary: "Inspect one durable run without retrying apply.", Availability: "available", OwnerPhase: "4", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--run-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact durable run.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Inspect one durable run without retrying apply.", Arguments: []string{"run", "inspect", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"}}}},
+	{Path: []string{"run", "resume"}, Summary: "Request server-owned resumption of one safely resumable durable run.", Availability: "available", OwnerPhase: "4", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--run-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact durable run.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/run-reference-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Request server-owned resumption of one safely resumable durable run.", Arguments: []string{"run", "resume", "--config", "fixture/server-profile.json", "--run-id", "run-1", "--output", "json"}}}},
+	{Path: []string{"server", "api-ssh"}, Summary: "Serve one constrained SSH API frame through the persistent control service.", Availability: "available", OwnerPhase: "4", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--device-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the server-configured forced command to this verified device.", Enum: []string(nil)}, {Name: "--ssh-principal-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the server-configured forced command to this verified SSH principal.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/api-ssh-request-frame-header", ResultSchema: "vegastack-labs.dev/api-ssh-response-frame-header", Examples: []Example{{Summary: "Serve one frame from an SSH forced-command configuration.", Arguments: []string{"server", "api-ssh", "--config", "fixture/server-profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator"}}}},
 	{Path: []string{"server", "run"}, Summary: "Run the persistent control service in the foreground.", Availability: "available", OwnerPhase: "2", Risk: "local-service", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}}},
 	{Path: []string{"server", "status"}, Summary: "Query control-service health.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/server-status-data", Examples: []Example{{Summary: "Query local control-service health as versioned JSON.", Arguments: []string{"server", "status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"service", "deploy"}, Summary: "Create an inert service-deployment change.", Availability: "planned", OwnerPhase: "8", Risk: "unassigned"},
@@ -1179,6 +1245,7 @@ var Commands = []Command{
 var Endpoints = []Endpoint{
 	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.declarations.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan-preparation", Stream: "finite", Audiences: []string{"operator"}},
 	{ID: "api.v1.declarations.revise", Method: "POST", Path: "/api/v1/declarations/{declarationId}/revisions", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/declaration-revision-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.execution-receipts.create", Method: "POST", Path: "/api/v1/execution-receipts", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/execution-receipt-request", DataSchema: "vegastack-labs.dev/execution-receipt", Stream: "finite", Audiences: []string{"executor"}},
@@ -1201,11 +1268,11 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.plans.acknowledgements.create", Method: "POST", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/acknowledgement-request", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}},
 	{ID: "api.v1.plans.acknowledgements.get", Method: "GET", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}},
 	{ID: "api.v1.plans.create", Method: "POST", Path: "/api/v1/declarations/{declarationId}/plans", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-create-request", DataSchema: "vegastack-labs.dev/plan", Stream: "finite", Audiences: []string{"browser", "operator"}},
-	{ID: "api.v1.plans.execute", Method: "POST", Path: "/api/v1/plans/{planId}/execute", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.plans.execute", Method: "POST", Path: "/api/v1/plans/{planId}/execute", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.plans.get", Method: "GET", Path: "/api/v1/plans/{planId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan", Stream: "finite", Audiences: []string{"browser", "operator"}},
-	{ID: "api.v1.runs.cancel", Method: "POST", Path: "/api/v1/runs/{runId}/cancel", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"browser", "operator"}},
-	{ID: "api.v1.runs.get", Method: "GET", Path: "/api/v1/runs/{runId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"browser", "operator"}},
-	{ID: "api.v1.runs.resume", Method: "POST", Path: "/api/v1/runs/{runId}/resume", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.runs.cancel", Method: "POST", Path: "/api/v1/runs/{runId}/cancel", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.runs.get", Method: "GET", Path: "/api/v1/runs/{runId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.runs.resume", Method: "POST", Path: "/api/v1/runs/{runId}/resume", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/run-reference-request", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.session.create", Method: "POST", Path: "/api/v1/session", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite", Audiences: []string{"browser"}},
 	{ID: "api.v1.session.logout", Method: "POST", Path: "/api/v1/session/logout", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite", Audiences: []string{"browser"}},
 	{ID: "api.v1.session.renew", Method: "POST", Path: "/api/v1/session/renew", Availability: "available", OwnerPhase: "3", QuerySchema: "", RequestSchema: "vegastack-labs.dev/api-browser-session-request", DataSchema: "vegastack-labs.dev/api-browser-session-data", Stream: "finite", Audiences: []string{"browser"}},

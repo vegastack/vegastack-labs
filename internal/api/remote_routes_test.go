@@ -39,3 +39,38 @@ func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T
 		t.Fatal("non-executor or wrong-method route gained machine admission")
 	}
 }
+
+func TestConstrainedSSHAdmissionIsGeneratedOperatorAPIWithoutAlternateAuthorities(t *testing.T) {
+	allowedWrites := map[string]bool{
+		"api.v1.inventory-diffs.create":   true,
+		"api.v1.inventory-drafts.import":  true,
+		"api.v1.inventory-exports.create": true,
+		"api.v1.plans.create":             true,
+		"api.v1.plans.execute":            true,
+		"api.v1.runs.cancel":              true,
+		"api.v1.runs.resume":              true,
+	}
+	for _, endpoint := range generated.Endpoints {
+		requestPath := strings.NewReplacer(
+			"{declarationId}", "declaration-test", "{draftId}", "draft-test", "{planId}", "plan-test",
+			"{revision}", "1", "{recordId}", "record-test", "{runId}", "run-test", "{leaseId}", "lease-test",
+		).Replace(endpoint.Path)
+		operator := slices.Contains(endpoint.Audiences, "operator")
+		want := endpoint.Availability == generated.AvailabilityAvailable && operator &&
+			((endpoint.Method == http.MethodGet && endpoint.ID != "api.v1.events.stream") || allowedWrites[endpoint.ID])
+		if got := ConstrainedSSHRequestAllowed(endpoint.Method, requestPath); got != want {
+			t.Fatalf("%s %s constrained SSH admission = %t, want %t", endpoint.Method, endpoint.ID, got, want)
+		}
+	}
+	for _, denied := range []struct{ method, path string }{
+		{http.MethodPost, "/api/v1/plans/plan-test/acknowledgements"},
+		{http.MethodPost, "/api/v1/session"},
+		{http.MethodPost, "/api/v1/executor-leases/claim"},
+		{http.MethodGet, "/api/v1/events"},
+		{http.MethodGet, "/api/v1/not-a-route"},
+	} {
+		if ConstrainedSSHRequestAllowed(denied.method, denied.path) {
+			t.Fatalf("alternate authority admitted through constrained SSH: %s %s", denied.method, denied.path)
+		}
+	}
+}

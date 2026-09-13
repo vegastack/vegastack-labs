@@ -37,6 +37,7 @@ func main() {
 	}
 	operations := server.NewOperations(build, newRequestID)
 	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,
+		cli.WithInput(os.Stdin),
 		cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})),
 		cli.WithServerOperations(operations),
 		cli.WithControlOperations(operations, clientfile.NewReader()),
