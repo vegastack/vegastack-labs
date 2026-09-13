@@ -117,6 +117,32 @@ test("refresh restores the exact durable plan and run without resubmitting", asy
   expect(await page.evaluate(() => ({ local: { ...localStorage }, session: { ...sessionStorage }, search: location.search, hash: location.hash }))).toEqual({ local: {}, session: {}, search: "", hash: "" });
 });
 
+test("a lost execute response resolves one durable run without resubmitting", async ({ page }) => {
+  changeFixture.dropExecuteResponseOnce = true;
+  changeFixture.resolutionDelayMs = 400;
+  await page.goto("/changes");
+  await page.getByLabel("Declaration ID").fill("declaration-one");
+  await page.getByLabel("Revision").fill("1");
+  await page.getByRole("button", { name: "Open declaration" }).click();
+  await page.getByRole("button", { name: "Generate plan" }).click();
+  changeFixture.approval = "approved";
+  await page.getByRole("button", { name: "Request Slack approval" }).click();
+  await page.getByRole("button", { name: "Start run" }).click();
+  await page.getByRole("button", { name: "Start exact run" }).click();
+
+  await expect.poll(() => page.evaluate(() => history.state.vskChangeHandles?.executionKey ?? null)).toMatch(/^console-run-/);
+  await expect(page.getByRole("button", { name: "Start run" })).toBeDisabled();
+  await expect(page.locator('[data-run-status="running"]')).toBeVisible();
+  expect(changeFixture.executeRequests).toBe(1);
+  expect(changeFixture.resolutionRequests).toBe(1);
+  expect(await page.evaluate(() => history.state.vskChangeHandles)).toEqual({ declarationId: "declaration-one", revision: 1, planId: "plan-one", runId: "run-one" });
+
+  await page.reload();
+  await expect(page.locator('[data-run-status="running"]')).toBeVisible();
+  expect(changeFixture.executeRequests).toBe(1);
+  expect(changeFixture.resolutionRequests).toBe(1);
+});
+
 test("pending approval polling survives reload while the plan is still planned", async ({ page }) => {
   await page.goto("/changes");
   await page.getByLabel("Declaration ID").fill("declaration-one");

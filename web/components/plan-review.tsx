@@ -2,23 +2,26 @@
 
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw, Send } from "lucide-react";
-import type { Plan, RunPresentation } from "@/generated/read-api";
+import { ReadClientError, type Plan, type RunPresentation } from "@/generated/read-api";
 import { ApprovalStatus } from "@/components/approval-status";
 import { RunRecoveryDialog } from "@/components/run-recovery-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { planFromView, useApprovalStatus, useExecutePlan, useRequestApproval, type PlanView } from "@/lib/change-queries";
+import { newRunIdempotencyKey, planFromView, useApprovalStatus, useExecutePlan, useRequestApproval, useResolveRun, type PlanView } from "@/lib/change-queries";
 
 const planStatusLabels = { approved: "Approved", "awaiting-acknowledgement": "Awaiting acknowledgement", cancelled: "Cancelled", expired: "Expired", planned: "Planned" } as const;
 
-export function PlanReview({ view, observeApprovalInitially, onApprovalRequested, onRunStarted }: { view: PlanView; observeApprovalInitially: boolean; onApprovalRequested: () => void; onRunStarted: (run: RunPresentation) => void }) {
+export function PlanReview({ view, observeApprovalInitially, executionKey, onApprovalRequested, onExecutionPrepared, onExecutionCleared, onRunStarted }: { view: PlanView; observeApprovalInitially: boolean; executionKey: string | null; onApprovalRequested: () => void; onExecutionPrepared: (key: string) => void; onExecutionCleared: () => void; onRunStarted: (run: RunPresentation) => void }) {
   const plan: Plan = planFromView(view);
   const [observeApproval, setObserveApproval] = useState(observeApprovalInitially || plan.status === "approved" || plan.status === "awaiting-acknowledgement");
   const [clock, setClock] = useState(() => Date.now());
   const requestApproval = useRequestApproval();
   const approval = useApprovalStatus(plan.planId, observeApproval);
   const execute = useExecutePlan();
+  const resolveRun = useResolveRun();
+  const resolveRunAsync = resolveRun.mutateAsync;
+  const resolvedKey = useRef<string | null>(null);
   const approvalButton = useRef<HTMLButtonElement>(null);
   const refreshButton = useRef<HTMLButtonElement>(null);
   const restoreRefreshFocus = useRef(false);
@@ -36,6 +39,11 @@ export function PlanReview({ view, observeApprovalInitially, onApprovalRequested
     const timeout = globalThis.setTimeout(() => setClock(Date.now()), Math.max(0, Math.min(expiresAt - Date.now() + 1, 2_147_483_647)));
     return () => globalThis.clearTimeout(timeout);
   }, [approval.data?.data.expiresAt, plan.expiresAt]);
+  useEffect(() => {
+    if (!executionKey || resolvedKey.current === executionKey) return;
+    resolvedKey.current = executionKey;
+    void resolveRunAsync({ planId: plan.planId, idempotencyKey: executionKey }).then(result => onRunStarted(result.data)).catch(() => undefined);
+  }, [executionKey, onRunStarted, plan.planId, resolveRunAsync]);
 
   async function requestSlackApproval() {
     await requestApproval.mutateAsync(plan);
@@ -47,8 +55,24 @@ export function PlanReview({ view, observeApprovalInitially, onApprovalRequested
     const current = refreshed.data?.data;
     const unexpired = current ? Date.parse(current.expiresAt) > Date.now() : false;
     if (!current || current.planId !== plan.planId || current.planDigest !== plan.planDigest || current.status !== "approved" || !current.authorizationCurrent || !current.canApply || !unexpired) return;
-    const result = await execute.mutateAsync(plan);
-    onRunStarted(result.data);
+    const idempotencyKey = newRunIdempotencyKey();
+    // This mounted action owns the first resolution attempt. A remount starts
+    // with an empty ref and resolves the persisted key once after reload.
+    resolvedKey.current = idempotencyKey;
+    onExecutionPrepared(idempotencyKey);
+    try {
+      const result = await execute.mutateAsync({ plan, idempotencyKey });
+      onRunStarted(result.data);
+    } catch (error) {
+      if (error instanceof ReadClientError && error.kind === "network") {
+        try {
+          const result = await resolveRunAsync({ planId: plan.planId, idempotencyKey });
+          onRunStarted(result.data);
+        } catch {}
+        return;
+      }
+      onExecutionCleared();
+    }
   }
 
   const status = approval.data?.data;
@@ -78,14 +102,15 @@ export function PlanReview({ view, observeApprovalInitially, onApprovalRequested
         <div aria-live="polite" className="min-h-6 text-sm" role="status">
           {requestApproval.error ? "Approval request failed. No acknowledgement was created in this browser." : null}
           {approval.error ? " Approval status is unavailable; Start run remains disabled." : null}
-          {execute.error ? " Run start failed. Inspect plan authorization before trying a new action." : null}
+          {execute.error && executionKey ? " Run response was lost. The browser is checking the exact durable run and will not submit it again." : execute.error ? " Run start failed. Inspect plan authorization before trying a new action." : null}
+          {resolveRun.error ? " Exact run status is not available yet. Reload to inspect this same submission; do not start another run." : null}
           {!canApply && exactApproval ? ` ${exactApproval.status === "rejected" ? "Rejected" : exactApproval.status === "expired" ? "Expired" : exactApproval.status === "pending" ? "Pending" : "Stale"} authorization cannot apply.` : null}
         </div>
       </CardContent>
       <CardFooter className="flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
         <Button ref={approvalButton} className="min-h-11" variant="outline" loading={requestApproval.isPending} disabled={requestApproval.isPending || plan.status === "expired" || plan.status === "cancelled"} onClick={() => void requestSlackApproval()}><Send aria-hidden />Request Slack approval</Button>
         {observeApproval ? <Button ref={refreshButton} className="min-h-11" variant="outline" loading={approval.isFetching} onClick={() => { restoreRefreshFocus.current = true; void approval.refetch(); }}><RefreshCw aria-hidden />Refresh approval status</Button> : null}
-        <RunRecoveryDialog trigger={<Button className="min-h-11" disabled={!canApply} loading={execute.isPending}>Start run</Button>} title={highRisk ? "Start this high-risk plan?" : "Start this exact plan?"} description={`Only plan ${plan.planId} at digest ${plan.planDigest} will be sent to the server. The browser cannot widen it.`} confirmLabel="Start exact run" pending={execute.isPending} destructive={highRisk} onConfirm={startRun} />
+        <RunRecoveryDialog trigger={<Button className="min-h-11" disabled={!canApply || executionKey !== null} loading={execute.isPending || resolveRun.isPending}>Start run</Button>} title={highRisk ? "Start this high-risk plan?" : "Start this exact plan?"} description={`Only plan ${plan.planId} at digest ${plan.planDigest} will be sent to the server. The browser cannot widen it.`} confirmLabel="Start exact run" pending={execute.isPending} destructive={highRisk} onConfirm={startRun} />
       </CardFooter>
     </Card>
     {exactApproval ? <ApprovalStatus approval={exactApproval} /> : null}

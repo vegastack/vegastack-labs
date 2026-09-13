@@ -24,15 +24,23 @@ test("generated approval projection excludes protected proof and identity fields
 });
 
 test("run workflow re-reads durable state and never resubmits after disconnect", async () => {
-  const [progress, queries] = await Promise.all([
+  const [progress, queries, changeQueries, workspace, review] = await Promise.all([
     read("components/run-progress.tsx"),
     read("lib/run-queries.ts"),
+    read("lib/change-queries.ts"),
+    read("components/changes-workspace.tsx"),
+    read("components/plan-review.tsx"),
   ]);
   assert.match(progress, /getRun|refetch/);
   assert.match(queries, /while \(!controller\.signal\.aborted\)/);
   assert.match(queries, /lastEventId:\s*lastEventId\.current/);
   assert.match(queries, /await refetch\(\)[\s\S]*streamEvents/);
   assert.doesNotMatch(progress, /setInterval|(?:^|[^A-Za-z])fetch\(/);
+  assert.match(changeQueries, /changeClient\.resolveRun/);
+  assert.match(workspace, /executionKey/);
+  assert.match(review, /kind === "network"/);
+  assert.match(review, /resolveRunAsync/);
+  assert.doesNotMatch(review, /execute\.mutateAsync[\s\S]*execute\.mutateAsync/);
 });
 
 test("immutable save creates the next revision", async () => {

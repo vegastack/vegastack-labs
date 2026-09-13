@@ -8,6 +8,7 @@ const assertion = process.env.VSK_PHASE3_ASSERTION;
 const fullLoop = process.env.VSK_PHASE4_FULL_LOOP === "1";
 const privateCanaries = ["subject-real-browser", "human.console", "authority.console", "server-owned-console-nonce"];
 let browserConsole = [];
+let droppedBrowserExecuteResponse = false;
 
 function digestText(value) {
 	return `sha256:${createHash("sha256").update(value).digest("hex")}`;
@@ -54,6 +55,11 @@ try {
 			const response = await route.fetch({ headers: { ...route.request().headers(), "Cf-Access-Jwt-Assertion": assertion } });
 			const body = await response.body();
 			assertBrowserSafe(body.toString(), "browser execute response");
+			if (fullLoop && !droppedBrowserExecuteResponse) {
+				droppedBrowserExecuteResponse = true;
+				await route.abort("connectionclosed");
+				return;
+			}
 			await route.fulfill({ status: response.status(), headers: response.headers(), body });
 			return;
 		}
@@ -394,6 +400,9 @@ try {
 		await page.getByRole("button", { name: "Start run" }).click();
 		await page.getByRole("button", { name: "Start exact run" }).click();
 		await page.locator('[data-run-status="interrupted"]').waitFor();
+		const firstExecuteRequests = browserAPIPaths.filter(path => path.endsWith("/execute")).length;
+		const firstResolutionRequests = browserAPIPaths.filter(path => /^\/api\/v1\/plans\/plan-[a-f0-9]{32}\/runs\/console-run-[a-f0-9-]+$/.test(path)).length;
+		if (!droppedBrowserExecuteResponse || firstExecuteRequests !== 1 || firstResolutionRequests !== 1) throw new Error("browser did not resolve the dropped execute response exactly once");
 		const interruptedHandles = await page.evaluate(() => history.state?.vskChangeHandles);
 		if (!/^run-[a-f0-9]{32}$/.test(interruptedHandles?.runId ?? "")) throw new Error("browser did not retain the durable run handle");
 
@@ -405,6 +414,7 @@ try {
 		await page.reload({ waitUntil: "networkidle" });
 		await page.locator('[data-run-status="succeeded"]').waitFor();
 		if (executeCount !== 1) throw new Error("browser rendered an unexpected durable run count");
+		if (browserAPIPaths.filter(path => path.endsWith("/execute")).length !== firstExecuteRequests || browserAPIPaths.filter(path => /^\/api\/v1\/plans\/plan-[a-f0-9]{32}\/runs\/console-run-[a-f0-9-]+$/.test(path)).length !== firstResolutionRequests) throw new Error("reload resubmitted or re-resolved a known durable run");
 
 		stage = "browser-cancel-declaration-seed";
 		const cancelDeclaration = await request("POST", "/api/v1/declarations/declaration-browser-cancel/revisions", {

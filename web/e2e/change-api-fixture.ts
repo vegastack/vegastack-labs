@@ -9,6 +9,9 @@ export const changeFixture: {
   approval: ApprovalState;
   run: RunState;
   executeRequests: number;
+  resolutionRequests: number;
+  dropExecuteResponseOnce: boolean;
+  resolutionDelayMs: number;
   approvalStatusRequests: number;
   approvalExpiresAt: string;
   eventConnections: number;
@@ -21,7 +24,7 @@ export const changeFixture: {
   requestPaths: string[];
   reasonDigest: string;
   planDigest: string;
-} = { approval: "pending", run: "running", executeRequests: 0, approvalStatusRequests: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
+} = { approval: "pending", run: "running", executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
 
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
@@ -90,7 +93,16 @@ async function respond(route: Route) {
 	if (path === "/api/v1/plans/plan-one" && request.method() === "GET") return reply(route, "api.v1.plans.get", { plan, readablePlan: "Exact readable fixture plan", canonicalPlan: JSON.stringify(plan) });
   if (path === "/api/v1/plans/plan-one/approval-request" && request.method() === "POST") return reply(route, "api.v1.plans.approval-request.create", approval());
   if (path === "/api/v1/plans/plan-one/approval-status") { changeFixture.approvalStatusRequests += 1; return reply(route, "api.v1.plans.approval-status.get", approval()); }
-  if (path === "/api/v1/plans/plan-one/execute" && request.method() === "POST") { changeFixture.executeRequests += 1; return reply(route, "api.v1.plans.execute", runPresentation()); }
+  if (path === "/api/v1/plans/plan-one/execute" && request.method() === "POST") {
+    changeFixture.executeRequests += 1;
+    if (changeFixture.dropExecuteResponseOnce) { changeFixture.dropExecuteResponseOnce = false; return route.abort("connectionclosed"); }
+    return reply(route, "api.v1.plans.execute", runPresentation());
+  }
+  if (/^\/api\/v1\/plans\/plan-one\/runs\/console-run-[a-f0-9-]+$/.test(path) && request.method() === "GET") {
+    changeFixture.resolutionRequests += 1;
+    if (changeFixture.resolutionDelayMs > 0) await new Promise(resolve => setTimeout(resolve, changeFixture.resolutionDelayMs));
+    return reply(route, "api.v1.plans.run-resolution.get", runPresentation());
+  }
   if (path === "/api/v1/runs/run-one" && request.method() === "GET") return reply(route, "api.v1.runs.get", runPresentation());
   if (path === "/api/v1/runs/run-one/cancel" && request.method() === "POST") { changeFixture.run = "cancelled"; return reply(route, "api.v1.runs.cancel", runPresentation()); }
   if (path === "/api/v1/runs/run-one/resume" && request.method() === "POST") { changeFixture.run = "running"; return reply(route, "api.v1.runs.resume", runPresentation()); }
@@ -101,6 +113,9 @@ export function resetChangeFixture() {
   changeFixture.approval = "pending";
   changeFixture.run = "running";
   changeFixture.executeRequests = 0;
+  changeFixture.resolutionRequests = 0;
+  changeFixture.dropExecuteResponseOnce = false;
+  changeFixture.resolutionDelayMs = 0;
   changeFixture.approvalStatusRequests = 0;
   changeFixture.approvalExpiresAt = "2099-09-13T13:01:00Z";
   changeFixture.eventConnections = 0;

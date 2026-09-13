@@ -28,6 +28,10 @@ function actionKey(action: string): string {
   return `console-${action}-${crypto.randomUUID()}`;
 }
 
+export function newRunIdempotencyKey(): string {
+  return actionKey("run");
+}
+
 export function useDeclaration(reference: { declarationId: string; revision: number } | null) {
   return useQuery({
     queryKey: reference ? changeKeys.declaration(reference.declarationId, reference.revision) : ["change", "declaration", "closed"],
@@ -92,14 +96,14 @@ export function useApprovalStatus(planId: string | null, enabled: boolean) {
   });
 }
 
-function planReference(plan: Plan, action: string): PlanReferenceRequest {
+function planReference(plan: Plan, action: string, idempotencyKey = actionKey(action)): PlanReferenceRequest {
   return {
     schema: "vegastack-labs.dev/plan-reference-request",
     schemaVersion: "1.0.0",
     planId: plan.planId,
     planDigest: plan.planDigest,
     recoveryEpoch: plan.binding.recoveryEpoch,
-    idempotencyKey: actionKey(action),
+    idempotencyKey,
     extensions: [],
   };
 }
@@ -117,10 +121,19 @@ export function useExecutePlan() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: ["change", "execute-plan"],
-    mutationFn: (plan: Plan) => changeClient.executePlan({ planId: plan.planId }, planReference(plan, "run")),
+    mutationFn: ({ plan, idempotencyKey }: { plan: Plan; idempotencyKey: string }) => changeClient.executePlan({ planId: plan.planId }, planReference(plan, "run", idempotencyKey)),
     onSuccess: (result) => queryClient.setQueryData(["change", "run", result.data.run.runId], result),
-    onError: (_error, plan) => {
+    onError: (_error, { plan }) => {
       void queryClient.invalidateQueries({ queryKey: changeKeys.approval(plan.planId) });
     },
+  });
+}
+
+export function useResolveRun() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ["change", "resolve-run"],
+    mutationFn: ({ planId, idempotencyKey }: { planId: string; idempotencyKey: string }) => changeClient.resolveRun({ planId, idempotencyKey }),
+    onSuccess: (result) => queryClient.setQueryData(["change", "run", result.data.run.runId], result),
   });
 }
