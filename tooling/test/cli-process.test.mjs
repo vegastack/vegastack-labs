@@ -937,3 +937,72 @@ func main(){ reader:=bufio.NewReader(os.Stdin); line,err:=reader.ReadBytes('\\n'
   assert.equal(recorded.header.payloadDigest, `sha256:${createHash("sha256").update("").digest("hex")}`);
   assert.equal(recorded.payload, "");
 });
+
+test("built server api-ssh forced command verifies and forwards one framed operation", async (t) => {
+  if (process.platform !== "linux" || typeof process.getuid !== "function") return;
+  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-api-ssh-handler-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const binary = path.join(temporary, "vsk-labs");
+  const helper = path.join(temporary, "local-api");
+  const helperSource = path.join(temporary, "local-api.go");
+  const socketPath = path.join(temporary, "control.sock");
+  const capturePath = path.join(temporary, "requests.json");
+  const exportRoot = path.join(temporary, "exports");
+  const profilePath = path.join(temporary, "server-profile.json");
+  await mkdir(exportRoot, { mode: 0o700 });
+  await chmod(exportRoot, 0o700);
+  await writeFile(helperSource, `package main
+import ("bufio"; "encoding/json"; "fmt"; "net"; "net/http"; "os")
+type result struct { Schema string \`json:"schema"\`; SchemaVersion string \`json:"schemaVersion"\`; ToolVersion string \`json:"toolVersion"\`; Command string \`json:"command"\`; RequestID string \`json:"requestId"\`; RunID any \`json:"runId"\`; Status string \`json:"status"\`; Changed bool \`json:"changed"\`; RecoveryEpoch int64 \`json:"recoveryEpoch"\`; StateRevision int64 \`json:"stateRevision"\`; SnapshotDigest any \`json:"snapshotDigest"\`; ReleaseBuildID string \`json:"releaseBuildId"\`; SourceRevision any \`json:"sourceRevision"\`; PlanID any \`json:"planId"\`; Errors []any \`json:"errors"\`; Data any \`json:"data"\` }
+func main(){ listener,err:=net.Listen("unix",os.Args[1]); if err!=nil { panic(err) }; defer listener.Close(); _=os.Chmod(os.Args[1],0600); seen:=[]string{}; for index:=0; index<2; index++ { connection,err:=listener.Accept(); if err!=nil { panic(err) }; request,err:=http.ReadRequest(bufio.NewReader(connection)); if err!=nil { panic(err) }; seen=append(seen,request.Method+" "+request.URL.Path); envelope,_:=json.Marshal(result{"vegastack-labs.dev/run-result","${CONTRACT_VERSION}","0.0.0-dev","server status",fmt.Sprintf("request-local-%d",index),nil,"succeeded",false,2,7,nil,"development",nil,nil,[]any{},map[string]any{"state":"ready","readAvailable":true,"mutationAvailable":false,"recoveryEpoch":2,"stateRevision":7,"remoteReadState":"disabled","remoteReadReason":"none"}}); envelope=append(envelope,'\\n'); fmt.Fprintf(connection,"HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\nContent-Length: %d\\r\\nConnection: close\\r\\n\\r\\n",len(envelope)); _,_=connection.Write(envelope); _=connection.Close() }; raw,_:=json.Marshal(seen); _=os.WriteFile(os.Args[2],raw,0600) }
+`);
+  for (const [output, target] of [[binary, "./cmd/vsk-labs"], [helper, helperSource]]) {
+    const built = spawnSync("go", ["build", "-o", output, target], { cwd: ROOT, encoding: "utf8", shell: false });
+    assert.equal(built.status, 0, built.stderr);
+  }
+  await writeFile(profilePath, `${JSON.stringify({
+    schema: "vegastack-labs.dev/server-profile", schemaVersion: "1.1.0",
+    socketPath, socketOwnerUid: process.getuid(), socketGroupGid: null, socketMode: "0600", shutdownGraceSeconds: 5,
+    principalBindings: [{ uid: process.getuid(), principalId: "principal.operator" }], inventoryExportRoot: exportRoot,
+    remoteRead: { enabled: false, bindAddress: null, publicOrigin: null, tlsCertificatePath: null, tlsPrivateKeyPath: null, identityAdapter: null, identityConfigPath: null },
+  })}\n`);
+  await chmod(profilePath, 0o600);
+  const localServer = spawn(helper, [socketPath, capturePath], { cwd: ROOT, stdio: "ignore", shell: false });
+  t.after(() => { if (localServer.exitCode === null) localServer.kill("SIGKILL"); });
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try { await access(socketPath, constants.F_OK); break; } catch {
+      if (attempt === 99) assert.fail("local API fixture did not create its socket");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+  const requestId = "request-forced-handler";
+  const header = {
+    protocol: "vegastack-labs.api-ssh", version: "1.0.0", requestId,
+    sshPrincipalId: "principal.operator", deviceId: "device.operator", operation: "GET /api/v1/health",
+    arguments: ["server", "status"], payloadDigest: `sha256:${createHash("sha256").update("").digest("hex")}`,
+    declaredPayloadBytes: 0, actualPayloadBytes: 0, recoveryEpoch: 2,
+  };
+  const invoked = spawnSync(binary, ["server", "api-ssh", "--config", profilePath, "--ssh-principal-id", "principal.operator", "--device-id", "device.operator"], {
+    cwd: ROOT, encoding: "utf8", shell: false, input: `${JSON.stringify(header)}\n`,
+  });
+  assert.deepEqual({ status: invoked.status, signal: invoked.signal, stderr: invoked.stderr }, { status: 0, signal: null, stderr: "" });
+  const separator = invoked.stdout.indexOf("\n");
+  assert.ok(separator > 0);
+  const responseHeader = JSON.parse(invoked.stdout.slice(0, separator));
+  const payload = invoked.stdout.slice(separator + 1);
+  assert.deepEqual(responseHeader, {
+    protocol: "vegastack-labs.api-ssh", version: "1.0.0", requestId,
+    declaredPayloadBytes: Buffer.byteLength(payload), actualPayloadBytes: Buffer.byteLength(payload),
+  });
+  const envelope = JSON.parse(payload);
+  assert.equal(envelope.command, "server status");
+  assert.equal(envelope.requestId, requestId);
+  assert.equal(envelope.recoveryEpoch, 2);
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    try { await access(capturePath, constants.F_OK); break; } catch {
+      if (attempt === 99) assert.fail("local API fixture did not finish");
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+  }
+  assert.deepEqual(JSON.parse(await readFile(capturePath, "utf8")), ["GET /api/v1/health", "GET /api/v1/health"]);
+});

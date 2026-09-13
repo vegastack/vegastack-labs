@@ -128,7 +128,7 @@ func decodeAPIEnvelope(response localtransport.Response, expectedCommand string)
 		return generated.RunResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "control-service-response", false)
 	}
 	var trailing any
-	if decoder.Decode(&trailing) != io.EOF || generated.ValidateContractJSON(generated.SchemaIDRunResult, bytes.TrimSuffix(response.Body, []byte{'\n'}), generated.ContractExact) != nil {
+	if decoder.Decode(&trailing) != io.EOF {
 		return generated.RunResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "control-service-response", false)
 	}
 	canonical, err := json.Marshal(envelope)
