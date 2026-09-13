@@ -38,15 +38,15 @@ The complete software evidence is credential-free and uses isolated synthetic fi
 
 `tooling/phase-4-exit-evidence.json` maps the Phase 4 roadmap completion signal, all four Phase 4 Platform Core signals, all three Phase 4 Operator Experience signals, the generated contract boundary and the privacy/production boundary to the closed scenario catalog delivered by Issue #80. The catalog executes the real test selectors and rejects a missing, reordered, skipped, failed, flaky, TODO or quarantined proof.
 
-The verifier also binds child issues to their reviewed heads and merged commits. Documentation or a child issue status is never runtime proof by itself.
+The verifier also binds child issues to their exact final reviewed heads, merged commits and successful post-merge Public CI runs. Documentation or a child issue status is never runtime proof by itself.
 
 ## Exact-commit exit
 
-The checked static definition names required proof but does not claim a current result. `pnpm check:phase-4-exit -- --commit <40-hex>` must start and finish at that exact clean commit, validate the complete definition and closed Phase 4 catalog, run the full public check plan plus `go test -race -count=1 ./...`, and digest the definition, scenario catalog, acceptance manifest, generated registries/client and embedded Console manifest.
+The checked static definition names required proof but does not claim a current result. `pnpm check:phase-4-exit --commit <40-hex>` runs only on Linux and must start and finish with both the clean `HEAD` and trusted `refs/remotes/origin/main` at that exact commit. It validates the complete definition and closed Phase 4 catalog, runs the full public check plan plus `go test -race -count=1 ./...`, and digests the definition, scenario catalog, acceptance manifest, generated registries/client and embedded Console manifest.
 
 A successful runtime envelope records only the exact source commit, clean-tree result, requirement and command outcomes, artifact digests, limitations and deterministic evidence digest. It is attached to Issue #67 with the matching main CI run; it is not written back into the commit whose identity it records.
 
-After merge and exact-main proof, the operator must explicitly accept or reject Phase 4 at that 40-character commit. Until then the phase remains implemented and awaiting acceptance. Acceptance does not approve Phase 5, release, deployment, provider access, credentials or fleet operation.
+The trusted `main` push provides the first exact run. A manual workflow dispatch at the unchanged same `main` commit provides the required second run; their JSON output, including the evidence digest, must match exactly. After both proofs, the operator must explicitly accept or reject Phase 4 at that 40-character commit. Until then the phase remains implemented and awaiting acceptance. Acceptance does not approve Phase 5, release, deployment, provider access, credentials or fleet operation.
 
 ## Failure and recovery
 

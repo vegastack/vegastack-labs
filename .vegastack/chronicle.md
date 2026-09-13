@@ -2,16 +2,6 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
-## 14-09-2026 — Phase 4 is implemented and awaits exact-commit acceptance ([#67](https://github.com/vegastack/vegastack-labs/issues/67))
-
-- **What:** One strict exit verifier now traces every Phase 4 delivery issue and the roadmap and Module 1/9 completion signals to the closed 34-scenario acceptance catalog, then binds the combined result to one exact clean commit.
-- **Why:** Green child issues and one adversarial suite do not by themselves prove that the whole phase is present, current, unquarantined, reviewed, and tested from the same immutable source state.
-- **How it went:** The integrated child work was already merged and green on the disposable Debian lane. The exit work reused that acceptance catalog instead of copying its test logic, added exact child-history and artifact bindings, and replaced the trusted-main Phase 3 exit with the superseding Phase 4 check while retaining Phase 3 as accepted historical evidence.
-- **Changed:** Phase 4 requirements and child traceability · clean commit and ancestry guard · complete public and Go race rerun · deterministic artifact/evidence digest · trusted-main Phase 4 exit · explicit operator checkpoint.
-- **Decisions:** none; this is credential-free software evidence only. It does not accept Phase 4 automatically or authorize Phase 5, release, deployment, providers, credentials, hosts, or fleet operations.
-
-— approved by (omkarmohanta09) · built by Codex · branch chore/4.10-phase4-integration
-
 ## 13-09-2026 — One hostile suite now guards the complete Phase 4 change path ([#80](https://github.com/vegastack/vegastack-labs/issues/80))
 
 - **What:** One command now checks the built executable, authoritative SQLite service, generated CLI and browser clients, Slack fixture, typed local adapter, and external executor simulator together. It covers exact success, denial, interruption, restart, partial recovery, replay, lease loss, client reconnect, and private-data exclusion with a closed list of required scenarios.

@@ -25,7 +25,7 @@ test("Phase 4 exit maps every requirement to current exact-commit proof", async 
   assert.ok(evidence.limitations.some((item) => /No live Slack, provider, host, deployment, release, or fleet proof/i.test(item.statement)));
 });
 
-test("Phase 4 remains awaiting explicit operator acceptance", async () => {
+test("Phase 4 remains awaiting explicit operator acceptance and is not chronicled early", async () => {
   const [evidence, phase, chronicle] = await Promise.all([
     loadEvidence(),
     readFile(path.join(ROOT, "docs/development/phases/04-declarations-plans-authorization-execution.md"), "utf8"),
@@ -34,5 +34,5 @@ test("Phase 4 remains awaiting explicit operator acceptance", async () => {
   assert.equal(Object.hasOwn(evidence, "acceptance"), false);
   assert.match(phase, /^Status: implemented; awaiting exact-commit operator acceptance\./m);
   assert.doesNotMatch(phase, /^Status: accepted/m);
-  assert.match(chronicle, /Phase 4 is implemented and awaits exact-commit acceptance/);
+  assert.doesNotMatch(chronicle, /Phase 4 is implemented and awaits exact-commit acceptance/);
 });

@@ -60,8 +60,8 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(trustedChecks.run, "pnpm check:affected --execute-plan");
   assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
-  assert.equal(trustedChecks.if, "github.event_name == 'workflow_dispatch'");
-  assert.equal(phase4Exit.if, "github.event_name == 'push' && github.ref == 'refs/heads/main'");
+  assert.equal(trustedChecks.if, "github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'");
+  assert.equal(phase4Exit.if, "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
   assert.equal(phase4Exit.run, "pnpm --silent check:phase-4-exit --commit \"$GITHUB_SHA\"");
   assert.equal(trustedNode.with.cache, undefined);
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);

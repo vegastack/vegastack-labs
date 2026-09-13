@@ -13,20 +13,21 @@ import {
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
+const TRUSTED_DEFAULT_BRANCH_REF = "refs/remotes/origin/main";
 const EXPECTED_TOP_LEVEL_KEYS = [
   "artifacts", "children", "commands", "limitations", "phase", "proofCatalog",
   "requirements", "schema", "status", "version",
 ];
 const EXPECTED_CHILDREN = Object.freeze([
-  Object.freeze({ issue: 66, phaseIssue: "4.1", pr: 87, mergeCommit: "5c49630efa10cd977414b6f5e671aa61d5233e5d", evidence: "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647755888", review: "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647642088" }),
-  Object.freeze({ issue: 76, phaseIssue: "4.2", pr: 88, mergeCommit: "f679edbc1fbdf7f0bf8b3069f2c104b972bbcb19", evidence: "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648189932", review: "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648105763" }),
-  Object.freeze({ issue: 71, phaseIssue: "4.3", pr: 89, mergeCommit: "c80273a8efa33fbce8bd8ec4d0c7ca5106ab43fb", evidence: "https://github.com/vegastack/vegastack-labs/issues/71#issuecomment-5648456856", review: "https://github.com/vegastack/vegastack-labs/issues/71#issuecomment-5648385325" }),
-  Object.freeze({ issue: 77, phaseIssue: "4.4", pr: 92, mergeCommit: "b1665d53ef8fcab0142b0e0702c7567616e8f093", evidence: "https://github.com/vegastack/vegastack-labs/issues/77#issuecomment-5648530190", review: "https://github.com/vegastack/vegastack-labs/issues/77#issuecomment-5648755482" }),
-  Object.freeze({ issue: 74, phaseIssue: "4.5", pr: 93, mergeCommit: "26aeb9c8e76e043ec23d6ddaf7d3bd6b09070a32", evidence: "https://github.com/vegastack/vegastack-labs/issues/74#issuecomment-5648530251", review: "https://github.com/vegastack/vegastack-labs/issues/74#issuecomment-5649443484" }),
-  Object.freeze({ issue: 69, phaseIssue: "4.6", pr: 94, mergeCommit: "deaf70d72a1dc3b79155a4397c3904866ae81121", evidence: "https://github.com/vegastack/vegastack-labs/issues/69#issuecomment-5651545026", review: "https://github.com/vegastack/vegastack-labs/issues/69#issuecomment-5651396049" }),
-  Object.freeze({ issue: 78, phaseIssue: "4.7", pr: 95, mergeCommit: "722bcb4aa4fc04cc4ba03f43ee87d1308a893953", evidence: "https://github.com/vegastack/vegastack-labs/issues/78#issuecomment-5653208119", review: "https://github.com/vegastack/vegastack-labs/issues/78#issuecomment-5651818958" }),
-  Object.freeze({ issue: 79, phaseIssue: "4.8", pr: 98, mergeCommit: "67295d0698691517249883932029fa0523de2076", evidence: "https://github.com/vegastack/vegastack-labs/issues/79#issuecomment-5655855160", review: "https://github.com/vegastack/vegastack-labs/issues/79#issuecomment-5655518082" }),
-  Object.freeze({ issue: 80, phaseIssue: "4.9", pr: 99, mergeCommit: "454472328e22cd09e23640f27942e25a6856c2e9", evidence: "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5655881078", review: "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5655355962" }),
+  Object.freeze({ issue: 66, phaseIssue: "4.1", pr: 87, reviewedHead: "c07d0c4f0fb0fa9c912f435cb89bd0cffb2b894b", mergeCommit: "5c49630efa10cd977414b6f5e671aa61d5233e5d", evidence: "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647755888", review: "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647642088", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34711095199" }),
+  Object.freeze({ issue: 76, phaseIssue: "4.2", pr: 88, reviewedHead: "3b62edef38c9ed47192486142824d9dbc3191de1", mergeCommit: "f679edbc1fbdf7f0bf8b3069f2c104b972bbcb19", evidence: "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648189932", review: "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648105763", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34714891042" }),
+  Object.freeze({ issue: 71, phaseIssue: "4.3", pr: 89, reviewedHead: "fd0ef803255c6ff4db91764bfa22a602995540ce", mergeCommit: "c80273a8efa33fbce8bd8ec4d0c7ca5106ab43fb", evidence: "https://github.com/vegastack/vegastack-labs/issues/71#issuecomment-5648456856", review: "https://github.com/vegastack/vegastack-labs/issues/71#issuecomment-5648385325", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34717409646" }),
+  Object.freeze({ issue: 77, phaseIssue: "4.4", pr: 92, reviewedHead: "3d719631c001b5e354e0252983c04d56f9ca8da4", mergeCommit: "b1665d53ef8fcab0142b0e0702c7567616e8f093", evidence: "https://github.com/vegastack/vegastack-labs/issues/77#issuecomment-5648530190", review: "https://github.com/vegastack/vegastack-labs/issues/77#issuecomment-5648755482", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34723448306" }),
+  Object.freeze({ issue: 74, phaseIssue: "4.5", pr: 93, reviewedHead: "8d6c2b130daadcedeaeee6590dc626ce6a0f646f", mergeCommit: "26aeb9c8e76e043ec23d6ddaf7d3bd6b09070a32", evidence: "https://github.com/vegastack/vegastack-labs/issues/74#issuecomment-5648530251", review: "https://github.com/vegastack/vegastack-labs/issues/74#issuecomment-5649443484", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34726403603" }),
+  Object.freeze({ issue: 69, phaseIssue: "4.6", pr: 94, reviewedHead: "ca7e0297255f3da3c08c111ce0d65b04b849b121", mergeCommit: "deaf70d72a1dc3b79155a4397c3904866ae81121", evidence: "https://github.com/vegastack/vegastack-labs/issues/69#issuecomment-5651545026", review: "https://github.com/vegastack/vegastack-labs/issues/69#issuecomment-5651396049", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34742183733" }),
+  Object.freeze({ issue: 78, phaseIssue: "4.7", pr: 95, reviewedHead: "32080eba270da888dd4afbeb636b853fea5f9d9f", mergeCommit: "722bcb4aa4fc04cc4ba03f43ee87d1308a893953", evidence: "https://github.com/vegastack/vegastack-labs/issues/78#issuecomment-5653208119", review: "https://github.com/vegastack/vegastack-labs/issues/78#issuecomment-5651818958", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34757663955" }),
+  Object.freeze({ issue: 79, phaseIssue: "4.8", pr: 98, reviewedHead: "9be236cdf7c8dfc07c335ef759341c20ddaa6ba4", mergeCommit: "67295d0698691517249883932029fa0523de2076", evidence: "https://github.com/vegastack/vegastack-labs/issues/79#issuecomment-5655855160", review: "https://github.com/vegastack/vegastack-labs/issues/79#issuecomment-5655732006", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34779930380" }),
+  Object.freeze({ issue: 80, phaseIssue: "4.9", pr: 99, reviewedHead: "2bcb25cf502196e651e2bf050ec5ebb86a7b76f7", mergeCommit: "454472328e22cd09e23640f27942e25a6856c2e9", evidence: "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5656268555", review: "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5655355962", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34783427593" }),
 ]);
 const EXPECTED_REQUIREMENTS = Object.freeze([
   "roadmap.phase-4",
@@ -89,12 +90,25 @@ function canonicalCommentURL(value, issue) {
       !parsed.search && parsed.pathname === `/vegastack/vegastack-labs/issues/${issue}` && /^#issuecomment-\d+$/.test(parsed.hash);
   } catch { return false; }
 }
+function canonicalActionsRunURL(value) {
+  if (typeof value !== "string") return false;
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "https:" && parsed.hostname === "github.com" && !parsed.username && !parsed.password &&
+      !parsed.search && !parsed.hash && /^\/vegastack\/vegastack-labs\/actions\/runs\/[1-9]\d*$/.test(parsed.pathname);
+  } catch { return false; }
+}
 
 export function parsePhase4ExitArgs(args) {
   if (!Array.isArray(args) || args.length !== 2 || args[0] !== "--commit" || !SHA_PATTERN.test(args[1])) {
     fail("PHASE4_EXIT_ARGUMENTS");
   }
   return { expectedCommit: args[1] };
+}
+
+export function assertLinuxPlatform(platform) {
+  if (platform !== "linux") fail("PHASE4_EXIT_LINUX_REQUIRED");
+  return true;
 }
 
 export function validatePhase4ExitDefinition(definition) {
@@ -105,9 +119,10 @@ export function validatePhase4ExitDefinition(definition) {
         definition.status !== "implemented-awaiting-operator-acceptance") fail("PHASE4_EXIT_DEFINITION");
     if (!Array.isArray(definition.children) || definition.children.length !== EXPECTED_CHILDREN.length) fail("PHASE4_EXIT_DEFINITION");
     for (const [index, child] of definition.children.entries()) {
-      if (!exactKeys(child, ["evidence", "issue", "mergeCommit", "phaseIssue", "pr", "review"]) ||
+      if (!exactKeys(child, ["evidence", "issue", "mergeCommit", "phaseIssue", "postMergeRun", "pr", "review", "reviewedHead"]) ||
           !same(child, EXPECTED_CHILDREN[index]) || !canonicalCommentURL(child.evidence, child.issue) ||
-          !canonicalCommentURL(child.review, child.issue)) fail("PHASE4_EXIT_DEFINITION");
+          !canonicalCommentURL(child.review, child.issue) || !SHA_PATTERN.test(child.reviewedHead) ||
+          !canonicalActionsRunURL(child.postMergeRun)) fail("PHASE4_EXIT_DEFINITION");
     }
     if (!exactKeys(definition.proofCatalog, ["evidence", "expectedScenarioCount", "expectedStatus", "path", "quarantined"]) ||
         definition.proofCatalog.path !== "tooling/testdata/phase-4/acceptance-scenarios.json" ||
@@ -158,13 +173,15 @@ export function validatePhase4ExitDefinition(definition) {
 
 export async function readGitState(root = ROOT) {
   try {
-    const [revision, status] = await Promise.all([
+    const [revision, defaultRevision, status] = await Promise.all([
       runCommand("git", ["rev-parse", "HEAD"], { cwd: root, capture: true, timeoutMs: 30_000 }),
+      runCommand("git", ["rev-parse", "--verify", TRUSTED_DEFAULT_BRANCH_REF], { cwd: root, capture: true, timeoutMs: 30_000 }),
       runCommand("git", ["status", "--porcelain=v1", "--untracked-files=all"], { cwd: root, capture: true, timeoutMs: 30_000 }),
     ]);
     const head = revision.stdout.trim();
-    if (!SHA_PATTERN.test(head)) fail("PHASE4_EXIT_GIT_STATE");
-    return { head, clean: status.stdout.length === 0 };
+    const defaultHead = defaultRevision.stdout.trim();
+    if (!SHA_PATTERN.test(head) || !SHA_PATTERN.test(defaultHead)) fail("PHASE4_EXIT_GIT_STATE");
+    return { head, defaultHead, clean: status.stdout.length === 0 };
   } catch (error) {
     if (error instanceof Phase4ExitError) throw error;
     fail("PHASE4_EXIT_GIT_STATE");
@@ -172,7 +189,8 @@ export async function readGitState(root = ROOT) {
 }
 
 export function assertExactCleanCommit({ expected, before, after }) {
-  if (!SHA_PATTERN.test(expected) || !before || !after || before.head !== expected || after.head !== expected) fail("PHASE4_EXIT_COMMIT");
+  if (!SHA_PATTERN.test(expected) || !before || !after || before.head !== expected || after.head !== expected ||
+      before.defaultHead !== expected || after.defaultHead !== expected) fail("PHASE4_EXIT_COMMIT");
   if (before.clean !== true || after.clean !== true) fail("PHASE4_EXIT_CLEAN_TREE");
   return true;
 }
@@ -237,6 +255,7 @@ async function artifactDigests(root, definition, digestInputs) {
 
 export async function runPhase4Exit(root = ROOT, {
   expectedCommit,
+  platform = process.platform,
   definition,
   acceptanceDefinition,
   acceptanceEvidence,
@@ -245,6 +264,7 @@ export async function runPhase4Exit(root = ROOT, {
   verifyChildren = verifyChildAncestry,
   digestInputs,
 } = {}) {
+  assertLinuxPlatform(platform);
   const before = await readState(root);
   assertExactCleanCommit({ expected: expectedCommit, before, after: before });
   try {
@@ -270,6 +290,7 @@ export async function runPhase4Exit(root = ROOT, {
     version: "1.0.0",
     phase: 4,
     sourceCommit: expectedCommit,
+    defaultBranchRef: TRUSTED_DEFAULT_BRANCH_REF,
     cleanTree: true,
     requirements: definition.requirements.map((item) => ({
       id: item.id,
@@ -298,6 +319,7 @@ function summary(evidence) {
     schemaVersion: 1,
     check: "phase-4-exit",
     sourceCommit: evidence.sourceCommit,
+    defaultBranchRef: evidence.defaultBranchRef,
     evidenceDigest: evidence.evidenceDigest,
     status: evidence.status,
   };
