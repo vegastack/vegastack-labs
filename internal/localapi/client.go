@@ -7,8 +7,6 @@ import (
 	"errors"
 	"io"
 	"mime"
-	"net"
-	"net/http"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/localtransport"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/runprotocol"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
@@ -25,12 +24,9 @@ const (
 	maxResponseBodyBytes          = 64 * 1024
 	maxOperationResponseBodyBytes = 24 << 20
 	maxOperationRequestBodyBytes  = 8 << 20
-	maxResponseHeaders            = 16 * 1024
 	statusTimeout                 = 3 * time.Second
 	operationTimeout              = 30 * time.Second
 )
-
-var errRedirect = errors.New("redirect denied")
 
 // UncertainRunError means a mutating request disconnected and the one allowed
 // durable-run inspection could not establish the result. It preserves the
@@ -84,16 +80,17 @@ type Client interface {
 type client struct{ results *result.Factory }
 
 type requestSpec struct {
-	method, path, command string
-	responseLimit         int64
-	timeout               time.Duration
-	allowChanged          bool
+	method        localtransport.Method
+	path, command string
+	responseLimit int64
+	timeout       time.Duration
+	allowChanged  bool
 }
 
 func NewClient(results *result.Factory) Client { return &client{results: results} }
 
 func (client *client) Status(ctx context.Context, profile serverconfig.Profile) (Response, error) {
-	typed, err := requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/health", generated.CommandNameServerStatus, maxResponseBodyBytes, statusTimeout, false}, nil, validRemoteStatus)
+	typed, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/health", generated.CommandNameServerStatus, maxResponseBodyBytes, statusTimeout, false}, nil, validRemoteStatus)
 	if err != nil {
 		return Response{}, err
 	}
@@ -101,23 +98,23 @@ func (client *client) Status(ctx context.Context, profile serverconfig.Profile) 
 }
 
 func (client *client) Summary(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.ApiSummaryData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/summary", "api.v1.summary.get", maxResponseBodyBytes, statusTimeout, false}, nil, validSummary)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/summary", "api.v1.summary.get", maxResponseBodyBytes, statusTimeout, false}, nil, validSummary)
 }
 
 func (client *client) DatabaseStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.DatabaseStatusData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/database/status", "api.v1.database-status.get", maxResponseBodyBytes, statusTimeout, false}, nil, validDatabaseStatus)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/database/status", "api.v1.database-status.get", maxResponseBodyBytes, statusTimeout, false}, nil, validDatabaseStatus)
 }
 
 func (client *client) ImportInventory(ctx context.Context, profile serverconfig.Profile, input generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-drafts/import", "api.v1.inventory-drafts.import", maxOperationResponseBodyBytes, operationTimeout, true}, input, validImportData)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/inventory-drafts/import", "api.v1.inventory-drafts.import", maxOperationResponseBodyBytes, operationTimeout, true}, input, validImportData)
 }
 
 func (client *client) DiffInventory(ctx context.Context, profile serverconfig.Profile, input generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-diffs", "api.v1.inventory-diffs.create", maxOperationResponseBodyBytes, operationTimeout, false}, input, validDiffData)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/inventory-diffs", "api.v1.inventory-diffs.create", maxOperationResponseBodyBytes, operationTimeout, false}, input, validDiffData)
 }
 
 func (client *client) ExportInventory(ctx context.Context, profile serverconfig.Profile, input generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-exports", "api.v1.inventory-exports.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validExportData)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/inventory-exports", "api.v1.inventory-exports.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validExportData)
 }
 
 func (client *client) Plan(ctx context.Context, profile serverconfig.Profile, declarationID string, revision int64) (TypedResponse[generated.Plan], error) {
@@ -126,7 +123,7 @@ func (client *client) Plan(ctx context.Context, profile serverconfig.Profile, de
 		return zero, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
 	}
 	base := "/api/v1/declarations/" + declarationID + "/revisions/" + strconv.FormatInt(revision, 10)
-	prepared, err := requestTyped(client, ctx, profile, requestSpec{http.MethodGet, base + "/plan-preparation", "api.v1.declarations.plan-preparation.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlanPreparation)
+	prepared, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, base + "/plan-preparation", "api.v1.declarations.plan-preparation.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlanPreparation)
 	if err != nil {
 		return zero, err
 	}
@@ -138,7 +135,7 @@ func (client *client) Plan(ctx context.Context, profile serverconfig.Profile, de
 		return zero, err
 	}
 	input := generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declarationID, DeclarationRevision: revision, ExpectedStateRevision: prepared.Data.ExpectedStateRevision, RecoveryEpoch: prepared.Data.RecoveryEpoch, ObservationFingerprint: prepared.Data.ObservationFingerprint, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/declarations/" + declarationID + "/plans", "api.v1.plans.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validPlan)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/declarations/" + declarationID + "/plans", "api.v1.plans.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validPlan)
 }
 
 func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.RunPresentation], error) {
@@ -156,7 +153,7 @@ func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, p
 	}
 	runID := runprotocol.ID(planID, key)
 	input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: planID, PlanDigest: planResponse.Data.PlanDigest, RecoveryEpoch: planResponse.Data.Binding.RecoveryEpoch, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}
-	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/plans/" + planID + "/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, input, validRunPresentation)
+	response, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/plans/" + planID + "/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, input, validRunPresentation)
 	if err == nil {
 		return response, nil
 	}
@@ -171,7 +168,7 @@ func (client *client) InspectRun(ctx context.Context, profile serverconfig.Profi
 	if !validPathToken(runID) {
 		return TypedResponse[generated.RunPresentation]{}, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
 	}
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/runs/" + runID, "api.v1.runs.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validRunPresentation)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/runs/" + runID, "api.v1.runs.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validRunPresentation)
 }
 
 func (client *client) CancelRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.RunPresentation], error) {
@@ -196,7 +193,7 @@ func (client *client) mutateRun(ctx context.Context, profile serverconfig.Profil
 		action, command = "resume", "api.v1.runs.resume"
 	}
 	input := generated.RunReferenceRequest{Schema: generated.SchemaIDRunReferenceRequest, SchemaVersion: "1.0.0", RunID: runID, IdempotencyKey: key, RecoveryEpoch: current.Data.Run.RecoveryEpoch, Extensions: []generated.ContractExtension{}}
-	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/runs/" + runID + "/" + action, command, maxOperationResponseBodyBytes, operationTimeout, true}, input, validRunPresentation)
+	response, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/runs/" + runID + "/" + action, command, maxOperationResponseBodyBytes, operationTimeout, true}, input, validRunPresentation)
 	if err == nil {
 		return response, nil
 	}
@@ -211,7 +208,7 @@ func (client *client) getPlan(ctx context.Context, profile serverconfig.Profile,
 	if !validPathToken(planID) {
 		return TypedResponse[generated.Plan]{}, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
 	}
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/plans/" + planID, "api.v1.plans.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlan)
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/plans/" + planID, "api.v1.plans.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlan)
 }
 
 func remapResponse[To, From any](response TypedResponse[From]) TypedResponse[To] {
@@ -226,42 +223,22 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 	if runtime.GOOS == "windows" {
 		return zero, failure.New(generated.ErrorCodeUnsupportedPlatform, "control-service", false)
 	}
-	var body io.Reader
-	if spec.method == http.MethodPost {
+	var body []byte
+	if spec.method == localtransport.MethodPost {
 		raw, err := json.Marshal(input)
 		if err != nil || len(raw) == 0 || len(raw) > maxOperationRequestBodyBytes {
 			return zero, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
 		}
-		body = bytes.NewReader(raw)
+		body = raw
 	} else if input != nil {
 		return zero, responseFailure()
 	}
-	requestCtx, cancel := context.WithTimeout(ctx, spec.timeout)
-	defer cancel()
-	dialer := &net.Dialer{}
-	transport := &http.Transport{
-		Proxy: nil,
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			return dialer.DialContext(ctx, "unix", profile.SocketPath)
-		},
-		DisableKeepAlives:      true,
-		MaxResponseHeaderBytes: maxResponseHeaders,
-	}
-	defer transport.CloseIdleConnections()
-	httpClient := &http.Client{Transport: transport, Timeout: spec.timeout, CheckRedirect: func(*http.Request, []*http.Request) error { return errRedirect }}
-	request, err := http.NewRequestWithContext(requestCtx, spec.method, "http://local"+spec.path, body)
+	response, err := localtransport.RoundTrip(ctx, localtransport.Request{
+		SocketPath: profile.SocketPath, Method: spec.method, Path: spec.path, Body: body,
+		Timeout: spec.timeout, ResponseLimit: spec.responseLimit,
+	})
 	if err != nil {
-		return zero, responseFailure()
-	}
-	if spec.method == http.MethodPost {
-		request.Header.Set("Content-Type", "application/json")
-	}
-	response, err := httpClient.Do(request)
-	if err != nil {
-		if response != nil && response.Body != nil {
-			_ = response.Body.Close()
-		}
-		if errors.Is(err, errRedirect) {
+		if errors.Is(err, localtransport.ErrInvalid) || errors.Is(err, localtransport.ErrRedirect) {
 			return zero, responseFailure()
 		}
 		if ctx.Err() != nil {
@@ -269,16 +246,11 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		}
 		return zero, failure.New(generated.ErrorCodeDependencyUnavailable, "control-service", true)
 	}
-	defer response.Body.Close()
-	mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
+	mediaType, _, err := mime.ParseMediaType(response.ContentType)
 	if err != nil || mediaType != "application/json" {
 		return zero, responseFailure()
 	}
-	raw, err := io.ReadAll(io.LimitReader(response.Body, spec.responseLimit+1))
-	if err != nil || len(raw) == 0 || int64(len(raw)) > spec.responseLimit {
-		return zero, responseFailure()
-	}
-	return validateTypedResponse(raw, response.StatusCode, spec, validate)
+	return validateTypedResponse(response.Body, response.StatusCode, spec, validate)
 }
 
 func validateTypedResponse[T any](raw []byte, httpStatus int, spec requestSpec, validate func(T, generated.RunResult) bool) (TypedResponse[T], error) {
@@ -327,7 +299,7 @@ func validateEnvelope(raw []byte, httpStatus int, spec requestSpec) (generated.R
 		return generated.RunResult{}, 0, responseFailure()
 	}
 	if len(envelope.Errors) == 0 {
-		if envelope.Status != generated.RunStatusSucceeded || httpStatus != http.StatusOK {
+		if envelope.Status != generated.RunStatusSucceeded || httpStatus != localtransport.StatusOK {
 			return generated.RunResult{}, 0, responseFailure()
 		}
 		return envelope, 0, nil
@@ -360,22 +332,22 @@ func runEnvelopeCommand(command string) bool {
 
 func expectedHTTPStatus(code string) int {
 	return map[string]int{
-		generated.ErrorCodeAuthenticationRequired: http.StatusUnauthorized,
-		generated.ErrorCodeAuthorizationDenied:    http.StatusForbidden,
-		generated.ErrorCodeInputInvalid:           http.StatusBadRequest,
-		generated.ErrorCodeSchemaUnsupported:      http.StatusBadRequest,
-		generated.ErrorCodeStateConflict:          http.StatusConflict,
-		generated.ErrorCodeRecoveryEpochMismatch:  http.StatusConflict,
-		generated.ErrorCodeResourceNotFound:       http.StatusNotFound,
-		generated.ErrorCodePrerequisiteBlocked:    http.StatusPreconditionFailed,
-		generated.ErrorCodeInterrupted:            http.StatusRequestTimeout,
-		generated.ErrorCodeDependencyUnavailable:  http.StatusServiceUnavailable,
-		generated.ErrorCodeIntegrityFailure:       http.StatusServiceUnavailable,
-		generated.ErrorCodeApprovalRequired:       http.StatusPreconditionFailed,
-		generated.ErrorCodePlanStale:              http.StatusConflict,
-		generated.ErrorCodeExecutionFailed:        http.StatusBadGateway,
-		generated.ErrorCodeExecutionPartial:       http.StatusConflict,
-		generated.ErrorCodeRecoveryRequired:       http.StatusConflict,
+		generated.ErrorCodeAuthenticationRequired: localtransport.StatusUnauthorized,
+		generated.ErrorCodeAuthorizationDenied:    localtransport.StatusForbidden,
+		generated.ErrorCodeInputInvalid:           localtransport.StatusBadRequest,
+		generated.ErrorCodeSchemaUnsupported:      localtransport.StatusBadRequest,
+		generated.ErrorCodeStateConflict:          localtransport.StatusConflict,
+		generated.ErrorCodeRecoveryEpochMismatch:  localtransport.StatusConflict,
+		generated.ErrorCodeResourceNotFound:       localtransport.StatusNotFound,
+		generated.ErrorCodePrerequisiteBlocked:    localtransport.StatusPreconditionFailed,
+		generated.ErrorCodeInterrupted:            localtransport.StatusRequestTimeout,
+		generated.ErrorCodeDependencyUnavailable:  localtransport.StatusServiceUnavailable,
+		generated.ErrorCodeIntegrityFailure:       localtransport.StatusServiceUnavailable,
+		generated.ErrorCodeApprovalRequired:       localtransport.StatusPreconditionFailed,
+		generated.ErrorCodePlanStale:              localtransport.StatusConflict,
+		generated.ErrorCodeExecutionFailed:        localtransport.StatusBadGateway,
+		generated.ErrorCodeExecutionPartial:       localtransport.StatusConflict,
+		generated.ErrorCodeRecoveryRequired:       localtransport.StatusConflict,
 	}[code]
 }
 

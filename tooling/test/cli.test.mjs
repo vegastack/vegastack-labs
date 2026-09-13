@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -104,6 +104,7 @@ test("inventory control commands cannot reach SQLite, shells, providers, arbitra
 });
 
 test("the CLI verifier permits the reviewed fixed Unix-domain socket transport", async (t) => {
+  const transportSource = await readFile(new URL("../../internal/localtransport/transport.go", import.meta.url), "utf8");
   const root = await fixtureRepo(t, {
     "internal/cli/run.go": [
       "package cli",
@@ -119,24 +120,35 @@ test("the CLI verifier permits the reviewed fixed Unix-domain socket transport",
     ].join("\n"),
     "internal/localapi/client.go": [
       "package localapi",
-      'import ("context"; "net"; "net/http")',
-      "type requestSpec struct { path string }",
-      "func Client(ctx context.Context, spec requestSpec) error {",
-      "  dialer := &net.Dialer{}",
-      "  transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {",
-      '    return dialer.DialContext(ctx, "unix", "/run/vsk-labs/control.sock")',
-      "  }}",
-      "  httpClient := &http.Client{Transport: transport}",
-      '  request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local"+spec.path, nil)',
-      "  if err != nil { return err }",
-      "  _, err = httpClient.Do(request)",
+      'import ("context"; "time"; "example.test/internal/localtransport")',
+      "func Client(ctx context.Context) error {",
+      '  _, err := localtransport.RoundTrip(ctx, localtransport.Request{SocketPath: "/run/vsk-labs/control.sock", Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 1024})',
       "  return err",
       "}",
       "",
     ].join("\n"),
+    "internal/localtransport/transport.go": transportSource,
   });
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
+});
+
+test("the local transport implementation is sealed to the reviewed Unix source", async (t) => {
+  const transportSource = await readFile(new URL("../../internal/localtransport/transport.go", import.meta.url), "utf8");
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import ("context"; "time"; "example.test/internal/localtransport")',
+      "func Client(ctx context.Context) error {",
+      '  _, err := localtransport.RoundTrip(ctx, localtransport.Request{SocketPath: "/run/vsk-labs/control.sock", Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 1024})',
+      "  return err",
+      "}",
+      "",
+    ].join("\n")),
+    "internal/localtransport/transport.go": transportSource.replace('"unix"', '"tcp"'),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
 test("the local client boundary rejects constructed remote URLs", async (t) => {
@@ -304,6 +316,40 @@ test("the local client boundary rejects transport mutation through pointer alias
   ].join("\n")));
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects transport mutation through container aliases", async (t) => {
+  const carriers = [
+    ["slice", "aliases := []*http.Transport{transport}", "aliases[0].DialContext"],
+    ["map", 'aliases := map[string]*http.Transport{"chosen": transport}', 'aliases["chosen"].DialContext'],
+    ["struct", "aliases := struct{ chosen *http.Transport }{transport}", "aliases.chosen.DialContext"],
+    ["interface", "var aliases any = transport", "aliases.(*http.Transport).DialContext"],
+  ];
+  for (const [name, setup, target] of carriers) {
+    await t.test(name, async () => {
+      const root = await fixtureRepo(t, localClientFixture([
+        "package localapi",
+        'import ("context"; "net"; "net/http")',
+        "type requestSpec struct { path string }",
+        "func Client(ctx context.Context, spec requestSpec, supplied net.Conn) error {",
+        "  dialer := &net.Dialer{}",
+        "  transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {",
+        '    return dialer.DialContext(ctx, "unix", "/run/vsk-labs/control.sock")',
+        "  }}",
+        `  ${setup}`,
+        `  ${target} = func(context.Context, string, string) (net.Conn, error) { return supplied, nil }`,
+        "  httpClient := &http.Client{Transport: transport}",
+        '  request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local"+spec.path, nil)',
+        "  if err != nil { return err }",
+        "  _, err = httpClient.Do(request)",
+        "  return err",
+        "}",
+        "",
+      ].join("\n")));
+      const result = await verifyCLI(root, { crossBuild: false });
+      assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+    });
+  }
 });
 
 test("the local client boundary rejects a provider SDK import", async (t) => {

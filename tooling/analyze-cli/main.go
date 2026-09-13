@@ -3,6 +3,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -338,6 +339,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	identityImport := modulePath + "/internal/identity"
 	apiImport := modulePath + "/internal/api"
 	localAPIImport := modulePath + "/internal/localapi"
+	localTransportImport := modulePath + "/internal/localtransport"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
@@ -353,7 +355,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	var result analysis
 	result.LocalClientBoundary = true
 	localClosure := moduleDependencyClosure(inModule, localAPIImport)
-	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport) {
+	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport) {
 		result.LocalClientBoundary = false
 	}
 	for _, candidate := range inModule {
@@ -362,7 +364,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
-		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport) {
+		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport, localTransportImport) {
 			result.LocalClientBoundary = false
 		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
@@ -441,9 +443,10 @@ func moduleDependencyClosure(packages []listedPackage, root string) map[string]b
 	return closure
 }
 
-func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport string) bool {
+func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport string) bool {
 	approved := map[string]bool{
 		localAPIImport:                        true,
+		localTransportImport:                  true,
 		modulePath + "/internal/failure":      true,
 		modulePath + "/internal/generated":    true,
 		modulePath + "/internal/principal":    true,
@@ -460,9 +463,12 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 	return true
 }
 
-func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport string) bool {
+func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport string) bool {
 	approvedExternal := func(imported string) bool {
 		return imported == "golang.org/x/sys/unix" || imported == "github.com/go-jose/go-jose/v4" || imported == "github.com/go-jose/go-jose/v4/jwt"
+	}
+	if candidate.listed.ImportPath == localTransportImport {
+		return reviewedLocalTransportPackage(candidate)
 	}
 	if candidate.listed.ImportPath != localAPIImport {
 		for _, imported := range candidate.listed.Imports {
@@ -476,7 +482,7 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		return true
 	}
 	for _, imported := range candidate.listed.Imports {
-		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/url" || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" {
+		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/http" || imported == "net/url" || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" {
 			return false
 		}
 		if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") || approvedExternal(imported) {
@@ -489,10 +495,6 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 	approvedCallbacks := reviewedLocalCallbacks(candidate)
 	valid := true
 	for _, file := range candidate.files {
-		httpValues := reviewedLocalHTTPValues(file, candidate.info)
-		if !httpValues.valid {
-			return false
-		}
 		directCallees := make(map[ast.Expr]bool)
 		ast.Inspect(file, func(node ast.Node) bool {
 			if call, ok := node.(*ast.CallExpr); ok {
@@ -546,9 +548,7 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 			switch function.Pkg().Path() {
 			case "net":
 				valid = reviewedUnixDial(function, call)
-			case "net/http":
-				valid = reviewedHTTPCall(function, call, httpValues, candidate.info)
-			case "net/url", "crypto/tls":
+			case "net/http", "net/url", "crypto/tls":
 				valid = false
 			}
 			return valid
@@ -680,242 +680,58 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 	}
 }
 
-type reviewedHTTPValues struct {
-	clients  map[*types.Var]bool
-	requests map[*types.Var]bool
-	valid    bool
+const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
+
+func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
+	approvedImports := map[string]bool{
+		"bytes": true, "context": true, "errors": true, "io": true, "net": true,
+		"net/http": true, "path": true, "strings": true, "time": true,
+	}
+	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports) {
+		return false
+	}
+	for _, imported := range candidate.listed.Imports {
+		if !approvedImports[imported] {
+			return false
+		}
+	}
+	expectedAPI := []string{
+		"ErrInvalid", "ErrRedirect", "ErrUnavailable", "Method", "MethodGet", "MethodPost", "Request", "Response", "RoundTrip",
+		"StatusBadGateway", "StatusBadRequest", "StatusConflict", "StatusForbidden", "StatusNotFound", "StatusOK", "StatusPreconditionFailed",
+		"StatusRequestTimeout", "StatusServiceUnavailable", "StatusUnauthorized",
+	}
+	actualAPI := candidate.typed.Scope().Names()
+	actualAPI = slicesMatching(actualAPI, ast.IsExported)
+	if len(actualAPI) != len(expectedAPI) {
+		return false
+	}
+	for index := range expectedAPI {
+		if actualAPI[index] != expectedAPI[index] {
+			return false
+		}
+	}
+	hash := sha256.New()
+	for _, name := range candidate.listed.GoFiles {
+		content, err := os.ReadFile(filepath.Join(candidate.listed.Dir, name))
+		if err != nil {
+			return false
+		}
+		_, _ = hash.Write([]byte(name))
+		_, _ = hash.Write([]byte{0})
+		_, _ = hash.Write(content)
+		_, _ = hash.Write([]byte{0})
+	}
+	return fmt.Sprintf("%x", hash.Sum(nil)) == reviewedLocalTransportDigest
 }
 
-func reviewedLocalHTTPValues(file *ast.File, info *types.Info) reviewedHTTPValues {
-	transports := make(map[*types.Var]bool)
-	assignments := make(map[*types.Var]int)
-	result := reviewedHTTPValues{clients: make(map[*types.Var]bool), requests: make(map[*types.Var]bool), valid: true}
-	ast.Inspect(file, func(node ast.Node) bool {
-		assignment, ok := node.(*ast.AssignStmt)
-		if !ok {
-			return true
+func slicesMatching(values []string, keep func(string) bool) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		if keep(value) {
+			result = append(result, value)
 		}
-		for _, left := range assignment.Lhs {
-			if identifier, isIdentifier := unparenthesized(left).(*ast.Ident); isIdentifier {
-				if variable, isVariable := info.ObjectOf(identifier).(*types.Var); isVariable {
-					assignments[variable]++
-				}
-				continue
-			}
-			if reviewedMutableHTTPValue(left, info) {
-				result.valid = false
-				return false
-			}
-		}
-		return true
-	})
-	if !result.valid {
-		return result
 	}
-	ast.Inspect(file, func(node ast.Node) bool {
-		assignment, ok := node.(*ast.AssignStmt)
-		if !ok || len(assignment.Rhs) != 1 {
-			return true
-		}
-		variable := assignedVariable(assignment, 0, info)
-		if variable == nil {
-			return true
-		}
-		if assignments[variable] == 1 && reviewedUnixTransport(assignment.Rhs[0], info) {
-			transports[variable] = true
-		}
-		call, ok := unparenthesized(assignment.Rhs[0]).(*ast.CallExpr)
-		if !ok {
-			return true
-		}
-		function := calledFunction(call.Fun, info)
-		if assignments[variable] == 1 && function != nil && function.Pkg() != nil && function.Pkg().Path() == "net/http" && function.Name() == "NewRequestWithContext" && len(call.Args) == 4 && reviewedLocalURL(call.Args[2]) {
-			result.requests[variable] = true
-		}
-		return true
-	})
-	ast.Inspect(file, func(node ast.Node) bool {
-		assignment, ok := node.(*ast.AssignStmt)
-		if !ok || len(assignment.Rhs) != 1 {
-			return true
-		}
-		variable := assignedVariable(assignment, 0, info)
-		if variable != nil && assignments[variable] == 1 && reviewedUnixHTTPClient(assignment.Rhs[0], transports, info) {
-			result.clients[variable] = true
-		}
-		return true
-	})
 	return result
-}
-
-func reviewedMutableHTTPValue(expression ast.Expr, info *types.Info) bool {
-	for {
-		switch value := unparenthesized(expression).(type) {
-		case *ast.SelectorExpr:
-			expression = value.X
-		case *ast.IndexExpr:
-			expression = value.X
-		case *ast.StarExpr:
-			expression = value.X
-		case *ast.Ident:
-			variable, _ := info.ObjectOf(value).(*types.Var)
-			if variable == nil {
-				return false
-			}
-			return typeNamed(variable.Type(), "net/http", "Client") || typeNamed(variable.Type(), "net/http", "Transport") || typeNamed(variable.Type(), "net/http", "Request")
-		default:
-			return false
-		}
-	}
-}
-
-func assignedVariable(assignment *ast.AssignStmt, index int, info *types.Info) *types.Var {
-	if index >= len(assignment.Lhs) {
-		return nil
-	}
-	identifier, ok := unparenthesized(assignment.Lhs[index]).(*ast.Ident)
-	if !ok {
-		return nil
-	}
-	variable, _ := info.ObjectOf(identifier).(*types.Var)
-	return variable
-}
-
-func reviewedUnixTransport(expression ast.Expr, info *types.Info) bool {
-	if !typeNamed(info.TypeOf(expression), "net/http", "Transport") {
-		return false
-	}
-	pointer, ok := unparenthesized(expression).(*ast.UnaryExpr)
-	if !ok || pointer.Op != token.AND {
-		return false
-	}
-	literal, ok := unparenthesized(pointer.X).(*ast.CompositeLit)
-	if !ok {
-		return false
-	}
-	proxyDisabled := false
-	unixDial := false
-	for _, element := range literal.Elts {
-		field, ok := element.(*ast.KeyValueExpr)
-		if !ok {
-			continue
-		}
-		name, ok := unparenthesized(field.Key).(*ast.Ident)
-		if !ok {
-			continue
-		}
-		switch name.Name {
-		case "Proxy":
-			value, isNil := unparenthesized(field.Value).(*ast.Ident)
-			proxyDisabled = isNil && value.Name == "nil"
-		case "DialContext":
-			closure, isClosure := unparenthesized(field.Value).(*ast.FuncLit)
-			if !isClosure {
-				continue
-			}
-			unixDial = reviewedUnixDialClosure(closure, info)
-		}
-	}
-	return proxyDisabled && unixDial
-}
-
-func reviewedUnixDialClosure(closure *ast.FuncLit, info *types.Info) bool {
-	if closure.Body == nil || len(closure.Body.List) != 1 {
-		return false
-	}
-	returned, ok := closure.Body.List[0].(*ast.ReturnStmt)
-	if !ok || len(returned.Results) != 1 {
-		return false
-	}
-	call, ok := unparenthesized(returned.Results[0]).(*ast.CallExpr)
-	if !ok {
-		return false
-	}
-	function := calledFunction(call.Fun, info)
-	return function != nil && function.Pkg() != nil && function.Pkg().Path() == "net" && reviewedUnixDial(function, call)
-}
-
-func reviewedUnixHTTPClient(expression ast.Expr, transports map[*types.Var]bool, info *types.Info) bool {
-	if !typeNamed(info.TypeOf(expression), "net/http", "Client") {
-		return false
-	}
-	pointer, ok := unparenthesized(expression).(*ast.UnaryExpr)
-	if !ok || pointer.Op != token.AND {
-		return false
-	}
-	literal, ok := unparenthesized(pointer.X).(*ast.CompositeLit)
-	if !ok {
-		return false
-	}
-	for _, element := range literal.Elts {
-		field, ok := element.(*ast.KeyValueExpr)
-		if !ok {
-			continue
-		}
-		name, ok := unparenthesized(field.Key).(*ast.Ident)
-		if !ok || name.Name != "Transport" {
-			continue
-		}
-		transport, ok := unparenthesized(field.Value).(*ast.Ident)
-		if !ok {
-			return false
-		}
-		variable, _ := info.ObjectOf(transport).(*types.Var)
-		return variable != nil && transports[variable]
-	}
-	return false
-}
-
-func reviewedHTTPCall(function *types.Func, call *ast.CallExpr, values reviewedHTTPValues, info *types.Info) bool {
-	switch function.Name() {
-	case "NewRequestWithContext":
-		return len(call.Args) == 4 && reviewedLocalURL(call.Args[2])
-	case "Do":
-		selector, ok := unparenthesized(call.Fun).(*ast.SelectorExpr)
-		if !ok || len(call.Args) != 1 {
-			return false
-		}
-		receiver, receiverOK := unparenthesized(selector.X).(*ast.Ident)
-		request, requestOK := unparenthesized(call.Args[0]).(*ast.Ident)
-		if !receiverOK || !requestOK || !receiverNamed(function, "net/http", "Client") {
-			return false
-		}
-		clientVariable, _ := info.ObjectOf(receiver).(*types.Var)
-		requestVariable, _ := info.ObjectOf(request).(*types.Var)
-		return clientVariable != nil && requestVariable != nil && values.clients[clientVariable] && values.requests[requestVariable]
-	case "CloseIdleConnections":
-		return receiverNamed(function, "net/http", "Transport") || receiverNamed(function, "net/http", "Client")
-	case "Set", "Get":
-		return receiverNamed(function, "net/http", "Header")
-	default:
-		return false
-	}
-}
-
-func receiverNamed(function *types.Func, packagePath, name string) bool {
-	signature, ok := function.Type().(*types.Signature)
-	if !ok || signature.Recv() == nil {
-		return false
-	}
-	receiver := types.Unalias(signature.Recv().Type())
-	if pointer, ok := receiver.(*types.Pointer); ok {
-		receiver = types.Unalias(pointer.Elem())
-	}
-	named, ok := receiver.(*types.Named)
-	return ok && named.Obj() != nil && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == packagePath && named.Obj().Name() == name
-}
-
-func reviewedLocalURL(expression ast.Expr) bool {
-	addition, ok := unparenthesized(expression).(*ast.BinaryExpr)
-	if !ok || addition.Op != token.ADD || !exactString(addition.X, "http://local") {
-		return false
-	}
-	selector, ok := unparenthesized(addition.Y).(*ast.SelectorExpr)
-	if !ok {
-		return false
-	}
-	prefix, prefixOK := selector.X.(*ast.Ident)
-	return prefixOK && prefix.Name == "spec" && selector.Sel.Name == "path"
 }
 
 func exactString(expression ast.Expr, expected string) bool {
