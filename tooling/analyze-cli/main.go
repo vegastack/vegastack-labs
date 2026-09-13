@@ -342,6 +342,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	localTransportImport := modulePath + "/internal/localtransport"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
+	serverConfigImport := modulePath + "/internal/serverconfig"
 	if !containsPackage(inModule, mainImport) || !containsPackage(inModule, generatedImport) {
 		return analysis{}, errors.New("runtime dependency closure omits the executable or generated package")
 	}
@@ -355,6 +356,10 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	var result analysis
 	result.LocalClientBoundary = true
 	localClosure := moduleDependencyClosure(inModule, localAPIImport)
+	controlClosure := moduleDependencyClosure(inModule, cliImport)
+	for importPath := range moduleDependencyClosure(inModule, clientFileImport) {
+		controlClosure[importPath] = true
+	}
 	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport) {
 		result.LocalClientBoundary = false
 	}
@@ -371,7 +376,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			result.LocalClientBoundary = false
 		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
-		isControlPackage := candidate.ImportPath == cliImport || strings.HasPrefix(candidate.ImportPath, cliImport+"/") || candidate.ImportPath == clientFileImport || strings.HasPrefix(candidate.ImportPath, clientFileImport+"/")
+		isControlPackage := controlClosure[candidate.ImportPath]
+		isControlCapabilityPackage := isControlPackage && !isReleasePackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage {
 				result.ShellDispatch = true
@@ -395,14 +402,19 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 					result.ReleaseArtifactExecution = true
 				}
 			}
-			if isControlPackage {
+			if isControlCapabilityPackage {
 				switch imported {
 				case "database/sql", "github.com/ncruces/go-sqlite3", "github.com/ncruces/go-sqlite3/driver":
 					result.ControlSQLiteAccess = true
 				case "os/exec", "plugin":
 					result.ControlShellDispatch = true
-				case "net/http":
-					result.ControlArbitraryHTTP = true
+				case "net", "net/http", "net/url", "crypto/tls", "syscall":
+					if !reviewedControlNetworkImport(parsed, imported, localAPIImport, localTransportImport, serverConfigImport) {
+						result.ControlArbitraryHTTP = true
+					}
+				}
+				if !reviewedControlExternalImport(parsed, imported, modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
+					result.ControlProviderAccess = true
 				}
 				if strings.Contains(imported, "google.golang.org") || strings.Contains(imported, "/google") || strings.Contains(imported, "sheets") {
 					result.ControlGoogleAccess = true
@@ -415,9 +427,66 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 		}
-		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, isControlPackage, &result)
+		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
 	}
 	return result, nil
+}
+
+func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, localAPIImport, localTransportImport, serverConfigImport string) bool {
+	switch candidate.listed.ImportPath {
+	case localAPIImport:
+		return imported == "net" && reviewedLocalAPISource(candidate)
+	case localTransportImport:
+		return (imported == "net" || imported == "net/http") && reviewedLocalTransportPackage(candidate)
+	case serverConfigImport:
+		return imported == "net/url" && reviewedControlPlatformSource(candidate, "serverconfig")
+	default:
+		return false
+	}
+}
+
+func reviewedControlExternalImport(candidate checkedSourcePackage, imported, modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport string) bool {
+	if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") {
+		return true
+	}
+	candidatePath := candidate.listed.ImportPath
+	if candidatePath == localAPIImport && imported == "golang.org/x/sys/unix" && reviewedLocalAPISource(candidate) {
+		return true
+	}
+	if candidatePath == clientFileImport && (imported == "golang.org/x/sys/unix" || imported == "golang.org/x/sys/windows") && reviewedControlPlatformSource(candidate, "clientfile") {
+		return true
+	}
+	if candidatePath == serverConfigImport && imported == "golang.org/x/sys/unix" && reviewedControlPlatformSource(candidate, "serverconfig") {
+		return true
+	}
+	if candidatePath == releaseImport {
+		switch imported {
+		case "github.com/sigstore/sigstore-go/pkg/bundle", "github.com/sigstore/sigstore-go/pkg/root", "github.com/sigstore/sigstore-go/pkg/verify":
+			return true
+		}
+	}
+	return false
+}
+
+func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	var expected string
+	switch kind {
+	case "clientfile":
+		expected = "20cf2e7ef6da35560d59b88a69e75391ae58b22a22d88da619000e019adaf28b"
+		if containsString(names, "read_unix.go") {
+			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
+		}
+	case "serverconfig":
+		expected = "996c3c80ae4cf23f9287144d6e35bb11462ea4dc56ded19252e7d7a4a48f94aa"
+		if containsString(names, "profile_linux.go") {
+			expected = "931b729297a09edb6fca13a5c69187488d7fac234f30df1444e8be5c024d2c96"
+		}
+	default:
+		return false
+	}
+	return digestSourceFiles(candidate.listed.Dir, names) == expected
 }
 
 func moduleDependencyClosure(packages []listedPackage, root string) map[string]bool {

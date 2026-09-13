@@ -105,6 +105,73 @@ test("inventory control commands cannot reach SQLite, shells, providers, arbitra
   ]);
 });
 
+test("the control boundary rejects arbitrary HTTP hidden in an internal helper", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; "example.test/internal/transporthelper")',
+      "func init() { _ = transporthelper.Fetch() }",
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/transporthelper/client.go": [
+      "package transporthelper",
+      'import "net/http"',
+      'func Fetch() error { _, err := http.Get("https://provider.invalid"); return err }',
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_CONTROL_ARBITRARY_HTTP"]);
+});
+
+test("the control boundary rejects alternate network primitives hidden in helpers", async (t) => {
+  for (const [name, source] of [
+    ["net", 'package transporthelper\nimport "net"\nfunc Fetch() error { connection, err := net.Dial("tcp", "provider.invalid:443"); if connection != nil { _ = connection.Close() }; return err }\n'],
+    ["syscall", 'package transporthelper\nimport "syscall"\nfunc Fetch() error { descriptor, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0); if err != nil { return err }; defer syscall.Close(descriptor); return syscall.Connect(descriptor, &syscall.SockaddrInet4{Port: 443}) }\n'],
+  ]) {
+    await t.test(name, async () => {
+      const root = await fixtureRepo(t, {
+        "internal/cli/run.go": [
+          "package cli",
+          'import ("example.test/internal/generated"; "example.test/internal/transporthelper")',
+          "func init() { _ = transporthelper.Fetch() }",
+          MATCHING_RUN,
+          "",
+        ].join("\n"),
+        "internal/transporthelper/client.go": source,
+      });
+      const result = await verifyCLI(root, { crossBuild: false });
+      assert.deepEqual(result.codes, ["CLI_CONTROL_ARBITRARY_HTTP"]);
+    });
+  }
+});
+
+test("the control boundary rejects an unreviewed external dependency", async (t) => {
+  const root = await fixtureRepo(t, {
+    "go.mod": [
+      "module example.test",
+      "",
+      "go 1.27.0",
+      "",
+      "require provider.invalid/sdk v0.0.0",
+      "replace provider.invalid/sdk => ./provider-sdk",
+      "",
+    ].join("\n"),
+    "provider-sdk/go.mod": "module provider.invalid/sdk\n\ngo 1.27.0\n",
+    "provider-sdk/sdk.go": "package sdk\nfunc Connect() {}\n",
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; "provider.invalid/sdk")',
+      "func init() { sdk.Connect() }",
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_CONTROL_PROVIDER_ACCESS"]);
+});
+
 test("the CLI verifier permits the reviewed fixed Unix-domain socket transport", async () => {
   const result = await verifyCLI(ROOT, { crossBuild: false });
   assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
@@ -848,8 +915,8 @@ test("the CLI verifier scans imported in-module packages outside the old fixed d
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, [
     "CLI_HANDWRITTEN_REGISTRY",
-    "CLI_SQLITE_ACCESS",
-    "CLI_SHELL_DISPATCH",
+    "CLI_CONTROL_SQLITE_ACCESS",
+    "CLI_CONTROL_SHELL_DISPATCH",
   ]);
 });
 
@@ -895,7 +962,7 @@ test("the recovery artifact package cannot become a second SQLite owner", async 
     ].join("\n"),
   });
   assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
-    "CLI_SQLITE_ACCESS",
+    "CLI_CONTROL_SQLITE_ACCESS",
   ]);
 });
 
@@ -1075,6 +1142,7 @@ test("production cannot assign export trust fields before NewService", async (t)
     ].join("\n"),
   });
   assert.deepEqual((await verifyCLI(root, { crossBuild: false })).codes, [
+    "CLI_INVENTORY_DIRECT_DOMAIN",
     "CLI_STATE_EXPORT_TRUST",
   ]);
 });
@@ -1141,8 +1209,9 @@ test("the CLI verifier scans target-specific dependency closures", async (t) => 
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, [
     "CLI_HANDWRITTEN_REGISTRY",
+    "CLI_CONTROL_SQLITE_ACCESS",
+    "CLI_CONTROL_SHELL_DISPATCH",
     "CLI_SQLITE_ACCESS",
-    "CLI_SHELL_DISPATCH",
   ]);
 });
 
@@ -1156,7 +1225,7 @@ test("the CLI verifier type-checks Windows-only standard-library symbols in the 
     ].join("\n"),
   });
   const result = await verifyCLI(root, { crossBuild: false });
-  assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
+  assert.deepEqual(result.codes, ["CLI_CONTROL_ARBITRARY_HTTP"]);
 });
 
 test("the CLI verifier fails closed when the analyzer reports a mismatched target", async (t) => {
