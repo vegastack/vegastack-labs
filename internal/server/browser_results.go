@@ -11,24 +11,55 @@ import (
 )
 
 type browserResultRecorder struct {
-	header http.Header
-	body   bytes.Buffer
-	status int
+	destination http.ResponseWriter
+	header      http.Header
+	body        bytes.Buffer
+	status      int
+	streaming   bool
 }
 
 func (recorder *browserResultRecorder) Header() http.Header { return recorder.header }
 
 func (recorder *browserResultRecorder) WriteHeader(status int) {
-	if recorder.status == 0 {
-		recorder.status = status
+	if recorder.status != 0 {
+		return
+	}
+	recorder.status = status
+	if status >= 200 && status < 300 && strings.HasPrefix(strings.ToLower(recorder.header.Get("Content-Type")), "text/event-stream") {
+		copyBrowserHeaders(recorder.destination.Header(), recorder.header)
+		recorder.destination.WriteHeader(status)
+		recorder.streaming = true
 	}
 }
 
 func (recorder *browserResultRecorder) Write(value []byte) (int, error) {
 	if recorder.status == 0 {
-		recorder.status = http.StatusOK
+		recorder.WriteHeader(http.StatusOK)
+	}
+	if recorder.streaming {
+		return recorder.destination.Write(value)
 	}
 	return recorder.body.Write(value)
+}
+
+func (recorder *browserResultRecorder) Flush() {
+	if recorder.status == 0 {
+		recorder.WriteHeader(http.StatusOK)
+	}
+	if recorder.streaming {
+		if flusher, ok := recorder.destination.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
+}
+
+func copyBrowserHeaders(destination, source http.Header) {
+	for name, values := range source {
+		if strings.EqualFold(name, "Content-Length") {
+			continue
+		}
+		destination[name] = append([]string(nil), values...)
+	}
 }
 
 // projectBrowserResults keeps the server's request correlation available to
@@ -36,12 +67,11 @@ func (recorder *browserResultRecorder) Write(value []byte) (int, error) {
 // SSE already has its own generated safe event projection and must stream.
 func projectBrowserResults(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		if request.URL.Path == "/api/v1/events" {
-			next.ServeHTTP(writer, request)
+		recorder := &browserResultRecorder{destination: writer, header: make(http.Header)}
+		next.ServeHTTP(recorder, request)
+		if recorder.streaming {
 			return
 		}
-		recorder := &browserResultRecorder{header: make(http.Header)}
-		next.ServeHTTP(recorder, request)
 		status := recorder.status
 		if status == 0 {
 			status = http.StatusOK
@@ -69,12 +99,7 @@ func projectBrowserResults(next http.Handler) http.Handler {
 			}
 			body = append(body, '\n')
 		}
-		for name, values := range recorder.header {
-			if strings.EqualFold(name, "Content-Length") {
-				continue
-			}
-			writer.Header()[name] = append([]string(nil), values...)
-		}
+		copyBrowserHeaders(writer.Header(), recorder.header)
 		writer.Header().Set("Content-Length", strconv.Itoa(len(body)))
 		writer.WriteHeader(status)
 		if request.Method != http.MethodHead {
