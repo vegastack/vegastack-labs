@@ -20,7 +20,14 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
-const apiSSHCommand = generated.CommandNameServerStatus
+const (
+	apiSSHCommand     = generated.CommandNameServerStatus
+	apiSSHReadTimeout = 30 * time.Second
+)
+
+type apiSSHReadDeadline interface {
+	SetReadDeadline(time.Time) error
+}
 
 type apiSSHForward func(context.Context, localtransport.Request) (localtransport.Response, error)
 
@@ -57,6 +64,16 @@ func (operations *Operations) ServeAPISSH(ctx context.Context, configPath, verif
 }
 
 func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output io.Writer) error {
+	if deadlineInput, ok := input.(apiSSHReadDeadline); ok {
+		deadline := time.Now().Add(apiSSHReadTimeout)
+		if contextDeadline, bounded := ctx.Deadline(); bounded && contextDeadline.Before(deadline) {
+			deadline = contextDeadline
+		}
+		if err := deadlineInput.SetReadDeadline(deadline); err != nil {
+			return failure.New(generated.ErrorCodeInputInvalid, "api-ssh-request-frame", false)
+		}
+		defer func() { _ = deadlineInput.SetReadDeadline(time.Time{}) }()
+	}
 	request, err := apissh.ReadRequest(input)
 	if err != nil {
 		requestID := apissh.RecoverableRequestID(err)

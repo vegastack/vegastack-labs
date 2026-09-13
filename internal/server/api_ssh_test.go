@@ -11,8 +11,10 @@ import (
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/apissh"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localtransport"
 	"github.com/vegastack/vegastack-labs/internal/principal"
@@ -32,6 +34,17 @@ type apiSSHRecorder struct {
 	errors    []error
 }
 
+type apiSSHDeadlineReader struct {
+	*bytes.Reader
+	deadlines []time.Time
+	err       error
+}
+
+func (reader *apiSSHDeadlineReader) SetReadDeadline(deadline time.Time) error {
+	reader.deadlines = append(reader.deadlines, deadline)
+	return reader.err
+}
+
 func (recorder *apiSSHRecorder) forward(_ context.Context, request localtransport.Request) (localtransport.Response, error) {
 	recorder.requests = append(recorder.requests, request)
 	index := len(recorder.requests) - 1
@@ -42,6 +55,33 @@ func (recorder *apiSSHRecorder) forward(_ context.Context, request localtranspor
 		return localtransport.Response{}, errors.New("unexpected forward")
 	}
 	return recorder.responses[index], nil
+}
+
+func TestAPISSHBoundsPollableInputReadAndClearsDeadline(t *testing.T) {
+	recorder := &apiSSHRecorder{responses: []localtransport.Response{
+		apiSSHLocalResponse(t, apiSSHEnvelope("server status", "local-health", 4, 9)),
+		apiSSHLocalResponse(t, apiSSHEnvelope("server status", "local-operation", 4, 9)),
+	}}
+	reader := &apiSSHDeadlineReader{Reader: bytes.NewReader(apiSSHRequestWire(t, "GET /api/v1/health", []string{"server", "status"}, 4, nil))}
+	deadline := time.Now().Add(time.Second)
+	ctx, cancel := context.WithDeadline(context.Background(), deadline)
+	defer cancel()
+	var output bytes.Buffer
+	if err := newAPISSHTestHandler(recorder).Serve(ctx, reader, &output); err != nil {
+		t.Fatal(err)
+	}
+	if len(reader.deadlines) != 2 || reader.deadlines[0].Before(deadline.Add(-time.Second)) || reader.deadlines[0].After(deadline) || !reader.deadlines[1].IsZero() {
+		t.Fatalf("read deadlines = %#v, context deadline %s", reader.deadlines, deadline)
+	}
+}
+
+func TestAPISSHRejectsPollableInputWithoutDeadlineSupport(t *testing.T) {
+	reader := &apiSSHDeadlineReader{Reader: bytes.NewReader(nil), err: errors.New("deadline unsupported")}
+	err := newAPISSHTestHandler(&apiSSHRecorder{}).Serve(context.Background(), reader, io.Discard)
+	stable, ok := failure.As(err)
+	if !ok || stable.Code != generated.ErrorCodeInputInvalid || stable.Target != "api-ssh-request-frame" || len(reader.deadlines) != 1 {
+		t.Fatalf("Serve() error = %v deadlines=%#v", err, reader.deadlines)
+	}
 }
 
 func TestAPISSHForwardsOneAdmittedOperationWithExactBindingAndCommand(t *testing.T) {

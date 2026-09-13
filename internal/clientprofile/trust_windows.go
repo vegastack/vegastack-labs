@@ -14,8 +14,9 @@ const trustedInstallerSID = "S-1-5-80-956008885-3418522649-1831038044-1853292631
 const windowsDirectoryDeleteChild windows.ACCESS_MASK = 0x00000040
 
 type windowsAccess struct {
-	sid  string
-	mask windows.ACCESS_MASK
+	sid      string
+	mask     windows.ACCESS_MASK
+	aceFlags uint8
 }
 
 type windowsPathKind uint8
@@ -97,7 +98,7 @@ func trustedWindowsPath(path string, expected os.FileInfo, kind windowsPathKind)
 		if !sid.IsValid() || sid.String() == "" {
 			return false
 		}
-		entries = append(entries, windowsAccess{sid: sid.String(), mask: ace.Mask})
+		entries = append(entries, windowsAccess{sid: sid.String(), mask: ace.Mask, aceFlags: ace.Header.AceFlags})
 	}
 	return windowsPathACLTrusted(owner.String(), user.User.Sid.String(), entries, kind)
 }
@@ -148,7 +149,7 @@ func windowsPathACLTrusted(owner, current string, entries []windowsAccess, kind 
 	unsafeExecutable := windows.ACCESS_MASK(windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windows.FILE_WRITE_EA | windows.FILE_WRITE_ATTRIBUTES | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_WRITE | windows.GENERIC_ALL)
 	unsafeDirectory := windows.ACCESS_MASK(windows.FILE_WRITE_DATA | windows.FILE_APPEND_DATA | windowsDirectoryDeleteChild | windows.FILE_WRITE_EA | windows.FILE_WRITE_ATTRIBUTES | windows.DELETE | windows.WRITE_DAC | windows.WRITE_OWNER | windows.GENERIC_WRITE | windows.GENERIC_ALL)
 	for _, entry := range entries {
-		if entry.sid == "" || entry.mask == 0 {
+		if entry.sid == "" || entry.mask == 0 || entry.aceFlags&windows.INHERIT_ONLY_ACE != 0 {
 			continue
 		}
 		if kind == windowsPrivateFile && !privileged[entry.sid] {

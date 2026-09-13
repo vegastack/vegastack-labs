@@ -58,11 +58,11 @@ func TestWindowsACLTrustRequiresOwnerAndRejectsUnsafeGrants(t *testing.T) {
 		executable bool
 		want       bool
 	}{
-		"private current owner":                   {current, []windowsAccess{{current, windows.GENERIC_ALL}, {system, windows.GENERIC_ALL}}, false, true},
-		"private wrong owner":                     {users, []windowsAccess{{current, windows.GENERIC_ALL}}, false, false},
-		"private other read":                      {current, []windowsAccess{{current, windows.GENERIC_ALL}, {users, windows.GENERIC_READ}}, false, false},
-		"executable system owner and public read": {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.GENERIC_READ | windows.GENERIC_EXECUTE}}, true, true},
-		"executable public write":                 {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.GENERIC_WRITE}}, true, false},
+		"private current owner":                   {current, []windowsAccess{{current, windows.GENERIC_ALL, 0}, {system, windows.GENERIC_ALL, 0}}, false, true},
+		"private wrong owner":                     {users, []windowsAccess{{current, windows.GENERIC_ALL, 0}}, false, false},
+		"private other read":                      {current, []windowsAccess{{current, windows.GENERIC_ALL, 0}, {users, windows.GENERIC_READ, 0}}, false, false},
+		"executable system owner and public read": {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windows.GENERIC_READ | windows.GENERIC_EXECUTE, 0}}, true, true},
+		"executable public write":                 {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windows.GENERIC_WRITE, 0}}, true, false},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := windowsACLTrusted(test.owner, current, test.entries, test.executable); got != test.want {
@@ -81,13 +81,14 @@ func TestWindowsDirectoryACLTrustRejectsReplaceableAncestors(t *testing.T) {
 		entries []windowsAccess
 		want    bool
 	}{
-		"private current owner":        {current, []windowsAccess{{current, windows.GENERIC_ALL}, {system, windows.GENERIC_ALL}}, true},
-		"system owner public traverse": {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.GENERIC_READ | windows.GENERIC_EXECUTE}}, true},
-		"untrusted owner":              {users, []windowsAccess{{users, windows.GENERIC_ALL}}, false},
-		"public add file":              {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.FILE_WRITE_DATA}}, false},
-		"public add directory":         {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.FILE_APPEND_DATA}}, false},
-		"public delete child":          {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windowsDirectoryDeleteChild}}, false},
-		"public change ACL":            {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.WRITE_DAC}}, false},
+		"private current owner":        {current, []windowsAccess{{current, windows.GENERIC_ALL, 0}, {system, windows.GENERIC_ALL, 0}}, true},
+		"system owner public traverse": {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windows.GENERIC_READ | windows.GENERIC_EXECUTE, 0}}, true},
+		"untrusted owner":              {users, []windowsAccess{{users, windows.GENERIC_ALL, 0}}, false},
+		"public add file":              {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windows.FILE_WRITE_DATA, 0}}, false},
+		"public add directory":         {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windows.FILE_APPEND_DATA, 0}}, false},
+		"public delete child":          {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windowsDirectoryDeleteChild, 0}}, false},
+		"public change ACL":            {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windows.WRITE_DAC, 0}}, false},
+		"inherit-only public write":    {system, []windowsAccess{{system, windows.GENERIC_ALL, 0}, {users, windows.GENERIC_ALL, windows.INHERIT_ONLY_ACE}}, true},
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := windowsDirectoryACLTrusted(test.owner, current, test.entries); got != test.want {
