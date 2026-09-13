@@ -489,6 +489,10 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 	approvedCallbacks := reviewedLocalCallbacks(candidate)
 	valid := true
 	for _, file := range candidate.files {
+		httpValues := reviewedLocalHTTPValues(file, candidate.info)
+		if !httpValues.valid {
+			return false
+		}
 		directCallees := make(map[ast.Expr]bool)
 		ast.Inspect(file, func(node ast.Node) bool {
 			if call, ok := node.(*ast.CallExpr); ok {
@@ -543,7 +547,7 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 			case "net":
 				valid = reviewedUnixDial(function, call)
 			case "net/http":
-				valid = reviewedHTTPCall(function, call)
+				valid = reviewedHTTPCall(function, call, httpValues, candidate.info)
 			case "net/url", "crypto/tls":
 				valid = false
 			}
@@ -672,7 +676,187 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 	}
 }
 
-func reviewedHTTPCall(function *types.Func, call *ast.CallExpr) bool {
+type reviewedHTTPValues struct {
+	clients  map[*types.Var]bool
+	requests map[*types.Var]bool
+	valid    bool
+}
+
+func reviewedLocalHTTPValues(file *ast.File, info *types.Info) reviewedHTTPValues {
+	transports := make(map[*types.Var]bool)
+	assignments := make(map[*types.Var]int)
+	result := reviewedHTTPValues{clients: make(map[*types.Var]bool), requests: make(map[*types.Var]bool), valid: true}
+	ast.Inspect(file, func(node ast.Node) bool {
+		assignment, ok := node.(*ast.AssignStmt)
+		if !ok {
+			return true
+		}
+		for _, left := range assignment.Lhs {
+			if identifier, isIdentifier := unparenthesized(left).(*ast.Ident); isIdentifier {
+				if variable, isVariable := info.ObjectOf(identifier).(*types.Var); isVariable {
+					assignments[variable]++
+				}
+				continue
+			}
+			if reviewedMutableHTTPValue(left, info) {
+				result.valid = false
+				return false
+			}
+		}
+		return true
+	})
+	if !result.valid {
+		return result
+	}
+	ast.Inspect(file, func(node ast.Node) bool {
+		assignment, ok := node.(*ast.AssignStmt)
+		if !ok || len(assignment.Rhs) != 1 {
+			return true
+		}
+		variable := assignedVariable(assignment, 0, info)
+		if variable == nil {
+			return true
+		}
+		if assignments[variable] == 1 && reviewedUnixTransport(assignment.Rhs[0], info) {
+			transports[variable] = true
+		}
+		call, ok := unparenthesized(assignment.Rhs[0]).(*ast.CallExpr)
+		if !ok {
+			return true
+		}
+		function := calledFunction(call.Fun, info)
+		if assignments[variable] == 1 && function != nil && function.Pkg() != nil && function.Pkg().Path() == "net/http" && function.Name() == "NewRequestWithContext" && len(call.Args) == 4 && reviewedLocalURL(call.Args[2]) {
+			result.requests[variable] = true
+		}
+		return true
+	})
+	ast.Inspect(file, func(node ast.Node) bool {
+		assignment, ok := node.(*ast.AssignStmt)
+		if !ok || len(assignment.Rhs) != 1 {
+			return true
+		}
+		variable := assignedVariable(assignment, 0, info)
+		if variable != nil && assignments[variable] == 1 && reviewedUnixHTTPClient(assignment.Rhs[0], transports, info) {
+			result.clients[variable] = true
+		}
+		return true
+	})
+	return result
+}
+
+func reviewedMutableHTTPValue(expression ast.Expr, info *types.Info) bool {
+	for {
+		switch value := unparenthesized(expression).(type) {
+		case *ast.SelectorExpr:
+			expression = value.X
+		case *ast.IndexExpr:
+			expression = value.X
+		case *ast.StarExpr:
+			expression = value.X
+		case *ast.Ident:
+			variable, _ := info.ObjectOf(value).(*types.Var)
+			if variable == nil {
+				return false
+			}
+			return typeNamed(variable.Type(), "net/http", "Client") || typeNamed(variable.Type(), "net/http", "Transport") || typeNamed(variable.Type(), "net/http", "Request")
+		default:
+			return false
+		}
+	}
+}
+
+func assignedVariable(assignment *ast.AssignStmt, index int, info *types.Info) *types.Var {
+	if index >= len(assignment.Lhs) {
+		return nil
+	}
+	identifier, ok := unparenthesized(assignment.Lhs[index]).(*ast.Ident)
+	if !ok {
+		return nil
+	}
+	variable, _ := info.ObjectOf(identifier).(*types.Var)
+	return variable
+}
+
+func reviewedUnixTransport(expression ast.Expr, info *types.Info) bool {
+	if !typeNamed(info.TypeOf(expression), "net/http", "Transport") {
+		return false
+	}
+	pointer, ok := unparenthesized(expression).(*ast.UnaryExpr)
+	if !ok || pointer.Op != token.AND {
+		return false
+	}
+	literal, ok := unparenthesized(pointer.X).(*ast.CompositeLit)
+	if !ok {
+		return false
+	}
+	proxyDisabled := false
+	unixDial := false
+	for _, element := range literal.Elts {
+		field, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		name, ok := unparenthesized(field.Key).(*ast.Ident)
+		if !ok {
+			continue
+		}
+		switch name.Name {
+		case "Proxy":
+			value, isNil := unparenthesized(field.Value).(*ast.Ident)
+			proxyDisabled = isNil && value.Name == "nil"
+		case "DialContext":
+			closure, isClosure := unparenthesized(field.Value).(*ast.FuncLit)
+			if !isClosure {
+				continue
+			}
+			ast.Inspect(closure.Body, func(node ast.Node) bool {
+				call, isCall := node.(*ast.CallExpr)
+				if !isCall {
+					return true
+				}
+				function := calledFunction(call.Fun, info)
+				if function != nil && function.Pkg() != nil && function.Pkg().Path() == "net" && reviewedUnixDial(function, call) {
+					unixDial = true
+				}
+				return true
+			})
+		}
+	}
+	return proxyDisabled && unixDial
+}
+
+func reviewedUnixHTTPClient(expression ast.Expr, transports map[*types.Var]bool, info *types.Info) bool {
+	if !typeNamed(info.TypeOf(expression), "net/http", "Client") {
+		return false
+	}
+	pointer, ok := unparenthesized(expression).(*ast.UnaryExpr)
+	if !ok || pointer.Op != token.AND {
+		return false
+	}
+	literal, ok := unparenthesized(pointer.X).(*ast.CompositeLit)
+	if !ok {
+		return false
+	}
+	for _, element := range literal.Elts {
+		field, ok := element.(*ast.KeyValueExpr)
+		if !ok {
+			continue
+		}
+		name, ok := unparenthesized(field.Key).(*ast.Ident)
+		if !ok || name.Name != "Transport" {
+			continue
+		}
+		transport, ok := unparenthesized(field.Value).(*ast.Ident)
+		if !ok {
+			return false
+		}
+		variable, _ := info.ObjectOf(transport).(*types.Var)
+		return variable != nil && transports[variable]
+	}
+	return false
+}
+
+func reviewedHTTPCall(function *types.Func, call *ast.CallExpr, values reviewedHTTPValues, info *types.Info) bool {
 	switch function.Name() {
 	case "NewRequestWithContext":
 		return len(call.Args) == 4 && reviewedLocalURL(call.Args[2])
@@ -681,9 +865,14 @@ func reviewedHTTPCall(function *types.Func, call *ast.CallExpr) bool {
 		if !ok || len(call.Args) != 1 {
 			return false
 		}
-		receiver, receiverOK := selector.X.(*ast.Ident)
+		receiver, receiverOK := unparenthesized(selector.X).(*ast.Ident)
 		request, requestOK := unparenthesized(call.Args[0]).(*ast.Ident)
-		return receiverOK && receiver.Name == "httpClient" && requestOK && request.Name == "request" && receiverNamed(function, "net/http", "Client")
+		if !receiverOK || !requestOK || !receiverNamed(function, "net/http", "Client") {
+			return false
+		}
+		clientVariable, _ := info.ObjectOf(receiver).(*types.Var)
+		requestVariable, _ := info.ObjectOf(request).(*types.Var)
+		return clientVariable != nil && requestVariable != nil && values.clients[clientVariable] && values.requests[requestVariable]
 	case "CloseIdleConnections":
 		return receiverNamed(function, "net/http", "Transport") || receiverNamed(function, "net/http", "Client")
 	case "Set", "Get":

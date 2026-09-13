@@ -203,6 +203,61 @@ test("the local client boundary rejects alternate HTTP clients", async (t) => {
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
+test("the local client boundary rejects caller-supplied HTTP values with reviewed names", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import "net/http"',
+    "func Client(httpClient *http.Client, request *http.Request) error {",
+    "  _, err := httpClient.Do(request)",
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects a default HTTP client hidden behind reviewed names", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import ("context"; "net/http")',
+    "type requestSpec struct { path string }",
+    "func Client(ctx context.Context, spec requestSpec) error {",
+    "  httpClient := http.DefaultClient",
+    '  request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local"+spec.path, nil)',
+    "  if err != nil { return err }",
+    "  _, err = httpClient.Do(request)",
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects mutation after reviewed HTTP construction", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import ("context"; "net"; "net/http")',
+    "type requestSpec struct { path string }",
+    "func Client(ctx context.Context, spec requestSpec) error {",
+    "  dialer := &net.Dialer{}",
+    "  transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {",
+    '    return dialer.DialContext(ctx, "unix", "/run/vsk-labs/control.sock")',
+    "  }}",
+    "  httpClient := &http.Client{Transport: transport}",
+    "  httpClient.Transport = http.DefaultTransport",
+    '  request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local"+spec.path, nil)',
+    "  if err != nil { return err }",
+    "  _, err = httpClient.Do(request)",
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
 test("the local client boundary rejects a provider SDK import", async (t) => {
   const root = await fixtureRepo(t, {
     ...localClientFixture([
