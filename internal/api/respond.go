@@ -80,7 +80,8 @@ func presentRun(run generated.Run) generated.RunPresentation {
 	completed := make([]generated.BrowserRunStep, 0, len(run.Steps))
 	incomplete := make([]generated.BrowserRunStep, 0, len(run.Steps))
 	for _, step := range run.Steps {
-		projected := generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status}
+		progress := map[string]string{"not-started": "not-started", "intent-recorded": "started", "receipt-recorded": "unverified", "verified": "verified", "effect-unknown": "unknown"}[step.EffectState]
+		projected := generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status, ProgressState: progress}
 		steps = append(steps, projected)
 		switch step.Status {
 		case generated.RunStatusSucceeded, generated.RunStatusFailed, generated.RunStatusCancelled:

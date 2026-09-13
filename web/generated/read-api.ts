@@ -242,6 +242,7 @@ export interface BrowserRunStep {
   readonly "targetId": string;
   readonly "stepId": string;
   readonly "status": "cancelled" | "failed" | "interrupted" | "partial" | "queued" | "running" | "succeeded";
+  readonly "progressState": "not-started" | "started" | "unverified" | "verified" | "unknown";
 }
 
 export interface ContractExtension {
@@ -1745,6 +1746,19 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "queued",
           "running",
           "succeeded"
+        ]
+      },
+      {
+        "name": "progressState",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "not-started",
+          "started",
+          "unverified",
+          "verified",
+          "unknown"
         ]
       }
     ]

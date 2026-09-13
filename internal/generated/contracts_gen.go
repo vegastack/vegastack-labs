@@ -508,6 +508,7 @@ type BrowserRunStep struct {
 	TargetID      string `json:"targetId"`
 	StepID        string `json:"stepId"`
 	Status        string `json:"status"`
+	ProgressState string `json:"progressState"`
 }
 
 type CloudflareAccessProfile struct {

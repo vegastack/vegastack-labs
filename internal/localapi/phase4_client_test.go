@@ -219,7 +219,8 @@ func clientBrowserRun(run generated.Run) generated.BrowserRun {
 }
 
 func clientBrowserRunStep(step generated.RunStep) generated.BrowserRunStep {
-	return generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status}
+	progress := map[string]string{"not-started": "not-started", "intent-recorded": "started", "receipt-recorded": "unverified", "verified": "verified", "effect-unknown": "unknown"}[step.EffectState]
+	return generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status, ProgressState: progress}
 }
 
 func clientPlanPresentation(plan generated.Plan) generated.PlanPresentation {

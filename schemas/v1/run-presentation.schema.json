@@ -132,6 +132,16 @@
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
+        "progressState": {
+          "enum": [
+            "not-started",
+            "started",
+            "unverified",
+            "verified",
+            "unknown"
+          ],
+          "type": "string"
+        },
         "sequence": {
           "minimum": 1,
           "type": "integer"
@@ -163,7 +173,8 @@
         "operationType",
         "targetId",
         "stepId",
-        "status"
+        "status",
+        "progressState"
       ],
       "type": "object"
     },

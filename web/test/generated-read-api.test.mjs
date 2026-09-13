@@ -185,7 +185,7 @@ function auditEvent(eventId = 42) {
 }
 
 test("change client returns a validated durable partial run instead of losing recovery identity", async () => {
-  const step = { sequence: 1, operationId: "operation-1", operationType: "fixture.change", targetId: "target-1", stepId: "step-1", status: "partial" };
+  const step = { sequence: 1, operationId: "operation-1", operationType: "fixture.change", targetId: "target-1", stepId: "step-1", status: "partial", progressState: "unknown" };
   const data = {
     run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId: "run-1", planId: "plan-1", planDigest: "sha256:" + "a".repeat(64), status: "partial", steps: [step], cancellationRequested: false, rollbackStatus: "required", verificationStatus: "incomplete", verificationDigest: null, changed: true, stateRevision: 9, recoveryEpoch: 2, createdAt: "2026-09-10T08:00:00Z", updatedAt: "2026-09-10T08:01:00Z", extensions: [] },
     completedWork: [], incompleteWork: [step], nextSafeAction: "recovery required; inspect the durable run",
