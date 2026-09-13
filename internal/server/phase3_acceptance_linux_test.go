@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -104,6 +105,7 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 	}
 	seedBrowserIntegrationAuthority(t, databasePath, binding, now)
 	seedPhase3SourceGrants(t, databasePath, now)
+	seedPhase4ConsoleGrants(t, databasePath, now)
 	certificatePath, keyPath := writeRemoteTestCertificate(t)
 	reserved, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -266,6 +268,27 @@ func (fixture *phase3ExecutableFixture) controller() http.Handler {
 		return nil
 	})
 	post("/provider-recover", func() error { fixture.providerOnline.Store(true); return nil })
+	mux.HandleFunc("/grant-plan", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost {
+			http.Error(writer, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var input struct {
+			PlanID string `json:"planId"`
+		}
+		decoder := json.NewDecoder(io.LimitReader(request.Body, 1024))
+		decoder.DisallowUnknownFields()
+		if decoder.Decode(&input) != nil || !regexp.MustCompile(`^plan-[a-f0-9]{32}$`).MatchString(input.PlanID) {
+			http.Error(writer, "invalid fixture input", http.StatusBadRequest)
+			return
+		}
+		if err := grantPhase4PlanAccess(filepath.Join(os.Getenv("VSK_PHASE3_RUNTIME_ROOT"), "control.db"), input.PlanID, time.Now()); err != nil {
+			http.Error(writer, "fixture operation failed", http.StatusInternalServerError)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(writer, `{"status":"succeeded"}`)
+	})
 	denial := func(path string, mutate func(*http.Request)) {
 		mux.HandleFunc(path, func(writer http.ResponseWriter, request *http.Request) {
 			if request.Method != http.MethodGet {
@@ -504,6 +527,56 @@ func seedPhase3SourceGrants(t *testing.T, databasePath string, now time.Time) {
 	}
 }
 
+func seedPhase4ConsoleGrants(t *testing.T, databasePath string, now time.Time) {
+	t.Helper()
+	formatted := now.UTC().Format(time.RFC3339Nano)
+	if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_principals(principal_id,principal_kind,status,grant_revision,created_at,updated_at) VALUES('principal.remote','human','active',1,?,?)`, formatted, formatted); err != nil {
+		t.Fatal(err)
+	}
+	if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_principals(principal_id,principal_kind,status,grant_revision,created_at,updated_at) VALUES('human.console','human','active',1,?,?)`, formatted, formatted); err != nil {
+		t.Fatal(err)
+	}
+	for _, grant := range []struct {
+		id, capability string
+	}{
+		{"grant-console-declaration-author", "declaration.author"},
+		{"grant-console-plan-author", "plan.author"},
+	} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,'principal.remote','author','author',?,'declaration','declaration-console',NULL,1,'active',?,?)`, grant.id, grant.capability, formatted, formatted); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, revision := range []string{"declaration-console:1", "declaration-console:3"} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES('principal.remote','declaration.read','declaration',?,1,'active',?,?)`, revision, formatted, formatted); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, grant := range []struct {
+		id, principal, role, action, capability, kind, resource, branch string
+	}{
+		{"grant-console-execute", "principal.remote", "infrastructure-admin", "execute", "health.check", "execution-target", "target-console", "human"},
+		{"grant-console-human-ack", "human.console", "infrastructure-admin", "acknowledge", "plan.acknowledge", "plan-target", "target-console", "human"},
+	} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,'active',?,?)`, grant.id, grant.principal, grant.role, grant.action, grant.capability, grant.kind, grant.resource, grant.branch, formatted, formatted); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func grantPhase4PlanAccess(databasePath, planID string, now time.Time) error {
+	formatted := now.UTC().Format(time.RFC3339Nano)
+	grantID := "grant-approval-" + strings.TrimPrefix(planID, "plan-")
+	if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,'principal.remote','author','author','plan.acknowledgement.request','plan',?,NULL,1,'active',?,?)`, grantID, planID, formatted, formatted); err != nil {
+		return err
+	}
+	for _, capability := range []string{"plan.read", "plan.acknowledgement.read"} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES('principal.remote',?,'plan',?,1,'active',?,?)`, capability, planID, formatted, formatted); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func TestPhase3AcceptanceServerFailsClosedAndKeepsLocalRecovery(t *testing.T) {
 	fixture := newPhase3AcceptanceServer(t)
 	cookie := fixture.createSession()
@@ -551,6 +624,32 @@ func TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary(t *testing.T) {
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &result); err != nil || result.SchemaVersion != 1 || result.Check != "phase-3-real-server" || result.Status != "pass" {
 		t.Fatalf("phase 3 Chromium probe returned an invalid result")
+	}
+}
+
+func TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary(t *testing.T) {
+	fixture := newPhase3ExecutableFixture(t)
+	command := exec.Command("node", filepath.Join("..", "..", "web", "e2e", "real-change-server-probe.mjs"))
+	command.Env = append(os.Environ(),
+		"NODE_NO_WARNINGS=1",
+		"VSK_PHASE3_BASE_URL="+fixture.baseURL,
+		"VSK_PHASE3_CONTROLLER_URL="+fixture.controllerURL,
+		"VSK_PHASE3_ASSERTION="+fixture.assertion,
+	)
+	stdout := &boundedProbeOutput{limit: 16 * 1024}
+	stderr := &boundedProbeOutput{limit: 512}
+	command.Stdout = stdout
+	command.Stderr = stderr
+	if err := command.Run(); err != nil {
+		t.Fatalf("phase 4 Chromium probe failed: %v: %s", err, sanitizePhase3ProbeError(stderr.String()))
+	}
+	var outcome struct {
+		SchemaVersion int    `json:"schemaVersion"`
+		Check         string `json:"check"`
+		Status        string `json:"status"`
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &outcome); err != nil || outcome.SchemaVersion != 1 || outcome.Check != "phase-4-real-change-server" || outcome.Status != "pass" {
+		t.Fatalf("phase 4 Chromium probe returned an invalid result")
 	}
 }
 

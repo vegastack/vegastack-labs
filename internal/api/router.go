@@ -240,10 +240,16 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		}
 		resourceID := ""
 		if rawDraft, exists := params["draftId"]; exists {
-			resourceID = rawDraft + ":" + params["revision"]
+			resourceID = rawDraft
+			if revision := params["revision"]; revision != "" {
+				resourceID += ":" + revision
+			}
 		}
 		if declarationID, exists := params["declarationId"]; exists {
-			resourceID = declarationID + ":" + params["revision"]
+			resourceID = declarationID
+			if revision := params["revision"]; revision != "" {
+				resourceID += ":" + revision
+			}
 		}
 		if planID, exists := params["planId"]; exists {
 			resourceID = planID

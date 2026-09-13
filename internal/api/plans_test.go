@@ -100,7 +100,7 @@ func TestDeclarationAndPlanRoutesReturnCanonicalDomainResultsWithoutExternalCall
 	app := newPlanTestApplication(t, allowOperationAuthorizer(), effective, declarations, plans)
 	revised := serveOperationJSON(t, app, "/api/v1/declarations/declaration-test/revisions", map[string]any{"schema": generated.SchemaIDDeclarationRevisionRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-test", "declarationType": "node.configuration", "expectedRevision": 1, "expectedStateRevision": 0, "recoveryEpoch": 0, "operations": declarations.result.Document.Operations, "reasonDigest": testAPIDigest("a"), "extensions": []any{}})
 	planned := serveOperationJSON(t, app, "/api/v1/declarations/declaration-test/plans", map[string]any{"schema": generated.SchemaIDPlanCreateRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-test", "declarationRevision": 1, "expectedStateRevision": 1, "recoveryEpoch": 0, "observationFingerprint": testAPIDigest("e"), "idempotencyKey": "request-plan-test", "extensions": []any{}})
-	if revised.Code != http.StatusOK || planned.Code != http.StatusOK || declarations.calls != 1 || plans.calls != 1 || len(effective.records) != 4 || !strings.Contains(planned.Body.String(), `"planId":"plan-test"`) {
+	if revised.Code != http.StatusOK || planned.Code != http.StatusOK || declarations.calls != 1 || plans.calls != 1 || len(effective.records) != 4 || effective.records[0].Decision.Target.ResourceID != "declaration-test" || effective.records[2].Decision.Target.ResourceID != "declaration-test" || !strings.Contains(planned.Body.String(), `"planId":"plan-test"`) {
 		t.Fatalf("results = %d/%d calls=%d/%d %s", revised.Code, planned.Code, declarations.calls, plans.calls, planned.Body.String())
 	}
 }
