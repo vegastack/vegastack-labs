@@ -22,6 +22,10 @@ const REVIEWED_POST_PHASE2_IMPORTS = new Set([
   `${MODULE_PREFIX}internal/credentialref`,
   `${MODULE_PREFIX}internal/plan`,
   `${MODULE_PREFIX}internal/run`,
+  // Issue #78 moves the local socket's passive principal and peer contract
+  // out of the remote-capable identity package. This network-free package is
+  // an intentional boundary hardening, not a Phase 2 production bypass.
+  `${MODULE_PREFIX}internal/principal`,
   // Issue #78 shares this pure provider-neutral ID protocol between the
   // reviewed run engine and its thin local client. It adds no bypass path.
   `${MODULE_PREFIX}internal/runprotocol`,
