@@ -158,7 +158,11 @@ func renderHumanInventoryExport(output io.Writer, data generated.InventoryExport
 }
 
 func renderHumanPlan(output io.Writer, data generated.Plan) int {
-	if _, err := fmt.Fprintf(output, "Plan %s\nDigest %s\nDeclaration %s revision %d\nRisk %s\nAuthorization %s\nExpires %s\n", data.PlanID, data.PlanDigest, data.DeclarationID, data.Binding.DeclarationRevision, data.Risk, data.AuthorizationBranch, data.ExpiresAt); err != nil {
+	approval := "explicit human acknowledgement required"
+	if data.AuthorizationBranch == "preauthorized" {
+		approval = "preauthorized by current server policy"
+	}
+	if _, err := fmt.Fprintf(output, "Plan %s\nDigest %s\nDeclaration %s revision %d\nRisk %s\nAuthorization %s\nApproval requirement %s\nExpires %s\n", data.PlanID, data.PlanDigest, data.DeclarationID, data.Binding.DeclarationRevision, data.Risk, data.AuthorizationBranch, approval, data.ExpiresAt); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
 	for _, operation := range data.Operations {
@@ -188,6 +192,10 @@ func runNextAction(data generated.Run) string {
 		return "recovery required; inspect the durable run"
 	}
 	switch data.Status {
+	case generated.RunStatusSucceeded:
+		return "none; execution completed"
+	case generated.RunStatusCancelled:
+		return "inspect before creating another plan"
 	case generated.RunStatusInterrupted:
 		return "inspect, then resume or cancel through the server"
 	case "queued", "running":

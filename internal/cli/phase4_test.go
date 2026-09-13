@@ -59,6 +59,9 @@ func TestPlanHumanAndJSONRenderSameDigestAndTargets(t *testing.T) {
 			t.Fatalf("human plan omitted %q: %s", fact, human)
 		}
 	}
+	if !strings.Contains(human, "explicit human acknowledgement required") {
+		t.Fatalf("human plan omitted approval requirement: %s", human)
+	}
 
 	operations = phase4Operations(t, plan, phase4TestRun(plan, generated.RunStatusSucceeded))
 	jsonCode, machine, machineErr := runTestAppWithOptions(t, context.Background(), []string{"plan", "--config", "profile.json", "--declaration-id", plan.DeclarationID, "--revision", "2", "--output", "json"}, nil, WithControlOperations(operations, nil))

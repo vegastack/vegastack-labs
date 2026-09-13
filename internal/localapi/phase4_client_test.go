@@ -79,6 +79,31 @@ func TestApplyDisconnectInspectsDerivedRunExactlyOnce(t *testing.T) {
 	}
 }
 
+func TestDurablePartialResponseRetainsExactRunAndExit(t *testing.T) {
+	plan := clientPhase4Plan()
+	run := clientPhase4Run(plan, "run-partial")
+	run.Status, run.Changed, run.RollbackStatus, run.VerificationStatus = generated.RunStatusPartial, true, "required", "incomplete"
+	envelope, err := clientTestFactory().FailureWithRequestID("api.v1.plans.execute", "request-remote", generated.RunStatusPartial, generated.ErrorCodeRecoveryRequired, "run", false, run.RecoveryEpoch, run.StateRevision, run)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelope.RunID, envelope.PlanID, envelope.Changed = &run.RunID, &run.PlanID, true
+	raw, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw = append(raw, '\n')
+	response, err := validateTypedResponse(raw, http.StatusConflict, requestSpec{http.MethodPost, "/api/v1/plans/plan-1/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, validRun)
+	if err != nil || response.ExitCode != generated.ErrorExitCodes[generated.ErrorCodeRecoveryRequired] || response.Data.RunID != run.RunID || string(response.Raw) != string(raw) {
+		t.Fatalf("partial response=%#v err=%v", response, err)
+	}
+	envelope.RunID = new(string)
+	bad, _ := json.Marshal(envelope)
+	if _, err := validateTypedResponse(append(bad, '\n'), http.StatusConflict, requestSpec{http.MethodPost, "/api/v1/plans/plan-1/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, validRun); err == nil {
+		t.Fatal("accepted a durable run whose envelope run ID disagreed")
+	}
+}
+
 func servePhase4(t *testing.T, handler http.HandlerFunc) serverconfig.Profile {
 	t.Helper()
 	directory, err := os.MkdirTemp("/tmp", "vsk-phase4-client-")
