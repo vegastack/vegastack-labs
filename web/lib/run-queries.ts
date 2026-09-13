@@ -55,8 +55,8 @@ export function useRun(runId: string | null) {
     void (async () => {
       let attempt = 0;
       while (!controller.signal.aborted) {
-        await refetch();
-        if (controller.signal.aborted) break;
+        const fresh = await refetch();
+        if (controller.signal.aborted || !fresh.isSuccess || !fresh.data || terminalRunStatuses.has(fresh.data.data.run.status)) break;
         try {
           for await (const update of readClient.streamEvents({ signal: controller.signal, lastEventId: lastEventId.current })) {
             lastEventId.current = String(update.event.eventId);
@@ -66,8 +66,8 @@ export function useRun(runId: string | null) {
         } catch {
           if (controller.signal.aborted) break;
         }
-        await refetch();
-        if (controller.signal.aborted) break;
+        const afterStream = await refetch();
+        if (controller.signal.aborted || !afterStream.isSuccess || !afterStream.data || terminalRunStatuses.has(afterStream.data.data.run.status)) break;
         await waitForReconnect(attempt, controller.signal);
         attempt += 1;
       }

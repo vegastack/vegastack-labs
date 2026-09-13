@@ -151,12 +151,32 @@ test("pending approval polling survives reload while the plan is still planned",
   await page.getByRole("button", { name: "Generate plan" }).click();
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await expect(page.locator('[data-approval-status="pending"]')).toBeVisible();
+  expect(changeFixture.approvalRequestPosts).toBe(1);
   const requestsBeforeReload = changeFixture.approvalStatusRequests;
   expect(await page.evaluate(() => history.state.vskChangeHandles.approvalPlanId)).toBe("plan-one");
   await page.reload();
   await expect(page.locator('[data-plan-status="planned"]')).toBeVisible();
   await expect(page.locator('[data-approval-status="pending"]')).toBeVisible();
   expect(changeFixture.approvalStatusRequests).toBeGreaterThan(requestsBeforeReload);
+  expect(changeFixture.approvalRequestPosts).toBe(1);
+});
+
+test("a cached running response waits for the fresh terminal GET before opening SSE", async ({ page }) => {
+  changeFixture.eventMode = "reconnect";
+  changeFixture.run = "running";
+  changeFixture.runAfterExecute = "succeeded";
+  await page.goto("/changes");
+  await page.getByLabel("Declaration ID").fill("declaration-one");
+  await page.getByLabel("Revision").fill("1");
+  await page.getByRole("button", { name: "Open declaration" }).click();
+  await page.getByRole("button", { name: "Generate plan" }).click();
+  changeFixture.approval = "approved";
+  await page.getByRole("button", { name: "Request Slack approval" }).click();
+  await page.getByRole("button", { name: "Start run" }).click();
+  await page.getByRole("button", { name: "Start exact run" }).click();
+  await expect(page.locator('[data-run-status="succeeded"]')).toBeVisible();
+  await page.waitForTimeout(250);
+  expect(changeFixture.eventConnections).toBe(0);
 });
 
 test("a fresh terminal run never opens an SSE watcher", async ({ page }) => {
@@ -267,14 +287,26 @@ test("stale authorization is disabled and private fields never reach browser-vis
 
 test("every change state preserves keyboard focus, accessibility, themes, mobile layout, and 200% reflow", async ({ page }) => {
   test.setTimeout(120_000);
-  const approvalStates = ["pending", "rejected", "expired", "approved"] as const;
-  const runStates = ["queued", "running", "partial", "failed", "cancelled", "interrupted", "succeeded"] as const;
-  const recoveryState = "recovery-required";
+  const approvalStates = [
+    { state: "pending", label: "Pending", authorization: "Authorization is not current" },
+    { state: "rejected", label: "Rejected", authorization: "Authorization is not current" },
+    { state: "expired", label: "Expired", authorization: "Authorization is not current" },
+    { state: "approved", label: "Approved", authorization: "Authorization is current" },
+  ] as const;
+  const runStates = [
+    { state: "queued", label: "Queued", next: "inspect or cancel through the server" },
+    { state: "running", label: "Running", next: "inspect or cancel through the server" },
+    { state: "partial", label: "Partial", next: "recovery required; inspect the durable run" },
+    { state: "failed", label: "Failed", next: "inspect the durable run" },
+    { state: "cancelled", label: "Cancelled", next: "inspect the durable run" },
+    { state: "interrupted", label: "Interrupted", next: "inspect, then resume or cancel through the server" },
+    { state: "succeeded", label: "Succeeded", next: "none; execution completed" },
+  ] as const;
   const themes = ["light", "dark"] as const;
   const viewports = [
     { name: "desktop", width: 1280, height: 800, zoom: 1 },
     { name: "mobile", width: 320, height: 800, zoom: 1 },
-    { name: "200%-reflow", width: 640, height: 800, zoom: 2 },
+    { name: "390px-200%-reflow", width: 390, height: 844, zoom: 2 },
   ] as const;
 
   for (const theme of themes) {
@@ -284,9 +316,15 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       await page.goto("/changes");
       await page.evaluate(zoom => { document.documentElement.style.zoom = String(zoom); }, viewport.zoom);
       await selectTheme(page, theme);
+      if (viewport.name === "390px-200%-reflow") {
+        expect(page.viewportSize()?.width).toBe(390);
+        expect(await page.evaluate(() => document.documentElement.style.zoom)).toBe("2");
+      }
 
       // empty
-      await expect(page.getByText("No declaration open", { exact: true })).toBeVisible();
+      const empty = page.locator('[data-read-state="empty"]');
+      await expect(empty.getByRole("status")).toContainText("No declaration open");
+      await expect(empty.getByText("No declaration open", { exact: true })).toBeVisible();
       await page.getByLabel("Declaration ID").focus();
       await expect(page.getByLabel("Declaration ID")).toBeFocused();
       await expectStateSurface(page);
@@ -295,19 +333,26 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       changeFixture.declarationDelayMs = 150;
       await page.getByLabel("Declaration ID").fill("declaration-one");
       await page.getByLabel("Revision").fill("1");
-      await activateWithKeyboard(page, page.getByRole("button", { name: "Open declaration" }));
-      await expect(page.getByText("Loading declaration", { exact: true })).toBeVisible();
+      const open = page.getByRole("button", { name: "Open declaration" });
+      await activateWithKeyboard(page, open);
+      const loading = page.locator('[data-read-state="loading"]');
+      await expect(loading.getByRole("status")).toContainText("Loading declaration");
+      await expect(loading.getByText("Loading declaration", { exact: true })).toBeVisible();
+      await expect(open).toBeFocused();
       await expectStateSurface(page);
       await expect(page.getByText("Draft revision 1", { exact: true })).toBeVisible();
       changeFixture.declarationDelayMs = 0;
 
       await activateWithKeyboard(page, page.getByRole("button", { name: "Generate plan" }));
       await activateWithKeyboard(page, page.getByRole("button", { name: "Request Slack approval" }));
-      for (const state of approvalStates) {
-        changeFixture.approval = state;
+      for (const expected of approvalStates) {
+        changeFixture.approval = expected.state;
         const refresh = page.getByRole("button", { name: "Refresh approval status" });
         await activateWithKeyboard(page, refresh);
-        await expect(page.locator(`[data-approval-status="${state}"]`)).toBeVisible();
+        const approval = page.locator(`[data-approval-status="${expected.state}"]`);
+        await expect(approval.getByRole("status")).toContainText(expected.label);
+        await expect(approval.getByRole("status")).toContainText(expected.authorization);
+        await expect(approval.getByText(expected.label, { exact: true })).toBeVisible();
         await expect(refresh).toBeFocused();
         await expectStateSurface(page);
       }
@@ -322,15 +367,18 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       await activateWithKeyboard(page, start);
       await activateWithKeyboard(page, page.getByRole("button", { name: "Start exact run" }));
 
-      for (const state of runStates) {
-        changeFixture.run = state;
+      for (const expected of runStates) {
+        changeFixture.run = expected.state;
         const refresh = page.getByRole("button", { name: "Refresh run" });
         await activateWithKeyboard(page, refresh);
-        await expect(page.locator(`[data-run-status="${state}"]`)).toBeVisible();
+        const run = page.locator(`[data-run-status="${expected.state}"]`);
+        await expect(run.getByRole("status").first()).toContainText(expected.label);
+        await expect(run.getByText(expected.label, { exact: true }).first()).toBeVisible();
+        await expect(run.getByText(expected.next, { exact: true })).toBeVisible();
         await expect(refresh).toBeFocused();
-        if (state === "partial") {
-          expect(recoveryState).toBe("recovery-required");
-          await expect(page.getByText("Recovery required", { exact: true })).toBeVisible();
+        if (expected.state === "partial") {
+          await expect(run.getByRole("status").first()).toContainText("Recovery required");
+          await expect(run.getByText("Recovery required", { exact: true })).toBeVisible();
         }
         await expectStateSurface(page);
       }
@@ -340,15 +388,21 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
       changeFixture.retryableFailurePath = "/api/v1/runs/run-one";
       await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
-      await expect(page.getByText("Showing last known run state", { exact: true })).toBeVisible();
+      const stale = page.locator('[data-read-state="stale"]');
+      await expect(stale.getByRole("status")).toContainText("Showing last known run state");
+      await expect(stale.getByText("Showing last known run state", { exact: true })).toBeVisible();
       await expectStateSurface(page);
       changeFixture.retryableFailurePath = null;
 
       // denied clears all mounted projections and protected handles.
       changeFixture.hardFailurePath = "/api/v1/runs/run-one";
       await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
-      await expect(page.getByText("Change details cleared", { exact: true })).toBeVisible();
+      const denied = page.locator('[data-read-state="denied"]');
+      await expect(denied.getByRole("alert")).toContainText("Change details cleared");
+      await expect(denied.getByText("Change details cleared", { exact: true })).toBeVisible();
       await expect(page.locator("[data-run-status], [data-plan-status], [data-approval-status]")).toHaveCount(0);
+      await page.getByLabel("Declaration ID").focus();
+      await expect(page.getByLabel("Declaration ID")).toBeFocused();
       await expectStateSurface(page);
     }
   }

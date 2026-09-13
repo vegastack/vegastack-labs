@@ -63,6 +63,8 @@ test("terminal durable state never opens an SSE watcher", async () => {
   const queries = await read("lib/run-queries.ts");
   assert.match(queries, /terminalRunStatuses/);
   assert.match(queries, /if \(!runId \|\| !query\.data \|\| terminal\) return/);
+  assert.match(queries, /const fresh = await refetch\(\)/);
+  assert.match(queries, /fresh\.isSuccess[\s\S]*terminalRunStatuses\.has\(fresh\.data\.data\.run\.status\)/);
 });
 
 test("the newly mounted saved revision restores action focus", async () => {
@@ -77,9 +79,10 @@ test("the newly mounted saved revision restores action focus", async () => {
 
 test("the workflow matrix covers every named state in both themes and reflow sizes", async () => {
   const suite = await read("e2e/change-workflow.spec.ts");
-  for (const state of ["loading", "empty", "denied", "stale", "pending", "approved", "rejected", "expired", "queued", "running", "partial", "failed", "cancelled", "interrupted", "succeeded", "recovery-required"]) {
+  for (const state of ["loading", "empty", "denied", "stale", "pending", "approved", "rejected", "expired", "queued", "running", "partial", "failed", "cancelled", "interrupted", "succeeded"]) {
     assert.match(suite, new RegExp(`\\b${state}\\b`));
   }
+  assert.match(suite, /getByRole\("status"\)\.first\(\)\)\.toContainText\("Recovery required"\)/);
   assert.match(suite, /\["light", "dark"\]/);
   assert.match(suite, /width:\s*320/);
   assert.match(suite, /expectAccessible/);

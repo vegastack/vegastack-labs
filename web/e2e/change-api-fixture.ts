@@ -8,11 +8,13 @@ export const privateChangeCanaries = ["private-human-canary", "private-proof-can
 export const changeFixture: {
   approval: ApprovalState;
   run: RunState;
+  runAfterExecute: RunState | null;
   executeRequests: number;
   resolutionRequests: number;
   dropExecuteResponseOnce: boolean;
   resolutionDelayMs: number;
   approvalStatusRequests: number;
+  approvalRequestPosts: number;
   approvalExpiresAt: string;
   eventConnections: number;
   eventLastIds: string[];
@@ -24,7 +26,7 @@ export const changeFixture: {
   requestPaths: string[];
   reasonDigest: string;
   planDigest: string;
-} = { approval: "pending", run: "running", executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
+} = { approval: "pending", run: "running", runAfterExecute: null, executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalRequestPosts: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
 
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
@@ -91,12 +93,17 @@ async function respond(route: Route) {
   }
 	if (path === "/api/v1/declarations/declaration-one/plans" && request.method() === "POST") return reply(route, "api.v1.plans.create", { plan, readablePlan: "Exact readable fixture plan", canonicalPlan: JSON.stringify(plan) });
 	if (path === "/api/v1/plans/plan-one" && request.method() === "GET") return reply(route, "api.v1.plans.get", { plan, readablePlan: "Exact readable fixture plan", canonicalPlan: JSON.stringify(plan) });
-  if (path === "/api/v1/plans/plan-one/approval-request" && request.method() === "POST") return reply(route, "api.v1.plans.approval-request.create", approval());
+  if (path === "/api/v1/plans/plan-one/approval-request" && request.method() === "POST") {
+    changeFixture.approvalRequestPosts += 1;
+    return reply(route, "api.v1.plans.approval-request.create", approval());
+  }
   if (path === "/api/v1/plans/plan-one/approval-status") { changeFixture.approvalStatusRequests += 1; return reply(route, "api.v1.plans.approval-status.get", approval()); }
   if (path === "/api/v1/plans/plan-one/execute" && request.method() === "POST") {
     changeFixture.executeRequests += 1;
     if (changeFixture.dropExecuteResponseOnce) { changeFixture.dropExecuteResponseOnce = false; return route.abort("connectionclosed"); }
-    return reply(route, "api.v1.plans.execute", runPresentation());
+    const presentation = runPresentation();
+    if (changeFixture.runAfterExecute) changeFixture.run = changeFixture.runAfterExecute;
+    return reply(route, "api.v1.plans.execute", presentation);
   }
   if (/^\/api\/v1\/plans\/plan-one\/runs\/console-run-[a-f0-9-]+$/.test(path) && request.method() === "GET") {
     changeFixture.resolutionRequests += 1;
@@ -112,11 +119,13 @@ async function respond(route: Route) {
 export function resetChangeFixture() {
   changeFixture.approval = "pending";
   changeFixture.run = "running";
+  changeFixture.runAfterExecute = null;
   changeFixture.executeRequests = 0;
   changeFixture.resolutionRequests = 0;
   changeFixture.dropExecuteResponseOnce = false;
   changeFixture.resolutionDelayMs = 0;
   changeFixture.approvalStatusRequests = 0;
+  changeFixture.approvalRequestPosts = 0;
   changeFixture.approvalExpiresAt = "2099-09-13T13:01:00Z";
   changeFixture.eventConnections = 0;
   changeFixture.eventLastIds.length = 0;
