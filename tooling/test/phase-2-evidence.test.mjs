@@ -159,6 +159,23 @@ test("a symlinked production source file cannot escape the reviewed boundary", a
   }
 });
 
+test("a symlinked production source root cannot escape the reviewed boundary", async (t) => {
+  if (process.platform === "win32") return t.skip("ordinary Windows test users cannot create source symlinks");
+  const temporary = await mkdtemp(path.join(tmpdir(), "vsk-phase2-root-link-"));
+  try {
+    await writeFile(path.join(temporary, "go.mod"), "module github.com/vegastack/vegastack-labs\n\ngo 1.27\n");
+    await writeFile(path.join(temporary, "go.sum"), "");
+    await mkdir(path.join(temporary, "cmd/vsk-labs"), { recursive: true });
+    await mkdir(path.join(temporary, "schemas/v1"), { recursive: true });
+    await mkdir(path.join(temporary, "external/internal/metadata"), { recursive: true });
+    await writeFile(path.join(temporary, "external/internal/api.go"), "package internal\n");
+    await symlink(path.join(temporary, "external/internal"), path.join(temporary, "internal"));
+    assert.equal(await postPhase2SourceOverride(temporary), "non-regular-source");
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
 test("the checked manifest matches the merged Phase 2 contract", async () => {
   const manifest = await loadManifest();
   const first = validateEvidence(manifest, await collectIntegratedFacts(ROOT));

@@ -203,6 +203,13 @@ async function firstUnsafeBoundaryEntry(root, productionImports) {
     return "";
   }
   for (const directory of postPhase2MutationBoundaryDirectories(productionImports)) {
+    try {
+      const value = await lstat(path.join(root, directory));
+      if (!value.isDirectory()) return directory;
+    } catch (error) {
+      if (error.code === "ENOENT") return directory;
+      throw error;
+    }
     const unsafe = await walk(directory);
     if (unsafe !== "") return unsafe;
   }
