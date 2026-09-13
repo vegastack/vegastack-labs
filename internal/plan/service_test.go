@@ -106,21 +106,41 @@ func TestCreatePlanIsDeterministicAcrossStoredInputOrder(t *testing.T) {
 }
 
 func TestValidateCurrentRejectsExpiryFactsRevisionAndRecoveryDrift(t *testing.T) {
-	repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
-	observations := &fakeObservations{fingerprint: testDigestString("b")}
-	clock := time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC)
-	service := newTestService(t, repository, observations, func() time.Time { return clock })
-	result, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer"}, validRequest())
-	if err != nil {
-		t.Fatal(err)
-	}
-	repository.current.StateRevision = result.Plan.Binding.StateRevision
-	if err := service.ValidateCurrent(context.Background(), result.Plan); err != nil {
-		t.Fatal(err)
-	}
-	clock = clock.Add(31 * time.Minute)
-	if err := service.ValidateCurrent(context.Background(), result.Plan); err == nil {
-		t.Fatal("expired plan accepted")
+	for _, test := range []struct {
+		name   string
+		mutate func(*fakePlanRepository, *fakeObservations, *time.Time)
+	}{
+		{"expiry", func(_ *fakePlanRepository, _ *fakeObservations, clock *time.Time) {
+			*clock = clock.Add(31 * time.Minute)
+		}},
+		{"state revision", func(repository *fakePlanRepository, _ *fakeObservations, _ *time.Time) {
+			repository.current.StateRevision++
+		}},
+		{"recovery epoch", func(repository *fakePlanRepository, _ *fakeObservations, _ *time.Time) {
+			repository.current.RecoveryEpoch++
+		}},
+		{"observation facts", func(_ *fakePlanRepository, observations *fakeObservations, _ *time.Time) {
+			observations.fingerprint = testDigestString("c")
+		}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+			observations := &fakeObservations{fingerprint: testDigestString("b")}
+			clock := time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC)
+			service := newTestService(t, repository, observations, func() time.Time { return clock })
+			result, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer"}, validRequest())
+			if err != nil {
+				t.Fatal(err)
+			}
+			repository.current.StateRevision = result.Plan.Binding.StateRevision
+			if err := service.ValidateCurrent(context.Background(), result.Plan); err != nil {
+				t.Fatal(err)
+			}
+			test.mutate(repository, observations, &clock)
+			if err := service.ValidateCurrent(context.Background(), result.Plan); planFailureCode(err) != generated.ErrorCodeStateConflict {
+				t.Fatalf("drift accepted: %v", err)
+			}
+		})
 	}
 }
 

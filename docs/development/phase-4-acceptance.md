@@ -6,14 +6,15 @@ The command uses only generated contracts and isolated fixtures. It does not con
 
 ## What the command proves
 
-The verifier reads the closed scenario list in `tooling/testdata/phase-4/acceptance-scenarios.json` and requires every scenario listed by `tooling/phase-4-evidence.json`. Each entry points to a real test or browser proof in the repository. Missing files, missing selectors, changed ordering, duplicate IDs, unknown environments, or any quarantined scenario fail before execution.
+The verifier owns an independent, hard-coded closed scenario ID list, then requires both `tooling/testdata/phase-4/acceptance-scenarios.json` and `tooling/phase-4-evidence.json` to match it exactly. Editing both JSON files therefore cannot silently remove a proof. Each entry must point to an actual Go, Node, or Playwright test file; helper scripts and ordinary source files are not accepted as proof.
 
 On every supported development host it:
 
-1. verifies the generated contracts, built CLI boundary, static Console, and closed acceptance definition;
+1. captures a clean tracked/index Git commit, verifies the generated contracts, built CLI boundary, static Console, and closed acceptance definition;
 2. builds the Console unless the parent check already built it;
 3. drives the generated browser client through exact plan display and checks that protected acknowledgement, executor, provider, and SQLite paths never enter the browser; and
-4. scans retained browser output with the existing bounded artifact sanitizer.
+4. parses machine-readable test output and requires one exact passing result for every portable scenario (zero matches, failures, skips, TODOs, unsupported tests, or extra Playwright matches fail); and
+5. scans retained browser output with the existing bounded artifact sanitizer, then proves the same clean commit is still checked out with no tracked/index drift.
 
 On Linux it additionally:
 
@@ -29,10 +30,10 @@ The production adapter registry stays empty. Test adapters and synthetic identit
 A successful run writes one JSON line to stdout:
 
 ```json
-{"schemaVersion":1,"check":"phase-4","status":"pass","sourceCommit":"<40-character Git commit>","scenarioDigest":"sha256:<64 lowercase hexadecimal characters>"}
+{"schemaVersion":1,"check":"phase-4","status":"pass","executionEnvironment":"portable|linux","sourceCommit":"<40-character Git commit>","scenarioDigest":"sha256:<64 lowercase hexadecimal characters>","scenarioOutcomes":{"<scenario-id>":{"environment":"fixture|chromium|built-linux","status":"pass|linux-required"}}}
 ```
 
-The source commit and canonical scenario digest make two runs from the same clean commit byte-identical. Diagnostics use stable stage names on stderr. Private errors, paths, assertions, cookies, acknowledgement proof, executor binding, and provider details are never copied into this result.
+The source commit and canonical scenario digest make two runs from the same clean commit byte-identical. Every scenario has an explicit result. A portable macOS run reports each Linux addition as `linux-required`; it does not pretend those tests ran. The required Linux CI lane must report those same scenarios as `pass`. Diagnostics use stable stage names on stderr. Private errors, paths, assertions, cookies, acknowledgement proof, executor binding, and provider details are never copied into this result.
 
 Run the command twice from the clean candidate commit, compare the two lines exactly, then run `pnpm check`. The public pull-request affected-check route already selects this browser group for Phase 4, browser, schema, workflow, or verifier changes. The exact `main` exit route runs the same catalog inside the Phase 3 exact-commit check before accepting the integrated commit.
 

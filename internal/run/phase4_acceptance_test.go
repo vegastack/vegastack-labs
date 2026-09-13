@@ -8,7 +8,10 @@ import (
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 func TestPhase4AcceptanceAuthorizationBranchesAndAmbiguousRestart(t *testing.T) {
@@ -50,6 +53,33 @@ func TestPhase4AcceptanceAuthorizationBranchesAndAmbiguousRestart(t *testing.T) 
 		}
 		if _, err := restarted.Resume(context.Background(), partial.RunID); Code(err) != generated.ErrorCodeRecoveryRequired || fixture.adapter.callCount() != 1 {
 			t.Fatalf("ambiguous resume repeated effect: calls=%d, err=%v", fixture.adapter.callCount(), err)
+		}
+	})
+
+	t.Run("a superseding revision rejects the old plan before any effect", func(t *testing.T) {
+		fixture := newSQLiteRestartFixture(t, string(authorization.BranchPreauthorized))
+		declarations, err := change.NewService(store.NewDeclarationRepository(fixture.authority), fixture.clock)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = declarations.Revise(context.Background(), change.AuthorScope{
+			PrincipalID: "principal-acceptance-superseding", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "session-acceptance-superseding",
+		}, generated.DeclarationRevisionRequest{
+			Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0",
+			DeclarationID: "declaration-acceptance-superseding", DeclarationType: "node.configuration",
+			ExpectedRevision: 1, ExpectedStateRevision: fixture.plan.Binding.StateRevision, RecoveryEpoch: fixture.plan.Binding.RecoveryEpoch,
+			Operations: []generated.DeclarationOperation{{
+				Sequence: 1, OperationID: "operation-acceptance-superseding", OperationType: "configuration.update",
+				AdapterID: "adapter-sqlite-restart", TargetID: "target-acceptance-superseding",
+				InputDigest: digest("acceptance-superseding-input"), ArtifactDigest: digest("acceptance-superseding-artifact"), Idempotent: true,
+			}},
+			ReasonDigest: digest("acceptance-superseding-reason"), Extensions: []generated.ContractExtension{},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.engine.Submit(context.Background(), fixture.request); Code(err) != generated.ErrorCodePlanStale || fixture.adapter.callCount() != 0 {
+			t.Fatalf("superseded plan reached an effect: calls=%d err=%v", fixture.adapter.callCount(), err)
 		}
 	})
 }
