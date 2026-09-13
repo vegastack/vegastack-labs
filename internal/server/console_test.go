@@ -114,6 +114,40 @@ func TestBrowserRouterRejectsLocalMutationRoutesBeforeDispatch(t *testing.T) {
 	}
 }
 
+func TestBrowserRouterDispatchesOnlyGeneratedExecutorRoutesWithMachineIdentity(t *testing.T) {
+	authenticator, _, sessions := newBrowserAuthFixture(t)
+	sessions.principal = identity.Principal{ID: "principal.executor", Method: identity.CloudflareAccessMethod, Kind: identity.PrincipalPolicy}
+	apiCalls := 0
+	handler, err := NewBrowserHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		principal, ok := identity.PrincipalFromContext(request.Context())
+		if !ok || principal != sessions.principal {
+			t.Fatalf("machine principal = %#v, %t", principal, ok)
+		}
+		apiCalls++
+		writer.WriteHeader(http.StatusNoContent)
+	}), testConsoleHandler(t), authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "https://console.example/api/v1/executor-leases/claim", strings.NewReader(`{}`))
+	request.Host = "console.example"
+	request.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || apiCalls != 1 || sessions.validates.Load() != 0 {
+		t.Fatalf("machine route status/calls/session-validates = %d/%d/%d", response.Code, apiCalls, sessions.validates.Load())
+	}
+
+	request = httptest.NewRequest(http.MethodPost, "https://console.example/api/v1/plans/plan-test/execute", strings.NewReader(`{}`))
+	request.Host = "console.example"
+	request.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
+	response = httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusUnauthorized || apiCalls != 1 {
+		t.Fatalf("non-executor remote write status/calls = %d/%d", response.Code, apiCalls)
+	}
+}
+
 func TestBrowserRouterAuthenticatesBeforeRejectingLocalMutationRoutes(t *testing.T) {
 	apiCalls := 0
 	authenticator, _, _ := newBrowserAuthFixture(t)

@@ -4,11 +4,13 @@ import (
 	"context"
 	"crypto/tls"
 	"net"
+	"net/http"
 	"sync"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 const (
@@ -44,6 +46,34 @@ func RemoteListen(ctx context.Context, config RemoteListenConfig) (net.Listener,
 	}
 	listener = newLimitedRemoteListener(listener, remoteConnectionLimit)
 	return tls.NewListener(listener, tlsConfig), nil
+}
+
+// WrapExecutor admits machine calls only after the existing remote identity
+// adapter verifies the assertion and its declared binding resolves to an
+// authenticated principal. The lifecycle service separately reauthorizes that
+// principal as the exact plan-declared executor. This wrapper accepts neither
+// a browser Origin nor a browser session cookie, so browser sessions cannot
+// become executor credentials and executor calls do not gain the wider browser
+// API surface.
+func (authenticator *BrowserAuthenticator) WrapExecutor(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if next == nil || len(request.Header.Values("Origin")) != 0 || len(request.Header.Values("Cookie")) != 0 {
+			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
+			return
+		}
+		ctx, verified, bindingDigest, ok := authenticator.verifyExternalRequest(request)
+		if !ok {
+			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
+			return
+		}
+		principal, err := authenticator.config.Sessions.ResolveRemoteIdentity(ctx, bindingDigest)
+		if err != nil || principal.Method != verified.Method || !identity.ValidPrincipal(principal) {
+			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
+			return
+		}
+		ctx = identity.WithVerifiedPrincipal(ctx, principal)
+		next.ServeHTTP(writer, request.WithContext(ctx))
+	})
 }
 
 type limitedRemoteListener struct {

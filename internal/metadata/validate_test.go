@@ -153,6 +153,9 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 		"api.v1.runs.get":                      true,
 		"api.v1.runs.cancel":                   true,
 		"api.v1.runs.resume":                   true,
+		"api.v1.executor-leases.claim":         true,
+		"api.v1.executor-leases.renew":         true,
+		"api.v1.execution-receipts.create":     true,
 	}
 	for _, endpoint := range Current().Endpoints {
 		want := AvailabilityAvailable

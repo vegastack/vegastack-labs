@@ -11,11 +11,16 @@ import (
 	"encoding/pem"
 	"math/big"
 	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 func TestRemoteListenRejectsMissingTLSMaterialWithoutLeakingPaths(t *testing.T) {
@@ -109,6 +114,60 @@ func TestRemoteListenRejectsOversizedTLSMaterial(t *testing.T) {
 	if listener, err := RemoteListen(context.Background(), RemoteListenConfig{Address: "127.0.0.1:0", CertificatePath: certificatePath, PrivateKeyPath: keyPath}); err == nil {
 		_ = listener.Close()
 		t.Fatal("oversized certificate was accepted")
+	}
+}
+
+func TestRemoteExecutorAuthenticationUsesExactMachineIdentityWithoutBrowserSession(t *testing.T) {
+	authenticator, adapter, sessions := newBrowserAuthFixture(t)
+	sessions.principal = identity.Principal{ID: "principal.executor", Method: identity.CloudflareAccessMethod, Kind: identity.PrincipalAgent}
+	downstreamCalls := atomic.Int32{}
+	handler := authenticator.WrapExecutor(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		downstreamCalls.Add(1)
+		principal, ok := identity.PrincipalFromContext(request.Context())
+		if !ok || principal != sessions.principal {
+			t.Fatalf("executor principal = %#v, %t", principal, ok)
+		}
+		writer.WriteHeader(http.StatusNoContent)
+	}))
+	request := httptest.NewRequest(http.MethodPost, "https://console.example/api/v1/executor-leases/claim", strings.NewReader(`{}`))
+	request.Host = "console.example"
+	request.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusNoContent || downstreamCalls.Load() != 1 || adapter.calls.Load() != 1 || sessions.validates.Load() != 0 {
+		t.Fatalf("status/calls = %d/%d/%d/%d", response.Code, downstreamCalls.Load(), adapter.calls.Load(), sessions.validates.Load())
+	}
+}
+
+func TestRemoteExecutorAuthenticationRejectsBrowserAndForgedRequests(t *testing.T) {
+	for _, mutate := range []func(*http.Request, *browserSessionStore){
+		func(_ *http.Request, sessions *browserSessionStore) {
+			sessions.principal.ID = "invalid principal"
+		},
+		func(request *http.Request, _ *browserSessionStore) {
+			request.Header.Set("Origin", "https://console.example")
+		},
+		func(request *http.Request, sessions *browserSessionStore) {
+			request.AddCookie(&http.Cookie{Name: BrowserSessionCookieName, Value: sessions.raw})
+		},
+		func(request *http.Request, _ *browserSessionStore) { request.Host = "internal.example" },
+		func(request *http.Request, _ *browserSessionStore) {
+			request.Header.Add("Cf-Access-Jwt-Assertion", "duplicate")
+		},
+	} {
+		authenticator, _, sessions := newBrowserAuthFixture(t)
+		sessions.principal = identity.Principal{ID: "principal.executor", Method: identity.CloudflareAccessMethod, Kind: identity.PrincipalAgent}
+		calls := atomic.Int32{}
+		handler := authenticator.WrapExecutor(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
+		request := httptest.NewRequest(http.MethodPost, "https://console.example/api/v1/executor-leases/claim", strings.NewReader(`{"private":"canary"}`))
+		request.Host = "console.example"
+		request.Header.Set("Cf-Access-Jwt-Assertion", "verified-provider-assertion")
+		mutate(request, sessions)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != http.StatusUnauthorized || calls.Load() != 0 || strings.Contains(response.Body.String(), "canary") {
+			t.Fatalf("status/calls/body = %d/%d/%s", response.Code, calls.Load(), response.Body.String())
+		}
 	}
 }
 

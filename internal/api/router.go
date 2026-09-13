@@ -33,22 +33,51 @@ var remoteSessionEndpoints = map[string]bool{
 	"api.v1.session.logout": true,
 }
 
+var remoteExecutorEndpoints = map[string]bool{
+	"api.v1.executor-leases.claim":     true,
+	"api.v1.executor-leases.renew":     true,
+	"api.v1.execution-receipts.create": true,
+}
+
 // RemoteReadRequestAllowed is the server-side admission boundary for the
-// browser listener. Generated available GET endpoints are readable remotely;
-// the three browser-session POST operations are the only write-method
-// exceptions. New local operations remain remote-denied until this metadata
-// rule deliberately admits them.
+// browser listener. Generated available browser GET endpoints are readable
+// remotely; browser-session operations and the three generated executor-only
+// operations are the only write-method exceptions. New local operations remain
+// remote-denied until this metadata rule deliberately admits them.
 func RemoteReadRequestAllowed(method, requestPath string) bool {
 	for _, endpoint := range generated.Endpoints {
-		browserAudience := false
+		browserAudience, executorAudience := false, false
 		for _, audience := range endpoint.Audiences {
 			browserAudience = browserAudience || audience == "browser"
+			executorAudience = executorAudience || audience == "executor"
 		}
-		if endpoint.Availability != "available" || endpoint.Method != method || (method == http.MethodGet && !browserAudience) || (method != http.MethodGet && !remoteSessionEndpoints[endpoint.ID]) {
+		remoteWrite := remoteSessionEndpoints[endpoint.ID] || (executorAudience && remoteExecutorEndpoints[endpoint.ID])
+		if endpoint.Availability != "available" || endpoint.Method != method || (method == http.MethodGet && !browserAudience) || (method != http.MethodGet && !remoteWrite) {
 			continue
 		}
 		if _, ok := matchPath(endpoint.Path, requestPath); ok {
 			return true
+		}
+	}
+	return false
+}
+
+// RemoteExecutorRequestAllowed identifies the complete machine-authenticated
+// remote mutation surface. The generated registry and executor audience are
+// both required so adding a new POST endpoint cannot widen this path.
+func RemoteExecutorRequestAllowed(method, requestPath string) bool {
+	for _, endpoint := range generated.Endpoints {
+		if endpoint.Availability != "available" || endpoint.Method != method || !remoteExecutorEndpoints[endpoint.ID] {
+			continue
+		}
+		executorAudience := false
+		for _, audience := range endpoint.Audiences {
+			executorAudience = executorAudience || audience == "executor"
+		}
+		if executorAudience {
+			if _, ok := matchPath(endpoint.Path, requestPath); ok {
+				return true
+			}
 		}
 	}
 	return false

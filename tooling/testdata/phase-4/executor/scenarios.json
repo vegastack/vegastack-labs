@@ -1,0 +1,124 @@
+{
+  "schemaVersion": "1.0.0",
+  "claim": {
+    "schema": "vegastack-labs.dev/executor-claim-request",
+    "schemaVersion": "1.0.0",
+    "executorId": "executor-synthetic-001",
+    "principalId": "principal-synthetic-001",
+    "adapterId": "adapter-synthetic-001",
+    "recoveryEpoch": 4,
+    "nonceDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "extensions": [
+      {
+        "name": "x-ref",
+        "valueDigest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      }
+    ]
+  },
+  "lease": {
+    "schema": "vegastack-labs.dev/executor-lease",
+    "schemaVersion": "1.0.0",
+    "leaseId": "lease-synthetic-001",
+    "planId": "plan-synthetic-001",
+    "planDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "runId": "run-synthetic-001",
+    "stepId": "step-synthetic-001",
+    "operationId": "operation-synthetic-001",
+    "executorId": "executor-synthetic-001",
+    "adapterId": "adapter-synthetic-001",
+    "targetId": "target-synthetic-001",
+    "artifactDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "bindingDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "nonceDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recoveryEpoch": 4,
+    "claimedAt": "2026-09-13T00:00:00Z",
+    "renewAfter": "2026-09-13T00:00:20Z",
+    "leaseExpiresAt": "2026-09-13T00:01:00Z",
+    "maximumExpiresAt": "2026-09-13T00:01:00Z",
+    "status": "active",
+    "extensions": []
+  },
+  "receipt": {
+    "schema": "vegastack-labs.dev/execution-receipt",
+    "schemaVersion": "1.0.0",
+    "leaseId": "lease-synthetic-001",
+    "planId": "plan-synthetic-001",
+    "planDigest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "runId": "run-synthetic-001",
+    "stepId": "step-synthetic-001",
+    "operationId": "operation-synthetic-001",
+    "executorId": "executor-synthetic-001",
+    "adapterId": "adapter-synthetic-001",
+    "targetId": "target-synthetic-001",
+    "artifactDigest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "bindingDigest": "sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+    "nonceDigest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "recoveryEpoch": 4,
+    "receiptId": "receipt-synthetic-001",
+    "status": "succeeded",
+    "resultDigest": "sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+    "recordedAt": "2026-09-13T00:00:30Z",
+    "extensions": []
+  },
+  "scenarios": [
+    {
+      "name": "claim",
+      "event": "claim",
+      "at": "2026-09-13T00:00:00Z",
+      "expected": {
+        "leaseState": "active",
+        "runState": "running",
+        "reconciliation": "none",
+        "newWorkAllowed": true
+      }
+    },
+    {
+      "name": "renew at check-in",
+      "event": "renew",
+      "at": "2026-09-13T00:00:20Z",
+      "expected": {
+        "leaseState": "active",
+        "runState": "running",
+        "reconciliation": "none",
+        "newWorkAllowed": true
+      }
+    },
+    {
+      "name": "network loss after expiry",
+      "event": "loss",
+      "at": "2026-09-13T00:01:01Z",
+      "expected": {
+        "leaseState": "expired",
+        "runState": "partial",
+        "reconciliation": "recovery-required",
+        "newWorkAllowed": false
+      }
+    },
+    {
+      "name": "failed independent verification",
+      "event": "reconcile",
+      "at": "2026-09-13T00:00:31Z",
+      "verification": "failed",
+      "expected": {
+        "leaseState": "released",
+        "runState": "partial",
+        "reconciliation": "recovery-required",
+        "newWorkAllowed": false
+      }
+    },
+    {
+      "name": "tampered receipt",
+      "event": "tamper",
+      "at": "2026-09-13T00:00:30Z",
+      "tamper": {
+        "targetId": "target-widened-999"
+      },
+      "expected": {
+        "leaseState": "active",
+        "runState": "partial",
+        "reconciliation": "recovery-required",
+        "newWorkAllowed": false
+      }
+    }
+  ]
+}
