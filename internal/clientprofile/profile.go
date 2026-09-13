@@ -120,7 +120,7 @@ func validConfiguredPath(path string) bool {
 }
 
 func validKnownHostsPath(path string) bool {
-	return validConfiguredPath(path) && !strings.ContainsAny(path, "%$\"'\\ \t\r\n\v\f")
+	return validConfiguredPath(path) && !strings.ContainsAny(filepath.ToSlash(path), "%$\"'\\ \t\r\n\v\f")
 }
 
 func snapshotTrustedAncestors(path string) (ancestorSnapshot, bool) {
@@ -254,6 +254,7 @@ func validateExecutable(path string) error {
 }
 
 func constrainedSSHArguments(knownHosts, destination string) []string {
+	knownHosts = filepath.ToSlash(knownHosts)
 	return []string{
 		"-F", "none", "-T",
 		"-o", "AddKeysToAgent=no",

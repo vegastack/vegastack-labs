@@ -3,10 +3,23 @@
 package clientprofile
 
 import (
+	"reflect"
 	"testing"
 
 	"golang.org/x/sys/windows"
 )
+
+func TestWindowsKnownHostsPathUsesOneOpenSSHSafeForwardSlashValue(t *testing.T) {
+	path := `C:\Users\operator\known-hosts`
+	if !validKnownHostsPath(path) {
+		t.Fatalf("validKnownHostsPath(%q) = false", path)
+	}
+	arguments := constrainedSSHArguments(path, "operator@control-plane")
+	want := []string{"-o", "UserKnownHostsFile=C:/Users/operator/known-hosts", "-o", "VerifyHostKeyDNS=no", "operator@control-plane"}
+	if !reflect.DeepEqual(arguments[len(arguments)-5:], want) {
+		t.Fatalf("known-hosts tail = %#v, want %#v", arguments[len(arguments)-5:], want)
+	}
+}
 
 func TestWindowsFileMetadataTrustRejectsReparseDirectoriesAndHardlinks(t *testing.T) {
 	for name, test := range map[string]struct {

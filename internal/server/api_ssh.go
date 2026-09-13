@@ -25,11 +25,12 @@ const (
 	apiSSHReadTimeout = 30 * time.Second
 )
 
-type apiSSHReadDeadline interface {
-	SetReadDeadline(time.Time) error
-}
-
 type apiSSHForward func(context.Context, localtransport.Request) (localtransport.Response, error)
+
+type apiSSHReadResult struct {
+	request apissh.Request
+	err     error
+}
 
 type apiSSHHandler struct {
 	build               result.BuildInfo
@@ -38,6 +39,7 @@ type apiSSHHandler struct {
 	verifiedPrincipalID string
 	verifiedDeviceID    string
 	forward             apiSSHForward
+	readTimeout         time.Duration
 }
 
 // ServeAPISSH serves one versioned frame for an SSH forced command. The fixed
@@ -64,17 +66,7 @@ func (operations *Operations) ServeAPISSH(ctx context.Context, configPath, verif
 }
 
 func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output io.Writer) error {
-	if deadlineInput, ok := input.(apiSSHReadDeadline); ok {
-		deadline := time.Now().Add(apiSSHReadTimeout)
-		if contextDeadline, bounded := ctx.Deadline(); bounded && contextDeadline.Before(deadline) {
-			deadline = contextDeadline
-		}
-		if err := deadlineInput.SetReadDeadline(deadline); err != nil {
-			return failure.New(generated.ErrorCodeInputInvalid, "api-ssh-request-frame", false)
-		}
-		defer func() { _ = deadlineInput.SetReadDeadline(time.Time{}) }()
-	}
-	request, err := apissh.ReadRequest(input)
+	request, err := handler.readRequest(ctx, input)
 	if err != nil {
 		requestID := apissh.RecoverableRequestID(err)
 		if requestID != "" {
@@ -134,6 +126,30 @@ func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output 
 	}
 	envelope.RequestID = request.Header.RequestID
 	return apissh.WriteResponse(output, request.Header.RequestID, envelope)
+}
+
+func (handler apiSSHHandler) readRequest(ctx context.Context, input io.Reader) (apissh.Request, error) {
+	timeout := handler.readTimeout
+	if timeout <= 0 || timeout > apiSSHReadTimeout {
+		timeout = apiSSHReadTimeout
+	}
+	readCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	result := make(chan apiSSHReadResult, 1)
+	go func() {
+		request, err := apissh.ReadRequest(input)
+		result <- apiSSHReadResult{request: request, err: err}
+	}()
+	select {
+	case completed := <-result:
+		return completed.request, completed.err
+	case <-readCtx.Done():
+		code := generated.ErrorCodeInputInvalid
+		if ctx.Err() != nil {
+			code = generated.ErrorCodeInterrupted
+		}
+		return apissh.Request{}, failure.New(code, "api-ssh-request-frame", false)
+	}
 }
 
 func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string) (string, bool) {

@@ -340,6 +340,7 @@ func testDirectory(t *testing.T) string {
 }
 
 func secureArguments(knownHosts, destination string) []string {
+	knownHosts = filepath.ToSlash(knownHosts)
 	return []string{
 		"-F", "none", "-T",
 		"-o", "AddKeysToAgent=no",
