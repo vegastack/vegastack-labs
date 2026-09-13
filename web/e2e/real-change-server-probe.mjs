@@ -128,7 +128,7 @@ try {
   await mkdir(artifactRoot, { recursive: true, mode: 0o700 });
   tracePath = path.join(artifactRoot, "changes-trace.zip");
   screenshotPath = path.join(artifactRoot, "changes-screenshot.png");
-  stage = "session";
+  stage = "browser-context";
   context = await browser.newContext({ ignoreHTTPSErrors: true });
   await context.route("**/*", async route => {
     const target = new URL(route.request().url());
@@ -170,6 +170,7 @@ try {
     await route.continue();
   });
   const headers = { Origin: baseURL, "Content-Type": "application/json" };
+  stage = "session-bootstrap";
   let session;
   for (let attempt = 0; attempt < 100; attempt += 1) {
     try {

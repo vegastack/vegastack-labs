@@ -274,8 +274,9 @@ export function checkStepsForPlan(plan) {
   return Object.freeze(steps.filter((step) => selected.has(step.group)));
 }
 
-export async function runCheckPlan(plan, { root = DEFAULT_ROOT, quiet = false } = {}) {
+export async function runCheckPlan(plan, { root = DEFAULT_ROOT, quiet = false, onStep } = {}) {
   for (const step of checkStepsForPlan(plan)) {
+    onStep?.(step);
     if (!quiet) process.stderr.write(`check: ${step.name}\n`);
     await step.run(root, { capture: quiet });
   }

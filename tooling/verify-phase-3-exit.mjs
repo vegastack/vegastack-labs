@@ -4,7 +4,7 @@ import { readFile as readFileAsync } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { fullCheckPlan, runCheckPlan } from "./lib/check-plan.mjs";
+import { checkStepsForPlan, fullCheckPlan, runCheckPlan } from "./lib/check-plan.mjs";
 import { runCommand } from "./lib/process.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -268,11 +268,29 @@ function digest(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
-async function defaultRunChecks(root) {
-  await runCheckPlan(fullCheckPlan(), { root, quiet: true });
-  await runCommand("go", ["test", "-race", "-count=1", "./..."], {
-    cwd: root, capture: true, timeoutMs: 600_000,
-  });
+const FULL_CHECK_STAGE_CODES = new Map(checkStepsForPlan(fullCheckPlan()).map(({ name }) => [
+  name,
+  `PHASE3_EXIT_CHECK_${name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "")}`,
+]));
+
+export async function defaultRunChecks(root, { runPlan = runCheckPlan, run = runCommand } = {}) {
+  let currentStage = "PHASE3_EXIT_CHECK_PUBLIC_CHECK_CATALOG";
+  try {
+    await runPlan(fullCheckPlan(), {
+      root,
+      quiet: true,
+      onStep: ({ name }) => { currentStage = FULL_CHECK_STAGE_CODES.get(name) ?? "PHASE3_EXIT_CHECK_PUBLIC_CHECK_CATALOG"; },
+    });
+  } catch {
+    fail(currentStage);
+  }
+  try {
+    await run("go", ["test", "-race", "-count=1", "./..."], {
+      cwd: root, capture: true, timeoutMs: 600_000,
+    });
+  } catch {
+    fail("PHASE3_EXIT_CHECK_GO_RACE_FULL");
+  }
   return EXPECTED_COMMANDS.map(({ id }) => ({ id, status: "pass", quarantined: false }));
 }
 
@@ -337,7 +355,8 @@ export async function runPhase3Exit(root = ROOT, {
   try {
     checkResults = await runChecks(root, loaded);
     validateCheckResults(checkResults);
-  } catch {
+  } catch (error) {
+    if (error instanceof Phase3ExitError) throw error;
     fail("PHASE3_EXIT_CHECKS");
   }
 
