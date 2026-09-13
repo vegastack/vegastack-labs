@@ -10,12 +10,16 @@ import (
 
 func TestLoadConstrainedSSHProfileBuildsFixedDirectArguments(t *testing.T) {
 	directory := t.TempDir()
+	executable := filepath.Join(directory, "ssh")
+	if err := os.WriteFile(executable, []byte("synthetic ssh executable\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	knownHosts := filepath.Join(directory, "known hosts ; literal")
 	if err := os.WriteFile(knownHosts, []byte("control-plane ssh-ed25519 synthetic\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	profilePath := filepath.Join(directory, "client profile.json")
-	content := `{"schema":"vegastack-labs.dev/client-profile","schemaVersion":"1.0.0","transport":{"kind":"constrained-ssh","executable":"ssh","destination":"operator@control-plane","knownHostsPath":` + quote(knownHosts) + `,"sshPrincipalId":"principal.operator","deviceId":"device.operator","recoveryEpoch":3}}`
+	content := clientProfileForDestination(executable, knownHosts, "operator@control-plane")
 	if err := os.WriteFile(profilePath, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +29,7 @@ func TestLoadConstrainedSSHProfileBuildsFixedDirectArguments(t *testing.T) {
 		t.Fatalf("Load() = %#v, %t, %v", profile, matched, err)
 	}
 	want := secureArguments(knownHosts, "operator@control-plane")
-	if profile.ConstrainedSSH.Executable != "ssh" || !reflect.DeepEqual(profile.ConstrainedSSH.Arguments, want) || profile.ConstrainedSSH.SSHPrincipalID != "principal.operator" || profile.ConstrainedSSH.DeviceID != "device.operator" || profile.ConstrainedSSH.RecoveryEpoch != 3 {
+	if profile.ConstrainedSSH.Executable != executable || !reflect.DeepEqual(profile.ConstrainedSSH.Arguments, want) || profile.ConstrainedSSH.SSHPrincipalID != "principal.operator" || profile.ConstrainedSSH.DeviceID != "device.operator" || profile.ConstrainedSSH.RecoveryEpoch != 3 {
 		t.Fatalf("remote invocation = %#v", profile.ConstrainedSSH)
 	}
 }
@@ -42,6 +46,7 @@ func TestLoadFallsBackForProtectedLocalServerProfile(t *testing.T) {
 
 func TestLoadRejectsUntrustedKnownHostsFiles(t *testing.T) {
 	directory := t.TempDir()
+	executable := testSSHExecutable(t, directory)
 	regular := filepath.Join(directory, "known-hosts")
 	if err := os.WriteFile(regular, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -68,7 +73,7 @@ func TestLoadRejectsUntrustedKnownHostsFiles(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			profilePath := filepath.Join(directory, "profile-"+name+".json")
-			if err := os.WriteFile(profilePath, []byte(clientProfile(knownHosts)), 0o600); err != nil {
+			if err := os.WriteFile(profilePath, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if _, matched, err := Load(context.Background(), profilePath); err == nil || !matched {
@@ -80,12 +85,13 @@ func TestLoadRejectsUntrustedKnownHostsFiles(t *testing.T) {
 
 func TestLoadRejectsHardlinkedClientProfile(t *testing.T) {
 	directory := t.TempDir()
+	executable := testSSHExecutable(t, directory)
 	knownHosts := filepath.Join(directory, "known-hosts")
 	if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	target := filepath.Join(directory, "profile-target.json")
-	if err := os.WriteFile(target, []byte(clientProfile(knownHosts)), 0o600); err != nil {
+	if err := os.WriteFile(target, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	linked := filepath.Join(directory, "profile-linked.json")
@@ -98,10 +104,11 @@ func TestLoadRejectsHardlinkedClientProfile(t *testing.T) {
 }
 
 func TestLoadRejectsRemoteCommandsAndUnsafeSSHOptions(t *testing.T) {
+	sshPath := filepath.Join(t.TempDir(), "ssh")
 	for name, transport := range map[string]string{
-		"shell destination":    `{"kind":"constrained-ssh","executable":"ssh","destination":"operator@host;uname","knownHostsPath":"/tmp/known"}`,
-		"alternate executable": `{"kind":"constrained-ssh","executable":"sh","destination":"operator@host","knownHostsPath":"/tmp/known"}`,
-		"unknown field":        `{"kind":"constrained-ssh","executable":"ssh","destination":"operator@host","knownHostsPath":"/tmp/known","arguments":["uname"]}`,
+		"shell destination":    `{"kind":"constrained-ssh","executable":` + quote(sshPath) + `,"destination":"operator@host;uname","knownHostsPath":"/tmp/known"}`,
+		"alternate executable": `{"kind":"constrained-ssh","executable":"/bin/sh","destination":"operator@host","knownHostsPath":"/tmp/known"}`,
+		"unknown field":        `{"kind":"constrained-ssh","executable":` + quote(sshPath) + `,"destination":"operator@host","knownHostsPath":"/tmp/known","arguments":["uname"]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), "profile.json")
@@ -111,6 +118,64 @@ func TestLoadRejectsRemoteCommandsAndUnsafeSSHOptions(t *testing.T) {
 			}
 			if _, matched, err := Load(context.Background(), path); err == nil || !matched {
 				t.Fatalf("Load() matched=%t err=%v", matched, err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsBareAndReplaceableSSHExecutables(t *testing.T) {
+	directory := t.TempDir()
+	knownHosts := filepath.Join(directory, "known-hosts")
+	if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	regular := filepath.Join(directory, "ssh-regular")
+	if err := os.WriteFile(regular, []byte("synthetic\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	hardlink := filepath.Join(directory, "ssh")
+	if err := os.Link(regular, hardlink); err != nil {
+		t.Fatal(err)
+	}
+	symlinkTarget := filepath.Join(directory, "target", "ssh")
+	if err := os.Mkdir(filepath.Dir(symlinkTarget), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(symlinkTarget, []byte("synthetic\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	symlink := filepath.Join(directory, "linked", "ssh")
+	if err := os.Mkdir(filepath.Dir(symlink), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(symlinkTarget, symlink); err != nil {
+		t.Fatal(err)
+	}
+	worldWritable := filepath.Join(directory, "writable", "ssh")
+	if err := os.Mkdir(filepath.Dir(worldWritable), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(worldWritable, []byte("synthetic\n"), 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(worldWritable, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	for name, executable := range map[string]string{
+		"bare path lookup": "ssh",
+		"missing":          filepath.Join(directory, "missing", "ssh"),
+		"directory":        directory,
+		"hardlink":         hardlink,
+		"symlink":          symlink,
+		"world writable":   worldWritable,
+	} {
+		t.Run(name, func(t *testing.T) {
+			profilePath := filepath.Join(directory, "executable-"+name+".json")
+			if err := os.WriteFile(profilePath, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, matched, err := Load(context.Background(), profilePath); err == nil || !matched {
+				t.Fatalf("executable %q matched=%t err=%v", executable, matched, err)
 			}
 		})
 	}
@@ -142,8 +207,21 @@ func quote(value string) string {
 	return result + `"`
 }
 
-func clientProfile(knownHosts string) string {
-	return `{"schema":"vegastack-labs.dev/client-profile","schemaVersion":"1.0.0","transport":{"kind":"constrained-ssh","executable":"ssh","destination":"operator@host","knownHostsPath":` + quote(knownHosts) + `,"sshPrincipalId":"principal.operator","deviceId":"device.operator","recoveryEpoch":3}}`
+func clientProfile(executable, knownHosts string) string {
+	return clientProfileForDestination(executable, knownHosts, "operator@host")
+}
+
+func clientProfileForDestination(executable, knownHosts, destination string) string {
+	return `{"schema":"vegastack-labs.dev/client-profile","schemaVersion":"1.0.0","transport":{"kind":"constrained-ssh","executable":` + quote(executable) + `,"destination":` + quote(destination) + `,"knownHostsPath":` + quote(knownHosts) + `,"sshPrincipalId":"principal.operator","deviceId":"device.operator","recoveryEpoch":3}}`
+}
+
+func testSSHExecutable(t *testing.T, directory string) string {
+	t.Helper()
+	path := filepath.Join(directory, "ssh")
+	if err := os.WriteFile(path, []byte("synthetic ssh executable\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func secureArguments(knownHosts, destination string) []string {

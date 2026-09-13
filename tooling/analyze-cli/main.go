@@ -896,13 +896,13 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 
 const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
 
-const reviewedSSHTransportDigest = "10e81b2f343e819e398853e04df435e4d218c2a1d220ffd7e996d207aa31dcc0"
+const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
 
 func reviewedSSHTransportPackage(candidate checkedSourcePackage, localTransportImport string) bool {
 	modulePath := strings.TrimSuffix(localTransportImport, "/internal/localtransport")
 	approvedImports := map[string]bool{
 		"bytes": true, "context": true, "errors": true, "io": true, "os/exec": true,
-		"regexp": true, "strings": true, "time": true,
+		"path/filepath": true, "regexp": true, "strings": true, "time": true,
 		modulePath + "/internal/apissh": true, modulePath + "/internal/generated": true,
 		localTransportImport: true,
 	}

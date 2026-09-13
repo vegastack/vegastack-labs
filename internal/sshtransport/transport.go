@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -68,7 +69,7 @@ func RoundTrip(ctx context.Context, input Request) (localtransport.Response, err
 }
 
 func roundTrip(ctx context.Context, input Request, command commandFactory) (localtransport.Response, error) {
-	if ctx == nil || command == nil || (input.Executable != "ssh" && input.Executable != "ssh.exe") || !validArguments(input.Arguments) ||
+	if ctx == nil || command == nil || !validExecutable(input.Executable) || !validArguments(input.Arguments) ||
 		input.Timeout <= 0 || input.Timeout > maximumTimeout || input.ResponseLimit <= 0 || input.ResponseLimit > maximumResponseBytes {
 		return localtransport.Response{}, ErrInvalid
 	}
@@ -101,6 +102,14 @@ func roundTrip(ctx context.Context, input Request, command commandFactory) (loca
 		return localtransport.Response{}, ErrInvalid
 	}
 	return localtransport.Response{StatusCode: statusForEnvelope(response.Envelope), ContentType: "application/json", Body: response.RawEnvelope}, nil
+}
+
+func validExecutable(executable string) bool {
+	if len(executable) < 2 || len(executable) > 4096 || strings.IndexByte(executable, 0) >= 0 || !filepath.IsAbs(executable) || filepath.Clean(executable) != executable {
+		return false
+	}
+	base := strings.ToLower(filepath.Base(executable))
+	return base == "ssh" || base == "ssh.exe"
 }
 
 func statusForEnvelope(envelope generated.RunResult) int {

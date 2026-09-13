@@ -39,7 +39,7 @@ func TestRoundTripUsesDirectArgumentsAndExactAPISSHFrame(t *testing.T) {
 	var gotArguments []string
 	arguments := secureSSHArguments("/literal path", "operator@host")
 	response, err := roundTrip(context.Background(), Request{
-		Executable: "ssh", Arguments: arguments,
+		Executable: "/usr/bin/ssh", Arguments: arguments,
 		RequestID: "request-ssh-transport", SSHPrincipalID: "principal.operator", DeviceID: "device.operator", RecoveryEpoch: 3, OperationArgs: []string{"--output", "json"},
 		Method: localtransport.MethodPost, Path: "/api/v1/test", Body: []byte(`{"value":"$(literal)"}`), Timeout: 5 * time.Second, ResponseLimit: 4096,
 	}, func(ctx context.Context, executable string, arguments []string) *exec.Cmd {
@@ -61,7 +61,7 @@ func TestRoundTripUsesDirectArgumentsAndExactAPISSHFrame(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantArguments := secureSSHArguments("/literal path", "operator@host")
-	if gotExecutable != "ssh" || fmt.Sprint(gotArguments) != fmt.Sprint(wantArguments) {
+	if gotExecutable != "/usr/bin/ssh" || fmt.Sprint(gotArguments) != fmt.Sprint(wantArguments) {
 		t.Fatalf("invocation = %q %#v", gotExecutable, gotArguments)
 	}
 	request, err := apissh.ReadRequest(bytes.NewReader(captured))
@@ -103,7 +103,7 @@ func TestRoundTripRejectsMissingOrChangedSecurityOptions(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			arguments := mutate(append([]string(nil), base...))
-			_, err := RoundTrip(context.Background(), Request{Executable: "ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
+			_, err := RoundTrip(context.Background(), Request{Executable: "/usr/bin/ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
 			if err != ErrInvalid {
 				t.Fatalf("modified arguments error = %v", err)
 			}
@@ -113,9 +113,16 @@ func TestRoundTripRejectsMissingOrChangedSecurityOptions(t *testing.T) {
 
 func TestRoundTripRejectsAnyRemoteCommandArgument(t *testing.T) {
 	arguments := append(secureSSHArguments("/known", "operator@host"), "uname")
-	_, err := RoundTrip(context.Background(), Request{Executable: "ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
+	_, err := RoundTrip(context.Background(), Request{Executable: "/usr/bin/ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
 	if err != ErrInvalid {
 		t.Fatalf("remote command error = %v", err)
+	}
+}
+
+func TestRoundTripRejectsBareSSHExecutable(t *testing.T) {
+	_, err := RoundTrip(context.Background(), Request{Executable: "ssh", Arguments: secureSSHArguments("/known", "operator@host"), Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
+	if err != ErrInvalid {
+		t.Fatalf("bare executable error = %v", err)
 	}
 }
 

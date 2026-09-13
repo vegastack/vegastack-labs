@@ -21,6 +21,7 @@ import (
 const (
 	maximumProfileBytes   = 64 * 1024
 	maximumKnownHostsSize = 4 << 20
+	maximumExecutableSize = 512 << 20
 )
 
 var destinationPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+$`)
@@ -80,7 +81,7 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	if json.Unmarshal(content, &probe) != nil || probe.Schema != "vegastack-labs.dev/client-profile" {
 		return serverconfig.Profile{}, false, nil
 	}
-	if !trustedFile(opened) || !trustedFile(after) {
+	if !trustedFile(path, opened) || !trustedFile(path, after) {
 		return serverconfig.Profile{}, true, invalid()
 	}
 	decoder := json.NewDecoder(bytes.NewReader(content))
@@ -91,7 +92,7 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	}
 	var trailing any
 	if decoder.Decode(&trailing) != io.EOF || profile.SchemaVersion != "1.0.0" || profile.Transport.Kind != "constrained-ssh" ||
-		(profile.Transport.Executable != "ssh" && profile.Transport.Executable != "ssh.exe") ||
+		!validExecutablePath(profile.Transport.Executable) ||
 		!destinationPattern.MatchString(profile.Transport.Destination) || len(profile.Transport.Destination) > 255 ||
 		!principal.ValidID(profile.Transport.SSHPrincipalID) || !principal.ValidID(profile.Transport.DeviceID) || profile.Transport.RecoveryEpoch < 0 ||
 		len(profile.Transport.KnownHostsPath) > 4096 || strings.ContainsRune(profile.Transport.KnownHostsPath, 0) ||
@@ -99,6 +100,9 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 		return serverconfig.Profile{}, true, invalid()
 	}
 	if err := validateKnownHosts(profile.Transport.KnownHostsPath); err != nil {
+		return serverconfig.Profile{}, true, err
+	}
+	if err := validateExecutable(profile.Transport.Executable); err != nil {
 		return serverconfig.Profile{}, true, err
 	}
 	arguments := constrainedSSHArguments(profile.Transport.KnownHostsPath, profile.Transport.Destination)
@@ -113,7 +117,7 @@ func validateKnownHosts(path string) error {
 		return invalid()
 	}
 	before, err := os.Lstat(path)
-	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 1 || before.Size() > maximumKnownHostsSize || !trustedFile(before) {
+	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 1 || before.Size() > maximumKnownHostsSize || !trustedFile(path, before) {
 		return invalid()
 	}
 	file, err := os.Open(path)
@@ -122,11 +126,40 @@ func validateKnownHosts(path string) error {
 	}
 	defer file.Close()
 	opened, err := file.Stat()
-	if err != nil || !os.SameFile(before, opened) || !trustedFile(opened) {
+	if err != nil || !os.SameFile(before, opened) || !trustedFile(path, opened) {
 		return invalid()
 	}
 	after, err := os.Lstat(path)
-	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedFile(after) {
+	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedFile(path, after) {
+		return invalid()
+	}
+	return nil
+}
+
+func validExecutablePath(path string) bool {
+	if len(path) < 2 || len(path) > 4096 || strings.ContainsRune(path, 0) || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
+		return false
+	}
+	base := strings.ToLower(filepath.Base(path))
+	return base == "ssh" || base == "ssh.exe"
+}
+
+func validateExecutable(path string) error {
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 1 || before.Size() > maximumExecutableSize || !trustedExecutable(path, before) {
+		return invalid()
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return invalid()
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(before, opened) || !trustedExecutable(path, opened) {
+		return invalid()
+	}
+	after, err := os.Lstat(path)
+	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedExecutable(path, after) {
 		return invalid()
 	}
 	return nil
