@@ -170,6 +170,16 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	if err := engine.after(BoundaryAdmissionActivated); err != nil {
 		return created.Run, err
 	}
+	if plan.ExecutorMode == "external" {
+		started, err := engine.repository.TransitionRun(context.WithoutCancel(ctx), store.RunTransitionRequest{RunID: created.Run.RunID, From: "queued", To: "running", At: now, Attribution: request.Attribution})
+		if err != nil {
+			return created.Run, err
+		}
+		if err := engine.after(BoundaryRunStarted); err != nil {
+			return started, err
+		}
+		return started, nil
+	}
 	// Once the run is durably created, client disconnect is no longer execution
 	// authority. The server-owned run continues and remains observable.
 	return engine.start(engine.executionContext, plan, created.Run, request.Attribution)

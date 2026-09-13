@@ -323,6 +323,26 @@ func ValidateLeaseTiming(lease ExecutorLease) error {
 	return nil
 }
 
+func ValidateRenewedLeaseTiming(lease ExecutorLease) error {
+	claimed, err := time.Parse(time.RFC3339, lease.ClaimedAt)
+	if err != nil {
+		return errors.New("invalid lease claim time")
+	}
+	renew, err := time.Parse(time.RFC3339, lease.RenewAfter)
+	if err != nil || !renew.After(claimed) {
+		return errors.New("renewed lease check-in must advance")
+	}
+	expires, err := time.Parse(time.RFC3339, lease.LeaseExpiresAt)
+	if err != nil || !expires.Equal(claimed.Add(time.Duration(ExecutorLeaseSeconds)*time.Second)) || renew.After(expires) {
+		return errors.New("renewed lease must stay inside its 60-second authority")
+	}
+	maximum, err := time.Parse(time.RFC3339, lease.MaximumExpiresAt)
+	if err != nil || !maximum.Equal(expires) {
+		return errors.New("lease maximum expiry must remain unchanged")
+	}
+	return nil
+}
+
 func ValidateExecutorLeaseBinding(plan Plan, run Run, lease ExecutorLease) error {
 	if plan.PlanID != run.PlanID || plan.PlanID != lease.PlanID || plan.PlanDigest != run.PlanDigest || plan.PlanDigest != lease.PlanDigest || plan.Binding.RecoveryEpoch != run.RecoveryEpoch || plan.Binding.RecoveryEpoch != lease.RecoveryEpoch || plan.Binding.StateRevision != run.StateRevision || run.RunID != lease.RunID || plan.ExecutorMode != run.ExecutorMode || run.ExecutorID != lease.ExecutorID || run.ExecutorBindingDigest != lease.BindingDigest {
 		return errors.New("executor lease widens or changes its plan/run binding")

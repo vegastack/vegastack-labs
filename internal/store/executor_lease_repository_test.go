@@ -237,6 +237,25 @@ func TestExecutorReceiptRejectsTampering(t *testing.T) {
 	}
 }
 
+func TestVerifiedExternalReceiptCanFinishDurableStep(t *testing.T) {
+	now := time.Date(2026, 9, 13, 0, 5, 30, 0, time.UTC)
+	fixture := openExecutorLeaseFixture(t, now)
+	lease := fixture.mustClaim(t, now)
+	request := fixture.receipt(lease, now.Add(time.Second))
+	if _, err := fixture.leases.RecordReceipt(context.Background(), ExecutorReceiptPersistenceRequest{Request: request, At: now.Add(time.Second), Attribution: fixture.attribution}); err != nil {
+		t.Fatal(err)
+	}
+	finished, err := fixture.runs.FinishStep(context.Background(), StepFinishRequest{
+		RunID: fixture.run.RunID, StepID: fixture.run.Steps[0].StepID, LeaseID: lease.LeaseID,
+		Receipt: request.Receipt, Status: "succeeded", EffectState: "verified",
+		VerificationDigest: string(digestForText("external-verification")), Changed: true,
+		At: now.Add(2 * time.Second), Attribution: fixture.attribution,
+	})
+	if err != nil || finished.Steps[0].EffectState != "verified" || finished.Steps[0].Status != "succeeded" {
+		t.Fatalf("finish external step = %#v, %v", finished, err)
+	}
+}
+
 func TestExecutorLeasePersistsAcrossRestart(t *testing.T) {
 	now := time.Date(2026, 9, 13, 0, 6, 0, 0, time.UTC)
 	fixture := openExecutorLeaseFixture(t, now)

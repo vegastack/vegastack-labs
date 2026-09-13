@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
@@ -164,7 +165,11 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(acknowledgements, time.Now), Adapters: adapter.NewRegistry(), Clock: time.Now, ExecutionContext: ctx})
+	runRepository := store.NewRunRepository(authority)
+	leaseRepository := store.NewExecutorLeaseRepository(authority)
+	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
+	adapters := adapter.NewRegistry()
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -173,16 +178,50 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	executors, err := runengine.NewExternalExecutor(runengine.ExternalExecutorConfig{Runs: runRepository, Leases: leaseRepository, Plans: plans, Admission: admission, Adapters: adapters, Clock: time.Now})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterExecutorOperations(application, api.ExecutorOperationConfig{Lifecycle: executors, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := api.ValidateRegisteredRoutes(application); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote, Background: acknowledgementBackground})
+	background := backgroundServices{executors}
+	if acknowledgementBackground != nil {
+		background = append(background, acknowledgementBackground)
+	}
+	service, err := New(Config{Profile: profile, Application: application, Results: factory, PlatformProbe: fixedPlatformProbe{platform: platform}, Remote: remote, Background: background})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
 	return service.Run(ctx)
+}
+
+// backgroundServices keeps optional capabilities inside the one vsk-labs
+// process while allowing each capability to stop independently and fail closed.
+type backgroundServices []BackgroundService
+
+func (services backgroundServices) Run(ctx context.Context) error {
+	var workers sync.WaitGroup
+	for _, service := range services {
+		if service == nil {
+			continue
+		}
+		workers.Add(1)
+		go func(background BackgroundService) {
+			defer workers.Done()
+			_ = background.Run(ctx)
+		}(service)
+	}
+	<-ctx.Done()
+	workers.Wait()
+	return nil
 }
 
 func (operations *Operations) remoteRead(ctx context.Context, profile serverconfig.Profile, authority *store.Store, factory *result.Factory) (*RemoteConfig, api.BrowserSessionService) {

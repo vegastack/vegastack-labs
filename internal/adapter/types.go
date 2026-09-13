@@ -44,6 +44,29 @@ type Verification struct {
 	Digest   string
 }
 
+// ReceiptObservation is the bounded, untrusted statement an external
+// executor made about a side effect. It deliberately omits Changed and
+// EffectObserved because only an independent adapter verification may
+// establish target state.
+type ReceiptObservation struct {
+	Status       string
+	ResultDigest string
+}
+
+type ReceiptVerification struct {
+	Verified bool
+	Digest   string
+	Changed  bool
+}
+
+// ReceiptVerifier is the provider-neutral independent verification boundary
+// for externally executed work. External execution never calls Adapter.Execute
+// inside the control process and cannot complete through Adapter.Verify using
+// a caller-authored Effect.
+type ReceiptVerifier interface {
+	VerifyReceipt(context.Context, Operation, ReceiptObservation) (ReceiptVerification, error)
+}
+
 type Adapter interface {
 	Execute(context.Context, Operation) (Effect, error)
 	Verify(context.Context, Operation, Effect) (Verification, error)
@@ -100,6 +123,20 @@ func ValidateEffect(effect Effect) error {
 func ValidateVerification(verification Verification) error {
 	if !adapterDigest.MatchString(verification.Digest) {
 		return &Error{code: generated.ErrorCodeIntegrityFailure, target: "adapter-verification"}
+	}
+	return nil
+}
+
+func ValidateReceiptObservation(observation ReceiptObservation) error {
+	if (observation.Status != "running" && observation.Status != "succeeded" && observation.Status != "failed" && observation.Status != "partial") || !adapterDigest.MatchString(observation.ResultDigest) {
+		return &Error{code: generated.ErrorCodeIntegrityFailure, target: "adapter-receipt-observation"}
+	}
+	return nil
+}
+
+func ValidateReceiptVerification(verification ReceiptVerification) error {
+	if !adapterDigest.MatchString(verification.Digest) {
+		return &Error{code: generated.ErrorCodeIntegrityFailure, target: "adapter-receipt-verification"}
 	}
 	return nil
 }

@@ -120,7 +120,7 @@ func (app *Application) renewExecutorLease(config ExecutorOperationConfig) func(
 			app.failure(writer, operation, err)
 			return
 		}
-		if !exactGeneratedContract(generated.SchemaIDExecutorLease, lease) || generated.ValidateLeaseTiming(lease) != nil || lease.LeaseID != input.LeaseID || lease.BindingDigest != input.BindingDigest || lease.RecoveryEpoch != input.RecoveryEpoch {
+		if !exactGeneratedContract(generated.SchemaIDExecutorLease, lease) || generated.ValidateRenewedLeaseTiming(lease) != nil || lease.LeaseID != input.LeaseID || lease.BindingDigest != input.BindingDigest || lease.RecoveryEpoch != input.RecoveryEpoch {
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "executor-lease"))
 			return
 		}

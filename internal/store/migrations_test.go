@@ -125,7 +125,7 @@ func TestCatalogAddsAuditOutboxAsExactlyMigrationThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) != 9 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" {
+	if len(catalog) != 10 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" || catalog[9].ID != 10 || catalog[9].Name != "0010_external_executor_leases" {
 		t.Fatalf("third migration = %#v", catalog)
 	}
 	if sha256.Sum256([]byte(catalog[3].SQL)) != catalog[3].SHA256 {
