@@ -1,10 +1,37 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
-import { assertPrivacyEvidence, inspectTraceArchive } from "../e2e/browser-privacy-proof.mjs";
+import {
+  assertPrivacyEvidence,
+  assertSettledPrivacyChecks,
+  inspectTraceArchive,
+  settlePrivacyCheck,
+} from "../e2e/browser-privacy-proof.mjs";
+
+test("the real browser probe reports a startup failure without leaking diagnostics", () => {
+  const missingCertificate = path.join(tmpdir(), "vsk-missing-probe-certificate.pem");
+  const result = spawnSync(process.execPath, [fileURLToPath(new URL("../e2e/real-change-server-probe.mjs", import.meta.url))], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NODE_NO_WARNINGS: "1",
+      VSK_PHASE3_ASSERTION: "test-assertion",
+      VSK_PHASE3_BASE_URL: "https://127.0.0.1:1",
+      VSK_PHASE3_CONTROLLER_URL: "http://127.0.0.1:1",
+      VSK_PHASE4_PROXY_CERTIFICATE: missingCertificate,
+      VSK_PHASE4_PROXY_PRIVATE_KEY: missingCertificate,
+    },
+  });
+  assert.equal(result.status, 1);
+  assert.equal(result.stdout, "");
+  assert.equal(result.stderr, "PROBE_FAILED:credential-proxy\n");
+  assert.doesNotMatch(result.stderr, /vsk-missing-probe-certificate|ENOENT|\/tmp\//);
+});
 
 test("traced browser traffic receives no authentication credentials", async () => {
   const probe = await readFile(new URL("../e2e/real-change-server-probe.mjs", import.meta.url), "utf8");
@@ -15,6 +42,13 @@ test("traced browser traffic receives no authentication credentials", async () =
   assert.match(probe, /rm\(tracePath, \{ force: true \}\)/);
   assert.doesNotMatch(probe, /route\.(?:continue|fetch)\(\{ headers: \{ \.\.\.route\.request\(\)\.headers, "Cf-Access-Jwt-Assertion"/);
   assert.doesNotMatch(probe, /const headers = \{[^\n]+Cf-Access-Jwt-Assertion/);
+});
+
+test("a response privacy failure is handled immediately and propagated at the final boundary", async () => {
+  const failure = new Error("privacy-response-failure");
+  const settled = settlePrivacyCheck(Promise.reject(failure));
+  await new Promise(resolve => setImmediate(resolve));
+  await assert.rejects(() => assertSettledPrivacyChecks([settled]), error => error === failure);
 });
 
 function storedArchive(entries) {

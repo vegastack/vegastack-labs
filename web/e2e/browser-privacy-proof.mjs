@@ -14,6 +14,15 @@ export function assertPrivacyEvidence(value, needles, surface) {
   }
 }
 
+export function settlePrivacyCheck(check) {
+  return Promise.resolve(check).then(() => null, error => error);
+}
+
+export async function assertSettledPrivacyChecks(checks) {
+  const failure = (await Promise.all(checks)).find(error => error !== null);
+  if (failure) throw failure;
+}
+
 function assertCredentialHeadersAbsent(value, forbiddenHeaders, surface) {
   const forbidden = new Set(forbiddenHeaders.map(name => name.toLowerCase()));
   if (forbidden.size === 0) return;

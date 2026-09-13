@@ -6,7 +6,7 @@ import { createServer as createSecureServer, request as secureRequest } from "no
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertPrivacyEvidence, assertShippedVisualAssetsSafe, captureVisibleBrowserEvidence, inspectTraceArchive, installCanvasTextCapture } from "./browser-privacy-proof.mjs";
+import { assertPrivacyEvidence, assertSettledPrivacyChecks, assertShippedVisualAssetsSafe, captureVisibleBrowserEvidence, inspectTraceArchive, installCanvasTextCapture, settlePrivacyCheck } from "./browser-privacy-proof.mjs";
 
 const upstreamBaseURL = process.env.VSK_PHASE3_BASE_URL;
 const controllerURL = process.env.VSK_PHASE3_CONTROLLER_URL;
@@ -64,8 +64,6 @@ async function assertSafeBrowserResponse(response, surface) {
 	assertBrowserSafe(body.toString(), surface);
 }
 
-if (!upstreamBaseURL || !controllerURL || !assertion || !proxyCertificatePath || !proxyPrivateKeyPath) throw new Error("phase 4 fixture inputs are required");
-
 function withoutCredentialHeaders(headers) {
 	const safe = { ...headers };
 	for (const name of Object.keys(safe)) {
@@ -108,19 +106,28 @@ async function startCredentialProxy() {
 	};
 }
 
-const credentialProxy = await startCredentialProxy();
-const baseURL = credentialProxy.url;
-
-const browser = await chromium.launch({ headless: true, args: ["--ignore-certificate-errors"] });
-let stage = "session";
+let stage = "fixture-inputs";
+let credentialProxy;
+let baseURL;
+let browser;
 let context;
 let traceStarted = false;
-const configuredArtifactRoot = process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT ?? process.env.VSK_PHASE3_RUNTIME_ROOT;
-const artifactRoot = configuredArtifactRoot ? path.join(configuredArtifactRoot, "phase4-browser-proof") : await mkdtemp(path.join(tmpdir(), "vsk-phase4-browser-proof-"));
-await mkdir(artifactRoot, { recursive: true, mode: 0o700 });
-const tracePath = path.join(artifactRoot, "changes-trace.zip");
-const screenshotPath = path.join(artifactRoot, "changes-screenshot.png");
+let tracePath;
+let screenshotPath;
 try {
+  if (!upstreamBaseURL || !controllerURL || !assertion || !proxyCertificatePath || !proxyPrivateKeyPath) throw new Error("phase 4 fixture inputs are required");
+  stage = "credential-proxy";
+  credentialProxy = await startCredentialProxy();
+  baseURL = credentialProxy.url;
+  stage = "chromium-launch";
+  browser = await chromium.launch({ headless: true, args: ["--ignore-certificate-errors"], timeout: 30_000 });
+  stage = "artifact-root";
+  const configuredArtifactRoot = process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT ?? process.env.VSK_PHASE3_RUNTIME_ROOT;
+  const artifactRoot = configuredArtifactRoot ? path.join(configuredArtifactRoot, "phase4-browser-proof") : await mkdtemp(path.join(tmpdir(), "vsk-phase4-browser-proof-"));
+  await mkdir(artifactRoot, { recursive: true, mode: 0o700 });
+  tracePath = path.join(artifactRoot, "changes-trace.zip");
+  screenshotPath = path.join(artifactRoot, "changes-screenshot.png");
+  stage = "session";
   context = await browser.newContext({ ignoreHTTPSErrors: true });
   await context.route("**/*", async route => {
     const target = new URL(route.request().url());
@@ -407,7 +414,7 @@ try {
 		const target = new URL(response.url());
 		if (target.origin === baseURL && target.pathname !== "/api/v1/events") {
 			const surface = `browser response ${target.pathname}`;
-			browserResponseChecks.push(privacyCheckWithDeadline(assertSafeBrowserResponse(response, surface), surface));
+			browserResponseChecks.push(settlePrivacyCheck(privacyCheckWithDeadline(assertSafeBrowserResponse(response, surface), surface)));
 		}
 		if (target.pathname.startsWith("/api/v1/") && response.status() >= 400) {
 			const resource = target.pathname.includes("/runs/") ? "run" : target.pathname.includes("/plans/") ? "plan" : target.pathname.includes("/declarations/") ? "declaration" : target.pathname.endsWith("/session") ? "session" : "other";
@@ -554,28 +561,37 @@ try {
 
 		stage = "browser-privacy-accessibility";
 		for (const colorScheme of ["light", "dark"]) {
+			stage = `browser-theme-${colorScheme}`;
 			await page.emulateMedia({ colorScheme });
 			await page.waitForFunction(expected => (document.documentElement.classList.contains("dark") ? "dark" : "light") === expected, colorScheme);
 		}
+		stage = "browser-accessibility";
 		await page.evaluate(axe.source);
 		const accessibility = await page.evaluate(async () => (await globalThis.axe.run(document)).violations.filter(({ impact }) => impact === "serious" || impact === "critical").map(({ id }) => id));
 		if (accessibility.length > 0) throw new Error("real changes route has serious accessibility violations");
+		stage = "browser-reflow";
 		await page.setViewportSize({ width: 390, height: 844 });
 		await page.evaluate(() => { document.documentElement.style.zoom = "2"; });
 		const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 		if (overflow) throw new Error("real changes route overflows at 200 percent zoom");
+		stage = "browser-visible-privacy";
 		const browserSurfaces = await captureVisibleBrowserEvidence(page, browserConsole);
 		assertPrivacyEvidence(browserSurfaces, forbiddenBrowserEvidence, "browser DOM, inputs, ARIA, accessibility tree, pseudo-content, SVG, canvas, URL, history, storage, cache, IndexedDB, and console");
 		assertBrowserSafe(await page.content(), "browser DOM snapshot");
+		stage = "browser-screenshot";
 		await page.screenshot({ path: screenshotPath, fullPage: true });
 		const screenshot = await readFile(screenshotPath);
 		if (screenshot.length < 1_024 || screenshot[0] !== 0x89 || screenshot.subarray(1, 4).toString() !== "PNG") throw new Error("browser screenshot proof is invalid");
 		// Screenshot pixels are not UTF-8. Runtime text/ARIA/pseudo/SVG/canvas extraction covers
 		// dynamic visible content; same-origin static image/background inputs are source-scanned below.
+		stage = "browser-static-privacy";
 		await assertShippedVisualAssetsSafe(fileURLToPath(new URL("../out/", import.meta.url)), forbiddenBrowserEvidence);
 		assertBrowserSafe(await readFile(new URL("../generated/read-api.ts", import.meta.url), "utf8"), "generated browser source");
-		await Promise.all(browserResponseChecks);
+		stage = "browser-response-privacy";
+		await assertSettledPrivacyChecks(browserResponseChecks);
+		stage = "browser-authority-path";
 		if (browserAPIPaths.some(path => /provider|sqlite|acknowledgements/i.test(path))) throw new Error("browser used a forbidden alternate authority path");
+		stage = "browser-history-privacy";
 		if (browserSurfaces.url.includes("declaration-browser") || Object.keys(browserSurfaces.localStorage).length !== 0 || Object.keys(browserSurfaces.sessionStorage).length !== 0) throw new Error("change handles escaped safe history state");
 
 		stage = "browser-trace-privacy";
@@ -590,8 +606,8 @@ try {
   process.stderr.write(`PROBE_FAILED:${stage}\n`);
   process.exitCode = 1;
 } finally {
-	if (traceStarted && context) await context.tracing.stop({ path: tracePath }).catch(() => undefined);
-	await Promise.all([rm(tracePath, { force: true }), rm(screenshotPath, { force: true })]);
-  await browser.close();
-	await credentialProxy.close();
+	if (traceStarted && context && tracePath) await context.tracing.stop({ path: tracePath }).catch(() => undefined);
+	await Promise.all([tracePath, screenshotPath].filter(Boolean).map(target => rm(target, { force: true })));
+  if (browser) await browser.close().catch(() => undefined);
+	if (credentialProxy) await credentialProxy.close().catch(() => undefined);
 }
