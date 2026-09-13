@@ -277,12 +277,16 @@ test("authorization loss clears every mounted change projection", async ({ page 
   await page.getByRole("button", { name: "Open declaration" }).click();
   await page.getByRole("button", { name: "Generate plan" }).click();
   changeFixture.approval = "approved";
+  changeFixture.run = "succeeded";
   await page.getByRole("button", { name: "Request Slack approval" }).click();
   await page.getByRole("button", { name: "Start run" }).click();
   await page.getByRole("button", { name: "Start exact run" }).click();
-  await expect(page.locator('[data-run-status="running"]')).toBeVisible();
+  await expect(page.locator('[data-run-status="succeeded"]')).toBeVisible();
+  const refreshRun = page.getByRole("button", { name: "Refresh run" });
+  await expect(refreshRun).toBeEnabled();
+  expect(changeFixture.eventConnections).toBe(0);
   changeFixture.hardFailurePath = "/api/v1/runs/run-one";
-  await page.getByRole("button", { name: "Refresh run" }).click();
+  await refreshRun.click();
   await expect(page.getByText("Change details cleared", { exact: true })).toBeVisible();
   await expect(page.locator("[data-run-status]")).toHaveCount(0);
   await expect(page.locator("[data-plan-status]")).toHaveCount(0);
