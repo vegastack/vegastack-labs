@@ -155,6 +155,7 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 		"api.v1.plans.approval-request.create":     true,
 		"api.v1.plans.approval-status.get":         true,
 		"api.v1.plans.execute":                     true,
+		"api.v1.plans.run-resolution.get":          true,
 		"api.v1.runs.get":                          true,
 		"api.v1.runs.cancel":                       true,
 		"api.v1.runs.resume":                       true,

@@ -391,6 +391,19 @@
       ]
     },
     {
+      "id": "api.v1.plans.run-resolution.get",
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}/runs/{idempotencyKey}",
+      "availability": "available",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.runs.cancel",
       "method": "POST",
       "path": "/api/v1/runs/{runId}/cancel",

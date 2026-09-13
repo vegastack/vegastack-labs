@@ -21,6 +21,7 @@
 // api.v1.plans.create
 // api.v1.plans.execute
 // api.v1.plans.get
+// api.v1.plans.run-resolution.get
 // api.v1.runs.cancel
 // api.v1.runs.get
 // api.v1.runs.resume
@@ -3424,6 +3425,7 @@ export type ReadClient = {
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
   readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
+  readonly resolveRun: (path: { readonly planId: string; readonly idempotencyKey: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
@@ -3498,6 +3500,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const operation = "api.v1.plans.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodePlanPresentation);
     },
+    async resolveRun(path, options = {}) {
+      const operation = "api.v1.plans.run-resolution.get";
+      return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/runs/" + encodePathString(path.idempotencyKey, "idempotencyKey") + "", options, operation, decodeRunPresentation);
+    },
     async getRun(path, options = {}) {
       const operation = "api.v1.runs.get";
       return performRead(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "", options, operation, decodeRunPresentation);
@@ -3522,6 +3528,7 @@ export type ChangeClient = {
   readonly createPlan: (path: { readonly declarationId: string }, request: PlanCreateRequest, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
   readonly executePlan: (path: { readonly planId: string }, request: PlanReferenceRequest, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<PlanPresentation>>;
+  readonly resolveRun: (path: { readonly planId: string; readonly idempotencyKey: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly cancelRun: (path: { readonly runId: string }, request: RunReferenceRequest, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly resumeRun: (path: { readonly runId: string }, request: RunReferenceRequest, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
@@ -3564,6 +3571,10 @@ export function createChangeClient(fetchTransport: FetchTransport): ChangeClient
     async getPlan(path, options = {}) {
       const operation = "api.v1.plans.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodePlanPresentation);
+    },
+    async resolveRun(path, options = {}) {
+      const operation = "api.v1.plans.run-resolution.get";
+      return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/runs/" + encodePathString(path.idempotencyKey, "idempotencyKey") + "", options, operation, decodeRunPresentation);
     },
     async cancelRun(path, request, options = {}) {
       const operation = "api.v1.runs.cancel";

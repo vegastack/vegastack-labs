@@ -795,6 +795,8 @@ func browserMethodName(endpoint metadata.EndpointDefinition) string {
 		return "getApprovalStatus"
 	case "api.v1.plans.execute":
 		return "executePlan"
+	case "api.v1.plans.run-resolution.get":
+		return "resolveRun"
 	case "api.v1.runs.get":
 		return "getRun"
 	case "api.v1.runs.cancel":

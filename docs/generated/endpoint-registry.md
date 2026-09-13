@@ -34,6 +34,7 @@ Contract schema: `1.15.0`
 | `api.v1.plans.create` | `POST` | `/api/v1/declarations/{declarationId}/plans` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-create-request` | `vegastack-labs.dev/plan-presentation` |
 | `api.v1.plans.execute` | `POST` | `/api/v1/plans/{planId}/execute` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-presentation` |
+| `api.v1.plans.run-resolution.get` | `GET` | `/api/v1/plans/{planId}/runs/{idempotencyKey}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.runs.cancel` | `POST` | `/api/v1/runs/{runId}/cancel` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.runs.get` | `GET` | `/api/v1/runs/{runId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.runs.resume` | `POST` | `/api/v1/runs/{runId}/resume` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run-presentation` |

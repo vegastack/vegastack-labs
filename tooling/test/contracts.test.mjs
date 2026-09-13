@@ -67,6 +67,7 @@ test("Phase 4 validators and browser decoders remain generator-owned", async () 
             "api.v1.plans.acknowledgements.create",
             "api.v1.plans.acknowledgements.get",
             "api.v1.plans.execute",
+            "api.v1.plans.run-resolution.get",
             "api.v1.runs.get",
             "api.v1.runs.cancel",
             "api.v1.runs.resume",

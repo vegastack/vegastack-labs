@@ -52,6 +52,27 @@ func TestRunExecuteAuthorizesBeforeParsingAndPreservesDuplicateSubmit(t *testing
 	}
 }
 
+func TestRunResolutionFindsExactDurableSubmitWithoutExecutingAgain(t *testing.T) {
+	plan := apiRunPlan()
+	runs := &runAPIStub{plan: plan, run: apiRunResult(plan), existing: true}
+	app := newRunTestApplication(t, runs)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/plans/"+plan.PlanID+"/runs/console-run-lost-response", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(`"runId":"run-test"`)) {
+		t.Fatalf("resolution response=%d body=%s", response.Code, response.Body.String())
+	}
+	if runs.existingCalls != 1 || runs.submitCalls != 0 || runs.acknowledgementStatusCalls != 0 || runs.lastExisting.PlanID != plan.PlanID || runs.lastExisting.PlanDigest != plan.PlanDigest || runs.lastExisting.RecoveryEpoch != plan.Binding.RecoveryEpoch || runs.lastExisting.IdempotencyKey != "console-run-lost-response" {
+		t.Fatalf("resolution existing/submits/status=%d/%d/%d", runs.existingCalls, runs.submitCalls, runs.acknowledgementStatusCalls)
+	}
+	for _, protected := range []string{"authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "effectState"} {
+		if bytes.Contains(response.Body.Bytes(), []byte(protected)) {
+			t.Fatalf("resolution exposed protected field %q: %s", protected, response.Body.String())
+		}
+	}
+}
+
 func TestRunExecuteDenialDoesNotReadRequestBody(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
@@ -353,6 +374,7 @@ type runAPIStub struct {
 	existingCalls              int
 	acknowledgementStatusCalls int
 	existing                   bool
+	lastExisting               generated.PlanReferenceRequest
 	last                       runengine.SubmitRequest
 	submitErr                  error
 	getIDs                     []string
@@ -368,10 +390,11 @@ func (stub *runAPIStub) Submit(_ context.Context, request runengine.SubmitReques
 	stub.last = request
 	return stub.run, stub.submitErr
 }
-func (stub *runAPIStub) Existing(context.Context, generated.PlanReferenceRequest) (generated.Run, bool, error) {
+func (stub *runAPIStub) Existing(_ context.Context, reference generated.PlanReferenceRequest) (generated.Run, bool, error) {
 	stub.mu.Lock()
 	defer stub.mu.Unlock()
 	stub.existingCalls++
+	stub.lastExisting = reference
 	if stub.existing {
 		return stub.run, true, nil
 	}

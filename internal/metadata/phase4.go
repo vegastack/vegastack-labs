@@ -38,6 +38,7 @@ func phase4Endpoints() []EndpointDefinition {
 		phase4Endpoint("api.v1.plans.approval-request.create", "POST", "/api/v1/plans/{planId}/approval-request", planReferenceRequestSchemaID, approvalStatusSchemaID),
 		phase4Endpoint("api.v1.plans.approval-status.get", "GET", "/api/v1/plans/{planId}/approval-status", "", approvalStatusSchemaID),
 		phase4Endpoint("api.v1.plans.execute", "POST", "/api/v1/plans/{planId}/execute", planReferenceRequestSchemaID, runPresentationSchemaID),
+		phase4Endpoint("api.v1.plans.run-resolution.get", "GET", "/api/v1/plans/{planId}/runs/{idempotencyKey}", "", runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.get", "GET", "/api/v1/runs/{runId}", "", runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.cancel", "POST", "/api/v1/runs/{runId}/cancel", runReferenceRequestSchemaID, runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.resume", "POST", "/api/v1/runs/{runId}/resume", runReferenceRequestSchemaID, runPresentationSchemaID),
@@ -49,7 +50,7 @@ func phase4Endpoints() []EndpointDefinition {
 
 func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
 	availability := AvailabilityPlanned
-	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" || id == "api.v1.plans.approval-request.create" || id == "api.v1.plans.approval-status.get" || id == "api.v1.plans.execute" || id == "api.v1.runs.get" || id == "api.v1.runs.cancel" || id == "api.v1.runs.resume" || id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
+	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" || id == "api.v1.plans.approval-request.create" || id == "api.v1.plans.approval-status.get" || id == "api.v1.plans.execute" || id == "api.v1.plans.run-resolution.get" || id == "api.v1.runs.get" || id == "api.v1.runs.cancel" || id == "api.v1.runs.resume" || id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
 		availability = AvailabilityAvailable
 	}
 	audiences := []EndpointAudience{AudienceBrowser, AudienceOperator}
