@@ -278,6 +278,9 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	})
 	command := exec.Command("node", filepath.Join("..", "..", "web", "e2e", "real-change-server-probe.mjs"))
 	command.Env = append(os.Environ(), "NODE_NO_WARNINGS=1", "VSK_PHASE3_BASE_URL="+baseURL, "VSK_PHASE3_CONTROLLER_URL="+controller.URL, "VSK_PHASE3_ASSERTION="+assertion, "VSK_PHASE4_PROXY_CERTIFICATE="+certificatePath, "VSK_PHASE4_PROXY_PRIVATE_KEY="+keyPath, "VSK_PHASE4_FULL_LOOP=1")
+	if filepath.IsAbs(os.Getenv("VSK_PHASE3_BINARY")) {
+		command.Env = append(command.Env, "VSK_PHASE4_CLI_PARITY=1")
+	}
 	stdout := &boundedProbeOutput{limit: 16 * 1024}
 	stderr := &boundedProbeOutput{limit: 512}
 	command.Stdout, command.Stderr = stdout, stderr

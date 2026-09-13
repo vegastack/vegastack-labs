@@ -14,6 +14,7 @@ const assertion = process.env.VSK_PHASE3_ASSERTION;
 const proxyCertificatePath = process.env.VSK_PHASE4_PROXY_CERTIFICATE;
 const proxyPrivateKeyPath = process.env.VSK_PHASE4_PROXY_PRIVATE_KEY;
 const fullLoop = process.env.VSK_PHASE4_FULL_LOOP === "1";
+const cliParity = process.env.VSK_PHASE4_CLI_PARITY === "1";
 const privateCanaries = ["subject-real-browser", "human.console", "authority.console", "server-owned-console-nonce"];
 const protectedBrowserFields = ["humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId", "createdBy", "agentSessionId", "authorizationDecisionId", "executorBindingDigest", "effectState", "requestId", "correlationId"];
 const credentialHeaderEvidence = ["Authorization", "Cookie", "Set-Cookie", "Cf-Access-Jwt-Assertion"];
@@ -461,15 +462,23 @@ try {
 			throw error;
 		}
 
-		stage = "browser-cli-create-plan";
-		const cliPlanResponse = await fetch(`${controllerURL}/cli-plan`);
-		if (!cliPlanResponse.ok) throw new Error("built CLI could not create the authoritative plan");
-		const cliPlanResult = await cliPlanResponse.json();
-		const cliPlan = cliPlanResult.data?.plan;
-		if (!/^plan-[a-f0-9]{32}$/.test(cliPlan?.planId ?? "")) throw new Error("built CLI did not return an exact plan");
-		await page.evaluate(({ planId }) => history.replaceState({ ...history.state, vskChangeHandles: { declarationId: "declaration-browser", revision: 2, planId } }, ""), { planId: cliPlan.planId });
-		await page.reload({ waitUntil: "networkidle" });
-		stage = "browser-open-cli-plan";
+		let cliPlan;
+		if (cliParity) {
+			stage = "browser-cli-create-plan";
+			const cliPlanResponse = await fetch(`${controllerURL}/cli-plan`);
+			if (!cliPlanResponse.ok) throw new Error("built CLI could not create the authoritative plan");
+			const cliPlanResult = await cliPlanResponse.json();
+			cliPlan = cliPlanResult.data?.plan;
+			if (!/^plan-[a-f0-9]{32}$/.test(cliPlan?.planId ?? "")) throw new Error("built CLI did not return an exact plan");
+			await page.evaluate(({ planId }) => history.replaceState({ ...history.state, vskChangeHandles: { declarationId: "declaration-browser", revision: 2, planId } }, ""), { planId: cliPlan.planId });
+			await page.reload({ waitUntil: "networkidle" });
+			stage = "browser-open-cli-plan";
+		} else {
+			stage = "browser-create-plan";
+			const generatePlan = page.getByRole("button", { name: "Generate plan" });
+			if (await generatePlan.isDisabled()) { stage = "browser-plan-disabled"; throw new Error("browser plan action remained disabled after save"); }
+			await generatePlan.click();
+		}
 		try {
 			await page.getByText("Exact plan review", { exact: true }).waitFor();
 		} catch (error) {
@@ -484,21 +493,24 @@ try {
 			throw error;
 		}
 		const browserHandles = await page.evaluate(() => history.state?.vskChangeHandles);
-		if (browserHandles?.planId !== cliPlan.planId) throw new Error("browser did not retain the built CLI plan handle");
+		if (!/^plan-[a-f0-9]{32}$/.test(browserHandles?.planId ?? "")) throw new Error("browser did not retain a safe plan handle");
+		if (cliParity && browserHandles.planId !== cliPlan.planId) throw new Error("browser did not retain the built CLI plan handle");
 		const browserPlanResult = await request("GET", `/api/v1/plans/${browserHandles.planId}`);
 		if (browserPlanResult.status !== 200) throw new Error("browser-created plan was not durable");
 		const browserPlanView = browserPlanResult.body.data;
 		const browserPlan = browserPlanView.plan;
 		if (await page.getByText(browserPlan.planDigest, { exact: true }).count() < 1) throw new Error("browser did not render the exact plan digest");
 		if (!(await page.getByText(browserPlanView.readablePlan, { exact: true }).isVisible())) throw new Error("browser did not render the server-owned readable plan");
-		stage = "browser-cli-plan-parity";
-		const exactFacts = ["planId", "planDigest", "readableDigest", "risk", "authorizationBranch"];
-		for (const fact of exactFacts) {
-			if (cliPlan?.[fact] !== browserPlan?.[fact]) throw new Error(`CLI and Console disagree on ${fact}`);
+		if (cliParity) {
+			stage = "browser-cli-plan-parity";
+			const exactFacts = ["planId", "planDigest", "readableDigest", "risk", "authorizationBranch"];
+			for (const fact of exactFacts) {
+				if (cliPlan?.[fact] !== browserPlan?.[fact]) throw new Error(`CLI and Console disagree on ${fact}`);
+			}
+			const cliTargets = cliPlan?.operations?.map(operation => operation.targetId);
+			const browserTargets = browserPlan?.operations?.map(operation => operation.targetId);
+			if (JSON.stringify(cliTargets) !== JSON.stringify(browserTargets)) throw new Error("CLI and Console disagree on targets");
 		}
-		const cliTargets = cliPlan?.operations?.map(operation => operation.targetId);
-		const browserTargets = browserPlan?.operations?.map(operation => operation.targetId);
-		if (JSON.stringify(cliTargets) !== JSON.stringify(browserTargets)) throw new Error("CLI and Console disagree on targets");
 
 		stage = "browser-request-approval";
 		await page.getByRole("button", { name: "Request Slack approval" }).click();

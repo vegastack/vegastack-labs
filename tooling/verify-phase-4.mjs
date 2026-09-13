@@ -95,10 +95,10 @@ export async function verifyPhase4Sources(root = ROOT) {
     readFile(path.join(root, "web/e2e/real-change-server-probe.mjs"), "utf8"),
     readFile(path.join(root, "web/generated/read-api.ts"), "utf8"),
   ]);
-  for (const pattern of [/CompleteApprovedResumeAndCancelLoopsOverRealTLS/, /phase4ApprovalBridge/, /phase4ResumableAdapter/, /cli-plan/]) {
+  for (const pattern of [/CompleteApprovedResumeAndCancelLoopsOverRealTLS/, /phase4ApprovalBridge/, /phase4ResumableAdapter/, /cli-plan/, /VSK_PHASE4_CLI_PARITY=1/]) {
     if (!pattern.test(fixture)) throw new Error("PHASE4_FAILED:fixture-definition");
   }
-  for (const pattern of [/protected approval material was disclosed/, /browser-cli-plan-parity/, /approval-status/, /execute-interrupted/, /resume-run/, /cancelled/]) {
+  for (const pattern of [/protected approval material was disclosed/, /const cliParity/, /browser-cli-plan-parity/, /approval-status/, /execute-interrupted/, /resume-run/, /cancelled/]) {
     if (!pattern.test(probe)) throw new Error("PHASE4_FAILED:browser-proof");
   }
   for (const pattern of [/requestApproval/, /getApprovalStatus/, /preparePlan/, /reviseDeclaration/]) {
