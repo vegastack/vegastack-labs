@@ -99,6 +99,24 @@ func TestBrowserRouterNeverFallsBackFromAPIToConsole(t *testing.T) {
 	}
 }
 
+func TestBrowserRouterRemovesRequestCorrelationFromResultEnvelopes(t *testing.T) {
+	authenticator, _, sessions := newBrowserAuthFixture(t)
+	apiHandler := http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"schema":"vegastack-labs.dev/run-result","schemaVersion":"1.0.0","toolVersion":"test","command":"api.v1.summary.get","requestId":"request-private-canary","runId":null,"status":"succeeded","changed":false,"recoveryEpoch":2,"stateRevision":8,"snapshotDigest":null,"releaseBuildId":"test","sourceRevision":null,"planId":null,"errors":[],"data":{}}`))
+	})
+	handler, err := NewBrowserHandler(apiHandler, testConsoleHandler(t), authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authorizedBrowserRequest(t, http.MethodGet, "/api/v1/summary", sessions.raw)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "requestId") || strings.Contains(response.Body.String(), "request-private-canary") || strings.Contains(response.Body.String(), "correlationId") || !strings.Contains(response.Body.String(), `"schema":"vegastack-labs.dev/browser-run-result"`) {
+		t.Fatalf("unsafe browser result projection: %d %s", response.Code, response.Body.String())
+	}
+}
+
 func TestBrowserRouterRejectsLocalMutationRoutesBeforeDispatch(t *testing.T) {
 	apiCalls := 0
 	authenticator, _, sessions := newBrowserAuthFixture(t)

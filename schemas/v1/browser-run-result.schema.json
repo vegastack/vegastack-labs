@@ -1,0 +1,154 @@
+{
+  "$defs": {
+    "result-error": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "enum": [
+            "APPROVAL_REQUIRED",
+            "AUTHENTICATION_REQUIRED",
+            "AUTHORIZATION_DENIED",
+            "DEPENDENCY_UNAVAILABLE",
+            "EVIDENCE_EXPIRED",
+            "EVIDENCE_INVALID",
+            "EXECUTION_FAILED",
+            "EXECUTION_PARTIAL",
+            "GATE_BLOCKED",
+            "INPUT_INVALID",
+            "INTEGRITY_FAILURE",
+            "INTERRUPTED",
+            "MIGRATION_BLOCKED",
+            "PLAN_STALE",
+            "PREREQUISITE_BLOCKED",
+            "RECOVERY_EPOCH_MISMATCH",
+            "RECOVERY_REQUIRED",
+            "RESOURCE_NOT_FOUND",
+            "SCHEMA_UNSUPPORTED",
+            "SESSION_EXPIRED",
+            "STATE_CONFLICT",
+            "TARGET_UNREACHABLE",
+            "UNSUPPORTED_PLATFORM",
+            "VERSION_INCOMPATIBLE"
+          ],
+          "type": "string"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "target": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "target",
+        "retryable"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/browser-run-result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changed": {
+      "type": "boolean"
+    },
+    "command": {
+      "type": "string"
+    },
+    "data": {
+      "additionalProperties": true,
+      "type": "object"
+    },
+    "errors": {
+      "items": {
+        "$ref": "#/$defs/result-error"
+      },
+      "type": "array"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "releaseBuildId": {
+      "type": "string"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/browser-run-result"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "snapshotDigest": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "sourceRevision": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "blocked",
+        "cancelled",
+        "failed",
+        "interrupted",
+        "partial",
+        "succeeded"
+      ],
+      "type": "string"
+    },
+    "toolVersion": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "toolVersion",
+    "command",
+    "runId",
+    "status",
+    "changed",
+    "recoveryEpoch",
+    "stateRevision",
+    "snapshotDigest",
+    "releaseBuildId",
+    "sourceRevision",
+    "planId",
+    "errors",
+    "data"
+  ],
+  "title": "VegaStack Labs browser run result",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

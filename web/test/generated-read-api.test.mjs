@@ -19,11 +19,10 @@ const summary = {
 
 function envelope(data, schemaVersion = "1.0.0") {
   return {
-    schema: "vegastack-labs.dev/run-result",
+    schema: "vegastack-labs.dev/browser-run-result",
     schemaVersion,
     toolVersion: "test",
     command: "api.v1.summary.get",
-    requestId: "request-1",
     runId: null,
     status: "succeeded",
     changed: false,
@@ -132,7 +131,7 @@ test("stable API failures preserve safe fields without exposing request correlat
     (error) => error instanceof ReadClientError && error.kind === "api" &&
       error.code === "AUTHORIZATION_DENIED" && error.target === "read" &&
       error.retryable === false && !Object.hasOwn(error, "correlationId") &&
-      !JSON.stringify(error).includes("request-1") && STABLE_ERROR_CODES.includes(error.code),
+      !JSON.stringify(error).includes("request-private-canary") && STABLE_ERROR_CODES.includes(error.code),
   );
 
   failed.errors = [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: true }];

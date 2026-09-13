@@ -1,12 +1,14 @@
 import { chromium } from "@playwright/test";
 import axe from "axe-core";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
 
 const baseURL = process.env.VSK_PHASE3_BASE_URL;
 const controllerURL = process.env.VSK_PHASE3_CONTROLLER_URL;
 const assertion = process.env.VSK_PHASE3_ASSERTION;
 const fullLoop = process.env.VSK_PHASE4_FULL_LOOP === "1";
 const privateCanaries = ["subject-real-browser", "human.console", "authority.console", "server-owned-console-nonce"];
+const protectedBrowserFields = ["humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId", "createdBy", "agentSessionId", "authorizationDecisionId", "executorBindingDigest", "effectState", "requestId", "correlationId"];
 let browserConsole = [];
 let droppedBrowserExecuteResponse = false;
 
@@ -27,8 +29,30 @@ function assertCanaryFree(value, surface) {
 
 function assertBrowserSafe(value, surface) {
 	const text = typeof value === "string" ? value : JSON.stringify(value);
-	if (/humanId|authorityId|nonce(?:Digest)?|proofDigest|acknowledgementId|createdBy|agentSessionId|authorizationDecisionId|executorBindingDigest|effectState/.test(text)) throw new Error(`protected approval material reached ${surface}`);
+	for (const field of protectedBrowserFields) {
+		if (text.includes(field)) throw new Error(`protected field reached ${surface}`);
+	}
 	assertCanaryFree(text, surface);
+}
+
+function privacyCheckWithDeadline(check, surface) {
+	let timeout;
+	return Promise.race([
+		check,
+		new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error(`privacy check timed out for ${surface}`)), 2_000); }),
+	]).finally(() => clearTimeout(timeout));
+}
+
+async function assertSafeBrowserResponse(response, surface) {
+	let body;
+	try {
+		body = await response.body();
+	} catch (error) {
+		const failure = response.request().failure()?.errorText ?? "";
+		if (/ERR_ABORTED|ERR_CONNECTION_CLOSED/.test(failure)) return;
+		throw error;
+	}
+	assertBrowserSafe(body.toString(), surface);
 }
 
 if (!baseURL || !controllerURL || !assertion) throw new Error("phase 4 fixture inputs are required");
@@ -90,11 +114,12 @@ try {
 	async function request(method, path, data) {
     const response = await context.request.fetch(`${baseURL}${path}`, { method, headers, data });
     const text = await response.text();
-		if (/humanId|authorityId|nonce(?:Digest)?|proofDigest|acknowledgementId|createdBy|agentSessionId|authorizationDecisionId|executorBindingDigest|effectState/.test(text)) {
+		try {
+			assertBrowserSafe(text, `network response ${path}`);
+		} catch (error) {
       stage = `${stage}-disclosure`;
-			throw new Error("protected approval material was disclosed");
+			throw error;
 		}
-		assertCanaryFree(text, `network response ${path}`);
     let body;
     try { body = JSON.parse(text); } catch { throw new Error("server response was not JSON"); }
     return { status: response.status(), body };
@@ -313,11 +338,9 @@ try {
 	page.on("pageerror", error => browserConsole.push(error.message));
 	page.on("response", response => {
 		const target = new URL(response.url());
-		if (target.pathname.startsWith("/api/v1/") && target.pathname !== "/api/v1/events") {
-			browserResponseChecks.push(Promise.race([
-				response.body().then(body => assertBrowserSafe(body.toString(), `browser response ${target.pathname}`)).catch(() => undefined),
-				new Promise(resolve => setTimeout(resolve, 2_000)),
-			]));
+		if (target.origin === baseURL && target.pathname !== "/api/v1/events") {
+			const surface = `browser response ${target.pathname}`;
+			browserResponseChecks.push(privacyCheckWithDeadline(assertSafeBrowserResponse(response, surface), surface));
 		}
 		if (target.pathname.startsWith("/api/v1/") && response.status() >= 400) {
 			const resource = target.pathname.includes("/runs/") ? "run" : target.pathname.includes("/plans/") ? "plan" : target.pathname.includes("/declarations/") ? "declaration" : target.pathname.endsWith("/session") ? "session" : "other";
@@ -484,7 +507,13 @@ try {
 			caches: typeof caches === "undefined" ? [] : await caches.keys(),
 		}));
 		assertCanaryFree(browserSurfaces, "browser DOM, URL, history, and storage");
-		assertCanaryFree(browserConsole, "browser console");
+		assertBrowserSafe(browserSurfaces, "browser DOM, URL, history, and storage");
+		assertBrowserSafe(browserConsole, "browser console");
+		assertBrowserSafe(await page.content(), "browser trace snapshot");
+		const screenshot = await page.screenshot({ fullPage: true });
+		if (screenshot.length < 1_024 || screenshot[0] !== 0x89 || screenshot.subarray(1, 4).toString() !== "PNG") throw new Error("browser screenshot proof is invalid");
+		assertBrowserSafe(screenshot.toString("utf8"), "browser screenshot bytes");
+		assertBrowserSafe(await readFile(new URL("../generated/read-api.ts", import.meta.url), "utf8"), "generated browser source");
 		await Promise.all(browserResponseChecks);
 		if (browserAPIPaths.some(path => /provider|sqlite|acknowledgements/i.test(path))) throw new Error("browser used a forbidden alternate authority path");
 		if (browserSurfaces.url.includes("declaration-browser") || Object.keys(browserSurfaces.local).length !== 0 || Object.keys(browserSurfaces.session).length !== 0) throw new Error("change handles escaped safe history state");

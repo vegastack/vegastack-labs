@@ -2,6 +2,7 @@ package metadata
 
 const (
 	contractExtensionSchemaID       = "vegastack-labs.dev/contract-extension"
+	browserRunResultSchemaID        = "vegastack-labs.dev/browser-run-result"
 	declarationOperationSchemaID    = "vegastack-labs.dev/declaration-operation"
 	declarationRevisionRequestID    = "vegastack-labs.dev/declaration-revision-request"
 	browserDeclarationRevisionID    = "vegastack-labs.dev/browser-declaration-revision"
@@ -106,6 +107,20 @@ func phase4Schemas() []SchemaDefinition {
 	receiptFields := append(leaseReceiptBinding(id, digest, nonnegative), id("receiptId", "ReceiptID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"failed", "partial", "running", "succeeded"}}, digest("resultDigest", "ResultDigest"), timestamp("recordedAt", "RecordedAt"), extensions)
 
 	return []SchemaDefinition{
+		{ID: browserRunResultSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(browserRunResultSchemaID), Fields: contract(browserRunResultSchemaID,
+			FieldDefinition{JSONName: "toolVersion", GoName: "ToolVersion", Kind: ValueString, Required: true},
+			FieldDefinition{JSONName: "command", GoName: "Command", Kind: ValueString, Required: true},
+			nullableID("runId", "RunID"),
+			FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"blocked", "cancelled", "failed", "interrupted", "partial", "succeeded"}},
+			FieldDefinition{JSONName: "changed", GoName: "Changed", Kind: ValueBoolean, Required: true},
+			nonnegative("recoveryEpoch", "RecoveryEpoch"), nonnegative("stateRevision", "StateRevision"),
+			FieldDefinition{JSONName: "snapshotDigest", GoName: "SnapshotDigest", Kind: ValueString, Required: true, Nullable: true},
+			FieldDefinition{JSONName: "releaseBuildId", GoName: "ReleaseBuildID", Kind: ValueString, Required: true},
+			FieldDefinition{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true, Nullable: true},
+			nullableID("planId", "PlanID"),
+			FieldDefinition{JSONName: "errors", GoName: "Errors", Kind: ValueArray, Required: true, ItemRef: resultErrorSchemaID},
+			FieldDefinition{JSONName: "data", GoName: "Data", Kind: ValueObject, Required: true, AdditionalProperties: true},
+		)},
 		{ID: contractExtensionSchemaID, Version: "1.0.0", Fields: []FieldDefinition{{JSONName: "name", GoName: "Name", Kind: ValueString, Required: true, Pattern: `^x-[a-z][a-z0-9.-]{0,62}$`}, digest("valueDigest", "ValueDigest")}},
 		{ID: declarationOperationSchemaID, Version: "1.0.0", Fields: operationFields(false)},
 		{ID: declarationRevisionRequestID, Version: "1.0.0", ArtifactPath: schemaPath(declarationRevisionRequestID), Fields: contract(declarationRevisionRequestID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("expectedRevision", "ExpectedRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, digest("reasonDigest", "ReasonDigest"), extensions)},

@@ -45,6 +45,15 @@ test("browser decoder graph excludes protected execution and acknowledgement con
   assert.doesNotMatch(generated, /validate(?:ExecutorLease|ExecutionReceipt)Binding|validateLeaseTiming/);
 });
 
+test("real browser privacy checks propagate disclosures and timeouts", async () => {
+  const probe = await readFile(path.join(ROOT, "web/e2e/real-change-server-probe.mjs"), "utf8");
+  assert.doesNotMatch(probe, /assertBrowserSafe\([^\n]+\)\)\.catch\(\(\) => undefined\)/);
+  assert.match(probe, /privacy check timed out/);
+  for (const field of ["humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId", "createdBy", "agentSessionId", "authorizationDecisionId", "executorBindingDigest", "effectState", "correlationId"]) {
+    assert.match(probe, new RegExp(field));
+  }
+});
+
 test("generated lifecycle checks reject invalid transitions and timing", async () => {
   const plan = await load("valid-plan.json");
   validatePlanTiming(plan);
@@ -69,15 +78,15 @@ test("generated browser decoder rejects missing plan bindings and protected sche
 
 test("compatible reads reject secrets in open carriers", async () => {
   const envelope = {
-    schema: "vegastack-labs.dev/run-result", schemaVersion: "1.2.0", toolVersion: "1.0.0",
-    command: "plan", requestId: "request-synthetic-001", runId: null, status: "succeeded",
+    schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.2.0", toolVersion: "1.0.0",
+    command: "plan", runId: null, status: "succeeded",
     changed: false, recoveryEpoch: 4, stateRevision: 11, snapshotDigest: null,
     releaseBuildId: "build-synthetic-001", sourceRevision: null, planId: null, errors: [], data: {},
   };
   for (const key of ["password", "privateKey", "token", "credential"]) {
     assert.throws(
-      () => decodePhase4Contract("vegastack-labs.dev/run-result", { ...envelope, data: { nested: { [key]: "private-canary" } } }, true),
-      rejectsAt(`run-result.data.${key === "nested" ? key : `nested.${key}`}`),
+      () => decodePhase4Contract("vegastack-labs.dev/browser-run-result", { ...envelope, data: { nested: { [key]: "private-canary" } } }, true),
+      rejectsAt(`browser-run-result.data.${key === "nested" ? key : `nested.${key}`}`),
     );
   }
 });

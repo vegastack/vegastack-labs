@@ -41,9 +41,11 @@ test("credential markers and disguised server artifacts fail the static export c
 });
 
 test("protected approval fields fail the static export check", async () => {
-  const output = await mkdtemp(path.join(tmpdir(), "vegastack-static-approval-"));
-  await writeFile(path.join(output, "index.html"), '<p>Loading Overview</p><script>const proofDigest="private"</script>');
-  await assert.rejects(verifyStaticExport(output), /protected approval field/i);
+  for (const field of ["proofDigest", "requestId", "correlationId"]) {
+    const output = await mkdtemp(path.join(tmpdir(), "vegastack-static-approval-"));
+    await writeFile(path.join(output, "index.html"), `<p>Loading Overview</p><script>const ${field}="private"</script>`);
+    await assert.rejects(verifyStaticExport(output), /protected approval field/i);
+  }
 });
 
 test("embedded Console byte drift fails the static export check", async () => {

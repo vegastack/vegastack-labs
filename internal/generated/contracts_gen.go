@@ -45,6 +45,7 @@ const (
 	SchemaIDBrowserAuditEvent               = "vegastack-labs.dev/browser-audit-event"
 	SchemaIDBrowserDeclarationRevision      = "vegastack-labs.dev/browser-declaration-revision"
 	SchemaIDBrowserRun                      = "vegastack-labs.dev/browser-run"
+	SchemaIDBrowserRunResult                = "vegastack-labs.dev/browser-run-result"
 	SchemaIDBrowserRunStep                  = "vegastack-labs.dev/browser-run-step"
 	SchemaIDCloudflareAccessProfile         = "vegastack-labs.dev/cloudflare-access-profile"
 	SchemaIDContractExtension               = "vegastack-labs.dev/contract-extension"
@@ -499,6 +500,24 @@ type BrowserRun struct {
 	CreatedAt             string              `json:"createdAt"`
 	UpdatedAt             string              `json:"updatedAt"`
 	Extensions            []ContractExtension `json:"extensions"`
+}
+
+type BrowserRunResult struct {
+	Schema         string          `json:"schema"`
+	SchemaVersion  string          `json:"schemaVersion"`
+	ToolVersion    string          `json:"toolVersion"`
+	Command        string          `json:"command"`
+	RunID          *string         `json:"runId"`
+	Status         string          `json:"status"`
+	Changed        bool            `json:"changed"`
+	RecoveryEpoch  int64           `json:"recoveryEpoch"`
+	StateRevision  int64           `json:"stateRevision"`
+	SnapshotDigest *string         `json:"snapshotDigest"`
+	ReleaseBuildID string          `json:"releaseBuildId"`
+	SourceRevision *string         `json:"sourceRevision"`
+	PlanID         *string         `json:"planId"`
+	Errors         []ResultError   `json:"errors"`
+	Data           json.RawMessage `json:"data"`
 }
 
 type BrowserRunStep struct {

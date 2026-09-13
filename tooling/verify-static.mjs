@@ -18,8 +18,13 @@ const FORBIDDEN_APPROVAL_FIELDS = [
   "nonceDigest",
   "proofDigest",
   "acknowledgementId",
+  "createdBy",
+  "agentSessionId",
   "authorizationDecisionId",
   "executorBindingDigest",
+  "effectState",
+  "requestId",
+  "correlationId",
 ];
 const EXPECTED_BUILD_ID = "vegastack-console-v1";
 

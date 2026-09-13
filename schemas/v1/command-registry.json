@@ -1899,6 +1899,11 @@
       "artifactPath": "schemas/v1/browser-run.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/browser-run-result",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-run-result.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/browser-run-step",
       "version": "1.0.0"
     },

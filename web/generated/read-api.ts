@@ -236,6 +236,24 @@ export interface BrowserRun {
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
+export interface BrowserRunResult {
+  readonly "schema": "vegastack-labs.dev/browser-run-result";
+  readonly "schemaVersion": "1.0.0";
+  readonly "toolVersion": string;
+  readonly "command": string;
+  readonly "runId": string | null;
+  readonly "status": "blocked" | "cancelled" | "failed" | "interrupted" | "partial" | "succeeded";
+  readonly "changed": boolean;
+  readonly "recoveryEpoch": number;
+  readonly "stateRevision": number;
+  readonly "snapshotDigest": string | null;
+  readonly "releaseBuildId": string;
+  readonly "sourceRevision": string | null;
+  readonly "planId": string | null;
+  readonly "errors": ReadonlyArray<ResultError>;
+  readonly "data": Readonly<Record<string, unknown>>;
+}
+
 export interface BrowserRunStep {
   readonly "sequence": number;
   readonly "operationId": string;
@@ -399,25 +417,6 @@ export interface RunReferenceRequest {
   readonly "idempotencyKey": string;
   readonly "recoveryEpoch": number;
   readonly "extensions": ReadonlyArray<ContractExtension>;
-}
-
-export interface RunResult {
-  readonly "schema": "vegastack-labs.dev/run-result";
-  readonly "schemaVersion": "1.0.0";
-  readonly "toolVersion": string;
-  readonly "command": string;
-  readonly "requestId": string;
-  readonly "runId": string | null;
-  readonly "status": "blocked" | "cancelled" | "failed" | "interrupted" | "partial" | "succeeded";
-  readonly "changed": boolean;
-  readonly "recoveryEpoch": number;
-  readonly "stateRevision": number;
-  readonly "snapshotDigest": string | null;
-  readonly "releaseBuildId": string;
-  readonly "sourceRevision": string | null;
-  readonly "planId": string | null;
-  readonly "errors": ReadonlyArray<ResultError>;
-  readonly "data": Readonly<Record<string, unknown>>;
 }
 
 export interface ServerStatusData {
@@ -1678,6 +1677,121 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/browser-run-result",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/browser-run-result"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "toolVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "command",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "blocked",
+          "cancelled",
+          "failed",
+          "interrupted",
+          "partial",
+          "succeeded"
+        ]
+      },
+      {
+        "name": "changed",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "snapshotDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": true
+      },
+      {
+        "name": "releaseBuildId",
+        "kind": "string",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "sourceRevision",
+        "kind": "string",
+        "required": true,
+        "nullable": true
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "errors",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/result-error"
+      },
+      {
+        "name": "data",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "additionalProperties": true
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/browser-run-step",
     "fields": [
       {
@@ -2677,123 +2791,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
-    "id": "vegastack-labs.dev/run-result",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/run-result"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.0.0"
-        ]
-      },
-      {
-        "name": "toolVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "command",
-        "kind": "string",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "requestId",
-        "kind": "string",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "runId",
-        "kind": "string",
-        "required": true,
-        "nullable": true
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "blocked",
-          "cancelled",
-          "failed",
-          "interrupted",
-          "partial",
-          "succeeded"
-        ]
-      },
-      {
-        "name": "changed",
-        "kind": "boolean",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "stateRevision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "snapshotDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": true
-      },
-      {
-        "name": "releaseBuildId",
-        "kind": "string",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "sourceRevision",
-        "kind": "string",
-        "required": true,
-        "nullable": true
-      },
-      {
-        "name": "planId",
-        "kind": "string",
-        "required": true,
-        "nullable": true
-      },
-      {
-        "name": "errors",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/result-error"
-      },
-      {
-        "name": "data",
-        "kind": "object",
-        "required": true,
-        "nullable": false,
-        "additionalProperties": true
-      }
-    ]
-  },
-  {
     "id": "vegastack-labs.dev/server-status-data",
     "fields": [
       {
@@ -3081,6 +3078,10 @@ function decodeBrowserRun(value: unknown): BrowserRun {
   return decodeSchema("vegastack-labs.dev/browser-run", value) as unknown as BrowserRun;
 }
 
+function decodeBrowserRunResult(value: unknown): BrowserRunResult {
+  return decodeSchema("vegastack-labs.dev/browser-run-result", value) as unknown as BrowserRunResult;
+}
+
 function decodeBrowserRunStep(value: unknown): BrowserRunStep {
   return decodeSchema("vegastack-labs.dev/browser-run-step", value) as unknown as BrowserRunStep;
 }
@@ -3145,10 +3146,6 @@ function decodeRunReferenceRequest(value: unknown): RunReferenceRequest {
   return decodeSchema("vegastack-labs.dev/run-reference-request", value) as unknown as RunReferenceRequest;
 }
 
-function decodeRunResult(value: unknown): RunResult {
-  return decodeSchema("vegastack-labs.dev/run-result", value) as unknown as RunResult;
-}
-
 function decodeServerStatusData(value: unknown): ServerStatusData {
   return decodeSchema("vegastack-labs.dev/server-status-data", value) as unknown as ServerStatusData;
 }
@@ -3156,7 +3153,7 @@ function decodeServerStatusData(value: unknown): ServerStatusData {
 export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 export type RequestOptions = { readonly signal?: AbortSignal };
 export type StreamOptions = RequestOptions & { readonly lastEventId?: string };
-export type ReadEnvelope = Omit<RunResult, "schemaVersion"> & { readonly schemaVersion: string };
+export type ReadEnvelope = Omit<BrowserRunResult, "schemaVersion"> & { readonly schemaVersion: string };
 export type ReadResult<T> = Omit<ReadEnvelope, "data"> & { readonly data: T };
 
 function decodeReadEnvelope(value: unknown, operation: string): ReadEnvelope {
@@ -3166,10 +3163,10 @@ function decodeReadEnvelope(value: unknown, operation: string): ReadEnvelope {
   if (Number.parseInt(version.split(".")[0] ?? "", 10) !== 1) {
     throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", operation);
   }
-  const runResultRule = SCHEMAS.find((candidate) => candidate.id === "vegastack-labs.dev/run-result");
+  const runResultRule = SCHEMAS.find((candidate) => candidate.id === "vegastack-labs.dev/browser-run-result");
   const canonicalVersion = runResultRule?.fields.find((field) => field.name === "schemaVersion")?.enum?.[0];
   if (!canonicalVersion) return mismatch(operation + ".schemaVersion", "version rule is unavailable");
-  const envelope = decodeRunResult({ ...value, schemaVersion: canonicalVersion });
+  const envelope = decodeBrowserRunResult({ ...value, schemaVersion: canonicalVersion });
   return { ...envelope, schemaVersion: version };
 }
 

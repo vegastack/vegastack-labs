@@ -52,7 +52,7 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 		}
 		definitions[definition.ID] = definition
 	}
-	wanted := map[string]bool{runResultSchemaID: true}
+	wanted := map[string]bool{"vegastack-labs.dev/browser-run-result": true}
 	for _, identifier := range []string{
 		"vegastack-labs.dev/plan",
 	} {
@@ -135,7 +135,7 @@ func browserSecretField(name string) bool {
 func browserEnvelopeDataField(schemaID, fieldName string) bool {
 	// RunResult.data is decoded immediately against the endpoint's closed data
 	// schema. It is the sole open carrier allowed into the generated graph.
-	return schemaID == runResultSchemaID && fieldName == "data"
+	return (schemaID == runResultSchemaID || schemaID == "vegastack-labs.dev/browser-run-result") && fieldName == "data"
 }
 
 type browserSchemaRule struct {
@@ -388,7 +388,7 @@ export function validatePlanTiming(value: unknown): void {
 	output.WriteString(`export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 export type RequestOptions = { readonly signal?: AbortSignal };
 export type StreamOptions = RequestOptions & { readonly lastEventId?: string };
-export type ReadEnvelope = Omit<RunResult, "schemaVersion"> & { readonly schemaVersion: string };
+export type ReadEnvelope = Omit<BrowserRunResult, "schemaVersion"> & { readonly schemaVersion: string };
 export type ReadResult<T> = Omit<ReadEnvelope, "data"> & { readonly data: T };
 
 function decodeReadEnvelope(value: unknown, operation: string): ReadEnvelope {
@@ -398,10 +398,10 @@ function decodeReadEnvelope(value: unknown, operation: string): ReadEnvelope {
   if (Number.parseInt(version.split(".")[0] ?? "", 10) !== 1) {
     throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", operation);
   }
-  const runResultRule = SCHEMAS.find((candidate) => candidate.id === "vegastack-labs.dev/run-result");
+  const runResultRule = SCHEMAS.find((candidate) => candidate.id === "vegastack-labs.dev/browser-run-result");
   const canonicalVersion = runResultRule?.fields.find((field) => field.name === "schemaVersion")?.enum?.[0];
   if (!canonicalVersion) return mismatch(operation + ".schemaVersion", "version rule is unavailable");
-  const envelope = decodeRunResult({ ...value, schemaVersion: canonicalVersion });
+  const envelope = decodeBrowserRunResult({ ...value, schemaVersion: canonicalVersion });
   return { ...envelope, schemaVersion: version };
 }
 
