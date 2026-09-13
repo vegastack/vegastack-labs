@@ -17,6 +17,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/result"
+	"github.com/vegastack/vegastack-labs/internal/runprotocol"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
@@ -30,6 +31,23 @@ const (
 )
 
 var errRedirect = errors.New("redirect denied")
+
+// UncertainRunError means a mutating request disconnected and the one allowed
+// durable-run inspection could not establish the result. It preserves the
+// server-owned run address without inviting a resubmission.
+type UncertainRunError struct {
+	RunID string
+	err   error
+}
+
+func (err *UncertainRunError) Error() string { return err.err.Error() }
+func (err *UncertainRunError) Unwrap() error { return err.err }
+
+func AsUncertainRun(err error) (*UncertainRunError, bool) {
+	var uncertain *UncertainRunError
+	ok := errors.As(err, &uncertain)
+	return uncertain, ok
+}
 
 type Response struct {
 	Raw      []byte
@@ -52,6 +70,11 @@ type Client interface {
 	ImportInventory(context.Context, serverconfig.Profile, generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, serverconfig.Profile, generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, serverconfig.Profile, generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error)
+	Plan(context.Context, serverconfig.Profile, string, int64) (TypedResponse[generated.Plan], error)
+	Apply(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
+	InspectRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
+	CancelRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
+	ResumeRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
 }
 
 type client struct{ results *result.Factory }
@@ -91,6 +114,104 @@ func (client *client) DiffInventory(ctx context.Context, profile serverconfig.Pr
 
 func (client *client) ExportInventory(ctx context.Context, profile serverconfig.Profile, input generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error) {
 	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/inventory-exports", "api.v1.inventory-exports.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validExportData)
+}
+
+func (client *client) Plan(ctx context.Context, profile serverconfig.Profile, declarationID string, revision int64) (TypedResponse[generated.Plan], error) {
+	var zero TypedResponse[generated.Plan]
+	if !validPathToken(declarationID) || revision < 1 {
+		return zero, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
+	}
+	base := "/api/v1/declarations/" + declarationID + "/revisions/" + strconv.FormatInt(revision, 10)
+	prepared, err := requestTyped(client, ctx, profile, requestSpec{http.MethodGet, base + "/plan-preparation", "api.v1.declarations.plan-preparation.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlanPreparation)
+	if err != nil {
+		return zero, err
+	}
+	if prepared.ExitCode != 0 {
+		return remapResponse[generated.Plan](prepared), nil
+	}
+	key, err := client.results.RequestID()
+	if err != nil {
+		return zero, err
+	}
+	input := generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declarationID, DeclarationRevision: revision, ExpectedStateRevision: prepared.Data.ExpectedStateRevision, RecoveryEpoch: prepared.Data.RecoveryEpoch, ObservationFingerprint: prepared.Data.ObservationFingerprint, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/declarations/" + declarationID + "/plans", "api.v1.plans.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validPlan)
+}
+
+func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.Run], error) {
+	var zero TypedResponse[generated.Run]
+	planResponse, err := client.getPlan(ctx, profile, planID)
+	if err != nil {
+		return zero, err
+	}
+	if planResponse.ExitCode != 0 {
+		return remapResponse[generated.Run](planResponse), nil
+	}
+	key, err := client.results.RequestID()
+	if err != nil {
+		return zero, err
+	}
+	runID := runprotocol.ID(planID, key)
+	input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: planID, PlanDigest: planResponse.Data.PlanDigest, RecoveryEpoch: planResponse.Data.Binding.RecoveryEpoch, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}
+	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/plans/" + planID + "/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, input, validRun)
+	if err == nil {
+		return response, nil
+	}
+	inspected, inspectErr := client.InspectRun(context.WithoutCancel(ctx), profile, runID)
+	if inspectErr == nil && inspected.ExitCode == 0 {
+		return inspected, nil
+	}
+	return zero, &UncertainRunError{RunID: runID, err: err}
+}
+
+func (client *client) InspectRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.Run], error) {
+	if !validPathToken(runID) {
+		return TypedResponse[generated.Run]{}, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
+	}
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/runs/" + runID, "api.v1.runs.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validRun)
+}
+
+func (client *client) CancelRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.Run], error) {
+	return client.mutateRun(ctx, profile, runID, false)
+}
+
+func (client *client) ResumeRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.Run], error) {
+	return client.mutateRun(ctx, profile, runID, true)
+}
+
+func (client *client) mutateRun(ctx context.Context, profile serverconfig.Profile, runID string, resume bool) (TypedResponse[generated.Run], error) {
+	current, err := client.InspectRun(ctx, profile, runID)
+	if err != nil || current.ExitCode != 0 {
+		return current, err
+	}
+	key, err := client.results.RequestID()
+	if err != nil {
+		return TypedResponse[generated.Run]{}, err
+	}
+	action, command := "cancel", "api.v1.runs.cancel"
+	if resume {
+		action, command = "resume", "api.v1.runs.resume"
+	}
+	input := generated.RunReferenceRequest{Schema: generated.SchemaIDRunReferenceRequest, SchemaVersion: "1.0.0", RunID: runID, IdempotencyKey: key, RecoveryEpoch: current.Data.RecoveryEpoch, Extensions: []generated.ContractExtension{}}
+	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/runs/" + runID + "/" + action, command, maxOperationResponseBodyBytes, operationTimeout, true}, input, validRun)
+	if err == nil {
+		return response, nil
+	}
+	inspected, inspectErr := client.InspectRun(context.WithoutCancel(ctx), profile, runID)
+	if inspectErr == nil && inspected.ExitCode == 0 {
+		return inspected, nil
+	}
+	return TypedResponse[generated.Run]{}, &UncertainRunError{RunID: runID, err: err}
+}
+
+func (client *client) getPlan(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.Plan], error) {
+	if !validPathToken(planID) {
+		return TypedResponse[generated.Plan]{}, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
+	}
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/plans/" + planID, "api.v1.plans.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlan)
+}
+
+func remapResponse[To, From any](response TypedResponse[From]) TypedResponse[To] {
+	return TypedResponse[To]{Raw: response.Raw, Result: response.Result, ExitCode: response.ExitCode}
 }
 
 func requestTyped[T any](client *client, ctx context.Context, profile serverconfig.Profile, spec requestSpec, input any, validate func(T, generated.RunResult) bool) (TypedResponse[T], error) {
@@ -142,11 +263,7 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		if ctx.Err() != nil {
 			return zero, failure.New(generated.ErrorCodeInterrupted, "control-service", false)
 		}
-		var networkError *net.OpError
-		if errors.As(err, &networkError) && (networkError.Op == "dial" || networkError.Timeout()) {
-			return zero, failure.New(generated.ErrorCodeDependencyUnavailable, "control-service", true)
-		}
-		return zero, responseFailure()
+		return zero, failure.New(generated.ErrorCodeDependencyUnavailable, "control-service", true)
 	}
 	defer response.Body.Close()
 	mediaType, _, err := mime.ParseMediaType(response.Header.Get("Content-Type"))
@@ -202,7 +319,7 @@ func validateEnvelope(raw []byte, httpStatus int, spec requestSpec) (generated.R
 		return generated.RunResult{}, 0, responseFailure()
 	}
 	if envelope.Schema != generated.SchemaIDRunResult || schemaMajor(envelope.SchemaVersion) != generated.SchemaMajor || envelope.Command != spec.command ||
-		envelope.RequestID == "" || envelope.ToolVersion == "" || envelope.ReleaseBuildID == "" || envelope.RunID != nil || envelope.SnapshotDigest != nil || envelope.PlanID != nil || (!spec.allowChanged && envelope.Changed) {
+		envelope.RequestID == "" || envelope.ToolVersion == "" || envelope.ReleaseBuildID == "" || envelope.SnapshotDigest != nil || (!runEnvelopeCommand(spec.command) && (envelope.RunID != nil || envelope.PlanID != nil)) || (!spec.allowChanged && envelope.Changed) {
 		return generated.RunResult{}, 0, responseFailure()
 	}
 	if len(envelope.Errors) == 0 {
@@ -211,10 +328,10 @@ func validateEnvelope(raw []byte, httpStatus int, spec requestSpec) (generated.R
 		}
 		return envelope, 0, nil
 	}
-	if envelope.Changed || (envelope.Status != generated.RunStatusFailed && envelope.Status != generated.RunStatusInterrupted) {
+	if (!runEnvelopeCommand(spec.command) && envelope.Changed) || (envelope.Status != generated.RunStatusFailed && envelope.Status != generated.RunStatusInterrupted && envelope.Status != generated.RunStatusPartial && envelope.Status != generated.RunStatusCancelled) {
 		return generated.RunResult{}, 0, responseFailure()
 	}
-	if spec.command != generated.CommandNameServerStatus && !bytes.Equal(envelope.Data, []byte("{}")) {
+	if spec.command != generated.CommandNameServerStatus && !runEnvelopeCommand(spec.command) && !bytes.Equal(envelope.Data, []byte("{}")) {
 		return generated.RunResult{}, 0, responseFailure()
 	}
 	for _, resultError := range envelope.Errors {
@@ -226,10 +343,15 @@ func validateEnvelope(raw []byte, httpStatus int, spec requestSpec) (generated.R
 		}
 	}
 	first := envelope.Errors[0].Code
-	if httpStatus != expectedHTTPStatus(first) || (first == generated.ErrorCodeInterrupted) != (envelope.Status == generated.RunStatusInterrupted) {
+	interruptedStatus := envelope.Status == generated.RunStatusInterrupted || envelope.Status == generated.RunStatusCancelled
+	if httpStatus != expectedHTTPStatus(first) || (first == generated.ErrorCodeInterrupted) != interruptedStatus {
 		return generated.RunResult{}, 0, responseFailure()
 	}
 	return envelope, generated.ErrorExitCodes[first], nil
+}
+
+func runEnvelopeCommand(command string) bool {
+	return command == "api.v1.plans.execute" || strings.HasPrefix(command, "api.v1.runs.")
 }
 
 func expectedHTTPStatus(code string) int {
@@ -245,6 +367,11 @@ func expectedHTTPStatus(code string) int {
 		generated.ErrorCodeInterrupted:            http.StatusRequestTimeout,
 		generated.ErrorCodeDependencyUnavailable:  http.StatusServiceUnavailable,
 		generated.ErrorCodeIntegrityFailure:       http.StatusServiceUnavailable,
+		generated.ErrorCodeApprovalRequired:       http.StatusPreconditionFailed,
+		generated.ErrorCodePlanStale:              http.StatusConflict,
+		generated.ErrorCodeExecutionFailed:        http.StatusBadGateway,
+		generated.ErrorCodeExecutionPartial:       http.StatusConflict,
+		generated.ErrorCodeRecoveryRequired:       http.StatusConflict,
 	}[code]
 }
 
@@ -299,6 +426,36 @@ func validDiffData(value generated.InventoryDiffData, envelope generated.RunResu
 
 func validExportData(value generated.InventoryExportData, envelope generated.RunResult) bool {
 	return value.ExportID != "" && value.SubjectKind == "draft" && value.Draft.DraftID != "" && value.Draft.DraftRevision > 0 && value.StateRevision == envelope.StateRevision && value.RecoveryEpoch == envelope.RecoveryEpoch
+}
+
+func validPlanPreparation(value generated.PlanPreparation, envelope generated.RunResult) bool {
+	raw, err := json.Marshal(value)
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDPlanPreparation, raw, generated.ContractExact) == nil && validPathToken(value.DeclarationID) && value.DeclarationRevision > 0 && value.ExpectedStateRevision == envelope.StateRevision && value.RecoveryEpoch == envelope.RecoveryEpoch
+}
+
+func validPlan(value generated.Plan, envelope generated.RunResult) bool {
+	raw, err := json.Marshal(value)
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDPlan, raw, generated.ContractExact) == nil && value.PlanID != "" && value.PlanDigest != "" && value.Binding.RecoveryEpoch == envelope.RecoveryEpoch && value.Binding.StateRevision == envelope.StateRevision
+}
+
+func validRun(value generated.Run, envelope generated.RunResult) bool {
+	raw, err := json.Marshal(value)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRun, raw, generated.ContractExact) != nil || value.RunID == "" || value.PlanID == "" || value.RecoveryEpoch != envelope.RecoveryEpoch || value.StateRevision != envelope.StateRevision {
+		return false
+	}
+	return (envelope.RunID == nil || *envelope.RunID == value.RunID) && (envelope.PlanID == nil || *envelope.PlanID == value.PlanID)
+}
+
+func validPathToken(value string) bool {
+	if len(value) < 1 || len(value) > 128 || value[0] < 'a' || value[0] > 'z' {
+		return false
+	}
+	for _, character := range value[1:] {
+		if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '.' && character != '-' && character != '_' && character != ':' {
+			return false
+		}
+	}
+	return true
 }
 
 func schemaMajor(version string) int {

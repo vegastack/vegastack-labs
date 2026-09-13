@@ -319,6 +319,46 @@ func (operations *Operations) ExportInventory(ctx context.Context, configPath st
 	return client.ExportInventory(ctx, profile, request)
 }
 
+func (operations *Operations) Plan(ctx context.Context, configPath, declarationID string, revision int64) (localapi.TypedResponse[generated.Plan], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.Plan]{}, err
+	}
+	return client.Plan(ctx, profile, declarationID, revision)
+}
+
+func (operations *Operations) Apply(ctx context.Context, configPath, planID string) (localapi.TypedResponse[generated.Run], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.Run]{}, err
+	}
+	return client.Apply(ctx, profile, planID)
+}
+
+func (operations *Operations) InspectRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.Run], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.Run]{}, err
+	}
+	return client.InspectRun(ctx, profile, runID)
+}
+
+func (operations *Operations) CancelRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.Run], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.Run]{}, err
+	}
+	return client.CancelRun(ctx, profile, runID)
+}
+
+func (operations *Operations) ResumeRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.Run], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.Run]{}, err
+	}
+	return client.ResumeRun(ctx, profile, runID)
+}
+
 func (operations *Operations) controlClient(ctx context.Context, configPath string) (localapi.Client, serverconfig.Profile, error) {
 	ownerUID, err := currentServiceOwnerUID()
 	if err != nil {

@@ -157,6 +157,46 @@ func renderHumanInventoryExport(output io.Writer, data generated.InventoryExport
 	return 0
 }
 
+func renderHumanPlan(output io.Writer, data generated.Plan) int {
+	if _, err := fmt.Fprintf(output, "Plan %s\nDigest %s\nDeclaration %s revision %d\nRisk %s\nAuthorization %s\nExpires %s\n", data.PlanID, data.PlanDigest, data.DeclarationID, data.Binding.DeclarationRevision, data.Risk, data.AuthorizationBranch, data.ExpiresAt); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, operation := range data.Operations {
+		if _, err := fmt.Fprintf(output, "Operation %d target %s via %s\n", operation.Sequence, operation.TargetID, operation.AdapterID); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	return 0
+}
+
+func renderHumanRun(output io.Writer, data generated.Run) int {
+	completed := 0
+	for _, step := range data.Steps {
+		if step.Status == "succeeded" || step.Status == "failed" || step.Status == "cancelled" {
+			completed++
+		}
+	}
+	next := runNextAction(data)
+	if _, err := fmt.Fprintf(output, "Run %s\nPlan %s\nDigest %s\nStatus %s\nSteps completed %d incomplete %d\nVerification %s\nRollback %s\nChanged %t\nNext safe action: %s\n", data.RunID, data.PlanID, data.PlanDigest, data.Status, completed, len(data.Steps)-completed, data.VerificationStatus, data.RollbackStatus, data.Changed, next); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return 0
+}
+
+func runNextAction(data generated.Run) string {
+	if data.Status == generated.RunStatusPartial || data.RollbackStatus == "required" || data.VerificationStatus == "incomplete" {
+		return "recovery required; inspect the durable run"
+	}
+	switch data.Status {
+	case generated.RunStatusInterrupted:
+		return "inspect, then resume or cancel through the server"
+	case "queued", "running":
+		return "inspect or cancel through the server"
+	default:
+		return "inspect the durable run"
+	}
+}
+
 func renderHumanVersion(output io.Writer, build BuildInfo) int {
 	if _, err := fmt.Fprintf(output, "vsk-labs %s\ncontract %s\nbuild %s\n", build.ToolVersion, generated.RegistrySchemaVersion, build.ReleaseBuildID); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)

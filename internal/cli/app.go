@@ -50,6 +50,11 @@ type ControlOperations interface {
 	ImportInventory(context.Context, string, generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, string, generated.InventoryDiffRequest) (localapi.TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, string, generated.InventoryExportRequest) (localapi.TypedResponse[generated.InventoryExportData], error)
+	Plan(context.Context, string, string, int64) (localapi.TypedResponse[generated.Plan], error)
+	Apply(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
+	InspectRun(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
+	CancelRun(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
+	ResumeRun(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
 }
 
 type Option func(*App)
@@ -288,10 +293,78 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
 		return renderHumanInventoryExport(app.stdout, response.Data)
+	case generated.CommandNamePlan:
+		if app.control == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		revision, _ := strconv.ParseInt(parsed.Value(generated.FlagRevision), 10, 64)
+		response, err := app.control.Plan(ctx, parsed.Value(generated.FlagConfig), parsed.Value(generated.FlagDeclarationID), revision)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameApply:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagPlanID))
+	case generated.CommandNameRunInspect:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagRunID))
+	case generated.CommandNameRunCancel:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagRunID))
+	case generated.CommandNameRunResume:
+		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagRunID))
 	default:
 		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
 	}
 }
+
+func (app *App) handlePlanResponse(mode outputMode, response localapi.TypedResponse[generated.Plan]) int {
+	if response.ExitCode != 0 {
+		return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+	}
+	if mode == outputJSON {
+		return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+	}
+	return renderHumanPlan(app.stdout, response.Data)
+}
+
+func (app *App) runCommand(ctx context.Context, mode outputMode, parsed parsedArguments, id string) int {
+	if app.control == nil {
+		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+	}
+	var operation func(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
+	switch parsed.commandName() {
+	case generated.CommandNameApply:
+		operation = app.control.Apply
+	case generated.CommandNameRunInspect:
+		operation = app.control.InspectRun
+	case generated.CommandNameRunCancel:
+		operation = app.control.CancelRun
+	case generated.CommandNameRunResume:
+		operation = app.control.ResumeRun
+	default:
+		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "command-registry", generated.RunStatusFailed, false)
+	}
+	response, err := operation(ctx, parsed.Value(generated.FlagConfig), id)
+	if err != nil {
+		if uncertain, ok := localapi.AsUncertainRun(err); ok && mode == outputHuman {
+			_, _ = app.stderr.Write([]byte("Submission result is unknown. Inspect durable run " + uncertain.RunID + "; do not apply again.\n"))
+		}
+		return app.failServer(mode, parsed.commandName(), err)
+	}
+	if mode == outputJSON {
+		return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+	}
+	if !emptyRun(response.Data) {
+		if code := renderHumanRun(app.stdout, response.Data); code != 0 {
+			return code
+		}
+	}
+	if response.ExitCode != 0 {
+		return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+	}
+	return 0
+}
+
+func emptyRun(value generated.Run) bool { return value.RunID == "" }
 
 var serverErrorTargets = map[string]struct{}{
 	"application-health": {}, "application-shutdown": {}, "application-start": {},

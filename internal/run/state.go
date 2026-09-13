@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/runprotocol"
 )
 
 type Boundary string
@@ -60,7 +61,7 @@ func digest(values ...string) string {
 }
 
 func runID(planID, submitKey string) string {
-	return "run-" + strings.TrimPrefix(digest("run", planID, submitKey), "sha256:")[:32]
+	return runprotocol.ID(planID, submitKey)
 }
 func stepID(id string, sequence int64) string {
 	return fmt.Sprintf("step-%d-%s", sequence, strings.TrimPrefix(digest("step", id, fmt.Sprint(sequence)), "sha256:")[:16])
