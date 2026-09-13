@@ -1,37 +1,8 @@
 {
   "$defs": {
-    "contract-extension": {
+    "browser-run": {
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "pattern": "^x-[a-z][a-z0-9.-]{0,62}$",
-          "type": "string"
-        },
-        "valueDigest": {
-          "pattern": "^sha256:[a-f0-9]{64}$",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "valueDigest"
-      ],
-      "type": "object"
-    },
-    "run": {
-      "additionalProperties": false,
-      "properties": {
-        "acknowledgementId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "authorizationDecisionId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": "string"
-        },
         "cancellationRequested": {
           "type": "boolean"
         },
@@ -40,10 +11,6 @@
         },
         "createdAt": {
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
-          "type": "string"
-        },
-        "executorBindingDigest": {
-          "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
         "executorId": {
@@ -94,7 +61,7 @@
         },
         "schema": {
           "enum": [
-            "vegastack-labs.dev/run"
+            "vegastack-labs.dev/browser-run"
           ],
           "type": "string"
         },
@@ -154,12 +121,9 @@
         "runId",
         "planId",
         "planDigest",
-        "authorizationDecisionId",
-        "acknowledgementId",
         "policyVersion",
         "executorMode",
         "executorId",
-        "executorBindingDigest",
         "status",
         "steps",
         "cancellationRequested",
@@ -172,6 +136,24 @@
         "createdAt",
         "updatedAt",
         "extensions"
+      ],
+      "type": "object"
+    },
+    "contract-extension": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^x-[a-z][a-z0-9.-]{0,62}$",
+          "type": "string"
+        },
+        "valueDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "valueDigest"
       ],
       "type": "object"
     },
@@ -287,7 +269,7 @@
       "type": "string"
     },
     "run": {
-      "$ref": "#/$defs/run"
+      "$ref": "#/$defs/browser-run"
     }
   },
   "required": [

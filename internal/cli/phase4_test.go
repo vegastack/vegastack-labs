@@ -145,7 +145,8 @@ func phase4TestPresentation(run generated.Run) generated.RunPresentation {
 	} else if run.Status == generated.RunStatusSucceeded {
 		next = "none; execution completed"
 	}
-	return generated.RunPresentation{Run: run, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
+	browserRun := generated.BrowserRun{Schema: generated.SchemaIDBrowserRun, SchemaVersion: "1.0.0", RunID: run.RunID, PlanID: run.PlanID, PlanDigest: run.PlanDigest, PolicyVersion: run.PolicyVersion, ExecutorMode: run.ExecutorMode, ExecutorID: run.ExecutorID, Status: run.Status, Steps: run.Steps, CancellationRequested: run.CancellationRequested, RollbackStatus: run.RollbackStatus, VerificationStatus: run.VerificationStatus, VerificationDigest: run.VerificationDigest, Changed: run.Changed, StateRevision: run.StateRevision, RecoveryEpoch: run.RecoveryEpoch, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt, Extensions: run.Extensions}
+	return generated.RunPresentation{Run: browserRun, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
 }
 
 func phase4TestPlan() generated.Plan {

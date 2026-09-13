@@ -56,9 +56,6 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 	for _, identifier := range []string{
 		"vegastack-labs.dev/declaration-revision",
 		"vegastack-labs.dev/plan",
-		"vegastack-labs.dev/run",
-		"vegastack-labs.dev/executor-lease",
-		"vegastack-labs.dev/execution-receipt",
 	} {
 		wanted[identifier] = true
 	}
@@ -114,9 +111,14 @@ func browserSecretField(name string) bool {
 		}
 	}
 	normalized := compact.String()
-	for _, safe := range []string{"authorizationbranch", "authorizationcurrent", "authorizationdecisionid", "idempotencykey", "keyfingerprint", "keyid", "publickeyid"} {
+	for _, safe := range []string{"authorizationbranch", "authorizationcurrent", "idempotencykey", "keyfingerprint", "keyid", "publickeyid"} {
 		if normalized == safe {
 			return false
+		}
+	}
+	for _, protected := range []string{"acknowledgementid", "authorityid", "humanid", "noncedigest", "proofdigest"} {
+		if normalized == protected {
+			return true
 		}
 	}
 	for _, sensitive := range []string{
@@ -374,49 +376,11 @@ export function validateRunTransition(from: string, to: string): void {
   }
 }
 
-export function validateExecutionReceiptBinding(leaseValue: unknown, receiptValue: unknown): void {
-  const lease = decodeSchema("vegastack-labs.dev/executor-lease", leaseValue);
-  const receipt = decodeSchema("vegastack-labs.dev/execution-receipt", receiptValue);
-  for (const name of ["leaseId", "planId", "planDigest", "runId", "stepId", "operationId", "executorId", "adapterId", "targetId", "artifactDigest", "bindingDigest", "nonceDigest", "recoveryEpoch"]) {
-    if (lease[name] !== receipt[name]) return mismatch("execution-receipt." + name, "binding widened or changed");
-  }
-}
-
 export function validatePlanTiming(value: unknown): void {
   const plan = decodeSchema("vegastack-labs.dev/plan", value);
   const created = Date.parse(plan.createdAt as string);
   const expires = Date.parse(plan.expiresAt as string);
   if (!Number.isFinite(created) || expires - created !== PLAN_VALIDITY_SECONDS * 1000) return mismatch("plan.expiresAt", "plan expiry must be exactly 30 minutes");
-}
-
-export function validateLeaseTiming(value: unknown): void {
-  const lease = decodeSchema("vegastack-labs.dev/executor-lease", value);
-  const claimed = Date.parse(lease.claimedAt as string);
-  const renew = Date.parse(lease.renewAfter as string);
-  const expires = Date.parse(lease.leaseExpiresAt as string);
-  const maximum = Date.parse(lease.maximumExpiresAt as string);
-  if (!Number.isFinite(claimed) || renew - claimed !== EXECUTOR_CHECK_IN_SECONDS * 1000 || expires - claimed !== EXECUTOR_LEASE_SECONDS * 1000 || maximum !== expires) return mismatch("executor-lease", "invalid lease timing or maximum expiry");
-}
-
-export function validateExecutorLeaseBinding(planValue: unknown, runValue: unknown, leaseValue: unknown): void {
-  const plan = decodeSchema("vegastack-labs.dev/plan", planValue);
-  const run = decodeSchema("vegastack-labs.dev/run", runValue);
-  const lease = decodeSchema("vegastack-labs.dev/executor-lease", leaseValue);
-  const binding = plan.binding as Record<string, unknown>;
-  if (plan.planId !== run.planId || plan.planId !== lease.planId || plan.planDigest !== run.planDigest || plan.planDigest !== lease.planDigest || binding.recoveryEpoch !== run.recoveryEpoch || run.recoveryEpoch !== lease.recoveryEpoch || binding.stateRevision !== run.stateRevision || run.runId !== lease.runId || plan.executorMode !== run.executorMode || run.executorId !== lease.executorId || run.executorBindingDigest !== lease.bindingDigest) return mismatch("executor-lease", "plan/run binding widened or changed");
-  if (plan.executorMode === "external" && (plan.executorId === null || plan.executorId !== run.executorId)) return mismatch("executor-lease.executorId", "external executor does not match plan");
-  const steps = (run.steps as Array<Record<string, unknown>>).filter((candidate) => candidate.stepId === lease.stepId);
-  if (steps.length !== 1) return mismatch("executor-lease.stepId", "must name exactly one run step");
-  const step = steps[0];
-  const operations = (plan.operations as Array<Record<string, unknown>>).filter((operation) => operation.operationId === lease.operationId);
-  if (operations.length !== 1) return mismatch("executor-lease.operationId", "must name exactly one plan operation");
-  const operation = operations[0];
-  for (const name of ["sequence", "operationId", "operationType", "executorId", "adapterId", "targetId", "inputDigest", "artifactDigest", "idempotent"]) {
-    if (operation?.[name] !== step[name]) return mismatch("run-step." + name, "plan operation widened or changed");
-  }
-  for (const name of ["executorId", "adapterId", "targetId", "artifactDigest"]) {
-    if (step[name] !== lease[name]) return mismatch("executor-lease." + name, "run step widened or changed");
-  }
 }
 
 `)

@@ -485,9 +485,17 @@ func validRun(value generated.Run, envelope generated.RunResult) bool {
 	return (envelope.RunID == nil || *envelope.RunID == value.RunID) && (envelope.PlanID == nil || *envelope.PlanID == value.PlanID)
 }
 
+func validBrowserRun(value generated.BrowserRun, envelope generated.RunResult) bool {
+	raw, err := json.Marshal(value)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDBrowserRun, raw, generated.ContractExact) != nil || value.RunID == "" || value.PlanID == "" || value.RecoveryEpoch != envelope.RecoveryEpoch || value.StateRevision != envelope.StateRevision {
+		return false
+	}
+	return (envelope.RunID == nil || *envelope.RunID == value.RunID) && (envelope.PlanID == nil || *envelope.PlanID == value.PlanID)
+}
+
 func validRunPresentation(value generated.RunPresentation, envelope generated.RunResult) bool {
 	raw, err := json.Marshal(value)
-	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRunPresentation, raw, generated.ContractExact) != nil || !validRun(value.Run, envelope) || value.NextSafeAction == "" {
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRunPresentation, raw, generated.ContractExact) != nil || !validBrowserRun(value.Run, envelope) || value.NextSafeAction == "" {
 		return false
 	}
 	want := make(map[string]generated.RunStep, len(value.Run.Steps))

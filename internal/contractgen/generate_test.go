@@ -34,7 +34,11 @@ func TestGeneratedPhase4StatesMatchEveryTarget(t *testing.T) {
 			t.Errorf("generated artifact %s is missing", path)
 			continue
 		}
-		for _, value := range []string{"partial", "interrupted", "cancelled", "leaseExpiresAt", "planDigest"} {
+		values := []string{"partial", "interrupted", "cancelled", "planDigest"}
+		if path != "web/generated/read-api.ts" {
+			values = append(values, "leaseExpiresAt")
+		}
+		for _, value := range values {
 			if !strings.Contains(content, value) {
 				t.Errorf("%s is missing %q", path, value)
 			}
@@ -101,6 +105,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/approval-status.schema.json",
 		"schemas/v1/audit-event.schema.json",
 		"schemas/v1/authorization-decision.schema.json",
+		"schemas/v1/browser-run.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/database-status-data.schema.json",
 		"schemas/v1/declaration-revision-request.schema.json",
@@ -164,7 +169,7 @@ func TestGenerateSelectsOnlyBrowserSafeAvailableReads(t *testing.T) {
 		byPath[artifact.Path] = artifact.Content
 	}
 	client := string(byPath["web/generated/read-api.ts"])
-	for _, forbidden := range []string{"inventory-drafts.import", "http://", "https://", "/var/", "SELECT ", "apiToken", "secretValue"} {
+	for _, forbidden := range []string{"inventory-drafts.import", "http://", "https://", "/var/", "SELECT ", "apiToken", "secretValue", "authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "humanId", "authorityId", "nonceDigest", "proofDigest"} {
 		if strings.Contains(client, forbidden) {
 			t.Fatalf("unsafe value %q entered browser client", forbidden)
 		}

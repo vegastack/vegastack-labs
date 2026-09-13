@@ -203,5 +203,9 @@ func clientRunPresentation(run generated.Run) generated.RunPresentation {
 	if run.Status == generated.RunStatusPartial {
 		next = "recovery required; inspect the durable run"
 	}
-	return generated.RunPresentation{Run: run, CompletedWork: []generated.RunStep{}, IncompleteWork: append([]generated.RunStep(nil), run.Steps...), NextSafeAction: next}
+	return generated.RunPresentation{Run: clientBrowserRun(run), CompletedWork: []generated.RunStep{}, IncompleteWork: append([]generated.RunStep(nil), run.Steps...), NextSafeAction: next}
+}
+
+func clientBrowserRun(run generated.Run) generated.BrowserRun {
+	return generated.BrowserRun{Schema: generated.SchemaIDBrowserRun, SchemaVersion: "1.0.0", RunID: run.RunID, PlanID: run.PlanID, PlanDigest: run.PlanDigest, PolicyVersion: run.PolicyVersion, ExecutorMode: run.ExecutorMode, ExecutorID: run.ExecutorID, Status: run.Status, Steps: run.Steps, CancellationRequested: run.CancellationRequested, RollbackStatus: run.RollbackStatus, VerificationStatus: run.VerificationStatus, VerificationDigest: run.VerificationDigest, Changed: run.Changed, StateRevision: run.StateRevision, RecoveryEpoch: run.RecoveryEpoch, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt, Extensions: run.Extensions}
 }

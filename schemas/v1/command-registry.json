@@ -1884,6 +1884,11 @@
       "artifactPath": "schemas/v1/authorization-decision.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/browser-run",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-run.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/cloudflare-access-profile",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/cloudflare-access-profile.schema.json"

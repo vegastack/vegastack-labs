@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -197,6 +198,10 @@ func TestRunExecuteSucceededAfterCommitErrorAndReplayStaySuccessful(t *testing.T
 
 func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
 	base := apiRunResult(apiRunPlan())
+	base.AuthorizationDecisionID = "private-authorization-decision-canary"
+	privateAcknowledgement := "private-acknowledgement-canary"
+	base.AcknowledgementID = &privateAcknowledgement
+	base.ExecutorBindingDigest = testAPIDigest("8")
 	base.Steps = []generated.RunStep{
 		{StepID: "step-complete", Status: generated.RunStatusSucceeded},
 		{StepID: "step-open", Status: "running"},
@@ -220,6 +225,15 @@ func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
 				t.Fatalf("presentation = %#v", presentation)
 			}
 		})
+	}
+	raw, err := json.Marshal(presentRun(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, forbidden := range []string{"authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "private-authorization-decision-canary", "private-acknowledgement-canary"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("browser run projection disclosed %q", forbidden)
+		}
 	}
 }
 

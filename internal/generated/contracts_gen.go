@@ -42,6 +42,7 @@ const (
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
 	SchemaIDAuthorizationDecision           = "vegastack-labs.dev/authorization-decision"
+	SchemaIDBrowserRun                      = "vegastack-labs.dev/browser-run"
 	SchemaIDCloudflareAccessProfile         = "vegastack-labs.dev/cloudflare-access-profile"
 	SchemaIDContractExtension               = "vegastack-labs.dev/contract-extension"
 	SchemaIDDatabaseStatusData              = "vegastack-labs.dev/database-status-data"
@@ -450,6 +451,29 @@ type AuthorizationDecision struct {
 	PlanDigest    string              `json:"planDigest"`
 	DecidedAt     string              `json:"decidedAt"`
 	Extensions    []ContractExtension `json:"extensions"`
+}
+
+type BrowserRun struct {
+	Schema                string              `json:"schema"`
+	SchemaVersion         string              `json:"schemaVersion"`
+	RunID                 string              `json:"runId"`
+	PlanID                string              `json:"planId"`
+	PlanDigest            string              `json:"planDigest"`
+	PolicyVersion         string              `json:"policyVersion"`
+	ExecutorMode          string              `json:"executorMode"`
+	ExecutorID            string              `json:"executorId"`
+	Status                string              `json:"status"`
+	Steps                 []RunStep           `json:"steps"`
+	CancellationRequested bool                `json:"cancellationRequested"`
+	RollbackStatus        string              `json:"rollbackStatus"`
+	VerificationStatus    string              `json:"verificationStatus"`
+	VerificationDigest    *string             `json:"verificationDigest"`
+	Changed               bool                `json:"changed"`
+	StateRevision         int64               `json:"stateRevision"`
+	RecoveryEpoch         int64               `json:"recoveryEpoch"`
+	CreatedAt             string              `json:"createdAt"`
+	UpdatedAt             string              `json:"updatedAt"`
+	Extensions            []ContractExtension `json:"extensions"`
 }
 
 type CloudflareAccessProfile struct {
@@ -1022,10 +1046,10 @@ type Run struct {
 }
 
 type RunPresentation struct {
-	Run            Run       `json:"run"`
-	CompletedWork  []RunStep `json:"completedWork"`
-	IncompleteWork []RunStep `json:"incompleteWork"`
-	NextSafeAction string    `json:"nextSafeAction"`
+	Run            BrowserRun `json:"run"`
+	CompletedWork  []RunStep  `json:"completedWork"`
+	IncompleteWork []RunStep  `json:"incompleteWork"`
+	NextSafeAction string     `json:"nextSafeAction"`
 }
 
 type RunReferenceRequest struct {
