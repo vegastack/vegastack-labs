@@ -486,6 +486,7 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		// and any future external transport must pass a separate design review.
 		return false
 	}
+	approvedCallbacks := reviewedLocalCallbacks(candidate)
 	valid := true
 	for _, file := range candidate.files {
 		ast.Inspect(file, func(node ast.Node) bool {
@@ -495,6 +496,10 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 			call, ok := node.(*ast.CallExpr)
 			if !ok {
 				return true
+			}
+			if variable := calledFunctionVariable(call.Fun, candidate.info); variable != nil && !reviewedLocalCallbackCall(call.Fun, variable, candidate.info, localAPIImport, approvedCallbacks) {
+				valid = false
+				return false
 			}
 			function := calledFunction(call.Fun, candidate.info)
 			if function == nil || function.Pkg() == nil {
@@ -520,6 +525,96 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		})
 	}
 	return valid
+}
+
+func reviewedLocalCallbackCall(expression ast.Expr, variable *types.Var, info *types.Info, localAPIImport string, approved map[*types.Var]bool) bool {
+	if approved[variable] {
+		return true
+	}
+	selector, ok := unparenthesized(expression).(*ast.SelectorExpr)
+	return ok && variable.IsField() && variable.Name() == "onClose" && typeNamed(info.TypeOf(selector.X), localAPIImport, "authenticatedConn")
+}
+
+func typeNamed(value types.Type, packagePath, name string) bool {
+	value = types.Unalias(value)
+	if pointer, ok := value.(*types.Pointer); ok {
+		value = types.Unalias(pointer.Elem())
+	}
+	named, ok := value.(*types.Named)
+	return ok && named.Obj() != nil && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == packagePath && named.Obj().Name() == name
+}
+
+func calledFunctionVariable(expression ast.Expr, info *types.Info) *types.Var {
+	var object types.Object
+	switch typed := unparenthesized(expression).(type) {
+	case *ast.Ident:
+		object = info.ObjectOf(typed)
+	case *ast.SelectorExpr:
+		object = info.ObjectOf(typed.Sel)
+	}
+	variable, ok := object.(*types.Var)
+	if !ok {
+		return nil
+	}
+	if _, ok := types.Unalias(variable.Type()).Underlying().(*types.Signature); !ok {
+		return nil
+	}
+	return variable
+}
+
+// reviewedLocalCallbacks names the three function values required by the
+// socket implementation and binds them to their exact declarations. A caller
+// cannot evade the network guard by reusing one of these names in another
+// scope or by assigning a package function to a local variable.
+func reviewedLocalCallbacks(candidate checkedSourcePackage) map[*types.Var]bool {
+	approved := make(map[*types.Var]bool)
+	for _, file := range candidate.files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			switch typed := node.(type) {
+			case *ast.FuncDecl:
+				parameter := ""
+				switch typed.Name.Name {
+				case "validateTypedResponse":
+					parameter = "validate"
+				case "newAuthenticatedConn":
+					parameter = "onClose"
+				}
+				if parameter != "" && typed.Type.Params != nil {
+					for _, field := range typed.Type.Params.List {
+						for _, name := range field.Names {
+							if name.Name == parameter {
+								if variable, ok := candidate.info.Defs[name].(*types.Var); ok {
+									approved[variable] = true
+								}
+							}
+						}
+					}
+				}
+			case *ast.AssignStmt:
+				if len(typed.Lhs) != 2 || len(typed.Rhs) != 1 {
+					return true
+				}
+				call, ok := unparenthesized(typed.Rhs[0]).(*ast.CallExpr)
+				if !ok {
+					return true
+				}
+				function := calledFunction(call.Fun, candidate.info)
+				if function == nil || function.Pkg() == nil || function.Pkg().Path() != "context" || function.Name() != "WithTimeout" {
+					return true
+				}
+				name, ok := unparenthesized(typed.Lhs[1]).(*ast.Ident)
+				if !ok {
+					return true
+				}
+				object := candidate.info.ObjectOf(name)
+				if variable, ok := object.(*types.Var); ok {
+					approved[variable] = true
+				}
+			}
+			return true
+		})
+	}
+	return approved
 }
 
 func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {

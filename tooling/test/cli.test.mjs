@@ -247,6 +247,28 @@ test("the local client boundary permits identity types but rejects its remote fu
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
+test("the local client boundary rejects package functions hidden in variables", async (t) => {
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import "example.test/internal/identity"',
+      "func Client() error {",
+      "  fetch := identity.FetchRemote",
+      "  return fetch()",
+      "}",
+      "",
+    ].join("\n")),
+    "internal/identity/remote.go": [
+      "package identity",
+      'import "net/http"',
+      'func FetchRemote() error { _, err := http.Get("https://identity.invalid"); return err }',
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
 test("the CLI verifier requires the shipped dependency closure to consume generated contracts", async (t) => {
   const root = await fixtureRepo(t, {
     "cmd/vsk-labs/main.go": "package main\nfunc main() {}\n",
