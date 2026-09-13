@@ -1,7 +1,9 @@
 package sshtransport
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -10,14 +12,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/apissh"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localtransport"
 )
 
-func TestRoundTripUsesDirectArgumentsAndExactHTTPFrame(t *testing.T) {
+func TestRoundTripUsesDirectArgumentsAndExactAPISSHFrame(t *testing.T) {
 	if os.Getenv("VSK_SSH_HELPER") == "1" {
 		content, _ := io.ReadAll(os.Stdin)
 		_ = os.WriteFile(os.Getenv("VSK_SSH_CAPTURE"), content, 0o600)
-		_, _ = os.Stdout.Write([]byte("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 3\r\nConnection: close\r\n\r\n{}\n"))
+		request, err := apissh.ReadRequest(bytes.NewReader(content))
+		if err != nil {
+			os.Exit(2)
+		}
+		envelope := generated.RunResult{Schema: generated.SchemaIDRunResult, SchemaVersion: "1.0.0", ToolVersion: "0.0.0-test", Command: "api.v1.test", RequestID: request.Header.RequestID, Status: generated.RunStatusSucceeded, RecoveryEpoch: 3, ReleaseBuildID: "test", Errors: []generated.ResultError{}, Data: json.RawMessage(`{}`)}
+		if apissh.WriteResponse(os.Stdout, request.Header.RequestID, envelope) != nil {
+			os.Exit(2)
+		}
 		os.Exit(0)
 	}
 	directory := t.TempDir()
@@ -29,16 +40,21 @@ func TestRoundTripUsesDirectArgumentsAndExactHTTPFrame(t *testing.T) {
 	arguments := secureSSHArguments("/literal path", "operator@host")
 	response, err := roundTrip(context.Background(), Request{
 		Executable: "ssh", Arguments: arguments,
-		Method: localtransport.MethodPost, Path: "/api/v1/test", Body: []byte(`{"value":"$(literal)"}`), Timeout: 5 * time.Second, ResponseLimit: 32,
+		RequestID: "request-ssh-transport", SSHPrincipalID: "principal.operator", DeviceID: "device.operator", RecoveryEpoch: 3, OperationArgs: []string{"--output", "json"},
+		Method: localtransport.MethodPost, Path: "/api/v1/test", Body: []byte(`{"value":"$(literal)"}`), Timeout: 5 * time.Second, ResponseLimit: 4096,
 	}, func(ctx context.Context, executable string, arguments []string) *exec.Cmd {
 		gotExecutable = executable
 		gotArguments = append([]string(nil), arguments...)
-		command := exec.CommandContext(ctx, os.Args[0], "-test.run=TestRoundTripUsesDirectArgumentsAndExactHTTPFrame")
+		command := exec.CommandContext(ctx, os.Args[0], "-test.run=TestRoundTripUsesDirectArgumentsAndExactAPISSHFrame")
 		command.Env = append(os.Environ(), "VSK_SSH_HELPER=1")
 		return command
 	})
-	if err != nil || response.StatusCode != 200 || string(response.Body) != "{}\n" {
+	if err != nil || response.StatusCode != 200 {
 		t.Fatalf("RoundTrip() = %#v, %v", response, err)
+	}
+	decoded, err := apissh.ReadResponse(bytes.NewReader(responseFrame(t, "request-ssh-transport", response.Body)), "request-ssh-transport")
+	if err != nil || decoded.Envelope.Command != "api.v1.test" {
+		t.Fatalf("response envelope = %#v, %v", decoded.Envelope, err)
 	}
 	captured, err := os.ReadFile(capture)
 	if err != nil {
@@ -48,10 +64,20 @@ func TestRoundTripUsesDirectArgumentsAndExactHTTPFrame(t *testing.T) {
 	if gotExecutable != "ssh" || fmt.Sprint(gotArguments) != fmt.Sprint(wantArguments) {
 		t.Fatalf("invocation = %q %#v", gotExecutable, gotArguments)
 	}
-	wantFrame := "POST /api/v1/test HTTP/1.1\r\nHost: local\r\nUser-Agent: Go-http-client/1.1\r\nConnection: close\r\nContent-Length: 22\r\nContent-Type: application/json\r\n\r\n{\"value\":\"$(literal)\"}"
-	if string(captured) != wantFrame {
-		t.Fatalf("captured bytes = %q", captured)
+	request, err := apissh.ReadRequest(bytes.NewReader(captured))
+	if err != nil || request.Header.RequestID != "request-ssh-transport" || request.Header.SSHPrincipalID != "principal.operator" || request.Header.DeviceID != "device.operator" || request.Header.RecoveryEpoch != 3 || request.Method != "POST" || request.Path != "/api/v1/test" || string(request.Payload) != `{"value":"$(literal)"}` {
+		t.Fatalf("captured frame = %#v, %v", request, err)
 	}
+}
+
+func responseFrame(t *testing.T, requestID string, envelope []byte) []byte {
+	t.Helper()
+	header := generated.ApiSshResponseFrameHeader{Protocol: apissh.Protocol, Version: apissh.Version, RequestID: requestID, DeclaredPayloadBytes: int64(len(envelope)), ActualPayloadBytes: int64(len(envelope))}
+	raw, err := json.Marshal(header)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return append(append(raw, '\n'), envelope...)
 }
 
 func TestRoundTripRejectsMissingOrChangedSecurityOptions(t *testing.T) {

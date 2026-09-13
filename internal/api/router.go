@@ -98,6 +98,13 @@ func RemoteExecutorRequestAllowed(method, requestPath string) bool {
 // fit the one-request framing protocol. Streaming, browser sessions, executor
 // operations, acknowledgement creation, and undeclared writes stay denied.
 func ConstrainedSSHRequestAllowed(method, requestPath string) bool {
+	_, ok := ConstrainedSSHOperation(method, requestPath)
+	return ok
+}
+
+// ConstrainedSSHOperation returns the generated endpoint identity used to
+// correlate the framed response with the exact admitted API operation.
+func ConstrainedSSHOperation(method, requestPath string) (string, bool) {
 	for _, endpoint := range generated.Endpoints {
 		if endpoint.Availability != generated.AvailabilityAvailable || endpoint.Method != method || !slices.Contains(endpoint.Audiences, "operator") {
 			continue
@@ -107,10 +114,10 @@ func ConstrainedSSHRequestAllowed(method, requestPath string) bool {
 			continue
 		}
 		if _, ok := matchPath(endpoint.Path, requestPath); ok {
-			return true
+			return endpoint.ID, true
 		}
 	}
-	return false
+	return "", false
 }
 
 func finiteRoutes(app *Application) []route {

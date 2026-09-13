@@ -15,7 +15,7 @@ func TestLoadConstrainedSSHProfileBuildsFixedDirectArguments(t *testing.T) {
 		t.Fatal(err)
 	}
 	profilePath := filepath.Join(directory, "client profile.json")
-	content := `{"schema":"vegastack-labs.dev/client-profile","schemaVersion":"1.0.0","transport":{"kind":"constrained-ssh","executable":"ssh","destination":"operator@control-plane","knownHostsPath":` + quote(knownHosts) + `}}`
+	content := `{"schema":"vegastack-labs.dev/client-profile","schemaVersion":"1.0.0","transport":{"kind":"constrained-ssh","executable":"ssh","destination":"operator@control-plane","knownHostsPath":` + quote(knownHosts) + `,"sshPrincipalId":"principal.operator","deviceId":"device.operator","recoveryEpoch":3}}`
 	if err := os.WriteFile(profilePath, []byte(content), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -25,7 +25,7 @@ func TestLoadConstrainedSSHProfileBuildsFixedDirectArguments(t *testing.T) {
 		t.Fatalf("Load() = %#v, %t, %v", profile, matched, err)
 	}
 	want := secureArguments(knownHosts, "operator@control-plane")
-	if profile.ConstrainedSSH.Executable != "ssh" || !reflect.DeepEqual(profile.ConstrainedSSH.Arguments, want) {
+	if profile.ConstrainedSSH.Executable != "ssh" || !reflect.DeepEqual(profile.ConstrainedSSH.Arguments, want) || profile.ConstrainedSSH.SSHPrincipalID != "principal.operator" || profile.ConstrainedSSH.DeviceID != "device.operator" || profile.ConstrainedSSH.RecoveryEpoch != 3 {
 		t.Fatalf("remote invocation = %#v", profile.ConstrainedSSH)
 	}
 }
@@ -143,7 +143,7 @@ func quote(value string) string {
 }
 
 func clientProfile(knownHosts string) string {
-	return `{"schema":"vegastack-labs.dev/client-profile","schemaVersion":"1.0.0","transport":{"kind":"constrained-ssh","executable":"ssh","destination":"operator@host","knownHostsPath":` + quote(knownHosts) + `}}`
+	return `{"schema":"vegastack-labs.dev/client-profile","schemaVersion":"1.0.0","transport":{"kind":"constrained-ssh","executable":"ssh","destination":"operator@host","knownHostsPath":` + quote(knownHosts) + `,"sshPrincipalId":"principal.operator","deviceId":"device.operator","recoveryEpoch":3}}`
 }
 
 func secureArguments(knownHosts, destination string) []string {

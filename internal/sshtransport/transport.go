@@ -3,17 +3,17 @@
 package sshtransport
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"errors"
 	"io"
-	"net/http"
 	"os/exec"
 	"regexp"
 	"strings"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/apissh"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localtransport"
 )
 
@@ -23,13 +23,18 @@ var (
 )
 
 type Request struct {
-	Executable    string
-	Arguments     []string
-	Method        localtransport.Method
-	Path          string
-	Body          []byte
-	Timeout       time.Duration
-	ResponseLimit int64
+	Executable     string
+	Arguments      []string
+	RequestID      string
+	SSHPrincipalID string
+	DeviceID       string
+	RecoveryEpoch  int64
+	OperationArgs  []string
+	Method         localtransport.Method
+	Path           string
+	Body           []byte
+	Timeout        time.Duration
+	ResponseLimit  int64
 }
 
 type commandFactory func(context.Context, string, []string) *exec.Cmd
@@ -67,16 +72,12 @@ func roundTrip(ctx context.Context, input Request, command commandFactory) (loca
 		input.Timeout <= 0 || input.Timeout > maximumTimeout || input.ResponseLimit <= 0 || input.ResponseLimit > maximumResponseBytes {
 		return localtransport.Response{}, ErrInvalid
 	}
-	request, err := http.NewRequest(input.Method, "http://local"+input.Path, bytes.NewReader(input.Body))
+	header, err := apissh.NewRequestHeader(input.RequestID, input.SSHPrincipalID, input.DeviceID, string(input.Method)+" "+input.Path, input.OperationArgs, input.RecoveryEpoch, input.Body)
 	if err != nil {
 		return localtransport.Response{}, ErrInvalid
 	}
-	request.Close = true
-	if input.Method == localtransport.MethodPost {
-		request.Header.Set("Content-Type", "application/json")
-	}
 	var framed bytes.Buffer
-	if request.Write(&framed) != nil {
+	if apissh.WriteRequest(&framed, header, input.Body) != nil {
 		return localtransport.Response{}, ErrInvalid
 	}
 	requestCtx, cancel := context.WithTimeout(ctx, input.Timeout)
@@ -95,16 +96,35 @@ func roundTrip(ctx context.Context, input Request, command commandFactory) (loca
 		}
 		return localtransport.Response{}, ErrUnavailable
 	}
-	response, err := http.ReadResponse(bufio.NewReader(&stdout.buffer), request)
-	if err != nil || response == nil || response.Body == nil {
+	response, err := apissh.ReadResponse(&stdout.buffer, input.RequestID)
+	if err != nil || len(response.RawEnvelope) == 0 || int64(len(response.RawEnvelope)) > input.ResponseLimit {
 		return localtransport.Response{}, ErrInvalid
 	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(io.LimitReader(response.Body, input.ResponseLimit+1))
-	if err != nil || len(body) == 0 || int64(len(body)) > input.ResponseLimit {
-		return localtransport.Response{}, ErrInvalid
+	return localtransport.Response{StatusCode: statusForEnvelope(response.Envelope), ContentType: "application/json", Body: response.RawEnvelope}, nil
+}
+
+func statusForEnvelope(envelope generated.RunResult) int {
+	if len(envelope.Errors) == 0 {
+		return localtransport.StatusOK
 	}
-	return localtransport.Response{StatusCode: response.StatusCode, ContentType: response.Header.Get("Content-Type"), Body: body}, nil
+	return map[string]int{
+		generated.ErrorCodeAuthenticationRequired: localtransport.StatusUnauthorized,
+		generated.ErrorCodeAuthorizationDenied:    localtransport.StatusForbidden,
+		generated.ErrorCodeInputInvalid:           localtransport.StatusBadRequest,
+		generated.ErrorCodeSchemaUnsupported:      localtransport.StatusBadRequest,
+		generated.ErrorCodeStateConflict:          localtransport.StatusConflict,
+		generated.ErrorCodeRecoveryEpochMismatch:  localtransport.StatusConflict,
+		generated.ErrorCodeResourceNotFound:       localtransport.StatusNotFound,
+		generated.ErrorCodePrerequisiteBlocked:    localtransport.StatusPreconditionFailed,
+		generated.ErrorCodeInterrupted:            localtransport.StatusRequestTimeout,
+		generated.ErrorCodeDependencyUnavailable:  localtransport.StatusServiceUnavailable,
+		generated.ErrorCodeIntegrityFailure:       localtransport.StatusServiceUnavailable,
+		generated.ErrorCodeApprovalRequired:       localtransport.StatusPreconditionFailed,
+		generated.ErrorCodePlanStale:              localtransport.StatusConflict,
+		generated.ErrorCodeExecutionFailed:        localtransport.StatusBadGateway,
+		generated.ErrorCodeExecutionPartial:       localtransport.StatusConflict,
+		generated.ErrorCodeRecoveryRequired:       localtransport.StatusConflict,
+	}[envelope.Errors[0].Code]
 }
 
 func validArguments(arguments []string) bool {

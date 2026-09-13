@@ -14,6 +14,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/principal"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
@@ -35,6 +36,9 @@ type transport struct {
 	Executable     string `json:"executable"`
 	Destination    string `json:"destination"`
 	KnownHostsPath string `json:"knownHostsPath"`
+	SSHPrincipalID string `json:"sshPrincipalId"`
+	DeviceID       string `json:"deviceId"`
+	RecoveryEpoch  int64  `json:"recoveryEpoch"`
 }
 
 // Load returns matched=false when path is not a client profile, allowing the
@@ -89,6 +93,7 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	if decoder.Decode(&trailing) != io.EOF || profile.SchemaVersion != "1.0.0" || profile.Transport.Kind != "constrained-ssh" ||
 		(profile.Transport.Executable != "ssh" && profile.Transport.Executable != "ssh.exe") ||
 		!destinationPattern.MatchString(profile.Transport.Destination) || len(profile.Transport.Destination) > 255 ||
+		!principal.ValidID(profile.Transport.SSHPrincipalID) || !principal.ValidID(profile.Transport.DeviceID) || profile.Transport.RecoveryEpoch < 0 ||
 		len(profile.Transport.KnownHostsPath) > 4096 || strings.ContainsRune(profile.Transport.KnownHostsPath, 0) ||
 		!filepath.IsAbs(profile.Transport.KnownHostsPath) || filepath.Clean(profile.Transport.KnownHostsPath) != profile.Transport.KnownHostsPath {
 		return serverconfig.Profile{}, true, invalid()
@@ -97,7 +102,10 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 		return serverconfig.Profile{}, true, err
 	}
 	arguments := constrainedSSHArguments(profile.Transport.KnownHostsPath, profile.Transport.Destination)
-	return serverconfig.Profile{ConstrainedSSH: &serverconfig.ConstrainedSSH{Executable: profile.Transport.Executable, Arguments: arguments}}, true, nil
+	return serverconfig.Profile{ConstrainedSSH: &serverconfig.ConstrainedSSH{
+		Executable: profile.Transport.Executable, Arguments: arguments,
+		SSHPrincipalID: profile.Transport.SSHPrincipalID, DeviceID: profile.Transport.DeviceID, RecoveryEpoch: profile.Transport.RecoveryEpoch,
+	}}, true, nil
 }
 
 func validateKnownHosts(path string) error {

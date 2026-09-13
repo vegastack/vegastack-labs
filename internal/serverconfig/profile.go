@@ -35,8 +35,11 @@ type Profile struct {
 // ConstrainedSSH is a client-only transport. Arguments are produced by the
 // typed client profile and never contain a remote command.
 type ConstrainedSSH struct {
-	Executable string
-	Arguments  []string
+	Executable     string
+	Arguments      []string
+	SSHPrincipalID string
+	DeviceID       string
+	RecoveryEpoch  int64
 }
 
 type RemoteRead struct {
