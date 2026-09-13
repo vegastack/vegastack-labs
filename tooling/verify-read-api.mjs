@@ -16,7 +16,10 @@ const CODE_ORDER = [
 ];
 const EXPECTED_ENDPOINTS = [
   "api.v1.database-status.get", "api.v1.declarations.get", "api.v1.declarations.revise",
-  "api.v1.events.stream", "api.v1.health.get",
+  "api.v1.events.stream",
+  "api.v1.execution-receipts.create",
+  "api.v1.executor-leases.claim", "api.v1.executor-leases.renew",
+  "api.v1.health.get",
   "api.v1.inventory-diffs.create",
   "api.v1.inventory-draft-aliases.get", "api.v1.inventory-draft-aliases.list",
   "api.v1.inventory-draft-assets.get", "api.v1.inventory-draft-assets.list",
