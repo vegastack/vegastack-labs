@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.13.0",
+  "schemaVersion": "1.14.0",
   "commands": [
     {
       "path": [
@@ -1792,6 +1792,16 @@
       "id": "vegastack-labs.dev/api-source-list-query",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/api-source-list-query.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-ssh-request-frame-header",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-ssh-request-frame-header.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/api-ssh-response-frame-header",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/api-ssh-response-frame-header.schema.json"
     },
     {
       "id": "vegastack-labs.dev/api-summary-data",

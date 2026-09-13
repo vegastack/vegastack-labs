@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.13.0"
+	RegistrySchemaVersion                   = "1.14.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -35,6 +35,8 @@ const (
 	SchemaIDApiSourceData                   = "vegastack-labs.dev/api-source-data"
 	SchemaIDApiSourceListData               = "vegastack-labs.dev/api-source-list-data"
 	SchemaIDApiSourceListQuery              = "vegastack-labs.dev/api-source-list-query"
+	SchemaIDApiSshRequestFrameHeader        = "vegastack-labs.dev/api-ssh-request-frame-header"
+	SchemaIDApiSshResponseFrameHeader       = "vegastack-labs.dev/api-ssh-response-frame-header"
 	SchemaIDApiSummaryData                  = "vegastack-labs.dev/api-summary-data"
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
@@ -348,6 +350,28 @@ type ApiSourceListQuery struct {
 	Cursor string `json:"cursor"`
 	Source string `json:"source"`
 	State  string `json:"state"`
+}
+
+type ApiSshRequestFrameHeader struct {
+	Protocol             string   `json:"protocol"`
+	Version              string   `json:"version"`
+	RequestID            string   `json:"requestId"`
+	SSHPrincipalID       string   `json:"sshPrincipalId"`
+	DeviceID             string   `json:"deviceId"`
+	Operation            string   `json:"operation"`
+	Arguments            []string `json:"arguments"`
+	PayloadDigest        string   `json:"payloadDigest"`
+	DeclaredPayloadBytes int64    `json:"declaredPayloadBytes"`
+	ActualPayloadBytes   int64    `json:"actualPayloadBytes"`
+	RecoveryEpoch        int64    `json:"recoveryEpoch"`
+}
+
+type ApiSshResponseFrameHeader struct {
+	Protocol             string `json:"protocol"`
+	Version              string `json:"version"`
+	RequestID            string `json:"requestId"`
+	DeclaredPayloadBytes int64  `json:"declaredPayloadBytes"`
+	ActualPayloadBytes   int64  `json:"actualPayloadBytes"`
 }
 
 type ApiSummaryData struct {

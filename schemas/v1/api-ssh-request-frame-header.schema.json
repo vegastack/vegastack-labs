@@ -1,0 +1,77 @@
+{
+  "$id": "vegastack-labs.dev/api-ssh-request-frame-header",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actualPayloadBytes": {
+      "maximum": 8388608,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "arguments": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array"
+    },
+    "declaredPayloadBytes": {
+      "maximum": 8388608,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "deviceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "operation": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "payloadDigest": {
+      "pattern": "^sha256:[0-9a-f]{64}$",
+      "type": "string"
+    },
+    "protocol": {
+      "enum": [
+        "vegastack-labs.api-ssh"
+      ],
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "requestId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "sshPrincipalId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "version": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "protocol",
+    "version",
+    "requestId",
+    "sshPrincipalId",
+    "deviceId",
+    "operation",
+    "arguments",
+    "payloadDigest",
+    "declaredPayloadBytes",
+    "actualPayloadBytes",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs api ssh request frame header",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
