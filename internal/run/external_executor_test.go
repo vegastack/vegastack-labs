@@ -2,6 +2,7 @@ package run
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -86,6 +87,111 @@ func TestExternalClaimRejectsWrongIdentityBeforeReturningWork(t *testing.T) {
 	if len(fixture.leases.leases) != 0 || fixture.engine.adapter.calls != 0 {
 		t.Fatalf("wrong identity returned work: leases=%d execute=%d", len(fixture.leases.leases), fixture.engine.adapter.calls)
 	}
+	if fixture.leases.denials != 1 {
+		t.Fatalf("denial audits = %d", fixture.leases.denials)
+	}
+}
+
+func TestExternalClaimIsServerOrderedSingleWorkAndStopsOnCancellation(t *testing.T) {
+	t.Run("adapter cannot skip the first operation", func(t *testing.T) {
+		fixture := newExternalExecutorFixtureWithSecondStep(t)
+		request := fixture.claimRequest()
+		request.AdapterID = "adapter-later"
+		if _, err := fixture.external.Claim(context.Background(), fixture.principal, request); Code(err) != generated.ErrorCodeAuthorizationDenied {
+			t.Fatalf("skip adapter code = %q", Code(err))
+		}
+		if len(fixture.leases.leases) != 0 {
+			t.Fatal("caller-selected later step received work")
+		}
+		fixture.claim(t)
+		request.AdapterID = "adapter-later"
+		if _, err := fixture.external.Claim(context.Background(), fixture.principal, request); Code(err) != generated.ErrorCodeStateConflict {
+			t.Fatalf("second active work code = %q", Code(err))
+		}
+		if len(fixture.leases.leases) != 1 {
+			t.Fatalf("active leases = %d", len(fixture.leases.leases))
+		}
+	})
+
+	t.Run("cancellation blocks the first claim", func(t *testing.T) {
+		fixture := newExternalExecutorFixture(t)
+		cancelled, err := fixture.engine.engine.Cancel(context.Background(), fixture.engine.runID)
+		if err != nil || cancelled.Status != "interrupted" {
+			t.Fatalf("cancel before claim = %#v, %v", cancelled, err)
+		}
+		if _, err := fixture.external.Claim(context.Background(), fixture.principal, fixture.claimRequest()); Code(err) != generated.ErrorCodeResourceNotFound {
+			t.Fatalf("cancelled claim code = %q", Code(err))
+		}
+		if len(fixture.leases.leases) != 0 {
+			t.Fatal("cancelled run received work")
+		}
+	})
+
+	t.Run("cancellation after a claim stops the next operation", func(t *testing.T) {
+		fixture := newExternalExecutorFixtureWithSecondStep(t)
+		lease := fixture.claim(t)
+		if _, err := fixture.engine.engine.Cancel(context.Background(), fixture.engine.runID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := fixture.external.SubmitReceipt(context.Background(), fixture.principal, receiptRequest(lease, "receipt-cancel-boundary", "succeeded")); err != nil {
+			t.Fatal(err)
+		}
+		current, _ := fixture.engine.engine.Get(context.Background(), fixture.engine.runID)
+		if current.Status != "interrupted" || current.Steps[1].Status != "interrupted" {
+			t.Fatalf("cancel boundary run = %#v", current)
+		}
+		request := fixture.claimRequest()
+		request.AdapterID = "adapter-later"
+		if _, err := fixture.external.Claim(context.Background(), fixture.principal, request); Code(err) != generated.ErrorCodeResourceNotFound {
+			t.Fatalf("claim after cancellation code = %q", Code(err))
+		}
+	})
+}
+
+func TestExternalReconcilerRetriesTransientFailureUntilLeaseIsSettled(t *testing.T) {
+	fixture := newExternalExecutorFixture(t)
+	lease := fixture.claim(t)
+	fixture.setNow(parseTime(lease.LeaseExpiresAt).Add(time.Second))
+	fixture.leases.expireFailures = 1
+	fixture.external.sweepInterval = time.Millisecond
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- fixture.external.Run(ctx) }()
+	deadline := time.Now().Add(time.Second)
+	for {
+		current, _ := fixture.engine.engine.Get(context.Background(), fixture.engine.runID)
+		if current.Status == "partial" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("transient reconciliation failure permanently stopped expiry")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	cancel()
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestExternalReconcilerFinishesRecoveryAfterCrashBetweenStepAndRunTransition(t *testing.T) {
+	fixture := newExternalExecutorFixture(t)
+	lease := fixture.claim(t)
+	fixture.setNow(parseTime(lease.LeaseExpiresAt).Add(time.Second))
+	expired, err := fixture.leases.Expire(context.Background(), store.ExecutorLeaseExpiryRequest{At: fixture.now, Attribution: systemAttribution()})
+	if err != nil || len(expired) != 1 {
+		t.Fatalf("expire = %#v, %v", expired, err)
+	}
+	if _, err := fixture.engine.store.MarkStepUnknown(context.Background(), fixture.engine.runID, lease.StepID, fixture.now, systemAttribution()); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.external.Reconcile(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := fixture.engine.engine.Get(context.Background(), fixture.engine.runID)
+	if current.Status != "partial" || current.Steps[0].Status != "partial" || current.Steps[0].EffectState != "effect-unknown" {
+		t.Fatalf("recovered crash state = %#v", current)
+	}
 }
 
 func TestExpiredLeaseAndTamperedOrUnverifiedSuccessRequireRecovery(t *testing.T) {
@@ -142,12 +248,30 @@ type externalExecutorFixture struct {
 }
 
 func newExternalExecutorFixture(t *testing.T) *externalExecutorFixture {
+	return newExternalExecutorFixtureWithPlan(t, false)
+}
+
+func newExternalExecutorFixtureWithSecondStep(t *testing.T) *externalExecutorFixture {
+	return newExternalExecutorFixtureWithPlan(t, true)
+}
+
+func newExternalExecutorFixtureWithPlan(t *testing.T, secondStep bool) *externalExecutorFixture {
 	t.Helper()
 	engine := newEngineFixture(t)
 	executorID := "executor-external"
 	engine.store.plan.ExecutorMode = "external"
 	engine.store.plan.ExecutorID = &executorID
 	engine.store.plan.Operations[0].ExecutorID = executorID
+	if secondStep {
+		second := engine.store.plan.Operations[0]
+		second.Sequence = 2
+		second.OperationID = "operation-later"
+		second.AdapterID = "adapter-later"
+		second.TargetID = "target-later"
+		second.InputDigest = digest("input-later")
+		second.ArtifactDigest = digest("artifact-later")
+		engine.store.plan.Operations = append(engine.store.plan.Operations, second)
+	}
 	got, err := engine.engine.Submit(context.Background(), engine.request)
 	if err != nil || got.Status != "running" {
 		t.Fatalf("submit external run = %#v, %v", got, err)
@@ -183,10 +307,12 @@ func receiptRequest(lease generated.ExecutorLease, id, status string) generated.
 }
 
 type memoryExternalLeases struct {
-	mu       sync.Mutex
-	runs     *memoryRepository
-	leases   map[string]generated.ExecutorLease
-	receipts map[string]generated.ExecutionReceipt
+	mu             sync.Mutex
+	runs           *memoryRepository
+	leases         map[string]generated.ExecutorLease
+	receipts       map[string]generated.ExecutionReceipt
+	expireFailures int
+	denials        int
 }
 
 func (repository *memoryExternalLeases) Claim(_ context.Context, request store.ExecutorLeaseClaimRequest) (generated.ExecutorLease, error) {
@@ -226,6 +352,10 @@ func (repository *memoryExternalLeases) Renew(_ context.Context, request store.E
 func (repository *memoryExternalLeases) Expire(_ context.Context, request store.ExecutorLeaseExpiryRequest) ([]generated.ExecutorLease, error) {
 	repository.mu.Lock()
 	defer repository.mu.Unlock()
+	if repository.expireFailures > 0 {
+		repository.expireFailures--
+		return nil, errors.New("transient expiry failure")
+	}
 	result := []generated.ExecutorLease{}
 	for id, lease := range repository.leases {
 		if lease.Status == "active" && !request.At.Before(parseTime(lease.LeaseExpiresAt)) {
@@ -236,6 +366,17 @@ func (repository *memoryExternalLeases) Expire(_ context.Context, request store.
 			delete(repository.runs.targets, lease.TargetID)
 			repository.runs.mu.Unlock()
 			result = append(result, lease)
+			continue
+		}
+		if lease.Status == "expired" {
+			repository.runs.mu.Lock()
+			run := repository.runs.runs[lease.RunID]
+			step := findRunStep(run, lease.StepID)
+			unsettled := run.Status == "running" && step != nil && step.Status == "partial" && step.EffectState == "effect-unknown"
+			repository.runs.mu.Unlock()
+			if unsettled {
+				result = append(result, lease)
+			}
 		}
 	}
 	return result, nil
@@ -269,6 +410,13 @@ func (repository *memoryExternalLeases) Get(_ context.Context, id string) (gener
 		return generated.ExecutorLease{}, runError(generated.ErrorCodeResourceNotFound, "executor-lease")
 	}
 	return lease, nil
+}
+
+func (repository *memoryExternalLeases) RecordAuthorizationDenial(_ context.Context, _ store.ExecutorAuthorizationDenialRequest) error {
+	repository.mu.Lock()
+	defer repository.mu.Unlock()
+	repository.denials++
+	return nil
 }
 
 func (adapterFixture *fakeAdapter) VerifyReceipt(_ context.Context, _ adapter.Operation, observation adapter.ReceiptObservation) (adapter.ReceiptVerification, error) {

@@ -66,7 +66,7 @@ func (authenticator *BrowserAuthenticator) WrapExecutor(next http.Handler) http.
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return
 		}
-		principal, err := authenticator.config.Sessions.ResolveRemoteIdentity(ctx, bindingDigest)
+		principal, err := authenticator.config.Sessions.ResolveExternalIdentity(ctx, bindingDigest)
 		if err != nil || principal.Method != verified.Method || !identity.ValidPrincipal(principal) {
 			authenticator.writeFailure(writer, generated.ErrorCodeAuthenticationRequired)
 			return

@@ -45,6 +45,22 @@ func TestBrowserSessionLifecycleStoresOnlyDigestsAndAuditsAtomically(t *testing.
 	}
 }
 
+func TestExternalIdentityRequiresExplicitCurrentMachinePrincipal(t *testing.T) {
+	s, _ := newSessionStore(t)
+	_, binding := seedRemoteBinding(t, s, "principal-executor")
+	if _, err := s.ResolveExternalIdentity(context.Background(), binding); Code(err) != generated.ErrorCodeAuthenticationRequired {
+		t.Fatalf("implicit human external identity code = %q", Code(err))
+	}
+	now := s.config.Clock().UTC().Format(time.RFC3339Nano)
+	if _, err := s.conn.ExecContext(context.Background(), `INSERT INTO effective_authorization_principals(principal_id,principal_kind,status,grant_revision,created_at,updated_at) VALUES(?,'policy','active',1,?,?)`, "principal-executor", now, now); err != nil {
+		t.Fatal(err)
+	}
+	principal, err := s.ResolveExternalIdentity(context.Background(), binding)
+	if err != nil || principal.ID != "principal-executor" || principal.Kind != identity.PrincipalPolicy || principal.Method != identity.CloudflareAccessMethod {
+		t.Fatalf("external identity = %#v, %v", principal, err)
+	}
+}
+
 func TestBrowserSessionExpiryTransitionsAndAuditsExactlyOnce(t *testing.T) {
 	tests := []struct {
 		name           string

@@ -290,19 +290,10 @@ func TestExpiredExecutorLeaseRecoveryDiscoverySurvivesRetryAndRestart(t *testing
 	}
 
 	runs := NewRunRepository(reopened)
-	run, err := runs.Get(context.Background(), fixture.run.RunID)
-	if err != nil {
+	if _, err := runs.MarkStepUnknown(context.Background(), fixture.run.RunID, fixture.run.Steps[0].StepID, now.Add(64*time.Second), fixture.attribution); err != nil {
 		t.Fatal(err)
 	}
-	run.Steps[0].EffectState = "effect-unknown"
-	runBytes, _ := json.Marshal(run)
-	if _, err := reopened.conn.ExecContext(context.Background(), `UPDATE plan_run_steps SET effect_state='effect-unknown' WHERE step_id=?`, run.Steps[0].StepID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := reopened.conn.ExecContext(context.Background(), `UPDATE plan_runs SET canonical_bytes=? WHERE run_id=?`, runBytes, run.RunID); err != nil {
-		t.Fatal(err)
-	}
-	unknown, err := repository.Expire(context.Background(), ExecutorLeaseExpiryRequest{At: now.Add(64 * time.Second), Attribution: fixture.attribution})
+	unknown, err := repository.Expire(context.Background(), ExecutorLeaseExpiryRequest{At: now.Add(65 * time.Second), Attribution: fixture.attribution})
 	if err != nil || len(unknown) != 1 || unknown[0].LeaseID != lease.LeaseID {
 		t.Fatalf("effect-unknown expiry recovery = %#v, %v", unknown, err)
 	}

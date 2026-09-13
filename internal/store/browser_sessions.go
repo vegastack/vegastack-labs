@@ -54,10 +54,39 @@ type BrowserSessionCreate struct {
 
 type BrowserSessionStore interface {
 	ResolveRemoteIdentity(context.Context, string) (identity.Principal, error)
+	ResolveExternalIdentity(context.Context, string) (identity.Principal, error)
 	CreateBrowserSession(context.Context, BrowserSessionCreate) (BrowserSession, string, error)
 	ValidateAndTouchBrowserSession(context.Context, string, string, time.Time) (BrowserSession, error)
 	RenewBrowserSession(context.Context, string, string, time.Time) (BrowserSession, string, error)
 	LogoutBrowserSession(context.Context, string, string) error
+}
+
+// ResolveExternalIdentity requires the remote binding to have a current,
+// explicit non-human effective principal. Browser identity resolution remains
+// backward-compatible and cannot accidentally upgrade a human session.
+func (store *Store) ResolveExternalIdentity(ctx context.Context, bindingDigest string) (identity.Principal, error) {
+	if !validSessionDigest(bindingDigest) {
+		return identity.Principal{}, authenticationStoreError()
+	}
+	principal := identity.Principal{Method: identity.CloudflareAccessMethod}
+	var kind string
+	err := store.Read(ctx, func(tx ReadTx) error {
+		var bindingStatus, readStatus, effectiveStatus string
+		var readRevision, effectiveRevision int64
+		if err := tx.queryRow(ctx, `SELECT b.principal_id,b.status,r.status,r.grant_revision,e.principal_kind,e.status,e.grant_revision FROM remote_identity_bindings b JOIN read_principals r ON r.principal_id=b.principal_id JOIN effective_authorization_principals e ON e.principal_id=b.principal_id WHERE b.binding_digest=?`, bindingDigest).Scan(&principal.ID, &bindingStatus, &readStatus, &readRevision, &kind, &effectiveStatus, &effectiveRevision); err != nil {
+			return err
+		}
+		principal.Kind = identity.PrincipalKind(kind)
+		if bindingStatus != "active" || readStatus != "active" || effectiveStatus != "active" || readRevision <= 0 || effectiveRevision <= 0 ||
+			(identity.EffectivePrincipalKind(principal) != identity.PrincipalAgent && identity.EffectivePrincipalKind(principal) != identity.PrincipalPolicy) || !identity.ValidPrincipal(principal) {
+			return sql.ErrNoRows
+		}
+		return nil
+	})
+	if err != nil {
+		return identity.Principal{}, authenticationStoreError()
+	}
+	return principal, nil
 }
 
 func BrowserSessionDigest(raw string) (string, error) {

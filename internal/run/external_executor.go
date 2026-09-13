@@ -19,6 +19,7 @@ type ExternalLeaseRepository interface {
 	Expire(context.Context, store.ExecutorLeaseExpiryRequest) ([]generated.ExecutorLease, error)
 	RecordReceipt(context.Context, store.ExecutorReceiptPersistenceRequest) (generated.ExecutionReceipt, error)
 	Get(context.Context, string) (generated.ExecutorLease, error)
+	RecordAuthorizationDenial(context.Context, store.ExecutorAuthorizationDenialRequest) error
 }
 
 type ExternalExecutorConfig struct {
@@ -71,19 +72,16 @@ func (executor *ExternalExecutor) Run(ctx context.Context) error {
 	if executor == nil {
 		return runError(generated.ErrorCodeInputInvalid, "external-executor")
 	}
-	if err := executor.Reconcile(ctx); err != nil {
-		return err
-	}
 	ticker := time.NewTicker(executor.sweepInterval)
 	defer ticker.Stop()
 	for {
+		// A transient authority error must not permanently disable expiry. Claims
+		// still call Reconcile synchronously and fail closed while this retries.
+		_ = executor.Reconcile(ctx)
 		select {
 		case <-ctx.Done():
 			return nil
 		case <-ticker.C:
-			if err := executor.Reconcile(ctx); err != nil {
-				return err
-			}
 		}
 	}
 }
@@ -105,8 +103,21 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 		}
 		return runs[i].CreatedAt < runs[j].CreatedAt
 	})
+	// One executor gets one exact work item at a time across all of its runs.
+	// This also prevents a missed renewal from opening another step while the
+	// first external effect remains ambiguous.
 	for _, current := range runs {
 		if current.Status != "running" || current.ExecutorMode != "external" || current.ExecutorID != request.ExecutorID {
+			continue
+		}
+		for _, step := range current.Steps {
+			if step.Status == "running" || step.EffectState == "intent-recorded" || step.EffectState == "receipt-recorded" || step.EffectState == "effect-unknown" {
+				return generated.ExecutorLease{}, runError(generated.ErrorCodeStateConflict, "executor-work-active")
+			}
+		}
+	}
+	for _, current := range runs {
+		if current.Status != "running" || current.ExecutorMode != "external" || current.ExecutorID != request.ExecutorID || current.CancellationRequested {
 			continue
 		}
 		stored, getErr := executor.plans.Get(ctx, current.PlanID)
@@ -118,11 +129,19 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 			return generated.ExecutorLease{}, err
 		}
 		for _, step := range current.Steps {
-			if step.Status != "queued" || step.EffectState != "not-started" || step.AdapterID != request.AdapterID {
+			if step.Status == "succeeded" && step.EffectState == "verified" {
 				continue
 			}
+			// The first unresolved step is the only server-selected candidate.
+			// A caller adapter is an assertion, never a step-selection input.
+			if step.Status != "queued" || step.EffectState != "not-started" {
+				break
+			}
+			if step.AdapterID != request.AdapterID {
+				return generated.ExecutorLease{}, executor.authorizationDenied(ctx, principal, "claim-adapter", current.RunID)
+			}
 			if _, ok := authorization.BindExternalExecutorIdentity(principal, request, plan, step); !ok {
-				return generated.ExecutorLease{}, runError(generated.ErrorCodeAuthorizationDenied, "executor-claim-binding")
+				return generated.ExecutorLease{}, executor.authorizationDenied(ctx, principal, "claim-binding", current.RunID)
 			}
 			implementation, resolveErr := executor.adapters.Resolve(step.AdapterID)
 			if resolveErr != nil {
@@ -168,8 +187,11 @@ func (executor *ExternalExecutor) Renew(ctx context.Context, principal identity.
 	if err != nil {
 		return generated.ExecutorLease{}, err
 	}
-	if request.BindingDigest != lease.BindingDigest || request.NonceDigest != lease.NonceDigest || request.RecoveryEpoch != lease.RecoveryEpoch || current.Status != "running" {
-		return generated.ExecutorLease{}, runError(generated.ErrorCodeAuthorizationDenied, "executor-renew-binding")
+	if request.RecoveryEpoch != lease.RecoveryEpoch {
+		return generated.ExecutorLease{}, runError(generated.ErrorCodeRecoveryEpochMismatch, "executor-renew-binding")
+	}
+	if request.BindingDigest != lease.BindingDigest || request.NonceDigest != lease.NonceDigest || current.Status != "running" {
+		return generated.ExecutorLease{}, executor.authorizationDenied(ctx, principal, "renew-binding", lease.LeaseID)
 	}
 	if err := executor.admission.VerifyRun(ctx, plan, current); err != nil {
 		return generated.ExecutorLease{}, err
@@ -214,6 +236,11 @@ func (executor *ExternalExecutor) SubmitReceipt(ctx context.Context, principal i
 	}
 	now := executor.now()
 	bindingExact := request.ExpectedBindingDigest == lease.BindingDigest && generated.ValidateExecutionReceiptBinding(lease, request.Receipt) == nil
+	if !bindingExact {
+		if err := executor.recordAuthorizationDenial(ctx, principal, "receipt-binding", lease.LeaseID); err != nil {
+			return generated.ExecutionReceipt{}, err
+		}
+	}
 	if bindingExact {
 		if _, err := executor.leases.RecordReceipt(ctx, store.ExecutorReceiptPersistenceRequest{Request: request, At: now, Attribution: attribution}); err != nil {
 			return generated.ExecutionReceipt{}, err
@@ -249,6 +276,10 @@ func (executor *ExternalExecutor) SubmitReceipt(ctx context.Context, principal i
 		_, err = executor.runs.TransitionRun(context.WithoutCancel(ctx), store.RunTransitionRequest{RunID: updated.RunID, From: "running", To: "failed", At: now, VerificationStatus: "failed", Changed: &changed, Attribution: attribution})
 		return request.Receipt, err
 	}
+	if updated.CancellationRequested && !allStepsVerified(updated) {
+		_, err = executor.runs.TransitionRun(context.WithoutCancel(ctx), store.RunTransitionRequest{RunID: updated.RunID, From: "running", To: "interrupted", At: now, VerificationStatus: "incomplete", Attribution: attribution})
+		return request.Receipt, err
+	}
 	if allStepsVerified(updated) {
 		digest := digest("run-verification", updated.RunID, updated.PlanDigest)
 		_, err = executor.runs.TransitionRun(context.WithoutCancel(ctx), store.RunTransitionRequest{RunID: updated.RunID, From: "running", To: "succeeded", At: now, VerificationStatus: "verified", VerificationDigest: &digest, Attribution: attribution})
@@ -276,7 +307,7 @@ func (executor *ExternalExecutor) Reconcile(ctx context.Context) error {
 			return err
 		}
 		step := findRunStep(current, lease.StepID)
-		if current.Status != "running" || step == nil || step.Status != "running" {
+		if current.Status != "running" || step == nil || (step.Status != "running" && !(step.Status == "partial" && step.EffectState == "effect-unknown")) {
 			continue
 		}
 		if _, err := executor.recoveryRequired(ctx, current, *step, lease, systemAttribution()); Code(err) != generated.ErrorCodeRecoveryRequired {
@@ -305,29 +336,53 @@ func (executor *ExternalExecutor) boundLease(ctx context.Context, principal iden
 	}
 	claim := generated.ExecutorClaimRequest{ExecutorID: lease.ExecutorID, PrincipalID: principal.ID, AdapterID: lease.AdapterID, RecoveryEpoch: lease.RecoveryEpoch, Extensions: evidence}
 	if _, ok := authorization.BindExternalExecutorIdentity(principal, claim, stored.Plan, *step); !ok {
-		return generated.ExecutorLease{}, generated.Run{}, generated.Plan{}, generated.RunStep{}, runError(generated.ErrorCodeAuthorizationDenied, "executor-identity")
+		return generated.ExecutorLease{}, generated.Run{}, generated.Plan{}, generated.RunStep{}, executor.authorizationDenied(ctx, principal, "lease-identity", lease.LeaseID)
 	}
 	return lease, current, stored.Plan, *step, nil
 }
 
 func (executor *ExternalExecutor) recoveryRequired(ctx context.Context, current generated.Run, step generated.RunStep, lease generated.ExecutorLease, attribution audit.Attribution) (generated.ExecutionReceipt, error) {
 	cleanup := context.WithoutCancel(ctx)
+	updated := current
 	if step.Status == "running" && (step.EffectState == "intent-recorded" || step.EffectState == "receipt-recorded") {
-		updated, err := executor.runs.MarkStepUnknown(cleanup, current.RunID, step.StepID, executor.now(), attribution)
+		var err error
+		updated, err = executor.runs.MarkStepUnknown(cleanup, current.RunID, step.StepID, executor.now(), attribution)
 		if err != nil {
 			return generated.ExecutionReceipt{}, err
 		}
+	}
+	updatedStep := findRunStep(updated, step.StepID)
+	if updated.Status == "running" && updatedStep != nil && updatedStep.EffectState == "effect-unknown" {
 		changed := true
-		if updated.Status == "running" {
-			if _, err := executor.runs.TransitionRun(cleanup, store.RunTransitionRequest{RunID: updated.RunID, From: "running", To: "partial", At: executor.now(), VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: attribution}); err != nil {
-				return generated.ExecutionReceipt{}, err
-			}
+		if _, err := executor.runs.TransitionRun(cleanup, store.RunTransitionRequest{RunID: updated.RunID, From: "running", To: "partial", At: executor.now(), VerificationStatus: "incomplete", RollbackStatus: "required", Changed: &changed, Attribution: attribution}); err != nil {
+			return generated.ExecutionReceipt{}, err
 		}
 	}
 	if lease.Status == "active" {
-		_ = executor.runs.ReleaseTargetLease(cleanup, lease.LeaseID, executor.now())
+		if err := executor.runs.ReleaseTargetLease(cleanup, lease.LeaseID, executor.now()); err != nil {
+			return generated.ExecutionReceipt{}, err
+		}
 	}
 	return generated.ExecutionReceipt{}, runError(generated.ErrorCodeRecoveryRequired, "executor-reconciliation")
+}
+
+func (executor *ExternalExecutor) authorizationDenied(ctx context.Context, principal identity.Principal, reason, target string) error {
+	if err := executor.recordAuthorizationDenial(ctx, principal, reason, target); err != nil {
+		return err
+	}
+	return runError(generated.ErrorCodeAuthorizationDenied, "executor-authorization")
+}
+
+func (executor *ExternalExecutor) recordAuthorizationDenial(ctx context.Context, principal identity.Principal, reason, target string) error {
+	attribution, err := externalAttribution(principal)
+	if err != nil {
+		return err
+	}
+	return executor.leases.RecordAuthorizationDenial(context.WithoutCancel(ctx), store.ExecutorAuthorizationDenialRequest{
+		ReasonFingerprint: audit.Fingerprint(digest("executor-denial-reason", reason)),
+		TargetFingerprint: audit.Fingerprint(digest("executor-denial-target", target)),
+		At:                executor.now(), Attribution: attribution,
+	})
 }
 
 func (executor *ExternalExecutor) now() time.Time {

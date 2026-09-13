@@ -254,6 +254,15 @@ func (engine *Engine) CancelAs(ctx context.Context, id string, attribution audit
 	case "queued":
 		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "queued", To: "cancelled", At: now, Attribution: attribution})
 	case "running":
+		if run.ExecutorMode == "external" {
+			inFlight := false
+			for _, step := range run.Steps {
+				inFlight = inFlight || step.Status == "running" || step.EffectState == "intent-recorded" || step.EffectState == "receipt-recorded"
+			}
+			if !inFlight {
+				return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "running", To: "interrupted", At: now, VerificationStatus: "incomplete", Attribution: attribution})
+			}
+		}
 		return engine.repository.RequestCancellation(ctx, id, now, attribution)
 	case "interrupted":
 		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "interrupted", To: "cancelled", At: now, Attribution: attribution})

@@ -222,8 +222,10 @@ func (repository *ExecutorLeaseRepository) Expire(ctx context.Context, request E
 			JOIN plan_run_steps s ON s.step_id=l.step_id AND s.run_id=l.run_id
 			WHERE l.lease_kind='external' AND l.expires_at<=? AND (
 				l.status='active' OR (
-					l.status='expired' AND r.status='running' AND s.status='running'
-					AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown')
+				l.status='expired' AND r.status='running' AND (
+					(s.status='running' AND s.effect_state IN ('intent-recorded','receipt-recorded')) OR
+					(s.status='partial' AND s.effect_state='effect-unknown')
+				)
 				)
 			)
 			ORDER BY l.lease_id`, request.At.Format(time.RFC3339))
@@ -286,8 +288,10 @@ func (repository *ExecutorLeaseRepository) discoverExpiredRecovery(ctx context.C
 			JOIN plan_runs r ON r.run_id=l.run_id
 			JOIN plan_run_steps s ON s.step_id=l.step_id AND s.run_id=l.run_id
 			WHERE l.lease_kind='external' AND l.status='expired' AND l.expires_at<=?
-				AND r.status='running' AND s.status='running'
-				AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown')
+				AND r.status='running' AND (
+					(s.status='running' AND s.effect_state IN ('intent-recorded','receipt-recorded')) OR
+					(s.status='partial' AND s.effect_state='effect-unknown')
+				)
 			ORDER BY l.lease_id`, at.Format(time.RFC3339))
 		if err != nil {
 			return err
