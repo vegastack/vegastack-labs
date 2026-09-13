@@ -809,20 +809,26 @@ func reviewedUnixTransport(expression ast.Expr, info *types.Info) bool {
 			if !isClosure {
 				continue
 			}
-			ast.Inspect(closure.Body, func(node ast.Node) bool {
-				call, isCall := node.(*ast.CallExpr)
-				if !isCall {
-					return true
-				}
-				function := calledFunction(call.Fun, info)
-				if function != nil && function.Pkg() != nil && function.Pkg().Path() == "net" && reviewedUnixDial(function, call) {
-					unixDial = true
-				}
-				return true
-			})
+			unixDial = reviewedUnixDialClosure(closure, info)
 		}
 	}
 	return proxyDisabled && unixDial
+}
+
+func reviewedUnixDialClosure(closure *ast.FuncLit, info *types.Info) bool {
+	if closure.Body == nil || len(closure.Body.List) != 1 {
+		return false
+	}
+	returned, ok := closure.Body.List[0].(*ast.ReturnStmt)
+	if !ok || len(returned.Results) != 1 {
+		return false
+	}
+	call, ok := unparenthesized(returned.Results[0]).(*ast.CallExpr)
+	if !ok {
+		return false
+	}
+	function := calledFunction(call.Fun, info)
+	return function != nil && function.Pkg() != nil && function.Pkg().Path() == "net" && reviewedUnixDial(function, call)
 }
 
 func reviewedUnixHTTPClient(expression ast.Expr, transports map[*types.Var]bool, info *types.Info) bool {
