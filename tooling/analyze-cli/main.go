@@ -489,20 +489,54 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 	approvedCallbacks := reviewedLocalCallbacks(candidate)
 	valid := true
 	for _, file := range candidate.files {
+		directCallees := make(map[ast.Expr]bool)
+		ast.Inspect(file, func(node ast.Node) bool {
+			if call, ok := node.(*ast.CallExpr); ok {
+				directCallees[unparenthesized(call.Fun)] = true
+			}
+			return true
+		})
 		ast.Inspect(file, func(node ast.Node) bool {
 			if !valid {
 				return false
+			}
+			if selector, ok := node.(*ast.SelectorExpr); ok {
+				function, functionOK := candidate.info.ObjectOf(selector.Sel).(*types.Func)
+				if functionOK && function.Pkg() != nil && reviewedNetworkFunctionPackage(function.Pkg().Path()) && !directCallees[unparenthesized(selector)] {
+					valid = false
+					return false
+				}
 			}
 			call, ok := node.(*ast.CallExpr)
 			if !ok {
 				return true
 			}
-			if variable := calledFunctionVariable(call.Fun, candidate.info); variable != nil && !reviewedLocalCallbackCall(call.Fun, variable, candidate.info, localAPIImport, approvedCallbacks) {
-				valid = false
-				return false
+			if variable := calledFunctionVariable(call.Fun, candidate.info); variable != nil {
+				if !reviewedLocalCallbackCall(call.Fun, variable, candidate.info, localAPIImport, approvedCallbacks) {
+					valid = false
+					return false
+				}
+				return true
 			}
 			function := calledFunction(call.Fun, candidate.info)
-			if function == nil || function.Pkg() == nil {
+			if function == nil {
+				callee := unparenthesized(call.Fun)
+				if identifier, ok := callee.(*ast.Ident); ok {
+					if _, builtin := candidate.info.ObjectOf(identifier).(*types.Builtin); builtin {
+						return true
+					}
+				}
+				if _, literal := callee.(*ast.FuncLit); !literal {
+					if functionType := candidate.info.TypeOf(callee); functionType != nil {
+						if _, indirect := types.Unalias(functionType).Underlying().(*types.Signature); indirect {
+							valid = false
+							return false
+						}
+					}
+				}
+				return true
+			}
+			if function.Pkg() == nil {
 				return true
 			}
 			switch function.Pkg().Path() {
@@ -517,6 +551,15 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		})
 	}
 	return valid
+}
+
+func reviewedNetworkFunctionPackage(packagePath string) bool {
+	switch packagePath {
+	case "net", "net/http", "net/url", "crypto/tls":
+		return true
+	default:
+		return false
+	}
 }
 
 func reviewedLocalCallbackCall(expression ast.Expr, variable *types.Var, info *types.Info, localAPIImport string, approved map[*types.Var]bool) bool {
@@ -946,6 +989,10 @@ func calledFunction(expression ast.Expr, info *types.Info) *types.Func {
 	case *ast.SelectorExpr:
 		function, _ := info.ObjectOf(value.Sel).(*types.Func)
 		return function
+	case *ast.IndexExpr:
+		return calledFunction(value.X, info)
+	case *ast.IndexListExpr:
+		return calledFunction(value.X, info)
 	default:
 		return nil
 	}

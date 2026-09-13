@@ -347,6 +347,50 @@ test("the local client boundary rejects reflective package function invocation",
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
+test("the local client boundary rejects HTTP functions hidden by a type assertion", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import "net/http"',
+    "func Client() error {",
+    '  _, err := any(http.Get).(func(string) (*http.Response, error))("https://provider.invalid")',
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects HTTP functions hidden by a named conversion", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import "net/http"',
+    "type remote func(string) (*http.Response, error)",
+    "func Client() error {",
+    '  _, err := remote(http.Get)("https://provider.invalid")',
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary validates approved callback sources", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import "net/http"',
+    "func validateTypedResponse(validate func(string) (*http.Response, error)) error {",
+    '  _, err := validate("https://provider.invalid")',
+    "  return err",
+    "}",
+    "func Client() error { return validateTypedResponse(http.Get) }",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
 test("the CLI verifier requires the shipped dependency closure to consume generated contracts", async (t) => {
   const root = await fixtureRepo(t, {
     "cmd/vsk-labs/main.go": "package main\nfunc main() {}\n",
