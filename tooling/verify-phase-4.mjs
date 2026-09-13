@@ -86,6 +86,27 @@ async function phase4Definitions(root) {
   return { definition, evidence };
 }
 
+// These composition guards complement the executed scenario map: they keep
+// the real server, generated client, and browser recovery proof wired into the
+// single Phase 4 lane even when a focused scenario selector remains valid.
+export async function verifyPhase4Sources(root = ROOT) {
+  const [fixture, probe, client] = await Promise.all([
+    readFile(path.join(root, "internal/server/phase4_console_acceptance_linux_test.go"), "utf8"),
+    readFile(path.join(root, "web/e2e/real-change-server-probe.mjs"), "utf8"),
+    readFile(path.join(root, "web/generated/read-api.ts"), "utf8"),
+  ]);
+  for (const pattern of [/CompleteApprovedResumeAndCancelLoopsOverRealTLS/, /phase4ApprovalBridge/, /phase4ResumableAdapter/, /cli-plan/]) {
+    if (!pattern.test(fixture)) throw new Error("PHASE4_FAILED:fixture-definition");
+  }
+  for (const pattern of [/protected approval material was disclosed/, /browser-cli-plan-parity/, /approval-status/, /execute-interrupted/, /resume-run/, /cancelled/]) {
+    if (!pattern.test(probe)) throw new Error("PHASE4_FAILED:browser-proof");
+  }
+  for (const pattern of [/requestApproval/, /getApprovalStatus/, /preparePlan/, /reviseDeclaration/]) {
+    if (!pattern.test(client)) throw new Error("PHASE4_FAILED:generated-client");
+  }
+  return true;
+}
+
 async function cleanSourceState(root) {
   const [revision, status] = await Promise.all([
     runCommand("git", ["rev-parse", "HEAD"], { cwd: root, capture: true, timeoutMs: 30_000 }),
@@ -233,6 +254,7 @@ export async function executePhase4Scenarios(root, definition) {
 
 export async function runPhase4(root = ROOT, { prepared = false } = {}) {
   const sourceCommit = await cleanSourceState(root);
+  await verifyPhase4Sources(root);
   const { definition } = await phase4Definitions(root);
   if (!prepared) {
     const build = packageManagerInvocation(["--filter", "@vegastack/labs-web", "build"]);
