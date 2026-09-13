@@ -386,8 +386,14 @@ func seedPhase4BrowserChangeGrants(t *testing.T, databasePath string, now time.T
 			t.Fatal(err)
 		}
 	}
-	for _, revision := range []string{"declaration-browser:1", "declaration-browser:2", "declaration-browser-cancel:1", "declaration-browser-cancel:2"} {
-		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES('principal.remote','declaration.read','declaration',?,1,'active',?,?)`, revision, formatted, formatted); err != nil {
+	for _, grant := range []struct{ principal, revision string }{
+		{"principal.remote", "declaration-browser:1"},
+		{"principal.remote", "declaration-browser:2"},
+		{"principal.remote", "declaration-browser-cancel:1"},
+		{"principal.remote", "declaration-browser-cancel:2"},
+		{"principal.local", "declaration-browser:2"},
+	} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES(?,'declaration.read','declaration',?,1,'active',?,?)`, grant.principal, grant.revision, formatted, formatted); err != nil {
 			t.Fatal(err)
 		}
 	}

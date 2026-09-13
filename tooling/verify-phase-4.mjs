@@ -30,6 +30,20 @@ export const REQUIRED_PHASE4_SCENARIO_IDS = Object.freeze([
   "run.duplicate-apply-inert", "run.partial-ambiguous-receipt", "server.built-executable-real-sqlite",
   "slack.server-owned-request", "store.plan-commit-atomic", "suite.no-hidden-quarantine",
 ]);
+const REQUIRED_PHASE4_SCENARIO_ID_SET = new Set(REQUIRED_PHASE4_SCENARIO_IDS);
+
+export function phase4FailureDiagnostic(error) {
+  const match = /^PHASE4_FAILED:([a-z]+(?:-[a-z]+)*)(?::([a-z0-9]+(?:[.-][a-z0-9]+)*))?$/.exec(error?.message ?? "");
+  if (!match) return "Phase 4 verification failed at verification\n";
+  const [, stage, scenarioID] = match;
+  if (scenarioID !== undefined) {
+    if (!stage.startsWith("scenario-") || !REQUIRED_PHASE4_SCENARIO_ID_SET.has(scenarioID)) {
+      return "Phase 4 verification failed at verification\n";
+    }
+    return `Phase 4 verification failed at ${stage} (scenario ${scenarioID})\n`;
+  }
+  return `Phase 4 verification failed at ${stage}\n`;
+}
 
 function exactKeys(value, expected) {
   return value !== null && typeof value === "object" && !Array.isArray(value) &&
@@ -236,9 +250,15 @@ export async function executePhase4Scenarios(root, definition) {
       }
       const proof = `${scenario.kind}:${scenario.path}:${scenario.selector}`;
       if (!proofResults.has(proof)) {
-        if (scenario.kind === "go-test") await runGoScenario(root, scenario, runtime);
-        else if (scenario.kind === "browser-test") await runBrowserScenario(root, scenario, artifacts);
-        else await runNodeScenario(root, scenario);
+        try {
+          if (scenario.kind === "go-test") await runGoScenario(root, scenario, runtime);
+          else if (scenario.kind === "browser-test") await runBrowserScenario(root, scenario, artifacts);
+          else await runNodeScenario(root, scenario);
+        } catch (error) {
+          const failure = /^PHASE4_FAILED:(scenario-(?:execution|result))$/.exec(error?.message ?? "");
+          if (failure) throw new Error(`${error.message}:${scenario.id}`);
+          throw error;
+        }
         proofResults.set(proof, true);
       }
       outcomes[scenario.id] = { environment: scenario.environment, status: "pass" };
@@ -278,8 +298,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     if (args.some(value => value !== "--prepared") || args.filter(value => value === "--prepared").length > 1) throw new Error("PHASE4_FAILED:arguments");
     process.stdout.write(`${JSON.stringify(await runPhase4(ROOT, { prepared: args.includes("--prepared") }))}\n`);
   } catch (error) {
-    const stage = /^PHASE4_FAILED:([a-z]+(?:-[a-z]+)*)$/.exec(error?.message ?? "")?.[1] ?? "verification";
-    process.stderr.write(`Phase 4 verification failed at ${stage}\n`);
+    process.stderr.write(phase4FailureDiagnostic(error));
     process.exitCode = 1;
   }
 }

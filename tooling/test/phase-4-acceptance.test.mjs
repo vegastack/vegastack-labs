@@ -7,6 +7,7 @@ import {
   parseGoScenarioPass,
   parseNodeScenarioPass,
   parsePlaywrightScenarioPass,
+  phase4FailureDiagnostic,
   phase4ScenarioDigest,
   REQUIRED_PHASE4_SCENARIO_IDS,
   validatePhase4AcceptanceDefinition,
@@ -76,4 +77,15 @@ test("Phase 4 result parsers require an exact executed pass", () => {
   assert.doesNotThrow(() => parseNodeScenarioPass(`ok 1 - ${nodeName}\n`, nodeName));
   assert.throws(() => parseNodeScenarioPass("TAP version 13\n", nodeName), /PHASE4_FAILED:scenario-result/);
   assert.throws(() => parseNodeScenarioPass(`ok 1 - ${nodeName} # TODO\n`, nodeName), /PHASE4_FAILED:scenario-result/);
+});
+
+test("Phase 4 failures name only the closed scenario that failed", () => {
+  assert.equal(
+    phase4FailureDiagnostic(new Error("PHASE4_FAILED:scenario-execution:browser.artifact-private-free")),
+    "Phase 4 verification failed at scenario-execution (scenario browser.artifact-private-free)\n",
+  );
+  assert.equal(
+    phase4FailureDiagnostic(new Error("PHASE4_FAILED:scenario-execution:private-value")),
+    "Phase 4 verification failed at verification\n",
+  );
 });
