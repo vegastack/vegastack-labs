@@ -162,6 +162,29 @@ func TestRejectedAdapterActionIsAuditedBeforeEnvelopeAcknowledgement(t *testing.
 	}
 }
 
+func TestPhase4AcceptanceWrongSlackActionIsAuditedAndCannotAcknowledgePlan(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+	defer cancel()
+	transport := &fixtureTransport{sessions: [][]string{{fixtureInteractive("env-wrong-action", "workspace-approved", "user-approved", "action-widen")}}}
+	sink := &retryingCandidateSink{}
+	adapter, err := NewAdapter(testConfig(), fixtureResolver{}, transport, sink)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := adapter.Run(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("run = %v", err)
+	}
+	if sink.submits != 0 {
+		t.Fatalf("wrong action submitted %d acknowledgement candidates", sink.submits)
+	}
+	if sink.rejections != 1 || sink.lastRejection.ReasonCode != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("rejections = %d, last = %#v", sink.rejections, sink.lastRejection)
+	}
+	if got := strings.Join(transport.acknowledged, ","); got != "env-wrong-action" {
+		t.Fatalf("transport acknowledgements = %q", got)
+	}
+}
+
 func TestRejectionSourceIsStableByActorAndMalformedIsUnknown(t *testing.T) {
 	ctx := context.Background()
 	first := rejectionSourcePrincipal(ctx, []byte(fixtureInteractive("env-one", "workspace-wrong", "user-wrong", "action-reject")))

@@ -169,7 +169,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	runRepository := store.NewRunRepository(authority)
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
-	adapters := adapter.NewRegistry()
+	adapters := productionAdapterRegistry()
 	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
@@ -202,6 +202,13 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	return service.Run(ctx)
+}
+
+// productionAdapterRegistry is the single composition point for adapters that
+// the shipped server may execute. Keeping the constructor explicit lets the
+// acceptance suite prove that test-only adapters cannot enter the real runtime.
+func productionAdapterRegistry() *adapter.Registry {
+	return adapter.NewRegistry()
 }
 
 // backgroundServices keeps optional capabilities inside the one vsk-labs

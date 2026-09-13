@@ -251,15 +251,24 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := New(Config{Profile: serverconfig.Profile{SocketPath: phase4ConsoleSocketPath(t), InventoryExportRoot: directory, SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600, ShutdownGrace: 5 * time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}}, RemoteRead: serverconfig.RemoteRead{Enabled: true, ConfigurationValid: true}}, Application: application, Results: factory, PlatformProbe: staticPlatformProbe{platform: testSupportedPlatform()}, Remote: &RemoteConfig{Authenticator: authenticator, Console: console, ListenConfig: RemoteListenConfig{Address: listener.Addr().String(), CertificatePath: certificatePath, PrivateKeyPath: keyPath}, ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) { return listener, nil }}})
+	socketPath := phase4ConsoleSocketPath(t)
+	serviceProfile := serverconfig.Profile{SocketPath: socketPath, InventoryExportRoot: directory, SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600, ShutdownGrace: 5 * time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}}, RemoteRead: serverconfig.RemoteRead{Enabled: true, ConfigurationValid: true}}
+	service, err := New(Config{Profile: serviceProfile, Application: application, Results: factory, PlatformProbe: staticPlatformProbe{platform: testSupportedPlatform()}, Remote: &RemoteConfig{Authenticator: authenticator, Console: console, ListenConfig: RemoteListenConfig{Address: listener.Addr().String(), CertificatePath: certificatePath, PrivateKeyPath: keyPath}, ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) { return listener, nil }}})
 	if err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- service.Run(ctx) }()
+	cliConfigPath := filepath.Join(directory, "cli-server-profile.json")
+	writeProtectedJSON(t, cliConfigPath, generated.ServerProfile{
+		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.1.0", SocketPath: socketPath,
+		SocketOwnerUID: int64(os.Getuid()), SocketMode: "0600", ShutdownGraceSeconds: 5,
+		InventoryExportRoot: directory, PrincipalBindings: []generated.LocalPrincipalBinding{{UID: int64(os.Getuid()), PrincipalID: "principal.local"}},
+		RemoteRead: generated.RemoteReadProfile{Enabled: false},
+	})
 
-	controller := httptest.NewServer(phase4Controller(t, databasePath, bridge, clock.Now))
+	controller := httptest.NewServer(phase4Controller(t, databasePath, bridge, clock.Now, os.Getenv("VSK_PHASE3_BINARY"), cliConfigPath))
 	t.Cleanup(func() {
 		controller.Close()
 		cancel()
@@ -269,6 +278,9 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	})
 	command := exec.Command("node", filepath.Join("..", "..", "web", "e2e", "real-change-server-probe.mjs"))
 	command.Env = append(os.Environ(), "NODE_NO_WARNINGS=1", "VSK_PHASE3_BASE_URL="+baseURL, "VSK_PHASE3_CONTROLLER_URL="+controller.URL, "VSK_PHASE3_ASSERTION="+assertion, "VSK_PHASE4_PROXY_CERTIFICATE="+certificatePath, "VSK_PHASE4_PROXY_PRIVATE_KEY="+keyPath, "VSK_PHASE4_FULL_LOOP=1")
+	if filepath.IsAbs(os.Getenv("VSK_PHASE3_BINARY")) {
+		command.Env = append(command.Env, "VSK_PHASE4_CLI_PARITY=1")
+	}
 	stdout := &boundedProbeOutput{limit: 16 * 1024}
 	stderr := &boundedProbeOutput{limit: 512}
 	command.Stdout, command.Stderr = stdout, stderr
@@ -289,7 +301,7 @@ func phase4ProbeStage(output string) string {
 	return stage
 }
 
-func phase4Controller(t *testing.T, databasePath string, bridge *phase4ApprovalBridge, clock func() time.Time) http.Handler {
+func phase4Controller(t *testing.T, databasePath string, bridge *phase4ApprovalBridge, clock func() time.Time, binaryPath, configPath string) http.Handler {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("/grant-plan", func(writer http.ResponseWriter, request *http.Request) {
@@ -327,6 +339,29 @@ func phase4Controller(t *testing.T, databasePath string, bridge *phase4ApprovalB
 		}
 		_, _ = io.WriteString(writer, `{"status":"succeeded"}`)
 	})
+	mux.HandleFunc("/cli-plan", func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet || !filepath.IsAbs(binaryPath) || !filepath.IsAbs(configPath) {
+			http.Error(writer, "fixture operation failed", http.StatusBadRequest)
+			return
+		}
+		command := exec.Command(binaryPath, "plan", "--config", configPath, "--declaration-id", "declaration-browser", "--revision", "2", "--output", "json")
+		stdout := &boundedProbeOutput{limit: 16 * 1024}
+		stderr := &boundedProbeOutput{limit: 512}
+		command.Stdout, command.Stderr = stdout, stderr
+		if err := command.Run(); err != nil || !json.Valid(stdout.Bytes()) {
+			http.Error(writer, "fixture operation failed", http.StatusInternalServerError)
+			return
+		}
+		var envelope generated.RunResult
+		var presentation generated.PlanPresentation
+		if json.Unmarshal(stdout.Bytes(), &envelope) != nil || json.Unmarshal(envelope.Data, &presentation) != nil ||
+			!strings.HasPrefix(presentation.Plan.PlanID, "plan-") || grantPhase4PlanAccess(databasePath, presentation.Plan.PlanID, clock()) != nil {
+			http.Error(writer, "fixture operation failed", http.StatusInternalServerError)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write(stdout.Bytes())
+	})
 	return mux
 }
 
@@ -351,8 +386,14 @@ func seedPhase4BrowserChangeGrants(t *testing.T, databasePath string, now time.T
 			t.Fatal(err)
 		}
 	}
-	for _, revision := range []string{"declaration-browser:1", "declaration-browser:2", "declaration-browser-cancel:1", "declaration-browser-cancel:2"} {
-		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES('principal.remote','declaration.read','declaration',?,1,'active',?,?)`, revision, formatted, formatted); err != nil {
+	for _, grant := range []struct{ principal, revision string }{
+		{"principal.remote", "declaration-browser:1"},
+		{"principal.remote", "declaration-browser:2"},
+		{"principal.remote", "declaration-browser-cancel:1"},
+		{"principal.remote", "declaration-browser-cancel:2"},
+		{"principal.local", "declaration-browser:2"},
+	} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES(?,'declaration.read','declaration',?,1,'active',?,?)`, grant.principal, grant.revision, formatted, formatted); err != nil {
 			t.Fatal(err)
 		}
 	}

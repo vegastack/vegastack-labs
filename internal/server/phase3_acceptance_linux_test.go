@@ -540,6 +540,9 @@ func seedPhase4ConsoleGrants(t *testing.T, databasePath string, now time.Time) {
 	if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_principals(principal_id,principal_kind,status,grant_revision,created_at,updated_at) VALUES('human.console','human','active',1,?,?)`, formatted, formatted); err != nil {
 		t.Fatal(err)
 	}
+	if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_principals(principal_id,principal_kind,status,grant_revision,created_at,updated_at) VALUES('principal.local','human','active',1,?,?)`, formatted, formatted); err != nil {
+		t.Fatal(err)
+	}
 	for _, grant := range []struct {
 		id, capability string
 	}{
@@ -564,6 +567,9 @@ func seedPhase4ConsoleGrants(t *testing.T, databasePath string, now time.Time) {
 		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,'active',?,?)`, grant.id, grant.principal, grant.role, grant.action, grant.capability, grant.kind, grant.resource, grant.branch, formatted, formatted); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES('grant-local-browser-plan-author','principal.local','author','author','plan.author','declaration','declaration-browser',NULL,1,'active',?,?)`, formatted, formatted); err != nil {
+		t.Fatal(err)
 	}
 }
 

@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — One hostile suite now guards the complete Phase 4 change path ([#80](https://github.com/vegastack/vegastack-labs/issues/80))
+
+- **What:** One command now checks the built executable, authoritative SQLite service, generated CLI and browser clients, Slack fixture, typed local adapter, and external executor simulator together. It covers exact success, denial, interruption, restart, partial recovery, replay, lease loss, client reconnect, and private-data exclusion with a closed list of required scenarios.
+- **Why:** The individual Phase 4 features needed one deterministic guard that fails when their safety boundaries stop working together.
+- **How it went:** Most hostile cases already had strong focused tests, so the work composed them under one strict scenario manifest and added only the missing real-boundary acceptance joins. The Console dependency had already created the Phase 4 command and CI catalog entry; this issue safely expanded those existing hooks instead of adding a second lane.
+- **Changed:** Closed 34-scenario acceptance definition · exact built-Linux and real-SQLite join · authorization and executor theft checks · browser plan/privacy proof · race, generated, CLI, static, Chromium, and artifact-sanitizer orchestration · deterministic commit-and-scenario result.
+- **Decisions:** none; all adapters, identities, providers, hosts, credentials, releases, deployment, and fleet access remain fixtures or separately gated.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/4.9-phase4-acceptance
+
 ## 13-09-2026 — Operators can complete a safe change from the Console ([#79](https://github.com/vegastack/vegastack-labs/issues/79))
 
 - **What:** The embedded Console now has one Changes workspace for saving a declaration, preparing and reviewing its exact plan, requesting Slack approval, applying it, and recovering an interrupted run. Approval and run views show only the safe status needed for the next operator action.

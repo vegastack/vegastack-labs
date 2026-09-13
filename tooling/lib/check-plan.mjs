@@ -65,7 +65,7 @@ const steps = Object.freeze([
   packageStep("web typecheck", "web", ["--filter", "@vegastack/labs-web", "typecheck"]),
   packageStep("web unit tests", "web", ["--filter", "@vegastack/labs-web", "test"]),
   commandStep("Phase 3 browser evidence", "browser", process.execPath, ["tooling/verify-phase-3.mjs", "--prepared"]),
-  commandStep("Phase 4 change workflow evidence", "browser", process.execPath, ["tooling/verify-phase-4.mjs", "--prepared"]),
+  commandStep("Phase 4 adversarial acceptance", "browser", process.execPath, ["tooling/verify-phase-4.mjs", "--prepared"]),
   commandStep("Git whitespace", "always", "git", ["diff", "--check"]),
 ]);
 
