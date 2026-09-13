@@ -569,7 +569,7 @@ func grantPhase4PlanAccess(databasePath, planID string, now time.Time) error {
 	if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,'principal.remote','author','author','plan.acknowledgement.request','plan',?,NULL,1,'active',?,?)`, grantID, planID, formatted, formatted); err != nil {
 		return err
 	}
-	for _, capability := range []string{"plan.read", "plan.acknowledgement.read"} {
+	for _, capability := range []string{"plan.read", "plan.acknowledgement.read", "run.read"} {
 		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES('principal.remote',?,'plan',?,1,'active',?,?)`, capability, planID, formatted, formatted); err != nil {
 			return err
 		}

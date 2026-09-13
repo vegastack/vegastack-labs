@@ -220,6 +220,8 @@ try {
     });
     const interrupted = executed.body?.data?.run;
     if (executed.status !== 408 || interrupted?.status !== "interrupted" || executed.body?.errors?.[0]?.code !== "INTERRUPTED") throw new Error("interrupted run projection failed");
+	const resolved = await request("GET", `/api/v1/plans/${plan.planId}/runs/console-run-resume`);
+	if (resolved.status !== 200 || resolved.body?.data?.run?.runId !== interrupted.runId || resolved.body?.data?.run?.status !== "interrupted") throw new Error("exact submit-key run resolution failed");
     const runGrant = await fetch(`${controllerURL}/grant-run`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ runId: interrupted.runId }) });
     if (!runGrant.ok) throw new Error("run fixture grant failed");
     const observed = await request("GET", `/api/v1/runs/${interrupted.runId}`);
