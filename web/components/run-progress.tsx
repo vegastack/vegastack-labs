@@ -25,7 +25,7 @@ export function RunProgress({ runId }: { runId: string }) {
   const run = presentation.run;
   const canCancel = ["queued", "running", "interrupted"].includes(run.status) && !run.cancellationRequested;
   const canResume = run.status === "interrupted";
-  const recoveryRequired = presentation.nextSafeAction === "recovery required; inspect the durable run" || run.steps.some(step => step.effectState === "effect-unknown");
+	const recoveryRequired = presentation.nextSafeAction === "recovery required; inspect the durable run" || run.steps.some(step => step.progressState === "unknown");
   async function cancelRun() { await cancel.mutateAsync(presentation); }
   async function resumeRun() { await resume.mutateAsync(presentation); }
   return <section aria-labelledby="run-title" className="space-y-4" data-run-status={run.status}>
@@ -49,5 +49,5 @@ export function RunProgress({ runId }: { runId: string }) {
 }
 
 function RunStepRow({ step }: { step: RunPresentation["run"]["steps"][number] }) {
-  return <li className="grid gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto]" data-run-step={step.status}><div><p className="font-medium">{step.sequence}. {step.operationType}</p><p className="break-all text-muted-foreground">{step.targetId} · {step.adapterId}</p></div><div className="flex flex-wrap items-start gap-2"><Badge bordered intent={intents[step.status]}>{labels[step.status]}</Badge><Badge variant="outline">{step.effectState}</Badge></div></li>;
+	return <li className="grid gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto]" data-run-step={step.status}><div><p className="font-medium">{step.sequence}. {step.operationType}</p><p className="break-all text-muted-foreground">{step.targetId}</p></div><div className="flex flex-wrap items-start gap-2"><Badge bordered intent={intents[step.status]}>{labels[step.status]}</Badge><Badge variant="outline">{step.progressState}</Badge></div></li>;
 }

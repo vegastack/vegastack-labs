@@ -72,7 +72,8 @@ export function PlanReview({ view, onRunStarted }: { view: PlanView; onRunStarte
           <h3 className="text-base font-semibold">Operations and targets</h3>
           <ol className="mt-3 space-y-3">{plan.operations.map(operation => <li className="rounded-md border border-border p-3 text-sm" key={operation.operationId}><span className="font-medium">{operation.sequence}. {operation.operationType}</span><span className="mt-1 block break-all text-muted-foreground">Target {operation.targetId} · Adapter {operation.adapterId}</span></li>)}</ol>
         </div>
-        <details><summary className="min-h-11 cursor-pointer py-3 font-medium">Exact JSON plan</summary><pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs" tabIndex={0}>{JSON.stringify(plan, null, 2)}</pre></details>
+		<details open><summary className="min-h-11 cursor-pointer py-3 font-medium">Exact readable plan</summary><pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-xs" tabIndex={0}>{"readablePlan" in view ? view.readablePlan : "Readable plan unavailable"}</pre></details>
+		<details><summary className="min-h-11 cursor-pointer py-3 font-medium">Exact canonical JSON plan</summary><pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs" tabIndex={0}>{"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}</pre></details>
         <div aria-live="polite" className="min-h-6 text-sm" role="status">
           {requestApproval.error ? "Approval request failed. No acknowledgement was created in this browser." : null}
           {approval.error ? " Approval status is unavailable; Start run remains disabled." : null}
