@@ -272,23 +272,6 @@ export interface DeclarationOperation {
   readonly "idempotent": boolean;
 }
 
-export interface DeclarationRevision {
-  readonly "schema": "vegastack-labs.dev/declaration-revision";
-  readonly "schemaVersion": "1.0.0";
-  readonly "declarationId": string;
-  readonly "declarationType": string;
-  readonly "revision": number;
-  readonly "stateRevision": number;
-  readonly "recoveryEpoch": number;
-  readonly "contentDigest": string;
-  readonly "status": "committed" | "draft" | "superseded";
-  readonly "operations": ReadonlyArray<DeclarationOperation>;
-  readonly "createdAt": string;
-  readonly "createdBy": string;
-  readonly "agentSessionId": string;
-  readonly "extensions": ReadonlyArray<ContractExtension>;
-}
-
 export interface DeclarationRevisionRequest {
   readonly "schema": "vegastack-labs.dev/declaration-revision-request";
   readonly "schemaVersion": "1.0.0";
@@ -1906,120 +1889,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
-    "id": "vegastack-labs.dev/declaration-revision",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/declaration-revision"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.0.0"
-        ]
-      },
-      {
-        "name": "declarationId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "declarationType",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "revision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 1
-      },
-      {
-        "name": "stateRevision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "contentDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "committed",
-          "draft",
-          "superseded"
-        ]
-      },
-      {
-        "name": "operations",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/declaration-operation",
-        "minItems": 1,
-        "maxItems": 256
-      },
-      {
-        "name": "createdAt",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "createdBy",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "agentSessionId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "extensions",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/contract-extension",
-        "maxItems": 64
-      }
-    ]
-  },
-  {
     "id": "vegastack-labs.dev/declaration-revision-request",
     "fields": [
       {
@@ -3227,10 +3096,6 @@ function decodeDatabaseStatusData(value: unknown): DatabaseStatusData {
 
 function decodeDeclarationOperation(value: unknown): DeclarationOperation {
   return decodeSchema("vegastack-labs.dev/declaration-operation", value) as unknown as DeclarationOperation;
-}
-
-function decodeDeclarationRevision(value: unknown): DeclarationRevision {
-  return decodeSchema("vegastack-labs.dev/declaration-revision", value) as unknown as DeclarationRevision;
 }
 
 function decodeDeclarationRevisionRequest(value: unknown): DeclarationRevisionRequest {

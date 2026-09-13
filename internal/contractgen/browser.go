@@ -54,7 +54,6 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 	}
 	wanted := map[string]bool{runResultSchemaID: true}
 	for _, identifier := range []string{
-		"vegastack-labs.dev/declaration-revision",
 		"vegastack-labs.dev/plan",
 	} {
 		wanted[identifier] = true
@@ -116,7 +115,7 @@ func browserSecretField(name string) bool {
 			return false
 		}
 	}
-	for _, protected := range []string{"acknowledgementid", "authorityid", "humanid", "noncedigest", "proofdigest"} {
+	for _, protected := range []string{"acknowledgementid", "authorityid", "humanid", "noncedigest", "proofdigest", "createdby", "agentsessionid", "authorizationdecisionid", "executorbindingdigest", "effectstate"} {
 		if normalized == protected {
 			return true
 		}
