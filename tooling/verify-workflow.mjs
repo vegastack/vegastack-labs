@@ -115,10 +115,10 @@ export function verifyWorkflowDocument(workflow, source = "") {
   if (trustedNode?.with?.cache !== undefined) {
     throw new Error("trusted runner must install dependencies without restoring the remote pnpm cache");
   }
-  const phase3Exit = trustedSteps.find((step) => step.name === "Run exact Phase 3 exit acceptance");
-  if (phase3Exit?.if !== "github.event_name == 'push' && github.ref == 'refs/heads/main'" ||
-      phase3Exit.run !== "pnpm --silent check:phase-3-exit --commit \"$GITHUB_SHA\"") {
-    throw new Error("main must run Phase 3 exit against the exact checked-out commit");
+  const phase4Exit = trustedSteps.find((step) => step.name === "Run exact Phase 4 exit acceptance");
+  if (phase4Exit?.if !== "github.event_name == 'push' && github.ref == 'refs/heads/main'" ||
+      phase4Exit.run !== "pnpm --silent check:phase-4-exit --commit \"$GITHUB_SHA\"") {
+    throw new Error("main must run Phase 4 exit against the exact checked-out commit");
   }
   const guard = trustedSteps[0];
   const temporary = trustedSteps[1];

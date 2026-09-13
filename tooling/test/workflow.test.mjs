@@ -41,7 +41,7 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   const trustedChromium = trustedSteps.find(({ name }) => name === "Install pinned Chromium");
   const hostedChecks = hostedSteps.find(({ name }) => name === "Run affected public checks");
   const trustedChecks = trustedSteps.find(({ name }) => name === "Run affected public checks");
-  const phase3Exit = trustedSteps.find(({ name }) => name === "Run exact Phase 3 exit acceptance");
+  const phase4Exit = trustedSteps.find(({ name }) => name === "Run exact Phase 4 exit acceptance");
   const trustedNode = trustedSteps.find(({ uses }) => uses?.startsWith("actions/setup-node@"));
 
   assert.ok(plan);
@@ -61,8 +61,8 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.if, "github.event_name == 'workflow_dispatch'");
-  assert.equal(phase3Exit.if, "github.event_name == 'push' && github.ref == 'refs/heads/main'");
-  assert.equal(phase3Exit.run, "pnpm --silent check:phase-3-exit --commit \"$GITHUB_SHA\"");
+  assert.equal(phase4Exit.if, "github.event_name == 'push' && github.ref == 'refs/heads/main'");
+  assert.equal(phase4Exit.run, "pnpm --silent check:phase-4-exit --commit \"$GITHUB_SHA\"");
   assert.equal(trustedNode.with.cache, undefined);
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
   assert.equal(trustedSteps[1].name, "Prepare protected local test storage");
