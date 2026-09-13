@@ -268,6 +268,37 @@ test("the executable composition root accepts only server NewOperations as a dir
   }
 });
 
+test("the executable composition root rejects dot-imported and interface-laundered server capabilities", async (t) => {
+  for (const [name, mainSource, serverSource] of [
+    [
+      "dot import",
+      'package main\nimport ("example.test/internal/cli"; . "example.test/internal/server")\nfunc main() { NewRemote(); cli.Run() }\n',
+      "package server\nfunc NewRemote() {}\n",
+    ],
+    [
+      "returned interface",
+      [
+        "package main",
+        'import ("example.test/internal/cli"; "example.test/internal/server")',
+        "type starter interface { Start() }",
+        "func use(value starter) { value.Start() }",
+        "func main() { operations := server.NewOperations(); use(operations); cli.Run() }",
+        "",
+      ].join("\n"),
+      "package server\ntype Operations struct{}\nfunc NewOperations() *Operations { return &Operations{} }\nfunc (*Operations) Start() {}\n",
+    ],
+  ]) {
+    await t.test(name, async () => {
+      const root = await fixtureRepo(t, {
+        "cmd/vsk-labs/main.go": mainSource,
+        "internal/server/server.go": serverSource,
+      });
+      const result = await verifyCLI(root, { crossBuild: false });
+      assert.deepEqual(result.codes, ["CLI_CONTROL_PROVIDER_ACCESS"]);
+    });
+  }
+});
+
 test("external dependency detection uses package provenance, not dots in its path", async (t) => {
   const root = await fixtureRepo(t, {
     "go.mod": [

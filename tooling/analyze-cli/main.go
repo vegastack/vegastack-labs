@@ -462,6 +462,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	return result, nil
 }
 
+const reviewedMainCompositionDigest = "a7f7b29ce0e32577cfd392cf9d33e823a6807c85f6708f5f910ad632a4bd8061"
+
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
 	approvedInternal := map[string]bool{
 		cliImport:                       true,
@@ -470,44 +472,23 @@ func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImpo
 		modulePath + "/internal/result": true,
 		serverImport:                    true,
 	}
+	extendedComposition := false
 	for _, imported := range candidate.listed.Imports {
-		if strings.HasPrefix(imported, modulePath+"/") && !approvedInternal[imported] {
-			return false
-		}
-	}
-
-	directCallees := make(map[ast.Expr]bool)
-	for _, file := range candidate.files {
-		ast.Inspect(file, func(node ast.Node) bool {
-			if call, ok := node.(*ast.CallExpr); ok {
-				directCallees[unparenthesized(call.Fun)] = true
-			}
-			return true
-		})
-	}
-	for _, file := range candidate.files {
-		valid := true
-		ast.Inspect(file, func(node ast.Node) bool {
-			if !valid {
+		if strings.HasPrefix(imported, modulePath+"/") {
+			if !approvedInternal[imported] {
 				return false
 			}
-			selector, ok := node.(*ast.SelectorExpr)
-			if !ok {
-				return true
+			if imported != cliImport {
+				extendedComposition = true
 			}
-			object := candidate.info.ObjectOf(selector.Sel)
-			if object == nil || object.Pkg() == nil || object.Pkg().Path() != serverImport {
-				return true
-			}
-			function, isFunction := object.(*types.Func)
-			valid = isFunction && function.Name() == "NewOperations" && directCallees[unparenthesized(selector)]
-			return valid
-		})
-		if !valid {
-			return false
 		}
 	}
-	return true
+	if !extendedComposition {
+		return true
+	}
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	return digestSourceFiles(candidate.listed.Dir, names) == reviewedMainCompositionDigest
 }
 
 func standardNetworkClosure(packages []listedPackage) map[string]bool {
