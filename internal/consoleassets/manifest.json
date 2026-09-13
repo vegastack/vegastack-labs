@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "buildDigest": "2c2063a68cdab91cb7f2c64c552160c34ac6c76764101c6adbae5aa7cc7e3165",
-  "contentSecurityPolicy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self' 'sha256-+lk5dgO5jBp55CtEyGCElbfgKefyQ9ntZnvGd+UhFC4=' 'sha256-/ASdYMYoDAtcySMKKppjV3fZUB4s2pvyutL34wwTLJw=' 'sha256-7mu4H06fwDCjmnxxr/xNHyuQC6pLTHr4M2E4jXw5WZs=' 'sha256-EVaFYYxyOb3bvgHsvkD/ATCvF3oGWs644nb/i43wS2Y=' 'sha256-JeSXABDIm0OPXMXW606xRKVgCj+OHufup34U1iHbUTo=' 'sha256-MQYSzjb10yx4neopZWqHB4KJxJ/3LzWxZMHhpnndGAQ=' 'sha256-OBTN3RiyCV4Bq7dFqZ5a2pAXjnCcCYeTJMO2I/LYKeo=' 'sha256-QAlSewaQLi/NPCznjAZSyvQ72heD0VdxmNDDkZeCxgc=' 'sha256-TC/cTLVaWJCHZjuAZFbGkNqtawoCNgb1CrRnwG4CWY4=' 'sha256-TSOgBSLVjzUHq2ltLAus8i+0KcuPsPFNaK5ovAhXnto=' 'sha256-TomPKg4WMOxSCTkitpuv5WWkFgyJnOud7LZ/xKjJ0zQ=' 'sha256-ZRUBcQI4u0vUE90xMgWBNf2BuLxuDtHq09kqs+XZSXA=' 'sha256-kHcOWnmeBBS+Ic/JMqvzG9b9rgNAGRd1PWfgMcA0zjg=' 'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk=' 'sha256-sGEHeoANeYVMF5fHgHXNm6ft9buUOFhPCUyDm226LGU=' 'sha256-t8y8Ard+UCkjvMSkpstH7LOPULd9YXXaHTV4UQjy5qE='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'",
+  "buildDigest": "f7b260397fd8d42825dff7da1f15b671a3bf97bd15a47be6470625fa73863996",
+  "contentSecurityPolicy": "default-src 'self'; base-uri 'none'; object-src 'none'; frame-ancestors 'none'; form-action 'none'; script-src 'self' 'sha256-+lk5dgO5jBp55CtEyGCElbfgKefyQ9ntZnvGd+UhFC4=' 'sha256-/ASdYMYoDAtcySMKKppjV3fZUB4s2pvyutL34wwTLJw=' 'sha256-7mu4H06fwDCjmnxxr/xNHyuQC6pLTHr4M2E4jXw5WZs=' 'sha256-EVaFYYxyOb3bvgHsvkD/ATCvF3oGWs644nb/i43wS2Y=' 'sha256-JeSXABDIm0OPXMXW606xRKVgCj+OHufup34U1iHbUTo=' 'sha256-MQYSzjb10yx4neopZWqHB4KJxJ/3LzWxZMHhpnndGAQ=' 'sha256-OBTN3RiyCV4Bq7dFqZ5a2pAXjnCcCYeTJMO2I/LYKeo=' 'sha256-QAlSewaQLi/NPCznjAZSyvQ72heD0VdxmNDDkZeCxgc=' 'sha256-TC/cTLVaWJCHZjuAZFbGkNqtawoCNgb1CrRnwG4CWY4=' 'sha256-TSOgBSLVjzUHq2ltLAus8i+0KcuPsPFNaK5ovAhXnto=' 'sha256-TomPKg4WMOxSCTkitpuv5WWkFgyJnOud7LZ/xKjJ0zQ=' 'sha256-ZRUBcQI4u0vUE90xMgWBNf2BuLxuDtHq09kqs+XZSXA=' 'sha256-kHcOWnmeBBS+Ic/JMqvzG9b9rgNAGRd1PWfgMcA0zjg=' 'sha256-n46vPwSWuMC0W703pBofImv82Z26xo4LXymv0E9caPk=' 'sha256-t8y8Ard+UCkjvMSkpstH7LOPULd9YXXaHTV4UQjy5qE=' 'sha256-zeE1BjWbeKoUXU5D9kg4lrh8KnFRLag3tAEOhYlJBT4='; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'",
   "files": {
     "404.html": {
       "sha256": "88fe0b468228479bcdd8650669be8e3b84a46ea719814440aee733e1fe2817c5",
@@ -57,15 +57,15 @@
       "contentType": "text/javascript; charset=utf-8",
       "immutable": true
     },
-    "_next/static/chunks/0juzkwnrf8ylc.js": {
-      "sha256": "c7ad77eb0f761b15db11b593fb50d0911cc69e733fc4df589ec0601a3076bcd5",
-      "size": 33978,
-      "contentType": "text/javascript; charset=utf-8",
-      "immutable": true
-    },
     "_next/static/chunks/0k2nm5qmjm61s.js": {
       "sha256": "740d1513d9d4b42a8e641c3c3ab973b08ccf7d186b53c4d3d1aeb8b09225c446",
       "size": 10660,
+      "contentType": "text/javascript; charset=utf-8",
+      "immutable": true
+    },
+    "_next/static/chunks/0k6j5wkcfljah.js": {
+      "sha256": "e57cb2ba099ff5d6a8646f660593d6d78c45dc4f04aaf3fbca97a7d680dda567",
+      "size": 34235,
       "contentType": "text/javascript; charset=utf-8",
       "immutable": true
     },
@@ -250,19 +250,19 @@
       "immutable": false
     },
     "changes.html": {
-      "sha256": "08b8dc300d3f2ca2febc02ee3088ec327c2b2aa3f59f492851ac7493024d08ef",
+      "sha256": "75948c037a44d0dd619736fe8bcf7460f306a6e45c92a1f4832874f66cad872b",
       "size": 54068,
       "contentType": "text/html; charset=utf-8",
       "immutable": false
     },
     "changes.txt": {
-      "sha256": "865ecdfb8d39c7dbfe56e3d584767d89befef8d71473402f9ffed902e00e795f",
+      "sha256": "cc5570606dccdadf43b970053e33db306e814c6ca0b94a38ced26908bbc505c6",
       "size": 15553,
       "contentType": "text/plain; charset=utf-8",
       "immutable": false
     },
     "changes/__next._full.txt": {
-      "sha256": "865ecdfb8d39c7dbfe56e3d584767d89befef8d71473402f9ffed902e00e795f",
+      "sha256": "cc5570606dccdadf43b970053e33db306e814c6ca0b94a38ced26908bbc505c6",
       "size": 15553,
       "contentType": "text/plain; charset=utf-8",
       "immutable": false
@@ -274,7 +274,7 @@
       "immutable": false
     },
     "changes/__next.changes.__PAGE__.txt": {
-      "sha256": "62bb1d15b8b6c405f783581ccc732c2ac02b34a2511961e55489cec32ea26587",
+      "sha256": "b70634e13d65231382da1e29f62e7ca1b1ce5edfdaf5178ef937ef8237121f75",
       "size": 14290,
       "contentType": "text/plain; charset=utf-8",
       "immutable": false
