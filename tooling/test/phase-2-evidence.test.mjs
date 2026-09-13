@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { collectIntegratedFacts, postPhase2MutationBoundaryDigest, postPhase2MutationBoundaryFiles, validateEvidence } from "../verify-phase-2.mjs";
+import { collectIntegratedFacts, postPhase2MutationBoundaryDigest, postPhase2MutationBoundaryFiles, postPhase2SourceOverride, validateEvidence } from "../verify-phase-2.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -29,6 +29,7 @@ test("contract drift, mutation availability, fixture reachability, and stale chi
     ["routes", (copy) => copy.endpointIds.shift(), "PHASE2_CONTRACT_DRIFT"],
     ["commands", (copy) => { copy.mutationAvailable = true; }, "PHASE2_MUTATION_AVAILABLE"],
     ["production", (copy) => { copy.productionImports.push("github.com/vegastack/vegastack-labs/internal/testsupport"); }, "PHASE2_PRODUCTION_BYPASS"],
+    ["source override", (copy) => { copy.postPhase2SourceOverride = "vendor"; }, "PHASE2_PRODUCTION_BYPASS"],
     ["children", (copy) => { copy.children[0].state = "OPEN"; }, "PHASE2_CHILD_INCOMPLETE"],
   ]) {
     const copy = structuredClone(facts);
@@ -107,10 +108,37 @@ test("the mutation boundary detects changed and added production source files", 
     assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
 
     await cp(path.join(ROOT, "internal/api/plans.go"), plans);
-    await writeFile(path.join(temporary, "internal/api/phase2_bypass.go"), "package api\n");
+  await writeFile(path.join(temporary, "internal/api/phase2_bypass.go"), "package api\n");
     changed = structuredClone(facts);
     changed.postPhase2MutationBoundaryDigest = await postPhase2MutationBoundaryDigest(temporary, facts.productionImports);
     assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+
+    await rm(path.join(temporary, "internal/api/phase2_bypass.go"));
+    await rm(path.join(temporary, "internal/api/plans.go"));
+    changed = structuredClone(facts);
+    changed.postPhase2MutationBoundaryDigest = await postPhase2MutationBoundaryDigest(temporary, facts.productionImports);
+    assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
+});
+
+test("vendor, workspaces, and local source replacements fail the production proof closed", async () => {
+  const temporary = await mkdtemp(path.join(tmpdir(), "vsk-phase2-source-"));
+  try {
+    await writeFile(path.join(temporary, "go.mod"), "module example.com/root\n\ngo 1.27\n");
+    await mkdir(path.join(temporary, "vendor"));
+    assert.equal(await postPhase2SourceOverride(temporary), "vendor");
+    await rm(path.join(temporary, "vendor"), { recursive: true });
+
+    await writeFile(path.join(temporary, "go.work"), "go 1.27\nuse .\n");
+    assert.equal(await postPhase2SourceOverride(temporary), "go.work");
+    await rm(path.join(temporary, "go.work"));
+
+    await mkdir(path.join(temporary, "dependency"));
+    await writeFile(path.join(temporary, "dependency/go.mod"), "module example.com/dependency\n\ngo 1.27\n");
+    await writeFile(path.join(temporary, "go.mod"), "module example.com/root\n\ngo 1.27\n\nrequire example.com/dependency v0.0.0\nreplace example.com/dependency => ./dependency\n");
+    assert.equal(await postPhase2SourceOverride(temporary), "local-replace");
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }

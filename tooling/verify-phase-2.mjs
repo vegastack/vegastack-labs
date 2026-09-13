@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -125,6 +125,19 @@ function compatibleContractVersion(current, baseline) {
   return left[1] > right[1] || left[1] === right[1] && left[2] >= right[2];
 }
 
+function pinnedGoEnvironment(extra = {}) {
+  return { ...process.env, GOWORK: "off", GOFLAGS: "-mod=readonly", ...extra };
+}
+
+async function pathExists(filename) {
+  try {
+    await access(filename);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function sha256(filename) {
   return createHash("sha256").update(await readFile(filename)).digest("hex");
 }
@@ -164,7 +177,7 @@ export async function postPhase2MutationBoundaryFiles(root = ROOT, productionImp
   let imports = productionImports;
   if (imports === null) {
     imports = (await commandOutput(root, "go", ["list", "-deps", "-f", "{{.ImportPath}}", "./cmd/vsk-labs"], {
-      env: { ...process.env, CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" },
+      env: pinnedGoEnvironment({ CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" }),
     })).split("\n").filter(Boolean);
   }
   const selected = new Set(POST_PHASE2_MUTATION_BOUNDARY_ROOTS);
@@ -180,6 +193,16 @@ export async function postPhase2MutationBoundaryFiles(root = ROOT, productionImp
     }
   }
   return [...selected].sort();
+}
+
+export async function postPhase2SourceOverride(root = ROOT) {
+  for (const relative of ["vendor", "go.work", "go.work.sum"]) {
+    if (await pathExists(path.join(root, relative))) return relative;
+  }
+  const localReplaces = await commandOutput(root, "go", ["list", "-m", "-f", "{{if .Replace}}{{if not .Replace.Version}}{{.Path}}=>{{.Replace.Dir}}{{end}}{{end}}", "all"], {
+    env: pinnedGoEnvironment(),
+  });
+  return localReplaces === "" ? "" : "local-replace";
 }
 
 export async function postPhase2MutationBoundaryDigest(root = ROOT, productionImports = null) {
@@ -241,12 +264,12 @@ export async function executeScenarioProofs(manifest, root = ROOT, selected = nu
     for (const [goPackage, names] of [...goGroups].sort(([left], [right]) => left.localeCompare(right))) {
       const pattern = `^(?:${names.map(regexpLiteral).join("|")})$`;
       await runCommand("go", ["test", "-count=1", goPackage, "-run", pattern], {
-        cwd: root, capture: true, timeoutMs: 180_000,
+        cwd: root, capture: true, timeoutMs: 180_000, env: pinnedGoEnvironment(),
       });
     }
     for (const filename of [...nodeFiles].sort()) {
       await runCommand(process.execPath, ["--test", filename], {
-        cwd: root, capture: true, timeoutMs: 180_000,
+        cwd: root, capture: true, timeoutMs: 180_000, env: pinnedGoEnvironment(),
       });
     }
   } catch {
@@ -278,7 +301,7 @@ export async function proveUnavailableMutations(root = ROOT) {
     await writeFile(path.join(state, "database.sqlite"), "synthetic-phase-2-database-fingerprint\n", { mode: 0o600 });
     await writeFile(path.join(state, "artifacts", "current.json"), "{\"synthetic\":true}\n", { mode: 0o600 });
     await runCommand("go", ["build", "-o", binary, "./cmd/vsk-labs"], {
-      cwd: root, capture: true, timeoutMs: 120_000,
+      cwd: root, capture: true, timeoutMs: 120_000, env: pinnedGoEnvironment(),
     });
     const registry = JSON.parse(await readFile(path.join(root, "schemas/v1/command-registry.json"), "utf8"));
     const planned = registry.commands.filter(({ availability }) => availability === "planned")
@@ -335,7 +358,7 @@ export async function collectIntegratedFacts(root = ROOT) {
   }
   const productionImports = (await commandOutput(root, "go", [
     "list", "-deps", "-f", "{{.ImportPath}}", "./cmd/vsk-labs",
-  ], { env: { ...process.env, CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" } }))
+  ], { env: pinnedGoEnvironment({ CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" }) }))
     .split("\n").filter(Boolean).sort();
   const fixtureFiles = await filesBelow(path.join(root, "tooling/testdata/phase-2"));
   let privateFixture = false;
@@ -355,6 +378,7 @@ export async function collectIntegratedFacts(root = ROOT) {
     migrations,
     productionExecutable: "cmd/vsk-labs",
     postPhase2MutationBoundaryDigest: await postPhase2MutationBoundaryDigest(root, productionImports),
+    postPhase2SourceOverride: await postPhase2SourceOverride(root),
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
       !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),
@@ -424,6 +448,7 @@ export function validateEvidence(manifest, facts) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
   if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports) ||
+      facts.postPhase2SourceOverride !== "" ||
       facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");
   }
