@@ -752,8 +752,8 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 }
 
 const (
-	reviewedLocalAPILinuxDigest       = "e5ece8f087e9c2d9aea77e2c55c371b371f5f11ea580e5bb9e21e8a582547ea0"
-	reviewedLocalAPIUnsupportedDigest = "1ae6b725883f072f5c9575ddadc75583348a6c6c46cc0853e4d10cda2a1741b5"
+	reviewedLocalAPILinuxDigest       = "5ece875bf34f005a2619a1ea2d2d4de9a86ed4b03ab655395346ff9e49c27d0a"
+	reviewedLocalAPIUnsupportedDigest = "e0a76e6f10ae82d7d5a32355791e520bed310c28534d777b80279846e06c7c52"
 )
 
 // reviewedLocalAPISource seals every production source file in the package

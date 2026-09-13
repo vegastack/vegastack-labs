@@ -246,7 +246,7 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		response, err = sshtransport.RoundTrip(ctx, sshtransport.Request{
 			Executable: profile.ConstrainedSSH.Executable, Arguments: profile.ConstrainedSSH.Arguments,
 			RequestID: requestID, SSHPrincipalID: profile.ConstrainedSSH.SSHPrincipalID, DeviceID: profile.ConstrainedSSH.DeviceID,
-			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: strings.Fields(spec.command),
+			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: remoteCommandArguments(spec.command),
 			Method: request.Method, Path: request.Path, Body: request.Body, Timeout: request.Timeout, ResponseLimit: request.ResponseLimit,
 		})
 	} else {
@@ -266,6 +266,25 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		return zero, responseFailure()
 	}
 	return validateTypedResponse(response.Body, response.StatusCode, spec, validate)
+}
+
+func remoteCommandArguments(operation string) []string {
+	arguments := map[string][]string{
+		generated.CommandNameServerStatus:          {"server", "status"},
+		"api.v1.summary.get":                       {"status"},
+		"api.v1.database-status.get":               {"database", "status"},
+		"api.v1.inventory-drafts.import":           {"inventory", "import"},
+		"api.v1.inventory-diffs.create":            {"inventory", "diff"},
+		"api.v1.inventory-exports.create":          {"inventory", "export"},
+		"api.v1.declarations.plan-preparation.get": {"plan"},
+		"api.v1.plans.create":                      {"plan"},
+		"api.v1.plans.get":                         {"apply"},
+		"api.v1.plans.execute":                     {"apply"},
+		"api.v1.runs.get":                          {"run", "inspect"},
+		"api.v1.runs.cancel":                       {"run", "cancel"},
+		"api.v1.runs.resume":                       {"run", "resume"},
+	}
+	return append([]string(nil), arguments[operation]...)
 }
 
 func validateTypedResponse[T any](raw []byte, httpStatus int, spec requestSpec, validate func(T, generated.RunResult) bool) (TypedResponse[T], error) {

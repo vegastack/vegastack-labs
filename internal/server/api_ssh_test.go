@@ -84,7 +84,7 @@ func TestAPISSHForwardsExactVerifiedPayloadOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	response, err := apissh.ReadResponse(&output, apiSSHRequestID)
-	if err != nil || response.Envelope.Command != "apply" || response.Envelope.RequestID != apiSSHRequestID || len(response.Envelope.Errors) != 0 {
+	if err != nil || response.Envelope.Command != "api.v1.plans.execute" || response.Envelope.RequestID != apiSSHRequestID || len(response.Envelope.Errors) != 0 {
 		t.Fatalf("response=%#v err=%v", response, err)
 	}
 	if len(recorder.requests) != 2 {

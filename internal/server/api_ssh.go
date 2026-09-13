@@ -7,7 +7,6 @@ import (
 	"io"
 	"mime"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/api"
@@ -65,47 +64,45 @@ func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output 
 	if !allowed {
 		return handler.writeFailure(output, request.Header.RequestID, operationID, generated.ErrorCodeInputInvalid, "api-ssh-operation", 0, 0)
 	}
+	backendCommand := operationID
+	if operationID == "api.v1.health.get" {
+		backendCommand = generated.CommandNameServerStatus
+	}
 	commandArguments, allowed := apiSSHCommandArguments(operationID)
 	if !allowed || !reflect.DeepEqual(request.Header.Arguments, commandArguments) {
-		return handler.writeFailure(output, request.Header.RequestID, apiSSHCommand, generated.ErrorCodeInputInvalid, "api-ssh-arguments", 0, 0)
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeInputInvalid, "api-ssh-arguments", 0, 0)
 	}
-	commandName := strings.Join(commandArguments, " ")
 	if request.Header.SSHPrincipalID != handler.verifiedPrincipalID || request.Header.DeviceID != handler.verifiedDeviceID || !handler.bindingMatches() {
-		return handler.writeFailure(output, request.Header.RequestID, commandName, generated.ErrorCodeAuthorizationDenied, "api-ssh-binding", 0, 0)
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeAuthorizationDenied, "api-ssh-binding", 0, 0)
 	}
 	health, err := handler.forward(ctx, localtransport.Request{
 		SocketPath: handler.profile.SocketPath, Method: localtransport.MethodGet, Path: "/api/v1/health",
 		Timeout: 3 * time.Second, ResponseLimit: 64 * 1024,
 	})
 	if err != nil {
-		return handler.writeFailure(output, request.Header.RequestID, commandName, generated.ErrorCodeDependencyUnavailable, "control-service", 0, 0)
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeDependencyUnavailable, "control-service", 0, 0)
 	}
 	healthEnvelope, err := decodeAPIEnvelope(health, generated.CommandNameServerStatus)
 	if err != nil || len(healthEnvelope.Errors) != 0 {
-		return handler.writeFailure(output, request.Header.RequestID, commandName, generated.ErrorCodeIntegrityFailure, "control-service-response", 0, 0)
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeIntegrityFailure, "control-service-response", 0, 0)
 	}
 	if request.Header.RecoveryEpoch != healthEnvelope.RecoveryEpoch {
-		return handler.writeFailure(output, request.Header.RequestID, commandName, generated.ErrorCodeRecoveryEpochMismatch, "recovery-epoch", healthEnvelope.RecoveryEpoch, healthEnvelope.StateRevision)
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeRecoveryEpochMismatch, "recovery-epoch", healthEnvelope.RecoveryEpoch, healthEnvelope.StateRevision)
 	}
 	response, err := handler.forward(ctx, localtransport.Request{
 		SocketPath: handler.profile.SocketPath, Method: request.Method, Path: request.Path, Body: request.Payload,
 		Timeout: 30 * time.Second, ResponseLimit: 24 << 20,
 	})
 	if err != nil {
-		return handler.writeFailure(output, request.Header.RequestID, commandName, generated.ErrorCodeDependencyUnavailable, "control-service", healthEnvelope.RecoveryEpoch, healthEnvelope.StateRevision)
-	}
-	backendCommand := operationID
-	if operationID == "api.v1.health.get" {
-		backendCommand = generated.CommandNameServerStatus
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeDependencyUnavailable, "control-service", healthEnvelope.RecoveryEpoch, healthEnvelope.StateRevision)
 	}
 	envelope, err := decodeAPIEnvelope(response, backendCommand)
 	if err != nil {
-		return handler.writeFailure(output, request.Header.RequestID, commandName, generated.ErrorCodeIntegrityFailure, "control-service-response", healthEnvelope.RecoveryEpoch, healthEnvelope.StateRevision)
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeIntegrityFailure, "control-service-response", healthEnvelope.RecoveryEpoch, healthEnvelope.StateRevision)
 	}
 	if envelope.RecoveryEpoch != healthEnvelope.RecoveryEpoch {
-		return handler.writeFailure(output, request.Header.RequestID, commandName, generated.ErrorCodeRecoveryEpochMismatch, "recovery-epoch", envelope.RecoveryEpoch, envelope.StateRevision)
+		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeRecoveryEpochMismatch, "recovery-epoch", envelope.RecoveryEpoch, envelope.StateRevision)
 	}
-	envelope.Command = commandName
 	envelope.RequestID = request.Header.RequestID
 	return apissh.WriteResponse(output, request.Header.RequestID, envelope)
 }

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -117,5 +118,31 @@ func TestStatusMapsUnavailableSocketWithoutPathLeak(t *testing.T) {
 	stable, ok := failure.As(err)
 	if !ok || stable.Code != generated.ErrorCodeDependencyUnavailable || !stable.Retryable || strings.Contains(err.Error(), profile.SocketPath) {
 		t.Fatalf("Status() error = %v", err)
+	}
+}
+
+func TestRemoteCommandArgumentsMatchGeneratedOperatorCommands(t *testing.T) {
+	want := map[string][]string{
+		generated.CommandNameServerStatus:          {"server", "status"},
+		"api.v1.summary.get":                       {"status"},
+		"api.v1.database-status.get":               {"database", "status"},
+		"api.v1.inventory-drafts.import":           {"inventory", "import"},
+		"api.v1.inventory-diffs.create":            {"inventory", "diff"},
+		"api.v1.inventory-exports.create":          {"inventory", "export"},
+		"api.v1.declarations.plan-preparation.get": {"plan"},
+		"api.v1.plans.create":                      {"plan"},
+		"api.v1.plans.get":                         {"apply"},
+		"api.v1.plans.execute":                     {"apply"},
+		"api.v1.runs.get":                          {"run", "inspect"},
+		"api.v1.runs.cancel":                       {"run", "cancel"},
+		"api.v1.runs.resume":                       {"run", "resume"},
+	}
+	for operation, expected := range want {
+		if got := remoteCommandArguments(operation); !reflect.DeepEqual(got, expected) {
+			t.Fatalf("%s arguments = %#v, want %#v", operation, got, expected)
+		}
+	}
+	if got := remoteCommandArguments("api.v1.events.stream"); len(got) != 0 {
+		t.Fatalf("disallowed operation arguments = %#v", got)
 	}
 }
