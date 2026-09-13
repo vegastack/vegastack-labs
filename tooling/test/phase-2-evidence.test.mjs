@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
-import { collectIntegratedFacts, validateEvidence } from "../verify-phase-2.mjs";
+import { collectIntegratedFacts, postPhase2MutationBoundaryDigest, postPhase2MutationBoundaryFiles, validateEvidence } from "../verify-phase-2.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -59,11 +60,60 @@ test("later additive contracts do not rewrite accepted Phase 2 evidence", async 
 test("Phase 4 mutation commands require the exact reviewed safety boundary", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
+  const protectedFiles = await postPhase2MutationBoundaryFiles(ROOT, facts.productionImports);
+  for (const required of [
+    "cmd/vsk-labs/main.go",
+    "internal/api/plans.go",
+    "internal/api/acknowledgements.go",
+    "internal/api/runs.go",
+    "internal/authorization/policy.go",
+    "internal/identity/local.go",
+    "internal/localapi/client.go",
+    "internal/server/api_ssh.go",
+    "internal/run/admission.go",
+    "internal/run/engine.go",
+  ]) {
+    assert.ok(protectedFiles.includes(required), required);
+  }
+  assert.ok(protectedFiles.includes("internal/consoleassets/dist/index.html"));
+  assert.ok(protectedFiles.includes("internal/metadata/phase4.go"));
+  assert.ok(protectedFiles.includes("schemas/v1/command-registry.json"));
+  assert.ok(protectedFiles.includes("internal/store/migrations/0009_runs.sql"));
+  assert.ok(protectedFiles.every((filename) => !filename.endsWith("_test.go") && !filename.includes("/testdata/")));
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.postPhase2MutationBoundaryDigest);
 
   facts.postPhase2MutationBoundaryDigest = `sha256:${"0".repeat(64)}`;
   const result = validateEvidence(manifest, facts);
   assert.ok(result.codes.includes("PHASE2_MUTATION_AVAILABLE"), JSON.stringify(result));
+});
+
+test("the mutation boundary detects changed and added production source files", async () => {
+  const manifest = await loadManifest();
+  const facts = await collectIntegratedFacts(ROOT);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.postPhase2MutationBoundaryDigest);
+  const protectedFiles = await postPhase2MutationBoundaryFiles(ROOT, facts.productionImports);
+  const temporary = await mkdtemp(path.join(tmpdir(), "vsk-phase2-boundary-"));
+  try {
+    for (const relative of protectedFiles) {
+      const target = path.join(temporary, relative);
+      await mkdir(path.dirname(target), { recursive: true });
+      await cp(path.join(ROOT, relative), target);
+    }
+
+    const plans = path.join(temporary, "internal/api/plans.go");
+    await writeFile(plans, `${await readFile(plans, "utf8")}\n// unauthorized mutation seam\n`);
+    let changed = structuredClone(facts);
+    changed.postPhase2MutationBoundaryDigest = await postPhase2MutationBoundaryDigest(temporary, facts.productionImports);
+    assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+
+    await cp(path.join(ROOT, "internal/api/plans.go"), plans);
+    await writeFile(path.join(temporary, "internal/api/phase2_bypass.go"), "package api\n");
+    changed = structuredClone(facts);
+    changed.postPhase2MutationBoundaryDigest = await postPhase2MutationBoundaryDigest(temporary, facts.productionImports);
+    assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+  } finally {
+    await rm(temporary, { recursive: true, force: true });
+  }
 });
 
 test("the checked manifest matches the merged Phase 2 contract", async () => {

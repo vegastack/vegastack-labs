@@ -44,34 +44,15 @@ const REVIEWED_POST_PHASE2_COMMANDS = new Set([
   "apply", "plan", "run cancel", "run inspect", "run resume", "server api-ssh",
 ]);
 // Phase 2's no-mutation proof predates Phase 4. Later commands are accepted
-// only while this exact reviewed production boundary remains unchanged. The
-// sealed set covers generated command/endpoint ownership, the thin clients,
-// both local transports, forced-command identity and epoch checks, API
-// authorization, current-plan validation, acknowledgement admission, and the
-// durable run engine. Any edit fails the old acceptance gate until it receives
-// a fresh review and this digest is deliberately updated.
-const POST_PHASE2_MUTATION_BOUNDARY_FILES = [
-  "schemas/v1/command-registry.json",
-  "schemas/v1/endpoint-registry.json",
-  "cmd/vsk-labs/main.go",
-  "internal/cli/app.go",
-  "internal/localapi/client.go",
-  "internal/localtransport/transport.go",
-  "internal/clientprofile/profile.go",
-  "internal/sshtransport/transport.go",
-  "internal/apissh/codec.go",
-  "internal/server/api_ssh.go",
-  "internal/server/operations.go",
-  "internal/api/router.go",
-  "internal/api/authorization.go",
-  "internal/api/runs.go",
-  "internal/authorization/policy.go",
-  "internal/authorization/effective.go",
-  "internal/acknowledgement/service.go",
-  "internal/plan/service.go",
-  "internal/run/admission.go",
-  "internal/run/engine.go",
-];
+// only while the complete local production source closure of cmd/vsk-labs
+// remains byte-for-byte reviewed. This avoids a brittle hand-maintained file
+// allowlist: every production package, target-specific implementation, and
+// embedded production asset is sealed automatically. Tests and testdata do
+// not affect the production digest. Any production edit fails the old
+// acceptance gate until it receives a fresh review and this digest is
+// deliberately updated.
+const POST_PHASE2_MUTATION_BOUNDARY_ROOTS = ["go.mod", "go.sum"];
+const POST_PHASE2_MUTATION_BOUNDARY_DIRECTORIES = ["internal/metadata", "schemas/v1"];
 const CODE_ORDER = [
   "PHASE2_CHILD_INCOMPLETE",
   "PHASE2_TRACEABILITY_GAP",
@@ -179,9 +160,31 @@ function productionDependencyDigest(imports) {
   return `sha256:${createHash("sha256").update(`${localImports.join("\n")}\n`).digest("hex")}`;
 }
 
-export async function postPhase2MutationBoundaryDigest(root = ROOT) {
+export async function postPhase2MutationBoundaryFiles(root = ROOT, productionImports = null) {
+  let imports = productionImports;
+  if (imports === null) {
+    imports = (await commandOutput(root, "go", ["list", "-deps", "-f", "{{.ImportPath}}", "./cmd/vsk-labs"], {
+      env: { ...process.env, CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" },
+    })).split("\n").filter(Boolean);
+  }
+  const selected = new Set(POST_PHASE2_MUTATION_BOUNDARY_ROOTS);
+  const directories = new Set(POST_PHASE2_MUTATION_BOUNDARY_DIRECTORIES);
+  for (const importPath of imports.filter((name) => name.startsWith(MODULE_PREFIX)).sort()) {
+    directories.add(importPath.slice(MODULE_PREFIX.length));
+  }
+  for (const relativeDirectory of [...directories].sort()) {
+    for (const filename of await filesBelow(path.join(root, relativeDirectory))) {
+      const relative = path.relative(root, filename).split(path.sep).join("/");
+      if (relative.endsWith("_test.go") || relative.includes("/testdata/")) continue;
+      selected.add(relative);
+    }
+  }
+  return [...selected].sort();
+}
+
+export async function postPhase2MutationBoundaryDigest(root = ROOT, productionImports = null) {
   const digest = createHash("sha256");
-  for (const relative of POST_PHASE2_MUTATION_BOUNDARY_FILES) {
+  for (const relative of await postPhase2MutationBoundaryFiles(root, productionImports)) {
     digest.update(relative);
     digest.update("\0");
     digest.update(await readFile(path.join(root, relative)));
@@ -351,7 +354,7 @@ export async function collectIntegratedFacts(root = ROOT) {
     endpointIds: endpoints.endpoints.map(({ id }) => id).sort(),
     migrations,
     productionExecutable: "cmd/vsk-labs",
-    postPhase2MutationBoundaryDigest: await postPhase2MutationBoundaryDigest(root),
+    postPhase2MutationBoundaryDigest: await postPhase2MutationBoundaryDigest(root, productionImports),
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
       !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),
