@@ -165,7 +165,7 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 		case AvailabilityAvailable:
 			wantRisk := RiskReadOnly
 			switch name {
-			case "server run":
+			case "server run", "server api-ssh":
 				wantRisk = RiskLocalService
 			case "apply", "run cancel", "run resume":
 				wantRisk = RiskMutation

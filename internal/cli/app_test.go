@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -58,6 +59,11 @@ type stubServerOperations struct {
 	err          error
 	runConfig    string
 	statusConfig string
+	apiSSHConfig string
+	principalID  string
+	deviceID     string
+	apiSSHInput  []byte
+	apiSSHOutput []byte
 }
 
 func (stub *stubServerOperations) Run(_ context.Context, config string) error {
@@ -68,6 +74,17 @@ func (stub *stubServerOperations) Run(_ context.Context, config string) error {
 func (stub *stubServerOperations) Status(_ context.Context, config string) (localapi.Response, error) {
 	stub.statusConfig = config
 	return stub.status, stub.err
+}
+
+func (stub *stubServerOperations) ServeAPISSH(_ context.Context, config, principalID, deviceID string, input io.Reader, output io.Writer) error {
+	stub.apiSSHConfig, stub.principalID, stub.deviceID = config, principalID, deviceID
+	stub.apiSSHInput, _ = io.ReadAll(input)
+	response := stub.apiSSHOutput
+	if response == nil {
+		response = []byte("framed-response")
+	}
+	_, _ = output.Write(response)
+	return stub.err
 }
 
 func successfulServerResponse(t *testing.T) localapi.Response {
@@ -130,6 +147,18 @@ func TestServerRunRoutesAndUnavailableStatusCreatesTypedEnvelope(t *testing.T) {
 	var status generated.ServerStatusData
 	if err := json.Unmarshal(result.Data, &status); err != nil || status.State != "unavailable" || status.ReadAvailable || status.MutationAvailable {
 		t.Fatalf("unavailable = %#v, %v", status, err)
+	}
+}
+
+func TestServerAPISSHDispatchesOnlyStdinStdoutAndFixedBindings(t *testing.T) {
+	operations := &stubServerOperations{apiSSHOutput: []byte("framed-response")}
+	var input bytes.Buffer
+	input.WriteString("framed-request")
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{
+		"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator",
+	}, nil, WithInput(&input), WithServerOperations(operations))
+	if code != 0 || stdout != "framed-response" || stderr != "" || operations.apiSSHConfig != "profile.json" || operations.principalID != "ssh-principal.operator" || operations.deviceID != "device.operator" || string(operations.apiSSHInput) != "framed-request" {
+		t.Fatalf("api-ssh dispatch = code %d stdout %q stderr %q operations %#v", code, stdout, stderr, operations)
 	}
 }
 

@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.14.0",
+  "schemaVersion": "1.15.0",
   "commands": [
     {
       "path": [
@@ -1260,6 +1260,62 @@
             "run-1",
             "--output",
             "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "server",
+        "api-ssh"
+      ],
+      "summary": "Serve one constrained SSH API frame through the persistent control service.",
+      "availability": "available",
+      "ownerPhase": "4",
+      "risk": "local-service",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--device-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Bind the server-configured forced command to this verified device.",
+          "enum": null
+        },
+        {
+          "name": "--ssh-principal-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Bind the server-configured forced command to this verified SSH principal.",
+          "enum": null
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/api-ssh-request-frame-header",
+      "resultSchema": "vegastack-labs.dev/api-ssh-response-frame-header",
+      "examples": [
+        {
+          "summary": "Serve one frame from an SSH forced-command configuration.",
+          "arguments": [
+            "server",
+            "api-ssh",
+            "--config",
+            "fixture/server-profile.json",
+            "--ssh-principal-id",
+            "ssh-principal.operator",
+            "--device-id",
+            "device.operator"
           ]
         }
       ]

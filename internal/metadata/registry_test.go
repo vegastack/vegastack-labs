@@ -33,6 +33,24 @@ func TestApiSshFrameHeadersPromoteThePhaseZeroThreeContract(t *testing.T) {
 	}
 }
 
+func TestApiSshForcedCommandIsOneBoundedSameExecutableEntry(t *testing.T) {
+	t.Parallel()
+
+	command := commandByName(t, Current(), "server api-ssh")
+	if command.Availability != AvailabilityAvailable || command.OwnerPhase != "4" || command.Risk != RiskLocalService {
+		t.Fatalf("server api-ssh command = %#v", command)
+	}
+	if command.RequestSchema != apiSshRequestFrameHeaderSchemaID || command.ResultSchema != apiSshResponseFrameHeaderSchemaID || command.DataSchema != "" {
+		t.Fatalf("server api-ssh schemas = %#v", command)
+	}
+	assertFlag(t, command, "--config", FlagValue, true, false)
+	assertFlag(t, command, "--ssh-principal-id", FlagValue, true, false)
+	assertFlag(t, command, "--device-id", FlagValue, true, false)
+	if hasFlag(command.Flags, "--output", "format", []string{"human", "json"}) || hasFlag(command.Flags, "--schema-version", "major", []string{"1"}) {
+		t.Fatal("framed forced-command entry exposes an alternate output or version grammar")
+	}
+}
+
 func TestPhase4ContractsBindPlanAndExecutorScope(t *testing.T) {
 	t.Parallel()
 
@@ -158,8 +176,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.14.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.14.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.15.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -283,8 +301,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.14.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.14.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.15.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -315,8 +333,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.14.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.14.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.15.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -395,12 +413,12 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.14.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.14.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.15.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{
-		"help": false, "release inspect": false, "release verify": false, "server run": false, "server status": false, "version": false,
+		"help": false, "release inspect": false, "release verify": false, "server api-ssh": false, "server run": false, "server status": false, "version": false,
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
 		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
 	}
@@ -538,6 +556,9 @@ func TestFoundationCommandsExposeSchemaMajor(t *testing.T) {
 
 	for _, command := range Current().Commands {
 		if command.Availability != AvailabilityAvailable {
+			continue
+		}
+		if commandName(command.Path) == "server api-ssh" {
 			continue
 		}
 		if !hasFlag(command.Flags, "--schema-version", "major", []string{"1"}) {

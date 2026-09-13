@@ -186,6 +186,7 @@ func Current() Registry {
 		releaseInspectCommand(),
 		releaseVerifyCommand(),
 		serverRunCommand(),
+		serverAPISSHCommand(),
 		serverStatusCommand(),
 		platformStatusCommand(),
 		databaseStatusCommand(),
@@ -212,7 +213,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.14.0",
+		SchemaVersion: "1.15.0",
 		Commands:      commands,
 		Endpoints:     append(readEndpoints(), phase4Endpoints()...),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
@@ -389,6 +390,27 @@ func serverRunCommand() CommandDefinition {
 		}, commonFlags()...),
 		ResultSchema: runResultSchemaID,
 		Examples:     []ExampleDefinition{{Summary: "Run the local control service in the foreground.", Arguments: []string{"server", "run", "--config", "fixture/server-profile.json"}}},
+	}
+}
+
+func serverAPISSHCommand() CommandDefinition {
+	return CommandDefinition{
+		Path:         []string{"server", "api-ssh"},
+		Summary:      "Serve one constrained SSH API frame through the persistent control service.",
+		Availability: AvailabilityAvailable,
+		OwnerPhase:   "4",
+		Risk:         RiskLocalService,
+		Flags: []FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
+			{Name: "--ssh-principal-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the server-configured forced command to this verified SSH principal."},
+			{Name: "--device-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the server-configured forced command to this verified device."},
+		},
+		RequestSchema: apiSshRequestFrameHeaderSchemaID,
+		ResultSchema:  apiSshResponseFrameHeaderSchemaID,
+		Examples: []ExampleDefinition{{
+			Summary:   "Serve one frame from an SSH forced-command configuration.",
+			Arguments: []string{"server", "api-ssh", "--config", "fixture/server-profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator"},
+		}},
 	}
 }
 

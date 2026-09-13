@@ -116,6 +116,26 @@ func TestParseServerCommandsRequireOneExplicitConfig(t *testing.T) {
 	}
 }
 
+func TestParseServerAPISSHRequiresFixedBindingArguments(t *testing.T) {
+	t.Parallel()
+
+	parsed, parseFailure := parseArguments([]string{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator"})
+	if parseFailure != nil || parsed.commandName() != generated.CommandNameServerAPISSH || parsed.Value(generated.FlagSSHPrincipalID) != "ssh-principal.operator" || parsed.Value(generated.FlagDeviceID) != "device.operator" {
+		t.Fatalf("server api-ssh parse = (%#v, %#v)", parsed, parseFailure)
+	}
+	for _, arguments := range [][]string{
+		{"server", "api-ssh", "--config", "profile.json", "--device-id", "device.operator"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "UPPERCASE", "--device-id", "device.operator"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "../../device"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator", "status"},
+		{"server", "api-ssh", "--config", "profile.json", "--ssh-principal-id", "ssh-principal.operator", "--device-id", "device.operator", "--output", "json"},
+	} {
+		if _, failure := parseArguments(arguments); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Errorf("server api-ssh args %v failure = %#v", arguments, failure)
+		}
+	}
+}
+
 func TestParseInventoryDiffRequiresExactlyOneCompleteSelector(t *testing.T) {
 	base := []string{"inventory", "diff", "--config", "profile.json"}
 	invalid := [][]string{

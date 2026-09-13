@@ -541,8 +541,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 16 || planned != 38 {
-		t.Fatalf("command availability = (%d available, %d planned), want (16, 38)", available, planned)
+	if available != 17 || planned != 38 {
+		t.Fatalf("command availability = (%d available, %d planned), want (17, 38)", available, planned)
 	}
 
 	for _, path := range []string{
@@ -573,7 +573,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.14.0"`,
+		`= "1.15.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

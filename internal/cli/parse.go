@@ -109,10 +109,17 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
 	}
-	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) {
+	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) {
 		return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 	}
 	return parsed, nil
+}
+
+func invalidServerShape(parsed parsedArguments) bool {
+	if parsed.commandName() != generated.CommandNameServerAPISSH {
+		return false
+	}
+	return !phase4IDPattern.MatchString(parsed.Value(generated.FlagSSHPrincipalID)) || !phase4IDPattern.MatchString(parsed.Value(generated.FlagDeviceID))
 }
 
 func invalidPhase4Shape(parsed parsedArguments) bool {

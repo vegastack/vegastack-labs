@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vegastack/vegastack-labs/internal/apissh"
 	"github.com/vegastack/vegastack-labs/internal/clientfile"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -42,6 +43,7 @@ type ReleaseOperations interface {
 type ServerOperations interface {
 	Run(context.Context, string) error
 	Status(context.Context, string) (localapi.Response, error)
+	ServeAPISSH(context.Context, string, string, string, io.Reader, io.Writer) error
 }
 
 type ControlOperations interface {
@@ -71,6 +73,12 @@ func WithServerOperations(operations ServerOperations) Option {
 	}
 }
 
+func WithInput(input io.Reader) Option {
+	return func(app *App) {
+		app.stdin = input
+	}
+}
+
 func WithControlOperations(operations ControlOperations, files clientfile.Reader) Option {
 	return func(app *App) {
 		app.control = operations
@@ -79,6 +87,7 @@ func WithControlOperations(operations ControlOperations, files clientfile.Reader
 }
 
 type App struct {
+	stdin      io.Reader
 	stdout     io.Writer
 	stderr     io.Writer
 	build      BuildInfo
@@ -97,7 +106,7 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	app := &App{stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs}
+	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs}
 	for _, option := range options {
 		if option != nil {
 			option(app)
@@ -175,6 +184,14 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		}
 		if err := app.server.Run(ctx, parsed.Value(generated.FlagConfig)); err != nil {
 			return app.failServer(mode, parsed.commandName(), err)
+		}
+		return 0
+	case generated.CommandNameServerAPISSH:
+		if app.server == nil || app.stdin == nil {
+			return app.failAPISSH(failure.New(generated.ErrorCodeIntegrityFailure, "server-operations", false))
+		}
+		if err := app.server.ServeAPISSH(ctx, parsed.Value(generated.FlagConfig), parsed.Value(generated.FlagSSHPrincipalID), parsed.Value(generated.FlagDeviceID), app.stdin, app.stdout); err != nil {
+			return app.failAPISSH(err)
 		}
 		return 0
 	case generated.CommandNameServerStatus:
@@ -380,6 +397,19 @@ func (app *App) failUncertainRun(mode outputMode, command, runID string) int {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
 	return exitCodeFor(generated.ErrorCodeDependencyUnavailable)
+}
+
+func (app *App) failAPISSH(err error) int {
+	code := apissh.ErrorCode(err)
+	if code == "" {
+		if stable, ok := failure.As(err); ok {
+			code = stable.Code
+		}
+	}
+	if _, ok := generated.ErrorExitCodes[code]; !ok {
+		code = generated.ErrorCodeIntegrityFailure
+	}
+	return renderHumanFailure(app.stderr, code, "api-ssh", exitCodeFor(code))
 }
 
 func emptyRun(value generated.RunPresentation) bool { return value.Run.RunID == "" }

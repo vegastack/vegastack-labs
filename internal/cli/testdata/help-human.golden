@@ -71,6 +71,10 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --run-id <id>          Select the exact durable run.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  server api-ssh           Serve one constrained SSH API frame through the persistent control service.
+    --config <path>        Read the protected server profile at this explicit path.
+    --device-id <id>       Bind the server-configured forced command to this verified device.
+    --ssh-principal-id <id> Bind the server-configured forced command to this verified SSH principal.
   server run               Run the persistent control service in the foreground.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
