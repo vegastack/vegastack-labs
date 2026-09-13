@@ -131,8 +131,11 @@ func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string)
 	case "api.v1.summary.get":
 		return requestPath, reflect.DeepEqual(arguments, []string{"--output", "json"})
 	case "api.v1.plans.create":
-		if requestPath == "/api/v1/plans" && len(arguments) == 4 && arguments[0] == "--change" && principal.ValidID(arguments[1]) && arguments[2] == "--output" && arguments[3] == "json" {
+		if len(arguments) == 4 && arguments[0] == "--change" && principal.ValidID(arguments[1]) && arguments[2] == "--output" && arguments[3] == "json" {
 			mappedPath := "/api/v1/declarations/" + arguments[1] + "/plans"
+			if requestPath != "/api/v1/plans" && requestPath != mappedPath {
+				return "", false
+			}
 			mappedOperation, mapped := api.ConstrainedSSHOperation(localtransport.MethodPost, mappedPath)
 			if mapped && mappedOperation == operationID {
 				return mappedPath, true

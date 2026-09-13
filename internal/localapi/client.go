@@ -246,7 +246,7 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		response, err = sshtransport.RoundTrip(ctx, sshtransport.Request{
 			Executable: profile.ConstrainedSSH.Executable, Arguments: profile.ConstrainedSSH.Arguments,
 			RequestID: requestID, SSHPrincipalID: profile.ConstrainedSSH.SSHPrincipalID, DeviceID: profile.ConstrainedSSH.DeviceID,
-			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: remoteCommandArguments(spec.command),
+			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: remoteCommandArguments(spec),
 			Method: request.Method, Path: request.Path, Body: request.Body, Timeout: request.Timeout, ResponseLimit: request.ResponseLimit,
 		})
 	} else {
@@ -268,7 +268,28 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 	return validateTypedResponse(response.Body, response.StatusCode, spec, validate)
 }
 
-func remoteCommandArguments(operation string) []string {
+func remoteCommandArguments(spec requestSpec) []string {
+	if spec.command == "api.v1.summary.get" {
+		return []string{"--output", "json"}
+	}
+	if spec.command == "api.v1.plans.create" {
+		if id, ok := pathID(spec.path, "/api/v1/declarations/", "/plans"); ok {
+			return []string{"--change", id, "--output", "json"}
+		}
+		return nil
+	}
+	if spec.command == "api.v1.plans.execute" {
+		if id, ok := pathID(spec.path, "/api/v1/plans/", "/execute"); ok {
+			return []string{"--plan-id", id, "--output", "json"}
+		}
+		return nil
+	}
+	if spec.command == "api.v1.runs.get" {
+		if id, ok := pathID(spec.path, "/api/v1/runs/", ""); ok {
+			return []string{"--run-id", id, "--output", "json"}
+		}
+		return nil
+	}
 	arguments := map[string][]string{
 		generated.CommandNameServerStatus:          {"server", "status"},
 		"api.v1.summary.get":                       {"status"},
@@ -284,7 +305,15 @@ func remoteCommandArguments(operation string) []string {
 		"api.v1.runs.cancel":                       {"run", "cancel"},
 		"api.v1.runs.resume":                       {"run", "resume"},
 	}
-	return append([]string(nil), arguments[operation]...)
+	return append([]string(nil), arguments[spec.command]...)
+}
+
+func pathID(path, prefix, suffix string) (string, bool) {
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return "", false
+	}
+	id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	return id, validPathToken(id)
 }
 
 func validateTypedResponse[T any](raw []byte, httpStatus int, spec requestSpec, validate func(T, generated.RunResult) bool) (TypedResponse[T], error) {

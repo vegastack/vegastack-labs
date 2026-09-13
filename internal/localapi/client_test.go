@@ -122,27 +122,34 @@ func TestStatusMapsUnavailableSocketWithoutPathLeak(t *testing.T) {
 }
 
 func TestRemoteCommandArgumentsMatchGeneratedOperatorCommands(t *testing.T) {
-	want := map[string][]string{
-		generated.CommandNameServerStatus:          {"server", "status"},
-		"api.v1.summary.get":                       {"status"},
-		"api.v1.database-status.get":               {"database", "status"},
-		"api.v1.inventory-drafts.import":           {"inventory", "import"},
-		"api.v1.inventory-diffs.create":            {"inventory", "diff"},
-		"api.v1.inventory-exports.create":          {"inventory", "export"},
-		"api.v1.declarations.plan-preparation.get": {"plan"},
-		"api.v1.plans.create":                      {"plan"},
-		"api.v1.plans.get":                         {"apply"},
-		"api.v1.plans.execute":                     {"apply"},
-		"api.v1.runs.get":                          {"run", "inspect"},
-		"api.v1.runs.cancel":                       {"run", "cancel"},
-		"api.v1.runs.resume":                       {"run", "resume"},
+	want := map[requestSpec][]string{
+		{command: generated.CommandNameServerStatus}:                                  {"server", "status"},
+		{command: "api.v1.summary.get"}:                                               {"--output", "json"},
+		{command: "api.v1.database-status.get"}:                                       {"database", "status"},
+		{command: "api.v1.inventory-drafts.import"}:                                   {"inventory", "import"},
+		{command: "api.v1.inventory-diffs.create"}:                                    {"inventory", "diff"},
+		{command: "api.v1.inventory-exports.create"}:                                  {"inventory", "export"},
+		{command: "api.v1.declarations.plan-preparation.get"}:                         {"plan"},
+		{command: "api.v1.plans.create", path: "/api/v1/declarations/change-1/plans"}: {"--change", "change-1", "--output", "json"},
+		{command: "api.v1.plans.get"}:                                                 {"apply"},
+		{command: "api.v1.plans.execute", path: "/api/v1/plans/plan-1/execute"}:       {"--plan-id", "plan-1", "--output", "json"},
+		{command: "api.v1.runs.get", path: "/api/v1/runs/run-1"}:                      {"--run-id", "run-1", "--output", "json"},
+		{command: "api.v1.runs.cancel"}:                                               {"run", "cancel"},
+		{command: "api.v1.runs.resume"}:                                               {"run", "resume"},
 	}
-	for operation, expected := range want {
-		if got := remoteCommandArguments(operation); !reflect.DeepEqual(got, expected) {
-			t.Fatalf("%s arguments = %#v, want %#v", operation, got, expected)
+	for spec, expected := range want {
+		if got := remoteCommandArguments(spec); !reflect.DeepEqual(got, expected) {
+			t.Fatalf("%s arguments = %#v, want %#v", spec.command, got, expected)
 		}
 	}
-	if got := remoteCommandArguments("api.v1.events.stream"); len(got) != 0 {
-		t.Fatalf("disallowed operation arguments = %#v", got)
+	for _, spec := range []requestSpec{
+		{command: "api.v1.events.stream"},
+		{command: "api.v1.plans.create", path: "/api/v1/declarations/bad/path/plans"},
+		{command: "api.v1.plans.execute", path: "/api/v1/plans/plan-1"},
+		{command: "api.v1.runs.get", path: "/api/v1/runs/"},
+	} {
+		if got := remoteCommandArguments(spec); len(got) != 0 {
+			t.Fatalf("disallowed operation arguments = %#v", got)
+		}
 	}
 }

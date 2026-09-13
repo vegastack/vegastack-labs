@@ -949,7 +949,7 @@ func main(){ reader:=bufio.NewReader(os.Stdin); line,err:=reader.ReadBytes('\\n'
   const recordedSummary = JSON.parse(await readFile(capture, "utf8"));
   assert.equal(recordedSummary.header.requestId, summaryEnvelope.requestId);
   assert.equal(recordedSummary.header.operation, "GET /api/v1/summary");
-  assert.deepEqual(recordedSummary.header.arguments, ["status"]);
+  assert.deepEqual(recordedSummary.header.arguments, ["--output", "json"]);
 });
 
 test("built server api-ssh forced command verifies and forwards one framed operation", async (t) => {
