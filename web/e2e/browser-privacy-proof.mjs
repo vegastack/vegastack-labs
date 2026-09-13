@@ -14,6 +14,40 @@ export function assertPrivacyEvidence(value, needles, surface) {
   }
 }
 
+export function settlePrivacyCheck(check) {
+  return Promise.resolve(check).then(() => null, error => error);
+}
+
+export async function assertSettledPrivacyChecks(checks) {
+  const failure = (await Promise.all(checks)).find(error => error !== null);
+  if (failure) throw failure;
+}
+
+export async function finalizeProbeResources({
+  browser,
+  context,
+  credentialProxy,
+  remove,
+  screenshotPath,
+  tracePath,
+  traceStarted,
+}) {
+  let failureStage = null;
+  if (traceStarted && context && tracePath) {
+    try { await context.tracing.stop({ path: tracePath }); } catch { failureStage = "trace-finalization"; }
+  }
+  for (const target of [tracePath, screenshotPath].filter(Boolean)) {
+    try { await remove(target, { force: true }); } catch { failureStage ??= "artifact-cleanup"; }
+  }
+  if (browser) {
+    try { await browser.close(); } catch { failureStage ??= "browser-cleanup"; }
+  }
+  if (credentialProxy) {
+    try { await credentialProxy.close(); } catch { failureStage ??= "proxy-cleanup"; }
+  }
+  return failureStage;
+}
+
 function assertCredentialHeadersAbsent(value, forbiddenHeaders, surface) {
   const forbidden = new Set(forbiddenHeaders.map(name => name.toLowerCase()));
   if (forbidden.size === 0) return;

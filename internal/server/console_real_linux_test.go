@@ -413,7 +413,20 @@ func TestProductionOperationsInvalidRemoteConfigurationKeepsRealStoreAPIAvailabl
 	if !summary.Data.ReadAvailable {
 		t.Fatalf("production local summary unavailable: %#v", summary.Data)
 	}
-	status, err := client.Status(context.Background(), profile)
+	var status localapi.Response
+	var err error
+	for deadline := time.Now().Add(3 * time.Second); time.Now().Before(deadline); {
+		select {
+		case runErr := <-done:
+			t.Fatalf("production operations stopped before invalid-remote status: %v", runErr)
+		default:
+		}
+		status, err = client.Status(context.Background(), profile)
+		if err == nil && status.Status.RemoteReadState == "unavailable" && status.Status.RemoteReadReason == "preflight-unavailable" {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 	if err != nil || status.Status.RemoteReadState != "unavailable" || status.Status.RemoteReadReason != "preflight-unavailable" {
 		t.Fatalf("production invalid-remote status = %#v, %v", status.Status, err)
 	}
