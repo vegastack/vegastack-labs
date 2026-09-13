@@ -5,6 +5,8 @@ import path from "node:path";
 import test from "node:test";
 import { verifyCLI } from "../verify-cli.mjs";
 
+const ROOT = path.resolve(import.meta.dirname, "../..");
+
 const MATCHING_RUN = [
   "func Run() generated.Command {",
   "  for _, command := range generated.Commands {",
@@ -103,33 +105,8 @@ test("inventory control commands cannot reach SQLite, shells, providers, arbitra
   ]);
 });
 
-test("the CLI verifier permits the reviewed fixed Unix-domain socket transport", async (t) => {
-  const transportSource = await readFile(new URL("../../internal/localtransport/transport.go", import.meta.url), "utf8");
-  const root = await fixtureRepo(t, {
-    "internal/cli/run.go": [
-      "package cli",
-      'import ("example.test/internal/generated"; _ "example.test/internal/server")',
-      MATCHING_RUN,
-      "",
-    ].join("\n"),
-    "internal/server/service.go": [
-      "package server",
-      'import ("net/http"; _ "example.test/internal/localapi")',
-      "func Serve(writer http.ResponseWriter, request *http.Request) {}",
-      "",
-    ].join("\n"),
-    "internal/localapi/client.go": [
-      "package localapi",
-      'import ("context"; "time"; "example.test/internal/localtransport")',
-      "func Client(ctx context.Context) error {",
-      '  _, err := localtransport.RoundTrip(ctx, localtransport.Request{SocketPath: "/run/vsk-labs/control.sock", Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 1024})',
-      "  return err",
-      "}",
-      "",
-    ].join("\n"),
-    "internal/localtransport/transport.go": transportSource,
-  });
-  const result = await verifyCLI(root, { crossBuild: false });
+test("the CLI verifier permits the reviewed fixed Unix-domain socket transport", async () => {
+  const result = await verifyCLI(ROOT, { crossBuild: false });
   assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
 });
 
@@ -146,6 +123,61 @@ test("the local transport implementation is sealed to the reviewed Unix source",
       "",
     ].join("\n")),
     "internal/localtransport/transport.go": transportSource.replace('"unix"', '"tcp"'),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects caller-controlled values forwarded to the sealed transport", async (t) => {
+  const transportSource = await readFile(new URL("../../internal/localtransport/transport.go", import.meta.url), "utf8");
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import ("context"; "time"; "example.test/internal/localtransport")',
+      "func Raw(ctx context.Context, socketPath, requestPath string, body []byte) error {",
+      "  _, err := localtransport.RoundTrip(ctx, localtransport.Request{SocketPath: socketPath, Method: localtransport.MethodPost, Path: requestPath, Body: body, Timeout: time.Second, ResponseLimit: 1024})",
+      "  return err",
+      "}",
+      "",
+    ].join("\n")),
+    "internal/localtransport/transport.go": transportSource,
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects raw network syscalls", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import "syscall"',
+    "func Raw() error {",
+    "  descriptor, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0)",
+    "  if err != nil { return err }",
+    "  defer syscall.Close(descriptor)",
+    "  if err := syscall.Connect(descriptor, &syscall.SockaddrInet4{Port: 80, Addr: [4]byte{127, 0, 0, 1}}); err != nil { return err }",
+    '  _, err = syscall.Write(descriptor, []byte("GET / HTTP/1.0\\r\\n\\r\\n"))',
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("only localapi may import the sealed local transport", async (t) => {
+  const transportSource = await readFile(new URL("../../internal/localtransport/transport.go", import.meta.url), "utf8");
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("context"; "time"; "example.test/internal/generated"; "example.test/internal/localtransport")',
+      MATCHING_RUN,
+      "func Raw(ctx context.Context, socketPath, requestPath string, body []byte) error {",
+      "  _, err := localtransport.RoundTrip(ctx, localtransport.Request{SocketPath: socketPath, Method: localtransport.MethodPost, Path: requestPath, Body: body, Timeout: time.Second, ResponseLimit: 1024})",
+      "  return err",
+      "}",
+      "",
+    ].join("\n"),
+    "internal/localtransport/transport.go": transportSource,
   });
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);

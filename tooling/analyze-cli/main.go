@@ -364,6 +364,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		if candidate.ImportPath != localAPIImport && candidate.ImportPath != localTransportImport && containsString(candidate.Imports, localTransportImport) {
+			result.LocalClientBoundary = false
+		}
 		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport, localTransportImport) {
 			result.LocalClientBoundary = false
 		}
@@ -481,8 +484,11 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		}
 		return true
 	}
+	if !reviewedLocalAPISource(candidate) {
+		return false
+	}
 	for _, imported := range candidate.listed.Imports {
-		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/http" || imported == "net/url" || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" {
+		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/http" || imported == "net/url" || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" || imported == "syscall" {
 			return false
 		}
 		if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") || approvedExternal(imported) {
@@ -555,6 +561,26 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		})
 	}
 	return valid
+}
+
+const (
+	reviewedLocalAPILinuxDigest       = "b88b7e4101be9b264fc48a0347d2bfb82aaea745df480010373f8d1d1eb50f29"
+	reviewedLocalAPIUnsupportedDigest = "917d9db1b5deb825ad2e238847d8ddbfec9ea667ef00e06698bafa2bbce7a513"
+)
+
+// reviewedLocalAPISource seals every production source file in the package
+// that can reach the value-only local transport. This makes caller provenance
+// part of the reviewed boundary: adding a raw forwarding helper, a new client
+// method, an init hook, a target-specific file, or a syscall path fails closed
+// until the complete package is independently reviewed and resealed.
+func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	expected := reviewedLocalAPIUnsupportedDigest
+	if containsString(names, "listener_linux.go") {
+		expected = reviewedLocalAPILinuxDigest
+	}
+	return digestSourceFiles(candidate.listed.Dir, names) == expected
 }
 
 func reviewedNetworkFunctionPackage(packagePath string) bool {
@@ -710,18 +736,22 @@ func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
 			return false
 		}
 	}
+	return digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles) == reviewedLocalTransportDigest
+}
+
+func digestSourceFiles(directory string, names []string) string {
 	hash := sha256.New()
-	for _, name := range candidate.listed.GoFiles {
-		content, err := os.ReadFile(filepath.Join(candidate.listed.Dir, name))
+	for _, name := range names {
+		content, err := os.ReadFile(filepath.Join(directory, name))
 		if err != nil {
-			return false
+			return ""
 		}
 		_, _ = hash.Write([]byte(name))
 		_, _ = hash.Write([]byte{0})
 		_, _ = hash.Write(content)
 		_, _ = hash.Write([]byte{0})
 	}
-	return fmt.Sprintf("%x", hash.Sum(nil)) == reviewedLocalTransportDigest
+	return fmt.Sprintf("%x", hash.Sum(nil))
 }
 
 func slicesMatching(values []string, keep func(string) bool) []string {
@@ -732,6 +762,15 @@ func slicesMatching(values []string, keep func(string) bool) []string {
 		}
 	}
 	return result
+}
+
+func containsString(values []string, expected string) bool {
+	for _, value := range values {
+		if value == expected {
+			return true
+		}
+	}
+	return false
 }
 
 func exactString(expression ast.Expr, expected string) bool {
