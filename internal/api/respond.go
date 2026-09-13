@@ -76,14 +76,17 @@ func (app *Application) executeRunResult(writer http.ResponseWriter, operation, 
 // presentRun is the server-owned interpretation of durable execution state.
 // Operator clients render these exact facts and never infer workflow advice.
 func presentRun(run generated.Run) generated.RunPresentation {
-	completed := make([]generated.RunStep, 0, len(run.Steps))
-	incomplete := make([]generated.RunStep, 0, len(run.Steps))
+	steps := make([]generated.BrowserRunStep, 0, len(run.Steps))
+	completed := make([]generated.BrowserRunStep, 0, len(run.Steps))
+	incomplete := make([]generated.BrowserRunStep, 0, len(run.Steps))
 	for _, step := range run.Steps {
+		projected := generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status}
+		steps = append(steps, projected)
 		switch step.Status {
 		case generated.RunStatusSucceeded, generated.RunStatusFailed, generated.RunStatusCancelled:
-			completed = append(completed, step)
+			completed = append(completed, projected)
 		default:
-			incomplete = append(incomplete, step)
+			incomplete = append(incomplete, projected)
 		}
 	}
 	next := "inspect the durable run"
@@ -104,8 +107,7 @@ func presentRun(run generated.Run) generated.RunPresentation {
 	browserRun := generated.BrowserRun{
 		Schema: generated.SchemaIDBrowserRun, SchemaVersion: "1.0.0",
 		RunID: run.RunID, PlanID: run.PlanID, PlanDigest: run.PlanDigest,
-		PolicyVersion: run.PolicyVersion, ExecutorMode: run.ExecutorMode, ExecutorID: run.ExecutorID,
-		Status: run.Status, Steps: append([]generated.RunStep(nil), run.Steps...), CancellationRequested: run.CancellationRequested,
+		Status: run.Status, Steps: steps, CancellationRequested: run.CancellationRequested,
 		RollbackStatus: run.RollbackStatus, VerificationStatus: run.VerificationStatus, VerificationDigest: run.VerificationDigest,
 		Changed: run.Changed, StateRevision: run.StateRevision, RecoveryEpoch: run.RecoveryEpoch,
 		CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt, Extensions: append([]generated.ContractExtension(nil), run.Extensions...),

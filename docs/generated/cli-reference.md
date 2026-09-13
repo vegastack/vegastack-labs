@@ -519,6 +519,21 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `decidedAt`
 - `extensions`
 
+### `vegastack-labs.dev/browser-declaration-revision`
+
+- `schema`: `vegastack-labs.dev/browser-declaration-revision`
+- `schemaVersion`: `1.0.0`
+- `declarationId`
+- `declarationType`
+- `revision`
+- `stateRevision`
+- `recoveryEpoch`
+- `contentDigest`
+- `status`: `committed`, `draft`, `superseded`
+- `operations`
+- `createdAt`
+- `extensions`
+
 ### `vegastack-labs.dev/browser-run`
 
 - `schema`: `vegastack-labs.dev/browser-run`
@@ -526,9 +541,6 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `runId`
 - `planId`
 - `planDigest`
-- `policyVersion`
-- `executorMode`: `central`, `external`
-- `executorId`
 - `status`: `cancelled`, `failed`, `interrupted`, `partial`, `queued`, `running`, `succeeded`
 - `steps`
 - `cancellationRequested`
@@ -688,6 +700,12 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `expectedStateRevision`
 - `recoveryEpoch`
 - `observationFingerprint`
+
+### `vegastack-labs.dev/plan-presentation`
+
+- `plan`
+- `readablePlan`
+- `canonicalPlan`
 
 ### `vegastack-labs.dev/plan-reference-request`
 

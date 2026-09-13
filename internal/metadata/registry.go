@@ -59,6 +59,7 @@ const (
 	apiInventoryObservationListDataSchemaID = "vegastack-labs.dev/api-inventory-observation-list-data"
 	apiInventoryObservationDataSchemaID     = "vegastack-labs.dev/api-inventory-observation-data"
 	apiAuditEventDataSchemaID               = "vegastack-labs.dev/api-audit-event-data"
+	browserAuditEventSchemaID               = "vegastack-labs.dev/browser-audit-event"
 	apiBrowserSessionRequestSchemaID        = "vegastack-labs.dev/api-browser-session-request"
 	apiBrowserSessionDataSchemaID           = "vegastack-labs.dev/api-browser-session-data"
 	inventoryDraftRefSchemaID               = "vegastack-labs.dev/inventory-draft-ref"
@@ -868,7 +869,7 @@ func readAPISchemas() []SchemaDefinition {
 		{ID: apiInventoryObservationDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-observation-data.schema.json", Fields: []FieldDefinition{{JSONName: "authority", GoName: "Authority", Kind: ValueString, Required: true, Enum: []string{"draft"}}, {JSONName: "validationStatus", GoName: "ValidationStatus", Kind: ValueString, Required: true, Enum: []string{"valid", "blocked"}}, token("id", "ID"), token("subjectId", "SubjectID"), token("kind", "Kind"), {JSONName: "state", GoName: "State", Kind: ValueString, Required: true, Enum: []string{"declared", "observed", "drifted", "stale", "unknown"}}, {JSONName: "observedAt", GoName: "ObservedAt", Kind: ValueString, Required: true, Nullable: true, MaxLength: intPointer(64)}, token("source", "Source")}},
 		{ID: apiInventoryObservationListDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-inventory-observation-list-data.schema.json", Fields: pageFields(apiInventoryObservationDataSchemaID)},
 		{ID: apiAuditEventDataSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/api-audit-event-data.schema.json", Fields: []FieldDefinition{
-			{JSONName: "event", GoName: "Event", Kind: ValueObject, Required: true, Ref: auditEventSchemaID},
+			{JSONName: "event", GoName: "Event", Kind: ValueObject, Required: true, Ref: browserAuditEventSchemaID},
 		}},
 	}
 }

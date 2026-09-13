@@ -228,23 +228,5 @@ func (streamer *EventStreamer) ServeHTTP(w http.ResponseWriter, r *http.Request,
 }
 
 func projectEvent(event audit.Event) generated.ApiAuditEventData {
-	var causation, correction *int64
-	if event.CausationID != nil {
-		x := int64(*event.CausationID)
-		causation = &x
-	}
-	if event.CorrectionOf != nil {
-		x := int64(*event.CorrectionOf)
-		correction = &x
-	}
-	var before, after *string
-	if event.Before != nil {
-		x := string(*event.Before)
-		before = &x
-	}
-	if event.After != nil {
-		x := string(*event.After)
-		after = &x
-	}
-	return generated.ApiAuditEventData{Event: generated.AuditEvent{Schema: event.Schema, SchemaVersion: event.SchemaVersion, EventID: int64(event.EventID), OccurredAt: event.OccurredAt, RecoveryEpoch: event.RecoveryEpoch, StateRevision: event.StateRevision, Type: string(event.Type), CorrelationID: event.CorrelationID, CausationEventID: causation, CorrectionOfEventID: correction, PrincipalID: event.PrincipalID, PrincipalMethod: event.PrincipalMethod, ResponsibleHumanPrincipalID: event.HumanID, AgentName: event.AgentName, AgentSessionID: event.AgentSessionID, AgentSource: event.AgentSource, Target: generated.AuditTarget{Kind: string(event.Target.Kind), ID: event.Target.ID}, BeforeFingerprint: before, AfterFingerprint: after}}
+	return generated.ApiAuditEventData{Event: generated.BrowserAuditEvent{EventID: int64(event.EventID), OccurredAt: event.OccurredAt, RecoveryEpoch: event.RecoveryEpoch, StateRevision: event.StateRevision, Type: string(event.Type), Target: generated.AuditTarget{Kind: string(event.Target.Kind), ID: event.Target.ID}}}
 }

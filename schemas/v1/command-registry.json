@@ -1884,9 +1884,23 @@
       "artifactPath": "schemas/v1/authorization-decision.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/browser-audit-event",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-audit-event.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-declaration-revision",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-declaration-revision.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/browser-run",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-run.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-run-step",
+      "version": "1.0.0"
     },
     {
       "id": "vegastack-labs.dev/cloudflare-access-profile",
@@ -2082,6 +2096,11 @@
       "id": "vegastack-labs.dev/plan-preparation",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/plan-preparation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/plan-presentation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/plan-presentation.schema.json"
     },
     {
       "id": "vegastack-labs.dev/plan-reference-request",

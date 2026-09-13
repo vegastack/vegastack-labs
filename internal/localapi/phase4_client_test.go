@@ -28,7 +28,7 @@ func TestPlanReadsServerPreparationBeforeExactCreate(t *testing.T) {
 			writePhase4Envelope(t, writer, "api.v1.declarations.plan-preparation.get", false, 2, 6, preparation)
 			return
 		}
-		writePhase4Envelope(t, writer, "api.v1.plans.create", true, 2, 7, plan)
+		writePhase4Envelope(t, writer, "api.v1.plans.create", true, 2, 7, clientPlanPresentation(plan))
 	})
 	response, err := NewClient(clientTestFactory()).Plan(context.Background(), profile, plan.DeclarationID, 1)
 	if err != nil || response.Data.PlanDigest != plan.PlanDigest || len(requests) != 2 || requests[0].method != http.MethodGet || requests[0].path != "/api/v1/declarations/declaration-1/revisions/1/plan-preparation" || requests[1].method != http.MethodPost || requests[1].path != "/api/v1/declarations/declaration-1/plans" {
@@ -53,7 +53,7 @@ func TestApplyDisconnectInspectsDerivedRunExactlyOnce(t *testing.T) {
 		mu.Unlock()
 		switch {
 		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/plans/plan-1":
-			writePhase4Envelope(t, writer, "api.v1.plans.get", false, 2, 7, plan)
+			writePhase4Envelope(t, writer, "api.v1.plans.get", false, 2, 7, clientPlanPresentation(plan))
 		case request.Method == http.MethodPost && request.URL.Path == "/api/v1/plans/plan-1/execute":
 			connection, _, err := writer.(http.Hijacker).Hijack()
 			if err != nil {
@@ -93,7 +93,7 @@ func TestApplyDisconnectAbsentOrMalformedRunRemainsUncertainWithoutResubmit(t *t
 				mu.Unlock()
 				switch {
 				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/plans/plan-1":
-					writePhase4Envelope(t, writer, "api.v1.plans.get", false, 2, 7, plan)
+					writePhase4Envelope(t, writer, "api.v1.plans.get", false, 2, 7, clientPlanPresentation(plan))
 				case request.Method == http.MethodPost && request.URL.Path == "/api/v1/plans/plan-1/execute":
 					connection, _, err := writer.(http.Hijacker).Hijack()
 					if err != nil {
@@ -157,7 +157,7 @@ func TestDurablePartialResponseRetainsExactRunAndExit(t *testing.T) {
 		t.Fatal("accepted a durable run whose envelope run ID disagreed")
 	}
 	malformed := clientRunPresentation(run)
-	malformed.CompletedWork = append(malformed.CompletedWork, run.Steps[0])
+	malformed.CompletedWork = append(malformed.CompletedWork, clientBrowserRunStep(run.Steps[0]))
 	envelope.RunID = &run.RunID
 	envelope.Data, _ = json.Marshal(malformed)
 	bad, _ = json.Marshal(envelope)
@@ -203,9 +203,26 @@ func clientRunPresentation(run generated.Run) generated.RunPresentation {
 	if run.Status == generated.RunStatusPartial {
 		next = "recovery required; inspect the durable run"
 	}
-	return generated.RunPresentation{Run: clientBrowserRun(run), CompletedWork: []generated.RunStep{}, IncompleteWork: append([]generated.RunStep(nil), run.Steps...), NextSafeAction: next}
+	steps := make([]generated.BrowserRunStep, 0, len(run.Steps))
+	for _, step := range run.Steps {
+		steps = append(steps, clientBrowserRunStep(step))
+	}
+	return generated.RunPresentation{Run: clientBrowserRun(run), CompletedWork: []generated.BrowserRunStep{}, IncompleteWork: steps, NextSafeAction: next}
 }
 
 func clientBrowserRun(run generated.Run) generated.BrowserRun {
-	return generated.BrowserRun{Schema: generated.SchemaIDBrowserRun, SchemaVersion: "1.0.0", RunID: run.RunID, PlanID: run.PlanID, PlanDigest: run.PlanDigest, PolicyVersion: run.PolicyVersion, ExecutorMode: run.ExecutorMode, ExecutorID: run.ExecutorID, Status: run.Status, Steps: run.Steps, CancellationRequested: run.CancellationRequested, RollbackStatus: run.RollbackStatus, VerificationStatus: run.VerificationStatus, VerificationDigest: run.VerificationDigest, Changed: run.Changed, StateRevision: run.StateRevision, RecoveryEpoch: run.RecoveryEpoch, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt, Extensions: run.Extensions}
+	steps := make([]generated.BrowserRunStep, 0, len(run.Steps))
+	for _, step := range run.Steps {
+		steps = append(steps, clientBrowserRunStep(step))
+	}
+	return generated.BrowserRun{Schema: generated.SchemaIDBrowserRun, SchemaVersion: "1.0.0", RunID: run.RunID, PlanID: run.PlanID, PlanDigest: run.PlanDigest, Status: run.Status, Steps: steps, CancellationRequested: run.CancellationRequested, RollbackStatus: run.RollbackStatus, VerificationStatus: run.VerificationStatus, VerificationDigest: run.VerificationDigest, Changed: run.Changed, StateRevision: run.StateRevision, RecoveryEpoch: run.RecoveryEpoch, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt, Extensions: run.Extensions}
+}
+
+func clientBrowserRunStep(step generated.RunStep) generated.BrowserRunStep {
+	return generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status}
+}
+
+func clientPlanPresentation(plan generated.Plan) generated.PlanPresentation {
+	raw, _ := json.Marshal(plan)
+	return generated.PlanPresentation{Plan: plan, ReadablePlan: "exact readable test plan", CanonicalPlan: string(raw)}
 }

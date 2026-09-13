@@ -474,7 +474,7 @@ async function performRead<T>(fetchTransport: FetchTransport, url: string, optio
   return { ...envelope, data: decodeData(envelope.data) };
 }
 
-async function performChange<T>(fetchTransport: FetchTransport, url: string, request: unknown, options: RequestOptions, operation: string, decodeData: (data: unknown) => T): Promise<ReadResult<T>> {
+async function performChange<T>(fetchTransport: FetchTransport, url: string, request: unknown, options: RequestOptions, operation: string, decodeData: (data: unknown) => T, durableRunOutcome = false): Promise<ReadResult<T>> {
   let response: Response;
   try {
     response = await fetchTransport(url, {
@@ -488,6 +488,11 @@ async function performChange<T>(fetchTransport: FetchTransport, url: string, req
   }
   const envelope = decodeReadEnvelope(await readJSON(response, operation, options.signal), operation);
   if (!response.ok || envelope.status !== "succeeded" || envelope.errors.length !== 0) {
+	if (durableRunOutcome && envelope.runId !== null && ["cancelled", "failed", "interrupted", "partial"].includes(envelope.status)) {
+		const data = decodeData(envelope.data);
+		if (isRecord(data) && isRecord(data.run) && data.run.runId === envelope.runId && data.run.status === envelope.status) return { ...envelope, data };
+		return mismatch(operation, "durable run outcome does not match its envelope");
+	}
     const failure = envelope.errors[0];
     if (!failure) return mismatch(operation, "failure response has no stable error");
     throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
@@ -749,7 +754,8 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 	}
 	if endpoint.Method == "POST" {
 		fmt.Fprintf(output, "      const body = decode%s(request);\n", schemaGoName(endpoint.RequestSchema))
-		fmt.Fprintf(output, "      return performChange(fetchTransport, %s, body, options, operation, decode%s);\n", pathExpression, schemaGoName(endpoint.DataSchema))
+		durable := endpoint.DataSchema == "vegastack-labs.dev/run-presentation"
+		fmt.Fprintf(output, "      return performChange(fetchTransport, %s, body, options, operation, decode%s, %t);\n", pathExpression, schemaGoName(endpoint.DataSchema), durable)
 	} else {
 		fmt.Fprintf(output, "      return performRead(fetchTransport, %s, options, operation, decode%s);\n", pathExpression, schemaGoName(endpoint.DataSchema))
 	}

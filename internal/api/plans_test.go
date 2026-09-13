@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -96,6 +97,8 @@ func servePlanPreparation(t *testing.T, app *Application, path string, body []by
 func TestDeclarationAndPlanRoutesReturnCanonicalDomainResultsWithoutExternalCalls(t *testing.T) {
 	declarations := &fakeDeclarationService{result: change.Result{Document: generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "declaration-test", DeclarationType: "node.configuration", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, ContentDigest: testAPIDigest("a"), Status: "draft", Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-test", OperationType: "health.check", AdapterID: "adapter-test", TargetID: "node-test", InputDigest: testAPIDigest("b"), ArtifactDigest: testAPIDigest("c"), Idempotent: true}}, CreatedAt: "2026-09-12T19:00:00Z", CreatedBy: "principal.test", AgentSessionID: "request-plan-test", Extensions: []generated.ContractExtension{}}, Changed: true, Created: true}}
 	plans := &fakePlanService{result: store.PlanCommitResult{Plan: generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-test", PlanDigest: testAPIDigest("d"), DeclarationID: "declaration-test", Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 1, StateRevision: 2, DeclarationRevision: 1, ObservationFingerprint: testAPIDigest("e"), TargetDigest: testAPIDigest("f"), ReasonDigest: testAPIDigest("a"), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test", OperationType: "health.check", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "node-test", InputDigest: testAPIDigest("b"), ArtifactDigest: testAPIDigest("c"), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-12T19:00:00Z", ExpiresAt: "2026-09-12T19:30:00Z", ReadableDigest: testAPIDigest("f"), Extensions: []generated.ContractExtension{}}, Commit: store.Commit{Changed: true, StateRevision: 2, RecoveryEpoch: 0}, Created: true}}
+	plans.result.Canonical, _ = json.Marshal(plans.result.Plan)
+	plans.result.Readable = "exact readable test plan"
 	effective := &effectiveAuthorizationStub{}
 	app := newPlanTestApplication(t, allowOperationAuthorizer(), effective, declarations, plans)
 	revised := serveOperationJSON(t, app, "/api/v1/declarations/declaration-test/revisions", map[string]any{"schema": generated.SchemaIDDeclarationRevisionRequest, "schemaVersion": "1.0.0", "declarationId": "declaration-test", "declarationType": "node.configuration", "expectedRevision": 1, "expectedStateRevision": 0, "recoveryEpoch": 0, "operations": declarations.result.Document.Operations, "reasonDigest": testAPIDigest("a"), "extensions": []any{}})

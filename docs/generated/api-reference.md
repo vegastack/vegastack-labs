@@ -6,9 +6,9 @@ Contract schema: `1.15.0`
 | Operation | Method | Path | Availability | Audience | Stream | Request schema | Data schema |
 |---|---|---|---|---|---|---|---|
 | `api.v1.database-status.get` | `GET` | `/api/v1/database/status` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/database-status-data` |
-| `api.v1.declarations.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/declaration-revision` |
+| `api.v1.declarations.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-declaration-revision` |
 | `api.v1.declarations.plan-preparation.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-preparation` |
-| `api.v1.declarations.revise` | `POST` | `/api/v1/declarations/{declarationId}/revisions` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/declaration-revision-request` | `vegastack-labs.dev/declaration-revision` |
+| `api.v1.declarations.revise` | `POST` | `/api/v1/declarations/{declarationId}/revisions` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/declaration-revision-request` | `vegastack-labs.dev/browser-declaration-revision` |
 | `api.v1.events.stream` | `GET` | `/api/v1/events` | `available` | `browser, operator` | `sse` | `` | `vegastack-labs.dev/api-audit-event-data` |
 | `api.v1.execution-receipts.create` | `POST` | `/api/v1/execution-receipts` | `available` | `executor` | `finite` | `vegastack-labs.dev/execution-receipt-request` | `vegastack-labs.dev/execution-receipt` |
 | `api.v1.executor-leases.claim` | `POST` | `/api/v1/executor-leases/claim` | `available` | `executor` | `finite` | `vegastack-labs.dev/executor-claim-request` | `vegastack-labs.dev/executor-lease` |
@@ -31,9 +31,9 @@ Contract schema: `1.15.0`
 | `api.v1.plans.acknowledgements.get` | `GET` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.approval-request.create` | `POST` | `/api/v1/plans/{planId}/approval-request` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/approval-status` |
 | `api.v1.plans.approval-status.get` | `GET` | `/api/v1/plans/{planId}/approval-status` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/approval-status` |
-| `api.v1.plans.create` | `POST` | `/api/v1/declarations/{declarationId}/plans` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-create-request` | `vegastack-labs.dev/plan` |
+| `api.v1.plans.create` | `POST` | `/api/v1/declarations/{declarationId}/plans` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-create-request` | `vegastack-labs.dev/plan-presentation` |
 | `api.v1.plans.execute` | `POST` | `/api/v1/plans/{planId}/execute` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/run-presentation` |
-| `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan` |
+| `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-presentation` |
 | `api.v1.runs.cancel` | `POST` | `/api/v1/runs/{runId}/cancel` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.runs.get` | `GET` | `/api/v1/runs/{runId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.runs.resume` | `POST` | `/api/v1/runs/{runId}/resume` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run-presentation` |
@@ -100,6 +100,21 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `decidedAt`
 - `extensions`
 
+### `vegastack-labs.dev/browser-declaration-revision`
+
+- `schema`: `vegastack-labs.dev/browser-declaration-revision`
+- `schemaVersion`: `1.0.0`
+- `declarationId`
+- `declarationType`
+- `revision`
+- `stateRevision`
+- `recoveryEpoch`
+- `contentDigest`
+- `status`: `committed`, `draft`, `superseded`
+- `operations`
+- `createdAt`
+- `extensions`
+
 ### `vegastack-labs.dev/browser-run`
 
 - `schema`: `vegastack-labs.dev/browser-run`
@@ -107,9 +122,6 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `runId`
 - `planId`
 - `planDigest`
-- `policyVersion`
-- `executorMode`: `central`, `external`
-- `executorId`
 - `status`: `cancelled`, `failed`, `interrupted`, `partial`, `queued`, `running`, `succeeded`
 - `steps`
 - `cancellationRequested`
@@ -269,6 +281,12 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `expectedStateRevision`
 - `recoveryEpoch`
 - `observationFingerprint`
+
+### `vegastack-labs.dev/plan-presentation`
+
+- `plan`
+- `readablePlan`
+- `canonicalPlan`
 
 ### `vegastack-labs.dev/plan-reference-request`
 

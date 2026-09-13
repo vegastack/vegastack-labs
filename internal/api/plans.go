@@ -119,7 +119,12 @@ func (app *Application) createPlan(config DeclarationPlanConfig) func(http.Respo
 			app.operationFailure(writer, operation, requestID, err)
 			return
 		}
-		app.operationSuccess(writer, operation, requestID, value.Commit.Changed, value.Commit.StateRevision, value.Commit.RecoveryEpoch, value.Plan)
+		presentation, err := presentPlan(value)
+		if err != nil {
+			app.operationFailure(writer, operation, requestID, err)
+			return
+		}
+		app.operationSuccess(writer, operation, requestID, value.Commit.Changed, value.Commit.StateRevision, value.Commit.RecoveryEpoch, presentation)
 	}
 }
 
@@ -135,6 +140,22 @@ func (app *Application) getPlan(config DeclarationPlanConfig) func(http.Response
 			app.failure(writer, operation, err)
 			return
 		}
-		app.success(writer, operation, value.Plan.Binding.StateRevision, value.Plan.Binding.RecoveryEpoch, value.Plan)
+		presentation, err := presentPlan(value)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		app.success(writer, operation, value.Plan.Binding.StateRevision, value.Plan.Binding.RecoveryEpoch, presentation)
 	}
+}
+
+func presentPlan(value store.PlanCommitResult) (generated.PlanPresentation, error) {
+	if len(value.Canonical) == 0 || value.Readable == "" {
+		return generated.PlanPresentation{}, apiFailure(generated.ErrorCodeIntegrityFailure, "plan-presentation")
+	}
+	var exact generated.Plan
+	if err := json.Unmarshal(value.Canonical, &exact); err != nil || exact.PlanID != value.Plan.PlanID || exact.PlanDigest != value.Plan.PlanDigest {
+		return generated.PlanPresentation{}, apiFailure(generated.ErrorCodeIntegrityFailure, "plan-presentation")
+	}
+	return generated.PlanPresentation{Plan: value.Plan, ReadablePlan: value.Readable, CanonicalPlan: string(value.Canonical)}, nil
 }

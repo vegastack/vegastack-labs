@@ -1,55 +1,8 @@
 {
   "$defs": {
-    "contract-extension": {
+    "browser-run-step": {
       "additionalProperties": false,
       "properties": {
-        "name": {
-          "pattern": "^x-[a-z][a-z0-9.-]{0,62}$",
-          "type": "string"
-        },
-        "valueDigest": {
-          "pattern": "^sha256:[a-f0-9]{64}$",
-          "type": "string"
-        }
-      },
-      "required": [
-        "name",
-        "valueDigest"
-      ],
-      "type": "object"
-    },
-    "run-step": {
-      "additionalProperties": false,
-      "properties": {
-        "adapterId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": "string"
-        },
-        "artifactDigest": {
-          "pattern": "^sha256:[a-f0-9]{64}$",
-          "type": "string"
-        },
-        "effectState": {
-          "enum": [
-            "effect-unknown",
-            "intent-recorded",
-            "not-started",
-            "receipt-recorded",
-            "verified"
-          ],
-          "type": "string"
-        },
-        "executorId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": "string"
-        },
-        "idempotent": {
-          "type": "boolean"
-        },
-        "inputDigest": {
-          "pattern": "^sha256:[a-f0-9]{64}$",
-          "type": "string"
-        },
         "operationId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
@@ -87,15 +40,27 @@
         "sequence",
         "operationId",
         "operationType",
-        "adapterId",
-        "executorId",
         "targetId",
-        "inputDigest",
-        "artifactDigest",
-        "idempotent",
         "stepId",
-        "status",
-        "effectState"
+        "status"
+      ],
+      "type": "object"
+    },
+    "contract-extension": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^x-[a-z][a-z0-9.-]{0,62}$",
+          "type": "string"
+        },
+        "valueDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "valueDigest"
       ],
       "type": "object"
     }
@@ -114,17 +79,6 @@
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
       "type": "string"
     },
-    "executorId": {
-      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-      "type": "string"
-    },
-    "executorMode": {
-      "enum": [
-        "central",
-        "external"
-      ],
-      "type": "string"
-    },
     "extensions": {
       "items": {
         "$ref": "#/$defs/contract-extension"
@@ -138,10 +92,6 @@
     },
     "planId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-      "type": "string"
-    },
-    "policyVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
       "type": "string"
     },
     "recoveryEpoch": {
@@ -190,7 +140,7 @@
     },
     "steps": {
       "items": {
-        "$ref": "#/$defs/run-step"
+        "$ref": "#/$defs/browser-run-step"
       },
       "maxItems": 256,
       "type": "array"
@@ -222,9 +172,6 @@
     "runId",
     "planId",
     "planDigest",
-    "policyVersion",
-    "executorMode",
-    "executorId",
     "status",
     "steps",
     "cancellationRequested",
