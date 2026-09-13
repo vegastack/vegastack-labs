@@ -46,7 +46,7 @@ test("later additive contracts do not rewrite accepted Phase 2 evidence", async 
   assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/run"));
   assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/localtransport"));
   assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/runprotocol"));
-  for (const command of ["apply", "plan", "run cancel", "run inspect", "run resume"]) {
+  for (const command of ["apply", "plan", "run cancel", "run inspect", "run resume", "server api-ssh"]) {
     assert.ok(facts.availableCommands.includes(command), command);
   }
   facts.endpointIds.push("api.v1.future-read.get");
@@ -54,6 +54,16 @@ test("later additive contracts do not rewrite accepted Phase 2 evidence", async 
   facts.migrations.push({ file: "0005_future.sql", sha256: "future" });
   const result = validateEvidence(manifest, facts);
   assert.equal(result.status, "pass", JSON.stringify(result));
+});
+
+test("Phase 4 mutation commands require the exact reviewed safety boundary", async () => {
+  const manifest = await loadManifest();
+  const facts = await collectIntegratedFacts(ROOT);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.postPhase2MutationBoundaryDigest);
+
+  facts.postPhase2MutationBoundaryDigest = `sha256:${"0".repeat(64)}`;
+  const result = validateEvidence(manifest, facts);
+  assert.ok(result.codes.includes("PHASE2_MUTATION_AVAILABLE"), JSON.stringify(result));
 });
 
 test("the checked manifest matches the merged Phase 2 contract", async () => {

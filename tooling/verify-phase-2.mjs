@@ -17,7 +17,12 @@ const REVIEWED_POST_PHASE2_IMPORTS = new Set([
   // dependencies, not test-only escape hatches around Phase 2 acceptance.
   `${MODULE_PREFIX}internal/adapter`,
   `${MODULE_PREFIX}internal/adapters/slack`,
+  // Issue #78's constrained-SSH path is a generated, length-bounded frame
+  // transported through a protected profile. These packages are covered by
+  // the exact mutation-safety boundary digest below.
+  `${MODULE_PREFIX}internal/apissh`,
   `${MODULE_PREFIX}internal/change`,
+  `${MODULE_PREFIX}internal/clientprofile`,
   `${MODULE_PREFIX}internal/consoleassets`,
   `${MODULE_PREFIX}internal/credentialref`,
   `${MODULE_PREFIX}internal/plan`,
@@ -33,10 +38,40 @@ const REVIEWED_POST_PHASE2_IMPORTS = new Set([
   // Issue #78 shares this pure provider-neutral ID protocol between the
   // reviewed run engine and its thin local client. It adds no bypass path.
   `${MODULE_PREFIX}internal/runprotocol`,
+  `${MODULE_PREFIX}internal/sshtransport`,
 ]);
 const REVIEWED_POST_PHASE2_COMMANDS = new Set([
-  "apply", "plan", "run cancel", "run inspect", "run resume",
+  "apply", "plan", "run cancel", "run inspect", "run resume", "server api-ssh",
 ]);
+// Phase 2's no-mutation proof predates Phase 4. Later commands are accepted
+// only while this exact reviewed production boundary remains unchanged. The
+// sealed set covers generated command/endpoint ownership, the thin clients,
+// both local transports, forced-command identity and epoch checks, API
+// authorization, current-plan validation, acknowledgement admission, and the
+// durable run engine. Any edit fails the old acceptance gate until it receives
+// a fresh review and this digest is deliberately updated.
+const POST_PHASE2_MUTATION_BOUNDARY_FILES = [
+  "schemas/v1/command-registry.json",
+  "schemas/v1/endpoint-registry.json",
+  "cmd/vsk-labs/main.go",
+  "internal/cli/app.go",
+  "internal/localapi/client.go",
+  "internal/localtransport/transport.go",
+  "internal/clientprofile/profile.go",
+  "internal/sshtransport/transport.go",
+  "internal/apissh/codec.go",
+  "internal/server/api_ssh.go",
+  "internal/server/operations.go",
+  "internal/api/router.go",
+  "internal/api/authorization.go",
+  "internal/api/runs.go",
+  "internal/authorization/policy.go",
+  "internal/authorization/effective.go",
+  "internal/acknowledgement/service.go",
+  "internal/plan/service.go",
+  "internal/run/admission.go",
+  "internal/run/engine.go",
+];
 const CODE_ORDER = [
   "PHASE2_CHILD_INCOMPLETE",
   "PHASE2_TRACEABILITY_GAP",
@@ -142,6 +177,17 @@ async function commandOutput(root, command, args, options = {}) {
 function productionDependencyDigest(imports) {
   const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX) && !REVIEWED_POST_PHASE2_IMPORTS.has(name)).sort();
   return `sha256:${createHash("sha256").update(`${localImports.join("\n")}\n`).digest("hex")}`;
+}
+
+export async function postPhase2MutationBoundaryDigest(root = ROOT) {
+  const digest = createHash("sha256");
+  for (const relative of POST_PHASE2_MUTATION_BOUNDARY_FILES) {
+    digest.update(relative);
+    digest.update("\0");
+    digest.update(await readFile(path.join(root, relative)));
+    digest.update("\0");
+  }
+  return `sha256:${digest.digest("hex")}`;
 }
 
 async function proofExists(root, proof) {
@@ -305,6 +351,7 @@ export async function collectIntegratedFacts(root = ROOT) {
     endpointIds: endpoints.endpoints.map(({ id }) => id).sort(),
     migrations,
     productionExecutable: "cmd/vsk-labs",
+    postPhase2MutationBoundaryDigest: await postPhase2MutationBoundaryDigest(root),
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
       !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),
@@ -320,7 +367,7 @@ export function validateEvidence(manifest, facts) {
   if (!exactKeys(manifest, ["schemaVersion", "phase", "status", "contract", "children", "scenarios", "requirements"]) ||
       manifest.schemaVersion !== 1 || manifest.phase !== "2" ||
       manifest.status !== "implemented-awaiting-operator-acceptance" ||
-      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
+      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "postPhase2MutationBoundaryDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
       !Array.isArray(manifest.children) || !Array.isArray(manifest.scenarios) || !Array.isArray(manifest.requirements)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   } else {
@@ -368,6 +415,7 @@ export function validateEvidence(manifest, facts) {
     codes.add("PHASE2_CONTRACT_DRIFT");
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
+      manifest.contract.postPhase2MutationBoundaryDigest !== facts.postPhase2MutationBoundaryDigest ||
       !same(manifest.contract.availableCommands, EXPECTED_AVAILABLE_COMMANDS) ||
       !containsAll(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
