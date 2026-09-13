@@ -128,6 +128,8 @@ test("the control boundary rejects arbitrary HTTP hidden in an internal helper",
 test("the control boundary rejects alternate network primitives hidden in helpers", async (t) => {
   for (const [name, source] of [
     ["net", 'package transporthelper\nimport "net"\nfunc Fetch() error { connection, err := net.Dial("tcp", "provider.invalid:443"); if connection != nil { _ = connection.Close() }; return err }\n'],
+    ["net/rpc", 'package transporthelper\nimport "net/rpc"\nfunc Fetch() error { client, err := rpc.DialHTTP("tcp", "provider.invalid:80"); if client != nil { _ = client.Close() }; return err }\n'],
+    ["net/smtp", 'package transporthelper\nimport "net/smtp"\nfunc Fetch() error { client, err := smtp.Dial("provider.invalid:25"); if client != nil { _ = client.Close() }; return err }\n'],
     ["syscall", 'package transporthelper\nimport "syscall"\nfunc Fetch() error { descriptor, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, 0); if err != nil { return err }; defer syscall.Close(descriptor); return syscall.Connect(descriptor, &syscall.SockaddrInet4{Port: 443}) }\n'],
   ]) {
     await t.test(name, async () => {
@@ -163,6 +165,31 @@ test("the control boundary rejects an unreviewed external dependency", async (t)
     "internal/cli/run.go": [
       "package cli",
       'import ("example.test/internal/generated"; "provider.invalid/sdk")',
+      "func init() { sdk.Connect() }",
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_CONTROL_PROVIDER_ACCESS"]);
+});
+
+test("external dependency detection uses package provenance, not dots in its path", async (t) => {
+  const root = await fixtureRepo(t, {
+    "go.mod": [
+      "module example.test",
+      "",
+      "go 1.27.0",
+      "",
+      "require provider/sdk v0.0.0",
+      "replace provider/sdk => ./provider-sdk",
+      "",
+    ].join("\n"),
+    "provider-sdk/go.mod": "module provider/sdk\n\ngo 1.27.0\n",
+    "provider-sdk/sdk.go": "package sdk\nfunc Connect() {}\n",
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; "provider/sdk")',
       "func init() { sdk.Connect() }",
       MATCHING_RUN,
       "",
@@ -987,8 +1014,32 @@ test("offline release code rejects network and artifact execution", async (t) =>
   });
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, [
+    "CLI_CONTROL_SHELL_DISPATCH",
+    "CLI_CONTROL_ARBITRARY_HTTP",
     "CLI_RELEASE_NETWORK_ACCESS",
     "CLI_RELEASE_ARTIFACT_EXECUTION",
+  ]);
+});
+
+test("offline release code rejects standard-library network subpackages", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/release")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/release/verify.go": [
+      "package release",
+      'import "net/rpc"',
+      'func fetch() error { client, err := rpc.DialHTTP("tcp", "provider.invalid:80"); if client != nil { _ = client.Close() }; return err }',
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, [
+    "CLI_CONTROL_ARBITRARY_HTTP",
+    "CLI_RELEASE_NETWORK_ACCESS",
   ]);
 });
 
@@ -1063,6 +1114,7 @@ test("offline release code rejects TUF fetches, path loaders, unsafe artifacts, 
   ].join("\n")));
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, [
+    "CLI_CONTROL_PROVIDER_ACCESS",
     "CLI_RELEASE_NETWORK_ACCESS",
     "CLI_RELEASE_ARTIFACT_EXECUTION",
   ]);

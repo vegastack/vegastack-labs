@@ -35,6 +35,7 @@ type listedPackage struct {
 	Imports    []string
 	Export     string
 	Module     *module
+	Standard   bool
 }
 
 type analysis struct {
@@ -354,6 +355,12 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	}
 	loader := packageImporter{checked: checked, fallback: targetLoader}
 	var result analysis
+	standardPackages := make(map[string]bool)
+	for _, candidate := range listed {
+		if candidate.Standard {
+			standardPackages[candidate.ImportPath] = true
+		}
+	}
 	result.LocalClientBoundary = true
 	localClosure := moduleDependencyClosure(inModule, localAPIImport)
 	controlClosure := moduleDependencyClosure(inModule, cliImport)
@@ -377,7 +384,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		isControlPackage := controlClosure[candidate.ImportPath]
-		isControlCapabilityPackage := isControlPackage && !isReleasePackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
 		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage {
@@ -395,9 +402,10 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 			if isReleasePackage {
-				switch imported {
-				case "net", "net/http", "github.com/sigstore/sigstore-go/pkg/tuf":
+				if imported == "net" || strings.HasPrefix(imported, "net/") || imported == "github.com/sigstore/sigstore-go/pkg/tuf" {
 					result.ReleaseNetworkAccess = true
+				}
+				switch imported {
 				case "os/exec", "plugin":
 					result.ReleaseArtifactExecution = true
 				}
@@ -408,12 +416,15 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 					result.ControlSQLiteAccess = true
 				case "os/exec", "plugin":
 					result.ControlShellDispatch = true
-				case "net", "net/http", "net/url", "crypto/tls", "syscall":
+				case "crypto/tls", "syscall":
 					if !reviewedControlNetworkImport(parsed, imported, localAPIImport, localTransportImport, serverConfigImport) {
 						result.ControlArbitraryHTTP = true
 					}
 				}
-				if !reviewedControlExternalImport(parsed, imported, modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
+				if (imported == "net" || strings.HasPrefix(imported, "net/")) && !reviewedControlNetworkImport(parsed, imported, localAPIImport, localTransportImport, serverConfigImport) {
+					result.ControlArbitraryHTTP = true
+				}
+				if !reviewedControlExternalImport(parsed, imported, standardPackages[imported], modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
 					result.ControlProviderAccess = true
 				}
 				if strings.Contains(imported, "google.golang.org") || strings.Contains(imported, "/google") || strings.Contains(imported, "sheets") {
@@ -439,14 +450,14 @@ func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, loca
 	case localTransportImport:
 		return (imported == "net" || imported == "net/http") && reviewedLocalTransportPackage(candidate)
 	case serverConfigImport:
-		return imported == "net/url" && reviewedControlPlatformSource(candidate, "serverconfig")
+		return (imported == "net/url" || imported == "net/netip") && reviewedControlPlatformSource(candidate, "serverconfig")
 	default:
 		return false
 	}
 }
 
-func reviewedControlExternalImport(candidate checkedSourcePackage, imported, modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport string) bool {
-	if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") {
+func reviewedControlExternalImport(candidate checkedSourcePackage, imported string, standard bool, modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport string) bool {
+	if strings.HasPrefix(imported, modulePath+"/") || standard {
 		return true
 	}
 	candidatePath := candidate.listed.ImportPath
