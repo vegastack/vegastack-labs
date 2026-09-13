@@ -588,8 +588,6 @@ try {
 		stage = "browser-static-privacy";
 		await assertShippedVisualAssetsSafe(fileURLToPath(new URL("../out/", import.meta.url)), forbiddenBrowserEvidence);
 		assertBrowserSafe(await readFile(new URL("../generated/read-api.ts", import.meta.url), "utf8"), "generated browser source");
-		stage = "browser-response-privacy";
-		await assertSettledPrivacyChecks(browserResponseChecks);
 		stage = "browser-authority-path";
 		if (browserAPIPaths.some(path => /provider|sqlite|acknowledgements/i.test(path))) throw new Error("browser used a forbidden alternate authority path");
 		stage = "browser-history-privacy";
@@ -601,6 +599,8 @@ try {
 		await inspectTraceArchive(tracePath, forbiddenBrowserEvidence, credentialHeaderEvidence);
 		await Promise.all([rm(tracePath, { force: true }), rm(screenshotPath, { force: true })]);
 	}
+	stage = "browser-response-privacy";
+	await assertSettledPrivacyChecks(browserResponseChecks);
 } catch {
   failureStage = stage;
 } finally {

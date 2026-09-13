@@ -52,6 +52,13 @@ test("a response privacy failure is handled immediately and propagated at the fi
   await assert.rejects(() => assertSettledPrivacyChecks([settled]), error => error === failure);
 });
 
+test("both real browser probe modes converge on the response privacy boundary", async () => {
+  const probe = await readFile(new URL("../e2e/real-change-server-probe.mjs", import.meta.url), "utf8");
+  const assertion = "await assertSettledPrivacyChecks(browserResponseChecks);";
+  assert.equal(probe.split(assertion).length - 1, 1);
+  assert.match(probe, /\n\t}\n\tstage = "browser-response-privacy";\n\tawait assertSettledPrivacyChecks\(browserResponseChecks\);\n} catch \{/);
+});
+
 test("probe finalization returns one stable stage and attempts every cleanup", async () => {
   const calls = [];
   const stage = await finalizeProbeResources({
