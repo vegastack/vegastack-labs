@@ -23,6 +23,7 @@ const CODE_ORDER = [
   "CLI_CONTROL_GOOGLE_ACCESS",
   "CLI_CONTROL_PROVIDER_ACCESS",
   "CLI_CONTROL_ARBITRARY_HTTP",
+  "CLI_LOCAL_CLIENT_BOUNDARY",
   "CLI_CONTROL_SERVER_PATH",
   "CLI_INVENTORY_DIRECT_DOMAIN",
   "CLI_SQLITE_ACCESS",
@@ -176,7 +177,23 @@ async function inspectSources(root, execute) {
     if (analysis.stateExportTrust) codes.add("CLI_STATE_EXPORT_TRUST");
     if (analysis.stateExportReleaseCoupling) codes.add("CLI_STATE_EXPORT_RELEASE_COUPLING");
   }
+  if (!(await verifyReviewedLocalClient(root))) codes.add("CLI_LOCAL_CLIENT_BOUNDARY");
   return { codes, targetsAnalyzed };
+}
+
+export async function verifyReviewedLocalClient(root = ROOT) {
+  const files = await goFiles(root, "internal/localapi");
+  if (files.length === 0) return true;
+  const forbiddenImport = /["`](?:database\/sql|os\/exec|plugin|[^"`]*\/internal\/(?:store|inventory|profiles\/|cloudflare|coolify|harbor|onepassword))['"`]/;
+  const networkOrigin = /["`](https?:\/\/[^"`]+)["`]/g;
+  for (const file of files) {
+    const source = await readFile(file, "utf8");
+    if (forbiddenImport.test(source)) return false;
+    for (const match of source.matchAll(networkOrigin)) {
+      if (match[1] !== "http://local") return false;
+    }
+  }
+  return true;
 }
 
 function sameTargets(left, right) {

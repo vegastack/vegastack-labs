@@ -1,0 +1,27 @@
+{
+  "schema": "vegastack-labs.dev/phase-4-cli-golden",
+  "schemaVersion": 1,
+  "human": {
+    "plan": "Plan plan-1\nDigest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nDeclaration declaration-1 revision 1\nRisk routine\nAuthorization preauthorized\nApproval requirement preauthorized by current server policy\nExpires 2026-09-13T06:30:00Z\nOperation 1 target target-1 via adapter.synthetic\n",
+    "runRunning": "Run <run-id>\nPlan plan-1\nDigest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nStatus running\nSteps completed 0 incomplete 1\nVerification pending\nRollback not-requested\nChanged false\nNext safe action: inspect or cancel through the server\n",
+    "runPartial": "Run run-partial\nPlan plan-1\nDigest sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\nStatus partial\nSteps completed 1 incomplete 1\nVerification incomplete\nRollback required\nChanged true\nNext safe action: recovery required; inspect the durable run\n",
+    "disconnectUnknownStderr": "Submission result is unknown. Inspect durable run <run-id>; do not apply again.\nvsk-labs: DEPENDENCY_UNAVAILABLE (control-service)\n"
+  },
+  "exits": {
+    "success": 0,
+    "stale": 5,
+    "missingAcknowledgement": 4,
+    "rejected": 4,
+    "cancelled": 9,
+    "interrupted": 9,
+    "partial": 7,
+    "recoveryRequired": 7,
+    "disconnectUnknown": 6
+  },
+  "requests": {
+    "apply": "{\"schema\":\"vegastack-labs.dev/plan-reference-request\",\"schemaVersion\":\"1.0.0\",\"planId\":\"plan-1\",\"planDigest\":\"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"recoveryEpoch\":2,\"idempotencyKey\":\"<request-id>\",\"extensions\":[]}",
+    "cancel": "{\"schema\":\"vegastack-labs.dev/run-reference-request\",\"schemaVersion\":\"1.0.0\",\"runId\":\"run-cancel\",\"idempotencyKey\":\"<request-id>\",\"recoveryEpoch\":2,\"extensions\":[]}",
+    "resume": "{\"schema\":\"vegastack-labs.dev/run-reference-request\",\"schemaVersion\":\"1.0.0\",\"runId\":\"run-resume\",\"idempotencyKey\":\"<request-id>\",\"recoveryEpoch\":2,\"extensions\":[]}",
+    "plan": "{\"schema\":\"vegastack-labs.dev/plan-create-request\",\"schemaVersion\":\"1.0.0\",\"declarationId\":\"declaration-1\",\"declarationRevision\":1,\"expectedStateRevision\":6,\"recoveryEpoch\":2,\"observationFingerprint\":\"sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"idempotencyKey\":\"<request-id>\",\"extensions\":[]}"
+  }
+}

@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
+import { verifyReviewedLocalClient } from "../verify-cli.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 const RESULT_KEYS = [
@@ -54,7 +55,7 @@ function assertEnvelope(actual, expected) {
   const result = JSON.parse(actual.stdout);
   assert.deepEqual(Object.keys(result), RESULT_KEYS);
   assert.equal(result.schema, "vegastack-labs.dev/run-result");
-  assert.equal(result.schemaVersion, "1.10.0");
+  assert.equal(result.schemaVersion, "1.12.0");
   assert.equal(result.toolVersion, "0.0.0-dev");
   assert.equal(result.command, expected.command);
   assert.match(result.requestId, /^request-[0-9a-f]{32}$/);
@@ -81,7 +82,7 @@ function assertEnvelope(actual, expected) {
 function apiEnvelope(command, changed, recoveryEpoch, stateRevision, data) {
   return `${JSON.stringify({
     schema: "vegastack-labs.dev/run-result",
-    schemaVersion: "1.10.0",
+    schemaVersion: "1.12.0",
     toolVersion: "0.0.0-dev",
     command,
     requestId: `request-${command.replaceAll(/[^a-z0-9]/g, "").padEnd(32, "0").slice(0, 32)}`,
@@ -119,6 +120,22 @@ function expectedHumanHelp(registry) {
   return `${lines.join("\n")}\n`;
 }
 
+test("the reviewed local client permits only its Unix-socket HTTP origin", async (t) => {
+  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-local-client-boundary-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const directory = path.join(temporary, "internal/localapi");
+  await mkdir(directory, { recursive: true });
+  const sourcePath = path.join(directory, "client.go");
+  await writeFile(sourcePath, 'package localapi\nimport "net/http"\nfunc local() { _, _ = http.NewRequest("GET", "http://local", nil) }\n');
+  assert.equal(await verifyReviewedLocalClient(temporary), true);
+
+  await writeFile(sourcePath, 'package localapi\nimport "net/http"\nfunc remote() { _, _ = http.NewRequest("GET", "https://provider.invalid", nil) }\n');
+  assert.equal(await verifyReviewedLocalClient(temporary), false);
+
+  await writeFile(sourcePath, 'package localapi\nimport _ "database/sql"\n');
+  assert.equal(await verifyReviewedLocalClient(temporary), false);
+});
+
 test("the built vsk-labs executable preserves its complete process contract", async (t) => {
   const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-cli-process-"));
   t.after(() => rm(temporary, { recursive: true, force: true }));
@@ -143,7 +160,7 @@ test("the built vsk-labs executable preserves its complete process contract", as
   });
   assert.deepEqual(run(binary, ["version"]), {
     code: 0,
-    stdout: "vsk-labs 0.0.0-dev\ncontract 1.10.0\nbuild development\n",
+    stdout: "vsk-labs 0.0.0-dev\ncontract 1.12.0\nbuild development\n",
     stderr: "",
   });
 
@@ -475,4 +492,100 @@ test("five operator commands preserve protected API bytes in the built process",
   for (const [args, expected] of scenarios) {
     assert.deepEqual(run(binary, args), { code: 0, stdout: expected, stderr: "" });
   }
+});
+
+test("apply disconnect inspects the durable run and never resubmits", async (t) => {
+  if (process.platform !== "linux" || typeof process.getuid !== "function") return;
+  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack cli π apply-disconnect-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const binary = path.join(temporary, "vsk-labs");
+  const build = spawnSync("go", ["build", "-o", binary, "./cmd/vsk-labs"], {
+    cwd: ROOT, encoding: "utf8", shell: false,
+  });
+  assert.equal(build.status, 0, build.stderr);
+
+  const socketPath = path.join(temporary, "control.sock");
+  const profilePath = path.join(temporary, "profile ; $(not-a-shell) π.json");
+  const requestLog = path.join(temporary, "requests.jsonl");
+  await writeFile(profilePath, `${JSON.stringify({
+    schema: "vegastack-labs.dev/server-profile",
+    schemaVersion: "1.1.0",
+    socketPath,
+    socketOwnerUid: process.getuid(),
+    socketGroupGid: null,
+    socketMode: "0600",
+    shutdownGraceSeconds: 5,
+    inventoryExportRoot: temporary,
+    principalBindings: [{ uid: process.getuid(), principalId: "principal.synthetic" }],
+    remoteRead: {
+      enabled: false, bindAddress: null, publicOrigin: null,
+      tlsCertificatePath: null, tlsPrivateKeyPath: null,
+      identityAdapter: null, identityConfigPath: null,
+    },
+  })}\n`, { mode: 0o600 });
+
+  const serverScript = path.join(temporary, "phase4-cli-fixture.mjs");
+  await writeFile(serverScript, [
+    'import http from "node:http";',
+    'import { createHash } from "node:crypto";',
+    'import { appendFileSync, rmSync } from "node:fs";',
+    'const [socketPath, requestLog] = process.argv.slice(2);',
+    'try { rmSync(socketPath); } catch {}',
+    'const digest = (character) => `sha256:${character.repeat(64)}`;',
+    'const plan = {',
+    '  schema: "vegastack-labs.dev/plan", schemaVersion: "1.0.0", planId: "plan-1", planDigest: digest("a"), declarationId: "declaration-1",',
+    '  binding: { recoveryEpoch: 2, priorStateRevision: 6, stateRevision: 7, declarationRevision: 1, observationFingerprint: digest("b"), targetDigest: digest("c"), reasonDigest: digest("d"), policyVersion: "1.0.0", toolVersion: "0.0.0-dev", contractVersion: "1.10.0" },',
+    '  operations: [{ sequence: 1, operationId: "operation-1", operationType: "application.deploy.low-risk", adapterId: "adapter.synthetic", executorId: "executor-central", targetId: "target-1", inputDigest: digest("e"), artifactDigest: digest("f"), idempotent: true }],',
+    '  status: "planned", risk: "routine", authorizationBranch: "preauthorized", executorMode: "central", executorId: null, createdAt: "2026-09-13T06:00:00Z", expiresAt: "2026-09-13T06:30:00Z", readableDigest: digest("1"), extensions: [],',
+    '};',
+    'let run = null;',
+    'const envelope = (command, data, options = {}) => `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: "1.12.0", toolVersion: "0.0.0-dev", command, requestId: options.requestId ?? "request-fixture-000000000000000000000", runId: options.runId ?? null, status: options.status ?? "succeeded", changed: options.changed ?? false, recoveryEpoch: 2, stateRevision: 7, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: options.planId ?? null, errors: [], data })}\\n`;',
+    'const server = http.createServer((request, response) => {',
+    '  const chunks = []; request.on("data", (chunk) => chunks.push(chunk));',
+    '  request.on("end", () => {',
+    '    const body = Buffer.concat(chunks).toString("utf8");',
+    '    appendFileSync(requestLog, `${JSON.stringify({ method: request.method, path: request.url, body })}\\n`);',
+    '    let payload;',
+    '    if (request.method === "GET" && request.url === "/api/v1/plans/plan-1") payload = envelope("api.v1.plans.get", plan);',
+    '    else if (request.method === "POST" && request.url === "/api/v1/plans/plan-1/execute") {',
+    '      const input = JSON.parse(body);',
+    '      const suffix = createHash("sha256").update(["run", plan.planId, input.idempotencyKey].join("\\0")).digest("hex").slice(0, 32);',
+    '      run = { schema: "vegastack-labs.dev/run", schemaVersion: "1.0.0", runId: `run-${suffix}`, planId: plan.planId, planDigest: plan.planDigest, authorizationDecisionId: "decision-1", acknowledgementId: null, policyVersion: "1.0.0", executorMode: "central", executorId: "executor-central", executorBindingDigest: digest("2"), status: "running", steps: [{ ...plan.operations[0], stepId: "step-1", status: "running", effectState: "intent-recorded" }], cancellationRequested: false, rollbackStatus: "not-requested", verificationStatus: "pending", verificationDigest: null, changed: false, stateRevision: 7, recoveryEpoch: 2, createdAt: "2026-09-13T06:01:00Z", updatedAt: "2026-09-13T06:01:01Z", extensions: [] };',
+    '      response.writeHead(200, { "Content-Type": "application/json", "Content-Length": "4096" });',
+    '      response.write("{\\"durableRunAccepted\\":true");',
+    '      response.socket.destroy();',
+    '      return;',
+    '    }',
+    '    else if (request.method === "GET" && run !== null && request.url === `/api/v1/runs/${run.runId}`) payload = envelope("api.v1.runs.get", run);',
+    '    else { response.writeHead(404); response.end(); return; }',
+    '    response.writeHead(200, { "Content-Type": "application/json", "Connection": "close" });',
+    '    response.end(payload);',
+    '  });',
+    '});',
+    'server.listen(socketPath);',
+    'process.on("SIGTERM", () => server.close(() => process.exit(0)));',
+    '',
+  ].join("\n"));
+  const fixture = spawn(process.execPath, [
+    serverScript, socketPath, requestLog,
+  ], { stdio: "ignore" });
+  t.after(() => fixture.kill("SIGTERM"));
+  const deadline = Date.now() + 5000;
+  while (true) {
+    try { await access(socketPath, constants.F_OK); break; } catch {}
+    if (Date.now() > deadline) throw new Error("Phase 4 fixture API did not become ready");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+
+  const result = run(binary, ["apply", "--plan-id", "plan-1", "--config", profilePath, "--output", "json"]);
+  const golden = JSON.parse(await readFile(path.join(ROOT, "internal/cli/testdata/phase4.golden.json"), "utf8"));
+  const requests = (await readFile(requestLog, "utf8")).trim().split("\n").map(JSON.parse);
+  assert.equal(result.code, 0, JSON.stringify({ result, requests }));
+  const submits = requests.filter((request) => request.method === "POST" && request.path === "/api/v1/plans/plan-1/execute");
+  assert.equal(submits.length, 1);
+  const submitBody = JSON.parse(submits[0].body);
+  assert.match(submitBody.idempotencyKey, /^request-[0-9a-f]{32}$/);
+  assert.equal(submits[0].body, golden.requests.apply.replace("<request-id>", submitBody.idempotencyKey));
+  const runSuffix = createHash("sha256").update(["run", "plan-1", submitBody.idempotencyKey].join("\0")).digest("hex").slice(0, 32);
+  assert.equal(requests.filter((request) => request.method === "GET" && request.path === `/api/v1/runs/run-${runSuffix}`).length, 1);
 });
