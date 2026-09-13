@@ -119,6 +119,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/inventory-import-request.schema.json",
 		"schemas/v1/outbox-record-data.schema.json",
 		"schemas/v1/plan-create-request.schema.json",
+		"schemas/v1/plan-preparation.schema.json",
 		"schemas/v1/plan-reference-request.schema.json",
 		"schemas/v1/plan.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
@@ -537,8 +538,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 11 || planned != 40 {
-		t.Fatalf("command availability = (%d available, %d planned), want (11, 40)", available, planned)
+	if available != 16 || planned != 38 {
+		t.Fatalf("command availability = (%d available, %d planned), want (16, 38)", available, planned)
 	}
 
 	for _, path := range []string{
@@ -569,7 +570,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.10.0"`,
+		`= "1.12.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
@@ -595,6 +596,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 		`type InventoryDraftExportSignature struct`,
 		`type SignedInventoryDraftExport struct`,
 		`type InventoryDraftExportPointer struct`,
+		`type PlanPreparation struct`,
 		`CommandNameServerRun`,
 		`CommandNameServerStatus`,
 		`FlagConfig`,
