@@ -339,6 +339,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	stateExportImport := modulePath + "/internal/stateexport"
 	identityImport := modulePath + "/internal/identity"
 	apiImport := modulePath + "/internal/api"
+	serverImport := modulePath + "/internal/server"
 	localAPIImport := modulePath + "/internal/localapi"
 	localTransportImport := modulePath + "/internal/localtransport"
 	cliImport := modulePath + "/internal/cli"
@@ -367,6 +368,20 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	controlClosure := moduleDependencyClosure(inModule, cliImport)
 	for importPath := range moduleDependencyClosure(inModule, clientFileImport) {
 		controlClosure[importPath] = true
+	}
+	controlClosure[mainImport] = true
+	for _, candidate := range inModule {
+		if candidate.ImportPath != mainImport {
+			continue
+		}
+		for _, imported := range candidate.Imports {
+			if imported == serverImport || strings.HasPrefix(imported, serverImport+"/") {
+				continue
+			}
+			for importPath := range moduleDependencyClosure(inModule, imported) {
+				controlClosure[importPath] = true
+			}
+		}
 	}
 	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport) {
 		result.LocalClientBoundary = false
@@ -418,11 +433,11 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				case "os/exec", "plugin":
 					result.ControlShellDispatch = true
 				case "crypto/tls", "syscall":
-					if !reviewedControlNetworkImport(parsed, imported, localAPIImport, localTransportImport, serverConfigImport) {
+					if !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, serverConfigImport) {
 						result.ControlArbitraryHTTP = true
 					}
 				}
-				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, localAPIImport, localTransportImport, serverConfigImport) {
+				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, serverConfigImport) {
 					result.ControlArbitraryHTTP = true
 				}
 				if !reviewedControlExternalImport(parsed, imported, standardPackages[imported], modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
@@ -470,8 +485,10 @@ func standardNetworkClosure(packages []listedPackage) map[string]bool {
 	return capable
 }
 
-func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, localAPIImport, localTransportImport, serverConfigImport string) bool {
+func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, mainImport, localAPIImport, localTransportImport, serverConfigImport string) bool {
 	switch candidate.listed.ImportPath {
+	case mainImport:
+		return imported == "syscall" && reviewedMainSyscallUse(candidate)
 	case localAPIImport:
 		return imported == "net" && reviewedLocalAPISource(candidate)
 	case localTransportImport:
@@ -481,6 +498,25 @@ func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, loca
 	default:
 		return false
 	}
+}
+
+func reviewedMainSyscallUse(candidate checkedSourcePackage) bool {
+	valid := true
+	for _, file := range candidate.files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			selector, ok := node.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			function, ok := candidate.info.ObjectOf(selector.Sel).(*types.Func)
+			if ok && function.Pkg() != nil && function.Pkg().Path() == "syscall" {
+				valid = false
+				return false
+			}
+			return true
+		})
+	}
+	return valid
 }
 
 func reviewedControlExternalImport(candidate checkedSourcePackage, imported string, standard bool, modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport string) bool {

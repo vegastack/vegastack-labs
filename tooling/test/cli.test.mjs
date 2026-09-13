@@ -196,6 +196,33 @@ test("the control boundary rejects an unreviewed external dependency", async (t)
   assert.deepEqual(result.codes, ["CLI_CONTROL_PROVIDER_ACCESS"]);
 });
 
+test("the control boundary includes the executable composition root", async (t) => {
+  for (const [name, mainSource, extraFiles, expected] of [
+    [
+      "http",
+      'package main\nimport ("net/http"; "example.test/internal/cli")\nfunc main() { _, _ = http.Get("https://provider.invalid"); cli.Run() }\n',
+      {},
+      ["CLI_CONTROL_ARBITRARY_HTTP"],
+    ],
+    [
+      "provider",
+      'package main\nimport ("provider.invalid/sdk"; "example.test/internal/cli")\nfunc main() { sdk.Connect(); cli.Run() }\n',
+      {
+        "go.mod": "module example.test\n\ngo 1.27.0\n\nrequire provider.invalid/sdk v0.0.0\nreplace provider.invalid/sdk => ./provider-sdk\n",
+        "provider-sdk/go.mod": "module provider.invalid/sdk\n\ngo 1.27.0\n",
+        "provider-sdk/sdk.go": "package sdk\nfunc Connect() {}\n",
+      },
+      ["CLI_CONTROL_PROVIDER_ACCESS"],
+    ],
+  ]) {
+    await t.test(name, async () => {
+      const root = await fixtureRepo(t, { ...extraFiles, "cmd/vsk-labs/main.go": mainSource });
+      const result = await verifyCLI(root, { crossBuild: false });
+      assert.deepEqual(result.codes, expected);
+    });
+  }
+});
+
 test("external dependency detection uses package provenance, not dots in its path", async (t) => {
   const root = await fixtureRepo(t, {
     "go.mod": [
