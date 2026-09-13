@@ -392,6 +392,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		if candidate.ImportPath == mainImport && !reviewedMainComposition(parsed, modulePath, cliImport, clientFileImport, releaseImport, serverImport) {
+			result.ControlProviderAccess = true
+		}
 		if candidate.ImportPath != localAPIImport && candidate.ImportPath != localTransportImport && containsString(candidate.Imports, localTransportImport) {
 			result.LocalClientBoundary = false
 		}
@@ -457,6 +460,54 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
 	}
 	return result, nil
+}
+
+func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
+	approvedInternal := map[string]bool{
+		cliImport:                       true,
+		clientFileImport:                true,
+		releaseImport:                   true,
+		modulePath + "/internal/result": true,
+		serverImport:                    true,
+	}
+	for _, imported := range candidate.listed.Imports {
+		if strings.HasPrefix(imported, modulePath+"/") && !approvedInternal[imported] {
+			return false
+		}
+	}
+
+	directCallees := make(map[ast.Expr]bool)
+	for _, file := range candidate.files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			if call, ok := node.(*ast.CallExpr); ok {
+				directCallees[unparenthesized(call.Fun)] = true
+			}
+			return true
+		})
+	}
+	for _, file := range candidate.files {
+		valid := true
+		ast.Inspect(file, func(node ast.Node) bool {
+			if !valid {
+				return false
+			}
+			selector, ok := node.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			object := candidate.info.ObjectOf(selector.Sel)
+			if object == nil || object.Pkg() == nil || object.Pkg().Path() != serverImport {
+				return true
+			}
+			function, isFunction := object.(*types.Func)
+			valid = isFunction && function.Name() == "NewOperations" && directCallees[unparenthesized(selector)]
+			return valid
+		})
+		if !valid {
+			return false
+		}
+	}
+	return true
 }
 
 func standardNetworkClosure(packages []listedPackage) map[string]bool {

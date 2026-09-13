@@ -223,6 +223,51 @@ test("the control boundary includes the executable composition root", async (t) 
   }
 });
 
+test("the executable composition root accepts only reviewed internal packages", async (t) => {
+  const root = await fixtureRepo(t, {
+    "cmd/vsk-labs/main.go": [
+      "package main",
+      'import ("example.test/internal/cli"; "example.test/internal/server/transporthelper")',
+      "func main() { transporthelper.Connect(); cli.Run() }",
+      "",
+    ].join("\n"),
+    "internal/server/transporthelper/client.go": [
+      "package transporthelper",
+      'import "net/http"',
+      'func Connect() { _, _ = http.Get("https://provider.invalid") }',
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_CONTROL_PROVIDER_ACCESS"]);
+});
+
+test("the executable composition root accepts only server NewOperations as a direct call", async (t) => {
+  for (const [name, mainStatement] of [
+    ["new exported helper", "server.NewRemote(); cli.Run()"],
+    ["laundered constructor", "constructor := server.NewOperations; constructor(); cli.Run()"],
+  ]) {
+    await t.test(name, async () => {
+      const root = await fixtureRepo(t, {
+        "cmd/vsk-labs/main.go": [
+          "package main",
+          'import ("example.test/internal/cli"; "example.test/internal/server")',
+          `func main() { ${mainStatement} }`,
+          "",
+        ].join("\n"),
+        "internal/server/server.go": [
+          "package server",
+          "func NewOperations() {}",
+          "func NewRemote() {}",
+          "",
+        ].join("\n"),
+      });
+      const result = await verifyCLI(root, { crossBuild: false });
+      assert.deepEqual(result.codes, ["CLI_CONTROL_PROVIDER_ACCESS"]);
+    });
+  }
+});
+
 test("external dependency detection uses package provenance, not dots in its path", async (t) => {
   const root = await fixtureRepo(t, {
     "go.mod": [
