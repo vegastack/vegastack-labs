@@ -500,6 +500,14 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 			if function == nil || function.Pkg() == nil {
 				return true
 			}
+			// identity is intentionally a type-only dependency of the local socket
+			// listener. Its package also owns remote HTTPS identity adapters, so no
+			// localapi function may invoke it directly or through a same-package
+			// helper and accidentally give the portable client a remote route.
+			if function.Pkg().Path() == modulePath+"/internal/identity" {
+				valid = function.Name() == "ResolveLocalPeer" && receiverNamed(function, modulePath+"/internal/identity", "LocalPrincipalResolver")
+				return valid
+			}
 			switch function.Pkg().Path() {
 			case "net":
 				valid = reviewedUnixDial(function, call)
