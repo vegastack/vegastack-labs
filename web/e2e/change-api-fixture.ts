@@ -41,6 +41,8 @@ const plan = {
   operations: [{ ...operation, executorId: "executor-central" }], status: "planned", risk: "infrastructure", authorizationBranch: "human", executorMode: "central", executorId: null, createdAt: "2026-09-13T12:31:00Z", expiresAt: "2026-09-13T13:01:00Z", readableDigest: digest("3"), extensions: [],
 } as const;
 
+export const phase4AcceptancePlan = plan;
+
 function approval() {
   const current = changeFixture.approval === "approved";
   return { schema: "vegastack-labs.dev/approval-status", schemaVersion: "1.0.0", planId: plan.planId, planDigest: plan.planDigest, status: changeFixture.approval, authorizationCurrent: current, canApply: current, channel: "slack", owner: "assigned-maintainer", stateRevision: 10, recoveryEpoch: 2, expiresAt: changeFixture.approvalExpiresAt, observedAt: "2026-09-13T12:32:00Z" };
