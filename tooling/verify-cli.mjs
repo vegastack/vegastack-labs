@@ -183,19 +183,6 @@ async function inspectSources(root, execute) {
   return { codes, targetsAnalyzed };
 }
 
-// Kept temporarily for the focused process fixture. Production verification
-// uses the typed, dependency-aware analyzer result above.
-export async function verifyReviewedLocalClient(root = ROOT) {
-  const files = await goFiles(root, "internal/localapi");
-  if (files.length === 0) return true;
-  for (const file of files) {
-    const source = await readFile(file, "utf8");
-    if (/(?:database\/sql|os\/exec|plugin)/.test(source)) return false;
-    if (/https?:\/\//.test(source) && !source.includes('"http://local"')) return false;
-  }
-  return true;
-}
-
 function sameTargets(left, right) {
   return left.length === right.length && left.every((target, index) => target === right[index]);
 }
