@@ -36,6 +36,16 @@ type ExecutorReceiptPersistenceRequest struct {
 	Attribution audit.Attribution
 }
 
+// ExecutorAuthorizationDenialRequest deliberately accepts fingerprints only.
+// Caller-provided reasons, target names, payloads, and credentials cannot cross
+// this persistence boundary.
+type ExecutorAuthorizationDenialRequest struct {
+	ReasonFingerprint audit.Fingerprint
+	TargetFingerprint audit.Fingerprint
+	At                time.Time
+	Attribution       audit.Attribution
+}
+
 type ExecutorLeaseRepository struct{ store *Store }
 
 func NewExecutorLeaseRepository(store *Store) *ExecutorLeaseRepository {
@@ -68,6 +78,13 @@ func (repository *ExecutorLeaseRepository) Claim(ctx context.Context, request Ex
 		Idempotency: audit.IntentKey{Scope: "executor-lease-claim", KeyDigest: digestParts("executor-lease-claim-key", lease.LeaseID), RequestDigest: digestParts("executor-lease-claim", string(canonical), request.Request.PrincipalID)},
 		Event:       event,
 	}, false, func(ctx context.Context, transaction *sql.Tx) error {
+		var currentEpoch int64
+		if err := transaction.QueryRowContext(ctx, `SELECT recovery_epoch FROM system_meta WHERE id=1`).Scan(&currentEpoch); err != nil {
+			return err
+		}
+		if currentEpoch != lease.RecoveryEpoch {
+			return newStoreError(generated.ErrorCodeRecoveryEpochMismatch, "executor-lease-claim", false, nil)
+		}
 		run, plan, err := runAndPlanInTx(ctx, transaction, lease.RunID)
 		if err != nil {
 			return err
@@ -199,21 +216,36 @@ func (repository *ExecutorLeaseRepository) Expire(ctx context.Context, request E
 		Idempotency: audit.IntentKey{Scope: "executor-lease-expire", KeyDigest: digestParts("executor-lease-expire-key", request.At.Format(time.RFC3339)), RequestDigest: digestParts("executor-lease-expire", request.At.Format(time.RFC3339))},
 		Event:       event,
 	}, false, func(ctx context.Context, transaction *sql.Tx) error {
-		rows, err := transaction.QueryContext(ctx, `SELECT canonical_bytes FROM target_execution_leases WHERE lease_kind='external' AND status='active' AND expires_at<=? ORDER BY lease_id`, request.At.Format(time.RFC3339))
+		rows, err := transaction.QueryContext(ctx, `SELECT l.canonical_bytes,l.status
+			FROM target_execution_leases l
+			JOIN plan_runs r ON r.run_id=l.run_id
+			JOIN plan_run_steps s ON s.step_id=l.step_id AND s.run_id=l.run_id
+			WHERE l.lease_kind='external' AND l.expires_at<=? AND (
+				l.status='active' OR (
+					l.status='expired' AND r.status='running' AND s.status='running'
+					AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown')
+				)
+			)
+			ORDER BY l.lease_id`, request.At.Format(time.RFC3339))
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
+		active := make(map[string]bool)
 		for rows.Next() {
 			var canonical []byte
-			if err := rows.Scan(&canonical); err != nil {
+			var status string
+			if err := rows.Scan(&canonical, &status); err != nil {
 				return err
 			}
 			lease, err := decodeStoredExecutorLease(canonical)
 			if err != nil {
 				return err
 			}
-			lease.Status = "expired"
+			if status == "active" {
+				lease.Status = "expired"
+				active[lease.LeaseID] = true
+			}
 			expired = append(expired, lease)
 		}
 		if err := rows.Err(); err != nil {
@@ -223,6 +255,9 @@ func (repository *ExecutorLeaseRepository) Expire(ctx context.Context, request E
 			return err
 		}
 		for _, lease := range expired {
+			if !active[lease.LeaseID] {
+				continue
+			}
 			canonical, _ := json.Marshal(lease)
 			result, err := transaction.ExecContext(ctx, `UPDATE target_execution_leases SET status='expired',canonical_bytes=? WHERE lease_id=? AND status='active'`, canonical, lease.LeaseID)
 			if err != nil {
@@ -238,9 +273,69 @@ func (repository *ExecutorLeaseRepository) Expire(ctx context.Context, request E
 		return nil, err
 	}
 	if !intent.Created {
-		return []generated.ExecutorLease{}, nil
+		return repository.discoverExpiredRecovery(ctx, request.At)
 	}
 	return expired, nil
+}
+
+func (repository *ExecutorLeaseRepository) discoverExpiredRecovery(ctx context.Context, at time.Time) ([]generated.ExecutorLease, error) {
+	expired := make([]generated.ExecutorLease, 0)
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, err := tx.query(ctx, `SELECT l.canonical_bytes
+			FROM target_execution_leases l
+			JOIN plan_runs r ON r.run_id=l.run_id
+			JOIN plan_run_steps s ON s.step_id=l.step_id AND s.run_id=l.run_id
+			WHERE l.lease_kind='external' AND l.status='expired' AND l.expires_at<=?
+				AND r.status='running' AND s.status='running'
+				AND s.effect_state IN ('intent-recorded','receipt-recorded','effect-unknown')
+			ORDER BY l.lease_id`, at.Format(time.RFC3339))
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var canonical []byte
+			if err := rows.Scan(&canonical); err != nil {
+				return err
+			}
+			lease, err := decodeStoredExecutorLease(canonical)
+			if err != nil {
+				return err
+			}
+			if lease.Status != "expired" {
+				return newStoreError(generated.ErrorCodeIntegrityFailure, "executor-lease-status", false, nil)
+			}
+			expired = append(expired, lease)
+		}
+		return rows.Err()
+	})
+	return expired, err
+}
+
+// RecordAuthorizationDenial commits a sanitized, idempotent audit event. The
+// persisted target and reason are fingerprints; there is no plaintext field in
+// this interface for a remote body, secret, or human-readable denial reason.
+func (repository *ExecutorLeaseRepository) RecordAuthorizationDenial(ctx context.Context, request ExecutorAuthorizationDenialRequest) error {
+	if repository == nil || repository.store == nil || !validUTCSecond(request.At) ||
+		!audit.ValidFingerprint(request.ReasonFingerprint) || !audit.ValidFingerprint(request.TargetFingerprint) {
+		return newStoreError(generated.ErrorCodeInputInvalid, "executor-authorization-denial", false, nil)
+	}
+	event := audit.EventDraft{
+		Type:          "run.external-authorization-denied",
+		CorrelationID: string(request.TargetFingerprint),
+		Attribution:   request.Attribution,
+		Target:        audit.Target{Kind: "executor-authorization", ID: string(request.TargetFingerprint)},
+		After:         &request.ReasonFingerprint,
+	}
+	_, err := repository.store.executeAuditIntent(ctx, intentRequest{
+		Idempotency: audit.IntentKey{
+			Scope:         "executor-authorization-denial",
+			KeyDigest:     digestParts("executor-authorization-denial-key", string(request.TargetFingerprint), string(request.ReasonFingerprint), request.Attribution.AuthenticatedPrincipalID, request.At.Format(time.RFC3339)),
+			RequestDigest: digestParts("executor-authorization-denial", string(request.TargetFingerprint), string(request.ReasonFingerprint), request.Attribution.AuthenticatedPrincipalID, request.Attribution.AuthenticatedPrincipalMethod, request.At.Format(time.RFC3339)),
+		},
+		Event: event,
+	}, false, func(context.Context, *sql.Tx) error { return nil })
+	return err
 }
 
 // RecordReceipt stores an exact receipt as an untrusted observation. Active or

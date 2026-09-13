@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -173,6 +174,25 @@ func TestExecutorLeaseRejectsWrongClaimBindingsAndChangedEpoch(t *testing.T) {
 	}
 }
 
+func TestExecutorLeaseClaimFencesCurrentRecoveryEpochInsideTransaction(t *testing.T) {
+	now := time.Date(2026, 9, 13, 0, 3, 30, 0, time.UTC)
+	fixture := openExecutorLeaseFixture(t, now)
+	if _, err := fixture.store.conn.ExecContext(context.Background(), `UPDATE system_meta SET recovery_epoch=recovery_epoch+1 WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.leases.Claim(context.Background(), fixture.claimRequest(now)); Code(err) != generated.ErrorCodeRecoveryEpochMismatch {
+		t.Fatalf("claim after epoch advance code = %q", Code(err))
+	}
+	var leases int
+	if err := fixture.store.conn.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM target_execution_leases WHERE step_id=?`, fixture.run.Steps[0].StepID).Scan(&leases); err != nil || leases != 0 {
+		t.Fatalf("epoch-fenced leases = %d, %v", leases, err)
+	}
+	stored, err := fixture.runs.Get(context.Background(), fixture.run.RunID)
+	if err != nil || stored.Steps[0].Status != "queued" || stored.Steps[0].EffectState != "not-started" {
+		t.Fatalf("epoch-fenced step = %#v, %v", stored.Steps, err)
+	}
+}
+
 func TestExpiredExecutorReceiptIsUntrustedDurableAndCannotReclaim(t *testing.T) {
 	now := time.Date(2026, 9, 13, 0, 4, 0, 0, time.UTC)
 	fixture := openExecutorLeaseFixture(t, now)
@@ -223,6 +243,103 @@ func TestExpiredExecutorReceiptIsUntrustedDurableAndCannotReclaim(t *testing.T) 
 	reclaim.Request.NonceDigest = reclaim.Lease.NonceDigest
 	if _, err := fixture.leases.Claim(context.Background(), reclaim); Code(err) != generated.ErrorCodeStateConflict && Code(err) != generated.ErrorCodeRecoveryRequired {
 		t.Fatalf("blind reclaim code = %q", Code(err))
+	}
+}
+
+func TestExpiredExecutorLeaseRecoveryDiscoverySurvivesRetryAndRestart(t *testing.T) {
+	now := time.Date(2026, 9, 13, 0, 4, 30, 0, time.UTC)
+	fixture := openExecutorLeaseFixture(t, now)
+	lease := fixture.mustClaim(t, now)
+	request := ExecutorLeaseExpiryRequest{At: now.Add(60 * time.Second), Attribution: fixture.attribution}
+	first, err := fixture.leases.Expire(context.Background(), request)
+	if err != nil || len(first) != 1 || first[0].LeaseID != lease.LeaseID {
+		t.Fatalf("first expiry discovery = %#v, %v", first, err)
+	}
+	retry, err := fixture.leases.Expire(context.Background(), request)
+	if err != nil || len(retry) != 1 || retry[0].LeaseID != lease.LeaseID {
+		t.Fatalf("same-request expiry recovery = %#v, %v", retry, err)
+	}
+
+	if err := fixture.store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	fixture.closed = true
+	fixture.config.Mode = OpenExisting
+	reopened, err := Open(context.Background(), fixture.config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	repository := NewExecutorLeaseRepository(reopened)
+	afterRestart, err := repository.Expire(context.Background(), ExecutorLeaseExpiryRequest{At: now.Add(61 * time.Second), Attribution: fixture.attribution})
+	if err != nil || len(afterRestart) != 1 || afterRestart[0].LeaseID != lease.LeaseID {
+		t.Fatalf("restart expiry recovery = %#v, %v", afterRestart, err)
+	}
+
+	stored, err := repository.Get(context.Background(), lease.LeaseID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	receipt := fixture.receipt(stored, now.Add(62*time.Second))
+	if _, err := repository.RecordReceipt(context.Background(), ExecutorReceiptPersistenceRequest{Request: receipt, At: now.Add(62 * time.Second), Attribution: fixture.attribution}); err != nil {
+		t.Fatal(err)
+	}
+	receiptPending, err := repository.Expire(context.Background(), ExecutorLeaseExpiryRequest{At: now.Add(63 * time.Second), Attribution: fixture.attribution})
+	if err != nil || len(receiptPending) != 1 || receiptPending[0].LeaseID != lease.LeaseID {
+		t.Fatalf("receipt-recorded expiry recovery = %#v, %v", receiptPending, err)
+	}
+
+	runs := NewRunRepository(reopened)
+	run, err := runs.Get(context.Background(), fixture.run.RunID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	run.Steps[0].EffectState = "effect-unknown"
+	runBytes, _ := json.Marshal(run)
+	if _, err := reopened.conn.ExecContext(context.Background(), `UPDATE plan_run_steps SET effect_state='effect-unknown' WHERE step_id=?`, run.Steps[0].StepID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := reopened.conn.ExecContext(context.Background(), `UPDATE plan_runs SET canonical_bytes=? WHERE run_id=?`, runBytes, run.RunID); err != nil {
+		t.Fatal(err)
+	}
+	unknown, err := repository.Expire(context.Background(), ExecutorLeaseExpiryRequest{At: now.Add(64 * time.Second), Attribution: fixture.attribution})
+	if err != nil || len(unknown) != 1 || unknown[0].LeaseID != lease.LeaseID {
+		t.Fatalf("effect-unknown expiry recovery = %#v, %v", unknown, err)
+	}
+}
+
+func TestExecutorAuthorizationDenialAuditStoresOnlyFingerprints(t *testing.T) {
+	now := time.Date(2026, 9, 13, 0, 4, 45, 0, time.UTC)
+	fixture := openExecutorLeaseFixture(t, now)
+	reasonCanary := "raw-denial-reason-must-not-persist"
+	targetCanary := "raw-denial-target-must-not-persist"
+	request := ExecutorAuthorizationDenialRequest{
+		ReasonFingerprint: digestForText(reasonCanary),
+		TargetFingerprint: digestForText(targetCanary),
+		At:                now,
+		Attribution:       fixture.attribution,
+	}
+	if err := fixture.leases.RecordAuthorizationDenial(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.leases.RecordAuthorizationDenial(context.Background(), request); err != nil {
+		t.Fatalf("idempotent denial replay = %v", err)
+	}
+	var targetID, after string
+	var canonical []byte
+	var count int
+	if err := fixture.store.conn.QueryRowContext(context.Background(), `SELECT target_id,after_fingerprint,canonical_payload FROM audit_events WHERE event_type='run.external-authorization-denied'`).Scan(&targetID, &after, &canonical); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.store.conn.QueryRowContext(context.Background(), `SELECT COUNT(*) FROM audit_events WHERE event_type='run.external-authorization-denied'`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if targetID != string(request.TargetFingerprint) || after != string(request.ReasonFingerprint) || count != 1 {
+		t.Fatalf("denial audit target/reason/count = %q/%q/%d", targetID, after, count)
+	}
+	payload := string(canonical)
+	if strings.Contains(payload, reasonCanary) || strings.Contains(payload, targetCanary) {
+		t.Fatalf("denial audit leaked caller plaintext: %s", payload)
 	}
 }
 
