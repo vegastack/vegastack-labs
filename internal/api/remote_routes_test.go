@@ -11,7 +11,7 @@ import (
 
 func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T) {
 	for _, endpoint := range generated.Endpoints {
-		requestPath := strings.NewReplacer("{declarationId}", "declaration-test", "{draftId}", "draft-test", "{planId}", "plan-test", "{runId}", "run-test", "{revision}", "1", "{recordId}", "record-test", "{leaseId}", "lease-test").Replace(endpoint.Path)
+		requestPath := strings.NewReplacer("{declarationId}", "declaration-test", "{draftId}", "draft-test", "{planId}", "plan-test", "{runId}", "run-test", "{revision}", "1", "{recordId}", "record-test", "{leaseId}", "lease-test", "{idempotencyKey}", "request-test").Replace(endpoint.Path)
 		browser := slices.Contains(endpoint.Audiences, "browser")
 		executor := slices.Contains(endpoint.Audiences, "executor")
 		want := endpoint.Availability == "available" && ((endpoint.Method == http.MethodGet && browser) || (browser && remoteBrowserWriteEndpoints[endpoint.ID]) || remoteSessionEndpoints[endpoint.ID] || (executor && remoteExecutorEndpoints[endpoint.ID]))
@@ -61,7 +61,7 @@ func TestConstrainedSSHAdmissionIsGeneratedOperatorAPIWithoutAlternateAuthoritie
 	for _, endpoint := range generated.Endpoints {
 		requestPath := strings.NewReplacer(
 			"{declarationId}", "declaration-test", "{draftId}", "draft-test", "{planId}", "plan-test",
-			"{revision}", "1", "{recordId}", "record-test", "{runId}", "run-test", "{leaseId}", "lease-test",
+			"{revision}", "1", "{recordId}", "record-test", "{runId}", "run-test", "{leaseId}", "lease-test", "{idempotencyKey}", "request-test",
 		).Replace(endpoint.Path)
 		operator := slices.Contains(endpoint.Audiences, "operator")
 		want := endpoint.Availability == generated.AvailabilityAvailable && operator &&
