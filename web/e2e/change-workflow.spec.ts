@@ -416,7 +416,9 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       changeFixture.hardFailurePath = "/api/v1/runs/run-one";
       await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
       const denied = page.locator('[data-read-state="denied"]').filter({ visible: true });
-      await expect(denied.getByRole("alert")).toContainText("Change details cleared");
+      const clearedAlert = denied.getByRole("alert").filter({ hasText: "Change details cleared" });
+      await expect(clearedAlert).toHaveCount(1);
+      await expect(clearedAlert).toContainText("Change details cleared");
       await expect(denied.getByText("Change details cleared", { exact: true })).toBeVisible();
       await expect(page.locator("[data-run-status], [data-plan-status], [data-approval-status]")).toHaveCount(0);
       await page.getByLabel("Declaration ID").focus();
