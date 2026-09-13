@@ -9,7 +9,7 @@ import (
 )
 
 func TestLoadConstrainedSSHProfileBuildsFixedDirectArguments(t *testing.T) {
-	directory := t.TempDir()
+	directory := testDirectory(t)
 	executable := filepath.Join(directory, "ssh")
 	if err := os.WriteFile(executable, []byte("synthetic ssh executable\n"), 0o700); err != nil {
 		t.Fatal(err)
@@ -45,7 +45,7 @@ func TestLoadFallsBackForProtectedLocalServerProfile(t *testing.T) {
 }
 
 func TestLoadRejectsUntrustedKnownHostsFiles(t *testing.T) {
-	directory := t.TempDir()
+	directory := testDirectory(t)
 	executable := testSSHExecutable(t, directory)
 	regular := filepath.Join(directory, "known-hosts")
 	if err := os.WriteFile(regular, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
@@ -84,7 +84,7 @@ func TestLoadRejectsUntrustedKnownHostsFiles(t *testing.T) {
 }
 
 func TestLoadRejectsHardlinkedClientProfile(t *testing.T) {
-	directory := t.TempDir()
+	directory := testDirectory(t)
 	executable := testSSHExecutable(t, directory)
 	knownHosts := filepath.Join(directory, "known-hosts")
 	if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
@@ -124,7 +124,7 @@ func TestLoadRejectsRemoteCommandsAndUnsafeSSHOptions(t *testing.T) {
 }
 
 func TestLoadRejectsBareAndReplaceableSSHExecutables(t *testing.T) {
-	directory := t.TempDir()
+	directory := testDirectory(t)
 	knownHosts := filepath.Join(directory, "known-hosts")
 	if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -182,7 +182,7 @@ func TestLoadRejectsBareAndReplaceableSSHExecutables(t *testing.T) {
 }
 
 func TestLoadRejectsReplaceableClientProfiles(t *testing.T) {
-	directory := t.TempDir()
+	directory := testDirectory(t)
 	target := filepath.Join(directory, "target.json")
 	profile := filepath.Join(directory, "profile.json")
 	if err := os.WriteFile(target, []byte(`{"schema":"vegastack-labs.dev/client-profile"}`), 0o600); err != nil {
@@ -193,6 +193,107 @@ func TestLoadRejectsReplaceableClientProfiles(t *testing.T) {
 	}
 	if _, matched, err := Load(context.Background(), profile); err == nil || !matched {
 		t.Fatalf("symlink matched=%t err=%v", matched, err)
+	}
+}
+
+func TestLoadRejectsOpenSSHExpansionTokensInTrustedPaths(t *testing.T) {
+	for _, token := range []string{"%h", "${HOME}"} {
+		t.Run("known-hosts-"+token, func(t *testing.T) {
+			directory := testDirectory(t)
+			executable := testSSHExecutable(t, directory)
+			knownHosts := filepath.Join(directory, "known-hosts-"+token)
+			if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			profilePath := filepath.Join(directory, "profile.json")
+			if err := os.WriteFile(profilePath, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, matched, err := Load(context.Background(), profilePath); err == nil || !matched {
+				t.Fatalf("known-hosts token %q matched=%t err=%v", token, matched, err)
+			}
+		})
+
+		t.Run("profile-"+token, func(t *testing.T) {
+			directory := testDirectory(t)
+			executable := testSSHExecutable(t, directory)
+			knownHosts := filepath.Join(directory, "known-hosts")
+			if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			profilePath := filepath.Join(directory, "profile-"+token+".json")
+			if err := os.WriteFile(profilePath, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, matched, err := Load(context.Background(), profilePath); err == nil || !matched {
+				t.Fatalf("profile token %q matched=%t err=%v", token, matched, err)
+			}
+		})
+	}
+}
+
+func TestLoadRejectsTrustedFilesUnderWritableParents(t *testing.T) {
+	for _, target := range []string{"profile", "known-hosts", "executable"} {
+		t.Run(target, func(t *testing.T) {
+			directory := testDirectory(t)
+			unsafeParent := filepath.Join(directory, "replaceable")
+			if err := os.Mkdir(unsafeParent, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chmod(unsafeParent, 0o777); err != nil {
+				t.Fatal(err)
+			}
+			executable := testSSHExecutable(t, directory)
+			knownHosts := filepath.Join(directory, "known-hosts")
+			profilePath := filepath.Join(directory, "profile.json")
+			if target == "executable" {
+				executable = testSSHExecutable(t, unsafeParent)
+			}
+			if target == "known-hosts" {
+				knownHosts = filepath.Join(unsafeParent, "known-hosts")
+			}
+			if target == "profile" {
+				profilePath = filepath.Join(unsafeParent, "profile.json")
+			}
+			if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(profilePath, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if _, matched, err := Load(context.Background(), profilePath); err == nil || !matched {
+				t.Fatalf("%s under writable parent matched=%t err=%v", target, matched, err)
+			}
+		})
+	}
+}
+
+func TestTrustedAncestorSnapshotRejectsParentReplacement(t *testing.T) {
+	directory := testDirectory(t)
+	parent := filepath.Join(directory, "parent")
+	if err := os.Mkdir(parent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(parent, "known-hosts")
+	if err := os.WriteFile(path, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, ok := snapshotTrustedAncestors(path)
+	if !ok {
+		t.Fatal("trusted ancestor snapshot unexpectedly failed")
+	}
+	replaced := filepath.Join(directory, "parent-replaced")
+	if err := os.Rename(parent, replaced); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(parent, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte("host ssh-ed25519 replacement\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if snapshot.stillTrusted(path) {
+		t.Fatal("ancestor replacement retained trust")
 	}
 }
 
@@ -222,6 +323,15 @@ func testSSHExecutable(t *testing.T, directory string) string {
 		t.Fatal(err)
 	}
 	return path
+}
+
+func testDirectory(t *testing.T) string {
+	t.Helper()
+	directory, err := filepath.EvalSymlinks(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return directory
 }
 
 func secureArguments(knownHosts, destination string) []string {

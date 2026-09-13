@@ -28,6 +28,26 @@ func TestWindowsFileMetadataTrustRejectsReparseDirectoriesAndHardlinks(t *testin
 	}
 }
 
+func TestWindowsDirectoryMetadataTrustRejectsReparseAndNonDirectories(t *testing.T) {
+	for name, test := range map[string]struct {
+		attributes uint32
+		links      uint32
+		want       bool
+	}{
+		"directory":        {windows.FILE_ATTRIBUTE_DIRECTORY, 1, true},
+		"linked directory": {windows.FILE_ATTRIBUTE_DIRECTORY, 2, true},
+		"reparse":          {windows.FILE_ATTRIBUTE_DIRECTORY | windows.FILE_ATTRIBUTE_REPARSE_POINT, 1, false},
+		"regular":          {windows.FILE_ATTRIBUTE_NORMAL, 1, false},
+		"no links":         {windows.FILE_ATTRIBUTE_DIRECTORY, 0, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := windowsPathMetadataTrusted(test.attributes, test.links, windowsDirectory); got != test.want {
+				t.Fatalf("windowsPathMetadataTrusted() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
 func TestWindowsACLTrustRequiresOwnerAndRejectsUnsafeGrants(t *testing.T) {
 	current := "S-1-5-21-current"
 	system := "S-1-5-18"
@@ -47,6 +67,31 @@ func TestWindowsACLTrustRequiresOwnerAndRejectsUnsafeGrants(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			if got := windowsACLTrusted(test.owner, current, test.entries, test.executable); got != test.want {
 				t.Fatalf("windowsACLTrusted() = %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestWindowsDirectoryACLTrustRejectsReplaceableAncestors(t *testing.T) {
+	current := "S-1-5-21-current"
+	system := "S-1-5-18"
+	users := "S-1-5-32-545"
+	for name, test := range map[string]struct {
+		owner   string
+		entries []windowsAccess
+		want    bool
+	}{
+		"private current owner":        {current, []windowsAccess{{current, windows.GENERIC_ALL}, {system, windows.GENERIC_ALL}}, true},
+		"system owner public traverse": {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.GENERIC_READ | windows.GENERIC_EXECUTE}}, true},
+		"untrusted owner":              {users, []windowsAccess{{users, windows.GENERIC_ALL}}, false},
+		"public add file":              {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.FILE_WRITE_DATA}}, false},
+		"public add directory":         {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.FILE_APPEND_DATA}}, false},
+		"public delete child":          {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windowsDirectoryDeleteChild}}, false},
+		"public change ACL":            {system, []windowsAccess{{system, windows.GENERIC_ALL}, {users, windows.WRITE_DAC}}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := windowsDirectoryACLTrusted(test.owner, current, test.entries); got != test.want {
+				t.Fatalf("windowsDirectoryACLTrusted() = %t, want %t", got, test.want)
 			}
 		})
 	}

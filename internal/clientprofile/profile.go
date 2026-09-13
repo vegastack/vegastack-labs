@@ -48,7 +48,7 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	if ctx == nil || ctx.Err() != nil {
 		return serverconfig.Profile{}, true, failure.New(generated.ErrorCodeInterrupted, "client-profile", false)
 	}
-	if path == "" || strings.ContainsRune(path, 0) || !filepath.IsAbs(path) || filepath.Clean(path) != path {
+	if !validConfiguredPath(path) {
 		return serverconfig.Profile{}, true, invalid()
 	}
 	before, err := os.Lstat(path)
@@ -81,7 +81,8 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	if json.Unmarshal(content, &probe) != nil || probe.Schema != "vegastack-labs.dev/client-profile" {
 		return serverconfig.Profile{}, false, nil
 	}
-	if !trustedFile(path, opened) || !trustedFile(path, after) {
+	content, err = readTrustedProfile(path)
+	if err != nil {
 		return serverconfig.Profile{}, true, invalid()
 	}
 	decoder := json.NewDecoder(bytes.NewReader(content))
@@ -91,12 +92,11 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 		return serverconfig.Profile{}, true, invalid()
 	}
 	var trailing any
-	if decoder.Decode(&trailing) != io.EOF || profile.SchemaVersion != "1.0.0" || profile.Transport.Kind != "constrained-ssh" ||
+	if decoder.Decode(&trailing) != io.EOF || profile.Schema != "vegastack-labs.dev/client-profile" || profile.SchemaVersion != "1.0.0" || profile.Transport.Kind != "constrained-ssh" ||
 		!validExecutablePath(profile.Transport.Executable) ||
 		!destinationPattern.MatchString(profile.Transport.Destination) || len(profile.Transport.Destination) > 255 ||
 		!principal.ValidID(profile.Transport.SSHPrincipalID) || !principal.ValidID(profile.Transport.DeviceID) || profile.Transport.RecoveryEpoch < 0 ||
-		len(profile.Transport.KnownHostsPath) > 4096 || strings.ContainsRune(profile.Transport.KnownHostsPath, 0) ||
-		!filepath.IsAbs(profile.Transport.KnownHostsPath) || filepath.Clean(profile.Transport.KnownHostsPath) != profile.Transport.KnownHostsPath {
+		!validConfiguredPath(profile.Transport.KnownHostsPath) {
 		return serverconfig.Profile{}, true, invalid()
 	}
 	if err := validateKnownHosts(profile.Transport.KnownHostsPath); err != nil {
@@ -112,8 +112,89 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	}}, true, nil
 }
 
+type ancestorSnapshot []os.FileInfo
+
+func validConfiguredPath(path string) bool {
+	return len(path) >= 2 && len(path) <= 4096 && !strings.ContainsRune(path, 0) &&
+		!strings.Contains(path, "%") && !strings.Contains(path, "${") &&
+		filepath.IsAbs(path) && filepath.Clean(path) == path && path != string(filepath.Separator)
+}
+
+func snapshotTrustedAncestors(path string) (ancestorSnapshot, bool) {
+	paths := ancestorDirectories(path)
+	snapshot := make(ancestorSnapshot, 0, len(paths))
+	for _, directory := range paths {
+		info, err := os.Lstat(directory)
+		if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || !trustedDirectory(directory, info) {
+			return nil, false
+		}
+		snapshot = append(snapshot, info)
+	}
+	return snapshot, true
+}
+
+func (snapshot ancestorSnapshot) stillTrusted(path string) bool {
+	current, ok := snapshotTrustedAncestors(path)
+	if !ok || len(current) != len(snapshot) {
+		return false
+	}
+	for index := range snapshot {
+		if !os.SameFile(snapshot[index], current[index]) {
+			return false
+		}
+	}
+	return true
+}
+
+func ancestorDirectories(path string) []string {
+	directories := make([]string, 0, 16)
+	for directory := filepath.Dir(path); ; directory = filepath.Dir(directory) {
+		directories = append(directories, directory)
+		if parent := filepath.Dir(directory); parent == directory {
+			break
+		}
+	}
+	for left, right := 0, len(directories)-1; left < right; left, right = left+1, right-1 {
+		directories[left], directories[right] = directories[right], directories[left]
+	}
+	return directories
+}
+
+func readTrustedProfile(path string) ([]byte, error) {
+	ancestors, ok := snapshotTrustedAncestors(path)
+	if !ok {
+		return nil, invalid()
+	}
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 1 || before.Size() > maximumProfileBytes || !trustedFile(path, before) {
+		return nil, invalid()
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, invalid()
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(before, opened) || !trustedFile(path, opened) {
+		return nil, invalid()
+	}
+	content, err := io.ReadAll(io.LimitReader(file, maximumProfileBytes+1))
+	if err != nil || len(content) == 0 || len(content) > maximumProfileBytes {
+		return nil, invalid()
+	}
+	after, err := os.Lstat(path)
+	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || int64(len(content)) != opened.Size() || !trustedFile(path, after) || !ancestors.stillTrusted(path) {
+		return nil, invalid()
+	}
+	return content, nil
+}
+
 func validateKnownHosts(path string) error {
-	if len(path) < 2 || len(path) > 4096 || strings.ContainsRune(path, 0) || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
+	if !validConfiguredPath(path) {
+		return invalid()
+	}
+	ancestors, ok := snapshotTrustedAncestors(path)
+	if !ok {
 		return invalid()
 	}
 	before, err := os.Lstat(path)
@@ -130,14 +211,14 @@ func validateKnownHosts(path string) error {
 		return invalid()
 	}
 	after, err := os.Lstat(path)
-	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedFile(path, after) {
+	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedFile(path, after) || !ancestors.stillTrusted(path) {
 		return invalid()
 	}
 	return nil
 }
 
 func validExecutablePath(path string) bool {
-	if len(path) < 2 || len(path) > 4096 || strings.ContainsRune(path, 0) || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
+	if !validConfiguredPath(path) {
 		return false
 	}
 	base := strings.ToLower(filepath.Base(path))
@@ -145,6 +226,10 @@ func validExecutablePath(path string) bool {
 }
 
 func validateExecutable(path string) error {
+	ancestors, ok := snapshotTrustedAncestors(path)
+	if !ok {
+		return invalid()
+	}
 	before, err := os.Lstat(path)
 	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 1 || before.Size() > maximumExecutableSize || !trustedExecutable(path, before) {
 		return invalid()
@@ -159,7 +244,7 @@ func validateExecutable(path string) error {
 		return invalid()
 	}
 	after, err := os.Lstat(path)
-	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedExecutable(path, after) {
+	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedExecutable(path, after) || !ancestors.stillTrusted(path) {
 		return invalid()
 	}
 	return nil
