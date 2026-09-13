@@ -122,7 +122,7 @@ test("path values are encoded inside a generated route", async () => {
   assert.equal(seen, "/api/v1/inventory-drafts/draft%2Fone/revisions/2");
 });
 
-test("stable API failures preserve code, target, retryability, and correlation", async () => {
+test("stable API failures preserve safe fields without exposing request correlation", async () => {
   const failed = envelope({});
   failed.status = "failed";
   failed.errors = [{ code: "AUTHORIZATION_DENIED", target: "read", retryable: false }];
@@ -131,7 +131,8 @@ test("stable API failures preserve code, target, retryability, and correlation",
     () => denied.getSummary(),
     (error) => error instanceof ReadClientError && error.kind === "api" &&
       error.code === "AUTHORIZATION_DENIED" && error.target === "read" &&
-      error.retryable === false && error.correlationId === "request-1" && STABLE_ERROR_CODES.includes(error.code),
+      error.retryable === false && !Object.hasOwn(error, "correlationId") &&
+      !JSON.stringify(error).includes("request-1") && STABLE_ERROR_CODES.includes(error.code),
   );
 
   failed.errors = [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: true }];

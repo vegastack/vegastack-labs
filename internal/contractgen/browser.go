@@ -198,16 +198,14 @@ export class ReadClientError extends Error {
   readonly code: StableErrorCode;
   readonly target: string;
   readonly retryable: boolean;
-  readonly correlationId: string | null;
 
-  constructor(kind: ApiFailureKind, code: StableErrorCode, target: string, retryable = false, correlationId: string | null = null) {
+  constructor(kind: ApiFailureKind, code: StableErrorCode, target: string, retryable = false) {
     super(code);
     this.name = "ReadClientError";
     this.kind = kind;
     this.code = code;
     this.target = target;
     this.retryable = retryable;
-    this.correlationId = correlationId;
   }
 }
 
@@ -468,7 +466,7 @@ async function performRead<T>(fetchTransport: FetchTransport, url: string, optio
   if (!response.ok || envelope.status !== "succeeded" || envelope.errors.length !== 0) {
     const failure = envelope.errors[0];
     if (!failure) return mismatch(operation, "failure response has no stable error");
-    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable);
   }
   return { ...envelope, data: decodeData(envelope.data) };
 }
@@ -494,7 +492,7 @@ async function performChange<T>(fetchTransport: FetchTransport, url: string, req
 	}
     const failure = envelope.errors[0];
     if (!failure) return mismatch(operation, "failure response has no stable error");
-    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable);
   }
   return { ...envelope, data: decodeData(envelope.data) };
 }
@@ -597,7 +595,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
     const envelope = decodeReadEnvelope(await readJSON(response, operation, options.signal), operation);
     const failure = envelope.errors[0];
     if (!failure) return mismatch(operation, "failure response has no stable error");
-    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable);
   }
   if (!(response.headers.get("content-type") ?? "").toLowerCase().startsWith("text/event-stream") || !response.body) {
     return mismatch(operation, "invalid event stream response");
