@@ -124,9 +124,6 @@ func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string)
 	if !available {
 		return "", false
 	}
-	if reflect.DeepEqual(arguments, commandArguments) {
-		return requestPath, true
-	}
 	switch operationID {
 	case "api.v1.summary.get":
 		return requestPath, reflect.DeepEqual(arguments, []string{"--output", "json"})
@@ -149,6 +146,8 @@ func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string)
 		if id, ok := apiSSHPathID(requestPath, "/api/v1/runs/", ""); ok && reflect.DeepEqual(arguments, []string{"--run-id", id, "--output", "json"}) {
 			return requestPath, true
 		}
+	default:
+		return requestPath, reflect.DeepEqual(arguments, commandArguments)
 	}
 	return "", false
 }

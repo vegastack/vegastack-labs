@@ -82,7 +82,7 @@ func TestAPISSHForwardsExactVerifiedPayloadOnce(t *testing.T) {
 	}}
 	handler := newAPISSHTestHandler(recorder)
 	var output bytes.Buffer
-	if err := handler.Serve(context.Background(), bytes.NewReader(apiSSHRequestWire(t, "POST /api/v1/plans/plan-test/execute", []string{"apply"}, 4, payload)), &output); err != nil {
+	if err := handler.Serve(context.Background(), bytes.NewReader(apiSSHRequestWire(t, "POST /api/v1/plans/plan-test/execute", []string{"--plan-id", "plan-test", "--output", "json"}, 4, payload)), &output); err != nil {
 		t.Fatal(err)
 	}
 	response, err := apissh.ReadResponse(&output, apiSSHRequestID)
@@ -179,6 +179,10 @@ func TestAPISSHGeneratedRouteRequiresExactTokenizedCommandArguments(t *testing.T
 		"wrong generated command":  {"GET /api/v1/health", []string{"status"}},
 		"extra token":              {"GET /api/v1/health", []string{"server", "status", "extra"}},
 		"fixture extra token":      {"GET /api/v1/summary", []string{"--output", "json", "extra"}},
+		"superseded summary token": {"GET /api/v1/summary", []string{"status"}},
+		"superseded plan token":    {"POST /api/v1/declarations/draft-test/plans", []string{"plan"}},
+		"superseded apply token":   {"POST /api/v1/plans/plan-test/execute", []string{"apply"}},
+		"superseded inspect token": {"GET /api/v1/runs/run-test", []string{"run", "inspect"}},
 		"fixture wrong plan id":    {"POST /api/v1/plans/plan-test/execute", []string{"--plan-id", "plan-other", "--output", "json"}},
 		"fixture duplicate option": {"POST /api/v1/plans", []string{"--change", "draft-test", "--output", "json", "--output", "json"}},
 	} {
