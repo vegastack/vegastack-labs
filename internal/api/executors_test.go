@@ -25,10 +25,12 @@ type executorLifecycleStub struct {
 	claimCalls    int
 	renewCalls    int
 	receiptCalls  int
+	denialCalls   int
 	lastPrincipal identity.Principal
 	lastClaim     generated.ExecutorClaimRequest
 	lastRenew     generated.ExecutorRenewRequest
 	lastReceipt   generated.ExecutionReceiptRequest
+	lastDenial    string
 }
 
 type executorTimeoutLifecycle struct{ executorLifecycleStub }
@@ -54,6 +56,12 @@ func (stub *executorLifecycleStub) SubmitReceipt(_ context.Context, principal id
 	stub.receiptCalls++
 	stub.lastPrincipal, stub.lastReceipt = principal, request
 	return stub.receipt, nil
+}
+
+func (stub *executorLifecycleStub) RecordAuthorizationDenial(_ context.Context, _ identity.Principal, reason, target string) error {
+	stub.denialCalls++
+	stub.lastDenial = reason + ":" + target
+	return nil
 }
 
 func TestExecutorAPIRejectsWrongBindingBeforeReturningWork(t *testing.T) {
@@ -91,8 +99,24 @@ func TestExecutorAPIAuthenticatesExecutorBeforeReadingBody(t *testing.T) {
 	wrongPrincipal.PrincipalID = "principal-other"
 	response := httptest.NewRecorder()
 	app.ServeHTTP(response, executorRequest(t, http.MethodPost, "/api/v1/executor-leases/claim", wrongPrincipal))
-	if response.Code != http.StatusForbidden || service.claimCalls != 0 || strings.Contains(response.Body.String(), "leaseId") {
-		t.Fatalf("wrong-principal response/calls = %d/%d body=%s", response.Code, service.claimCalls, response.Body.String())
+	if response.Code != http.StatusForbidden || service.claimCalls != 0 || service.denialCalls != 1 || service.lastDenial != "claim-request-binding:claim-request" || strings.Contains(response.Body.String(), "leaseId") {
+		t.Fatalf("wrong-principal response/calls/denials = %d/%d/%d body=%s", response.Code, service.claimCalls, service.denialCalls, response.Body.String())
+	}
+}
+
+func TestExecutorAPIAuditsReceiptBindingDenialBeforeLifecycle(t *testing.T) {
+	lease := validExecutorLease()
+	service := &executorLifecycleStub{}
+	app := newExecutorTestApplication(t, service)
+	input := generated.ExecutionReceiptRequest{
+		Schema: generated.SchemaIDExecutionReceiptRequest, SchemaVersion: "1.0.0",
+		Receipt: validExecutionReceipt(lease), ExpectedBindingDigest: testAPIDigest("wrong-binding"),
+		Extensions: []generated.ContractExtension{},
+	}
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, executorRequest(t, http.MethodPost, "/api/v1/execution-receipts", input))
+	if response.Code != http.StatusForbidden || service.receiptCalls != 0 || service.denialCalls != 1 || service.lastDenial != "receipt-request-binding:receipt-request" {
+		t.Fatalf("receipt response/calls/denials = %d/%d/%d body=%s", response.Code, service.receiptCalls, service.denialCalls, response.Body.String())
 	}
 }
 

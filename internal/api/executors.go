@@ -20,6 +20,7 @@ type ExecutorLifecycle interface {
 	Claim(context.Context, identity.Principal, generated.ExecutorClaimRequest) (generated.ExecutorLease, error)
 	Renew(context.Context, identity.Principal, generated.ExecutorRenewRequest) (generated.ExecutorLease, error)
 	SubmitReceipt(context.Context, identity.Principal, generated.ExecutionReceiptRequest) (generated.ExecutionReceipt, error)
+	RecordAuthorizationDenial(context.Context, identity.Principal, string, string) error
 }
 
 type ExecutorOperationConfig struct {
@@ -73,6 +74,10 @@ func (app *Application) claimExecutorLease(config ExecutorOperationConfig) func(
 			return
 		}
 		if input.PrincipalID != principal.ID || !exactGeneratedContract(generated.SchemaIDExecutorClaimRequest, input) {
+			if err := config.Lifecycle.RecordAuthorizationDenial(request.Context(), principal, "claim-request-binding", "claim-request"); err != nil {
+				app.failure(writer, operation, err)
+				return
+			}
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthorizationDenied, "executor-binding"))
 			return
 		}
@@ -142,6 +147,10 @@ func (app *Application) submitExecutionReceipt(config ExecutorOperationConfig) f
 			return
 		}
 		if !exactGeneratedContract(generated.SchemaIDExecutionReceiptRequest, input) || input.ExpectedBindingDigest != input.Receipt.BindingDigest {
+			if err := config.Lifecycle.RecordAuthorizationDenial(request.Context(), principal, "receipt-request-binding", "receipt-request"); err != nil {
+				app.failure(writer, operation, err)
+				return
+			}
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeAuthorizationDenied, "executor-receipt-binding"))
 			return
 		}

@@ -373,6 +373,16 @@ func (executor *ExternalExecutor) authorizationDenied(ctx context.Context, princ
 	return runError(generated.ErrorCodeAuthorizationDenied, "executor-authorization")
 }
 
+// RecordAuthorizationDenial lets the transport persist denials detected before
+// a structurally valid request can enter the lifecycle. Reason and target are
+// converted to stable fingerprints before crossing the store boundary.
+func (executor *ExternalExecutor) RecordAuthorizationDenial(ctx context.Context, principal identity.Principal, reason, target string) error {
+	if executor == nil || reason == "" || target == "" {
+		return runError(generated.ErrorCodeInputInvalid, "executor-denial")
+	}
+	return executor.recordAuthorizationDenial(ctx, principal, reason, target)
+}
+
 func (executor *ExternalExecutor) recordAuthorizationDenial(ctx context.Context, principal identity.Principal, reason, target string) error {
 	attribution, err := externalAttribution(principal)
 	if err != nil {
