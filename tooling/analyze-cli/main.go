@@ -361,6 +361,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			standardPackages[candidate.ImportPath] = true
 		}
 	}
+	standardNetworkPackages := standardNetworkClosure(listed)
 	result.LocalClientBoundary = true
 	localClosure := moduleDependencyClosure(inModule, localAPIImport)
 	controlClosure := moduleDependencyClosure(inModule, cliImport)
@@ -402,7 +403,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 			if isReleasePackage {
-				if imported == "net" || strings.HasPrefix(imported, "net/") || imported == "github.com/sigstore/sigstore-go/pkg/tuf" {
+				if standardNetworkPackages[imported] || imported == "github.com/sigstore/sigstore-go/pkg/tuf" {
 					result.ReleaseNetworkAccess = true
 				}
 				switch imported {
@@ -421,7 +422,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 						result.ControlArbitraryHTTP = true
 					}
 				}
-				if (imported == "net" || strings.HasPrefix(imported, "net/")) && !reviewedControlNetworkImport(parsed, imported, localAPIImport, localTransportImport, serverConfigImport) {
+				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, localAPIImport, localTransportImport, serverConfigImport) {
 					result.ControlArbitraryHTTP = true
 				}
 				if !reviewedControlExternalImport(parsed, imported, standardPackages[imported], modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
@@ -441,6 +442,32 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
 	}
 	return result, nil
+}
+
+func standardNetworkClosure(packages []listedPackage) map[string]bool {
+	standard := make(map[string]listedPackage)
+	for _, candidate := range packages {
+		if candidate.Standard {
+			standard[candidate.ImportPath] = candidate
+		}
+	}
+	capable := map[string]bool{"net": true}
+	for changed := true; changed; {
+		changed = false
+		for importPath, candidate := range standard {
+			if capable[importPath] {
+				continue
+			}
+			for _, imported := range candidate.Imports {
+				if capable[imported] {
+					capable[importPath] = true
+					changed = true
+					break
+				}
+			}
+		}
+	}
+	return capable
 }
 
 func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, localAPIImport, localTransportImport, serverConfigImport string) bool {

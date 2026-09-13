@@ -149,6 +149,28 @@ test("the control boundary rejects alternate network primitives hidden in helper
   }
 });
 
+test("the control boundary rejects standard-library clients whose dependency closure reaches net", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; "example.test/internal/transporthelper")',
+      "func init() { _ = transporthelper.Fetch() }",
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/transporthelper/syslog_darwin.go": [
+      "//go:build darwin",
+      "package transporthelper",
+      'import "log/syslog"',
+      'func Fetch() error { writer, err := syslog.Dial("tcp", "provider.invalid:514", syslog.LOG_INFO, "vsk"); if writer != nil { _ = writer.Close() }; return err }',
+      "",
+    ].join("\n"),
+    "internal/transporthelper/syslog_other.go": "//go:build !darwin\npackage transporthelper\nfunc Fetch() error { return nil }\n",
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_CONTROL_ARBITRARY_HTTP"]);
+});
+
 test("the control boundary rejects an unreviewed external dependency", async (t) => {
   const root = await fixtureRepo(t, {
     "go.mod": [
