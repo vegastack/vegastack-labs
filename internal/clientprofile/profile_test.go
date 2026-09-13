@@ -14,7 +14,7 @@ func TestLoadConstrainedSSHProfileBuildsFixedDirectArguments(t *testing.T) {
 	if err := os.WriteFile(executable, []byte("synthetic ssh executable\n"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	knownHosts := filepath.Join(directory, "known hosts ; literal")
+	knownHosts := filepath.Join(directory, "known-hosts.literal")
 	if err := os.WriteFile(knownHosts, []byte("control-plane ssh-ed25519 synthetic\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -196,8 +196,8 @@ func TestLoadRejectsReplaceableClientProfiles(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsOpenSSHExpansionTokensInTrustedPaths(t *testing.T) {
-	for _, token := range []string{"%h", "${HOME}"} {
+func TestLoadRejectsOpenSSHExpansionTokensAndConfigSeparatorsInKnownHostsPath(t *testing.T) {
+	for _, token := range []string{"%h", "${HOME}", "$HOME", "known hosts", `known"hosts`, `known'hosts`, `known\hosts`} {
 		t.Run("known-hosts-"+token, func(t *testing.T) {
 			directory := testDirectory(t)
 			executable := testSSHExecutable(t, directory)
@@ -213,22 +213,27 @@ func TestLoadRejectsOpenSSHExpansionTokensInTrustedPaths(t *testing.T) {
 				t.Fatalf("known-hosts token %q matched=%t err=%v", token, matched, err)
 			}
 		})
+	}
+}
 
-		t.Run("profile-"+token, func(t *testing.T) {
-			directory := testDirectory(t)
-			executable := testSSHExecutable(t, directory)
-			knownHosts := filepath.Join(directory, "known-hosts")
-			if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			profilePath := filepath.Join(directory, "profile-"+token+".json")
-			if err := os.WriteFile(profilePath, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, matched, err := Load(context.Background(), profilePath); err == nil || !matched {
-				t.Fatalf("profile token %q matched=%t err=%v", token, matched, err)
-			}
-		})
+func TestLoadAllowsExpansionTextOutsideOpenSSHKnownHostsValue(t *testing.T) {
+	directory := testDirectory(t)
+	executableDirectory := filepath.Join(directory, "%h-${HOME}")
+	if err := os.Mkdir(executableDirectory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	executable := testSSHExecutable(t, executableDirectory)
+	knownHosts := filepath.Join(directory, "known-hosts")
+	if err := os.WriteFile(knownHosts, []byte("host ssh-ed25519 synthetic\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profilePath := filepath.Join(directory, "profile-%h-${HOME}.json")
+	if err := os.WriteFile(profilePath, []byte(clientProfile(executable, knownHosts)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	profile, matched, err := Load(context.Background(), profilePath)
+	if err != nil || !matched || profile.ConstrainedSSH == nil || profile.ConstrainedSSH.Executable != executable {
+		t.Fatalf("Load() = %#v, %t, %v", profile, matched, err)
 	}
 }
 

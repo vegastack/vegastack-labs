@@ -116,8 +116,11 @@ type ancestorSnapshot []os.FileInfo
 
 func validConfiguredPath(path string) bool {
 	return len(path) >= 2 && len(path) <= 4096 && !strings.ContainsRune(path, 0) &&
-		!strings.Contains(path, "%") && !strings.Contains(path, "${") &&
 		filepath.IsAbs(path) && filepath.Clean(path) == path && path != string(filepath.Separator)
+}
+
+func validKnownHostsPath(path string) bool {
+	return validConfiguredPath(path) && !strings.ContainsAny(path, "%$\"'\\ \t\r\n\v\f")
 }
 
 func snapshotTrustedAncestors(path string) (ancestorSnapshot, bool) {
@@ -190,7 +193,7 @@ func readTrustedProfile(path string) ([]byte, error) {
 }
 
 func validateKnownHosts(path string) error {
-	if !validConfiguredPath(path) {
+	if !validKnownHostsPath(path) {
 		return invalid()
 	}
 	ancestors, ok := snapshotTrustedAncestors(path)

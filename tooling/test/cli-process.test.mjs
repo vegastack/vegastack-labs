@@ -859,7 +859,7 @@ test("built CLI uses the same API frame through a constrained SSH profile", asyn
   const binary = path.join(temporary, "vsk-labs");
   const ssh = path.join(temporary, "ssh");
   const capture = path.join(temporary, "capture.json");
-  const knownHostsPath = path.join(temporary, "known hosts ; literal");
+  const knownHostsPath = path.join(temporary, "known-hosts.literal");
   const profilePath = path.join(temporary, "remote profile.json");
   const helperSource = path.join(temporary, "ssh.go");
   await writeFile(helperSource, `package main
