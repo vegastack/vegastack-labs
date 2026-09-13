@@ -38,6 +38,7 @@ const (
 	SchemaIDApiSshRequestFrameHeader        = "vegastack-labs.dev/api-ssh-request-frame-header"
 	SchemaIDApiSshResponseFrameHeader       = "vegastack-labs.dev/api-ssh-response-frame-header"
 	SchemaIDApiSummaryData                  = "vegastack-labs.dev/api-summary-data"
+	SchemaIDApprovalStatus                  = "vegastack-labs.dev/approval-status"
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
 	SchemaIDAuthorizationDecision           = "vegastack-labs.dev/authorization-decision"
@@ -389,6 +390,22 @@ type ApiSummaryData struct {
 	StateRevision     int64               `json:"stateRevision"`
 	SourceCounts      ApiSourceCountsData `json:"sourceCounts"`
 	WorstSourceState  string              `json:"worstSourceState"`
+}
+
+type ApprovalStatus struct {
+	Schema               string `json:"schema"`
+	SchemaVersion        string `json:"schemaVersion"`
+	PlanID               string `json:"planId"`
+	PlanDigest           string `json:"planDigest"`
+	Status               string `json:"status"`
+	AuthorizationCurrent bool   `json:"authorizationCurrent"`
+	CanApply             bool   `json:"canApply"`
+	Channel              string `json:"channel"`
+	Owner                string `json:"owner"`
+	StateRevision        int64  `json:"stateRevision"`
+	RecoveryEpoch        int64  `json:"recoveryEpoch"`
+	ExpiresAt            string `json:"expiresAt"`
+	ObservedAt           string `json:"observedAt"`
 }
 
 type AuditEvent struct {
@@ -1245,7 +1262,7 @@ var Commands = []Command{
 var Endpoints = []Endpoint{
 	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.declarations.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}},
-	{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan-preparation", Stream: "finite", Audiences: []string{"operator"}},
+	{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan-preparation", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.declarations.revise", Method: "POST", Path: "/api/v1/declarations/{declarationId}/revisions", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/declaration-revision-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.execution-receipts.create", Method: "POST", Path: "/api/v1/execution-receipts", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/execution-receipt-request", DataSchema: "vegastack-labs.dev/execution-receipt", Stream: "finite", Audiences: []string{"executor"}},
@@ -1267,6 +1284,8 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.inventory-exports.create", Method: "POST", Path: "/api/v1/inventory-exports", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-export-request", DataSchema: "vegastack-labs.dev/inventory-export-data", Stream: "finite", Audiences: []string{"operator"}},
 	{ID: "api.v1.plans.acknowledgements.create", Method: "POST", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/acknowledgement-request", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}},
 	{ID: "api.v1.plans.acknowledgements.get", Method: "GET", Path: "/api/v1/plans/{planId}/acknowledgements", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/acknowledgement", Stream: "finite", Audiences: []string{"operator", "server-adapter"}},
+	{ID: "api.v1.plans.approval-request.create", Method: "POST", Path: "/api/v1/plans/{planId}/approval-request", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/approval-status", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.plans.approval-status.get", Method: "GET", Path: "/api/v1/plans/{planId}/approval-status", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/approval-status", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.plans.create", Method: "POST", Path: "/api/v1/declarations/{declarationId}/plans", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-create-request", DataSchema: "vegastack-labs.dev/plan", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.plans.execute", Method: "POST", Path: "/api/v1/plans/{planId}/execute", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/plan-reference-request", DataSchema: "vegastack-labs.dev/run-presentation", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.plans.get", Method: "GET", Path: "/api/v1/plans/{planId}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan", Stream: "finite", Audiences: []string{"browser", "operator"}},

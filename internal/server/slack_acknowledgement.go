@@ -104,12 +104,23 @@ func (scopes *slackAcknowledgementScopes) Resolve(ctx context.Context, request g
 	if request.HumanID != scopes.profile.HumanID || request.AuthorityID != scopes.profile.AuthorityID {
 		return acknowledgement.Scope{}, failure.New(generated.ErrorCodeAuthorizationDenied, "slack-acknowledgement-scope", false)
 	}
+	return scopes.resolve(ctx, request)
+}
+
+func (scopes *slackAcknowledgementScopes) ResolvePlan(ctx context.Context, plan generated.Plan) (acknowledgement.Scope, error) {
+	if plan.AuthorizationBranch != "human" {
+		return acknowledgement.Scope{}, failure.New(generated.ErrorCodeAuthorizationDenied, "slack-acknowledgement-scope", false)
+	}
+	return scopes.resolve(ctx, plan)
+}
+
+func (scopes *slackAcknowledgementScopes) resolve(ctx context.Context, binding any) (acknowledgement.Scope, error) {
 	key, err := scopes.resolver.Resolve(ctx, scopes.nonceKey)
 	if err != nil {
 		return acknowledgement.Scope{}, err
 	}
 	defer zeroCredential(key)
-	raw, err := json.Marshal(request)
+	raw, err := json.Marshal(binding)
 	if err != nil {
 		return acknowledgement.Scope{}, failure.New(generated.ErrorCodeInputInvalid, "slack-acknowledgement-request", false)
 	}

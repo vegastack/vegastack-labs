@@ -2,6 +2,7 @@
 // Browser-safe available reads and planned Phase 4 contracts:
 // api.v1.database-status.get
 // api.v1.declarations.get
+// api.v1.declarations.plan-preparation.get
 // api.v1.declarations.revise
 // api.v1.events.stream
 // api.v1.health.get
@@ -15,6 +16,8 @@
 // api.v1.inventory-draft-observations.list
 // api.v1.inventory-drafts.get
 // api.v1.inventory-drafts.list
+// api.v1.plans.approval-request.create
+// api.v1.plans.approval-status.get
 // api.v1.plans.create
 // api.v1.plans.execute
 // api.v1.plans.get
@@ -28,26 +31,6 @@ export const PLAN_VALIDITY_SECONDS = 1800;
 export const EXECUTOR_LEASE_SECONDS = 60;
 export const EXECUTOR_CHECK_IN_SECONDS = 20;
 export const RUN_TRANSITIONS = [{"from":"interrupted","to":"cancelled"},{"from":"interrupted","to":"running"},{"from":"queued","to":"cancelled"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"interrupted"},{"from":"running","to":"partial"},{"from":"running","to":"succeeded"}] as const;
-
-export interface Acknowledgement {
-  readonly "schema": "vegastack-labs.dev/acknowledgement";
-  readonly "schemaVersion": "1.0.0";
-  readonly "planId": string;
-  readonly "planDigest": string;
-  readonly "targetDigest": string;
-  readonly "reasonDigest": string;
-  readonly "humanId": string;
-  readonly "authorityId": string;
-  readonly "nonceDigest": string;
-  readonly "stateRevision": number;
-  readonly "recoveryEpoch": number;
-  readonly "expiresAt": string;
-  readonly "acknowledgementId": string;
-  readonly "proofDigest": string;
-  readonly "status": "approved" | "expired" | "pending" | "rejected";
-  readonly "receivedAt": string;
-  readonly "extensions": ReadonlyArray<ContractExtension>;
-}
 
 export interface ApiAuditEventData {
   readonly "event": AuditEvent;
@@ -187,6 +170,22 @@ export interface ApiSummaryData {
   readonly "worstSourceState": "healthy" | "stale" | "unknown" | "unavailable" | "failed";
 }
 
+export interface ApprovalStatus {
+  readonly "schema": "vegastack-labs.dev/approval-status";
+  readonly "schemaVersion": "1.0.0";
+  readonly "planId": string;
+  readonly "planDigest": string;
+  readonly "status": "pending" | "approved" | "rejected" | "expired";
+  readonly "authorizationCurrent": boolean;
+  readonly "canApply": boolean;
+  readonly "channel": "slack";
+  readonly "owner": "assigned-maintainer";
+  readonly "stateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "expiresAt": string;
+  readonly "observedAt": string;
+}
+
 export interface AuditEvent {
   readonly "schema": "vegastack-labs.dev/audit-event";
   readonly "schemaVersion": "1.0.0";
@@ -212,23 +211,6 @@ export interface AuditEvent {
 export interface AuditTarget {
   readonly "kind": string;
   readonly "id": string;
-}
-
-export interface AuthorizationDecision {
-  readonly "schema": "vegastack-labs.dev/authorization-decision";
-  readonly "schemaVersion": "1.0.0";
-  readonly "decisionId": string;
-  readonly "principalId": string;
-  readonly "action": string;
-  readonly "targetId": string;
-  readonly "allowed": boolean;
-  readonly "branch": "human" | "preauthorized" | null;
-  readonly "reasonCode": string;
-  readonly "grantRevision": number;
-  readonly "recoveryEpoch": number;
-  readonly "planDigest": string;
-  readonly "decidedAt": string;
-  readonly "extensions": ReadonlyArray<ContractExtension>;
 }
 
 export interface ContractExtension {
@@ -402,6 +384,16 @@ export interface PlanOperation {
   readonly "idempotent": boolean;
 }
 
+export interface PlanPreparation {
+  readonly "schema": "vegastack-labs.dev/plan-preparation";
+  readonly "schemaVersion": "1.0.0";
+  readonly "declarationId": string;
+  readonly "declarationRevision": number;
+  readonly "expectedStateRevision": number;
+  readonly "recoveryEpoch": number;
+  readonly "observationFingerprint": string;
+}
+
 export interface PlanReferenceRequest {
   readonly "schema": "vegastack-labs.dev/plan-reference-request";
   readonly "schemaVersion": "1.0.0";
@@ -548,140 +540,6 @@ type FieldRule = {
 };
 
 const SCHEMAS: ReadonlyArray<SchemaRule> = [
-  {
-    "id": "vegastack-labs.dev/acknowledgement",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/acknowledgement"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.0.0"
-        ]
-      },
-      {
-        "name": "planId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "planDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "targetDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "reasonDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "humanId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "authorityId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "nonceDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "stateRevision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "expiresAt",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "acknowledgementId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "proofDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "status",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "approved",
-          "expired",
-          "pending",
-          "rejected"
-        ]
-      },
-      {
-        "name": "receivedAt",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "extensions",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/contract-extension",
-        "maxItems": 64
-      }
-    ]
-  },
   {
     "id": "vegastack-labs.dev/api-audit-event-data",
     "fields": [
@@ -1468,6 +1326,113 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/approval-status",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/approval-status"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "planId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "planDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "pending",
+          "approved",
+          "rejected",
+          "expired"
+        ]
+      },
+      {
+        "name": "authorizationCurrent",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "canApply",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      },
+      {
+        "name": "channel",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "slack"
+        ]
+      },
+      {
+        "name": "owner",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "assigned-maintainer"
+        ]
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "observedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/audit-event",
     "fields": [
       {
@@ -1636,116 +1601,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$",
         "maxLength": 128
-      }
-    ]
-  },
-  {
-    "id": "vegastack-labs.dev/authorization-decision",
-    "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/authorization-decision"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.0.0"
-        ]
-      },
-      {
-        "name": "decisionId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "principalId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "action",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "targetId",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "allowed",
-        "kind": "boolean",
-        "required": true,
-        "nullable": false
-      },
-      {
-        "name": "branch",
-        "kind": "string",
-        "required": true,
-        "nullable": true,
-        "enum": [
-          "human",
-          "preauthorized"
-        ]
-      },
-      {
-        "name": "reasonCode",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
-      },
-      {
-        "name": "grantRevision",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
-      },
-      {
-        "name": "planDigest",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
-      },
-      {
-        "name": "decidedAt",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
-      },
-      {
-        "name": "extensions",
-        "kind": "array",
-        "required": true,
-        "nullable": false,
-        "itemRef": "vegastack-labs.dev/contract-extension",
-        "maxItems": 64
       }
     ]
   },
@@ -2824,6 +2679,64 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/plan-preparation",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/plan-preparation"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.0.0"
+        ]
+      },
+      {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "expectedStateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "observationFingerprint",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/plan-reference-request",
     "fields": [
       {
@@ -3672,10 +3585,6 @@ export function validateExecutorLeaseBinding(planValue: unknown, runValue: unkno
   }
 }
 
-function decodeAcknowledgement(value: unknown): Acknowledgement {
-  return decodeSchema("vegastack-labs.dev/acknowledgement", value) as unknown as Acknowledgement;
-}
-
 function decodeApiAuditEventData(value: unknown): ApiAuditEventData {
   return decodeSchema("vegastack-labs.dev/api-audit-event-data", value) as unknown as ApiAuditEventData;
 }
@@ -3744,16 +3653,16 @@ function decodeApiSummaryData(value: unknown): ApiSummaryData {
   return decodeSchema("vegastack-labs.dev/api-summary-data", value) as unknown as ApiSummaryData;
 }
 
+function decodeApprovalStatus(value: unknown): ApprovalStatus {
+  return decodeSchema("vegastack-labs.dev/approval-status", value) as unknown as ApprovalStatus;
+}
+
 function decodeAuditEvent(value: unknown): AuditEvent {
   return decodeSchema("vegastack-labs.dev/audit-event", value) as unknown as AuditEvent;
 }
 
 function decodeAuditTarget(value: unknown): AuditTarget {
   return decodeSchema("vegastack-labs.dev/audit-target", value) as unknown as AuditTarget;
-}
-
-function decodeAuthorizationDecision(value: unknown): AuthorizationDecision {
-  return decodeSchema("vegastack-labs.dev/authorization-decision", value) as unknown as AuthorizationDecision;
 }
 
 function decodeContractExtension(value: unknown): ContractExtension {
@@ -3802,6 +3711,10 @@ function decodePlanCreateRequest(value: unknown): PlanCreateRequest {
 
 function decodePlanOperation(value: unknown): PlanOperation {
   return decodeSchema("vegastack-labs.dev/plan-operation", value) as unknown as PlanOperation;
+}
+
+function decodePlanPreparation(value: unknown): PlanPreparation {
+  return decodeSchema("vegastack-labs.dev/plan-preparation", value) as unknown as PlanPreparation;
 }
 
 function decodePlanReferenceRequest(value: unknown): PlanReferenceRequest {
@@ -4086,6 +3999,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 export type ReadClient = {
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
+  readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
   readonly streamEvents: (options?: StreamOptions) => AsyncIterable<ApiAuditEventData>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
@@ -4098,6 +4012,7 @@ export type ReadClient = {
   readonly listInventoryDraftObservations: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryObservationListData>>;
   readonly getInventoryDraft: (path: { readonly draftId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftData>>;
   readonly listInventoryDrafts: (query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryDraftListData>>;
+  readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<Plan>>;
   readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
@@ -4113,6 +4028,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getDeclaration(path, options = {}) {
       const operation = "api.v1.declarations.get";
       return performRead(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "", options, operation, decodeDeclarationRevision);
+    },
+    async preparePlan(path, options = {}) {
+      const operation = "api.v1.declarations.plan-preparation.get";
+      return performRead(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/plan-preparation", options, operation, decodePlanPreparation);
     },
     streamEvents(options = {}) {
       return streamSSE(fetchTransport, "/api/v1/events", options, "api.v1.events.stream", "audit-event", decodeApiAuditEventData, (data) => data.event.eventId);
@@ -4161,6 +4080,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
       const operation = "api.v1.inventory-drafts.list";
       return performRead(fetchTransport, "/api/v1/inventory-drafts" + pageQuery(query), options, operation, decodeApiInventoryDraftListData);
     },
+    async getApprovalStatus(path, options = {}) {
+      const operation = "api.v1.plans.approval-status.get";
+      return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/approval-status", options, operation, decodeApprovalStatus);
+    },
     async getPlan(path, options = {}) {
       const operation = "api.v1.plans.get";
       return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "", options, operation, decodePlan);
@@ -4182,7 +4105,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
 
 export type ChangeClient = {
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
+  readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
   readonly reviseDeclaration: (path: { readonly declarationId: string }, request: DeclarationRevisionRequest, options?: RequestOptions) => Promise<ReadResult<DeclarationRevision>>;
+  readonly requestApproval: (path: { readonly planId: string }, request: PlanReferenceRequest, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
+  readonly getApprovalStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<ApprovalStatus>>;
   readonly createPlan: (path: { readonly declarationId: string }, request: PlanCreateRequest, options?: RequestOptions) => Promise<ReadResult<Plan>>;
   readonly executePlan: (path: { readonly planId: string }, request: PlanReferenceRequest, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly getPlan: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<Plan>>;
@@ -4197,10 +4123,23 @@ export function createChangeClient(fetchTransport: FetchTransport): ChangeClient
       const operation = "api.v1.declarations.get";
       return performRead(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "", options, operation, decodeDeclarationRevision);
     },
+    async preparePlan(path, options = {}) {
+      const operation = "api.v1.declarations.plan-preparation.get";
+      return performRead(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions/" + encodePathInteger(path.revision, "revision") + "/plan-preparation", options, operation, decodePlanPreparation);
+    },
     async reviseDeclaration(path, request, options = {}) {
       const operation = "api.v1.declarations.revise";
       const body = decodeDeclarationRevisionRequest(request);
       return performChange(fetchTransport, "/api/v1/declarations/" + encodePathString(path.declarationId, "declarationId") + "/revisions", body, options, operation, decodeDeclarationRevision);
+    },
+    async requestApproval(path, request, options = {}) {
+      const operation = "api.v1.plans.approval-request.create";
+      const body = decodePlanReferenceRequest(request);
+      return performChange(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/approval-request", body, options, operation, decodeApprovalStatus);
+    },
+    async getApprovalStatus(path, options = {}) {
+      const operation = "api.v1.plans.approval-status.get";
+      return performRead(fetchTransport, "/api/v1/plans/" + encodePathString(path.planId, "planId") + "/approval-status", options, operation, decodeApprovalStatus);
     },
     async createPlan(path, request, options = {}) {
       const operation = "api.v1.plans.create";

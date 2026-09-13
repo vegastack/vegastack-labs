@@ -38,6 +38,7 @@
       "dataSchema": "vegastack-labs.dev/plan-preparation",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -319,6 +320,33 @@
       "audiences": [
         "operator",
         "server-adapter"
+      ]
+    },
+    {
+      "id": "api.v1.plans.approval-request.create",
+      "method": "POST",
+      "path": "/api/v1/plans/{planId}/approval-request",
+      "availability": "available",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/plan-reference-request",
+      "dataSchema": "vegastack-labs.dev/approval-status",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.plans.approval-status.get",
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}/approval-status",
+      "availability": "available",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/approval-status",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
       ]
     },
     {

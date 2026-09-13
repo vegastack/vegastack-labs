@@ -7,7 +7,7 @@ Contract schema: `1.15.0`
 |---|---|---|---|---|---|---|---|
 | `api.v1.database-status.get` | `GET` | `/api/v1/database/status` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/database-status-data` |
 | `api.v1.declarations.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/declaration-revision` |
-| `api.v1.declarations.plan-preparation.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation` | `available` | `operator` | `finite` | `` | `vegastack-labs.dev/plan-preparation` |
+| `api.v1.declarations.plan-preparation.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-preparation` |
 | `api.v1.declarations.revise` | `POST` | `/api/v1/declarations/{declarationId}/revisions` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/declaration-revision-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.events.stream` | `GET` | `/api/v1/events` | `available` | `browser, operator` | `sse` | `` | `vegastack-labs.dev/api-audit-event-data` |
 | `api.v1.execution-receipts.create` | `POST` | `/api/v1/execution-receipts` | `available` | `executor` | `finite` | `vegastack-labs.dev/execution-receipt-request` | `vegastack-labs.dev/execution-receipt` |
@@ -29,6 +29,8 @@ Contract schema: `1.15.0`
 | `api.v1.inventory-exports.create` | `POST` | `/api/v1/inventory-exports` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-export-request` | `vegastack-labs.dev/inventory-export-data` |
 | `api.v1.plans.acknowledgements.create` | `POST` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `vegastack-labs.dev/acknowledgement-request` | `vegastack-labs.dev/acknowledgement` |
 | `api.v1.plans.acknowledgements.get` | `GET` | `/api/v1/plans/{planId}/acknowledgements` | `available` | `operator, server-adapter` | `finite` | `` | `vegastack-labs.dev/acknowledgement` |
+| `api.v1.plans.approval-request.create` | `POST` | `/api/v1/plans/{planId}/approval-request` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/approval-status` |
+| `api.v1.plans.approval-status.get` | `GET` | `/api/v1/plans/{planId}/approval-status` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/approval-status` |
 | `api.v1.plans.create` | `POST` | `/api/v1/declarations/{declarationId}/plans` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-create-request` | `vegastack-labs.dev/plan` |
 | `api.v1.plans.execute` | `POST` | `/api/v1/plans/{planId}/execute` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/plan-reference-request` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan` |

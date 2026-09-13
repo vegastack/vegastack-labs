@@ -16,6 +16,7 @@ import (
 type AcknowledgementService interface {
 	Request(context.Context, acknowledgement.Scope, string) (acknowledgement.RequestCard, error)
 	Status(context.Context, string) (generated.Acknowledgement, error)
+	Projection(context.Context, string) (generated.ApprovalStatus, error)
 }
 
 // AcknowledgementScopeResolver maps an exact provider-neutral request to a
@@ -23,6 +24,7 @@ type AcknowledgementService interface {
 // can never assert an approval identity or reconstruct the nonce.
 type AcknowledgementScopeResolver interface {
 	Resolve(context.Context, generated.AcknowledgementRequest) (acknowledgement.Scope, error)
+	ResolvePlan(context.Context, generated.Plan) (acknowledgement.Scope, error)
 }
 
 type AcknowledgementPublisher interface {
@@ -51,12 +53,81 @@ func RegisterAcknowledgementOperations(app *Application, config AcknowledgementO
 	app.routes = append(app.routes,
 		route{id: "api.v1.plans.acknowledgements.create", method: http.MethodPost, pattern: "/api/v1/plans/{planId}/acknowledgements", capability: "plan.acknowledgement.request", kind: "plan", action: authorization.ActionAuthor, handler: app.createAcknowledgement(config)},
 		route{id: "api.v1.plans.acknowledgements.get", method: http.MethodGet, pattern: "/api/v1/plans/{planId}/acknowledgements", capability: "plan.acknowledgement.read", kind: "plan", handler: app.getAcknowledgement(config)},
+		route{id: "api.v1.plans.approval-request.create", method: http.MethodPost, pattern: "/api/v1/plans/{planId}/approval-request", capability: "plan.acknowledgement.request", kind: "plan", action: authorization.ActionAuthor, handler: app.createBrowserApprovalRequest(config)},
+		route{id: "api.v1.plans.approval-status.get", method: http.MethodGet, pattern: "/api/v1/plans/{planId}/approval-status", capability: "plan.acknowledgement.read", kind: "plan", handler: app.getBrowserApprovalStatus(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-2]
+		app.routes = app.routes[:len(app.routes)-4]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
+}
+
+func (app *Application) getBrowserApprovalStatus(config AcknowledgementOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
+		const operation = "api.v1.plans.approval-status.get"
+		planID := params["planId"]
+		if !pathToken.MatchString(planID) || request.URL.RawQuery != "" {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeInputInvalid, "path"))
+			return
+		}
+		projection, err := config.Acknowledgements.Projection(request.Context(), planID)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		app.success(writer, operation, projection.StateRevision, projection.RecoveryEpoch, projection)
+	}
+}
+
+func (app *Application) createBrowserApprovalRequest(config AcknowledgementOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
+		const operation = "api.v1.plans.approval-request.create"
+		var input generated.PlanReferenceRequest
+		if err := decodeOperationRequest(request, config.MaxBodyBytes, []string{"schema", "schemaVersion", "planId", "planDigest", "recoveryEpoch", "idempotencyKey", "extensions"}, &input); err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		if input.PlanID != params["planId"] {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeInputInvalid, "approval-request"))
+			return
+		}
+		planResult, err := config.Plans.Get(request.Context(), input.PlanID)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		plan := planResult.Plan
+		if plan.PlanDigest != input.PlanDigest || plan.Binding.RecoveryEpoch != input.RecoveryEpoch {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodePlanStale, "approval-request"))
+			return
+		}
+		scope, err := config.Scopes.ResolvePlan(request.Context(), plan)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		requestID, err := config.Results.RequestID()
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		card, err := config.Acknowledgements.Request(request.Context(), scope, plan.PlanID)
+		if err != nil {
+			app.operationFailure(writer, operation, requestID, err)
+			return
+		}
+		if err := config.Publisher.Publish(request.Context(), card); err != nil {
+			app.operationFailure(writer, operation, requestID, failure.New(generated.ErrorCodeDependencyUnavailable, "acknowledgement-provider", true))
+			return
+		}
+		projection, err := config.Acknowledgements.Projection(request.Context(), plan.PlanID)
+		if err != nil {
+			app.operationFailure(writer, operation, requestID, err)
+			return
+		}
+		app.operationSuccess(writer, operation, requestID, true, plan.Binding.StateRevision, plan.Binding.RecoveryEpoch, projection)
+	}
 }
 
 func (app *Application) getAcknowledgement(config AcknowledgementOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {

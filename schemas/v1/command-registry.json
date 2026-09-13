@@ -1865,6 +1865,11 @@
       "artifactPath": "schemas/v1/api-summary-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/approval-status",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/approval-status.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/audit-event",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/audit-event.schema.json"

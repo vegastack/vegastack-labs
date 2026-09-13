@@ -56,8 +56,6 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 	for _, identifier := range []string{
 		"vegastack-labs.dev/declaration-revision",
 		"vegastack-labs.dev/plan",
-		"vegastack-labs.dev/authorization-decision",
-		"vegastack-labs.dev/acknowledgement",
 		"vegastack-labs.dev/run",
 		"vegastack-labs.dev/executor-lease",
 		"vegastack-labs.dev/execution-receipt",
@@ -116,7 +114,7 @@ func browserSecretField(name string) bool {
 		}
 	}
 	normalized := compact.String()
-	for _, safe := range []string{"authorizationbranch", "authorizationdecisionid", "idempotencykey", "keyfingerprint", "keyid", "publickeyid"} {
+	for _, safe := range []string{"authorizationbranch", "authorizationcurrent", "authorizationdecisionid", "idempotencykey", "keyfingerprint", "keyid", "publickeyid"} {
 		if normalized == safe {
 			return false
 		}
@@ -816,10 +814,16 @@ func browserMethodName(endpoint metadata.EndpointDefinition) string {
 		return "reviseDeclaration"
 	case "api.v1.declarations.get":
 		return "getDeclaration"
+	case "api.v1.declarations.plan-preparation.get":
+		return "preparePlan"
 	case "api.v1.plans.create":
 		return "createPlan"
 	case "api.v1.plans.get":
 		return "getPlan"
+	case "api.v1.plans.approval-request.create":
+		return "requestApproval"
+	case "api.v1.plans.approval-status.get":
+		return "getApprovalStatus"
 	case "api.v1.plans.execute":
 		return "executePlan"
 	case "api.v1.runs.get":

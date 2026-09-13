@@ -8,6 +8,7 @@ const (
 	planOperationSchemaID           = "vegastack-labs.dev/plan-operation"
 	planCreateRequestSchemaID       = "vegastack-labs.dev/plan-create-request"
 	planPreparationSchemaID         = "vegastack-labs.dev/plan-preparation"
+	approvalStatusSchemaID          = "vegastack-labs.dev/approval-status"
 	planReferenceRequestSchemaID    = "vegastack-labs.dev/plan-reference-request"
 	acknowledgementRequestSchemaID  = "vegastack-labs.dev/acknowledgement-request"
 	runStepSchemaID                 = "vegastack-labs.dev/run-step"
@@ -25,11 +26,13 @@ func phase4Endpoints() []EndpointDefinition {
 	return []EndpointDefinition{
 		phase4Endpoint("api.v1.declarations.revise", "POST", "/api/v1/declarations/{declarationId}/revisions", declarationRevisionRequestID, declarationRevisionSchemaID),
 		phase4Endpoint("api.v1.declarations.get", "GET", "/api/v1/declarations/{declarationId}/revisions/{revision}", "", declarationRevisionSchemaID),
-		{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: AvailabilityAvailable, OwnerPhase: "4", DataSchema: planPreparationSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: AvailabilityAvailable, OwnerPhase: "4", DataSchema: planPreparationSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser, AudienceOperator}},
 		phase4Endpoint("api.v1.plans.create", "POST", "/api/v1/declarations/{declarationId}/plans", planCreateRequestSchemaID, planSchemaID),
 		phase4Endpoint("api.v1.plans.get", "GET", "/api/v1/plans/{planId}", "", planSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.create", "POST", "/api/v1/plans/{planId}/acknowledgements", acknowledgementRequestSchemaID, acknowledgementSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.get", "GET", "/api/v1/plans/{planId}/acknowledgements", "", acknowledgementSchemaID),
+		phase4Endpoint("api.v1.plans.approval-request.create", "POST", "/api/v1/plans/{planId}/approval-request", planReferenceRequestSchemaID, approvalStatusSchemaID),
+		phase4Endpoint("api.v1.plans.approval-status.get", "GET", "/api/v1/plans/{planId}/approval-status", "", approvalStatusSchemaID),
 		phase4Endpoint("api.v1.plans.execute", "POST", "/api/v1/plans/{planId}/execute", planReferenceRequestSchemaID, runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.get", "GET", "/api/v1/runs/{runId}", "", runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.cancel", "POST", "/api/v1/runs/{runId}/cancel", runReferenceRequestSchemaID, runPresentationSchemaID),
@@ -42,7 +45,7 @@ func phase4Endpoints() []EndpointDefinition {
 
 func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
 	availability := AvailabilityPlanned
-	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" || id == "api.v1.plans.execute" || id == "api.v1.runs.get" || id == "api.v1.runs.cancel" || id == "api.v1.runs.resume" || id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
+	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" || id == "api.v1.plans.approval-request.create" || id == "api.v1.plans.approval-status.get" || id == "api.v1.plans.execute" || id == "api.v1.runs.get" || id == "api.v1.runs.cancel" || id == "api.v1.runs.resume" || id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
 		availability = AvailabilityAvailable
 	}
 	audiences := []EndpointAudience{AudienceBrowser, AudienceOperator}
@@ -111,6 +114,16 @@ func phase4Schemas() []SchemaDefinition {
 		{ID: authorizationDecisionSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(authorizationDecisionSchemaID), Fields: contract(authorizationDecisionSchemaID, id("decisionId", "DecisionID"), id("principalId", "PrincipalID"), id("action", "Action"), id("targetId", "TargetID"), FieldDefinition{JSONName: "allowed", GoName: "Allowed", Kind: ValueBoolean, Required: true}, FieldDefinition{JSONName: "branch", GoName: "Branch", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"human", "preauthorized"}}, id("reasonCode", "ReasonCode"), nonnegative("grantRevision", "GrantRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("planDigest", "PlanDigest"), timestamp("decidedAt", "DecidedAt"), extensions)},
 		{ID: acknowledgementRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(acknowledgementRequestSchemaID), Fields: contract(acknowledgementRequestSchemaID, ackRequestFields...)},
 		{ID: acknowledgementSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(acknowledgementSchemaID), Fields: contract(acknowledgementSchemaID, ackFields...)},
+		{ID: approvalStatusSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(approvalStatusSchemaID), Fields: contract(approvalStatusSchemaID,
+			id("planId", "PlanID"), digest("planDigest", "PlanDigest"),
+			FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"pending", "approved", "rejected", "expired"}},
+			FieldDefinition{JSONName: "authorizationCurrent", GoName: "AuthorizationCurrent", Kind: ValueBoolean, Required: true},
+			FieldDefinition{JSONName: "canApply", GoName: "CanApply", Kind: ValueBoolean, Required: true},
+			FieldDefinition{JSONName: "channel", GoName: "Channel", Kind: ValueString, Required: true, Enum: []string{"slack"}},
+			FieldDefinition{JSONName: "owner", GoName: "Owner", Kind: ValueString, Required: true, Enum: []string{"assigned-maintainer"}},
+			nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			timestamp("expiresAt", "ExpiresAt"), timestamp("observedAt", "ObservedAt"),
+		)},
 		{ID: runStepSchemaID, Version: "1.0.0", Fields: append(operationFields(true), id("stepId", "StepID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "effectState", GoName: "EffectState", Kind: ValueString, Required: true, Enum: []string{"effect-unknown", "intent-recorded", "not-started", "receipt-recorded", "verified"}})},
 		{ID: runPresentationSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runPresentationSchemaID), Fields: []FieldDefinition{
 			{JSONName: "run", GoName: "Run", Kind: ValueObject, Required: true, Ref: runSchemaID},

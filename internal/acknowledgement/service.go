@@ -187,6 +187,38 @@ func (service *Service) Status(ctx context.Context, planID string) (generated.Ac
 	return stored.Acknowledgement, nil
 }
 
+// Projection returns the small server-owned approval view safe for a browser.
+// It deliberately excludes the human, authority, nonce and proof records.
+func (service *Service) Projection(ctx context.Context, planID string) (generated.ApprovalStatus, error) {
+	status, err := service.Status(ctx, planID)
+	if err != nil {
+		return generated.ApprovalStatus{}, err
+	}
+	stored, err := service.config.Repository.Get(ctx, planID)
+	if err != nil {
+		return generated.ApprovalStatus{}, err
+	}
+	plan, err := service.config.Plans.Get(ctx, planID)
+	if err != nil {
+		return generated.ApprovalStatus{}, err
+	}
+	human := identity.Principal{ID: stored.Request.HumanID, Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}
+	current := proofMatchesPlan(stored, plan) && service.validCurrentHumanPlan(ctx, human, plan) == nil && service.config.Clock().UTC().Before(mustTime(status.ExpiresAt))
+	projection := generated.ApprovalStatus{
+		Schema: generated.SchemaIDApprovalStatus, SchemaVersion: "1.0.0",
+		PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, Status: status.Status,
+		AuthorizationCurrent: current, CanApply: status.Status == "approved" && current,
+		Channel: "slack", Owner: "assigned-maintainer", ExpiresAt: status.ExpiresAt,
+		StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch,
+		ObservedAt: service.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339),
+	}
+	raw, marshalErr := json.Marshal(projection)
+	if marshalErr != nil || generated.ValidateContractJSON(generated.SchemaIDApprovalStatus, raw, generated.ContractExact) != nil {
+		return generated.ApprovalStatus{}, acknowledgementError(generated.ErrorCodeIntegrityFailure, "approval-status")
+	}
+	return projection, nil
+}
+
 func (service *Service) expire(ctx context.Context, stored Stored, now time.Time) (Stored, error) {
 	outcome := outcomeFrom(stored.Request, stored.Acknowledgement.AcknowledgementID, "expired", now, proofDigest(stored.Request, "expired", now))
 	attribution := audit.Attribution{AuthenticatedPrincipalID: ExpiryPrincipalID, AuthenticatedPrincipalMethod: ExpiryPrincipalMode}

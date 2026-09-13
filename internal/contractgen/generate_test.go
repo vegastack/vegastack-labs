@@ -98,6 +98,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/api-ssh-request-frame-header.schema.json",
 		"schemas/v1/api-ssh-response-frame-header.schema.json",
 		"schemas/v1/api-summary-data.schema.json",
+		"schemas/v1/approval-status.schema.json",
 		"schemas/v1/audit-event.schema.json",
 		"schemas/v1/authorization-decision.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
