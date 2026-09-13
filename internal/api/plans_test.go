@@ -106,6 +106,9 @@ func TestDeclarationAndPlanRoutesReturnCanonicalDomainResultsWithoutExternalCall
 	if revised.Code != http.StatusOK || planned.Code != http.StatusOK || declarations.calls != 1 || plans.calls != 1 || len(effective.records) != 4 || effective.records[0].Decision.Target.ResourceID != "declaration-test" || effective.records[2].Decision.Target.ResourceID != "declaration-test" || !strings.Contains(planned.Body.String(), `"planId":"plan-test"`) {
 		t.Fatalf("results = %d/%d calls=%d/%d %s", revised.Code, planned.Code, declarations.calls, plans.calls, planned.Body.String())
 	}
+	if strings.Contains(revised.Body.String(), `"createdBy"`) || strings.Contains(revised.Body.String(), `"agentSessionId"`) || !strings.Contains(planned.Body.String(), `"readablePlan":"exact readable test plan"`) || !strings.Contains(planned.Body.String(), `"canonicalPlan":`) {
+		t.Fatalf("browser-safe declaration or exact plan projection failed: revised=%s planned=%s", revised.Body.String(), planned.Body.String())
+	}
 }
 
 func TestAuthorizationDecisionReasonUsesStableFailureAndStopsService(t *testing.T) {

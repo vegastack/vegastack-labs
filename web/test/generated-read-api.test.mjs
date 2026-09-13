@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createReadClient, ReadClientError, STABLE_ERROR_CODES } from "../generated/read-api.ts";
+import { createChangeClient, createReadClient, ReadClientError, STABLE_ERROR_CODES } from "../generated/read-api.ts";
 
 const summary = {
   databaseMode: "ready",
@@ -174,28 +174,36 @@ test("malformed JSON, expired cursors, cancellation, and network loss stay disti
 function auditEvent(eventId = 42) {
   return {
     event: {
-      schema: "vegastack-labs.dev/audit-event",
-      schemaVersion: "1.0.0",
       eventId,
       occurredAt: "2026-09-10T08:00:00Z",
       recoveryEpoch: 2,
       stateRevision: 8,
       type: "inventory.draft-created",
-      correlationId: "request-1",
-      causationEventId: null,
-      correctionOfEventId: null,
-      principalId: "person-1",
-      principalMethod: "local-peer",
-      responsibleHumanPrincipalId: "person-1",
-      agentName: null,
-      agentSessionId: null,
-      agentSource: null,
       target: { kind: "inventory-draft", id: "draft-1" },
-      beforeFingerprint: null,
-      afterFingerprint: null,
     },
   };
 }
+
+test("change client returns a validated durable partial run instead of losing recovery identity", async () => {
+  const step = { sequence: 1, operationId: "operation-1", operationType: "fixture.change", targetId: "target-1", stepId: "step-1", status: "partial" };
+  const data = {
+    run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId: "run-1", planId: "plan-1", planDigest: "sha256:" + "a".repeat(64), status: "partial", steps: [step], cancellationRequested: false, rollbackStatus: "required", verificationStatus: "incomplete", verificationDigest: null, changed: true, stateRevision: 9, recoveryEpoch: 2, createdAt: "2026-09-10T08:00:00Z", updatedAt: "2026-09-10T08:01:00Z", extensions: [] },
+    completedWork: [], incompleteWork: [step], nextSafeAction: "recovery required; inspect the durable run",
+  };
+  const failed = envelope(data);
+  failed.command = "api.v1.plans.execute";
+  failed.runId = "run-1";
+  failed.planId = "plan-1";
+  failed.status = "partial";
+  failed.changed = true;
+  failed.stateRevision = 9;
+  failed.errors = [{ code: "RECOVERY_REQUIRED", target: "run", retryable: false }];
+  const client = createChangeClient(async () => new Response(JSON.stringify(failed), { status: 409 }));
+  const result = await client.executePlan({ planId: "plan-1" }, { schema: "vegastack-labs.dev/plan-reference-request", schemaVersion: "1.0.0", planId: "plan-1", planDigest: data.run.planDigest, recoveryEpoch: 2, idempotencyKey: "request-1", extensions: [] });
+  assert.equal(result.data.run.runId, "run-1");
+  assert.equal(result.status, "partial");
+  assert.equal(result.errors[0].code, "RECOVERY_REQUIRED");
+});
 
 function chunkedResponse(chunks, status = 200, headers = { "content-type": "text/event-stream" }) {
   const encoder = new TextEncoder();

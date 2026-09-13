@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -154,7 +155,9 @@ func presentPlan(value store.PlanCommitResult) (generated.PlanPresentation, erro
 		return generated.PlanPresentation{}, apiFailure(generated.ErrorCodeIntegrityFailure, "plan-presentation")
 	}
 	var exact generated.Plan
-	if err := json.Unmarshal(value.Canonical, &exact); err != nil || exact.PlanID != value.Plan.PlanID || exact.PlanDigest != value.Plan.PlanDigest {
+	canonical, err := json.Marshal(value.Plan)
+	decodeErr := json.Unmarshal(value.Canonical, &exact)
+	if err != nil || decodeErr != nil || !bytes.Equal(canonical, value.Canonical) || exact.PlanID != value.Plan.PlanID || exact.PlanDigest != value.Plan.PlanDigest {
 		return generated.PlanPresentation{}, apiFailure(generated.ErrorCodeIntegrityFailure, "plan-presentation")
 	}
 	return generated.PlanPresentation{Plan: value.Plan, ReadablePlan: value.Readable, CanonicalPlan: string(value.Canonical)}, nil

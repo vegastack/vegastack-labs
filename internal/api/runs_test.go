@@ -230,7 +230,7 @@ func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, forbidden := range []string{"authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "private-authorization-decision-canary", "private-acknowledgement-canary"} {
+	for _, forbidden := range []string{"authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "policyVersion", "executorMode", "executorId", "adapterId", "inputDigest", "artifactDigest", "effectState", "receipt-recorded", "private-authorization-decision-canary", "private-acknowledgement-canary"} {
 		if strings.Contains(string(raw), forbidden) {
 			t.Fatalf("browser run projection disclosed %q", forbidden)
 		}

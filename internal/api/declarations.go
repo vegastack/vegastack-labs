@@ -69,5 +69,5 @@ func (app *Application) getDeclaration(config DeclarationPlanConfig) func(http.R
 }
 
 func presentDeclaration(value generated.DeclarationRevision) generated.BrowserDeclarationRevision {
-	return generated.BrowserDeclarationRevision{Schema: generated.SchemaIDBrowserDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: value.DeclarationID, DeclarationType: value.DeclarationType, Revision: value.Revision, StateRevision: value.StateRevision, RecoveryEpoch: value.RecoveryEpoch, ContentDigest: value.ContentDigest, Status: value.Status, Operations: append([]generated.DeclarationOperation(nil), value.Operations...), CreatedAt: value.CreatedAt, Extensions: append([]generated.ContractExtension(nil), value.Extensions...)}
+	return generated.BrowserDeclarationRevision{Schema: generated.SchemaIDBrowserDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: value.DeclarationID, DeclarationType: value.DeclarationType, Revision: value.Revision, StateRevision: value.StateRevision, RecoveryEpoch: value.RecoveryEpoch, ContentDigest: value.ContentDigest, Status: value.Status, Operations: append([]generated.DeclarationOperation{}, value.Operations...), CreatedAt: value.CreatedAt, Extensions: append([]generated.ContractExtension{}, value.Extensions...)}
 }
