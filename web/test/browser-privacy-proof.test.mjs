@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 import {
   assertPrivacyEvidence,
   assertSettledPrivacyChecks,
+  finalizeProbeResources,
   inspectTraceArchive,
   settlePrivacyCheck,
 } from "../e2e/browser-privacy-proof.mjs";
@@ -49,6 +50,31 @@ test("a response privacy failure is handled immediately and propagated at the fi
   const settled = settlePrivacyCheck(Promise.reject(failure));
   await new Promise(resolve => setImmediate(resolve));
   await assert.rejects(() => assertSettledPrivacyChecks([settled]), error => error === failure);
+});
+
+test("probe finalization returns one stable stage and attempts every cleanup", async () => {
+  const calls = [];
+  const stage = await finalizeProbeResources({
+    browser: { close: async () => { calls.push("browser"); } },
+    context: { tracing: { stop: async () => { calls.push("trace"); throw new Error("private trace path"); } } },
+    credentialProxy: { close: async () => { calls.push("proxy"); } },
+    remove: async target => { calls.push(`remove:${target}`); throw new Error("private artifact path"); },
+    screenshotPath: "screenshot",
+    tracePath: "trace",
+    traceStarted: true,
+  });
+  assert.equal(stage, "trace-finalization");
+  assert.deepEqual(calls, ["trace", "remove:trace", "remove:screenshot", "browser", "proxy"]);
+});
+
+test("artifact cleanup failure is not swallowed after a successful trace stop", async () => {
+  const stage = await finalizeProbeResources({
+    context: { tracing: { stop: async () => undefined } },
+    remove: async () => { throw new Error("private artifact path"); },
+    tracePath: "trace",
+    traceStarted: true,
+  });
+  assert.equal(stage, "artifact-cleanup");
 });
 
 function storedArchive(entries) {

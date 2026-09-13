@@ -6,7 +6,7 @@ import { createServer as createSecureServer, request as secureRequest } from "no
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { assertPrivacyEvidence, assertSettledPrivacyChecks, assertShippedVisualAssetsSafe, captureVisibleBrowserEvidence, inspectTraceArchive, installCanvasTextCapture, settlePrivacyCheck } from "./browser-privacy-proof.mjs";
+import { assertPrivacyEvidence, assertSettledPrivacyChecks, assertShippedVisualAssetsSafe, captureVisibleBrowserEvidence, finalizeProbeResources, inspectTraceArchive, installCanvasTextCapture, settlePrivacyCheck } from "./browser-privacy-proof.mjs";
 
 const upstreamBaseURL = process.env.VSK_PHASE3_BASE_URL;
 const controllerURL = process.env.VSK_PHASE3_CONTROLLER_URL;
@@ -114,6 +114,7 @@ let context;
 let traceStarted = false;
 let tracePath;
 let screenshotPath;
+let failureStage;
 try {
   if (!upstreamBaseURL || !controllerURL || !assertion || !proxyCertificatePath || !proxyPrivateKeyPath) throw new Error("phase 4 fixture inputs are required");
   stage = "credential-proxy";
@@ -600,14 +601,15 @@ try {
 		await inspectTraceArchive(tracePath, forbiddenBrowserEvidence, credentialHeaderEvidence);
 		await Promise.all([rm(tracePath, { force: true }), rm(screenshotPath, { force: true })]);
 	}
-
-  process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "phase-4-real-change-server", status: "pass" })}\n`);
 } catch {
-  process.stderr.write(`PROBE_FAILED:${stage}\n`);
-  process.exitCode = 1;
+  failureStage = stage;
 } finally {
-	if (traceStarted && context && tracePath) await context.tracing.stop({ path: tracePath }).catch(() => undefined);
-	await Promise.all([tracePath, screenshotPath].filter(Boolean).map(target => rm(target, { force: true })));
-  if (browser) await browser.close().catch(() => undefined);
-	if (credentialProxy) await credentialProxy.close().catch(() => undefined);
+	const cleanupFailure = await finalizeProbeResources({ browser, context, credentialProxy, remove: rm, screenshotPath, tracePath, traceStarted });
+	failureStage ??= cleanupFailure;
+}
+if (failureStage) {
+	process.stderr.write(`PROBE_FAILED:${failureStage}\n`);
+	process.exitCode = 1;
+} else {
+	process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "phase-4-real-change-server", status: "pass" })}\n`);
 }
