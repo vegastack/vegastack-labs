@@ -299,7 +299,7 @@ func writeFrame(output io.Writer, header any, payload []byte, target string) err
 
 func canonicalEnvelope(envelope generated.RunResult) ([]byte, error) {
 	raw, err := json.Marshal(envelope)
-	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRunResult, raw, generated.ContractExact) != nil {
+	if err != nil || envelope.Schema != generated.SchemaIDRunResult || envelope.SchemaVersion != generated.RegistrySchemaVersion || envelope.RequestID == "" || envelope.Command == "" || envelope.ToolVersion == "" || envelope.ReleaseBuildID == "" || envelope.Data == nil {
 		return nil, frameError(generated.ErrorCodeInputInvalid, "api-ssh-response-envelope", err)
 	}
 	if len(raw)+1 > maxResponsePayloadBytes {

@@ -861,17 +861,13 @@ test("built CLI uses the same API frame through a constrained SSH profile", asyn
   const capture = path.join(temporary, "capture.json");
   const knownHostsPath = path.join(temporary, "known hosts ; literal");
   const profilePath = path.join(temporary, "remote profile.json");
-  const envelope = `${JSON.stringify({
-    schema: "vegastack-labs.dev/run-result", schemaVersion: CONTRACT_VERSION,
-    toolVersion: "0.0.0-dev", command: "server status", requestId: "request-remote-built-process",
-    runId: null, status: "succeeded", changed: false, recoveryEpoch: 2, stateRevision: 7,
-    snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: null, errors: [],
-    data: { state: "ready", readAvailable: true, mutationAvailable: false, recoveryEpoch: 2, stateRevision: 7, remoteReadState: "disabled", remoteReadReason: "none" },
-  })}\n`;
   const helperSource = path.join(temporary, "ssh.go");
   await writeFile(helperSource, `package main
-import ("encoding/json"; "io"; "os")
-func main(){ body,_:=io.ReadAll(os.Stdin); encoded,_:=json.Marshal(struct{Arguments []string \`json:"arguments"\`; Frame string \`json:"frame"\`}{os.Args[1:],string(body)}); _=os.WriteFile(os.Getenv("VSK_CAPTURE"),encoded,0600); io.WriteString(os.Stdout,"HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\nContent-Length: ${Buffer.byteLength(envelope)}\\r\\nConnection: close\\r\\n\\r\\n${envelope.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n")}") }
+import ("bufio"; "encoding/json"; "io"; "os")
+type requestHeader struct { Protocol string \`json:"protocol"\`; Version string \`json:"version"\`; RequestID string \`json:"requestId"\`; SSHPrincipalID string \`json:"sshPrincipalId"\`; DeviceID string \`json:"deviceId"\`; Operation string \`json:"operation"\`; Arguments []string \`json:"arguments"\`; PayloadDigest string \`json:"payloadDigest"\`; DeclaredPayloadBytes int64 \`json:"declaredPayloadBytes"\`; ActualPayloadBytes int64 \`json:"actualPayloadBytes"\`; RecoveryEpoch int64 \`json:"recoveryEpoch"\` }
+type responseHeader struct { Protocol string \`json:"protocol"\`; Version string \`json:"version"\`; RequestID string \`json:"requestId"\`; DeclaredPayloadBytes int64 \`json:"declaredPayloadBytes"\`; ActualPayloadBytes int64 \`json:"actualPayloadBytes"\` }
+type runResult struct { Schema string \`json:"schema"\`; SchemaVersion string \`json:"schemaVersion"\`; ToolVersion string \`json:"toolVersion"\`; Command string \`json:"command"\`; RequestID string \`json:"requestId"\`; RunID any \`json:"runId"\`; Status string \`json:"status"\`; Changed bool \`json:"changed"\`; RecoveryEpoch int64 \`json:"recoveryEpoch"\`; StateRevision int64 \`json:"stateRevision"\`; SnapshotDigest any \`json:"snapshotDigest"\`; ReleaseBuildID string \`json:"releaseBuildId"\`; SourceRevision any \`json:"sourceRevision"\`; PlanID any \`json:"planId"\`; Errors []any \`json:"errors"\`; Data any \`json:"data"\` }
+func main(){ reader:=bufio.NewReader(os.Stdin); line,err:=reader.ReadBytes('\\n'); if err!=nil { os.Exit(2) }; var header requestHeader; if json.Unmarshal(line[:len(line)-1],&header)!=nil { os.Exit(2) }; payload:=make([]byte,header.DeclaredPayloadBytes); if _,err=io.ReadFull(reader,payload); err!=nil { os.Exit(2) }; encoded,_:=json.Marshal(struct{Arguments []string \`json:"arguments"\`; Header requestHeader \`json:"header"\`; Payload string \`json:"payload"\`}{os.Args[1:],header,string(payload)}); _=os.WriteFile(os.Getenv("VSK_CAPTURE"),encoded,0600); envelope,_:=json.Marshal(runResult{"vegastack-labs.dev/run-result","${CONTRACT_VERSION}","0.0.0-dev","server status",header.RequestID,nil,"succeeded",false,2,7,nil,"development",nil,nil,[]any{},map[string]any{"state":"ready","readAvailable":true,"mutationAvailable":false,"recoveryEpoch":2,"stateRevision":7,"remoteReadState":"disabled","remoteReadReason":"none"}}); envelope=append(envelope,'\\n'); response:=responseHeader{"vegastack-labs.api-ssh","1.0.0",header.RequestID,int64(len(envelope)),int64(len(envelope))}; raw,_:=json.Marshal(response); os.Stdout.Write(append(raw,'\\n')); os.Stdout.Write(envelope) }
 `);
   for (const [output, target] of [[binary, "./cmd/vsk-labs"], [ssh, helperSource]]) {
     const built = spawnSync("go", ["build", "-o", output, target], { cwd: ROOT, encoding: "utf8", shell: false });
@@ -881,7 +877,7 @@ func main(){ body,_:=io.ReadAll(os.Stdin); encoded,_:=json.Marshal(struct{Argume
   await chmod(knownHostsPath, 0o600);
   await writeFile(profilePath, `${JSON.stringify({
     schema: "vegastack-labs.dev/client-profile", schemaVersion: "1.0.0",
-    transport: { kind: "constrained-ssh", executable: "ssh", destination: "operator@control-plane", knownHostsPath },
+    transport: { kind: "constrained-ssh", executable: "ssh", destination: "operator@control-plane", knownHostsPath, sshPrincipalId: "principal.operator", deviceId: "device.operator", recoveryEpoch: 2 },
   })}\n`);
   await chmod(profilePath, 0o600);
   const oldPath = process.env.PATH;
@@ -890,7 +886,13 @@ func main(){ body,_:=io.ReadAll(os.Stdin); encoded,_:=json.Marshal(struct{Argume
   process.env.VSK_CAPTURE = capture;
   t.after(() => { process.env.PATH = oldPath; if (oldCapture === undefined) delete process.env.VSK_CAPTURE; else process.env.VSK_CAPTURE = oldCapture; });
   const result = run(binary, ["server", "status", "--config", profilePath, "--output", "json"]);
-  assert.deepEqual(result, { code: 0, stdout: envelope, stderr: "" });
+  assert.equal(result.code, 0, JSON.stringify(result));
+  assert.equal(result.stderr, "");
+  const resultEnvelope = JSON.parse(result.stdout);
+  assert.equal(resultEnvelope.command, "server status");
+  assert.match(resultEnvelope.requestId, /^request-[0-9a-f]{32}$/);
+  assert.equal(resultEnvelope.recoveryEpoch, 2);
+  assert.equal(resultEnvelope.stateRevision, 7);
   const recorded = JSON.parse(await readFile(capture, "utf8"));
   assert.deepEqual(recorded.arguments, [
     "-F", "none", "-T",
@@ -922,5 +924,16 @@ func main(){ body,_:=io.ReadAll(os.Stdin); encoded,_:=json.Marshal(struct{Argume
     "-o", "VerifyHostKeyDNS=no",
     "operator@control-plane",
   ]);
-  assert.equal(recorded.frame, "GET /api/v1/health HTTP/1.1\r\nHost: local\r\nUser-Agent: Go-http-client/1.1\r\nConnection: close\r\n\r\n");
+  assert.equal(recorded.header.protocol, "vegastack-labs.api-ssh");
+  assert.equal(recorded.header.version, "1.0.0");
+  assert.equal(recorded.header.requestId, resultEnvelope.requestId);
+  assert.equal(recorded.header.sshPrincipalId, "principal.operator");
+  assert.equal(recorded.header.deviceId, "device.operator");
+  assert.equal(recorded.header.operation, "GET /api/v1/health");
+  assert.deepEqual(recorded.header.arguments, ["server", "status"]);
+  assert.equal(recorded.header.recoveryEpoch, 2);
+  assert.equal(recorded.header.declaredPayloadBytes, 0);
+  assert.equal(recorded.header.actualPayloadBytes, 0);
+  assert.equal(recorded.header.payloadDigest, `sha256:${createHash("sha256").update("").digest("hex")}`);
+  assert.equal(recorded.payload, "");
 });

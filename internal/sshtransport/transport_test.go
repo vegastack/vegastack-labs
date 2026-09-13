@@ -25,7 +25,7 @@ func TestRoundTripUsesDirectArgumentsAndExactAPISSHFrame(t *testing.T) {
 		if err != nil {
 			os.Exit(2)
 		}
-		envelope := generated.RunResult{Schema: generated.SchemaIDRunResult, SchemaVersion: "1.0.0", ToolVersion: "0.0.0-test", Command: "api.v1.test", RequestID: request.Header.RequestID, Status: generated.RunStatusSucceeded, RecoveryEpoch: 3, ReleaseBuildID: "test", Errors: []generated.ResultError{}, Data: json.RawMessage(`{}`)}
+		envelope := generated.RunResult{Schema: generated.SchemaIDRunResult, SchemaVersion: generated.RegistrySchemaVersion, ToolVersion: "0.0.0-test", Command: "api.v1.test", RequestID: request.Header.RequestID, Status: generated.RunStatusSucceeded, RecoveryEpoch: 3, ReleaseBuildID: "test", Errors: []generated.ResultError{}, Data: json.RawMessage(`{}`)}
 		if apissh.WriteResponse(os.Stdout, request.Header.RequestID, envelope) != nil {
 			os.Exit(2)
 		}

@@ -246,7 +246,7 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		response, err = sshtransport.RoundTrip(ctx, sshtransport.Request{
 			Executable: profile.ConstrainedSSH.Executable, Arguments: profile.ConstrainedSSH.Arguments,
 			RequestID: requestID, SSHPrincipalID: profile.ConstrainedSSH.SSHPrincipalID, DeviceID: profile.ConstrainedSSH.DeviceID,
-			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: []string{spec.command},
+			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: strings.Fields(spec.command),
 			Method: request.Method, Path: request.Path, Body: request.Body, Timeout: request.Timeout, ResponseLimit: request.ResponseLimit,
 		})
 	} else {

@@ -252,7 +252,7 @@ func digest(payload []byte) string {
 
 func testEnvelope(requestID string) generated.RunResult {
 	return generated.RunResult{
-		Schema: generated.SchemaIDRunResult, SchemaVersion: "1.0.0", ToolVersion: "vsk-labs-test", Command: "api-ssh", RequestID: requestID,
+		Schema: generated.SchemaIDRunResult, SchemaVersion: generated.RegistrySchemaVersion, ToolVersion: "vsk-labs-test", Command: "api-ssh", RequestID: requestID,
 		Status: generated.RunStatusSucceeded, Changed: false, RecoveryEpoch: 3, StateRevision: 42, ReleaseBuildID: "release-test", Errors: []generated.ResultError{}, Data: json.RawMessage(`{}`),
 	}
 }
