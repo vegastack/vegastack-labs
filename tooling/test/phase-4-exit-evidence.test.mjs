@@ -26,11 +26,13 @@ test("Phase 4 exit maps every requirement to current exact-commit proof", async 
 });
 
 test("Phase 4 remains awaiting explicit operator acceptance", async () => {
-  const [evidence, phase] = await Promise.all([
+  const [evidence, phase, chronicle] = await Promise.all([
     loadEvidence(),
     readFile(path.join(ROOT, "docs/development/phases/04-declarations-plans-authorization-execution.md"), "utf8"),
+    readFile(path.join(ROOT, ".vegastack/chronicle.md"), "utf8"),
   ]);
   assert.equal(Object.hasOwn(evidence, "acceptance"), false);
   assert.match(phase, /^Status: implemented; awaiting exact-commit operator acceptance\./m);
   assert.doesNotMatch(phase, /^Status: accepted/m);
+  assert.match(chronicle, /Phase 4 is implemented and awaits exact-commit acceptance/);
 });
