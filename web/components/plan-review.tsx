@@ -12,9 +12,9 @@ import { planFromView, useApprovalStatus, useExecutePlan, useRequestApproval, ty
 
 const planStatusLabels = { approved: "Approved", "awaiting-acknowledgement": "Awaiting acknowledgement", cancelled: "Cancelled", expired: "Expired", planned: "Planned" } as const;
 
-export function PlanReview({ view, onRunStarted }: { view: PlanView; onRunStarted: (run: RunPresentation) => void }) {
+export function PlanReview({ view, observeApprovalInitially, onApprovalRequested, onRunStarted }: { view: PlanView; observeApprovalInitially: boolean; onApprovalRequested: () => void; onRunStarted: (run: RunPresentation) => void }) {
   const plan: Plan = planFromView(view);
-  const [observeApproval, setObserveApproval] = useState(plan.status === "approved" || plan.status === "awaiting-acknowledgement");
+  const [observeApproval, setObserveApproval] = useState(observeApprovalInitially || plan.status === "approved" || plan.status === "awaiting-acknowledgement");
   const [clock, setClock] = useState(() => Date.now());
   const requestApproval = useRequestApproval();
   const approval = useApprovalStatus(plan.planId, observeApproval);
@@ -40,6 +40,7 @@ export function PlanReview({ view, onRunStarted }: { view: PlanView; onRunStarte
   async function requestSlackApproval() {
     await requestApproval.mutateAsync(plan);
     setObserveApproval(true);
+    onApprovalRequested();
   }
   async function startRun() {
     const refreshed = await approval.refetch();

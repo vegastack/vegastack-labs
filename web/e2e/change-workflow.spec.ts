@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
-import { changeFixture, installChangeFixture, privateChangeCanaries } from "./change-api-fixture";
+import { changeFixture, installChangeFixture, privateChangeCanaries, resetChangeFixture } from "./change-api-fixture";
 
 test.describe.configure({ mode: "serial" });
 test.beforeEach(async ({ page }) => installChangeFixture(page));
@@ -12,6 +12,31 @@ async function expectAccessible(page: Page) {
     return (await runtime.run(document)).violations.filter(({ impact }) => impact === "serious" || impact === "critical").map(({ id }) => id);
   });
   expect(violations).toEqual([]);
+}
+
+async function activateWithKeyboard(page: Page, button: ReturnType<Page["getByRole"]>) {
+  await button.focus();
+  await expect(button).toBeFocused();
+  await page.keyboard.press("Enter");
+}
+
+async function expectStateSurface(page: Page) {
+  await expectAccessible(page);
+  const layout = await page.evaluate(() => ({
+    clientWidth: document.documentElement.clientWidth,
+    scrollWidth: document.documentElement.scrollWidth,
+  }));
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
+}
+
+async function selectTheme(page: Page, theme: "light" | "dark") {
+  const button = page.getByRole("button", { name: /Use (light|dark) theme/ });
+  await expect(button).toBeVisible();
+  const action = await button.getAttribute("aria-label");
+  if ((theme === "light" && action === "Use light theme") || (theme === "dark" && action === "Use dark theme")) {
+    await activateWithKeyboard(page, button);
+  }
+  await expect(page.locator("html")).toHaveClass(new RegExp(`(^| )${theme}( |$)`));
 }
 
 test("declaration save, plan review, approval observation, and durable run stay server-owned", async ({ page }) => {
@@ -92,6 +117,52 @@ test("refresh restores the exact durable plan and run without resubmitting", asy
   expect(await page.evaluate(() => ({ local: { ...localStorage }, session: { ...sessionStorage }, search: location.search, hash: location.hash }))).toEqual({ local: {}, session: {}, search: "", hash: "" });
 });
 
+test("pending approval polling survives reload while the plan is still planned", async ({ page }) => {
+  await page.goto("/changes");
+  await page.getByLabel("Declaration ID").fill("declaration-one");
+  await page.getByLabel("Revision").fill("1");
+  await page.getByRole("button", { name: "Open declaration" }).click();
+  await page.getByRole("button", { name: "Generate plan" }).click();
+  await page.getByRole("button", { name: "Request Slack approval" }).click();
+  await expect(page.locator('[data-approval-status="pending"]')).toBeVisible();
+  const requestsBeforeReload = changeFixture.approvalStatusRequests;
+  expect(await page.evaluate(() => history.state.vskChangeHandles.approvalPlanId)).toBe("plan-one");
+  await page.reload();
+  await expect(page.locator('[data-plan-status="planned"]')).toBeVisible();
+  await expect(page.locator('[data-approval-status="pending"]')).toBeVisible();
+  expect(changeFixture.approvalStatusRequests).toBeGreaterThan(requestsBeforeReload);
+});
+
+test("a fresh terminal run never opens an SSE watcher", async ({ page }) => {
+  for (const state of ["cancelled", "failed", "interrupted", "partial", "succeeded"] as const) {
+    resetChangeFixture();
+    changeFixture.run = state;
+    await page.goto("/changes");
+    await page.getByLabel("Declaration ID").fill("declaration-one");
+    await page.getByLabel("Revision").fill("1");
+    await page.getByRole("button", { name: "Open declaration" }).click();
+    await page.getByRole("button", { name: "Generate plan" }).click();
+    changeFixture.approval = "approved";
+    await page.getByRole("button", { name: "Request Slack approval" }).click();
+    await page.getByRole("button", { name: "Start run" }).click();
+    await page.getByRole("button", { name: "Start exact run" }).click();
+    await expect(page.locator(`[data-run-status="${state}"]`)).toBeVisible();
+    await page.waitForTimeout(100);
+    expect(changeFixture.eventConnections).toBe(0);
+  }
+});
+
+test("focus follows an explicit save into the new immutable revision", async ({ page }) => {
+  await page.goto("/changes");
+  await page.getByLabel("Declaration ID").fill("declaration-one");
+  await page.getByLabel("Revision").fill("1");
+  await page.getByRole("button", { name: "Open declaration" }).click();
+  await page.getByLabel("Reason digest").fill(changeFixture.reasonDigest);
+  await page.getByRole("button", { name: "Save declaration" }).click();
+  await expect(page.getByText("Draft revision 2", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Reason digest")).toBeFocused();
+});
+
 test("approval expiry and a final server recheck fail closed", async ({ page }) => {
   const now = Date.now();
   await page.clock.install({ time: now });
@@ -168,27 +239,91 @@ test("stale authorization is disabled and private fields never reach browser-vis
   for (const canary of privateChangeCanaries) expect(visible).not.toContain(canary);
 });
 
-test("approval and durable run state matrix is textual, accessible, and responsive", async ({ page }) => {
-  await page.goto("/changes");
-  await page.getByLabel("Declaration ID").fill("declaration-one");
-  await page.getByLabel("Revision").fill("1");
-  await page.getByRole("button", { name: "Open declaration" }).click();
-  await page.getByRole("button", { name: "Generate plan" }).click();
-  await page.getByRole("button", { name: "Request Slack approval" }).click();
-  for (const state of ["pending", "rejected", "expired", "approved"] as const) {
-    changeFixture.approval = state;
-    await page.getByRole("button", { name: "Refresh approval status" }).click();
-    await expect(page.locator(`[data-approval-status="${state}"]`)).toBeVisible();
+test("every change state preserves keyboard focus, accessibility, themes, mobile layout, and 200% reflow", async ({ page }) => {
+  test.setTimeout(120_000);
+  const approvalStates = ["pending", "rejected", "expired", "approved"] as const;
+  const runStates = ["queued", "running", "partial", "failed", "cancelled", "interrupted", "succeeded"] as const;
+  const recoveryState = "recovery-required";
+  const themes = ["light", "dark"] as const;
+  const viewports = [
+    { name: "desktop", width: 1280, height: 800, zoom: 1 },
+    { name: "mobile", width: 320, height: 800, zoom: 1 },
+    { name: "200%-reflow", width: 640, height: 800, zoom: 2 },
+  ] as const;
+
+  for (const theme of themes) {
+    for (const viewport of viewports) {
+      resetChangeFixture();
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.goto("/changes");
+      await page.evaluate(zoom => { document.documentElement.style.zoom = String(zoom); }, viewport.zoom);
+      await selectTheme(page, theme);
+
+      // empty
+      await expect(page.getByText("No declaration open", { exact: true })).toBeVisible();
+      await page.getByLabel("Declaration ID").focus();
+      await expect(page.getByLabel("Declaration ID")).toBeFocused();
+      await expectStateSurface(page);
+
+      // loading
+      changeFixture.declarationDelayMs = 150;
+      await page.getByLabel("Declaration ID").fill("declaration-one");
+      await page.getByLabel("Revision").fill("1");
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Open declaration" }));
+      await expect(page.getByText("Loading declaration", { exact: true })).toBeVisible();
+      await expectStateSurface(page);
+      await expect(page.getByText("Draft revision 1", { exact: true })).toBeVisible();
+      changeFixture.declarationDelayMs = 0;
+
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Generate plan" }));
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Request Slack approval" }));
+      for (const state of approvalStates) {
+        changeFixture.approval = state;
+        const refresh = page.getByRole("button", { name: "Refresh approval status" });
+        await activateWithKeyboard(page, refresh);
+        await expect(page.locator(`[data-approval-status="${state}"]`)).toBeVisible();
+        await expect(refresh).toBeFocused();
+        await expectStateSurface(page);
+      }
+
+      const start = page.getByRole("button", { name: "Start run" });
+      await activateWithKeyboard(page, start);
+      const startDialog = page.getByRole("alertdialog");
+      await expect(startDialog).toBeVisible();
+      await expect(startDialog.locator(":focus")).toHaveCount(1);
+      await page.keyboard.press("Escape");
+      await expect(start).toBeFocused();
+      await activateWithKeyboard(page, start);
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Start exact run" }));
+
+      for (const state of runStates) {
+        changeFixture.run = state;
+        const refresh = page.getByRole("button", { name: "Refresh run" });
+        await activateWithKeyboard(page, refresh);
+        await expect(page.locator(`[data-run-status="${state}"]`)).toBeVisible();
+        await expect(refresh).toBeFocused();
+        if (state === "partial") {
+          expect(recoveryState).toBe("recovery-required");
+          await expect(page.getByText("Recovery required", { exact: true })).toBeVisible();
+        }
+        await expectStateSurface(page);
+      }
+
+      // stale retains the last authorized run without claiming it is current.
+      changeFixture.run = "running";
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
+      changeFixture.retryableFailurePath = "/api/v1/runs/run-one";
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
+      await expect(page.getByText("Showing last known run state", { exact: true })).toBeVisible();
+      await expectStateSurface(page);
+      changeFixture.retryableFailurePath = null;
+
+      // denied clears all mounted projections and protected handles.
+      changeFixture.hardFailurePath = "/api/v1/runs/run-one";
+      await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
+      await expect(page.getByText("Change details cleared", { exact: true })).toBeVisible();
+      await expect(page.locator("[data-run-status], [data-plan-status], [data-approval-status]")).toHaveCount(0);
+      await expectStateSurface(page);
+    }
   }
-  await page.getByRole("button", { name: "Start run" }).click();
-  await page.getByRole("button", { name: "Start exact run" }).click();
-  for (const state of ["queued", "running", "partial", "failed", "cancelled", "interrupted", "succeeded"] as const) {
-    changeFixture.run = state;
-    await page.getByRole("button", { name: "Refresh run" }).click();
-    await expect(page.locator(`[data-run-status="${state}"]`)).toBeVisible();
-  }
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.evaluate(() => { document.documentElement.style.zoom = "2"; });
-  await expect(page.locator("main")).toBeVisible();
-  await expectAccessible(page);
 });

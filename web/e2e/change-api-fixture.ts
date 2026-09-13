@@ -15,11 +15,13 @@ export const changeFixture: {
   eventLastIds: string[];
   eventMode: "offline" | "reconnect";
   hardFailurePath: string | null;
+  retryableFailurePath: string | null;
+  declarationDelayMs: number;
   requestBodies: string[];
   requestPaths: string[];
   reasonDigest: string;
   planDigest: string;
-} = { approval: "pending", run: "running", executeRequests: 0, approvalStatusRequests: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
+} = { approval: "pending", run: "running", executeRequests: 0, approvalStatusRequests: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
 
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
@@ -30,7 +32,7 @@ function declaration(revision: number, operations = [operation]) {
 const plan = {
   schema: "vegastack-labs.dev/plan", schemaVersion: "1.0.0", planId: "plan-one", planDigest: changeFixture.planDigest, declarationId: "declaration-one",
   binding: { recoveryEpoch: 2, priorStateRevision: 9, stateRevision: 10, declarationRevision: 2, observationFingerprint: digest("1"), targetDigest: digest("2"), reasonDigest: changeFixture.reasonDigest, policyVersion: "1.0.0", toolVersion: "1.0.0", contractVersion: "1.0.0" },
-  operations: [{ ...operation, executorId: "executor-central" }], status: "awaiting-acknowledgement", risk: "infrastructure", authorizationBranch: "human", executorMode: "central", executorId: null, createdAt: "2026-09-13T12:31:00Z", expiresAt: "2026-09-13T13:01:00Z", readableDigest: digest("3"), extensions: [],
+  operations: [{ ...operation, executorId: "executor-central" }], status: "planned", risk: "infrastructure", authorizationBranch: "human", executorMode: "central", executorId: null, createdAt: "2026-09-13T12:31:00Z", expiresAt: "2026-09-13T13:01:00Z", readableDigest: digest("3"), extensions: [],
 } as const;
 
 function approval() {
@@ -64,6 +66,7 @@ async function respond(route: Route) {
   changeFixture.requestPaths.push(path);
   if (request.method() === "POST") changeFixture.requestBodies.push(request.postData() ?? "");
   if (changeFixture.hardFailurePath === path) return route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify(envelope("denied", {}, "failed", [{ code: "AUTHORIZATION_DENIED", target: path, retryable: false }])) });
+  if (changeFixture.retryableFailurePath === path) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify(envelope("unavailable", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: path, retryable: true }])) });
   if (path === "/api/v1/events") {
     changeFixture.eventConnections += 1;
     changeFixture.eventLastIds.push(request.headers()["last-event-id"] ?? "");
@@ -73,7 +76,10 @@ async function respond(route: Route) {
     const body = `id: ${eventId}\nevent: audit-event\ndata: ${JSON.stringify(auditEvent(eventId))}\n\n`;
     return route.fulfill({ status: 200, contentType: "text/event-stream", body });
   }
-  if (/^\/api\/v1\/declarations\/declaration-one\/revisions\/\d+$/.test(path)) return reply(route, "api.v1.declarations.get", declaration(Number(path.split("/").at(-1))));
+  if (/^\/api\/v1\/declarations\/declaration-one\/revisions\/\d+$/.test(path)) {
+    if (changeFixture.declarationDelayMs > 0) await new Promise(resolve => setTimeout(resolve, changeFixture.declarationDelayMs));
+    return reply(route, "api.v1.declarations.get", declaration(Number(path.split("/").at(-1))));
+  }
   if (path.endsWith("/plan-preparation")) return reply(route, "api.v1.declarations.plan-preparation.get", { schema: "vegastack-labs.dev/plan-preparation", schemaVersion: "1.0.0", declarationId: "declaration-one", declarationRevision: Number(path.split("/").at(-2)), expectedStateRevision: 10, recoveryEpoch: 2, observationFingerprint: digest("1") });
   if (path === "/api/v1/declarations/declaration-one/revisions" && request.method() === "POST") {
     const body = request.postDataJSON() as { expectedRevision: number; operations: typeof operation[] };
@@ -91,7 +97,7 @@ async function respond(route: Route) {
   await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify(envelope("unknown", {}, "failed", [{ code: "RESOURCE_NOT_FOUND", target: path, retryable: false }])) });
 }
 
-export async function installChangeFixture(page: Page) {
+export function resetChangeFixture() {
   changeFixture.approval = "pending";
   changeFixture.run = "running";
   changeFixture.executeRequests = 0;
@@ -101,7 +107,13 @@ export async function installChangeFixture(page: Page) {
   changeFixture.eventLastIds.length = 0;
   changeFixture.eventMode = "offline";
   changeFixture.hardFailurePath = null;
+  changeFixture.retryableFailurePath = null;
+  changeFixture.declarationDelayMs = 0;
   changeFixture.requestBodies.length = 0;
   changeFixture.requestPaths.length = 0;
+}
+
+export async function installChangeFixture(page: Page) {
+  resetChangeFixture();
   await page.route("**/api/v1/**", respond);
 }

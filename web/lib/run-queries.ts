@@ -22,6 +22,7 @@ function runReference(run: RunPresentation["run"], action: string): RunReference
 }
 
 const maximumReconnectDelay = 20_000;
+const terminalRunStatuses = new Set(["cancelled", "failed", "interrupted", "partial", "succeeded"]);
 
 async function waitForReconnect(attempt: number, signal: AbortSignal) {
   const delay = Math.min(500 * (2 ** Math.min(attempt, 5)), maximumReconnectDelay);
@@ -43,9 +44,10 @@ export function useRun(runId: string | null) {
     enabled: runId !== null,
   });
   const refetch = query.refetch;
+  const terminal = query.data ? terminalRunStatuses.has(query.data.data.run.status) : false;
   const lastEventId = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!runId) return;
+    if (!runId || !query.data || terminal) return;
     const controller = new AbortController();
     lastEventId.current = undefined;
     const inspectDurableRun = () => { void refetch(); };
@@ -71,7 +73,7 @@ export function useRun(runId: string | null) {
       }
     })();
     return () => { controller.abort(); globalThis.removeEventListener("online", inspectDurableRun); };
-  }, [refetch, runId]);
+  }, [query.data, refetch, runId, terminal]);
   return query;
 }
 

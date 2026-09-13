@@ -11,7 +11,7 @@ const fieldClass = "min-h-11 w-full rounded-md border border-input bg-background
 const identifierPattern = "[a-z][a-z0-9._:\\-]{0,127}";
 const digestPattern = "sha256:[a-f0-9]{64}";
 
-export function DeclarationEditor({ declaration, onSaved, onPlanCreated }: { declaration: BrowserDeclaration; onSaved: (saved: BrowserDeclaration) => void; onPlanCreated: (plan: PlanView) => void }) {
+export function DeclarationEditor({ declaration, focusAfterSave, onSaved, onPlanCreated }: { declaration: BrowserDeclaration; focusAfterSave: boolean; onSaved: (saved: BrowserDeclaration) => void; onPlanCreated: (plan: PlanView) => void }) {
   const [operations, setOperations] = useState<DeclarationOperation[]>(() => declaration.operations.map(operation => ({ ...operation })));
   const [reasonDigest, setReasonDigest] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -19,6 +19,11 @@ export function DeclarationEditor({ declaration, onSaved, onPlanCreated }: { dec
   const createPlan = useCreatePlan();
   const saveButton = useRef<HTMLButtonElement>(null);
   const planButton = useRef<HTMLButtonElement>(null);
+  const reasonInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusAfterSave) reasonInput.current?.focus();
+  }, [focusAfterSave]);
 
   useEffect(() => {
     if (save.isSuccess || save.isError) saveButton.current?.focus();
@@ -73,7 +78,7 @@ export function DeclarationEditor({ declaration, onSaved, onPlanCreated }: { dec
           {operations.map((operation, index) => <OperationFields key={`${operation.operationId}:${index}`} operation={operation} index={index} onChange={updateOperation} onRemove={() => { setOperations(current => current.filter((_, position) => position !== index)); setDirty(true); }} canRemove={operations.length > 1} />)}
           <Button variant="outline" disabled={operations.length >= 256} onClick={() => { setOperations(current => [...current, { sequence: current.length + 1, operationId: "", operationType: "", adapterId: "", targetId: "", inputDigest: "", artifactDigest: "", idempotent: true }]); setDirty(true); }}><FilePlus2 aria-hidden />Add operation</Button>
         </div>
-        <label className="grid gap-2 text-sm font-medium">Reason digest<input className={fieldClass} value={reasonDigest} onChange={(event) => { setReasonDigest(event.target.value); setDirty(true); }} required maxLength={71} pattern={digestPattern} spellCheck={false} autoComplete="off" aria-describedby="reason-help" /></label>
+        <label className="grid gap-2 text-sm font-medium">Reason digest<input ref={reasonInput} className={fieldClass} value={reasonDigest} onChange={(event) => { setReasonDigest(event.target.value); setDirty(true); }} required maxLength={71} pattern={digestPattern} spellCheck={false} autoComplete="off" aria-describedby="reason-help" /></label>
         <p id="reason-help" className="text-sm text-muted-foreground">Provide the server-compatible SHA-256 digest of the change reason. Reason text and secrets do not belong in this page.</p>
         <div aria-live="polite" className="min-h-6 text-sm" role="status">
           {dirty ? "Unsaved changes. Generate plan is disabled until this revision is saved." : "Draft matches the last explicit save."}

@@ -46,7 +46,36 @@ test("refresh restores only safe change handles from navigation history", async 
   assert.match(workspace, /replaceState/);
   assert.match(workspace, /planId/);
   assert.match(workspace, /runId/);
+  assert.match(workspace, /approvalPlanId/);
+  assert.match(workspace, /approvalPlanId === handles\.planId|handles\.approvalPlanId === handles\.planId/);
   assert.doesNotMatch(workspace, /localStorage|sessionStorage|location\.(?:search|hash)/);
+});
+
+test("terminal durable state never opens an SSE watcher", async () => {
+  const queries = await read("lib/run-queries.ts");
+  assert.match(queries, /terminalRunStatuses/);
+  assert.match(queries, /if \(!runId \|\| !query\.data \|\| terminal\) return/);
+});
+
+test("the newly mounted saved revision restores action focus", async () => {
+  const [workspace, editor] = await Promise.all([
+    read("components/changes-workspace.tsx"),
+    read("components/declaration-editor.tsx"),
+  ]);
+  assert.match(workspace, /focusSavedRevision/);
+  assert.match(editor, /focusAfterSave/);
+  assert.match(editor, /reasonInput\.current\?\.focus\(\)/);
+});
+
+test("the workflow matrix covers every named state in both themes and reflow sizes", async () => {
+  const suite = await read("e2e/change-workflow.spec.ts");
+  for (const state of ["loading", "empty", "denied", "stale", "pending", "approved", "rejected", "expired", "queued", "running", "partial", "failed", "cancelled", "interrupted", "succeeded", "recovery-required"]) {
+    assert.match(suite, new RegExp(`\\b${state}\\b`));
+  }
+  assert.match(suite, /\["light", "dark"\]/);
+  assert.match(suite, /width:\s*320/);
+  assert.match(suite, /expectAccessible/);
+  assert.match(suite, /scrollWidth/);
 });
 
 test("approval is refreshed through apply and expires locally closed", async () => {
