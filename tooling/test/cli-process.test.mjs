@@ -877,12 +877,14 @@ func main(){ reader:=bufio.NewReader(os.Stdin); line,err:=reader.ReadBytes('\\n'
   await chmod(knownHostsPath, 0o600);
   await writeFile(profilePath, `${JSON.stringify({
     schema: "vegastack-labs.dev/client-profile", schemaVersion: "1.0.0",
-    transport: { kind: "constrained-ssh", executable: "ssh", destination: "operator@control-plane", knownHostsPath, sshPrincipalId: "principal.operator", deviceId: "device.operator", recoveryEpoch: 2 },
+    transport: { kind: "constrained-ssh", executable: ssh, destination: "operator@control-plane", knownHostsPath, sshPrincipalId: "principal.operator", deviceId: "device.operator", recoveryEpoch: 2 },
   })}\n`);
   await chmod(profilePath, 0o600);
   const oldPath = process.env.PATH;
   const oldCapture = process.env.VSK_CAPTURE;
-  process.env.PATH = `${temporary}${path.delimiter}${oldPath ?? ""}`;
+  // The protected absolute executable must remain usable even when PATH cannot
+  // resolve ssh; this also proves a PATH-precedence binary cannot intercept it.
+  process.env.PATH = path.join(temporary, "empty-path");
   process.env.VSK_CAPTURE = capture;
   t.after(() => { process.env.PATH = oldPath; if (oldCapture === undefined) delete process.env.VSK_CAPTURE; else process.env.VSK_CAPTURE = oldCapture; });
   const result = run(binary, ["server", "status", "--config", profilePath, "--output", "json"]);
