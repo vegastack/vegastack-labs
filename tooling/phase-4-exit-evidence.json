@@ -1,0 +1,54 @@
+{
+  "schema": "vegastack-labs.dev/phase-evidence-definition",
+  "version": "1.0.0",
+  "phase": 4,
+  "status": "implemented-awaiting-operator-acceptance",
+  "children": [
+    { "issue": 66, "phaseIssue": "4.1", "pr": 87, "reviewedHead": "c07d0c4f0fb0fa9c912f435cb89bd0cffb2b894b", "mergeCommit": "5c49630efa10cd977414b6f5e671aa61d5233e5d", "evidence": "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647755888", "review": "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647642088", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34711095199" },
+    { "issue": 76, "phaseIssue": "4.2", "pr": 88, "reviewedHead": "3b62edef38c9ed47192486142824d9dbc3191de1", "mergeCommit": "f679edbc1fbdf7f0bf8b3069f2c104b972bbcb19", "evidence": "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648189932", "review": "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648105763", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34714891042" },
+    { "issue": 71, "phaseIssue": "4.3", "pr": 89, "reviewedHead": "fd0ef803255c6ff4db91764bfa22a602995540ce", "mergeCommit": "c80273a8efa33fbce8bd8ec4d0c7ca5106ab43fb", "evidence": "https://github.com/vegastack/vegastack-labs/issues/71#issuecomment-5648456856", "review": "https://github.com/vegastack/vegastack-labs/issues/71#issuecomment-5648385325", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34717409646" },
+    { "issue": 77, "phaseIssue": "4.4", "pr": 92, "reviewedHead": "3d719631c001b5e354e0252983c04d56f9ca8da4", "mergeCommit": "b1665d53ef8fcab0142b0e0702c7567616e8f093", "evidence": "https://github.com/vegastack/vegastack-labs/issues/77#issuecomment-5648530190", "review": "https://github.com/vegastack/vegastack-labs/issues/77#issuecomment-5648755482", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34723448306" },
+    { "issue": 74, "phaseIssue": "4.5", "pr": 93, "reviewedHead": "8d6c2b130daadcedeaeee6590dc626ce6a0f646f", "mergeCommit": "26aeb9c8e76e043ec23d6ddaf7d3bd6b09070a32", "evidence": "https://github.com/vegastack/vegastack-labs/issues/74#issuecomment-5648530251", "review": "https://github.com/vegastack/vegastack-labs/issues/74#issuecomment-5649443484", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34726403603" },
+    { "issue": 69, "phaseIssue": "4.6", "pr": 94, "reviewedHead": "ca7e0297255f3da3c08c111ce0d65b04b849b121", "mergeCommit": "deaf70d72a1dc3b79155a4397c3904866ae81121", "evidence": "https://github.com/vegastack/vegastack-labs/issues/69#issuecomment-5651545026", "review": "https://github.com/vegastack/vegastack-labs/issues/69#issuecomment-5651396049", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34742183733" },
+    { "issue": 78, "phaseIssue": "4.7", "pr": 95, "reviewedHead": "32080eba270da888dd4afbeb636b853fea5f9d9f", "mergeCommit": "722bcb4aa4fc04cc4ba03f43ee87d1308a893953", "evidence": "https://github.com/vegastack/vegastack-labs/issues/78#issuecomment-5653208119", "review": "https://github.com/vegastack/vegastack-labs/issues/78#issuecomment-5651818958", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34757663955" },
+    { "issue": 79, "phaseIssue": "4.8", "pr": 98, "reviewedHead": "9be236cdf7c8dfc07c335ef759341c20ddaa6ba4", "mergeCommit": "67295d0698691517249883932029fa0523de2076", "evidence": "https://github.com/vegastack/vegastack-labs/issues/79#issuecomment-5656511261", "review": "https://github.com/vegastack/vegastack-labs/issues/79#issuecomment-5656510042", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34779930380" },
+    { "issue": 80, "phaseIssue": "4.9", "pr": 99, "reviewedHead": "2bcb25cf502196e651e2bf050ec5ebb86a7b76f7", "mergeCommit": "454472328e22cd09e23640f27942e25a6856c2e9", "evidence": "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5656512504", "review": "https://github.com/vegastack/vegastack-labs/issues/80#issuecomment-5655355962", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34783427593" }
+  ],
+  "requirements": [
+    { "id": "roadmap.phase-4", "ownerIssue": 67, "module": "cross-module", "environment": "fixture", "proofIds": ["adapter.closed-operation-surface", "adapter.production-fake-denied", "api.browser-no-direct-mutation", "api.executor-binding-theft", "approval.agent-self-denied", "approval.expired-stale-denied", "approval.replay-denied", "approval.wrong-action-denied", "authorization.branch-mix-denied", "authorization.preauthorization-no-extra-target", "authorization.production-like-needs-human", "browser.artifact-private-free", "browser.client-plan-parity", "browser.no-alternate-authority", "browser.reconnect-no-resubmit", "cli.plan-digest-parity", "declaration.intent-remains-inert", "executor.lease-loss-requires-recovery", "executor.lease-theft-denied", "executor.receipt-crash-requires-recovery", "plan.expired-denied", "plan.fact-drift-denied", "plan.revision-drift-denied", "plan.stale-epoch-denied", "plan.superseded-denied", "privacy.secret-and-private-artifacts-denied", "run.cancel-safe-boundary", "run.crash-restart-no-repeat", "run.duplicate-apply-inert", "run.partial-ambiguous-receipt", "server.built-executable-real-sqlite", "slack.server-owned-request", "store.plan-commit-atomic", "suite.no-hidden-quarantine"], "expectedStatus": "pass" },
+    { "id": "module-1.declarations-canonical-plans", "ownerIssue": 76, "module": "1", "environment": "fixture", "proofIds": ["declaration.intent-remains-inert", "store.plan-commit-atomic", "plan.expired-denied", "plan.fact-drift-denied", "plan.revision-drift-denied", "plan.stale-epoch-denied", "plan.superseded-denied", "cli.plan-digest-parity", "browser.client-plan-parity"], "expectedStatus": "pass" },
+    { "id": "module-1.authorization-human-acknowledgement", "ownerIssue": 77, "module": "1", "environment": "fixture", "proofIds": ["approval.agent-self-denied", "approval.expired-stale-denied", "approval.replay-denied", "approval.wrong-action-denied", "authorization.branch-mix-denied", "authorization.preauthorization-no-extra-target", "authorization.production-like-needs-human", "slack.server-owned-request"], "expectedStatus": "pass" },
+    { "id": "module-1.run-engine-idempotency", "ownerIssue": 74, "module": "1", "environment": "fixture", "proofIds": ["run.cancel-safe-boundary", "run.crash-restart-no-repeat", "run.duplicate-apply-inert", "run.partial-ambiguous-receipt", "server.built-executable-real-sqlite", "adapter.closed-operation-surface"], "expectedStatus": "pass" },
+    { "id": "module-1.external-executor-leases", "ownerIssue": 69, "module": "1", "environment": "fixture", "proofIds": ["api.executor-binding-theft", "executor.lease-loss-requires-recovery", "executor.lease-theft-denied", "executor.receipt-crash-requires-recovery"], "expectedStatus": "pass" },
+    { "id": "module-9.declaration-plan-review", "ownerIssue": 79, "module": "9", "environment": "fixture", "proofIds": ["browser.client-plan-parity", "browser.no-alternate-authority", "cli.plan-digest-parity", "declaration.intent-remains-inert"], "expectedStatus": "pass" },
+    { "id": "module-9.acknowledgement-execution", "ownerIssue": 79, "module": "9", "environment": "fixture", "proofIds": ["slack.server-owned-request", "approval.agent-self-denied", "approval.replay-denied", "authorization.production-like-needs-human", "browser.no-alternate-authority"], "expectedStatus": "pass" },
+    { "id": "module-9.run-recovery-experience", "ownerIssue": 79, "module": "9", "environment": "fixture", "proofIds": ["browser.reconnect-no-resubmit", "run.cancel-safe-boundary", "run.crash-restart-no-repeat", "run.partial-ambiguous-receipt", "executor.lease-loss-requires-recovery"], "expectedStatus": "pass" },
+    { "id": "shared.generated-phase-4-contracts", "ownerIssue": 66, "module": "shared", "environment": "fixture", "proofIds": ["api.browser-no-direct-mutation", "adapter.closed-operation-surface", "cli.plan-digest-parity", "browser.client-plan-parity"], "expectedStatus": "pass" },
+    { "id": "shared.privacy-production-boundary", "ownerIssue": 80, "module": "shared", "environment": "fixture", "proofIds": ["adapter.production-fake-denied", "api.browser-no-direct-mutation", "browser.artifact-private-free", "browser.no-alternate-authority", "privacy.secret-and-private-artifacts-denied", "suite.no-hidden-quarantine"], "expectedStatus": "pass" }
+  ],
+  "proofCatalog": {
+    "path": "tooling/testdata/phase-4/acceptance-scenarios.json",
+    "evidence": "tooling/phase-4-evidence.json",
+    "expectedScenarioCount": 34,
+    "expectedStatus": "pass",
+    "quarantined": false
+  },
+  "commands": [
+    { "id": "public-check-catalog", "argv": ["pnpm", "check"], "environment": "fixture", "expectedStatus": "pass" },
+    { "id": "go-race-full", "argv": ["go", "test", "-race", "-count=1", "./..."], "environment": "fixture", "expectedStatus": "pass" }
+  ],
+  "artifacts": [
+    { "id": "static-definition", "path": "tooling/phase-4-exit-evidence.json", "digestAtRuntime": true },
+    { "id": "phase-4-definition", "path": "tooling/testdata/phase-4/acceptance-scenarios.json", "digestAtRuntime": true },
+    { "id": "phase-4-acceptance", "path": "tooling/phase-4-evidence.json", "digestAtRuntime": true },
+    { "id": "command-registry", "path": "schemas/v1/command-registry.json", "digestAtRuntime": true },
+    { "id": "endpoint-registry", "path": "schemas/v1/endpoint-registry.json", "digestAtRuntime": true },
+    { "id": "generated-browser-client", "path": "web/generated/read-api.ts", "digestAtRuntime": true },
+    { "id": "console-asset-manifest", "path": "internal/consoleassets/manifest.json", "digestAtRuntime": true }
+  ],
+  "limitations": [
+    { "id": "live.operations", "environment": "live", "status": "not-exercised", "statement": "No live Slack, provider, host, deployment, release, or fleet proof is claimed by this credential-free fixture evidence." },
+    { "id": "phase-5.evidence-recovery", "environment": "phase-5", "status": "not-exercised", "statement": "Live evidence, secret custody, backup qualification, restore fencing, and recovery epochs remain assigned to Development Phase 5." },
+    { "id": "phase-11.support-matrix", "environment": "phase-11", "status": "not-exercised", "statement": "Packaged distribution, wider supported operating-system and browser coverage, and clean-node acceptance remain assigned to Development Phase 11." }
+  ]
+}

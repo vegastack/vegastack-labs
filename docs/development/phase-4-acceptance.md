@@ -35,7 +35,9 @@ A successful run writes one JSON line to stdout:
 
 The source commit and canonical scenario digest make two runs from the same clean commit byte-identical. Every scenario has an explicit result. A portable macOS run reports each Linux addition as `linux-required`; it does not pretend those tests ran. The required Linux CI lane must report those same scenarios as `pass`. Diagnostics use stable stage names on stderr. Private errors, paths, assertions, cookies, acknowledgement proof, executor binding, and provider details are never copied into this result.
 
-Run the command twice from the clean candidate commit, compare the two lines exactly, then run `pnpm check`. The public pull-request affected-check route already selects this browser group for Phase 4, browser, schema, workflow, or verifier changes. The exact `main` exit route runs the same catalog inside the Phase 3 exact-commit check before accepting the integrated commit.
+Run this portable command during implementation and pull-request verification. The public pull-request affected-check route already selects this browser group for Phase 4, browser, schema, workflow, or verifier changes.
+
+The stronger `pnpm check:phase-4-exit --commit <exact-main-sha>` certificate runs only on Linux and requires the clean checkout's `HEAD` and trusted `refs/remotes/origin/main` to equal the supplied commit before and after verification. It rejects a feature branch and a portable result with `linux-required` scenarios. After merge, the trusted `main` push supplies the first exact run; an explicit `workflow_dispatch` at the unchanged same `main` commit supplies the second. Compare their JSON lines exactly, including the evidence digest. Do not record operator acceptance before both exact default-branch runs pass.
 
 ## Failure and recovery
 
