@@ -41,9 +41,9 @@ export function useSaveDeclaration() {
   return useMutation({
     mutationKey: ["change", "save-declaration"],
     mutationFn: (request: DeclarationRevisionRequest) => changeClient.reviseDeclaration({ declarationId: request.declarationId }, request),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      await queryClient.cancelQueries({ queryKey: ["change", "declaration", result.data.declarationId] });
       queryClient.setQueryData(changeKeys.declaration(result.data.declarationId, result.data.revision), result);
-      void queryClient.invalidateQueries({ queryKey: ["change", "declaration", result.data.declarationId] });
     },
   });
 }

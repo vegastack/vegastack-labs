@@ -31,13 +31,16 @@ const stateClearingCodes = new Set([
   "INTEGRITY_FAILURE",
   "PLAN_STALE",
   "RECOVERY_EPOCH_MISMATCH",
+  "RESOURCE_NOT_FOUND",
   "SCHEMA_UNSUPPORTED",
   "SESSION_EXPIRED",
+  "STATE_CONFLICT",
   "VERSION_INCOMPATIBLE",
 ]);
 
 function mustClearMountedState(error: unknown): boolean {
-  if (!(error instanceof ReadClientError)) return true;
+  if (error instanceof Error && error.name === "AbortError") return false;
+  if (!(error instanceof ReadClientError)) return false;
   return stateClearingCodes.has(error.code) || error.kind === "malformed-json" || error.kind === "schema-mismatch" || error.kind === "unsupported-version";
 }
 

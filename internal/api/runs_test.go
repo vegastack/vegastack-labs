@@ -79,7 +79,6 @@ func TestConcurrentExactSubmitReadsHumanProofStatusOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	start := make(chan struct{})
 	statuses := make(chan int, 2)
 	var requests sync.WaitGroup
@@ -221,7 +220,7 @@ func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
 			run := base
 			run.Status, run.RollbackStatus, run.VerificationStatus = test.status, test.rollback, test.verification
 			presentation := presentRun(run)
-			if presentation.Run.Status != test.status || presentation.NextSafeAction != test.next || len(presentation.CompletedWork) != 1 || presentation.CompletedWork[0].StepID != "step-complete" || len(presentation.IncompleteWork) != 1 || presentation.IncompleteWork[0].StepID != "step-open" {
+			if presentation.Run.Status != test.status || presentation.NextSafeAction != test.next || len(presentation.CompletedWork) != 1 || presentation.CompletedWork[0].StepID != "step-complete" || presentation.CompletedWork[0].ProgressState != "unknown" || len(presentation.IncompleteWork) != 1 || presentation.IncompleteWork[0].StepID != "step-open" || presentation.IncompleteWork[0].ProgressState != "unknown" {
 				t.Fatalf("presentation = %#v", presentation)
 			}
 		})
@@ -229,6 +228,9 @@ func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
 	raw, err := json.Marshal(presentRun(base))
 	if err != nil {
 		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte(`"extensions":[]`)) {
+		t.Fatalf("browser run projection must preserve an empty extensions array: %s", raw)
 	}
 	for _, forbidden := range []string{"authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "policyVersion", "executorMode", "executorId", "adapterId", "inputDigest", "artifactDigest", "effectState", "receipt-recorded", "private-authorization-decision-canary", "private-acknowledgement-canary"} {
 		if strings.Contains(string(raw), forbidden) {

@@ -106,7 +106,7 @@ func (*phase4ResumableAdapter) Verify(context.Context, adapter.Operation, adapte
 }
 
 func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *testing.T) {
-	clock := &browserIntegrationClock{at: time.Date(2026, 9, 13, 8, 0, 0, 0, time.UTC)}
+	clock := &browserIntegrationClock{at: time.Date(2030, 9, 13, 8, 0, 0, 0, time.UTC)}
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
@@ -137,6 +137,7 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	}
 	seedBrowserIntegrationAuthority(t, databasePath, binding, clock.Now())
 	seedPhase4ConsoleGrants(t, databasePath, clock.Now())
+	seedPhase4BrowserChangeGrants(t, databasePath, clock.Now())
 	config.Mode = store.OpenExisting
 	authority, err = store.Open(context.Background(), config)
 	if err != nil {
@@ -292,6 +293,39 @@ func phase4Controller(t *testing.T, databasePath string, bridge *phase4ApprovalB
 }
 
 func phase4Digest(character string) string { return "sha256:" + strings.Repeat(character, 64) }
+
+func seedPhase4BrowserChangeGrants(t *testing.T, databasePath string, now time.Time) {
+	t.Helper()
+	formatted := now.UTC().Format(time.RFC3339Nano)
+	for _, grant := range []struct {
+		id, principal, role, action, capability, kind, resource, branch string
+	}{
+		{"grant-browser-declaration-author", "principal.remote", "author", "author", "declaration.author", "declaration", "declaration-browser", ""},
+		{"grant-browser-plan-author", "principal.remote", "author", "author", "plan.author", "declaration", "declaration-browser", ""},
+		{"grant-browser-execute", "principal.remote", "infrastructure-admin", "execute", "health.check", "execution-target", "target-browser", "human"},
+		{"grant-browser-human-ack", "human.console", "infrastructure-admin", "acknowledge", "plan.acknowledge", "plan-target", "target-browser", "human"},
+		{"grant-browser-cancel-declaration-author", "principal.remote", "author", "author", "declaration.author", "declaration", "declaration-browser-cancel", ""},
+		{"grant-browser-cancel-plan-author", "principal.remote", "author", "author", "plan.author", "declaration", "declaration-browser-cancel", ""},
+		{"grant-browser-cancel-execute", "principal.remote", "infrastructure-admin", "execute", "health.check", "execution-target", "target-browser-cancel", "human"},
+		{"grant-browser-cancel-human-ack", "human.console", "infrastructure-admin", "acknowledge", "plan.acknowledge", "plan-target", "target-browser-cancel", "human"},
+	} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,1,'active',?,?)`, grant.id, grant.principal, grant.role, grant.action, grant.capability, grant.kind, grant.resource, nullableString(grant.branch), formatted, formatted); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, revision := range []string{"declaration-browser:1", "declaration-browser:2", "declaration-browser-cancel:1", "declaration-browser-cancel:2"} {
+		if err := updateBrowserIntegrationDatabase(databasePath, `INSERT INTO read_grants(principal_id,capability,resource_kind,resource_id,grant_revision,status,created_at,updated_at) VALUES('principal.remote','declaration.read','declaration',?,1,'active',?,?)`, revision, formatted, formatted); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
+
+func nullableString(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
 
 func apiFailureForTest(code string) error { return failure.New(code, "phase4-fixture", false) }
 

@@ -54,6 +54,21 @@ test("declaration save, plan review, approval observation, and durable run stay 
   await expectAccessible(page);
 });
 
+test("save cancels the old revision read and mounts the exact returned revision", async ({ page }) => {
+  await page.goto("/changes");
+  await page.getByLabel("Declaration ID").fill("declaration-one");
+  await page.getByLabel("Revision").fill("1");
+  await page.getByRole("button", { name: "Open declaration" }).click();
+  await expect(page.getByText("Draft revision 1", { exact: true })).toBeVisible();
+  const revisionOneReads = changeFixture.requestPaths.filter(path => path === "/api/v1/declarations/declaration-one/revisions/1").length;
+
+  await page.getByLabel("Reason digest").fill(changeFixture.reasonDigest);
+  await page.getByRole("button", { name: "Save declaration" }).click();
+  await expect(page.getByText("Draft revision 2", { exact: true })).toBeVisible();
+  expect(changeFixture.requestPaths.filter(path => path === "/api/v1/declarations/declaration-one/revisions/1")).toHaveLength(revisionOneReads);
+  await expect(page.getByText("Change details cleared", { exact: true })).toHaveCount(0);
+});
+
 test("refresh restores the exact durable plan and run without resubmitting", async ({ page }) => {
   await page.goto("/changes");
   await page.getByLabel("Declaration ID").fill("declaration-one");
