@@ -542,7 +542,7 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
     'const requestId = (command) => `request-${command.replaceAll(/[^a-z0-9]/g, "").padEnd(32, "0").slice(0, 32)}`;',
     'const success = (command, data, options = {}) => `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: contractVersion, toolVersion: "0.0.0-dev", command, requestId: requestId(command), runId: options.runId ?? null, status: "succeeded", changed: options.changed ?? false, recoveryEpoch: options.epoch ?? 2, stateRevision: options.revision ?? 7, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: options.planId ?? null, errors: [], data })}\n`;',
     'const failure = (command, code, target, status, data = {}, options = {}) => `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: contractVersion, toolVersion: "0.0.0-dev", command, requestId: requestId(`${command}-${code}`), runId: options.runId ?? null, status, changed: options.changed ?? false, recoveryEpoch: options.epoch ?? 2, stateRevision: options.revision ?? 7, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: options.planId ?? null, errors: [{ code, target, retryable: false }], data })}\n`;',
-    'const httpStatus = { APPROVAL_REQUIRED: 412, AUTHORIZATION_DENIED: 403, DEPENDENCY_UNAVAILABLE: 503, EXECUTION_PARTIAL: 409, INTERRUPTED: 408, PLAN_STALE: 409, RECOVERY_REQUIRED: 409 };',
+    'const httpStatus = { APPROVAL_REQUIRED: 412, AUTHORIZATION_DENIED: 403, DEPENDENCY_UNAVAILABLE: 503, EXECUTION_PARTIAL: 409, INTERRUPTED: 408, PLAN_STALE: 409, RECOVERY_EPOCH_MISMATCH: 409, RECOVERY_REQUIRED: 409 };',
     'const disconnected = new Map();',
     'const respond = (response, payload, statusCode = 200) => { response.writeHead(statusCode, { "Content-Type": "application/json", "Connection": "close" }); response.end(payload); };',
     'const server = http.createServer((request, response) => {',
@@ -560,11 +560,13 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
     '    if (request.method === "POST" && executeMatch) {',
     '      const planId = executeMatch[1]; const input = JSON.parse(body); const suffix = createHash("sha256").update(["run", planId, input.idempotencyKey].join("\\0")).digest("hex").slice(0, 32); const runId = `run-${suffix}`;',
     '      if (planId === "plan-stale") { respond(response, failure("api.v1.plans.execute", "PLAN_STALE", "plan", "failed"), httpStatus.PLAN_STALE); return; }',
+    '      if (planId === "plan-completed") { respond(response, failure("api.v1.plans.execute", "PLAN_STALE", "read", "failed", {}, { epoch: 0, revision: 0 }), httpStatus.PLAN_STALE); return; }',
+    '      if (planId === "plan-wrong-epoch") { respond(response, failure("api.v1.plans.execute", "RECOVERY_EPOCH_MISMATCH", "read", "failed", {}, { epoch: 0, revision: 0 }), httpStatus.RECOVERY_EPOCH_MISMATCH); return; }',
     '      if (planId === "plan-ack-missing") { respond(response, failure("api.v1.plans.execute", "APPROVAL_REQUIRED", "acknowledgement", "failed"), httpStatus.APPROVAL_REQUIRED); return; }',
     '      if (planId === "plan-ack-rejected") { respond(response, failure("api.v1.plans.execute", "AUTHORIZATION_DENIED", "acknowledgement", "failed"), httpStatus.AUTHORIZATION_DENIED); return; }',
     '      if (planId === "plan-partial" || planId === "plan-recovery") { const run = runFor(runId, planId, "partial"); const code = planId === "plan-partial" ? "EXECUTION_PARTIAL" : "RECOVERY_REQUIRED"; respond(response, failure("api.v1.plans.execute", code, "run", "partial", present(run), { runId, planId, changed: true }), httpStatus[code]); return; }',
     '      if (planId.startsWith("plan-disconnect-")) { disconnected.set(runId, planId); response.writeHead(200, { "Content-Type": "application/json", "Content-Length": "4096" }); response.write("{\\\"durableRunAccepted\\\":true"); response.socket.destroy(); return; }',
-    '      const status = planId === "plan-completed" ? "succeeded" : "running"; const run = runFor(runId, planId, status); respond(response, success("api.v1.plans.execute", present(run), { runId, planId, changed: run.changed })); return;',
+    '      const run = runFor(runId, planId); respond(response, success("api.v1.plans.execute", present(run), { runId, planId, changed: run.changed })); return;',
     '    }',
     '    if (request.method === "GET" && runMatch) {',
     '      const runId = runMatch[1]; const disconnectedPlan = disconnected.get(runId);',
@@ -668,8 +670,8 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
     }
   }
 
-  // Normal and already-completed applies return server-owned durable runs. The
-  // executable submits once, and human output is a rendering of those same facts.
+  // A normal apply returns the server-owned durable run. The executable submits
+  // once, and human output is a rendering of those same facts.
   const normalJSON = await invoke(["apply", "--plan-id", "plan-normal", "--config", profilePath, "--output", "json"]);
   const normalInput = assertApplyRequests(normalJSON.requests, "plan-normal", golden.requests.apply);
   const normalEnvelope = machineResult(normalJSON.result, golden.exits.success);
@@ -689,13 +691,59 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
     stderr: "",
   });
 
-  const completed = await invoke(["apply", "--plan-id", "plan-completed", "--config", profilePath, "--output", "json"]);
-  assertApplyRequests(completed.requests, "plan-completed", golden.requests.apply);
-  const completedEnvelope = machineResult(completed.result, golden.exits.success);
-  assert.equal(completedEnvelope.data.run.status, "succeeded");
-  assert.equal(completedEnvelope.data.run.verificationStatus, "verified");
-  assert.equal(completedEnvelope.data.completedWork[0].effectState, "verified");
-  assert.equal(completedEnvelope.data.nextSafeAction, "none; execution completed");
+  // A fresh submission of an already-completed plan is stale because the first
+  // durable run advanced state. This is distinct from an exact idempotency replay,
+  // which the server returns as the same successful durable run.
+  for (const output of ["human", "json"]) {
+    const args = ["apply", "--plan-id", "plan-completed", "--config", profilePath];
+    if (output === "json") args.push("--output", "json");
+    const completed = await invoke(args);
+    assertApplyRequests(completed.requests, "plan-completed", golden.requests.apply);
+    if (output === "human") {
+      assert.deepEqual(completed.result, {
+        code: golden.exits.alreadyCompleted,
+        stdout: "",
+        stderr: golden.human.alreadyCompletedStderr,
+      });
+    } else {
+      const envelope = machineResult(completed.result, golden.exits.alreadyCompleted);
+      assert.deepEqual(envelope.errors, [{ code: "PLAN_STALE", target: "read", retryable: false }]);
+      assert.deepEqual(envelope.data, {});
+      assert.equal(envelope.runId, null);
+      assert.equal(envelope.planId, null);
+      assert.equal(envelope.status, "failed");
+      assert.equal(envelope.changed, false);
+      assert.equal(envelope.recoveryEpoch, 0);
+      assert.equal(envelope.stateRevision, 0);
+    }
+  }
+
+  // Recovery may advance after the plan read but before execute. The built CLI
+  // must preserve the server's RECOVERY_EPOCH_MISMATCH envelope and exit in both
+  // output modes without inventing run state.
+  for (const output of ["human", "json"]) {
+    const args = ["apply", "--plan-id", "plan-wrong-epoch", "--config", profilePath];
+    if (output === "json") args.push("--output", "json");
+    const mismatched = await invoke(args);
+    assertApplyRequests(mismatched.requests, "plan-wrong-epoch", golden.requests.apply);
+    if (output === "human") {
+      assert.deepEqual(mismatched.result, {
+        code: golden.exits.wrongRecoveryEpoch,
+        stdout: "",
+        stderr: golden.human.wrongRecoveryEpochStderr,
+      });
+    } else {
+      const envelope = machineResult(mismatched.result, golden.exits.wrongRecoveryEpoch);
+      assert.deepEqual(envelope.errors, [{ code: "RECOVERY_EPOCH_MISMATCH", target: "read", retryable: false }]);
+      assert.deepEqual(envelope.data, {});
+      assert.equal(envelope.runId, null);
+      assert.equal(envelope.planId, null);
+      assert.equal(envelope.status, "failed");
+      assert.equal(envelope.changed, false);
+      assert.equal(envelope.recoveryEpoch, 0);
+      assert.equal(envelope.stateRevision, 0);
+    }
+  }
 
   // Authorization and freshness failures carry no invented run data and keep
   // the server's stable error, stream, and exit mappings byte-for-byte.
