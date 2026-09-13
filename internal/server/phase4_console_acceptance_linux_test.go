@@ -36,7 +36,45 @@ import (
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
+	"golang.org/x/sys/unix"
 )
+
+func TestPhase4ConsoleSocketPathFitsProtectedLinuxTempRoot(t *testing.T) {
+	const testName = "TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS"
+	tooLong := filepath.Join("/var/tmp/vsk.8yrYX6", testName+"123456789", "001", "control.sock")
+	if len(tooLong) < len(unix.RawSockaddrUnix{}.Path) {
+		t.Fatal("protected-runner reproduction no longer exceeds the Linux Unix socket path limit")
+	}
+	socketPath := phase4ConsoleSocketPath(t)
+	if len(socketPath) >= len(unix.RawSockaddrUnix{}.Path) {
+		t.Fatalf("phase 4 console socket path is too long: %d bytes", len(socketPath))
+	}
+	if strings.Contains(socketPath, testName) {
+		t.Fatal("phase 4 console socket path inherited the long Go test name")
+	}
+}
+
+func phase4ConsoleSocketPath(t *testing.T) string {
+	t.Helper()
+	directory, err := os.MkdirTemp("", "vsk4-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(directory, 0o700); err != nil {
+		_ = os.RemoveAll(directory)
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		if err := os.RemoveAll(directory); err != nil {
+			t.Errorf("remove phase 4 socket directory: %v", err)
+		}
+	})
+	socketPath := filepath.Join(directory, "control.sock")
+	if len(socketPath) >= len(unix.RawSockaddrUnix{}.Path) {
+		t.Fatalf("phase 4 console socket path exceeds the Linux limit: %d bytes", len(socketPath))
+	}
+	return socketPath
+}
 
 type phase4ApprovalBridge struct {
 	mu      sync.Mutex
@@ -213,7 +251,7 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	service, err := New(Config{Profile: serverconfig.Profile{SocketPath: filepath.Join(directory, "control.sock"), InventoryExportRoot: directory, SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600, ShutdownGrace: 5 * time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}}, RemoteRead: serverconfig.RemoteRead{Enabled: true, ConfigurationValid: true}}, Application: application, Results: factory, PlatformProbe: staticPlatformProbe{platform: testSupportedPlatform()}, Remote: &RemoteConfig{Authenticator: authenticator, Console: console, ListenConfig: RemoteListenConfig{Address: listener.Addr().String(), CertificatePath: certificatePath, PrivateKeyPath: keyPath}, ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) { return listener, nil }}})
+	service, err := New(Config{Profile: serverconfig.Profile{SocketPath: phase4ConsoleSocketPath(t), InventoryExportRoot: directory, SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600, ShutdownGrace: 5 * time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}}, RemoteRead: serverconfig.RemoteRead{Enabled: true, ConfigurationValid: true}}, Application: application, Results: factory, PlatformProbe: staticPlatformProbe{platform: testSupportedPlatform()}, Remote: &RemoteConfig{Authenticator: authenticator, Console: console, ListenConfig: RemoteListenConfig{Address: listener.Addr().String(), CertificatePath: certificatePath, PrivateKeyPath: keyPath}, ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) { return listener, nil }}})
 	if err != nil {
 		t.Fatal(err)
 	}

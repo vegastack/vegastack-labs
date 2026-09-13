@@ -7,6 +7,7 @@ import test from "node:test";
 
 import {
   assertExactCleanCommit,
+  defaultRunChecks,
   parsePhase3ExitArgs,
   runPhase3Exit,
   validatePhase3EvidenceDefinition,
@@ -192,6 +193,27 @@ test("failure stages never expose paths, tokens, or cookies", async () => {
       readGitState: async () => { throw new Error(canary); },
     }),
     (error) => error.message === "PHASE3_EXIT_GIT_STATE" && !error.message.includes(canary),
+  );
+});
+
+test("default checks report the exact safe child stage without captured diagnostics", async () => {
+  const tokenCanary = ["ghp", "_abcdefghijklmnopqrstuvwxyz"].join("");
+  const canary = `/private/worktree ${tokenCanary} cookie=session-secret`;
+  await assert.rejects(
+    () => defaultRunChecks("/safe-root", {
+      runPlan: async (_plan, { onStep }) => {
+        onStep({ name: "Go unit tests" });
+        throw new Error(canary);
+      },
+    }),
+    (error) => error.message === "PHASE3_EXIT_CHECK_GO_UNIT_TESTS" && !error.message.includes(canary),
+  );
+  await assert.rejects(
+    () => defaultRunChecks("/safe-root", {
+      runPlan: async () => {},
+      run: async () => { throw new Error(canary); },
+    }),
+    (error) => error.message === "PHASE3_EXIT_CHECK_GO_RACE_FULL" && !error.message.includes(canary),
   );
 });
 
