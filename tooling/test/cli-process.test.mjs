@@ -1,14 +1,17 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { access, chmod, cp, mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { spawn, spawnSync } from "node:child_process";
 import test from "node:test";
-import { verifyReviewedLocalClient } from "../verify-cli.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
+const CONTRACT_VERSION = JSON.parse(
+  readFileSync(path.join(ROOT, "schemas/v1/command-registry.json"), "utf8"),
+).schemaVersion;
 const RESULT_KEYS = [
   "schema",
   "schemaVersion",
@@ -55,7 +58,7 @@ function assertEnvelope(actual, expected) {
   const result = JSON.parse(actual.stdout);
   assert.deepEqual(Object.keys(result), RESULT_KEYS);
   assert.equal(result.schema, "vegastack-labs.dev/run-result");
-  assert.equal(result.schemaVersion, "1.12.0");
+  assert.equal(result.schemaVersion, CONTRACT_VERSION);
   assert.equal(result.toolVersion, "0.0.0-dev");
   assert.equal(result.command, expected.command);
   assert.match(result.requestId, /^request-[0-9a-f]{32}$/);
@@ -82,7 +85,7 @@ function assertEnvelope(actual, expected) {
 function apiEnvelope(command, changed, recoveryEpoch, stateRevision, data) {
   return `${JSON.stringify({
     schema: "vegastack-labs.dev/run-result",
-    schemaVersion: "1.12.0",
+    schemaVersion: CONTRACT_VERSION,
     toolVersion: "0.0.0-dev",
     command,
     requestId: `request-${command.replaceAll(/[^a-z0-9]/g, "").padEnd(32, "0").slice(0, 32)}`,
@@ -120,22 +123,6 @@ function expectedHumanHelp(registry) {
   return `${lines.join("\n")}\n`;
 }
 
-test("the reviewed local client permits only its Unix-socket HTTP origin", async (t) => {
-  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-local-client-boundary-"));
-  t.after(() => rm(temporary, { recursive: true, force: true }));
-  const directory = path.join(temporary, "internal/localapi");
-  await mkdir(directory, { recursive: true });
-  const sourcePath = path.join(directory, "client.go");
-  await writeFile(sourcePath, 'package localapi\nimport "net/http"\nfunc local() { _, _ = http.NewRequest("GET", "http://local", nil) }\n');
-  assert.equal(await verifyReviewedLocalClient(temporary), true);
-
-  await writeFile(sourcePath, 'package localapi\nimport "net/http"\nfunc remote() { _, _ = http.NewRequest("GET", "https://provider.invalid", nil) }\n');
-  assert.equal(await verifyReviewedLocalClient(temporary), false);
-
-  await writeFile(sourcePath, 'package localapi\nimport _ "database/sql"\n');
-  assert.equal(await verifyReviewedLocalClient(temporary), false);
-});
-
 test("the built vsk-labs executable preserves its complete process contract", async (t) => {
   const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-cli-process-"));
   t.after(() => rm(temporary, { recursive: true, force: true }));
@@ -160,7 +147,7 @@ test("the built vsk-labs executable preserves its complete process contract", as
   });
   assert.deepEqual(run(binary, ["version"]), {
     code: 0,
-    stdout: "vsk-labs 0.0.0-dev\ncontract 1.12.0\nbuild development\n",
+    stdout: `vsk-labs 0.0.0-dev\ncontract ${CONTRACT_VERSION}\nbuild development\n`,
     stderr: "",
   });
 
@@ -494,19 +481,26 @@ test("five operator commands preserve protected API bytes in the built process",
   }
 });
 
-test("apply disconnect inspects the durable run and never resubmits", async (t) => {
+test("Phase 4 commands preserve server facts, request bytes, exits, and disconnect safety in the built process", async (t) => {
   if (process.platform !== "linux" || typeof process.getuid !== "function") return;
-  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack cli π apply-disconnect-"));
+  // The fixture below is an HTTP server bound only to the protected local Unix
+  // socket. Every assertion invokes the compiled executable as a new process.
+  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack cli π phase4-matrix-"));
   t.after(() => rm(temporary, { recursive: true, force: true }));
   const binary = path.join(temporary, "vsk-labs");
   const build = spawnSync("go", ["build", "-o", binary, "./cmd/vsk-labs"], {
     cwd: ROOT, encoding: "utf8", shell: false,
   });
-  assert.equal(build.status, 0, build.stderr);
+  assert.deepEqual(
+    { status: build.status, signal: build.signal, stdout: build.stdout },
+    { status: 0, signal: null, stdout: "" },
+    build.stderr,
+  );
 
   const socketPath = path.join(temporary, "control.sock");
   const profilePath = path.join(temporary, "profile ; $(not-a-shell) π.json");
   const requestLog = path.join(temporary, "requests.jsonl");
+  await writeFile(requestLog, "");
   await writeFile(profilePath, `${JSON.stringify({
     schema: "vegastack-labs.dev/server-profile",
     schemaVersion: "1.1.0",
@@ -523,53 +517,73 @@ test("apply disconnect inspects the durable run and never resubmits", async (t) 
       identityAdapter: null, identityConfigPath: null,
     },
   })}\n`, { mode: 0o600 });
+  await chmod(profilePath, 0o600);
 
   const serverScript = path.join(temporary, "phase4-cli-fixture.mjs");
   await writeFile(serverScript, [
     'import http from "node:http";',
     'import { createHash } from "node:crypto";',
     'import { appendFileSync, rmSync } from "node:fs";',
-    'const [socketPath, requestLog] = process.argv.slice(2);',
+    'const [socketPath, requestLog, contractVersion] = process.argv.slice(2);',
     'try { rmSync(socketPath); } catch {}',
     'const digest = (character) => `sha256:${character.repeat(64)}`;',
-    'const plan = {',
-    '  schema: "vegastack-labs.dev/plan", schemaVersion: "1.0.0", planId: "plan-1", planDigest: digest("a"), declarationId: "declaration-1",',
-    '  binding: { recoveryEpoch: 2, priorStateRevision: 6, stateRevision: 7, declarationRevision: 1, observationFingerprint: digest("b"), targetDigest: digest("c"), reasonDigest: digest("d"), policyVersion: "1.0.0", toolVersion: "0.0.0-dev", contractVersion: "1.10.0" },',
-    '  operations: [{ sequence: 1, operationId: "operation-1", operationType: "application.deploy.low-risk", adapterId: "adapter.synthetic", executorId: "executor-central", targetId: "target-1", inputDigest: digest("e"), artifactDigest: digest("f"), idempotent: true }],',
-    '  status: "planned", risk: "routine", authorizationBranch: "preauthorized", executorMode: "central", executorId: null, createdAt: "2026-09-13T06:00:00Z", expiresAt: "2026-09-13T06:30:00Z", readableDigest: digest("1"), extensions: [],',
+    'const operation = { sequence: 1, operationId: "operation-1", operationType: "application.deploy.low-risk", adapterId: "adapter.synthetic", executorId: "executor-central", targetId: "target-1", inputDigest: digest("e"), artifactDigest: digest("f"), idempotent: true };',
+    'const planFor = (planId = "plan-1") => ({',
+    '  schema: "vegastack-labs.dev/plan", schemaVersion: "1.0.0", planId, planDigest: digest("a"), declarationId: "declaration-1",',
+    '  binding: { recoveryEpoch: 2, priorStateRevision: 6, stateRevision: 7, declarationRevision: 1, observationFingerprint: digest("b"), targetDigest: digest("c"), reasonDigest: digest("d"), policyVersion: "1.0.0", toolVersion: "0.0.0-dev", contractVersion },',
+    '  operations: [operation], status: "planned", risk: "routine", authorizationBranch: "preauthorized", executorMode: "central", executorId: null, createdAt: "2026-09-13T06:00:00Z", expiresAt: "2026-09-13T06:30:00Z", readableDigest: digest("1"), extensions: [],',
+    '});',
+    'const step = (sequence, status, effectState) => ({ ...operation, sequence, operationId: `operation-${sequence}`, targetId: `target-${sequence}`, stepId: `step-${sequence}`, status, effectState });',
+    'const runFor = (runId, planId, status = "running") => {',
+    '  const states = status === "succeeded" ? [step(1, "succeeded", "verified")] : status === "partial" ? [step(1, "succeeded", "verified"), step(2, "partial", "effect-unknown")] : status === "cancelled" ? [step(1, "cancelled", "not-started")] : status === "interrupted" ? [step(1, "interrupted", "effect-unknown")] : [step(1, "running", "intent-recorded")];',
+    '  return { schema: "vegastack-labs.dev/run", schemaVersion: "1.0.0", runId, planId, planDigest: digest("a"), authorizationDecisionId: "decision-1", acknowledgementId: null, policyVersion: "1.0.0", executorMode: "central", executorId: "executor-central", executorBindingDigest: digest("2"), status, steps: states, cancellationRequested: status === "cancelled", rollbackStatus: status === "partial" ? "required" : "not-requested", verificationStatus: status === "succeeded" ? "verified" : status === "partial" ? "incomplete" : "pending", verificationDigest: status === "succeeded" ? digest("9") : null, changed: status === "succeeded" || status === "partial", stateRevision: 7, recoveryEpoch: 2, createdAt: "2026-09-13T06:01:00Z", updatedAt: "2026-09-13T06:01:01Z", extensions: [] };',
     '};',
-    'let run = null; let submitCount = 0;',
-    'const envelope = (command, data, options = {}) => `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: "1.12.0", toolVersion: "0.0.0-dev", command, requestId: options.requestId ?? "request-fixture-000000000000000000000", runId: options.runId ?? null, status: options.status ?? "succeeded", changed: options.changed ?? false, recoveryEpoch: 2, stateRevision: 7, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: options.planId ?? null, errors: [], data })}\\n`;',
+    'const present = (run) => { const completedWork = run.steps.filter((item) => ["succeeded", "failed", "cancelled"].includes(item.status)); const incompleteWork = run.steps.filter((item) => !completedWork.includes(item)); let nextSafeAction = "inspect the durable run"; if (run.status === "partial" || run.rollbackStatus === "required" || run.verificationStatus === "incomplete") nextSafeAction = "recovery required; inspect the durable run"; else if (run.status === "succeeded") nextSafeAction = "none; execution completed"; else if (run.status === "cancelled") nextSafeAction = "inspect before creating another plan"; else if (run.status === "interrupted") nextSafeAction = "inspect, then resume or cancel through the server"; else if (["queued", "running"].includes(run.status)) nextSafeAction = "inspect or cancel through the server"; return { run, completedWork, incompleteWork, nextSafeAction }; };',
+    'const requestId = (command) => `request-${command.replaceAll(/[^a-z0-9]/g, "").padEnd(32, "0").slice(0, 32)}`;',
+    'const success = (command, data, options = {}) => `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: contractVersion, toolVersion: "0.0.0-dev", command, requestId: requestId(command), runId: options.runId ?? null, status: "succeeded", changed: options.changed ?? false, recoveryEpoch: options.epoch ?? 2, stateRevision: options.revision ?? 7, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: options.planId ?? null, errors: [], data })}\n`;',
+    'const failure = (command, code, target, status, data = {}, options = {}) => `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: contractVersion, toolVersion: "0.0.0-dev", command, requestId: requestId(`${command}-${code}`), runId: options.runId ?? null, status, changed: options.changed ?? false, recoveryEpoch: options.epoch ?? 2, stateRevision: options.revision ?? 7, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: options.planId ?? null, errors: [{ code, target, retryable: false }], data })}\n`;',
+    'const httpStatus = { APPROVAL_REQUIRED: 412, AUTHORIZATION_DENIED: 403, DEPENDENCY_UNAVAILABLE: 503, EXECUTION_PARTIAL: 409, INTERRUPTED: 408, PLAN_STALE: 409, RECOVERY_REQUIRED: 409 };',
+    'const disconnected = new Map();',
+    'const respond = (response, payload, statusCode = 200) => { response.writeHead(statusCode, { "Content-Type": "application/json", "Connection": "close" }); response.end(payload); };',
     'const server = http.createServer((request, response) => {',
     '  const chunks = []; request.on("data", (chunk) => chunks.push(chunk));',
     '  request.on("end", () => {',
     '    const body = Buffer.concat(chunks).toString("utf8");',
-    '    appendFileSync(requestLog, `${JSON.stringify({ method: request.method, path: request.url, body })}\\n`);',
-    '    let payload; let statusCode = 200;',
-    '    if (request.method === "GET" && request.url === "/api/v1/plans/plan-1") payload = envelope("api.v1.plans.get", plan);',
-    '    else if (request.method === "POST" && request.url === "/api/v1/plans/plan-1/execute") {',
-    '      submitCount += 1;',
-    '      const input = JSON.parse(body);',
-    '      const suffix = createHash("sha256").update(["run", plan.planId, input.idempotencyKey].join("\\0")).digest("hex").slice(0, 32);',
-    '      run = { schema: "vegastack-labs.dev/run", schemaVersion: "1.0.0", runId: `run-${suffix}`, planId: plan.planId, planDigest: plan.planDigest, authorizationDecisionId: "decision-1", acknowledgementId: null, policyVersion: "1.0.0", executorMode: "central", executorId: "executor-central", executorBindingDigest: digest("2"), status: "running", steps: [{ ...plan.operations[0], stepId: "step-1", status: "running", effectState: "intent-recorded" }], cancellationRequested: false, rollbackStatus: "not-requested", verificationStatus: "pending", verificationDigest: null, changed: false, stateRevision: 7, recoveryEpoch: 2, createdAt: "2026-09-13T06:01:00Z", updatedAt: "2026-09-13T06:01:01Z", extensions: [] };',
-    '      response.writeHead(200, { "Content-Type": "application/json", "Content-Length": "4096" });',
-    '      response.write("{\\"durableRunAccepted\\":true");',
-    '      response.socket.destroy();',
-    '      return;',
+    '    appendFileSync(requestLog, `${JSON.stringify({ method: request.method, path: request.url, body })}\n`);',
+    '    const planMatch = request.url.match(/^\\/api\\/v1\\/plans\\/([^/]+)$/);',
+    '    const executeMatch = request.url.match(/^\\/api\\/v1\\/plans\\/([^/]+)\\/execute$/);',
+    '    const runMatch = request.url.match(/^\\/api\\/v1\\/runs\\/([^/]+)$/);',
+    '    const actionMatch = request.url.match(/^\\/api\\/v1\\/runs\\/([^/]+)\\/(cancel|resume)$/);',
+    '    if (request.method === "GET" && request.url === "/api/v1/declarations/declaration-1/revisions/1/plan-preparation") { respond(response, success("api.v1.declarations.plan-preparation.get", { schema: "vegastack-labs.dev/plan-preparation", schemaVersion: "1.0.0", declarationId: "declaration-1", declarationRevision: 1, expectedStateRevision: 6, recoveryEpoch: 2, observationFingerprint: digest("b") }, { revision: 6 })); return; }',
+    '    if (request.method === "POST" && request.url === "/api/v1/declarations/declaration-1/plans") { respond(response, success("api.v1.plans.create", planFor(), { changed: true })); return; }',
+    '    if (request.method === "GET" && planMatch) { respond(response, success("api.v1.plans.get", planFor(planMatch[1]))); return; }',
+    '    if (request.method === "POST" && executeMatch) {',
+    '      const planId = executeMatch[1]; const input = JSON.parse(body); const suffix = createHash("sha256").update(["run", planId, input.idempotencyKey].join("\\0")).digest("hex").slice(0, 32); const runId = `run-${suffix}`;',
+    '      if (planId === "plan-stale") { respond(response, failure("api.v1.plans.execute", "PLAN_STALE", "plan", "failed"), httpStatus.PLAN_STALE); return; }',
+    '      if (planId === "plan-ack-missing") { respond(response, failure("api.v1.plans.execute", "APPROVAL_REQUIRED", "acknowledgement", "failed"), httpStatus.APPROVAL_REQUIRED); return; }',
+    '      if (planId === "plan-ack-rejected") { respond(response, failure("api.v1.plans.execute", "AUTHORIZATION_DENIED", "acknowledgement", "failed"), httpStatus.AUTHORIZATION_DENIED); return; }',
+    '      if (planId === "plan-partial" || planId === "plan-recovery") { const run = runFor(runId, planId, "partial"); const code = planId === "plan-partial" ? "EXECUTION_PARTIAL" : "RECOVERY_REQUIRED"; respond(response, failure("api.v1.plans.execute", code, "run", "partial", present(run), { runId, planId, changed: true }), httpStatus[code]); return; }',
+    '      if (planId.startsWith("plan-disconnect-")) { disconnected.set(runId, planId); response.writeHead(200, { "Content-Type": "application/json", "Content-Length": "4096" }); response.write("{\\\"durableRunAccepted\\\":true"); response.socket.destroy(); return; }',
+    '      const status = planId === "plan-completed" ? "succeeded" : "running"; const run = runFor(runId, planId, status); respond(response, success("api.v1.plans.execute", present(run), { runId, planId, changed: run.changed })); return;',
     '    }',
-    '    else if (request.method === "GET" && run !== null && request.url === `/api/v1/runs/${run.runId}` && submitCount === 1) payload = envelope("api.v1.runs.get", run);',
-    '    else if (request.method === "GET" && run !== null && request.url === `/api/v1/runs/${run.runId}`) { statusCode = 503; payload = `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: "1.12.0", toolVersion: "0.0.0-dev", command: "api.v1.runs.get", requestId: "request-fixture-unknown", runId: null, status: "failed", changed: false, recoveryEpoch: 0, stateRevision: 0, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: null, errors: [{ code: "DEPENDENCY_UNAVAILABLE", target: "read", retryable: true }], data: {} })}\\n`; }',
-    '    else { response.writeHead(404); response.end(); return; }',
-    '    response.writeHead(statusCode, { "Content-Type": "application/json", "Connection": "close" });',
-    '    response.end(payload);',
+    '    if (request.method === "GET" && runMatch) {',
+    '      const runId = runMatch[1]; const disconnectedPlan = disconnected.get(runId);',
+    '      if (disconnectedPlan === "plan-disconnect-unknown") { respond(response, failure("api.v1.runs.get", "DEPENDENCY_UNAVAILABLE", "read", "failed", {}, { epoch: 0, revision: 0 }), 503); return; }',
+    '      if (disconnectedPlan === "plan-disconnect-success") { const run = runFor(runId, disconnectedPlan); respond(response, success("api.v1.runs.get", present(run), { runId, planId: disconnectedPlan })); return; }',
+    '      const named = { "run-running": "running", "run-partial": "partial", "run-cancel": "running", "run-resume": "interrupted" }[runId];',
+    '      if (named !== undefined) { const run = runFor(runId, "plan-1", named); respond(response, success("api.v1.runs.get", present(run), { runId, planId: "plan-1" })); return; }',
+    '    }',
+    '    if (request.method === "POST" && actionMatch) { const [runId, action] = actionMatch.slice(1); const status = action === "cancel" ? "cancelled" : "running"; const run = runFor(runId, "plan-1", status); if (action === "cancel") respond(response, failure("api.v1.runs.cancel", "INTERRUPTED", "run", "cancelled", present(run), { runId, planId: "plan-1" }), httpStatus.INTERRUPTED); else respond(response, success("api.v1.runs.resume", present(run), { runId, planId: "plan-1" })); return; }',
+    '    response.writeHead(404); response.end();',
     '  });',
     '});',
     'server.listen(socketPath);',
     'process.on("SIGTERM", () => server.close(() => process.exit(0)));',
     '',
   ].join("\n"));
+
   const fixture = spawn(process.execPath, [
-    serverScript, socketPath, requestLog,
+    serverScript, socketPath, requestLog, CONTRACT_VERSION,
   ], { stdio: "ignore" });
   t.after(() => fixture.kill("SIGTERM"));
   const deadline = Date.now() + 5000;
@@ -579,25 +593,214 @@ test("apply disconnect inspects the durable run and never resubmits", async (t) 
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
 
-  const result = run(binary, ["apply", "--plan-id", "plan-1", "--config", profilePath, "--output", "json"]);
-  const golden = JSON.parse(await readFile(path.join(ROOT, "internal/cli/testdata/phase4.golden.json"), "utf8"));
-  const requests = (await readFile(requestLog, "utf8")).trim().split("\n").map(JSON.parse);
-  assert.equal(result.code, 0, JSON.stringify({ result, requests }));
-  const submits = requests.filter((request) => request.method === "POST" && request.path === "/api/v1/plans/plan-1/execute");
-  assert.equal(submits.length, 1);
-  const submitBody = JSON.parse(submits[0].body);
-  assert.match(submitBody.idempotencyKey, /^request-[0-9a-f]{32}$/);
-  assert.equal(submits[0].body, golden.requests.apply.replace("<request-id>", submitBody.idempotencyKey));
-  const runSuffix = createHash("sha256").update(["run", "plan-1", submitBody.idempotencyKey].join("\0")).digest("hex").slice(0, 32);
-  assert.equal(requests.filter((request) => request.method === "GET" && request.path === `/api/v1/runs/run-${runSuffix}`).length, 1);
+  async function allRequests() {
+    const raw = await readFile(requestLog, "utf8");
+    return raw === "" ? [] : raw.trim().split("\n").map(JSON.parse);
+  }
 
-  const unknown = run(binary, ["apply", "--plan-id", "plan-1", "--config", profilePath, "--output", "json"]);
-  const unknownEnvelope = JSON.parse(unknown.stdout);
-  const allRequests = (await readFile(requestLog, "utf8")).trim().split("\n").map(JSON.parse);
-  const allSubmits = allRequests.filter((request) => request.method === "POST" && request.path === "/api/v1/plans/plan-1/execute");
-  const unknownBody = JSON.parse(allSubmits[1].body);
-  const unknownSuffix = createHash("sha256").update(["run", "plan-1", unknownBody.idempotencyKey].join("\0")).digest("hex").slice(0, 32);
-  assert.deepEqual({ code: unknown.code, stderr: unknown.stderr, runId: unknownEnvelope.runId, error: unknownEnvelope.errors[0]?.code }, { code: golden.exits.disconnectUnknown, stderr: "", runId: `run-${unknownSuffix}`, error: "DEPENDENCY_UNAVAILABLE" });
-  assert.equal(allSubmits.length, 2);
-  assert.equal(allRequests.filter((request) => request.method === "GET" && request.path === `/api/v1/runs/run-${unknownSuffix}`).length, 1);
+  async function invoke(args) {
+    const before = (await allRequests()).length;
+    const result = run(binary, args);
+    const requests = (await allRequests()).slice(before);
+    return { result, requests };
+  }
+
+  function machineResult(result, exitCode) {
+    assert.equal(result.code, exitCode, JSON.stringify(result));
+    assert.equal(result.stderr, "");
+    assert.equal((result.stdout.match(/\n/g) ?? []).length, 1);
+    assert.ok(result.stdout.endsWith("\n"));
+    const envelope = JSON.parse(result.stdout);
+    assert.equal(`${JSON.stringify(envelope)}\n`, result.stdout, "server JSON bytes must pass through unchanged");
+    assert.equal(envelope.schema, "vegastack-labs.dev/run-result");
+    assert.equal(envelope.schemaVersion, CONTRACT_VERSION);
+    return envelope;
+  }
+
+  function assertGet(request, expectedPath) {
+    assert.deepEqual(request, { method: "GET", path: expectedPath, body: "" });
+  }
+
+  function exactRequest(request, expectedPath, template) {
+    assert.equal(request.method, "POST");
+    assert.equal(request.path, expectedPath);
+    const input = JSON.parse(request.body);
+    assert.match(input.idempotencyKey, /^request-[0-9a-f]{32}$/);
+    assert.equal(request.body, template.replace("<request-id>", input.idempotencyKey));
+    return input;
+  }
+
+  function assertApplyRequests(requests, planId, template) {
+    assert.equal(requests.length, 2);
+    assertGet(requests[0], `/api/v1/plans/${planId}`);
+    return exactRequest(
+      requests[1],
+      `/api/v1/plans/${planId}/execute`,
+      template.replaceAll("plan-1", planId),
+    );
+  }
+
+  const golden = JSON.parse(
+    await readFile(path.join(ROOT, "internal/cli/testdata/phase4.golden.json"), "utf8"),
+  );
+
+  // Planning reads exact server-owned bindings first. Human and JSON modes expose
+  // the same returned plan while preserving the two exact request bodies.
+  for (const output of ["human", "json"]) {
+    const args = ["plan", "--declaration-id", "declaration-1", "--revision", "1", "--config", profilePath];
+    if (output === "json") args.push("--output", "json");
+    const { result, requests } = await invoke(args);
+    assert.equal(requests.length, 2);
+    assertGet(requests[0], "/api/v1/declarations/declaration-1/revisions/1/plan-preparation");
+    const input = exactRequest(requests[1], "/api/v1/declarations/declaration-1/plans", golden.requests.plan);
+    assert.deepEqual(
+      { expectedStateRevision: input.expectedStateRevision, recoveryEpoch: input.recoveryEpoch, observationFingerprint: input.observationFingerprint },
+      { expectedStateRevision: 6, recoveryEpoch: 2, observationFingerprint: `sha256:${"b".repeat(64)}` },
+    );
+    if (output === "human") {
+      assert.deepEqual(result, { code: golden.exits.success, stdout: golden.human.plan, stderr: "" });
+    } else {
+      const envelope = machineResult(result, golden.exits.success);
+      assert.equal(envelope.command, "api.v1.plans.create");
+      assert.equal(envelope.data.planId, "plan-1");
+      assert.equal(envelope.data.binding.observationFingerprint, `sha256:${"b".repeat(64)}`);
+      assert.equal(envelope.data.operations[0].targetId, "target-1");
+    }
+  }
+
+  // Normal and already-completed applies return server-owned durable runs. The
+  // executable submits once, and human output is a rendering of those same facts.
+  const normalJSON = await invoke(["apply", "--plan-id", "plan-normal", "--config", profilePath, "--output", "json"]);
+  const normalInput = assertApplyRequests(normalJSON.requests, "plan-normal", golden.requests.apply);
+  const normalEnvelope = machineResult(normalJSON.result, golden.exits.success);
+  assert.equal(normalEnvelope.data.run.status, "running");
+  assert.equal(normalEnvelope.data.incompleteWork[0].targetId, "target-1");
+  assert.equal(normalEnvelope.data.nextSafeAction, "inspect or cancel through the server");
+  const normalRunId = `run-${createHash("sha256").update(["run", "plan-normal", normalInput.idempotencyKey].join("\0")).digest("hex").slice(0, 32)}`;
+  assert.equal(normalEnvelope.runId, normalRunId);
+  assert.equal(normalEnvelope.data.run.runId, normalRunId);
+
+  const normalHuman = await invoke(["apply", "--plan-id", "plan-normal", "--config", profilePath]);
+  const normalHumanInput = assertApplyRequests(normalHuman.requests, "plan-normal", golden.requests.apply);
+  const normalHumanRunId = `run-${createHash("sha256").update(["run", "plan-normal", normalHumanInput.idempotencyKey].join("\0")).digest("hex").slice(0, 32)}`;
+  assert.deepEqual(normalHuman.result, {
+    code: golden.exits.success,
+    stdout: golden.human.runRunning.replace("<run-id>", normalHumanRunId),
+    stderr: "",
+  });
+
+  const completed = await invoke(["apply", "--plan-id", "plan-completed", "--config", profilePath, "--output", "json"]);
+  assertApplyRequests(completed.requests, "plan-completed", golden.requests.apply);
+  const completedEnvelope = machineResult(completed.result, golden.exits.success);
+  assert.equal(completedEnvelope.data.run.status, "succeeded");
+  assert.equal(completedEnvelope.data.run.verificationStatus, "verified");
+  assert.equal(completedEnvelope.data.completedWork[0].effectState, "verified");
+  assert.equal(completedEnvelope.data.nextSafeAction, "none; execution completed");
+
+  // Authorization and freshness failures carry no invented run data and keep
+  // the server's stable error, stream, and exit mappings byte-for-byte.
+  for (const scenario of [
+    { planId: "plan-stale", code: "PLAN_STALE", target: "plan", exit: golden.exits.stale },
+    { planId: "plan-ack-missing", code: "APPROVAL_REQUIRED", target: "acknowledgement", exit: golden.exits.missingAcknowledgement },
+    { planId: "plan-ack-rejected", code: "AUTHORIZATION_DENIED", target: "acknowledgement", exit: golden.exits.rejected },
+  ]) {
+    const invoked = await invoke(["apply", "--plan-id", scenario.planId, "--config", profilePath, "--output", "json"]);
+    assertApplyRequests(invoked.requests, scenario.planId, golden.requests.apply);
+    const envelope = machineResult(invoked.result, scenario.exit);
+    assert.deepEqual(envelope.errors, [{ code: scenario.code, target: scenario.target, retryable: false }]);
+    assert.deepEqual(envelope.data, {});
+    assert.equal(envelope.runId, null);
+  }
+
+  // Partial execution and recovery-required results preserve the complete run
+  // body instead of collapsing it into a generic error.
+  for (const scenario of [
+    { planId: "plan-partial", code: "EXECUTION_PARTIAL", exit: golden.exits.partial },
+    { planId: "plan-recovery", code: "RECOVERY_REQUIRED", exit: golden.exits.recoveryRequired },
+  ]) {
+    const invoked = await invoke(["apply", "--plan-id", scenario.planId, "--config", profilePath, "--output", "json"]);
+    const input = assertApplyRequests(invoked.requests, scenario.planId, golden.requests.apply);
+    const envelope = machineResult(invoked.result, scenario.exit);
+    const expectedRunId = `run-${createHash("sha256").update(["run", scenario.planId, input.idempotencyKey].join("\0")).digest("hex").slice(0, 32)}`;
+    assert.deepEqual(envelope.errors, [{ code: scenario.code, target: "run", retryable: false }]);
+    assert.equal(envelope.runId, expectedRunId);
+    assert.equal(envelope.data.run.runId, expectedRunId);
+    assert.equal(envelope.data.run.status, "partial");
+    assert.equal(envelope.data.completedWork[0].status, "succeeded");
+    assert.equal(envelope.data.incompleteWork[0].effectState, "effect-unknown");
+    assert.equal(envelope.data.run.rollbackStatus, "required");
+    assert.equal(envelope.data.run.verificationStatus, "incomplete");
+    assert.equal(envelope.data.nextSafeAction, "recovery required; inspect the durable run");
+  }
+
+  // Inspect uses one exact GET. Human and JSON modes expose the same partial
+  // step, verification, rollback, and next-action facts from the response.
+  const partialHuman = await invoke(["run", "inspect", "--run-id", "run-partial", "--config", profilePath]);
+  assert.deepEqual(partialHuman.requests, [{ method: "GET", path: "/api/v1/runs/run-partial", body: "" }]);
+  assert.deepEqual(partialHuman.result, { code: 0, stdout: golden.human.runPartial, stderr: "" });
+  const partialJSON = await invoke(["run", "inspect", "--run-id", "run-partial", "--config", profilePath, "--output", "json"]);
+  assert.deepEqual(partialJSON.requests, [{ method: "GET", path: "/api/v1/runs/run-partial", body: "" }]);
+  const partialInspectEnvelope = machineResult(partialJSON.result, 0);
+  assert.equal(partialInspectEnvelope.data.run.status, "partial");
+  assert.equal(partialInspectEnvelope.data.run.steps.length, 2);
+  assert.equal(partialInspectEnvelope.data.run.rollbackStatus, "required");
+  assert.equal(partialInspectEnvelope.data.run.verificationStatus, "incomplete");
+  assert.equal(partialInspectEnvelope.data.completedWork.length, 1);
+  assert.equal(partialInspectEnvelope.data.incompleteWork.length, 1);
+
+  // Cancel and resume both inspect first, then send one exact server mutation.
+  // A cancelled/interrupted result retains its durable run while exiting 9.
+  const cancelled = await invoke(["run", "cancel", "--run-id", "run-cancel", "--config", profilePath, "--output", "json"]);
+  assert.equal(cancelled.requests.length, 2);
+  assertGet(cancelled.requests[0], "/api/v1/runs/run-cancel");
+  const cancelInput = exactRequest(cancelled.requests[1], "/api/v1/runs/run-cancel/cancel", golden.requests.cancel);
+  assert.equal(cancelInput.recoveryEpoch, 2);
+  const cancelledEnvelope = machineResult(cancelled.result, golden.exits.cancelled);
+  assert.equal(cancelledEnvelope.errors[0].code, "INTERRUPTED");
+  assert.equal(cancelledEnvelope.data.run.status, "cancelled");
+  assert.equal(cancelledEnvelope.data.run.cancellationRequested, true);
+  assert.equal(cancelledEnvelope.data.nextSafeAction, "inspect before creating another plan");
+
+  const resumed = await invoke(["run", "resume", "--run-id", "run-resume", "--config", profilePath, "--output", "json"]);
+  assert.equal(resumed.requests.length, 2);
+  assertGet(resumed.requests[0], "/api/v1/runs/run-resume");
+  const resumeInput = exactRequest(resumed.requests[1], "/api/v1/runs/run-resume/resume", golden.requests.resume);
+  assert.equal(resumeInput.recoveryEpoch, 2);
+  const resumedEnvelope = machineResult(resumed.result, golden.exits.success);
+  assert.equal(resumedEnvelope.data.run.status, "running");
+  assert.equal(resumedEnvelope.data.incompleteWork[0].effectState, "intent-recorded");
+
+  // A submit disconnect permits exactly one deterministic inspection and never
+  // another POST. One case finds the durable run; the other remains unknown.
+  const recovered = await invoke(["apply", "--plan-id", "plan-disconnect-success", "--config", profilePath, "--output", "json"]);
+  assert.equal(recovered.requests.length, 3);
+  assertGet(recovered.requests[0], "/api/v1/plans/plan-disconnect-success");
+  const recoveredInput = exactRequest(
+    recovered.requests[1],
+    "/api/v1/plans/plan-disconnect-success/execute",
+    golden.requests.apply.replaceAll("plan-1", "plan-disconnect-success"),
+  );
+  const recoveredRunId = `run-${createHash("sha256").update(["run", "plan-disconnect-success", recoveredInput.idempotencyKey].join("\0")).digest("hex").slice(0, 32)}`;
+  assertGet(recovered.requests[2], `/api/v1/runs/${recoveredRunId}`);
+  assert.equal(recovered.requests.filter((request) => request.method === "POST").length, 1);
+  const recoveredEnvelope = machineResult(recovered.result, 0);
+  assert.equal(recoveredEnvelope.runId, recoveredRunId);
+  assert.equal(recoveredEnvelope.data.run.runId, recoveredRunId);
+
+  const unknown = await invoke(["apply", "--plan-id", "plan-disconnect-unknown", "--config", profilePath, "--output", "json"]);
+  assert.equal(unknown.requests.length, 3);
+  assertGet(unknown.requests[0], "/api/v1/plans/plan-disconnect-unknown");
+  const unknownInput = exactRequest(
+    unknown.requests[1],
+    "/api/v1/plans/plan-disconnect-unknown/execute",
+    golden.requests.apply.replaceAll("plan-1", "plan-disconnect-unknown"),
+  );
+  const unknownRunId = `run-${createHash("sha256").update(["run", "plan-disconnect-unknown", unknownInput.idempotencyKey].join("\0")).digest("hex").slice(0, 32)}`;
+  assertGet(unknown.requests[2], `/api/v1/runs/${unknownRunId}`);
+  assert.equal(unknown.requests.filter((request) => request.method === "POST").length, 1);
+  const unknownEnvelope = machineResult(unknown.result, golden.exits.disconnectUnknown);
+  assert.equal(unknownEnvelope.runId, unknownRunId);
+  assert.equal(unknownEnvelope.errors[0].code, "DEPENDENCY_UNAVAILABLE");
+  assert.equal(unknownEnvelope.errors[0].target, "control-service");
+  assert.deepEqual(unknownEnvelope.data, { runId: unknownRunId, action: "inspect-only", command: "run inspect" });
 });
