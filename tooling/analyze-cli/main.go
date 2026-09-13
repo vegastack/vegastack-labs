@@ -892,12 +892,12 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 
 const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
 
-const reviewedSSHTransportDigest = "bb162676e12729677961a0e788ffe7f1067a4d71a66b631be445beb8ffd18e96"
+const reviewedSSHTransportDigest = "36ae27790f85e3d2f736450c544b9690ae1cbc30203f2ca90f4409102978ea9b"
 
 func reviewedSSHTransportPackage(candidate checkedSourcePackage, localTransportImport string) bool {
 	approvedImports := map[string]bool{
 		"bufio": true, "bytes": true, "context": true, "errors": true, "io": true,
-		"net/http": true, "os/exec": true, "strings": true, "time": true,
+		"net/http": true, "os/exec": true, "regexp": true, "strings": true, "time": true,
 	}
 	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports)+1 {
 		return false

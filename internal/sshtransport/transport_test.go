@@ -26,8 +26,9 @@ func TestRoundTripUsesDirectArgumentsAndExactHTTPFrame(t *testing.T) {
 
 	var gotExecutable string
 	var gotArguments []string
+	arguments := secureSSHArguments("/literal path", "operator@host")
 	response, err := roundTrip(context.Background(), Request{
-		Executable: "ssh", Arguments: []string{"-T", "-o", "BatchMode=yes", "-o", "ClearAllForwardings=yes", "-o", "ExitOnForwardFailure=yes", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=/literal path", "operator@host"},
+		Executable: "ssh", Arguments: arguments,
 		Method: localtransport.MethodPost, Path: "/api/v1/test", Body: []byte(`{"value":"$(literal)"}`), Timeout: 5 * time.Second, ResponseLimit: 32,
 	}, func(ctx context.Context, executable string, arguments []string) *exec.Cmd {
 		gotExecutable = executable
@@ -43,7 +44,7 @@ func TestRoundTripUsesDirectArgumentsAndExactHTTPFrame(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	wantArguments := []string{"-T", "-o", "BatchMode=yes", "-o", "ClearAllForwardings=yes", "-o", "ExitOnForwardFailure=yes", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=/literal path", "operator@host"}
+	wantArguments := secureSSHArguments("/literal path", "operator@host")
 	if gotExecutable != "ssh" || fmt.Sprint(gotArguments) != fmt.Sprint(wantArguments) {
 		t.Fatalf("invocation = %q %#v", gotExecutable, gotArguments)
 	}
@@ -53,10 +54,64 @@ func TestRoundTripUsesDirectArgumentsAndExactHTTPFrame(t *testing.T) {
 	}
 }
 
+func TestRoundTripRejectsMissingOrChangedSecurityOptions(t *testing.T) {
+	base := secureSSHArguments("/known", "operator@host")
+	for name, mutate := range map[string]func([]string) []string{
+		"ambient config": func(arguments []string) []string { arguments[1] = "/tmp/ssh-config"; return arguments },
+		"proxy command": func(arguments []string) []string {
+			return replaceArgument(arguments, "ProxyCommand=none", "ProxyCommand=helper")
+		},
+		"proxy jump": func(arguments []string) []string {
+			return replaceArgument(arguments, "ProxyJump=none", "ProxyJump=jump")
+		},
+		"local command": func(arguments []string) []string {
+			return replaceArgument(arguments, "PermitLocalCommand=no", "PermitLocalCommand=yes")
+		},
+		"credential agent": func(arguments []string) []string {
+			return replaceArgument(arguments, "IdentityAgent=none", "IdentityAgent=SSH_AUTH_SOCK")
+		},
+		"interactive password": func(arguments []string) []string {
+			return replaceArgument(arguments, "PasswordAuthentication=no", "PasswordAuthentication=yes")
+		},
+		"extra argument": func(arguments []string) []string { return append(arguments, "uname") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			arguments := mutate(append([]string(nil), base...))
+			_, err := RoundTrip(context.Background(), Request{Executable: "ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
+			if err != ErrInvalid {
+				t.Fatalf("modified arguments error = %v", err)
+			}
+		})
+	}
+}
+
 func TestRoundTripRejectsAnyRemoteCommandArgument(t *testing.T) {
-	arguments := []string{"-T", "-o", "BatchMode=yes", "-o", "ClearAllForwardings=yes", "-o", "ExitOnForwardFailure=yes", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=/known", "operator@host", "uname"}
+	arguments := append(secureSSHArguments("/known", "operator@host"), "uname")
 	_, err := RoundTrip(context.Background(), Request{Executable: "ssh", Arguments: arguments, Method: localtransport.MethodGet, Path: "/api/v1/health", Timeout: time.Second, ResponseLimit: 32})
 	if err != ErrInvalid {
 		t.Fatalf("remote command error = %v", err)
 	}
+}
+
+func secureSSHArguments(knownHosts, destination string) []string {
+	return []string{
+		"-F", "none", "-T",
+		"-o", "AddKeysToAgent=no", "-o", "BatchMode=yes", "-o", "CanonicalizeHostname=no", "-o", "CheckHostIP=yes",
+		"-o", "ClearAllForwardings=yes", "-o", "ControlMaster=no", "-o", "EscapeChar=none", "-o", "ExitOnForwardFailure=yes",
+		"-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "GatewayPorts=no", "-o", "GlobalKnownHostsFile=none",
+		"-o", "HostbasedAuthentication=no", "-o", "IdentityAgent=none", "-o", "IdentitiesOnly=yes", "-o", "KbdInteractiveAuthentication=no",
+		"-o", "PasswordAuthentication=no", "-o", "PermitLocalCommand=no", "-o", "ProxyCommand=none", "-o", "ProxyJump=none",
+		"-o", "RemoteCommand=none", "-o", "RequestTTY=no", "-o", "StrictHostKeyChecking=yes", "-o", "UpdateHostKeys=no",
+		"-o", "UserKnownHostsFile=" + knownHosts, "-o", "VerifyHostKeyDNS=no", destination,
+	}
+}
+
+func replaceArgument(arguments []string, old, replacement string) []string {
+	for index := range arguments {
+		if arguments[index] == old {
+			arguments[index] = replacement
+			return arguments
+		}
+	}
+	panic("test argument not found: " + old)
 }

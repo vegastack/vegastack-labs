@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strings"
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
@@ -18,7 +17,10 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
-const maximumProfileBytes = 64 * 1024
+const (
+	maximumProfileBytes   = 64 * 1024
+	maximumKnownHostsSize = 4 << 20
+)
 
 var destinationPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+$`)
 
@@ -48,7 +50,7 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	if err != nil {
 		return serverconfig.Profile{}, false, nil
 	}
-	if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || (runtime.GOOS != "windows" && before.Mode().Perm()&0o077 != 0) || before.Size() < 1 || before.Size() > maximumProfileBytes {
+	if !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 1 || before.Size() > maximumProfileBytes {
 		return serverconfig.Profile{}, true, invalid()
 	}
 	file, err := os.Open(path)
@@ -74,6 +76,9 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 	if json.Unmarshal(content, &probe) != nil || probe.Schema != "vegastack-labs.dev/client-profile" {
 		return serverconfig.Profile{}, false, nil
 	}
+	if !trustedFile(opened) || !trustedFile(after) {
+		return serverconfig.Profile{}, true, invalid()
+	}
 	decoder := json.NewDecoder(bytes.NewReader(content))
 	decoder.DisallowUnknownFields()
 	var profile document
@@ -88,12 +93,68 @@ func Load(ctx context.Context, path string) (serverconfig.Profile, bool, error) 
 		!filepath.IsAbs(profile.Transport.KnownHostsPath) || filepath.Clean(profile.Transport.KnownHostsPath) != profile.Transport.KnownHostsPath {
 		return serverconfig.Profile{}, true, invalid()
 	}
-	arguments := []string{
-		"-T", "-o", "BatchMode=yes", "-o", "ClearAllForwardings=yes", "-o", "ExitOnForwardFailure=yes",
-		"-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=" + profile.Transport.KnownHostsPath,
-		profile.Transport.Destination,
+	if err := validateKnownHosts(profile.Transport.KnownHostsPath); err != nil {
+		return serverconfig.Profile{}, true, err
 	}
+	arguments := constrainedSSHArguments(profile.Transport.KnownHostsPath, profile.Transport.Destination)
 	return serverconfig.Profile{ConstrainedSSH: &serverconfig.ConstrainedSSH{Executable: profile.Transport.Executable, Arguments: arguments}}, true, nil
+}
+
+func validateKnownHosts(path string) error {
+	if len(path) < 2 || len(path) > 4096 || strings.ContainsRune(path, 0) || !filepath.IsAbs(path) || filepath.Clean(path) != path || path == string(filepath.Separator) {
+		return invalid()
+	}
+	before, err := os.Lstat(path)
+	if err != nil || !before.Mode().IsRegular() || before.Mode()&os.ModeSymlink != 0 || before.Size() < 1 || before.Size() > maximumKnownHostsSize || !trustedFile(before) {
+		return invalid()
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return invalid()
+	}
+	defer file.Close()
+	opened, err := file.Stat()
+	if err != nil || !os.SameFile(before, opened) || !trustedFile(opened) {
+		return invalid()
+	}
+	after, err := os.Lstat(path)
+	if err != nil || !os.SameFile(opened, after) || opened.Size() != after.Size() || !trustedFile(after) {
+		return invalid()
+	}
+	return nil
+}
+
+func constrainedSSHArguments(knownHosts, destination string) []string {
+	return []string{
+		"-F", "none", "-T",
+		"-o", "AddKeysToAgent=no",
+		"-o", "BatchMode=yes",
+		"-o", "CanonicalizeHostname=no",
+		"-o", "CheckHostIP=yes",
+		"-o", "ClearAllForwardings=yes",
+		"-o", "ControlMaster=no",
+		"-o", "EscapeChar=none",
+		"-o", "ExitOnForwardFailure=yes",
+		"-o", "ForwardAgent=no",
+		"-o", "ForwardX11=no",
+		"-o", "GatewayPorts=no",
+		"-o", "GlobalKnownHostsFile=none",
+		"-o", "HostbasedAuthentication=no",
+		"-o", "IdentityAgent=none",
+		"-o", "IdentitiesOnly=yes",
+		"-o", "KbdInteractiveAuthentication=no",
+		"-o", "PasswordAuthentication=no",
+		"-o", "PermitLocalCommand=no",
+		"-o", "ProxyCommand=none",
+		"-o", "ProxyJump=none",
+		"-o", "RemoteCommand=none",
+		"-o", "RequestTTY=no",
+		"-o", "StrictHostKeyChecking=yes",
+		"-o", "UpdateHostKeys=no",
+		"-o", "UserKnownHostsFile=" + knownHosts,
+		"-o", "VerifyHostKeyDNS=no",
+		destination,
+	}
 }
 
 func invalid() error { return failure.New(generated.ErrorCodeInputInvalid, "client-profile", false) }

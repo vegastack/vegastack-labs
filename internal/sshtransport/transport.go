@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,6 +39,8 @@ const (
 	maximumTimeout       = 30 * time.Second
 )
 
+var destinationPattern = regexp.MustCompile(`^[A-Za-z0-9._-]+@[A-Za-z0-9._:-]+$`)
+
 type boundedBuffer struct {
 	buffer bytes.Buffer
 	limit  int64
@@ -60,11 +63,7 @@ func RoundTrip(ctx context.Context, input Request) (localtransport.Response, err
 }
 
 func roundTrip(ctx context.Context, input Request, command commandFactory) (localtransport.Response, error) {
-	if ctx == nil || command == nil || (input.Executable != "ssh" && input.Executable != "ssh.exe") || len(input.Arguments) != 12 ||
-		input.Arguments[0] != "-T" || input.Arguments[1] != "-o" || input.Arguments[2] != "BatchMode=yes" ||
-		input.Arguments[3] != "-o" || input.Arguments[4] != "ClearAllForwardings=yes" || input.Arguments[5] != "-o" || input.Arguments[6] != "ExitOnForwardFailure=yes" ||
-		input.Arguments[7] != "-o" || input.Arguments[8] != "StrictHostKeyChecking=yes" || input.Arguments[9] != "-o" ||
-		!strings.HasPrefix(input.Arguments[10], "UserKnownHostsFile=") || input.Arguments[11] == "" ||
+	if ctx == nil || command == nil || (input.Executable != "ssh" && input.Executable != "ssh.exe") || !validArguments(input.Arguments) ||
 		input.Timeout <= 0 || input.Timeout > maximumTimeout || input.ResponseLimit <= 0 || input.ResponseLimit > maximumResponseBytes {
 		return localtransport.Response{}, ErrInvalid
 	}
@@ -106,4 +105,42 @@ func roundTrip(ctx context.Context, input Request, command commandFactory) (loca
 		return localtransport.Response{}, ErrInvalid
 	}
 	return localtransport.Response{StatusCode: response.StatusCode, ContentType: response.Header.Get("Content-Type"), Body: body}, nil
+}
+
+func validArguments(arguments []string) bool {
+	if len(arguments) < 5 {
+		return false
+	}
+	knownHostsArgument := arguments[len(arguments)-4]
+	destination := arguments[len(arguments)-1]
+	if !strings.HasPrefix(knownHostsArgument, "UserKnownHostsFile=") || !destinationPattern.MatchString(destination) || len(destination) > 255 {
+		return false
+	}
+	knownHosts := strings.TrimPrefix(knownHostsArgument, "UserKnownHostsFile=")
+	if knownHosts == "" {
+		return false
+	}
+	expected := constrainedArguments(knownHosts, destination)
+	if len(arguments) != len(expected) {
+		return false
+	}
+	for index := range expected {
+		if arguments[index] != expected[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func constrainedArguments(knownHosts, destination string) []string {
+	return []string{
+		"-F", "none", "-T",
+		"-o", "AddKeysToAgent=no", "-o", "BatchMode=yes", "-o", "CanonicalizeHostname=no", "-o", "CheckHostIP=yes",
+		"-o", "ClearAllForwardings=yes", "-o", "ControlMaster=no", "-o", "EscapeChar=none", "-o", "ExitOnForwardFailure=yes",
+		"-o", "ForwardAgent=no", "-o", "ForwardX11=no", "-o", "GatewayPorts=no", "-o", "GlobalKnownHostsFile=none",
+		"-o", "HostbasedAuthentication=no", "-o", "IdentityAgent=none", "-o", "IdentitiesOnly=yes", "-o", "KbdInteractiveAuthentication=no",
+		"-o", "PasswordAuthentication=no", "-o", "PermitLocalCommand=no", "-o", "ProxyCommand=none", "-o", "ProxyJump=none",
+		"-o", "RemoteCommand=none", "-o", "RequestTTY=no", "-o", "StrictHostKeyChecking=yes", "-o", "UpdateHostKeys=no",
+		"-o", "UserKnownHostsFile=" + knownHosts, "-o", "VerifyHostKeyDNS=no", destination,
+	}
 }

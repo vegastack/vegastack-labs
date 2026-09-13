@@ -878,6 +878,7 @@ func main(){ body,_:=io.ReadAll(os.Stdin); encoded,_:=json.Marshal(struct{Argume
     assert.equal(built.status, 0, built.stderr);
   }
   await writeFile(knownHostsPath, "control ssh-ed25519 synthetic\n");
+  await chmod(knownHostsPath, 0o600);
   await writeFile(profilePath, `${JSON.stringify({
     schema: "vegastack-labs.dev/client-profile", schemaVersion: "1.0.0",
     transport: { kind: "constrained-ssh", executable: "ssh", destination: "operator@control-plane", knownHostsPath },
@@ -892,8 +893,34 @@ func main(){ body,_:=io.ReadAll(os.Stdin); encoded,_:=json.Marshal(struct{Argume
   assert.deepEqual(result, { code: 0, stdout: envelope, stderr: "" });
   const recorded = JSON.parse(await readFile(capture, "utf8"));
   assert.deepEqual(recorded.arguments, [
-    "-T", "-o", "BatchMode=yes", "-o", "ClearAllForwardings=yes", "-o", "ExitOnForwardFailure=yes",
-    "-o", "StrictHostKeyChecking=yes", "-o", `UserKnownHostsFile=${knownHostsPath}`, "operator@control-plane",
+    "-F", "none", "-T",
+    "-o", "AddKeysToAgent=no",
+    "-o", "BatchMode=yes",
+    "-o", "CanonicalizeHostname=no",
+    "-o", "CheckHostIP=yes",
+    "-o", "ClearAllForwardings=yes",
+    "-o", "ControlMaster=no",
+    "-o", "EscapeChar=none",
+    "-o", "ExitOnForwardFailure=yes",
+    "-o", "ForwardAgent=no",
+    "-o", "ForwardX11=no",
+    "-o", "GatewayPorts=no",
+    "-o", "GlobalKnownHostsFile=none",
+    "-o", "HostbasedAuthentication=no",
+    "-o", "IdentityAgent=none",
+    "-o", "IdentitiesOnly=yes",
+    "-o", "KbdInteractiveAuthentication=no",
+    "-o", "PasswordAuthentication=no",
+    "-o", "PermitLocalCommand=no",
+    "-o", "ProxyCommand=none",
+    "-o", "ProxyJump=none",
+    "-o", "RemoteCommand=none",
+    "-o", "RequestTTY=no",
+    "-o", "StrictHostKeyChecking=yes",
+    "-o", "UpdateHostKeys=no",
+    "-o", `UserKnownHostsFile=${knownHostsPath}`,
+    "-o", "VerifyHostKeyDNS=no",
+    "operator@control-plane",
   ]);
   assert.equal(recorded.frame, "GET /api/v1/health HTTP/1.1\r\nHost: local\r\nUser-Agent: Go-http-client/1.1\r\nConnection: close\r\n\r\n");
 });
