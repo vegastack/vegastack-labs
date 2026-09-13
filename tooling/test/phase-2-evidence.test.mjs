@@ -44,6 +44,10 @@ test("later additive contracts do not rewrite accepted Phase 2 evidence", async 
   assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/consoleassets"));
   assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/adapter"));
   assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/run"));
+  assert.ok(facts.productionImports.includes("github.com/vegastack/vegastack-labs/internal/runprotocol"));
+  for (const command of ["apply", "plan", "run cancel", "run inspect", "run resume"]) {
+    assert.ok(facts.availableCommands.includes(command), command);
+  }
   facts.endpointIds.push("api.v1.future-read.get");
   facts.availableCommands.push("future read");
   facts.migrations.push({ file: "0005_future.sql", sha256: "future" });

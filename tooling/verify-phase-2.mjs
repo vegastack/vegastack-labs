@@ -22,6 +22,12 @@ const REVIEWED_POST_PHASE2_IMPORTS = new Set([
   `${MODULE_PREFIX}internal/credentialref`,
   `${MODULE_PREFIX}internal/plan`,
   `${MODULE_PREFIX}internal/run`,
+  // Issue #78 shares this pure provider-neutral ID protocol between the
+  // reviewed run engine and its thin local client. It adds no bypass path.
+  `${MODULE_PREFIX}internal/runprotocol`,
+]);
+const REVIEWED_POST_PHASE2_COMMANDS = new Set([
+  "apply", "plan", "run cancel", "run inspect", "run resume",
 ]);
 const CODE_ORDER = [
   "PHASE2_CHILD_INCOMPLETE",
@@ -291,8 +297,9 @@ export async function collectIntegratedFacts(root = ROOT) {
     endpointIds: endpoints.endpoints.map(({ id }) => id).sort(),
     migrations,
     productionExecutable: "cmd/vsk-labs",
-    mutationAvailable: commands.commands.some(({ availability, ownerPhase }) =>
-      availability === "available" && Number(ownerPhase) >= 4),
+    mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
+      availability === "available" && Number(ownerPhase) >= 4 &&
+      !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),
     productionImports,
     privateFixture,
     children,
