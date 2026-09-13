@@ -282,6 +282,30 @@ test("the local client boundary requires the Unix dial result itself", async (t)
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
+test("the local client boundary rejects transport mutation through pointer aliases", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import ("context"; "net"; "net/http")',
+    "type requestSpec struct { path string }",
+    "func Client(ctx context.Context, spec requestSpec, supplied net.Conn) error {",
+    "  dialer := &net.Dialer{}",
+    "  transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {",
+    '    return dialer.DialContext(ctx, "unix", "/run/vsk-labs/control.sock")',
+    "  }}",
+    "  alias := &transport",
+    "  (*alias).DialContext = func(context.Context, string, string) (net.Conn, error) { return supplied, nil }",
+    "  httpClient := &http.Client{Transport: transport}",
+    '  request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local"+spec.path, nil)',
+    "  if err != nil { return err }",
+    "  _, err = httpClient.Do(request)",
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
 test("the local client boundary rejects a provider SDK import", async (t) => {
   const root = await fixtureRepo(t, {
     ...localClientFixture([

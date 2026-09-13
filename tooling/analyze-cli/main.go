@@ -575,9 +575,13 @@ func reviewedLocalCallbackCall(expression ast.Expr, variable *types.Var, info *t
 }
 
 func typeNamed(value types.Type, packagePath, name string) bool {
-	value = types.Unalias(value)
-	if pointer, ok := value.(*types.Pointer); ok {
-		value = types.Unalias(pointer.Elem())
+	for {
+		value = types.Unalias(value)
+		pointer, ok := value.(*types.Pointer)
+		if !ok {
+			break
+		}
+		value = pointer.Elem()
 	}
 	named, ok := value.(*types.Named)
 	return ok && named.Obj() != nil && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == packagePath && named.Obj().Name() == name
