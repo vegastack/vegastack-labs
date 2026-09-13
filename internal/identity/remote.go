@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	principalmodel "github.com/vegastack/vegastack-labs/internal/principal"
 )
 
 const (
@@ -74,7 +75,7 @@ func BindingDigest(value VerifiedIdentity) (string, error) {
 }
 
 func ValidPrincipal(principal Principal) bool {
-	if !principalIDPattern.MatchString(principal.ID) || !ValidPrincipalKind(EffectivePrincipalKind(principal)) {
+	if !principalmodel.ValidID(principal.ID) || !ValidPrincipalKind(EffectivePrincipalKind(principal)) {
 		return false
 	}
 	switch principal.Method {

@@ -1,25 +1,19 @@
 package identity
 
-import "regexp"
+import "github.com/vegastack/vegastack-labs/internal/principal"
 
-type PrincipalKind string
+type PrincipalKind = principal.Kind
 
 const (
-	PrincipalHuman  PrincipalKind = "human"
-	PrincipalAgent  PrincipalKind = "agent"
-	PrincipalPolicy PrincipalKind = "policy"
+	PrincipalHuman  = principal.Human
+	PrincipalAgent  = principal.Agent
+	PrincipalPolicy = principal.Policy
 )
-
-var principalIDPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 
 // Principal is the bounded, provider-neutral identity used by authorization.
 // Kind may be empty for legacy interactive identities; those identities are
 // treated as human. Agent and policy identities must always be explicit.
-type Principal struct {
-	ID     string
-	Method string
-	Kind   PrincipalKind
-}
+type Principal = principal.Principal
 
 func EffectivePrincipalKind(principal Principal) PrincipalKind {
 	if principal.Kind == "" {

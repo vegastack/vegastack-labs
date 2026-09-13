@@ -227,7 +227,7 @@ test("the local client boundary rejects a provider SDK import", async (t) => {
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
-test("the local client boundary permits identity types but rejects its remote functions through helpers", async (t) => {
+test("the local client boundary rejects the identity package through helpers", async (t) => {
   const root = await fixtureRepo(t, {
     ...localClientFixture([
       "package localapi",
@@ -247,6 +247,20 @@ test("the local client boundary permits identity types but rejects its remote fu
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
+test("the local client boundary rejects even type-only identity imports", async (t) => {
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import "example.test/internal/identity"',
+      "var _ identity.Principal",
+      "",
+    ].join("\n")),
+    "internal/identity/types.go": "package identity\ntype Principal struct{}\n",
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
 test("the local client boundary rejects package functions hidden in variables", async (t) => {
   const root = await fixtureRepo(t, {
     ...localClientFixture([
@@ -255,6 +269,70 @@ test("the local client boundary rejects package functions hidden in variables", 
       "func Client() error {",
       "  fetch := identity.FetchRemote",
       "  return fetch()",
+      "}",
+      "",
+    ].join("\n")),
+    "internal/identity/remote.go": [
+      "package identity",
+      'import "net/http"',
+      'func FetchRemote() error { _, err := http.Get("https://identity.invalid"); return err }',
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects package functions hidden by a type assertion", async (t) => {
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import "example.test/internal/identity"',
+      "func Client() error {",
+      "  return any(identity.FetchRemote).(func() error)()",
+      "}",
+      "",
+    ].join("\n")),
+    "internal/identity/remote.go": [
+      "package identity",
+      'import "net/http"',
+      'func FetchRemote() error { _, err := http.Get("https://identity.invalid"); return err }',
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects package functions hidden by a named conversion", async (t) => {
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import "example.test/internal/identity"',
+      "type remote func() error",
+      "func Client() error {",
+      "  return remote(identity.FetchRemote)()",
+      "}",
+      "",
+    ].join("\n")),
+    "internal/identity/remote.go": [
+      "package identity",
+      'import "net/http"',
+      'func FetchRemote() error { _, err := http.Get("https://identity.invalid"); return err }',
+      "",
+    ].join("\n"),
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects reflective package function invocation", async (t) => {
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import ("reflect"; "example.test/internal/identity")',
+      "func Client() {",
+      "  reflect.ValueOf(identity.FetchRemote).Call(nil)",
       "}",
       "",
     ].join("\n")),

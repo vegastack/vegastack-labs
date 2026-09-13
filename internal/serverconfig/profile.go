@@ -14,7 +14,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
-	"github.com/vegastack/vegastack-labs/internal/identity"
+	"github.com/vegastack/vegastack-labs/internal/principal"
 )
 
 const maxProfileBytes = 64 * 1024
@@ -26,7 +26,7 @@ type Profile struct {
 	SocketGroupGID                   *uint32
 	SocketMode                       fs.FileMode
 	ShutdownGrace                    time.Duration
-	PrincipalBindings                []identity.Binding
+	PrincipalBindings                []principal.Binding
 	RemoteRead                       RemoteRead
 	AcknowledgementAdapterConfigPath string
 }
@@ -100,14 +100,14 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if len(input.PrincipalBindings) == 0 || len(input.PrincipalBindings) > 256 {
 		return invalid()
 	}
-	bindings := make([]identity.Binding, len(input.PrincipalBindings))
+	bindings := make([]principal.Binding, len(input.PrincipalBindings))
 	for index, binding := range input.PrincipalBindings {
 		if binding.UID < 0 || binding.UID > int64(^uint32(0)) {
 			return invalid()
 		}
-		bindings[index] = identity.Binding{UID: uint32(binding.UID), PrincipalID: binding.PrincipalID}
+		bindings[index] = principal.Binding{UID: uint32(binding.UID), PrincipalID: binding.PrincipalID}
 	}
-	if _, err := identity.NewLocalPrincipalResolver(bindings); err != nil {
+	if _, err := principal.NewLocalPrincipalResolver(bindings); err != nil {
 		return invalid()
 	}
 	remoteRead, err := convertRemoteRead(input.RemoteRead)
@@ -128,7 +128,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		SocketGroupGID:                   group,
 		SocketMode:                       mode,
 		ShutdownGrace:                    5 * time.Second,
-		PrincipalBindings:                append([]identity.Binding(nil), bindings...),
+		PrincipalBindings:                append([]principal.Binding(nil), bindings...),
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 	}, nil

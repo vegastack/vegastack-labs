@@ -446,7 +446,7 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		localAPIImport:                        true,
 		modulePath + "/internal/failure":      true,
 		modulePath + "/internal/generated":    true,
-		modulePath + "/internal/identity":     true,
+		modulePath + "/internal/principal":    true,
 		modulePath + "/internal/result":       true,
 		modulePath + "/internal/runprotocol":  true,
 		modulePath + "/internal/serverconfig": true,
@@ -476,7 +476,7 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 		return true
 	}
 	for _, imported := range candidate.listed.Imports {
-		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/url" || imported == "crypto/tls" {
+		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/url" || imported == "crypto/tls" || imported == "reflect" || imported == "unsafe" {
 			return false
 		}
 		if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") || approvedExternal(imported) {
@@ -504,14 +504,6 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 			function := calledFunction(call.Fun, candidate.info)
 			if function == nil || function.Pkg() == nil {
 				return true
-			}
-			// identity is intentionally a type-only dependency of the local socket
-			// listener. Its package also owns remote HTTPS identity adapters, so no
-			// localapi function may invoke it directly or through a same-package
-			// helper and accidentally give the portable client a remote route.
-			if function.Pkg().Path() == modulePath+"/internal/identity" {
-				valid = function.Name() == "ResolveLocalPeer" && receiverNamed(function, modulePath+"/internal/identity", "LocalPrincipalResolver")
-				return valid
 			}
 			switch function.Pkg().Path() {
 			case "net":
