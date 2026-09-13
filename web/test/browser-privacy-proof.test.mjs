@@ -1,10 +1,21 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { assertPrivacyEvidence, inspectTraceArchive } from "../e2e/browser-privacy-proof.mjs";
+
+test("traced browser traffic receives no authentication credentials", async () => {
+  const probe = await readFile(new URL("../e2e/real-change-server-probe.mjs", import.meta.url), "utf8");
+  assert.match(probe, /startCredentialProxy/);
+  assert.match(probe, /withoutCredentialHeaders\(incoming\.headers\)/);
+  assert.match(probe, /withoutCredentialHeaders\(response\.headers\)/);
+  assert.match(probe, /forbiddenBrowserEvidence\.push\(sessionCookie/);
+  assert.match(probe, /rm\(tracePath, \{ force: true \}\)/);
+  assert.doesNotMatch(probe, /route\.(?:continue|fetch)\(\{ headers: \{ \.\.\.route\.request\(\)\.headers, "Cf-Access-Jwt-Assertion"/);
+  assert.doesNotMatch(probe, /const headers = \{[^\n]+Cf-Access-Jwt-Assertion/);
+});
 
 function storedArchive(entries) {
   const localParts = [];
@@ -79,4 +90,26 @@ test("trace inspection excludes only the probe source that defines its canaries"
   ]));
   const inspected = await inspectTraceArchive(tracePath, ["private-proof-canary"]);
   assert.equal(inspected.entries, 4);
+});
+
+test("trace inspection rejects credential headers without matching ordinary UI words", async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "vsk-browser-privacy-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const safeTrace = path.join(directory, "safe.zip");
+  await writeFile(safeTrace, storedArchive([
+    ["trace.trace", '{"type":"frame-snapshot","text":"Authorization is current"}'],
+    ["trace.network", '{"type":"resource-snapshot","request":{"headers":[{"name":"Accept","value":"application/json"}]}}'],
+    ["resources/page.html", "safe browser content"],
+  ]));
+  await inspectTraceArchive(safeTrace, [], ["Authorization", "Cookie", "Set-Cookie", "Cf-Access-Jwt-Assertion"]);
+  const unsafeTrace = path.join(directory, "unsafe.zip");
+  await writeFile(unsafeTrace, storedArchive([
+    ["trace.trace", '{"type":"frame-snapshot"}'],
+    ["trace.network", '{"type":"resource-snapshot","request":{"headers":[{"name":"Cookie","value":"private"}]}}'],
+    ["resources/page.html", "safe browser content"],
+  ]));
+  await assert.rejects(
+    inspectTraceArchive(unsafeTrace, [], ["Authorization", "Cookie", "Set-Cookie", "Cf-Access-Jwt-Assertion"]),
+    /credential header reached trace entry trace\.network/,
+  );
 });

@@ -49,19 +49,21 @@ type phase3AcceptanceFixture struct {
 }
 
 type phase3ExecutableFixture struct {
-	t              *testing.T
-	baseURL        string
-	controllerURL  string
-	assertion      string
-	profile        serverconfig.Profile
-	configPath     string
-	binaryPath     string
-	providerOnline atomic.Bool
-	keyServer      *httptest.Server
-	command        *exec.Cmd
-	done           chan error
-	serverStdout   *boundedProbeOutput
-	serverStderr   *boundedProbeOutput
+	t               *testing.T
+	baseURL         string
+	controllerURL   string
+	assertion       string
+	profile         serverconfig.Profile
+	configPath      string
+	binaryPath      string
+	providerOnline  atomic.Bool
+	keyServer       *httptest.Server
+	command         *exec.Cmd
+	done            chan error
+	serverStdout    *boundedProbeOutput
+	serverStderr    *boundedProbeOutput
+	certificatePath string
+	privateKeyPath  string
 }
 
 func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
@@ -107,6 +109,8 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 	seedPhase3SourceGrants(t, databasePath, now)
 	seedPhase4ConsoleGrants(t, databasePath, now)
 	certificatePath, keyPath := writeRemoteTestCertificate(t)
+	fixture.certificatePath = certificatePath
+	fixture.privateKeyPath = keyPath
 	reserved, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		t.Fatal(err)
@@ -635,6 +639,8 @@ func TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary(t *testing
 		"VSK_PHASE3_BASE_URL="+fixture.baseURL,
 		"VSK_PHASE3_CONTROLLER_URL="+fixture.controllerURL,
 		"VSK_PHASE3_ASSERTION="+fixture.assertion,
+		"VSK_PHASE4_PROXY_CERTIFICATE="+fixture.certificatePath,
+		"VSK_PHASE4_PROXY_PRIVATE_KEY="+fixture.privateKeyPath,
 	)
 	stdout := &boundedProbeOutput{limit: 16 * 1024}
 	stderr := &boundedProbeOutput{limit: 512}

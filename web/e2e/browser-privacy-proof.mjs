@@ -14,6 +14,30 @@ export function assertPrivacyEvidence(value, needles, surface) {
   }
 }
 
+function assertCredentialHeadersAbsent(value, forbiddenHeaders, surface) {
+  const forbidden = new Set(forbiddenHeaders.map(name => name.toLowerCase()));
+  if (forbidden.size === 0) return;
+  const visit = candidate => {
+    if (Array.isArray(candidate)) {
+      for (const item of candidate) visit(item);
+      return;
+    }
+    if (!candidate || typeof candidate !== "object") return;
+    if (typeof candidate.name === "string" && forbidden.has(candidate.name.toLowerCase())) throw new Error(`credential header reached ${surface}`);
+    for (const [name, item] of Object.entries(candidate)) {
+      if (forbidden.has(name.toLowerCase())) throw new Error(`credential header reached ${surface}`);
+      visit(item);
+    }
+  };
+  for (const line of value.toString("utf8").split("\n")) {
+    if (!line.trim().startsWith("{")) continue;
+    try { visit(JSON.parse(line)); } catch (error) {
+      if (error instanceof SyntaxError) continue;
+      throw error;
+    }
+  }
+}
+
 export async function installCanvasTextCapture(context) {
   await context.addInitScript(() => {
     const evidence = [];
@@ -127,7 +151,7 @@ function traceEntries(archive) {
   return entries;
 }
 
-export async function inspectTraceArchive(tracePath, needles) {
+export async function inspectTraceArchive(tracePath, needles, forbiddenHeaders = []) {
   const entries = traceEntries(await readFile(tracePath));
   const names = entries.map(entry => entry.name);
   if (!names.some(name => name.endsWith("trace.trace")) || !names.some(name => name.endsWith("trace.network")) || !names.some(name => name.startsWith("resources/"))) {
@@ -139,6 +163,7 @@ export async function inspectTraceArchive(tracePath, needles) {
   for (const entry of entries) {
     if (entry.name.startsWith("src/")) continue;
     assertPrivacyEvidence(entry.body, needles, `trace entry ${entry.name}`);
+    assertCredentialHeadersAbsent(entry.body, forbiddenHeaders, `trace entry ${entry.name}`);
   }
   return { entries: entries.length, names };
 }

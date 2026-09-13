@@ -1,19 +1,23 @@
 import { chromium } from "@playwright/test";
 import axe from "axe-core";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { createServer as createSecureServer, request as secureRequest } from "node:https";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { assertPrivacyEvidence, assertShippedVisualAssetsSafe, captureVisibleBrowserEvidence, inspectTraceArchive, installCanvasTextCapture } from "./browser-privacy-proof.mjs";
 
-const baseURL = process.env.VSK_PHASE3_BASE_URL;
+const upstreamBaseURL = process.env.VSK_PHASE3_BASE_URL;
 const controllerURL = process.env.VSK_PHASE3_CONTROLLER_URL;
 const assertion = process.env.VSK_PHASE3_ASSERTION;
+const proxyCertificatePath = process.env.VSK_PHASE4_PROXY_CERTIFICATE;
+const proxyPrivateKeyPath = process.env.VSK_PHASE4_PROXY_PRIVATE_KEY;
 const fullLoop = process.env.VSK_PHASE4_FULL_LOOP === "1";
 const privateCanaries = ["subject-real-browser", "human.console", "authority.console", "server-owned-console-nonce"];
 const protectedBrowserFields = ["humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId", "createdBy", "agentSessionId", "authorizationDecisionId", "executorBindingDigest", "effectState", "requestId", "correlationId"];
-const forbiddenBrowserEvidence = [...privateCanaries, ...protectedBrowserFields];
+const credentialHeaderEvidence = ["Authorization", "Cookie", "Set-Cookie", "Cf-Access-Jwt-Assertion"];
+const forbiddenBrowserEvidence = [...privateCanaries, ...protectedBrowserFields, assertion];
 let browserConsole = [];
 let droppedBrowserExecuteResponse = false;
 
@@ -60,7 +64,52 @@ async function assertSafeBrowserResponse(response, surface) {
 	assertBrowserSafe(body.toString(), surface);
 }
 
-if (!baseURL || !controllerURL || !assertion) throw new Error("phase 4 fixture inputs are required");
+if (!upstreamBaseURL || !controllerURL || !assertion || !proxyCertificatePath || !proxyPrivateKeyPath) throw new Error("phase 4 fixture inputs are required");
+
+function withoutCredentialHeaders(headers) {
+	const safe = { ...headers };
+	for (const name of Object.keys(safe)) {
+		if (["authorization", "cookie", "set-cookie", "cf-access-jwt-assertion"].includes(name.toLowerCase())) delete safe[name];
+	}
+	return safe;
+}
+
+async function startCredentialProxy() {
+	let sessionCookie = "";
+	const server = createSecureServer({ cert: await readFile(proxyCertificatePath), key: await readFile(proxyPrivateKeyPath) }, (incoming, outgoing) => {
+		const target = new URL(incoming.url ?? "/", upstreamBaseURL);
+		const headers = withoutCredentialHeaders(incoming.headers);
+		headers.host = target.host;
+		if (headers.origin) headers.origin = upstreamBaseURL;
+		headers["cf-access-jwt-assertion"] = assertion;
+		if (sessionCookie && target.pathname !== "/api/v1/session") headers.cookie = sessionCookie;
+		const upstream = secureRequest(target, { method: incoming.method, headers, rejectUnauthorized: false }, response => {
+			const issued = response.headers["set-cookie"]?.[0]?.split(";", 1)[0];
+			if (issued) sessionCookie = issued;
+			outgoing.writeHead(response.statusCode ?? 502, withoutCredentialHeaders(response.headers));
+			response.pipe(outgoing);
+		});
+		upstream.on("error", () => {
+			if (!outgoing.headersSent) outgoing.writeHead(502, { "Content-Type": "text/plain" });
+			outgoing.end("test proxy upstream unavailable");
+		});
+		incoming.pipe(upstream);
+	});
+	await new Promise((resolve, reject) => {
+		server.once("error", reject);
+		server.listen(0, "127.0.0.1", () => { server.off("error", reject); resolve(); });
+	});
+	const address = server.address();
+	if (!address || typeof address === "string") throw new Error("test credential proxy did not bind");
+	return {
+		url: `https://127.0.0.1:${address.port}`,
+		sessionCookie: () => sessionCookie,
+		close: () => new Promise(resolve => server.close(resolve)),
+	};
+}
+
+const credentialProxy = await startCredentialProxy();
+const baseURL = credentialProxy.url;
 
 const browser = await chromium.launch({ headless: true, args: ["--ignore-certificate-errors"] });
 let stage = "session";
@@ -88,7 +137,7 @@ try {
 				body: JSON.stringify({ runId: durableRunId(execution[1], requestBody.idempotencyKey) }),
 			});
 			if (!runGrant.ok) throw new Error("browser run fixture grant failed");
-			const response = await route.fetch({ headers: { ...route.request().headers(), "Cf-Access-Jwt-Assertion": assertion } });
+			const response = await route.fetch();
 			const body = await response.body();
 			assertBrowserSafe(body.toString(), "browser execute response");
 			if (fullLoop && !droppedBrowserExecuteResponse) {
@@ -100,7 +149,7 @@ try {
 			return;
 		}
 		if (/^\/api\/v1\/declarations\/declaration-browser(?:-cancel)?\/plans$/.test(target.pathname) && route.request().method() === "POST") {
-			const response = await route.fetch({ headers: { ...route.request().headers(), "Cf-Access-Jwt-Assertion": assertion } });
+			const response = await route.fetch();
 			const body = await response.body();
 			assertBrowserSafe(body.toString(), "browser plan response");
 			const payload = JSON.parse(body.toString());
@@ -110,9 +159,9 @@ try {
 			await route.fulfill({ status: response.status(), headers: response.headers(), body });
 			return;
 		}
-    await route.continue({ headers: { ...route.request().headers(), "Cf-Access-Jwt-Assertion": assertion } });
+    await route.continue();
   });
-  const headers = { Origin: baseURL, "Content-Type": "application/json", "Cf-Access-Jwt-Assertion": assertion };
+  const headers = { Origin: baseURL, "Content-Type": "application/json" };
   let session;
   for (let attempt = 0; attempt < 100; attempt += 1) {
     try {
@@ -122,6 +171,9 @@ try {
     await new Promise(resolve => setTimeout(resolve, 20));
   }
   if (!session || session.status() !== 200) throw new Error("session bootstrap failed");
+	const sessionCookie = credentialProxy.sessionCookie();
+	if (!sessionCookie.includes("=")) throw new Error("test credential proxy did not retain the server session");
+	forbiddenBrowserEvidence.push(sessionCookie, sessionCookie.slice(sessionCookie.indexOf("=") + 1));
 
 	async function request(method, path, data) {
     const response = await context.request.fetch(`${baseURL}${path}`, { method, headers, data });
@@ -529,7 +581,8 @@ try {
 		stage = "browser-trace-privacy";
 		await context.tracing.stop({ path: tracePath });
 		traceStarted = false;
-		await inspectTraceArchive(tracePath, forbiddenBrowserEvidence);
+		await inspectTraceArchive(tracePath, forbiddenBrowserEvidence, credentialHeaderEvidence);
+		await Promise.all([rm(tracePath, { force: true }), rm(screenshotPath, { force: true })]);
 	}
 
   process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "phase-4-real-change-server", status: "pass" })}\n`);
@@ -538,5 +591,7 @@ try {
   process.exitCode = 1;
 } finally {
 	if (traceStarted && context) await context.tracing.stop({ path: tracePath }).catch(() => undefined);
+	await Promise.all([rm(tracePath, { force: true }), rm(screenshotPath, { force: true })]);
   await browser.close();
+	await credentialProxy.close();
 }
