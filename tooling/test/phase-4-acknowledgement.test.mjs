@@ -50,6 +50,6 @@ test("remote admission does not add acknowledgement mutation", async () => {
   const router = await read("internal/api/router.go");
   assert.doesNotMatch(router, /remoteSessionEndpoints[\s\S]{0,300}acknowledgement/);
   assert.doesNotMatch(router, /remoteExecutorEndpoints[\s\S]{0,300}acknowledgement/);
-  assert.match(router, /remoteWrite := remoteSessionEndpoints\[endpoint\.ID\] \|\| \(executorAudience && remoteExecutorEndpoints\[endpoint\.ID\]\)/);
+  assert.match(router, /remoteWrite := remoteSessionEndpoints\[endpoint\.ID\] \|\| \(browserAudience && remoteBrowserWriteEndpoints\[endpoint\.ID\]\) \|\| \(executorAudience && remoteExecutorEndpoints\[endpoint\.ID\]\)/);
   assert.match(router, /method != http\.MethodGet && !remoteWrite/);
 });
