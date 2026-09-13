@@ -12,7 +12,15 @@ const FORBIDDEN_NAMES = new Set([
   "server-artifact.json",
 ]);
 const FORBIDDEN_BUILD_MARKERS = ["axe-core", "MPL-2.0", "Mozilla Public License"];
-const FORBIDDEN_APPROVAL_FIELDS = ["humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId"];
+const FORBIDDEN_APPROVAL_FIELDS = [
+  "humanId",
+  "authorityId",
+  "nonceDigest",
+  "proofDigest",
+  "acknowledgementId",
+  "authorizationDecisionId",
+  "executorBindingDigest",
+];
 const EXPECTED_BUILD_ID = "vegastack-console-v1";
 
 async function walk(directory) {
@@ -80,7 +88,7 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
       ["services.html", "Loading Services status"],
       ["backups.html", "Loading Backups status"],
       ["providers.html", "Loading Providers status"],
-      ["changes.html", "Loading Changes"],
+      ["changes.html", "No declaration open"],
     ]);
     for (const [route, marker] of routeMarkers) {
       const html = await readFile(path.join(output, route), "utf8");

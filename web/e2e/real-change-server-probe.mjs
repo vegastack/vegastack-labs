@@ -33,7 +33,10 @@ try {
   async function request(method, path, data) {
     const response = await context.request.fetch(`${baseURL}${path}`, { method, headers, data });
     const text = await response.text();
-    if (/humanId|authorityId|nonce(?:Digest)?|proofDigest|acknowledgementId/.test(text)) throw new Error("protected approval material was disclosed");
+    if (/humanId|authorityId|nonce(?:Digest)?|proofDigest|acknowledgementId/.test(text)) {
+      stage = `${stage}-disclosure`;
+      throw new Error("protected approval material was disclosed");
+    }
     let body;
     try { body = JSON.parse(text); } catch { throw new Error("server response was not JSON"); }
     return { status: response.status(), body };
@@ -81,7 +84,24 @@ try {
     extensions: [],
   });
   const plan = planResult.body?.data;
-  if (planResult.status !== 200 || !/^plan-[a-f0-9]{32}$/.test(plan?.planId ?? "") || plan?.binding?.stateRevision !== 2 || plan?.status !== "planned") throw new Error("exact plan creation failed");
+  if (planResult.status !== 200) {
+    const code = planResult.body?.errors?.[0]?.code;
+    if (code === "AUTHORIZATION_DENIED") stage = "create-plan-authorization";
+    else if (code === "STATE_CONFLICT") stage = "create-plan-conflict";
+    else if (code === "INPUT_INVALID") {
+      const target = planResult.body?.errors?.[0]?.target;
+      if (target === "plan") stage = "create-plan-input-plan";
+      else if (target === "desired-declaration") stage = "create-plan-input-declaration";
+      else if (typeof target === "string" && /^[a-z-]{1,32}$/.test(target)) stage = `create-plan-input-${target}`;
+      else stage = "create-plan-input";
+    }
+    else if (code === "INTEGRITY_FAILURE") stage = "create-plan-integrity";
+    else stage = "create-plan-response";
+    throw new Error("exact plan creation failed");
+  }
+  if (!/^plan-[a-f0-9]{32}$/.test(plan?.planId ?? "")) { stage = "create-plan-identity"; throw new Error("exact plan creation failed"); }
+  if (plan?.binding?.stateRevision !== 2) { stage = "create-plan-state"; throw new Error("exact plan creation failed"); }
+  if (plan?.status !== "planned") { stage = "create-plan-status"; throw new Error("exact plan creation failed"); }
 
   stage = "plan-grant";
   const granted = await fetch(`${controllerURL}/grant-plan`, {
@@ -96,8 +116,21 @@ try {
   if (storedPlan.status !== 200 || JSON.stringify(storedPlan.body?.data) !== JSON.stringify(plan)) throw new Error("stored exact plan changed");
 
   stage = "protected-approval-route";
-  const rawApproval = await request("POST", `/api/v1/plans/${plan.planId}/acknowledgements`, {});
-  if (rawApproval.status !== 404) throw new Error("browser reached protected acknowledgement route");
+  const rawApproval = await context.request.post(`${baseURL}/api/v1/plans/${plan.planId}/acknowledgements`, { headers, data: {} });
+  const rawApprovalText = await rawApproval.text();
+  if (/humanId|authorityId|nonce(?:Digest)?|proofDigest|acknowledgementId/.test(rawApprovalText)) {
+    stage = "protected-approval-disclosure";
+    throw new Error("protected approval material was disclosed");
+  }
+  if (rawApproval.status() !== 404) {
+    if (rawApproval.status() === 403) stage = "protected-approval-forbidden";
+    else if (rawApproval.status() === 401) stage = "protected-approval-unauthorized";
+    else if (rawApproval.status() === 400) stage = "protected-approval-input";
+    else if (rawApproval.status() === 405) stage = "protected-approval-method";
+    else if (rawApproval.status() === 200) stage = "protected-approval-reached";
+    else if (rawApproval.status() >= 500) stage = "protected-approval-server";
+    throw new Error("browser reached protected acknowledgement route");
+  }
 
   stage = "approval-status-empty";
   const emptyStatus = await request("GET", `/api/v1/plans/${plan.planId}/approval-status`);

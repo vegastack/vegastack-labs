@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — Operators can complete a safe change from the Console ([#79](https://github.com/vegastack/vegastack-labs/issues/79))
+
+- **What:** The embedded Console now has one Changes workspace for saving a declaration, preparing and reviewing its exact plan, requesting Slack approval, applying it, and recovering an interrupted run. Approval and run views show only the safe status needed for the next operator action.
+- **Why:** Browser operators needed the same declaration, plan, approval, and durable-run workflow already owned by the Go server and CLI, without creating a second policy engine or exposing private proof material.
+- **How it went:** Real Linux, SQLite, TLS, and Chromium testing exposed that an empty declaration extension list became JSON `null` during plan commit and that a protected plain-404 route needed a denial-specific probe instead of the normal JSON response helper. Both were corrected, and the complete approved resume/cancel loop passed with the race detector.
+- **Changed:** Changes workspace · generated declaration/plan/run client · server-owned Slack approval request and safe status projection · browser-safe run projection · exact remote mutation allowlist · interrupted-run recovery dialog · static, Chromium, and native Linux acceptance proof.
+- **Decisions:** none; policy, acknowledgement proof, human and authority identity, nonce, authorization correlation, executor binding, claims, receipts, SQLite, and provider access remain server-only.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.8-console-change-workflow
+
 ## 13-09-2026 — Operators can plan, apply, and recover runs from one CLI ([#78](https://github.com/vegastack/vegastack-labs/issues/78))
 
 - **What:** `vsk-labs` now creates an inert immutable plan from one exact declaration revision, applies one named plan, and inspects, cancels, or resumes one durable run through the server API. Human output and raw JSON carry the same plan digest, targets, approval requirement, run progress, verification, rollback, and next safe action without prompting.

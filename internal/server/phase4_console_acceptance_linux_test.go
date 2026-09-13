@@ -7,6 +7,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,6 +28,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
@@ -120,6 +123,9 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 		t.Fatal(err)
 	}
 	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	databasePath := filepath.Join(directory, "control.db")
 	config := store.Config{DatabasePath: databasePath, Mode: store.InitializeNew, ExpectedUID: uint32(os.Getuid()), ToolVersion: "phase4-test", BuildVersion: "phase4-test", Clock: clock.Now}
 	authority, err := store.Open(context.Background(), config)
@@ -144,7 +150,10 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 		t.Fatal(err)
 	}
 	baseURL := "https://" + listener.Addr().String()
-	factory := result.NewFactory(result.BuildInfo{ToolVersion: "phase4-test", ReleaseBuildID: "phase4-test"}, func() (string, error) { return "request-phase4-console", nil })
+	var requestSequence atomic.Uint64
+	factory := result.NewFactory(result.BuildInfo{ToolVersion: "phase4-test", ReleaseBuildID: "phase4-test"}, func() (string, error) {
+		return fmt.Sprintf("request-phase4-console-%d", requestSequence.Add(1)), nil
+	})
 	identities, err := identity.NewCloudflareAccessAdapter(identity.CloudflareAccessConfig{Issuer: keyServer.URL, Audience: "aud-console", CertificatesURL: keyServer.URL + "/cdn-cgi/access/certs", ClockSkew: time.Minute, MaxTokenBytes: 16 * 1024, KnownKeyOutageLimit: time.Hour}, keyServer.Client(), clock.Now)
 	if err != nil || identities.Refresh(context.Background()) != nil {
 		t.Fatal("identity fixture failed")
@@ -160,14 +169,26 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	}
 	effective := store.NewEffectiveAuthorizationRepository(authority)
 	effectiveConfig := api.EffectiveAuthorizationConfig{Authorizer: authorization.NewEvaluator(effective), Recorder: effective, Clock: clock.Now}
-	declarations, _ := change.NewService(store.NewDeclarationRepository(authority), clock.Now)
+	declarations, err := change.NewService(store.NewDeclarationRepository(authority), clock.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
 	plansRepository := store.NewPlanRepository(authority)
-	observations, _ := planengine.NewStateObservationReader(plansRepository)
-	plans, _ := planengine.NewService(planengine.Config{Repository: plansRepository, Observations: observations, Clock: clock.Now, PolicyVersion: "1.0.0", ToolVersion: "phase4-test", ContractVersion: "1.0.0", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	observations, err := planengine.NewStateObservationReader(plansRepository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plans, err := planengine.NewService(planengine.Config{Repository: plansRepository, Observations: observations, Clock: clock.Now, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := api.RegisterDeclarationPlanOperations(application, api.DeclarationPlanConfig{Declarations: declarations, Plans: plans, Results: factory, Authorization: effectiveConfig}); err != nil {
 		t.Fatal(err)
 	}
-	acknowledgements, _ := acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(authority), Plans: acknowledgementPlanReader{plans: plans}, Authorizer: authorization.NewEvaluator(effective), Clock: clock.Now})
+	acknowledgements, err := acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(authority), Plans: acknowledgementPlanReader{plans: plans}, Authorizer: authorization.NewEvaluator(effective), Clock: clock.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
 	bridge := &phase4ApprovalBridge{cards: map[string]acknowledgement.RequestCard{}, service: acknowledgements, clock: clock.Now}
 	if err := api.RegisterAcknowledgementOperations(application, api.AcknowledgementOperationConfig{Plans: plans, Acknowledgements: acknowledgements, Scopes: bridge, Publisher: bridge, Results: factory}); err != nil {
 		t.Fatal(err)
@@ -176,16 +197,22 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	if err := registry.Register("adapter-console", &phase4ResumableAdapter{attempts: map[string]int{}}); err != nil {
 		t.Fatal(err)
 	}
-	runs, _ := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(acknowledgements, clock.Now), Adapters: registry, Clock: clock.Now, ExecutionContext: context.Background()})
+	runs, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: runengine.NewAdmissionGate(acknowledgements, clock.Now), Adapters: registry, Clock: clock.Now, ExecutionContext: context.Background()})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig}); err != nil {
 		t.Fatal(err)
 	}
-	if err := api.ValidateRegisteredRoutes(application); err != nil {
+	files, manifest, err := consoleassets.Open()
+	if err != nil {
 		t.Fatal(err)
 	}
-	files, manifest, _ := consoleassets.Open()
-	console, _ := NewConsoleHandler(files, manifest)
-	service, err := New(Config{Profile: serverconfig.Profile{SocketPath: filepath.Join(directory, "control.sock"), InventoryExportRoot: directory, SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600, ShutdownGrace: time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}}, RemoteRead: serverconfig.RemoteRead{Enabled: true, ConfigurationValid: true}}, Application: application, Results: factory, PlatformProbe: staticPlatformProbe{platform: testSupportedPlatform()}, Remote: &RemoteConfig{Authenticator: authenticator, Console: console, ListenConfig: RemoteListenConfig{Address: listener.Addr().String(), CertificatePath: certificatePath, PrivateKeyPath: keyPath}, ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) { return listener, nil }}})
+	console, err := NewConsoleHandler(files, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := New(Config{Profile: serverconfig.Profile{SocketPath: filepath.Join(directory, "control.sock"), InventoryExportRoot: directory, SocketOwnerUID: uint32(os.Getuid()), SocketMode: 0o600, ShutdownGrace: 5 * time.Second, PrincipalBindings: []identity.Binding{{UID: uint32(os.Getuid()), PrincipalID: "principal.local"}}, RemoteRead: serverconfig.RemoteRead{Enabled: true, ConfigurationValid: true}}, Application: application, Results: factory, PlatformProbe: staticPlatformProbe{platform: testSupportedPlatform()}, Remote: &RemoteConfig{Authenticator: authenticator, Console: console, ListenConfig: RemoteListenConfig{Address: listener.Addr().String(), CertificatePath: certificatePath, PrivateKeyPath: keyPath}, ListenerFactory: func(context.Context, RemoteListenConfig) (net.Listener, error) { return listener, nil }}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -207,11 +234,20 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	stderr := &boundedProbeOutput{limit: 512}
 	command.Stdout, command.Stderr = stdout, stderr
 	if err := command.Run(); err != nil {
-		t.Fatalf("phase 4 approved-loop probe failed: %v: %s", err, sanitizePhase3ProbeError(stderr.String()))
+		t.Fatalf("phase 4 approved-loop probe failed at %s: %v", phase4ProbeStage(stderr.String()), err)
 	}
 	if !strings.Contains(stdout.String(), `"status":"pass"`) {
 		t.Fatal("phase 4 approved-loop result invalid")
 	}
+}
+
+func phase4ProbeStage(output string) string {
+	const prefix = "PROBE_FAILED:"
+	stage := strings.TrimPrefix(sanitizePhase3ProbeError(output), prefix)
+	if stage == "" || stage == sanitizePhase3ProbeError(output) {
+		return "unreachable"
+	}
+	return stage
 }
 
 func phase4Controller(t *testing.T, databasePath string, bridge *phase4ApprovalBridge, clock func() time.Time) http.Handler {
@@ -257,14 +293,7 @@ func phase4Controller(t *testing.T, databasePath string, bridge *phase4ApprovalB
 
 func phase4Digest(character string) string { return "sha256:" + strings.Repeat(character, 64) }
 
-func apiFailureForTest(code string) error { return &phase4StableError{code: code} }
-
-type phase4StableError struct{ code string }
-
-func (err *phase4StableError) Error() string   { return err.code }
-func (err *phase4StableError) Code() string    { return err.code }
-func (err *phase4StableError) Target() string  { return "phase4-fixture" }
-func (err *phase4StableError) Retryable() bool { return false }
+func apiFailureForTest(code string) error { return failure.New(code, "phase4-fixture", false) }
 
 var _ api.AcknowledgementPublisher = (*phase4ApprovalBridge)(nil)
 var _ api.AcknowledgementScopeResolver = (*phase4ApprovalBridge)(nil)

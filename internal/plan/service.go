@@ -174,7 +174,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	desired.CreatedBy = author.PrincipalID
 	desired.AgentSessionID = author.AgentSessionID
 	desired.Operations = declarationOperations
-	desired.Extensions = append([]generated.ContractExtension(nil), declaration.Extensions...)
+	desired.Extensions = append(make([]generated.ContractExtension, 0, len(declaration.Extensions)), declaration.Extensions...)
 	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: service.config.Risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
 	readable := readablePlan(candidate)
 	candidate.ReadableDigest = sha([]byte(readable))
