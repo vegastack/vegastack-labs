@@ -51,6 +51,23 @@ test("the read API verifier requires the exact authorized run read endpoint", as
   assert.ok(result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
 });
 
+test("the read API verifier requires every exact executor protocol endpoint", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  for (const id of [
+    "api.v1.executor-leases.claim",
+    "api.v1.executor-leases.renew",
+    "api.v1.execution-receipts.create",
+  ]) {
+    const copy = structuredClone(registry);
+    copy.endpoints = copy.endpoints.filter((endpoint) => endpoint.id !== id);
+    const root = await fixtureRepo(t, {
+      "schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`,
+    });
+    const result = await verifyReadAPI(root);
+    assert.ok(result.codes.includes("READ_API_ENDPOINT_DRIFT"), `${id}: ${JSON.stringify(result)}`);
+  }
+});
+
 test("the read API verifier rejects query-before-authorization and offset SQL", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/api/handler.go": "package api\nfunc handle(r *http.Request) { _ = r.URL.Query(); AuthorizeRead(r.Context()) }\n",

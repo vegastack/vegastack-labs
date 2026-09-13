@@ -126,11 +126,16 @@ func NewBrowserHandler(apiHandler, staticHandler http.Handler, authenticator *Br
 		}
 		apiHandler.ServeHTTP(writer, request)
 	})
-	protectedAPI := authenticator.Wrap(remoteAPI)
+	protectedBrowserAPI := authenticator.Wrap(remoteAPI)
+	protectedExecutorAPI := authenticator.WrapExecutor(remoteAPI)
 	protectedAssets := authenticator.WrapAssets(staticHandler)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if request.URL.Path == "/api" || strings.HasPrefix(request.URL.Path, "/api/") {
-			protectedAPI.ServeHTTP(writer, request)
+			if api.RemoteExecutorRequestAllowed(request.Method, request.URL.Path) {
+				protectedExecutorAPI.ServeHTTP(writer, request)
+			} else {
+				protectedBrowserAPI.ServeHTTP(writer, request)
+			}
 			return
 		}
 		protectedAssets.ServeHTTP(writer, request)

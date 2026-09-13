@@ -38,6 +38,9 @@ type browserSessionStore struct {
 func (sessions *browserSessionStore) ResolveRemoteIdentity(context.Context, string) (identity.Principal, error) {
 	return sessions.principal, nil
 }
+func (sessions *browserSessionStore) ResolveExternalIdentity(context.Context, string) (identity.Principal, error) {
+	return sessions.principal, nil
+}
 func (sessions *browserSessionStore) CreateBrowserSession(context.Context, store.BrowserSessionCreate) (store.BrowserSession, string, error) {
 	sessions.creates.Add(1)
 	return sessions.session, sessions.raw, nil

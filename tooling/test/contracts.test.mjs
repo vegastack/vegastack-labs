@@ -69,6 +69,9 @@ test("Phase 4 validators and browser decoders remain generator-owned", async () 
             "api.v1.runs.get",
             "api.v1.runs.cancel",
             "api.v1.runs.resume",
+            "api.v1.executor-leases.claim",
+            "api.v1.executor-leases.renew",
+            "api.v1.execution-receipts.create",
           ].includes(endpoint.id),
       )
       .every((endpoint) => endpoint.availability === "planned"),

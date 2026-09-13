@@ -695,7 +695,14 @@ func findStep(run *generated.Run, stepID string) *generated.RunStep {
 
 func verifyStoredReceipt(ctx context.Context, transaction *sql.Tx, receipt generated.ExecutionReceipt) error {
 	var existing []byte
-	if err := transaction.QueryRowContext(ctx, `SELECT canonical_bytes FROM execution_receipts WHERE receipt_id=?`, receipt.ReceiptID).Scan(&existing); err != nil {
+	// Central execution receipts and external executor observations deliberately
+	// use separate append-only tables. Both still feed the one run state machine,
+	// so FinishStep must verify the exact durable bytes from either source.
+	if err := transaction.QueryRowContext(ctx, `
+		SELECT canonical_bytes FROM execution_receipts WHERE receipt_id=?
+		UNION ALL
+		SELECT canonical_bytes FROM external_execution_observations WHERE receipt_id=?
+	`, receipt.ReceiptID, receipt.ReceiptID).Scan(&existing); err != nil {
 		return newStoreError(generated.ErrorCodeStateConflict, "run-receipt", false, err)
 	}
 	expected, _ := json.Marshal(receipt)

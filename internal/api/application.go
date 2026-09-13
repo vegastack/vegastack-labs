@@ -66,6 +66,7 @@ type Application struct {
 	config         Config
 	effective      EffectiveAuthorizationConfig
 	runs           RunLifecycle
+	executors      ExecutorLifecycle
 	routes         []route
 	runSubmitGuard sync.Mutex
 	runSubmits     map[string]*runSubmitLock

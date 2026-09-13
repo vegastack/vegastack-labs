@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — External workers receive one short, exact work lease ([#69](https://github.com/vegastack/vegastack-labs/issues/69))
+
+- **What:** A policy-bound external worker can claim only the server-selected next operation of one current durable run, renew that exact lease every 20 seconds within its fixed 60-second lifetime, and return an untrusted receipt for independent adapter verification. SQLite records the lease, rotating nonce, receipt, verification, and run result before the API reports success.
+- **Why:** Long-running or isolated work must cross a process boundary without letting the worker choose broader targets, retain stale permission, hide a disconnect, or turn its own success claim into proof.
+- **How it went:** Deterministic fixtures first proved binding, renewal, denial, expiry, replay, receipt, and crash behavior without any provider or credential. The complete check caught two remote-route guards that needed the generated executor endpoints and preserved acknowledgement exclusions. A fresh risky review then found that claim selection could skip ordered work, current recovery epoch was not checked inside the claim transaction, reconciliation could stop after one transient store failure, the simulator did not prove the real HTTP/SQLite/restart boundary, and authorization denials lacked durable evidence. The correction added single-item ordered admission, transactional epoch checks, retrying and rediscoverable reconciliation, fingerprint-only denial audit, explicit policy identity resolution, and a Linux real-API/SQLite loss-and-restart matrix.
+- **Changed:** Migration 0010 external lease/receipt authority · exact claim/renew/receipt APIs · 60-second non-extendable leases and 20-second renewal rotation · one-work-item ordered admission · current plan/policy/recovery checks · independent receipt verification · cancellation and no-blind-reassignment behavior · restart-safe loss reconciliation · sanitized denial audit · deterministic offline simulator and Linux integration fixture.
+- **Decisions:** none; the direct v1 external binding uses an explicitly authorized policy principal whose ID equals the declared executor ID, and production registers no external adapter, so no real provider, credential, executor, or fleet authority was introduced.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.6-external-executor-leases
+
 ## 13-09-2026 — Approved plans now run through durable, interruption-safe steps ([#74](https://github.com/vegastack/vegastack-labs/issues/74))
 
 - **What:** One current authorized immutable plan can create a durable run, execute its ordered typed steps through a narrow adapter boundary, record intent and receipts around every effect, verify the result independently, and report succeeded, failed, partial, interrupted, or cancelled truthfully. Exact retries reuse the original run; conflicting targets are protected by short leases; restart and resume never silently repeat an ambiguous effect.

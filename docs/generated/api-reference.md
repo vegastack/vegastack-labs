@@ -9,9 +9,9 @@ Contract schema: `1.10.0`
 | `api.v1.declarations.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.declarations.revise` | `POST` | `/api/v1/declarations/{declarationId}/revisions` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/declaration-revision-request` | `vegastack-labs.dev/declaration-revision` |
 | `api.v1.events.stream` | `GET` | `/api/v1/events` | `available` | `browser, operator` | `sse` | `` | `vegastack-labs.dev/api-audit-event-data` |
-| `api.v1.execution-receipts.create` | `POST` | `/api/v1/execution-receipts` | `planned` | `executor` | `finite` | `vegastack-labs.dev/execution-receipt-request` | `vegastack-labs.dev/execution-receipt` |
-| `api.v1.executor-leases.claim` | `POST` | `/api/v1/executor-leases/claim` | `planned` | `executor` | `finite` | `vegastack-labs.dev/executor-claim-request` | `vegastack-labs.dev/executor-lease` |
-| `api.v1.executor-leases.renew` | `POST` | `/api/v1/executor-leases/{leaseId}/renew` | `planned` | `executor` | `finite` | `vegastack-labs.dev/executor-renew-request` | `vegastack-labs.dev/executor-lease` |
+| `api.v1.execution-receipts.create` | `POST` | `/api/v1/execution-receipts` | `available` | `executor` | `finite` | `vegastack-labs.dev/execution-receipt-request` | `vegastack-labs.dev/execution-receipt` |
+| `api.v1.executor-leases.claim` | `POST` | `/api/v1/executor-leases/claim` | `available` | `executor` | `finite` | `vegastack-labs.dev/executor-claim-request` | `vegastack-labs.dev/executor-lease` |
+| `api.v1.executor-leases.renew` | `POST` | `/api/v1/executor-leases/{leaseId}/renew` | `available` | `executor` | `finite` | `vegastack-labs.dev/executor-renew-request` | `vegastack-labs.dev/executor-lease` |
 | `api.v1.health.get` | `GET` | `/api/v1/health` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/server-status-data` |
 | `api.v1.inventory-diffs.create` | `POST` | `/api/v1/inventory-diffs` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-diff-request` | `vegastack-labs.dev/inventory-diff-data` |
 | `api.v1.inventory-draft-aliases.get` | `GET` | `/api/v1/inventory-drafts/{draftId}/revisions/{revision}/aliases/{recordId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/api-inventory-alias-data` |

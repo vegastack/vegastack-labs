@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
@@ -79,6 +80,74 @@ type EffectiveScope struct {
 	StateRevision int64
 	RecoveryEpoch int64
 	ScopeDigest   string
+}
+
+// ExternalExecutorIdentity is the provider-neutral trust evidence bound to a
+// claim. Project, workflow, and ref contain digests, never provider tokens or
+// caller-controlled plaintext.
+type ExternalExecutorIdentity struct {
+	PrincipalID string
+	ExecutorID  string
+	Project     string
+	Workflow    string
+	Ref         string
+}
+
+var externalEvidenceNames = map[string]string{
+	"x-executor-project":  "project",
+	"x-executor-workflow": "workflow",
+	"x-executor-ref":      "ref",
+}
+
+// BindExternalExecutorIdentity fails closed unless the authenticated policy
+// principal is the exact executor selected by the immutable plan and every
+// applicable project/workflow/ref digest matches. V1 deliberately uses the
+// same logical ID for the enrolled principal and executor; adding a separate
+// mapping would require its own authoritative enrollment model.
+func BindExternalExecutorIdentity(principal identity.Principal, request generated.ExecutorClaimRequest, plan generated.Plan, step generated.RunStep) (ExternalExecutorIdentity, bool) {
+	if !identity.ValidPrincipal(principal) || identity.EffectivePrincipalKind(principal) != identity.PrincipalPolicy ||
+		principal.ID != request.PrincipalID || principal.ID != request.ExecutorID || plan.ExecutorMode != "external" ||
+		plan.ExecutorID == nil || *plan.ExecutorID != request.ExecutorID || step.ExecutorID != request.ExecutorID ||
+		step.AdapterID != request.AdapterID || plan.Binding.RecoveryEpoch != request.RecoveryEpoch {
+		return ExternalExecutorIdentity{}, false
+	}
+	want, ok := executorEvidence(plan.Extensions, false)
+	if !ok {
+		return ExternalExecutorIdentity{}, false
+	}
+	got, ok := executorEvidence(request.Extensions, true)
+	if !ok {
+		return ExternalExecutorIdentity{}, false
+	}
+	for name, value := range want {
+		if got[name] != value {
+			return ExternalExecutorIdentity{}, false
+		}
+	}
+	for name := range got {
+		if want[name] == "" {
+			return ExternalExecutorIdentity{}, false
+		}
+	}
+	return ExternalExecutorIdentity{PrincipalID: principal.ID, ExecutorID: request.ExecutorID, Project: got["project"], Workflow: got["workflow"], Ref: got["ref"]}, true
+}
+
+func executorEvidence(extensions []generated.ContractExtension, claim bool) (map[string]string, bool) {
+	result := map[string]string{}
+	for _, extension := range extensions {
+		field, relevant := externalEvidenceNames[extension.Name]
+		if !relevant {
+			if claim {
+				return nil, false
+			}
+			continue
+		}
+		if result[field] != "" || !strings.HasPrefix(extension.ValueDigest, "sha256:") || len(extension.ValueDigest) != 71 {
+			return nil, false
+		}
+		result[field] = extension.ValueDigest
+	}
+	return result, true
 }
 
 func ValidAction(action Action) bool {

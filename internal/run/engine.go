@@ -170,6 +170,16 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	if err := engine.after(BoundaryAdmissionActivated); err != nil {
 		return created.Run, err
 	}
+	if plan.ExecutorMode == "external" {
+		started, err := engine.repository.TransitionRun(context.WithoutCancel(ctx), store.RunTransitionRequest{RunID: created.Run.RunID, From: "queued", To: "running", At: now, Attribution: request.Attribution})
+		if err != nil {
+			return created.Run, err
+		}
+		if err := engine.after(BoundaryRunStarted); err != nil {
+			return started, err
+		}
+		return started, nil
+	}
 	// Once the run is durably created, client disconnect is no longer execution
 	// authority. The server-owned run continues and remains observable.
 	return engine.start(engine.executionContext, plan, created.Run, request.Attribution)
@@ -244,6 +254,15 @@ func (engine *Engine) CancelAs(ctx context.Context, id string, attribution audit
 	case "queued":
 		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "queued", To: "cancelled", At: now, Attribution: attribution})
 	case "running":
+		if run.ExecutorMode == "external" {
+			inFlight := false
+			for _, step := range run.Steps {
+				inFlight = inFlight || step.Status == "running" || step.EffectState == "intent-recorded" || step.EffectState == "receipt-recorded"
+			}
+			if !inFlight {
+				return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "running", To: "interrupted", At: now, VerificationStatus: "incomplete", Attribution: attribution})
+			}
+		}
 		return engine.repository.RequestCancellation(ctx, id, now, attribution)
 	case "interrupted":
 		return engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: id, From: "interrupted", To: "cancelled", At: now, Attribution: attribution})

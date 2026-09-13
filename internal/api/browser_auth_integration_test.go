@@ -45,6 +45,9 @@ type integrationSessions struct {
 func (sessions integrationSessions) ResolveRemoteIdentity(context.Context, string) (identity.Principal, error) {
 	return sessions.principal, nil
 }
+func (sessions integrationSessions) ResolveExternalIdentity(context.Context, string) (identity.Principal, error) {
+	return sessions.principal, nil
+}
 func (sessions integrationSessions) CreateBrowserSession(context.Context, store.BrowserSessionCreate) (store.BrowserSession, string, error) {
 	return sessions.session, sessions.raw, nil
 }
