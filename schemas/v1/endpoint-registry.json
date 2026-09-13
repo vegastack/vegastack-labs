@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.12.0",
+  "schemaVersion": "1.13.0",
   "endpoints": [
     {
       "id": "api.v1.database-status.get",
@@ -342,7 +342,7 @@
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/plan-reference-request",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -369,7 +369,7 @@
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/run-reference-request",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -382,7 +382,7 @@
       "path": "/api/v1/runs/{runId}",
       "availability": "available",
       "ownerPhase": "4",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -396,7 +396,7 @@
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/run-reference-request",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",

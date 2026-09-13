@@ -62,7 +62,7 @@ func TestApplyDisconnectInspectsDerivedRunExactlyOnce(t *testing.T) {
 			}
 			_ = connection.Close()
 		case request.Method == http.MethodGet && request.URL.Path == "/api/v1/runs/"+runID:
-			writePhase4Envelope(t, writer, "api.v1.runs.get", false, 2, 7, run)
+			writePhase4Envelope(t, writer, "api.v1.runs.get", false, 2, 7, clientRunPresentation(run))
 		default:
 			t.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
 		}
@@ -70,7 +70,7 @@ func TestApplyDisconnectInspectsDerivedRunExactlyOnce(t *testing.T) {
 	response, err := NewClient(clientTestFactory()).Apply(context.Background(), profile, plan.PlanID)
 	mu.Lock()
 	defer mu.Unlock()
-	if err != nil || response.Data.RunID != runID || len(requests) != 3 {
+	if err != nil || response.Data.Run.RunID != runID || len(requests) != 3 {
 		t.Fatalf("Apply() response=%#v requests=%#v err=%v", response, requests, err)
 	}
 	var submitted generated.PlanReferenceRequest
@@ -79,11 +79,65 @@ func TestApplyDisconnectInspectsDerivedRunExactlyOnce(t *testing.T) {
 	}
 }
 
+func TestApplyDisconnectAbsentOrMalformedRunRemainsUncertainWithoutResubmit(t *testing.T) {
+	plan := clientPhase4Plan()
+	runID := runprotocol.ID(plan.PlanID, "request-local")
+	for _, mode := range []string{"absent", "malformed"} {
+		t.Run(mode, func(t *testing.T) {
+			var mu sync.Mutex
+			var requests []capturedRequest
+			profile := servePhase4(t, func(writer http.ResponseWriter, request *http.Request) {
+				body, _ := io.ReadAll(request.Body)
+				mu.Lock()
+				requests = append(requests, capturedRequest{method: request.Method, path: request.URL.Path, body: body})
+				mu.Unlock()
+				switch {
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/plans/plan-1":
+					writePhase4Envelope(t, writer, "api.v1.plans.get", false, 2, 7, plan)
+				case request.Method == http.MethodPost && request.URL.Path == "/api/v1/plans/plan-1/execute":
+					connection, _, err := writer.(http.Hijacker).Hijack()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					_ = connection.Close()
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/runs/"+runID && mode == "absent":
+					envelope, err := clientTestFactory().FailureWithRequestID("api.v1.runs.get", "request-absent", generated.RunStatusFailed, generated.ErrorCodeResourceNotFound, "run", false, 0, 0, struct{}{})
+					if err != nil {
+						t.Fatal(err)
+					}
+					writer.Header().Set("Content-Type", "application/json")
+					writer.WriteHeader(http.StatusNotFound)
+					_ = json.NewEncoder(writer).Encode(envelope)
+				case request.Method == http.MethodGet && request.URL.Path == "/api/v1/runs/"+runID:
+					writer.Header().Set("Content-Type", "application/json")
+					_, _ = writer.Write([]byte("{malformed\n"))
+				default:
+					t.Errorf("unexpected request %s %s", request.Method, request.URL.Path)
+				}
+			})
+			_, err := NewClient(clientTestFactory()).Apply(context.Background(), profile, plan.PlanID)
+			uncertain, ok := AsUncertainRun(err)
+			mu.Lock()
+			defer mu.Unlock()
+			posts := 0
+			for _, request := range requests {
+				if request.method == http.MethodPost {
+					posts++
+				}
+			}
+			if !ok || uncertain.RunID != runID || len(requests) != 3 || posts != 1 || requests[2].method != http.MethodGet || requests[2].path != "/api/v1/runs/"+runID {
+				t.Fatalf("uncertain=%#v ok=%t requests=%#v err=%v", uncertain, ok, requests, err)
+			}
+		})
+	}
+}
+
 func TestDurablePartialResponseRetainsExactRunAndExit(t *testing.T) {
 	plan := clientPhase4Plan()
 	run := clientPhase4Run(plan, "run-partial")
 	run.Status, run.Changed, run.RollbackStatus, run.VerificationStatus = generated.RunStatusPartial, true, "required", "incomplete"
-	envelope, err := clientTestFactory().FailureWithRequestID("api.v1.plans.execute", "request-remote", generated.RunStatusPartial, generated.ErrorCodeRecoveryRequired, "run", false, run.RecoveryEpoch, run.StateRevision, run)
+	envelope, err := clientTestFactory().FailureWithRequestID("api.v1.plans.execute", "request-remote", generated.RunStatusPartial, generated.ErrorCodeRecoveryRequired, "run", false, run.RecoveryEpoch, run.StateRevision, clientRunPresentation(run))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -93,14 +147,22 @@ func TestDurablePartialResponseRetainsExactRunAndExit(t *testing.T) {
 		t.Fatal(err)
 	}
 	raw = append(raw, '\n')
-	response, err := validateTypedResponse(raw, http.StatusConflict, requestSpec{http.MethodPost, "/api/v1/plans/plan-1/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, validRun)
-	if err != nil || response.ExitCode != generated.ErrorExitCodes[generated.ErrorCodeRecoveryRequired] || response.Data.RunID != run.RunID || string(response.Raw) != string(raw) {
+	response, err := validateTypedResponse(raw, http.StatusConflict, requestSpec{http.MethodPost, "/api/v1/plans/plan-1/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, validRunPresentation)
+	if err != nil || response.ExitCode != generated.ErrorExitCodes[generated.ErrorCodeRecoveryRequired] || response.Data.Run.RunID != run.RunID || string(response.Raw) != string(raw) {
 		t.Fatalf("partial response=%#v err=%v", response, err)
 	}
 	envelope.RunID = new(string)
 	bad, _ := json.Marshal(envelope)
-	if _, err := validateTypedResponse(append(bad, '\n'), http.StatusConflict, requestSpec{http.MethodPost, "/api/v1/plans/plan-1/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, validRun); err == nil {
+	if _, err := validateTypedResponse(append(bad, '\n'), http.StatusConflict, requestSpec{http.MethodPost, "/api/v1/plans/plan-1/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, validRunPresentation); err == nil {
 		t.Fatal("accepted a durable run whose envelope run ID disagreed")
+	}
+	malformed := clientRunPresentation(run)
+	malformed.CompletedWork = append(malformed.CompletedWork, run.Steps[0])
+	envelope.RunID = &run.RunID
+	envelope.Data, _ = json.Marshal(malformed)
+	bad, _ = json.Marshal(envelope)
+	if _, err := validateTypedResponse(append(bad, '\n'), http.StatusConflict, requestSpec{http.MethodPost, "/api/v1/plans/plan-1/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, validRunPresentation); err == nil {
+		t.Fatal("accepted a run presentation with duplicated work")
 	}
 }
 
@@ -134,4 +196,12 @@ func clientPhase4Plan() generated.Plan {
 
 func clientPhase4Run(plan generated.Plan, runID string) generated.Run {
 	return generated.Run{Schema: generated.SchemaIDRun, SchemaVersion: "1.0.0", RunID: runID, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, AuthorizationDecisionID: "decision-1", PolicyVersion: "1.0.0", ExecutorMode: "central", ExecutorID: "executor-central", ExecutorBindingDigest: "sha256:" + strings.Repeat("2", 64), Status: "running", Steps: []generated.RunStep{{Sequence: 1, OperationID: "operation-1", OperationType: "application.deploy.low-risk", AdapterID: "adapter.synthetic", ExecutorID: "executor-central", TargetID: "target-1", InputDigest: plan.Operations[0].InputDigest, ArtifactDigest: plan.Operations[0].ArtifactDigest, Idempotent: true, StepID: "step-1", Status: "running", EffectState: "intent-recorded"}}, RollbackStatus: "not-requested", VerificationStatus: "pending", StateRevision: 7, RecoveryEpoch: 2, CreatedAt: "2026-09-13T06:01:00Z", UpdatedAt: "2026-09-13T06:01:01Z", Extensions: []generated.ContractExtension{}}
+}
+
+func clientRunPresentation(run generated.Run) generated.RunPresentation {
+	next := "inspect or cancel through the server"
+	if run.Status == generated.RunStatusPartial {
+		next = "recovery required; inspect the durable run"
+	}
+	return generated.RunPresentation{Run: run, CompletedWork: []generated.RunStep{}, IncompleteWork: append([]generated.RunStep(nil), run.Steps...), NextSafeAction: next}
 }

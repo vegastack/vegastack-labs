@@ -75,10 +75,10 @@ type Client interface {
 	DiffInventory(context.Context, serverconfig.Profile, generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, serverconfig.Profile, generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error)
 	Plan(context.Context, serverconfig.Profile, string, int64) (TypedResponse[generated.Plan], error)
-	Apply(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
-	InspectRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
-	CancelRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
-	ResumeRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.Run], error)
+	Apply(context.Context, serverconfig.Profile, string) (TypedResponse[generated.RunPresentation], error)
+	InspectRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.RunPresentation], error)
+	CancelRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.RunPresentation], error)
+	ResumeRun(context.Context, serverconfig.Profile, string) (TypedResponse[generated.RunPresentation], error)
 }
 
 type client struct{ results *result.Factory }
@@ -141,14 +141,14 @@ func (client *client) Plan(ctx context.Context, profile serverconfig.Profile, de
 	return requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/declarations/" + declarationID + "/plans", "api.v1.plans.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validPlan)
 }
 
-func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.Run], error) {
-	var zero TypedResponse[generated.Run]
+func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.RunPresentation], error) {
+	var zero TypedResponse[generated.RunPresentation]
 	planResponse, err := client.getPlan(ctx, profile, planID)
 	if err != nil {
 		return zero, err
 	}
 	if planResponse.ExitCode != 0 {
-		return remapResponse[generated.Run](planResponse), nil
+		return remapResponse[generated.RunPresentation](planResponse), nil
 	}
 	key, err := client.results.RequestID()
 	if err != nil {
@@ -156,7 +156,7 @@ func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, p
 	}
 	runID := runprotocol.ID(planID, key)
 	input := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: planID, PlanDigest: planResponse.Data.PlanDigest, RecoveryEpoch: planResponse.Data.Binding.RecoveryEpoch, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}
-	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/plans/" + planID + "/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, input, validRun)
+	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/plans/" + planID + "/execute", "api.v1.plans.execute", maxOperationResponseBodyBytes, operationTimeout, true}, input, validRunPresentation)
 	if err == nil {
 		return response, nil
 	}
@@ -167,36 +167,36 @@ func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, p
 	return zero, NewUncertainRunError(runID, err)
 }
 
-func (client *client) InspectRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.Run], error) {
+func (client *client) InspectRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.RunPresentation], error) {
 	if !validPathToken(runID) {
-		return TypedResponse[generated.Run]{}, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
+		return TypedResponse[generated.RunPresentation]{}, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
 	}
-	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/runs/" + runID, "api.v1.runs.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validRun)
+	return requestTyped(client, ctx, profile, requestSpec{http.MethodGet, "/api/v1/runs/" + runID, "api.v1.runs.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validRunPresentation)
 }
 
-func (client *client) CancelRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.Run], error) {
+func (client *client) CancelRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.RunPresentation], error) {
 	return client.mutateRun(ctx, profile, runID, false)
 }
 
-func (client *client) ResumeRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.Run], error) {
+func (client *client) ResumeRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.RunPresentation], error) {
 	return client.mutateRun(ctx, profile, runID, true)
 }
 
-func (client *client) mutateRun(ctx context.Context, profile serverconfig.Profile, runID string, resume bool) (TypedResponse[generated.Run], error) {
+func (client *client) mutateRun(ctx context.Context, profile serverconfig.Profile, runID string, resume bool) (TypedResponse[generated.RunPresentation], error) {
 	current, err := client.InspectRun(ctx, profile, runID)
 	if err != nil || current.ExitCode != 0 {
 		return current, err
 	}
 	key, err := client.results.RequestID()
 	if err != nil {
-		return TypedResponse[generated.Run]{}, err
+		return TypedResponse[generated.RunPresentation]{}, err
 	}
 	action, command := "cancel", "api.v1.runs.cancel"
 	if resume {
 		action, command = "resume", "api.v1.runs.resume"
 	}
-	input := generated.RunReferenceRequest{Schema: generated.SchemaIDRunReferenceRequest, SchemaVersion: "1.0.0", RunID: runID, IdempotencyKey: key, RecoveryEpoch: current.Data.RecoveryEpoch, Extensions: []generated.ContractExtension{}}
-	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/runs/" + runID + "/" + action, command, maxOperationResponseBodyBytes, operationTimeout, true}, input, validRun)
+	input := generated.RunReferenceRequest{Schema: generated.SchemaIDRunReferenceRequest, SchemaVersion: "1.0.0", RunID: runID, IdempotencyKey: key, RecoveryEpoch: current.Data.Run.RecoveryEpoch, Extensions: []generated.ContractExtension{}}
+	response, err := requestTyped(client, ctx, profile, requestSpec{http.MethodPost, "/api/v1/runs/" + runID + "/" + action, command, maxOperationResponseBodyBytes, operationTimeout, true}, input, validRunPresentation)
 	if err == nil {
 		return response, nil
 	}
@@ -204,7 +204,7 @@ func (client *client) mutateRun(ctx context.Context, profile serverconfig.Profil
 	if inspectErr == nil && inspected.ExitCode == 0 {
 		return inspected, nil
 	}
-	return TypedResponse[generated.Run]{}, NewUncertainRunError(runID, err)
+	return TypedResponse[generated.RunPresentation]{}, NewUncertainRunError(runID, err)
 }
 
 func (client *client) getPlan(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.Plan], error) {
@@ -448,6 +448,34 @@ func validRun(value generated.Run, envelope generated.RunResult) bool {
 		return false
 	}
 	return (envelope.RunID == nil || *envelope.RunID == value.RunID) && (envelope.PlanID == nil || *envelope.PlanID == value.PlanID)
+}
+
+func validRunPresentation(value generated.RunPresentation, envelope generated.RunResult) bool {
+	raw, err := json.Marshal(value)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRunPresentation, raw, generated.ContractExact) != nil || !validRun(value.Run, envelope) || value.NextSafeAction == "" {
+		return false
+	}
+	want := make(map[string]generated.RunStep, len(value.Run.Steps))
+	for _, step := range value.Run.Steps {
+		if step.StepID == "" {
+			return false
+		}
+		want[step.StepID] = step
+	}
+	seen := make(map[string]struct{}, len(want))
+	for _, group := range [][]generated.RunStep{value.CompletedWork, value.IncompleteWork} {
+		for _, step := range group {
+			original, ok := want[step.StepID]
+			if !ok || original != step {
+				return false
+			}
+			if _, duplicate := seen[step.StepID]; duplicate {
+				return false
+			}
+			seen[step.StepID] = struct{}{}
+		}
+	}
+	return len(seen) == len(want)
 }
 
 func validPathToken(value string) bool {

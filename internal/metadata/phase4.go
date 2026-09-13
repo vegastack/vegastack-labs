@@ -11,6 +11,8 @@ const (
 	planReferenceRequestSchemaID    = "vegastack-labs.dev/plan-reference-request"
 	acknowledgementRequestSchemaID  = "vegastack-labs.dev/acknowledgement-request"
 	runStepSchemaID                 = "vegastack-labs.dev/run-step"
+	runPresentationSchemaID         = "vegastack-labs.dev/run-presentation"
+	runUncertainGuidanceSchemaID    = "vegastack-labs.dev/run-uncertain-guidance"
 	runReferenceRequestSchemaID     = "vegastack-labs.dev/run-reference-request"
 	executorClaimRequestSchemaID    = "vegastack-labs.dev/executor-claim-request"
 	executorRenewRequestSchemaID    = "vegastack-labs.dev/executor-renew-request"
@@ -28,10 +30,10 @@ func phase4Endpoints() []EndpointDefinition {
 		phase4Endpoint("api.v1.plans.get", "GET", "/api/v1/plans/{planId}", "", planSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.create", "POST", "/api/v1/plans/{planId}/acknowledgements", acknowledgementRequestSchemaID, acknowledgementSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.get", "GET", "/api/v1/plans/{planId}/acknowledgements", "", acknowledgementSchemaID),
-		phase4Endpoint("api.v1.plans.execute", "POST", "/api/v1/plans/{planId}/execute", planReferenceRequestSchemaID, runSchemaID),
-		phase4Endpoint("api.v1.runs.get", "GET", "/api/v1/runs/{runId}", "", runSchemaID),
-		phase4Endpoint("api.v1.runs.cancel", "POST", "/api/v1/runs/{runId}/cancel", runReferenceRequestSchemaID, runSchemaID),
-		phase4Endpoint("api.v1.runs.resume", "POST", "/api/v1/runs/{runId}/resume", runReferenceRequestSchemaID, runSchemaID),
+		phase4Endpoint("api.v1.plans.execute", "POST", "/api/v1/plans/{planId}/execute", planReferenceRequestSchemaID, runPresentationSchemaID),
+		phase4Endpoint("api.v1.runs.get", "GET", "/api/v1/runs/{runId}", "", runPresentationSchemaID),
+		phase4Endpoint("api.v1.runs.cancel", "POST", "/api/v1/runs/{runId}/cancel", runReferenceRequestSchemaID, runPresentationSchemaID),
+		phase4Endpoint("api.v1.runs.resume", "POST", "/api/v1/runs/{runId}/resume", runReferenceRequestSchemaID, runPresentationSchemaID),
 		phase4Endpoint("api.v1.executor-leases.claim", "POST", "/api/v1/executor-leases/claim", executorClaimRequestSchemaID, executorLeaseSchemaID),
 		phase4Endpoint("api.v1.executor-leases.renew", "POST", "/api/v1/executor-leases/{leaseId}/renew", executorRenewRequestSchemaID, executorLeaseSchemaID),
 		phase4Endpoint("api.v1.execution-receipts.create", "POST", "/api/v1/execution-receipts", executionReceiptRequestSchemaID, executionReceiptSchemaID),
@@ -110,6 +112,13 @@ func phase4Schemas() []SchemaDefinition {
 		{ID: acknowledgementRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(acknowledgementRequestSchemaID), Fields: contract(acknowledgementRequestSchemaID, ackRequestFields...)},
 		{ID: acknowledgementSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(acknowledgementSchemaID), Fields: contract(acknowledgementSchemaID, ackFields...)},
 		{ID: runStepSchemaID, Version: "1.0.0", Fields: append(operationFields(true), id("stepId", "StepID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "effectState", GoName: "EffectState", Kind: ValueString, Required: true, Enum: []string{"effect-unknown", "intent-recorded", "not-started", "receipt-recorded", "verified"}})},
+		{ID: runPresentationSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runPresentationSchemaID), Fields: []FieldDefinition{
+			{JSONName: "run", GoName: "Run", Kind: ValueObject, Required: true, Ref: runSchemaID},
+			{JSONName: "completedWork", GoName: "CompletedWork", Kind: ValueArray, Required: true, ItemRef: runStepSchemaID, MaxItems: intPointer(256)},
+			{JSONName: "incompleteWork", GoName: "IncompleteWork", Kind: ValueArray, Required: true, ItemRef: runStepSchemaID, MaxItems: intPointer(256)},
+			{JSONName: "nextSafeAction", GoName: "NextSafeAction", Kind: ValueString, Required: true, Enum: []string{"none; execution completed", "inspect before creating another plan", "inspect, then resume or cancel through the server", "inspect or cancel through the server", "recovery required; inspect the durable run", "inspect the durable run"}},
+		}},
+		{ID: runUncertainGuidanceSchemaID, Version: "1.0.0", Fields: []FieldDefinition{id("runId", "RunID"), {JSONName: "action", GoName: "Action", Kind: ValueString, Required: true, Enum: []string{"inspect-only"}}, {JSONName: "command", GoName: "Command", Kind: ValueString, Required: true, Enum: []string{"run inspect"}}}},
 		{ID: runReferenceRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runReferenceRequestSchemaID), Fields: contract(runReferenceRequestSchemaID, id("runId", "RunID"), id("idempotencyKey", "IdempotencyKey"), nonnegative("recoveryEpoch", "RecoveryEpoch"), extensions)},
 		{ID: runSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runSchemaID), Fields: contract(runSchemaID, id("runId", "RunID"), id("planId", "PlanID"), digest("planDigest", "PlanDigest"), id("authorizationDecisionId", "AuthorizationDecisionID"), nullableID("acknowledgementId", "AcknowledgementID"), version("policyVersion", "PolicyVersion"), FieldDefinition{JSONName: "executorMode", GoName: "ExecutorMode", Kind: ValueString, Required: true, Enum: []string{"central", "external"}}, id("executorId", "ExecutorID"), digest("executorBindingDigest", "ExecutorBindingDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "steps", GoName: "Steps", Kind: ValueArray, Required: true, ItemRef: runStepSchemaID, MaxItems: intPointer(256)}, FieldDefinition{JSONName: "cancellationRequested", GoName: "CancellationRequested", Kind: ValueBoolean, Required: true}, FieldDefinition{JSONName: "rollbackStatus", GoName: "RollbackStatus", Kind: ValueString, Required: true, Enum: []string{"not-requested", "required", "separate-plan"}}, FieldDefinition{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"failed", "incomplete", "pending", "verified"}}, nullableDigest("verificationDigest", "VerificationDigest"), FieldDefinition{JSONName: "changed", GoName: "Changed", Kind: ValueBoolean, Required: true}, nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), timestamp("createdAt", "CreatedAt"), timestamp("updatedAt", "UpdatedAt"), extensions)},
 		{ID: executorClaimRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(executorClaimRequestSchemaID), Fields: contract(executorClaimRequestSchemaID, id("executorId", "ExecutorID"), id("principalId", "PrincipalID"), id("adapterId", "AdapterID"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("nonceDigest", "NonceDigest"), extensions)},

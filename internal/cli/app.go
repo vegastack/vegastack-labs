@@ -51,10 +51,10 @@ type ControlOperations interface {
 	DiffInventory(context.Context, string, generated.InventoryDiffRequest) (localapi.TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, string, generated.InventoryExportRequest) (localapi.TypedResponse[generated.InventoryExportData], error)
 	Plan(context.Context, string, string, int64) (localapi.TypedResponse[generated.Plan], error)
-	Apply(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
-	InspectRun(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
-	CancelRun(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
-	ResumeRun(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
+	Apply(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
+	InspectRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
+	CancelRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
+	ResumeRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
 }
 
 type Option func(*App)
@@ -330,7 +330,7 @@ func (app *App) runCommand(ctx context.Context, mode outputMode, parsed parsedAr
 	if app.control == nil {
 		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
 	}
-	var operation func(context.Context, string, string) (localapi.TypedResponse[generated.Run], error)
+	var operation func(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
 	switch parsed.commandName() {
 	case generated.CommandNameApply:
 		operation = app.control.Apply
@@ -365,12 +365,13 @@ func (app *App) runCommand(ctx context.Context, mode outputMode, parsed parsedAr
 }
 
 func (app *App) failUncertainRun(mode outputMode, command, runID string) int {
+	guidance := generated.RunUncertainGuidance{RunID: runID, Action: "inspect-only", Command: generated.CommandNameRunInspect}
 	if mode == outputHuman {
-		_, _ = app.stderr.Write([]byte("Submission result is unknown. Inspect durable run " + runID + "; do not apply again.\n"))
+		_, _ = app.stderr.Write([]byte("Submission result is unknown. " + guidance.Action + " with `vsk-labs " + guidance.Command + " --run-id " + guidance.RunID + "`; do not apply again.\n"))
 		return renderHumanFailure(app.stderr, generated.ErrorCodeDependencyUnavailable, "control-service", exitCodeFor(generated.ErrorCodeDependencyUnavailable))
 	}
 	factory := result.NewFactory(app.build, app.requestIDs)
-	envelope, err := factory.Failure(command, generated.RunStatusBlocked, generated.ErrorCodeDependencyUnavailable, "control-service", true, 0, 0, struct{}{})
+	envelope, err := factory.Failure(command, generated.RunStatusBlocked, generated.ErrorCodeDependencyUnavailable, "control-service", true, 0, 0, guidance)
 	if err != nil {
 		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "request-id", generated.RunStatusFailed, false)
 	}
@@ -381,7 +382,7 @@ func (app *App) failUncertainRun(mode outputMode, command, runID string) int {
 	return exitCodeFor(generated.ErrorCodeDependencyUnavailable)
 }
 
-func emptyRun(value generated.Run) bool { return value.RunID == "" }
+func emptyRun(value generated.RunPresentation) bool { return value.Run.RunID == "" }
 
 var serverErrorTargets = map[string]struct{}{
 	"application-health": {}, "application-shutdown": {}, "application-start": {},

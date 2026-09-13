@@ -22,7 +22,7 @@ type stubControlOperations struct {
 	diffResponse     localapi.TypedResponse[generated.InventoryDiffData]
 	exportResponse   localapi.TypedResponse[generated.InventoryExportData]
 	planResponse     localapi.TypedResponse[generated.Plan]
-	runResponse      localapi.TypedResponse[generated.Run]
+	runResponse      localapi.TypedResponse[generated.RunPresentation]
 	err              error
 	calls            int
 	config           string
@@ -66,22 +66,22 @@ func (stub *stubControlOperations) Plan(_ context.Context, config, _ string, _ i
 	stub.config = config
 	return stub.planResponse, stub.err
 }
-func (stub *stubControlOperations) Apply(_ context.Context, config, _ string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *stubControlOperations) Apply(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.calls++
 	stub.config = config
 	return stub.runResponse, stub.err
 }
-func (stub *stubControlOperations) InspectRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *stubControlOperations) InspectRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.calls++
 	stub.config = config
 	return stub.runResponse, stub.err
 }
-func (stub *stubControlOperations) CancelRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *stubControlOperations) CancelRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.calls++
 	stub.config = config
 	return stub.runResponse, stub.err
 }
-func (stub *stubControlOperations) ResumeRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *stubControlOperations) ResumeRun(_ context.Context, config, _ string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.calls++
 	stub.config = config
 	return stub.runResponse, stub.err
@@ -117,7 +117,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		diffResponse:     operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
 		exportResponse:   operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
 		planResponse:     operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
-		runResponse:      operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, run),
+		runResponse:      operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
 	}
 }
 

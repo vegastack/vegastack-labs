@@ -159,7 +159,7 @@ func (app *Application) getRun(config RunOperationConfig) func(http.ResponseWrit
 			app.failure(w, operation, err)
 			return
 		}
-		app.success(w, operation, value.StateRevision, value.RecoveryEpoch, value)
+		app.success(w, operation, value.StateRevision, value.RecoveryEpoch, presentRun(value))
 	}
 }
 

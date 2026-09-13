@@ -73,10 +73,10 @@ func TestPhase4OperatorCommandsAreAvailableAndExact(t *testing.T) {
 		risk          RiskClass
 	}{
 		{name: "plan", requestSchema: planCreateRequestSchemaID, dataSchema: planSchemaID, selector: "--declaration-id", risk: RiskReadOnly},
-		{name: "apply", requestSchema: planReferenceRequestSchemaID, dataSchema: runSchemaID, selector: "--plan-id", risk: RiskMutation},
-		{name: "run inspect", dataSchema: runSchemaID, selector: "--run-id", risk: RiskReadOnly},
-		{name: "run cancel", requestSchema: runReferenceRequestSchemaID, dataSchema: runSchemaID, selector: "--run-id", risk: RiskMutation},
-		{name: "run resume", requestSchema: runReferenceRequestSchemaID, dataSchema: runSchemaID, selector: "--run-id", risk: RiskMutation},
+		{name: "apply", requestSchema: planReferenceRequestSchemaID, dataSchema: runPresentationSchemaID, selector: "--plan-id", risk: RiskMutation},
+		{name: "run inspect", dataSchema: runPresentationSchemaID, selector: "--run-id", risk: RiskReadOnly},
+		{name: "run cancel", requestSchema: runReferenceRequestSchemaID, dataSchema: runPresentationSchemaID, selector: "--run-id", risk: RiskMutation},
+		{name: "run resume", requestSchema: runReferenceRequestSchemaID, dataSchema: runPresentationSchemaID, selector: "--run-id", risk: RiskMutation},
 	}
 	for _, test := range tests {
 		command := commandByName(t, registry, test.name)
@@ -132,8 +132,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.12.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.13.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.13.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -257,8 +257,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.12.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.13.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.13.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -289,8 +289,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.12.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.13.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.13.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -369,8 +369,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.12.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.13.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.13.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{

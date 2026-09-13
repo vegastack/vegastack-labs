@@ -327,34 +327,34 @@ func (operations *Operations) Plan(ctx context.Context, configPath, declarationI
 	return client.Plan(ctx, profile, declarationID, revision)
 }
 
-func (operations *Operations) Apply(ctx context.Context, configPath, planID string) (localapi.TypedResponse[generated.Run], error) {
+func (operations *Operations) Apply(ctx context.Context, configPath, planID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.Run]{}, err
+		return localapi.TypedResponse[generated.RunPresentation]{}, err
 	}
 	return client.Apply(ctx, profile, planID)
 }
 
-func (operations *Operations) InspectRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.Run], error) {
+func (operations *Operations) InspectRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.Run]{}, err
+		return localapi.TypedResponse[generated.RunPresentation]{}, err
 	}
 	return client.InspectRun(ctx, profile, runID)
 }
 
-func (operations *Operations) CancelRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.Run], error) {
+func (operations *Operations) CancelRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.Run]{}, err
+		return localapi.TypedResponse[generated.RunPresentation]{}, err
 	}
 	return client.CancelRun(ctx, profile, runID)
 }
 
-func (operations *Operations) ResumeRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.Run], error) {
+func (operations *Operations) ResumeRun(ctx context.Context, configPath, runID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.Run]{}, err
+		return localapi.TypedResponse[generated.RunPresentation]{}, err
 	}
 	return client.ResumeRun(ctx, profile, runID)
 }

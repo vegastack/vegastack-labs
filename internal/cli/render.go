@@ -173,36 +173,28 @@ func renderHumanPlan(output io.Writer, data generated.Plan) int {
 	return 0
 }
 
-func renderHumanRun(output io.Writer, data generated.Run) int {
-	completed := 0
-	for _, step := range data.Steps {
-		if step.Status == "succeeded" || step.Status == "failed" || step.Status == "cancelled" {
-			completed++
+func renderHumanRun(output io.Writer, data generated.RunPresentation) int {
+	run := data.Run
+	if _, err := fmt.Fprintf(output, "Run %s\nPlan %s\nDigest %s\nStatus %s\nCompleted work %d\n", run.RunID, run.PlanID, run.PlanDigest, run.Status, len(data.CompletedWork)); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, step := range data.CompletedWork {
+		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s effect %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.EffectState); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
 	}
-	next := runNextAction(data)
-	if _, err := fmt.Fprintf(output, "Run %s\nPlan %s\nDigest %s\nStatus %s\nSteps completed %d incomplete %d\nVerification %s\nRollback %s\nChanged %t\nNext safe action: %s\n", data.RunID, data.PlanID, data.PlanDigest, data.Status, completed, len(data.Steps)-completed, data.VerificationStatus, data.RollbackStatus, data.Changed, next); err != nil {
+	if _, err := fmt.Fprintf(output, "Incomplete work %d\n", len(data.IncompleteWork)); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, step := range data.IncompleteWork {
+		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s effect %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.EffectState); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	if _, err := fmt.Fprintf(output, "Verification %s\nRollback %s\nChanged %t\nNext safe action: %s\n", run.VerificationStatus, run.RollbackStatus, run.Changed, data.NextSafeAction); err != nil {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
 	return 0
-}
-
-func runNextAction(data generated.Run) string {
-	if data.Status == generated.RunStatusPartial || data.RollbackStatus == "required" || data.VerificationStatus == "incomplete" {
-		return "recovery required; inspect the durable run"
-	}
-	switch data.Status {
-	case generated.RunStatusSucceeded:
-		return "none; execution completed"
-	case generated.RunStatusCancelled:
-		return "inspect before creating another plan"
-	case generated.RunStatusInterrupted:
-		return "inspect, then resume or cancel through the server"
-	case "queued", "running":
-		return "inspect or cancel through the server"
-	default:
-		return "inspect the durable run"
-	}
 }
 
 func renderHumanVersion(output io.Writer, build BuildInfo) int {

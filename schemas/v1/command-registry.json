@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.12.0",
+  "schemaVersion": "1.13.0",
   "commands": [
     {
       "path": [
@@ -56,7 +56,7 @@
       ],
       "requestSchema": "vegastack-labs.dev/plan-reference-request",
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "examples": [
         {
           "summary": "Execute one exact current and authorized immutable plan.",
@@ -1106,7 +1106,7 @@
       ],
       "requestSchema": "vegastack-labs.dev/run-reference-request",
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "examples": [
         {
           "summary": "Request server-owned cancellation of one durable run at a safe boundary.",
@@ -1176,7 +1176,7 @@
         }
       ],
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "examples": [
         {
           "summary": "Inspect one durable run without retrying apply.",
@@ -1247,7 +1247,7 @@
       ],
       "requestSchema": "vegastack-labs.dev/run-reference-request",
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/run",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "examples": [
         {
           "summary": "Request server-owned resumption of one safely resumable durable run.",
@@ -2054,6 +2054,11 @@
       "artifactPath": "schemas/v1/run.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/run-presentation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/run-presentation.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/run-reference-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/run-reference-request.schema.json"
@@ -2065,6 +2070,10 @@
     },
     {
       "id": "vegastack-labs.dev/run-step",
+      "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/run-uncertain-guidance",
       "version": "1.0.0"
     },
     {

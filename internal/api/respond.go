@@ -33,7 +33,8 @@ func (app *Application) operationSuccess(writer http.ResponseWriter, operation, 
 }
 
 func (app *Application) operationRunSuccess(writer http.ResponseWriter, operation, requestID string, run generated.Run) {
-	envelope, err := app.config.Results.SuccessWithRequestID(operation, requestID, run.Changed, run.RecoveryEpoch, run.StateRevision, run)
+	presentation := presentRun(run)
+	envelope, err := app.config.Results.SuccessWithRequestID(operation, requestID, run.Changed, run.RecoveryEpoch, run.StateRevision, presentation)
 	if err != nil {
 		app.failure(writer, operation, err)
 		return
@@ -54,7 +55,8 @@ func (app *Application) executeRunResult(writer http.ResponseWriter, operation, 
 	}
 
 	status, code, retryable := durableRunFailure(run.Status)
-	envelope, err := app.config.Results.FailureWithRequestID(operation, requestID, status, code, "run", retryable, run.RecoveryEpoch, run.StateRevision, run)
+	presentation := presentRun(run)
+	envelope, err := app.config.Results.FailureWithRequestID(operation, requestID, status, code, "run", retryable, run.RecoveryEpoch, run.StateRevision, presentation)
 	if err != nil {
 		app.failure(writer, operation, err)
 		return
@@ -69,6 +71,37 @@ func (app *Application) executeRunResult(writer http.ResponseWriter, operation, 
 	writer.Header().Set("Cache-Control", "no-store")
 	writer.WriteHeader(httpStatus(code))
 	_, _ = writer.Write(body.Bytes())
+}
+
+// presentRun is the server-owned interpretation of durable execution state.
+// Operator clients render these exact facts and never infer workflow advice.
+func presentRun(run generated.Run) generated.RunPresentation {
+	completed := make([]generated.RunStep, 0, len(run.Steps))
+	incomplete := make([]generated.RunStep, 0, len(run.Steps))
+	for _, step := range run.Steps {
+		switch step.Status {
+		case generated.RunStatusSucceeded, generated.RunStatusFailed, generated.RunStatusCancelled:
+			completed = append(completed, step)
+		default:
+			incomplete = append(incomplete, step)
+		}
+	}
+	next := "inspect the durable run"
+	if run.Status == generated.RunStatusPartial || run.RollbackStatus == "required" || run.VerificationStatus == "incomplete" {
+		next = "recovery required; inspect the durable run"
+	} else {
+		switch run.Status {
+		case generated.RunStatusSucceeded:
+			next = "none; execution completed"
+		case generated.RunStatusCancelled:
+			next = "inspect before creating another plan"
+		case generated.RunStatusInterrupted:
+			next = "inspect, then resume or cancel through the server"
+		case "queued", "running":
+			next = "inspect or cancel through the server"
+		}
+	}
+	return generated.RunPresentation{Run: run, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
 }
 
 func durableRunFailure(status string) (string, string, bool) {

@@ -212,7 +212,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion: "1.12.0",
+		SchemaVersion: "1.13.0",
 		Commands:      commands,
 		Endpoints:     append(readEndpoints(), phase4Endpoints()...),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
@@ -299,7 +299,7 @@ func planCommand() CommandDefinition {
 }
 
 func applyCommand() CommandDefinition {
-	return phase4OperatorCommand([]string{"apply"}, "Execute one exact current and authorized immutable plan.", planReferenceRequestSchemaID, runSchemaID, RiskMutation,
+	return phase4OperatorCommand([]string{"apply"}, "Execute one exact current and authorized immutable plan.", planReferenceRequestSchemaID, runPresentationSchemaID, RiskMutation,
 		[]FlagDefinition{
 			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
 			{Name: "--plan-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact immutable plan; this does not acknowledge it."},
@@ -307,7 +307,7 @@ func applyCommand() CommandDefinition {
 }
 
 func runInspectCommand() CommandDefinition {
-	return phase4OperatorCommand([]string{"run", "inspect"}, "Inspect one durable run without retrying apply.", "", runSchemaID, RiskReadOnly,
+	return phase4OperatorCommand([]string{"run", "inspect"}, "Inspect one durable run without retrying apply.", "", runPresentationSchemaID, RiskReadOnly,
 		[]FlagDefinition{
 			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
 			{Name: "--run-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact durable run."},
@@ -315,7 +315,7 @@ func runInspectCommand() CommandDefinition {
 }
 
 func runCancelCommand() CommandDefinition {
-	return phase4OperatorCommand([]string{"run", "cancel"}, "Request server-owned cancellation of one durable run at a safe boundary.", runReferenceRequestSchemaID, runSchemaID, RiskMutation,
+	return phase4OperatorCommand([]string{"run", "cancel"}, "Request server-owned cancellation of one durable run at a safe boundary.", runReferenceRequestSchemaID, runPresentationSchemaID, RiskMutation,
 		[]FlagDefinition{
 			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
 			{Name: "--run-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact durable run."},
@@ -323,7 +323,7 @@ func runCancelCommand() CommandDefinition {
 }
 
 func runResumeCommand() CommandDefinition {
-	return phase4OperatorCommand([]string{"run", "resume"}, "Request server-owned resumption of one safely resumable durable run.", runReferenceRequestSchemaID, runSchemaID, RiskMutation,
+	return phase4OperatorCommand([]string{"run", "resume"}, "Request server-owned resumption of one safely resumable durable run.", runReferenceRequestSchemaID, runPresentationSchemaID, RiskMutation,
 		[]FlagDefinition{
 			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read the protected server profile at this explicit path."},
 			{Name: "--run-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the exact durable run."},

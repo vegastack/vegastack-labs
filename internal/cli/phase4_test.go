@@ -14,7 +14,7 @@ import (
 type phase4ControlOperations struct {
 	*stubControlOperations
 	planResponse  localapi.TypedResponse[generated.Plan]
-	runResponse   localapi.TypedResponse[generated.Run]
+	runResponse   localapi.TypedResponse[generated.RunPresentation]
 	config        string
 	declarationID string
 	revision      int64
@@ -29,8 +29,14 @@ func TestApplyUnknownOutcomeExposesOnlyInspectableRunID(t *testing.T) {
 	operations.err = localapi.NewUncertainRunError("run-derived", errors.New("private transport canary"))
 	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{"apply", "--config", "profile.json", "--plan-id", plan.PlanID, "--output", "json"}, nil, WithControlOperations(operations, nil))
 	var envelope generated.RunResult
-	if code != generated.ErrorExitCodes[generated.ErrorCodeDependencyUnavailable] || stderr != "" || json.Unmarshal([]byte(stdout), &envelope) != nil || envelope.RunID == nil || *envelope.RunID != "run-derived" || len(envelope.Errors) != 1 || envelope.Errors[0].Code != generated.ErrorCodeDependencyUnavailable || strings.Contains(stdout, "private transport canary") {
+	var guidance generated.RunUncertainGuidance
+	if code != generated.ErrorExitCodes[generated.ErrorCodeDependencyUnavailable] || stderr != "" || json.Unmarshal([]byte(stdout), &envelope) != nil || json.Unmarshal(envelope.Data, &guidance) != nil || envelope.RunID == nil || *envelope.RunID != "run-derived" || guidance.RunID != "run-derived" || guidance.Action != "inspect-only" || guidance.Command != generated.CommandNameRunInspect || len(envelope.Errors) != 1 || envelope.Errors[0].Code != generated.ErrorCodeDependencyUnavailable || strings.Contains(stdout, "private transport canary") {
 		t.Fatalf("unknown JSON outcome = code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+	operations.err = localapi.NewUncertainRunError("run-derived", errors.New("private transport canary"))
+	code, stdout, stderr = runTestAppWithOptions(t, context.Background(), []string{"apply", "--config", "profile.json", "--plan-id", plan.PlanID}, nil, WithControlOperations(operations, nil))
+	if code != generated.ErrorExitCodes[generated.ErrorCodeDependencyUnavailable] || stdout != "" || !strings.Contains(stderr, "inspect-only with `vsk-labs run inspect --run-id run-derived`") || strings.Contains(stderr, "private transport canary") {
+		t.Fatalf("unknown human outcome = code %d stdout %q stderr %q", code, stdout, stderr)
 	}
 }
 
@@ -39,22 +45,22 @@ func (stub *phase4ControlOperations) Plan(_ context.Context, config, declaration
 	return stub.planResponse, nil
 }
 
-func (stub *phase4ControlOperations) Apply(_ context.Context, config, planID string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *phase4ControlOperations) Apply(_ context.Context, config, planID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.config, stub.planID, stub.phase4Command = config, planID, generated.CommandNameApply
 	return stub.runResponse, stub.err
 }
 
-func (stub *phase4ControlOperations) InspectRun(_ context.Context, config, runID string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *phase4ControlOperations) InspectRun(_ context.Context, config, runID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.config, stub.runID, stub.phase4Command = config, runID, generated.CommandNameRunInspect
 	return stub.runResponse, nil
 }
 
-func (stub *phase4ControlOperations) CancelRun(_ context.Context, config, runID string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *phase4ControlOperations) CancelRun(_ context.Context, config, runID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.config, stub.runID, stub.phase4Command = config, runID, generated.CommandNameRunCancel
 	return stub.runResponse, nil
 }
 
-func (stub *phase4ControlOperations) ResumeRun(_ context.Context, config, runID string) (localapi.TypedResponse[generated.Run], error) {
+func (stub *phase4ControlOperations) ResumeRun(_ context.Context, config, runID string) (localapi.TypedResponse[generated.RunPresentation], error) {
 	stub.config, stub.runID, stub.phase4Command = config, runID, generated.CommandNameRunResume
 	return stub.runResponse, nil
 }
@@ -120,8 +126,26 @@ func phase4Operations(t *testing.T, plan generated.Plan, run generated.Run) *pha
 	return &phase4ControlOperations{
 		stubControlOperations: successfulControlOperations(t),
 		planResponse:          operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
-		runResponse:           operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, run),
+		runResponse:           operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
 	}
+}
+
+func phase4TestPresentation(run generated.Run) generated.RunPresentation {
+	completed, incomplete := []generated.RunStep{}, []generated.RunStep{}
+	for _, step := range run.Steps {
+		if step.Status == generated.RunStatusSucceeded || step.Status == generated.RunStatusFailed || step.Status == generated.RunStatusCancelled {
+			completed = append(completed, step)
+		} else {
+			incomplete = append(incomplete, step)
+		}
+	}
+	next := "inspect the durable run"
+	if run.Status == generated.RunStatusPartial || run.RollbackStatus == "required" || run.VerificationStatus == "incomplete" {
+		next = "recovery required; inspect the durable run"
+	} else if run.Status == generated.RunStatusSucceeded {
+		next = "none; execution completed"
+	}
+	return generated.RunPresentation{Run: run, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
 }
 
 func phase4TestPlan() generated.Plan {
