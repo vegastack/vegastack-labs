@@ -340,7 +340,7 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       }
 
       // empty
-      const empty = page.locator('[data-read-state="empty"]');
+      const empty = page.locator('[data-read-state="empty"]').filter({ visible: true });
       await expect(empty.getByRole("status")).toContainText("No declaration open");
       await expect(empty.getByText("No declaration open", { exact: true })).toBeVisible();
       await page.getByLabel("Declaration ID").focus();
@@ -353,7 +353,7 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       await page.getByLabel("Revision").fill("1");
       const open = page.getByRole("button", { name: "Open declaration" });
       await activateWithKeyboard(page, open);
-      const loading = page.locator('[data-read-state="loading"]');
+      const loading = page.locator('[data-read-state="loading"]').filter({ visible: true });
       await expect(loading.getByRole("status")).toContainText("Loading declaration");
       await expect(loading.getByText("Loading declaration", { exact: true })).toBeVisible();
       await expect(open).toBeFocused();
@@ -367,7 +367,7 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
         changeFixture.approval = expected.state;
         const refresh = page.getByRole("button", { name: "Refresh approval status" });
         await activateWithKeyboard(page, refresh);
-        const approval = page.locator(`[data-approval-status="${expected.state}"]`);
+        const approval = page.locator(`[data-approval-status="${expected.state}"]`).filter({ visible: true });
         await expect(approval.getByRole("status")).toContainText(expected.label);
         await expect(approval.getByRole("status")).toContainText(expected.authorization);
         await expect(approval.getByText(expected.label, { exact: true })).toBeVisible();
@@ -389,7 +389,7 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
         changeFixture.run = expected.state;
         const refresh = page.getByRole("button", { name: "Refresh run" });
         await activateWithKeyboard(page, refresh);
-        const run = page.locator(`[data-run-status="${expected.state}"]`);
+        const run = page.locator(`[data-run-status="${expected.state}"]`).filter({ visible: true });
         await expect(run.getByRole("status").first()).toContainText(expected.label);
         await expect(run.getByText(expected.label, { exact: true }).first()).toBeVisible();
         await expect(run.getByText(expected.next, { exact: true })).toBeVisible();
@@ -406,7 +406,7 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
       changeFixture.retryableFailurePath = "/api/v1/runs/run-one";
       await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
-      const stale = page.locator('[data-read-state="stale"]');
+      const stale = page.locator('[data-read-state="stale"]').filter({ visible: true });
       await expect(stale.getByRole("status")).toContainText("Showing last known run state");
       await expect(stale.getByText("Showing last known run state", { exact: true })).toBeVisible();
       await expectStateSurface(page);
@@ -415,7 +415,7 @@ test("every change state preserves keyboard focus, accessibility, themes, mobile
       // denied clears all mounted projections and protected handles.
       changeFixture.hardFailurePath = "/api/v1/runs/run-one";
       await activateWithKeyboard(page, page.getByRole("button", { name: "Refresh run" }));
-      const denied = page.locator('[data-read-state="denied"]');
+      const denied = page.locator('[data-read-state="denied"]').filter({ visible: true });
       await expect(denied.getByRole("alert")).toContainText("Change details cleared");
       await expect(denied.getByText("Change details cleared", { exact: true })).toBeVisible();
       await expect(page.locator("[data-run-status], [data-plan-status], [data-approval-status]")).toHaveCount(0);
