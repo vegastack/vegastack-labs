@@ -193,6 +193,30 @@ func TestExecutionReauthorizesHumanBeforeConsumingProof(t *testing.T) {
 	}
 }
 
+func TestApprovalProjectionIsSafeAndRechecksCurrentAuthorization(t *testing.T) {
+	service, _, plan := newService(t)
+	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pending, err := service.Projection(context.Background(), plan.PlanID)
+	if err != nil || pending.Status != "pending" || !pending.AuthorizationCurrent || pending.CanApply || pending.Channel != "slack" || pending.Owner != "assigned-maintainer" {
+		t.Fatalf("pending projection = %#v, %v", pending, err)
+	}
+	if _, err := service.Decide(context.Background(), candidateFor(card, plan, ActionApprove)); err != nil {
+		t.Fatal(err)
+	}
+	approved, err := service.Projection(context.Background(), plan.PlanID)
+	if err != nil || approved.Status != "approved" || !approved.AuthorizationCurrent || !approved.CanApply {
+		t.Fatalf("approved projection = %#v, %v", approved, err)
+	}
+	service.config.Authorizer = denyAuthorizer{}
+	revoked, err := service.Projection(context.Background(), plan.PlanID)
+	if err != nil || revoked.AuthorizationCurrent || revoked.CanApply {
+		t.Fatalf("revoked projection = %#v, %v", revoked, err)
+	}
+}
+
 func TestDurableRunClaimBeforeExpiryCanRecoverConsumptionAfterRestart(t *testing.T) {
 	service, repository, plan := newService(t)
 	card, err := service.Request(context.Background(), requestScope(), plan.PlanID)

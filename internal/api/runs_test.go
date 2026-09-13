@@ -253,7 +253,7 @@ func TestRunGetAuthorizesExactRunIDBeforeReading(t *testing.T) {
 	}
 }
 
-func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
+func TestRunGetCancelResumeRemainRecoveryBoundWhenBrowserCallable(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
 	app := newRunTestApplication(t, runs)
@@ -269,8 +269,8 @@ func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 			t.Fatalf("%s status=%d body=%s", path, response.Code, response.Body.String())
 		}
 	}
-	if RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/cancel") || RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/resume") {
-		t.Fatal("run mutation became remotely callable")
+	if !RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/cancel") || !RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/resume") {
+		t.Fatal("generated browser run controls are not remotely callable")
 	}
 }
 
