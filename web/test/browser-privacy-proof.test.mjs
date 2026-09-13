@@ -66,3 +66,17 @@ test("trace resource inspection cannot swallow a private canary", async (t) => {
     /private-proof-canary reached trace entry resources\/source\.js/,
   );
 });
+
+test("trace inspection excludes only the probe source that defines its canaries", async (t) => {
+  const directory = await mkdtemp(path.join(tmpdir(), "vsk-browser-privacy-test-"));
+  t.after(() => rm(directory, { recursive: true, force: true }));
+  const tracePath = path.join(directory, "trace.zip");
+  await writeFile(tracePath, storedArchive([
+    ["trace.trace", '{"type":"frame-snapshot"}'],
+    ["trace.network", '{"type":"resource-snapshot"}'],
+    ["resources/page.html", "safe browser content"],
+    ["src/probe.mjs", 'const canary = "private-proof-canary";'],
+  ]));
+  const inspected = await inspectTraceArchive(tracePath, ["private-proof-canary"]);
+  assert.equal(inspected.entries, 4);
+});

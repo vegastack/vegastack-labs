@@ -133,6 +133,12 @@ export async function inspectTraceArchive(tracePath, needles) {
   if (!names.some(name => name.endsWith("trace.trace")) || !names.some(name => name.endsWith("trace.network")) || !names.some(name => name.startsWith("resources/"))) {
     throw new Error("trace archive lacks timeline, network, or resource evidence");
   }
-  for (const entry of entries) assertPrivacyEvidence(entry.body, needles, `trace entry ${entry.name}`);
+  // Playwright embeds the probe source itself under src/. That source contains
+  // the denylist and deliberate canaries used by this test, so it is not a
+  // browser-observable surface. Timeline, network, and resource payloads are.
+  for (const entry of entries) {
+    if (entry.name.startsWith("src/")) continue;
+    assertPrivacyEvidence(entry.body, needles, `trace entry ${entry.name}`);
+  }
   return { entries: entries.length, names };
 }
