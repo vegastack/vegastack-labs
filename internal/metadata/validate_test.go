@@ -50,6 +50,8 @@ func TestValidateRejectsInvalidRegistries(t *testing.T) {
 		"available risk unassigned":     func(registry *Registry) { registry.Commands[0].Risk = RiskUnassigned },
 		"read command local service":    func(registry *Registry) { commandByNameForMutation(registry, "server status").Risk = RiskLocalService },
 		"non-server local service":      func(registry *Registry) { registry.Commands[0].Risk = RiskLocalService },
+		"read command mutation":         func(registry *Registry) { commandByNameForMutation(registry, "run inspect").Risk = RiskMutation },
+		"mutation command read only":    func(registry *Registry) { commandByNameForMutation(registry, "apply").Risk = RiskReadOnly },
 		"available example missing":     func(registry *Registry) { registry.Commands[0].Examples = nil },
 		"owner phase is not numeric":    func(registry *Registry) { registry.Commands[0].OwnerPhase = "later" },
 		"planned has flags": func(registry *Registry) {

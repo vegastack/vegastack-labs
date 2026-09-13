@@ -2,10 +2,55 @@ package cli
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
+
+func TestApplyRequiresExactPlanAndHasNoApprovalFlag(t *testing.T) {
+	t.Parallel()
+
+	parsed, failure := parseArguments([]string{"apply", "--config", "profile.json", "--plan-id", "plan-123", "--output", "json"})
+	if failure != nil || parsed.Value("--plan-id") != "plan-123" {
+		t.Fatalf("apply contract = (%#v, %#v)", parsed, failure)
+	}
+	if _, failure = parseArguments([]string{"apply", "--config", "profile.json", "--plan-id", "plan-123", "--yes"}); failure == nil {
+		t.Fatal("generic approval flag accepted")
+	}
+}
+
+func TestParsePhase4CommandsRequireBoundedExactSelectors(t *testing.T) {
+	t.Parallel()
+
+	valid := [][]string{
+		{"plan", "--config", "profile.json", "--declaration-id", "change-1", "--revision", "2"},
+		{"apply", "--config", "profile.json", "--plan-id", "plan-1"},
+		{"run", "inspect", "--config", "profile.json", "--run-id", "run-1"},
+		{"run", "cancel", "--config", "profile.json", "--run-id", "run-1"},
+		{"run", "resume", "--config", "profile.json", "--run-id", "run-1"},
+	}
+	for _, args := range valid {
+		if _, failure := parseArguments(args); failure != nil {
+			t.Errorf("args %v failure = %#v", args, failure)
+		}
+	}
+
+	invalid := [][]string{
+		{"plan", "--declaration-id", "change-1", "--revision", "2"},
+		{"plan", "--config", "profile.json", "--declaration-id", "change-1", "--revision", "0"},
+		{"plan", "--config", "profile.json", "--declaration-id", "change-1", "--revision", "9223372036854775808"},
+		{"apply", "--config", "profile.json"},
+		{"apply", "--config", "profile.json", "--plan-id", strings.Repeat("a", 129)},
+		{"run", "inspect", "--config", "profile.json"},
+		{"run", "cancel", "--config", "profile.json", "--run-id", "UPPERCASE"},
+	}
+	for _, args := range invalid {
+		if _, failure := parseArguments(args); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Errorf("args %v failure = %#v", args, failure)
+		}
+	}
+}
 
 func TestParseReleaseFlagsAndSwitches(t *testing.T) {
 	t.Parallel()

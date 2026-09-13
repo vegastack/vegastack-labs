@@ -1,16 +1,76 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.10.0",
+  "schemaVersion": "1.11.0",
   "commands": [
     {
       "path": [
         "apply"
       ],
-      "summary": "Execute one current, authorized immutable plan.",
-      "availability": "planned",
+      "summary": "Execute one exact current and authorized immutable plan.",
+      "availability": "available",
       "ownerPhase": "4",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--plan-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the exact immutable plan; this does not acknowledge it.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/plan-reference-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/run",
+      "examples": [
+        {
+          "summary": "Execute one exact current and authorized immutable plan.",
+          "arguments": [
+            "apply",
+            "--config",
+            "fixture/server-profile.json",
+            "--plan-id",
+            "plan-1",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -725,10 +785,81 @@
       "path": [
         "plan"
       ],
-      "summary": "Create an immutable plan from an inert change.",
-      "availability": "planned",
+      "summary": "Create an immutable plan from one exact inert declaration revision.",
+      "availability": "available",
       "ownerPhase": "4",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--declaration-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact inert declaration.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the exact positive declaration revision.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/plan-create-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/plan",
+      "examples": [
+        {
+          "summary": "Create an immutable plan from one exact inert declaration revision.",
+          "arguments": [
+            "plan",
+            "--config",
+            "fixture/server-profile.json",
+            "--declaration-id",
+            "change-1",
+            "--revision",
+            "2",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -920,6 +1051,218 @@
       "availability": "planned",
       "ownerPhase": "5",
       "risk": "unassigned"
+    },
+    {
+      "path": [
+        "run",
+        "cancel"
+      ],
+      "summary": "Request server-owned cancellation of one durable run at a safe boundary.",
+      "availability": "available",
+      "ownerPhase": "4",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--run-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the exact durable run.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/run-reference-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/run",
+      "examples": [
+        {
+          "summary": "Request server-owned cancellation of one durable run at a safe boundary.",
+          "arguments": [
+            "run",
+            "cancel",
+            "--config",
+            "fixture/server-profile.json",
+            "--run-id",
+            "run-1",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "run",
+        "inspect"
+      ],
+      "summary": "Inspect one durable run without retrying apply.",
+      "availability": "available",
+      "ownerPhase": "4",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--run-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the exact durable run.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/run",
+      "examples": [
+        {
+          "summary": "Inspect one durable run without retrying apply.",
+          "arguments": [
+            "run",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--run-id",
+            "run-1",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "run",
+        "resume"
+      ],
+      "summary": "Request server-owned resumption of one safely resumable durable run.",
+      "availability": "available",
+      "ownerPhase": "4",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected server profile at this explicit path.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--run-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the exact durable run.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/run-reference-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/run",
+      "examples": [
+        {
+          "summary": "Request server-owned resumption of one safely resumable durable run.",
+          "arguments": [
+            "run",
+            "resume",
+            "--config",
+            "fixture/server-profile.json",
+            "--run-id",
+            "run-1",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [

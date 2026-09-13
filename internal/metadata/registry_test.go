@@ -59,10 +59,43 @@ func TestPhase4ContractsBindPlanAndExecutorScope(t *testing.T) {
 			}
 		}
 	}
-	for _, name := range []string{"plan", "apply"} {
-		command := commandByName(t, registry, name)
-		if command.Availability != AvailabilityPlanned || command.OwnerPhase != "4" {
-			t.Errorf("command %s = %#v", name, command)
+}
+
+func TestPhase4OperatorCommandsAreAvailableAndExact(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	tests := []struct {
+		name          string
+		requestSchema string
+		dataSchema    string
+		selector      string
+		risk          RiskClass
+	}{
+		{name: "plan", requestSchema: planCreateRequestSchemaID, dataSchema: planSchemaID, selector: "--declaration-id", risk: RiskReadOnly},
+		{name: "apply", requestSchema: planReferenceRequestSchemaID, dataSchema: runSchemaID, selector: "--plan-id", risk: RiskMutation},
+		{name: "run inspect", dataSchema: runSchemaID, selector: "--run-id", risk: RiskReadOnly},
+		{name: "run cancel", requestSchema: runReferenceRequestSchemaID, dataSchema: runSchemaID, selector: "--run-id", risk: RiskMutation},
+		{name: "run resume", requestSchema: runReferenceRequestSchemaID, dataSchema: runSchemaID, selector: "--run-id", risk: RiskMutation},
+	}
+	for _, test := range tests {
+		command := commandByName(t, registry, test.name)
+		if command.Availability != AvailabilityAvailable || command.OwnerPhase != "4" || command.Risk != test.risk {
+			t.Errorf("command %s = %#v", test.name, command)
+		}
+		if command.RequestSchema != test.requestSchema || command.DataSchema != test.dataSchema || command.ResultSchema != runResultSchemaID {
+			t.Errorf("command %s schemas = %#v", test.name, command)
+		}
+		assertFlag(t, command, "--config", FlagValue, true, false)
+		assertFlag(t, command, test.selector, FlagValue, true, false)
+		if test.name == "plan" {
+			assertFlag(t, command, "--revision", FlagValue, true, false)
+		}
+		if hasFlag(command.Flags, "--yes", "", nil) || hasFlag(command.Flags, "--approve", "", nil) || hasFlag(command.Flags, "--approval", "", nil) {
+			t.Errorf("command %s exposes a client-side approval flag", test.name)
+		}
+		if !hasFlag(command.Flags, "--output", "format", []string{"human", "json"}) {
+			t.Errorf("command %s output flag is not bounded", test.name)
 		}
 	}
 }
@@ -80,8 +113,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.10.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.11.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -205,8 +238,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.10.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.11.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -237,8 +270,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.10.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.11.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -317,16 +350,17 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.10.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.10.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.11.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{
 		"help": false, "release inspect": false, "release verify": false, "server run": false, "server status": false, "version": false,
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
+		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
 	}
 	wantPlanned := map[string]string{
-		"doctor": "2", "plan": "4", "apply": "4", "audit": "5",
+		"doctor": "2", "audit": "5",
 		"gate list": "5", "gate inspect": "5", "gate check": "5", "gate evidence": "5",
 		"node discover": "6", "node add": "6", "node inspect": "6", "node nominate": "6", "node quarantine": "6", "node replace": "6",
 		"user onboard": "7", "user offboard": "7", "user suspend": "7", "user resume": "7",

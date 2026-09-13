@@ -164,8 +164,11 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 		switch command.Availability {
 		case AvailabilityAvailable:
 			wantRisk := RiskReadOnly
-			if name == "server run" {
+			switch name {
+			case "server run":
 				wantRisk = RiskLocalService
+			case "apply", "run cancel", "run resume":
+				wantRisk = RiskMutation
 			}
 			if command.Risk != wantRisk {
 				return validationError("METADATA_INVALID", location+".risk")
