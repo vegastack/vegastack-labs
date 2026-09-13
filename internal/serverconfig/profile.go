@@ -21,6 +21,7 @@ const maxProfileBytes = 64 * 1024
 
 type Profile struct {
 	SocketPath                       string
+	ConstrainedSSH                   *ConstrainedSSH
 	InventoryExportRoot              string
 	SocketOwnerUID                   uint32
 	SocketGroupGID                   *uint32
@@ -29,6 +30,13 @@ type Profile struct {
 	PrincipalBindings                []principal.Binding
 	RemoteRead                       RemoteRead
 	AcknowledgementAdapterConfigPath string
+}
+
+// ConstrainedSSH is a client-only transport. Arguments are produced by the
+// typed client profile and never contain a remote command.
+type ConstrainedSSH struct {
+	Executable string
+	Arguments  []string
 }
 
 type RemoteRead struct {

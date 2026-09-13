@@ -18,6 +18,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/runprotocol"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
+	"github.com/vegastack/vegastack-labs/internal/sshtransport"
 )
 
 const (
@@ -217,10 +218,11 @@ func remapResponse[To, From any](response TypedResponse[From]) TypedResponse[To]
 
 func requestTyped[T any](client *client, ctx context.Context, profile serverconfig.Profile, spec requestSpec, input any, validate func(T, generated.RunResult) bool) (TypedResponse[T], error) {
 	var zero TypedResponse[T]
-	if client == nil || client.results == nil || profile.SocketPath == "" {
+	remote := profile.ConstrainedSSH != nil
+	if client == nil || client.results == nil || (profile.SocketPath == "") == !remote {
 		return zero, responseFailure()
 	}
-	if runtime.GOOS == "windows" {
+	if !remote && runtime.GOOS == "windows" {
 		return zero, failure.New(generated.ErrorCodeUnsupportedPlatform, "control-service", false)
 	}
 	var body []byte
@@ -233,12 +235,19 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 	} else if input != nil {
 		return zero, responseFailure()
 	}
-	response, err := localtransport.RoundTrip(ctx, localtransport.Request{
-		SocketPath: profile.SocketPath, Method: spec.method, Path: spec.path, Body: body,
-		Timeout: spec.timeout, ResponseLimit: spec.responseLimit,
-	})
+	request := localtransport.Request{SocketPath: profile.SocketPath, Method: spec.method, Path: spec.path, Body: body, Timeout: spec.timeout, ResponseLimit: spec.responseLimit}
+	var response localtransport.Response
+	var err error
+	if remote {
+		response, err = sshtransport.RoundTrip(ctx, sshtransport.Request{
+			Executable: profile.ConstrainedSSH.Executable, Arguments: profile.ConstrainedSSH.Arguments,
+			Method: request.Method, Path: request.Path, Body: request.Body, Timeout: request.Timeout, ResponseLimit: request.ResponseLimit,
+		})
+	} else {
+		response, err = localtransport.RoundTrip(ctx, request)
+	}
 	if err != nil {
-		if errors.Is(err, localtransport.ErrInvalid) || errors.Is(err, localtransport.ErrRedirect) {
+		if errors.Is(err, localtransport.ErrInvalid) || errors.Is(err, localtransport.ErrRedirect) || errors.Is(err, sshtransport.ErrInvalid) {
 			return zero, responseFailure()
 		}
 		if ctx.Err() != nil {

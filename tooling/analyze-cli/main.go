@@ -342,6 +342,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	serverImport := modulePath + "/internal/server"
 	localAPIImport := modulePath + "/internal/localapi"
 	localTransportImport := modulePath + "/internal/localtransport"
+	sshTransportImport := modulePath + "/internal/sshtransport"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
 	serverConfigImport := modulePath + "/internal/serverconfig"
@@ -383,7 +384,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 	}
-	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport) {
+	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport, localTransportImport, sshTransportImport) {
 		result.LocalClientBoundary = false
 	}
 	for _, candidate := range inModule {
@@ -395,10 +396,10 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		if candidate.ImportPath == mainImport && !reviewedMainComposition(parsed, modulePath, cliImport, clientFileImport, releaseImport, serverImport) {
 			result.ControlProviderAccess = true
 		}
-		if candidate.ImportPath != localAPIImport && candidate.ImportPath != localTransportImport && containsString(candidate.Imports, localTransportImport) {
+		if candidate.ImportPath != localAPIImport && candidate.ImportPath != localTransportImport && candidate.ImportPath != sshTransportImport && containsString(candidate.Imports, localTransportImport) {
 			result.LocalClientBoundary = false
 		}
-		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport, localTransportImport) {
+		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport, localTransportImport, sshTransportImport) {
 			result.LocalClientBoundary = false
 		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
@@ -406,7 +407,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
 		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -434,13 +435,15 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				case "database/sql", "github.com/ncruces/go-sqlite3", "github.com/ncruces/go-sqlite3/driver":
 					result.ControlSQLiteAccess = true
 				case "os/exec", "plugin":
-					result.ControlShellDispatch = true
+					if !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) {
+						result.ControlShellDispatch = true
+					}
 				case "crypto/tls", "syscall":
-					if !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, serverConfigImport) {
+					if !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) {
 						result.ControlArbitraryHTTP = true
 					}
 				}
-				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, serverConfigImport) {
+				if standardNetworkPackages[imported] && !reviewedControlNetworkImport(parsed, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport) {
 					result.ControlArbitraryHTTP = true
 				}
 				if !reviewedControlExternalImport(parsed, imported, standardPackages[imported], modulePath, localAPIImport, clientFileImport, serverConfigImport, releaseImport) {
@@ -517,7 +520,7 @@ func standardNetworkClosure(packages []listedPackage) map[string]bool {
 	return capable
 }
 
-func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, mainImport, localAPIImport, localTransportImport, serverConfigImport string) bool {
+func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, mainImport, localAPIImport, localTransportImport, sshTransportImport, serverConfigImport string) bool {
 	switch candidate.listed.ImportPath {
 	case mainImport:
 		return imported == "syscall" && reviewedMainSyscallUse(candidate)
@@ -525,6 +528,8 @@ func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, main
 		return imported == "net" && reviewedLocalAPISource(candidate)
 	case localTransportImport:
 		return (imported == "net" || imported == "net/http") && reviewedLocalTransportPackage(candidate)
+	case sshTransportImport:
+		return imported == "net/http" && reviewedSSHTransportPackage(candidate, localTransportImport)
 	case serverConfigImport:
 		return (imported == "net/url" || imported == "net/netip") && reviewedControlPlatformSource(candidate, "serverconfig")
 	default:
@@ -585,9 +590,9 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
 		}
 	case "serverconfig":
-		expected = "996c3c80ae4cf23f9287144d6e35bb11462ea4dc56ded19252e7d7a4a48f94aa"
+		expected = "f1af56d3911348db3538c0744758c460a832df44517b9c7eeb2621fe84efe53f"
 		if containsString(names, "profile_linux.go") {
-			expected = "931b729297a09edb6fca13a5c69187488d7fac234f30df1444e8be5c024d2c96"
+			expected = "c15dd42207a2ab3cb702b287cef830c4b56197bb6112eb9722e3e398c64293b1"
 		}
 	default:
 		return false
@@ -621,10 +626,11 @@ func moduleDependencyClosure(packages []listedPackage, root string) map[string]b
 	return closure
 }
 
-func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport string) bool {
+func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
 	approved := map[string]bool{
 		localAPIImport:                        true,
 		localTransportImport:                  true,
+		sshTransportImport:                    true,
 		modulePath + "/internal/failure":      true,
 		modulePath + "/internal/generated":    true,
 		modulePath + "/internal/principal":    true,
@@ -641,12 +647,15 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 	return true
 }
 
-func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport string) bool {
+func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
 	approvedExternal := func(imported string) bool {
 		return imported == "golang.org/x/sys/unix" || imported == "github.com/go-jose/go-jose/v4" || imported == "github.com/go-jose/go-jose/v4/jwt"
 	}
 	if candidate.listed.ImportPath == localTransportImport {
 		return reviewedLocalTransportPackage(candidate)
+	}
+	if candidate.listed.ImportPath == sshTransportImport {
+		return reviewedSSHTransportPackage(candidate, localTransportImport)
 	}
 	if candidate.listed.ImportPath != localAPIImport {
 		for _, imported := range candidate.listed.Imports {
@@ -739,8 +748,8 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 }
 
 const (
-	reviewedLocalAPILinuxDigest       = "b88b7e4101be9b264fc48a0347d2bfb82aaea745df480010373f8d1d1eb50f29"
-	reviewedLocalAPIUnsupportedDigest = "917d9db1b5deb825ad2e238847d8ddbfec9ea667ef00e06698bafa2bbce7a513"
+	reviewedLocalAPILinuxDigest       = "9232bcdf537d0404405f119f716f6c645fd0158d14825185c9d4c4188a56ce2a"
+	reviewedLocalAPIUnsupportedDigest = "0de84d19fc669b8e29e433eaa623258d4f35a8dca848ef4a033fd5ae6af8dc70"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -882,6 +891,37 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 }
 
 const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
+
+const reviewedSSHTransportDigest = "bb162676e12729677961a0e788ffe7f1067a4d71a66b631be445beb8ffd18e96"
+
+func reviewedSSHTransportPackage(candidate checkedSourcePackage, localTransportImport string) bool {
+	approvedImports := map[string]bool{
+		"bufio": true, "bytes": true, "context": true, "errors": true, "io": true,
+		"net/http": true, "os/exec": true, "strings": true, "time": true,
+	}
+	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports)+1 {
+		return false
+	}
+	for _, imported := range candidate.listed.Imports {
+		if imported == localTransportImport {
+			continue
+		}
+		if !approvedImports[imported] {
+			return false
+		}
+	}
+	expectedAPI := []string{"ErrInvalid", "ErrUnavailable", "Request", "RoundTrip"}
+	actualAPI := slicesMatching(candidate.typed.Scope().Names(), ast.IsExported)
+	if len(actualAPI) != len(expectedAPI) {
+		return false
+	}
+	for index := range expectedAPI {
+		if actualAPI[index] != expectedAPI[index] {
+			return false
+		}
+	}
+	return digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles) == reviewedSSHTransportDigest
+}
 
 func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
 	approvedImports := map[string]bool{

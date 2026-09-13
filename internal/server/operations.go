@@ -11,6 +11,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
+	"github.com/vegastack/vegastack-labs/internal/clientprofile"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -360,6 +361,12 @@ func (operations *Operations) ResumeRun(ctx context.Context, configPath, runID s
 }
 
 func (operations *Operations) controlClient(ctx context.Context, configPath string) (localapi.Client, serverconfig.Profile, error) {
+	if profile, matched, err := clientprofile.Load(ctx, configPath); matched {
+		if err != nil {
+			return nil, serverconfig.Profile{}, err
+		}
+		return localapi.NewClient(result.NewFactory(operations.build, operations.requestIDs)), profile, nil
+	}
 	ownerUID, err := currentServiceOwnerUID()
 	if err != nil {
 		return nil, serverconfig.Profile{}, failure.New(generated.ErrorCodeUnsupportedPlatform, "server-platform", false)

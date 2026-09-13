@@ -165,7 +165,7 @@ test("the built vsk-labs executable preserves its complete process contract", as
     data: {},
   });
 
-  if (process.platform !== "linux" || process.arch !== "x64") {
+  if (process.platform !== "linux") {
     const privatePath = path.join(temporary, "private-profile-canary.json");
     for (const command of [["server", "run"], ["server", "status"]]) {
       const unsupported = run(binary, [
@@ -374,7 +374,7 @@ test("the built vsk-labs executable preserves its complete process contract", as
 });
 
 test("five operator commands preserve protected API bytes in the built process", async (t) => {
-  if (process.platform !== "linux" || process.arch !== "x64" || typeof process.getuid !== "function") return;
+  if (process.platform !== "linux" || typeof process.getuid !== "function") return;
   const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-cli-api-"));
   t.after(() => rm(temporary, { recursive: true, force: true }));
   const binary = path.join(temporary, "vsk-labs");
@@ -851,4 +851,49 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
   assert.equal(unknownEnvelope.errors[0].code, "DEPENDENCY_UNAVAILABLE");
   assert.equal(unknownEnvelope.errors[0].target, "control-service");
   assert.deepEqual(unknownEnvelope.data, { runId: unknownRunId, action: "inspect-only", command: "run inspect" });
+});
+
+test("built CLI uses the same API frame through a constrained SSH profile", async (t) => {
+  const temporary = await mkdtemp(path.join(tmpdir(), "vegastack-cli-remote-"));
+  t.after(() => rm(temporary, { recursive: true, force: true }));
+  const binary = path.join(temporary, "vsk-labs");
+  const ssh = path.join(temporary, "ssh");
+  const capture = path.join(temporary, "capture.json");
+  const knownHostsPath = path.join(temporary, "known hosts ; literal");
+  const profilePath = path.join(temporary, "remote profile.json");
+  const envelope = `${JSON.stringify({
+    schema: "vegastack-labs.dev/run-result", schemaVersion: CONTRACT_VERSION,
+    toolVersion: "0.0.0-dev", command: "server status", requestId: "request-remote-built-process",
+    runId: null, status: "succeeded", changed: false, recoveryEpoch: 2, stateRevision: 7,
+    snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: null, errors: [],
+    data: { state: "ready", readAvailable: true, mutationAvailable: false, recoveryEpoch: 2, stateRevision: 7, remoteReadState: "disabled", remoteReadReason: "none" },
+  })}\n`;
+  const helperSource = path.join(temporary, "ssh.go");
+  await writeFile(helperSource, `package main
+import ("encoding/json"; "io"; "os")
+func main(){ body,_:=io.ReadAll(os.Stdin); encoded,_:=json.Marshal(struct{Arguments []string \`json:"arguments"\`; Frame string \`json:"frame"\`}{os.Args[1:],string(body)}); _=os.WriteFile(os.Getenv("VSK_CAPTURE"),encoded,0600); io.WriteString(os.Stdout,"HTTP/1.1 200 OK\\r\\nContent-Type: application/json\\r\\nContent-Length: ${Buffer.byteLength(envelope)}\\r\\nConnection: close\\r\\n\\r\\n${envelope.replaceAll("\\", "\\\\").replaceAll('"', '\\"').replaceAll("\n", "\\n")}") }
+`);
+  for (const [output, target] of [[binary, "./cmd/vsk-labs"], [ssh, helperSource]]) {
+    const built = spawnSync("go", ["build", "-o", output, target], { cwd: ROOT, encoding: "utf8", shell: false });
+    assert.equal(built.status, 0, built.stderr);
+  }
+  await writeFile(knownHostsPath, "control ssh-ed25519 synthetic\n");
+  await writeFile(profilePath, `${JSON.stringify({
+    schema: "vegastack-labs.dev/client-profile", schemaVersion: "1.0.0",
+    transport: { kind: "constrained-ssh", executable: "ssh", destination: "operator@control-plane", knownHostsPath },
+  })}\n`);
+  await chmod(profilePath, 0o600);
+  const oldPath = process.env.PATH;
+  const oldCapture = process.env.VSK_CAPTURE;
+  process.env.PATH = `${temporary}${path.delimiter}${oldPath ?? ""}`;
+  process.env.VSK_CAPTURE = capture;
+  t.after(() => { process.env.PATH = oldPath; if (oldCapture === undefined) delete process.env.VSK_CAPTURE; else process.env.VSK_CAPTURE = oldCapture; });
+  const result = run(binary, ["server", "status", "--config", profilePath, "--output", "json"]);
+  assert.deepEqual(result, { code: 0, stdout: envelope, stderr: "" });
+  const recorded = JSON.parse(await readFile(capture, "utf8"));
+  assert.deepEqual(recorded.arguments, [
+    "-T", "-o", "BatchMode=yes", "-o", "ClearAllForwardings=yes", "-o", "ExitOnForwardFailure=yes",
+    "-o", "StrictHostKeyChecking=yes", "-o", `UserKnownHostsFile=${knownHostsPath}`, "operator@control-plane",
+  ]);
+  assert.equal(recorded.frame, "GET /api/v1/health HTTP/1.1\r\nHost: local\r\nUser-Agent: Go-http-client/1.1\r\nConnection: close\r\n\r\n");
 });
