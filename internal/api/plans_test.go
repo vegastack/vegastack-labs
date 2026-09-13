@@ -35,6 +35,64 @@ func TestPlanCreateDeniesBeforeMalformedBodyIsRead(t *testing.T) {
 	}
 }
 
+func TestPlanPreparationAuthorizesExactRevisionBeforeLookupAndRejectsRequestDrift(t *testing.T) {
+	preparation := generated.PlanPreparation{Schema: generated.SchemaIDPlanPreparation, SchemaVersion: "1.0.0", DeclarationID: "declaration-test", DeclarationRevision: 2, ExpectedStateRevision: 7, RecoveryEpoch: 3, ObservationFingerprint: testAPIDigest("e")}
+	plans := &fakePlanService{preparation: preparation}
+	var targets []authorization.ReadTarget
+	readAuthorizer := authorizerFunc(func(_ context.Context, principal identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
+		targets = append(targets, target)
+		return authorization.ReadScope{PrincipalID: principal.ID, Capability: target.Capability, ResourceKind: target.ResourceKind, GrantRevision: 1, ScopeDigest: testAPIDigest("f")}, nil
+	})
+	app := newPlanTestApplication(t, readAuthorizer, &effectiveAuthorizationStub{}, &fakeDeclarationService{}, plans)
+
+	response := servePlanPreparation(t, app, "/api/v1/declarations/declaration-test/revisions/2/plan-preparation", nil)
+	if response.Code != http.StatusOK || plans.prepareCalls != 1 || plans.prepareID != "declaration-test" || plans.prepareRevision != 2 || len(targets) != 1 || targets[0].Capability != "declaration.read" || targets[0].ResourceKind != "declaration" || targets[0].ResourceID != "declaration-test:2" || !strings.Contains(response.Body.String(), `"observationFingerprint":"`+testAPIDigest("e")+`"`) {
+		t.Fatalf("response=%d calls=%d target=%#v body=%s", response.Code, plans.prepareCalls, targets, response.Body.String())
+	}
+
+	for _, request := range []struct {
+		path string
+		body []byte
+	}{
+		{path: "/api/v1/declarations/declaration-test/revisions/02/plan-preparation"},
+		{path: "/api/v1/declarations/declaration-test/revisions/2/plan-preparation?extra=1"},
+		{path: "/api/v1/declarations/declaration-test/revisions/2/plan-preparation", body: []byte(`{}`)},
+	} {
+		before := plans.prepareCalls
+		response := servePlanPreparation(t, app, request.path, request.body)
+		if response.Code != http.StatusBadRequest || plans.prepareCalls != before {
+			t.Errorf("drift request %q response=%d calls=%d body=%s", request.path, response.Code, plans.prepareCalls, response.Body.String())
+		}
+	}
+}
+
+func TestPlanPreparationDenialAndServiceErrorsDoNotDiscloseOrLookupEarly(t *testing.T) {
+	plans := &fakePlanService{prepareErr: failure.New(generated.ErrorCodeResourceNotFound, "private-canary-must-not-appear", false)}
+	denied := authorizerFunc(func(context.Context, identity.Principal, authorization.ReadTarget) (authorization.ReadScope, error) {
+		return authorization.ReadScope{}, failure.New(generated.ErrorCodeAuthorizationDenied, "read", false)
+	})
+	app := newPlanTestApplication(t, denied, &effectiveAuthorizationStub{}, &fakeDeclarationService{}, plans)
+	response := servePlanPreparation(t, app, "/api/v1/declarations/declaration-test/revisions/2/plan-preparation", nil)
+	if response.Code != http.StatusForbidden || plans.prepareCalls != 0 {
+		t.Fatalf("denied response=%d calls=%d body=%s", response.Code, plans.prepareCalls, response.Body.String())
+	}
+
+	app = newPlanTestApplication(t, allowOperationAuthorizer(), &effectiveAuthorizationStub{}, &fakeDeclarationService{}, plans)
+	response = servePlanPreparation(t, app, "/api/v1/declarations/declaration-test/revisions/2/plan-preparation", nil)
+	if response.Code != http.StatusNotFound || plans.prepareCalls != 1 || strings.Contains(response.Body.String(), "private-canary") {
+		t.Fatalf("service response=%d calls=%d body=%s", response.Code, plans.prepareCalls, response.Body.String())
+	}
+}
+
+func servePlanPreparation(t *testing.T, app *Application, path string, body []byte) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(http.MethodGet, path, bytes.NewReader(body))
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	return response
+}
+
 func TestDeclarationAndPlanRoutesReturnCanonicalDomainResultsWithoutExternalCalls(t *testing.T) {
 	declarations := &fakeDeclarationService{result: change.Result{Document: generated.DeclarationRevision{Schema: generated.SchemaIDDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: "declaration-test", DeclarationType: "node.configuration", Revision: 1, StateRevision: 1, RecoveryEpoch: 0, ContentDigest: testAPIDigest("a"), Status: "draft", Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-test", OperationType: "health.check", AdapterID: "adapter-test", TargetID: "node-test", InputDigest: testAPIDigest("b"), ArtifactDigest: testAPIDigest("c"), Idempotent: true}}, CreatedAt: "2026-09-12T19:00:00Z", CreatedBy: "principal.test", AgentSessionID: "request-plan-test", Extensions: []generated.ContractExtension{}}, Changed: true, Created: true}}
 	plans := &fakePlanService{result: store.PlanCommitResult{Plan: generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", PlanID: "plan-test", PlanDigest: testAPIDigest("d"), DeclarationID: "declaration-test", Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 1, StateRevision: 2, DeclarationRevision: 1, ObservationFingerprint: testAPIDigest("e"), TargetDigest: testAPIDigest("f"), ReasonDigest: testAPIDigest("a"), PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: "operation-test", OperationType: "health.check", AdapterID: "adapter-test", ExecutorID: "executor-central", TargetID: "node-test", InputDigest: testAPIDigest("b"), ArtifactDigest: testAPIDigest("c"), Idempotent: true}}, Status: "planned", Risk: "routine", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: "2026-09-12T19:00:00Z", ExpiresAt: "2026-09-12T19:30:00Z", ReadableDigest: testAPIDigest("f"), Extensions: []generated.ContractExtension{}}, Commit: store.Commit{Changed: true, StateRevision: 2, RecoveryEpoch: 0}, Created: true}}
@@ -101,8 +159,20 @@ func (service *fakeDeclarationService) Get(context.Context, string, int64) (gene
 }
 
 type fakePlanService struct {
-	result store.PlanCommitResult
-	calls  int
+	result          store.PlanCommitResult
+	preparation     generated.PlanPreparation
+	prepareErr      error
+	calls           int
+	prepareCalls    int
+	prepareID       string
+	prepareRevision int64
+}
+
+func (service *fakePlanService) Prepare(_ context.Context, declarationID string, revision int64) (generated.PlanPreparation, error) {
+	service.prepareCalls++
+	service.prepareID = declarationID
+	service.prepareRevision = revision
+	return service.preparation, service.prepareErr
 }
 
 func (service *fakePlanService) Create(context.Context, planengine.AuthorScope, generated.PlanCreateRequest) (store.PlanCommitResult, error) {

@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.11.0",
+  "schemaVersion": "1.12.0",
   "commands": [
     {
       "path": [
@@ -2001,6 +2001,11 @@
     {
       "id": "vegastack-labs.dev/plan-operation",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/plan-preparation",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/plan-preparation.schema.json"
     },
     {
       "id": "vegastack-labs.dev/plan-reference-request",

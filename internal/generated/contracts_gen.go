@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.11.0"
+	RegistrySchemaVersion                   = "1.12.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -81,6 +81,7 @@ const (
 	SchemaIDPlanBinding                     = "vegastack-labs.dev/plan-binding"
 	SchemaIDPlanCreateRequest               = "vegastack-labs.dev/plan-create-request"
 	SchemaIDPlanOperation                   = "vegastack-labs.dev/plan-operation"
+	SchemaIDPlanPreparation                 = "vegastack-labs.dev/plan-preparation"
 	SchemaIDPlanReferenceRequest            = "vegastack-labs.dev/plan-reference-request"
 	SchemaIDReleaseAsset                    = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification        = "vegastack-labs.dev/release-asset-verification"
@@ -846,6 +847,16 @@ type PlanOperation struct {
 	Idempotent     bool   `json:"idempotent"`
 }
 
+type PlanPreparation struct {
+	Schema                 string `json:"schema"`
+	SchemaVersion          string `json:"schemaVersion"`
+	DeclarationID          string `json:"declarationId"`
+	DeclarationRevision    int64  `json:"declarationRevision"`
+	ExpectedStateRevision  int64  `json:"expectedStateRevision"`
+	RecoveryEpoch          int64  `json:"recoveryEpoch"`
+	ObservationFingerprint string `json:"observationFingerprint"`
+}
+
 type PlanReferenceRequest struct {
 	Schema         string              `json:"schema"`
 	SchemaVersion  string              `json:"schemaVersion"`
@@ -1191,6 +1202,7 @@ var Commands = []Command{
 var Endpoints = []Endpoint{
 	{ID: "api.v1.database-status.get", Method: "GET", Path: "/api/v1/database/status", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/database-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.declarations.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/plan-preparation", Stream: "finite", Audiences: []string{"operator"}},
 	{ID: "api.v1.declarations.revise", Method: "POST", Path: "/api/v1/declarations/{declarationId}/revisions", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/declaration-revision-request", DataSchema: "vegastack-labs.dev/declaration-revision", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.events.stream", Method: "GET", Path: "/api/v1/events", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/api-audit-event-data", Stream: "sse", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.execution-receipts.create", Method: "POST", Path: "/api/v1/execution-receipts", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/execution-receipt-request", DataSchema: "vegastack-labs.dev/execution-receipt", Stream: "finite", Audiences: []string{"executor"}},

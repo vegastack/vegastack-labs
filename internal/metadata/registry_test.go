@@ -100,6 +100,25 @@ func TestPhase4OperatorCommandsAreAvailableAndExact(t *testing.T) {
 	}
 }
 
+func TestPlanPreparationIsAnExactReadOnlyOperatorContract(t *testing.T) {
+	t.Parallel()
+
+	registry := Current()
+	preparation := schemaByID(t, registry, "vegastack-labs.dev/plan-preparation")
+	wantFields := []string{"schema", "schemaVersion", "declarationId", "declarationRevision", "expectedStateRevision", "recoveryEpoch", "observationFingerprint"}
+	gotFields := make([]string, 0, len(preparation.Fields))
+	for _, field := range preparation.Fields {
+		gotFields = append(gotFields, field.JSONName)
+	}
+	if !reflect.DeepEqual(gotFields, wantFields) {
+		t.Fatalf("plan preparation fields = %v, want %v", gotFields, wantFields)
+	}
+	endpoint := endpointByID(t, registry, "api.v1.declarations.plan-preparation.get")
+	if endpoint.Method != "GET" || endpoint.Path != "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation" || endpoint.Availability != AvailabilityAvailable || endpoint.OwnerPhase != "4" || endpoint.RequestSchema != "" || endpoint.DataSchema != preparation.ID || endpoint.Stream != StreamFinite || !reflect.DeepEqual(endpoint.Audiences, []EndpointAudience{AudienceOperator}) {
+		t.Fatalf("plan preparation endpoint = %#v", endpoint)
+	}
+}
+
 func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition {
 	t.Helper()
 	for _, endpoint := range registry.Endpoints {
@@ -113,8 +132,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.11.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.12.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -238,8 +257,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.11.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.12.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -270,8 +289,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.11.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.12.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -350,8 +369,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.11.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.11.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.12.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.12.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{

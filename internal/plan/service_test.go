@@ -4,12 +4,88 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
+
+func TestPrepareReturnsCurrentAuthoritativeBindingsAndRefreshesStateRevision(t *testing.T) {
+	repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+	observations := &fakeObservations{fingerprint: testDigestString("b")}
+	service := newTestService(t, repository, observations, time.Now)
+
+	preparation, err := service.Prepare(context.Background(), "declaration-test-1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preparation.Schema != generated.SchemaIDPlanPreparation || preparation.SchemaVersion != "1.0.0" || preparation.DeclarationID != "declaration-test-1" || preparation.DeclarationRevision != 1 || preparation.ExpectedStateRevision != 9 || preparation.RecoveryEpoch != 2 || preparation.ObservationFingerprint != testDigestString("b") {
+		t.Fatalf("preparation = %#v", preparation)
+	}
+	if repository.requestedDeclarationID != "declaration-test-1" || repository.requestedDeclarationRevision != 1 {
+		t.Fatalf("repository request = %q/%d", repository.requestedDeclarationID, repository.requestedDeclarationRevision)
+	}
+
+	repository.current.StateRevision = 10
+	observations.fingerprint = testDigestString("c")
+	refreshed, err := service.Prepare(context.Background(), "declaration-test-1", 1)
+	if err != nil || refreshed.ExpectedStateRevision != 10 || refreshed.ObservationFingerprint != testDigestString("c") {
+		t.Fatalf("refreshed preparation = (%#v, %v)", refreshed, err)
+	}
+}
+
+func TestPrepareRejectsStaleRecoveryEpochAndRepositoryIdentityDriftWithoutDisclosure(t *testing.T) {
+	repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 3}}
+	service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, time.Now)
+	if _, err := service.Prepare(context.Background(), "declaration-test-1", 1); planFailureCode(err) != generated.ErrorCodeStateConflict {
+		t.Fatalf("recovery drift error = %v", err)
+	}
+
+	repository.current.RecoveryEpoch = 2
+	repository.declaration.DeclarationID = "private-canary-must-not-appear"
+	_, err := service.Prepare(context.Background(), "declaration-test-1", 1)
+	if planFailureCode(err) != generated.ErrorCodeStateConflict || strings.Contains(err.Error(), "private-canary") {
+		t.Fatalf("identity drift error = %v", err)
+	}
+}
+
+func TestCreateRevalidatesPreparationAfterStateChanges(t *testing.T) {
+	repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+	service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, time.Now)
+	preparation, err := service.Prepare(context.Background(), "declaration-test-1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	repository.current.StateRevision++
+	request := validRequest()
+	request.ExpectedStateRevision = preparation.ExpectedStateRevision
+	request.RecoveryEpoch = preparation.RecoveryEpoch
+	request.ObservationFingerprint = preparation.ObservationFingerprint
+	if _, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer"}, request); planFailureCode(err) != generated.ErrorCodeStateConflict {
+		t.Fatalf("stale preparation error = %v", err)
+	}
+	refreshed, err := service.Prepare(context.Background(), "declaration-test-1", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.ExpectedStateRevision = refreshed.ExpectedStateRevision
+	request.RecoveryEpoch = refreshed.RecoveryEpoch
+	request.ObservationFingerprint = refreshed.ObservationFingerprint
+	if _, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer"}, request); err != nil {
+		t.Fatalf("current preparation rejected: %v", err)
+	}
+}
+
+func planFailureCode(err error) string {
+	stable, ok := failure.As(err)
+	if !ok {
+		return ""
+	}
+	return stable.Code
+}
 
 func TestCreatePlanIsDeterministicAcrossStoredInputOrder(t *testing.T) {
 	declaration := validDeclaration()
@@ -129,12 +205,16 @@ func newTestService(t *testing.T, repository Repository, observations Observatio
 }
 
 type fakePlanRepository struct {
-	declaration generated.DeclarationRevision
-	current     store.RevisionToken
-	committed   store.PlanCommitRequest
+	declaration                  generated.DeclarationRevision
+	current                      store.RevisionToken
+	committed                    store.PlanCommitRequest
+	requestedDeclarationID       string
+	requestedDeclarationRevision int64
 }
 
-func (repository *fakePlanRepository) GetDeclaration(context.Context, string, int64) (generated.DeclarationRevision, error) {
+func (repository *fakePlanRepository) GetDeclaration(_ context.Context, declarationID string, revision int64) (generated.DeclarationRevision, error) {
+	repository.requestedDeclarationID = declarationID
+	repository.requestedDeclarationRevision = revision
 	return repository.declaration, nil
 }
 func (repository *fakePlanRepository) GetDeclarationReason(context.Context, string, int64) (string, error) {
