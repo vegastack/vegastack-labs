@@ -396,7 +396,10 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		if candidate.ImportPath == mainImport && !reviewedMainComposition(parsed, modulePath, cliImport, clientFileImport, releaseImport, serverImport) {
 			result.ControlProviderAccess = true
 		}
-		if candidate.ImportPath != localAPIImport && candidate.ImportPath != localTransportImport && candidate.ImportPath != sshTransportImport && containsString(candidate.Imports, localTransportImport) {
+		// The persistent server's generated forced-command handler forwards one
+		// allowlisted frame back to its own protected socket. Other consumers
+		// remain forbidden; server code is outside the portable client closure.
+		if candidate.ImportPath != serverImport && candidate.ImportPath != localAPIImport && candidate.ImportPath != localTransportImport && candidate.ImportPath != sshTransportImport && containsString(candidate.Imports, localTransportImport) {
 			result.LocalClientBoundary = false
 		}
 		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport, localTransportImport, sshTransportImport) {
@@ -465,7 +468,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	return result, nil
 }
 
-const reviewedMainCompositionDigest = "a7f7b29ce0e32577cfd392cf9d33e823a6807c85f6708f5f910ad632a4bd8061"
+const reviewedMainCompositionDigest = "2257058f84305545a1658c7b3b65382535f4f88879111b54260ef5af2d431722"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
 	approvedInternal := map[string]bool{
@@ -590,9 +593,9 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
 		}
 	case "serverconfig":
-		expected = "f1af56d3911348db3538c0744758c460a832df44517b9c7eeb2621fe84efe53f"
+		expected = "512234421f11cb33db0b150bf72ab232e9a51c6ceedbd0f85b63a2f3d5a39f73"
 		if containsString(names, "profile_linux.go") {
-			expected = "c15dd42207a2ab3cb702b287cef830c4b56197bb6112eb9722e3e398c64293b1"
+			expected = "891bdf45132eb531020f812ccc932bb4bbafdcc60e8bcb0c8a75ba3ad94c92e3"
 		}
 	default:
 		return false
@@ -631,6 +634,7 @@ func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localA
 		localAPIImport:                        true,
 		localTransportImport:                  true,
 		sshTransportImport:                    true,
+		modulePath + "/internal/apissh":       true,
 		modulePath + "/internal/failure":      true,
 		modulePath + "/internal/generated":    true,
 		modulePath + "/internal/principal":    true,
@@ -748,8 +752,8 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 }
 
 const (
-	reviewedLocalAPILinuxDigest       = "9232bcdf537d0404405f119f716f6c645fd0158d14825185c9d4c4188a56ce2a"
-	reviewedLocalAPIUnsupportedDigest = "0de84d19fc669b8e29e433eaa623258d4f35a8dca848ef4a033fd5ae6af8dc70"
+	reviewedLocalAPILinuxDigest       = "e5ece8f087e9c2d9aea77e2c55c371b371f5f11ea580e5bb9e21e8a582547ea0"
+	reviewedLocalAPIUnsupportedDigest = "1ae6b725883f072f5c9575ddadc75583348a6c6c46cc0853e4d10cda2a1741b5"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -892,20 +896,20 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 
 const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
 
-const reviewedSSHTransportDigest = "36ae27790f85e3d2f736450c544b9690ae1cbc30203f2ca90f4409102978ea9b"
+const reviewedSSHTransportDigest = "10e81b2f343e819e398853e04df435e4d218c2a1d220ffd7e996d207aa31dcc0"
 
 func reviewedSSHTransportPackage(candidate checkedSourcePackage, localTransportImport string) bool {
+	modulePath := strings.TrimSuffix(localTransportImport, "/internal/localtransport")
 	approvedImports := map[string]bool{
-		"bufio": true, "bytes": true, "context": true, "errors": true, "io": true,
-		"net/http": true, "os/exec": true, "regexp": true, "strings": true, "time": true,
+		"bytes": true, "context": true, "errors": true, "io": true, "os/exec": true,
+		"regexp": true, "strings": true, "time": true,
+		modulePath + "/internal/apissh": true, modulePath + "/internal/generated": true,
+		localTransportImport: true,
 	}
-	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports)+1 {
+	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports) {
 		return false
 	}
 	for _, imported := range candidate.listed.Imports {
-		if imported == localTransportImport {
-			continue
-		}
 		if !approvedImports[imported] {
 			return false
 		}
