@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 13-09-2026 — Operators can plan, apply, and recover runs from one CLI ([#78](https://github.com/vegastack/vegastack-labs/issues/78))
+
+- **What:** `vsk-labs` now creates an inert immutable plan from one exact declaration revision, applies one named plan, and inspects, cancels, or resumes one durable run through the server API. Human output and raw JSON carry the same plan digest, targets, approval requirement, run progress, verification, rollback, and next safe action without prompting.
+- **Why:** Operators and agents needed the Phase 4 safety engine through the same stable executable without opening SQLite, contacting providers directly, replacing Slack acknowledgement, or guessing whether a disconnected apply failed.
+- **How it went:** The original two-field plan command lacked the server-owned observation facts needed for an exact plan request, and a disconnected submit did not yet know which run to inspect. A narrow authorized preparation read and one shared deterministic run-ID helper closed those gaps without adding a client state machine. Focused race tests and a Debian built-process fixture then proved exact request bytes, hostile path handling, one submit, one recovery read, and no resubmission.
+- **Changed:** Generated available plan/apply/run commands · exact plan-preparation read · thin Unix-socket client methods · deterministic durable run IDs · disconnect inspection without retry · human/JSON parity · stable server error exits · portable target builds and CLI boundary guards.
+- **Decisions:** none; plan creation still revalidates current state, the server remains the sole policy and run-state owner, and no provider, credential, executor, fleet, shell, arbitrary network, or direct-database path was added.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/4.7-cli-plan-apply-runs
+
 ## 13-09-2026 — External workers receive one short, exact work lease ([#69](https://github.com/vegastack/vegastack-labs/issues/69))
 
 - **What:** A policy-bound external worker can claim only the server-selected next operation of one current durable run, renew that exact lease every 20 seconds within its fixed 60-second lifetime, and return an untrusted receipt for independent adapter verification. SQLite records the lease, rotating nonce, receipt, verification, and run result before the API reports success.
