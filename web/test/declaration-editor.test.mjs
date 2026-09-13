@@ -12,6 +12,20 @@ test("declaration changes persist only after Save through the generated client",
   assert.doesNotMatch(source, /setInterval|onBlur=.*save|fetch\(/);
 });
 
+test("the Changes route uses typed queries and keeps plan generation separate", async () => {
+  const [page, queries, sidebar] = await Promise.all([
+    read("app/changes/page.tsx"),
+    read("lib/change-queries.ts"),
+    read("app/dashboard/components/app-sidebar.tsx"),
+  ]);
+  assert.match(page, /ChangesWorkspace/);
+  assert.match(sidebar, /href: "\/changes"/);
+  assert.match(queries, /changeClient/);
+  assert.match(await read("lib/read-client.ts"), /createChangeClient/);
+  assert.match(queries, /useDeclaration|useSaveDeclaration|useCreatePlan/);
+  assert.doesNotMatch(queries, /fetch\(|axios|sqlite|provider/i);
+});
+
 test("generated client owns safe browser plan preparation", async () => {
   const generated = await read("generated/read-api.ts");
   assert.match(generated, /preparePlan/);

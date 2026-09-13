@@ -5,7 +5,7 @@ import { createContext, useContext, useMemo, useState, type ReactNode } from "re
 import { ReadClientError } from "@/generated/read-api";
 import { isHardReadFailure } from "@/lib/read-queries";
 
-type FailureScope = "all" | "inventory" | "overview" | "gates" | `source:${string}`;
+type FailureScope = "all" | "inventory" | "overview" | "gates" | "changes" | `source:${string}`;
 type FailureNotice = { error: unknown; scope: FailureScope } | null;
 const FailureContext = createContext<{ notice: FailureNotice; clear: () => void }>({ notice: null, clear: () => undefined });
 
@@ -14,6 +14,7 @@ function isInventoryKey(key: readonly unknown[]): boolean {
 }
 
 function keyScope(key: readonly unknown[]): Exclude<FailureScope, "all"> {
+  if (key[0] === "change") return "changes";
   if (isInventoryKey(key)) return "inventory";
   if (key[0] === "read" && key[1] === "sources") {
     const source = (key[2] as { source?: string } | undefined)?.source;
@@ -40,7 +41,8 @@ export function ConsoleQueryProvider({ children }: { children: ReactNode }) {
         const scope: FailureScope = global ? "all" : keyScope(query.queryKey);
         if (global || authorizationDenial) {
           setNotice({ error, scope });
-          for (const cached of queryCache.findAll({ queryKey: ["read"] })) {
+          for (const cached of queryCache.findAll()) {
+            if (cached.queryKey[0] !== "read" && cached.queryKey[0] !== "change") continue;
             if (scope === "all" || keyScope(cached.queryKey) === scope) cached.setState({ data: null });
           }
         } else {
