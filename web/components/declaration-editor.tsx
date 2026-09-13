@@ -2,16 +2,16 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { FilePlus2, Save } from "lucide-react";
-import type { DeclarationOperation, DeclarationRevision, DeclarationRevisionRequest, Plan } from "@/generated/read-api";
+import type { DeclarationOperation, DeclarationRevisionRequest } from "@/generated/read-api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useCreatePlan, useSaveDeclaration } from "@/lib/change-queries";
+import { useCreatePlan, useSaveDeclaration, type BrowserDeclaration, type PlanView } from "@/lib/change-queries";
 
 const fieldClass = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
-const identifierPattern = "[a-z][a-z0-9._:-]{0,127}";
+const identifierPattern = "[a-z][a-z0-9._:\\-]{0,127}";
 const digestPattern = "sha256:[a-f0-9]{64}";
 
-export function DeclarationEditor({ declaration, onSaved, onPlanCreated }: { declaration: DeclarationRevision; onSaved: (saved: DeclarationRevision) => void; onPlanCreated: (plan: Plan) => void }) {
+export function DeclarationEditor({ declaration, onSaved, onPlanCreated }: { declaration: BrowserDeclaration; onSaved: (saved: BrowserDeclaration) => void; onPlanCreated: (plan: PlanView) => void }) {
   const [operations, setOperations] = useState<DeclarationOperation[]>(() => declaration.operations.map(operation => ({ ...operation })));
   const [reasonDigest, setReasonDigest] = useState("");
   const [dirty, setDirty] = useState(false);
@@ -38,7 +38,7 @@ export function DeclarationEditor({ declaration, onSaved, onPlanCreated }: { dec
       schemaVersion: "1.0.0",
       declarationId: declaration.declarationId,
       declarationType: declaration.declarationType,
-      expectedRevision: declaration.revision,
+      expectedRevision: declaration.revision + 1,
       expectedStateRevision: declaration.stateRevision,
       recoveryEpoch: declaration.recoveryEpoch,
       operations: operations.map((operation, index) => ({ ...operation, sequence: index + 1 })),

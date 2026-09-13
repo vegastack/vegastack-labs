@@ -21,8 +21,22 @@ function runReference(run: RunPresentation["run"], action: string): RunReference
   };
 }
 
-export function useRun(initial: RunPresentation | null) {
-  const runId = initial?.run.runId ?? null;
+const maximumReconnectDelay = 20_000;
+
+async function waitForReconnect(attempt: number, signal: AbortSignal) {
+  const delay = Math.min(500 * (2 ** Math.min(attempt, 5)), maximumReconnectDelay);
+  await new Promise<void>((resolve) => {
+    const timeout = globalThis.setTimeout(done, delay);
+    function done() {
+      globalThis.clearTimeout(timeout);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+    signal.addEventListener("abort", done, { once: true });
+  });
+}
+
+export function useRun(runId: string | null) {
   const query = useQuery({
     queryKey: runId ? runKeys.detail(runId) : ["change", "run", "closed"],
     queryFn: ({ signal }) => changeClient.getRun({ runId: runId! }, { signal }),
@@ -33,16 +47,27 @@ export function useRun(initial: RunPresentation | null) {
   useEffect(() => {
     if (!runId) return;
     const controller = new AbortController();
+    lastEventId.current = undefined;
     const inspectDurableRun = () => { void refetch(); };
     globalThis.addEventListener("online", inspectDurableRun);
     void (async () => {
-      try {
-        for await (const update of readClient.streamEvents({ signal: controller.signal, lastEventId: lastEventId.current })) {
-          lastEventId.current = String(update.event.eventId);
-          if (update.event.target.kind === "run" && update.event.target.id === runId) await refetch();
+      let attempt = 0;
+      while (!controller.signal.aborted) {
+        await refetch();
+        if (controller.signal.aborted) break;
+        try {
+          for await (const update of readClient.streamEvents({ signal: controller.signal, lastEventId: lastEventId.current })) {
+            lastEventId.current = String(update.event.eventId);
+            attempt = 0;
+            if (update.event.target.kind === "run" && update.event.target.id === runId) await refetch();
+          }
+        } catch {
+          if (controller.signal.aborted) break;
         }
-      } catch {
-        if (!controller.signal.aborted) await refetch();
+        await refetch();
+        if (controller.signal.aborted) break;
+        await waitForReconnect(attempt, controller.signal);
+        attempt += 1;
       }
     })();
     return () => { controller.abort(); globalThis.removeEventListener("online", inspectDurableRun); };
@@ -53,6 +78,7 @@ export function useRun(initial: RunPresentation | null) {
 export function useCancelRun() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ["change", "cancel-run"],
     mutationFn: (presentation: RunPresentation) => changeClient.cancelRun({ runId: presentation.run.runId }, runReference(presentation.run, "cancel")),
     onSuccess: (result) => queryClient.setQueryData(runKeys.detail(result.data.run.runId), result),
   });
@@ -61,6 +87,7 @@ export function useCancelRun() {
 export function useResumeRun() {
   const queryClient = useQueryClient();
   return useMutation({
+    mutationKey: ["change", "resume-run"],
     mutationFn: (presentation: RunPresentation) => changeClient.resumeRun({ runId: presentation.run.runId }, runReference(presentation.run, "resume")),
     onSuccess: (result) => queryClient.setQueryData(runKeys.detail(result.data.run.runId), result),
   });

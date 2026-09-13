@@ -9,11 +9,17 @@ export const changeFixture: {
   approval: ApprovalState;
   run: RunState;
   executeRequests: number;
+  approvalStatusRequests: number;
+  approvalExpiresAt: string;
+  eventConnections: number;
+  eventLastIds: string[];
+  eventMode: "offline" | "reconnect";
+  hardFailurePath: string | null;
   requestBodies: string[];
   requestPaths: string[];
   reasonDigest: string;
   planDigest: string;
-} = { approval: "pending", run: "running", executeRequests: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
+} = { approval: "pending", run: "running", executeRequests: 0, approvalStatusRequests: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
 
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
@@ -29,7 +35,11 @@ const plan = {
 
 function approval() {
   const current = changeFixture.approval === "approved";
-  return { schema: "vegastack-labs.dev/approval-status", schemaVersion: "1.0.0", planId: plan.planId, planDigest: plan.planDigest, status: changeFixture.approval, authorizationCurrent: current, canApply: current, channel: "slack", owner: "assigned-maintainer", stateRevision: 10, recoveryEpoch: 2, expiresAt: plan.expiresAt, observedAt: "2026-09-13T12:32:00Z" };
+  return { schema: "vegastack-labs.dev/approval-status", schemaVersion: "1.0.0", planId: plan.planId, planDigest: plan.planDigest, status: changeFixture.approval, authorizationCurrent: current, canApply: current, channel: "slack", owner: "assigned-maintainer", stateRevision: 10, recoveryEpoch: 2, expiresAt: changeFixture.approvalExpiresAt, observedAt: "2026-09-13T12:32:00Z" };
+}
+
+function auditEvent(eventId: number) {
+  return { event: { schema: "vegastack-labs.dev/audit-event", schemaVersion: "1.0.0", eventId, occurredAt: "2026-09-13T12:34:00Z", recoveryEpoch: 2, stateRevision: 11, type: "run.updated", correlationId: "correlation-browser", causationEventId: null, correctionOfEventId: null, principalId: "redacted-browser-principal", principalMethod: "local-session", responsibleHumanPrincipalId: null, agentName: null, agentSessionId: null, agentSource: null, target: { kind: "run", id: "run-one" }, beforeFingerprint: null, afterFingerprint: digest("9") } };
 }
 
 function runPresentation() {
@@ -53,15 +63,27 @@ async function respond(route: Route) {
   const path = new URL(request.url()).pathname;
   changeFixture.requestPaths.push(path);
   if (request.method() === "POST") changeFixture.requestBodies.push(request.postData() ?? "");
+  if (changeFixture.hardFailurePath === path) return route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify(envelope("denied", {}, "failed", [{ code: "AUTHORIZATION_DENIED", target: path, retryable: false }])) });
+  if (path === "/api/v1/events") {
+    changeFixture.eventConnections += 1;
+    changeFixture.eventLastIds.push(request.headers()["last-event-id"] ?? "");
+    if (changeFixture.eventMode !== "reconnect") return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify(envelope("api.v1.events.stream", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: path, retryable: true }])) });
+    const eventId = changeFixture.eventConnections;
+    if (eventId > 1) changeFixture.run = "interrupted";
+    const body = `id: ${eventId}\nevent: audit-event\ndata: ${JSON.stringify(auditEvent(eventId))}\n\n`;
+    return route.fulfill({ status: 200, contentType: "text/event-stream", body });
+  }
   if (/^\/api\/v1\/declarations\/declaration-one\/revisions\/\d+$/.test(path)) return reply(route, "api.v1.declarations.get", declaration(Number(path.split("/").at(-1))));
   if (path.endsWith("/plan-preparation")) return reply(route, "api.v1.declarations.plan-preparation.get", { schema: "vegastack-labs.dev/plan-preparation", schemaVersion: "1.0.0", declarationId: "declaration-one", declarationRevision: Number(path.split("/").at(-2)), expectedStateRevision: 10, recoveryEpoch: 2, observationFingerprint: digest("1") });
   if (path === "/api/v1/declarations/declaration-one/revisions" && request.method() === "POST") {
-    const body = request.postDataJSON() as { operations: typeof operation[] };
+    const body = request.postDataJSON() as { expectedRevision: number; operations: typeof operation[] };
+    if (body.expectedRevision !== 2) return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify(envelope("api.v1.declarations.revise", {}, "failed", [{ code: "STATE_CONFLICT", target: "revision", retryable: false }])) });
     return reply(route, "api.v1.declarations.revise", declaration(2, body.operations));
   }
   if (path === "/api/v1/declarations/declaration-one/plans" && request.method() === "POST") return reply(route, "api.v1.plans.create", plan);
+  if (path === "/api/v1/plans/plan-one" && request.method() === "GET") return reply(route, "api.v1.plans.get", plan);
   if (path === "/api/v1/plans/plan-one/approval-request" && request.method() === "POST") return reply(route, "api.v1.plans.approval-request.create", approval());
-  if (path === "/api/v1/plans/plan-one/approval-status") return reply(route, "api.v1.plans.approval-status.get", approval());
+  if (path === "/api/v1/plans/plan-one/approval-status") { changeFixture.approvalStatusRequests += 1; return reply(route, "api.v1.plans.approval-status.get", approval()); }
   if (path === "/api/v1/plans/plan-one/execute" && request.method() === "POST") { changeFixture.executeRequests += 1; return reply(route, "api.v1.plans.execute", runPresentation()); }
   if (path === "/api/v1/runs/run-one" && request.method() === "GET") return reply(route, "api.v1.runs.get", runPresentation());
   if (path === "/api/v1/runs/run-one/cancel" && request.method() === "POST") { changeFixture.run = "cancelled"; return reply(route, "api.v1.runs.cancel", runPresentation()); }
@@ -73,6 +95,12 @@ export async function installChangeFixture(page: Page) {
   changeFixture.approval = "pending";
   changeFixture.run = "running";
   changeFixture.executeRequests = 0;
+  changeFixture.approvalStatusRequests = 0;
+  changeFixture.approvalExpiresAt = "2099-09-13T13:01:00Z";
+  changeFixture.eventConnections = 0;
+  changeFixture.eventLastIds.length = 0;
+  changeFixture.eventMode = "offline";
+  changeFixture.hardFailurePath = null;
   changeFixture.requestBodies.length = 0;
   changeFixture.requestPaths.length = 0;
   await page.route("**/api/v1/**", respond);

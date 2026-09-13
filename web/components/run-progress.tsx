@@ -1,7 +1,7 @@
 "use client";
 
 import { RefreshCw } from "lucide-react";
-import type { RunPresentation, RunStep } from "@/generated/read-api";
+import type { RunPresentation } from "@/generated/read-api";
 import { ReadViewState } from "@/components/read-view-state";
 import { RunRecoveryDialog } from "@/components/run-recovery-dialog";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,14 @@ import { classifyReadFailure } from "@/lib/read-queries";
 const labels = { queued: "Queued", running: "Running", partial: "Partial", failed: "Failed", cancelled: "Cancelled", interrupted: "Interrupted", succeeded: "Succeeded" } as const;
 const intents = { queued: "info", running: "info", partial: "warning", failed: "destructive", cancelled: "default", interrupted: "warning", succeeded: "success" } as const;
 
-export function RunProgress({ initial }: { initial: RunPresentation }) {
-  const query = useRun(initial);
+export function RunProgress({ runId }: { runId: string }) {
+  const query = useRun(runId);
   const cancel = useCancelRun();
   const resume = useResumeRun();
-  const retained = query.data?.data ?? initial;
+  const retained = query.data?.data;
   const kind = query.error ? classifyReadFailure(query.error, true) : null;
   if (kind === "denied" || kind === "error") return <ReadViewState kind={kind} title={kind === "denied" ? "Run access denied" : "Run response rejected"} description="Durable run details were cleared. Inspect the run again through an authorized server connection." onRetry={() => void query.refetch()} />;
+  if (!retained) return <ReadViewState kind={query.isPending ? "loading" : "unavailable"} title={query.isPending ? "Restoring durable run" : "Run unavailable"} description="Reading the exact durable run from the control plane; execution is never resubmitted." onRetry={() => void query.refetch()} />;
   const presentation = retained;
   const run = presentation.run;
   const canCancel = ["queued", "running", "interrupted"].includes(run.status) && !run.cancellationRequested;
@@ -47,6 +48,6 @@ export function RunProgress({ initial }: { initial: RunPresentation }) {
   </section>;
 }
 
-function RunStepRow({ step }: { step: RunStep }) {
+function RunStepRow({ step }: { step: RunPresentation["run"]["steps"][number] }) {
   return <li className="grid gap-2 rounded-md border border-border p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto]" data-run-step={step.status}><div><p className="font-medium">{step.sequence}. {step.operationType}</p><p className="break-all text-muted-foreground">{step.targetId} · {step.adapterId}</p></div><div className="flex flex-wrap items-start gap-2"><Badge bordered intent={intents[step.status]}>{labels[step.status]}</Badge><Badge variant="outline">{step.effectState}</Badge></div></li>;
 }

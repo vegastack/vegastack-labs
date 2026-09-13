@@ -24,9 +24,52 @@ test("generated approval projection excludes protected proof and identity fields
 });
 
 test("run workflow re-reads durable state and never resubmits after disconnect", async () => {
-  const progress = await read("components/run-progress.tsx");
+  const [progress, queries] = await Promise.all([
+    read("components/run-progress.tsx"),
+    read("lib/run-queries.ts"),
+  ]);
   assert.match(progress, /getRun|refetch/);
+  assert.match(queries, /while \(!controller\.signal\.aborted\)/);
+  assert.match(queries, /lastEventId:\s*lastEventId\.current/);
+  assert.match(queries, /await refetch\(\)[\s\S]*streamEvents/);
   assert.doesNotMatch(progress, /setInterval|(?:^|[^A-Za-z])fetch\(/);
+});
+
+test("immutable save creates the next revision", async () => {
+  const editor = await read("components/declaration-editor.tsx");
+  assert.match(editor, /expectedRevision:\s*declaration\.revision \+ 1/);
+});
+
+test("refresh restores only safe change handles from navigation history", async () => {
+  const workspace = await read("components/changes-workspace.tsx");
+  assert.match(workspace, /history\.state/);
+  assert.match(workspace, /replaceState/);
+  assert.match(workspace, /planId/);
+  assert.match(workspace, /runId/);
+  assert.doesNotMatch(workspace, /localStorage|sessionStorage|location\.(?:search|hash)/);
+});
+
+test("approval is refreshed through apply and expires locally closed", async () => {
+  const [review, queries] = await Promise.all([
+    read("components/plan-review.tsx"),
+    read("lib/change-queries.ts"),
+  ]);
+  assert.match(review, /approval\.refetch\(\)/);
+  assert.match(review, /expiresAt/);
+  assert.match(review, /Date\.parse/);
+  assert.match(queries, /refetchInterval:\s*20_000/);
+  assert.doesNotMatch(queries, /status === "pending" \? 20_000 : false/);
+});
+
+test("hard change failures clear mounted state as well as cached data", async () => {
+  const [workspace, provider] = await Promise.all([
+    read("components/changes-workspace.tsx"),
+    read("components/query-provider.tsx"),
+  ]);
+  assert.match(workspace, /useReadFailure\("changes"\)/);
+  assert.match(workspace, /setReference\(null\)[\s\S]*setPlanId\(null\)[\s\S]*setRunId\(null\)/);
+  assert.match(provider, /MutationCache/);
+  assert.match(provider, /INTEGRITY_FAILURE|SCHEMA_UNSUPPORTED|VERSION_INCOMPATIBLE/);
 });
 
 test("approval and run views name every truthful state without color-only status", async () => {

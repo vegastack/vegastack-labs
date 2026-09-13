@@ -8,12 +8,14 @@ import { RunRecoveryDialog } from "@/components/run-recovery-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { useApprovalStatus, useExecutePlan, useRequestApproval } from "@/lib/change-queries";
+import { planFromView, useApprovalStatus, useExecutePlan, useRequestApproval, type PlanView } from "@/lib/change-queries";
 
 const planStatusLabels = { approved: "Approved", "awaiting-acknowledgement": "Awaiting acknowledgement", cancelled: "Cancelled", expired: "Expired", planned: "Planned" } as const;
 
-export function PlanReview({ plan, onRunStarted }: { plan: Plan; onRunStarted: (run: RunPresentation) => void }) {
+export function PlanReview({ view, onRunStarted }: { view: PlanView; onRunStarted: (run: RunPresentation) => void }) {
+  const plan: Plan = planFromView(view);
   const [observeApproval, setObserveApproval] = useState(plan.status === "approved" || plan.status === "awaiting-acknowledgement");
+  const [clock, setClock] = useState(() => Date.now());
   const requestApproval = useRequestApproval();
   const approval = useApprovalStatus(plan.planId, observeApproval);
   const execute = useExecutePlan();
@@ -28,19 +30,30 @@ export function PlanReview({ plan, onRunStarted }: { plan: Plan; onRunStarted: (
       refreshButton.current?.focus();
     }
   }, [approval.isFetching]);
+  useEffect(() => {
+    const expiresAt = Date.parse(approval.data?.data.expiresAt ?? plan.expiresAt);
+    if (!Number.isFinite(expiresAt)) return;
+    const timeout = globalThis.setTimeout(() => setClock(Date.now()), Math.max(0, Math.min(expiresAt - Date.now() + 1, 2_147_483_647)));
+    return () => globalThis.clearTimeout(timeout);
+  }, [approval.data?.data.expiresAt, plan.expiresAt]);
 
   async function requestSlackApproval() {
     await requestApproval.mutateAsync(plan);
     setObserveApproval(true);
   }
   async function startRun() {
+    const refreshed = await approval.refetch();
+    const current = refreshed.data?.data;
+    const unexpired = current ? Date.parse(current.expiresAt) > Date.now() : false;
+    if (!current || current.planId !== plan.planId || current.planDigest !== plan.planDigest || current.status !== "approved" || !current.authorizationCurrent || !current.canApply || !unexpired) return;
     const result = await execute.mutateAsync(plan);
     onRunStarted(result.data);
   }
 
   const status = approval.data?.data;
   const exactApproval = status?.planId === plan.planId && status.planDigest === plan.planDigest ? status : null;
-  const canApply = exactApproval?.authorizationCurrent === true && exactApproval.canApply === true && exactApproval.status === "approved";
+  const authorizationUnexpired = exactApproval ? Date.parse(exactApproval.expiresAt) > clock : false;
+  const canApply = exactApproval?.authorizationCurrent === true && exactApproval.canApply === true && exactApproval.status === "approved" && authorizationUnexpired;
   const highRisk = plan.risk !== "routine";
   return <section className="space-y-4" aria-labelledby="plan-review-title" data-plan-status={plan.status}>
     <Card>
