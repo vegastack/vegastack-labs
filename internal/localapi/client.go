@@ -40,6 +40,10 @@ type UncertainRunError struct {
 	err   error
 }
 
+func NewUncertainRunError(runID string, cause error) error {
+	return &UncertainRunError{RunID: runID, err: cause}
+}
+
 func (err *UncertainRunError) Error() string { return err.err.Error() }
 func (err *UncertainRunError) Unwrap() error { return err.err }
 
@@ -160,7 +164,7 @@ func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, p
 	if inspectErr == nil && inspected.ExitCode == 0 {
 		return inspected, nil
 	}
-	return zero, &UncertainRunError{RunID: runID, err: err}
+	return zero, NewUncertainRunError(runID, err)
 }
 
 func (client *client) InspectRun(ctx context.Context, profile serverconfig.Profile, runID string) (TypedResponse[generated.Run], error) {
@@ -200,7 +204,7 @@ func (client *client) mutateRun(ctx context.Context, profile serverconfig.Profil
 	if inspectErr == nil && inspected.ExitCode == 0 {
 		return inspected, nil
 	}
-	return TypedResponse[generated.Run]{}, &UncertainRunError{RunID: runID, err: err}
+	return TypedResponse[generated.Run]{}, NewUncertainRunError(runID, err)
 }
 
 func (client *client) getPlan(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.Plan], error) {

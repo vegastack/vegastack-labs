@@ -538,16 +538,17 @@ test("apply disconnect inspects the durable run and never resubmits", async (t) 
     '  operations: [{ sequence: 1, operationId: "operation-1", operationType: "application.deploy.low-risk", adapterId: "adapter.synthetic", executorId: "executor-central", targetId: "target-1", inputDigest: digest("e"), artifactDigest: digest("f"), idempotent: true }],',
     '  status: "planned", risk: "routine", authorizationBranch: "preauthorized", executorMode: "central", executorId: null, createdAt: "2026-09-13T06:00:00Z", expiresAt: "2026-09-13T06:30:00Z", readableDigest: digest("1"), extensions: [],',
     '};',
-    'let run = null;',
+    'let run = null; let submitCount = 0;',
     'const envelope = (command, data, options = {}) => `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: "1.12.0", toolVersion: "0.0.0-dev", command, requestId: options.requestId ?? "request-fixture-000000000000000000000", runId: options.runId ?? null, status: options.status ?? "succeeded", changed: options.changed ?? false, recoveryEpoch: 2, stateRevision: 7, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: options.planId ?? null, errors: [], data })}\\n`;',
     'const server = http.createServer((request, response) => {',
     '  const chunks = []; request.on("data", (chunk) => chunks.push(chunk));',
     '  request.on("end", () => {',
     '    const body = Buffer.concat(chunks).toString("utf8");',
     '    appendFileSync(requestLog, `${JSON.stringify({ method: request.method, path: request.url, body })}\\n`);',
-    '    let payload;',
+    '    let payload; let statusCode = 200;',
     '    if (request.method === "GET" && request.url === "/api/v1/plans/plan-1") payload = envelope("api.v1.plans.get", plan);',
     '    else if (request.method === "POST" && request.url === "/api/v1/plans/plan-1/execute") {',
+    '      submitCount += 1;',
     '      const input = JSON.parse(body);',
     '      const suffix = createHash("sha256").update(["run", plan.planId, input.idempotencyKey].join("\\0")).digest("hex").slice(0, 32);',
     '      run = { schema: "vegastack-labs.dev/run", schemaVersion: "1.0.0", runId: `run-${suffix}`, planId: plan.planId, planDigest: plan.planDigest, authorizationDecisionId: "decision-1", acknowledgementId: null, policyVersion: "1.0.0", executorMode: "central", executorId: "executor-central", executorBindingDigest: digest("2"), status: "running", steps: [{ ...plan.operations[0], stepId: "step-1", status: "running", effectState: "intent-recorded" }], cancellationRequested: false, rollbackStatus: "not-requested", verificationStatus: "pending", verificationDigest: null, changed: false, stateRevision: 7, recoveryEpoch: 2, createdAt: "2026-09-13T06:01:00Z", updatedAt: "2026-09-13T06:01:01Z", extensions: [] };',
@@ -556,9 +557,10 @@ test("apply disconnect inspects the durable run and never resubmits", async (t) 
     '      response.socket.destroy();',
     '      return;',
     '    }',
-    '    else if (request.method === "GET" && run !== null && request.url === `/api/v1/runs/${run.runId}`) payload = envelope("api.v1.runs.get", run);',
+    '    else if (request.method === "GET" && run !== null && request.url === `/api/v1/runs/${run.runId}` && submitCount === 1) payload = envelope("api.v1.runs.get", run);',
+    '    else if (request.method === "GET" && run !== null && request.url === `/api/v1/runs/${run.runId}`) { statusCode = 503; payload = `${JSON.stringify({ schema: "vegastack-labs.dev/run-result", schemaVersion: "1.12.0", toolVersion: "0.0.0-dev", command: "api.v1.runs.get", requestId: "request-fixture-unknown", runId: null, status: "failed", changed: false, recoveryEpoch: 0, stateRevision: 0, snapshotDigest: null, releaseBuildId: "development", sourceRevision: null, planId: null, errors: [{ code: "DEPENDENCY_UNAVAILABLE", target: "read", retryable: true }], data: {} })}\\n`; }',
     '    else { response.writeHead(404); response.end(); return; }',
-    '    response.writeHead(200, { "Content-Type": "application/json", "Connection": "close" });',
+    '    response.writeHead(statusCode, { "Content-Type": "application/json", "Connection": "close" });',
     '    response.end(payload);',
     '  });',
     '});',
@@ -588,4 +590,14 @@ test("apply disconnect inspects the durable run and never resubmits", async (t) 
   assert.equal(submits[0].body, golden.requests.apply.replace("<request-id>", submitBody.idempotencyKey));
   const runSuffix = createHash("sha256").update(["run", "plan-1", submitBody.idempotencyKey].join("\0")).digest("hex").slice(0, 32);
   assert.equal(requests.filter((request) => request.method === "GET" && request.path === `/api/v1/runs/run-${runSuffix}`).length, 1);
+
+  const unknown = run(binary, ["apply", "--plan-id", "plan-1", "--config", profilePath, "--output", "json"]);
+  const unknownEnvelope = JSON.parse(unknown.stdout);
+  const allRequests = (await readFile(requestLog, "utf8")).trim().split("\n").map(JSON.parse);
+  const allSubmits = allRequests.filter((request) => request.method === "POST" && request.path === "/api/v1/plans/plan-1/execute");
+  const unknownBody = JSON.parse(allSubmits[1].body);
+  const unknownSuffix = createHash("sha256").update(["run", "plan-1", unknownBody.idempotencyKey].join("\0")).digest("hex").slice(0, 32);
+  assert.deepEqual({ code: unknown.code, stderr: unknown.stderr, runId: unknownEnvelope.runId, error: unknownEnvelope.errors[0]?.code }, { code: golden.exits.disconnectUnknown, stderr: "", runId: `run-${unknownSuffix}`, error: "DEPENDENCY_UNAVAILABLE" });
+  assert.equal(allSubmits.length, 2);
+  assert.equal(allRequests.filter((request) => request.method === "GET" && request.path === `/api/v1/runs/run-${unknownSuffix}`).length, 1);
 });

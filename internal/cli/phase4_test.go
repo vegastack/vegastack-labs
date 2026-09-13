@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -22,6 +23,17 @@ type phase4ControlOperations struct {
 	phase4Command string
 }
 
+func TestApplyUnknownOutcomeExposesOnlyInspectableRunID(t *testing.T) {
+	plan := phase4TestPlan()
+	operations := phase4Operations(t, plan, phase4TestRun(plan, "running"))
+	operations.err = localapi.NewUncertainRunError("run-derived", errors.New("private transport canary"))
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{"apply", "--config", "profile.json", "--plan-id", plan.PlanID, "--output", "json"}, nil, WithControlOperations(operations, nil))
+	var envelope generated.RunResult
+	if code != generated.ErrorExitCodes[generated.ErrorCodeDependencyUnavailable] || stderr != "" || json.Unmarshal([]byte(stdout), &envelope) != nil || envelope.RunID == nil || *envelope.RunID != "run-derived" || len(envelope.Errors) != 1 || envelope.Errors[0].Code != generated.ErrorCodeDependencyUnavailable || strings.Contains(stdout, "private transport canary") {
+		t.Fatalf("unknown JSON outcome = code %d stdout %q stderr %q", code, stdout, stderr)
+	}
+}
+
 func (stub *phase4ControlOperations) Plan(_ context.Context, config, declarationID string, revision int64) (localapi.TypedResponse[generated.Plan], error) {
 	stub.config, stub.declarationID, stub.revision, stub.phase4Command = config, declarationID, revision, generated.CommandNamePlan
 	return stub.planResponse, nil
@@ -29,7 +41,7 @@ func (stub *phase4ControlOperations) Plan(_ context.Context, config, declaration
 
 func (stub *phase4ControlOperations) Apply(_ context.Context, config, planID string) (localapi.TypedResponse[generated.Run], error) {
 	stub.config, stub.planID, stub.phase4Command = config, planID, generated.CommandNameApply
-	return stub.runResponse, nil
+	return stub.runResponse, stub.err
 }
 
 func (stub *phase4ControlOperations) InspectRun(_ context.Context, config, runID string) (localapi.TypedResponse[generated.Run], error) {

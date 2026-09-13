@@ -345,8 +345,8 @@ func (app *App) runCommand(ctx context.Context, mode outputMode, parsed parsedAr
 	}
 	response, err := operation(ctx, parsed.Value(generated.FlagConfig), id)
 	if err != nil {
-		if uncertain, ok := localapi.AsUncertainRun(err); ok && mode == outputHuman {
-			_, _ = app.stderr.Write([]byte("Submission result is unknown. Inspect durable run " + uncertain.RunID + "; do not apply again.\n"))
+		if uncertain, ok := localapi.AsUncertainRun(err); ok {
+			return app.failUncertainRun(mode, parsed.commandName(), uncertain.RunID)
 		}
 		return app.failServer(mode, parsed.commandName(), err)
 	}
@@ -362,6 +362,23 @@ func (app *App) runCommand(ctx context.Context, mode outputMode, parsed parsedAr
 		return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
 	}
 	return 0
+}
+
+func (app *App) failUncertainRun(mode outputMode, command, runID string) int {
+	if mode == outputHuman {
+		_, _ = app.stderr.Write([]byte("Submission result is unknown. Inspect durable run " + runID + "; do not apply again.\n"))
+		return renderHumanFailure(app.stderr, generated.ErrorCodeDependencyUnavailable, "control-service", exitCodeFor(generated.ErrorCodeDependencyUnavailable))
+	}
+	factory := result.NewFactory(app.build, app.requestIDs)
+	envelope, err := factory.Failure(command, generated.RunStatusBlocked, generated.ErrorCodeDependencyUnavailable, "control-service", true, 0, 0, struct{}{})
+	if err != nil {
+		return app.fail(mode, command, generated.ErrorCodeIntegrityFailure, "request-id", generated.RunStatusFailed, false)
+	}
+	envelope.RunID = &runID
+	if err := result.Encode(app.stdout, envelope); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return exitCodeFor(generated.ErrorCodeDependencyUnavailable)
 }
 
 func emptyRun(value generated.Run) bool { return value.RunID == "" }
