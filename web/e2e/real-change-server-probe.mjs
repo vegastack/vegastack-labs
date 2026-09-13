@@ -1,7 +1,11 @@
 import { chromium } from "@playwright/test";
 import axe from "axe-core";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { assertPrivacyEvidence, assertShippedVisualAssetsSafe, captureVisibleBrowserEvidence, inspectTraceArchive, installCanvasTextCapture } from "./browser-privacy-proof.mjs";
 
 const baseURL = process.env.VSK_PHASE3_BASE_URL;
 const controllerURL = process.env.VSK_PHASE3_CONTROLLER_URL;
@@ -9,6 +13,7 @@ const assertion = process.env.VSK_PHASE3_ASSERTION;
 const fullLoop = process.env.VSK_PHASE4_FULL_LOOP === "1";
 const privateCanaries = ["subject-real-browser", "human.console", "authority.console", "server-owned-console-nonce"];
 const protectedBrowserFields = ["humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId", "createdBy", "agentSessionId", "authorizationDecisionId", "executorBindingDigest", "effectState", "requestId", "correlationId"];
+const forbiddenBrowserEvidence = [...privateCanaries, ...protectedBrowserFields];
 let browserConsole = [];
 let droppedBrowserExecuteResponse = false;
 
@@ -59,8 +64,15 @@ if (!baseURL || !controllerURL || !assertion) throw new Error("phase 4 fixture i
 
 const browser = await chromium.launch({ headless: true, args: ["--ignore-certificate-errors"] });
 let stage = "session";
+let context;
+let traceStarted = false;
+const configuredArtifactRoot = process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT ?? process.env.VSK_PHASE3_RUNTIME_ROOT;
+const artifactRoot = configuredArtifactRoot ? path.join(configuredArtifactRoot, "phase4-browser-proof") : await mkdtemp(path.join(tmpdir(), "vsk-phase4-browser-proof-"));
+await mkdir(artifactRoot, { recursive: true, mode: 0o700 });
+const tracePath = path.join(artifactRoot, "changes-trace.zip");
+const screenshotPath = path.join(artifactRoot, "changes-screenshot.png");
 try {
-  const context = await browser.newContext({ ignoreHTTPSErrors: true });
+  context = await browser.newContext({ ignoreHTTPSErrors: true });
   await context.route("**/*", async route => {
     const target = new URL(route.request().url());
     if ((target.protocol === "http:" || target.protocol === "https:") && target.origin !== baseURL) {
@@ -325,6 +337,9 @@ try {
 	}
 
 	stage = "console-route";
+	await installCanvasTextCapture(context);
+	await context.tracing.start({ screenshots: true, snapshots: true, sources: true, title: "phase-4-real-change-server" });
+	traceStarted = true;
 	const page = await context.newPage();
 	page.setDefaultTimeout(5_000);
 	browserConsole = [];
@@ -497,26 +512,24 @@ try {
 		await page.evaluate(() => { document.documentElement.style.zoom = "2"; });
 		const overflow = await page.evaluate(() => document.documentElement.scrollWidth > document.documentElement.clientWidth);
 		if (overflow) throw new Error("real changes route overflows at 200 percent zoom");
-		const browserSurfaces = await page.evaluate(async () => ({
-			body: document.body.innerText,
-			url: location.href,
-			history: history.state,
-			local: { ...localStorage },
-			session: { ...sessionStorage },
-			indexedDB: typeof indexedDB.databases === "function" ? (await indexedDB.databases()).map(database => database.name) : [],
-			caches: typeof caches === "undefined" ? [] : await caches.keys(),
-		}));
-		assertCanaryFree(browserSurfaces, "browser DOM, URL, history, and storage");
-		assertBrowserSafe(browserSurfaces, "browser DOM, URL, history, and storage");
-		assertBrowserSafe(browserConsole, "browser console");
-		assertBrowserSafe(await page.content(), "browser trace snapshot");
-		const screenshot = await page.screenshot({ fullPage: true });
+		const browserSurfaces = await captureVisibleBrowserEvidence(page, browserConsole);
+		assertPrivacyEvidence(browserSurfaces, forbiddenBrowserEvidence, "browser DOM, inputs, ARIA, accessibility tree, pseudo-content, SVG, canvas, URL, history, storage, cache, IndexedDB, and console");
+		assertBrowserSafe(await page.content(), "browser DOM snapshot");
+		await page.screenshot({ path: screenshotPath, fullPage: true });
+		const screenshot = await readFile(screenshotPath);
 		if (screenshot.length < 1_024 || screenshot[0] !== 0x89 || screenshot.subarray(1, 4).toString() !== "PNG") throw new Error("browser screenshot proof is invalid");
-		assertBrowserSafe(screenshot.toString("utf8"), "browser screenshot bytes");
+		// Screenshot pixels are not UTF-8. Runtime text/ARIA/pseudo/SVG/canvas extraction covers
+		// dynamic visible content; same-origin static image/background inputs are source-scanned below.
+		await assertShippedVisualAssetsSafe(fileURLToPath(new URL("../out/", import.meta.url)), forbiddenBrowserEvidence);
 		assertBrowserSafe(await readFile(new URL("../generated/read-api.ts", import.meta.url), "utf8"), "generated browser source");
 		await Promise.all(browserResponseChecks);
 		if (browserAPIPaths.some(path => /provider|sqlite|acknowledgements/i.test(path))) throw new Error("browser used a forbidden alternate authority path");
-		if (browserSurfaces.url.includes("declaration-browser") || Object.keys(browserSurfaces.local).length !== 0 || Object.keys(browserSurfaces.session).length !== 0) throw new Error("change handles escaped safe history state");
+		if (browserSurfaces.url.includes("declaration-browser") || Object.keys(browserSurfaces.localStorage).length !== 0 || Object.keys(browserSurfaces.sessionStorage).length !== 0) throw new Error("change handles escaped safe history state");
+
+		stage = "browser-trace-privacy";
+		await context.tracing.stop({ path: tracePath });
+		traceStarted = false;
+		await inspectTraceArchive(tracePath, forbiddenBrowserEvidence);
 	}
 
   process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "phase-4-real-change-server", status: "pass" })}\n`);
@@ -524,5 +537,6 @@ try {
   process.stderr.write(`PROBE_FAILED:${stage}\n`);
   process.exitCode = 1;
 } finally {
+	if (traceStarted && context) await context.tracing.stop({ path: tracePath }).catch(() => undefined);
   await browser.close();
 }
