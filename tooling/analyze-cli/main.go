@@ -53,6 +53,7 @@ type analysis struct {
 	ControlArbitraryHTTP        bool     `json:"controlArbitraryHTTP"`
 	ControlServerPath           bool     `json:"controlServerPath"`
 	InventoryDirectDomain       bool     `json:"inventoryDirectDomain"`
+	LocalClientBoundary         bool     `json:"localClientBoundary"`
 	TargetsAnalyzed             []string `json:"targetsAnalyzed"`
 }
 
@@ -350,12 +351,20 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	}
 	loader := packageImporter{checked: checked, fallback: targetLoader}
 	var result analysis
+	result.LocalClientBoundary = true
+	localClosure := moduleDependencyClosure(inModule, localAPIImport)
+	if len(localClosure) > 0 && !reviewedLocalClientDependencies(localClosure, modulePath, localAPIImport) {
+		result.LocalClientBoundary = false
+	}
 	for _, candidate := range inModule {
 		parsed, err := parseAndCheck(candidate, loader)
 		if err != nil {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		if localClosure[candidate.ImportPath] && !reviewedLocalClientPackage(parsed, modulePath, localAPIImport) {
+			result.LocalClientBoundary = false
+		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		isControlPackage := candidate.ImportPath == cliImport || strings.HasPrefix(candidate.ImportPath, cliImport+"/") || candidate.ImportPath == clientFileImport || strings.HasPrefix(candidate.ImportPath, clientFileImport+"/")
 		for _, imported := range candidate.Imports {
@@ -404,6 +413,175 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, isControlPackage, &result)
 	}
 	return result, nil
+}
+
+func moduleDependencyClosure(packages []listedPackage, root string) map[string]bool {
+	byImport := make(map[string]listedPackage, len(packages))
+	for _, candidate := range packages {
+		byImport[candidate.ImportPath] = candidate
+	}
+	if _, ok := byImport[root]; !ok {
+		return nil
+	}
+	closure := make(map[string]bool)
+	pending := []string{root}
+	for len(pending) > 0 {
+		current := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		if closure[current] {
+			continue
+		}
+		closure[current] = true
+		for _, imported := range byImport[current].Imports {
+			if _, ok := byImport[imported]; ok {
+				pending = append(pending, imported)
+			}
+		}
+	}
+	return closure
+}
+
+func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport string) bool {
+	approved := map[string]bool{
+		localAPIImport:                        true,
+		modulePath + "/internal/failure":      true,
+		modulePath + "/internal/generated":    true,
+		modulePath + "/internal/identity":     true,
+		modulePath + "/internal/result":       true,
+		modulePath + "/internal/runprotocol":  true,
+		modulePath + "/internal/serverconfig": true,
+		modulePath + "/internal/strictjson":   true,
+	}
+	for importPath := range closure {
+		if !approved[importPath] {
+			return false
+		}
+	}
+	return true
+}
+
+func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, localAPIImport string) bool {
+	approvedExternal := func(imported string) bool {
+		return imported == "golang.org/x/sys/unix" || imported == "github.com/go-jose/go-jose/v4" || imported == "github.com/go-jose/go-jose/v4/jwt"
+	}
+	if candidate.listed.ImportPath != localAPIImport {
+		for _, imported := range candidate.listed.Imports {
+			if imported == "os/exec" || imported == "plugin" || imported == "database/sql" {
+				return false
+			}
+			if !strings.HasPrefix(imported, modulePath+"/") && strings.Contains(imported, ".") && !approvedExternal(imported) {
+				return false
+			}
+		}
+		return true
+	}
+	for _, imported := range candidate.listed.Imports {
+		if imported == "os/exec" || imported == "plugin" || imported == "database/sql" || imported == "net/url" || imported == "crypto/tls" {
+			return false
+		}
+		if strings.HasPrefix(imported, modulePath+"/") || !strings.Contains(imported, ".") || approvedExternal(imported) {
+			continue
+		}
+		// The reviewed local client has no third-party dependency. Provider SDKs
+		// and any future external transport must pass a separate design review.
+		return false
+	}
+	valid := true
+	for _, file := range candidate.files {
+		ast.Inspect(file, func(node ast.Node) bool {
+			if !valid {
+				return false
+			}
+			call, ok := node.(*ast.CallExpr)
+			if !ok {
+				return true
+			}
+			function := calledFunction(call.Fun, candidate.info)
+			if function == nil || function.Pkg() == nil {
+				return true
+			}
+			switch function.Pkg().Path() {
+			case "net":
+				valid = reviewedUnixDial(function, call)
+			case "net/http":
+				valid = reviewedHTTPCall(function, call)
+			case "net/url", "crypto/tls":
+				valid = false
+			}
+			return valid
+		})
+	}
+	return valid
+}
+
+func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
+	switch function.Name() {
+	case "DialContext":
+		if len(call.Args) != 3 {
+			return false
+		}
+		signature, ok := function.Type().(*types.Signature)
+		if !ok || signature.Recv() == nil || !strings.Contains(types.TypeString(signature.Recv().Type(), nil), "net.Dialer") {
+			return false
+		}
+		return exactString(call.Args[1], "unix")
+	case "ListenUnix":
+		return len(call.Args) == 2 && exactString(call.Args[0], "unix")
+	case "AcceptUnix", "SetUnlinkOnClose", "SyscallConn", "Close", "Addr":
+		return true
+	default:
+		return false
+	}
+}
+
+func reviewedHTTPCall(function *types.Func, call *ast.CallExpr) bool {
+	switch function.Name() {
+	case "NewRequestWithContext":
+		return len(call.Args) == 4 && reviewedLocalURL(call.Args[2])
+	case "Do":
+		return receiverNamed(function, "net/http", "Client")
+	case "CloseIdleConnections":
+		return receiverNamed(function, "net/http", "Transport") || receiverNamed(function, "net/http", "Client")
+	case "Set", "Get":
+		return receiverNamed(function, "net/http", "Header")
+	default:
+		return false
+	}
+}
+
+func receiverNamed(function *types.Func, packagePath, name string) bool {
+	signature, ok := function.Type().(*types.Signature)
+	if !ok || signature.Recv() == nil {
+		return false
+	}
+	receiver := types.Unalias(signature.Recv().Type())
+	if pointer, ok := receiver.(*types.Pointer); ok {
+		receiver = types.Unalias(pointer.Elem())
+	}
+	named, ok := receiver.(*types.Named)
+	return ok && named.Obj() != nil && named.Obj().Pkg() != nil && named.Obj().Pkg().Path() == packagePath && named.Obj().Name() == name
+}
+
+func reviewedLocalURL(expression ast.Expr) bool {
+	addition, ok := unparenthesized(expression).(*ast.BinaryExpr)
+	if !ok || addition.Op != token.ADD || !exactString(addition.X, "http://local") {
+		return false
+	}
+	selector, ok := unparenthesized(addition.Y).(*ast.SelectorExpr)
+	if !ok {
+		return false
+	}
+	prefix, prefixOK := selector.X.(*ast.Ident)
+	return prefixOK && prefix.Name == "spec" && selector.Sel.Name == "path"
+}
+
+func exactString(expression ast.Expr, expected string) bool {
+	literal, ok := unparenthesized(expression).(*ast.BasicLit)
+	if !ok || literal.Kind != token.STRING {
+		return false
+	}
+	value, err := strconv.Unquote(literal.Value)
+	return err == nil && value == expected
 }
 
 func exportDataImporter(packages []listedPackage) (types.Importer, error) {

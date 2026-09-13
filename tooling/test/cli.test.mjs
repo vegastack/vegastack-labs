@@ -52,6 +52,18 @@ async function fixtureRepo(t, files = {}) {
   return root;
 }
 
+function localClientFixture(source) {
+  return {
+    "internal/cli/run.go": [
+      "package cli",
+      'import ("example.test/internal/generated"; _ "example.test/internal/localapi")',
+      MATCHING_RUN,
+      "",
+    ].join("\n"),
+    "internal/localapi/client.go": source,
+  };
+}
+
 test("the CLI verifier accepts one generated-registry consumer", async (t) => {
   const root = await fixtureRepo(t);
   const result = await verifyCLI(root, { crossBuild: false });
@@ -91,7 +103,7 @@ test("inventory control commands cannot reach SQLite, shells, providers, arbitra
   ]);
 });
 
-test("the CLI verifier permits HTTP only as ordinary code in the named local service packages", async (t) => {
+test("the CLI verifier permits the reviewed fixed Unix-domain socket transport", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/cli/run.go": [
       "package cli",
@@ -107,13 +119,74 @@ test("the CLI verifier permits HTTP only as ordinary code in the named local ser
     ].join("\n"),
     "internal/localapi/client.go": [
       "package localapi",
-      'import "net/http"',
-      "func Client() *http.Client { return &http.Client{} }",
+      'import ("context"; "net"; "net/http")',
+      "type requestSpec struct { path string }",
+      "func Client(ctx context.Context, spec requestSpec) error {",
+      "  dialer := &net.Dialer{}",
+      "  transport := &http.Transport{Proxy: nil, DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {",
+      '    return dialer.DialContext(ctx, "unix", "/run/vsk-labs/control.sock")',
+      "  }}",
+      "  client := &http.Client{Transport: transport}",
+      '  request, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://local"+spec.path, nil)',
+      "  if err != nil { return err }",
+      "  _, err = client.Do(request)",
+      "  return err",
+      "}",
       "",
     ].join("\n"),
   });
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result, { status: "pass", codes: [], targetsBuilt: [] });
+});
+
+test("the local client boundary rejects constructed remote URLs", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import ("context"; "net/http")',
+    "func Client(ctx context.Context) error {",
+    '  origin := "https://" + "provider.invalid"',
+    "  _, err := http.NewRequestWithContext(ctx, http.MethodGet, origin, nil)",
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects TCP dialing even through an import alias", async (t) => {
+  const root = await fixtureRepo(t, localClientFixture([
+    "package localapi",
+    'import n "net"',
+    "func Client() error {",
+    '  connection, err := n.Dial("tcp", "provider.invalid:443")',
+    "  if connection != nil { _ = connection.Close() }",
+    "  return err",
+    "}",
+    "",
+  ].join("\n")));
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
+});
+
+test("the local client boundary rejects an unreviewed helper and provider dependency", async (t) => {
+  const root = await fixtureRepo(t, {
+    ...localClientFixture([
+      "package localapi",
+      'import "example.test/internal/transporthelper"',
+      "func Client() { transporthelper.Connect() }",
+      "",
+    ].join("\n")),
+    "internal/transporthelper/client.go": [
+      "package transporthelper",
+      'import "example.test/internal/cloudflare"',
+      "func Connect() { cloudflare.Connect() }",
+      "",
+    ].join("\n"),
+    "internal/cloudflare/client.go": "package cloudflare\nfunc Connect() {}\n",
+  });
+  const result = await verifyCLI(root, { crossBuild: false });
+  assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
 test("the CLI verifier requires the shipped dependency closure to consume generated contracts", async (t) => {
@@ -725,6 +798,7 @@ test("the CLI verifier fails closed when the analyzer reports a mismatched targe
           controlServerPath: false,
           controlShellDispatch: false,
           inventoryDirectDomain: false,
+          localClientBoundary: true,
           releaseArtifactExecution: false,
           releaseNetworkAccess: false,
           sqliteAccess: false,

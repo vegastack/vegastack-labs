@@ -76,6 +76,7 @@ function validAnalyzerResult(value) {
     "generatedEndpointsReference",
     "handwrittenRegistry",
     "inventoryDirectDomain",
+    "localClientBoundary",
     "releaseArtifactExecution",
     "releaseNetworkAccess",
     "shellDispatch",
@@ -96,6 +97,7 @@ function validAnalyzerResult(value) {
     typeof value.controlServerPath !== "boolean" ||
     typeof value.controlShellDispatch !== "boolean" ||
     typeof value.inventoryDirectDomain !== "boolean" ||
+    typeof value.localClientBoundary !== "boolean" ||
     typeof value.releaseArtifactExecution !== "boolean" ||
     typeof value.releaseNetworkAccess !== "boolean" ||
     typeof value.shellDispatch !== "boolean" ||
@@ -171,27 +173,25 @@ async function inspectSources(root, execute) {
     if (analysis.controlProviderAccess) codes.add("CLI_CONTROL_PROVIDER_ACCESS");
     if (analysis.controlArbitraryHTTP) codes.add("CLI_CONTROL_ARBITRARY_HTTP");
     if (analysis.controlServerPath) codes.add("CLI_CONTROL_SERVER_PATH");
+    if (!analysis.localClientBoundary) codes.add("CLI_LOCAL_CLIENT_BOUNDARY");
     if (analysis.inventoryDirectDomain) codes.add("CLI_INVENTORY_DIRECT_DOMAIN");
     if (analysis.releaseNetworkAccess) codes.add("CLI_RELEASE_NETWORK_ACCESS");
     if (analysis.releaseArtifactExecution) codes.add("CLI_RELEASE_ARTIFACT_EXECUTION");
     if (analysis.stateExportTrust) codes.add("CLI_STATE_EXPORT_TRUST");
     if (analysis.stateExportReleaseCoupling) codes.add("CLI_STATE_EXPORT_RELEASE_COUPLING");
   }
-  if (!(await verifyReviewedLocalClient(root))) codes.add("CLI_LOCAL_CLIENT_BOUNDARY");
   return { codes, targetsAnalyzed };
 }
 
+// Kept temporarily for the focused process fixture. Production verification
+// uses the typed, dependency-aware analyzer result above.
 export async function verifyReviewedLocalClient(root = ROOT) {
   const files = await goFiles(root, "internal/localapi");
   if (files.length === 0) return true;
-  const forbiddenImport = /["`](?:database\/sql|os\/exec|plugin|[^"`]*\/internal\/(?:store|inventory|profiles\/|cloudflare|coolify|harbor|onepassword))['"`]/;
-  const networkOrigin = /["`](https?:\/\/[^"`]+)["`]/g;
   for (const file of files) {
     const source = await readFile(file, "utf8");
-    if (forbiddenImport.test(source)) return false;
-    for (const match of source.matchAll(networkOrigin)) {
-      if (match[1] !== "http://local") return false;
-    }
+    if (/(?:database\/sql|os\/exec|plugin)/.test(source)) return false;
+    if (/https?:\/\//.test(source) && !source.includes('"http://local"')) return false;
   }
   return true;
 }
