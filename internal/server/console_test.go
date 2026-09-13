@@ -1,6 +1,7 @@
 package server
 
 import (
+	"errors"
 	"io/fs"
 	"net/http"
 	"net/http/httptest"
@@ -96,6 +97,92 @@ func TestBrowserRouterNeverFallsBackFromAPIToConsole(t *testing.T) {
 	handler.ServeHTTP(response, request)
 	if response.Code != http.StatusNotFound || strings.Contains(response.Body.String(), "<title>Console") {
 		t.Fatalf("API path used Console fallback: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestBrowserRouterRemovesRequestCorrelationFromResultEnvelopes(t *testing.T) {
+	authenticator, _, sessions := newBrowserAuthFixture(t)
+	apiHandler := http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"schema":"vegastack-labs.dev/run-result","schemaVersion":"1.0.0","toolVersion":"test","command":"api.v1.summary.get","requestId":"request-private-canary","runId":null,"status":"succeeded","changed":false,"recoveryEpoch":2,"stateRevision":8,"snapshotDigest":null,"releaseBuildId":"test","sourceRevision":null,"planId":null,"errors":[],"data":{}}`))
+	})
+	handler, err := NewBrowserHandler(apiHandler, testConsoleHandler(t), authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := authorizedBrowserRequest(t, http.MethodGet, "/api/v1/summary", sessions.raw)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || strings.Contains(response.Body.String(), "requestId") || strings.Contains(response.Body.String(), "request-private-canary") || strings.Contains(response.Body.String(), "correlationId") || !strings.Contains(response.Body.String(), `"schema":"vegastack-labs.dev/browser-run-result"`) {
+		t.Fatalf("unsafe browser result projection: %d %s", response.Code, response.Body.String())
+	}
+}
+
+func TestBrowserRouterProjectsSSEFailuresButPreservesEstablishedStreams(t *testing.T) {
+	authenticator, _, sessions := newBrowserAuthFixture(t)
+	apiHandler := http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Header.Get("X-Test-Stream") == "success" {
+			writer.Header().Set("Content-Type", "text/event-stream")
+			writer.WriteHeader(http.StatusOK)
+			_, _ = writer.Write([]byte("id: 1\nevent: audit-event\ndata: {}\n\n"))
+			return
+		}
+		status := http.StatusBadRequest
+		code := "INPUT_INVALID"
+		switch request.Header.Get("X-Test-Stream") {
+		case "denied":
+			status = http.StatusForbidden
+			code = "AUTHORIZATION_DENIED"
+		case "missing":
+			status = http.StatusConflict
+			code = "STATE_CONFLICT"
+		case "capacity", "pre-stream":
+			status = http.StatusServiceUnavailable
+			code = "DEPENDENCY_UNAVAILABLE"
+		}
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(status)
+		_, _ = writer.Write([]byte(`{"schema":"vegastack-labs.dev/run-result","schemaVersion":"1.0.0","toolVersion":"test","command":"api.v1.events.stream","requestId":"request-private-canary","runId":null,"status":"failed","changed":false,"recoveryEpoch":2,"stateRevision":8,"snapshotDigest":null,"releaseBuildId":"test","sourceRevision":null,"planId":null,"errors":[{"code":"` + code + `","target":"events","retryable":false}],"data":{}}`))
+	})
+	handler, err := NewBrowserHandler(apiHandler, testConsoleHandler(t), authenticator)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, testCase := range []struct {
+		name, session, mode string
+		status              int
+	}{
+		{name: "unauthenticated", status: http.StatusUnauthorized},
+		{name: "denied", session: sessions.raw, mode: "denied", status: http.StatusForbidden},
+		{name: "invalid last event id", session: sessions.raw, mode: "invalid", status: http.StatusBadRequest},
+		{name: "missing last event id", session: sessions.raw, mode: "missing", status: http.StatusConflict},
+		{name: "stream capacity", session: sessions.raw, mode: "capacity", status: http.StatusServiceUnavailable},
+		{name: "pre-stream dependency", session: sessions.raw, mode: "pre-stream", status: http.StatusServiceUnavailable},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			request := authorizedBrowserRequest(t, http.MethodGet, "/api/v1/events", testCase.session)
+			request.Header.Set("X-Test-Stream", testCase.mode)
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != testCase.status || strings.Contains(response.Body.String(), "requestId") || strings.Contains(response.Body.String(), "request-private-canary") || strings.Contains(response.Body.String(), "correlationId") || !strings.Contains(response.Body.String(), `"schema":"vegastack-labs.dev/browser-run-result"`) {
+				t.Fatalf("unsafe browser SSE failure: %d %s", response.Code, response.Body.String())
+			}
+		})
+	}
+	sessions.validationErr = errors.New("expired session")
+	expiredRequest := authorizedBrowserRequest(t, http.MethodGet, "/api/v1/events", sessions.raw)
+	expiredResponse := httptest.NewRecorder()
+	handler.ServeHTTP(expiredResponse, expiredRequest)
+	sessions.validationErr = nil
+	if expiredResponse.Code != http.StatusUnauthorized || strings.Contains(expiredResponse.Body.String(), "requestId") || strings.Contains(expiredResponse.Body.String(), "request-private-canary") || !strings.Contains(expiredResponse.Body.String(), `"schema":"vegastack-labs.dev/browser-run-result"`) {
+		t.Fatalf("unsafe expired-session SSE failure: %d %s", expiredResponse.Code, expiredResponse.Body.String())
+	}
+	request := authorizedBrowserRequest(t, http.MethodGet, "/api/v1/events", sessions.raw)
+	request.Header.Set("X-Test-Stream", "success")
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || response.Header().Get("Content-Type") != "text/event-stream" || !strings.Contains(response.Body.String(), "event: audit-event") {
+		t.Fatalf("established SSE stream was not preserved: %d %s", response.Code, response.Body.String())
 	}
 }
 

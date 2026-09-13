@@ -11,10 +11,10 @@ import (
 
 func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T) {
 	for _, endpoint := range generated.Endpoints {
-		requestPath := strings.NewReplacer("{draftId}", "draft-test", "{revision}", "1", "{recordId}", "record-test", "{leaseId}", "lease-test").Replace(endpoint.Path)
+		requestPath := strings.NewReplacer("{declarationId}", "declaration-test", "{draftId}", "draft-test", "{planId}", "plan-test", "{runId}", "run-test", "{revision}", "1", "{recordId}", "record-test", "{leaseId}", "lease-test", "{idempotencyKey}", "request-test").Replace(endpoint.Path)
 		browser := slices.Contains(endpoint.Audiences, "browser")
 		executor := slices.Contains(endpoint.Audiences, "executor")
-		want := endpoint.Availability == "available" && ((endpoint.Method == http.MethodGet && browser) || remoteSessionEndpoints[endpoint.ID] || (executor && remoteExecutorEndpoints[endpoint.ID]))
+		want := endpoint.Availability == "available" && ((endpoint.Method == http.MethodGet && browser) || (browser && remoteBrowserWriteEndpoints[endpoint.ID]) || remoteSessionEndpoints[endpoint.ID] || (executor && remoteExecutorEndpoints[endpoint.ID]))
 		if got := RemoteReadRequestAllowed(endpoint.Method, requestPath); got != want {
 			t.Fatalf("%s %s admission = %t, want %t", endpoint.Method, endpoint.ID, got, want)
 		}
@@ -23,6 +23,14 @@ func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T
 		if RemoteReadRequestAllowed(http.MethodPost, path) {
 			t.Fatalf("remote mutation admitted: %s", path)
 		}
+	}
+	for _, path := range []string{"/api/v1/declarations/declaration-test/revisions", "/api/v1/declarations/declaration-test/plans", "/api/v1/plans/plan-test/approval-request", "/api/v1/plans/plan-test/execute", "/api/v1/runs/run-test/cancel", "/api/v1/runs/run-test/resume"} {
+		if !RemoteReadRequestAllowed(http.MethodPost, path) {
+			t.Fatalf("browser change operation remote-denied: %s", path)
+		}
+	}
+	if RemoteReadRequestAllowed(http.MethodPost, "/api/v1/plans/plan-test/acknowledgements") {
+		t.Fatal("protected acknowledgement contract entered browser route")
 	}
 	for _, path := range []string{"/api/v1/executor-leases/claim", "/api/v1/executor-leases/lease-test/renew", "/api/v1/execution-receipts"} {
 		if !RemoteReadRequestAllowed(http.MethodPost, path) {
@@ -53,7 +61,7 @@ func TestConstrainedSSHAdmissionIsGeneratedOperatorAPIWithoutAlternateAuthoritie
 	for _, endpoint := range generated.Endpoints {
 		requestPath := strings.NewReplacer(
 			"{declarationId}", "declaration-test", "{draftId}", "draft-test", "{planId}", "plan-test",
-			"{revision}", "1", "{recordId}", "record-test", "{runId}", "run-test", "{leaseId}", "lease-test",
+			"{revision}", "1", "{recordId}", "record-test", "{runId}", "run-test", "{leaseId}", "lease-test", "{idempotencyKey}", "request-test",
 		).Replace(endpoint.Path)
 		operator := slices.Contains(endpoint.Audiences, "operator")
 		want := endpoint.Availability == generated.AvailabilityAvailable && operator &&

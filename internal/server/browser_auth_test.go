@@ -25,14 +25,15 @@ func (adapter *browserIdentityAdapter) Verify(context.Context, string) (identity
 }
 
 type browserSessionStore struct {
-	principal identity.Principal
-	session   store.BrowserSession
-	raw       string
-	validates atomic.Int32
-	creates   atomic.Int32
-	renews    atomic.Int32
-	logouts   atomic.Int32
-	denials   atomic.Int32
+	principal     identity.Principal
+	session       store.BrowserSession
+	raw           string
+	validates     atomic.Int32
+	creates       atomic.Int32
+	renews        atomic.Int32
+	logouts       atomic.Int32
+	denials       atomic.Int32
+	validationErr error
 }
 
 func (sessions *browserSessionStore) ResolveRemoteIdentity(context.Context, string) (identity.Principal, error) {
@@ -47,7 +48,7 @@ func (sessions *browserSessionStore) CreateBrowserSession(context.Context, store
 }
 func (sessions *browserSessionStore) ValidateAndTouchBrowserSession(context.Context, string, string, time.Time) (store.BrowserSession, error) {
 	sessions.validates.Add(1)
-	return sessions.session, nil
+	return sessions.session, sessions.validationErr
 }
 func (sessions *browserSessionStore) RenewBrowserSession(context.Context, string, string, time.Time) (store.BrowserSession, string, error) {
 	sessions.renews.Add(1)

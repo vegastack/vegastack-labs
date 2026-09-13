@@ -52,15 +52,9 @@ func browserSchemaGraph(registry metadata.Registry, endpoints []metadata.Endpoin
 		}
 		definitions[definition.ID] = definition
 	}
-	wanted := map[string]bool{runResultSchemaID: true}
+	wanted := map[string]bool{"vegastack-labs.dev/browser-run-result": true}
 	for _, identifier := range []string{
-		"vegastack-labs.dev/declaration-revision",
 		"vegastack-labs.dev/plan",
-		"vegastack-labs.dev/authorization-decision",
-		"vegastack-labs.dev/acknowledgement",
-		"vegastack-labs.dev/run",
-		"vegastack-labs.dev/executor-lease",
-		"vegastack-labs.dev/execution-receipt",
 	} {
 		wanted[identifier] = true
 	}
@@ -116,9 +110,14 @@ func browserSecretField(name string) bool {
 		}
 	}
 	normalized := compact.String()
-	for _, safe := range []string{"authorizationbranch", "authorizationdecisionid", "idempotencykey", "keyfingerprint", "keyid", "publickeyid"} {
+	for _, safe := range []string{"authorizationbranch", "authorizationcurrent", "idempotencykey", "keyfingerprint", "keyid", "publickeyid"} {
 		if normalized == safe {
 			return false
+		}
+	}
+	for _, protected := range []string{"acknowledgementid", "authorityid", "humanid", "noncedigest", "proofdigest", "createdby", "agentsessionid", "authorizationdecisionid", "executorbindingdigest", "effectstate"} {
+		if normalized == protected {
+			return true
 		}
 	}
 	for _, sensitive := range []string{
@@ -136,7 +135,7 @@ func browserSecretField(name string) bool {
 func browserEnvelopeDataField(schemaID, fieldName string) bool {
 	// RunResult.data is decoded immediately against the endpoint's closed data
 	// schema. It is the sole open carrier allowed into the generated graph.
-	return schemaID == runResultSchemaID && fieldName == "data"
+	return (schemaID == runResultSchemaID || schemaID == "vegastack-labs.dev/browser-run-result") && fieldName == "data"
 }
 
 type browserSchemaRule struct {
@@ -199,16 +198,14 @@ export class ReadClientError extends Error {
   readonly code: StableErrorCode;
   readonly target: string;
   readonly retryable: boolean;
-  readonly correlationId: string | null;
 
-  constructor(kind: ApiFailureKind, code: StableErrorCode, target: string, retryable = false, correlationId: string | null = null) {
+  constructor(kind: ApiFailureKind, code: StableErrorCode, target: string, retryable = false) {
     super(code);
     this.name = "ReadClientError";
     this.kind = kind;
     this.code = code;
     this.target = target;
     this.retryable = retryable;
-    this.correlationId = correlationId;
   }
 }
 
@@ -376,49 +373,11 @@ export function validateRunTransition(from: string, to: string): void {
   }
 }
 
-export function validateExecutionReceiptBinding(leaseValue: unknown, receiptValue: unknown): void {
-  const lease = decodeSchema("vegastack-labs.dev/executor-lease", leaseValue);
-  const receipt = decodeSchema("vegastack-labs.dev/execution-receipt", receiptValue);
-  for (const name of ["leaseId", "planId", "planDigest", "runId", "stepId", "operationId", "executorId", "adapterId", "targetId", "artifactDigest", "bindingDigest", "nonceDigest", "recoveryEpoch"]) {
-    if (lease[name] !== receipt[name]) return mismatch("execution-receipt." + name, "binding widened or changed");
-  }
-}
-
 export function validatePlanTiming(value: unknown): void {
   const plan = decodeSchema("vegastack-labs.dev/plan", value);
   const created = Date.parse(plan.createdAt as string);
   const expires = Date.parse(plan.expiresAt as string);
   if (!Number.isFinite(created) || expires - created !== PLAN_VALIDITY_SECONDS * 1000) return mismatch("plan.expiresAt", "plan expiry must be exactly 30 minutes");
-}
-
-export function validateLeaseTiming(value: unknown): void {
-  const lease = decodeSchema("vegastack-labs.dev/executor-lease", value);
-  const claimed = Date.parse(lease.claimedAt as string);
-  const renew = Date.parse(lease.renewAfter as string);
-  const expires = Date.parse(lease.leaseExpiresAt as string);
-  const maximum = Date.parse(lease.maximumExpiresAt as string);
-  if (!Number.isFinite(claimed) || renew - claimed !== EXECUTOR_CHECK_IN_SECONDS * 1000 || expires - claimed !== EXECUTOR_LEASE_SECONDS * 1000 || maximum !== expires) return mismatch("executor-lease", "invalid lease timing or maximum expiry");
-}
-
-export function validateExecutorLeaseBinding(planValue: unknown, runValue: unknown, leaseValue: unknown): void {
-  const plan = decodeSchema("vegastack-labs.dev/plan", planValue);
-  const run = decodeSchema("vegastack-labs.dev/run", runValue);
-  const lease = decodeSchema("vegastack-labs.dev/executor-lease", leaseValue);
-  const binding = plan.binding as Record<string, unknown>;
-  if (plan.planId !== run.planId || plan.planId !== lease.planId || plan.planDigest !== run.planDigest || plan.planDigest !== lease.planDigest || binding.recoveryEpoch !== run.recoveryEpoch || run.recoveryEpoch !== lease.recoveryEpoch || binding.stateRevision !== run.stateRevision || run.runId !== lease.runId || plan.executorMode !== run.executorMode || run.executorId !== lease.executorId || run.executorBindingDigest !== lease.bindingDigest) return mismatch("executor-lease", "plan/run binding widened or changed");
-  if (plan.executorMode === "external" && (plan.executorId === null || plan.executorId !== run.executorId)) return mismatch("executor-lease.executorId", "external executor does not match plan");
-  const steps = (run.steps as Array<Record<string, unknown>>).filter((candidate) => candidate.stepId === lease.stepId);
-  if (steps.length !== 1) return mismatch("executor-lease.stepId", "must name exactly one run step");
-  const step = steps[0];
-  const operations = (plan.operations as Array<Record<string, unknown>>).filter((operation) => operation.operationId === lease.operationId);
-  if (operations.length !== 1) return mismatch("executor-lease.operationId", "must name exactly one plan operation");
-  const operation = operations[0];
-  for (const name of ["sequence", "operationId", "operationType", "executorId", "adapterId", "targetId", "inputDigest", "artifactDigest", "idempotent"]) {
-    if (operation?.[name] !== step[name]) return mismatch("run-step." + name, "plan operation widened or changed");
-  }
-  for (const name of ["executorId", "adapterId", "targetId", "artifactDigest"]) {
-    if (step[name] !== lease[name]) return mismatch("executor-lease." + name, "run step widened or changed");
-  }
 }
 
 `)
@@ -429,7 +388,7 @@ export function validateExecutorLeaseBinding(planValue: unknown, runValue: unkno
 	output.WriteString(`export type FetchTransport = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
 export type RequestOptions = { readonly signal?: AbortSignal };
 export type StreamOptions = RequestOptions & { readonly lastEventId?: string };
-export type ReadEnvelope = Omit<RunResult, "schemaVersion"> & { readonly schemaVersion: string };
+export type ReadEnvelope = Omit<BrowserRunResult, "schemaVersion"> & { readonly schemaVersion: string };
 export type ReadResult<T> = Omit<ReadEnvelope, "data"> & { readonly data: T };
 
 function decodeReadEnvelope(value: unknown, operation: string): ReadEnvelope {
@@ -439,10 +398,10 @@ function decodeReadEnvelope(value: unknown, operation: string): ReadEnvelope {
   if (Number.parseInt(version.split(".")[0] ?? "", 10) !== 1) {
     throw new ReadClientError("unsupported-version", "SCHEMA_UNSUPPORTED", operation);
   }
-  const runResultRule = SCHEMAS.find((candidate) => candidate.id === "vegastack-labs.dev/run-result");
+  const runResultRule = SCHEMAS.find((candidate) => candidate.id === "vegastack-labs.dev/browser-run-result");
   const canonicalVersion = runResultRule?.fields.find((field) => field.name === "schemaVersion")?.enum?.[0];
   if (!canonicalVersion) return mismatch(operation + ".schemaVersion", "version rule is unavailable");
-  const envelope = decodeRunResult({ ...value, schemaVersion: canonicalVersion });
+  const envelope = decodeBrowserRunResult({ ...value, schemaVersion: canonicalVersion });
   return { ...envelope, schemaVersion: version };
 }
 
@@ -507,12 +466,12 @@ async function performRead<T>(fetchTransport: FetchTransport, url: string, optio
   if (!response.ok || envelope.status !== "succeeded" || envelope.errors.length !== 0) {
     const failure = envelope.errors[0];
     if (!failure) return mismatch(operation, "failure response has no stable error");
-    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable);
   }
   return { ...envelope, data: decodeData(envelope.data) };
 }
 
-async function performChange<T>(fetchTransport: FetchTransport, url: string, request: unknown, options: RequestOptions, operation: string, decodeData: (data: unknown) => T): Promise<ReadResult<T>> {
+async function performChange<T>(fetchTransport: FetchTransport, url: string, request: unknown, options: RequestOptions, operation: string, decodeData: (data: unknown) => T, durableRunOutcome = false): Promise<ReadResult<T>> {
   let response: Response;
   try {
     response = await fetchTransport(url, {
@@ -526,9 +485,14 @@ async function performChange<T>(fetchTransport: FetchTransport, url: string, req
   }
   const envelope = decodeReadEnvelope(await readJSON(response, operation, options.signal), operation);
   if (!response.ok || envelope.status !== "succeeded" || envelope.errors.length !== 0) {
+	if (durableRunOutcome && envelope.runId !== null && ["cancelled", "failed", "interrupted", "partial"].includes(envelope.status)) {
+		const data = decodeData(envelope.data);
+		if (isRecord(data) && isRecord(data.run) && data.run.runId === envelope.runId && data.run.status === envelope.status) return { ...envelope, data };
+		return mismatch(operation, "durable run outcome does not match its envelope");
+	}
     const failure = envelope.errors[0];
     if (!failure) return mismatch(operation, "failure response has no stable error");
-    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable);
   }
   return { ...envelope, data: decodeData(envelope.data) };
 }
@@ -631,7 +595,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
     const envelope = decodeReadEnvelope(await readJSON(response, operation, options.signal), operation);
     const failure = envelope.errors[0];
     if (!failure) return mismatch(operation, "failure response has no stable error");
-    throw new ReadClientError("api", failure.code, failure.target, failure.retryable, envelope.requestId);
+    throw new ReadClientError("api", failure.code, failure.target, failure.retryable);
   }
   if (!(response.headers.get("content-type") ?? "").toLowerCase().startsWith("text/event-stream") || !response.body) {
     return mismatch(operation, "invalid event stream response");
@@ -787,7 +751,8 @@ func renderFiniteMethod(output *bytes.Buffer, endpoint metadata.EndpointDefiniti
 	}
 	if endpoint.Method == "POST" {
 		fmt.Fprintf(output, "      const body = decode%s(request);\n", schemaGoName(endpoint.RequestSchema))
-		fmt.Fprintf(output, "      return performChange(fetchTransport, %s, body, options, operation, decode%s);\n", pathExpression, schemaGoName(endpoint.DataSchema))
+		durable := endpoint.DataSchema == "vegastack-labs.dev/run-presentation"
+		fmt.Fprintf(output, "      return performChange(fetchTransport, %s, body, options, operation, decode%s, %t);\n", pathExpression, schemaGoName(endpoint.DataSchema), durable)
 	} else {
 		fmt.Fprintf(output, "      return performRead(fetchTransport, %s, options, operation, decode%s);\n", pathExpression, schemaGoName(endpoint.DataSchema))
 	}
@@ -816,12 +781,20 @@ func browserMethodName(endpoint metadata.EndpointDefinition) string {
 		return "reviseDeclaration"
 	case "api.v1.declarations.get":
 		return "getDeclaration"
+	case "api.v1.declarations.plan-preparation.get":
+		return "preparePlan"
 	case "api.v1.plans.create":
 		return "createPlan"
 	case "api.v1.plans.get":
 		return "getPlan"
+	case "api.v1.plans.approval-request.create":
+		return "requestApproval"
+	case "api.v1.plans.approval-status.get":
+		return "getApprovalStatus"
 	case "api.v1.plans.execute":
 		return "executePlan"
+	case "api.v1.plans.run-resolution.get":
+		return "resolveRun"
 	case "api.v1.runs.get":
 		return "getRun"
 	case "api.v1.runs.cancel":

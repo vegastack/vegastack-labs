@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"reflect"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -51,6 +52,27 @@ func TestRunExecuteAuthorizesBeforeParsingAndPreservesDuplicateSubmit(t *testing
 	}
 }
 
+func TestRunResolutionFindsExactDurableSubmitWithoutExecutingAgain(t *testing.T) {
+	plan := apiRunPlan()
+	runs := &runAPIStub{plan: plan, run: apiRunResult(plan), existing: true}
+	app := newRunTestApplication(t, runs)
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/plans/"+plan.PlanID+"/runs/console-run-lost-response", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || !bytes.Contains(response.Body.Bytes(), []byte(`"runId":"run-test"`)) {
+		t.Fatalf("resolution response=%d body=%s", response.Code, response.Body.String())
+	}
+	if runs.existingCalls != 1 || runs.submitCalls != 0 || runs.acknowledgementStatusCalls != 0 || runs.lastExisting.PlanID != plan.PlanID || runs.lastExisting.PlanDigest != plan.PlanDigest || runs.lastExisting.RecoveryEpoch != plan.Binding.RecoveryEpoch || runs.lastExisting.IdempotencyKey != "console-run-lost-response" {
+		t.Fatalf("resolution existing/submits/status=%d/%d/%d", runs.existingCalls, runs.submitCalls, runs.acknowledgementStatusCalls)
+	}
+	for _, protected := range []string{"authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "effectState"} {
+		if bytes.Contains(response.Body.Bytes(), []byte(protected)) {
+			t.Fatalf("resolution exposed protected field %q: %s", protected, response.Body.String())
+		}
+	}
+}
+
 func TestRunExecuteDenialDoesNotReadRequestBody(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
@@ -78,7 +100,6 @@ func TestConcurrentExactSubmitReadsHumanProofStatusOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	start := make(chan struct{})
 	statuses := make(chan int, 2)
 	var requests sync.WaitGroup
@@ -197,6 +218,10 @@ func TestRunExecuteSucceededAfterCommitErrorAndReplayStaySuccessful(t *testing.T
 
 func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
 	base := apiRunResult(apiRunPlan())
+	base.AuthorizationDecisionID = "private-authorization-decision-canary"
+	privateAcknowledgement := "private-acknowledgement-canary"
+	base.AcknowledgementID = &privateAcknowledgement
+	base.ExecutorBindingDigest = testAPIDigest("8")
 	base.Steps = []generated.RunStep{
 		{StepID: "step-complete", Status: generated.RunStatusSucceeded},
 		{StepID: "step-open", Status: "running"},
@@ -216,10 +241,22 @@ func TestRunPresentationOwnsWorkPartitionAndNextSafeAction(t *testing.T) {
 			run := base
 			run.Status, run.RollbackStatus, run.VerificationStatus = test.status, test.rollback, test.verification
 			presentation := presentRun(run)
-			if presentation.Run.Status != test.status || presentation.NextSafeAction != test.next || len(presentation.CompletedWork) != 1 || presentation.CompletedWork[0].StepID != "step-complete" || len(presentation.IncompleteWork) != 1 || presentation.IncompleteWork[0].StepID != "step-open" {
+			if presentation.Run.Status != test.status || presentation.NextSafeAction != test.next || len(presentation.CompletedWork) != 1 || presentation.CompletedWork[0].StepID != "step-complete" || presentation.CompletedWork[0].ProgressState != "unknown" || len(presentation.IncompleteWork) != 1 || presentation.IncompleteWork[0].StepID != "step-open" || presentation.IncompleteWork[0].ProgressState != "unknown" {
 				t.Fatalf("presentation = %#v", presentation)
 			}
 		})
+	}
+	raw, err := json.Marshal(presentRun(base))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Contains(raw, []byte(`"extensions":[]`)) {
+		t.Fatalf("browser run projection must preserve an empty extensions array: %s", raw)
+	}
+	for _, forbidden := range []string{"authorizationDecisionId", "acknowledgementId", "executorBindingDigest", "policyVersion", "executorMode", "executorId", "adapterId", "inputDigest", "artifactDigest", "effectState", "receipt-recorded", "private-authorization-decision-canary", "private-acknowledgement-canary"} {
+		if strings.Contains(string(raw), forbidden) {
+			t.Fatalf("browser run projection disclosed %q", forbidden)
+		}
 	}
 }
 
@@ -253,7 +290,7 @@ func TestRunGetAuthorizesExactRunIDBeforeReading(t *testing.T) {
 	}
 }
 
-func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
+func TestRunGetCancelResumeRemainRecoveryBoundWhenBrowserCallable(t *testing.T) {
 	plan := apiRunPlan()
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
 	app := newRunTestApplication(t, runs)
@@ -269,8 +306,8 @@ func TestRunGetCancelResumeRemainLocalAndRecoveryBound(t *testing.T) {
 			t.Fatalf("%s status=%d body=%s", path, response.Code, response.Body.String())
 		}
 	}
-	if RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/cancel") || RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/resume") {
-		t.Fatal("run mutation became remotely callable")
+	if !RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/cancel") || !RemoteReadRequestAllowed(http.MethodPost, "/api/v1/runs/"+runs.run.RunID+"/resume") {
+		t.Fatal("generated browser run controls are not remotely callable")
 	}
 }
 
@@ -337,6 +374,7 @@ type runAPIStub struct {
 	existingCalls              int
 	acknowledgementStatusCalls int
 	existing                   bool
+	lastExisting               generated.PlanReferenceRequest
 	last                       runengine.SubmitRequest
 	submitErr                  error
 	getIDs                     []string
@@ -352,10 +390,11 @@ func (stub *runAPIStub) Submit(_ context.Context, request runengine.SubmitReques
 	stub.last = request
 	return stub.run, stub.submitErr
 }
-func (stub *runAPIStub) Existing(context.Context, generated.PlanReferenceRequest) (generated.Run, bool, error) {
+func (stub *runAPIStub) Existing(_ context.Context, reference generated.PlanReferenceRequest) (generated.Run, bool, error) {
 	stub.mu.Lock()
 	defer stub.mu.Unlock()
 	stub.existingCalls++
+	stub.lastExisting = reference
 	if stub.existing {
 		return stub.run, true, nil
 	}

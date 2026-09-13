@@ -47,7 +47,7 @@ func (app *Application) reviseDeclaration(config DeclarationPlanConfig) func(htt
 			app.operationFailure(writer, operation, requestID, err)
 			return
 		}
-		app.operationSuccess(writer, operation, requestID, value.Changed, value.Document.StateRevision, value.Document.RecoveryEpoch, value.Document)
+		app.operationSuccess(writer, operation, requestID, value.Changed, value.Document.StateRevision, value.Document.RecoveryEpoch, presentDeclaration(value.Document))
 	}
 }
 
@@ -64,6 +64,10 @@ func (app *Application) getDeclaration(config DeclarationPlanConfig) func(http.R
 			app.failure(writer, operation, err)
 			return
 		}
-		app.success(writer, operation, value.StateRevision, value.RecoveryEpoch, value)
+		app.success(writer, operation, value.StateRevision, value.RecoveryEpoch, presentDeclaration(value))
 	}
+}
+
+func presentDeclaration(value generated.DeclarationRevision) generated.BrowserDeclarationRevision {
+	return generated.BrowserDeclarationRevision{Schema: generated.SchemaIDBrowserDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: value.DeclarationID, DeclarationType: value.DeclarationType, Revision: value.Revision, StateRevision: value.StateRevision, RecoveryEpoch: value.RecoveryEpoch, ContentDigest: value.ContentDigest, Status: value.Status, Operations: append([]generated.DeclarationOperation{}, value.Operations...), CreatedAt: value.CreatedAt, Extensions: append([]generated.ContractExtension{}, value.Extensions...)}
 }

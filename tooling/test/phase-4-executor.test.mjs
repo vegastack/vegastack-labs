@@ -1,23 +1,16 @@
 import assert from "node:assert/strict";
+import { execFileSync } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-
-import {
-  decodePhase4Contract,
-  validateExecutionReceiptBinding,
-  validateLeaseTiming,
-} from "../../web/generated/read-api.ts";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const fixture = JSON.parse(await readFile(path.join(ROOT, "tooling/testdata/phase-4/executor/scenarios.json"), "utf8"));
 const claimSchema = JSON.parse(await readFile(path.join(ROOT, "schemas/v1/executor-claim-request.schema.json"), "utf8"));
 
 function simulate(scenario) {
-  const lease = decodePhase4Contract("vegastack-labs.dev/executor-lease", fixture.lease);
-  const receipt = decodePhase4Contract("vegastack-labs.dev/execution-receipt", fixture.receipt);
-  validateLeaseTiming(lease);
+  const lease = fixture.lease;
   const now = Date.parse(scenario.at);
   const expires = Date.parse(lease.leaseExpiresAt);
 
@@ -36,11 +29,9 @@ function simulate(scenario) {
     return { leaseState: "expired", runState: "partial", reconciliation: "recovery-required", newWorkAllowed: false };
   }
   if (scenario.event === "tamper") {
-    assert.throws(() => validateExecutionReceiptBinding(lease, { ...receipt, ...scenario.tamper }), /INTEGRITY_FAILURE/);
     return { leaseState: "active", runState: "partial", reconciliation: "recovery-required", newWorkAllowed: false };
   }
   if (scenario.event === "reconcile") {
-    validateExecutionReceiptBinding(lease, receipt);
     assert.equal(scenario.verification, "failed");
     return { leaseState: "released", runState: "partial", reconciliation: "recovery-required", newWorkAllowed: false };
   }
@@ -62,7 +53,10 @@ test("generated executor routes are available only to the executor audience", as
   }
 });
 
-test("account-free executor simulator covers claim, renewal, loss, reconciliation and tamper without networking", () => {
+test("server-generated validators cover executor bindings while the browser graph excludes them", async () => {
+  execFileSync("go", ["test", "./internal/generated", "-run", "^TestPhase4GeneratedValidationModesAndBindings$", "-count=1"], { cwd: ROOT, stdio: "pipe" });
+  const browser = await readFile(path.join(ROOT, "web/generated/read-api.ts"), "utf8");
+  assert.doesNotMatch(browser, /export interface (?:ExecutionReceipt|ExecutorLease)\b|validateExecutionReceiptBinding|validateLeaseTiming/);
   const originalFetch = globalThis.fetch;
   let networkCalls = 0;
   globalThis.fetch = async () => {

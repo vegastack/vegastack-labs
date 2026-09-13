@@ -136,7 +136,11 @@ func (client *client) Plan(ctx context.Context, profile serverconfig.Profile, de
 		return zero, err
 	}
 	input := generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declarationID, DeclarationRevision: revision, ExpectedStateRevision: prepared.Data.ExpectedStateRevision, RecoveryEpoch: prepared.Data.RecoveryEpoch, ObservationFingerprint: prepared.Data.ObservationFingerprint, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/declarations/" + declarationID + "/plans", "api.v1.plans.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validPlan)
+	presented, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/declarations/" + declarationID + "/plans", "api.v1.plans.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, validPlanPresentation)
+	if err != nil {
+		return zero, err
+	}
+	return TypedResponse[generated.Plan]{Raw: presented.Raw, Result: presented.Result, Data: presented.Data.Plan, ExitCode: presented.ExitCode}, nil
 }
 
 func (client *client) Apply(ctx context.Context, profile serverconfig.Profile, planID string) (TypedResponse[generated.RunPresentation], error) {
@@ -209,7 +213,11 @@ func (client *client) getPlan(ctx context.Context, profile serverconfig.Profile,
 	if !validPathToken(planID) {
 		return TypedResponse[generated.Plan]{}, failure.New(generated.ErrorCodeInputInvalid, "control-service-request", false)
 	}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/plans/" + planID, "api.v1.plans.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlan)
+	presented, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/plans/" + planID, "api.v1.plans.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, validPlanPresentation)
+	if err != nil {
+		return TypedResponse[generated.Plan]{}, err
+	}
+	return TypedResponse[generated.Plan]{Raw: presented.Raw, Result: presented.Result, Data: presented.Data.Plan, ExitCode: presented.ExitCode}, nil
 }
 
 func remapResponse[To, From any](response TypedResponse[From]) TypedResponse[To] {
@@ -477,6 +485,15 @@ func validPlan(value generated.Plan, envelope generated.RunResult) bool {
 	return err == nil && generated.ValidateContractJSON(generated.SchemaIDPlan, raw, generated.ContractExact) == nil && value.PlanID != "" && value.PlanDigest != "" && value.Binding.RecoveryEpoch == envelope.RecoveryEpoch && value.Binding.StateRevision == envelope.StateRevision
 }
 
+func validPlanPresentation(value generated.PlanPresentation, envelope generated.RunResult) bool {
+	raw, err := json.Marshal(value)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDPlanPresentation, raw, generated.ContractExact) != nil || !validPlan(value.Plan, envelope) || value.ReadablePlan == "" || value.CanonicalPlan == "" {
+		return false
+	}
+	planRaw, err := json.Marshal(value.Plan)
+	return err == nil && string(planRaw) == value.CanonicalPlan
+}
+
 func validRun(value generated.Run, envelope generated.RunResult) bool {
 	raw, err := json.Marshal(value)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRun, raw, generated.ContractExact) != nil || value.RunID == "" || value.PlanID == "" || value.RecoveryEpoch != envelope.RecoveryEpoch || value.StateRevision != envelope.StateRevision {
@@ -485,12 +502,20 @@ func validRun(value generated.Run, envelope generated.RunResult) bool {
 	return (envelope.RunID == nil || *envelope.RunID == value.RunID) && (envelope.PlanID == nil || *envelope.PlanID == value.PlanID)
 }
 
-func validRunPresentation(value generated.RunPresentation, envelope generated.RunResult) bool {
+func validBrowserRun(value generated.BrowserRun, envelope generated.RunResult) bool {
 	raw, err := json.Marshal(value)
-	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRunPresentation, raw, generated.ContractExact) != nil || !validRun(value.Run, envelope) || value.NextSafeAction == "" {
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDBrowserRun, raw, generated.ContractExact) != nil || value.RunID == "" || value.PlanID == "" || value.RecoveryEpoch != envelope.RecoveryEpoch || value.StateRevision != envelope.StateRevision {
 		return false
 	}
-	want := make(map[string]generated.RunStep, len(value.Run.Steps))
+	return (envelope.RunID == nil || *envelope.RunID == value.RunID) && (envelope.PlanID == nil || *envelope.PlanID == value.PlanID)
+}
+
+func validRunPresentation(value generated.RunPresentation, envelope generated.RunResult) bool {
+	raw, err := json.Marshal(value)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRunPresentation, raw, generated.ContractExact) != nil || !validBrowserRun(value.Run, envelope) || value.NextSafeAction == "" {
+		return false
+	}
+	want := make(map[string]generated.BrowserRunStep, len(value.Run.Steps))
 	for _, step := range value.Run.Steps {
 		if step.StepID == "" {
 			return false
@@ -498,7 +523,7 @@ func validRunPresentation(value generated.RunPresentation, envelope generated.Ru
 		want[step.StepID] = step
 	}
 	seen := make(map[string]struct{}, len(want))
-	for _, group := range [][]generated.RunStep{value.CompletedWork, value.IncompleteWork} {
+	for _, group := range [][]generated.BrowserRunStep{value.CompletedWork, value.IncompleteWork} {
 		for _, step := range group {
 			original, ok := want[step.StepID]
 			if !ok || original != step {

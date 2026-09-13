@@ -404,6 +404,10 @@ func (unavailableAcknowledgementScope) Resolve(context.Context, generated.Acknow
 	return acknowledgement.Scope{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "slack-acknowledgement", false)
 }
 
+func (unavailableAcknowledgementScope) ResolvePlan(context.Context, generated.Plan) (acknowledgement.Scope, error) {
+	return acknowledgement.Scope{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "slack-acknowledgement", false)
+}
+
 type unavailableAcknowledgementPublisher struct{}
 
 func (unavailableAcknowledgementPublisher) Publish(context.Context, acknowledgement.RequestCard) error {

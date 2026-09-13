@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
+import { phase3WorkerLimit } from "../../web/playwright.config.ts";
 import { phase3LinkerFlags, verifyPhase3 } from "../verify-phase-3.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
@@ -25,6 +26,11 @@ test("Phase 3 test executable pins its database and supported platform fixture",
     "-X github.com/vegastack/vegastack-labs/internal/server.productionDatabasePath=/tmp/vsk-phase3/control.db " +
       "-X github.com/vegastack/vegastack-labs/internal/server.runtimeOSReleasePath=/tmp/vsk-phase3/os-release",
   );
+});
+
+test("Phase 3 evidence capture is serial while ordinary browser work stays parallel", () => {
+  assert.equal(phase3WorkerLimit("/tmp/sanitized-evidence"), 1);
+  assert.equal(phase3WorkerLimit(undefined), undefined);
 });
 
 test("Phase 3 evidence accepts only sanitized stable results", async (t) => {

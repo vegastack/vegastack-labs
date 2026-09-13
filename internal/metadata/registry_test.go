@@ -158,8 +158,28 @@ func TestPlanPreparationIsAnExactReadOnlyOperatorContract(t *testing.T) {
 		t.Fatalf("plan preparation fields = %v, want %v", gotFields, wantFields)
 	}
 	endpoint := endpointByID(t, registry, "api.v1.declarations.plan-preparation.get")
-	if endpoint.Method != "GET" || endpoint.Path != "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation" || endpoint.Availability != AvailabilityAvailable || endpoint.OwnerPhase != "4" || endpoint.RequestSchema != "" || endpoint.DataSchema != preparation.ID || endpoint.Stream != StreamFinite || !reflect.DeepEqual(endpoint.Audiences, []EndpointAudience{AudienceOperator}) {
+	if endpoint.Method != "GET" || endpoint.Path != "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation" || endpoint.Availability != AvailabilityAvailable || endpoint.OwnerPhase != "4" || endpoint.RequestSchema != "" || endpoint.DataSchema != preparation.ID || endpoint.Stream != StreamFinite || !reflect.DeepEqual(endpoint.Audiences, []EndpointAudience{AudienceBrowser, AudienceOperator}) {
 		t.Fatalf("plan preparation endpoint = %#v", endpoint)
+	}
+}
+
+func TestBrowserChangeContractsExposeOnlySafeServerOwnedApprovalProjection(t *testing.T) {
+	registry := Current()
+	preparation := endpointByID(t, registry, "api.v1.declarations.plan-preparation.get")
+	if !reflect.DeepEqual(preparation.Audiences, []EndpointAudience{AudienceBrowser, AudienceOperator}) {
+		t.Fatal("browser cannot safely prepare a plan through the server")
+	}
+	request := endpointByID(t, registry, "api.v1.plans.approval-request.create")
+	status := endpointByID(t, registry, "api.v1.plans.approval-status.get")
+	if request.DataSchema != "vegastack-labs.dev/approval-status" || status.DataSchema != request.DataSchema || request.RequestSchema != planReferenceRequestSchemaID {
+		t.Fatalf("unsafe approval projection endpoints: %#v / %#v", request, status)
+	}
+	schema := schemaByID(t, registry, request.DataSchema)
+	forbidden := map[string]bool{"humanId": true, "authorityId": true, "nonceDigest": true, "proofDigest": true, "acknowledgementId": true}
+	for _, field := range schema.Fields {
+		if forbidden[field.JSONName] {
+			t.Fatalf("protected approval field exposed to browser: %s", field.JSONName)
+		}
 	}
 }
 

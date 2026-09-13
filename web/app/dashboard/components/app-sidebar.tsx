@@ -15,7 +15,7 @@ const navItems: readonly NavItem[] = [
   { label: "Backups", href: "/backups", icon: DatabaseBackup },
   { label: "Providers", href: "/providers", icon: Plug },
   { label: "Gates", href: "/gates", icon: ShieldCheck },
-  { label: "Plans", href: "/unavailable", icon: ClipboardCheck },
+  { label: "Changes", href: "/changes", icon: ClipboardCheck },
   { label: "Audit", href: "/unavailable", icon: FileClock },
   { label: "Settings", href: "/unavailable", icon: Settings },
 ];
@@ -36,7 +36,7 @@ export function AppSidebar() {
           <SidebarMenu>
             {navItems.map((item) => (
               <SidebarMenuItem key={item.label}>
-                <SidebarMenuButton className="min-h-11" isActive={item.href !== "/unavailable" && pathname === item.href} render={<Link href={item.href} prefetch={false} />}>
+                <SidebarMenuButton className="min-h-11" isActive={item.href !== "/unavailable" && pathname === item.href} render={<Link href={item.href} prefetch={false} aria-current={item.href !== "/unavailable" && pathname === item.href ? "page" : undefined} />}>
                   <item.icon aria-hidden /><span>{item.label}</span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
@@ -44,7 +44,7 @@ export function AppSidebar() {
           </SidebarMenu>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter><p className="px-2 py-1 text-xs text-muted-foreground group-data-[state=collapsed]/sidebar:hidden">Read-only control-plane connection</p></SidebarFooter>
+      <SidebarFooter><p className="px-2 py-1 text-xs text-muted-foreground group-data-[state=collapsed]/sidebar:hidden">Server-authorized control-plane connection</p></SidebarFooter>
     </AppShellSidebar>
   );
 }

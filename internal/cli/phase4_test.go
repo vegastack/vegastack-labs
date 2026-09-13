@@ -131,12 +131,15 @@ func phase4Operations(t *testing.T, plan generated.Plan, run generated.Run) *pha
 }
 
 func phase4TestPresentation(run generated.Run) generated.RunPresentation {
-	completed, incomplete := []generated.RunStep{}, []generated.RunStep{}
+	completed, incomplete, all := []generated.BrowserRunStep{}, []generated.BrowserRunStep{}, []generated.BrowserRunStep{}
 	for _, step := range run.Steps {
+		progress := map[string]string{"not-started": "not-started", "intent-recorded": "started", "receipt-recorded": "unverified", "verified": "verified", "effect-unknown": "unknown"}[step.EffectState]
+		projected := generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status, ProgressState: progress}
+		all = append(all, projected)
 		if step.Status == generated.RunStatusSucceeded || step.Status == generated.RunStatusFailed || step.Status == generated.RunStatusCancelled {
-			completed = append(completed, step)
+			completed = append(completed, projected)
 		} else {
-			incomplete = append(incomplete, step)
+			incomplete = append(incomplete, projected)
 		}
 	}
 	next := "inspect the durable run"
@@ -145,7 +148,8 @@ func phase4TestPresentation(run generated.Run) generated.RunPresentation {
 	} else if run.Status == generated.RunStatusSucceeded {
 		next = "none; execution completed"
 	}
-	return generated.RunPresentation{Run: run, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
+	browserRun := generated.BrowserRun{Schema: generated.SchemaIDBrowserRun, SchemaVersion: "1.0.0", RunID: run.RunID, PlanID: run.PlanID, PlanDigest: run.PlanDigest, Status: run.Status, Steps: all, CancellationRequested: run.CancellationRequested, RollbackStatus: run.RollbackStatus, VerificationStatus: run.VerificationStatus, VerificationDigest: run.VerificationDigest, Changed: run.Changed, StateRevision: run.StateRevision, RecoveryEpoch: run.RecoveryEpoch, CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt, Extensions: run.Extensions}
+	return generated.RunPresentation{Run: browserRun, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
 }
 
 func phase4TestPlan() generated.Plan {

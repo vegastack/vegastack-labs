@@ -98,7 +98,7 @@ test("leaving a screen cancels its superseded generated reads", async ({ page })
   await page.goto("/");
   fixtureState.delay = 1_000;
   await page.getByRole("button", { name: "Refresh Overview" }).click();
-  await page.getByRole("navigation", { name: "Console navigation" }).getByRole("link", { name: "Plans" }).click();
+  await page.getByRole("navigation", { name: "Console navigation" }).getByRole("link", { name: "Changes" }).click();
   await expect.poll(() => aborts).toBeGreaterThan(0);
 });
 

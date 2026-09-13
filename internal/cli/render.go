@@ -179,7 +179,7 @@ func renderHumanRun(output io.Writer, data generated.RunPresentation) int {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
 	for _, step := range data.CompletedWork {
-		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s effect %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.EffectState); err != nil {
+		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s progress %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.ProgressState); err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
 	}
@@ -187,7 +187,7 @@ func renderHumanRun(output io.Writer, data generated.RunPresentation) int {
 		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 	}
 	for _, step := range data.IncompleteWork {
-		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s effect %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.EffectState); err != nil {
+		if _, err := fmt.Fprintf(output, "  Step %s sequence %d target %s status %s progress %s\n", step.StepID, step.Sequence, step.TargetID, step.Status, step.ProgressState); err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
 	}

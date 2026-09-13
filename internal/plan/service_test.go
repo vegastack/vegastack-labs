@@ -3,6 +3,7 @@ package plan
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os"
 	"strings"
 	"testing"
@@ -133,6 +134,10 @@ func TestCreateCommitsASeparateDesiredDeclarationWithThePlan(t *testing.T) {
 		t.Fatal(err)
 	}
 	desired := repository.committed.DesiredDeclaration
+	raw, err := json.Marshal(desired)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, raw, generated.ContractExact) != nil {
+		t.Fatal("committed desired declaration is not an exact generated contract")
+	}
 	if desired.Status != "committed" || desired.Revision != 2 || desired.StateRevision != 10 || desired.AgentSessionID != "session-plan" {
 		t.Fatalf("desired declaration = %#v", desired)
 	}

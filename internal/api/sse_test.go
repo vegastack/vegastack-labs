@@ -69,7 +69,7 @@ func TestSSEReplaysStrictlyAfterDurableIDAsGeneratedProjection(t *testing.T) {
 		t.Fatal(pre)
 	}
 	body := response.Body.String()
-	if !strings.Contains(body, "id: 2\nevent: audit-event\ndata: {\"event\":") || strings.Contains(body, "payload_bytes") {
+	if !strings.Contains(body, "id: 2\nevent: audit-event\ndata: {\"event\":") || strings.Contains(body, "payload_bytes") || strings.Contains(body, "correlation-test") || strings.Contains(body, "principal.test") || strings.Contains(body, "principalId") || strings.Contains(body, "correlationId") {
 		t.Fatalf("stream = %q", body)
 	}
 }

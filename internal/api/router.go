@@ -40,6 +40,18 @@ var remoteExecutorEndpoints = map[string]bool{
 	"api.v1.execution-receipts.create": true,
 }
 
+// remoteBrowserWriteEndpoints is the complete browser mutation surface. Each
+// operation still passes verified browser-session, exact-origin, route
+// authorization and server-owned plan/policy checks before reading its body.
+var remoteBrowserWriteEndpoints = map[string]bool{
+	"api.v1.declarations.revise":           true,
+	"api.v1.plans.create":                  true,
+	"api.v1.plans.approval-request.create": true,
+	"api.v1.plans.execute":                 true,
+	"api.v1.runs.cancel":                   true,
+	"api.v1.runs.resume":                   true,
+}
+
 var constrainedSSHWriteEndpoints = map[string]bool{
 	"api.v1.inventory-diffs.create":   true,
 	"api.v1.inventory-drafts.import":  true,
@@ -52,9 +64,9 @@ var constrainedSSHWriteEndpoints = map[string]bool{
 
 // RemoteReadRequestAllowed is the server-side admission boundary for the
 // browser listener. Generated available browser GET endpoints are readable
-// remotely; browser-session operations and the three generated executor-only
-// operations are the only write-method exceptions. New local operations remain
-// remote-denied until this metadata rule deliberately admits them.
+// remotely; only the explicit browser/session/executor allowlists below admit
+// writes. New local operations remain remote-denied until this rule deliberately
+// admits them.
 func RemoteReadRequestAllowed(method, requestPath string) bool {
 	for _, endpoint := range generated.Endpoints {
 		browserAudience, executorAudience := false, false
@@ -62,7 +74,7 @@ func RemoteReadRequestAllowed(method, requestPath string) bool {
 			browserAudience = browserAudience || audience == "browser"
 			executorAudience = executorAudience || audience == "executor"
 		}
-		remoteWrite := remoteSessionEndpoints[endpoint.ID] || (executorAudience && remoteExecutorEndpoints[endpoint.ID])
+		remoteWrite := remoteSessionEndpoints[endpoint.ID] || (browserAudience && remoteBrowserWriteEndpoints[endpoint.ID]) || (executorAudience && remoteExecutorEndpoints[endpoint.ID])
 		if endpoint.Availability != "available" || endpoint.Method != method || (method == http.MethodGet && !browserAudience) || (method != http.MethodGet && !remoteWrite) {
 			continue
 		}
@@ -228,10 +240,16 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		}
 		resourceID := ""
 		if rawDraft, exists := params["draftId"]; exists {
-			resourceID = rawDraft + ":" + params["revision"]
+			resourceID = rawDraft
+			if revision := params["revision"]; revision != "" {
+				resourceID += ":" + revision
+			}
 		}
 		if declarationID, exists := params["declarationId"]; exists {
-			resourceID = declarationID + ":" + params["revision"]
+			resourceID = declarationID
+			if revision := params["revision"]; revision != "" {
+				resourceID += ":" + revision
+			}
 		}
 		if planID, exists := params["planId"]; exists {
 			resourceID = planID

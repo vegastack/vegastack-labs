@@ -126,7 +126,7 @@ func NewBrowserHandler(apiHandler, staticHandler http.Handler, authenticator *Br
 		}
 		apiHandler.ServeHTTP(writer, request)
 	})
-	protectedBrowserAPI := authenticator.Wrap(remoteAPI)
+	protectedBrowserAPI := projectBrowserResults(authenticator.Wrap(remoteAPI))
 	protectedExecutorAPI := authenticator.WrapExecutor(remoteAPI)
 	protectedAssets := authenticator.WrapAssets(staticHandler)
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {

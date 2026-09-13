@@ -66,17 +66,56 @@ func RegisterRunOperations(app *Application, config RunOperationConfig) error {
 	}
 	app.routes = append(app.routes,
 		route{id: "api.v1.plans.execute", method: http.MethodPost, pattern: "/api/v1/plans/{planId}/execute", deferredAuthorization: true, handler: app.executePlan(config)},
+		route{id: "api.v1.plans.run-resolution.get", method: http.MethodGet, pattern: "/api/v1/plans/{planId}/runs/{idempotencyKey}", capability: "run.read", kind: "plan", handler: app.resolveRun(config)},
 		route{id: "api.v1.runs.get", method: http.MethodGet, pattern: "/api/v1/runs/{runId}", capability: "run.read", kind: "run", handler: app.getRun(config)},
 		route{id: "api.v1.runs.cancel", method: http.MethodPost, pattern: "/api/v1/runs/{runId}/cancel", deferredAuthorization: true, handler: app.mutateRun(config, false)},
 		route{id: "api.v1.runs.resume", method: http.MethodPost, pattern: "/api/v1/runs/{runId}/resume", deferredAuthorization: true, handler: app.mutateRun(config, true)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
-		app.routes = app.routes[:len(app.routes)-4]
+		app.routes = app.routes[:len(app.routes)-5]
 		app.effective = previous
 		app.runs = previousLifecycle
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
+}
+
+// resolveRun answers only whether the server durably accepted one exact plan
+// submission key. It is a read path for recovering from an unknown transport
+// outcome; it never submits, authorizes, or consumes an acknowledgement.
+func (app *Application) resolveRun(config RunOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, request *http.Request, _ authorization.ReadScope, params map[string]string) {
+		const operation = "api.v1.plans.run-resolution.get"
+		planID, key := params["planId"], params["idempotencyKey"]
+		if !pathToken.MatchString(planID) || !pathToken.MatchString(key) || request.URL.RawQuery != "" {
+			app.failure(w, operation, apiFailure(generated.ErrorCodeInputInvalid, "path"))
+			return
+		}
+		stored, err := config.Plans.GetPlan(request.Context(), planID)
+		if err != nil {
+			app.failure(w, operation, err)
+			return
+		}
+		reference := generated.PlanReferenceRequest{
+			Schema:         generated.SchemaIDPlanReferenceRequest,
+			SchemaVersion:  "1.0.0",
+			PlanID:         planID,
+			PlanDigest:     stored.Plan.PlanDigest,
+			RecoveryEpoch:  stored.Plan.Binding.RecoveryEpoch,
+			IdempotencyKey: key,
+			Extensions:     []generated.ContractExtension{},
+		}
+		value, found, err := config.Runs.Existing(request.Context(), reference)
+		if err != nil {
+			app.failure(w, operation, err)
+			return
+		}
+		if !found {
+			app.failure(w, operation, apiFailure(generated.ErrorCodeResourceNotFound, "run"))
+			return
+		}
+		app.success(w, operation, value.StateRevision, value.RecoveryEpoch, presentRun(value))
+	}
 }
 
 func (app *Application) executePlan(config RunOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {

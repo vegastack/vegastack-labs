@@ -12,6 +12,20 @@ const FORBIDDEN_NAMES = new Set([
   "server-artifact.json",
 ]);
 const FORBIDDEN_BUILD_MARKERS = ["axe-core", "MPL-2.0", "Mozilla Public License"];
+const FORBIDDEN_APPROVAL_FIELDS = [
+  "humanId",
+  "authorityId",
+  "nonceDigest",
+  "proofDigest",
+  "acknowledgementId",
+  "createdBy",
+  "agentSessionId",
+  "authorizationDecisionId",
+  "executorBindingDigest",
+  "effectState",
+  "requestId",
+  "correlationId",
+];
 const EXPECTED_BUILD_ID = "vegastack-console-v1";
 
 async function walk(directory) {
@@ -62,6 +76,10 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
           `static output contains development-only dependency marker ${marker}: ${relative}`,
         );
       }
+      const approvalField = FORBIDDEN_APPROVAL_FIELDS.find(value => text.includes(value));
+      if (approvalField) {
+        throw new Error(`static output contains protected approval field ${approvalField}: ${relative}`);
+      }
     }
   }
   if (requireDeterministicBuildID && !files.some((file) => path.relative(output, file).split(path.sep).includes(EXPECTED_BUILD_ID))) {
@@ -75,6 +93,7 @@ export async function verifyStaticExport(output = OUTPUT, embedded = output === 
       ["services.html", "Loading Services status"],
       ["backups.html", "Loading Backups status"],
       ["providers.html", "Loading Providers status"],
+      ["changes.html", "No declaration open"],
     ]);
     for (const [route, marker] of routeMarkers) {
       const html = await readFile(path.join(output, route), "utf8");

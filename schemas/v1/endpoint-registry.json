@@ -22,7 +22,7 @@
       "path": "/api/v1/declarations/{declarationId}/revisions/{revision}",
       "availability": "available",
       "ownerPhase": "4",
-      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "dataSchema": "vegastack-labs.dev/browser-declaration-revision",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -38,6 +38,7 @@
       "dataSchema": "vegastack-labs.dev/plan-preparation",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -48,7 +49,7 @@
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/declaration-revision-request",
-      "dataSchema": "vegastack-labs.dev/declaration-revision",
+      "dataSchema": "vegastack-labs.dev/browser-declaration-revision",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -322,13 +323,40 @@
       ]
     },
     {
+      "id": "api.v1.plans.approval-request.create",
+      "method": "POST",
+      "path": "/api/v1/plans/{planId}/approval-request",
+      "availability": "available",
+      "ownerPhase": "4",
+      "requestSchema": "vegastack-labs.dev/plan-reference-request",
+      "dataSchema": "vegastack-labs.dev/approval-status",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.plans.approval-status.get",
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}/approval-status",
+      "availability": "available",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/approval-status",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.plans.create",
       "method": "POST",
       "path": "/api/v1/declarations/{declarationId}/plans",
       "availability": "available",
       "ownerPhase": "4",
       "requestSchema": "vegastack-labs.dev/plan-create-request",
-      "dataSchema": "vegastack-labs.dev/plan",
+      "dataSchema": "vegastack-labs.dev/plan-presentation",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -355,7 +383,20 @@
       "path": "/api/v1/plans/{planId}",
       "availability": "available",
       "ownerPhase": "4",
-      "dataSchema": "vegastack-labs.dev/plan",
+      "dataSchema": "vegastack-labs.dev/plan-presentation",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.plans.run-resolution.get",
+      "method": "GET",
+      "path": "/api/v1/plans/{planId}/runs/{idempotencyKey}",
+      "availability": "available",
+      "ownerPhase": "4",
+      "dataSchema": "vegastack-labs.dev/run-presentation",
       "stream": "finite",
       "audiences": [
         "browser",

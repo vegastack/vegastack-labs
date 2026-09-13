@@ -37,7 +37,7 @@ function projectDomainSource(source: string, state: DomainFixtureState) {
 }
 
 function envelope(command: string, data: unknown, status = "succeeded", errors: unknown[] = []) {
-  return { schema: "vegastack-labs.dev/run-result", schemaVersion: "1.0.0", toolVersion: "test", command, requestId: "request-browser", runId: null, status, changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null, errors, data };
+  return { schema: "vegastack-labs.dev/browser-run-result", schemaVersion: "1.0.0", toolVersion: "test", command, runId: null, status, changed: false, recoveryEpoch: 2, stateRevision: 8, snapshotDigest: null, releaseBuildId: "test", sourceRevision: null, planId: null, errors, data };
 }
 
 async function fulfill(route: Route, status: number, body: string) {

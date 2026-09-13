@@ -76,14 +76,21 @@ func (app *Application) executeRunResult(writer http.ResponseWriter, operation, 
 // presentRun is the server-owned interpretation of durable execution state.
 // Operator clients render these exact facts and never infer workflow advice.
 func presentRun(run generated.Run) generated.RunPresentation {
-	completed := make([]generated.RunStep, 0, len(run.Steps))
-	incomplete := make([]generated.RunStep, 0, len(run.Steps))
+	steps := make([]generated.BrowserRunStep, 0, len(run.Steps))
+	completed := make([]generated.BrowserRunStep, 0, len(run.Steps))
+	incomplete := make([]generated.BrowserRunStep, 0, len(run.Steps))
 	for _, step := range run.Steps {
+		progress, known := map[string]string{"not-started": "not-started", "intent-recorded": "started", "receipt-recorded": "unverified", "verified": "verified", "effect-unknown": "unknown"}[step.EffectState]
+		if !known {
+			progress = "unknown"
+		}
+		projected := generated.BrowserRunStep{Sequence: step.Sequence, OperationID: step.OperationID, OperationType: step.OperationType, TargetID: step.TargetID, StepID: step.StepID, Status: step.Status, ProgressState: progress}
+		steps = append(steps, projected)
 		switch step.Status {
 		case generated.RunStatusSucceeded, generated.RunStatusFailed, generated.RunStatusCancelled:
-			completed = append(completed, step)
+			completed = append(completed, projected)
 		default:
-			incomplete = append(incomplete, step)
+			incomplete = append(incomplete, projected)
 		}
 	}
 	next := "inspect the durable run"
@@ -101,7 +108,15 @@ func presentRun(run generated.Run) generated.RunPresentation {
 			next = "inspect or cancel through the server"
 		}
 	}
-	return generated.RunPresentation{Run: run, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
+	browserRun := generated.BrowserRun{
+		Schema: generated.SchemaIDBrowserRun, SchemaVersion: "1.0.0",
+		RunID: run.RunID, PlanID: run.PlanID, PlanDigest: run.PlanDigest,
+		Status: run.Status, Steps: steps, CancellationRequested: run.CancellationRequested,
+		RollbackStatus: run.RollbackStatus, VerificationStatus: run.VerificationStatus, VerificationDigest: run.VerificationDigest,
+		Changed: run.Changed, StateRevision: run.StateRevision, RecoveryEpoch: run.RecoveryEpoch,
+		CreatedAt: run.CreatedAt, UpdatedAt: run.UpdatedAt, Extensions: append([]generated.ContractExtension{}, run.Extensions...),
+	}
+	return generated.RunPresentation{Run: browserRun, CompletedWork: completed, IncompleteWork: incomplete, NextSafeAction: next}
 }
 
 func durableRunFailure(status string) (string, string, bool) {

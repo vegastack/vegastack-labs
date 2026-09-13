@@ -2,15 +2,21 @@ package metadata
 
 const (
 	contractExtensionSchemaID       = "vegastack-labs.dev/contract-extension"
+	browserRunResultSchemaID        = "vegastack-labs.dev/browser-run-result"
 	declarationOperationSchemaID    = "vegastack-labs.dev/declaration-operation"
 	declarationRevisionRequestID    = "vegastack-labs.dev/declaration-revision-request"
+	browserDeclarationRevisionID    = "vegastack-labs.dev/browser-declaration-revision"
 	planBindingSchemaID             = "vegastack-labs.dev/plan-binding"
 	planOperationSchemaID           = "vegastack-labs.dev/plan-operation"
 	planCreateRequestSchemaID       = "vegastack-labs.dev/plan-create-request"
 	planPreparationSchemaID         = "vegastack-labs.dev/plan-preparation"
+	planPresentationSchemaID        = "vegastack-labs.dev/plan-presentation"
+	approvalStatusSchemaID          = "vegastack-labs.dev/approval-status"
 	planReferenceRequestSchemaID    = "vegastack-labs.dev/plan-reference-request"
 	acknowledgementRequestSchemaID  = "vegastack-labs.dev/acknowledgement-request"
 	runStepSchemaID                 = "vegastack-labs.dev/run-step"
+	browserRunStepSchemaID          = "vegastack-labs.dev/browser-run-step"
+	browserRunSchemaID              = "vegastack-labs.dev/browser-run"
 	runPresentationSchemaID         = "vegastack-labs.dev/run-presentation"
 	runUncertainGuidanceSchemaID    = "vegastack-labs.dev/run-uncertain-guidance"
 	runReferenceRequestSchemaID     = "vegastack-labs.dev/run-reference-request"
@@ -23,14 +29,17 @@ var phase4RunStates = []string{"cancelled", "failed", "interrupted", "partial", 
 
 func phase4Endpoints() []EndpointDefinition {
 	return []EndpointDefinition{
-		phase4Endpoint("api.v1.declarations.revise", "POST", "/api/v1/declarations/{declarationId}/revisions", declarationRevisionRequestID, declarationRevisionSchemaID),
-		phase4Endpoint("api.v1.declarations.get", "GET", "/api/v1/declarations/{declarationId}/revisions/{revision}", "", declarationRevisionSchemaID),
-		{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: AvailabilityAvailable, OwnerPhase: "4", DataSchema: planPreparationSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
-		phase4Endpoint("api.v1.plans.create", "POST", "/api/v1/declarations/{declarationId}/plans", planCreateRequestSchemaID, planSchemaID),
-		phase4Endpoint("api.v1.plans.get", "GET", "/api/v1/plans/{planId}", "", planSchemaID),
+		phase4Endpoint("api.v1.declarations.revise", "POST", "/api/v1/declarations/{declarationId}/revisions", declarationRevisionRequestID, browserDeclarationRevisionID),
+		phase4Endpoint("api.v1.declarations.get", "GET", "/api/v1/declarations/{declarationId}/revisions/{revision}", "", browserDeclarationRevisionID),
+		{ID: "api.v1.declarations.plan-preparation.get", Method: "GET", Path: "/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation", Availability: AvailabilityAvailable, OwnerPhase: "4", DataSchema: planPreparationSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser, AudienceOperator}},
+		phase4Endpoint("api.v1.plans.create", "POST", "/api/v1/declarations/{declarationId}/plans", planCreateRequestSchemaID, planPresentationSchemaID),
+		phase4Endpoint("api.v1.plans.get", "GET", "/api/v1/plans/{planId}", "", planPresentationSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.create", "POST", "/api/v1/plans/{planId}/acknowledgements", acknowledgementRequestSchemaID, acknowledgementSchemaID),
 		phase4Endpoint("api.v1.plans.acknowledgements.get", "GET", "/api/v1/plans/{planId}/acknowledgements", "", acknowledgementSchemaID),
+		phase4Endpoint("api.v1.plans.approval-request.create", "POST", "/api/v1/plans/{planId}/approval-request", planReferenceRequestSchemaID, approvalStatusSchemaID),
+		phase4Endpoint("api.v1.plans.approval-status.get", "GET", "/api/v1/plans/{planId}/approval-status", "", approvalStatusSchemaID),
 		phase4Endpoint("api.v1.plans.execute", "POST", "/api/v1/plans/{planId}/execute", planReferenceRequestSchemaID, runPresentationSchemaID),
+		phase4Endpoint("api.v1.plans.run-resolution.get", "GET", "/api/v1/plans/{planId}/runs/{idempotencyKey}", "", runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.get", "GET", "/api/v1/runs/{runId}", "", runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.cancel", "POST", "/api/v1/runs/{runId}/cancel", runReferenceRequestSchemaID, runPresentationSchemaID),
 		phase4Endpoint("api.v1.runs.resume", "POST", "/api/v1/runs/{runId}/resume", runReferenceRequestSchemaID, runPresentationSchemaID),
@@ -42,7 +51,7 @@ func phase4Endpoints() []EndpointDefinition {
 
 func phase4Endpoint(id, method, path, request, data string) EndpointDefinition {
 	availability := AvailabilityPlanned
-	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" || id == "api.v1.plans.execute" || id == "api.v1.runs.get" || id == "api.v1.runs.cancel" || id == "api.v1.runs.resume" || id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
+	if id == "api.v1.declarations.revise" || id == "api.v1.declarations.get" || id == "api.v1.plans.create" || id == "api.v1.plans.get" || id == "api.v1.plans.acknowledgements.create" || id == "api.v1.plans.acknowledgements.get" || id == "api.v1.plans.approval-request.create" || id == "api.v1.plans.approval-status.get" || id == "api.v1.plans.execute" || id == "api.v1.plans.run-resolution.get" || id == "api.v1.runs.get" || id == "api.v1.runs.cancel" || id == "api.v1.runs.resume" || id == "api.v1.executor-leases.claim" || id == "api.v1.executor-leases.renew" || id == "api.v1.execution-receipts.create" {
 		availability = AvailabilityAvailable
 	}
 	audiences := []EndpointAudience{AudienceBrowser, AudienceOperator}
@@ -98,26 +107,55 @@ func phase4Schemas() []SchemaDefinition {
 	receiptFields := append(leaseReceiptBinding(id, digest, nonnegative), id("receiptId", "ReceiptID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"failed", "partial", "running", "succeeded"}}, digest("resultDigest", "ResultDigest"), timestamp("recordedAt", "RecordedAt"), extensions)
 
 	return []SchemaDefinition{
+		{ID: browserRunResultSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(browserRunResultSchemaID), Fields: contract(browserRunResultSchemaID,
+			FieldDefinition{JSONName: "toolVersion", GoName: "ToolVersion", Kind: ValueString, Required: true},
+			FieldDefinition{JSONName: "command", GoName: "Command", Kind: ValueString, Required: true},
+			nullableID("runId", "RunID"),
+			FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"blocked", "cancelled", "failed", "interrupted", "partial", "succeeded"}},
+			FieldDefinition{JSONName: "changed", GoName: "Changed", Kind: ValueBoolean, Required: true},
+			nonnegative("recoveryEpoch", "RecoveryEpoch"), nonnegative("stateRevision", "StateRevision"),
+			FieldDefinition{JSONName: "snapshotDigest", GoName: "SnapshotDigest", Kind: ValueString, Required: true, Nullable: true},
+			FieldDefinition{JSONName: "releaseBuildId", GoName: "ReleaseBuildID", Kind: ValueString, Required: true},
+			FieldDefinition{JSONName: "sourceRevision", GoName: "SourceRevision", Kind: ValueString, Required: true, Nullable: true},
+			nullableID("planId", "PlanID"),
+			FieldDefinition{JSONName: "errors", GoName: "Errors", Kind: ValueArray, Required: true, ItemRef: resultErrorSchemaID},
+			FieldDefinition{JSONName: "data", GoName: "Data", Kind: ValueObject, Required: true, AdditionalProperties: true},
+		)},
 		{ID: contractExtensionSchemaID, Version: "1.0.0", Fields: []FieldDefinition{{JSONName: "name", GoName: "Name", Kind: ValueString, Required: true, Pattern: `^x-[a-z][a-z0-9.-]{0,62}$`}, digest("valueDigest", "ValueDigest")}},
 		{ID: declarationOperationSchemaID, Version: "1.0.0", Fields: operationFields(false)},
 		{ID: declarationRevisionRequestID, Version: "1.0.0", ArtifactPath: schemaPath(declarationRevisionRequestID), Fields: contract(declarationRevisionRequestID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("expectedRevision", "ExpectedRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, digest("reasonDigest", "ReasonDigest"), extensions)},
 		{ID: declarationRevisionSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(declarationRevisionSchemaID), Fields: contract(declarationRevisionSchemaID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("revision", "Revision"), nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("contentDigest", "ContentDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"committed", "draft", "superseded"}}, FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, timestamp("createdAt", "CreatedAt"), id("createdBy", "CreatedBy"), id("agentSessionId", "AgentSessionID"), extensions)},
+		{ID: browserDeclarationRevisionID, Version: "1.0.0", ArtifactPath: schemaPath(browserDeclarationRevisionID), Fields: contract(browserDeclarationRevisionID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("revision", "Revision"), nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("contentDigest", "ContentDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"committed", "draft", "superseded"}}, FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, timestamp("createdAt", "CreatedAt"), extensions)},
 		{ID: planBindingSchemaID, Version: "1.0.0", Fields: []FieldDefinition{nonnegative("recoveryEpoch", "RecoveryEpoch"), nonnegative("priorStateRevision", "PriorStateRevision"), positive("stateRevision", "StateRevision"), positive("declarationRevision", "DeclarationRevision"), digest("observationFingerprint", "ObservationFingerprint"), digest("targetDigest", "TargetDigest"), digest("reasonDigest", "ReasonDigest"), version("policyVersion", "PolicyVersion"), toolVersion, version("contractVersion", "ContractVersion")}},
 		{ID: planOperationSchemaID, Version: "1.0.0", Fields: operationFields(true)},
 		{ID: planCreateRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planCreateRequestSchemaID), Fields: contract(planCreateRequestSchemaID, id("declarationId", "DeclarationID"), positive("declarationRevision", "DeclarationRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("observationFingerprint", "ObservationFingerprint"), id("idempotencyKey", "IdempotencyKey"), extensions)},
 		{ID: planPreparationSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planPreparationSchemaID), Fields: contract(planPreparationSchemaID, id("declarationId", "DeclarationID"), positive("declarationRevision", "DeclarationRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("observationFingerprint", "ObservationFingerprint"))},
 		{ID: planReferenceRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planReferenceRequestSchemaID), Fields: contract(planReferenceRequestSchemaID, id("planId", "PlanID"), digest("planDigest", "PlanDigest"), nonnegative("recoveryEpoch", "RecoveryEpoch"), id("idempotencyKey", "IdempotencyKey"), extensions)},
 		{ID: planSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planSchemaID), Fields: contract(planSchemaID, id("planId", "PlanID"), digest("planDigest", "PlanDigest"), id("declarationId", "DeclarationID"), FieldDefinition{JSONName: "binding", GoName: "Binding", Kind: ValueObject, Required: true, Ref: planBindingSchemaID}, FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: planOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"approved", "awaiting-acknowledgement", "cancelled", "expired", "planned"}}, FieldDefinition{JSONName: "risk", GoName: "Risk", Kind: ValueString, Required: true, Enum: []string{"control-plane", "destructive", "infrastructure", "production-like", "routine"}}, FieldDefinition{JSONName: "authorizationBranch", GoName: "AuthorizationBranch", Kind: ValueString, Required: true, Enum: []string{"human", "preauthorized"}}, FieldDefinition{JSONName: "executorMode", GoName: "ExecutorMode", Kind: ValueString, Required: true, Enum: []string{"central", "external"}}, nullableID("executorId", "ExecutorID"), timestamp("createdAt", "CreatedAt"), timestamp("expiresAt", "ExpiresAt"), digest("readableDigest", "ReadableDigest"), extensions)},
+		{ID: planPresentationSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planPresentationSchemaID), Fields: []FieldDefinition{{JSONName: "plan", GoName: "Plan", Kind: ValueObject, Required: true, Ref: planSchemaID}, {JSONName: "readablePlan", GoName: "ReadablePlan", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(4 << 20)}, {JSONName: "canonicalPlan", GoName: "CanonicalPlan", Kind: ValueString, Required: true, MinLength: intPointer(2), MaxLength: intPointer(4 << 20)}}},
 		{ID: authorizationDecisionSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(authorizationDecisionSchemaID), Fields: contract(authorizationDecisionSchemaID, id("decisionId", "DecisionID"), id("principalId", "PrincipalID"), id("action", "Action"), id("targetId", "TargetID"), FieldDefinition{JSONName: "allowed", GoName: "Allowed", Kind: ValueBoolean, Required: true}, FieldDefinition{JSONName: "branch", GoName: "Branch", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"human", "preauthorized"}}, id("reasonCode", "ReasonCode"), nonnegative("grantRevision", "GrantRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("planDigest", "PlanDigest"), timestamp("decidedAt", "DecidedAt"), extensions)},
 		{ID: acknowledgementRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(acknowledgementRequestSchemaID), Fields: contract(acknowledgementRequestSchemaID, ackRequestFields...)},
 		{ID: acknowledgementSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(acknowledgementSchemaID), Fields: contract(acknowledgementSchemaID, ackFields...)},
+		{ID: approvalStatusSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(approvalStatusSchemaID), Fields: contract(approvalStatusSchemaID,
+			id("planId", "PlanID"), digest("planDigest", "PlanDigest"),
+			FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"pending", "approved", "rejected", "expired"}},
+			FieldDefinition{JSONName: "authorizationCurrent", GoName: "AuthorizationCurrent", Kind: ValueBoolean, Required: true},
+			FieldDefinition{JSONName: "canApply", GoName: "CanApply", Kind: ValueBoolean, Required: true},
+			FieldDefinition{JSONName: "channel", GoName: "Channel", Kind: ValueString, Required: true, Enum: []string{"slack"}},
+			FieldDefinition{JSONName: "owner", GoName: "Owner", Kind: ValueString, Required: true, Enum: []string{"assigned-maintainer"}},
+			nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			timestamp("expiresAt", "ExpiresAt"), timestamp("observedAt", "ObservedAt"),
+		)},
 		{ID: runStepSchemaID, Version: "1.0.0", Fields: append(operationFields(true), id("stepId", "StepID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "effectState", GoName: "EffectState", Kind: ValueString, Required: true, Enum: []string{"effect-unknown", "intent-recorded", "not-started", "receipt-recorded", "verified"}})},
+		{ID: browserRunStepSchemaID, Version: "1.0.0", Fields: []FieldDefinition{positive("sequence", "Sequence"), id("operationId", "OperationID"), id("operationType", "OperationType"), id("targetId", "TargetID"), id("stepId", "StepID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "progressState", GoName: "ProgressState", Kind: ValueString, Required: true, Enum: []string{"not-started", "started", "unverified", "verified", "unknown"}}}},
 		{ID: runPresentationSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runPresentationSchemaID), Fields: []FieldDefinition{
-			{JSONName: "run", GoName: "Run", Kind: ValueObject, Required: true, Ref: runSchemaID},
-			{JSONName: "completedWork", GoName: "CompletedWork", Kind: ValueArray, Required: true, ItemRef: runStepSchemaID, MaxItems: intPointer(256)},
-			{JSONName: "incompleteWork", GoName: "IncompleteWork", Kind: ValueArray, Required: true, ItemRef: runStepSchemaID, MaxItems: intPointer(256)},
+			{JSONName: "run", GoName: "Run", Kind: ValueObject, Required: true, Ref: browserRunSchemaID},
+			{JSONName: "completedWork", GoName: "CompletedWork", Kind: ValueArray, Required: true, ItemRef: browserRunStepSchemaID, MaxItems: intPointer(256)},
+			{JSONName: "incompleteWork", GoName: "IncompleteWork", Kind: ValueArray, Required: true, ItemRef: browserRunStepSchemaID, MaxItems: intPointer(256)},
 			{JSONName: "nextSafeAction", GoName: "NextSafeAction", Kind: ValueString, Required: true, Enum: []string{"none; execution completed", "inspect before creating another plan", "inspect, then resume or cancel through the server", "inspect or cancel through the server", "recovery required; inspect the durable run", "inspect the durable run"}},
 		}},
+		{ID: browserRunSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(browserRunSchemaID), Fields: contract(browserRunSchemaID, id("runId", "RunID"), id("planId", "PlanID"), digest("planDigest", "PlanDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "steps", GoName: "Steps", Kind: ValueArray, Required: true, ItemRef: browserRunStepSchemaID, MaxItems: intPointer(256)}, FieldDefinition{JSONName: "cancellationRequested", GoName: "CancellationRequested", Kind: ValueBoolean, Required: true}, FieldDefinition{JSONName: "rollbackStatus", GoName: "RollbackStatus", Kind: ValueString, Required: true, Enum: []string{"not-requested", "required", "separate-plan"}}, FieldDefinition{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"failed", "incomplete", "pending", "verified"}}, nullableDigest("verificationDigest", "VerificationDigest"), FieldDefinition{JSONName: "changed", GoName: "Changed", Kind: ValueBoolean, Required: true}, nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), timestamp("createdAt", "CreatedAt"), timestamp("updatedAt", "UpdatedAt"), extensions)},
+		{ID: browserAuditEventSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(browserAuditEventSchemaID), Fields: []FieldDefinition{positive("eventId", "EventID"), timestamp("occurredAt", "OccurredAt"), nonnegative("recoveryEpoch", "RecoveryEpoch"), nonnegative("stateRevision", "StateRevision"), id("type", "Type"), FieldDefinition{JSONName: "target", GoName: "Target", Kind: ValueObject, Required: true, Ref: auditTargetSchemaID}}},
 		{ID: runUncertainGuidanceSchemaID, Version: "1.0.0", Fields: []FieldDefinition{id("runId", "RunID"), {JSONName: "action", GoName: "Action", Kind: ValueString, Required: true, Enum: []string{"inspect-only"}}, {JSONName: "command", GoName: "Command", Kind: ValueString, Required: true, Enum: []string{"run inspect"}}}},
 		{ID: runReferenceRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runReferenceRequestSchemaID), Fields: contract(runReferenceRequestSchemaID, id("runId", "RunID"), id("idempotencyKey", "IdempotencyKey"), nonnegative("recoveryEpoch", "RecoveryEpoch"), extensions)},
 		{ID: runSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runSchemaID), Fields: contract(runSchemaID, id("runId", "RunID"), id("planId", "PlanID"), digest("planDigest", "PlanDigest"), id("authorizationDecisionId", "AuthorizationDecisionID"), nullableID("acknowledgementId", "AcknowledgementID"), version("policyVersion", "PolicyVersion"), FieldDefinition{JSONName: "executorMode", GoName: "ExecutorMode", Kind: ValueString, Required: true, Enum: []string{"central", "external"}}, id("executorId", "ExecutorID"), digest("executorBindingDigest", "ExecutorBindingDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "steps", GoName: "Steps", Kind: ValueArray, Required: true, ItemRef: runStepSchemaID, MaxItems: intPointer(256)}, FieldDefinition{JSONName: "cancellationRequested", GoName: "CancellationRequested", Kind: ValueBoolean, Required: true}, FieldDefinition{JSONName: "rollbackStatus", GoName: "RollbackStatus", Kind: ValueString, Required: true, Enum: []string{"not-requested", "required", "separate-plan"}}, FieldDefinition{JSONName: "verificationStatus", GoName: "VerificationStatus", Kind: ValueString, Required: true, Enum: []string{"failed", "incomplete", "pending", "verified"}}, nullableDigest("verificationDigest", "VerificationDigest"), FieldDefinition{JSONName: "changed", GoName: "Changed", Kind: ValueBoolean, Required: true}, nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), timestamp("createdAt", "CreatedAt"), timestamp("updatedAt", "UpdatedAt"), extensions)},

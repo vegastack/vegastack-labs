@@ -519,24 +519,31 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
   })}\n`, { mode: 0o600 });
   await chmod(profilePath, 0o600);
 
+  const planCreatedAt = new Date(Math.floor(Date.now() / 1000) * 1000);
+  const planExpiresAt = new Date(planCreatedAt.getTime() + (30 * 60 * 1000));
+  const fixturePlanCreatedAt = planCreatedAt.toISOString().replace(".000Z", "Z");
+  const fixturePlanExpiresAt = planExpiresAt.toISOString().replace(".000Z", "Z");
+  assert.ok(planExpiresAt.getTime() > Date.now(), "fixture plan must remain current for the test");
+
   const serverScript = path.join(temporary, "phase4-cli-fixture.mjs");
   await writeFile(serverScript, [
     'import http from "node:http";',
     'import { createHash } from "node:crypto";',
     'import { appendFileSync, rmSync } from "node:fs";',
-    'const [socketPath, requestLog, contractVersion] = process.argv.slice(2);',
+    'const [socketPath, requestLog, contractVersion, planCreatedAt, planExpiresAt] = process.argv.slice(2);',
     'try { rmSync(socketPath); } catch {}',
     'const digest = (character) => `sha256:${character.repeat(64)}`;',
     'const operation = { sequence: 1, operationId: "operation-1", operationType: "application.deploy.low-risk", adapterId: "adapter.synthetic", executorId: "executor-central", targetId: "target-1", inputDigest: digest("e"), artifactDigest: digest("f"), idempotent: true };',
     'const planFor = (planId = "plan-1") => ({',
     '  schema: "vegastack-labs.dev/plan", schemaVersion: "1.0.0", planId, planDigest: digest("a"), declarationId: "declaration-1",',
     '  binding: { recoveryEpoch: 2, priorStateRevision: 6, stateRevision: 7, declarationRevision: 1, observationFingerprint: digest("b"), targetDigest: digest("c"), reasonDigest: digest("d"), policyVersion: "1.0.0", toolVersion: "0.0.0-dev", contractVersion },',
-    '  operations: [operation], status: "planned", risk: "routine", authorizationBranch: "preauthorized", executorMode: "central", executorId: null, createdAt: "2026-09-13T06:00:00Z", expiresAt: "2026-09-13T06:30:00Z", readableDigest: digest("1"), extensions: [],',
+    '  operations: [operation], status: "planned", risk: "routine", authorizationBranch: "preauthorized", executorMode: "central", executorId: null, createdAt: planCreatedAt, expiresAt: planExpiresAt, readableDigest: digest("1"), extensions: [],',
     '});',
-    'const step = (sequence, status, effectState) => ({ ...operation, sequence, operationId: `operation-${sequence}`, targetId: `target-${sequence}`, stepId: `step-${sequence}`, status, effectState });',
+    'const presentPlan = (plan) => ({ plan, readablePlan: "fixture readable plan", canonicalPlan: JSON.stringify(plan) });',
+    'const step = (sequence, status, effectState) => ({ sequence, operationId: `operation-${sequence}`, operationType: operation.operationType, targetId: `target-${sequence}`, stepId: `step-${sequence}`, status, progressState: ({ "not-started": "not-started", "intent-recorded": "started", "receipt-recorded": "unverified", verified: "verified", "effect-unknown": "unknown" })[effectState] });',
     'const runFor = (runId, planId, status = "running") => {',
     '  const states = status === "succeeded" ? [step(1, "succeeded", "verified")] : status === "partial" ? [step(1, "succeeded", "verified"), step(2, "partial", "effect-unknown")] : status === "cancelled" ? [step(1, "cancelled", "not-started")] : status === "interrupted" ? [step(1, "interrupted", "effect-unknown")] : [step(1, "running", "intent-recorded")];',
-    '  return { schema: "vegastack-labs.dev/run", schemaVersion: "1.0.0", runId, planId, planDigest: digest("a"), authorizationDecisionId: "decision-1", acknowledgementId: null, policyVersion: "1.0.0", executorMode: "central", executorId: "executor-central", executorBindingDigest: digest("2"), status, steps: states, cancellationRequested: status === "cancelled", rollbackStatus: status === "partial" ? "required" : "not-requested", verificationStatus: status === "succeeded" ? "verified" : status === "partial" ? "incomplete" : "pending", verificationDigest: status === "succeeded" ? digest("9") : null, changed: status === "succeeded" || status === "partial", stateRevision: 7, recoveryEpoch: 2, createdAt: "2026-09-13T06:01:00Z", updatedAt: "2026-09-13T06:01:01Z", extensions: [] };',
+    '  return { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId, planId, planDigest: digest("a"), status, steps: states, cancellationRequested: status === "cancelled", rollbackStatus: status === "partial" ? "required" : "not-requested", verificationStatus: status === "succeeded" ? "verified" : status === "partial" ? "incomplete" : "pending", verificationDigest: status === "succeeded" ? digest("9") : null, changed: status === "succeeded" || status === "partial", stateRevision: 7, recoveryEpoch: 2, createdAt: "2026-09-13T06:01:00Z", updatedAt: "2026-09-13T06:01:01Z", extensions: [] };',
     '};',
     'const present = (run) => { const completedWork = run.steps.filter((item) => ["succeeded", "failed", "cancelled"].includes(item.status)); const incompleteWork = run.steps.filter((item) => !completedWork.includes(item)); let nextSafeAction = "inspect the durable run"; if (run.status === "partial" || run.rollbackStatus === "required" || run.verificationStatus === "incomplete") nextSafeAction = "recovery required; inspect the durable run"; else if (run.status === "succeeded") nextSafeAction = "none; execution completed"; else if (run.status === "cancelled") nextSafeAction = "inspect before creating another plan"; else if (run.status === "interrupted") nextSafeAction = "inspect, then resume or cancel through the server"; else if (["queued", "running"].includes(run.status)) nextSafeAction = "inspect or cancel through the server"; return { run, completedWork, incompleteWork, nextSafeAction }; };',
     'const requestId = (command) => `request-${command.replaceAll(/[^a-z0-9]/g, "").padEnd(32, "0").slice(0, 32)}`;',
@@ -555,8 +562,8 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
     '    const runMatch = request.url.match(/^\\/api\\/v1\\/runs\\/([^/]+)$/);',
     '    const actionMatch = request.url.match(/^\\/api\\/v1\\/runs\\/([^/]+)\\/(cancel|resume)$/);',
     '    if (request.method === "GET" && request.url === "/api/v1/declarations/declaration-1/revisions/1/plan-preparation") { respond(response, success("api.v1.declarations.plan-preparation.get", { schema: "vegastack-labs.dev/plan-preparation", schemaVersion: "1.0.0", declarationId: "declaration-1", declarationRevision: 1, expectedStateRevision: 6, recoveryEpoch: 2, observationFingerprint: digest("b") }, { revision: 6 })); return; }',
-    '    if (request.method === "POST" && request.url === "/api/v1/declarations/declaration-1/plans") { respond(response, success("api.v1.plans.create", planFor(), { changed: true })); return; }',
-    '    if (request.method === "GET" && planMatch) { respond(response, success("api.v1.plans.get", planFor(planMatch[1]))); return; }',
+    '    if (request.method === "POST" && request.url === "/api/v1/declarations/declaration-1/plans") { respond(response, success("api.v1.plans.create", presentPlan(planFor()), { changed: true })); return; }',
+    '    if (request.method === "GET" && planMatch) { respond(response, success("api.v1.plans.get", presentPlan(planFor(planMatch[1])))); return; }',
     '    if (request.method === "POST" && executeMatch) {',
     '      const planId = executeMatch[1]; const input = JSON.parse(body); const suffix = createHash("sha256").update(["run", planId, input.idempotencyKey].join("\\0")).digest("hex").slice(0, 32); const runId = `run-${suffix}`;',
     '      if (planId === "plan-stale") { respond(response, failure("api.v1.plans.execute", "PLAN_STALE", "plan", "failed"), httpStatus.PLAN_STALE); return; }',
@@ -585,7 +592,7 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
   ].join("\n"));
 
   const fixture = spawn(process.execPath, [
-    serverScript, socketPath, requestLog, CONTRACT_VERSION,
+    serverScript, socketPath, requestLog, CONTRACT_VERSION, fixturePlanCreatedAt, fixturePlanExpiresAt,
   ], { stdio: "ignore" });
   t.after(() => fixture.kill("SIGTERM"));
   const deadline = Date.now() + 5000;
@@ -660,13 +667,19 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
       { expectedStateRevision: 6, recoveryEpoch: 2, observationFingerprint: `sha256:${"b".repeat(64)}` },
     );
     if (output === "human") {
-      assert.deepEqual(result, { code: golden.exits.success, stdout: golden.human.plan, stderr: "" });
+      assert.deepEqual(result, {
+        code: golden.exits.success,
+        stdout: golden.human.plan.replace("<plan-expires-at>", fixturePlanExpiresAt),
+        stderr: "",
+      });
     } else {
       const envelope = machineResult(result, golden.exits.success);
       assert.equal(envelope.command, "api.v1.plans.create");
-      assert.equal(envelope.data.planId, "plan-1");
-      assert.equal(envelope.data.binding.observationFingerprint, `sha256:${"b".repeat(64)}`);
-      assert.equal(envelope.data.operations[0].targetId, "target-1");
+      assert.equal(envelope.data.plan.planId, "plan-1");
+      assert.equal(envelope.data.plan.binding.observationFingerprint, `sha256:${"b".repeat(64)}`);
+      assert.equal(envelope.data.plan.operations[0].targetId, "target-1");
+      assert.equal(envelope.data.readablePlan, "fixture readable plan");
+      assert.equal(envelope.data.canonicalPlan, JSON.stringify(envelope.data.plan));
     }
   }
 
@@ -677,6 +690,7 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
   const normalEnvelope = machineResult(normalJSON.result, golden.exits.success);
   assert.equal(normalEnvelope.data.run.status, "running");
   assert.equal(normalEnvelope.data.incompleteWork[0].targetId, "target-1");
+  assert.equal(normalEnvelope.data.incompleteWork[0].progressState, "started");
   assert.equal(normalEnvelope.data.nextSafeAction, "inspect or cancel through the server");
   const normalRunId = `run-${createHash("sha256").update(["run", "plan-normal", normalInput.idempotencyKey].join("\0")).digest("hex").slice(0, 32)}`;
   assert.equal(normalEnvelope.runId, normalRunId);
@@ -775,7 +789,7 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
     assert.equal(envelope.data.run.runId, expectedRunId);
     assert.equal(envelope.data.run.status, "partial");
     assert.equal(envelope.data.completedWork[0].status, "succeeded");
-    assert.equal(envelope.data.incompleteWork[0].effectState, "effect-unknown");
+    assert.equal(envelope.data.incompleteWork[0].progressState, "unknown");
     assert.equal(envelope.data.run.rollbackStatus, "required");
     assert.equal(envelope.data.run.verificationStatus, "incomplete");
     assert.equal(envelope.data.nextSafeAction, "recovery required; inspect the durable run");
@@ -816,7 +830,7 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
   assert.equal(resumeInput.recoveryEpoch, 2);
   const resumedEnvelope = machineResult(resumed.result, golden.exits.success);
   assert.equal(resumedEnvelope.data.run.status, "running");
-  assert.equal(resumedEnvelope.data.incompleteWork[0].effectState, "intent-recorded");
+  assert.equal(resumedEnvelope.data.incompleteWork[0].progressState, "started");
 
   // A submit disconnect permits exactly one deterministic inspection and never
   // another POST. One case finds the durable run; the other remains unknown.

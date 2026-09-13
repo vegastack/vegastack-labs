@@ -67,6 +67,38 @@ func TestAcknowledgementStatusIsLocalReadOnlyAndReturnsDurableOutcome(t *testing
 	}
 }
 
+func TestBrowserApprovalRequestAndStatusExposeOnlySafeProjection(t *testing.T) {
+	input := acknowledgementAPIRequest()
+	service := &fakeAcknowledgementService{card: acknowledgement.RequestCard{Request: input, AcknowledgementID: "private-ack-canary", Nonce: "private-nonce-canary"}, outcome: acknowledgementOutcome(input, "pending")}
+	publisher := &recordingAcknowledgementPublisher{}
+	app := newAcknowledgementTestApplication(t, &effectiveAuthorizationStub{}, service, fixedAcknowledgementScope{}, publisher)
+	reference := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: "plan-test", PlanDigest: testAPIDigest("d"), RecoveryEpoch: 0, IdempotencyKey: "browser-request-test", Extensions: []generated.ContractExtension{}}
+	var body bytes.Buffer
+	if err := json.NewEncoder(&body).Encode(reference); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/plans/plan-test/approval-request", &body)
+	request.Header.Set("Content-Type", "application/json")
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || publisher.calls != 1 || !strings.Contains(response.Body.String(), `"status":"pending"`) {
+		t.Fatalf("request response = %d calls=%d %s", response.Code, publisher.calls, response.Body.String())
+	}
+	for _, protected := range []string{"humanId", "authorityId", "nonceDigest", "proofDigest", "acknowledgementId", "private-ack-canary", "private-nonce-canary"} {
+		if strings.Contains(response.Body.String(), protected) {
+			t.Fatalf("browser response leaked %q: %s", protected, response.Body.String())
+		}
+	}
+	statusRequest := httptest.NewRequest(http.MethodGet, "/api/v1/plans/plan-test/approval-status", nil)
+	statusRequest = statusRequest.WithContext(identity.WithVerifiedPrincipal(statusRequest.Context(), identity.Principal{ID: "principal.test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	statusResponse := httptest.NewRecorder()
+	app.ServeHTTP(statusResponse, statusRequest)
+	if statusResponse.Code != http.StatusOK || !strings.Contains(statusResponse.Body.String(), `"canApply":false`) {
+		t.Fatalf("status response = %d %s", statusResponse.Code, statusResponse.Body.String())
+	}
+}
+
 func newAcknowledgementTestApplication(t *testing.T, effective *effectiveAuthorizationStub, service AcknowledgementService, scopes AcknowledgementScopeResolver, publisher AcknowledgementPublisher) *Application {
 	t.Helper()
 	factory := result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "request-ack-test", nil })
@@ -123,10 +155,16 @@ func (service *fakeAcknowledgementService) Request(context.Context, acknowledgem
 func (service *fakeAcknowledgementService) Status(context.Context, string) (generated.Acknowledgement, error) {
 	return service.outcome, nil
 }
+func (service *fakeAcknowledgementService) Projection(context.Context, string) (generated.ApprovalStatus, error) {
+	return generated.ApprovalStatus{Schema: generated.SchemaIDApprovalStatus, SchemaVersion: "1.0.0", PlanID: "plan-test", PlanDigest: testAPIDigest("d"), Status: "pending", AuthorizationCurrent: true, CanApply: false, Channel: "slack", Owner: "assigned-maintainer", StateRevision: 2, RecoveryEpoch: 0, ExpiresAt: "2026-09-13T01:30:00Z", ObservedAt: "2026-09-13T01:05:00Z"}, nil
+}
 
 type fixedAcknowledgementScope struct{}
 
 func (fixedAcknowledgementScope) Resolve(context.Context, generated.AcknowledgementRequest) (acknowledgement.Scope, error) {
+	return acknowledgement.Scope{Human: identity.Principal{ID: "person-operator", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}, AuthorityID: "authority-slack", Nonce: "nonce-one-time"}, nil
+}
+func (fixedAcknowledgementScope) ResolvePlan(context.Context, generated.Plan) (acknowledgement.Scope, error) {
 	return acknowledgement.Scope{Human: identity.Principal{ID: "person-operator", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}, AuthorityID: "authority-slack", Nonce: "nonce-one-time"}, nil
 }
 
