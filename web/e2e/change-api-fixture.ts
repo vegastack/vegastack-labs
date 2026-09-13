@@ -21,12 +21,13 @@ export const changeFixture: {
   eventMode: "offline" | "reconnect";
   hardFailurePath: string | null;
   retryableFailurePath: string | null;
+  runReadFailuresRemaining: number;
   declarationDelayMs: number;
   requestBodies: string[];
   requestPaths: string[];
   reasonDigest: string;
   planDigest: string;
-} = { approval: "pending", run: "running", runAfterExecute: null, executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalRequestPosts: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
+} = { approval: "pending", run: "running", runAfterExecute: null, executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalRequestPosts: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, runReadFailuresRemaining: 0, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
 
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
@@ -72,6 +73,10 @@ async function respond(route: Route) {
   if (request.method() === "POST") changeFixture.requestBodies.push(request.postData() ?? "");
   if (changeFixture.hardFailurePath === path) return route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify(envelope("denied", {}, "failed", [{ code: "AUTHORIZATION_DENIED", target: path, retryable: false }])) });
   if (changeFixture.retryableFailurePath === path) return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify(envelope("unavailable", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: path, retryable: true }])) });
+  if (path === "/api/v1/runs/run-one" && request.method() === "GET" && changeFixture.runReadFailuresRemaining > 0) {
+    changeFixture.runReadFailuresRemaining -= 1;
+    return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify(envelope("api.v1.runs.get", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: path, retryable: true }])) });
+  }
   if (path === "/api/v1/events") {
     changeFixture.eventConnections += 1;
     changeFixture.eventLastIds.push(request.headers()["last-event-id"] ?? "");
@@ -132,6 +137,7 @@ export function resetChangeFixture() {
   changeFixture.eventMode = "offline";
   changeFixture.hardFailurePath = null;
   changeFixture.retryableFailurePath = null;
+  changeFixture.runReadFailuresRemaining = 0;
   changeFixture.declarationDelayMs = 0;
   changeFixture.requestBodies.length = 0;
   changeFixture.requestPaths.length = 0;

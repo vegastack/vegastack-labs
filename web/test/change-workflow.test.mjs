@@ -62,9 +62,16 @@ test("refresh restores only safe change handles from navigation history", async 
 test("terminal durable state never opens an SSE watcher", async () => {
   const queries = await read("lib/run-queries.ts");
   assert.match(queries, /terminalRunStatuses/);
-  assert.match(queries, /if \(!runId \|\| !query\.data \|\| terminal\) return/);
+  assert.match(queries, /if \(!runId \|\| terminal \|\| \(!query\.data && !retryableFailure\)\) return/);
   assert.match(queries, /const fresh = await refetch\(\)/);
   assert.match(queries, /fresh\.isSuccess[\s\S]*terminalRunStatuses\.has\(fresh\.data\.data\.run\.status\)/);
+});
+
+test("a failed durable GET stays in the retry loop without opening SSE", async () => {
+  const queries = await read("lib/run-queries.ts");
+  assert.match(queries, /!fresh\.isSuccess[\s\S]*isTransientRunRead\(fresh\.error\)[\s\S]*waitForReconnect[\s\S]*continue/);
+  assert.match(queries, /retryableFailure[\s\S]*!query\.data && !retryableFailure/);
+  assert.doesNotMatch(queries, /!fresh\.isSuccess[^\n]+break/);
 });
 
 test("the newly mounted saved revision restores action focus", async () => {

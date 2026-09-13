@@ -2,9 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { type RunPresentation, type RunReferenceRequest } from "@/generated/read-api";
+import { ReadClientError, type RunPresentation, type RunReferenceRequest } from "@/generated/read-api";
 import { changeClient } from "@/lib/change-queries";
 import { readClient } from "@/lib/read-client";
+import { mayRetainStaleData } from "@/lib/read-queries";
 
 export const runKeys = {
   detail: (runId: string) => ["change", "run", runId] as const,
@@ -23,6 +24,10 @@ function runReference(run: RunPresentation["run"], action: string): RunReference
 
 const maximumReconnectDelay = 20_000;
 const terminalRunStatuses = new Set(["cancelled", "failed", "interrupted", "partial", "succeeded"]);
+
+function isTransientRunRead(error: unknown) {
+  return mayRetainStaleData(error) || (error instanceof ReadClientError && error.kind === "network");
+}
 
 async function waitForReconnect(attempt: number, signal: AbortSignal) {
   const delay = Math.min(500 * (2 ** Math.min(attempt, 5)), maximumReconnectDelay);
@@ -45,9 +50,10 @@ export function useRun(runId: string | null) {
   });
   const refetch = query.refetch;
   const terminal = query.data ? terminalRunStatuses.has(query.data.data.run.status) : false;
+  const retryableFailure = isTransientRunRead(query.error);
   const lastEventId = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (!runId || !query.data || terminal) return;
+    if (!runId || terminal || (!query.data && !retryableFailure)) return;
     const controller = new AbortController();
     lastEventId.current = undefined;
     const inspectDurableRun = () => { void refetch(); };
@@ -56,7 +62,15 @@ export function useRun(runId: string | null) {
       let attempt = 0;
       while (!controller.signal.aborted) {
         const fresh = await refetch();
-        if (controller.signal.aborted || !fresh.isSuccess || !fresh.data || terminalRunStatuses.has(fresh.data.data.run.status)) break;
+        if (controller.signal.aborted) break;
+        if (!fresh.isSuccess || !fresh.data) {
+          if (!isTransientRunRead(fresh.error)) break;
+          await waitForReconnect(attempt, controller.signal);
+          attempt += 1;
+          continue;
+        }
+        if (terminalRunStatuses.has(fresh.data.data.run.status)) break;
+        attempt = 0;
         try {
           for await (const update of readClient.streamEvents({ signal: controller.signal, lastEventId: lastEventId.current })) {
             lastEventId.current = String(update.event.eventId);
@@ -67,13 +81,20 @@ export function useRun(runId: string | null) {
           if (controller.signal.aborted) break;
         }
         const afterStream = await refetch();
-        if (controller.signal.aborted || !afterStream.isSuccess || !afterStream.data || terminalRunStatuses.has(afterStream.data.data.run.status)) break;
+        if (controller.signal.aborted) break;
+        if (!afterStream.isSuccess || !afterStream.data) {
+          if (!isTransientRunRead(afterStream.error)) break;
+          await waitForReconnect(attempt, controller.signal);
+          attempt += 1;
+          continue;
+        }
+        if (terminalRunStatuses.has(afterStream.data.data.run.status)) break;
         await waitForReconnect(attempt, controller.signal);
         attempt += 1;
       }
     })();
     return () => { controller.abort(); globalThis.removeEventListener("online", inspectDurableRun); };
-  }, [query.data, refetch, runId, terminal]);
+  }, [query.data, refetch, retryableFailure, runId, terminal]);
   return query;
 }
 

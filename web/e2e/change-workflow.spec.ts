@@ -252,6 +252,24 @@ test("SSE reconnect carries the last event and re-reads without resubmitting", a
   expect(changeFixture.executeRequests).toBe(1);
 });
 
+test("a one-shot durable GET failure retries before opening SSE without resubmitting", async ({ page }) => {
+  changeFixture.eventMode = "reconnect";
+  changeFixture.runReadFailuresRemaining = 1;
+  await page.goto("/changes");
+  await page.getByLabel("Declaration ID").fill("declaration-one");
+  await page.getByLabel("Revision").fill("1");
+  await page.getByRole("button", { name: "Open declaration" }).click();
+  await page.getByRole("button", { name: "Generate plan" }).click();
+  changeFixture.approval = "approved";
+  await page.getByRole("button", { name: "Request Slack approval" }).click();
+  await page.getByRole("button", { name: "Start run" }).click();
+  await page.getByRole("button", { name: "Start exact run" }).click();
+  await expect.poll(() => changeFixture.requestPaths.filter(path => path === "/api/v1/runs/run-one").length).toBeGreaterThanOrEqual(2);
+  await expect.poll(() => changeFixture.eventConnections).toBeGreaterThanOrEqual(1);
+  expect(changeFixture.runReadFailuresRemaining).toBe(0);
+  expect(changeFixture.executeRequests).toBe(1);
+});
+
 test("authorization loss clears every mounted change projection", async ({ page }) => {
   await page.goto("/changes");
   await page.getByLabel("Declaration ID").fill("declaration-one");
