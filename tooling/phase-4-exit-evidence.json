@@ -2,7 +2,17 @@
   "schema": "vegastack-labs.dev/phase-evidence-definition",
   "version": "1.0.0",
   "phase": 4,
-  "status": "implemented-awaiting-operator-acceptance",
+  "status": "accepted",
+  "acceptance": {
+    "operator": "omkarmohanta09",
+    "acceptedOn": "14-09-2026",
+    "sourceCommit": "6bbb81231644c84ef34c8633e9de5671a4186180",
+    "evidenceDigest": "sha256:fc4803ea63fd18f8685648e2d3dba00fbc8d3484ac1691b936d8232c076bb82a",
+    "runs": [
+      "https://github.com/vegastack/vegastack-labs/actions/runs/34787342900",
+      "https://github.com/vegastack/vegastack-labs/actions/runs/34787841878"
+    ]
+  },
   "children": [
     { "issue": 66, "phaseIssue": "4.1", "pr": 87, "reviewedHead": "c07d0c4f0fb0fa9c912f435cb89bd0cffb2b894b", "mergeCommit": "5c49630efa10cd977414b6f5e671aa61d5233e5d", "evidence": "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647755888", "review": "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647642088", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34711095199" },
     { "issue": 76, "phaseIssue": "4.2", "pr": 88, "reviewedHead": "3b62edef38c9ed47192486142824d9dbc3191de1", "mergeCommit": "f679edbc1fbdf7f0bf8b3069f2c104b972bbcb19", "evidence": "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648189932", "review": "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648105763", "postMergeRun": "https://github.com/vegastack/vegastack-labs/actions/runs/34714891042" },

@@ -7,6 +7,7 @@ import {
   parsePhase4ExitArgs,
   runPhase4Exit,
   validatePhase4ExitDefinition,
+  verifyPhase4Ancestry,
 } from "../verify-phase-4-exit.mjs";
 
 const SHA_A = "a".repeat(40);
@@ -63,6 +64,18 @@ test("Phase 4 exit rejects review or post-merge proof from an earlier correction
     invalidEvidence.children.find(({ issue }) => issue === 80).evidence = oldEvidence;
     assert.throws(() => validatePhase4ExitDefinition(invalidEvidence), /PHASE4_EXIT_DEFINITION/);
   }
+});
+
+test("Phase 4 exit requires the accepted commit in current main history", async () => {
+  const definition = await import("../phase-4-exit-evidence.json", { with: { type: "json" } }).then((module) => module.default);
+  await assert.rejects(
+    () => verifyPhase4Ancestry(".", definition, SHA_A, {
+      run: async (_command, args) => {
+        if (args[2] === definition.acceptance.sourceCommit) throw new Error("not an ancestor");
+      },
+    }),
+    /PHASE4_EXIT_ACCEPTANCE_HISTORY/,
+  );
 });
 
 test("Phase 4 exit emits stable exact-commit evidence", async () => {

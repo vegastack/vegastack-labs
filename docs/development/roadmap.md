@@ -1,6 +1,6 @@
 # Full-scope development roadmap
 
-Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. Phases 0 through 3 are explicitly accepted. [Phase 4](phases/04-declarations-plans-authorization-execution.md) is implemented; Issue 4.10 owns its exact-commit proof and explicit operator-acceptance checkpoint. Later phase solutions and operational authority retain their separate approvals.
+Status: phase boundaries and complete scope allocation approved by the user on 26-08-2026. Phases 0 through 4 are explicitly accepted. [Phase 4](phases/04-declarations-plans-authorization-execution.md) was accepted on 14-09-2026 at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180`. Later phase solutions and operational authority retain their separate approvals.
 
 Rollout timing confirmed on 26-08-2026: finish and verify the complete v1 platform before the first lab onboarding rehearsal. Isolated implementation tests still run throughout development; the inventory fleet is not an early deployment pilot. [D-117](../decisions-and-sources.md#d-117)
 
@@ -123,7 +123,7 @@ For each item, the owning phase proposes and tests the concrete mechanism; an un
 
 ## Inputs and approvals, at the right time
 
-**Current approved batch:** Phases 0 through 3 are completed and explicitly accepted. Phase 4 Issues 4.1 through 4.9 are merged and closed; [4.10 (#67)](https://github.com/vegastack/vegastack-labs/issues/67) owns the clean exact-commit proof and operator checkpoint. Phase 4 acceptance, Phase 5 implementation, release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
+**Current approved batch:** Phases 0 through 4 are completed and explicitly accepted. Phase 4 was accepted at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180` after two matching Debian proofs. Phase 5 implementation, release, repository administration, providers, credentials, hosts, networks, and live infrastructure retain separate gates. Roadmap approval and full-v1-before-rollout timing are already recorded; do not re-ask them.
 
 **Before remote execution:** require an approved named-repository development batch and separate authorization for any proposed repository-policy change. Inspect current rules and use the agreed PR/check/review/merge route without bypass. Phase 0 batch 1 permits its issue/milestone, branch, commits, PR, development comments/reviews and merge after checks and fresh review; it permits no new credentials, settings/rulesets, release or infrastructure action.
 
@@ -151,4 +151,5 @@ Execution estimates belong to each detailed phase/batch once issue scope, depend
 16. Completed on 12-09-2026: merge Phase 3 Issues 3.1 through 3.8 with their focused checks, fresh reviews, post-merge checks, and integrated browser acceptance lane.
 17. Completed on 12-09-2026: merge Issue 3.9 through PR #85, pass exact `main` run 34703617111, and record the operator's explicit Phase 3 acceptance at `a0a07a425d6396703d8bec438634d9ec2c2ae980`.
 18. Completed on 14-09-2026: merge Phase 4 Issues 4.1 through 4.9 with focused checks, fresh risky reviews, post-merge checks, and the closed 34-scenario adversarial acceptance lane.
-19. Current: complete Issue 4.10's clean exact-commit evidence, merge and post-merge proof, then ask the operator once to accept or reject the Phase 4 exit. Do not infer acceptance from a merge or green check.
+19. Completed on 14-09-2026: merge Issue 4.10 through PR #100, pass exact Debian `main` runs 34787342900 and 34787841878 with the same digest, and record explicit Phase 4 acceptance at `6bbb81231644c84ef34c8633e9de5671a4186180`.
+20. Next only after separate direction: begin Phase 5 through its own approved issue and authority gates. Phase 4 acceptance does not start it automatically.

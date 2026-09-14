@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 14-09-2026 — Phase 4 is proven and accepted at one exact commit ([#67](https://github.com/vegastack/vegastack-labs/issues/67))
+
+- **What:** Inert declarations, immutable plans, current authorization, Slack human acknowledgement, durable central and external execution, and matching CLI/Console change workflows now form one accepted Phase 4 result. A strict exit command binds every requirement and child result to one exact clean `main` commit.
+- **Why:** The complete change path needed one proof that safe planning, approval, execution, interruption handling, and privacy boundaries still work together before later phases build on it.
+- **How it went:** Focused implementation and hostile tests found Linux socket limits, durable-recovery edges, browser reload and dropped-response gaps, external-worker ordering and lease faults, stale evidence links, and proof-binding errors. Each owner issue was corrected and independently reviewed. The merged result then passed twice on unchanged Debian `main` with the same digest before the operator accepted it.
+- **Changed:** Nine integrated Phase 4 child outcomes · closed 34-scenario hostile suite · exact child review/merge/run bindings · Linux and trusted-main exit guard · two matching Debian proofs · explicit operator acceptance record.
+- **Decisions:** none; the acceptance covers credential-free fixture software at `6bbb81231644c84ef34c8633e9de5671a4186180`, not Phase 5, a release, deployment, provider access, credentials, onboarding, or live fleet operation.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/4.10-phase4-acceptance
+
 ## 13-09-2026 — One hostile suite now guards the complete Phase 4 change path ([#80](https://github.com/vegastack/vegastack-labs/issues/80))
 
 - **What:** One command now checks the built executable, authoritative SQLite service, generated CLI and browser clients, Slack fixture, typed local adapter, and external executor simulator together. It covers exact success, denial, interruption, restart, partial recovery, replay, lease loss, client reconnect, and private-data exclusion with a closed list of required scenarios.

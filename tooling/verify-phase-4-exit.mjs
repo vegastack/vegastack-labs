@@ -15,9 +15,19 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const TRUSTED_DEFAULT_BRANCH_REF = "refs/remotes/origin/main";
 const EXPECTED_TOP_LEVEL_KEYS = [
-  "artifacts", "children", "commands", "limitations", "phase", "proofCatalog",
+  "acceptance", "artifacts", "children", "commands", "limitations", "phase", "proofCatalog",
   "requirements", "schema", "status", "version",
 ];
+const EXPECTED_ACCEPTANCE = Object.freeze({
+  operator: "omkarmohanta09",
+  acceptedOn: "14-09-2026",
+  sourceCommit: "6bbb81231644c84ef34c8633e9de5671a4186180",
+  evidenceDigest: "sha256:fc4803ea63fd18f8685648e2d3dba00fbc8d3484ac1691b936d8232c076bb82a",
+  runs: Object.freeze([
+    "https://github.com/vegastack/vegastack-labs/actions/runs/34787342900",
+    "https://github.com/vegastack/vegastack-labs/actions/runs/34787841878",
+  ]),
+});
 const EXPECTED_CHILDREN = Object.freeze([
   Object.freeze({ issue: 66, phaseIssue: "4.1", pr: 87, reviewedHead: "c07d0c4f0fb0fa9c912f435cb89bd0cffb2b894b", mergeCommit: "5c49630efa10cd977414b6f5e671aa61d5233e5d", evidence: "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647755888", review: "https://github.com/vegastack/vegastack-labs/issues/66#issuecomment-5647642088", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34711095199" }),
   Object.freeze({ issue: 76, phaseIssue: "4.2", pr: 88, reviewedHead: "3b62edef38c9ed47192486142824d9dbc3191de1", mergeCommit: "f679edbc1fbdf7f0bf8b3069f2c104b972bbcb19", evidence: "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648189932", review: "https://github.com/vegastack/vegastack-labs/issues/76#issuecomment-5648105763", postMergeRun: "https://github.com/vegastack/vegastack-labs/actions/runs/34714891042" }),
@@ -115,8 +125,13 @@ export function validatePhase4ExitDefinition(definition) {
   try {
     if (!exactKeys(definition, EXPECTED_TOP_LEVEL_KEYS) ||
         definition.schema !== "vegastack-labs.dev/phase-evidence-definition" ||
-        definition.version !== "1.0.0" || definition.phase !== 4 ||
-        definition.status !== "implemented-awaiting-operator-acceptance") fail("PHASE4_EXIT_DEFINITION");
+        definition.version !== "1.0.0" || definition.phase !== 4 || definition.status !== "accepted" ||
+        !same(definition.acceptance, EXPECTED_ACCEPTANCE) ||
+        !exactKeys(definition.acceptance, ["acceptedOn", "evidenceDigest", "operator", "runs", "sourceCommit"]) ||
+        !SHA_PATTERN.test(definition.acceptance.sourceCommit) ||
+        !/^sha256:[0-9a-f]{64}$/.test(definition.acceptance.evidenceDigest) ||
+        !Array.isArray(definition.acceptance.runs) || definition.acceptance.runs.length !== 2 ||
+        !definition.acceptance.runs.every(canonicalActionsRunURL)) fail("PHASE4_EXIT_DEFINITION");
     if (!Array.isArray(definition.children) || definition.children.length !== EXPECTED_CHILDREN.length) fail("PHASE4_EXIT_DEFINITION");
     for (const [index, child] of definition.children.entries()) {
       if (!exactKeys(child, ["evidence", "issue", "mergeCommit", "phaseIssue", "postMergeRun", "pr", "review", "reviewedHead"]) ||
@@ -230,12 +245,15 @@ function validateCheckResults(results) {
   }
 }
 
-async function verifyChildAncestry(root, definition, expectedCommit) {
+export async function verifyPhase4Ancestry(root, definition, expectedCommit, { run = runCommand } = {}) {
   for (const child of definition.children) {
     try {
-      await runCommand("git", ["merge-base", "--is-ancestor", child.mergeCommit, expectedCommit], { cwd: root, capture: true, timeoutMs: 30_000 });
+      await run("git", ["merge-base", "--is-ancestor", child.mergeCommit, expectedCommit], { cwd: root, capture: true, timeoutMs: 30_000 });
     } catch { fail("PHASE4_EXIT_CHILD_HISTORY"); }
   }
+  try {
+    await run("git", ["merge-base", "--is-ancestor", definition.acceptance.sourceCommit, expectedCommit], { cwd: root, capture: true, timeoutMs: 30_000 });
+  } catch { fail("PHASE4_EXIT_ACCEPTANCE_HISTORY"); }
 }
 
 async function artifactDigests(root, definition, digestInputs) {
@@ -261,7 +279,7 @@ export async function runPhase4Exit(root = ROOT, {
   acceptanceEvidence,
   readGitState: readState = readGitState,
   runChecks = defaultRunChecks,
-  verifyChildren = verifyChildAncestry,
+  verifyChildren = verifyPhase4Ancestry,
   digestInputs,
 } = {}) {
   assertLinuxPlatform(platform);
