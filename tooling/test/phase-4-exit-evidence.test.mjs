@@ -15,7 +15,17 @@ test("Phase 4 exit maps every requirement to current exact-commit proof", async 
   assert.equal(evidence.schema, "vegastack-labs.dev/phase-evidence-definition");
   assert.equal(evidence.version, "1.0.0");
   assert.equal(evidence.phase, 4);
-  assert.equal(evidence.status, "implemented-awaiting-operator-acceptance");
+  assert.equal(evidence.status, "accepted");
+  assert.deepEqual(evidence.acceptance, {
+    operator: "omkarmohanta09",
+    acceptedOn: "14-09-2026",
+    sourceCommit: "6bbb81231644c84ef34c8633e9de5671a4186180",
+    evidenceDigest: "sha256:fc4803ea63fd18f8685648e2d3dba00fbc8d3484ac1691b936d8232c076bb82a",
+    runs: [
+      "https://github.com/vegastack/vegastack-labs/actions/runs/34787342900",
+      "https://github.com/vegastack/vegastack-labs/actions/runs/34787841878",
+    ],
+  });
   assert.ok(evidence.requirements.length >= 8);
   assert.ok(evidence.requirements.every((item) => item.expectedStatus === "pass" && item.proofIds.length > 0));
   assert.equal(evidence.proofCatalog.expectedScenarioCount, 34);
@@ -25,14 +35,20 @@ test("Phase 4 exit maps every requirement to current exact-commit proof", async 
   assert.ok(evidence.limitations.some((item) => /No live Slack, provider, host, deployment, release, or fleet proof/i.test(item.statement)));
 });
 
-test("Phase 4 remains awaiting explicit operator acceptance and is not chronicled early", async () => {
-  const [evidence, phase, chronicle] = await Promise.all([
+test("development records bind accepted Phase 4 to its exact main proof", async () => {
+  const [evidence, phase, overview, roadmap, chronicle] = await Promise.all([
     loadEvidence(),
     readFile(path.join(ROOT, "docs/development/phases/04-declarations-plans-authorization-execution.md"), "utf8"),
+    readFile(path.join(ROOT, "docs/development/README.md"), "utf8"),
+    readFile(path.join(ROOT, "docs/development/roadmap.md"), "utf8"),
     readFile(path.join(ROOT, ".vegastack/chronicle.md"), "utf8"),
   ]);
-  assert.equal(Object.hasOwn(evidence, "acceptance"), false);
-  assert.match(phase, /^Status: implemented; awaiting exact-commit operator acceptance\./m);
-  assert.doesNotMatch(phase, /^Status: accepted/m);
-  assert.doesNotMatch(chronicle, /Phase 4 is implemented and awaits exact-commit acceptance/);
+  assert.equal(evidence.status, "accepted");
+  for (const document of [phase, overview, roadmap, chronicle]) {
+    assert.match(document, /Phase 4.*accepted/is);
+    assert.match(document, /6bbb81231644c84ef34c8633e9de5671a4186180/);
+  }
+  assert.match(phase, /34787342900/);
+  assert.match(phase, /34787841878/);
+  assert.match(phase, /sha256:fc4803ea63fd18f8685648e2d3dba00fbc8d3484ac1691b936d8232c076bb82a/);
 });

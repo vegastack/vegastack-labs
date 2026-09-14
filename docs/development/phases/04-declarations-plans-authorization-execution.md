@@ -1,6 +1,6 @@
 # Development phase 4 — Declarations, plans, authorization, and execution
 
-Status: implemented; awaiting exact-commit operator acceptance. Issues 4.1 through 4.9 are merged on `main` at `454472328e22cd09e23640f27942e25a6856c2e9`. Issue 4.10 (#67) owns the clean exact-commit acceptance proof and presents the integrated result for an explicit operator decision. Neither a merge nor a green check accepts Phase 4 automatically.
+Status: accepted by (omkarmohanta09) on 14-09-2026 at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180`. [Main run 34787342900](https://github.com/vegastack/vegastack-labs/actions/runs/34787342900) and [same-main repeat 34787841878](https://github.com/vegastack/vegastack-labs/actions/runs/34787841878) both passed on Debian with identical evidence digest `sha256:fc4803ea63fd18f8685648e2d3dba00fbc8d3484ac1691b936d8232c076bb82a`. Issue 4.10 (#67) records the explicit operator words: “Accept Phase 4 at 6bbb81231644c84ef34c8633e9de5671a4186180”.
 
 ## Outcome and authority boundary
 
@@ -32,7 +32,7 @@ The complete software evidence is credential-free and uses isolated synthetic fi
 | [4.7 (#78)](https://github.com/vegastack/vegastack-labs/issues/78) | CLI plan, apply and durable-run workflows | [#95](https://github.com/vegastack/vegastack-labs/pull/95) | `722bcb4aa4fc04cc4ba03f43ee87d1308a893953` |
 | [4.8 (#79)](https://github.com/vegastack/vegastack-labs/issues/79) | Console declaration, plan, approval and run views | [#96](https://github.com/vegastack/vegastack-labs/pull/96), [#97](https://github.com/vegastack/vegastack-labs/pull/97), [#98](https://github.com/vegastack/vegastack-labs/pull/98) | `67295d0698691517249883932029fa0523de2076` |
 | [4.9 (#80)](https://github.com/vegastack/vegastack-labs/issues/80) | Closed 34-scenario hostile and recovery acceptance lane | [#99](https://github.com/vegastack/vegastack-labs/pull/99) | `454472328e22cd09e23640f27942e25a6856c2e9` |
-| [4.10 (#67)](https://github.com/vegastack/vegastack-labs/issues/67) | Exact-commit integration and operator checkpoint | pending | pending |
+| [4.10 (#67)](https://github.com/vegastack/vegastack-labs/issues/67) | Exact-commit integration and operator checkpoint | [#100](https://github.com/vegastack/vegastack-labs/pull/100) | `6bbb81231644c84ef34c8633e9de5671a4186180` |
 
 ## Requirement traceability
 
@@ -46,7 +46,7 @@ The checked static definition names required proof but does not claim a current 
 
 A successful runtime envelope records only the exact source commit, clean-tree result, requirement and command outcomes, artifact digests, limitations and deterministic evidence digest. It is attached to Issue #67 with the matching main CI run; it is not written back into the commit whose identity it records.
 
-The trusted `main` push provides the first exact run. A manual workflow dispatch at the unchanged same `main` commit provides the required second run; their JSON output, including the evidence digest, must match exactly. After both proofs, the operator must explicitly accept or reject Phase 4 at that 40-character commit. Until then the phase remains implemented and awaiting acceptance. Acceptance does not approve Phase 5, release, deployment, provider access, credentials or fleet operation.
+The trusted `main` push provided the first exact run, and a manual workflow dispatch at the unchanged same `main` commit provided the second. Both passed with the identical digest recorded above. The operator explicitly accepted that exact result. The checked evidence definition preserves the commit, two runs, digest, date and operator as historical facts. Acceptance does not approve Phase 5, release, deployment, provider access, credentials or fleet operation.
 
 ## Failure and recovery
 
@@ -54,4 +54,4 @@ Any missing, dirty, mismatched, stale, contradictory, skipped, failed, flaky, TO
 
 ## Phase 5 handoff
 
-Only after explicit Phase 4 acceptance may Phase 5 consume these declaration, authorization, acknowledgement and execution foundations. Phase 5 owns gate evidence, secret-reference resolution, backups, audit integrity, recovery epochs and restore fencing through its own approved issues and authority.
+Phase 5 may consume these accepted declaration, authorization, acknowledgement and execution foundations only through its own approved issues and authority. Phase 5 owns gate evidence, secret-reference resolution, backups, audit integrity, recovery epochs and restore fencing. Phase 4 acceptance did not itself start or authorize Phase 5.

@@ -44,15 +44,15 @@ function validateCurrentDocuments({ phase, overview, roadmap, mandate }) {
     /this (?:instruction|guidance) (?:grants|authorizes) (?:the )?merge/i,
   );
 
-  assert.match(overview, /Issue 0\.6 \(#22\).*merged and closed/i);
+  assert.match(overview, /Phase 0 issues 0\.1 \(#3\).*Issue 0\.6 \(#22\).*are accepted/is);
   assert.match(roadmap, /Completed.*issue 0\.6 \(#22\).*PR #23/is);
   assert.match(roadmap, /Completed.*Issue 1\.1.*PR #26/is);
   assert.match(roadmap, /Completed.*Issue 1\.2/is);
   assert.match(roadmap, /Completed.*Issue 1\.3.*PR #39/is);
   assert.match(roadmap, /Completed.*Issue 3\.9.*explicit Phase 3 acceptance/is);
   assert.match(overview, /Phase 3.*accepted.*a0a07a425d6396703d8bec438634d9ec2c2ae980/is);
-  assert.match(overview, /Phase 4.*implemented.*Issue 4\.10.*operator-acceptance checkpoint/is);
-  assert.match(roadmap, /Phase 4.*implemented.*Issue 4\.10.*operator-acceptance checkpoint/is);
+  assert.match(overview, /Phase 4.*accepted.*6bbb81231644c84ef34c8633e9de5671a4186180/is);
+  assert.match(roadmap, /Phase 4.*accepted.*6bbb81231644c84ef34c8633e9de5671a4186180/is);
   assert.doesNotMatch(roadmap, /Current: implement Issue 1\.1/is);
   assert.doesNotMatch(roadmap, /Current: implement Issue 1\.2/is);
 }
@@ -297,7 +297,7 @@ test("Phase 1 ordering rejects cycles and unknown prerequisites", async () => {
   );
 });
 
-test("current development documents preserve accepted phases and the Phase 4 checkpoint", async () => {
+test("current development documents preserve accepted phases through Phase 4", async () => {
   const phase = await readFile(
     path.join(ROOT, "docs/development/phases/00-development-foundation.md"),
     "utf8",
