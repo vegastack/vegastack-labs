@@ -245,12 +245,15 @@ function validateCheckResults(results) {
   }
 }
 
-async function verifyChildAncestry(root, definition, expectedCommit) {
+export async function verifyPhase4Ancestry(root, definition, expectedCommit, { run = runCommand } = {}) {
   for (const child of definition.children) {
     try {
-      await runCommand("git", ["merge-base", "--is-ancestor", child.mergeCommit, expectedCommit], { cwd: root, capture: true, timeoutMs: 30_000 });
+      await run("git", ["merge-base", "--is-ancestor", child.mergeCommit, expectedCommit], { cwd: root, capture: true, timeoutMs: 30_000 });
     } catch { fail("PHASE4_EXIT_CHILD_HISTORY"); }
   }
+  try {
+    await run("git", ["merge-base", "--is-ancestor", definition.acceptance.sourceCommit, expectedCommit], { cwd: root, capture: true, timeoutMs: 30_000 });
+  } catch { fail("PHASE4_EXIT_ACCEPTANCE_HISTORY"); }
 }
 
 async function artifactDigests(root, definition, digestInputs) {
@@ -276,7 +279,7 @@ export async function runPhase4Exit(root = ROOT, {
   acceptanceEvidence,
   readGitState: readState = readGitState,
   runChecks = defaultRunChecks,
-  verifyChildren = verifyChildAncestry,
+  verifyChildren = verifyPhase4Ancestry,
   digestInputs,
 } = {}) {
   assertLinuxPlatform(platform);

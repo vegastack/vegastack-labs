@@ -1,6 +1,6 @@
 # Development phase 4 — Declarations, plans, authorization, and execution
 
-Status: accepted by (omkarmohanta09) on 14-09-2026 at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180`. [Main run 34787342900](https://github.com/vegastack/vegastack-labs/actions/runs/34787342900) and [same-main repeat 34787841878](https://github.com/vegastack/vegastack-labs/actions/runs/34787841878) both passed on Debian with identical evidence digest `sha256:fc4803ea63fd18f8685648e2d3dba00fbc8d3484ac1691b936d8232c076bb82a`. Issue 4.10 (#67) records the explicit operator words: “Accept Phase 4 at 6bbb81231644c84ef34c8633e9de5671a4186180”.
+Status: accepted by (omkarmohanta09) on 14-09-2026 at exact `main` commit `6bbb81231644c84ef34c8633e9de5671a4186180`. [Debian proof 34787342900](https://github.com/vegastack/vegastack-labs/actions/runs/34787342900) and [same-main repeat 34787841878](https://github.com/vegastack/vegastack-labs/actions/runs/34787841878) were both manually dispatched at that unchanged commit and passed with identical evidence digest `sha256:fc4803ea63fd18f8685648e2d3dba00fbc8d3484ac1691b936d8232c076bb82a`. Issue 4.10 (#67) records the explicit operator words: “Accept Phase 4 at 6bbb81231644c84ef34c8633e9de5671a4186180”.
 
 ## Outcome and authority boundary
 
@@ -46,7 +46,7 @@ The checked static definition names required proof but does not claim a current 
 
 A successful runtime envelope records only the exact source commit, clean-tree result, requirement and command outcomes, artifact digests, limitations and deterministic evidence digest. It is attached to Issue #67 with the matching main CI run; it is not written back into the commit whose identity it records.
 
-The trusted `main` push provided the first exact run, and a manual workflow dispatch at the unchanged same `main` commit provided the second. Both passed with the identical digest recorded above. The operator explicitly accepted that exact result. The checked evidence definition preserves the commit, two runs, digest, date and operator as historical facts. Acceptance does not approve Phase 5, release, deployment, provider access, credentials or fleet operation.
+Two manual workflow dispatches at the unchanged exact `main` commit provided the required independent Debian proofs. Both passed with the identical digest recorded above. The operator explicitly accepted that exact result. The checked evidence definition preserves the commit, two runs, digest, date and operator as historical facts, and the verifier requires the accepted commit to remain in current trusted-main history. Acceptance does not approve Phase 5, release, deployment, provider access, credentials or fleet operation.
 
 ## Failure and recovery
 
