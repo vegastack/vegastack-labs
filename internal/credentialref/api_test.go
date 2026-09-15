@@ -39,6 +39,7 @@ var allowedCredentialAPI = []string{
 	`field StepBinding.StateRevision int64`,
 	`field StepBinding.TargetID string`,
 	`func ManifestDigest func([]StepBinding) (string)`,
+	`func NewValue func([]byte) (*Value, error)`,
 	`func OperationManifestDigest func([]StepBinding, string) (string)`,
 	`func ParseID func(string) (Identifier, error)`,
 	`func ValidBinding func(StepBinding) (bool)`,
@@ -46,6 +47,8 @@ var allowedCredentialAPI = []string{
 	`method Error.Error func() (string)`,
 	`method Inspector.Inspect func(context.Context, Reference) (Metadata, error)`,
 	`method StepBinding.Digest func() (string)`,
+	`method Value.Bytes func() ([]byte)`,
+	`method Value.Close func()`,
 	`type Error struct`,
 	`type Inspector interface`,
 	`type Identifier string`,
@@ -53,9 +56,10 @@ var allowedCredentialAPI = []string{
 	`type Reference struct`,
 	`type State string`,
 	`type StepBinding struct`,
+	`type Value struct`,
 }
 
-func TestCredentialReferenceExportedAPIIsMetadataOnly(t *testing.T) {
+func TestCredentialReferenceExportedAPIIsExactlyReviewed(t *testing.T) {
 	fset, files := parseCredentialPackage(t)
 	if issues := validateCredentialAPI(fset, files); len(issues) != 0 {
 		t.Fatalf("credential-reference API changed:\n%s", strings.Join(issues, "\n"))
