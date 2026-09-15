@@ -14,6 +14,22 @@ const (
 	restoreVerificationSchemaID        = "vegastack-labs.dev/restore-verification"
 	scheduledJobPolicySchemaID         = "vegastack-labs.dev/scheduled-job-policy"
 	scheduledJobSchemaID               = "vegastack-labs.dev/scheduled-job"
+	gateCheckRequestSchemaID           = "vegastack-labs.dev/gate-check-request"
+	gateEvidenceRequestSchemaID        = "vegastack-labs.dev/gate-evidence-request"
+	backupRunRequestSchemaID           = "vegastack-labs.dev/backup-run-request"
+	backupVerifyRequestSchemaID        = "vegastack-labs.dev/backup-verify-request"
+	restoreRequestSchemaID             = "vegastack-labs.dev/restore-request"
+	restoreRunRequestSchemaID          = "vegastack-labs.dev/restore-run-request"
+	restoreVerifyRequestSchemaID       = "vegastack-labs.dev/restore-verify-request"
+	scheduledJobRequestSchemaID        = "vegastack-labs.dev/scheduled-job-request"
+	credentialReferenceRequestSchemaID = "vegastack-labs.dev/credential-reference-request"
+	auditCheckpointRequestSchemaID     = "vegastack-labs.dev/audit-checkpoint-request"
+	databaseExportRequestSchemaID      = "vegastack-labs.dev/database-export-request"
+	gateListDataSchemaID               = "vegastack-labs.dev/gate-list-data"
+	backupStatusDataSchemaID           = "vegastack-labs.dev/backup-status-data"
+	auditCheckpointListDataSchemaID    = "vegastack-labs.dev/audit-checkpoint-list-data"
+	browserRestoreStatusSchemaID       = "vegastack-labs.dev/browser-restore-status"
+	sanitizedExportDataSchemaID        = "vegastack-labs.dev/sanitized-export-data"
 )
 
 // Phase 5 metadata describes public shapes. It does not make an evidence
@@ -206,4 +222,175 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 	}
+}
+
+func phase5Request(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	base := []FieldDefinition{
+		phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"),
+		phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		phase5Digest("targetDigest", "TargetDigest"),
+		phase5ID("idempotencyKey", "IdempotencyKey"),
+	}
+	return phase5Schema(identifier, append(base, fields...)...)
+}
+
+func phase5RequestSchemas() []SchemaDefinition {
+	return []SchemaDefinition{
+		phase5Request(gateCheckRequestSchemaID,
+			phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
+			phase5Version("definitionVersion", "DefinitionVersion"),
+		),
+		phase5Request(gateEvidenceRequestSchemaID,
+			phase5ID("evidenceId", "EvidenceID"), phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
+			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
+			phase5Digest("artifactDigest", "ArtifactDigest"), phase5Timestamp("observedAt", "ObservedAt"),
+		),
+		phase5Request(backupRunRequestSchemaID,
+			phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
+			phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
+			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
+		),
+		phase5Request(backupVerifyRequestSchemaID,
+			phase5ID("jobId", "JobID"), phase5ID("pointId", "PointID"),
+		),
+		phase5Request(restoreRequestSchemaID,
+			phase5ID("pointId", "PointID"), phase5IDs("dependencyIds", "DependencyIDs", 256),
+			FieldDefinition{JSONName: "targetIds", GoName: "TargetIDs", Kind: ValueArray, Required: true, ItemKind: ValueString, MinItems: intPointer(1), MaxItems: intPointer(64), UniqueItems: true},
+			phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"),
+			phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"),
+		),
+		phase5Request(restoreRunRequestSchemaID,
+			phase5ID("pointId", "PointID"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
+			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
+			phase5Digest("formerControllerFenceDigest", "FormerControllerFenceDigest"),
+			phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"),
+			phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
+		),
+		phase5Request(restoreVerifyRequestSchemaID,
+			phase5ID("pointId", "PointID"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
+			phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
+		),
+		phase5Request(scheduledJobRequestSchemaID,
+			phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
+			phase5Digest("actionDigest", "ActionDigest"), phase5ID("planId", "PlanID"),
+			phase5Digest("planDigest", "PlanDigest"), phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
+		),
+		phase5Request(credentialReferenceRequestSchemaID,
+			phase5ID("referenceId", "ReferenceID"), phase5ID("consumerId", "ConsumerID"),
+			phase5ID("purposeId", "PurposeID"), phase5ID("materialVersion", "MaterialVersion"),
+			phase5Digest("fingerprint", "Fingerprint"),
+		),
+		phase5Request(auditCheckpointRequestSchemaID,
+			phase5Positive("firstEventId", "FirstEventID"), phase5Positive("lastEventId", "LastEventID"),
+		),
+		phase5Request(databaseExportRequestSchemaID,
+			phase5ID("exportId", "ExportID"), phase5Enum("kind", "Kind", "sanitized-control", "sanitized-audit"),
+		),
+		phase5Schema(gateListDataSchemaID,
+			FieldDefinition{JSONName: "gates", GoName: "Gates", Kind: ValueArray, Required: true, ItemRef: gateDefinitionSchemaID, MaxItems: intPointer(256)},
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5Schema(backupStatusDataSchemaID,
+			FieldDefinition{JSONName: "policies", GoName: "Policies", Kind: ValueArray, Required: true, ItemRef: backupPolicySchemaID, MaxItems: intPointer(256)},
+			FieldDefinition{JSONName: "jobs", GoName: "Jobs", Kind: ValueArray, Required: true, ItemRef: backupJobSchemaID, MaxItems: intPointer(256)},
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5Schema(auditCheckpointListDataSchemaID,
+			FieldDefinition{JSONName: "checkpoints", GoName: "Checkpoints", Kind: ValueArray, Required: true, ItemRef: auditCheckpointSchemaID, MaxItems: intPointer(256)},
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5Schema(browserRestoreStatusSchemaID,
+			phase5ID("pointId", "PointID"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
+			phase5Digest("targetDigest", "TargetDigest"),
+			phase5Enum("status", "Status", "planned", "fenced", "restoring", "verification-required", "verified", "failed", "uncertain"),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Enum("verificationStatus", "VerificationStatus", "pending", "incomplete", "verified", "failed"),
+		),
+		phase5Schema(sanitizedExportDataSchemaID,
+			phase5ID("exportId", "ExportID"), phase5Enum("kind", "Kind", "sanitized-control", "sanitized-audit"),
+			phase5Digest("contentDigest", "ContentDigest"), phase5Timestamp("createdAt", "CreatedAt"),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+	}
+}
+
+func phase5Endpoint(identifier, method, path, request, data string, browser bool) EndpointDefinition {
+	audiences := []EndpointAudience{AudienceOperator}
+	if browser {
+		audiences = append(audiences, AudienceBrowser)
+	}
+	return EndpointDefinition{
+		ID: identifier, Method: method, Path: path, RequestSchema: request, DataSchema: data,
+		Availability: AvailabilityPlanned, OwnerPhase: "5", Stream: StreamFinite, Audiences: audiences,
+	}
+}
+
+func phase5Endpoints() []EndpointDefinition {
+	return []EndpointDefinition{
+		phase5Endpoint("api.v1.gates.list", "GET", "/api/v1/gates", "", gateListDataSchemaID, true),
+		phase5Endpoint("api.v1.gates.get", "GET", "/api/v1/gates/{gateId}", "", gateDefinitionSchemaID, true),
+		phase5Endpoint("api.v1.gates.check", "POST", "/api/v1/gates/check", gateCheckRequestSchemaID, gateEvaluationSchemaID, true),
+		phase5Endpoint("api.v1.gate-evidence.create", "POST", "/api/v1/gates/{gateId}/evidence", gateEvidenceRequestSchemaID, gateEvidenceSchemaID, false),
+		phase5Endpoint("api.v1.credential-references.get", "GET", "/api/v1/credential-references/{referenceId}", "", credentialReferenceSchemaID, false),
+		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
+		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
+		phase5Endpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
+		phase5Endpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
+		phase5Endpoint("api.v1.recovery-points.get", "GET", "/api/v1/recovery-points/{pointId}", "", recoveryPointSchemaID, true),
+		phase5Endpoint("api.v1.audit-checkpoints.list", "GET", "/api/v1/audit-checkpoints", "", auditCheckpointListDataSchemaID, true),
+		phase5Endpoint("api.v1.audit-checkpoints.create", "POST", "/api/v1/audit-checkpoints", auditCheckpointRequestSchemaID, auditCheckpointSchemaID, false),
+		phase5Endpoint("api.v1.restores.plan", "POST", "/api/v1/restores/plans", restoreRequestSchemaID, restoreBindingSchemaID, false),
+		phase5Endpoint("api.v1.restores.get", "GET", "/api/v1/restores/plans/{planId}", "", browserRestoreStatusSchemaID, true),
+		phase5Endpoint("api.v1.restores.run", "POST", "/api/v1/restores/plans/{planId}/run", restoreRunRequestSchemaID, restoreBindingSchemaID, false),
+		phase5Endpoint("api.v1.restores.verify", "POST", "/api/v1/restores/plans/{planId}/verify", restoreVerifyRequestSchemaID, restoreVerificationSchemaID, false),
+		phase5Endpoint("api.v1.scheduled-job-policies.get", "GET", "/api/v1/scheduled-job-policies/{policyId}", "", scheduledJobPolicySchemaID, true),
+		phase5Endpoint("api.v1.scheduled-jobs.create", "POST", "/api/v1/scheduled-jobs", scheduledJobRequestSchemaID, scheduledJobSchemaID, false),
+	}
+}
+
+func phase5CommandSchemas(path string) (request string, data string) {
+	switch path {
+	case "audit":
+		return "", auditCheckpointListDataSchemaID
+	case "gate list":
+		return "", gateListDataSchemaID
+	case "gate inspect":
+		return "", gateDefinitionSchemaID
+	case "gate check":
+		return gateCheckRequestSchemaID, gateEvaluationSchemaID
+	case "gate evidence":
+		return gateEvidenceRequestSchemaID, gateEvidenceSchemaID
+	case "backup status":
+		return "", backupStatusDataSchemaID
+	case "backup run", "database backup":
+		return backupRunRequestSchemaID, backupJobSchemaID
+	case "backup verify", "database verify":
+		return backupVerifyRequestSchemaID, backupJobSchemaID
+	case "restore plan", "database restore":
+		return restoreRequestSchemaID, restoreBindingSchemaID
+	case "restore run":
+		return restoreRunRequestSchemaID, restoreBindingSchemaID
+	case "restore verify":
+		return restoreVerifyRequestSchemaID, restoreVerificationSchemaID
+	case "database export":
+		return databaseExportRequestSchemaID, sanitizedExportDataSchemaID
+	default:
+		return "", ""
+	}
+}
+
+func phase5GateEvidenceTransitions() []TransitionDefinition {
+	return []TransitionDefinition{{From: "draft", To: "applied"}, {From: "draft", To: "revoked"}, {From: "applied", To: "revoked"}}
+}
+
+func phase5BackupJobTransitions() []TransitionDefinition {
+	return []TransitionDefinition{{From: "queued", To: "running"}, {From: "queued", To: "failed"}, {From: "running", To: "verified"}, {From: "running", To: "failed"}, {From: "running", To: "uncertain"}}
+}
+
+func phase5RestoreTransitions() []TransitionDefinition {
+	return []TransitionDefinition{{From: "planned", To: "fenced"}, {From: "planned", To: "failed"}, {From: "fenced", To: "restoring"}, {From: "fenced", To: "failed"}, {From: "restoring", To: "verification-required"}, {From: "restoring", To: "failed"}, {From: "restoring", To: "uncertain"}, {From: "verification-required", To: "verified"}, {From: "verification-required", To: "failed"}, {From: "verification-required", To: "uncertain"}}
+}
+
+func phase5ScheduledJobTransitions() []TransitionDefinition {
+	return []TransitionDefinition{{From: "queued", To: "running"}, {From: "queued", To: "failed"}, {From: "running", To: "succeeded"}, {From: "running", To: "failed"}, {From: "running", To: "uncertain"}}
 }

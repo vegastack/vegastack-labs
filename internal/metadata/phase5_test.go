@@ -70,3 +70,51 @@ func TestPhase5RecoveryJobSchemas(t *testing.T) {
 		}
 	}
 }
+
+func TestPhase5SurfaceRemainsPlanned(t *testing.T) {
+	found := false
+	for _, endpoint := range Current().Endpoints {
+		if endpoint.OwnerPhase != "5" {
+			continue
+		}
+		found = true
+		if endpoint.Availability != AvailabilityPlanned || endpoint.DataSchema == "" {
+			t.Errorf("unsafe Phase 5 endpoint %s", endpoint.ID)
+		}
+		if endpoint.ID == "api.v1.credential-resolution-records.get" {
+			for _, audience := range endpoint.Audiences {
+				if audience == AudienceBrowser {
+					t.Fatal("resolution record exposed to browser")
+				}
+			}
+		}
+	}
+	if !found {
+		t.Fatal("Phase 5 endpoints absent")
+	}
+	if err := Validate(Current()); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPhase5RequestsDoNotAcceptServerIssuedProof(t *testing.T) {
+	for _, schema := range Current().Schemas {
+		if schema.ID != gateEvidenceRequestSchemaID && schema.ID != backupRunRequestSchemaID && schema.ID != auditCheckpointRequestSchemaID {
+			continue
+		}
+		for _, field := range schema.Fields {
+			switch field.JSONName {
+			case "sourceKind", "proofClass", "verificationStatus", "result", "value", "material", "payload":
+				t.Errorf("request %s accepts server-issued field %s", schema.ID, field.JSONName)
+			}
+		}
+	}
+}
+
+func TestPhase5LifecycleRejectsInvalidEdge(t *testing.T) {
+	registry := Current()
+	registry.Lifecycle.RestoreTransitions[0] = TransitionDefinition{From: "failed", To: "verified"}
+	if err := Validate(registry); err == nil {
+		t.Fatal("failed restore promoted to verified")
+	}
+}

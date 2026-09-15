@@ -204,19 +204,22 @@ func Current() Registry {
 		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || isAvailablePhase4Command(command.path) {
 			continue
 		}
+		requestSchema, dataSchema := phase5CommandSchemas(command.path)
 		commands = append(commands, CommandDefinition{
-			Path:         strings.Fields(command.path),
-			Summary:      command.summary,
-			Availability: AvailabilityPlanned,
-			OwnerPhase:   command.phase,
-			Risk:         RiskUnassigned,
+			Path:          strings.Fields(command.path),
+			Summary:       command.summary,
+			Availability:  AvailabilityPlanned,
+			OwnerPhase:    command.phase,
+			Risk:          RiskUnassigned,
+			RequestSchema: requestSchema,
+			DataSchema:    dataSchema,
 		})
 	}
 
 	return Registry{
-		SchemaVersion: "1.15.0",
+		SchemaVersion: "1.16.0",
 		Commands:      commands,
-		Endpoints:     append(readEndpoints(), phase4Endpoints()...),
+		Endpoints:     append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
 		Schemas:       currentSchemas(),
@@ -229,6 +232,10 @@ func Current() Registry {
 				{From: "running", To: "succeeded"}, {From: "running", To: "failed"}, {From: "running", To: "partial"}, {From: "running", To: "interrupted"},
 				{From: "interrupted", To: "running"}, {From: "interrupted", To: "cancelled"},
 			},
+			GateEvidenceTransitions: phase5GateEvidenceTransitions(),
+			BackupJobTransitions:    phase5BackupJobTransitions(),
+			RestoreTransitions:      phase5RestoreTransitions(),
+			ScheduledJobTransitions: phase5ScheduledJobTransitions(),
 		},
 	}
 }
@@ -720,6 +727,7 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, phase4Schemas()...)
 	schemas = append(schemas, phase5GateCredentialSchemas()...)
 	schemas = append(schemas, phase5RecoveryJobSchemas()...)
+	schemas = append(schemas, phase5RequestSchemas()...)
 	return append(schemas, apiSshSchemas()...)
 }
 

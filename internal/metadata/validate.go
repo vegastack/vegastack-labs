@@ -52,7 +52,7 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 	routes := make(map[string]struct{}, len(endpoints))
 	for index, endpoint := range endpoints {
 		location := fmt.Sprintf("endpoints[%d]", index)
-		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || (endpoint.OwnerPhase != "2" && endpoint.OwnerPhase != "3" && endpoint.OwnerPhase != "4") {
+		if !endpointIDPattern.MatchString(endpoint.ID) || (endpoint.Method != "GET" && endpoint.Method != "POST") || !endpointPathPattern.MatchString(endpoint.Path) || !phasePattern.MatchString(endpoint.OwnerPhase) || (endpoint.OwnerPhase != "2" && endpoint.OwnerPhase != "3" && endpoint.OwnerPhase != "4" && endpoint.OwnerPhase != "5") {
 			return validationError("METADATA_INVALID", location)
 		}
 		switch endpoint.Availability {
@@ -131,6 +131,43 @@ func validateLifecycle(lifecycle LifecycleDefinition) error {
 		}
 		seen[key] = true
 	}
+	for _, group := range []struct {
+		name     string
+		actual   []TransitionDefinition
+		expected []TransitionDefinition
+	}{
+		{"gateEvidenceTransitions", lifecycle.GateEvidenceTransitions, phase5GateEvidenceTransitions()},
+		{"backupJobTransitions", lifecycle.BackupJobTransitions, phase5BackupJobTransitions()},
+		{"restoreTransitions", lifecycle.RestoreTransitions, phase5RestoreTransitions()},
+		{"scheduledJobTransitions", lifecycle.ScheduledJobTransitions, phase5ScheduledJobTransitions()},
+	} {
+		if err := validatePhase5Transitions(group.name, group.actual, group.expected); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func validatePhase5Transitions(name string, actual, expected []TransitionDefinition) error {
+	location := "lifecycle." + name
+	if len(actual) != len(expected) {
+		return validationError("METADATA_INVALID", location)
+	}
+	allowed := make(map[string]bool, len(expected))
+	for _, transition := range expected {
+		allowed[transition.From+"\x00"+transition.To] = true
+	}
+	seen := make(map[string]bool, len(actual))
+	for index, transition := range actual {
+		key := transition.From + "\x00" + transition.To
+		if transition.From == transition.To || !allowed[key] {
+			return validationError("METADATA_INVALID", fmt.Sprintf("%s[%d]", location, index))
+		}
+		if seen[key] {
+			return validationError("METADATA_DUPLICATE", fmt.Sprintf("%s[%d]", location, index))
+		}
+		seen[key] = true
+	}
 	return nil
 }
 
@@ -188,8 +225,20 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 				return validationError("METADATA_REQUIRED", location+".examples")
 			}
 		case AvailabilityPlanned:
-			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.RequestSchema != "" || command.ResultSchema != "" || command.DataSchema != "" || len(command.Examples) != 0 {
+			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.ResultSchema != "" || len(command.Examples) != 0 {
 				return validationError("PLANNED_COMMAND_DETAIL", location)
+			}
+			wantRequest, wantData := phase5CommandSchemas(name)
+			if command.OwnerPhase != "5" {
+				wantRequest, wantData = "", ""
+			}
+			if command.RequestSchema != wantRequest || command.DataSchema != wantData {
+				return validationError("PLANNED_COMMAND_DETAIL", location)
+			}
+			if command.DataSchema != "" {
+				if _, ok := schemas[command.DataSchema]; !ok {
+					return validationError("METADATA_REFERENCE", location+".dataSchema")
+				}
 			}
 		default:
 			return validationError("METADATA_INVALID", location+".availability")

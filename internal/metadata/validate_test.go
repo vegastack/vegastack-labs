@@ -168,6 +168,9 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 		if endpoint.OwnerPhase == "4" && !availablePhase4[endpoint.ID] {
 			want = AvailabilityPlanned
 		}
+		if endpoint.OwnerPhase == "5" {
+			want = AvailabilityPlanned
+		}
 		if endpoint.Availability != want {
 			t.Fatalf("endpoint %s availability = %q, want %q", endpoint.ID, endpoint.Availability, want)
 		}
