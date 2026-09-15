@@ -3,6 +3,9 @@ package store
 import (
 	"context"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 // RevisionToken binds optimistic writes to both the current desired-state
@@ -10,6 +13,54 @@ import (
 type RevisionToken struct {
 	StateRevision int64
 	RecoveryEpoch int64
+}
+
+type GateDraftRequest struct {
+	EvidenceID, GateID, SubjectID, DefinitionVersion, EvaluatorVersion string
+	ArtifactDigest string
+	Bundle generated.GateEvidenceBundle
+	Expected RevisionToken
+	KeyDigest, RequestDigest string
+	Attribution audit.Attribution
+}
+
+type GateDraft struct {
+	DraftID, EvidenceID, GateID, SubjectID, DefinitionVersion, EvaluatorVersion string
+	ArtifactDigest, BundleDigest string
+	Bundle generated.GateEvidenceBundle
+	StateRevision, RecoveryEpoch int64
+	HumanID, CreatedAt string
+}
+
+type GateApplyRequest struct {
+	DraftID, EvidenceID, GateID, SubjectID string
+	Expected RevisionToken
+	PlanID, PlanDigest, RunID, StepID, LeaseID string
+	DeclarationID string
+	DeclarationRevision int64
+	ReleaseBuildID, ToolVersion string
+	ExpiresAt string
+	SourceKind, ProofClass, Status string
+	SupersedesEvidenceID, RevokesEvidenceID *string
+	KeyDigest, RequestDigest string
+	Attribution audit.Attribution
+}
+
+type ProfileApplyRequest struct {
+	BindingID string
+	Scope GateAppliedProfile
+	Expected RevisionToken
+	PlanID, PlanDigest, RunID, StepID, LeaseID string
+	DeclarationID string
+	DeclarationRevision int64
+	KeyDigest, RequestDigest string
+	Attribution audit.Attribution
+}
+
+type GateAppliedProfile struct {
+	ProfileID, ProfileVersion, PolicyID, PolicyVersion string
+	Capabilities []string
+	StateRevision, RecoveryEpoch int64
 }
 
 // Commit describes the durable result of one intent transaction.
