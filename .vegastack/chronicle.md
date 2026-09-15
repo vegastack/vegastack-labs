@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-09-2026 — Operators can see why gates remain blocked without closing them ([#104](https://github.com/vegastack/vegastack-labs/issues/104))
+
+- **What:** The server now derives gate applicability and blocking reasons from generated definitions, an applied profile/policy binding, and append-only evidence; the CLI and read-only Console show the same versioned result. Operators can author bounded evidence and profile candidates, but these stay inert until an exact current human-approved plan runs.
+- **Why:** Phase 5 needs gate readiness that comes from current, recovery-epoch-bound proof rather than a document, an agent assertion, or a privileged close shortcut.
+- **How it went:** The first complete check found historical Phase 2, read-API, CLI, generated-contract, static Console, and Phase 3 proof guards that still described earlier behavior. Each was narrowed to the exact new gate wave while the old baseline stayed intact. The protected attachment store remains dormant and live proof stays blocked until a separately reviewed subject resolver, collector, and verifier exist.
+- **Changed:** Generated gate evidence bindings and applicability · inert profile/evidence drafts · exact human-only plan effects · append-only SQLite records · typed gate API/CLI · read-only Console blockers · recovery and denial tests.
+- **Decisions:** none; this is development software, not live gate acceptance or deployment authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/5.3-derived-gate-readiness
+
 ## 15-09-2026 — Phase 5 safety contracts are generated without live authority ([#102](https://github.com/vegastack/vegastack-labs/issues/102))
 
 - **What:** Evidence, credential references, backups, audit checkpoints, restore verification, and scheduled jobs now have versioned schemas and generated Go, CLI, and browser contract surfaces. The routes and commands remain planned; this work grants no runtime apply authority.
