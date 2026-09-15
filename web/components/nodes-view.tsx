@@ -22,16 +22,18 @@ type Kind = "nodes" | "aliases" | "observations";
 type Selection = { kind: Kind; id: string } | null;
 const SINGULAR = { nodes: "node", aliases: "alias", observations: "observation" } as const;
 
-function Header({ view }: { view: { refresh: () => void; busy: boolean } }) {
+function Header({ view }: { view?: { refresh: () => void; busy: boolean } }) {
   return (
     <PageHeader
-      title="Nodes"
+      title="Node inventory"
       description="The newest authorized inventory draft and its declared nodes, aliases, and observations."
       actions={
-        <Button variant="outline" loading={view.busy} onClick={view.refresh}>
-          <RefreshCw aria-hidden />
-          Refresh Nodes
-        </Button>
+        view ? (
+          <Button variant="outline" loading={view.busy} onClick={view.refresh}>
+            <RefreshCw aria-hidden />
+            Refresh Nodes
+          </Button>
+        ) : undefined
       }
     />
   );
@@ -142,7 +144,7 @@ export function NodesView() {
 function NodesShell({ children, busy = false, refresh }: { children: React.ReactNode; busy?: boolean; refresh?: () => void }) {
   return (
     <>
-      <Header view={{ busy, refresh: refresh ?? (() => {}) }} />
+      <Header view={refresh ? { busy, refresh } : undefined} />
       <div className="min-w-0 space-y-6">{children}</div>
     </>
   );

@@ -59,7 +59,7 @@ export function GatesView() {
         actions={
           <Button variant="outline" loading={query.isFetching} onClick={() => void query.refetch()}>
             <RefreshCw aria-hidden />
-            Refresh
+            Refresh Gates
           </Button>
         }
       />
