@@ -10,14 +10,14 @@ export function ThemeToggle() {
   const mounted = useSyncExternalStore(() => () => {}, () => true, () => false);
   if (!mounted) {
     return (
-      <IconButton aria-label="Theme loading" variant="ghost" disabled>
+      <IconButton aria-label="Theme loading" variant="ghost" className="size-11" disabled>
         <Moon />
       </IconButton>
     );
   }
   const dark = resolvedTheme === "dark";
   return (
-    <IconButton aria-label={`Use ${dark ? "light" : "dark"} theme`} variant="ghost" onClick={() => setTheme(dark ? "light" : "dark")}>
+    <IconButton aria-label={`Use ${dark ? "light" : "dark"} theme`} variant="ghost" className="size-11" onClick={() => setTheme(dark ? "light" : "dark")}>
       {dark ? <Sun /> : <Moon />}
     </IconButton>
   );

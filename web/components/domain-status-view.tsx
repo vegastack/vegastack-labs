@@ -43,7 +43,7 @@ export function DomainStatusView({ definition }: { definition: DomainStatusDefin
     <>
       <PageHeader
         title={definition.title}
-        description="Read-only capability status. Detailed records arrive in their owning later phase."
+        description={`Read-only ${definition.title.toLowerCase()} capability status from the authorized control plane.`}
         actions={
           <Button
             ref={refreshButton}
@@ -55,7 +55,7 @@ export function DomainStatusView({ definition }: { definition: DomainStatusDefin
             }}
           >
             <RefreshCw aria-hidden />
-            Refresh
+            Refresh {definition.title}
           </Button>
         }
       />

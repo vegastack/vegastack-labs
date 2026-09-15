@@ -30,7 +30,7 @@ function Header({ view }: { view: { refresh: () => void; busy: boolean } }) {
       actions={
         <Button variant="outline" loading={view.busy} onClick={view.refresh}>
           <RefreshCw aria-hidden />
-          Refresh
+          Refresh Nodes
         </Button>
       }
     />

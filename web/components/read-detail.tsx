@@ -21,7 +21,8 @@ export function ReadDetail({
   }, [open, returnFocusRef]);
   return (
     <Sheet open={open} onOpenChange={onOpenChange} side="right">
-      <SheetContent size="md">
+      <SheetContent size="md" className="[&_[data-slot=sheet-close]]:size-11">
+
         <SheetHeader>
           <SheetTitle className="capitalize">{title}</SheetTitle>
           <SheetDescription>Authorized read-only record details.</SheetDescription>

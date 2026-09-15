@@ -90,6 +90,7 @@ export function PlanReview({ view, observeApprovalInitially, executionKey, onApp
       <CardContent className="space-y-5">
         <div className="flex flex-wrap gap-2"><Badge bordered>{planStatusLabels[plan.status]}</Badge><Badge bordered intent={highRisk ? "warning" : "info"} className="capitalize">{plan.risk}</Badge><Badge bordered>{plan.authorizationBranch} authorization</Badge></div>
         <PropertyList>
+          <PropertyRow><PropertyLabel>Plan ID</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.planId}</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Plan digest</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.planDigest}</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Readable digest</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.readableDigest}</PropertyValue></PropertyRow>
           <PropertyRow><PropertyLabel>Expires</PropertyLabel><PropertyValue>{plan.expiresAt}</PropertyValue></PropertyRow>
@@ -105,13 +106,13 @@ export function PlanReview({ view, observeApprovalInitially, executionKey, onApp
           <AccordionItem value="readable">
             <AccordionTrigger>Exact readable plan</AccordionTrigger>
             <AccordionContent>
-              <CodeBlock className="max-h-96 overflow-auto" copyValue={"readablePlan" in view ? view.readablePlan : ""}>{"readablePlan" in view ? view.readablePlan : "Readable plan unavailable"}</CodeBlock>
+              <CodeBlock className="[&_[data-slot=code-block-pre]]:whitespace-pre-wrap [&_[data-slot=code-block-pre]]:break-words" copyValue={"readablePlan" in view ? view.readablePlan : ""}>{"readablePlan" in view ? view.readablePlan : "Readable plan unavailable"}</CodeBlock>
             </AccordionContent>
           </AccordionItem>
           <AccordionItem value="json">
             <AccordionTrigger>Exact canonical JSON plan</AccordionTrigger>
             <AccordionContent>
-              <CodeBlock language="json" className="max-h-96 overflow-auto" copyValue={"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}>{"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}</CodeBlock>
+              <CodeBlock language="json" className="[&_[data-slot=code-block-pre]]:whitespace-pre-wrap [&_[data-slot=code-block-pre]]:break-words" copyValue={"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}>{"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}</CodeBlock>
             </AccordionContent>
           </AccordionItem>
         </Accordion>

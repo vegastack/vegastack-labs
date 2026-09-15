@@ -4,7 +4,7 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
-import { Stat, StatDelta, StatEmpty, StatLabel, StatValue } from "@/components/ui/stat";
+import { Stat, StatLabel, StatValue } from "@/components/ui/stat";
 import { ReadViewState } from "@/components/read-view-state";
 import { SourceStatus } from "@/components/source-status";
 import { overviewSourceIds, useOverview } from "@/lib/overview-queries";
@@ -32,7 +32,7 @@ export function OverviewView() {
         actions={
           <Button variant="outline" loading={view.isRefreshing} onClick={view.refresh}>
             <RefreshCw aria-hidden />
-            Refresh
+            Refresh Overview
           </Button>
         }
       />
@@ -68,7 +68,7 @@ function OverviewContent({ summary, sources }: { summary: Overview["summary"]; s
     <div className="flex flex-col gap-8" data-overview-records>
       {summary ? (
         <section className="flex flex-col gap-3">
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-4 sm:grid-cols-3">
             <Stat>
               <StatLabel>Database</StatLabel>
               <StatValue className="capitalize">{summary.databaseMode.replace("-", " ")}</StatValue>
@@ -81,20 +81,9 @@ function OverviewContent({ summary, sources }: { summary: Overview["summary"]; s
               <StatLabel>Mutations</StatLabel>
               <StatValue>{summary.mutationAvailable ? "Available" : "Unavailable"}</StatValue>
             </Stat>
-            <Stat>
-              <StatLabel>Drafts</StatLabel>
-              {summary.draftCount > 0 ? (
-                <>
-                  <StatValue>{summary.draftCount}</StatValue>
-                  <StatDelta>{summary.validDraftCount} valid · {summary.blockedDraftCount} blocked</StatDelta>
-                </>
-              ) : (
-                <StatEmpty>None</StatEmpty>
-              )}
-            </Stat>
           </div>
           <p className="text-sm text-muted-foreground">
-            State revision {summary.stateRevision} · Recovery epoch {summary.recoveryEpoch}
+            State revision {summary.stateRevision} · Recovery epoch {summary.recoveryEpoch} · Drafts {summary.draftCount} ({summary.validDraftCount} valid, {summary.blockedDraftCount} blocked)
           </p>
         </section>
       ) : null}
