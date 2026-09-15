@@ -7,7 +7,44 @@ import (
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
+
+type fakeCredentialResolver struct{}
+
+func (fakeCredentialResolver) Resolve(context.Context, credentialref.StepBinding) (*credentialref.Value, error) {
+	return nil, nil
+}
+
+func TestCredentialResolverRegistryRequiresExactCapabilityProfileAndConsumer(t *testing.T) {
+	registry := NewRegistry()
+	if _, err := registry.ResolveCredentialResolver("onepassword-a", "adapter-a", "profile-a"); Code(err) != "PREREQUISITE_BLOCKED" {
+		t.Fatalf("empty production resolver registry: %v", err)
+	}
+	scope := CredentialCapabilityScope{ResolverID: "onepassword-a", ConsumerID: "adapter-a", ProfileID: "profile-a", Enabled: true}
+	if err := registry.RegisterCredentialResolver(scope, fakeCredentialResolver{}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.ResolveCredentialResolver(scope.ResolverID, scope.ConsumerID, scope.ProfileID); err != nil {
+		t.Fatal(err)
+	}
+	for _, altered := range []CredentialCapabilityScope{
+		{ResolverID: scope.ResolverID, ConsumerID: scope.ConsumerID, ProfileID: scope.ProfileID},
+		{ResolverID: "test.fake", ConsumerID: scope.ConsumerID, ProfileID: scope.ProfileID, Enabled: true},
+		{ResolverID: scope.ResolverID, ConsumerID: "other-consumer", ProfileID: "", Enabled: true},
+	} {
+		if err := NewRegistry().RegisterCredentialResolver(altered, fakeCredentialResolver{}); err == nil {
+			t.Fatalf("widened capability accepted: %#v", altered)
+		}
+	}
+	if _, err := registry.ResolveCredentialResolver(scope.ResolverID, "other-consumer", scope.ProfileID); err == nil {
+		t.Fatal("cross-consumer resolver selected")
+	}
+	if _, err := registry.ResolveCredentialResolver(scope.ResolverID, scope.ConsumerID, "other-profile"); err == nil {
+		t.Fatal("unapplied profile resolver selected")
+	}
+}
 
 func TestRegistryRejectsUnknownAndWidenedOperations(t *testing.T) {
 	registry := NewRegistry()

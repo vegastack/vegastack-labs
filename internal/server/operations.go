@@ -217,6 +217,9 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 // productionAdapterRegistry is the single composition point for adapters that
 // the shipped server may execute. Keeping the constructor explicit lets the
 // acceptance suite prove that test-only adapters cannot enter the real runtime.
+// It also starts with no credential resolver: the optional 1Password SDK seam
+// requires an applied capability/profile and a native loaded service token,
+// and #104 has no production live-proof verifier to admit secret steps.
 func productionAdapterRegistry() *adapter.Registry {
 	return adapter.NewRegistry()
 }
