@@ -114,6 +114,44 @@ func TestPhase5ClosedRequestAndCompatibleRead(t *testing.T) {
 	}
 }
 
+func TestPhase5RestoreAndJobRequestsRequireExactBindingFields(t *testing.T) {
+	requests := []struct {
+		name     string
+		schemaID string
+		value    map[string]any
+	}{
+		{"restore", SchemaIDRestoreRunRequest, map[string]any{
+			"schema": SchemaIDRestoreRunRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
+			"recoveryEpoch": 2, "targetDigest": phase5DigestFixture(), "idempotencyKey": "restore-key",
+			"pointId": "point-a", "planId": "plan-a", "planDigest": phase5DigestFixture(),
+			"humanAcknowledgementId": "ack-a", "formerControllerFenceDigest": phase5DigestFixture(),
+			"priorInstanceId": "instance-old", "newInstanceId": "instance-new",
+			"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3,
+		}},
+		{"job", SchemaIDScheduledJobRequest, map[string]any{
+			"schema": SchemaIDScheduledJobRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
+			"recoveryEpoch": 2, "targetDigest": phase5DigestFixture(), "idempotencyKey": "job-key",
+			"policyId": "policy-a", "policyRevision": 2, "actionDigest": phase5DigestFixture(),
+			"planId": "plan-a", "planDigest": phase5DigestFixture(), "humanAcknowledgementId": "ack-a",
+		}},
+	}
+	for _, request := range requests {
+		t.Run(request.name, func(t *testing.T) {
+			if err := ValidateContractJSON(request.schemaID, phase5Document(t, request.value), ContractExact); err != nil {
+				t.Fatal(err)
+			}
+			for _, field := range []string{"recoveryEpoch", "planDigest", "targetDigest"} {
+				original := request.value[field]
+				delete(request.value, field)
+				if err := ValidateContractJSON(request.schemaID, phase5Document(t, request.value), ContractExact); err == nil {
+					t.Errorf("%s request without %s accepted", request.name, field)
+				}
+				request.value[field] = original
+			}
+		})
+	}
+}
+
 func TestPhase5ScheduledJobBindingRejectsWidening(t *testing.T) {
 	policy := ScheduledJobPolicy{
 		Schema: SchemaIDScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: "policy-a", Revision: 2,

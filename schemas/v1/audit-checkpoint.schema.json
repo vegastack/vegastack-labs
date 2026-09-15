@@ -25,6 +25,32 @@
     {
       "if": {
         "properties": {
+          "proofClass": {
+            "const": "live"
+          },
+          "sourceKind": {
+            "const": "independent"
+          }
+        },
+        "required": [
+          "sourceKind",
+          "proofClass"
+        ]
+      },
+      "then": {
+        "properties": {
+          "independentCopyDigest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "independentCopyDigest"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "verificationStatus": {
             "const": "verified"
           }

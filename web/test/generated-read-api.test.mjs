@@ -60,6 +60,23 @@ test("Phase 5 browser decoder rejects fixture backup promoted to live", async ()
   );
 });
 
+test("Phase 5 browser decoder rejects reversed or unproven audit checkpoint", async () => {
+  const checkpoint = {
+    schema: "vegastack-labs.dev/audit-checkpoint", schemaVersion: "1.0.0", checkpointId: "checkpoint-a",
+    firstEventId: 2, lastEventId: 1, chainDigest: "sha256:" + "a".repeat(64),
+    independentCopyDigest: "sha256:" + "b".repeat(64), sourceKind: "independent", proofClass: "live", verifiedAt: null,
+    verificationStatus: "pending", recoveryEpoch: 2,
+  };
+  const data = { schema: "vegastack-labs.dev/audit-checkpoint-list-data", schemaVersion: "1.0.0", checkpoints: [checkpoint], recoveryEpoch: 2 };
+  const client = createPhase5Client(async () => new Response(JSON.stringify({ ...envelope(data), command: "api.v1.audit-checkpoints.list" })));
+  await assert.rejects(() => client.listAuditCheckpoints(), (error) => error instanceof ReadClientError && error.kind === "schema-mismatch");
+  checkpoint.lastEventId = 2;
+  checkpoint.independentCopyDigest = null;
+  await assert.rejects(() => client.listAuditCheckpoints(), (error) => error instanceof ReadClientError && error.kind === "schema-mismatch");
+  checkpoint.independentCopyDigest = "sha256:" + "b".repeat(64);
+  assert.equal((await client.listAuditCheckpoints()).data.checkpoints.length, 1);
+});
+
 test("generated decoder rejects another contract major", async () => {
   const client = createReadClient(async () => new Response(JSON.stringify(envelope(summary, "2.0.0"))));
   await assert.rejects(

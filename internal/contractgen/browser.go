@@ -348,6 +348,10 @@ function decodeSchema(identifier: string, value: unknown, path = identifier, com
     result[field.name] = decodeField(field, value[field.name], path + "." + field.name, compatibleRead);
   }
   if (result.sourceKind === "fixture" && result.proofClass !== "fixture") return mismatch(path, "fixture source cannot claim live proof");
+  if (identifier === "vegastack-labs.dev/audit-checkpoint") {
+    if (Number(result.lastEventId) < Number(result.firstEventId)) return mismatch(path, "audit checkpoint event range is reversed");
+    if (result.sourceKind === "independent" && result.proofClass === "live" && result.independentCopyDigest === null) return mismatch(path, "independent checkpoint lacks copy digest");
+  }
   if (result.verificationStatus === "verified" && result.verifiedAt === null) return mismatch(path, "verified record lacks verification time");
   if (identifier === "vegastack-labs.dev/backup-job" && result.status === "verified" && (result.pointId === null || result.verificationDigest === null)) return mismatch(path, "verified backup lacks point or verification");
   if (identifier === "vegastack-labs.dev/gate-evaluation" && result.outcome === "passed" && Array.isArray(result.evidenceIds) && result.evidenceIds.length === 0) return mismatch(path, "passed gate lacks evidence");

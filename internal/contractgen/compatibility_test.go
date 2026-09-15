@@ -57,3 +57,64 @@ func TestPhase5RegistryAdditiveMinorAccepted(t *testing.T) {
 		t.Fatalf("additive same-major registry rejected: %v", err)
 	}
 }
+
+func TestPhase5AuditCheckpointSchemaRequiresIndependentLiveCopy(t *testing.T) {
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, artifact := range artifacts {
+		if artifact.Path != "schemas/v1/audit-checkpoint.schema.json" {
+			continue
+		}
+		var schema map[string]any
+		if err := json.Unmarshal(artifact.Content, &schema); err != nil {
+			t.Fatal(err)
+		}
+		guard, _ := json.Marshal(schema["allOf"])
+		for _, want := range []string{"independent", "live", "independentCopyDigest"} {
+			if !strings.Contains(string(guard), want) {
+				t.Fatalf("audit checkpoint schema lacks %s conditional", want)
+			}
+		}
+		return
+	}
+	t.Fatal("audit checkpoint schema was not generated")
+}
+
+func TestPhase5RestoreAndJobJSONSchemasRequireExactBindings(t *testing.T) {
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{"schemas/v1/restore-run-request.schema.json", "schemas/v1/scheduled-job-request.schema.json"} {
+		found := false
+		for _, artifact := range artifacts {
+			if artifact.Path != path {
+				continue
+			}
+			found = true
+			var schema struct {
+				Required []string `json:"required"`
+			}
+			if err := json.Unmarshal(artifact.Content, &schema); err != nil {
+				t.Fatal(err)
+			}
+			for _, field := range []string{"recoveryEpoch", "planDigest", "targetDigest"} {
+				present := false
+				for _, required := range schema.Required {
+					if required == field {
+						present = true
+						break
+					}
+				}
+				if !present {
+					t.Errorf("%s lacks required %s", path, field)
+				}
+			}
+		}
+		if !found {
+			t.Errorf("%s not generated", path)
+		}
+	}
+}

@@ -480,6 +480,15 @@ func phase5SchemaRelations(definition metadata.SchemaDefinition) []any {
 			"then": map[string]any{"properties": map[string]any{"proofClass": map[string]any{"const": "fixture"}}},
 		})
 	}
+	if definition.ID == "vegastack-labs.dev/audit-checkpoint" {
+		rules = append(rules, map[string]any{
+			"if": map[string]any{"properties": map[string]any{
+				"sourceKind": map[string]any{"const": "independent"},
+				"proofClass": map[string]any{"const": "live"},
+			}, "required": []string{"sourceKind", "proofClass"}},
+			"then": map[string]any{"properties": map[string]any{"independentCopyDigest": map[string]any{"type": "string"}}, "required": []string{"independentCopyDigest"}},
+		})
+	}
 	if fields["verificationStatus"] && fields["verifiedAt"] {
 		rules = append(rules, map[string]any{
 			"if":   map[string]any{"properties": map[string]any{"verificationStatus": map[string]any{"const": "verified"}}, "required": []string{"verificationStatus"}},
