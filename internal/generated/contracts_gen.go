@@ -885,6 +885,8 @@ type GateDefinition struct {
 	GateID              string   `json:"gateId"`
 	DefinitionVersion   string   `json:"definitionVersion"`
 	Layer               string   `json:"layer"`
+	ProfileID           *string  `json:"profileId"`
+	CapabilityID        *string  `json:"capabilityId"`
 	SubjectKinds        []string `json:"subjectKinds"`
 	Applicability       string   `json:"applicability"`
 	PrerequisiteGateIDs []string `json:"prerequisiteGateIds"`

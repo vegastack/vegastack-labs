@@ -2058,7 +2058,7 @@
     },
     {
       "id": "vegastack-labs.dev/gate-definition",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/gate-definition.schema.json"
     },
     {

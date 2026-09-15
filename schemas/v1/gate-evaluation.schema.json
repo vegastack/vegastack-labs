@@ -58,7 +58,7 @@
       "type": "string"
     },
     "gateId": {
-      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$",
       "type": "string"
     },
     "outcome": {

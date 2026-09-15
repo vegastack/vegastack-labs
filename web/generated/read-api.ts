@@ -399,12 +399,14 @@ export interface GateCheckRequest {
 
 export interface GateDefinition {
   readonly "schema": "vegastack-labs.dev/gate-definition";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "gateId": string;
   readonly "definitionVersion": string;
   readonly "layer": "platform" | "adapter" | "deployment-profile" | "site";
+  readonly "profileId": string | null;
+  readonly "capabilityId": string | null;
   readonly "subjectKinds": ReadonlyArray<string>;
-  readonly "applicability": "always" | "capability" | "profile" | "subject";
+  readonly "applicability": "always" | "capability" | "profile" | "subject" | "deferred";
   readonly "prerequisiteGateIds": ReadonlyArray<string>;
   readonly "evidenceSchemaId": string;
   readonly "evaluatorVersion": string;
@@ -2750,7 +2752,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+        "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$"
       },
       {
         "name": "subjectId",
@@ -2786,7 +2788,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -2794,7 +2796,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+        "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$"
       },
       {
         "name": "definitionVersion",
@@ -2816,6 +2818,20 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         ]
       },
       {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "capabilityId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
         "name": "subjectKinds",
         "kind": "array",
         "required": true,
@@ -2833,7 +2849,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "always",
           "capability",
           "profile",
-          "subject"
+          "subject",
+          "deferred"
         ]
       },
       {
@@ -2907,7 +2924,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+        "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$"
       },
       {
         "name": "subjectId",

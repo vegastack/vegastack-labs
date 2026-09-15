@@ -64,6 +64,10 @@ func phase5ID(name, goName string) FieldDefinition {
 	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`}
 }
 
+func phase5GateID() FieldDefinition {
+	return FieldDefinition{JSONName: "gateId", GoName: "GateID", Kind: ValueString, Required: true, Pattern: `^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$`}
+}
+
 func phase5Digest(name, goName string) FieldDefinition {
 	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^sha256:[a-f0-9]{64}$`}
 }
@@ -122,11 +126,12 @@ func phase5NullableTimestamp(name, goName string) FieldDefinition {
 
 func phase5GateCredentialSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
-		phase5Schema(gateDefinitionSchemaID,
-			phase5ID("gateId", "GateID"), phase5Version("definitionVersion", "DefinitionVersion"),
+		phase5GateSchema(gateDefinitionSchemaID,
+			phase5GateID(), phase5Version("definitionVersion", "DefinitionVersion"),
 			phase5Enum("layer", "Layer", "platform", "adapter", "deployment-profile", "site"),
+			phase5NullableID("profileId", "ProfileID"), phase5NullableID("capabilityId", "CapabilityID"),
 			phase5IDs("subjectKinds", "SubjectKinds", 64),
-			phase5Enum("applicability", "Applicability", "always", "capability", "profile", "subject"),
+			phase5Enum("applicability", "Applicability", "always", "capability", "profile", "subject", "deferred"),
 			phase5IDs("prerequisiteGateIds", "PrerequisiteGateIDs", 64),
 			FieldDefinition{JSONName: "evidenceSchemaId", GoName: "EvidenceSchemaID", Kind: ValueString, Required: true, Pattern: `^[a-z0-9][a-z0-9./-]*$`},
 			phase5Version("evaluatorVersion", "EvaluatorVersion"),
@@ -134,7 +139,7 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 			phase5Bool("recoveryEpochBound", "RecoveryEpochBound"),
 		),
 		phase5GateSchema(gateEvidenceSchemaID,
-			phase5ID("evidenceId", "EvidenceID"), phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
+			phase5ID("evidenceId", "EvidenceID"), phase5GateID(), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
 			phase5ID("releaseBuildId", "ReleaseBuildID"), phase5Version("toolVersion", "ToolVersion"),
 			phase5ID("profileId", "ProfileID"), phase5Version("profileVersion", "ProfileVersion"),
@@ -152,7 +157,7 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 			phase5Enum("status", "Status", "applied", "revoked"),
 		),
 		phase5GateSchema(gateEvaluationSchemaID,
-			phase5ID("evaluationId", "EvaluationID"), phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
+			phase5ID("evaluationId", "EvaluationID"), phase5GateID(), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
 			phase5IDs("evidenceIds", "EvidenceIDs", 64), phase5Timestamp("evaluatedAt", "EvaluatedAt"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
@@ -290,11 +295,11 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Request(gateCheckRequestSchemaID,
-			phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
+			phase5GateID(), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"),
 		),
 		phase5GateRequest(gateEvidenceRequestSchemaID,
-			phase5ID("evidenceId", "EvidenceID"), phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
+			phase5ID("evidenceId", "EvidenceID"), phase5GateID(), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
 			phase5Digest("artifactDigest", "ArtifactDigest"), phase5Timestamp("observedAt", "ObservedAt"),
 			FieldDefinition{JSONName: "bundle", GoName: "Bundle", Kind: ValueObject, Required: true, Ref: gateEvidenceBundleSchemaID},

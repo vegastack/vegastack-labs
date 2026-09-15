@@ -220,6 +220,7 @@ func Current() Registry {
 		SchemaVersion: "1.16.0",
 		Commands:      commands,
 		Endpoints:     append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...),
+		GateDefinitions: CurrentGateDefinitions(),
 		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
 		Exits:         append([]ExitDefinition(nil), requiredExits...),
 		Schemas:       currentSchemas(),

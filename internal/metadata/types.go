@@ -76,6 +76,7 @@ type Registry struct {
 	SchemaVersion string
 	Commands      []CommandDefinition
 	Endpoints     []EndpointDefinition
+	GateDefinitions []GateDefinitionSource
 	Errors        []ErrorDefinition
 	Exits         []ExitDefinition
 	Schemas       []SchemaDefinition
