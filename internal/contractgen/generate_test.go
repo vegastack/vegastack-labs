@@ -88,16 +88,22 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 		t.Fatal(err)
 	}
 	phase5 := 0
+	availableGateEndpoints := []string{}
 	for _, endpoint := range endpointRegistry.Endpoints {
 		if endpoint.OwnerPhase == "5" {
 			phase5++
-			if endpoint.Availability != metadata.AvailabilityPlanned {
-				t.Errorf("endpoint %s became available", endpoint.ID)
+			if endpoint.Availability == metadata.AvailabilityAvailable {
+				availableGateEndpoints = append(availableGateEndpoints, endpoint.ID)
+			} else if endpoint.Availability != metadata.AvailabilityPlanned {
+				t.Errorf("endpoint %s has unknown availability %s", endpoint.ID, endpoint.Availability)
 			}
 		}
 	}
-	if phase5 != 18 {
-		t.Errorf("Phase 5 endpoint count = %d, want 18", phase5)
+	if phase5 != 19 {
+		t.Errorf("Phase 5 endpoint count = %d, want 19", phase5)
+	}
+	if !reflect.DeepEqual(availableGateEndpoints, []string{"api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
+		t.Errorf("unexpected available Phase 5 endpoints: %v", availableGateEndpoints)
 	}
 	var gateSchema map[string]any
 	if err := json.Unmarshal([]byte(byPath["schemas/v1/gate-definition.schema.json"]), &gateSchema); err != nil {
@@ -199,6 +205,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/gate-evidence-submission.schema.json",
 		"schemas/v1/gate-evidence.schema.json",
 		"schemas/v1/gate-list-data.schema.json",
+		"schemas/v1/gate-profile-draft-request.schema.json",
+		"schemas/v1/gate-profile-draft-submission.schema.json",
 		"schemas/v1/gate-view.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
 		"schemas/v1/inventory-diff-request.schema.json",
@@ -658,8 +666,8 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 17 || planned != 38 {
-		t.Fatalf("command availability = (%d available, %d planned), want (17, 38)", available, planned)
+	if available != 22 || planned != 34 {
+		t.Fatalf("command availability = (%d available, %d planned), want (22, 34)", available, planned)
 	}
 
 	for _, path := range []string{
@@ -690,7 +698,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.16.0"`,
+		`= "1.17.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
