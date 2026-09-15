@@ -8,6 +8,10 @@ import { RunRecoveryDialog } from "@/components/run-recovery-dialog";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { CodeBlock } from "@/components/ui/code-block";
+import { Item, ItemContent, ItemDescription, ItemTitle } from "@/components/ui/item";
+import { PropertyList, PropertyLabel, PropertyRow, PropertyValue } from "@/components/ui/property-list";
 import { newRunIdempotencyKey, planFromView, useApprovalStatus, useExecutePlan, useRequestApproval, useResolveRun, type PlanView } from "@/lib/change-queries";
 
 const planStatusLabels = { approved: "Approved", "awaiting-acknowledgement": "Awaiting acknowledgement", cancelled: "Cancelled", expired: "Expired", planned: "Planned" } as const;
@@ -84,21 +88,33 @@ export function PlanReview({ view, observeApprovalInitially, executionKey, onApp
     <Card>
       <CardHeader><CardTitle id="plan-review-title">Exact plan review</CardTitle><CardDescription>Planning is inert. Starting this exact digest is a separate, server-authorized action.</CardDescription></CardHeader>
       <CardContent className="space-y-5">
-        <div className="flex flex-wrap gap-2"><Badge bordered>{planStatusLabels[plan.status]}</Badge><Badge bordered intent={highRisk ? "warning" : "info"}>{plan.risk}</Badge><Badge bordered>{plan.authorizationBranch} authorization</Badge></div>
-        <dl className="grid gap-4 text-sm sm:grid-cols-2">
-          <div><dt className="text-muted-foreground">Plan digest</dt><dd className="break-all font-mono text-xs">{plan.planDigest}</dd></div>
-          <div><dt className="text-muted-foreground">Readable digest</dt><dd className="break-all font-mono text-xs">{plan.readableDigest}</dd></div>
-          <div><dt className="text-muted-foreground">Expires</dt><dd>{plan.expiresAt}</dd></div>
-          <div><dt className="text-muted-foreground">Executor</dt><dd>{plan.executorMode}{plan.executorId ? ` — ${plan.executorId}` : ""}</dd></div>
-          <div><dt className="text-muted-foreground">Expected interruption</dt><dd>Execution may pause only at server-owned safe boundaries.</dd></div>
-          <div><dt className="text-muted-foreground">Verification and recovery</dt><dd>The server records each step&apos;s verification result; inspect the durable run before any recovery action.</dd></div>
-        </dl>
-        <div>
-          <h3 className="text-base font-semibold">Operations and targets</h3>
-          <ol className="mt-3 space-y-3">{plan.operations.map(operation => <li className="rounded-md border border-border p-3 text-sm" key={operation.operationId}><span className="font-medium">{operation.sequence}. {operation.operationType}</span><span className="mt-1 block break-all text-muted-foreground">Target {operation.targetId} · Adapter {operation.adapterId}</span></li>)}</ol>
-        </div>
-		<details open><summary className="min-h-11 cursor-pointer py-3 font-medium">Exact readable plan</summary><pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-muted p-4 text-xs" tabIndex={0}>{"readablePlan" in view ? view.readablePlan : "Readable plan unavailable"}</pre></details>
-		<details><summary className="min-h-11 cursor-pointer py-3 font-medium">Exact canonical JSON plan</summary><pre className="max-h-96 overflow-auto rounded-md bg-muted p-4 text-xs" tabIndex={0}>{"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}</pre></details>
+        <div className="flex flex-wrap gap-2"><Badge bordered>{planStatusLabels[plan.status]}</Badge><Badge bordered intent={highRisk ? "warning" : "info"} className="capitalize">{plan.risk}</Badge><Badge bordered>{plan.authorizationBranch} authorization</Badge></div>
+        <PropertyList>
+          <PropertyRow><PropertyLabel>Plan digest</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.planDigest}</PropertyValue></PropertyRow>
+          <PropertyRow><PropertyLabel>Readable digest</PropertyLabel><PropertyValue className="break-all font-mono text-xs">{plan.readableDigest}</PropertyValue></PropertyRow>
+          <PropertyRow><PropertyLabel>Expires</PropertyLabel><PropertyValue>{plan.expiresAt}</PropertyValue></PropertyRow>
+          <PropertyRow><PropertyLabel>Executor</PropertyLabel><PropertyValue>{plan.executorMode}{plan.executorId ? ` — ${plan.executorId}` : ""}</PropertyValue></PropertyRow>
+          <PropertyRow><PropertyLabel>Expected interruption</PropertyLabel><PropertyValue>Execution may pause only at server-owned safe boundaries.</PropertyValue></PropertyRow>
+          <PropertyRow><PropertyLabel>Verification and recovery</PropertyLabel><PropertyValue>The server records each step&apos;s verification result; inspect the durable run before any recovery action.</PropertyValue></PropertyRow>
+        </PropertyList>
+        <section className="flex flex-col gap-3">
+          <h3 className="text-h4 text-foreground">Operations and targets</h3>
+          <ol className="flex flex-col gap-2">{plan.operations.map(operation => <Item key={operation.operationId} variant="outline" size="sm" render={<li />}><ItemContent><ItemTitle>{operation.sequence}. {operation.operationType}</ItemTitle><ItemDescription className="break-all">Target {operation.targetId} · Adapter {operation.adapterId}</ItemDescription></ItemContent></Item>)}</ol>
+        </section>
+        <Accordion defaultValue={["readable"]}>
+          <AccordionItem value="readable">
+            <AccordionTrigger>Exact readable plan</AccordionTrigger>
+            <AccordionContent>
+              <CodeBlock className="max-h-96 overflow-auto" copyValue={"readablePlan" in view ? view.readablePlan : ""}>{"readablePlan" in view ? view.readablePlan : "Readable plan unavailable"}</CodeBlock>
+            </AccordionContent>
+          </AccordionItem>
+          <AccordionItem value="json">
+            <AccordionTrigger>Exact canonical JSON plan</AccordionTrigger>
+            <AccordionContent>
+              <CodeBlock language="json" className="max-h-96 overflow-auto" copyValue={"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}>{"canonicalPlan" in view ? view.canonicalPlan : JSON.stringify(plan)}</CodeBlock>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
         <div aria-live="polite" className="min-h-6 text-sm" role="status">
           {requestApproval.error ? "Approval request failed. No acknowledgement was created in this browser." : null}
           {approval.error ? " Approval status is unavailable; Start run remains disabled." : null}
@@ -108,9 +124,9 @@ export function PlanReview({ view, observeApprovalInitially, executionKey, onApp
         </div>
       </CardContent>
       <CardFooter className="flex-col items-stretch gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
-        <Button ref={approvalButton} className="min-h-11" variant="outline" loading={requestApproval.isPending} disabled={requestApproval.isPending || plan.status === "expired" || plan.status === "cancelled"} onClick={() => void requestSlackApproval()}><Send aria-hidden />Request Slack approval</Button>
-        {observeApproval ? <Button ref={refreshButton} className="min-h-11" variant="outline" loading={approval.isFetching} onClick={() => { restoreRefreshFocus.current = true; void approval.refetch(); }}><RefreshCw aria-hidden />Refresh approval status</Button> : null}
-        <RunRecoveryDialog trigger={<Button className="min-h-11" disabled={!canApply || executionKey !== null} loading={execute.isPending || resolveRun.isPending}>Start run</Button>} title={highRisk ? "Start this high-risk plan?" : "Start this exact plan?"} description={`Only plan ${plan.planId} at digest ${plan.planDigest} will be sent to the server. The browser cannot widen it.`} confirmLabel="Start exact run" pending={execute.isPending} destructive={highRisk} onConfirm={startRun} />
+        <Button ref={approvalButton} variant="outline" loading={requestApproval.isPending} disabled={requestApproval.isPending || plan.status === "expired" || plan.status === "cancelled"} onClick={() => void requestSlackApproval()}><Send aria-hidden />Request Slack approval</Button>
+        {observeApproval ? <Button ref={refreshButton} variant="outline" loading={approval.isFetching} onClick={() => { restoreRefreshFocus.current = true; void approval.refetch(); }}><RefreshCw aria-hidden />Refresh approval status</Button> : null}
+        <RunRecoveryDialog trigger={<Button disabled={!canApply || executionKey !== null} loading={execute.isPending || resolveRun.isPending}>Start run</Button>} title={highRisk ? "Start this high-risk plan?" : "Start this exact plan?"} description={`Only plan ${plan.planId} at digest ${plan.planDigest} will be sent to the server. The browser cannot widen it.`} confirmLabel="Start exact run" pending={execute.isPending} destructive={highRisk} onConfirm={startRun} />
       </CardFooter>
     </Card>
     {exactApproval ? <ApprovalStatus approval={exactApproval} /> : null}

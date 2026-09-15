@@ -1,29 +1,30 @@
 "use client";
 
 import * as React from "react";
-import { ArrowDown, ArrowUp, ChevronsUpDown, Inbox } from "lucide-react";
 import { cn } from "@vegastack/design";
 import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
   type TableProps,
 } from "@/components/ui/table";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@/components/ui/empty";
+  columnCellClass,
+  cycleSort,
+  EmptyRow,
+  SelectAllHead,
+  SelectionCell,
+  SkeletonRows,
+  SortableHead,
+  useControlledState,
+  useRowSelection,
+  type DataTableColumnLayout,
+  type SortDirection,
+} from "@/components/ui/data-table-parts";
 
-/** Sort direction for a sortable column. */
-export type SortDirection = "asc" | "desc";
+export type { SortDirection };
 
 /** The active sort — which column and which direction. */
 export interface SortState {
@@ -50,9 +51,7 @@ export interface DataListCellContext {
  * A single column definition for {@link DataList}. Generic over the row type `T`
  * so `render` receives a fully-typed row.
  */
-export interface DataListColumn<T> {
-  /** Stable identifier for the column — used as the React key and the sort key. */
-  key: string;
+export interface DataListColumn<T> extends DataTableColumnLayout {
   /** Header label. A string or any node for custom header layouts. */
   header: React.ReactNode;
   /**
@@ -78,11 +77,6 @@ export interface DataListColumn<T> {
    * @default false
    */
   sortable?: boolean;
-  /**
-   * Horizontal alignment of the header and cells.
-   * @default "start"
-   */
-  align?: "start" | "center" | "end";
   /** Extra className applied to every body cell in this column. */
   className?: string;
   /**
@@ -109,7 +103,7 @@ export interface DataListColumn<T> {
 /**
  * Props accepted by `DataList`. Extends {@link TableProps} (minus `children`),
  * so the Table spreadsheet voice — `grid`, `headerTone`, `density` — and the
- * container hooks (`containerClassName`, `containerProps`) type-check here and
+ * container hooks (`scrollLabel`, `containerProps`) type-check here and
  * flow straight through to the underlying `Table`.
  */
 export interface DataListProps<T> extends Omit<TableProps, "children"> {
@@ -212,13 +206,6 @@ export interface DataListProps<T> extends Omit<TableProps, "children"> {
   footer?: React.ReactNode;
 }
 
-const alignClass = (align: DataListColumn<unknown>["align"]) =>
-  align === "end"
-    ? "text-end"
-    : align === "center"
-      ? "text-center"
-      : "text-start";
-
 /**
  * Interactive descendants that own their own click/keyboard activation. A click
  * or key press landing on one of these inside a clickable row must NOT also
@@ -244,23 +231,10 @@ function isFromInteractiveDescendant(
 }
 
 /**
- * Compute the next sort state for a column given the current one. Cycles
- * `asc → desc → cleared` so a third click on the same header removes the sort.
- */
-function nextSort(
-  current: SortState | null | undefined,
-  key: string,
-): SortState | null {
-  if (!current || current.key !== key) return { key, direction: "asc" };
-  if (current.direction === "asc") return { key, direction: "desc" };
-  return null;
-}
-
-/**
  * `DataList<T>` — a generic, typed data table with row selection, sortable
  * columns, a skeleton loading state, and an empty state. Built on
- * {@link Table}, {@link Checkbox}, {@link Skeleton}, and {@link Empty};
- * every visual value is a semantic token.
+ * {@link Table} plus the shared `data-table-parts` chrome it has in common with
+ * `DataGrid`; every visual value is a semantic token.
  *
  * Selection and sort are both controllable — pass `selectedIds`/`onSelectionChange`
  * and `sort`/`onSortChange` to lift the state, or omit them for the built-in
@@ -347,35 +321,20 @@ export function DataList<T>({
   ...tableProps
 }: DataListProps<T>) {
   const loadingStatusId = React.useId();
-  // Selection state — controlled when `selectedIds` is provided, else internal.
-  const [internalSelected, setInternalSelected] = React.useState<Set<string>>(
-    () => new Set(),
-  );
-  const isSelectionControlled = selectedIds != null;
-  const selected = isSelectionControlled ? selectedIds : internalSelected;
-
-  const commitSelection = React.useCallback(
-    (next: Set<string>) => {
-      if (!isSelectionControlled) setInternalSelected(next);
-      onSelectionChange?.(next);
-    },
-    [isSelectionControlled, onSelectionChange],
-  );
-
   // Sort state — controlled when `sort` is provided (even as null), else internal.
-  const [internalSort, setInternalSort] = React.useState<SortState | null>(
+  const [activeSort, commitSort] = useControlledState<SortState | null>(
+    sort,
     null,
+    onSortChange,
   );
-  const isSortControlled = sort !== undefined;
-  const activeSort = isSortControlled ? sort : internalSort;
-
   const handleSort = React.useCallback(
     (key: string) => {
-      const next = nextSort(activeSort, key);
-      if (!isSortControlled) setInternalSort(next);
-      onSortChange?.(next);
+      // One key at a time: DataList only SIGNALS intent, and a presentational
+      // table that asked its host to honour a priority list would be pretending
+      // to own ordering it does not own.
+      commitSort(cycleSort(activeSort ? [activeSort] : [], key)[0] ?? null);
     },
-    [activeSort, isSortControlled, onSortChange],
+    [activeSort, commitSort],
   );
 
   const rowIds = React.useMemo(
@@ -383,36 +342,8 @@ export function DataList<T>({
     [data, getRowId],
   );
 
-  const allSelected =
-    rowIds.length > 0 && rowIds.every((id) => selected.has(id));
-  const someSelected = rowIds.some((id) => selected.has(id));
-  const indeterminate = someSelected && !allSelected;
-
-  // Operates only on the CURRENT VIEW's ids (`rowIds`) and derives the next
-  // selection from the EXISTING `selected` set, so selections for rows outside
-  // `data` (other pages / filtered-out rows) are always preserved. With
-  // host-owned pagination/filtering, `data` may be just the visible page — so
-  // select-all UNIONS the current ids onto the existing selection, and clear
-  // REMOVES only the current ids (never wiping off-view selections).
-  const toggleAll = React.useCallback(() => {
-    const next = new Set(selected);
-    if (allSelected) {
-      for (const id of rowIds) next.delete(id);
-    } else {
-      for (const id of rowIds) next.add(id);
-    }
-    commitSelection(next);
-  }, [allSelected, rowIds, selected, commitSelection]);
-
-  const toggleRow = React.useCallback(
-    (id: string) => {
-      const next = new Set(selected);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      commitSelection(next);
-    },
-    [selected, commitSelection],
-  );
+  const { selected, allSelected, indeterminate, toggleAll, toggleRow } =
+    useRowSelection({ rowIds, selectedIds, onSelectionChange });
 
   // Mouse-pointer convenience: clicking anywhere in the row activates it. A
   // `<tr>` may carry an `onClick` without an ARIA role (it keeps `role="row"`),
@@ -460,122 +391,39 @@ export function DataList<T>({
         <TableHeader>
           <TableRow>
             {selectable && (
-              <TableHead className="w-0">
-                <Checkbox
-                  size="sm"
-                  checked={allSelected}
-                  indeterminate={indeterminate}
-                  onCheckedChange={toggleAll}
-                  disabled={loading || rowIds.length === 0}
-                  aria-label="Select all rows"
-                />
-              </TableHead>
+              <SelectAllHead
+                checked={allSelected}
+                indeterminate={indeterminate}
+                onToggle={toggleAll}
+                disabled={loading || rowIds.length === 0}
+              />
             )}
-            {columns.map((col) => {
-              const isActive = activeSort?.key === col.key;
-              const direction = isActive ? activeSort.direction : null;
-              return (
-                <TableHead
-                  key={col.key}
-                  data-slot="data-list-head"
-                  data-sortable={col.sortable ? "" : undefined}
-                  data-sorted={isActive ? direction : undefined}
-                  aria-sort={
-                    col.sortable
-                      ? isActive
-                        ? direction === "asc"
-                          ? "ascending"
-                          : "descending"
-                        : "none"
-                      : undefined
-                  }
-                  className={cn(alignClass(col.align), col.headerClassName)}
-                >
-                  {col.sortable ? (
-                    <button
-                      type="button"
-                      onClick={() => handleSort(col.key)}
-                      // The icon TRAILS the label in every alignment (the cell's `text-end`
-                      // right-aligns the shrink-wrapped button). No `flex-row-reverse` for end
-                      // columns: any icon-first arrangement makes the icon span the flex
-                      // container's baseline-defining first item — its baseline synthesizes
-                      // from the svg's box bottom, lifting the label ~2px vs sibling headers.
-                      className="group/sort -mx-1.5 -my-1 inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium text-muted-foreground  select-none hover:text-foreground"
-                    >
-                      {col.header}
-                      <span
-                        aria-hidden
-                        className={cn(
-                          "inline-flex transition-opacity duration-fast ease-standard",
-                          isActive
-                            ? "opacity-100"
-                            : "opacity-0 group-hover/sort:opacity-(--opacity-hint-soft)",
-                        )}
-                      >
-                        {direction === "asc" ? (
-                          <ArrowUp className="size-(--icon-inline)" />
-                        ) : direction === "desc" ? (
-                          <ArrowDown className="size-(--icon-inline)" />
-                        ) : (
-                          <ChevronsUpDown className="size-(--icon-inline)" />
-                        )}
-                      </span>
-                    </button>
-                  ) : (
-                    col.header
-                  )}
-                </TableHead>
-              );
-            })}
+            {columns.map((col) => (
+              <SortableHead
+                key={col.key}
+                data-slot="data-list-head"
+                column={col}
+                direction={
+                  activeSort?.key === col.key ? activeSort.direction : null
+                }
+                onSort={() => handleSort(col.key)}
+              />
+            ))}
           </TableRow>
         </TableHeader>
 
         <TableBody>
           {loading ? (
-            Array.from({ length: Math.max(1, loadingRows) }, (_, rowIdx) => (
-              <TableRow
-                key={`skeleton-${rowIdx}`}
-                data-slot="data-list-skeleton-row"
-                aria-hidden="true"
-              >
-                {selectable && (
-                  <TableCell className="w-0">
-                    <Skeleton className="size-(--icon-inline) rounded-sm" />
-                  </TableCell>
-                )}
-                {columns.map((col, colIdx) => (
-                  <TableCell
-                    key={col.key}
-                    className={cn(alignClass(col.align), col.className)}
-                  >
-                    <Skeleton
-                      className={colIdx === 0 ? "h-4 w-32" : "h-4 w-20"}
-                    />
-                  </TableCell>
-                ))}
-              </TableRow>
-            ))
+            <SkeletonRows
+              columns={columns}
+              rows={loadingRows}
+              selectable={selectable}
+              slot="data-list-skeleton-row"
+            />
           ) : data.length === 0 ? (
-            <TableRow
-              data-slot="data-list-empty-row"
-              className="hover:bg-transparent"
-            >
-              <TableCell colSpan={colSpan} className="p-0">
-                {emptyState ?? (
-                  <Empty size="sm">
-                    <EmptyHeader>
-                      <EmptyMedia>
-                        <Inbox />
-                      </EmptyMedia>
-                      <EmptyTitle>No data</EmptyTitle>
-                      <EmptyDescription>
-                        There are no records to display.
-                      </EmptyDescription>
-                    </EmptyHeader>
-                  </Empty>
-                )}
-              </TableCell>
-            </TableRow>
+            <EmptyRow colSpan={colSpan} slot="data-list-empty-row">
+              {emptyState}
+            </EmptyRow>
           ) : (
             data.map((row, index) => {
               const id = rowIds[index]!;
@@ -602,24 +450,17 @@ export function DataList<T>({
                     // the authoritative selection cue). Overrides the base Table row's
                     // hover-only `accent` so the tint stays through hover as well.
                     isSelected &&
-                      "bg-accent hover:bg-accent data-selected:bg-accent",
+                      // A selected row still has to move under the cursor (SP-06): it rests on the pressed
+                      // rung, hovers DOWN one rung, and returns to rest while pressed.
+                      "bg-surface-3 hover:bg-surface-2 active:bg-surface-3 data-selected:bg-surface-3 data-selected:hover:bg-surface-2",
                   )}
                 >
                   {selectable && (
-                    // Defence in depth: the row's own click guard already ignores
-                    // interactive descendants, but stop mouse propagation here too
-                    // so toggling selection never activates the row.
-                    <TableCell
-                      className="w-0"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <Checkbox
-                        size="sm"
-                        checked={isSelected}
-                        onCheckedChange={() => toggleRow(id)}
-                        aria-label={`Select row ${index + 1}`}
-                      />
-                    </TableCell>
+                    <SelectionCell
+                      checked={isSelected}
+                      onToggle={() => toggleRow(id)}
+                      label={`Select row ${index + 1}`}
+                    />
                   )}
                   {columns.map((col, colIdx) => {
                     const content = col.render
@@ -642,7 +483,7 @@ export function DataList<T>({
                       <TableCell
                         key={col.key}
                         className={cn(
-                          alignClass(col.align),
+                          columnCellClass(col),
                           col.className,
                           col.cellClassName?.(row, index),
                         )}

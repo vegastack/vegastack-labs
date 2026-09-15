@@ -2,10 +2,10 @@ packages:
   - web
 
 overrides:
-  "@vegastack/design@0.3.2>@vegastack/design-tokens": 0.2.0
+  "@vegastack/design@0.4.0>@vegastack/design-tokens": 0.4.0
 
 packageExtensions:
-  "@vegastack/design@0.3.2":
+  "@vegastack/design@0.4.0":
     peerDependencies:
       tailwindcss: 4.3.3
 
@@ -29,3 +29,9 @@ ignoredOptionalDependencies:
   - lightningcss-linux-x64-musl
   - lightningcss-win32-arm64-msvc
   - lightningcss-win32-x64-msvc
+
+minimumReleaseAgeExclude:
+  - framer-motion@13.3.0
+  - motion-dom@13.3.0
+  - motion-utils@13.3.0
+  - motion@13.3.0

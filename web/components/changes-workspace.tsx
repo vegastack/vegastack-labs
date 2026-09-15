@@ -7,11 +7,13 @@ import { ReadViewState } from "@/components/read-view-state";
 import { RunProgress } from "@/components/run-progress";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { FieldLabel, FieldRoot } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { PageHeader } from "@/components/ui/page-header";
 import { planFromView, useDeclaration, usePlan } from "@/lib/change-queries";
 import { useReadFailure } from "@/components/query-provider";
 import { classifyReadFailure } from "@/lib/read-queries";
 
-const fieldClass = "min-h-11 w-full rounded-md border border-input bg-background px-3 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30";
 const handlePattern = /^[a-z][a-z0-9._:-]{0,127}$/;
 const historyKey = "vskChangeHandles";
 type ChangeHandles = { declarationId?: string; revision?: number; planId?: string; approvalPlanId?: string; executionKey?: string; runId?: string };
@@ -107,7 +109,12 @@ export function ChangesWorkspace() {
   const planView = planQuery.data?.data;
   const plan = planView ? planFromView(planView) : null;
   return (
-    <div className="space-y-6" data-change-workflow>
+    <>
+      <PageHeader
+        title="Changes"
+        description="Open an exact declaration revision to prepare an inert draft change, plan, approval, and run. Nothing here alters infrastructure until an approved plan executes."
+      />
+      <div className="space-y-6" data-change-workflow>
       <Card>
         <CardHeader>
           <CardTitle>Open an inert declaration</CardTitle>
@@ -115,9 +122,15 @@ export function ChangesWorkspace() {
         </CardHeader>
         <CardContent>
           <form className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_8rem_auto] sm:items-end" onSubmit={openDeclaration}>
-            <label className="grid gap-2 text-sm font-medium">Declaration ID<input className={fieldClass} name="declarationId" required maxLength={128} pattern="[a-z][a-z0-9._:\\-]{0,127}" autoComplete="off" /></label>
-            <label className="grid gap-2 text-sm font-medium">Revision<input className={fieldClass} name="revision" required min={1} step={1} type="number" inputMode="numeric" /></label>
-            <Button className="min-h-11" type="submit">Open declaration</Button>
+            <FieldRoot>
+              <FieldLabel>Declaration ID</FieldLabel>
+              <Input name="declarationId" required maxLength={128} pattern="[a-z][a-z0-9._:\\-]{0,127}" autoComplete="off" />
+            </FieldRoot>
+            <FieldRoot>
+              <FieldLabel>Revision</FieldLabel>
+              <Input name="revision" type="number" required min={1} step={1} inputMode="numeric" />
+            </FieldRoot>
+            <Button type="submit">Open declaration</Button>
           </form>
         </CardContent>
       </Card>
@@ -131,6 +144,7 @@ export function ChangesWorkspace() {
       {planQuery.error && planId ? <ReadViewState kind={classifyReadFailure(planQuery.error)} title="Plan unavailable" description="The saved plan handle remains inert until the server returns its current authorized projection." onRetry={() => void planQuery.refetch()} /> : null}
       {planView && plan ? <PlanReview key={plan.planId} view={planView} observeApprovalInitially={approvalPlanId === plan.planId} executionKey={executionKey} onApprovalRequested={() => setApprovalPlanId(plan.planId)} onExecutionPrepared={setExecutionKey} onExecutionCleared={() => setExecutionKey(null)} onRunStarted={(started) => { setApprovalPlanId(null); setExecutionKey(null); setRunId(started.run.runId); }} /> : null}
       {runId ? <RunProgress runId={runId} /> : null}
-    </div>
+      </div>
+    </>
   );
 }

@@ -8,9 +8,9 @@ import { cn } from "@vegastack/design";
 export type CardProps = React.ComponentProps<"div"> & {
   /**
    * Density of the card. `sm` tightens the internal padding and gaps.
-   * @default "default"
+   * @default "md"
    */
-  size?: "default" | "sm";
+  size?: "md" | "sm";
 };
 
 /**
@@ -32,7 +32,7 @@ export type CardProps = React.ComponentProps<"div"> & {
  *   </CardFooter>
  * </Card>
  */
-function Card({ className, size = "default", ref, ...props }: CardProps) {
+function Card({ className, size = "md", ref, ...props }: CardProps) {
   return (
     <div
       ref={ref}
@@ -175,7 +175,7 @@ function CardFooter({ className, ref, ...props }: CardFooterProps) {
       ref={ref}
       data-slot="card-footer"
       className={cn(
-        "flex items-center rounded-b-lg border-t border-border bg-muted/(--alpha-wash) p-4 group-data-[size=sm]/card:p-3",
+        "flex items-center rounded-b-lg border-t border-border bg-surface-1 p-4 group-data-[size=sm]/card:p-3",
         className,
       )}
       {...props}
