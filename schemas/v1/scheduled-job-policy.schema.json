@@ -1,0 +1,80 @@
+{
+  "$id": "vegastack-labs.dev/scheduled-job-policy",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "actionKind": {
+      "enum": [
+        "backup",
+        "audit-checkpoint",
+        "gate-check"
+      ],
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "exactTargetIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "minItems": 1,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "intervalSeconds": {
+      "maximum": 604800,
+      "minimum": 1,
+      "type": "integer"
+    },
+    "policyId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/scheduled-job-policy"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "policyId",
+    "revision",
+    "actionKind",
+    "exactTargetIds",
+    "actionDigest",
+    "targetDigest",
+    "intervalSeconds",
+    "enabled",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs scheduled job policy",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

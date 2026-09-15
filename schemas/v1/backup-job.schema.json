@@ -1,0 +1,136 @@
+{
+  "$id": "vegastack-labs.dev/backup-job",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sourceKind": {
+            "const": "fixture"
+          }
+        },
+        "required": [
+          "sourceKind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "proofClass": {
+            "const": "fixture"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "pointId": {
+            "type": "string"
+          },
+          "verificationDigest": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "jobId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "pointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "policyId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "proofClass": {
+      "enum": [
+        "fixture",
+        "live"
+      ],
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "runId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-job"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceKind": {
+      "enum": [
+        "fixture",
+        "local",
+        "independent"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "running",
+        "failed",
+        "verified",
+        "uncertain"
+      ],
+      "type": "string"
+    },
+    "verificationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "jobId",
+    "policyId",
+    "sourceKind",
+    "proofClass",
+    "pointId",
+    "status",
+    "runId",
+    "recoveryEpoch",
+    "verificationDigest"
+  ],
+  "title": "VegaStack Labs backup job",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

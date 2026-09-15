@@ -1,0 +1,93 @@
+{
+  "$id": "vegastack-labs.dev/gate-definition",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "applicability": {
+      "enum": [
+        "always",
+        "capability",
+        "profile",
+        "subject"
+      ],
+      "type": "string"
+    },
+    "definitionVersion": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "evaluatorVersion": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "evidenceSchemaId": {
+      "pattern": "^[a-z0-9][a-z0-9./-]*$",
+      "type": "string"
+    },
+    "freshnessSeconds": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "gateId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "layer": {
+      "enum": [
+        "platform",
+        "adapter",
+        "deployment-profile",
+        "site"
+      ],
+      "type": "string"
+    },
+    "prerequisiteGateIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "recoveryEpochBound": {
+      "type": "boolean"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/gate-definition"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "subjectKinds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "gateId",
+    "definitionVersion",
+    "layer",
+    "subjectKinds",
+    "applicability",
+    "prerequisiteGateIds",
+    "evidenceSchemaId",
+    "evaluatorVersion",
+    "freshnessSeconds",
+    "recoveryEpochBound"
+  ],
+  "title": "VegaStack Labs gate definition",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

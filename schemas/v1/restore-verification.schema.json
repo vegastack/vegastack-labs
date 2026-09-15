@@ -1,0 +1,110 @@
+{
+  "$id": "vegastack-labs.dev/restore-verification",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "status"
+        ]
+      },
+      "then": {
+        "properties": {
+          "auditVerified": {
+            "const": true
+          },
+          "databaseVerified": {
+            "const": true
+          },
+          "fenceVerified": {
+            "const": true
+          },
+          "verifiedAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "auditVerified": {
+      "type": "boolean"
+    },
+    "databaseVerified": {
+      "type": "boolean"
+    },
+    "fenceVerified": {
+      "type": "boolean"
+    },
+    "nextRecoveryEpoch": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "planDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "pointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/restore-verification"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "failed",
+        "incomplete",
+        "verified"
+      ],
+      "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "verifiedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "planId",
+    "planDigest",
+    "pointId",
+    "targetDigest",
+    "fenceVerified",
+    "databaseVerified",
+    "auditVerified",
+    "verifiedAt",
+    "nextRecoveryEpoch",
+    "status"
+  ],
+  "title": "VegaStack Labs restore verification",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

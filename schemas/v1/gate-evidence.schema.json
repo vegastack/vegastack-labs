@@ -1,0 +1,118 @@
+{
+  "$id": "vegastack-labs.dev/gate-evidence",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sourceKind": {
+            "const": "fixture"
+          }
+        },
+        "required": [
+          "sourceKind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "proofClass": {
+            "const": "fixture"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "artifactDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "definitionVersion": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "evaluatorVersion": {
+      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "type": "string"
+    },
+    "evidenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "expiresAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "gateId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "proofClass": {
+      "enum": [
+        "fixture",
+        "live"
+      ],
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/gate-evidence"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceKind": {
+      "enum": [
+        "fixture",
+        "local",
+        "independent"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "draft",
+        "applied",
+        "revoked"
+      ],
+      "type": "string"
+    },
+    "subjectId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "evidenceId",
+    "gateId",
+    "subjectId",
+    "definitionVersion",
+    "evaluatorVersion",
+    "sourceKind",
+    "proofClass",
+    "artifactDigest",
+    "observedAt",
+    "expiresAt",
+    "recoveryEpoch",
+    "status"
+  ],
+  "title": "VegaStack Labs gate evidence",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

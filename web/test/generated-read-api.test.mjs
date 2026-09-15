@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createChangeClient, createReadClient, ReadClientError, STABLE_ERROR_CODES } from "../generated/read-api.ts";
+import { createChangeClient, createPhase5Client, createReadClient, ReadClientError, STABLE_ERROR_CODES } from "../generated/read-api.ts";
 
 const summary = {
   databaseMode: "ready",
@@ -43,6 +43,20 @@ test("generated decoder rejects closed-object additions", async () => {
     () => client.getSummary(),
     (error) => error instanceof ReadClientError && error.kind === "schema-mismatch" &&
       error.code === "INTEGRITY_FAILURE" && STABLE_ERROR_CODES.includes(error.code),
+  );
+});
+
+test("Phase 5 browser decoder rejects fixture backup promoted to live", async () => {
+  const job = {
+    schema: "vegastack-labs.dev/backup-job", schemaVersion: "1.0.0", jobId: "job-a", policyId: "policy-a",
+    sourceKind: "fixture", proofClass: "live", pointId: null, status: "queued", runId: null,
+    recoveryEpoch: 2, verificationDigest: null,
+  };
+  const data = { schema: "vegastack-labs.dev/backup-status-data", schemaVersion: "1.0.0", policies: [], jobs: [job], recoveryEpoch: 2 };
+  const client = createPhase5Client(async () => new Response(JSON.stringify({ ...envelope(data), command: "api.v1.backups.status" })));
+  await assert.rejects(
+    () => client.getBackupStatus(),
+    (error) => error instanceof ReadClientError && error.kind === "schema-mismatch",
   );
 });
 

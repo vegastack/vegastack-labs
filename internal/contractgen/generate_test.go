@@ -52,6 +52,62 @@ func TestGeneratedPhase4StatesMatchEveryTarget(t *testing.T) {
 	}
 }
 
+func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
+	artifacts, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byPath := map[string]string{}
+	for _, artifact := range artifacts {
+		byPath[artifact.Path] = string(artifact.Content)
+	}
+	goTypes := byPath["internal/generated/contracts_gen.go"]
+	for _, name := range []string{"GateDefinition", "GateEvidence", "GateEvaluation", "CredentialReference", "CredentialResolutionRecord", "BackupJob", "AuditCheckpoint", "RestoreBinding", "ScheduledJobPolicy"} {
+		if !strings.Contains(goTypes, "type "+name+" struct") {
+			t.Errorf("Go type %s absent", name)
+		}
+	}
+	if !strings.Contains(byPath["internal/generated/contracts_validate_gen.go"], "ValidatePhase5Transition") || !strings.Contains(byPath["internal/generated/contracts_validate_gen.go"], "ValidateScheduledJobBinding") {
+		t.Error("Phase 5 Go behavior validators absent")
+	}
+	client := byPath["web/generated/read-api.ts"]
+	for _, name := range []string{"listGates", "getGate", "checkGate", "getBackupStatus", "getRecoveryPoint", "listAuditCheckpoints", "getRestoreStatus", "getScheduledJobPolicy"} {
+		if !strings.Contains(client, "readonly "+name+":") {
+			t.Errorf("browser method %s absent", name)
+		}
+	}
+	for _, forbidden := range []string{"CredentialReference", "CredentialResolutionRecord", "humanAcknowledgementId", "formerControllerFenceDigest"} {
+		if strings.Contains(client, forbidden) {
+			t.Errorf("browser graph contains %s", forbidden)
+		}
+	}
+	var endpointRegistry struct {
+		Endpoints []metadata.EndpointDefinition `json:"endpoints"`
+	}
+	if err := json.Unmarshal([]byte(byPath["schemas/v1/endpoint-registry.json"]), &endpointRegistry); err != nil {
+		t.Fatal(err)
+	}
+	phase5 := 0
+	for _, endpoint := range endpointRegistry.Endpoints {
+		if endpoint.OwnerPhase == "5" {
+			phase5++
+			if endpoint.Availability != metadata.AvailabilityPlanned {
+				t.Errorf("endpoint %s became available", endpoint.ID)
+			}
+		}
+	}
+	if phase5 != 18 {
+		t.Errorf("Phase 5 endpoint count = %d, want 18", phase5)
+	}
+	var gateSchema map[string]any
+	if err := json.Unmarshal([]byte(byPath["schemas/v1/gate-definition.schema.json"]), &gateSchema); err != nil {
+		t.Fatal(err)
+	}
+	if gateSchema["additionalProperties"] != false {
+		t.Error("gate definition schema is open")
+	}
+}
+
 func TestGenerateIsByteStable(t *testing.T) {
 	t.Parallel()
 
@@ -103,13 +159,26 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/api-ssh-response-frame-header.schema.json",
 		"schemas/v1/api-summary-data.schema.json",
 		"schemas/v1/approval-status.schema.json",
+		"schemas/v1/audit-checkpoint-list-data.schema.json",
+		"schemas/v1/audit-checkpoint-request.schema.json",
+		"schemas/v1/audit-checkpoint.schema.json",
 		"schemas/v1/audit-event.schema.json",
 		"schemas/v1/authorization-decision.schema.json",
+		"schemas/v1/backup-job.schema.json",
+		"schemas/v1/backup-policy.schema.json",
+		"schemas/v1/backup-run-request.schema.json",
+		"schemas/v1/backup-status-data.schema.json",
+		"schemas/v1/backup-verify-request.schema.json",
 		"schemas/v1/browser-audit-event.schema.json",
 		"schemas/v1/browser-declaration-revision.schema.json",
+		"schemas/v1/browser-restore-status.schema.json",
 		"schemas/v1/browser-run-result.schema.json",
 		"schemas/v1/browser-run.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
+		"schemas/v1/credential-reference-request.schema.json",
+		"schemas/v1/credential-reference.schema.json",
+		"schemas/v1/credential-resolution-record.schema.json",
+		"schemas/v1/database-export-request.schema.json",
 		"schemas/v1/database-status-data.schema.json",
 		"schemas/v1/declaration-revision-request.schema.json",
 		"schemas/v1/declaration-revision.schema.json",
@@ -118,6 +187,12 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/executor-claim-request.schema.json",
 		"schemas/v1/executor-lease.schema.json",
 		"schemas/v1/executor-renew-request.schema.json",
+		"schemas/v1/gate-check-request.schema.json",
+		"schemas/v1/gate-definition.schema.json",
+		"schemas/v1/gate-evaluation.schema.json",
+		"schemas/v1/gate-evidence-request.schema.json",
+		"schemas/v1/gate-evidence.schema.json",
+		"schemas/v1/gate-list-data.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
 		"schemas/v1/inventory-diff-request.schema.json",
 		"schemas/v1/inventory-draft-export-pointer.schema.json",
@@ -134,14 +209,24 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/plan-presentation.schema.json",
 		"schemas/v1/plan-reference-request.schema.json",
 		"schemas/v1/plan.schema.json",
+		"schemas/v1/recovery-point.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
 		"schemas/v1/release-manifest.schema.json",
 		"schemas/v1/release-trust-policy.schema.json",
 		"schemas/v1/release-verify-data.schema.json",
+		"schemas/v1/restore-binding.schema.json",
+		"schemas/v1/restore-request.schema.json",
+		"schemas/v1/restore-run-request.schema.json",
+		"schemas/v1/restore-verification.schema.json",
+		"schemas/v1/restore-verify-request.schema.json",
 		"schemas/v1/run-presentation.schema.json",
 		"schemas/v1/run-reference-request.schema.json",
 		"schemas/v1/run-result.schema.json",
 		"schemas/v1/run.schema.json",
+		"schemas/v1/sanitized-export-data.schema.json",
+		"schemas/v1/scheduled-job-policy.schema.json",
+		"schemas/v1/scheduled-job-request.schema.json",
+		"schemas/v1/scheduled-job.schema.json",
 		"schemas/v1/server-profile.schema.json",
 		"schemas/v1/server-status-data.schema.json",
 		"schemas/v1/signed-inventory-draft-export.schema.json",
@@ -523,13 +608,18 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 
 	var registry struct {
 		GeneratedBy string `json:"generatedBy"`
-		Commands    []struct {
+		Schemas     []struct {
+			ID string `json:"id"`
+		} `json:"schemas"`
+		Commands []struct {
 			Path         []string `json:"path"`
 			Availability string   `json:"availability"`
+			OwnerPhase   string   `json:"ownerPhase"`
 			Risk         string   `json:"risk"`
 			Flags        []any    `json:"flags"`
 			Request      string   `json:"requestSchema"`
 			Result       string   `json:"resultSchema"`
+			Data         string   `json:"dataSchema"`
 			Examples     []any    `json:"examples"`
 		} `json:"commands"`
 	}
@@ -539,6 +629,10 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 	if !strings.Contains(registry.GeneratedBy, "DO NOT EDIT") {
 		t.Fatalf("generatedBy = %q", registry.GeneratedBy)
 	}
+	knownSchemas := map[string]bool{}
+	for _, schema := range registry.Schemas {
+		knownSchemas[schema.ID] = true
+	}
 	available, planned := 0, 0
 	for _, command := range registry.Commands {
 		switch command.Availability {
@@ -546,8 +640,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			available++
 		case "planned":
 			planned++
-			if command.Risk != "unassigned" || len(command.Flags) != 0 || command.Request != "" || command.Result != "" || len(command.Examples) != 0 {
+			if command.Risk != "unassigned" || len(command.Flags) != 0 || command.Result != "" || len(command.Examples) != 0 {
 				t.Fatalf("planned command %v contains speculative detail", command.Path)
+			}
+			if command.OwnerPhase != "5" && (command.Request != "" || command.Data != "") {
+				t.Fatalf("non-Phase-5 planned command %v gained schema detail", command.Path)
+			}
+			if command.Request != "" && !knownSchemas[command.Request] || command.Data != "" && !knownSchemas[command.Data] {
+				t.Fatalf("planned command %v refers to unknown schema", command.Path)
 			}
 		}
 	}
@@ -583,7 +683,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.15.0"`,
+		`= "1.16.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,
