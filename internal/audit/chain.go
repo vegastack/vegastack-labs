@@ -19,6 +19,10 @@ type ChainLink struct {
 	ContextDigest   Fingerprint
 	LinkDigest      Fingerprint
 	PreAnchor       bool
+	// Genesis-only inputs are retained so an independent verifier can
+	// reconstruct the first link rather than trusting a bare digest.
+	PriorCheckpoint  Fingerprint
+	RecoveryDecision Fingerprint
 }
 
 // ContextIDs are bounded identifiers supplied by trusted event producers.
@@ -112,7 +116,10 @@ func GenesisLink(instanceID string, epoch int64, priorCheckpoint, recoveryDecisi
 	if err != nil {
 		return ChainLink{}
 	}
-	return ChainLink{InstanceID: instanceID, RecoveryEpoch: epoch, LinkDigest: hashChainBytes(data)}
+	return ChainLink{
+		InstanceID: instanceID, RecoveryEpoch: epoch, PriorCheckpoint: priorCheckpoint,
+		RecoveryDecision: recoveryDecision, LinkDigest: hashChainBytes(data),
+	}
 }
 
 func hashChainBytes(data []byte) Fingerprint {

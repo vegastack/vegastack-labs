@@ -92,6 +92,9 @@ func TestGenesisBindsPriorCheckpointAndRecoveryDecision(t *testing.T) {
 	if !ValidFingerprint(base.LinkDigest) || base.EventID != 0 || base.SegmentSequence != 0 {
 		t.Fatal("invalid genesis link")
 	}
+	if base.PriorCheckpoint != testGenesisDigest() || base.RecoveryDecision != testOtherDigest() {
+		t.Fatal("genesis cannot be independently reconstructed")
+	}
 	for _, changed := range []ChainLink{
 		GenesisLink("instance-b", 1, testGenesisDigest(), testOtherDigest()),
 		GenesisLink("instance-a", 2, testGenesisDigest(), testOtherDigest()),
