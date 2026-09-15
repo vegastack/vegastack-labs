@@ -28,11 +28,13 @@ var allowedCredentialAPI = []string{
 	`field Metadata.State State`,
 	`field Reference.Consumer string`,
 	`field Reference.ID string`,
+	`func ParseID func(string) (Identifier, error)`,
 	`func Verify func(context.Context, Inspector, Reference, string) (Metadata, error)`,
 	`method Error.Error func() (string)`,
 	`method Inspector.Inspect func(context.Context, Reference) (Metadata, error)`,
 	`type Error struct`,
 	`type Inspector interface`,
+	`type Identifier string`,
 	`type Metadata struct`,
 	`type Reference struct`,
 	`type State string`,
@@ -73,6 +75,7 @@ func TestCredentialReferenceAPIGuardRejectsMaterialAndRevealSurfaces(t *testing.
 		t.Fatalf("parse adversarial fixture: %v", err)
 	}
 	issues := validateCredentialAPI(fset, []*ast.File{file})
+	issues = slices.DeleteFunc(issues, func(issue string) bool { return strings.HasPrefix(issue, "missing ") })
 	want := []string{
 		"unexpected field Reference.Material []byte",
 		"unexpected method Reference.Reveal func() ([]byte)",

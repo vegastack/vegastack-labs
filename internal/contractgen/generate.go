@@ -215,16 +215,19 @@ func renderEndpointRegistryJSON(registry metadata.Registry) ([]byte, error) {
 
 func renderEndpointRegistrySchema() ([]byte, error) {
 	endpoint := strictObject([]string{"id", "method", "path", "availability", "ownerPhase", "dataSchema", "stream", "audiences"}, map[string]any{
-		"id":            map[string]any{"type": "string", "pattern": "^api\\.v1\\.[a-z0-9.-]+$"},
-		"method":        map[string]any{"enum": []string{"GET", "POST"}},
-		"path":          map[string]any{"type": "string", "pattern": "^/api/v1/"},
-		"availability":  map[string]any{"enum": []string{"available", "planned"}},
-		"ownerPhase":    map[string]any{"type": "string", "enum": []string{"2", "3", "4", "5"}},
-		"querySchema":   map[string]any{"type": "string"},
-		"requestSchema": map[string]any{"type": "string"},
-		"dataSchema":    map[string]any{"type": "string", "minLength": 1},
-		"stream":        map[string]any{"enum": []string{"finite", "sse"}},
-		"audiences":     map[string]any{"type": "array", "minItems": 1, "uniqueItems": true, "items": map[string]any{"enum": []string{"browser", "executor", "operator", "server-adapter"}}},
+		"id":              map[string]any{"type": "string", "pattern": "^api\\.v1\\.[a-z0-9.-]+$"},
+		"method":          map[string]any{"enum": []string{"GET", "POST"}},
+		"path":            map[string]any{"type": "string", "pattern": "^/api/v1/"},
+		"availability":    map[string]any{"enum": []string{"available", "planned"}},
+		"ownerPhase":      map[string]any{"type": "string", "enum": []string{"2", "3", "4", "5"}},
+		"querySchema":     map[string]any{"type": "string"},
+		"requestSchema":   map[string]any{"type": "string"},
+		"requestEncoding": map[string]any{"enum": []string{"json", "binary"}},
+		"transportScope":  map[string]any{"enum": []string{"any", "local"}},
+		"maxRequestBytes": map[string]any{"type": "integer", "minimum": 0, "maximum": 4096},
+		"dataSchema":      map[string]any{"type": "string", "minLength": 1},
+		"stream":          map[string]any{"enum": []string{"finite", "sse"}},
+		"audiences":       map[string]any{"type": "array", "minItems": 1, "uniqueItems": true, "items": map[string]any{"enum": []string{"browser", "executor", "operator", "server-adapter"}}},
 	})
 	endpoint["allOf"] = []any{
 		map[string]any{"if": map[string]any{"properties": map[string]any{"method": map[string]any{"const": "POST"}}, "required": []string{"method"}}, "then": map[string]any{"required": []string{"requestSchema"}}},
@@ -712,7 +715,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	}
 
 	output.WriteString("type Command struct {\n\tPath []string `json:\"path\"`\n\tSummary string `json:\"summary\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tRisk string `json:\"risk\"`\n\tFlags []Flag `json:\"flags,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tResultSchema string `json:\"resultSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema,omitempty\"`\n\tExamples []Example `json:\"examples,omitempty\"`\n}\n\n")
-	output.WriteString("type Endpoint struct {\n\tID string `json:\"id\"`\n\tMethod string `json:\"method\"`\n\tPath string `json:\"path\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tQuerySchema string `json:\"querySchema,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema\"`\n\tStream string `json:\"stream\"`\n\tAudiences []string `json:\"audiences\"`\n}\n\n")
+	output.WriteString("type Endpoint struct {\n\tID string `json:\"id\"`\n\tMethod string `json:\"method\"`\n\tPath string `json:\"path\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tQuerySchema string `json:\"querySchema,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema\"`\n\tStream string `json:\"stream\"`\n\tAudiences []string `json:\"audiences\"`\n\tRequestEncoding string `json:\"requestEncoding,omitempty\"`\n\tTransportScope string `json:\"transportScope,omitempty\"`\n\tMaxRequestBytes int `json:\"maxRequestBytes,omitempty\"`\n}\n\n")
 	output.WriteString("type RunTransition struct { From string; To string }\n\n")
 	output.WriteString("var RunTransitions = []RunTransition{\n")
 	for _, transition := range registry.Lifecycle.RunTransitions {
@@ -771,7 +774,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 		for index, audience := range endpoint.Audiences {
 			audiences[index] = string(audience)
 		}
-		fmt.Fprintf(&output, "\t{ID: %s, Method: %s, Path: %s, Availability: %s, OwnerPhase: %s, QuerySchema: %s, RequestSchema: %s, DataSchema: %s, Stream: %s, Audiences: %#v},\n", strconv.Quote(endpoint.ID), strconv.Quote(endpoint.Method), strconv.Quote(endpoint.Path), strconv.Quote(string(endpoint.Availability)), strconv.Quote(endpoint.OwnerPhase), strconv.Quote(endpoint.QuerySchema), strconv.Quote(endpoint.RequestSchema), strconv.Quote(endpoint.DataSchema), strconv.Quote(string(endpoint.Stream)), audiences)
+		fmt.Fprintf(&output, "\t{ID: %s, Method: %s, Path: %s, Availability: %s, OwnerPhase: %s, QuerySchema: %s, RequestSchema: %s, DataSchema: %s, Stream: %s, Audiences: %#v, RequestEncoding: %s, TransportScope: %s, MaxRequestBytes: %d},\n", strconv.Quote(endpoint.ID), strconv.Quote(endpoint.Method), strconv.Quote(endpoint.Path), strconv.Quote(string(endpoint.Availability)), strconv.Quote(endpoint.OwnerPhase), strconv.Quote(endpoint.QuerySchema), strconv.Quote(endpoint.RequestSchema), strconv.Quote(endpoint.DataSchema), strconv.Quote(string(endpoint.Stream)), audiences, strconv.Quote(endpoint.RequestEncoding), strconv.Quote(endpoint.TransportScope), endpoint.MaxRequestBytes)
 	}
 	output.WriteString("}\n\n")
 	output.WriteString("var ErrorExitCodes = map[string]int{\n")

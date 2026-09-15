@@ -62,6 +62,13 @@ func phase5GateSchema(identifier string, fields ...FieldDefinition) SchemaDefini
 	return schema
 }
 
+func phase5CredentialSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
 func phase5ID(name, goName string) FieldDefinition {
 	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`}
 }
@@ -173,19 +180,22 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "evaluation", GoName: "Evaluation", Kind: ValueObject, Required: true, Ref: gateEvaluationSchemaID},
 			phase5ID("applicabilityReasonCode", "ApplicabilityReasonCode"),
 		),
-		phase5Schema(credentialReferenceSchemaID,
+		phase5CredentialSchema(credentialReferenceSchemaID,
 			phase5ID("referenceId", "ReferenceID"), phase5ID("consumerId", "ConsumerID"), phase5ID("purposeId", "PurposeID"),
+			phase5ID("targetId", "TargetID"), phase5ID("resolverId", "ResolverID"),
 			phase5ID("materialVersion", "MaterialVersion"), phase5Digest("fingerprint", "Fingerprint"),
-			phase5Enum("status", "Status", "active", "unavailable", "revoked"),
-			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Enum("status", "Status", "staged", "active", "unavailable", "revoked"),
+			phase5Positive("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5NullableTimestamp("activatedAt", "ActivatedAt"), phase5IDs("verifiedConsumerIds", "VerifiedConsumerIDs", 64),
 		),
-		phase5Schema(credentialResolutionRecordSchemaID,
+		phase5CredentialSchema(credentialResolutionRecordSchemaID,
 			phase5ID("recordId", "RecordID"), phase5ID("referenceId", "ReferenceID"),
-			phase5ID("consumerId", "ConsumerID"), phase5ID("purposeId", "PurposeID"),
+			phase5ID("consumerId", "ConsumerID"), phase5ID("purposeId", "PurposeID"), phase5ID("targetId", "TargetID"),
 			phase5ID("materialVersion", "MaterialVersion"), phase5Digest("fingerprint", "Fingerprint"),
-			phase5Enum("status", "Status", "active", "unavailable", "revoked"),
-			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5Timestamp("resolvedAt", "ResolvedAt"),
-			phase5ID("resolverId", "ResolverID"), phase5Enum("result", "Result", "resolved", "unavailable", "denied"),
+			phase5Enum("status", "Status", "staged", "active", "unavailable", "revoked"),
+			phase5Positive("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Timestamp("resolvedAt", "ResolvedAt"), phase5ID("resolverId", "ResolverID"),
+			phase5Enum("result", "Result", "resolved", "unavailable", "denied"),
 			phase5ID("reasonCode", "ReasonCode"),
 		),
 	}
@@ -272,6 +282,13 @@ func phase5Request(identifier string, fields ...FieldDefinition) SchemaDefinitio
 	return phase5Schema(identifier, append(base, fields...)...)
 }
 
+func phase5CredentialRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
 func phase5RequestSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
 		phase5GateSchema(gateEvidenceFactSchemaID,
@@ -347,10 +364,10 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Digest("actionDigest", "ActionDigest"), phase5ID("planId", "PlanID"),
 			phase5Digest("planDigest", "PlanDigest"), phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
 		),
-		phase5Request(credentialReferenceRequestSchemaID,
+		phase5CredentialRequest(credentialReferenceRequestSchemaID,
 			phase5ID("referenceId", "ReferenceID"), phase5ID("consumerId", "ConsumerID"),
-			phase5ID("purposeId", "PurposeID"), phase5ID("materialVersion", "MaterialVersion"),
-			phase5Digest("fingerprint", "Fingerprint"),
+			phase5ID("purposeId", "PurposeID"), phase5ID("targetId", "TargetID"), phase5ID("resolverId", "ResolverID"),
+			phase5ID("materialVersion", "MaterialVersion"), phase5Digest("fingerprint", "Fingerprint"),
 		),
 		phase5Request(auditCheckpointRequestSchemaID,
 			phase5Positive("firstEventId", "FirstEventID"), phase5Positive("lastEventId", "LastEventID"),
@@ -419,6 +436,7 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5AvailableGateEndpoint("api.v1.gate-evidence.create", "POST", "/api/v1/gates/{gateId}/evidence", gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID, false),
 		phase5Endpoint("api.v1.credential-references.get", "GET", "/api/v1/credential-references/{referenceId}", "", credentialReferenceSchemaID, false),
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
+		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialReferenceRequestSchemaID, DataSchema: credentialReferenceSchemaID, Availability: AvailabilityPlanned, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
 		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5Endpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5Endpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),

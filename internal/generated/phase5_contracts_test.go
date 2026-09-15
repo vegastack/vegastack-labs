@@ -17,6 +17,28 @@ func phase5Document(t *testing.T, value map[string]any) []byte {
 
 func phase5DigestFixture() string { return "sha256:" + strings.Repeat("a", 64) }
 
+func TestCredentialReferenceV11RequiresExactBinding(t *testing.T) {
+	valid := map[string]any{
+		"schema": SchemaIDCredentialReference, "schemaVersion": "1.1.0",
+		"referenceId": "ref-a", "consumerId": "adapter-a", "purposeId": "deploy-a",
+		"targetId": "service-a", "resolverId": "native-a", "materialVersion": "version-a",
+		"fingerprint": phase5DigestFixture(), "status": "staged", "stateRevision": 2,
+		"recoveryEpoch": 1, "activatedAt": nil, "verifiedConsumerIds": []string{},
+	}
+	if err := ValidateContractJSON(SchemaIDCredentialReference, phase5Document(t, valid), ContractExact); err != nil {
+		t.Fatalf("bound v1.1 reference rejected: %v", err)
+	}
+	delete(valid, "resolverId")
+	if err := ValidateContractJSON(SchemaIDCredentialReference, phase5Document(t, valid), ContractExact); err == nil {
+		t.Fatal("missing resolver binding accepted")
+	}
+	valid["resolverId"] = "native-a"
+	valid["material"] = "private-value"
+	if err := ValidateContractJSON(SchemaIDCredentialReference, phase5Document(t, valid), ContractExact); err == nil {
+		t.Fatal("private material field accepted")
+	}
+}
+
 func validEvidenceV11(t *testing.T) []byte {
 	t.Helper()
 	return phase5Document(t, map[string]any{

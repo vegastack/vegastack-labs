@@ -72,6 +72,11 @@
             "pattern": "^api\\.v1\\.[a-z0-9.-]+$",
             "type": "string"
           },
+          "maxRequestBytes": {
+            "maximum": 4096,
+            "minimum": 0,
+            "type": "integer"
+          },
           "method": {
             "enum": [
               "GET",
@@ -94,6 +99,12 @@
           "querySchema": {
             "type": "string"
           },
+          "requestEncoding": {
+            "enum": [
+              "json",
+              "binary"
+            ]
+          },
           "requestSchema": {
             "type": "string"
           },
@@ -101,6 +112,12 @@
             "enum": [
               "finite",
               "sse"
+            ]
+          },
+          "transportScope": {
+            "enum": [
+              "any",
+              "local"
             ]
           }
         },

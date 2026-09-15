@@ -33,6 +33,36 @@ func TestPhase5GateCredentialSchemas(t *testing.T) {
 	}
 }
 
+func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.T) {
+	versions := map[string]string{}
+	for _, schema := range Current().Schemas {
+		versions[schema.ID] = schema.Version
+	}
+	for _, id := range []string{credentialReferenceSchemaID, credentialResolutionRecordSchemaID, credentialReferenceRequestSchemaID} {
+		if versions[id] != "1.1.0" {
+			t.Errorf("credential schema %s version = %s", id, versions[id])
+		}
+	}
+	for _, id := range []string{backupJobSchemaID, auditCheckpointSchemaID, restoreBindingSchemaID} {
+		if versions[id] != "1.0.0" {
+			t.Errorf("unowned schema %s version = %s", id, versions[id])
+		}
+	}
+	found := false
+	for _, endpoint := range Current().Endpoints {
+		if endpoint.ID != "api.v1.credential-references.import-stream" {
+			continue
+		}
+		found = true
+		if endpoint.Method != "POST" || endpoint.RequestEncoding != "binary" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || endpoint.Availability != AvailabilityPlanned || len(endpoint.Audiences) != 1 || endpoint.Audiences[0] != AudienceOperator {
+			t.Fatalf("unsafe credential import descriptor: %#v", endpoint)
+		}
+	}
+	if !found {
+		t.Fatal("local binary import descriptor missing")
+	}
+}
+
 func TestPhase5RecoveryJobSchemas(t *testing.T) {
 	wanted := map[string]bool{
 		"vegastack-labs.dev/backup-policy":        false,
