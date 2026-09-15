@@ -324,7 +324,7 @@
       "ownerPhase": "5",
       "risk": "unassigned",
       "requestSchema": "vegastack-labs.dev/gate-evidence-request",
-      "dataSchema": "vegastack-labs.dev/gate-evidence"
+      "dataSchema": "vegastack-labs.dev/gate-evidence-submission"
     },
     {
       "path": [
@@ -335,7 +335,7 @@
       "availability": "planned",
       "ownerPhase": "5",
       "risk": "unassigned",
-      "dataSchema": "vegastack-labs.dev/gate-definition"
+      "dataSchema": "vegastack-labs.dev/gate-view"
     },
     {
       "path": [
@@ -2063,23 +2063,53 @@
     },
     {
       "id": "vegastack-labs.dev/gate-evaluation",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/gate-evaluation.schema.json"
     },
     {
       "id": "vegastack-labs.dev/gate-evidence",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/gate-evidence.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/gate-evidence-attachment",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-attachment.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-bundle",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-bundle.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-check",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-check.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-fact",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-fact.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/gate-evidence-request",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/gate-evidence-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/gate-evidence-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-submission.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/gate-list-data",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/gate-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-view",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-view.schema.json"
     },
     {
       "id": "vegastack-labs.dev/inventory-diff-counts",

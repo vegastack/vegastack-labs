@@ -17,13 +17,35 @@ func phase5Document(t *testing.T, value map[string]any) []byte {
 
 func phase5DigestFixture() string { return "sha256:" + strings.Repeat("a", 64) }
 
-func TestPhase5GateEvidenceRejectsFixturePromotionAndInvalidFreshness(t *testing.T) {
-	evidence := map[string]any{
-		"schema": SchemaIDGateEvidence, "schemaVersion": "1.0.0", "evidenceId": "evidence-a",
+func validEvidenceV11(t *testing.T) []byte {
+	t.Helper()
+	return phase5Document(t, map[string]any{
+		"schema": SchemaIDGateEvidence, "schemaVersion": "1.1.0", "evidenceId": "evidence-a",
 		"gateId": "gate-a", "subjectId": "subject-a", "definitionVersion": "1.0.0", "evaluatorVersion": "1.0.0",
-		"sourceKind": "fixture", "proofClass": "fixture", "artifactDigest": phase5DigestFixture(),
-		"observedAt": "2026-09-15T08:00:00Z", "expiresAt": "2026-09-15T09:00:00Z", "recoveryEpoch": 2, "status": "applied",
+		"releaseBuildId": "release-a", "toolVersion": "1.0.0", "profileId": "profile-a", "profileVersion": "1.0.0",
+		"policyId": "policy-a", "policyVersion": "1.0.0", "declarationId": "declaration-a", "declarationRevision": 1,
+		"stateRevision": 3, "sourceKind": "local", "proofClass": "live", "collectorId": "collector-a",
+		"humanId": "human-a", "artifactDigest": phase5DigestFixture(), "bundleDigest": phase5DigestFixture(),
+		"observedAt": "2026-09-15T08:00:00Z", "appliedAt": "2026-09-15T08:05:00Z", "expiresAt": "2026-09-15T09:00:00Z",
+		"recoveryEpoch": 2, "supersedesEvidenceId": nil, "revokesEvidenceId": nil, "status": "applied",
+	})
+}
+
+func TestEvidenceV11RequiresAppliedBindings(t *testing.T) {
+	raw := []byte(`{"schema":"vegastack-labs.dev/gate-evidence","schemaVersion":"1.1.0","evidenceId":"e-a","gateId":"g-a","subjectId":"s-a"}`)
+	if err := ValidateContractJSON(SchemaIDGateEvidence, raw, ContractExact); err == nil {
+		t.Fatal("missing applied version/revision/epoch bindings accepted")
 	}
+	if err := ValidateContractJSON(SchemaIDGateEvidence, validEvidenceV11(t), ContractExact); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPhase5GateEvidenceRejectsFixturePromotionAndInvalidFreshness(t *testing.T) {
+	evidence := map[string]any{}
+	if err := json.Unmarshal(validEvidenceV11(t), &evidence); err != nil { t.Fatal(err) }
+	evidence["sourceKind"] = "fixture"
+	evidence["proofClass"] = "fixture"
 	if err := ValidateContractJSON(SchemaIDGateEvidence, phase5Document(t, evidence), ContractExact); err != nil {
 		t.Fatal(err)
 	}
@@ -76,11 +98,13 @@ func TestPhase5RestoreBindingRejectsAmbiguousEpochAndController(t *testing.T) {
 
 func TestPhase5ClosedRequestAndCompatibleRead(t *testing.T) {
 	request := map[string]any{
-		"schema": SchemaIDGateEvidenceRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
+		"schema": SchemaIDGateEvidenceRequest, "schemaVersion": "1.1.0", "expectedStateRevision": 3,
 		"recoveryEpoch": 2, "targetDigest": phase5DigestFixture(), "idempotencyKey": "key-a",
 		"evidenceId": "evidence-a", "gateId": "gate-a", "subjectId": "subject-a",
 		"definitionVersion": "1.0.0", "evaluatorVersion": "1.0.0", "artifactDigest": phase5DigestFixture(),
 		"observedAt": "2026-09-15T08:00:00Z",
+		"bundle": map[string]any{"schema": SchemaIDGateEvidenceBundle, "schemaVersion": "1.1.0",
+			"facts": []any{}, "checks": []any{}, "attachments": []any{}, "collectorId": "collector-a", "observedAt": "2026-09-15T08:00:00Z"},
 	}
 	if err := ValidateContractJSON(SchemaIDGateEvidenceRequest, phase5Document(t, request), ContractExact); err != nil {
 		t.Fatal(err)
@@ -95,7 +119,7 @@ func TestPhase5ClosedRequestAndCompatibleRead(t *testing.T) {
 		t.Fatal("request without epoch accepted")
 	}
 	request["recoveryEpoch"] = 2
-	request["schemaVersion"] = "1.1.0"
+	request["schemaVersion"] = "1.2.0"
 	request["x-display"] = "safe"
 	if err := ValidateContractJSON(SchemaIDGateEvidenceRequest, phase5Document(t, request), ContractCompatibleRead); err != nil {
 		t.Fatal(err)

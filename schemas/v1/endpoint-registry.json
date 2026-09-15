@@ -204,7 +204,7 @@
       "availability": "planned",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/gate-evidence-request",
-      "dataSchema": "vegastack-labs.dev/gate-evidence",
+      "dataSchema": "vegastack-labs.dev/gate-evidence-submission",
       "stream": "finite",
       "audiences": [
         "operator"
@@ -230,7 +230,7 @@
       "path": "/api/v1/gates/{gateId}",
       "availability": "planned",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/gate-definition",
+      "dataSchema": "vegastack-labs.dev/gate-view",
       "stream": "finite",
       "audiences": [
         "browser",

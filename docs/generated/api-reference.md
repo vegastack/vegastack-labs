@@ -20,9 +20,9 @@ Contract schema: `1.16.0`
 | `api.v1.execution-receipts.create` | `POST` | `/api/v1/execution-receipts` | `available` | `executor` | `finite` | `vegastack-labs.dev/execution-receipt-request` | `vegastack-labs.dev/execution-receipt` |
 | `api.v1.executor-leases.claim` | `POST` | `/api/v1/executor-leases/claim` | `available` | `executor` | `finite` | `vegastack-labs.dev/executor-claim-request` | `vegastack-labs.dev/executor-lease` |
 | `api.v1.executor-leases.renew` | `POST` | `/api/v1/executor-leases/{leaseId}/renew` | `available` | `executor` | `finite` | `vegastack-labs.dev/executor-renew-request` | `vegastack-labs.dev/executor-lease` |
-| `api.v1.gate-evidence.create` | `POST` | `/api/v1/gates/{gateId}/evidence` | `planned` | `operator` | `finite` | `vegastack-labs.dev/gate-evidence-request` | `vegastack-labs.dev/gate-evidence` |
+| `api.v1.gate-evidence.create` | `POST` | `/api/v1/gates/{gateId}/evidence` | `planned` | `operator` | `finite` | `vegastack-labs.dev/gate-evidence-request` | `vegastack-labs.dev/gate-evidence-submission` |
 | `api.v1.gates.check` | `POST` | `/api/v1/gates/check` | `planned` | `browser, operator` | `finite` | `vegastack-labs.dev/gate-check-request` | `vegastack-labs.dev/gate-evaluation` |
-| `api.v1.gates.get` | `GET` | `/api/v1/gates/{gateId}` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/gate-definition` |
+| `api.v1.gates.get` | `GET` | `/api/v1/gates/{gateId}` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/gate-view` |
 | `api.v1.gates.list` | `GET` | `/api/v1/gates` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/gate-list-data` |
 | `api.v1.health.get` | `GET` | `/api/v1/health` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/server-status-data` |
 | `api.v1.inventory-diffs.create` | `POST` | `/api/v1/inventory-diffs` | `available` | `operator` | `finite` | `vegastack-labs.dev/inventory-diff-request` | `vegastack-labs.dev/inventory-diff-data` |

@@ -75,8 +75,14 @@ const (
 	SchemaIDGateDefinition                  = "vegastack-labs.dev/gate-definition"
 	SchemaIDGateEvaluation                  = "vegastack-labs.dev/gate-evaluation"
 	SchemaIDGateEvidence                    = "vegastack-labs.dev/gate-evidence"
+	SchemaIDGateEvidenceAttachment          = "vegastack-labs.dev/gate-evidence-attachment"
+	SchemaIDGateEvidenceBundle              = "vegastack-labs.dev/gate-evidence-bundle"
+	SchemaIDGateEvidenceCheck               = "vegastack-labs.dev/gate-evidence-check"
+	SchemaIDGateEvidenceFact                = "vegastack-labs.dev/gate-evidence-fact"
 	SchemaIDGateEvidenceRequest             = "vegastack-labs.dev/gate-evidence-request"
+	SchemaIDGateEvidenceSubmission          = "vegastack-labs.dev/gate-evidence-submission"
 	SchemaIDGateListData                    = "vegastack-labs.dev/gate-list-data"
+	SchemaIDGateView                        = "vegastack-labs.dev/gate-view"
 	SchemaIDInventoryDiffCounts             = "vegastack-labs.dev/inventory-diff-counts"
 	SchemaIDInventoryDiffData               = "vegastack-labs.dev/inventory-diff-data"
 	SchemaIDInventoryDiffRecord             = "vegastack-labs.dev/inventory-diff-record"
@@ -901,46 +907,117 @@ type GateEvaluation struct {
 	RecoveryEpoch     int64    `json:"recoveryEpoch"`
 	Outcome           string   `json:"outcome"`
 	ReasonCode        string   `json:"reasonCode"`
+	EvidenceSource    string   `json:"evidenceSource"`
+	ReadyForInput     bool     `json:"readyForInput"`
 }
 
 type GateEvidence struct {
-	Schema            string `json:"schema"`
-	SchemaVersion     string `json:"schemaVersion"`
-	EvidenceID        string `json:"evidenceId"`
-	GateID            string `json:"gateId"`
-	SubjectID         string `json:"subjectId"`
-	DefinitionVersion string `json:"definitionVersion"`
-	EvaluatorVersion  string `json:"evaluatorVersion"`
-	SourceKind        string `json:"sourceKind"`
-	ProofClass        string `json:"proofClass"`
-	ArtifactDigest    string `json:"artifactDigest"`
-	ObservedAt        string `json:"observedAt"`
-	ExpiresAt         string `json:"expiresAt"`
-	RecoveryEpoch     int64  `json:"recoveryEpoch"`
-	Status            string `json:"status"`
+	Schema               string  `json:"schema"`
+	SchemaVersion        string  `json:"schemaVersion"`
+	EvidenceID           string  `json:"evidenceId"`
+	GateID               string  `json:"gateId"`
+	SubjectID            string  `json:"subjectId"`
+	DefinitionVersion    string  `json:"definitionVersion"`
+	EvaluatorVersion     string  `json:"evaluatorVersion"`
+	ReleaseBuildID       string  `json:"releaseBuildId"`
+	ToolVersion          string  `json:"toolVersion"`
+	ProfileID            string  `json:"profileId"`
+	ProfileVersion       string  `json:"profileVersion"`
+	PolicyID             string  `json:"policyId"`
+	PolicyVersion        string  `json:"policyVersion"`
+	DeclarationID        string  `json:"declarationId"`
+	DeclarationRevision  int64   `json:"declarationRevision"`
+	StateRevision        int64   `json:"stateRevision"`
+	SourceKind           string  `json:"sourceKind"`
+	ProofClass           string  `json:"proofClass"`
+	CollectorID          string  `json:"collectorId"`
+	HumanID              string  `json:"humanId"`
+	ArtifactDigest       string  `json:"artifactDigest"`
+	BundleDigest         string  `json:"bundleDigest"`
+	ObservedAt           string  `json:"observedAt"`
+	AppliedAt            string  `json:"appliedAt"`
+	ExpiresAt            string  `json:"expiresAt"`
+	RecoveryEpoch        int64   `json:"recoveryEpoch"`
+	SupersedesEvidenceID *string `json:"supersedesEvidenceId"`
+	RevokesEvidenceID    *string `json:"revokesEvidenceId"`
+	Status               string  `json:"status"`
+}
+
+type GateEvidenceAttachment struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Digest        string `json:"digest"`
+	SizeBytes     int64  `json:"sizeBytes"`
+	MediaType     string `json:"mediaType"`
+}
+
+type GateEvidenceBundle struct {
+	Schema        string                   `json:"schema"`
+	SchemaVersion string                   `json:"schemaVersion"`
+	Facts         []GateEvidenceFact       `json:"facts"`
+	Checks        []GateEvidenceCheck      `json:"checks"`
+	Attachments   []GateEvidenceAttachment `json:"attachments"`
+	CollectorID   string                   `json:"collectorId"`
+	ObservedAt    string                   `json:"observedAt"`
+}
+
+type GateEvidenceCheck struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	CheckID         string `json:"checkId"`
+	VerifierVersion string `json:"verifierVersion"`
+	Result          string `json:"result"`
+	ResultDigest    string `json:"resultDigest"`
+}
+
+type GateEvidenceFact struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	FactID        string `json:"factId"`
+	ValueDigest   string `json:"valueDigest"`
 }
 
 type GateEvidenceRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	TargetDigest          string `json:"targetDigest"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	EvidenceID            string `json:"evidenceId"`
-	GateID                string `json:"gateId"`
-	SubjectID             string `json:"subjectId"`
-	DefinitionVersion     string `json:"definitionVersion"`
-	EvaluatorVersion      string `json:"evaluatorVersion"`
-	ArtifactDigest        string `json:"artifactDigest"`
-	ObservedAt            string `json:"observedAt"`
+	Schema                string             `json:"schema"`
+	SchemaVersion         string             `json:"schemaVersion"`
+	ExpectedStateRevision int64              `json:"expectedStateRevision"`
+	RecoveryEpoch         int64              `json:"recoveryEpoch"`
+	TargetDigest          string             `json:"targetDigest"`
+	IdempotencyKey        string             `json:"idempotencyKey"`
+	EvidenceID            string             `json:"evidenceId"`
+	GateID                string             `json:"gateId"`
+	SubjectID             string             `json:"subjectId"`
+	DefinitionVersion     string             `json:"definitionVersion"`
+	EvaluatorVersion      string             `json:"evaluatorVersion"`
+	ArtifactDigest        string             `json:"artifactDigest"`
+	ObservedAt            string             `json:"observedAt"`
+	Bundle                GateEvidenceBundle `json:"bundle"`
+}
+
+type GateEvidenceSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	DraftID       string `json:"draftId"`
+	ChangeID      string `json:"changeId"`
+	EvidenceID    string `json:"evidenceId"`
+	Status        string `json:"status"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
 type GateListData struct {
-	Schema        string           `json:"schema"`
-	SchemaVersion string           `json:"schemaVersion"`
-	Gates         []GateDefinition `json:"gates"`
-	RecoveryEpoch int64            `json:"recoveryEpoch"`
+	Schema        string     `json:"schema"`
+	SchemaVersion string     `json:"schemaVersion"`
+	Gates         []GateView `json:"gates"`
+	RecoveryEpoch int64      `json:"recoveryEpoch"`
+}
+
+type GateView struct {
+	Schema                  string         `json:"schema"`
+	SchemaVersion           string         `json:"schemaVersion"`
+	Definition              GateDefinition `json:"definition"`
+	Evaluation              GateEvaluation `json:"evaluation"`
+	ApplicabilityReasonCode string         `json:"applicabilityReasonCode"`
 }
 
 type InventoryDiffCounts struct {
@@ -1755,8 +1832,8 @@ var Commands = []Command{
 	{Path: []string{"device", "revoke"}, Summary: "Create an inert device-revocation change.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"doctor"}, Summary: "Diagnose one actionable platform invariant at a time.", Availability: "planned", OwnerPhase: "2", Risk: "unassigned"},
 	{Path: []string{"gate", "check"}, Summary: "Evaluate applicable gates without changing infrastructure.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/gate-check-request", DataSchema: "vegastack-labs.dev/gate-evaluation"},
-	{Path: []string{"gate", "evidence"}, Summary: "Validate evidence and create an inert evidence change.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/gate-evidence-request", DataSchema: "vegastack-labs.dev/gate-evidence"},
-	{Path: []string{"gate", "inspect"}, Summary: "Inspect one gate and its evidence requirements.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/gate-definition"},
+	{Path: []string{"gate", "evidence"}, Summary: "Validate evidence and create an inert evidence change.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/gate-evidence-request", DataSchema: "vegastack-labs.dev/gate-evidence-submission"},
+	{Path: []string{"gate", "inspect"}, Summary: "Inspect one gate and its evidence requirements.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/gate-view"},
 	{Path: []string{"gate", "list"}, Summary: "List applicable implementation gates.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/gate-list-data"},
 	{Path: []string{"help"}, Summary: "Show generated command help.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", Examples: []Example{{Summary: "Show all generated command help.", Arguments: []string{"help"}}}},
 	{Path: []string{"inventory", "diff"}, Summary: "Compare one inert draft or local candidate with a compatible inert draft.", Availability: "available", OwnerPhase: "2", Risk: "read-only", Flags: []Flag{{Name: "--captured-at", Kind: "value", ValueName: "timestamp", Required: false, Repeatable: false, Summary: "Record an RFC 3339 UTC capture time.", Enum: []string(nil)}, {Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--draft-id", Kind: "value", ValueName: "id", Required: false, Repeatable: false, Summary: "Select an existing inert draft.", Enum: []string(nil)}, {Name: "--draft-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Select the exact inert draft revision.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: false, Repeatable: false, Summary: "Read one protected local candidate file.", Enum: []string(nil)}, {Name: "--format", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select the explicit candidate format.", Enum: []string{"labs-sheet1-csv", "typed-json"}}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--source-revision", Kind: "value", ValueName: "revision", Required: false, Repeatable: false, Summary: "Record the source revision supplied by its owner.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/inventory-diff-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/inventory-diff-data", Examples: []Example{{Summary: "Compare one inert draft or local candidate with a compatible inert draft.", Arguments: []string{"inventory", "diff", "--config", "fixture/server-profile.json", "--draft-id", "draft-test", "--draft-revision", "1", "--output", "json"}}}},
@@ -1809,9 +1886,9 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.execution-receipts.create", Method: "POST", Path: "/api/v1/execution-receipts", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/execution-receipt-request", DataSchema: "vegastack-labs.dev/execution-receipt", Stream: "finite", Audiences: []string{"executor"}},
 	{ID: "api.v1.executor-leases.claim", Method: "POST", Path: "/api/v1/executor-leases/claim", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/executor-claim-request", DataSchema: "vegastack-labs.dev/executor-lease", Stream: "finite", Audiences: []string{"executor"}},
 	{ID: "api.v1.executor-leases.renew", Method: "POST", Path: "/api/v1/executor-leases/{leaseId}/renew", Availability: "available", OwnerPhase: "4", QuerySchema: "", RequestSchema: "vegastack-labs.dev/executor-renew-request", DataSchema: "vegastack-labs.dev/executor-lease", Stream: "finite", Audiences: []string{"executor"}},
-	{ID: "api.v1.gate-evidence.create", Method: "POST", Path: "/api/v1/gates/{gateId}/evidence", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/gate-evidence-request", DataSchema: "vegastack-labs.dev/gate-evidence", Stream: "finite", Audiences: []string{"operator"}},
+	{ID: "api.v1.gate-evidence.create", Method: "POST", Path: "/api/v1/gates/{gateId}/evidence", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/gate-evidence-request", DataSchema: "vegastack-labs.dev/gate-evidence-submission", Stream: "finite", Audiences: []string{"operator"}},
 	{ID: "api.v1.gates.check", Method: "POST", Path: "/api/v1/gates/check", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/gate-check-request", DataSchema: "vegastack-labs.dev/gate-evaluation", Stream: "finite", Audiences: []string{"browser", "operator"}},
-	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-definition", Stream: "finite", Audiences: []string{"browser", "operator"}},
+	{ID: "api.v1.gates.get", Method: "GET", Path: "/api/v1/gates/{gateId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-view", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.gates.list", Method: "GET", Path: "/api/v1/gates", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/gate-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.health.get", Method: "GET", Path: "/api/v1/health", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/server-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}},
 	{ID: "api.v1.inventory-diffs.create", Method: "POST", Path: "/api/v1/inventory-diffs", Availability: "available", OwnerPhase: "2", QuerySchema: "", RequestSchema: "vegastack-labs.dev/inventory-diff-request", DataSchema: "vegastack-labs.dev/inventory-diff-data", Stream: "finite", Audiences: []string{"operator"}},

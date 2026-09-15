@@ -48,6 +48,15 @@
       "type": "array",
       "uniqueItems": true
     },
+    "evidenceSource": {
+      "enum": [
+        "none",
+        "fixture",
+        "local",
+        "independent"
+      ],
+      "type": "string"
+    },
     "gateId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
@@ -61,6 +70,9 @@
         "unknown"
       ],
       "type": "string"
+    },
+    "readyForInput": {
+      "type": "boolean"
     },
     "reasonCode": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
@@ -78,7 +90,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
     },
@@ -99,7 +111,9 @@
     "evaluatedAt",
     "recoveryEpoch",
     "outcome",
-    "reasonCode"
+    "reasonCode",
+    "evidenceSource",
+    "readyForInput"
   ],
   "title": "VegaStack Labs gate evaluation",
   "type": "object",

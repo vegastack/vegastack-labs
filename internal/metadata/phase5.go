@@ -16,6 +16,12 @@ const (
 	scheduledJobSchemaID               = "vegastack-labs.dev/scheduled-job"
 	gateCheckRequestSchemaID           = "vegastack-labs.dev/gate-check-request"
 	gateEvidenceRequestSchemaID        = "vegastack-labs.dev/gate-evidence-request"
+	gateEvidenceFactSchemaID           = "vegastack-labs.dev/gate-evidence-fact"
+	gateEvidenceCheckSchemaID          = "vegastack-labs.dev/gate-evidence-check"
+	gateEvidenceAttachmentSchemaID     = "vegastack-labs.dev/gate-evidence-attachment"
+	gateEvidenceBundleSchemaID         = "vegastack-labs.dev/gate-evidence-bundle"
+	gateEvidenceSubmissionSchemaID     = "vegastack-labs.dev/gate-evidence-submission"
+	gateViewSchemaID                   = "vegastack-labs.dev/gate-view"
 	backupRunRequestSchemaID           = "vegastack-labs.dev/backup-run-request"
 	backupVerifyRequestSchemaID        = "vegastack-labs.dev/backup-verify-request"
 	restoreRequestSchemaID             = "vegastack-labs.dev/restore-request"
@@ -43,6 +49,15 @@ func phase5Contract(identifier string, fields ...FieldDefinition) []FieldDefinit
 
 func phase5Schema(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	return SchemaDefinition{ID: identifier, Version: "1.0.0", ArtifactPath: schemaPath(identifier), Fields: phase5Contract(identifier, fields...)}
+}
+
+// Gate evidence is a scoped additive revision. Other Phase 5 contracts retain
+// their own 1.0.0 sources until their owning issues version them.
+func phase5GateSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
 }
 
 func phase5ID(name, goName string) FieldDefinition {
@@ -118,23 +133,38 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 			phase5Positive("freshnessSeconds", "FreshnessSeconds"),
 			phase5Bool("recoveryEpochBound", "RecoveryEpochBound"),
 		),
-		phase5Schema(gateEvidenceSchemaID,
+		phase5GateSchema(gateEvidenceSchemaID,
 			phase5ID("evidenceId", "EvidenceID"), phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
+			phase5ID("releaseBuildId", "ReleaseBuildID"), phase5Version("toolVersion", "ToolVersion"),
+			phase5ID("profileId", "ProfileID"), phase5Version("profileVersion", "ProfileVersion"),
+			phase5ID("policyId", "PolicyID"), phase5Version("policyVersion", "PolicyVersion"),
+			phase5ID("declarationId", "DeclarationID"), phase5Positive("declarationRevision", "DeclarationRevision"),
+			phase5Nonnegative("stateRevision", "StateRevision"),
 			phase5Enum("sourceKind", "SourceKind", "fixture", "local", "independent"),
 			phase5Enum("proofClass", "ProofClass", "fixture", "live"),
-			phase5Digest("artifactDigest", "ArtifactDigest"),
-			phase5Timestamp("observedAt", "ObservedAt"), phase5Timestamp("expiresAt", "ExpiresAt"),
+			phase5ID("collectorId", "CollectorID"), phase5ID("humanId", "HumanID"),
+			phase5Digest("artifactDigest", "ArtifactDigest"), phase5Digest("bundleDigest", "BundleDigest"),
+			phase5Timestamp("observedAt", "ObservedAt"), phase5Timestamp("appliedAt", "AppliedAt"), phase5Timestamp("expiresAt", "ExpiresAt"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
-			phase5Enum("status", "Status", "draft", "applied", "revoked"),
+			phase5NullableID("supersedesEvidenceId", "SupersedesEvidenceID"),
+			phase5NullableID("revokesEvidenceId", "RevokesEvidenceID"),
+			phase5Enum("status", "Status", "applied", "revoked"),
 		),
-		phase5Schema(gateEvaluationSchemaID,
+		phase5GateSchema(gateEvaluationSchemaID,
 			phase5ID("evaluationId", "EvaluationID"), phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
 			phase5IDs("evidenceIds", "EvidenceIDs", 64), phase5Timestamp("evaluatedAt", "EvaluatedAt"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5Enum("outcome", "Outcome", "passed", "blocked", "not-applicable", "stale", "unknown"),
 			phase5ID("reasonCode", "ReasonCode"),
+			phase5Enum("evidenceSource", "EvidenceSource", "none", "fixture", "local", "independent"),
+			phase5Bool("readyForInput", "ReadyForInput"),
+		),
+		phase5GateSchema(gateViewSchemaID,
+			FieldDefinition{JSONName: "definition", GoName: "Definition", Kind: ValueObject, Required: true, Ref: gateDefinitionSchemaID},
+			FieldDefinition{JSONName: "evaluation", GoName: "Evaluation", Kind: ValueObject, Required: true, Ref: gateEvaluationSchemaID},
+			phase5ID("applicabilityReasonCode", "ApplicabilityReasonCode"),
 		),
 		phase5Schema(credentialReferenceSchemaID,
 			phase5ID("referenceId", "ReferenceID"), phase5ID("consumerId", "ConsumerID"), phase5ID("purposeId", "PurposeID"),
@@ -237,14 +267,37 @@ func phase5Request(identifier string, fields ...FieldDefinition) SchemaDefinitio
 
 func phase5RequestSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		phase5GateSchema(gateEvidenceFactSchemaID,
+			phase5ID("factId", "FactID"), phase5Digest("valueDigest", "ValueDigest"),
+		),
+		phase5GateSchema(gateEvidenceCheckSchemaID,
+			phase5ID("checkId", "CheckID"), phase5Version("verifierVersion", "VerifierVersion"),
+			phase5Enum("result", "Result", "passed", "failed", "unknown"), phase5Digest("resultDigest", "ResultDigest"),
+		),
+		phase5GateSchema(gateEvidenceAttachmentSchemaID,
+			phase5Digest("digest", "Digest"), phase5Positive("sizeBytes", "SizeBytes"),
+			FieldDefinition{JSONName: "mediaType", GoName: "MediaType", Kind: ValueString, Required: true, MaxLength: intPointer(128)},
+		),
+		phase5GateSchema(gateEvidenceBundleSchemaID,
+			FieldDefinition{JSONName: "facts", GoName: "Facts", Kind: ValueArray, Required: true, ItemRef: gateEvidenceFactSchemaID, MaxItems: intPointer(64)},
+			FieldDefinition{JSONName: "checks", GoName: "Checks", Kind: ValueArray, Required: true, ItemRef: gateEvidenceCheckSchemaID, MaxItems: intPointer(64)},
+			FieldDefinition{JSONName: "attachments", GoName: "Attachments", Kind: ValueArray, Required: true, ItemRef: gateEvidenceAttachmentSchemaID, MaxItems: intPointer(16)},
+			phase5ID("collectorId", "CollectorID"), phase5Timestamp("observedAt", "ObservedAt"),
+		),
+		phase5GateSchema(gateEvidenceSubmissionSchemaID,
+			phase5ID("draftId", "DraftID"), phase5ID("changeId", "ChangeID"), phase5ID("evidenceId", "EvidenceID"),
+			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5Request(gateCheckRequestSchemaID,
 			phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"),
 		),
-		phase5Request(gateEvidenceRequestSchemaID,
+		phase5GateRequest(gateEvidenceRequestSchemaID,
 			phase5ID("evidenceId", "EvidenceID"), phase5ID("gateId", "GateID"), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
 			phase5Digest("artifactDigest", "ArtifactDigest"), phase5Timestamp("observedAt", "ObservedAt"),
+			FieldDefinition{JSONName: "bundle", GoName: "Bundle", Kind: ValueObject, Required: true, Ref: gateEvidenceBundleSchemaID},
 		),
 		phase5Request(backupRunRequestSchemaID,
 			phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
@@ -287,8 +340,8 @@ func phase5RequestSchemas() []SchemaDefinition {
 		phase5Request(databaseExportRequestSchemaID,
 			phase5ID("exportId", "ExportID"), phase5Enum("kind", "Kind", "sanitized-control", "sanitized-audit"),
 		),
-		phase5Schema(gateListDataSchemaID,
-			FieldDefinition{JSONName: "gates", GoName: "Gates", Kind: ValueArray, Required: true, ItemRef: gateDefinitionSchemaID, MaxItems: intPointer(256)},
+		phase5GateSchema(gateListDataSchemaID,
+			FieldDefinition{JSONName: "gates", GoName: "Gates", Kind: ValueArray, Required: true, ItemRef: gateViewSchemaID, MaxItems: intPointer(256)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(backupStatusDataSchemaID,
@@ -326,12 +379,19 @@ func phase5Endpoint(identifier, method, path, request, data string, browser bool
 	}
 }
 
+func phase5GateRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
 func phase5Endpoints() []EndpointDefinition {
 	return []EndpointDefinition{
 		phase5Endpoint("api.v1.gates.list", "GET", "/api/v1/gates", "", gateListDataSchemaID, true),
-		phase5Endpoint("api.v1.gates.get", "GET", "/api/v1/gates/{gateId}", "", gateDefinitionSchemaID, true),
+		phase5Endpoint("api.v1.gates.get", "GET", "/api/v1/gates/{gateId}", "", gateViewSchemaID, true),
 		phase5Endpoint("api.v1.gates.check", "POST", "/api/v1/gates/check", gateCheckRequestSchemaID, gateEvaluationSchemaID, true),
-		phase5Endpoint("api.v1.gate-evidence.create", "POST", "/api/v1/gates/{gateId}/evidence", gateEvidenceRequestSchemaID, gateEvidenceSchemaID, false),
+		phase5Endpoint("api.v1.gate-evidence.create", "POST", "/api/v1/gates/{gateId}/evidence", gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID, false),
 		phase5Endpoint("api.v1.credential-references.get", "GET", "/api/v1/credential-references/{referenceId}", "", credentialReferenceSchemaID, false),
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
 		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
@@ -356,11 +416,11 @@ func phase5CommandSchemas(path string) (request string, data string) {
 	case "gate list":
 		return "", gateListDataSchemaID
 	case "gate inspect":
-		return "", gateDefinitionSchemaID
+		return "", gateViewSchemaID
 	case "gate check":
 		return gateCheckRequestSchemaID, gateEvaluationSchemaID
 	case "gate evidence":
-		return gateEvidenceRequestSchemaID, gateEvidenceSchemaID
+		return gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID
 	case "backup status":
 		return "", backupStatusDataSchemaID
 	case "backup run", "database backup":

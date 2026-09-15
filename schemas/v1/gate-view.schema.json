@@ -205,61 +205,25 @@
         "readyForInput"
       ],
       "type": "object"
-    },
-    "gate-view": {
-      "additionalProperties": false,
-      "properties": {
-        "applicabilityReasonCode": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": "string"
-        },
-        "definition": {
-          "$ref": "#/$defs/gate-definition"
-        },
-        "evaluation": {
-          "$ref": "#/$defs/gate-evaluation"
-        },
-        "schema": {
-          "enum": [
-            "vegastack-labs.dev/gate-view"
-          ],
-          "type": "string"
-        },
-        "schemaVersion": {
-          "enum": [
-            "1.1.0"
-          ],
-          "type": "string"
-        }
-      },
-      "required": [
-        "schema",
-        "schemaVersion",
-        "definition",
-        "evaluation",
-        "applicabilityReasonCode"
-      ],
-      "type": "object"
     }
   },
-  "$id": "vegastack-labs.dev/gate-list-data",
+  "$id": "vegastack-labs.dev/gate-view",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "gates": {
-      "items": {
-        "$ref": "#/$defs/gate-view"
-      },
-      "maxItems": 256,
-      "type": "array"
+    "applicabilityReasonCode": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
     },
-    "recoveryEpoch": {
-      "minimum": 0,
-      "type": "integer"
+    "definition": {
+      "$ref": "#/$defs/gate-definition"
+    },
+    "evaluation": {
+      "$ref": "#/$defs/gate-evaluation"
     },
     "schema": {
       "enum": [
-        "vegastack-labs.dev/gate-list-data"
+        "vegastack-labs.dev/gate-view"
       ],
       "type": "string"
     },
@@ -273,10 +237,11 @@
   "required": [
     "schema",
     "schemaVersion",
-    "gates",
-    "recoveryEpoch"
+    "definition",
+    "evaluation",
+    "applicabilityReasonCode"
   ],
-  "title": "VegaStack Labs gate list data",
+  "title": "VegaStack Labs gate view",
   "type": "object",
   "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
 }
