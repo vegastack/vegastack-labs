@@ -28,17 +28,27 @@ func TestMissingAppliedScopeDoesNotSynthesizeProfile(t *testing.T) {
 }
 
 func TestGeneratedGateDefinitionsValidateAndDeferOutOfScopeWork(t *testing.T) {
-	if len(generated.GeneratedGateDefinitions) != 24 { t.Fatalf("definitions = %d", len(generated.GeneratedGateDefinitions)) }
+	if len(generated.GeneratedGateDefinitions) != 24 {
+		t.Fatalf("definitions = %d", len(generated.GeneratedGateDefinitions))
+	}
 	for _, definition := range generated.GeneratedGateDefinitions {
 		raw, err := json.Marshal(definition)
-		if err != nil { t.Fatal(err) }
+		if err != nil {
+			t.Fatal(err)
+		}
 		if err := generated.ValidateContractJSON(generated.SchemaIDGateDefinition, raw, generated.ContractExact); err != nil {
 			t.Fatalf("%s: %v", definition.GateID, err)
 		}
 	}
 	labs := ResolvedScope{ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "policy-a", PolicyVersion: "1.0.0"}
-	if HasApplicable(ResolveDefinitions(labs, "service"), "G-023") { t.Fatal("deferred Chaabi Prod became v1 gate") }
-	if HasApplicable(ResolveDefinitions(labs, "service"), "G-022") { t.Fatal("conditional service gate enabled without capability") }
+	if HasApplicable(ResolveDefinitions(labs, "service"), "G-023") {
+		t.Fatal("deferred Chaabi Prod became v1 gate")
+	}
+	if HasApplicable(ResolveDefinitions(labs, "service"), "G-022") {
+		t.Fatal("conditional service gate enabled without capability")
+	}
 	labs.Capabilities = []string{"service-admission"}
-	if !HasApplicable(ResolveDefinitions(labs, "service"), "G-022") { t.Fatal("enabled service gate missing") }
+	if !HasApplicable(ResolveDefinitions(labs, "service"), "G-022") {
+		t.Fatal("enabled service gate missing")
+	}
 }

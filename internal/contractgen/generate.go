@@ -172,7 +172,9 @@ func normalizedRegistry(registry metadata.Registry) metadata.Registry {
 		registry.GateDefinitions[index].SubjectKinds = append([]string(nil), registry.GateDefinitions[index].SubjectKinds...)
 		registry.GateDefinitions[index].PrerequisiteGateIDs = append([]string(nil), registry.GateDefinitions[index].PrerequisiteGateIDs...)
 	}
-	sort.Slice(registry.GateDefinitions, func(left, right int) bool { return registry.GateDefinitions[left].GateID < registry.GateDefinitions[right].GateID })
+	sort.Slice(registry.GateDefinitions, func(left, right int) bool {
+		return registry.GateDefinitions[left].GateID < registry.GateDefinitions[right].GateID
+	})
 	registry.Endpoints = append([]metadata.EndpointDefinition(nil), registry.Endpoints...)
 	for index := range registry.Endpoints {
 		registry.Endpoints[index].Audiences = append([]metadata.EndpointAudience(nil), registry.Endpoints[index].Audiences...)
@@ -625,19 +627,27 @@ func renderGoGateDefinitions(definitions []metadata.GateDefinitionSource) ([]byt
 	output.WriteString("var GeneratedGateDefinitions = []GateDefinition{\n")
 	stringSlice := func(values []string) string {
 		parts := make([]string, len(values))
-		for index, value := range values { parts[index] = strconv.Quote(value) }
+		for index, value := range values {
+			parts[index] = strconv.Quote(value)
+		}
 		return "[]string{" + strings.Join(parts, ",") + "}"
 	}
 	for _, definition := range definitions {
 		profile, capability := "nil", "nil"
-		if definition.ProfileID != "" { profile = "gateDefinitionPointer(" + strconv.Quote(definition.ProfileID) + ")" }
-		if definition.CapabilityID != "" { capability = "gateDefinitionPointer(" + strconv.Quote(definition.CapabilityID) + ")" }
+		if definition.ProfileID != "" {
+			profile = "gateDefinitionPointer(" + strconv.Quote(definition.ProfileID) + ")"
+		}
+		if definition.CapabilityID != "" {
+			capability = "gateDefinitionPointer(" + strconv.Quote(definition.CapabilityID) + ")"
+		}
 		fmt.Fprintf(&output, "{Schema: SchemaIDGateDefinition, SchemaVersion: %q, GateID: %q, DefinitionVersion: %q, Layer: %q, ProfileID: %s, CapabilityID: %s, SubjectKinds: %s, Applicability: %q, PrerequisiteGateIDs: %s, EvidenceSchemaID: %q, EvaluatorVersion: %q, FreshnessSeconds: %d, RecoveryEpochBound: %t},\n",
 			"1.1.0", definition.GateID, definition.DefinitionVersion, definition.Layer, profile, capability, stringSlice(definition.SubjectKinds), definition.Applicability, stringSlice(definition.PrerequisiteGateIDs), definition.EvidenceSchemaID, definition.EvaluatorVersion, definition.FreshnessSeconds, definition.RecoveryEpochBound)
 	}
 	output.WriteString("}\n")
 	formatted, err := format.Source(output.Bytes())
-	if err != nil { return nil, artifactError("GENERATED_GO_INVALID", "internal/generated/gate_definitions_gen.go") }
+	if err != nil {
+		return nil, artifactError("GENERATED_GO_INVALID", "internal/generated/gate_definitions_gen.go")
+	}
 	return formatted, nil
 }
 

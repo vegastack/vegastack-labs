@@ -47,7 +47,7 @@
       { "file": "0004_read_authorization.sql", "sha256": "d6a7820902d336726fd2fb6aa7295d9aa29695f0a010628c3edca1f56f40fc3c" }
     ],
     "reviewedWaves": [
-      { "id": "phase5-issue104-v1", "issue": 104, "commands": ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/gate"], "mutationBoundaryDigest": "sha256:3e9dc7806b992f1d3273a25b3a9c39bb0fe4af0355b78be91146b6e003d9671d" }
+      { "id": "phase5-issue104-v1", "issue": 104, "commands": ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/gate"], "mutationBoundaryDigest": "sha256:09e34a63f4896a7701318ae6843828f9affb4af789bddafb4aaf1386d17ada36" }
     ]
   },
   "children": [

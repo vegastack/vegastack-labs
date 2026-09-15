@@ -7,10 +7,10 @@ import "fmt"
 // profile ID denotes an always-applicable portable safety definition.
 type GateDefinitionSource struct {
 	GateID, DefinitionVersion, Layer, ProfileID, CapabilityID, Applicability string
-	SubjectKinds, PrerequisiteGateIDs []string
-	EvidenceSchemaID, EvaluatorVersion string
-	FreshnessSeconds int64
-	RecoveryEpochBound bool
+	SubjectKinds, PrerequisiteGateIDs                                        []string
+	EvidenceSchemaID, EvaluatorVersion                                       string
+	FreshnessSeconds                                                         int64
+	RecoveryEpochBound                                                       bool
 }
 
 func CurrentGateDefinitions() []GateDefinitionSource {

@@ -10,16 +10,16 @@ import (
 
 type Definition struct {
 	ID, Version, Layer, ProfileID, CapabilityID, Applicability string
-	SubjectKinds, PrerequisiteIDs []string
-	EvidenceSchemaID, EvaluatorVersion string
-	FreshnessSeconds int64
-	RecoveryEpochBound bool
+	SubjectKinds, PrerequisiteIDs                              []string
+	EvidenceSchemaID, EvaluatorVersion                         string
+	FreshnessSeconds                                           int64
+	RecoveryEpochBound                                         bool
 }
 
 type ResolvedScope struct {
 	ProfileID, ProfileVersion, PolicyID, PolicyVersion string
-	Capabilities []string
-	StateRevision, RecoveryEpoch int64
+	Capabilities                                       []string
+	StateRevision, RecoveryEpoch                       int64
 }
 
 type ApplicableDefinition struct {
@@ -34,16 +34,22 @@ func ResolveDefinitions(scope ResolvedScope, subjectKind string) []ApplicableDef
 	}
 	definitions := make([]ApplicableDefinition, 0, len(generated.GeneratedGateDefinitions))
 	for _, source := range generated.GeneratedGateDefinitions {
-		if !slices.Contains(source.SubjectKinds, subjectKind) { continue }
+		if !slices.Contains(source.SubjectKinds, subjectKind) {
+			continue
+		}
 		definition := Definition{
 			ID: source.GateID, Version: source.DefinitionVersion, Layer: source.Layer,
 			Applicability: source.Applicability, SubjectKinds: append([]string(nil), source.SubjectKinds...),
-			PrerequisiteIDs: append([]string(nil), source.PrerequisiteGateIDs...),
+			PrerequisiteIDs:  append([]string(nil), source.PrerequisiteGateIDs...),
 			EvidenceSchemaID: source.EvidenceSchemaID, EvaluatorVersion: source.EvaluatorVersion,
 			FreshnessSeconds: source.FreshnessSeconds, RecoveryEpochBound: source.RecoveryEpochBound,
 		}
-		if source.ProfileID != nil { definition.ProfileID = *source.ProfileID }
-		if source.CapabilityID != nil { definition.CapabilityID = *source.CapabilityID }
+		if source.ProfileID != nil {
+			definition.ProfileID = *source.ProfileID
+		}
+		if source.CapabilityID != nil {
+			definition.CapabilityID = *source.CapabilityID
+		}
 		item := ApplicableDefinition{Definition: definition, Applicable: true, ReasonCode: "applicable"}
 		switch {
 		case source.Applicability == "deferred":
@@ -60,7 +66,9 @@ func ResolveDefinitions(scope ResolvedScope, subjectKind string) []ApplicableDef
 
 func HasApplicable(items []ApplicableDefinition, gateID string) bool {
 	for _, item := range items {
-		if item.Definition.ID == gateID { return item.Applicable }
+		if item.Definition.ID == gateID {
+			return item.Applicable
+		}
 	}
 	return false
 }
