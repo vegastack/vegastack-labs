@@ -5,6 +5,7 @@ package api
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -21,13 +22,14 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
-func gateAPIFixture(t *testing.T) (*Application, *store.GateRepository, *store.PlanRepository) {
+func gateAPIFixture(t *testing.T) (*Application, *store.GateRepository, *store.PlanRepository, string) {
 	t.Helper()
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0700); err != nil {
 		t.Fatal(err)
 	}
-	authority, err := store.Open(context.Background(), store.Config{DatabasePath: filepath.Join(directory, "control.db"), Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "0.0.0-test", BuildVersion: "build-test"})
+	databasePath := filepath.Join(directory, "control.db")
+	authority, err := store.Open(context.Background(), store.Config{DatabasePath: databasePath, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "0.0.0-test", BuildVersion: "build-test"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,7 +54,7 @@ func gateAPIFixture(t *testing.T) (*Application, *store.GateRepository, *store.P
 	if err := RegisterGateOperations(app, GateOperations{Gates: gates, Revisions: revisions, Declarations: declarations, Results: factory, Build: result.BuildInfo{ToolVersion: "0.0.0-test", ReleaseBuildID: "build-test"}, Clock: func() time.Time { return time.Date(2026, 9, 15, 8, 0, 0, 0, time.UTC) }}); err != nil {
 		t.Fatal(err)
 	}
-	return app, gates, revisions
+	return app, gates, revisions, databasePath
 }
 
 func serveGateRequest(t *testing.T, app *Application, method, path string, input any) *httptest.ResponseRecorder {
@@ -76,7 +78,7 @@ func serveGateRequest(t *testing.T, app *Application, method, path string, input
 }
 
 func TestGateProfileDraftAPIIsInertRevisionBoundAndHasNoSetter(t *testing.T) {
-	app, gates, revisions := gateAPIFixture(t)
+	app, gates, revisions, _ := gateAPIFixture(t)
 	scope := store.GateAppliedProfile{ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "policy-a", PolicyVersion: "1.0.0", Capabilities: []string{}}
 	digest, err := store.ProfileScopeDigest(scope)
 	if err != nil {
@@ -123,8 +125,40 @@ func TestGateProfileDraftAPIIsInertRevisionBoundAndHasNoSetter(t *testing.T) {
 	}
 }
 
+func TestGateReadDoesNotTreatAnUnboundSubjectAsLiveProof(t *testing.T) {
+	app, _, _, databasePath := gateAPIFixture(t)
+	profile := store.GateAppliedProfile{ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "policy-a", PolicyVersion: "1.0.0", Capabilities: []string{}}
+	profileDigest, err := store.ProfileScopeDigest(profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := generated.GateProfileDraftRequest{Schema: generated.SchemaIDGateProfileDraftRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 0, RecoveryEpoch: 0, TargetDigest: profileDigest, IdempotencyKey: "key-profile-test", BindingID: "binding-test", ProfileID: profile.ProfileID, ProfileVersion: profile.ProfileVersion, PolicyID: profile.PolicyID, PolicyVersion: profile.PolicyVersion, Capabilities: []string{}}
+	if response := serveGateRequest(t, app, http.MethodPost, "/api/v1/gates/profile-drafts", request); response.Code != http.StatusOK {
+		t.Fatalf("draft fixture=%d %s", response.Code, response.Body.String())
+	}
+	// Test-only applied fixture: production can create this row solely via an
+	// exact human-approved Phase 4 gate.profile.bind run. No API setter exists.
+	database, err := sql.Open("sqlite3", "file:"+databasePath+"?mode=rw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	_, err = database.Exec(`INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES(?,?,?,?,?,X'5B5D',2,0,'gate-profile-binding-test',1,'plan-test',?,'run-test','step-test','lease-test','human-a','2026-09-15T08:00:00Z')`, profile.ProfileID, profile.ProfileID, profile.ProfileVersion, profile.PolicyID, profile.PolicyVersion, "sha256:"+strings.Repeat("a", 64))
+	if err != nil {
+		t.Fatal(err)
+	}
+	applicable := serveGateRequest(t, app, http.MethodGet, "/api/v1/gates/platform-safety", nil)
+	if applicable.Code != http.StatusOK || !strings.Contains(applicable.Body.String(), `"evidence-missing"`) || strings.Contains(applicable.Body.String(), `"outcome":"passed"`) {
+		t.Fatalf("unbound subject was not blocked: %d %s", applicable.Code, applicable.Body.String())
+	}
+	inapplicable := serveGateRequest(t, app, http.MethodGet, "/api/v1/gates/G-023", nil)
+	if inapplicable.Code != http.StatusOK || !strings.Contains(inapplicable.Body.String(), `"outcome":"not-applicable"`) {
+		t.Fatalf("deferred gate: %d %s", inapplicable.Code, inapplicable.Body.String())
+	}
+}
+
 func TestGateEvidenceAPIOnlyAuthorsFixtureDraftAndRejectsPrivateAttachments(t *testing.T) {
-	app, gates, revisions := gateAPIFixture(t)
+	app, gates, revisions, _ := gateAPIFixture(t)
 	digest := "sha256:" + strings.Repeat("a", 64)
 	bundle := generated.GateEvidenceBundle{Schema: generated.SchemaIDGateEvidenceBundle, SchemaVersion: "1.1.0", Facts: []generated.GateEvidenceFact{}, Checks: []generated.GateEvidenceCheck{}, Attachments: []generated.GateEvidenceAttachment{}, CollectorID: "collector-a", ObservedAt: "2026-09-15T08:00:00Z"}
 	request := generated.GateEvidenceRequest{Schema: generated.SchemaIDGateEvidenceRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 0, RecoveryEpoch: 0, TargetDigest: digest, IdempotencyKey: "key-evidence-a", EvidenceID: "evidence-a", GateID: "G-008", SubjectID: "site-a", DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ArtifactDigest: digest, ObservedAt: bundle.ObservedAt, Bundle: bundle}

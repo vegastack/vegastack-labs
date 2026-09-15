@@ -65,3 +65,27 @@ func TestUnknownGateProjectionFailsClosedWithoutAppliedScope(t *testing.T) {
 		t.Fatalf("unsafe projection: %#v", evaluation)
 	}
 }
+
+func TestUnboundGateProjectionKeepsSafeBlockersButNeverPasses(t *testing.T) {
+	for _, caseItem := range []struct {
+		name, sourceOutcome, sourceReason, expectedOutcome, expectedReason string
+	}{
+		{"fixture", "blocked", "evidence-fixture-or-legacy", "blocked", "evidence-fixture-or-legacy"},
+		{"expired", "blocked", "evidence-expired", "blocked", "evidence-expired"},
+		{"missing", "blocked", "evidence-missing", "blocked", "evidence-missing"},
+		{"unbound revision", "blocked", "evidence-wrong-revision", "unknown", "subject-binding-unavailable"},
+		{"unexpected pass", "passed", "proof-verified", "unknown", "subject-binding-unavailable"},
+	} {
+		t.Run(caseItem.name, func(t *testing.T) {
+			current := generated.GateEvaluation{Outcome: caseItem.sourceOutcome, ReasonCode: caseItem.sourceReason, ReadyForInput: true}
+			got := gateUnboundProjection(current, true, "applicable")
+			if got.Outcome != caseItem.expectedOutcome || got.ReasonCode != caseItem.expectedReason || got.Outcome == "passed" {
+				t.Fatalf("unbound result: %+v", got)
+			}
+		})
+	}
+	deferred := gateUnboundProjection(generated.GateEvaluation{Outcome: "not-applicable", ReasonCode: "deferred"}, false, "deferred")
+	if deferred.Outcome != "not-applicable" || deferred.ReasonCode != "deferred" {
+		t.Fatalf("deferred result: %+v", deferred)
+	}
+}

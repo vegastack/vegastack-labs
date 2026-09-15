@@ -80,6 +80,20 @@ func gateUnknown(def generated.GateDefinition, subjectID, reason string, at time
 	return generated.GateEvaluation{Schema: generated.SchemaIDGateEvaluation, SchemaVersion: "1.1.0", EvaluationID: "eval-" + hex.EncodeToString(sum[:12]), GateID: def.GateID, SubjectID: subjectID, DefinitionVersion: def.DefinitionVersion, EvaluatorVersion: def.EvaluatorVersion, EvidenceIDs: []string{}, EvaluatedAt: at.UTC().Truncate(time.Second).Format(time.RFC3339), RecoveryEpoch: epoch, Outcome: "unknown", ReasonCode: reason, EvidenceSource: "none", ReadyForInput: false}
 }
 
+func gateUnboundProjection(evaluation generated.GateEvaluation, applicable bool, applicabilityReason string) generated.GateEvaluation {
+	if !applicable {
+		evaluation.Outcome, evaluation.ReasonCode, evaluation.ReadyForInput = "not-applicable", applicabilityReason, false
+		return evaluation
+	}
+	// A concrete fixture, expiry, replacement or missing-proof blocker is
+	// informative and safe to show. A positive result or a revision failure
+	// that may merely reflect the absent declaration/artifact binding is not.
+	if evaluation.Outcome == "passed" || evaluation.ReasonCode == "evidence-wrong-revision" {
+		evaluation.Outcome, evaluation.ReasonCode, evaluation.ReadyForInput = "unknown", "subject-binding-unavailable", false
+	}
+	return evaluation
+}
+
 func gateResult(ctx context.Context, config GateOperations, def generated.GateDefinition, subjectID string, token store.RevisionToken) (generated.GateView, error) {
 	at := config.Clock().UTC().Truncate(time.Second)
 	scope, found, err := gateScope(ctx, config)
@@ -97,16 +111,23 @@ func gateResult(ctx context.Context, config GateOperations, def generated.GateDe
 			reason = "subject-kind-unresolved"
 		} else {
 			items := gate.ResolveDefinitions(scope, def.SubjectKinds[0])
+			applicable := false
 			for _, item := range items {
 				if item.Definition.ID == def.GateID {
 					reason = item.ReasonCode
+					applicable = item.Applicable
 					break
 				}
 			}
+			// The server has no authoritative subject/declaration/artifact resolver
+			// in #104. Caller-supplied digest claims and evidence rows cannot fill
+			// those bindings. Preserve derived applicability/evidence inspection,
+			// but never expose a positive live result through this unbound read.
 			evaluation, err = gate.Evaluate(ctx, config.Gates, scope, gate.Subject{ID: subjectID, Kind: def.SubjectKinds[0], ReleaseBuildID: config.Build.ReleaseBuildID, ToolVersion: config.Build.ToolVersion, StateRevision: token.StateRevision}, def.GateID, at, gate.NewProofRegistry())
 			if err != nil {
 				return generated.GateView{}, err
 			}
+			evaluation = gateUnboundProjection(evaluation, applicable, reason)
 		}
 	}
 	view := generated.GateView{Schema: generated.SchemaIDGateView, SchemaVersion: "1.1.0", Definition: def, Evaluation: evaluation, ApplicabilityReasonCode: reason}

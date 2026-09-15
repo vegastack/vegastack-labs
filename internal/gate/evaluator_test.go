@@ -80,7 +80,21 @@ func TestAppliedEvidenceRequiresRegisteredVerifierAndCurrentBindings(t *testing.
 		{"expired", "evidence-expired", func(e *generated.GateEvidence) { e.ExpiresAt = at.Add(-time.Second).Format(time.RFC3339) }},
 		{"subject", "evidence-wrong-subject", func(e *generated.GateEvidence) { e.SubjectID = "site-b" }},
 		{"profile", "evidence-wrong-version", func(e *generated.GateEvidence) { e.ProfileVersion = "1.1.0" }},
+		{"definition", "evidence-wrong-version", func(e *generated.GateEvidence) { e.DefinitionVersion = "1.1.0" }},
+		{"evaluator", "evidence-wrong-version", func(e *generated.GateEvidence) { e.EvaluatorVersion = "1.1.0" }},
+		{"release", "evidence-wrong-version", func(e *generated.GateEvidence) { e.ReleaseBuildID = "build-b" }},
+		{"tool", "evidence-wrong-version", func(e *generated.GateEvidence) { e.ToolVersion = "1.1.0" }},
+		{"policy", "evidence-wrong-version", func(e *generated.GateEvidence) { e.PolicyID = "policy-b" }},
+		{"policy-version", "evidence-wrong-version", func(e *generated.GateEvidence) { e.PolicyVersion = "1.1.0" }},
+		{"profile-id", "evidence-wrong-version", func(e *generated.GateEvidence) { e.ProfileID = "minimal-no-account" }},
+		{"missing-human", "evidence-invalid", func(e *generated.GateEvidence) { e.HumanID = "" }},
+		{"missing-collector", "evidence-invalid", func(e *generated.GateEvidence) { e.CollectorID = "" }},
+		{"missing-bundle", "evidence-invalid", func(e *generated.GateEvidence) { e.BundleDigest = "" }},
+		{"malformed-schema", "evidence-invalid", func(e *generated.GateEvidence) { e.SchemaVersion = "999" }},
 		{"state", "evidence-wrong-revision", func(e *generated.GateEvidence) { e.StateRevision = 2 }},
+		{"declaration", "evidence-wrong-revision", func(e *generated.GateEvidence) { e.DeclarationID = "decl-b" }},
+		{"declaration-revision", "evidence-wrong-revision", func(e *generated.GateEvidence) { e.DeclarationRevision = 2 }},
+		{"artifact", "evidence-wrong-revision", func(e *generated.GateEvidence) { e.ArtifactDigest = "sha256:" + strings.Repeat("b", 64) }},
 		{"epoch", "evidence-wrong-epoch", func(e *generated.GateEvidence) { e.RecoveryEpoch = 1 }},
 	}
 	for _, test := range tests {
@@ -104,6 +118,14 @@ func TestAppliedEvidenceRequiresRegisteredVerifierAndCurrentBindings(t *testing.
 	got, err := Evaluate(context.Background(), reader, scope, subject, "platform-safety", at, registry)
 	if err != nil || got.Outcome == "passed" {
 		t.Fatalf("revoked proof: %+v %v", got, err)
+	}
+	replaced := base
+	replaced.EvidenceID, replaced.SupersedesEvidenceID, replaced.StateRevision = "evidence-replacement", &base.EvidenceID, 4
+	replaced.ProofClass = "fixture"
+	reader.rows["platform-safety/site-a"] = []generated.GateEvidence{base, replaced}
+	got, err = Evaluate(context.Background(), reader, scope, subject, "platform-safety", at, registry)
+	if err != nil || got.Outcome == "passed" {
+		t.Fatalf("superseded older proof revived: %+v %v", got, err)
 	}
 	rolled := scope
 	rolled.RecoveryEpoch++
