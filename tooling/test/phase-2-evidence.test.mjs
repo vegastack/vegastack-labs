@@ -24,9 +24,11 @@ test("every Phase 2 requirement has one owner and evidence", async () => {
 test("contract drift, mutation availability, fixture reachability, and stale children fail closed", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
+  const acceptedRoute = manifest.contract.endpointIds[0];
+  assert.ok(acceptedRoute && facts.endpointIds.includes(acceptedRoute), "accepted Phase 2 route is present");
 
   for (const [field, mutate, expected] of [
-    ["routes", (copy) => copy.endpointIds.shift(), "PHASE2_CONTRACT_DRIFT"],
+    ["routes", (copy) => { copy.endpointIds = copy.endpointIds.filter((id) => id !== acceptedRoute); }, "PHASE2_CONTRACT_DRIFT"],
     ["commands", (copy) => { copy.mutationAvailable = true; }, "PHASE2_MUTATION_AVAILABLE"],
     ["production", (copy) => { copy.productionImports.push("github.com/vegastack/vegastack-labs/internal/testsupport"); }, "PHASE2_PRODUCTION_BYPASS"],
     ["source override", (copy) => { copy.postPhase2SourceOverride = "vendor"; }, "PHASE2_PRODUCTION_BYPASS"],

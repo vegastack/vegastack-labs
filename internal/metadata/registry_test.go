@@ -196,8 +196,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.15.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.16.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -321,8 +321,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.15.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.16.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -353,8 +353,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.15.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.16.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -433,8 +433,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.15.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.15.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.16.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{
@@ -466,7 +466,11 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 			wantAvailable[name] = true
 		case AvailabilityPlanned:
 			gotPlanned[name] = command.OwnerPhase
-			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.RequestSchema != "" || command.ResultSchema != "" || command.DataSchema != "" || len(command.Examples) != 0 {
+			wantRequest, wantData := phase5CommandSchemas(name)
+			if command.OwnerPhase != "5" {
+				wantRequest, wantData = "", ""
+			}
+			if command.Risk != RiskUnassigned || len(command.Flags) != 0 || command.RequestSchema != wantRequest || command.ResultSchema != "" || command.DataSchema != wantData || len(command.Examples) != 0 {
 				t.Fatalf("planned command %q contains speculative contract detail", name)
 			}
 		default:

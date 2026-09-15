@@ -1,0 +1,159 @@
+{
+  "$id": "vegastack-labs.dev/audit-checkpoint",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "sourceKind": {
+            "const": "fixture"
+          }
+        },
+        "required": [
+          "sourceKind"
+        ]
+      },
+      "then": {
+        "properties": {
+          "proofClass": {
+            "const": "fixture"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "proofClass": {
+            "const": "live"
+          },
+          "sourceKind": {
+            "const": "independent"
+          }
+        },
+        "required": [
+          "sourceKind",
+          "proofClass"
+        ]
+      },
+      "then": {
+        "properties": {
+          "independentCopyDigest": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "independentCopyDigest"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "verificationStatus": {
+            "const": "verified"
+          }
+        },
+        "required": [
+          "verificationStatus"
+        ]
+      },
+      "then": {
+        "properties": {
+          "verifiedAt": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "properties": {
+    "chainDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "checkpointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "firstEventId": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "independentCopyDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lastEventId": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "proofClass": {
+      "enum": [
+        "fixture",
+        "live"
+      ],
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/audit-checkpoint"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "sourceKind": {
+      "enum": [
+        "fixture",
+        "local",
+        "independent"
+      ],
+      "type": "string"
+    },
+    "verificationStatus": {
+      "enum": [
+        "pending",
+        "verified",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "verifiedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "checkpointId",
+    "firstEventId",
+    "lastEventId",
+    "chainDigest",
+    "independentCopyDigest",
+    "sourceKind",
+    "proofClass",
+    "verifiedAt",
+    "verificationStatus",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs audit checkpoint",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

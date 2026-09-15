@@ -62,10 +62,14 @@ type TransitionDefinition struct {
 }
 
 type LifecycleDefinition struct {
-	PlanValiditySeconds    int                    `json:"planValiditySeconds"`
-	LeaseDurationSeconds   int                    `json:"leaseDurationSeconds"`
-	ExecutorCheckInSeconds int                    `json:"executorCheckInSeconds"`
-	RunTransitions         []TransitionDefinition `json:"runTransitions"`
+	PlanValiditySeconds     int                    `json:"planValiditySeconds"`
+	LeaseDurationSeconds    int                    `json:"leaseDurationSeconds"`
+	ExecutorCheckInSeconds  int                    `json:"executorCheckInSeconds"`
+	RunTransitions          []TransitionDefinition `json:"runTransitions"`
+	GateEvidenceTransitions []TransitionDefinition `json:"gateEvidenceTransitions"`
+	BackupJobTransitions    []TransitionDefinition `json:"backupJobTransitions"`
+	RestoreTransitions      []TransitionDefinition `json:"restoreTransitions"`
+	ScheduledJobTransitions []TransitionDefinition `json:"scheduledJobTransitions"`
 }
 
 type Registry struct {

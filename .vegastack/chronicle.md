@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 15-09-2026 — Phase 5 safety contracts are generated without live authority ([#102](https://github.com/vegastack/vegastack-labs/issues/102))
+
+- **What:** Evidence, credential references, backups, audit checkpoints, restore verification, and scheduled jobs now have versioned schemas and generated Go, CLI, and browser contract surfaces. The routes and commands remain planned; this work grants no runtime apply authority.
+- **Why:** Later Phase 5 owners need one typed boundary that refuses fixture promotion, ambiguous restore identity, and scheduled-job widening before implementing provider or control-plane behavior.
+- **How it went:** Focused tests exposed cross-field constraints that schemas alone could not safely imply, so generated validators and drift guards were added. The historical Phase 2 source seal requires a fresh review and deliberate reseal after these contract changes.
+- **Changed:** Phase 5 metadata and transitions · generated contract artifacts and validators · hostile fixture tests · browser client types · documentation of the contract/runtime boundary.
+- **Decisions:** none; deployment gates and live authority remain unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/5.1-phase5-contracts
+
 ## 14-09-2026 — Phase 4 is proven and accepted at one exact commit ([#67](https://github.com/vegastack/vegastack-labs/issues/67))
 
 - **What:** Inert declarations, immutable plans, current authorization, Slack human acknowledgement, durable central and external execution, and matching CLI/Console change workflows now form one accepted Phase 4 result. A strict exit command binds every requirement and child result to one exact clean `main` commit.

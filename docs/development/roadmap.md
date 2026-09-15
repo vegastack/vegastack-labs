@@ -48,6 +48,8 @@ If a later phase supplies a required safety dependency, the public command remai
 
 Early phases test release-verification primitives and bootstrap with controlled artifacts in isolated, explicitly scoped test environments. Phase 11 proves the final distribution and complete supported matrix. A test artifact is not a published production release, and an earlier mock is not evidence for a later live gate. The user's chosen rollout timing excludes an early lab onboarding rehearsal.
 
+Within Phase 5, [5.1 (#102)](https://github.com/vegastack/vegastack-labs/issues/102) is a contract-only Wave A seam: it generates provider-neutral shapes and planned CLI/API/browser metadata without making a gate, resolver, backup, checkpoint, restore or timer operational. [5.2 (#103)](https://github.com/vegastack/vegastack-labs/issues/103) can independently qualify restic/R2 compatibility. Issues #104–#112 consume the generated contracts for persistence/evaluation, actual credential and backup flows, audit custody, restore/fencing and exact scheduled jobs; their own approved scopes and tests, not contract generation alone, determine readiness. No fixture generated here closes a live deployment gate.
+
 ## Delivery path from development to the lab
 
 Use the phases above as the only development sequence. The checkpoints below connect that sequence to the intended operator outcome; they are not additional phases, issue IDs or a second backlog.
