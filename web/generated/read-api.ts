@@ -4675,6 +4675,8 @@ export type ReadClient = {
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
   readonly streamEvents: (options?: StreamOptions) => AsyncIterable<ApiAuditEventData>;
+  readonly getGate: (path: { readonly gateId: string }, options?: RequestOptions) => Promise<ReadResult<GateView>>;
+  readonly listGates: (options?: RequestOptions) => Promise<ReadResult<GateListData>>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
   readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
@@ -4710,6 +4712,14 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     streamEvents(options = {}) {
       return streamSSE(fetchTransport, "/api/v1/events", options, "api.v1.events.stream", "audit-event", decodeApiAuditEventData, (data) => data.event.eventId);
+    },
+    async getGate(path, options = {}) {
+      const operation = "api.v1.gates.get";
+      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "", options, operation, decodeGateView);
+    },
+    async listGates(options = {}) {
+      const operation = "api.v1.gates.list";
+      return performRead(fetchTransport, "/api/v1/gates", options, operation, decodeGateListData);
     },
     async getHealth(options = {}) {
       const operation = "api.v1.health.get";

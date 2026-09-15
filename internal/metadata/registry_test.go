@@ -196,8 +196,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.16.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.17.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.17.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -321,8 +321,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.16.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.17.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.17.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -353,8 +353,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.16.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.17.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.17.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -433,18 +433,18 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.16.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.16.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.17.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.17.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{
 		"help": false, "release inspect": false, "release verify": false, "server api-ssh": false, "server run": false, "server status": false, "version": false,
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
 		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
+		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
 	}
 	wantPlanned := map[string]string{
 		"doctor": "2", "audit": "5",
-		"gate list": "5", "gate inspect": "5", "gate check": "5", "gate evidence": "5",
 		"node discover": "6", "node add": "6", "node inspect": "6", "node nominate": "6", "node quarantine": "6", "node replace": "6",
 		"user onboard": "7", "user offboard": "7", "user suspend": "7", "user resume": "7",
 		"device request": "7", "device approve": "7", "device revoke": "7",

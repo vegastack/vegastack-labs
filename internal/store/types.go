@@ -64,6 +64,7 @@ type ProfileApplyRequest struct {
 type ProfileDraftRequest struct {
 	BindingID                string
 	Scope                    GateAppliedProfile
+	TargetDigest             string
 	Expected                 RevisionToken
 	KeyDigest, RequestDigest string
 	Attribution              audit.Attribution

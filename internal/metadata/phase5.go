@@ -16,6 +16,8 @@ const (
 	scheduledJobSchemaID               = "vegastack-labs.dev/scheduled-job"
 	gateCheckRequestSchemaID           = "vegastack-labs.dev/gate-check-request"
 	gateEvidenceRequestSchemaID        = "vegastack-labs.dev/gate-evidence-request"
+	gateProfileDraftRequestSchemaID    = "vegastack-labs.dev/gate-profile-draft-request"
+	gateProfileDraftSubmissionSchemaID = "vegastack-labs.dev/gate-profile-draft-submission"
 	gateEvidenceFactSchemaID           = "vegastack-labs.dev/gate-evidence-fact"
 	gateEvidenceCheckSchemaID          = "vegastack-labs.dev/gate-evidence-check"
 	gateEvidenceAttachmentSchemaID     = "vegastack-labs.dev/gate-evidence-attachment"
@@ -294,6 +296,10 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5GateSchema(gateProfileDraftSubmissionSchemaID,
+			phase5ID("draftId", "DraftID"), phase5ID("changeId", "ChangeID"), phase5ID("bindingId", "BindingID"),
+			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5Request(gateCheckRequestSchemaID,
 			phase5GateID(), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"),
@@ -305,6 +311,11 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5NullableID("revokesEvidenceId", "RevokesEvidenceID"),
 			phase5Digest("artifactDigest", "ArtifactDigest"), phase5Timestamp("observedAt", "ObservedAt"),
 			FieldDefinition{JSONName: "bundle", GoName: "Bundle", Kind: ValueObject, Required: true, Ref: gateEvidenceBundleSchemaID},
+		),
+		phase5GateRequest(gateProfileDraftRequestSchemaID,
+			phase5ID("bindingId", "BindingID"), phase5ID("profileId", "ProfileID"), phase5Version("profileVersion", "ProfileVersion"),
+			phase5ID("policyId", "PolicyID"), phase5Version("policyVersion", "PolicyVersion"),
+			FieldDefinition{JSONName: "capabilities", GoName: "Capabilities", Kind: ValueArray, Required: true, ItemKind: ValueString, MaxItems: intPointer(64), UniqueItems: true},
 		),
 		phase5Request(backupRunRequestSchemaID,
 			phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
@@ -386,6 +397,12 @@ func phase5Endpoint(identifier, method, path, request, data string, browser bool
 	}
 }
 
+func phase5AvailableGateEndpoint(identifier, method, path, request, data string, browser bool) EndpointDefinition {
+	endpoint := phase5Endpoint(identifier, method, path, request, data, browser)
+	endpoint.Availability = AvailabilityAvailable
+	return endpoint
+}
+
 func phase5GateRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Request(identifier, fields...)
 	schema.Version = "1.1.0"
@@ -395,10 +412,11 @@ func phase5GateRequest(identifier string, fields ...FieldDefinition) SchemaDefin
 
 func phase5Endpoints() []EndpointDefinition {
 	return []EndpointDefinition{
-		phase5Endpoint("api.v1.gates.list", "GET", "/api/v1/gates", "", gateListDataSchemaID, true),
-		phase5Endpoint("api.v1.gates.get", "GET", "/api/v1/gates/{gateId}", "", gateViewSchemaID, true),
-		phase5Endpoint("api.v1.gates.check", "POST", "/api/v1/gates/check", gateCheckRequestSchemaID, gateEvaluationSchemaID, true),
-		phase5Endpoint("api.v1.gate-evidence.create", "POST", "/api/v1/gates/{gateId}/evidence", gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID, false),
+		{ID: "api.v1.gate-profile-drafts.create", Method: "POST", Path: "/api/v1/gates/profile-drafts", RequestSchema: gateProfileDraftRequestSchemaID, DataSchema: gateProfileDraftSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		phase5AvailableGateEndpoint("api.v1.gates.list", "GET", "/api/v1/gates", "", gateListDataSchemaID, true),
+		phase5AvailableGateEndpoint("api.v1.gates.get", "GET", "/api/v1/gates/{gateId}", "", gateViewSchemaID, true),
+		phase5AvailableGateEndpoint("api.v1.gates.check", "POST", "/api/v1/gates/check", gateCheckRequestSchemaID, gateEvaluationSchemaID, true),
+		phase5AvailableGateEndpoint("api.v1.gate-evidence.create", "POST", "/api/v1/gates/{gateId}/evidence", gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID, false),
 		phase5Endpoint("api.v1.credential-references.get", "GET", "/api/v1/credential-references/{referenceId}", "", credentialReferenceSchemaID, false),
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
 		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
@@ -428,6 +446,8 @@ func phase5CommandSchemas(path string) (request string, data string) {
 		return gateCheckRequestSchemaID, gateEvaluationSchemaID
 	case "gate evidence":
 		return gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID
+	case "gate profile draft":
+		return gateProfileDraftRequestSchemaID, gateProfileDraftSubmissionSchemaID
 	case "backup status":
 		return "", backupStatusDataSchemaID
 	case "backup run", "database backup":

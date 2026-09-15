@@ -78,7 +78,8 @@ func TestPhase5SurfaceRemainsPlanned(t *testing.T) {
 			continue
 		}
 		found = true
-		if endpoint.Availability != AvailabilityPlanned || endpoint.DataSchema == "" {
+		gateAvailable := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create"
+		if (!gateAvailable && endpoint.Availability != AvailabilityPlanned) || (gateAvailable && endpoint.Availability != AvailabilityAvailable) || endpoint.DataSchema == "" {
 			t.Errorf("unsafe Phase 5 endpoint %s", endpoint.ID)
 		}
 		if endpoint.ID == "api.v1.credential-resolution-records.get" {
@@ -108,6 +109,22 @@ func TestPhase5RequestsDoNotAcceptServerIssuedProof(t *testing.T) {
 				t.Errorf("request %s accepts server-issued field %s", schema.ID, field.JSONName)
 			}
 		}
+	}
+}
+
+func TestGateProfileDraftIsGeneratedAndOnlyInert(t *testing.T) {
+	registry := Current()
+	found := false
+	for _, endpoint := range registry.Endpoints {
+		if endpoint.ID == "api.v1.gate-profile-drafts.create" {
+			found = true
+			if endpoint.Availability != AvailabilityAvailable || endpoint.Method != "POST" || endpoint.RequestSchema != gateProfileDraftRequestSchemaID {
+				t.Fatalf("profile draft endpoint %+v", endpoint)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("inert profile draft endpoint absent")
 	}
 }
 

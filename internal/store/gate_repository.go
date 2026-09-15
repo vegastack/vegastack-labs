@@ -35,7 +35,7 @@ func gateHuman(attribution audit.Attribution) string {
 }
 
 var gateScopeID = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
-var gateScopeVersion = regexp.MustCompile(`^1\.[0-9]+\.[0-9]+$`)
+var gateScopeVersion = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`)
 
 type gateProfilePayload struct {
 	ProfileID, ProfileVersion, PolicyID, PolicyVersion string
@@ -66,6 +66,16 @@ func gateProfileBytes(scope GateAppliedProfile) ([]byte, error) {
 		return nil, newStoreError(generated.ErrorCodeInputInvalid, "profile-scope", false, err)
 	}
 	return raw, nil
+}
+
+// ProfileScopeDigest is the server's canonical digest for an inert binding
+// candidate. It reveals no private operational value or database content.
+func ProfileScopeDigest(scope GateAppliedProfile) (string, error) {
+	raw, err := gateProfileBytes(scope)
+	if err != nil {
+		return "", err
+	}
+	return gateDigest(raw), nil
 }
 
 func (repository *GateRepository) PutGateDraft(ctx context.Context, request GateDraftRequest) (GateDraft, error) {
@@ -342,6 +352,9 @@ func (repository *GateRepository) PutProfileDraft(ctx context.Context, request P
 		return ProfileDraft{}, err
 	}
 	digest := gateDigest(raw)
+	if request.TargetDigest != "" && request.TargetDigest != digest {
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "profile-digest", false, nil)
+	}
 	if existing, lookupErr := repository.GetProfileDraft(ctx, request.BindingID); lookupErr == nil {
 		if existing.ScopeDigest == digest && existing.RecoveryEpoch == request.Expected.RecoveryEpoch {
 			return existing, nil
