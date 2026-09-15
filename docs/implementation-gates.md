@@ -17,7 +17,11 @@ Each gate has two independent states:
 
 `design-closed` never means “deployed.” Activation is one of `evidence-required`, `implementation-required`, `conditional` or `deferred`. Only a gate evaluation bound to the current recovery epoch can admit a phase. Evidence expiry, subject replacement, failed recheck or a recovery-epoch change reopens it automatically.
 
-Evidence submission is inert: `vsk-labs gate evidence --gate <gate-id> --file <path>` validates a bundle and creates a draft. The normal `plan --change` then `apply --plan-id` path records it. Closure is derived from the applied evidence plus deterministic checks; there is no privileged `gate close` shortcut.
+The implemented local read commands are `vsk-labs gate list --config <profile>`, `gate inspect --config <profile> --gate-id <id>`, and `gate check --config <profile> --gate-id <id> --subject-id <id>`; `--output json` forwards the exact generated server result. Their applicability/reason/source/ready-for-input fields come from generated definitions and the server-owned applied profile/policy scope, not a CLI assertion. A missing or stale applied scope remains `unknown`; a fixture or an unregistered live proof verifier cannot pass.
+
+The operator-only `vsk-labs gate profile draft --config <profile> --file <exact-json>` accepts a bounded 4 KiB generated profile/policy candidate with the current state revision, recovery epoch and canonical target digest. It persists only an inert draft and exact declaration. The applied binding changes only after `gate.profile.bind` executes through a current exact human-approved Phase 4 plan; there is no direct profile setter or new approval branch. `vsk-labs gate evidence --config <profile> --file <exact-json>` similarly accepts a bounded 64 KiB typed request, authorizes it and creates an inert draft/declaration. Public evidence input cannot set its own source/proof class or include raw/private attachment content; current public submissions are fixture-class until a production verifier/collector is separately implemented. Supersession/revocation is append-only via a new exact plan, never a status edit or delete.
+
+Human fallback uses the same generated API and prerequisites: inspect the current revision/epoch and blocker; POST one exact bounded profile or evidence request locally under the author grant; fetch the returned `changeId` declaration revision; prepare a plan with `vsk-labs plan --config <profile> --declaration-id <changeId> --revision 1`; obtain the assigned human's exact acknowledgement through the Phase 4 approval path; then run `vsk-labs apply --config <profile> --plan-id <planId>`. Re-read the gate/profile and audit/run result after apply. If the plan is stale, authorization is missing or execution is uncertain, do not retry an effect by hand: inspect the durable run, reconcile under a new revision, and recover through the documented Phase 4 path. There is no privileged `gate close` shortcut and no provider/fleet activation in this implementation.
 
 ## Gate ledger
 
@@ -187,10 +191,10 @@ The following values cannot be responsibly selected from documentation. The Cons
 - `G-020`, `G-021`: real Mac resource/thermal/interaction results;
 - `G-022`: each later service's owner and operational contract.
 
-Agents must not repeatedly ask for all of these. `vsk-labs gate list --ready-for-input` returns only gates whose prerequisites are met. A human may defer a capability; the system records the exact consequence and cannot convert deferral into a passed prerequisite.
+Agents must not repeatedly ask for all of these. The current `gate list` result includes each gate's `readyForInput` field; a future filtered `--ready-for-input` option is not implemented. A human may defer a capability; the system records the exact consequence and cannot convert deferral into a passed prerequisite.
 
 ## Phase admission report
 
-Before a phase, `vsk-labs gate check --phase <n> --output json` returns every applicable gate, evaluation digest, evidence age, subject/recovery epoch and exact remediation. Phase 1 remains blocked by `G-001` through `G-004`, `G-009` and relevant `G-010` evidence. Later phases remain blocked only by the rows named above; `G-022` is per service and `G-023` never blocks v1.
+The current `gate check` addresses one exact gate and subject; a phase-wide `--phase` admission report is not yet implemented. Phase 1 remains blocked by `G-001` through `G-004`, `G-009` and relevant `G-010` evidence. Later phases remain blocked only by the rows named above; `G-022` is per service and `G-023` never blocks v1.
 
 Documentation completion therefore means the mechanism and acceptance rules are closed. It does not waive the evidence needed to touch real systems.

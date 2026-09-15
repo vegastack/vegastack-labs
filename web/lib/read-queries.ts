@@ -2,6 +2,7 @@ import { ReadClientError, type ApiPageQuery, type ApiSourceListQuery } from "@/g
 import { readClient } from "@/lib/read-client";
 
 export const readKeys = {
+  gates: () => ["read", "gates"] as const,
   summary: () => ["read", "summary"] as const,
   sources: (query: ApiSourceListQuery = {}) => ["read", "sources", query] as const,
   drafts: (query: ApiPageQuery = {}) => ["read", "drafts", query] as const,
@@ -30,6 +31,7 @@ export function classifyReadFailure(error: unknown, hasRetainedData = false): Re
 }
 
 export const readQueries = {
+  gates: () => ({ queryKey: readKeys.gates(), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listGates({ signal }) }),
   summary: () => ({ queryKey: readKeys.summary(), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.getSummary({ signal }) }),
   sources: (query: ApiSourceListQuery = {}) => ({ queryKey: readKeys.sources(query), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listSources(query, { signal }) }),
   drafts: (query: ApiPageQuery = {}) => ({ queryKey: readKeys.drafts(query), queryFn: ({ signal }: { signal: AbortSignal }) => readClient.listInventoryDrafts(query, { signal }) }),
