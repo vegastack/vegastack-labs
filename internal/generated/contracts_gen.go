@@ -991,6 +991,8 @@ type GateEvidenceRequest struct {
 	SubjectID             string             `json:"subjectId"`
 	DefinitionVersion     string             `json:"definitionVersion"`
 	EvaluatorVersion      string             `json:"evaluatorVersion"`
+	SupersedesEvidenceID  *string            `json:"supersedesEvidenceId"`
+	RevokesEvidenceID     *string            `json:"revokesEvidenceId"`
 	ArtifactDigest        string             `json:"artifactDigest"`
 	ObservedAt            string             `json:"observedAt"`
 	Bundle                GateEvidenceBundle `json:"bundle"`

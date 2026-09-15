@@ -2766,7 +2766,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       }
     ]
   },
@@ -2803,7 +2803,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "layer",
@@ -2874,7 +2874,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "freshnessSeconds",
@@ -2938,14 +2938,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "evaluatorVersion",
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "evidenceIds",

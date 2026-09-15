@@ -73,7 +73,7 @@ func phase5Digest(name, goName string) FieldDefinition {
 }
 
 func phase5Version(name, goName string) FieldDefinition {
-	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^1\.[0-9]+\.[0-9]+$`}
+	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`}
 }
 
 func phase5Timestamp(name, goName string) FieldDefinition {
@@ -301,6 +301,8 @@ func phase5RequestSchemas() []SchemaDefinition {
 		phase5GateRequest(gateEvidenceRequestSchemaID,
 			phase5ID("evidenceId", "EvidenceID"), phase5GateID(), phase5ID("subjectId", "SubjectID"),
 			phase5Version("definitionVersion", "DefinitionVersion"), phase5Version("evaluatorVersion", "EvaluatorVersion"),
+			phase5NullableID("supersedesEvidenceId", "SupersedesEvidenceID"),
+			phase5NullableID("revokesEvidenceId", "RevokesEvidenceID"),
 			phase5Digest("artifactDigest", "ArtifactDigest"), phase5Timestamp("observedAt", "ObservedAt"),
 			FieldDefinition{JSONName: "bundle", GoName: "Bundle", Kind: ValueObject, Required: true, Ref: gateEvidenceBundleSchemaID},
 		),

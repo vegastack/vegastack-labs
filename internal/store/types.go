@@ -17,50 +17,70 @@ type RevisionToken struct {
 
 type GateDraftRequest struct {
 	EvidenceID, GateID, SubjectID, DefinitionVersion, EvaluatorVersion string
-	ArtifactDigest string
-	Bundle generated.GateEvidenceBundle
-	Expected RevisionToken
-	KeyDigest, RequestDigest string
-	Attribution audit.Attribution
+	SourceKind, ProofClass                                             string
+	SupersedesEvidenceID, RevokesEvidenceID                            *string
+	ArtifactDigest                                                     string
+	Bundle                                                             generated.GateEvidenceBundle
+	Expected                                                           RevisionToken
+	KeyDigest, RequestDigest                                           string
+	Attribution                                                        audit.Attribution
 }
 
 type GateDraft struct {
 	DraftID, EvidenceID, GateID, SubjectID, DefinitionVersion, EvaluatorVersion string
-	ArtifactDigest, BundleDigest string
-	Bundle generated.GateEvidenceBundle
-	StateRevision, RecoveryEpoch int64
-	HumanID, CreatedAt string
+	SourceKind, ProofClass                                                      string
+	SupersedesEvidenceID, RevokesEvidenceID                                     *string
+	ArtifactDigest, BundleDigest                                                string
+	Bundle                                                                      generated.GateEvidenceBundle
+	StateRevision, RecoveryEpoch                                                int64
+	HumanID, CreatedAt                                                          string
 }
 
 type GateApplyRequest struct {
-	DraftID, EvidenceID, GateID, SubjectID string
-	Expected RevisionToken
+	DraftID, EvidenceID, GateID, SubjectID     string
+	Expected                                   RevisionToken
 	PlanID, PlanDigest, RunID, StepID, LeaseID string
-	DeclarationID string
-	DeclarationRevision int64
-	ReleaseBuildID, ToolVersion string
-	ExpiresAt string
-	SourceKind, ProofClass, Status string
-	SupersedesEvidenceID, RevokesEvidenceID *string
-	KeyDigest, RequestDigest string
-	Attribution audit.Attribution
+	DeclarationID                              string
+	DeclarationRevision                        int64
+	ReleaseBuildID, ToolVersion                string
+	ExpiresAt                                  string
+	SourceKind, ProofClass, Status             string
+	SupersedesEvidenceID, RevokesEvidenceID    *string
+	KeyDigest, RequestDigest                   string
+	Attribution                                audit.Attribution
 }
 
 type ProfileApplyRequest struct {
-	BindingID string
-	Scope GateAppliedProfile
-	Expected RevisionToken
+	BindingID                                  string
+	Scope                                      GateAppliedProfile
+	Expected                                   RevisionToken
 	PlanID, PlanDigest, RunID, StepID, LeaseID string
-	DeclarationID string
-	DeclarationRevision int64
+	DeclarationID                              string
+	DeclarationRevision                        int64
+	KeyDigest, RequestDigest                   string
+	Attribution                                audit.Attribution
+}
+
+type ProfileDraftRequest struct {
+	BindingID                string
+	Scope                    GateAppliedProfile
+	Expected                 RevisionToken
 	KeyDigest, RequestDigest string
-	Attribution audit.Attribution
+	Attribution              audit.Attribution
+}
+
+type ProfileDraft struct {
+	BindingID                    string
+	Scope                        GateAppliedProfile
+	ScopeDigest                  string
+	StateRevision, RecoveryEpoch int64
+	HumanID, CreatedAt           string
 }
 
 type GateAppliedProfile struct {
 	ProfileID, ProfileVersion, PolicyID, PolicyVersion string
-	Capabilities []string
-	StateRevision, RecoveryEpoch int64
+	Capabilities                                       []string
+	StateRevision, RecoveryEpoch                       int64
 }
 
 // Commit describes the durable result of one intent transaction.

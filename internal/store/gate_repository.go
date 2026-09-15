@@ -7,6 +7,8 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"regexp"
+	"slices"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
@@ -32,6 +34,40 @@ func gateHuman(attribution audit.Attribution) string {
 	return attribution.AuthenticatedPrincipalID
 }
 
+var gateScopeID = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
+var gateScopeVersion = regexp.MustCompile(`^1\.[0-9]+\.[0-9]+$`)
+
+type gateProfilePayload struct {
+	ProfileID, ProfileVersion, PolicyID, PolicyVersion string
+	Capabilities                                       []string
+}
+
+func gateProfileBytes(scope GateAppliedProfile) ([]byte, error) {
+	if !gateScopeID.MatchString(scope.ProfileID) || !gateScopeVersion.MatchString(scope.ProfileVersion) || !gateScopeID.MatchString(scope.PolicyID) || !gateScopeVersion.MatchString(scope.PolicyVersion) || len(scope.Capabilities) > 64 {
+		return nil, newStoreError(generated.ErrorCodeInputInvalid, "profile-scope", false, nil)
+	}
+	capabilities := append([]string(nil), scope.Capabilities...)
+	for _, capability := range capabilities {
+		if !gateScopeID.MatchString(capability) {
+			return nil, newStoreError(generated.ErrorCodeInputInvalid, "profile-capability", false, nil)
+		}
+	}
+	slices.Sort(capabilities)
+	for index := 1; index < len(capabilities); index++ {
+		if capabilities[index] == capabilities[index-1] {
+			return nil, newStoreError(generated.ErrorCodeInputInvalid, "profile-capability", false, nil)
+		}
+	}
+	if capabilities == nil {
+		capabilities = []string{}
+	}
+	raw, err := json.Marshal(gateProfilePayload{scope.ProfileID, scope.ProfileVersion, scope.PolicyID, scope.PolicyVersion, capabilities})
+	if err != nil || len(raw) > 4096 {
+		return nil, newStoreError(generated.ErrorCodeInputInvalid, "profile-scope", false, err)
+	}
+	return raw, nil
+}
+
 func (repository *GateRepository) PutGateDraft(ctx context.Context, request GateDraftRequest) (GateDraft, error) {
 	if repository == nil || repository.store == nil || gateHuman(request.Attribution) == "" {
 		return GateDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-draft", false, nil)
@@ -53,11 +89,15 @@ func (repository *GateRepository) PutGateDraft(ctx context.Context, request Gate
 		RecoveryEpoch: request.Expected.RecoveryEpoch, TargetDigest: request.ArtifactDigest, IdempotencyKey: "key-" + request.EvidenceID,
 		EvidenceID: request.EvidenceID, GateID: request.GateID, SubjectID: request.SubjectID,
 		DefinitionVersion: request.DefinitionVersion, EvaluatorVersion: request.EvaluatorVersion,
+		SupersedesEvidenceID: request.SupersedesEvidenceID, RevokesEvidenceID: request.RevokesEvidenceID,
 		ArtifactDigest: request.ArtifactDigest, ObservedAt: request.Bundle.ObservedAt, Bundle: request.Bundle,
 	}
 	checkBytes, err := json.Marshal(check)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceRequest, checkBytes, generated.ContractExact) != nil {
 		return GateDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-draft", false, err)
+	}
+	if request.SupersedesEvidenceID != nil && request.RevokesEvidenceID != nil {
+		return GateDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-relation", false, nil)
 	}
 	bundleDigest := gateDigest(bundleBytes)
 	draftID := "draft-" + request.EvidenceID
@@ -68,7 +108,7 @@ func (repository *GateRepository) PutGateDraft(ctx context.Context, request Gate
 		return GateDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-draft", false, nil)
 	}
 	if existing, lookupErr := repository.GetGateDraft(ctx, request.EvidenceID); lookupErr == nil {
-		if existing.BundleDigest == bundleDigest && existing.GateID == request.GateID && existing.SubjectID == request.SubjectID && existing.DefinitionVersion == request.DefinitionVersion && existing.EvaluatorVersion == request.EvaluatorVersion && existing.ArtifactDigest == request.ArtifactDigest && existing.RecoveryEpoch == request.Expected.RecoveryEpoch {
+		if existing.BundleDigest == bundleDigest && existing.GateID == request.GateID && existing.SubjectID == request.SubjectID && existing.DefinitionVersion == request.DefinitionVersion && existing.EvaluatorVersion == request.EvaluatorVersion && existing.ArtifactDigest == request.ArtifactDigest && existing.SourceKind == request.SourceKind && existing.ProofClass == request.ProofClass && sameGateRelation(existing.SupersedesEvidenceID, request.SupersedesEvidenceID) && sameGateRelation(existing.RevokesEvidenceID, request.RevokesEvidenceID) && existing.RecoveryEpoch == request.Expected.RecoveryEpoch {
 			return existing, nil
 		}
 		return GateDraft{}, newStoreError(generated.ErrorCodeStateConflict, "gate-draft", false, nil)
@@ -77,7 +117,7 @@ func (repository *GateRepository) PutGateDraft(ctx context.Context, request Gate
 	}
 	createdAt := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	_, err = repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, tx *sql.Tx) error {
-		_, err := tx.ExecContext(ctx, `INSERT INTO gate_evidence_drafts(draft_id,evidence_id,gate_id,subject_id,definition_version,evaluator_version,artifact_digest,bundle_digest,bundle_bytes,observed_at,state_revision,recovery_epoch,human_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, draftID, request.EvidenceID, request.GateID, request.SubjectID, request.DefinitionVersion, request.EvaluatorVersion, request.ArtifactDigest, bundleDigest, bundleBytes, request.Bundle.ObservedAt, request.Expected.StateRevision+1, request.Expected.RecoveryEpoch, gateHuman(request.Attribution), createdAt)
+		_, err := tx.ExecContext(ctx, `INSERT INTO gate_evidence_drafts(draft_id,evidence_id,gate_id,subject_id,definition_version,evaluator_version,source_kind,proof_class,supersedes_evidence_id,revokes_evidence_id,artifact_digest,bundle_digest,bundle_bytes,observed_at,state_revision,recovery_epoch,human_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, draftID, request.EvidenceID, request.GateID, request.SubjectID, request.DefinitionVersion, request.EvaluatorVersion, request.SourceKind, request.ProofClass, request.SupersedesEvidenceID, request.RevokesEvidenceID, request.ArtifactDigest, bundleDigest, bundleBytes, request.Bundle.ObservedAt, request.Expected.StateRevision+1, request.Expected.RecoveryEpoch, gateHuman(request.Attribution), createdAt)
 		return err
 	})
 	if err != nil {
@@ -93,7 +133,7 @@ func (repository *GateRepository) GetGateDraft(ctx context.Context, evidenceID s
 	var result GateDraft
 	var raw []byte
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT draft_id,evidence_id,gate_id,subject_id,definition_version,evaluator_version,artifact_digest,bundle_digest,bundle_bytes,state_revision,recovery_epoch,human_id,created_at FROM gate_evidence_drafts WHERE evidence_id=? OR draft_id=?`, evidenceID, evidenceID).Scan(&result.DraftID, &result.EvidenceID, &result.GateID, &result.SubjectID, &result.DefinitionVersion, &result.EvaluatorVersion, &result.ArtifactDigest, &result.BundleDigest, &raw, &result.StateRevision, &result.RecoveryEpoch, &result.HumanID, &result.CreatedAt)
+		return tx.queryRow(ctx, `SELECT draft_id,evidence_id,gate_id,subject_id,definition_version,evaluator_version,source_kind,proof_class,supersedes_evidence_id,revokes_evidence_id,artifact_digest,bundle_digest,bundle_bytes,state_revision,recovery_epoch,human_id,created_at FROM gate_evidence_drafts WHERE evidence_id=? OR draft_id=?`, evidenceID, evidenceID).Scan(&result.DraftID, &result.EvidenceID, &result.GateID, &result.SubjectID, &result.DefinitionVersion, &result.EvaluatorVersion, &result.SourceKind, &result.ProofClass, &result.SupersedesEvidenceID, &result.RevokesEvidenceID, &result.ArtifactDigest, &result.BundleDigest, &raw, &result.StateRevision, &result.RecoveryEpoch, &result.HumanID, &result.CreatedAt)
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return GateDraft{}, newStoreError(generated.ErrorCodeResourceNotFound, "gate-draft", false, nil)
@@ -152,7 +192,7 @@ func (repository *GateRepository) ApplyGateEvidence(ctx context.Context, request
 	if err != nil {
 		return generated.GateEvidence{}, err
 	}
-	if draft.EvidenceID != request.EvidenceID || draft.GateID != request.GateID || draft.SubjectID != request.SubjectID || draft.RecoveryEpoch != request.Expected.RecoveryEpoch || request.ReleaseBuildID == "" || request.ToolVersion == "" || request.ExpiresAt == "" || gateHuman(request.Attribution) == "" {
+	if draft.EvidenceID != request.EvidenceID || draft.GateID != request.GateID || draft.SubjectID != request.SubjectID || draft.RecoveryEpoch != request.Expected.RecoveryEpoch || request.ReleaseBuildID == "" || request.ToolVersion == "" || request.ExpiresAt == "" || gateHuman(request.Attribution) == "" || !sameGateRelation(draft.SupersedesEvidenceID, request.SupersedesEvidenceID) || !sameGateRelation(draft.RevokesEvidenceID, request.RevokesEvidenceID) {
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-evidence", false, nil)
 	}
 	scope, err := repository.GetAppliedProfileScope(ctx)
@@ -166,13 +206,10 @@ func (repository *GateRepository) ApplyGateEvidence(ctx context.Context, request
 	if status == "" {
 		status = "applied"
 	}
-	sourceKind, proofClass := request.SourceKind, request.ProofClass
-	if sourceKind == "" {
-		sourceKind = "fixture"
+	if request.SourceKind != draft.SourceKind || request.ProofClass != draft.ProofClass || (status == "revoked") != (draft.RevokesEvidenceID != nil) || (draft.SupersedesEvidenceID != nil && status != "applied") {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-source-or-relation", false, nil)
 	}
-	if proofClass == "" {
-		proofClass = "fixture"
-	}
+	sourceKind, proofClass := draft.SourceKind, draft.ProofClass
 	appliedAt := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	evidence := generated.GateEvidence{
 		Schema: generated.SchemaIDGateEvidence, SchemaVersion: "1.1.0", EvidenceID: request.EvidenceID,
@@ -206,10 +243,10 @@ func (repository *GateRepository) ApplyGateEvidence(ctx context.Context, request
 		if err := gateExactStep(ctx, tx, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.LeaseID, request.DeclarationID, request.DeclarationRevision, request.SubjectID, draft.BundleDigest, request.Expected, operation, appliedAt); err != nil {
 			return err
 		}
-		if err := gateRelation(ctx, tx, request.SupersedesEvidenceID, request.GateID, request.SubjectID); err != nil {
+		if err := gateRelation(ctx, tx, request.SupersedesEvidenceID, request.GateID, request.SubjectID, request.Expected.RecoveryEpoch); err != nil {
 			return err
 		}
-		if err := gateRelation(ctx, tx, request.RevokesEvidenceID, request.GateID, request.SubjectID); err != nil {
+		if err := gateRelation(ctx, tx, request.RevokesEvidenceID, request.GateID, request.SubjectID, request.Expected.RecoveryEpoch); err != nil {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO gate_applied_evidence(evidence_id,draft_id,gate_id,subject_id,status,source_kind,proof_class,bundle_digest,canonical_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,supersedes_evidence_id,revokes_evidence_id,applied_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, evidence.EvidenceID, draft.DraftID, evidence.GateID, evidence.SubjectID, evidence.Status, evidence.SourceKind, evidence.ProofClass, evidence.BundleDigest, raw, evidence.StateRevision, evidence.RecoveryEpoch, evidence.DeclarationID, evidence.DeclarationRevision, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.LeaseID, request.SupersedesEvidenceID, request.RevokesEvidenceID, appliedAt)
@@ -270,12 +307,12 @@ func sameGateRelation(left, right *string) bool {
 	return *left == *right
 }
 
-func gateRelation(ctx context.Context, tx *sql.Tx, evidenceID *string, gateID, subjectID string) error {
+func gateRelation(ctx context.Context, tx *sql.Tx, evidenceID *string, gateID, subjectID string, recoveryEpoch int64) error {
 	if evidenceID == nil {
 		return nil
 	}
 	var count int
-	if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM gate_applied_evidence WHERE evidence_id=? AND gate_id=? AND subject_id=? AND status='applied'`, *evidenceID, gateID, subjectID).Scan(&count); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM gate_applied_evidence e WHERE e.evidence_id=? AND e.gate_id=? AND e.subject_id=? AND e.recovery_epoch=? AND e.status='applied' AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)`, *evidenceID, gateID, subjectID, recoveryEpoch).Scan(&count); err != nil {
 		return err
 	}
 	if count != 1 {
@@ -294,6 +331,67 @@ func gateExactStep(ctx context.Context, tx *sql.Tx, planID, planDigest, runID, s
 		return newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-exact-step", false, nil)
 	}
 	return nil
+}
+
+func (repository *GateRepository) PutProfileDraft(ctx context.Context, request ProfileDraftRequest) (ProfileDraft, error) {
+	if repository == nil || repository.store == nil || !gateScopeID.MatchString(request.BindingID) || gateHuman(request.Attribution) == "" {
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "profile-draft", false, nil)
+	}
+	raw, err := gateProfileBytes(request.Scope)
+	if err != nil {
+		return ProfileDraft{}, err
+	}
+	digest := gateDigest(raw)
+	if existing, lookupErr := repository.GetProfileDraft(ctx, request.BindingID); lookupErr == nil {
+		if existing.ScopeDigest == digest && existing.RecoveryEpoch == request.Expected.RecoveryEpoch {
+			return existing, nil
+		}
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeStateConflict, "profile-draft", false, nil)
+	} else if Code(lookupErr) != generated.ErrorCodeResourceNotFound {
+		return ProfileDraft{}, lookupErr
+	}
+	key := audit.IntentKey{Scope: "gate-profile-draft", KeyDigest: audit.Fingerprint(request.KeyDigest), RequestDigest: audit.Fingerprint(request.RequestDigest)}
+	after := audit.Fingerprint(digest)
+	event := audit.EventDraft{Type: "gate.profile-draft-created", CorrelationID: request.BindingID, Attribution: request.Attribution, Target: audit.Target{Kind: "profile", ID: request.Scope.ProfileID}, After: &after}
+	if audit.ValidateIntentKey(key) != nil || audit.ValidateEventDraft(event) != nil {
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "profile-draft", false, nil)
+	}
+	createdAt := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	_, err = repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO gate_profile_drafts(binding_id,scope_bytes,scope_digest,state_revision,recovery_epoch,human_id,created_at) VALUES(?,?,?,?,?,?,?)`, request.BindingID, raw, digest, request.Expected.StateRevision+1, request.Expected.RecoveryEpoch, gateHuman(request.Attribution), createdAt)
+		return err
+	})
+	if err != nil {
+		return ProfileDraft{}, err
+	}
+	return repository.GetProfileDraft(ctx, request.BindingID)
+}
+
+func (repository *GateRepository) GetProfileDraft(ctx context.Context, bindingID string) (ProfileDraft, error) {
+	if repository == nil || repository.store == nil || !gateScopeID.MatchString(bindingID) {
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeInputInvalid, "profile-draft", false, nil)
+	}
+	var result ProfileDraft
+	var raw []byte
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT binding_id,scope_bytes,scope_digest,state_revision,recovery_epoch,human_id,created_at FROM gate_profile_drafts WHERE binding_id=?`, bindingID).Scan(&result.BindingID, &raw, &result.ScopeDigest, &result.StateRevision, &result.RecoveryEpoch, &result.HumanID, &result.CreatedAt)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeResourceNotFound, "profile-draft", false, nil)
+	}
+	if err != nil {
+		return ProfileDraft{}, err
+	}
+	var payload gateProfilePayload
+	if gateDigest(raw) != result.ScopeDigest || json.Unmarshal(raw, &payload) != nil {
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeIntegrityFailure, "profile-draft", false, nil)
+	}
+	result.Scope = GateAppliedProfile{ProfileID: payload.ProfileID, ProfileVersion: payload.ProfileVersion, PolicyID: payload.PolicyID, PolicyVersion: payload.PolicyVersion, Capabilities: payload.Capabilities}
+	checked, err := gateProfileBytes(result.Scope)
+	if err != nil || string(raw) != string(checked) {
+		return ProfileDraft{}, newStoreError(generated.ErrorCodeIntegrityFailure, "profile-draft", false, err)
+	}
+	return result, nil
 }
 
 func (repository *GateRepository) GetAppliedProfileScope(ctx context.Context) (GateAppliedProfile, error) {
@@ -331,6 +429,17 @@ func (repository *GateRepository) ApplyProfileBinding(ctx context.Context, reque
 	if current != request.Expected {
 		return GateAppliedProfile{}, newStoreError(generated.ErrorCodePlanStale, "profile-plan", false, nil)
 	}
+	draft, err := repository.GetProfileDraft(ctx, request.BindingID)
+	if err != nil {
+		return GateAppliedProfile{}, err
+	}
+	requestedScopeBytes, err := gateProfileBytes(request.Scope)
+	if err != nil {
+		return GateAppliedProfile{}, err
+	}
+	if draft.ScopeDigest != gateDigest(requestedScopeBytes) || draft.RecoveryEpoch != request.Expected.RecoveryEpoch || draft.StateRevision > request.Expected.StateRevision {
+		return GateAppliedProfile{}, newStoreError(generated.ErrorCodePlanStale, "profile-draft", false, nil)
+	}
 	raw, err := json.Marshal(request.Scope.Capabilities)
 	if err != nil || len(raw) > 4096 {
 		return GateAppliedProfile{}, newStoreError(generated.ErrorCodeInputInvalid, "profile-capabilities", false, err)
@@ -345,7 +454,7 @@ func (repository *GateRepository) ApplyProfileBinding(ctx context.Context, reque
 	}
 	appliedAt := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	intent, err := repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: key, Event: event}, func(ctx context.Context, tx *sql.Tx) error {
-		if err := gateExactStep(ctx, tx, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.LeaseID, request.DeclarationID, request.DeclarationRevision, scope.ProfileID, gateDigest(raw), request.Expected, "gate.profile.bind", appliedAt); err != nil {
+		if err := gateExactStep(ctx, tx, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.LeaseID, request.DeclarationID, request.DeclarationRevision, scope.ProfileID, draft.ScopeDigest, request.Expected, "gate.profile.bind", appliedAt); err != nil {
 			return err
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, request.BindingID, scope.ProfileID, scope.ProfileVersion, scope.PolicyID, scope.PolicyVersion, raw, scope.StateRevision, scope.RecoveryEpoch, request.DeclarationID, request.DeclarationRevision, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.LeaseID, gateHuman(request.Attribution), appliedAt)

@@ -21,11 +21,11 @@
           ]
         },
         "definitionVersion": {
-          "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
           "type": "string"
         },
         "evaluatorVersion": {
-          "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
           "type": "string"
         },
         "evidenceSchemaId": {
@@ -131,7 +131,7 @@
       ],
       "properties": {
         "definitionVersion": {
-          "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
           "type": "string"
         },
         "evaluatedAt": {
@@ -143,7 +143,7 @@
           "type": "string"
         },
         "evaluatorVersion": {
-          "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
           "type": "string"
         },
         "evidenceIds": {

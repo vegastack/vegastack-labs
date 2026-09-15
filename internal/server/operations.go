@@ -170,7 +170,13 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
 	adapters := productionAdapterRegistry()
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Clock: time.Now, ExecutionContext: ctx})
+	gateRepository := store.NewGateRepository(authority)
+	coreGate, err := runengine.NewCoreGateEffect(gateRepository, store.NewAcknowledgementRepository(authority), operations.build.ReleaseBuildID, operations.build.ToolVersion, time.Now)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

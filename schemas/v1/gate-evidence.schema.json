@@ -49,11 +49,11 @@
       "type": "integer"
     },
     "definitionVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "evaluatorVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "evidenceId": {
@@ -81,7 +81,7 @@
       "type": "string"
     },
     "policyVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "profileId": {
@@ -89,7 +89,7 @@
       "type": "string"
     },
     "profileVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "proofClass": {
@@ -157,7 +157,7 @@
       ]
     },
     "toolVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     }
   },

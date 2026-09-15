@@ -43,7 +43,9 @@ func TestEvidenceV11RequiresAppliedBindings(t *testing.T) {
 
 func TestPhase5GateEvidenceRejectsFixturePromotionAndInvalidFreshness(t *testing.T) {
 	evidence := map[string]any{}
-	if err := json.Unmarshal(validEvidenceV11(t), &evidence); err != nil { t.Fatal(err) }
+	if err := json.Unmarshal(validEvidenceV11(t), &evidence); err != nil {
+		t.Fatal(err)
+	}
 	evidence["sourceKind"] = "fixture"
 	evidence["proofClass"] = "fixture"
 	if err := ValidateContractJSON(SchemaIDGateEvidence, phase5Document(t, evidence), ContractExact); err != nil {
@@ -101,7 +103,8 @@ func TestPhase5ClosedRequestAndCompatibleRead(t *testing.T) {
 		"schema": SchemaIDGateEvidenceRequest, "schemaVersion": "1.1.0", "expectedStateRevision": 3,
 		"recoveryEpoch": 2, "targetDigest": phase5DigestFixture(), "idempotencyKey": "key-a",
 		"evidenceId": "evidence-a", "gateId": "gate-a", "subjectId": "subject-a",
-		"definitionVersion": "1.0.0", "evaluatorVersion": "1.0.0", "artifactDigest": phase5DigestFixture(),
+		"definitionVersion": "1.0.0", "evaluatorVersion": "1.0.0",
+		"supersedesEvidenceId": nil, "revokesEvidenceId": nil, "artifactDigest": phase5DigestFixture(),
 		"observedAt": "2026-09-15T08:00:00Z",
 		"bundle": map[string]any{"schema": SchemaIDGateEvidenceBundle, "schemaVersion": "1.1.0",
 			"facts": []any{}, "checks": []any{}, "attachments": []any{}, "collectorId": "collector-a", "observedAt": "2026-09-15T08:00:00Z"},
@@ -109,11 +112,11 @@ func TestPhase5ClosedRequestAndCompatibleRead(t *testing.T) {
 	if err := ValidateContractJSON(SchemaIDGateEvidenceRequest, phase5Document(t, request), ContractExact); err != nil {
 		t.Fatal(err)
 	}
-	request["proofClass"] = "live"
+	request["passGate"] = true
 	if err := ValidateContractJSON(SchemaIDGateEvidenceRequest, phase5Document(t, request), ContractExact); err == nil {
-		t.Fatal("request accepted caller-issued proof class")
+		t.Fatal("request accepted caller-issued pass flag")
 	}
-	delete(request, "proofClass")
+	delete(request, "passGate")
 	delete(request, "recoveryEpoch")
 	if err := ValidateContractJSON(SchemaIDGateEvidenceRequest, phase5Document(t, request), ContractExact); err == nil {
 		t.Fatal("request without epoch accepted")

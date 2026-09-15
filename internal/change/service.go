@@ -11,6 +11,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -57,6 +58,9 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 		if operations[index].Sequence != int64(index+1) {
 			return Result{}, inputError()
 		}
+	}
+	if gate.ValidateGateOperations(operations, true) != nil {
+		return Result{}, inputError()
 	}
 	extensions := append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)
 	sort.Slice(extensions, func(i, j int) bool { return extensions[i].Name < extensions[j].Name })

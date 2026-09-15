@@ -35,6 +35,7 @@ func gateDraftFixture(t *testing.T) GateDraftRequest {
 	return GateDraftRequest{
 		EvidenceID: "evidence-a", GateID: "G-008", SubjectID: "site-a",
 		DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ArtifactDigest: digest,
+		SourceKind: "local", ProofClass: "live",
 		Bundle:    generated.GateEvidenceBundle{Schema: generated.SchemaIDGateEvidenceBundle, SchemaVersion: "1.1.0", Facts: []generated.GateEvidenceFact{}, Checks: []generated.GateEvidenceCheck{}, Attachments: []generated.GateEvidenceAttachment{}, CollectorID: "collector-a", ObservedAt: "2026-09-15T08:00:00Z"},
 		Expected:  RevisionToken{StateRevision: 0, RecoveryEpoch: 0},
 		KeyDigest: digest, RequestDigest: digest,
@@ -45,6 +46,7 @@ func gateDraftFixture(t *testing.T) GateDraftRequest {
 func gateApplyFixture(draft GateDraft) GateApplyRequest {
 	return GateApplyRequest{
 		DraftID: draft.DraftID, EvidenceID: draft.EvidenceID, GateID: draft.GateID, SubjectID: draft.SubjectID,
+		SourceKind: draft.SourceKind, ProofClass: draft.ProofClass, SupersedesEvidenceID: draft.SupersedesEvidenceID, RevokesEvidenceID: draft.RevokesEvidenceID,
 		Expected: RevisionToken{StateRevision: draft.StateRevision, RecoveryEpoch: draft.RecoveryEpoch},
 		PlanID:   "plan-a", PlanDigest: "sha256:" + strings.Repeat("b", 64),
 		RunID: "run-a", StepID: "step-a", LeaseID: "lease-a",
@@ -160,7 +162,12 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 		KeyDigest: "sha256:" + strings.Repeat("b", 64), RequestDigest: "sha256:" + strings.Repeat("c", 64),
 		Attribution: audit.Attribution{AuthenticatedPrincipalID: "human-a", AuthenticatedPrincipalMethod: "local"},
 	}
-	seedGateExactStep(t, repository, profile.PlanID, profile.PlanDigest, profile.RunID, profile.StepID, profile.LeaseID, profile.DeclarationID, profile.Scope.ProfileID, gateDigest([]byte("[]")), "gate.profile.bind", profile.Expected.StateRevision)
+	profileDraft, err := repository.PutProfileDraft(context.Background(), ProfileDraftRequest{BindingID: profile.BindingID, Scope: profile.Scope, Expected: profile.Expected, KeyDigest: "sha256:" + strings.Repeat("9", 64), RequestDigest: "sha256:" + strings.Repeat("8", 64), Attribution: profile.Attribution})
+	if err != nil {
+		t.Fatal(err)
+	}
+	profile.Expected.StateRevision = profileDraft.StateRevision
+	seedGateExactStep(t, repository, profile.PlanID, profile.PlanDigest, profile.RunID, profile.StepID, profile.LeaseID, profile.DeclarationID, profile.Scope.ProfileID, profileDraft.ScopeDigest, "gate.profile.bind", profile.Expected.StateRevision)
 	appliedScope, err := repository.ApplyProfileBinding(context.Background(), profile)
 	if err != nil {
 		t.Fatal(err)
@@ -169,7 +176,7 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	if err != nil || repeatScope.StateRevision != appliedScope.StateRevision {
 		t.Fatalf("profile retry: %#v %v", repeatScope, err)
 	}
-	if appliedScope.StateRevision != 2 {
+	if appliedScope.StateRevision != 3 {
 		t.Fatalf("profile revision %d", appliedScope.StateRevision)
 	}
 	apply := gateApplyFixture(draft)
@@ -191,7 +198,7 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	if _, err := repository.ApplyGateEvidence(context.Background(), misbound); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("same-key change accepted: %v", err)
 	}
-	if evidence.Status != "applied" || evidence.ProfileID != "vegastack-labs" || evidence.StateRevision != 3 {
+	if evidence.Status != "applied" || evidence.ProfileID != "vegastack-labs" || evidence.StateRevision != 4 {
 		t.Fatalf("evidence %#v", evidence)
 	}
 	rows, err := repository.ListAppliedGateEvidence(context.Background(), draft.GateID, draft.SubjectID)
@@ -209,6 +216,7 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	}
 	revokeDraft := gateDraftFixture(t)
 	revokeDraft.EvidenceID = "evidence-revoke"
+	revokeDraft.RevokesEvidenceID = &evidence.EvidenceID
 	revokeDraft.Expected.StateRevision = evidence.StateRevision
 	revokeDraft.KeyDigest = "sha256:" + strings.Repeat("f", 64)
 	revokeDraft.RequestDigest = revokeDraft.KeyDigest
@@ -221,8 +229,7 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	revoke.PlanDigest = "sha256:" + strings.Repeat("f", 64)
 	revoke.KeyDigest, revoke.RequestDigest = "sha256:"+strings.Repeat("9", 64), "sha256:"+strings.Repeat("8", 64)
 	revoke.ReleaseBuildID, revoke.ToolVersion, revoke.ExpiresAt = "release-a", "1.0.0", "2026-09-15T09:00:00Z"
-	revoke.Status, revoke.SourceKind, revoke.ProofClass = "revoked", "local", "live"
-	revoke.RevokesEvidenceID = &evidence.EvidenceID
+	revoke.Status = "revoked"
 	seedGateExactStep(t, repository, revoke.PlanID, revoke.PlanDigest, revoke.RunID, revoke.StepID, revoke.LeaseID, revoke.DeclarationID, revoke.SubjectID, second.BundleDigest, "gate.evidence.revoke", revoke.Expected.StateRevision)
 	record, err := repository.ApplyGateEvidence(context.Background(), revoke)
 	if err != nil {

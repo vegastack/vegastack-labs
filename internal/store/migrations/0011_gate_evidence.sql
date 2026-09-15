@@ -7,6 +7,10 @@ CREATE TABLE gate_evidence_drafts (
     subject_id TEXT NOT NULL CHECK (length(subject_id) BETWEEN 1 AND 128),
     definition_version TEXT NOT NULL,
     evaluator_version TEXT NOT NULL,
+    source_kind TEXT NOT NULL CHECK (source_kind IN ('fixture','local','independent')),
+    proof_class TEXT NOT NULL CHECK (proof_class IN ('fixture','live')),
+    supersedes_evidence_id TEXT,
+    revokes_evidence_id TEXT,
     artifact_digest TEXT NOT NULL CHECK (length(artifact_digest) = 71 AND substr(artifact_digest,1,7) = 'sha256:'),
     bundle_digest TEXT NOT NULL CHECK (length(bundle_digest) = 71 AND substr(bundle_digest,1,7) = 'sha256:'),
     bundle_bytes BLOB NOT NULL CHECK (length(bundle_bytes) BETWEEN 1 AND 65536),
@@ -14,7 +18,8 @@ CREATE TABLE gate_evidence_drafts (
     state_revision INTEGER NOT NULL CHECK (state_revision > 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     human_id TEXT NOT NULL CHECK (length(human_id) BETWEEN 1 AND 128),
-    created_at TEXT NOT NULL
+    created_at TEXT NOT NULL,
+    CHECK (supersedes_evidence_id IS NULL OR revokes_evidence_id IS NULL)
 ) STRICT;
 
 CREATE TABLE gate_applied_evidence (
@@ -44,6 +49,16 @@ CREATE TABLE gate_applied_evidence (
 
 CREATE INDEX gate_applied_evidence_subject_idx
 ON gate_applied_evidence(gate_id,subject_id,recovery_epoch,state_revision,evidence_id);
+
+CREATE TABLE gate_profile_drafts (
+    binding_id TEXT PRIMARY KEY CHECK (length(binding_id) BETWEEN 1 AND 128),
+    scope_bytes BLOB NOT NULL CHECK (length(scope_bytes) BETWEEN 2 AND 4096),
+    scope_digest TEXT NOT NULL CHECK (length(scope_digest) = 71 AND substr(scope_digest,1,7) = 'sha256:'),
+    state_revision INTEGER NOT NULL CHECK (state_revision > 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    human_id TEXT NOT NULL,
+    created_at TEXT NOT NULL
+) STRICT;
 
 CREATE TABLE gate_applied_profiles (
     binding_id TEXT PRIMARY KEY CHECK (length(binding_id) BETWEEN 1 AND 128),
@@ -80,3 +95,7 @@ CREATE TRIGGER gate_applied_profiles_no_update BEFORE UPDATE ON gate_applied_pro
 BEGIN SELECT RAISE(ABORT,'gate profiles are append-only'); END;
 CREATE TRIGGER gate_applied_profiles_no_delete BEFORE DELETE ON gate_applied_profiles
 BEGIN SELECT RAISE(ABORT,'gate profiles are append-only'); END;
+CREATE TRIGGER gate_profile_drafts_no_update BEFORE UPDATE ON gate_profile_drafts
+BEGIN SELECT RAISE(ABORT,'gate profile drafts are append-only'); END;
+CREATE TRIGGER gate_profile_drafts_no_delete BEFORE DELETE ON gate_profile_drafts
+BEGIN SELECT RAISE(ABORT,'gate profile drafts are append-only'); END;

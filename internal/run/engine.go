@@ -49,6 +49,19 @@ type AdapterRegistry interface {
 	Resolve(string) (adapter.Adapter, error)
 }
 
+type ExactStepBinding struct {
+	Plan        generated.Plan
+	Run         generated.Run
+	Step        generated.RunStep
+	Lease       generated.ExecutorLease
+	Attribution audit.Attribution
+}
+
+type CoreEffect interface {
+	Execute(context.Context, ExactStepBinding) (adapter.Effect, error)
+	Verify(context.Context, ExactStepBinding, adapter.Effect) (adapter.Verification, error)
+}
+
 type IDSource interface {
 	Lease(generated.RunStep) (string, string, error)
 }
@@ -58,6 +71,7 @@ type Config struct {
 	Plans            PlanSource
 	Admission        AdmissionVerifier
 	Adapters         AdapterRegistry
+	Core             CoreEffect
 	Clock            func() time.Time
 	IDs              IDSource
 	ExecutionContext context.Context
@@ -76,6 +90,7 @@ type Engine struct {
 	plans             PlanSource
 	admission         AdmissionVerifier
 	adapters          AdapterRegistry
+	core              CoreEffect
 	clock             func() time.Time
 	ids               IDSource
 	executionContext  context.Context
@@ -88,6 +103,15 @@ type Engine struct {
 type operationLane struct {
 	mu   sync.Mutex
 	refs int
+}
+
+func isGateOperation(kind string) bool {
+	switch kind {
+	case "gate.evidence.apply", "gate.evidence.supersede", "gate.evidence.revoke", "gate.profile.bind":
+		return true
+	default:
+		return false
+	}
 }
 
 func NewEngine(config Config) (*Engine, error) {
@@ -106,7 +130,7 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.LeaseContext == nil {
 		config.LeaseContext = context.WithDeadline
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -470,7 +494,14 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		if err != nil {
 			return current, err
 		}
-		implementation, err := engine.adapters.Resolve(operation.AdapterID)
+		var implementation adapter.Adapter
+		if operation.AdapterID == "core.gate" {
+			if engine.core == nil || !isGateOperation(operation.OperationType) || operation.InputDigest != operation.ArtifactDigest || plan.ExecutorMode != "central" {
+				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-gate-unavailable")
+			}
+		} else {
+			implementation, err = engine.adapters.Resolve(operation.AdapterID)
+		}
 		if err != nil {
 			current, transitionErr := engine.repository.TransitionRun(ctx, store.RunTransitionRequest{RunID: current.RunID, From: "running", To: "failed", At: engine.clock().UTC().Truncate(time.Second), VerificationStatus: "failed", Attribution: attribution})
 			if transitionErr != nil {
@@ -512,7 +543,19 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return engine.interruptBeforeEffect(ctx, current, *live, attribution)
 		}
 		leaseContext, cancelLease := engine.leaseContext(ctx, leaseDeadline)
-		effect, executeErr := implementation.Execute(leaseContext, operation)
+		intentStep := findRunStep(current, live.StepID)
+		if intentStep == nil {
+			cancelLease()
+			return current, runError(generated.ErrorCodeIntegrityFailure, "run-step-binding")
+		}
+		binding := ExactStepBinding{Plan: plan, Run: current, Step: *intentStep, Lease: lease, Attribution: attribution}
+		var effect adapter.Effect
+		var executeErr error
+		if operation.AdapterID == "core.gate" {
+			effect, executeErr = engine.core.Execute(leaseContext, binding)
+		} else {
+			effect, executeErr = implementation.Execute(leaseContext, operation)
+		}
 		if boundaryErr := engine.after(BoundaryEffectReturned); boundaryErr != nil {
 			cancelLease()
 			return current, boundaryErr
@@ -546,7 +589,13 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			cancelLease()
 			return current, err
 		}
-		verification, verifyErr := implementation.Verify(leaseContext, operation, effect)
+		var verification adapter.Verification
+		var verifyErr error
+		if operation.AdapterID == "core.gate" {
+			verification, verifyErr = engine.core.Verify(leaseContext, binding, effect)
+		} else {
+			verification, verifyErr = implementation.Verify(leaseContext, operation, effect)
+		}
 		expired := !engine.clock().UTC().Before(leaseDeadline)
 		cancelLease()
 		if expired {
