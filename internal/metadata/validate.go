@@ -204,7 +204,7 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 			switch name {
 			case "server run", "server api-ssh":
 				wantRisk = RiskLocalService
-			case "apply", "run cancel", "run resume":
+			case "apply", "run cancel", "run resume", "gate evidence", "gate profile draft":
 				wantRisk = RiskMutation
 			}
 			if command.Risk != wantRisk {

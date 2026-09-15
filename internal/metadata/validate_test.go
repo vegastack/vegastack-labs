@@ -170,6 +170,9 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 		}
 		if endpoint.OwnerPhase == "5" {
 			want = AvailabilityPlanned
+			if endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" {
+				want = AvailabilityAvailable
+			}
 		}
 		if endpoint.Availability != want {
 			t.Fatalf("endpoint %s availability = %q, want %q", endpoint.ID, endpoint.Availability, want)

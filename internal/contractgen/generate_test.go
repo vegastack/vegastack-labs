@@ -88,16 +88,32 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 		t.Fatal(err)
 	}
 	phase5 := 0
+	availableGateEndpoints := []string{}
+	phase5EndpointIDs := []string{}
 	for _, endpoint := range endpointRegistry.Endpoints {
 		if endpoint.OwnerPhase == "5" {
 			phase5++
-			if endpoint.Availability != metadata.AvailabilityPlanned {
-				t.Errorf("endpoint %s became available", endpoint.ID)
+			phase5EndpointIDs = append(phase5EndpointIDs, endpoint.ID)
+			if endpoint.Availability == metadata.AvailabilityAvailable {
+				availableGateEndpoints = append(availableGateEndpoints, endpoint.ID)
+			} else if endpoint.Availability != metadata.AvailabilityPlanned {
+				t.Errorf("endpoint %s has unknown availability %s", endpoint.ID, endpoint.Availability)
 			}
 		}
 	}
-	if phase5 != 18 {
-		t.Errorf("Phase 5 endpoint count = %d, want 18", phase5)
+	if phase5 != 19 {
+		t.Errorf("Phase 5 endpoint count = %d, want 19", phase5)
+	}
+	if !reflect.DeepEqual(phase5EndpointIDs, []string{
+		"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
+		"api.v1.credential-references.get", "api.v1.credential-resolution-records.get", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
+		"api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list", "api.v1.recovery-points.get", "api.v1.restores.get", "api.v1.restores.plan",
+		"api.v1.restores.run", "api.v1.restores.verify", "api.v1.scheduled-job-policies.get", "api.v1.scheduled-jobs.create",
+	}) {
+		t.Errorf("#102 Phase 5 endpoint baseline or #104 addition changed: %v", phase5EndpointIDs)
+	}
+	if !reflect.DeepEqual(availableGateEndpoints, []string{"api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
+		t.Errorf("unexpected available Phase 5 endpoints: %v", availableGateEndpoints)
 	}
 	var gateSchema map[string]any
 	if err := json.Unmarshal([]byte(byPath["schemas/v1/gate-definition.schema.json"]), &gateSchema); err != nil {
@@ -127,6 +143,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"docs/generated/command-registry.md",
 		"docs/generated/endpoint-registry.md",
 		"internal/generated/contracts_gen.go",
+		"internal/generated/gate_definitions_gen.go",
 		"internal/generated/contracts_validate_gen.go",
 		"schemas/v1/command-registry.json",
 		"schemas/v1/command-registry.schema.json",
@@ -190,9 +207,17 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/gate-check-request.schema.json",
 		"schemas/v1/gate-definition.schema.json",
 		"schemas/v1/gate-evaluation.schema.json",
+		"schemas/v1/gate-evidence-attachment.schema.json",
+		"schemas/v1/gate-evidence-bundle.schema.json",
+		"schemas/v1/gate-evidence-check.schema.json",
+		"schemas/v1/gate-evidence-fact.schema.json",
 		"schemas/v1/gate-evidence-request.schema.json",
+		"schemas/v1/gate-evidence-submission.schema.json",
 		"schemas/v1/gate-evidence.schema.json",
 		"schemas/v1/gate-list-data.schema.json",
+		"schemas/v1/gate-profile-draft-request.schema.json",
+		"schemas/v1/gate-profile-draft-submission.schema.json",
+		"schemas/v1/gate-view.schema.json",
 		"schemas/v1/inventory-diff-data.schema.json",
 		"schemas/v1/inventory-diff-request.schema.json",
 		"schemas/v1/inventory-draft-export-pointer.schema.json",
@@ -634,10 +659,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 		knownSchemas[schema.ID] = true
 	}
 	available, planned := 0, 0
+	availablePhase5 := []string{}
 	for _, command := range registry.Commands {
 		switch command.Availability {
 		case "available":
 			available++
+			if command.OwnerPhase == "5" {
+				availablePhase5 = append(availablePhase5, strings.Join(command.Path, " "))
+			}
 		case "planned":
 			planned++
 			if command.Risk != "unassigned" || len(command.Flags) != 0 || command.Result != "" || len(command.Examples) != 0 {
@@ -651,8 +680,13 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 17 || planned != 38 {
-		t.Fatalf("command availability = (%d available, %d planned), want (17, 38)", available, planned)
+	if available != 22 || planned != 34 {
+		t.Fatalf("command availability = (%d available, %d planned), want (22, 34)", available, planned)
+	}
+	// #102's 17 available/38 planned baseline remains the arithmetic base:
+	// #104 promoted four exact gate commands and added one exact profile draft.
+	if !reflect.DeepEqual(availablePhase5, []string{"gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
+		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 
 	for _, path := range []string{
@@ -683,7 +717,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.16.0"`,
+		`= "1.17.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

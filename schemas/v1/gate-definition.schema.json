@@ -8,16 +8,24 @@
         "always",
         "capability",
         "profile",
-        "subject"
+        "subject",
+        "deferred"
       ],
       "type": "string"
     },
+    "capabilityId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "definitionVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "evaluatorVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "evidenceSchemaId": {
@@ -29,7 +37,7 @@
       "type": "integer"
     },
     "gateId": {
-      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$",
       "type": "string"
     },
     "layer": {
@@ -49,6 +57,13 @@
       "type": "array",
       "uniqueItems": true
     },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "recoveryEpochBound": {
       "type": "boolean"
     },
@@ -60,7 +75,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
     },
@@ -79,6 +94,8 @@
     "gateId",
     "definitionVersion",
     "layer",
+    "profileId",
+    "capabilityId",
     "subjectKinds",
     "applicability",
     "prerequisiteGateIds",

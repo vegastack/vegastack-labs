@@ -10,6 +10,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -154,6 +155,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	}
 	declarationOperations := append([]generated.DeclarationOperation(nil), declaration.Operations...)
 	sort.Slice(declarationOperations, func(i, j int) bool { return declarationOperations[i].Sequence < declarationOperations[j].Sequence })
+	if gate.ValidateGateOperations(declarationOperations, service.config.ExecutorMode == "central") != nil {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+	}
+	if gate.HasGateOperation(declarationOperations) && service.config.AuthorizationBranch != "human" {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+	}
 	operations := make([]generated.PlanOperation, len(declarationOperations))
 	for index, operation := range declarationOperations {
 		if operation.Sequence != int64(index+1) {

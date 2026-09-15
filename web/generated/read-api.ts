@@ -399,12 +399,14 @@ export interface GateCheckRequest {
 
 export interface GateDefinition {
   readonly "schema": "vegastack-labs.dev/gate-definition";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "gateId": string;
   readonly "definitionVersion": string;
   readonly "layer": "platform" | "adapter" | "deployment-profile" | "site";
+  readonly "profileId": string | null;
+  readonly "capabilityId": string | null;
   readonly "subjectKinds": ReadonlyArray<string>;
-  readonly "applicability": "always" | "capability" | "profile" | "subject";
+  readonly "applicability": "always" | "capability" | "profile" | "subject" | "deferred";
   readonly "prerequisiteGateIds": ReadonlyArray<string>;
   readonly "evidenceSchemaId": string;
   readonly "evaluatorVersion": string;
@@ -414,7 +416,7 @@ export interface GateDefinition {
 
 export interface GateEvaluation {
   readonly "schema": "vegastack-labs.dev/gate-evaluation";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "evaluationId": string;
   readonly "gateId": string;
   readonly "subjectId": string;
@@ -425,13 +427,23 @@ export interface GateEvaluation {
   readonly "recoveryEpoch": number;
   readonly "outcome": "passed" | "blocked" | "not-applicable" | "stale" | "unknown";
   readonly "reasonCode": string;
+  readonly "evidenceSource": "none" | "fixture" | "local" | "independent";
+  readonly "readyForInput": boolean;
 }
 
 export interface GateListData {
   readonly "schema": "vegastack-labs.dev/gate-list-data";
-  readonly "schemaVersion": "1.0.0";
-  readonly "gates": ReadonlyArray<GateDefinition>;
+  readonly "schemaVersion": "1.1.0";
+  readonly "gates": ReadonlyArray<GateView>;
   readonly "recoveryEpoch": number;
+}
+
+export interface GateView {
+  readonly "schema": "vegastack-labs.dev/gate-view";
+  readonly "schemaVersion": "1.1.0";
+  readonly "definition": GateDefinition;
+  readonly "evaluation": GateEvaluation;
+  readonly "applicabilityReasonCode": string;
 }
 
 export interface InventoryDraftCounts {
@@ -2740,7 +2752,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+        "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$"
       },
       {
         "name": "subjectId",
@@ -2754,7 +2766,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       }
     ]
   },
@@ -2776,7 +2788,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -2784,14 +2796,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+        "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$"
       },
       {
         "name": "definitionVersion",
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "layer",
@@ -2804,6 +2816,20 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "deployment-profile",
           "site"
         ]
+      },
+      {
+        "name": "profileId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "capabilityId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
         "name": "subjectKinds",
@@ -2823,7 +2849,8 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
           "always",
           "capability",
           "profile",
-          "subject"
+          "subject",
+          "deferred"
         ]
       },
       {
@@ -2847,7 +2874,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "freshnessSeconds",
@@ -2882,7 +2909,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -2897,7 +2924,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+        "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$"
       },
       {
         "name": "subjectId",
@@ -2911,14 +2938,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "evaluatorVersion",
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^1\\.[0-9]+\\.[0-9]+$"
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
       },
       {
         "name": "evidenceIds",
@@ -2962,6 +2989,24 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "evidenceSource",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "fixture",
+          "local",
+          "independent"
+        ]
+      },
+      {
+        "name": "readyForInput",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
       }
     ]
   },
@@ -2983,7 +3028,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -2991,7 +3036,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "array",
         "required": true,
         "nullable": false,
-        "itemRef": "vegastack-labs.dev/gate-definition",
+        "itemRef": "vegastack-labs.dev/gate-view",
         "maxItems": 256
       },
       {
@@ -3000,6 +3045,50 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/gate-view",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/gate-view"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "definition",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/gate-definition"
+      },
+      {
+        "name": "evaluation",
+        "kind": "object",
+        "required": true,
+        "nullable": false,
+        "ref": "vegastack-labs.dev/gate-evaluation"
+      },
+      {
+        "name": "applicabilityReasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       }
     ]
   },
@@ -4269,6 +4358,10 @@ function decodeGateListData(value: unknown): GateListData {
   return decodeSchema("vegastack-labs.dev/gate-list-data", value) as unknown as GateListData;
 }
 
+function decodeGateView(value: unknown): GateView {
+  return decodeSchema("vegastack-labs.dev/gate-view", value) as unknown as GateView;
+}
+
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
   return decodeSchema("vegastack-labs.dev/inventory-draft-counts", value) as unknown as InventoryDraftCounts;
 }
@@ -4582,6 +4675,8 @@ export type ReadClient = {
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
   readonly streamEvents: (options?: StreamOptions) => AsyncIterable<ApiAuditEventData>;
+  readonly getGate: (path: { readonly gateId: string }, options?: RequestOptions) => Promise<ReadResult<GateView>>;
+  readonly listGates: (options?: RequestOptions) => Promise<ReadResult<GateListData>>;
   readonly getHealth: (options?: RequestOptions) => Promise<ReadResult<ServerStatusData>>;
   readonly getInventoryDraftAlias: (path: { readonly draftId: string; readonly revision: number; readonly recordId: string }, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasData>>;
   readonly listInventoryDraftAliases: (path: { readonly draftId: string; readonly revision: number }, query?: ApiPageQuery, options?: RequestOptions) => Promise<ReadResult<ApiInventoryAliasListData>>;
@@ -4617,6 +4712,14 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     },
     streamEvents(options = {}) {
       return streamSSE(fetchTransport, "/api/v1/events", options, "api.v1.events.stream", "audit-event", decodeApiAuditEventData, (data) => data.event.eventId);
+    },
+    async getGate(path, options = {}) {
+      const operation = "api.v1.gates.get";
+      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "", options, operation, decodeGateView);
+    },
+    async listGates(options = {}) {
+      const operation = "api.v1.gates.list";
+      return performRead(fetchTransport, "/api/v1/gates", options, operation, decodeGateListData);
     },
     async getHealth(options = {}) {
       const operation = "api.v1.health.get";
@@ -4768,7 +4871,7 @@ export type Phase5Client = {
   readonly listAuditCheckpoints: (options?: RequestOptions) => Promise<ReadResult<AuditCheckpointListData>>;
   readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BackupStatusData>>;
   readonly checkGate: (request: GateCheckRequest, options?: RequestOptions) => Promise<ReadResult<GateEvaluation>>;
-  readonly getGate: (path: { readonly gateId: string }, options?: RequestOptions) => Promise<ReadResult<GateDefinition>>;
+  readonly getGate: (path: { readonly gateId: string }, options?: RequestOptions) => Promise<ReadResult<GateView>>;
   readonly listGates: (options?: RequestOptions) => Promise<ReadResult<GateListData>>;
   readonly getRecoveryPoint: (path: { readonly pointId: string }, options?: RequestOptions) => Promise<ReadResult<RecoveryPoint>>;
   readonly getRestoreStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatus>>;
@@ -4792,7 +4895,7 @@ export function createPhase5Client(fetchTransport: FetchTransport): Phase5Client
     },
     async getGate(path, options = {}) {
       const operation = "api.v1.gates.get";
-      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "", options, operation, decodeGateDefinition);
+      return performRead(fetchTransport, "/api/v1/gates/" + encodePathString(path.gateId, "gateId") + "", options, operation, decodeGateView);
     },
     async listGates(options = {}) {
       const operation = "api.v1.gates.list";

@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import { installReadFixture } from "./api-fixture";
+import { fixtureAudit, installReadFixture } from "./api-fixture";
 
 const ORIGIN = "http://127.0.0.1:4173";
-const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events)|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
+const GENERATED_READ_PATH = /^(?:\/api\/v1\/(?:summary|sources|health|database\/status|events|gates)|\/api\/v1\/inventory-drafts(?:\/[^/]+\/revisions\/\d+(?:\/(?:assets|nodes|aliases|observations)(?:\/[^/]+)?)?)?)$/;
 const SOURCE_IDS = new Set(["database", "nodes", "gates", "people", "services", "backups", "providers"]);
 const SOURCE_STATES = new Set(["healthy", "stale", "unknown", "unavailable", "failed"]);
 
@@ -96,6 +96,23 @@ test("each route has a unique browser title", async ({ page }) => {
   }
   expect(titles.size).toBe(routes.size);
   assertClean();
+});
+
+test("generated Gates GET stays clean while unreviewed gate requests are detected", async ({ page }) => {
+  const { failures, assertClean } = monitorBrowser(page);
+  await page.goto("/gates");
+  await expect(page.getByText("G-008")).toBeVisible();
+  await expect.poll(() => fixtureAudit.requests.some(request => new URL(request).pathname === "/api/v1/gates")).toBeTruthy();
+  assertClean();
+
+  await page.evaluate(() => Promise.all([
+    fetch("/api/v1/gates/close", { method: "POST" }),
+    fetch("/api/v1/gates/unsafe"),
+    fetch("/api/v1/gates?unreviewed=1"),
+  ]));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unexpected: fetch .*\/api\/v1\/gates\/close/));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unexpected: fetch .*\/api\/v1\/gates\/unsafe/));
+  await expect.poll(() => failures).toContainEqual(expect.stringMatching(/unexpected: fetch .*\/api\/v1\/gates\?unreviewed=1/));
 });
 
 test("truthful empty, loading, error, and unavailable states render", async ({ page }) => {

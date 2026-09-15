@@ -73,13 +73,14 @@ type LifecycleDefinition struct {
 }
 
 type Registry struct {
-	SchemaVersion string
-	Commands      []CommandDefinition
-	Endpoints     []EndpointDefinition
-	Errors        []ErrorDefinition
-	Exits         []ExitDefinition
-	Schemas       []SchemaDefinition
-	Lifecycle     LifecycleDefinition
+	SchemaVersion   string
+	Commands        []CommandDefinition
+	Endpoints       []EndpointDefinition
+	GateDefinitions []GateDefinitionSource
+	Errors          []ErrorDefinition
+	Exits           []ExitDefinition
+	Schemas         []SchemaDefinition
+	Lifecycle       LifecycleDefinition
 }
 
 type EndpointDefinition struct {

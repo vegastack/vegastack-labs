@@ -34,6 +34,12 @@ const EXPECTED_ENDPOINTS = [
   "api.v1.session.create", "api.v1.session.logout", "api.v1.session.renew",
   "api.v1.sources.list", "api.v1.summary.get",
 ];
+// Preserve the original reviewed read/API registry. #104's five gate routes
+// are an additional exact wave, not permission for an arbitrary new route.
+const REVIEWED_GATE_ENDPOINTS = [
+  "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
+  "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list",
+];
 
 async function filesBelow(root, relative) {
   const start = path.join(root, relative); const files = [];
@@ -66,7 +72,10 @@ export async function verifyReadAPI(root = ROOT) {
         .filter((endpoint) => endpoint.availability === "available")
         .map((endpoint) => endpoint.id)
         .sort();
-      if (JSON.stringify(ids) !== JSON.stringify(EXPECTED_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
+      const gateIDs = ids.filter((id) => id.startsWith("api.v1.gate-") || id.startsWith("api.v1.gates."));
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id));
+      if (JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
+          JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
     } catch { codes.add("READ_API_ENDPOINT_DRIFT"); }
   }
 

@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.16.0",
+  "schemaVersion": "1.17.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -201,10 +201,23 @@
       "id": "api.v1.gate-evidence.create",
       "method": "POST",
       "path": "/api/v1/gates/{gateId}/evidence",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/gate-evidence-request",
-      "dataSchema": "vegastack-labs.dev/gate-evidence",
+      "dataSchema": "vegastack-labs.dev/gate-evidence-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.gate-profile-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/gates/profile-drafts",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/gate-profile-draft-request",
+      "dataSchema": "vegastack-labs.dev/gate-profile-draft-submission",
       "stream": "finite",
       "audiences": [
         "operator"
@@ -214,7 +227,7 @@
       "id": "api.v1.gates.check",
       "method": "POST",
       "path": "/api/v1/gates/check",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/gate-check-request",
       "dataSchema": "vegastack-labs.dev/gate-evaluation",
@@ -228,9 +241,9 @@
       "id": "api.v1.gates.get",
       "method": "GET",
       "path": "/api/v1/gates/{gateId}",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/gate-definition",
+      "dataSchema": "vegastack-labs.dev/gate-view",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -241,7 +254,7 @@
       "id": "api.v1.gates.list",
       "method": "GET",
       "path": "/api/v1/gates",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
       "dataSchema": "vegastack-labs.dev/gate-list-data",
       "stream": "finite",

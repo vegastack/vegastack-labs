@@ -24,16 +24,36 @@
     }
   ],
   "properties": {
+    "appliedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
     "artifactDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
+    "bundleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "collectorId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "declarationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "declarationRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
     "definitionVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "evaluatorVersion": {
-      "pattern": "^1\\.[0-9]+\\.[0-9]+$",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "evidenceId": {
@@ -45,11 +65,31 @@
       "type": "string"
     },
     "gateId": {
+      "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$",
+      "type": "string"
+    },
+    "humanId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
     "observedAt": {
       "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "policyId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "policyVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "profileId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "profileVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "proofClass": {
@@ -63,6 +103,17 @@
       "minimum": 0,
       "type": "integer"
     },
+    "releaseBuildId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "revokesEvidenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "schema": {
       "enum": [
         "vegastack-labs.dev/gate-evidence"
@@ -71,7 +122,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
     },
@@ -83,9 +134,12 @@
       ],
       "type": "string"
     },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
     "status": {
       "enum": [
-        "draft",
         "applied",
         "revoked"
       ],
@@ -93,6 +147,17 @@
     },
     "subjectId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "supersedesEvidenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "toolVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     }
   },
@@ -104,12 +169,27 @@
     "subjectId",
     "definitionVersion",
     "evaluatorVersion",
+    "releaseBuildId",
+    "toolVersion",
+    "profileId",
+    "profileVersion",
+    "policyId",
+    "policyVersion",
+    "declarationId",
+    "declarationRevision",
+    "stateRevision",
     "sourceKind",
     "proofClass",
+    "collectorId",
+    "humanId",
     "artifactDigest",
+    "bundleDigest",
     "observedAt",
+    "appliedAt",
     "expiresAt",
     "recoveryEpoch",
+    "supersedesEvidenceId",
+    "revokesEvidenceId",
     "status"
   ],
   "title": "VegaStack Labs gate evidence",

@@ -347,6 +347,11 @@ test("the local transport implementation is sealed to the reviewed Unix source",
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
+test("the #104 typed gate local client is one exact resealed source wave", async () => {
+  const result = await verifyCLI(process.cwd(), { crossBuild: false });
+  assert.ok(!result.codes.includes("CLI_LOCAL_CLIENT_BOUNDARY"), JSON.stringify(result));
+});
+
 test("the local client boundary rejects caller-controlled values forwarded to the sealed transport", async (t) => {
   const transportSource = await readFile(new URL("../../internal/localtransport/transport.go", import.meta.url), "utf8");
   const root = await fixtureRepo(t, {

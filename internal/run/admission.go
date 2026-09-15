@@ -35,6 +35,11 @@ func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.Author
 	if gate == nil || !exactContract(generated.SchemaIDPlan, plan) || len(plan.Operations) == 0 || !exactContract(generated.SchemaIDAuthorizationDecision, decision) || !decision.Allowed || decision.Action != string(authorization.ActionExecute) || decision.TargetID != plan.Operations[0].TargetID || decision.PlanDigest != plan.PlanDigest || decision.RecoveryEpoch != plan.Binding.RecoveryEpoch || decision.Branch == nil || *decision.Branch != plan.AuthorizationBranch {
 		return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")
 	}
+	for _, operation := range plan.Operations {
+		if operation.AdapterID == "core.gate" && (plan.AuthorizationBranch != string(authorization.BranchHuman) || plan.ExecutorMode != "central" || !isGateOperation(operation.OperationType)) {
+			return runError(generated.ErrorCodeAuthorizationDenied, "gate-human-admission")
+		}
+	}
 	if plan.AuthorizationBranch == string(authorization.BranchPreauthorized) {
 		if acknowledgement != nil {
 			return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")

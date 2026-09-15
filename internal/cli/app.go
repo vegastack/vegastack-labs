@@ -59,6 +59,14 @@ type ControlOperations interface {
 	ResumeRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
 }
 
+type GateControlOperations interface {
+	Gates(context.Context, string) (localapi.TypedResponse[generated.GateListData], error)
+	GetGate(context.Context, string, string) (localapi.TypedResponse[generated.GateView], error)
+	CheckGate(context.Context, string, string, string) (localapi.TypedResponse[generated.GateEvaluation], error)
+	SubmitGateEvidence(context.Context, string, generated.GateEvidenceRequest) (localapi.TypedResponse[generated.GateEvidenceSubmission], error)
+	SubmitProfileDraft(context.Context, string, generated.GateProfileDraftRequest) (localapi.TypedResponse[generated.GateProfileDraftSubmission], error)
+}
+
 type Option func(*App)
 
 func WithReleaseOperations(operations ReleaseOperations) Option {
@@ -320,6 +328,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return app.failServer(mode, parsed.commandName(), err)
 		}
 		return app.handlePlanResponse(mode, response)
+	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:
+		return app.runGateCommand(ctx, mode, parsed)
 	case generated.CommandNameApply:
 		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagPlanID))
 	case generated.CommandNameRunInspect:

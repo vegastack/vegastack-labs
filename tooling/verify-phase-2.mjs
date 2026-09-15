@@ -43,6 +43,16 @@ const REVIEWED_POST_PHASE2_IMPORTS = new Set([
 const REVIEWED_POST_PHASE2_COMMANDS = new Set([
   "apply", "plan", "run cancel", "run inspect", "run resume", "server api-ssh",
 ]);
+// Preserve the original Phase 2/Phase 4 command and digest goldens. Each
+// later reviewed wave has a separate exact name/import/source closure; adding
+// another gate command or import cannot inherit #104's allowance.
+const PHASE2_BASELINE_DEPENDENCY_DIGEST = "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133";
+const PHASE2_BASELINE_MUTATION_DIGEST = "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c";
+const REVIEWED_GATE_WAVE = Object.freeze({
+  id: "phase5-issue104-v1", issue: 104,
+  commands: Object.freeze(["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]),
+  imports: Object.freeze([`${MODULE_PREFIX}internal/gate`]),
+});
 // Phase 2's no-mutation proof predates Phase 4. Later commands are accepted
 // only while the complete local production source closure of cmd/vsk-labs
 // remains byte-for-byte reviewed. This avoids a brittle hand-maintained file
@@ -222,8 +232,9 @@ async function commandOutput(root, command, args, options = {}) {
   })).stdout.trim();
 }
 
-function productionDependencyDigest(imports) {
-  const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX) && !REVIEWED_POST_PHASE2_IMPORTS.has(name)).sort();
+function productionDependencyDigest(imports, reviewedWaveActive = false) {
+  const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX) && !REVIEWED_POST_PHASE2_IMPORTS.has(name) &&
+    !(reviewedWaveActive && REVIEWED_GATE_WAVE.imports.includes(name))).sort();
   return `sha256:${createHash("sha256").update(`${localImports.join("\n")}\n`).digest("hex")}`;
 }
 
@@ -366,8 +377,12 @@ export async function proveUnavailableMutations(root = ROOT) {
     const registry = JSON.parse(await readFile(path.join(root, "schemas/v1/command-registry.json"), "utf8"));
     const planned = registry.commands.filter(({ availability }) => availability === "planned")
       .map(({ path: commandPath }) => commandPath.join(" ")).sort();
+    // These are forbidden shortcuts, not future planned commands. They must
+    // fail at the real executable boundary before any state or private input
+    // can be read, even after inert gate authoring becomes available.
+    const prohibitedGateSetters = ["gate close", "gate pass", "gate profile bind", "gate profile apply"];
     const before = await treeFingerprint(state);
-    for (const command of planned) {
+    for (const command of [...planned, ...prohibitedGateSetters]) {
       const invocation = spawnSync(binary, [...command.split(" "), "--output", "json", "--state-root", state, "private-canary"], {
         cwd: root, encoding: "utf8", shell: false,
       });
@@ -387,7 +402,7 @@ export async function proveUnavailableMutations(root = ROOT) {
     if (after !== before) {
       return { status: "fail", codes: ["PHASE2_MUTATION_AVAILABLE"], commands: [], fingerprint: before };
     }
-    return { status: "pass", codes: [], commands: planned, fingerprint: before };
+    return { status: "pass", codes: [], commands: [...planned, ...prohibitedGateSetters], fingerprint: before };
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
@@ -441,7 +456,8 @@ export async function collectIntegratedFacts(root = ROOT) {
     postPhase2SourceOverride: await postPhase2SourceOverride(root, productionImports),
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
-      !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),
+      !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" ")) &&
+      !REVIEWED_GATE_WAVE.commands.includes(segments.join(" "))),
     productionImports,
     privateFixture,
     children,
@@ -454,7 +470,7 @@ export function validateEvidence(manifest, facts) {
   if (!exactKeys(manifest, ["schemaVersion", "phase", "status", "contract", "children", "scenarios", "requirements"]) ||
       manifest.schemaVersion !== 1 || manifest.phase !== "2" ||
       manifest.status !== "implemented-awaiting-operator-acceptance" ||
-      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "postPhase2MutationBoundaryDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
+      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "postPhase2MutationBoundaryDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations", "reviewedWaves"]) ||
       !Array.isArray(manifest.children) || !Array.isArray(manifest.scenarios) || !Array.isArray(manifest.requirements)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   } else {
@@ -494,6 +510,23 @@ export function validateEvidence(manifest, facts) {
     }
   }
   if (facts.children.some(({ state }) => state !== "CLOSED")) codes.add("PHASE2_CHILD_INCOMPLETE");
+  const gateWave = manifest.contract?.reviewedWaves?.[0];
+  const waveRecordValid = Array.isArray(manifest.contract?.reviewedWaves) && manifest.contract.reviewedWaves.length === 1 &&
+    exactKeys(gateWave, ["id", "issue", "commands", "imports", "mutationBoundaryDigest"]) &&
+    gateWave.id === REVIEWED_GATE_WAVE.id && gateWave.issue === REVIEWED_GATE_WAVE.issue &&
+    same(gateWave.commands, REVIEWED_GATE_WAVE.commands) && same(gateWave.imports, REVIEWED_GATE_WAVE.imports) &&
+    /^sha256:[a-f0-9]{64}$/.test(gateWave.mutationBoundaryDigest);
+  if (manifest.contract && (!waveRecordValid ||
+      manifest.contract.productionDependencyDigest !== PHASE2_BASELINE_DEPENDENCY_DIGEST ||
+      manifest.contract.postPhase2MutationBoundaryDigest !== PHASE2_BASELINE_MUTATION_DIGEST)) {
+    codes.add("PHASE2_TRACEABILITY_GAP");
+  }
+  const availableGateCommands = facts.availableCommands.filter((name) => name.startsWith("gate "));
+  const reviewedWaveImportsPresent = REVIEWED_GATE_WAVE.imports.every((name) => facts.productionImports.includes(name));
+  const reviewedWaveActive = waveRecordValid && same(availableGateCommands, REVIEWED_GATE_WAVE.commands) &&
+    reviewedWaveImportsPresent && facts.postPhase2MutationBoundaryDigest === gateWave.mutationBoundaryDigest;
+  const historicalBaselineActive = availableGateCommands.length === 0 &&
+    facts.postPhase2MutationBoundaryDigest === PHASE2_BASELINE_MUTATION_DIGEST;
   if (manifest.contract && (!same(manifest.contract.endpointIds, EXPECTED_ENDPOINT_IDS) ||
       !containsAll(facts.endpointIds, EXPECTED_ENDPOINT_IDS) ||
       !hasPrefix(facts.migrations, manifest.contract.migrations) ||
@@ -502,12 +535,13 @@ export function validateEvidence(manifest, facts) {
     codes.add("PHASE2_CONTRACT_DRIFT");
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
-      manifest.contract.postPhase2MutationBoundaryDigest !== facts.postPhase2MutationBoundaryDigest ||
+      !(reviewedWaveActive || historicalBaselineActive) ||
       !same(manifest.contract.availableCommands, EXPECTED_AVAILABLE_COMMANDS) ||
       !containsAll(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
-  if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports) ||
+  if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports, reviewedWaveActive) ||
+      availableGateCommands.length > 0 && !reviewedWaveImportsPresent ||
       facts.postPhase2SourceOverride !== "" ||
       facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");

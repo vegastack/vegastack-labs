@@ -754,6 +754,10 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 const (
 	reviewedLocalAPILinuxDigest       = "23c1b6e73ff1ae5fe910966e936571711e348b96382669604c57445fc4d98b7d"
 	reviewedLocalAPIUnsupportedDigest = "50ca54e99992f1651e315421510f408df189f0290569cd2f91665b6038e82272"
+	// #104 adds one typed gate client to the original reviewed package; these
+	// wave digests are separate from, and do not replace, the baseline goldens.
+	reviewedGateLocalAPILinuxDigest       = "bbeb263e7cfba9102961e338cc51c0fdbc364bf20e472adf85ef135658681e06"
+	reviewedGateLocalAPIUnsupportedDigest = "d03ab3381a723be7e6b4027164e00c6d2723d8fae8e3c6a7da4690b5834999e4"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -767,6 +771,19 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 	expected := reviewedLocalAPIUnsupportedDigest
 	if containsString(names, "listener_linux.go") {
 		expected = reviewedLocalAPILinuxDigest
+	}
+	if containsString(names, "gates_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = reviewedGateLocalAPILinuxDigest
+		} else {
+			if strings.Join(names, ",") != "client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = reviewedGateLocalAPIUnsupportedDigest
+		}
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected
 }
