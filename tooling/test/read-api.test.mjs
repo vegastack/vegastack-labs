@@ -21,6 +21,23 @@ test("the read API verifier accepts source health and browser session endpoints"
   assert.ok(!result.codes.includes("READ_API_ENDPOINT_DRIFT"), JSON.stringify(result));
 });
 
+test("the reviewed #104 gate routes add only their exact registry IDs", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  assert.equal((await verifyReadAPI()).status, "pass");
+  for (const id of ["api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"]) {
+    const copy = structuredClone(registry);
+    copy.endpoints = copy.endpoints.filter((endpoint) => endpoint.id !== id);
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
+  }
+  const extra = structuredClone(registry);
+  const added = structuredClone(extra.endpoints.find((endpoint) => endpoint.id === "api.v1.gates.get"));
+  added.id = "api.v1.gates.pass";
+  extra.endpoints.push(added);
+  const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(extra)}\n`});
+  assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), "direct gate pass route");
+});
+
 test("the read API verifier rejects a registry without the source health endpoint", async (t) => {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
   registry.endpoints = registry.endpoints.filter((endpoint) => endpoint.id !== "api.v1.sources.list");
