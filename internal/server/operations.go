@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -315,6 +316,14 @@ func (operations *Operations) DatabaseStatus(ctx context.Context, configPath str
 		return localapi.TypedResponse[generated.DatabaseStatusData]{}, err
 	}
 	return client.DatabaseStatus(ctx, profile)
+}
+
+func (operations *Operations) ImportCredential(ctx context.Context, configPath string, input generated.CredentialImportRequest, source io.Reader) (localapi.TypedResponse[generated.CredentialImportSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.CredentialImportSubmission]{}, err
+	}
+	return client.ImportCredential(ctx, profile, input, source)
 }
 
 func (operations *Operations) Gates(ctx context.Context, configPath string) (localapi.TypedResponse[generated.GateListData], error) {

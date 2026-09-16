@@ -41,6 +41,7 @@ func main() {
 		cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})),
 		cli.WithServerOperations(operations),
 		cli.WithControlOperations(operations, clientfile.NewReader()),
+		cli.WithCredentialControlOperations(operations),
 	)
 	os.Exit(app.Run(ctx, os.Args[1:]))
 }

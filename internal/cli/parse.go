@@ -110,10 +110,37 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
 	}
-	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) || invalidGateShape(parsed) {
+	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) || invalidGateShape(parsed) || invalidCredentialShape(parsed) {
 		return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 	}
 	return parsed, nil
+}
+
+func invalidCredentialShape(parsed parsedArguments) bool {
+	if parsed.commandName() != generated.CommandNameCredentialImport {
+		return false
+	}
+	for _, flag := range []string{generated.FlagIdempotencyKey, generated.FlagReferenceID, generated.FlagConsumerID, generated.FlagPurposeID, generated.FlagTargetID, generated.FlagResolverID, generated.FlagMaterialVersion} {
+		if !phase4IDPattern.MatchString(parsed.Value(flag)) {
+			return true
+		}
+	}
+	if parsed.Value(generated.FlagResolverID) != "native-systemd" {
+		return true
+	}
+	for _, flag := range []string{generated.FlagExpectedStateRevision, generated.FlagRecoveryEpoch} {
+		value, err := strconv.ParseInt(parsed.Value(flag), 10, 64)
+		if err != nil || value < 0 {
+			return true
+		}
+	}
+	if value := parsed.Value(generated.FlagInputFd); value != "" {
+		descriptor, err := strconv.ParseInt(value, 10, 32)
+		if err != nil || descriptor < 3 || descriptor > 1048575 {
+			return true
+		}
+	}
+	return false
 }
 
 func invalidGateShape(parsed parsedArguments) bool {

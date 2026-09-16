@@ -39,11 +39,12 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			}
 			serverOperations := &stubServerOperations{status: successfulServerResponse(t)}
 			controlOperations := successfulControlOperations(t)
+			credentialOperations := successfulCredentialOperations(t)
 			files := &stubFileReader{content: []byte("synthetic fixture")}
 			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft {
 				files.content = syntheticGateRequest(t, commandName(command.Path))
 			}
-			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files))
+			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
 			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {
 					t.Fatalf("planned command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)
