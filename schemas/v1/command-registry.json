@@ -2005,6 +2005,10 @@
       "exitCode": 6
     },
     {
+      "code": "RATE_LIMITED",
+      "exitCode": 6
+    },
+    {
       "code": "RECOVERY_EPOCH_MISMATCH",
       "exitCode": 5
     },
@@ -2298,17 +2302,17 @@
     },
     {
       "id": "vegastack-labs.dev/credential-reference",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-reference.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-reference-request",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-reference-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-resolution-record",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-resolution-record.schema.json"
     },
     {

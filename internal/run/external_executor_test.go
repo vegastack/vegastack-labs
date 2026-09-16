@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -29,6 +30,18 @@ func TestExternalRunWaitsForClaimWithoutCallingAdapter(t *testing.T) {
 	}
 	if fixture.adapter.calls != 0 {
 		t.Fatalf("external submission called adapter %d times", fixture.adapter.calls)
+	}
+}
+
+func TestExternalClaimRejectsCredentialBindingBeforeLeaseHandoff(t *testing.T) {
+	fixture := newExternalExecutorFixture(t)
+	binding := credentialref.StepBinding{OperationID: fixture.engine.store.plan.Operations[0].OperationID, AdapterID: fixture.engine.store.plan.Operations[0].AdapterID, TargetID: fixture.engine.store.plan.Operations[0].TargetID, ReferenceID: "ref-a", ConsumerID: fixture.engine.store.plan.Operations[0].AdapterID, PurposeID: "deploy-a", MaterialVersion: "version-a", ResolverID: "native-a", StateRevision: fixture.engine.store.plan.Binding.StateRevision, RecoveryEpoch: 0}
+	fixture.engine.store.plan.Extensions = []generated.ContractExtension{{Name: "x-credential-bindings", ValueDigest: credentialref.ManifestDigest([]credentialref.StepBinding{binding})}}
+	if _, err := fixture.external.Claim(context.Background(), fixture.principal, fixture.claimRequest()); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("credential-bound external claim code=%q", Code(err))
+	}
+	if len(fixture.leases.leases) != 0 || fixture.engine.adapter.calls != 0 {
+		t.Fatal("credential-bound external step received a lease or ran an effect")
 	}
 }
 

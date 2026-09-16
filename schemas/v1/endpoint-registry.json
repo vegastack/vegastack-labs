@@ -81,6 +81,22 @@
       ]
     },
     {
+      "id": "api.v1.credential-references.import-stream",
+      "method": "POST",
+      "path": "/api/v1/credential-references/{referenceId}/import-stream",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/credential-reference-request",
+      "dataSchema": "vegastack-labs.dev/credential-reference",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ],
+      "requestEncoding": "binary",
+      "transportScope": "local",
+      "maxRequestBytes": 4096
+    },
+    {
       "id": "api.v1.credential-resolution-records.get",
       "method": "GET",
       "path": "/api/v1/credential-resolution-records/{recordId}",

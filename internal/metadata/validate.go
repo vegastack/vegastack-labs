@@ -103,6 +103,13 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 		if endpoint.Method == "POST" && (endpoint.RequestSchema == "" || endpoint.QuerySchema != "" || endpoint.Stream != StreamFinite) {
 			return validationError("METADATA_REQUIRED", location+".requestSchema")
 		}
+		if endpoint.RequestEncoding == "binary" {
+			if endpoint.ID != "api.v1.credential-references.import-stream" || endpoint.Method != "POST" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || seenAudiences[AudienceBrowser] || seenAudiences[AudienceExecutor] || !seenAudiences[AudienceOperator] {
+				return validationError("METADATA_INVALID", location+".requestEncoding")
+			}
+		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any") || endpoint.MaxRequestBytes != 0 {
+			return validationError("METADATA_INVALID", location+".requestEncoding")
+		}
 		switch endpoint.Stream {
 		case StreamFinite, StreamSSE:
 		default:

@@ -40,6 +40,9 @@ func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.Author
 			return runError(generated.ErrorCodeAuthorizationDenied, "gate-human-admission")
 		}
 	}
+	if credentialPlanDigest(plan) != "" && (plan.AuthorizationBranch != string(authorization.BranchHuman) || plan.ExecutorMode != "central") {
+		return runError(generated.ErrorCodeAuthorizationDenied, "credential-human-central-admission")
+	}
 	if plan.AuthorizationBranch == string(authorization.BranchPreauthorized) {
 		if acknowledgement != nil {
 			return runError(generated.ErrorCodeAuthorizationDenied, "run-admission")
@@ -79,6 +82,9 @@ func (gate *AdmissionGate) Activate(ctx context.Context, plan generated.Plan, de
 }
 
 func (gate *AdmissionGate) VerifyRun(ctx context.Context, plan generated.Plan, current generated.Run) error {
+	if credentialPlanDigest(plan) != "" && (plan.AuthorizationBranch != string(authorization.BranchHuman) || plan.ExecutorMode != "central") {
+		return runError(generated.ErrorCodeAuthorizationDenied, "credential-human-central-admission")
+	}
 	if current.PlanID != plan.PlanID || current.PlanDigest != plan.PlanDigest || current.RecoveryEpoch != plan.Binding.RecoveryEpoch || current.PolicyVersion != plan.Binding.PolicyVersion {
 		return runError(generated.ErrorCodePlanStale, "run-admission")
 	}

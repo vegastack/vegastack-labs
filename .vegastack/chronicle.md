@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-09-2026 — Credential handling has a fail-closed foundation without a live secret path ([#123](https://github.com/vegastack/vegastack-labs/issues/123))
+
+- **What:** The server now has provider-neutral credential metadata, append-only exact-plan bindings, a Debian host-key encrypted primitive, an optional exact-ID 1Password resolver seam, and just-in-time run checks. Production still cannot import, activate, resolve, or execute a live secret-bearing step because no resolver or live proof verifier is registered.
+- **Why:** Phase 5 needs a reviewed security boundary for later credential lifecycle work without letting partial software, fixtures, or provider SDK availability become live authority.
+- **How it went:** The preserved implementation checkpoint replayed cleanly, while the completion wave added a second exact historical source seal and explicit dormancy proof. Disposable Linux verified the systemd host-key roundtrip and clean-host re-encryption; no live account, token, host key, vault, provider or fleet target was used.
+- **Changed:** Versioned opaque credential contracts · append-only metadata and step bindings · host-key encrypted Debian primitive · pinned exact-ID 1Password SDK seam · fail-closed run ordering and memory cleanup · dormant production/source guards · explicit `G-007` limits.
+- **Decisions:** none; plaintext import and the human-authorized activation, rotation, revocation and recovery lifecycle remain in dependent issues.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/123-dormant-credential-foundation
+
 ## 16-09-2026 — Operators can see why gates remain blocked without closing them ([#104](https://github.com/vegastack/vegastack-labs/issues/104))
 
 - **What:** The server now derives gate applicability and blocking reasons from generated definitions, an applied profile/policy binding, and append-only evidence; the CLI and read-only Console show the same versioned result. Operators can author bounded evidence and profile candidates, but these stay inert until an exact current human-approved plan runs.

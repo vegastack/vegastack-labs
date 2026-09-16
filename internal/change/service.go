@@ -69,6 +69,14 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 			return Result{}, inputError()
 		}
 	}
+	// For a single operation the credential manifest and that operation's
+	// manifest are identical. Multi-operation drafts are proven later against
+	// the persisted binding bytes by StageStepBindings, before any plan exists.
+	for _, extension := range extensions {
+		if extension.Name == "x-credential-bindings" && (len(operations) == 0 || len(operations) == 1 && operations[0].InputDigest != extension.ValueDigest) {
+			return Result{}, inputError()
+		}
+	}
 	semantic := struct {
 		DeclarationID   string                           `json:"declarationId"`
 		DeclarationType string                           `json:"declarationType"`

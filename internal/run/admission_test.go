@@ -33,6 +33,24 @@ func TestAdmissionGateBindsCurrentHumanProofAndDeniesExpiredOrMissingProof(t *te
 	}
 }
 
+func TestCredentialPlanCannotUsePreauthorizedOrExternalAdmission(t *testing.T) {
+	now := time.Date(2026, 9, 13, 0, 0, 0, 0, time.UTC)
+	plan := testPlan(now)
+	plan.Extensions = []generated.ContractExtension{{Name: "x-credential-bindings", ValueDigest: digest("credential-manifest")}}
+	branch := "preauthorized"
+	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-test", PrincipalID: "policy-test", Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: "allowed", GrantRevision: 1, RecoveryEpoch: plan.Binding.RecoveryEpoch, PlanDigest: plan.PlanDigest, DecidedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	gate := NewAdmissionGate(nil, func() time.Time { return now })
+	if err := gate.Verify(context.Background(), plan, decision, nil); err == nil {
+		t.Fatal("preauthorized secret plan admitted")
+	}
+	plan.ExecutorMode = "external"
+	plan.AuthorizationBranch = "human"
+	branch = "human"
+	if err := gate.Verify(context.Background(), plan, decision, nil); err == nil {
+		t.Fatal("external secret plan admitted")
+	}
+}
+
 type fixedAcknowledgementSource struct{ value generated.Acknowledgement }
 
 func (source fixedAcknowledgementSource) Status(context.Context, string) (generated.Acknowledgement, error) {

@@ -34,6 +34,22 @@ func TestReviseNormalizesSetFieldsAndPreservesDeclaredOperationSequence(t *testi
 	}
 }
 
+func TestCredentialBindingExtensionCannotBeDraftedWithoutMatchingOperationInput(t *testing.T) {
+	repository := &fakeRepository{}
+	service, err := NewService(repository, func() time.Time { return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: "declaration-test-1", DeclarationType: "application", ExpectedRevision: 1, ExpectedStateRevision: 4, RecoveryEpoch: 2, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-a", OperationType: "application.deploy", AdapterID: "adapter-a", TargetID: "target-a", InputDigest: testDigestString("a"), ArtifactDigest: testDigestString("b"), Idempotent: true}}, ReasonDigest: testDigestString("c"), Extensions: []generated.ContractExtension{{Name: "x-credential-bindings", ValueDigest: testDigestString("a")}}}
+	// An extension digest alone is inert; a different operation input must not
+	// look like a bound credential draft. The staging repository proves the
+	// actual manifest bytes against this digest before planning.
+	request.Operations[0].InputDigest = testDigestString("d")
+	if _, err := service.Revise(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-test"}, request); err == nil {
+		t.Fatal("unrelated operation input accepted with credential binding extension")
+	}
+}
+
 type fakeRepository struct {
 	request store.DeclarationRevisionRequest
 }

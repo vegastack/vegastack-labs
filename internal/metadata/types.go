@@ -84,16 +84,19 @@ type Registry struct {
 }
 
 type EndpointDefinition struct {
-	ID            string             `json:"id"`
-	Method        string             `json:"method"`
-	Path          string             `json:"path"`
-	Availability  Availability       `json:"availability"`
-	OwnerPhase    string             `json:"ownerPhase"`
-	QuerySchema   string             `json:"querySchema,omitempty"`
-	RequestSchema string             `json:"requestSchema,omitempty"`
-	DataSchema    string             `json:"dataSchema"`
-	Stream        StreamKind         `json:"stream"`
-	Audiences     []EndpointAudience `json:"audiences"`
+	ID              string             `json:"id"`
+	Method          string             `json:"method"`
+	Path            string             `json:"path"`
+	Availability    Availability       `json:"availability"`
+	OwnerPhase      string             `json:"ownerPhase"`
+	QuerySchema     string             `json:"querySchema,omitempty"`
+	RequestSchema   string             `json:"requestSchema,omitempty"`
+	DataSchema      string             `json:"dataSchema"`
+	Stream          StreamKind         `json:"stream"`
+	Audiences       []EndpointAudience `json:"audiences"`
+	RequestEncoding string             `json:"requestEncoding,omitempty"`
+	TransportScope  string             `json:"transportScope,omitempty"`
+	MaxRequestBytes int                `json:"maxRequestBytes,omitempty"`
 }
 
 type CommandDefinition struct {

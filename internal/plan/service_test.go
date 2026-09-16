@@ -188,6 +188,31 @@ func TestCreateNormalizesPlanExtensionsForDigestAndReplay(t *testing.T) {
 	}
 }
 
+func TestCredentialBindingExtensionCannotBeIntroducedOrChangedAtPlanCreate(t *testing.T) {
+	for _, mode := range []string{"introduced", "changed", "omitted"} {
+		t.Run(mode, func(t *testing.T) {
+			repository := &fakePlanRepository{declaration: validDeclaration(), current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+			service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, func() time.Time {
+				return time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC)
+			})
+			stored := generated.ContractExtension{Name: "x-credential-bindings", ValueDigest: testDigestString("c")}
+			request := validRequest()
+			switch mode {
+			case "introduced":
+				request.Extensions = []generated.ContractExtension{stored}
+			case "changed":
+				repository.declaration.Extensions = []generated.ContractExtension{stored}
+				request.Extensions = []generated.ContractExtension{{Name: stored.Name, ValueDigest: testDigestString("d")}}
+			case "omitted":
+				repository.declaration.Extensions = []generated.ContractExtension{stored}
+			}
+			if _, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-plan"}, request); err == nil {
+				t.Fatal("credential binding extension changed between draft and plan")
+			}
+		})
+	}
+}
+
 func TestStateObservationFingerprintDoesNotBecomeStaleWhenPlanCommitAdvancesState(t *testing.T) {
 	repository := &fakePlanRepository{current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
 	reader, err := NewStateObservationReader(repository)

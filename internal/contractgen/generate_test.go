@@ -101,16 +101,16 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 			}
 		}
 	}
-	if phase5 != 19 {
-		t.Errorf("Phase 5 endpoint count = %d, want 19", phase5)
+	if phase5 != 20 {
+		t.Errorf("Phase 5 endpoint count = %d, want 20", phase5)
 	}
 	if !reflect.DeepEqual(phase5EndpointIDs, []string{
 		"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
-		"api.v1.credential-references.get", "api.v1.credential-resolution-records.get", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
+		"api.v1.credential-references.get", "api.v1.credential-references.import-stream", "api.v1.credential-resolution-records.get", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
 		"api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list", "api.v1.recovery-points.get", "api.v1.restores.get", "api.v1.restores.plan",
 		"api.v1.restores.run", "api.v1.restores.verify", "api.v1.scheduled-job-policies.get", "api.v1.scheduled-jobs.create",
 	}) {
-		t.Errorf("#102 Phase 5 endpoint baseline or #104 addition changed: %v", phase5EndpointIDs)
+		t.Errorf("#102 Phase 5 endpoint baseline or #104/#105 scoped additions changed: %v", phase5EndpointIDs)
 	}
 	if !reflect.DeepEqual(availableGateEndpoints, []string{"api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
 		t.Errorf("unexpected available Phase 5 endpoints: %v", availableGateEndpoints)

@@ -180,7 +180,8 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, Clock: time.Now, ExecutionContext: ctx})
+	credentialStep := &runengine.CredentialStep{Bindings: store.NewCredentialRepository(authority), Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -217,6 +218,9 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 // productionAdapterRegistry is the single composition point for adapters that
 // the shipped server may execute. Keeping the constructor explicit lets the
 // acceptance suite prove that test-only adapters cannot enter the real runtime.
+// It also starts with no credential resolver: the optional 1Password SDK seam
+// requires an applied capability/profile and a native loaded service token,
+// and #104 has no production live-proof verifier to admit secret steps.
 func productionAdapterRegistry() *adapter.Registry {
 	return adapter.NewRegistry()
 }

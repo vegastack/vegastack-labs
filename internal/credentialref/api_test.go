@@ -28,17 +28,38 @@ var allowedCredentialAPI = []string{
 	`field Metadata.State State`,
 	`field Reference.Consumer string`,
 	`field Reference.ID string`,
+	`field StepBinding.AdapterID string`,
+	`field StepBinding.ConsumerID string`,
+	`field StepBinding.MaterialVersion string`,
+	`field StepBinding.OperationID string`,
+	`field StepBinding.PurposeID string`,
+	`field StepBinding.RecoveryEpoch int64`,
+	`field StepBinding.ReferenceID string`,
+	`field StepBinding.ResolverID string`,
+	`field StepBinding.StateRevision int64`,
+	`field StepBinding.TargetID string`,
+	`func ManifestDigest func([]StepBinding) (string)`,
+	`func NewValue func([]byte) (*Value, error)`,
+	`func OperationManifestDigest func([]StepBinding, string) (string)`,
+	`func ParseID func(string) (Identifier, error)`,
+	`func ValidBinding func(StepBinding) (bool)`,
 	`func Verify func(context.Context, Inspector, Reference, string) (Metadata, error)`,
 	`method Error.Error func() (string)`,
 	`method Inspector.Inspect func(context.Context, Reference) (Metadata, error)`,
+	`method StepBinding.Digest func() (string)`,
+	`method Value.Bytes func() ([]byte)`,
+	`method Value.Close func()`,
 	`type Error struct`,
 	`type Inspector interface`,
+	`type Identifier string`,
 	`type Metadata struct`,
 	`type Reference struct`,
 	`type State string`,
+	`type StepBinding struct`,
+	`type Value struct`,
 }
 
-func TestCredentialReferenceExportedAPIIsMetadataOnly(t *testing.T) {
+func TestCredentialReferenceExportedAPIIsExactlyReviewed(t *testing.T) {
 	fset, files := parseCredentialPackage(t)
 	if issues := validateCredentialAPI(fset, files); len(issues) != 0 {
 		t.Fatalf("credential-reference API changed:\n%s", strings.Join(issues, "\n"))
@@ -73,6 +94,7 @@ func TestCredentialReferenceAPIGuardRejectsMaterialAndRevealSurfaces(t *testing.
 		t.Fatalf("parse adversarial fixture: %v", err)
 	}
 	issues := validateCredentialAPI(fset, []*ast.File{file})
+	issues = slices.DeleteFunc(issues, func(issue string) bool { return strings.HasPrefix(issue, "missing ") })
 	want := []string{
 		"unexpected field Reference.Material []byte",
 		"unexpected method Reference.Reveal func() ([]byte)",

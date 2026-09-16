@@ -477,6 +477,7 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 
 | Module | Version | License | Upstream |
 |---|---|---|---|
+| `github.com/1password/onepassword-sdk-go` | `v0.4.1` | `MIT` | [source](https://github.com/1password/onepassword-sdk-go) |
 | `github.com/asaskevich/govalidator` | `v0.0.0-20230301143203-a9d515a09cc2` | `MIT` | [source](https://github.com/asaskevich/govalidator) |
 | `github.com/blang/semver` | `v3.5.1+incompatible` | `MIT` | [source](https://github.com/blang/semver) |
 | `github.com/cenkalti/backoff/v5` | `v5.0.3` | `MIT` | [source](https://github.com/cenkalti/backoff) |
@@ -485,6 +486,8 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/cyberphone/json-canonicalization` | `v0.0.0-20241213102144-19d51d7fe467` | `Apache-2.0` | [source](https://github.com/cyberphone/json-canonicalization) |
 | `github.com/digitorus/pkcs7` | `v0.0.0-20230818184609-3a137a874352` | `MIT` | [source](https://github.com/digitorus/pkcs7) |
 | `github.com/digitorus/timestamp` | `v0.0.0-20231217203849-220c5c2851b7` | `BSD-2-Clause` | [source](https://github.com/digitorus/timestamp) |
+| `github.com/dylibso/observe-sdk/go` | `v0.0.0-20240828172851-9145d8ad07e1` | `Apache-2.0` | [source](https://github.com/dylibso/observe-sdk) |
+| `github.com/extism/go-sdk` | `v1.7.1` | `BSD-3-Clause` | [source](https://github.com/extism/go-sdk) |
 | `github.com/go-jose/go-jose/v4` | `v4.1.4` | `Apache-2.0` | [source](https://github.com/go-jose/go-jose) |
 | `github.com/go-logr/logr` | `v1.4.4` | `Apache-2.0` | [source](https://github.com/go-logr/logr) |
 | `github.com/go-logr/stdr` | `v1.2.2` | `Apache-2.0` | [source](https://github.com/go-logr/stdr) |
@@ -512,10 +515,12 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/go-openapi/swag/yamlutils` | `v0.27.3` | `Apache-2.0` | [source](https://github.com/go-openapi/swag) |
 | `github.com/go-openapi/validate` | `v0.26.1` | `Apache-2.0` | [source](https://github.com/go-openapi/validate) |
 | `github.com/go-viper/mapstructure/v2` | `v2.5.0` | `MIT` | [source](https://github.com/go-viper/mapstructure) |
+| `github.com/gobwas/glob` | `v0.2.3` | `MIT` | [source](https://github.com/gobwas/glob) |
 | `github.com/google/certificate-transparency-go` | `v1.3.3` | `Apache-2.0` | [source](https://github.com/google/certificate-transparency-go) |
 | `github.com/google/go-containerregistry` | `v0.21.7` | `Apache-2.0` | [source](https://github.com/google/go-containerregistry) |
 | `github.com/google/uuid` | `v1.6.0` | `BSD-3-Clause` | [source](https://github.com/google/uuid) |
 | `github.com/grpc-ecosystem/grpc-gateway/v2` | `v2.29.0` | `BSD-3-Clause` | [source](https://github.com/grpc-ecosystem/grpc-gateway) |
+| `github.com/ianlancetaylor/demangle` | `v0.0.0-20251118225945-96ee0021ea0f` | `BSD-3-Clause` | [source](https://github.com/ianlancetaylor/demangle) |
 | `github.com/in-toto/attestation` | `v1.2.0` | `Apache-2.0` | [source](https://github.com/in-toto/attestation) |
 | `github.com/in-toto/in-toto-golang` | `v0.11.0` | `Apache-2.0` | [source](https://github.com/in-toto/in-toto-golang) |
 | `github.com/ncruces/go-sqlite3` | `v0.35.4` | `MIT` | [source](https://github.com/ncruces/go-sqlite3) |
@@ -532,6 +537,8 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/sigstore/sigstore` | `v1.10.8` | `Apache-2.0` | [source](https://github.com/sigstore/sigstore) |
 | `github.com/sigstore/sigstore-go` | `v1.3.0` | `Apache-2.0` | [source](https://github.com/sigstore/sigstore-go) |
 | `github.com/sigstore/timestamp-authority/v2` | `v2.1.3` | `Apache-2.0` | [source](https://github.com/sigstore/timestamp-authority) |
+| `github.com/tetratelabs/wabin` | `v0.0.0-20230304001439-f6f874872834` | `Apache-2.0` | [source](https://github.com/tetratelabs/wabin) |
+| `github.com/tetratelabs/wazero` | `v1.11.0` | `Apache-2.0` | [source](https://github.com/tetratelabs/wazero) |
 | `github.com/theupdateframework/go-tuf/v2` | `v2.4.2` | `Apache-2.0` | [source](https://github.com/theupdateframework/go-tuf) |
 | `github.com/transparency-dev/formats` | `v0.1.1` | `Apache-2.0` | [source](https://github.com/transparency-dev/formats) |
 | `github.com/transparency-dev/merkle` | `v0.0.2` | `Apache-2.0` | [source](https://github.com/transparency-dev/merkle) |
@@ -540,6 +547,7 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `go.opentelemetry.io/otel` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
 | `go.opentelemetry.io/otel/metric` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
 | `go.opentelemetry.io/otel/trace` | `v1.44.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-go) |
+| `go.opentelemetry.io/proto/otlp` | `v1.9.0` | `Apache-2.0` | [source](https://github.com/open-telemetry/opentelemetry-proto-go) |
 | `go.yaml.in/yaml/v3` | `v3.0.4` | `Apache-2.0 AND MIT` | [source](https://github.com/yaml/go-yaml) |
 | `golang.org/x/crypto` | `v0.55.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/crypto) |
 | `golang.org/x/mod` | `v0.38.0` | `BSD-3-Clause` | [source](https://go.googlesource.com/mod) |

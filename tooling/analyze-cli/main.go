@@ -343,6 +343,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	localAPIImport := modulePath + "/internal/localapi"
 	localTransportImport := modulePath + "/internal/localtransport"
 	sshTransportImport := modulePath + "/internal/sshtransport"
+	nativeCredentialImport := modulePath + "/internal/adapter/nativecredential"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
 	serverConfigImport := modulePath + "/internal/serverconfig"
@@ -410,7 +411,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
 		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -438,7 +439,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				case "database/sql", "github.com/ncruces/go-sqlite3", "github.com/ncruces/go-sqlite3/driver":
 					result.ControlSQLiteAccess = true
 				case "os/exec", "plugin":
-					if !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) {
+					if !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) {
 						result.ControlShellDispatch = true
 					}
 				case "crypto/tls", "syscall":
@@ -914,6 +915,40 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
 
 const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
+
+const reviewedNativeCredentialDigest = "aacca27fe548b4c16b871e027026e289843341cb341281c09732ea3e3ed56d48"
+
+func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
+	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
+		return false
+	}
+	expectedFiles := []string{"encrypt_linux.go", "resolver_linux.go"}
+	if len(candidate.listed.GoFiles) != len(expectedFiles) {
+		return false
+	}
+	for index := range expectedFiles {
+		if candidate.listed.GoFiles[index] != expectedFiles[index] {
+			return false
+		}
+	}
+	approvedImports := map[string]bool{
+		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true,
+		"io": true, "os": true, "os/exec": true, "path/filepath": true,
+		"slices": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
+		modulePath + "/internal/credentialref": true,
+		modulePath + "/internal/failure":       true,
+		modulePath + "/internal/generated":     true,
+	}
+	if len(candidate.listed.Imports) != len(approvedImports) {
+		return false
+	}
+	for _, imported := range candidate.listed.Imports {
+		if !approvedImports[imported] {
+			return false
+		}
+	}
+	return digestSourceFiles(candidate.listed.Dir, candidate.listed.GoFiles) == reviewedNativeCredentialDigest
+}
 
 func reviewedSSHTransportPackage(candidate checkedSourcePackage, localTransportImport string) bool {
 	modulePath := strings.TrimSuffix(localTransportImport, "/internal/localtransport")

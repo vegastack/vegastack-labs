@@ -96,6 +96,7 @@ var requiredErrors = []ErrorDefinition{
 	{Code: "MIGRATION_BLOCKED", ExitCode: 8},
 	{Code: "PLAN_STALE", ExitCode: 5},
 	{Code: "PREREQUISITE_BLOCKED", ExitCode: 6},
+	{Code: "RATE_LIMITED", ExitCode: 6},
 	{Code: "RECOVERY_EPOCH_MISMATCH", ExitCode: 5},
 	{Code: "RECOVERY_REQUIRED", ExitCode: 7},
 	{Code: "RESOURCE_NOT_FOUND", ExitCode: 6},
