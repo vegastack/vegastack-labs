@@ -694,14 +694,26 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 	}
 	values, err := engine.credentialStep.Resolve(ctx, plan, *plannedOperation, lease)
 	if err != nil {
+		if Code(err) == generated.ErrorCodeRecoveryRequired {
+			return adapter.Effect{EffectObserved: true}, err
+		}
 		return adapter.Effect{}, err
 	}
 	return invokeCredentialEffect(ctx, credentialExecutor, operation, values)
 }
 
-func invokeCredentialEffect(ctx context.Context, implementation adapter.CredentialExecutor, operation adapter.Operation, values []*credentialref.Value) (adapter.Effect, error) {
-	defer closeCredentialValues(values)
-	effect, err := implementation.ExecuteWithCredentials(ctx, operation, values)
+func invokeCredentialEffect(ctx context.Context, implementation adapter.CredentialExecutor, operation adapter.Operation, values []*credentialref.Value) (effect adapter.Effect, err error) {
+	defer func() {
+		// A third-party adapter can panic with a plaintext value. Discard the
+		// panic payload without formatting it and conservatively mark the
+		// effect uncertain; intent is already durable at this boundary.
+		if recover() != nil {
+			effect = adapter.Effect{EffectObserved: true}
+			err = runError(generated.ErrorCodeRecoveryRequired, "credential-effect-uncertain")
+		}
+		closeCredentialValues(values)
+	}()
+	effect, err = implementation.ExecuteWithCredentials(ctx, operation, values)
 	if err != nil {
 		// Adapter errors can contain provider/credential text. Never relay it.
 		return effect, runError(generated.ErrorCodeExecutionFailed, "credential-effect")

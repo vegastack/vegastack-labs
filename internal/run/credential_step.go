@@ -7,6 +7,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -74,7 +75,16 @@ func (step *CredentialStep) IsSecretOperation(ctx context.Context, plan generate
 	return true, nil
 }
 
-func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, operation generated.PlanOperation, lease generated.ExecutorLease) ([]*credentialref.Value, error) {
+func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, operation generated.PlanOperation, lease generated.ExecutorLease) (values []*credentialref.Value, outcomeErr error) {
+	defer func() {
+		// A resolver panic may contain the borrowed secret; never format it.
+		// Earlier values in a multi-reference operation must be wiped.
+		if recover() != nil {
+			closeCredentialValues(values)
+			values = nil
+			outcomeErr = runError(generated.ErrorCodeRecoveryRequired, "credential-resolution-uncertain")
+		}
+	}()
 	if step == nil || step.Bindings == nil || step.Resolvers == nil || step.Profiles == nil || step.Plans == nil || ctx == nil {
 		return nil, runError(generated.ErrorCodePrerequisiteBlocked, "credential-step")
 	}
@@ -103,7 +113,7 @@ func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, op
 	if len(bindings) == 0 || len(bindings) > 16 || operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID) {
 		return nil, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-input")
 	}
-	values := make([]*credentialref.Value, 0, len(bindings))
+	values = make([]*credentialref.Value, 0, len(bindings))
 	for _, binding := range bindings {
 		if ctx.Err() != nil || !clock().UTC().Before(deadline) {
 			closeCredentialValues(values)
@@ -141,9 +151,32 @@ func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, op
 		if err != nil || value == nil || len(value.Bytes()) == 0 {
 			value.Close()
 			closeCredentialValues(values)
+			if stable, ok := failure.As(err); ok && stable.Code == generated.ErrorCodeRateLimited {
+				return nil, runError(generated.ErrorCodeRateLimited, "credential-resolution")
+			}
 			return nil, runError(generated.ErrorCodeDependencyUnavailable, "credential-resolution")
 		}
 		values = append(values, value)
+	}
+	if ctx.Err() != nil || !clock().UTC().Before(deadline) {
+		closeCredentialValues(values)
+		return nil, runError(generated.ErrorCodeInterrupted, "credential-lease")
+	}
+	if err := step.Plans.ValidateCurrent(ctx, plan); err != nil {
+		closeCredentialValues(values)
+		return nil, runError(generated.ErrorCodePlanStale, "credential-plan")
+	}
+	currentProfile, err := step.Profiles.GetAppliedProfileScope(ctx)
+	if err != nil || currentProfile.ProfileID != profile.ProfileID || currentProfile.RecoveryEpoch != plan.Binding.RecoveryEpoch || currentProfile.StateRevision > plan.Binding.StateRevision {
+		closeCredentialValues(values)
+		return nil, runError(generated.ErrorCodePrerequisiteBlocked, "credential-applied-profile")
+	}
+	for _, binding := range bindings {
+		capabilityID, capabilityErr := step.Resolvers.ResolveCredentialCapability(binding.ResolverID, binding.ConsumerID, currentProfile.ProfileID)
+		if capabilityErr != nil || !slices.Contains(currentProfile.Capabilities, capabilityID) {
+			closeCredentialValues(values)
+			return nil, runError(generated.ErrorCodePrerequisiteBlocked, "credential-applied-capability")
+		}
 	}
 	return values, nil
 }

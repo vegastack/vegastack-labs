@@ -75,7 +75,8 @@ func TestSecretEffectJITOrderingAndZeroization(t *testing.T) {
 	if err := registry.Register(plan.Operations[0].AdapterID, implementation); err != nil {
 		t.Fatal(err)
 	}
-	engine, err := NewEngine(Config{Repository: fixture.store, Plans: fixture.store, Admission: allowAdmission{}, Adapters: registry, SecretGate: gate, CredentialStep: &CredentialStep{Bindings: bindings, Resolvers: &fakeCredentialRegistry{resolver: resolver}, Profiles: fakeCredentialProfiles{scope: store.GateAppliedProfile{ProfileID: "profile-a", StateRevision: 2, RecoveryEpoch: 0, Capabilities: []string{"credential.native.read"}}}, Plans: &fakeCredentialPlanValidator{}, Clock: func() time.Time { return now }}, Clock: fixture.engine.clock, IDs: fixture.engine.ids, LeaseContext: fixture.engine.leaseContext})
+	resolverRegistry := &fakeCredentialRegistry{resolver: resolver}
+	engine, err := NewEngine(Config{Repository: fixture.store, Plans: fixture.store, Admission: allowAdmission{}, Adapters: registry, SecretGate: gate, CredentialStep: &CredentialStep{Bindings: bindings, Resolvers: resolverRegistry, Profiles: fakeCredentialProfiles{scope: store.GateAppliedProfile{ProfileID: "profile-a", StateRevision: 2, RecoveryEpoch: 0, Capabilities: []string{"credential.native.read"}}}, Plans: &fakeCredentialPlanValidator{}, Clock: func() time.Time { return now }}, Clock: fixture.engine.clock, IDs: fixture.engine.ids, LeaseContext: fixture.engine.leaseContext})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,6 +108,21 @@ func TestSecretEffectJITOrderingAndZeroization(t *testing.T) {
 	if Code(deniedErr) != generated.ErrorCodePrerequisiteBlocked || deniedRun.Status != "failed" || resolver.calls != 1 || implementation.calls != 1 {
 		t.Fatalf("blocked gate reached resolver/effect: run=%s resolver=%d effects=%d err=%v", deniedRun.Status, resolver.calls, implementation.calls, deniedErr)
 	}
+	gate.deny = false
+	lateTime := now
+	lateResolver := &advancingCredentialResolver{advance: func() { lateTime = now.Add(2 * time.Minute) }}
+	resolverRegistry.resolver = lateResolver
+	engine.credentialStep.Clock = func() time.Time { return lateTime }
+	fixture.request.Reference.IdempotencyKey = "synthetic-lease-expired-after-read"
+	lateRun, lateErr := engine.Submit(context.Background(), fixture.request)
+	if Code(lateErr) != generated.ErrorCodeInterrupted || lateRun.Status != "failed" || implementation.calls != 1 {
+		t.Fatalf("late resolver reached adapter or claimed success: run=%s effects=%d err=%v", lateRun.Status, implementation.calls, lateErr)
+	}
+	for _, byteValue := range lateResolver.retained {
+		if byteValue != 0 {
+			t.Fatal("late resolver left borrowed bytes")
+		}
+	}
 }
 
 type leakingCredentialExecutor struct{ retained []byte }
@@ -137,7 +153,7 @@ type panickingCredentialExecutor struct{ retained []byte }
 
 func (implementation *panickingCredentialExecutor) ExecuteWithCredentials(_ context.Context, _ adapter.Operation, values []*credentialref.Value) (adapter.Effect, error) {
 	implementation.retained = values[0].Bytes()
-	panic("synthetic interrupted effect")
+	panic(string(values[0].Bytes()))
 }
 
 func TestCredentialEffectClosesBytesOnInterruptedAdapterPanic(t *testing.T) {
@@ -146,14 +162,10 @@ func TestCredentialEffectClosesBytesOnInterruptedAdapterPanic(t *testing.T) {
 		t.Fatal(err)
 	}
 	implementation := &panickingCredentialExecutor{}
-	func() {
-		defer func() {
-			if recover() == nil {
-				t.Fatal("injected interruption did not occur")
-			}
-		}()
-		_, _ = invokeCredentialEffect(context.Background(), implementation, adapter.Operation{}, []*credentialref.Value{value})
-	}()
+	effect, effectErr := invokeCredentialEffect(context.Background(), implementation, adapter.Operation{}, []*credentialref.Value{value})
+	if Code(effectErr) != generated.ErrorCodeRecoveryRequired || !effect.EffectObserved || strings.Contains(effectErr.Error(), "synthetic-private-canary") {
+		t.Fatalf("adapter panic escaped or claimed no effect: effect=%#v err=%v", effect, effectErr)
+	}
 	for _, byteValue := range implementation.retained {
 		if byteValue != 0 {
 			t.Fatal("borrowed bytes survived interrupted effect")
