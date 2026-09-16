@@ -111,7 +111,10 @@ func TestAuditIntentRollbackCannotLeaveOrphanLink(t *testing.T) {
 
 func TestAuditChainStoresReconstructableContext(t *testing.T) {
 	authority := openAuditTestStore(t)
-	_, err := authority.writeIntent(context.Background(), chainTestIntent(t, 0), nil)
+	_, err := authority.writeIntent(context.Background(), chainTestIntent(t, 0), func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `INSERT INTO audit_business(id) VALUES('chain-context-business')`)
+		return err
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
