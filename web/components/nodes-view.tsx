@@ -25,7 +25,7 @@ const SINGULAR = { nodes: "node", aliases: "alias", observations: "observation" 
 function Header({ view }: { view?: { refresh: () => void; busy: boolean } }) {
   return (
     <PageHeader
-      title="Node inventory"
+      title="Nodes"
       description="The newest authorized inventory draft and its declared nodes, aliases, and observations."
       actions={
         view ? (
@@ -108,6 +108,7 @@ export function NodesView() {
           key={kind}
           kind={kind}
           title={kind[0].toUpperCase() + kind.slice(1)}
+          heading={kind !== "nodes"}
           items={records.collections[kind].data?.data.items ?? []}
           error={records.collections[kind].error}
           next={records.collections[kind].data?.data.nextCursor ?? null}
@@ -171,6 +172,7 @@ function NodeFailure({ error, retained, onRetry }: { error: unknown; retained: b
 function RecordSection({
   kind,
   title,
+  heading = true,
   items,
   error,
   next,
@@ -181,6 +183,10 @@ function RecordSection({
 }: {
   kind: Kind;
   title: string;
+  // The page `PageHeader` already renders the "Nodes" h1, so the nodes collection
+  // suppresses its own heading (heading=false) to keep exactly one "Nodes" heading;
+  // aliases and observations keep theirs.
+  heading?: boolean;
   items: readonly { id: string }[];
   error: unknown;
   next: string | null;
@@ -191,9 +197,9 @@ function RecordSection({
 }) {
   const singular = SINGULAR[kind];
   return (
-    <section aria-labelledby={`${kind}-heading`} className="flex flex-col gap-3">
+    <section {...(heading ? { "aria-labelledby": `${kind}-heading` } : { "aria-label": title })} className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <h2 id={`${kind}-heading`} className="text-h4 text-foreground">{title}</h2>
+        {heading ? <h2 id={`${kind}-heading`} className="text-h4 text-foreground">{title}</h2> : <span className="text-label text-muted-foreground">{title}</span>}
         {items.length > 0 ? <Badge variant="soft" intent="default">{items.length}</Badge> : null}
       </div>
       {busy && items.length === 0 ? (

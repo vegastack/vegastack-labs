@@ -72,7 +72,7 @@ const REVIEWED_DESIGN_SYSTEM_WAVE = Object.freeze({
   id: "designsystem-issue128-v1", issue: 128,
   commands: Object.freeze([]),
   imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:51a8af274ea0b974a1fb6efc8a78a0b9a456b298ca84a0346dd8d72b4df27aa3",
+  mutationBoundaryDigest: "sha256:0b2d4b56d0d5ca1e3ba7c8e796cf0a22a171faad87213cedafcd8ecedf714680",
 });
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
