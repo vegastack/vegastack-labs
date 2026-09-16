@@ -40,6 +40,10 @@ const REVIEWED_GATE_ENDPOINTS = [
   "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
   "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list",
 ];
+const REVIEWED_AUDIT_ENDPOINTS = [
+  "api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list",
+  "api.v1.audit-history.verification",
+];
 
 async function filesBelow(root, relative) {
   const start = path.join(root, relative); const files = [];
@@ -73,9 +77,11 @@ export async function verifyReadAPI(root = ROOT) {
         .map((endpoint) => endpoint.id)
         .sort();
       const gateIDs = ids.filter((id) => id.startsWith("api.v1.gate-") || id.startsWith("api.v1.gates."));
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id));
+      const auditIDs = ids.filter((id) => id.startsWith("api.v1.audit-"));
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !auditIDs.includes(id));
       if (JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
-          JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
+          JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
+          JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
     } catch { codes.add("READ_API_ENDPOINT_DRIFT"); }
   }
 
