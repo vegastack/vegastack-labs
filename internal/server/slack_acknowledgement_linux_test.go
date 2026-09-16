@@ -92,3 +92,20 @@ func TestSystemdCredentialResolverRejectsLinksAndBroadPermissions(t *testing.T) 
 		t.Fatal("broad credential permissions accepted")
 	}
 }
+
+func TestSystemdCredentialResolverPreservesExistingSystemdCredentialNames(t *testing.T) {
+	root := t.TempDir()
+	const name = "Slack_Bot_1"
+	if err := os.WriteFile(filepath.Join(root, name), []byte("fixture-token"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("CREDENTIALS_DIRECTORY", root)
+	resolver, err := newSystemdCredentialResolver(uint32(os.Getuid()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value, err := resolver.Resolve(context.Background(), credentialref.Reference{ID: name, Consumer: "slack-acknowledgement"})
+	if err != nil || string(value) != "fixture-token" {
+		t.Fatalf("resolve = %q, %v", value, err)
+	}
+}

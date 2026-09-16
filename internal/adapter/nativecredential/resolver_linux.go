@@ -112,9 +112,6 @@ func ReadLoadedBytes(ctx context.Context, directory *os.File, name string, owner
 	if ctx == nil || directory == nil || directory.Fd() == 0 || name == "" || filepath.Base(name) != name {
 		return nil, nativeError(generated.ErrorCodeInputInvalid, "loaded-credential-name")
 	}
-	if _, err := credentialref.ParseID(name); err != nil {
-		return nil, nativeError(generated.ErrorCodeInputInvalid, "loaded-credential-name")
-	}
 	if ctx.Err() != nil {
 		return nil, nativeError(generated.ErrorCodeInterrupted, "loaded-credential")
 	}
