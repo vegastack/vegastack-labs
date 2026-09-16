@@ -38,7 +38,7 @@ const ALLOWED_SOURCE_HOSTS = new Set([
 // role, decision, and reason have been reviewed. Resolution checks cannot
 // approve changed metadata by themselves.
 const REVIEWED_METADATA_SHA256 =
-  "cacb62f21b7ea40690c5c6850753c159bd5ae3297f67cc86967c104a6607aedb";
+  "a61882d35b5c552f6c69754986ffbcb111142f24625c7f4cdb290c95eb1413a0";
 
 export class GoDependencyError extends Error {
   constructor(code, target) {
@@ -324,13 +324,14 @@ async function selectedModules(root, run) {
     );
 }
 
-async function dependencyModules(root, run, args, target) {
+async function dependencyModules(root, run, args, target, env = process.env) {
   let output;
   try {
     output = await run("go", args, {
       cwd: root,
       capture: true,
       timeoutMs: 120_000,
+      env,
     });
   } catch {
     fail("GO_MODULE_GRAPH", target);
@@ -379,6 +380,7 @@ export async function verifyGoDependencies(root = ROOT, options = {}) {
       run,
       ["list", "-deps", "-json", "./cmd/vsk-labs", "./internal/store"],
       "runtime-dependencies",
+      { ...process.env, CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64", GOWORK: "off", GOFLAGS: "-mod=readonly" },
     ),
     dependencyModules(
       root,
