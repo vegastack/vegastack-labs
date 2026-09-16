@@ -152,6 +152,28 @@ jobs:
       - name: Install public dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate deterministic Console capture
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        run: |
+          pnpm --filter @vegastack/labs-web build
+          node tooling/console-assets.mjs --write
+          mkdir "$TMPDIR/console-first"
+          cp -a internal/consoleassets/. "$TMPDIR/console-first/"
+          pnpm --filter @vegastack/labs-web build
+          node tooling/console-assets.mjs --write
+          diff -qr "$TMPDIR/console-first" internal/consoleassets
+          echo '{"schemaVersion":1,"check":"console-assets-repeat","status":"pass"}'
+
+      - name: Upload deterministic Console capture
+        if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: issue-123-console-assets-${{ github.sha }}
+          path: internal/consoleassets
+          if-no-files-found: error
+          retention-days: 1
+          compression-level: 9
+
       - name: Install pinned Chromium
         if: needs.plan.outputs.browser == 'true' || github.event_name == 'push'
         run: pnpm --filter @vegastack/labs-web exec playwright install --with-deps chromium
