@@ -218,6 +218,7 @@ const (
 	ErrorCodeMigrationBlocked               = "MIGRATION_BLOCKED"
 	ErrorCodePlanStale                      = "PLAN_STALE"
 	ErrorCodePrerequisiteBlocked            = "PREREQUISITE_BLOCKED"
+	ErrorCodeRateLimited                    = "RATE_LIMITED"
 	ErrorCodeRecoveryEpochMismatch          = "RECOVERY_EPOCH_MISMATCH"
 	ErrorCodeRecoveryRequired               = "RECOVERY_REQUIRED"
 	ErrorCodeResourceNotFound               = "RESOURCE_NOT_FOUND"
@@ -1999,6 +2000,7 @@ var ErrorExitCodes = map[string]int{
 	"MIGRATION_BLOCKED":       8,
 	"PLAN_STALE":              5,
 	"PREREQUISITE_BLOCKED":    6,
+	"RATE_LIMITED":            6,
 	"RECOVERY_EPOCH_MISMATCH": 5,
 	"RECOVERY_REQUIRED":       7,
 	"RESOURCE_NOT_FOUND":      6,

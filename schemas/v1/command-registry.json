@@ -2005,6 +2005,10 @@
       "exitCode": 6
     },
     {
+      "code": "RATE_LIMITED",
+      "exitCode": 6
+    },
+    {
       "code": "RECOVERY_EPOCH_MISMATCH",
       "exitCode": 5
     },

@@ -6,7 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	sdk "github.com/1password/onepassword-sdk-go"
+
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 type fakeSecretsAPI struct {
@@ -79,6 +83,31 @@ func TestOnePasswordSDKErrorAndValueStayOutOfErrorSurface(t *testing.T) {
 	api.response = strings.Repeat("x", 4097)
 	if _, err := resolver.Resolve(context.Background(), testBinding()); err == nil {
 		t.Fatal("oversize value accepted")
+	}
+}
+
+func TestOnePasswordSDKRateLimitAndUnavailableHaveDistinctRedactedCodes(t *testing.T) {
+	api := &fakeSecretsAPI{failure: &sdk.RateLimitExceededError{}}
+	token, _ := credentialref.NewValue([]byte("synthetic-service-account-token"))
+	config := Config{IDs: IDs{VaultID: "vault-id", ItemID: "item-id", FieldID: "field-id"}, ReferenceID: "ref-a", ConsumerID: "adapter-a", PurposeID: "deploy-a", TargetID: "service-a", MaterialVersion: "version-a", ResolverID: "onepassword-a", AllowedVaultIDs: []string{"vault-id"}}
+	resolver, err := NewResolver(context.Background(), token, config, api)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = resolver.Resolve(context.Background(), testBinding())
+	if stable, ok := failure.As(err); !ok || stable.Code != "RATE_LIMITED" || !stable.Retryable {
+		t.Fatalf("rate-limit classified as %v", err)
+	}
+	api.failure = errors.New("synthetic-private-canary")
+	_, err = resolver.Resolve(context.Background(), testBinding())
+	if stable, ok := failure.As(err); !ok || stable.Code != generated.ErrorCodeDependencyUnavailable || strings.Contains(stable.Error(), "synthetic-private-canary") {
+		t.Fatalf("unknown SDK failure classified as %v", err)
+	}
+	denied := testBinding()
+	denied.ConsumerID = "other-consumer"
+	_, err = resolver.Resolve(context.Background(), denied)
+	if stable, ok := failure.As(err); !ok || stable.Code != generated.ErrorCodeAuthorizationDenied || api.calls != 2 {
+		t.Fatalf("local-denied classification/calls err=%v calls=%d", err, api.calls)
 	}
 }
 

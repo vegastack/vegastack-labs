@@ -9,6 +9,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -45,6 +46,18 @@ type AdmissionVerifier interface {
 	VerifyRun(context.Context, generated.Plan, generated.Run) error
 }
 
+type GateVerifier interface {
+	VerifySecretStep(context.Context, generated.Plan, generated.PlanOperation) error
+}
+
+// No production site-subject/proof verifier is registered in #105. A secret
+// step cannot become ready from a caller assertion or fixture evidence.
+type UnavailableGateVerifier struct{}
+
+func (UnavailableGateVerifier) VerifySecretStep(context.Context, generated.Plan, generated.PlanOperation) error {
+	return runError(generated.ErrorCodePrerequisiteBlocked, "secret-step-live-gate-unavailable")
+}
+
 type AdapterRegistry interface {
 	Resolve(string) (adapter.Adapter, error)
 }
@@ -72,6 +85,8 @@ type Config struct {
 	Admission        AdmissionVerifier
 	Adapters         AdapterRegistry
 	Core             CoreEffect
+	SecretGate       GateVerifier
+	CredentialStep   *CredentialStep
 	Clock            func() time.Time
 	IDs              IDSource
 	ExecutionContext context.Context
@@ -91,6 +106,8 @@ type Engine struct {
 	admission         AdmissionVerifier
 	adapters          AdapterRegistry
 	core              CoreEffect
+	secretGate        GateVerifier
+	credentialStep    *CredentialStep
 	clock             func() time.Time
 	ids               IDSource
 	executionContext  context.Context
@@ -130,7 +147,10 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.LeaseContext == nil {
 		config.LeaseContext = context.WithDeadline
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
+	if config.SecretGate == nil {
+		config.SecretGate = UnavailableGateVerifier{}
+	}
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -147,6 +167,9 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 	}
 	if err := engine.verifyAdmission(ctx, plan, request.Authorization, request.Acknowledgement); err != nil {
 		return generated.Run{}, err
+	}
+	if credentialPlanDigest(plan) != "" && plan.ExecutorMode != "central" {
+		return generated.Run{}, runError(generated.ErrorCodeAuthorizationDenied, "credential-external-execution")
 	}
 	now := engine.clock().UTC().Truncate(time.Second)
 	if !now.Before(parseTime(plan.ExpiresAt)) {
@@ -553,6 +576,8 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		var executeErr error
 		if operation.AdapterID == "core.gate" {
 			effect, executeErr = engine.core.Execute(leaseContext, binding)
+		} else if credentialPlanDigest(plan) != "" {
+			effect, executeErr = engine.executeSecretStep(leaseContext, plan, *intentStep, lease, operation, implementation)
 		} else {
 			effect, executeErr = implementation.Execute(leaseContext, operation)
 		}
@@ -637,6 +662,51 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		return current, err
 	}
 	return current, nil
+}
+
+func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan, step generated.RunStep, lease generated.ExecutorLease, operation adapter.Operation, implementation adapter.Adapter) (adapter.Effect, error) {
+	if engine.credentialStep == nil || engine.secretGate == nil || step.Status != "running" || step.EffectState != "intent-recorded" || step.StepID != lease.StepID || step.OperationID != lease.OperationID || step.AdapterID != lease.AdapterID || step.TargetID != lease.TargetID {
+		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-intent-binding")
+	}
+	var plannedOperation *generated.PlanOperation
+	for index := range plan.Operations {
+		if plan.Operations[index].OperationID == operation.OperationID {
+			plannedOperation = &plan.Operations[index]
+			break
+		}
+	}
+	if plannedOperation == nil || plannedOperation.AdapterID != operation.AdapterID || plannedOperation.TargetID != operation.TargetID || plannedOperation.InputDigest != operation.InputDigest || plannedOperation.ArtifactDigest != operation.ArtifactDigest {
+		return adapter.Effect{}, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-binding")
+	}
+	secret, err := engine.credentialStep.IsSecretOperation(ctx, plan, *plannedOperation)
+	if err != nil {
+		return adapter.Effect{}, err
+	}
+	if !secret {
+		return implementation.Execute(ctx, operation)
+	}
+	credentialExecutor, ok := implementation.(adapter.CredentialExecutor)
+	if !ok {
+		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-adapter-unavailable")
+	}
+	if err := engine.secretGate.VerifySecretStep(ctx, plan, *plannedOperation); err != nil {
+		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-gate-not-ready")
+	}
+	values, err := engine.credentialStep.Resolve(ctx, plan, *plannedOperation, lease)
+	if err != nil {
+		return adapter.Effect{}, err
+	}
+	return invokeCredentialEffect(ctx, credentialExecutor, operation, values)
+}
+
+func invokeCredentialEffect(ctx context.Context, implementation adapter.CredentialExecutor, operation adapter.Operation, values []*credentialref.Value) (adapter.Effect, error) {
+	defer closeCredentialValues(values)
+	effect, err := implementation.ExecuteWithCredentials(ctx, operation, values)
+	if err != nil {
+		// Adapter errors can contain provider/credential text. Never relay it.
+		return effect, runError(generated.ErrorCodeExecutionFailed, "credential-effect")
+	}
+	return effect, nil
 }
 
 func (engine *Engine) interruptBeforeEffect(ctx context.Context, current generated.Run, step generated.RunStep, attribution audit.Attribution) (generated.Run, error) {

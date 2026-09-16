@@ -2,6 +2,7 @@ package onepassword
 
 import (
 	"context"
+	"errors"
 	"slices"
 	"time"
 
@@ -82,6 +83,10 @@ func (resolver *Resolver) Resolve(ctx context.Context, binding credentialref.Ste
 	// One immutable reference only: no list, query, label fallback or second read.
 	secret, err := resolver.api.Resolve(deadline, config.IDs.URI())
 	if err != nil {
+		var rateLimit *sdk.RateLimitExceededError
+		if errors.As(err, &rateLimit) {
+			return nil, failure.New(generated.ErrorCodeRateLimited, "onepassword-read", true)
+		}
 		return nil, sdkError(generated.ErrorCodeDependencyUnavailable, "onepassword-read")
 	}
 	if len(secret) == 0 || len(secret) > 4096 {

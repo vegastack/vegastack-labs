@@ -42,7 +42,7 @@ func TestOptionalOnePasswordCompositionReadsTokenOnlyFromNativeServiceCredential
 	}
 	t.Setenv("CREDENTIALS_DIRECTORY", dir)
 	registry := adapter.NewRegistry()
-	scope := adapter.CredentialCapabilityScope{ResolverID: "onepassword-a", ConsumerID: "adapter-a", ProfileID: "profile-a", Enabled: true}
+	scope := adapter.CredentialCapabilityScope{ResolverID: "onepassword-a", ConsumerID: "adapter-a", ProfileID: "profile-a", CapabilityID: "credential.onepassword.read", Enabled: true}
 	config := onepassword.Config{IDs: onepassword.IDs{VaultID: "vault-id", ItemID: "item-id", FieldID: "field-id"}, ReferenceID: "ref-a", ConsumerID: "adapter-a", PurposeID: "deploy-a", TargetID: "service-a", MaterialVersion: "version-a", ResolverID: "onepassword-a", AllowedVaultIDs: []string{"vault-id"}}
 	profile := fakeAppliedCredentialProfile{store.GateAppliedProfile{ProfileID: "profile-a", Capabilities: []string{"credential.onepassword.read"}, StateRevision: 1, RecoveryEpoch: 0}}
 	revisions := fakeCredentialRevision{store.RevisionToken{StateRevision: 1, RecoveryEpoch: 0}}

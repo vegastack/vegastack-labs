@@ -216,7 +216,10 @@ func (repository *CredentialRepository) GetStepBindings(ctx context.Context, pla
 		result = append(result, binding)
 	}
 	if len(result) == 0 {
-		return nil, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-operation-unbound")
+		// The complete committed manifest and exact stored plan were checked
+		// above. This operation simply has no credential binding; mixed plans
+		// must not turn an ordinary step into a secret step.
+		return []credentialref.StepBinding{}, nil
 	}
 	return result, nil
 }

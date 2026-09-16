@@ -31,7 +31,7 @@ type credentialRevisionReader interface {
 // invoked by default production composition or the unregistered #104 gate.
 func composeOptionalOnePasswordCredential(ctx context.Context, ownerUID uint32, tokenName string, registry *adapter.Registry, capability adapter.CredentialCapabilityScope, config onepassword.Config, profiles credentialAppliedProfile, revisions credentialRevisionReader, api onepassword.SecretsAPI) error {
 	blocked := func(target string) error { return failure.New(generated.ErrorCodePrerequisiteBlocked, target, false) }
-	if ctx == nil || registry == nil || profiles == nil || revisions == nil || !capability.Enabled || capability.ResolverID != config.ResolverID || capability.ConsumerID != config.ConsumerID {
+	if ctx == nil || registry == nil || profiles == nil || revisions == nil || !capability.Enabled || capability.ResolverID != config.ResolverID || capability.ConsumerID != config.ConsumerID || capability.CapabilityID != "credential.onepassword.read" {
 		return blocked("onepassword-capability")
 	}
 	profile, err := profiles.GetAppliedProfileScope(ctx)
@@ -39,7 +39,7 @@ func composeOptionalOnePasswordCredential(ctx context.Context, ownerUID uint32, 
 		return blocked("onepassword-profile")
 	}
 	current, err := revisions.CurrentRevision(ctx)
-	if err != nil || profile.ProfileID != capability.ProfileID || profile.RecoveryEpoch != current.RecoveryEpoch || profile.StateRevision > current.StateRevision || !slices.Contains(profile.Capabilities, "credential.onepassword.read") {
+	if err != nil || profile.ProfileID != capability.ProfileID || profile.RecoveryEpoch != current.RecoveryEpoch || profile.StateRevision > current.StateRevision || !slices.Contains(profile.Capabilities, capability.CapabilityID) {
 		return blocked("onepassword-profile")
 	}
 	if _, err := credentialref.ParseID(tokenName); err != nil {
