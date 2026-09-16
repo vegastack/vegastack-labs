@@ -131,6 +131,10 @@ func isGateOperation(kind string) bool {
 	}
 }
 
+func isCoreOperation(adapterID, kind string) bool {
+	return adapterID == "core.gate" && isGateOperation(kind) || adapterID == "core.audit" && kind == "audit.checkpoint.anchor"
+}
+
 func NewEngine(config Config) (*Engine, error) {
 	if config.Repository == nil || config.Plans == nil || config.Admission == nil || config.Adapters == nil {
 		return nil, runError(generated.ErrorCodeInputInvalid, "run-engine")
@@ -518,9 +522,9 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return current, err
 		}
 		var implementation adapter.Adapter
-		if operation.AdapterID == "core.gate" {
-			if engine.core == nil || !isGateOperation(operation.OperationType) || operation.InputDigest != operation.ArtifactDigest || plan.ExecutorMode != "central" {
-				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-gate-unavailable")
+		if isCoreOperation(operation.AdapterID, operation.OperationType) {
+			if engine.core == nil || operation.InputDigest != operation.ArtifactDigest || plan.ExecutorMode != "central" {
+				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-effect-unavailable")
 			}
 		} else {
 			implementation, err = engine.adapters.Resolve(operation.AdapterID)
@@ -574,7 +578,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		binding := ExactStepBinding{Plan: plan, Run: current, Step: *intentStep, Lease: lease, Attribution: attribution}
 		var effect adapter.Effect
 		var executeErr error
-		if operation.AdapterID == "core.gate" {
+		if isCoreOperation(operation.AdapterID, operation.OperationType) {
 			effect, executeErr = engine.core.Execute(leaseContext, binding)
 		} else if credentialPlanDigest(plan) != "" {
 			effect, executeErr = engine.executeSecretStep(leaseContext, plan, *intentStep, lease, operation, implementation)
@@ -616,7 +620,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 		var verification adapter.Verification
 		var verifyErr error
-		if operation.AdapterID == "core.gate" {
+		if isCoreOperation(operation.AdapterID, operation.OperationType) {
 			verification, verifyErr = engine.core.Verify(leaseContext, binding, effect)
 		} else {
 			verification, verifyErr = implementation.Verify(leaseContext, operation, effect)
