@@ -337,6 +337,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	generatedImport := modulePath + "/internal/generated"
 	releaseImport := modulePath + "/internal/release"
 	stateExportImport := modulePath + "/internal/stateexport"
+	auditImport := modulePath + "/internal/audit"
 	identityImport := modulePath + "/internal/identity"
 	apiImport := modulePath + "/internal/api"
 	serverImport := modulePath + "/internal/server"
@@ -415,8 +416,15 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				result.ShellDispatch = true
 			}
 			switch imported {
-			case "crypto/ecdsa", "crypto/ed25519":
+			case "crypto/ecdsa":
 				result.StateExportTrust = true
+			case "crypto/ed25519":
+				// Issue #107 verifies independently signed audit checkpoints
+				// with public material only. Seal that exact package; every
+				// other Ed25519 dependency remains forbidden production trust.
+				if candidate.ImportPath != auditImport || !reviewedAuditVerificationPackage(parsed) {
+					result.StateExportTrust = true
+				}
 			case "crypto/rsa":
 				// The remote-identity adapter verifies RSA public keys. Keep the
 				// executable-wide signing guard everywhere else; state-export
@@ -759,6 +767,10 @@ const (
 	// wave digests are separate from, and do not replace, the baseline goldens.
 	reviewedGateLocalAPILinuxDigest       = "bbeb263e7cfba9102961e338cc51c0fdbc364bf20e472adf85ef135658681e06"
 	reviewedGateLocalAPIUnsupportedDigest = "d03ab3381a723be7e6b4027164e00c6d2723d8fae8e3c6a7da4690b5834999e4"
+	// #107 adds typed audit checkpoint and verification reads without adding a
+	// transport escape hatch. These digests seal the combined #104/#107 wave.
+	reviewedAuditLocalAPILinuxDigest       = "05759e7f0cd624adeace4c93e14e38669d2100fb71df458822116aefd5286170"
+	reviewedAuditLocalAPIUnsupportedDigest = "134b53467f0b0227d6b98be5bcb2055b9746229b3f4ebdad13d545a62f2b06b4"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -773,7 +785,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 	if containsString(names, "listener_linux.go") {
 		expected = reviewedLocalAPILinuxDigest
 	}
-	if containsString(names, "gates_client.go") {
+	if containsString(names, "gates_client.go") && !containsString(names, "audit_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -786,7 +798,31 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedGateLocalAPIUnsupportedDigest
 		}
 	}
+	if containsString(names, "audit_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = reviewedAuditLocalAPILinuxDigest
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = reviewedAuditLocalAPIUnsupportedDigest
+		}
+	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected
+}
+
+const reviewedAuditVerificationDigest = "1f4068a1ea9ee0eb52ab91fd5b792b9d094218a50b5ba6fc4e74568d70bc07b8"
+
+func reviewedAuditVerificationPackage(candidate checkedSourcePackage) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	if strings.Join(names, ",") != "canonical.go,chain.go,checkpoint.go,types.go,verify.go" {
+		return false
+	}
+	return digestSourceFiles(candidate.listed.Dir, names) == reviewedAuditVerificationDigest
 }
 
 func reviewedNetworkFunctionPackage(packagePath string) bool {

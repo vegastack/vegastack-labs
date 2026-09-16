@@ -347,9 +347,10 @@ test("the local transport implementation is sealed to the reviewed Unix source",
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
 });
 
-test("the #104 typed gate local client is one exact resealed source wave", async () => {
+test("the #104 and #107 typed local clients are exact resealed source waves", async () => {
   const result = await verifyCLI(process.cwd(), { crossBuild: false });
   assert.ok(!result.codes.includes("CLI_LOCAL_CLIENT_BOUNDARY"), JSON.stringify(result));
+  assert.ok(!result.codes.includes("CLI_STATE_EXPORT_TRUST"), JSON.stringify(result));
 });
 
 test("the local client boundary rejects caller-controlled values forwarded to the sealed transport", async (t) => {
