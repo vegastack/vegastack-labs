@@ -81,24 +81,6 @@ jobs:
       - name: Install public dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Capture canonical Console assets for issue 126
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/chore/126-refresh-console-assets'
-        run: |
-          set -euo pipefail
-          pnpm --filter @vegastack/labs-web build
-          if pnpm check:console-assets >"$TMPDIR/console-assets-red.log" 2>&1; then
-            echo "Expected the stale Console asset check to fail" >&2
-            exit 1
-          fi
-          grep -F "Console asset manifest does not match the built output" "$TMPDIR/console-assets-red.log"
-          pnpm generate:console-assets
-          pnpm check:console-assets
-          node tooling/verify-static.mjs
-          git diff --binary -- internal/consoleassets | gzip -9 | base64 -w 58000 >"$TMPDIR/console-assets.patch.gz.b64"
-          while IFS= read -r chunk; do
-            printf 'VSK_126_PATCH_CHUNK:%s\n' "$chunk"
-          done <"$TMPDIR/console-assets.patch.gz.b64"
-
       - name: Install pinned Chromium
         if: needs.plan.outputs.browser == 'true'
         run: pnpm --filter @vegastack/labs-web exec playwright install --with-deps chromium
@@ -169,6 +151,24 @@ jobs:
 
       - name: Install public dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Capture canonical Console assets for issue 126
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/chore/126-refresh-console-assets'
+        run: |
+          set -euo pipefail
+          pnpm --filter @vegastack/labs-web build
+          if pnpm check:console-assets >"$TMPDIR/console-assets-red.log" 2>&1; then
+            echo "Expected the stale Console asset check to fail" >&2
+            exit 1
+          fi
+          grep -F "Console asset manifest does not match the built output" "$TMPDIR/console-assets-red.log"
+          pnpm generate:console-assets
+          pnpm check:console-assets
+          node tooling/verify-static.mjs
+          git diff --binary -- internal/consoleassets | gzip -9 | base64 -w 58000 >"$TMPDIR/console-assets.patch.gz.b64"
+          while IFS= read -r chunk; do
+            printf 'VSK_126_PATCH_CHUNK:%s\n' "$chunk"
+          done <"$TMPDIR/console-assets.patch.gz.b64"
 
       - name: Install pinned Chromium
         if: needs.plan.outputs.browser == 'true' || github.event_name == 'push'
