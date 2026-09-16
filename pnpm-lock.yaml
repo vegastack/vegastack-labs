@@ -5,9 +5,9 @@ settings:
   excludeLinksFromLockfile: false
 
 overrides:
-  '@vegastack/design@0.4.0>@vegastack/design-tokens': 0.4.0
+  '@vegastack/design@0.4.1>@vegastack/design-tokens': 0.4.0
 
-packageExtensionsChecksum: sha256-q987tU15Nf7FKBlmk11TwdacpXHwLhceUOxXA6qgNPs=
+packageExtensionsChecksum: sha256-0y50+9HUDpNu7PaJfI4cUihFN2WbTkKYFROlQ5C9eZQ=
 
 importers:
 
@@ -29,8 +29,8 @@ importers:
         specifier: 5.102.8
         version: 5.102.8(react@19.2.8)
       '@vegastack/design':
-        specifier: 0.4.0
-        version: 0.4.0(lucide-react@1.34.0(react@19.2.8))(motion@13.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(tailwindcss@4.3.3)(thesvg@3.3.1)
+        specifier: 0.4.1
+        version: 0.4.1(lucide-react@1.34.0(react@19.2.8))(motion@13.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(tailwindcss@4.3.3)(thesvg@3.3.1)
       '@vegastack/design-tokens':
         specifier: 0.4.0
         version: 0.4.0
@@ -756,8 +756,8 @@ packages:
     resolution: {integrity: sha512-TNCg3An95ZbCUg5r6KBhVuT6eg9fmhehKQsypKTiD4Ery+EVr22kWu1TJJQTqr/7hjIhMhlE7vXx3i2PJ3UUmQ==}
     engines: {node: '>=24.14.0'}
 
-  '@vegastack/design@0.4.0':
-    resolution: {integrity: sha512-+oDvxGR+4285FNhQT8akl8KsawTUGnmPgx0U1yp23akfk+HgzqnoQTsaIjexuyDwj0CEpOdBy2pPoYWdTrbYWA==}
+  '@vegastack/design@0.4.1':
+    resolution: {integrity: sha512-oKi67sP+AJpvJLdQK4s+Dr2hxV2LleT9dwNs+kwtdFUgmkK25zGDw2FRze6ttkzyP5eH+yt+V5v9SRPN39Vzhg==}
     engines: {node: '>=24.14.0'}
     hasBin: true
     peerDependencies:
@@ -2797,7 +2797,7 @@ snapshots:
 
   '@vegastack/design-tokens@0.4.0': {}
 
-  '@vegastack/design@0.4.0(lucide-react@1.34.0(react@19.2.8))(motion@13.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(tailwindcss@4.3.3)(thesvg@3.3.1)':
+  '@vegastack/design@0.4.1(lucide-react@1.34.0(react@19.2.8))(motion@13.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8))(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(tailwindcss@4.3.3)(thesvg@3.3.1)':
     dependencies:
       '@vegastack/design-tokens': 0.4.0
       clsx: 2.1.1

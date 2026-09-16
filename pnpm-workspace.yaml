@@ -2,10 +2,10 @@ packages:
   - web
 
 overrides:
-  "@vegastack/design@0.4.0>@vegastack/design-tokens": 0.4.0
+  "@vegastack/design@0.4.1>@vegastack/design-tokens": 0.4.0
 
 packageExtensions:
-  "@vegastack/design@0.4.0":
+  "@vegastack/design@0.4.1":
     peerDependencies:
       tailwindcss: 4.3.3
 
@@ -35,3 +35,4 @@ minimumReleaseAgeExclude:
   - motion-dom@13.3.0
   - motion-utils@13.3.0
   - motion@13.3.0
+  - '@vegastack/design@0.4.1'

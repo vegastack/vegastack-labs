@@ -9,17 +9,60 @@ import { runCommand } from "./lib/process.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LOCK = "tooling/design-system-lock.json";
 const ORIGIN = "https://design.vegastack.com";
-const VERSION = "0.6.0";
+export const VERSION = "0.9.1";
 const ACCESS_ID_ENV = ["CF", "ACCESS", "CLIENT", "ID"].join("_");
 const ACCESS_SECRET_ENV = ["CF", "ACCESS", "CLIENT", "SECRET"].join("_");
 const ACCESS_ID_HEADER = ["CF", "Access", "Client", "Id"].join("-");
 const ACCESS_SECRET_HEADER = ["CF", "Access", "Client", "Secret"].join("-");
-const REVIEWED_SOURCE_CLOSURE_SHA256 = "764d3be59f87db154bee8a1ee063a73732182e5ac882bb39362f40207bb1eff7";
+const REVIEWED_SOURCE_CLOSURE_SHA256 = "756725140cc4e9e9f33330c06497676cbf9405e431f6090b256ea44e73489f25";
 const SHADCN_VERSION = "4.21.0";
 const SHADCN_INTEGRITY = "sha512-UU2mFNusW8C5rvadKdH69vERYZqUlOOlXBcf0MYhYLdTGP6DPti7X4qovCu+RTfCqsAgq/T+YfE0Vnttxh9aiw==";
-const ROOTS = new Map([
-  ["provider", "sha256-j7RJm9M0bbnthF2SXN8AfSKfoZqUnnPm169og/MPM8E="],
-  ["dashboard-01", "sha256-H3abUSAP+yCnOjs0Qy0Y1R9PhqJQJ3wR7w7/ZX2dI58="],
+export const ROOTS = new Map([
+  ["provider", "sha256-PTk0QbeCkLBWvgfFCz6caP2bkxYSXNqTe50NOBBburg="],
+  ["button", "sha256-Ood+nbd5djqlMamanG14IdSyvS+psDEc/WAfcqMKuTQ="],
+  ["badge", "sha256-yjFgCl418g5sVLav33JA6tsBkTaJxpZkyzkfF9vB9HM="],
+  ["card", "sha256-U8K5KtHspmfQOimkAO/8TpQ9uq7eYYmLxbQiSaklaZ0="],
+  ["empty", "sha256-5t3dzeajxtdosB6RktNM/RUyZBbHH/f1f0D8V6AMYeM="],
+  ["alert", "sha256-Az8K2MwE9cmvEGVFaQR/K1W5wiAGwtUzq7jrXxmx9Rs="],
+  ["chip", "sha256-iEVyViVOSa8k3gk8f6NoAjO+9WyDjFkc3elS0B3brhg="],
+  ["page-header", "sha256-IDvxvY9nPczNeLmuvnfaBvBnUZeFw90+Urgh/CP6SDI="],
+  ["property-list", "sha256-zrNLmcNbniOmeRX1o6oIZCl5I2U5FXUuKqwRalso2Mc="],
+  ["table", "sha256-bcGnmXGVfKnFEi8v7O5yIe0i/NckNk/SSSg+LBRO/RM="],
+  ["data-list", "sha256-VvVeDmjzqOniqERzym9BV455T0Vb29MK8/fhN8mhZso="],
+  ["status-icon", "sha256-16U1Eq6MVoHPyO8m/EQ0D9Vwei7fg1y6U/krx4hx0ho="],
+  ["stat", "sha256-FJMYLHN2OiammVnkOyIgIY4dmgK4F8k38Nap87jh+EY="],
+  ["sidebar", "sha256-F13vRu6isX1c0BA1NFX6wExSQrQUDT4whu0iSkluVsA="],
+  ["app-shell", "sha256-uanFu9u2xy5BPOcHiJGWz3Ht8CDxl7KPEVQercn4IWk="],
+  ["breadcrumb", "sha256-tKp+EKVOCwG88ELIP/zB09TMmpCtOML/9NzuFZ8euSQ="],
+  ["separator", "sha256-0EODyTqr2HJWZfY24AhFWddoEjk0cQiuxs5AL0H5wQo="],
+  ["sheet", "sha256-V+yegcfH4CYnmeTHtEqclMWR9V4C6oh7LYXg0j/7XKE="],
+  ["skeleton", "sha256-nPr0DYXiEY9p9zCuw5Anw7lJRnkOCXO1fCZOSltsW5k="],
+  ["avatar", "sha256-Kw/orhYVtjD59QCwWS7uMzAuVXaCcQGBrvz+PO9Fvc0="],
+  ["dropdown-menu", "sha256-NqmrleFyI1JaCpx84cWzR5GbJcywBKn7LGZ3+7AMi7Y="],
+  ["relative-time", "sha256-GnHlW/uNrUsK1gxXIppDi/5mUctLeHA0DwtCGWudOSE="],
+  ["tabs", "sha256-ytXteWT4ZI3GKEPufRZbV/gxQZuYyqBVGkZGLRoM3yk="],
+  ["segmented", "sha256-Iv+/dk7VK+6od4+jriV+8ZlT1rn7wlyE2nf1B+5EpEU="],
+  ["item", "sha256-2WU+gKnHHeBh5aMPecC+FEIH1vh76BWx5LrnIeupcF0="],
+  ["progress", "sha256-KNN8LtQdQzblHpEgHk6qThEmKbrP9ojKhYpbMn9qC4w="],
+  ["chart", "sha256-V5u94RFZYwLTPROUTw1aZYUpMjvjtH/JgEYmHMb2bF4="],
+  ["animated-number", "sha256-KxvDjVZ54wgu29zyQA8z0bH7kHQqak8wvuEuQpQxht8="],
+  ["timeline", "sha256-765Yodf1rCmCCrBMVmx7uo3zVBabogLdhx0Tz/qbfVU="],
+  ["field", "sha256-o/a0uNPd5e/CBX6yxZFZrdFlXJ97BE+7Sp4HFszKwMI="],
+  ["input", "sha256-D/2LzEH/T5SGZD3nDBxK607aBF7sSR31I5xW53bJAmg="],
+  ["label", "sha256-yhCF/XXGR2IyYa1m9xyq6UOL45TDYOyyLzgFoixSgmE="],
+  ["number-field", "sha256-gNwEG6AkZQTi6uktdg9y/4G5pmgpDPo1B+Lq3JI3qJA="],
+  ["code-block", "sha256-qTVDsNJWbg1Wq3iogZXr0S01qix/yBKotpOXhZ/3KJQ="],
+  ["accordion", "sha256-OazYh0N/yW3tErBVNoixEk95zDnyjKsjOlfkag/gYyE="],
+  ["collapsible", "sha256-gpIh/LhTg2zK44IjAj8bBJ63Qf6VLSr00J6p04XF3co="],
+  ["dialog", "sha256-Fqe7GVUAXfmpa3Yzy912L1gcrwcUfQX6QxZu6FuVekk="],
+  ["alert-dialog", "sha256-fxVFfGmJHVeQ0P9LqDa24t76Rdjf5PehWyPtrgRaGSQ="],
+  ["stepper", "sha256-p14iB0IedPGi91Ll9LO0zwaddKS6kIPSWUaEe6bYPCw="],
+  ["checkbox", "sha256-A6k4NJ4Z396UIrj4efZKMZCfKG+8Ycx9NgYTSn3mW8Q="],
+  ["tooltip", "sha256-JC0fGGed7SGqZJLrOjT4N2z+GxX+l5dASQvydG7ugmw="],
+  ["truncated-text", "sha256-L9T6gXKxsdpbn/HIEBZMhThh4IUD+jvqRiei6R4Zol0="],
+  ["icon-button", "sha256-2pqvb4v/mv1M63c0kF/Lu4ylQP7mVJKzqdmAmn1m6NA="],
+  ["spinner", "sha256-TI8+t0J4cYzkLYT0ySPB3JaOXr+/t2oZ3pqiTn0FFZc="],
+  ["copy-button", "sha256-BhrRxaV78w/vW1oWH3KzvCncx7JVayshBv6mYNsHRPo="],
 ]);
 
 function assertObject(value, label) {
@@ -174,7 +217,7 @@ export async function refreshPinnedDesignSystem({ root = ROOT, registryOrigin = 
   delete packageEnv[ACCESS_SECRET_ENV];
   const published = await runCommand("pnpm", ["view", `shadcn@${SHADCN_VERSION}`, "dist.integrity", "--json"], { cwd: root, env: packageEnv, capture: true, timeoutMs: 30_000 });
   if (JSON.parse(published.stdout) !== SHADCN_INTEGRITY) throw new Error("shadcn installer integrity differs from the reviewed release");
-  await runCommand("pnpm", ["dlx", `shadcn@${SHADCN_VERSION}`, "add", "-c", "web", "-y", "@vegastack/provider", "@vegastack/dashboard-01"], { cwd: root, env, timeoutMs: 180_000 });
+  await runCommand("pnpm", ["dlx", `shadcn@${SHADCN_VERSION}`, "add", "-c", "web", "-y", ...[...ROOTS.keys()].map(name => `@vegastack/${name}`)], { cwd: root, env, timeoutMs: 180_000 });
   const changedStatus = await runCommand("git", ["status", "--porcelain=v1", "-z"], { cwd: root, capture: true, timeoutMs: 30_000 });
   const changedPaths = changedStatus.stdout.split("\0").filter(Boolean).map(entry => entry.slice(3));
   const unexpected = changedPaths.filter(file => !expectedTargets.has(file));
@@ -193,7 +236,7 @@ export async function refreshPinnedDesignSystem({ root = ROOT, registryOrigin = 
     schemaVersion: 1,
     registryOrigin: ORIGIN,
     registryVersion: VERSION,
-    acceptedAt: "10-09-2026",
+    acceptedAt: "16-09-2026",
     roots: [...ROOTS].map(([name, integrity]) => ({ name, integrity })),
     items: lockedItems.sort((a, b) => a.name.localeCompare(b.name)),
   };
@@ -225,9 +268,9 @@ async function main() {
   const [mode, ...args] = process.argv.slice(2);
   let result;
   if (mode === "--check" && args.length === 0) result = await verifyPinnedDesignSystem();
-  else if (mode === "--refresh" && args.join(" ") === "--approve-version 0.6.0") result = await refreshPinnedDesignSystem();
-  else if (mode === "--accept-owned-block" && args.join(" ") === "--approve-version 0.6.0") result = await acceptOwnedBlock();
-  else throw new Error("usage: node tooling/design-system.mjs --check | --refresh --approve-version 0.6.0 | --accept-owned-block --approve-version 0.6.0");
+  else if (mode === "--refresh" && args.join(" ") === "--approve-version 0.9.1") result = await refreshPinnedDesignSystem();
+  else if (mode === "--accept-owned-block" && args.join(" ") === "--approve-version 0.9.1") result = await acceptOwnedBlock();
+  else throw new Error("usage: node tooling/design-system.mjs --check | --refresh --approve-version 0.9.1 | --accept-owned-block --approve-version 0.9.1");
   process.stdout.write(`${JSON.stringify({ schemaVersion: 1, check: "design-system", status: "pass", ...result })}\n`);
 }
 

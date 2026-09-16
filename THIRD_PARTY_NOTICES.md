@@ -141,8 +141,8 @@ The exact development-only MPL-2.0 dependencies listed below are unmodified and 
 | `@unrs/resolver-binding-win32-arm64-msvc` | `1.12.2` | `MIT` | build | [source](https://github.com/unrs/unrs-resolver) |
 | `@unrs/resolver-binding-win32-ia32-msvc` | `1.12.2` | `MIT` | build | [source](https://github.com/unrs/unrs-resolver) |
 | `@unrs/resolver-binding-win32-x64-msvc` | `1.12.2` | `MIT` | build | [source](https://github.com/unrs/unrs-resolver) |
-| `@vegastack/design` | `0.3.2` | `MIT` | runtime | [source](https://github.com/VegaStack/vegastack-design#readme) |
-| `@vegastack/design-tokens` | `0.2.0` | `MIT` | runtime | [source](https://github.com/VegaStack/vegastack-design#readme) |
+| `@vegastack/design` | `0.4.1` | `MIT` | runtime | [source](https://github.com/VegaStack/vegastack-design#readme) |
+| `@vegastack/design-tokens` | `0.4.0` | `MIT` | runtime | [source](https://github.com/VegaStack/vegastack-design#readme) |
 | `acorn` | `8.18.0` | `MIT` | build | [source](https://github.com/acornjs/acorn) |
 | `acorn-jsx` | `5.3.2` | `MIT` | build | [source](https://github.com/acornjs/acorn-jsx) |
 | `ajv` | `6.15.0` | `MIT` | build | [source](https://github.com/ajv-validator/ajv) |
@@ -254,6 +254,7 @@ The exact development-only MPL-2.0 dependencies listed below are unmodified and 
 | `flat-cache` | `4.0.1` | `MIT` | build | [source](https://github.com/jaredwray/flat-cache#readme) |
 | `flatted` | `3.4.4` | `ISC` | build | [source](https://github.com/WebReflection/flatted#readme) |
 | `for-each` | `0.3.5` | `MIT` | build | [source](https://github.com/Raynos/for-each) |
+| `framer-motion` | `13.3.0` | `MIT` | runtime | [source](https://github.com/motiondivision/motion#readme) |
 | `function-bind` | `1.1.2` | `MIT` | build | [source](https://github.com/Raynos/function-bind) |
 | `function.prototype.name` | `1.2.0` | `MIT` | build | [source](https://github.com/es-shims/Function.prototype.name#readme) |
 | `functions-have-names` | `1.2.3` | `MIT` | build | [source](https://github.com/inspect-js/functions-have-names#readme) |
@@ -345,6 +346,9 @@ The exact development-only MPL-2.0 dependencies listed below are unmodified and 
 | `minimatch` | `10.2.6` | `BlueOak-1.0.0` | build | [source](https://github.com/isaacs/minimatch#readme) |
 | `minimatch` | `3.1.5` | `ISC` | build | [source](https://github.com/isaacs/minimatch#readme) |
 | `minimist` | `1.2.8` | `MIT` | runtime | [source](https://github.com/minimistjs/minimist) |
+| `motion` | `13.3.0` | `MIT` | runtime | [source](https://github.com/motiondivision/motion#readme) |
+| `motion-dom` | `13.3.0` | `MIT` | runtime | [source](https://github.com/motiondivision/motion#readme) |
+| `motion-utils` | `13.3.0` | `MIT` | runtime | [source](https://github.com/motiondivision/motion#readme) |
 | `ms` | `2.1.3` | `MIT` | runtime | [source](https://github.com/vercel/ms#readme) |
 | `nanoid` | `3.3.18` | `MIT` | runtime | [source](https://github.com/ai/nanoid#readme) |
 | `napi-postinstall` | `0.3.4` | `MIT` | build | [source](https://github.com/un-ts/napi-postinstall#readme) |
