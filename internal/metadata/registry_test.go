@@ -444,7 +444,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
 	}
 	wantPlanned := map[string]string{
-		"doctor": "2", "audit": "5",
+		"doctor": "2", "audit": "5", "audit checkpoints": "5", "audit verify": "5",
 		"node discover": "6", "node add": "6", "node inspect": "6", "node nominate": "6", "node quarantine": "6", "node replace": "6",
 		"user onboard": "7", "user offboard": "7", "user suspend": "7", "user resume": "7",
 		"device request": "7", "device approve": "7", "device revoke": "7",

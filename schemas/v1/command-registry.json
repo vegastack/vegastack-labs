@@ -84,6 +84,28 @@
     },
     {
       "path": [
+        "audit",
+        "checkpoints"
+      ],
+      "summary": "List sanitized audit checkpoints.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned",
+      "dataSchema": "vegastack-labs.dev/audit-checkpoint-list-data"
+    },
+    {
+      "path": [
+        "audit",
+        "verify"
+      ],
+      "summary": "Verify local audit history against independent checkpoint state.",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "risk": "unassigned",
+      "dataSchema": "vegastack-labs.dev/audit-verification-data"
+    },
+    {
+      "path": [
         "backup",
         "run"
       ],
@@ -2210,7 +2232,7 @@
     },
     {
       "id": "vegastack-labs.dev/audit-checkpoint",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/audit-checkpoint.schema.json"
     },
     {
@@ -2231,6 +2253,11 @@
     {
       "id": "vegastack-labs.dev/audit-target",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/audit-verification-data",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/audit-verification-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/authorization-decision",

@@ -304,6 +304,18 @@ Inspect sanitized audit history.
 
 Owner phase: `5` · risk: `unassigned` · availability: `planned`
 
+### `vsk-labs audit checkpoints`
+
+List sanitized audit checkpoints.
+
+Owner phase: `5` · risk: `unassigned` · availability: `planned`
+
+### `vsk-labs audit verify`
+
+Verify local audit history against independent checkpoint state.
+
+Owner phase: `5` · risk: `unassigned` · availability: `planned`
+
 ### `vsk-labs backup run`
 
 Run one exact approved backup policy.

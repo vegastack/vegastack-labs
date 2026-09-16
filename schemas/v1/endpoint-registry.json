@@ -30,6 +30,19 @@
       ]
     },
     {
+      "id": "api.v1.audit-history.verification",
+      "method": "GET",
+      "path": "/api/v1/audit-history/verification",
+      "availability": "planned",
+      "ownerPhase": "5",
+      "dataSchema": "vegastack-labs.dev/audit-verification-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.backups.run",
       "method": "POST",
       "path": "/api/v1/backups/run",

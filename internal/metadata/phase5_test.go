@@ -43,7 +43,10 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 			t.Errorf("credential schema %s version = %s", id, versions[id])
 		}
 	}
-	for _, id := range []string{backupJobSchemaID, auditCheckpointSchemaID, restoreBindingSchemaID} {
+	if versions[auditCheckpointSchemaID] != "1.1.0" || versions[auditVerificationDataSchemaID] != "1.1.0" {
+		t.Errorf("audit schemas were not versioned together")
+	}
+	for _, id := range []string{backupJobSchemaID, restoreBindingSchemaID} {
 		if versions[id] != "1.0.0" {
 			t.Errorf("unowned schema %s version = %s", id, versions[id])
 		}

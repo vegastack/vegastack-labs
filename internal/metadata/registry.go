@@ -135,6 +135,8 @@ var plannedCommands = []plannedCommand{
 	{path: "run cancel", phase: "4", summary: "Request cancellation of one durable run at a safe boundary."},
 	{path: "run resume", phase: "4", summary: "Resume one safely resumable durable run."},
 	{path: "audit", phase: "5", summary: "Inspect sanitized audit history."},
+	{path: "audit checkpoints", phase: "5", summary: "List sanitized audit checkpoints."},
+	{path: "audit verify", phase: "5", summary: "Verify local audit history against independent checkpoint state."},
 	{path: "inventory import", phase: "2", summary: "Import typed inventory as an inert change."},
 	{path: "inventory export", phase: "2", summary: "Export authorized inventory data."},
 	{path: "inventory diff", phase: "2", summary: "Compare declared and supplied inventory."},
