@@ -17,12 +17,21 @@ type ChainLink struct {
 	PreviousDigest  Fingerprint
 	PayloadDigest   Fingerprint
 	ContextDigest   Fingerprint
+	Context         ContextIDs
 	LinkDigest      Fingerprint
 	PreAnchor       bool
 	// Genesis-only inputs are retained so an independent verifier can
 	// reconstruct the first link rather than trusting a bare digest.
 	PriorCheckpoint  Fingerprint
 	RecoveryDecision Fingerprint
+}
+
+// ChainRange is the exact, ordered set of links committed by a checkpoint.
+type ChainRange struct {
+	FirstEventID EventID
+	LastEventID  EventID
+	Links        []ChainLink
+	RangeDigest  Fingerprint
 }
 
 // ContextIDs are bounded identifiers supplied by trusted event producers.
@@ -77,7 +86,7 @@ func MakeChainLink(event Event, ids ContextIDs, instanceID string, segmentSequen
 	link := ChainLink{
 		InstanceID: instanceID, RecoveryEpoch: event.RecoveryEpoch, EventID: event.EventID,
 		SegmentSequence: segmentSequence, PreviousDigest: previous, PayloadDigest: payloadDigest,
-		ContextDigest: contextDigest, PreAnchor: preAnchor,
+		ContextDigest: contextDigest, Context: ids, PreAnchor: preAnchor,
 	}
 	data, err := json.Marshal(struct {
 		Domain          string      `json:"domain"`
@@ -96,6 +105,36 @@ func MakeChainLink(event Event, ids ContextIDs, instanceID string, segmentSequen
 	}
 	link.LinkDigest = hashChainBytes(data)
 	return link, nil
+}
+
+// DigestChainRange binds the ordered link digests and exact endpoints.
+func DigestChainRange(links []ChainLink) (Fingerprint, error) {
+	if len(links) == 0 {
+		return "", errInvalid
+	}
+	for index, link := range links {
+		if !ValidFingerprint(link.LinkDigest) || link.EventID <= 0 || (index > 0 && link.EventID <= links[index-1].EventID) {
+			return "", errInvalid
+		}
+	}
+	data, err := json.Marshal(struct {
+		Domain string        `json:"domain"`
+		First  EventID       `json:"firstEventId"`
+		Last   EventID       `json:"lastEventId"`
+		Links  []Fingerprint `json:"linkDigests"`
+	}{"vegastack-labs.dev/audit-chain-range/v1", links[0].EventID, links[len(links)-1].EventID, chainDigests(links)})
+	if err != nil {
+		return "", errInvalid
+	}
+	return hashChainBytes(data), nil
+}
+
+func chainDigests(links []ChainLink) []Fingerprint {
+	result := make([]Fingerprint, len(links))
+	for index := range links {
+		result[index] = links[index].LinkDigest
+	}
+	return result
 }
 
 // GenesisLink starts a distinct epoch segment. Invalid bindings yield an
