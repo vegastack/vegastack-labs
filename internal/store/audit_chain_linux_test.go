@@ -108,3 +108,23 @@ func TestAuditIntentRollbackCannotLeaveOrphanLink(t *testing.T) {
 		t.Fatalf("orphan link after rollback: links=%d events=%d", links, events)
 	}
 }
+
+func TestAuditChainStoresReconstructableContext(t *testing.T) {
+	authority := openAuditTestStore(t)
+	_, err := authority.writeIntent(context.Background(), chainTestIntent(t, 0), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var contextBytes []byte
+	var contextDigest audit.Fingerprint
+	if err := authority.conn.QueryRowContext(context.Background(), `SELECT context_bytes,context_digest FROM audit_chain_links WHERE event_id=1`).Scan(&contextBytes, &contextDigest); err != nil {
+		t.Fatal(err)
+	}
+	wantBytes, wantDigest, err := audit.CanonicalContext(audit.ContextIDs{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(contextBytes) != string(wantBytes) || contextDigest != wantDigest {
+		t.Fatal("stored chain context cannot be independently reconstructed")
+	}
+}
