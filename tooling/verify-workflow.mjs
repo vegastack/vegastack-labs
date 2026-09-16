@@ -9,7 +9,6 @@ const ACTIONS = new Map([
   ["actions/checkout", "3d3c42e5aac5ba805825da76410c181273ba90b1"],
   ["actions/setup-go", "b7ad1dad31e06c5925ef5d2fc7ad053ef454303e"],
   ["actions/setup-node", "820762786026740c76f36085b0efc47a31fe5020"],
-  ["actions/upload-artifact", "ea165f8d65b6e75b540449e92b4886f43607fa02"],
   ["pnpm/action-setup", "0977fd99725f1db4007ccb2928dbb4e90d06cc86"],
 ]);
 
@@ -38,7 +37,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
   }
   const expectedJobs = {
     plan: { runner: "ubuntu-24.04", timeout: 5, actions: ["actions/checkout", "actions/setup-node"] },
-    verify_pr: { runner: "ubuntu-24.04", timeout: 15, actions: [...ACTIONS.keys()].filter((action) => action !== "actions/upload-artifact") },
+    verify_pr: { runner: "ubuntu-24.04", timeout: 15, actions: [...ACTIONS.keys()] },
     verify_trusted: { runner: ["self-hosted", "linux", "x64"], timeout: 15, actions: [...ACTIONS.keys()] },
   };
   let actionCount = 0;
