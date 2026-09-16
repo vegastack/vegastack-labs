@@ -143,6 +143,27 @@ func TestCredentialImportRetryClassifiesPromotedOrphanBeforePrivateRead(t *testi
 	}
 }
 
+func TestCredentialImportMissingDraftDirectoryIsPrerequisiteUntilMetadataExists(t *testing.T) {
+	importer, stager, input, principal := credentialImporterFixture(t)
+	stager.inspectErr = failure.New(generated.ErrorCodePrerequisiteBlocked, "ciphertext-directory", false)
+	submission, err := importer.Preflight(context.Background(), input, principal)
+	stable, _ := failure.As(err)
+	if stable == nil || stable.Code != generated.ErrorCodePrerequisiteBlocked || submission != nil {
+		t.Fatalf("missing directory = %#v, %v", submission, err)
+	}
+
+	stager.inspectErr = nil
+	if _, err := importer.Import(context.Background(), input, []byte("synthetic-private-canary"), principal); err != nil {
+		t.Fatal(err)
+	}
+	stager.inspectErr = failure.New(generated.ErrorCodePrerequisiteBlocked, "ciphertext-directory", false)
+	submission, err = importer.Preflight(context.Background(), input, principal)
+	stable, _ = failure.As(err)
+	if stable == nil || stable.Code != generated.ErrorCodeRecoveryRequired || submission != nil {
+		t.Fatalf("uninspectable committed draft = %#v, %v", submission, err)
+	}
+}
+
 func TestCredentialImportCancellationStopsBeforeStage(t *testing.T) {
 	importer, stager, input, principal := credentialImporterFixture(t)
 	ctx, cancel := context.WithCancel(context.Background())

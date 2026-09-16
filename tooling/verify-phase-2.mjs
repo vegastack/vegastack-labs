@@ -67,7 +67,7 @@ const REVIEWED_CREDENTIAL_IMPORT_WAVE = Object.freeze({
   id: "phase5-issue124-v1", issue: 124,
   commands: Object.freeze(["credential import"]),
   imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:b2fe843eb673a6fd64d980bfa6191c137bf337a26e0991312c5ebdd6e5121e3d",
+  mutationBoundaryDigest: "sha256:470e543492cd65ef73f0b2c2ff5b6f290df8bed7fd33d39201a9670b5dd71b63",
 });
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";

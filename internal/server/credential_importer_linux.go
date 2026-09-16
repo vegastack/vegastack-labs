@@ -107,6 +107,15 @@ func (importer *credentialImporter) Preflight(ctx context.Context, input generat
 	draft, lookupErr := importer.references.LookupImportDraft(ctx, store.CredentialImportLookup{KeyDigest: binding.keyDigest, RecoveryEpoch: input.RecoveryEpoch})
 	inspection, inspectErr := importer.stager.Inspect(ctx, binding.name)
 	if inspectErr != nil {
+		if lookupErr == nil || store.Code(lookupErr) != generated.ErrorCodeResourceNotFound {
+			return nil, failure.New(generated.ErrorCodeRecoveryRequired, "credential-import-ciphertext", false)
+		}
+		if ctx.Err() != nil {
+			return nil, failure.New(generated.ErrorCodeInterrupted, "credential-import-ciphertext", false)
+		}
+		if stable, ok := failure.As(inspectErr); ok && (stable.Code == generated.ErrorCodePrerequisiteBlocked || stable.Code == generated.ErrorCodeAuthorizationDenied) {
+			return nil, failure.New(stable.Code, "credential-import-ciphertext", false)
+		}
 		return nil, failure.New(generated.ErrorCodeRecoveryRequired, "credential-import-ciphertext", false)
 	}
 	if lookupErr == nil {
