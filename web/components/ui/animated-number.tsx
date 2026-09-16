@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@vegastack/design";
+import { cn, mergeRefs } from "@vegastack/design";
+import { usePrefersReducedMotion } from "@/components/ui/use-media-query";
 
 /* ------------------------------------------------------------------------------------------------
  * AnimatedNumber — a number display that tweens from its previous value to a new one whenever
@@ -147,47 +148,6 @@ function readEasing(el: Element | null): (t: number) => number {
   return FALLBACK_EASE;
 }
 
-/**
- * SSR-safe read of the `(prefers-reduced-motion: reduce)` media query. `window`/`matchMedia` are
- * undefined during server rendering, so this returns `false` until the client effect in
- * {@link usePrefersReducedMotion} can check the real value.
- */
-function getPrefersReducedMotion(): boolean {
-  if (typeof window === "undefined" || typeof window.matchMedia !== "function")
-    return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-}
-
-/**
- * Tracks the user's `prefers-reduced-motion` OS setting, live. SSR-safe: the initial render
- * always returns `false` and the real value lands in a client-only effect, so this never
- * mismatches during hydration. Same pattern as `message-scroller.tsx`'s
- * `usePrefersReducedMotion` / `truncated-text.tsx`'s `usePrefersNoHover`.
- */
-function usePrefersReducedMotion(): boolean {
-  const [prefersReducedMotion, setPrefersReducedMotion] = React.useState(
-    getPrefersReducedMotion,
-  );
-
-  React.useEffect(() => {
-    if (
-      typeof window === "undefined" ||
-      typeof window.matchMedia !== "function"
-    )
-      return;
-    const mediaQueryList = window.matchMedia(
-      "(prefers-reduced-motion: reduce)",
-    );
-    setPrefersReducedMotion(mediaQueryList.matches);
-    const onChange = (event: MediaQueryListEvent) =>
-      setPrefersReducedMotion(event.matches);
-    mediaQueryList.addEventListener("change", onChange);
-    return () => mediaQueryList.removeEventListener("change", onChange);
-  }, []);
-
-  return prefersReducedMotion;
-}
-
 /** Props accepted by `AnimatedNumber`. */
 export interface AnimatedNumberProps extends Omit<
   React.ComponentPropsWithRef<"span">,
@@ -259,14 +219,7 @@ export function AnimatedNumber({
   // live CSS off the actual rendered element (respecting any local token override that cascades
   // onto it) as soon as it exists, and so a consumer-forwarded ref keeps working uniformly.
   const [node, setNode] = React.useState<HTMLElement | null>(null);
-  const setMergedRef = React.useCallback(
-    (instance: HTMLElement | null) => {
-      setNode(instance);
-      if (typeof ref === "function") ref(instance);
-      else if (ref) ref.current = instance;
-    },
-    [ref],
-  );
+  const setMergedRef = React.useMemo(() => mergeRefs(setNode, ref), [ref]);
 
   const prefersReducedMotion = usePrefersReducedMotion();
 

@@ -63,7 +63,18 @@ const REVIEWED_CREDENTIAL_WAVE = Object.freeze({
   ]),
   mutationBoundaryDigest: "sha256:1e72e5133f8446b73494065096dec7f91d6bbc771b6ca137c0b7b4a3d1b1d4ed",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_WAVE]);
+// Issue #128 re-sealed the production source closure after refreshing the embedded
+// Console assets to design-system registry 0.9.1. It adds NO production command and NO
+// Go import — the only closure delta is the inert embedded `internal/consoleassets`
+// bytes (verified: zero .go/schemas/go.mod/internal-metadata changes) — so its wave
+// carries empty commands/imports and only the new boundary digest.
+const REVIEWED_DESIGN_SYSTEM_WAVE = Object.freeze({
+  id: "designsystem-issue128-v1", issue: 128,
+  commands: Object.freeze([]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:0b2d4b56d0d5ca1e3ba7c8e796cf0a22a171faad87213cedafcd8ecedf714680",
+});
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_IMPORT_WIP_PATHS = Object.freeze([
   "internal/api/credential_references.go",

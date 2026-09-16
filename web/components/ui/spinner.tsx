@@ -13,13 +13,13 @@ import { cn } from "@vegastack/design";
  * (dark-on-dark) — the loading glyph must read in the host's own ink.
  */
 export const spinnerVariants = cva(
-  "shrink-0 animate-spin text-muted-foreground motion-reduce:animate-none",
+  "shrink-0 animate-spin text-muted-foreground",
   {
     variants: {
       size: {
         xs: "size-(--icon-compact)",
         sm: "size-(--icon-inline)",
-        default: "size-(--icon-default)",
+        md: "size-(--icon-default)",
         lg: "size-(--icon-feature)",
         /**
          * No size class — the host's `[&_svg]` selector sizing applies (Button/Badge) —
@@ -28,7 +28,7 @@ export const spinnerVariants = cva(
         inherit: "text-current",
       },
     },
-    defaultVariants: { size: "default" },
+    defaultVariants: { size: "md" },
   },
 );
 
@@ -41,31 +41,38 @@ export interface SpinnerProps
    * Size variant — mirrors the rest of the scale and maps to the `size-*`
    * tokens. The spinner inherits `currentColor`, so set its color via the
    * parent's text color.
-   * @default 'default'
+   * @default 'md'
    */
-  size?: "xs" | "sm" | "default" | "lg" | "inherit";
+  size?: "xs" | "sm" | "md" | "lg" | "inherit";
   /**
-   * Accessible label announced by assistive tech while the spinner is visible.
-   * When provided, the spinner exposes `role="status"` + `aria-label` so screen
-   * readers announce the loading state. Pass an empty string (or rely on a
-   * sibling that already labels the loading region) to make the spinner purely
-   * decorative — it is then hidden with `aria-hidden`.
+   * Accessible label announced by assistive tech while the spinner is visible. The spinner
+   * exposes `role="status"` + `aria-label` so screen readers announce the loading state.
    * @default 'Loading'
    */
   label?: string;
+  /**
+   * Marks the spinner as decoration: `aria-hidden`, no role, no label. Use it when the
+   * surrounding UI already announces the loading state — a button with loading text, or a
+   * sibling live region that says "Saving…" — so the announcement is not made twice.
+   *
+   * This is the sanctioned way to say it (audit B8-09). `label=""` also works and means the
+   * same thing, but it says it by passing a value that reads as a mistake at the call site.
+   * @default false
+   */
+  decorative?: boolean;
 }
 
 /**
  * `Spinner` — an indeterminate loading indicator. A spinning `lucide-react`
  * `Loader` icon that defaults to `text-muted-foreground` (overridable via an
  * ancestor text color or a `className`, since it draws in `currentColor`) and
- * respects `prefers-reduced-motion` (`motion-reduce:animate-none`). Four sizes
+ * freezes under `prefers-reduced-motion` via the global `base.css` reset. Four sizes
  * (`xs`/`sm`/`default`/`lg`).
  *
  * Accessible by default: it renders `role="status"` with an `aria-label`
  * (default `"Loading"`) so the loading state is announced. When the surrounding
  * UI already labels the loading region — e.g. a button with loading text — pass
- * `label=""` to mark the spinner decorative (`aria-hidden`) and avoid a double
+ * `decorative` to hide it from assistive tech (`aria-hidden`) and avoid a double
  * announcement.
  *
  * Pure presentational and server-safe — no hooks, no `'use client'`. Forwards
@@ -76,12 +83,13 @@ export interface SpinnerProps
  */
 export function Spinner({
   className,
-  size = "default",
+  size = "md",
   label = "Loading",
+  decorative: decorativeProp = false,
   ref,
   ...props
 }: SpinnerProps) {
-  const decorative = label === "";
+  const decorative = decorativeProp || label === "";
   return (
     <Loader
       ref={ref}

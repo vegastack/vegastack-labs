@@ -7,22 +7,24 @@ import { Spinner } from "@/components/ui/spinner";
 import { cn } from "@vegastack/design";
 
 /**
- * Badge variants — `variant` (subtle / solid / minimal / outline) × `intent` (semantic
- * family) × `size`. Per the v2 spec, badges are `rounded-full` pills: the
- * default `subtle` treatment uses a soft `{family}-subtle` tint + `{family}-text`,
- * `solid` uses the family fill + on-color foreground, and the neutral badge
- * resolves to `muted`. Every value is a semantic Tailwind token (no hardcoded
- * colors, no `color-mix`, no inline styles); tinting per family is expressed via
- * compound variants.
+ * Badge variants — `variant` (solid / soft / outline / minimal) × `intent` (semantic
+ * family) × `size`. The variant vocabulary is the system's, shared with Button.
+ * Badges are `rounded-full` pills: the default `soft` treatment uses a
+ * `{family}-subtle` tint + `{family}-text`, `solid` uses the family fill +
+ * on-color foreground, `outline` is a fill-less hairline chip, and `minimal` is
+ * ink only — no fill, no border, no horizontal padding, so it sits flush in a
+ * table cell (audit D8). The neutral badge resolves to `muted`. Every value is a
+ * semantic Tailwind token (no hardcoded colors, no `color-mix`, no inline
+ * styles); tinting per family is expressed via compound variants.
  */
 export const badgeVariants = cva(
   // text-ellipsis makes a consumer-supplied max-w-* cap elide instead of hard-clipping —
   // costless at the default w-fit (content never overflows itself).
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent text-ellipsis whitespace-nowrap  [&_svg]:pointer-events-none [&_svg]:shrink-0",
+  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent text-ellipsis whitespace-nowrap [&_svg]:pointer-events-none [&_svg]:shrink-0",
   {
     variants: {
       variant: {
-        subtle: "border-transparent",
+        soft: "border-transparent",
         solid: "border-transparent",
         minimal: "border-transparent bg-transparent",
         /** Neutral/hued tag chip: hairline border, no fill (Wave 2 — Attio tag formula). */
@@ -36,7 +38,7 @@ export const badgeVariants = cva(
         info: "",
       },
       /**
-       * Matching-hue border on the `subtle` tint (Wave 2 — the Attio chip
+       * Matching-hue border on the `soft` tint (Wave 2 — the Attio chip
        * formula: tint fill + same-hue border + family text). No-op on other
        * variants; `outline` already carries its border.
        */
@@ -45,36 +47,37 @@ export const badgeVariants = cva(
         false: "",
       },
       size: {
-        sm: "h-5 gap-1 px-1.5 py-0.5 text-label-sm [&_svg:not([class*='size-'])]:size-(--icon-compact)",
-        default:
-          "h-5 gap-1 px-2 py-0.5 text-label-sm [&_svg:not([class*='size-'])]:size-(--icon-compact)",
+        // `sm` is a REAL 16px tier (audit D8), not `md` with 2px less padding: it is the
+        // dense-table chip. `leading-none` keeps the 12px label inside a 16px box.
+        sm: "h-4 gap-1 px-1.5 text-label-sm leading-none [&_svg:not([class*='size-'])]:size-(--icon-compact)",
+        md: "h-5 gap-1 px-2 py-0.5 text-label-sm [&_svg:not([class*='size-'])]:size-(--icon-compact)",
         lg: "h-6 gap-1 px-2.5 py-0.5 text-label-sm [&_svg:not([class*='size-'])]:size-(--icon-inline)",
       },
     },
     compoundVariants: [
-      // ── subtle: soft {family}-subtle tint + {family}-text (v2 default) ────
+      // ── soft: {family}-subtle tint + {family}-text (the default) ──────────
       {
-        variant: "subtle",
+        variant: "soft",
         intent: "default",
         class: "bg-muted text-muted-foreground",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         intent: "success",
         class: "bg-success-subtle text-success-text",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         intent: "warning",
         class: "bg-warning-subtle text-warning-text",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         intent: "destructive",
         class: "bg-destructive-subtle text-destructive-text",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         intent: "info",
         class: "bg-info-subtle text-info-text",
       },
@@ -106,16 +109,30 @@ export const badgeVariants = cva(
         class: "bg-info text-info-foreground",
       },
 
-      // ── minimal: borderless, no bg, colored text only ─────────────────────
-      { variant: "minimal", intent: "default", class: "text-muted-foreground" },
-      { variant: "minimal", intent: "success", class: "text-success-text" },
-      { variant: "minimal", intent: "warning", class: "text-warning-text" },
+      // ── minimal: ink only — no fill, no border, no pill padding (audit D8) ─
+      // `px-0` lives on a compound so it lands AFTER the `size` variant's padding
+      // (cva emits base, then variants in key order, then compounds).
+      {
+        variant: "minimal",
+        intent: "default",
+        class: "px-0 text-muted-foreground",
+      },
+      {
+        variant: "minimal",
+        intent: "success",
+        class: "px-0 text-success-text",
+      },
+      {
+        variant: "minimal",
+        intent: "warning",
+        class: "px-0 text-warning-text",
+      },
       {
         variant: "minimal",
         intent: "destructive",
-        class: "text-destructive-text",
+        class: "px-0 text-destructive-text",
       },
-      { variant: "minimal", intent: "info", class: "text-info-text" },
+      { variant: "minimal", intent: "info", class: "px-0 text-info-text" },
 
       // ── outline: hairline chip, no fill (neutral tag / hued marker) ───────
       {
@@ -145,42 +162,42 @@ export const badgeVariants = cva(
         class: "border-info/(--alpha-outline-border) text-info-text",
       },
 
-      // ── bordered subtle: tint fill + matching-hue border (Attio chip formula)
+      // ── bordered soft: tint fill + matching-hue border (Attio chip formula)
       {
-        variant: "subtle",
+        variant: "soft",
         bordered: true,
         intent: "default",
         class: "border-border",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         bordered: true,
         intent: "success",
         class: "border-success/(--alpha-outline-border)",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         bordered: true,
         intent: "warning",
         class: "border-warning/(--alpha-outline-border)",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         bordered: true,
         intent: "destructive",
         class: "border-destructive/(--alpha-outline-border)",
       },
       {
-        variant: "subtle",
+        variant: "soft",
         bordered: true,
         intent: "info",
         class: "border-info/(--alpha-outline-border)",
       },
     ],
     defaultVariants: {
-      variant: "subtle",
+      variant: "soft",
       intent: "default",
-      size: "default",
+      size: "md",
       bordered: false,
     },
   },
@@ -192,7 +209,7 @@ const dotSize: Record<
   string
 > = {
   sm: "size-1.5",
-  default: "size-1.5",
+  md: "size-1.5",
   lg: "size-2",
 };
 
@@ -214,14 +231,15 @@ export interface BadgeProps
     React.ComponentPropsWithRef<"span">,
     VariantProps<typeof badgeVariants> {
   /**
-   * Visual treatment.
-   * - `subtle`: soft `{family}-subtle` tint + `{family}-text` (default).
+   * Visual treatment — the system's variant vocabulary, shared with Button.
    * - `solid`: family fill with on-color text.
-   * - `minimal`: borderless, no background — colored text only.
+   * - `soft`: `{family}-subtle` tint + `{family}-text` (default).
    * - `outline`: hairline chip, no fill — the neutral/hued tag treatment.
-   * @default 'subtle'
+   * - `minimal`: ink only — no fill, no border, no horizontal padding, and a
+   *   leading dot by default so status is never signalled by colour alone.
+   * @default 'soft'
    */
-  variant?: "subtle" | "solid" | "minimal" | "outline";
+  variant?: "solid" | "soft" | "outline" | "minimal";
   /**
    * Semantic intent family. Maps to design-system tokens only — never an
    * arbitrary hex or `color-mix` value. `default` is the neutral `muted` badge.
@@ -229,25 +247,38 @@ export interface BadgeProps
    */
   intent?: "default" | "success" | "warning" | "destructive" | "info";
   /**
-   * Size variant — pills sit at the `h-5` badge height (`lg` roomier `h-6`).
-   * @default 'default'
+   * Size tier — three real heights: `sm` 16px (dense tables), `md` 20px, `lg`
+   * 24px. The dot and any composed icon scale with the badge.
+   * @default 'md'
    */
-  size?: "sm" | "default" | "lg";
+  size?: "sm" | "md" | "lg";
   /**
-   * Draw the matching-hue hairline border on the `subtle` tint (the crisp
+   * Draw the matching-hue hairline border on the `soft` tint (the crisp
    * "chip" read on white surfaces). No-op on other variants.
    * @default false
    */
   bordered?: boolean;
   /**
    * Show a small leading dot indicator colored by `intent`. Ignored while
-   * `loading`. Mutually exclusive with a leading icon.
-   * @default false
+   * `loading`, and replaced by `icon` when one is given.
+   *
+   * Defaults to `true` on `variant="minimal"` and `false` everywhere else: a
+   * minimal badge has no container, so the dot is the only non-colour carrier of
+   * its status (WCAG 1.4.1). Pass `dot={false}` to opt a minimal badge out.
+   * @default undefined
    */
   dot?: boolean;
   /**
+   * Leading icon, rendered in the dot's place. Pass a `lucide-react` element
+   * (or `Icon`) — it is sized by the badge's own `[&_svg]` rule, so do not set
+   * `size` on it. Ignored while `loading`.
+
+   * @default undefined
+   */
+  icon?: React.ReactNode;
+  /**
    * Replace the leading content with a spinner and set `aria-busy`. Takes
-   * precedence over `dot` and any leading icon.
+   * precedence over `icon` and `dot`.
    * @default false
    */
   loading?: boolean;
@@ -272,23 +303,36 @@ export interface BadgeProps
 }
 
 /**
- * `Badge` — a compact `rounded-full` status / label chip. Four variants
- * (`subtle`, `solid`, `minimal`, `outline`) × five semantic intents × three sizes, with an
- * optional leading `dot`, a `loading` spinner, and leading icons composed as
- * `children`. Purely presentational; use Base UI `render` to compose with a link.
- * Pass `animateIn` to pop the badge in on mount — off by default so static lists
- * of badges stay still.
+ * `Badge` — a compact status / label chip. Four variants (`solid`, `soft`,
+ * `outline`, `minimal`) × five semantic intents × three real size tiers (16 / 20 /
+ * 24px), with a leading `dot`, a leading `icon` in the dot's place, and a
+ * `loading` spinner. Purely presentational; use Base UI `render` to compose with a
+ * link. Pass `animateIn` to pop the badge in on mount — off by default so static
+ * lists of badges stay still.
+ *
+ * `minimal` is the container-less treatment for dense tables: coloured ink, no
+ * pill, and a leading dot by default (audit D8). Everything else is a pill at
+ * `rounded-full`.
  *
  * @example
  * <Badge intent="success" dot>Active</Badge>
+ *
+ * @example
+ * // dense table cell — ink only, dot carries the status
+ * <Badge variant="minimal" intent="warning" size="sm">Pending</Badge>
+ *
+ * @example
+ * // an icon takes the dot's place
+ * <Badge variant="minimal" intent="success" icon={<CircleCheck />}>Paid</Badge>
  */
 export function Badge({
   className,
-  variant = "subtle",
+  variant = "soft",
   intent = "default",
-  size = "default",
+  size = "md",
   bordered = false,
-  dot = false,
+  dot,
+  icon,
   loading = false,
   animateIn = false,
   render,
@@ -296,7 +340,9 @@ export function Badge({
   ref,
   ...props
 }: BadgeProps) {
-  const showDot = dot && !loading;
+  // A minimal badge has no container, so its dot is the one non-colour status
+  // carrier — on by default there, off everywhere else. An explicit `dot` always wins.
+  const showDot = (dot ?? variant === "minimal") && !loading && icon == null;
   const dotClass =
     variant === "solid" ? "bg-current" : dotColor[intent ?? "default"];
 
@@ -310,6 +356,7 @@ export function Badge({
       "data-intent": intent,
       "data-size": size,
       "data-bordered": bordered ? "" : undefined,
+      "data-dot": showDot ? "" : undefined,
       "data-loading": loading ? "" : undefined,
       "aria-busy": loading || undefined,
       className: cn(
@@ -325,11 +372,15 @@ export function Badge({
               label=""
               className="size-(--icon-compact)"
             />
+          ) : icon != null ? (
+            <span className="shrink-0" aria-hidden>
+              {icon}
+            </span>
           ) : showDot ? (
             <span
               className={cn(
                 "shrink-0 rounded-full",
-                dotSize[size ?? "default"],
+                dotSize[size ?? "md"],
                 dotClass,
               )}
               aria-hidden

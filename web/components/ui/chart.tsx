@@ -57,8 +57,12 @@ import { cn } from "@vegastack/design";
  * intentional, not incidental, and (b) survives a future Recharts version changing that default.
  * ----------------------------------------------------------------------------------------------*/
 
-/** One of the theme-split chart series tokens (`packages/design-tokens`, `:root` + `.dark`). */
+/**
+ * One of the chart ink tokens (`packages/design-tokens`, `:root` + `.dark`): `chart-single` is
+ * foreground ink for a ONE-series chart (D29); the categorical `chart-1…8` hues start at two series.
+ */
 export type ChartColorToken =
+  | "chart-single"
   | "chart-1"
   | "chart-2"
   | "chart-3"
@@ -189,11 +193,24 @@ function ChartContainer({
         data-slot="chart"
         style={{ ...chartStyle, ...style } as React.CSSProperties}
         className={cn(
-          "flex aspect-video justify-center text-xs",
+          "flex aspect-video justify-center text-sm",
           // Numerals canon: axis tick numerals are mono (SVG <text> takes font-family
-          // via class), matching the tooltip's `font-mono tabular-nums` values.
-          "[&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-axis-tick_text]:font-mono",
-          "[&_.recharts-layer]:outline-hidden [&_.recharts-sector]:outline-hidden [&_.recharts-surface]:outline-hidden",
+          // via class) at the mono 11px tier, matching the tooltip's
+          // `font-mono tabular-nums` values. Labels themselves sit at 12px, not the
+          // 11px the whole container used to inherit — mono owns 11px, prose does not.
+          "[&_.recharts-cartesian-axis-tick_text]:fill-muted-foreground [&_.recharts-cartesian-axis-tick_text]:font-mono [&_.recharts-cartesian-axis-tick_text]:text-code-sm",
+          // Recharts' `accessibilityLayer` makes the root <svg> a tab stop — and that svg IS
+          // `.recharts-surface` (recharts 3.10.1 `RootSurface` renders `Surface` with
+          // `role="application"` + `tabIndex={0}`). So the surface reset must EXCLUDE the focused
+          // state: `outline-hidden` compiles to `--tw-outline-style: none` on the element itself,
+          // and every outline utility — including base.css's global `:focus-visible` — resolves
+          // `outline-style: var(--tw-outline-style)`. Left unscoped it silently defeats the focus
+          // ring on the one element the component made focusable (SP-05).
+          "[&_.recharts-layer]:outline-hidden [&_.recharts-sector]:outline-hidden [&_.recharts-surface:not(:focus-visible)]:outline-hidden",
+          // Width, colour and token stay centralized in base.css; only the OFFSET inverts, because
+          // the plot area clips at its own edge. That is the single sanctioned component-local
+          // focus deviation (design.md § Accessibility).
+          "[&_svg:focus-visible]:-outline-offset-2",
           className,
         )}
         {...props}
@@ -315,7 +332,7 @@ function ChartTooltipContent({
     <div
       data-slot="chart-tooltip-content"
       className={cn(
-        "grid min-w-32 items-start gap-1.5 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-xs text-popover-foreground shadow-overlay",
+        "grid min-w-32 items-start gap-1.5 rounded-lg border border-border bg-popover px-2.5 py-1.5 text-sm text-popover-foreground shadow-overlay",
         className,
       )}
     >
@@ -398,6 +415,11 @@ function ChartTooltipContent({
 /**
  * `ChartLegend` — Recharts' `Legend`, re-exported so consumers don't need a second import from
  * `recharts`. Pair with {@link ChartLegendContent}: `<ChartLegend content={<ChartLegendContent />} />`.
+ *
+ * Recharts 3.10 deprecated `align`/`verticalAlign` in favour of `position` + `offset`. Neither
+ * deprecated prop is passed here, and `Legend` still injects `verticalAlign` into custom content,
+ * so {@link ChartLegendContent} keeps reading it for its top/bottom spacing. Reach for `position`
+ * when a chart needs the legend anywhere other than below the plot.
  */
 const ChartLegend = RechartsPrimitive.Legend;
 

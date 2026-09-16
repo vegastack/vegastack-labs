@@ -46,5 +46,5 @@ test("the verified provider owns the one application provider boundary", async (
   assert.equal((layout.match(/<VegaStackProvider>/g) ?? []).length, 1);
   assert.match(layout, /suppressHydrationWarning/);
   assert.match(provider, /next-themes/);
-  assert.equal(lock.registryVersion, "0.6.0");
+  assert.equal(lock.registryVersion, "0.9.1");
 });
