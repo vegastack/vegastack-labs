@@ -54,7 +54,7 @@ const REVIEWED_GATE_WAVE = Object.freeze({
   imports: Object.freeze([`${MODULE_PREFIX}internal/gate`]),
   mutationBoundaryDigest: "sha256:e93cbd898ee0ddd237bd90e83f7b7db153451883fbf590fbd5f42146a5b0a4a9",
 });
-const REVIEWED_CREDENTIAL_WAVE = Object.freeze({
+const REVIEWED_CREDENTIAL_FOUNDATION_WAVE = Object.freeze({
   id: "phase5-issue123-v1", issue: 123,
   commands: Object.freeze([]),
   imports: Object.freeze([
@@ -63,18 +63,21 @@ const REVIEWED_CREDENTIAL_WAVE = Object.freeze({
   ]),
   mutationBoundaryDigest: "sha256:1e72e5133f8446b73494065096dec7f91d6bbc771b6ca137c0b7b4a3d1b1d4ed",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_WAVE]);
+const REVIEWED_CREDENTIAL_IMPORT_WAVE = Object.freeze({
+  id: "phase5-issue124-v1", issue: 124,
+  commands: Object.freeze(["credential import"]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:b2fe843eb673a6fd64d980bfa6191c137bf337a26e0991312c5ebdd6e5121e3d",
+});
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
-const CREDENTIAL_IMPORT_WIP_PATHS = Object.freeze([
-  "internal/api/credential_references.go",
-  "internal/credentialref/import.go",
-  "internal/localapi/credential_client.go",
-  "internal/server/credential_importer_linux.go",
-  "internal/server/credential_importer_unsupported.go",
-  "internal/store/credential_import.go",
-  "schemas/v1/credential-import-request.schema.json",
-  "schemas/v1/credential-import-submission.schema.json",
+const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
+const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
+const CREDENTIAL_IMPORT_FLAGS = Object.freeze([
+  "--config", "--consumer-id", "--expected-state-revision", "--idempotency-key", "--input-fd", "--material-version",
+  "--output", "--purpose-id", "--recovery-epoch", "--reference-id", "--resolver-id", "--schema-version", "--target-id",
 ]);
+const CREDENTIAL_IMPORT_ENDPOINTS = Object.freeze(["api.v1.credential-references.import-stream"]);
 // Phase 2's no-mutation proof predates Phase 4. Later commands are accepted
 // only while the complete local production source closure of cmd/vsk-labs
 // remains byte-for-byte reviewed. This avoids a brittle hand-maintained file
@@ -461,14 +464,13 @@ export async function collectIntegratedFacts(root = ROOT) {
   const onePasswordSDKVersion = await commandOutput(root, "go", [
     "list", "-m", "-f", "{{.Version}}", "github.com/1password/onepassword-sdk-go",
   ], { env: pinnedGoEnvironment() });
-  let credentialImportWIP = "";
-  for (const relative of CREDENTIAL_IMPORT_WIP_PATHS) {
-    if (await pathExists(path.join(root, relative))) {
-      credentialImportWIP = relative;
-      break;
-    }
-  }
+  const credentialCommand = commands.commands.find(({ path: segments }) => segments.join(" ") === "credential import");
   const credentialImportEndpoint = endpoints.endpoints.find(({ id }) => id === "api.v1.credential-references.import-stream");
+  const credentialEndpointIds = endpoints.endpoints.filter(({ id, availability }) => id.includes("credential-reference") && availability === "available").map(({ id }) => id).sort();
+  const credentialImportFlags = credentialCommand?.flags?.map(({ name }) => name).sort() ?? [];
+  const routerSource = await readFile(path.join(root, "internal/api/router.go"), "utf8");
+  const operationsSource = await readFile(path.join(root, "internal/server/operations.go"), "utf8");
+  const importStoreSource = await readFile(path.join(root, "internal/store/credential_import.go"), "utf8");
   const fixtureFiles = await filesBelow(path.join(root, "tooling/testdata/phase-2"));
   let privateFixture = false;
   for (const filename of fixtureFiles) {
@@ -491,11 +493,16 @@ export async function collectIntegratedFacts(root = ROOT) {
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
       !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" ")) &&
-      !REVIEWED_GATE_WAVE.commands.includes(segments.join(" "))),
+      !REVIEWED_PHASE5_WAVES.some(({ commands: reviewed }) => reviewed.includes(segments.join(" ")))),
     productionImports,
     onePasswordSDKVersion,
-    credentialImportWIP,
+    credentialImportFlags,
+    credentialEndpointIds,
     credentialImportAvailability: credentialImportEndpoint?.availability ?? "missing",
+    credentialImportRemoteAllowed: routerSource.includes("api.v1.credential-references.import-stream") || routerSource.includes("/api/v1/credential-references/"),
+    credentialProductionResolverEnabled: !/func productionAdapterRegistry\(\) \*adapter\.Registry \{\s*return adapter\.NewRegistry\(\)\s*\}/s.test(operationsSource),
+    credentialLiveGateEnabled: !operationsSource.includes("SecretGate: runengine.UnavailableGateVerifier{}"),
+    credentialImportTouchesCurrentAuthority: ["credential_reference_versions", "credential_step_bindings", "credential_resolution_records"].some((table) => importStoreSource.includes(table)),
     privateFixture,
     children,
   };
@@ -566,7 +573,7 @@ export function validateEvidence(manifest, facts) {
   const reviewedWaveImportsPresent = REVIEWED_PHASE5_WAVES.every(({ imports }) =>
     imports.every((name) => facts.productionImports.includes(name)));
   const reviewedWavesActive = waveRecordsValid && same(availableGateCommands, REVIEWED_GATE_WAVE.commands) &&
-    same(availableCredentialCommands, REVIEWED_CREDENTIAL_WAVE.commands) && reviewedWaveImportsPresent &&
+    same(availableCredentialCommands, REVIEWED_CREDENTIAL_IMPORT_WAVE.commands) && reviewedWaveImportsPresent &&
     facts.postPhase2MutationBoundaryDigest === reviewedWaves.at(-1).mutationBoundaryDigest;
   const historicalBaselineActive = availableGateCommands.length === 0 &&
     facts.postPhase2MutationBoundaryDigest === PHASE2_BASELINE_MUTATION_DIGEST;
@@ -579,14 +586,18 @@ export function validateEvidence(manifest, facts) {
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
       !(reviewedWavesActive || historicalBaselineActive) ||
-      facts.credentialImportAvailability !== "planned" || availableCredentialCommands.length !== 0 ||
+      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, REVIEWED_CREDENTIAL_IMPORT_WAVE.commands) ||
+      !same(facts.credentialImportFlags, CREDENTIAL_IMPORT_FLAGS) || !same(facts.credentialEndpointIds, CREDENTIAL_IMPORT_ENDPOINTS) ||
+      !facts.migrations.some((migration) => same(migration, CREDENTIAL_FOUNDATION_MIGRATION)) ||
+      !facts.migrations.some((migration) => same(migration, CREDENTIAL_IMPORT_MIGRATION)) ||
       !same(manifest.contract.availableCommands, EXPECTED_AVAILABLE_COMMANDS) ||
       !containsAll(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
   if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports, reviewedWavesActive) ||
       availableGateCommands.length > 0 && !reviewedWaveImportsPresent ||
-      facts.onePasswordSDKVersion !== ONEPASSWORD_SDK_VERSION || facts.credentialImportWIP !== "" ||
+      facts.onePasswordSDKVersion !== ONEPASSWORD_SDK_VERSION || facts.credentialImportRemoteAllowed ||
+      facts.credentialProductionResolverEnabled || facts.credentialLiveGateEnabled || facts.credentialImportTouchesCurrentAuthority ||
       facts.postPhase2SourceOverride !== "" ||
       facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");

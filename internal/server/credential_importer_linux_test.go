@@ -25,6 +25,7 @@ type fakeCredentialCiphertextStager struct {
 	name        string
 	fingerprint string
 	stagePanic  bool
+	stageHook   func()
 }
 
 func (fake *fakeCredentialCiphertextStager) Inspect(context.Context, string) (nativecredential.CiphertextInspection, error) {
@@ -42,6 +43,9 @@ func (fake *fakeCredentialCiphertextStager) Stage(_ context.Context, private []b
 	}
 	fake.fingerprint = "sha256:" + strings.Repeat("b", 64)
 	fake.inspect = nativecredential.CiphertextInspection{State: "present", Fingerprint: fake.fingerprint}
+	if fake.stageHook != nil {
+		fake.stageHook()
+	}
 	return fake.fingerprint, nil
 }
 
@@ -136,6 +140,48 @@ func TestCredentialImportRetryClassifiesPromotedOrphanBeforePrivateRead(t *testi
 	}
 	if stager.stageCalls != 0 {
 		t.Fatal("orphan was overwritten")
+	}
+}
+
+func TestCredentialImportCancellationStopsBeforeStage(t *testing.T) {
+	importer, stager, input, principal := credentialImporterFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if result, err := importer.Import(ctx, input, []byte("synthetic-private-canary"), principal); err == nil || result.DraftID != "" || stager.stageCalls != 0 {
+		t.Fatalf("cancelled import = %#v, %v, stage calls %d", result, err, stager.stageCalls)
+	}
+}
+
+func TestCredentialImportDatabaseFailureAfterPromotionRequiresRecovery(t *testing.T) {
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	config := store.Config{DatabasePath: filepath.Join(directory, "control.db"), Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test"}
+	authority, err := store.Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stager := &fakeCredentialCiphertextStager{inspect: nativecredential.CiphertextInspection{State: "absent"}, stageHook: func() { _ = authority.Close() }}
+	importer := newCredentialImporter(store.NewCredentialRepository(authority), store.NewPlanRepository(authority), stager)
+	input := generated.CredentialImportRequest{Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 0, RecoveryEpoch: 0, IdempotencyKey: "import-a", ReferenceID: "ref-a", ConsumerID: "consumer-a", PurposeID: "purpose-a", TargetID: "target-a", ResolverID: "native-systemd", MaterialVersion: "version-a"}
+	input.TargetDigest = credentialref.ImportTargetDigest(input)
+	principal := identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod}
+	result, err := importer.Import(context.Background(), input, []byte("synthetic-private-canary"), principal)
+	stable, _ := failure.As(err)
+	if stable == nil || stable.Code != generated.ErrorCodeRecoveryRequired || result.DraftID != "" || stager.stageCalls != 1 {
+		t.Fatalf("post-promotion failure = %#v, %v, stage calls %d", result, err, stager.stageCalls)
+	}
+
+	config.Mode = store.OpenExisting
+	authority, err = store.Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = authority.Close() })
+	restarted := newCredentialImporter(store.NewCredentialRepository(authority), store.NewPlanRepository(authority), stager)
+	if existing, err := restarted.Preflight(context.Background(), input, principal); err == nil || existing != nil {
+		t.Fatalf("promoted orphan was not recovery-blocked: %#v, %v", existing, err)
 	}
 }
 
