@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-09-2026 — Local credential material can be captured without becoming live authority ([#124](https://github.com/vegastack/vegastack-labs/issues/124))
+
+- **What:** An authorized local OS-peer operator can now send a small credential value through standard input or an already-open descriptor. The server encrypts it with the qualified native host-key path, keeps only an inert append-only draft and sanitized metadata, and classifies exact retries or interrupted promotion without making the material resolvable.
+- **Why:** Phase 5 needs a safe bridge from locally supplied private bytes to the later human-controlled credential lifecycle, while preserving the dormant boundary created in the foundation issue.
+- **How it went:** The merged foundation lacked one helper the conditional plan expected, so this branch added that narrow ownership helper and recorded the ruling. The complete check also exposed exact read-API, CLI, server, generated-contract and historical guards that needed a separate narrowly sealed import wave; disposable Linux and a fresh systemd host key proved encryption, restart and recovery without any live credential, account, host or fleet target.
+- **Changed:** Local stdin/open-descriptor import · generated binary-only local API contract · no-replace host-key encryption · append-only draft metadata · exact retry and conservative orphan recovery · CLI/API/process redaction · dormancy and historical source guards · human recovery limits.
+- **Decisions:** none; activation, rotation, revocation, reconciliation and lifecycle recovery remain in dependent issue [#125](https://github.com/vegastack/vegastack-labs/issues/125), and import does not close G-007.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/124-inert-local-encrypted-credential-draft
+
 ## 16-09-2026 — Credential handling has a fail-closed foundation without a live secret path ([#123](https://github.com/vegastack/vegastack-labs/issues/123))
 
 - **What:** The server now has provider-neutral credential metadata, append-only exact-plan bindings, a Debian host-key encrypted primitive, an optional exact-ID 1Password resolver seam, and just-in-time run checks. Production still cannot import, activate, resolve, or execute a live secret-bearing step because no resolver or live proof verifier is registered.
