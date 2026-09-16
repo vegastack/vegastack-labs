@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "authority": "manual-review:go-dependency-provenance",
-  "reviewedOn": "13-09-2026",
+  "reviewedOn": "16-09-2026",
   "modules": [
     {
       "path": "bitbucket.org/creachadair/shell",
@@ -202,6 +202,16 @@
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/1password/onepassword-sdk-go",
+      "version": "v0.4.1",
+      "checksum": "h1:My/Q2QXemep0I0qHgGrOs7EEzpPh2QZ1/II+S3YqOG0=",
+      "license": "MIT",
+      "source": "https://github.com/1password/onepassword-sdk-go",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
     },
     {
       "path": "github.com/AdamKorcz/go-fuzz-headers-1",
@@ -934,6 +944,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/dylibso/observe-sdk/go",
+      "version": "v0.0.0-20240828172851-9145d8ad07e1",
+      "checksum": "h1:idfl8M8rPW93NehFw5H1qqH8yG158t5POr+LX9avbJY=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/dylibso/observe-sdk",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
+    },
+    {
       "path": "github.com/eggsampler/acme/v3",
       "version": "v3.6.2",
       "checksum": "h1:gvyZbQ92wNQLDASVftGpHEdFwPSfg0+17P0lLt09Tp8=",
@@ -982,6 +1002,16 @@
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/extism/go-sdk",
+      "version": "v1.7.1",
+      "checksum": "h1:lWJos6uY+tRFdlIHR+SJjwFDApY7OypS/2nMhiVQ9Sw=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/extism/go-sdk",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
     },
     {
       "path": "github.com/fatih/color",
@@ -1434,6 +1464,16 @@
       "reviewReason": "Reviewed permissive runtime dependency selected by the pinned offline Sigstore verifier."
     },
     {
+      "path": "github.com/gobwas/glob",
+      "version": "v0.2.3",
+      "checksum": "h1:A4xDbljILXROh+kObIiy5kIaPYD8e96x1tgBhUI5J+Y=",
+      "license": "MIT",
+      "source": "https://github.com/gobwas/glob",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
+    },
+    {
       "path": "github.com/godbus/dbus/v5",
       "version": "v5.1.0",
       "checksum": "h1:4KLkAxT3aOY8Li4FRJe/KvhoNFFxo0m6fNuFUO8QJUk=",
@@ -1882,6 +1922,16 @@
       "role": "build",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+    },
+    {
+      "path": "github.com/ianlancetaylor/demangle",
+      "version": "v0.0.0-20251118225945-96ee0021ea0f",
+      "checksum": "h1:Fnl4pzx8SR7k7JuzyW8lEtSFH6EQ8xgcypgIn8pcGIE=",
+      "license": "BSD-3-Clause",
+      "source": "https://github.com/ianlancetaylor/demangle",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
     },
     {
       "path": "github.com/imdario/mergo",
@@ -3004,6 +3054,26 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "github.com/tetratelabs/wabin",
+      "version": "v0.0.0-20230304001439-f6f874872834",
+      "checksum": "h1:ZF+QBjOI+tILZjBaFj3HgFonKXUcwgJ4djLb6i42S3Q=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/tetratelabs/wabin",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
+    },
+    {
+      "path": "github.com/tetratelabs/wazero",
+      "version": "v1.11.0",
+      "checksum": "h1:+gKemEuKCTevU4d7ZTzlsvgd1uaToIDtlQlmNbwqYhA=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/tetratelabs/wazero",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
+    },
+    {
       "path": "github.com/theupdateframework/go-tuf",
       "version": "v0.7.0",
       "checksum": "h1:CqbQFrWo1ae3/I0UCblSbczevCCbS31Qvs5LdxRWqRI=",
@@ -3484,6 +3554,16 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     },
     {
+      "path": "go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp",
+      "version": "v1.28.0",
+      "checksum": "h1:j9+03ymgYhPKmeXGk5Zu+cIZOlVzd9Zv7QIiyItjFBU=",
+      "license": "Apache-2.0",
+      "source": "https://github.com/open-telemetry/opentelemetry-go",
+      "role": "build",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed build-graph-only dependency selected by the pinned optional 1Password SDK; not compiled into the Linux vsk-labs binary."
+    },
+    {
       "path": "go.opentelemetry.io/otel/exporters/prometheus",
       "version": "v0.66.0",
       "checksum": "h1:vkrK8PAznv2NKt2r+kdu252ccGzkEqLc2aSXbQIALYQ=",
@@ -3535,13 +3615,13 @@
     },
     {
       "path": "go.opentelemetry.io/proto/otlp",
-      "version": "v1.7.1",
-      "checksum": "h1:gTOMpGDb0WTBOP8JaO72iL3auEZhVmAQg4ipjOVAtj4=",
+      "version": "v1.9.0",
+      "checksum": "h1:l706jCMITVouPOqEnii2fIAuO3IVGBRPV5ICjceRb/A=",
       "license": "Apache-2.0",
       "source": "https://github.com/open-telemetry/opentelemetry-proto-go",
-      "role": "build",
+      "role": "runtime",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed permissive runtime dependency selected by the pinned optional 1Password SDK."
     },
     {
       "path": "go.step.sm/crypto",
@@ -3954,5 +4034,5 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     }
   ],
-  "reviewMetadataSha256": "cacb62f21b7ea40690c5c6850753c159bd5ae3297f67cc86967c104a6607aedb"
+  "reviewMetadataSha256": "a61882d35b5c552f6c69754986ffbcb111142f24625c7f4cdb290c95eb1413a0"
 }

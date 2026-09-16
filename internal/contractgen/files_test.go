@@ -68,6 +68,43 @@ func TestWriteAndCheckDetectDriftWithoutMutating(t *testing.T) {
 	}
 }
 
+func TestPhase5ArtifactsAreByteStableAndDriftChecked(t *testing.T) {
+	first, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := Generate(metadata.Current())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(first, second) {
+		t.Fatal("Phase 5 artifacts are not deterministic")
+	}
+	var gate Artifact
+	for _, artifact := range first {
+		if artifact.Path == "schemas/v1/gate-definition.schema.json" {
+			gate = artifact
+			break
+		}
+	}
+	if gate.Path == "" {
+		t.Fatal("gate definition schema not generated")
+	}
+	root := t.TempDir()
+	if err := Write(root, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := Check(root, first); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, filepath.FromSlash(gate.Path)), []byte("drift\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := Check(root, first); err == nil || !strings.Contains(err.Error(), gate.Path) {
+		t.Fatalf("Phase 5 drift not caught: %v", err)
+	}
+}
+
 func TestCheckDetectsBrowserClientDrift(t *testing.T) {
 	t.Parallel()
 

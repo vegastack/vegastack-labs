@@ -43,6 +43,38 @@ const REVIEWED_POST_PHASE2_IMPORTS = new Set([
 const REVIEWED_POST_PHASE2_COMMANDS = new Set([
   "apply", "plan", "run cancel", "run inspect", "run resume", "server api-ssh",
 ]);
+// Preserve the original Phase 2/Phase 4 command and digest goldens. Each
+// later reviewed wave has a separate exact name/import/source closure; adding
+// another gate command or import cannot inherit #104's allowance.
+const PHASE2_BASELINE_DEPENDENCY_DIGEST = "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133";
+const PHASE2_BASELINE_MUTATION_DIGEST = "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c";
+const REVIEWED_GATE_WAVE = Object.freeze({
+  id: "phase5-issue104-v1", issue: 104,
+  commands: Object.freeze(["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]),
+  imports: Object.freeze([`${MODULE_PREFIX}internal/gate`]),
+  mutationBoundaryDigest: "sha256:e93cbd898ee0ddd237bd90e83f7b7db153451883fbf590fbd5f42146a5b0a4a9",
+});
+const REVIEWED_CREDENTIAL_WAVE = Object.freeze({
+  id: "phase5-issue123-v1", issue: 123,
+  commands: Object.freeze([]),
+  imports: Object.freeze([
+    `${MODULE_PREFIX}internal/adapter/nativecredential`,
+    `${MODULE_PREFIX}internal/adapter/onepassword`,
+  ]),
+  mutationBoundaryDigest: "sha256:1e72e5133f8446b73494065096dec7f91d6bbc771b6ca137c0b7b4a3d1b1d4ed",
+});
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_WAVE]);
+const ONEPASSWORD_SDK_VERSION = "v0.4.1";
+const CREDENTIAL_IMPORT_WIP_PATHS = Object.freeze([
+  "internal/api/credential_references.go",
+  "internal/credentialref/import.go",
+  "internal/localapi/credential_client.go",
+  "internal/server/credential_importer_linux.go",
+  "internal/server/credential_importer_unsupported.go",
+  "internal/store/credential_import.go",
+  "schemas/v1/credential-import-request.schema.json",
+  "schemas/v1/credential-import-submission.schema.json",
+]);
 // Phase 2's no-mutation proof predates Phase 4. Later commands are accepted
 // only while the complete local production source closure of cmd/vsk-labs
 // remains byte-for-byte reviewed. This avoids a brittle hand-maintained file
@@ -222,8 +254,10 @@ async function commandOutput(root, command, args, options = {}) {
   })).stdout.trim();
 }
 
-function productionDependencyDigest(imports) {
-  const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX) && !REVIEWED_POST_PHASE2_IMPORTS.has(name)).sort();
+function productionDependencyDigest(imports, reviewedWavesActive = false) {
+  const reviewedImports = new Set(REVIEWED_PHASE5_WAVES.flatMap(({ imports: waveImports }) => waveImports));
+  const localImports = imports.filter((name) => name.startsWith(MODULE_PREFIX) && !REVIEWED_POST_PHASE2_IMPORTS.has(name) &&
+    !(reviewedWavesActive && reviewedImports.has(name))).sort();
   return `sha256:${createHash("sha256").update(`${localImports.join("\n")}\n`).digest("hex")}`;
 }
 
@@ -366,8 +400,12 @@ export async function proveUnavailableMutations(root = ROOT) {
     const registry = JSON.parse(await readFile(path.join(root, "schemas/v1/command-registry.json"), "utf8"));
     const planned = registry.commands.filter(({ availability }) => availability === "planned")
       .map(({ path: commandPath }) => commandPath.join(" ")).sort();
+    // These are forbidden shortcuts, not future planned commands. They must
+    // fail at the real executable boundary before any state or private input
+    // can be read, even after inert gate authoring becomes available.
+    const prohibitedGateSetters = ["gate close", "gate pass", "gate profile bind", "gate profile apply"];
     const before = await treeFingerprint(state);
-    for (const command of planned) {
+    for (const command of [...planned, ...prohibitedGateSetters]) {
       const invocation = spawnSync(binary, [...command.split(" "), "--output", "json", "--state-root", state, "private-canary"], {
         cwd: root, encoding: "utf8", shell: false,
       });
@@ -387,7 +425,7 @@ export async function proveUnavailableMutations(root = ROOT) {
     if (after !== before) {
       return { status: "fail", codes: ["PHASE2_MUTATION_AVAILABLE"], commands: [], fingerprint: before };
     }
-    return { status: "pass", codes: [], commands: planned, fingerprint: before };
+    return { status: "pass", codes: [], commands: [...planned, ...prohibitedGateSetters], fingerprint: before };
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
@@ -420,6 +458,17 @@ export async function collectIntegratedFacts(root = ROOT) {
     "list", "-deps", "-f", "{{.ImportPath}}", "./cmd/vsk-labs",
   ], { env: pinnedGoEnvironment({ CGO_ENABLED: "0", GOOS: "linux", GOARCH: "amd64" }) }))
     .split("\n").filter(Boolean).sort();
+  const onePasswordSDKVersion = await commandOutput(root, "go", [
+    "list", "-m", "-f", "{{.Version}}", "github.com/1password/onepassword-sdk-go",
+  ], { env: pinnedGoEnvironment() });
+  let credentialImportWIP = "";
+  for (const relative of CREDENTIAL_IMPORT_WIP_PATHS) {
+    if (await pathExists(path.join(root, relative))) {
+      credentialImportWIP = relative;
+      break;
+    }
+  }
+  const credentialImportEndpoint = endpoints.endpoints.find(({ id }) => id === "api.v1.credential-references.import-stream");
   const fixtureFiles = await filesBelow(path.join(root, "tooling/testdata/phase-2"));
   let privateFixture = false;
   for (const filename of fixtureFiles) {
@@ -441,8 +490,12 @@ export async function collectIntegratedFacts(root = ROOT) {
     postPhase2SourceOverride: await postPhase2SourceOverride(root, productionImports),
     mutationAvailable: commands.commands.some(({ availability, ownerPhase, path: segments }) =>
       availability === "available" && Number(ownerPhase) >= 4 &&
-      !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" "))),
+      !REVIEWED_POST_PHASE2_COMMANDS.has(segments.join(" ")) &&
+      !REVIEWED_GATE_WAVE.commands.includes(segments.join(" "))),
     productionImports,
+    onePasswordSDKVersion,
+    credentialImportWIP,
+    credentialImportAvailability: credentialImportEndpoint?.availability ?? "missing",
     privateFixture,
     children,
   };
@@ -454,7 +507,7 @@ export function validateEvidence(manifest, facts) {
   if (!exactKeys(manifest, ["schemaVersion", "phase", "status", "contract", "children", "scenarios", "requirements"]) ||
       manifest.schemaVersion !== 1 || manifest.phase !== "2" ||
       manifest.status !== "implemented-awaiting-operator-acceptance" ||
-      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "postPhase2MutationBoundaryDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations"]) ||
+      !exactKeys(manifest.contract, ["schemaVersion", "productionExecutable", "productionDependencyDigest", "postPhase2MutationBoundaryDigest", "mutationAvailable", "availableCommands", "endpointIds", "migrations", "reviewedWaves"]) ||
       !Array.isArray(manifest.children) || !Array.isArray(manifest.scenarios) || !Array.isArray(manifest.requirements)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   } else {
@@ -494,6 +547,29 @@ export function validateEvidence(manifest, facts) {
     }
   }
   if (facts.children.some(({ state }) => state !== "CLOSED")) codes.add("PHASE2_CHILD_INCOMPLETE");
+  const reviewedWaves = manifest.contract?.reviewedWaves;
+  const waveRecordsValid = Array.isArray(reviewedWaves) && reviewedWaves.length === REVIEWED_PHASE5_WAVES.length &&
+    reviewedWaves.every((wave, index) => {
+      const expected = REVIEWED_PHASE5_WAVES[index];
+      return exactKeys(wave, ["id", "issue", "commands", "imports", "mutationBoundaryDigest"]) &&
+        wave.id === expected.id && wave.issue === expected.issue &&
+        same(wave.commands, expected.commands) && same(wave.imports, expected.imports) &&
+        wave.mutationBoundaryDigest === expected.mutationBoundaryDigest;
+    });
+  if (manifest.contract && (!waveRecordsValid ||
+      manifest.contract.productionDependencyDigest !== PHASE2_BASELINE_DEPENDENCY_DIGEST ||
+      manifest.contract.postPhase2MutationBoundaryDigest !== PHASE2_BASELINE_MUTATION_DIGEST)) {
+    codes.add("PHASE2_TRACEABILITY_GAP");
+  }
+  const availableGateCommands = facts.availableCommands.filter((name) => name.startsWith("gate "));
+  const availableCredentialCommands = facts.availableCommands.filter((name) => name.startsWith("credential "));
+  const reviewedWaveImportsPresent = REVIEWED_PHASE5_WAVES.every(({ imports }) =>
+    imports.every((name) => facts.productionImports.includes(name)));
+  const reviewedWavesActive = waveRecordsValid && same(availableGateCommands, REVIEWED_GATE_WAVE.commands) &&
+    same(availableCredentialCommands, REVIEWED_CREDENTIAL_WAVE.commands) && reviewedWaveImportsPresent &&
+    facts.postPhase2MutationBoundaryDigest === reviewedWaves.at(-1).mutationBoundaryDigest;
+  const historicalBaselineActive = availableGateCommands.length === 0 &&
+    facts.postPhase2MutationBoundaryDigest === PHASE2_BASELINE_MUTATION_DIGEST;
   if (manifest.contract && (!same(manifest.contract.endpointIds, EXPECTED_ENDPOINT_IDS) ||
       !containsAll(facts.endpointIds, EXPECTED_ENDPOINT_IDS) ||
       !hasPrefix(facts.migrations, manifest.contract.migrations) ||
@@ -502,12 +578,15 @@ export function validateEvidence(manifest, facts) {
     codes.add("PHASE2_CONTRACT_DRIFT");
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
-      manifest.contract.postPhase2MutationBoundaryDigest !== facts.postPhase2MutationBoundaryDigest ||
+      !(reviewedWavesActive || historicalBaselineActive) ||
+      facts.credentialImportAvailability !== "planned" || availableCredentialCommands.length !== 0 ||
       !same(manifest.contract.availableCommands, EXPECTED_AVAILABLE_COMMANDS) ||
       !containsAll(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
-  if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports) ||
+  if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports, reviewedWavesActive) ||
+      availableGateCommands.length > 0 && !reviewedWaveImportsPresent ||
+      facts.onePasswordSDKVersion !== ONEPASSWORD_SDK_VERSION || facts.credentialImportWIP !== "" ||
       facts.postPhase2SourceOverride !== "" ||
       facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");

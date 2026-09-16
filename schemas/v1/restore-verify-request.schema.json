@@ -1,0 +1,66 @@
+{
+  "$id": "vegastack-labs.dev/restore-verify-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "idempotencyKey": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "nextRecoveryEpoch": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "planDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "pointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/restore-verify-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "expectedStateRevision",
+    "recoveryEpoch",
+    "targetDigest",
+    "idempotencyKey",
+    "pointId",
+    "planId",
+    "planDigest",
+    "nextRecoveryEpoch"
+  ],
+  "title": "VegaStack Labs restore verify request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -6,6 +6,30 @@ import (
 	"testing"
 )
 
+func TestValidateBinaryImportCannotWidenTransportOrAudience(t *testing.T) {
+	for name, mutate := range map[string]func(*EndpointDefinition){
+		"browser":   func(endpoint *EndpointDefinition) { endpoint.Audiences = append(endpoint.Audiences, AudienceBrowser) },
+		"remote":    func(endpoint *EndpointDefinition) { endpoint.TransportScope = "any" },
+		"oversized": func(endpoint *EndpointDefinition) { endpoint.MaxRequestBytes = 8192 },
+		"json":      func(endpoint *EndpointDefinition) { endpoint.RequestEncoding = "json" },
+		"wrong ID":  func(endpoint *EndpointDefinition) { endpoint.ID = "api.v1.credential-references.extra-stream" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			registry := Current()
+			for index := range registry.Endpoints {
+				if registry.Endpoints[index].ID == "api.v1.credential-references.import-stream" {
+					mutate(&registry.Endpoints[index])
+					if err := Validate(registry); err == nil {
+						t.Fatal("widened binary endpoint accepted")
+					}
+					return
+				}
+			}
+			t.Fatal("binary import endpoint missing")
+		})
+	}
+}
+
 func TestValidateRejectsDuplicateCommandWithoutLeakingMetadata(t *testing.T) {
 	t.Parallel()
 
@@ -167,6 +191,12 @@ func TestCurrentEndpointsDeclareAvailability(t *testing.T) {
 		want := AvailabilityAvailable
 		if endpoint.OwnerPhase == "4" && !availablePhase4[endpoint.ID] {
 			want = AvailabilityPlanned
+		}
+		if endpoint.OwnerPhase == "5" {
+			want = AvailabilityPlanned
+			if endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" {
+				want = AvailabilityAvailable
+			}
 		}
 		if endpoint.Availability != want {
 			t.Fatalf("endpoint %s availability = %q, want %q", endpoint.ID, endpoint.Availability, want)

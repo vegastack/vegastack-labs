@@ -16,19 +16,40 @@ import (
 )
 
 type stubControlOperations struct {
-	summaryResponse  localapi.TypedResponse[generated.ApiSummaryData]
-	databaseResponse localapi.TypedResponse[generated.DatabaseStatusData]
-	importResponse   localapi.TypedResponse[generated.InventoryImportData]
-	diffResponse     localapi.TypedResponse[generated.InventoryDiffData]
-	exportResponse   localapi.TypedResponse[generated.InventoryExportData]
-	planResponse     localapi.TypedResponse[generated.Plan]
-	runResponse      localapi.TypedResponse[generated.RunPresentation]
-	err              error
-	calls            int
-	config           string
-	importRequest    generated.InventoryImportRequest
-	diffRequest      generated.InventoryDiffRequest
-	exportRequest    generated.InventoryExportRequest
+	gateListResponse     localapi.TypedResponse[generated.GateListData]
+	gateViewResponse     localapi.TypedResponse[generated.GateView]
+	gateCheckResponse    localapi.TypedResponse[generated.GateEvaluation]
+	gateEvidenceResponse localapi.TypedResponse[generated.GateEvidenceSubmission]
+	gateProfileResponse  localapi.TypedResponse[generated.GateProfileDraftSubmission]
+	summaryResponse      localapi.TypedResponse[generated.ApiSummaryData]
+	databaseResponse     localapi.TypedResponse[generated.DatabaseStatusData]
+	importResponse       localapi.TypedResponse[generated.InventoryImportData]
+	diffResponse         localapi.TypedResponse[generated.InventoryDiffData]
+	exportResponse       localapi.TypedResponse[generated.InventoryExportData]
+	planResponse         localapi.TypedResponse[generated.Plan]
+	runResponse          localapi.TypedResponse[generated.RunPresentation]
+	err                  error
+	calls                int
+	config               string
+	importRequest        generated.InventoryImportRequest
+	diffRequest          generated.InventoryDiffRequest
+	exportRequest        generated.InventoryExportRequest
+}
+
+func (stub *stubControlOperations) Gates(_ context.Context, _ string) (localapi.TypedResponse[generated.GateListData], error) {
+	return stub.gateListResponse, stub.err
+}
+func (stub *stubControlOperations) GetGate(_ context.Context, _, _ string) (localapi.TypedResponse[generated.GateView], error) {
+	return stub.gateViewResponse, stub.err
+}
+func (stub *stubControlOperations) CheckGate(_ context.Context, _, _, _ string) (localapi.TypedResponse[generated.GateEvaluation], error) {
+	return stub.gateCheckResponse, stub.err
+}
+func (stub *stubControlOperations) SubmitGateEvidence(_ context.Context, _ string, _ generated.GateEvidenceRequest) (localapi.TypedResponse[generated.GateEvidenceSubmission], error) {
+	return stub.gateEvidenceResponse, stub.err
+}
+func (stub *stubControlOperations) SubmitProfileDraft(_ context.Context, _ string, _ generated.GateProfileDraftRequest) (localapi.TypedResponse[generated.GateProfileDraftSubmission], error) {
+	return stub.gateProfileResponse, stub.err
 }
 
 func (stub *stubControlOperations) Summary(_ context.Context, config string) (localapi.TypedResponse[generated.ApiSummaryData], error) {
@@ -110,14 +131,25 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	exported := generated.InventoryExportData{ExportID: "sha256:" + strings.Repeat("2", 64), SubjectKind: "draft", Draft: generated.InventoryDraftRef{DraftID: "draft-test", DraftRevision: 1}, StateRevision: 9, RecoveryEpoch: 2, ContentDigest: "sha256:" + strings.Repeat("3", 64), Algorithm: "ed25519", KeyID: "synthetic-key", KeyFingerprint: "sha256:" + strings.Repeat("4", 64), VerificationStatus: "verified", PublicationStatus: "published", SignedBytesBase64: "e30K"}
 	plan := phase4TestPlan()
 	run := phase4TestRun(plan, generated.RunStatusSucceeded)
+	definition := generated.GeneratedGateDefinitions[7]
+	evaluation := generated.GateEvaluation{Schema: generated.SchemaIDGateEvaluation, SchemaVersion: "1.1.0", EvaluationID: "eval-test", GateID: definition.GateID, SubjectID: "site-a", DefinitionVersion: definition.DefinitionVersion, EvaluatorVersion: definition.EvaluatorVersion, EvidenceIDs: []string{}, EvaluatedAt: "2026-09-15T00:00:00Z", RecoveryEpoch: 2, Outcome: "blocked", ReasonCode: "proof-unavailable", EvidenceSource: "none", ReadyForInput: true}
+	view := generated.GateView{Schema: generated.SchemaIDGateView, SchemaVersion: "1.1.0", Definition: definition, Evaluation: evaluation, ApplicabilityReasonCode: "applicable"}
+	list := generated.GateListData{Schema: generated.SchemaIDGateListData, SchemaVersion: "1.1.0", Gates: []generated.GateView{view}, RecoveryEpoch: 2}
+	evidence := generated.GateEvidenceSubmission{Schema: generated.SchemaIDGateEvidenceSubmission, SchemaVersion: "1.1.0", DraftID: "draft-test", ChangeID: "gate-evidence-test", EvidenceID: "evidence-test", Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
+	profile := generated.GateProfileDraftSubmission{Schema: generated.SchemaIDGateProfileDraftSubmission, SchemaVersion: "1.1.0", DraftID: "binding-test", ChangeID: "gate-profile-binding-test", BindingID: "binding-test", Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	return &stubControlOperations{
-		summaryResponse:  operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
-		databaseResponse: operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
-		importResponse:   operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
-		diffResponse:     operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
-		exportResponse:   operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
-		planResponse:     operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
-		runResponse:      operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
+		gateListResponse:     operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
+		gateViewResponse:     operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
+		gateCheckResponse:    operationResponse(t, "api.v1.gates.check", false, 2, 7, evaluation),
+		gateEvidenceResponse: operationResponse(t, "api.v1.gate-evidence.create", true, 2, 8, evidence),
+		gateProfileResponse:  operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
+		summaryResponse:      operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
+		databaseResponse:     operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
+		importResponse:       operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
+		diffResponse:         operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
+		exportResponse:       operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
+		planResponse:         operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
+		runResponse:          operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
 	}
 }
 

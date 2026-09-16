@@ -11,6 +11,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -58,10 +59,21 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 			return Result{}, inputError()
 		}
 	}
+	if gate.ValidateGateOperations(operations, true) != nil {
+		return Result{}, inputError()
+	}
 	extensions := append(make([]generated.ContractExtension, 0, len(request.Extensions)), request.Extensions...)
 	sort.Slice(extensions, func(i, j int) bool { return extensions[i].Name < extensions[j].Name })
 	for index := 1; index < len(extensions); index++ {
 		if extensions[index-1].Name == extensions[index].Name {
+			return Result{}, inputError()
+		}
+	}
+	// For a single operation the credential manifest and that operation's
+	// manifest are identical. Multi-operation drafts are proven later against
+	// the persisted binding bytes by StageStepBindings, before any plan exists.
+	for _, extension := range extensions {
+		if extension.Name == "x-credential-bindings" && (len(operations) == 0 || len(operations) == 1 && operations[0].InputDigest != extension.ValueDigest) {
 			return Result{}, inputError()
 		}
 	}

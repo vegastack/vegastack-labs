@@ -1,0 +1,274 @@
+{
+  "$defs": {
+    "gate-evidence-attachment": {
+      "additionalProperties": false,
+      "properties": {
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "mediaType": {
+          "maxLength": 128,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-evidence-attachment"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "sizeBytes": {
+          "minimum": 1,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "digest",
+        "sizeBytes",
+        "mediaType"
+      ],
+      "type": "object"
+    },
+    "gate-evidence-bundle": {
+      "additionalProperties": false,
+      "properties": {
+        "attachments": {
+          "items": {
+            "$ref": "#/$defs/gate-evidence-attachment"
+          },
+          "maxItems": 16,
+          "type": "array"
+        },
+        "checks": {
+          "items": {
+            "$ref": "#/$defs/gate-evidence-check"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "collectorId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "facts": {
+          "items": {
+            "$ref": "#/$defs/gate-evidence-fact"
+          },
+          "maxItems": 64,
+          "type": "array"
+        },
+        "observedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-evidence-bundle"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "facts",
+        "checks",
+        "attachments",
+        "collectorId",
+        "observedAt"
+      ],
+      "type": "object"
+    },
+    "gate-evidence-check": {
+      "additionalProperties": false,
+      "properties": {
+        "checkId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "result": {
+          "enum": [
+            "passed",
+            "failed",
+            "unknown"
+          ],
+          "type": "string"
+        },
+        "resultDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-evidence-check"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "verifierVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "checkId",
+        "verifierVersion",
+        "result",
+        "resultDigest"
+      ],
+      "type": "object"
+    },
+    "gate-evidence-fact": {
+      "additionalProperties": false,
+      "properties": {
+        "factId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/gate-evidence-fact"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "valueDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "factId",
+        "valueDigest"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/gate-evidence-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifactDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "bundle": {
+      "$ref": "#/$defs/gate-evidence-bundle"
+    },
+    "definitionVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "evaluatorVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+      "type": "string"
+    },
+    "evidenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "gateId": {
+      "pattern": "^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$",
+      "type": "string"
+    },
+    "idempotencyKey": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "observedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "revokesEvidenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/gate-evidence-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "subjectId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "supersedesEvidenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "expectedStateRevision",
+    "recoveryEpoch",
+    "targetDigest",
+    "idempotencyKey",
+    "evidenceId",
+    "gateId",
+    "subjectId",
+    "definitionVersion",
+    "evaluatorVersion",
+    "supersedesEvidenceId",
+    "revokesEvidenceId",
+    "artifactDigest",
+    "observedAt",
+    "bundle"
+  ],
+  "title": "VegaStack Labs gate evidence request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

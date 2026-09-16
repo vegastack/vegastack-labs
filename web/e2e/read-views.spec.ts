@@ -102,19 +102,18 @@ test("leaving a screen cancels its superseded generated reads", async ({ page })
   await expect.poll(() => aborts).toBeGreaterThan(0);
 });
 
-test("Gates reports capability only and classifies every failure family", async ({ page }) => {
+test("Gates reads derived records and classifies every failure family", async ({ page }) => {
   fixtureState.delay = 250;
   await page.goto("/gates");
   await expect(page.locator('[data-read-state="loading"]')).toBeVisible();
   fixtureState.delay = 0;
-  await expect(page.getByText(/gate evaluation is not implemented/i)).toBeVisible();
-  await expect(page.getByText("Last success: 10-09-2026 12:30 PM IST", { exact: true })).toBeVisible();
-  await expect(page.getByText("Last error: 11-09-2026 01:30 PM IST", { exact: true })).toBeVisible();
+  await expect(page.locator('[data-gate-outcome="blocked"]')).toContainText("G-008");
+  await expect(page.locator('[data-gate-outcome="not-applicable"]')).toContainText("deferred");
   await expect(page.getByRole("button", { name: /pass|approve|apply/i })).toHaveCount(0);
   fixtureState.mode = "dependency";
-  await page.getByRole("button", { name: "Refresh" }).click();
-  await expect(page.locator('[data-read-state="stale"]')).toBeVisible();
-  for (const [mode, state] of [["empty", "unknown"], ["unavailable", "unavailable"], ["denied", "denied"], ["malformed", "error"]] as const) {
+  await page.reload();
+  await expect(page.locator('[data-read-state="unavailable"]')).toBeVisible();
+  for (const [mode, state] of [["empty", "empty"], ["unavailable", "unavailable"], ["denied", "denied"], ["malformed", "error"]] as const) {
     fixtureState.mode = mode;
     await page.reload();
     await expect(page.locator(`[data-read-state="${state}"]`)).toBeVisible();
@@ -185,7 +184,7 @@ test("private fixture records remain behind the authorized response boundary", a
 });
 
 test("Overview, Nodes, Gates, and the details overlay have no serious accessibility violations", async ({ page }) => {
-  for (const [route, ready] of [["/", "[data-overview-records]"], ["/nodes", "text=node-one"], ["/gates", "text=Gate evaluation is not implemented"]] as const) {
+  for (const [route, ready] of [["/", "[data-overview-records]"], ["/nodes", "text=node-one"], ["/gates", "[data-gate-records]"]] as const) {
     await page.goto(route);
     await expect(page.locator(ready)).toBeVisible();
     await expectNoSeriousAccessibilityViolations(page);

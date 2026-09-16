@@ -2,6 +2,36 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-09-2026 — Credential handling has a fail-closed foundation without a live secret path ([#123](https://github.com/vegastack/vegastack-labs/issues/123))
+
+- **What:** The server now has provider-neutral credential metadata, append-only exact-plan bindings, a Debian host-key encrypted primitive, an optional exact-ID 1Password resolver seam, and just-in-time run checks. Production still cannot import, activate, resolve, or execute a live secret-bearing step because no resolver or live proof verifier is registered.
+- **Why:** Phase 5 needs a reviewed security boundary for later credential lifecycle work without letting partial software, fixtures, or provider SDK availability become live authority.
+- **How it went:** The preserved implementation checkpoint replayed cleanly, while the completion wave added a second exact historical source seal and explicit dormancy proof. Disposable Linux verified the systemd host-key roundtrip and clean-host re-encryption; no live account, token, host key, vault, provider or fleet target was used.
+- **Changed:** Versioned opaque credential contracts · append-only metadata and step bindings · host-key encrypted Debian primitive · pinned exact-ID 1Password SDK seam · fail-closed run ordering and memory cleanup · dormant production/source guards · explicit `G-007` limits.
+- **Decisions:** none; plaintext import and the human-authorized activation, rotation, revocation and recovery lifecycle remain in dependent issues.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/123-dormant-credential-foundation
+
+## 16-09-2026 — Operators can see why gates remain blocked without closing them ([#104](https://github.com/vegastack/vegastack-labs/issues/104))
+
+- **What:** The server now derives gate applicability and blocking reasons from generated definitions, an applied profile/policy binding, and append-only evidence; the CLI and read-only Console show the same versioned result. Operators can author bounded evidence and profile candidates, but these stay inert until an exact current human-approved plan runs.
+- **Why:** Phase 5 needs gate readiness that comes from current, recovery-epoch-bound proof rather than a document, an agent assertion, or a privileged close shortcut.
+- **How it went:** The first complete check found historical Phase 2, read-API, CLI, generated-contract, static Console, and Phase 3 proof guards that still described earlier behavior. Each was narrowed to the exact new gate wave while the old baseline stayed intact. The protected attachment store remains dormant and live proof stays blocked until a separately reviewed subject resolver, collector, and verifier exist.
+- **Changed:** Generated gate evidence bindings and applicability · inert profile/evidence drafts · exact human-only plan effects · append-only SQLite records · typed gate API/CLI · read-only Console blockers · recovery and denial tests.
+- **Decisions:** none; this is development software, not live gate acceptance or deployment authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/5.3-derived-gate-readiness
+
+## 15-09-2026 — Phase 5 safety contracts are generated without live authority ([#102](https://github.com/vegastack/vegastack-labs/issues/102))
+
+- **What:** Evidence, credential references, backups, audit checkpoints, restore verification, and scheduled jobs now have versioned schemas and generated Go, CLI, and browser contract surfaces. The routes and commands remain planned; this work grants no runtime apply authority.
+- **Why:** Later Phase 5 owners need one typed boundary that refuses fixture promotion, ambiguous restore identity, and scheduled-job widening before implementing provider or control-plane behavior.
+- **How it went:** Focused tests exposed cross-field constraints that schemas alone could not safely imply, so generated validators and drift guards were added. The historical Phase 2 source seal requires a fresh review and deliberate reseal after these contract changes.
+- **Changed:** Phase 5 metadata and transitions · generated contract artifacts and validators · hostile fixture tests · browser client types · documentation of the contract/runtime boundary.
+- **Decisions:** none; deployment gates and live authority remain unchanged.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/5.1-phase5-contracts
+
 ## 14-09-2026 — Phase 4 is proven and accepted at one exact commit ([#67](https://github.com/vegastack/vegastack-labs/issues/67))
 
 - **What:** Inert declarations, immutable plans, current authorization, Slack human acknowledgement, durable central and external execution, and matching CLI/Console change workflows now form one accepted Phase 4 result. A strict exit command binds every requirement and child result to one exact clean `main` commit.

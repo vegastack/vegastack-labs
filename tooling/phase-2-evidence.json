@@ -6,7 +6,7 @@
     "schemaVersion": "1.6.0",
     "productionExecutable": "cmd/vsk-labs",
     "productionDependencyDigest": "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133",
-    "postPhase2MutationBoundaryDigest": "sha256:02831bc4eaa52c4f82c87d6a45feb57bbdd8cb42a74a0d3b3abcae8c8c9c7412",
+    "postPhase2MutationBoundaryDigest": "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c",
     "mutationAvailable": false,
     "availableCommands": [
       "database status",
@@ -45,6 +45,10 @@
       { "file": "0002_inventory_drafts.sql", "sha256": "6e6be190299476299314831f0519f4c0abc7d161a871152d95fda5089edcda6e" },
       { "file": "0003_audit_outbox.sql", "sha256": "e783eea0ed8780c490127a4328fc9da398ce902dc73d47a83c3c82380bf453aa" },
       { "file": "0004_read_authorization.sql", "sha256": "d6a7820902d336726fd2fb6aa7295d9aa29695f0a010628c3edca1f56f40fc3c" }
+    ],
+    "reviewedWaves": [
+      { "id": "phase5-issue104-v1", "issue": 104, "commands": ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/gate"], "mutationBoundaryDigest": "sha256:e93cbd898ee0ddd237bd90e83f7b7db153451883fbf590fbd5f42146a5b0a4a9" },
+      { "id": "phase5-issue123-v1", "issue": 123, "commands": [], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/nativecredential", "github.com/vegastack/vegastack-labs/internal/adapter/onepassword"], "mutationBoundaryDigest": "sha256:1e72e5133f8446b73494065096dec7f91d6bbc771b6ca137c0b7b4a3d1b1d4ed" }
     ]
   },
   "children": [

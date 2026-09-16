@@ -64,9 +64,49 @@ func ValidateContractJSON(schemaID string, document []byte, mode ContractValidat
 	return validateContractValue(schemaID, value, schemaID, mode, true)
 }
 
+func contractInt(value map[string]any, name string) int64 {
+	number, _ := value[name].(json.Number); result, _ := number.Int64(); return result
+}
+
+func validatePhase5Relations(schemaID string, value any) error {
+	object, ok := value.(map[string]any); if !ok { return errors.New("Phase 5 contract is not an object") }
+	switch schemaID {
+	case SchemaIDGateEvidence, SchemaIDBackupJob, SchemaIDRecoveryPoint, SchemaIDAuditCheckpoint:
+		if object["sourceKind"] == "fixture" && object["proofClass"] != "fixture" { return errors.New("fixture source cannot claim live proof") }
+	}
+	switch schemaID {
+	case SchemaIDGateEvidence:
+		observed, err := time.Parse(time.RFC3339, object["observedAt"].(string)); if err != nil { return errors.New("invalid evidence observation time") }
+		expires, err := time.Parse(time.RFC3339, object["expiresAt"].(string)); if err != nil || !expires.After(observed) { return errors.New("evidence expiry does not follow observation") }
+	case SchemaIDGateEvaluation:
+		if object["outcome"] == "passed" && len(object["evidenceIds"].([]any)) == 0 { return errors.New("passed gate has no evidence") }
+	case SchemaIDBackupJob:
+		if object["status"] == "verified" && (object["pointId"] == nil || object["verificationDigest"] == nil) { return errors.New("verified backup lacks point or verification") }
+	case SchemaIDRecoveryPoint:
+		if object["verificationStatus"] == "verified" && object["verifiedAt"] == nil { return errors.New("verified recovery point lacks verification time") }
+	case SchemaIDAuditCheckpoint:
+		if contractInt(object, "lastEventId") < contractInt(object, "firstEventId") { return errors.New("audit checkpoint event range is reversed") }
+		if object["verificationStatus"] == "verified" && object["verifiedAt"] == nil { return errors.New("verified checkpoint lacks verification time") }
+		if object["sourceKind"] == "independent" && object["proofClass"] == "live" && object["independentCopyDigest"] == nil { return errors.New("independent checkpoint lacks copy digest") }
+	case SchemaIDRestoreBinding:
+		if contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("recovery epoch must increment once") }
+		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restored controller must have a new instance") }
+	case SchemaIDRestoreRunRequest:
+		if contractInt(object, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") || contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("restore request epoch mismatch") }
+		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restore request reuses controller instance") }
+	case SchemaIDRestoreVerifyRequest:
+		if contractInt(object, "recoveryEpoch") != contractInt(object, "nextRecoveryEpoch") { return errors.New("restore verification epoch mismatch") }
+	case SchemaIDRestoreVerification:
+		if object["status"] == "verified" && (object["fenceVerified"] != true || object["databaseVerified"] != true || object["auditVerified"] != true || object["verifiedAt"] == nil) { return errors.New("restore verification is incomplete") }
+	}
+	return nil
+}
+
 func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, root bool) error {
 	rule, ok := contractRules[schemaID]; if !ok { return fmt.Errorf("unknown schema at %s", path) }
 	object, ok := value.(map[string]any); if !ok { return fmt.Errorf("expected object at %s", path) }
+	credentialV10 := root && mode == ContractCompatibleRead && schemaID == SchemaIDCredentialReference && object["schemaVersion"] == "1.0.0"
+	if credentialV10 && object["status"] == "staged" { return fmt.Errorf("unknown state or value at %s.status", path) }
 	fields := make(map[string]contractFieldRule, len(rule.Fields)); for _, field := range rule.Fields { fields[field.Name] = field }
 	for name := range object {
 		if _, known := fields[name]; known { continue }
@@ -74,11 +114,15 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 	}
 	for _, field := range rule.Fields {
 		fieldValue, present := object[field.Name]
-		if !present { if field.Required { return fmt.Errorf("required property at %s.%s", path, field.Name) }; continue }
+		if !present { if field.Required && !(credentialV10 && credentialReferenceV10OmittedField(field.Name)) { return fmt.Errorf("required property at %s.%s", path, field.Name) }; continue }
 		if fieldValue == nil { if field.Nullable { continue }; return fmt.Errorf("null at %s.%s", path, field.Name) }
 		if err := validateContractField(field, fieldValue, path+"."+field.Name, mode); err != nil { return err }
 	}
-	return nil
+	return validatePhase5Relations(schemaID, object)
+}
+
+func credentialReferenceV10OmittedField(name string) bool {
+	switch name { case "targetId", "resolverId", "stateRevision", "activatedAt", "verifiedConsumerIds": return true; default: return false }
 }
 
 func validateContractField(rule contractFieldRule, value any, path string, mode ContractValidationMode) error {
@@ -131,6 +175,39 @@ func unsafeContractValue(value any) bool {
 func ValidateRunTransition(from, to string) error {
 	for _, transition := range RunTransitions { if transition.From == from && transition.To == to { return nil } }
 	return errors.New("invalid run transition")
+}
+
+func ValidatePhase5Transition(kind, from, to string) error {
+	var transitions []RunTransition
+	switch kind {
+	case "gate-evidence": transitions = GateEvidenceTransitions
+	case "backup-job": transitions = BackupJobTransitions
+	case "restore": transitions = RestoreTransitions
+	case "scheduled-job": transitions = ScheduledJobTransitions
+	default: return errors.New("unknown Phase 5 lifecycle")
+	}
+	for _, transition := range transitions { if transition.From == from && transition.To == to { return nil } }
+	return errors.New("invalid Phase 5 transition")
+}
+
+func ValidateScheduledJobBinding(policy ScheduledJobPolicy, job ScheduledJob) error {
+	if !policy.Enabled || len(policy.ExactTargetIDs) == 0 ||
+		policy.PolicyID != job.PolicyID || policy.Revision != job.PolicyRevision ||
+		policy.ActionDigest != job.ActionDigest || policy.TargetDigest != job.TargetDigest ||
+		policy.RecoveryEpoch != job.RecoveryEpoch {
+		return errors.New("scheduled job widens or changes its exact policy")
+	}
+	return nil
+}
+
+func ValidateScheduledJobRequestBinding(policy ScheduledJobPolicy, request ScheduledJobRequest) error {
+	if !policy.Enabled || len(policy.ExactTargetIDs) == 0 ||
+		policy.PolicyID != request.PolicyID || policy.Revision != request.PolicyRevision ||
+		policy.ActionDigest != request.ActionDigest || policy.TargetDigest != request.TargetDigest ||
+		policy.RecoveryEpoch != request.RecoveryEpoch {
+		return errors.New("scheduled request widens or changes its exact policy")
+	}
+	return nil
 }
 
 func ValidatePlanTiming(plan Plan) error {

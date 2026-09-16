@@ -9,6 +9,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -70,6 +71,13 @@ type ReceiptVerifier interface {
 type Adapter interface {
 	Execute(context.Context, Operation) (Effect, error)
 	Verify(context.Context, Operation, Effect) (Verification, error)
+}
+
+// CredentialExecutor is an optional, in-process effect boundary. Values are
+// borrowed for this call only; the run engine closes them before any receipt,
+// verification, API result, or audit projection is assembled.
+type CredentialExecutor interface {
+	ExecuteWithCredentials(context.Context, Operation, []*credentialref.Value) (Effect, error)
 }
 
 type Error struct {

@@ -96,6 +96,7 @@ var requiredErrors = []ErrorDefinition{
 	{Code: "MIGRATION_BLOCKED", ExitCode: 8},
 	{Code: "PLAN_STALE", ExitCode: 5},
 	{Code: "PREREQUISITE_BLOCKED", ExitCode: 6},
+	{Code: "RATE_LIMITED", ExitCode: 6},
 	{Code: "RECOVERY_EPOCH_MISMATCH", ExitCode: 5},
 	{Code: "RECOVERY_REQUIRED", ExitCode: 7},
 	{Code: "RESOURCE_NOT_FOUND", ExitCode: 6},
@@ -141,6 +142,7 @@ var plannedCommands = []plannedCommand{
 	{path: "gate inspect", phase: "5", summary: "Inspect one gate and its evidence requirements."},
 	{path: "gate check", phase: "5", summary: "Evaluate applicable gates without changing infrastructure."},
 	{path: "gate evidence", phase: "5", summary: "Validate evidence and create an inert evidence change."},
+	{path: "gate profile draft", phase: "5", summary: "Create an inert applied-profile candidate."},
 	{path: "node discover", phase: "6", summary: "Discover a candidate managed node."},
 	{path: "node add", phase: "6", summary: "Create an inert managed-node change."},
 	{path: "node inspect", phase: "6", summary: "Inspect a managed node."},
@@ -199,27 +201,32 @@ func Current() Registry {
 		runInspectCommand(),
 		runCancelCommand(),
 		runResumeCommand(),
+		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || isAvailablePhase4Command(command.path) {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || isAvailablePhase4Command(command.path) {
 			continue
 		}
+		requestSchema, dataSchema := phase5CommandSchemas(command.path)
 		commands = append(commands, CommandDefinition{
-			Path:         strings.Fields(command.path),
-			Summary:      command.summary,
-			Availability: AvailabilityPlanned,
-			OwnerPhase:   command.phase,
-			Risk:         RiskUnassigned,
+			Path:          strings.Fields(command.path),
+			Summary:       command.summary,
+			Availability:  AvailabilityPlanned,
+			OwnerPhase:    command.phase,
+			Risk:          RiskUnassigned,
+			RequestSchema: requestSchema,
+			DataSchema:    dataSchema,
 		})
 	}
 
 	return Registry{
-		SchemaVersion: "1.15.0",
-		Commands:      commands,
-		Endpoints:     append(readEndpoints(), phase4Endpoints()...),
-		Errors:        append([]ErrorDefinition(nil), requiredErrors...),
-		Exits:         append([]ExitDefinition(nil), requiredExits...),
-		Schemas:       currentSchemas(),
+		SchemaVersion:   "1.17.0",
+		Commands:        commands,
+		Endpoints:       append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...),
+		GateDefinitions: CurrentGateDefinitions(),
+		Errors:          append([]ErrorDefinition(nil), requiredErrors...),
+		Exits:           append([]ExitDefinition(nil), requiredExits...),
+		Schemas:         currentSchemas(),
 		Lifecycle: LifecycleDefinition{
 			PlanValiditySeconds:    30 * 60,
 			LeaseDurationSeconds:   60,
@@ -229,6 +236,10 @@ func Current() Registry {
 				{From: "running", To: "succeeded"}, {From: "running", To: "failed"}, {From: "running", To: "partial"}, {From: "running", To: "interrupted"},
 				{From: "interrupted", To: "running"}, {From: "interrupted", To: "cancelled"},
 			},
+			GateEvidenceTransitions: phase5GateEvidenceTransitions(),
+			BackupJobTransitions:    phase5BackupJobTransitions(),
+			RestoreTransitions:      phase5RestoreTransitions(),
+			ScheduledJobTransitions: phase5ScheduledJobTransitions(),
 		},
 	}
 }
@@ -289,6 +300,42 @@ func phase4OperatorCommand(path []string, summary, requestSchema, dataSchema str
 		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
 		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}},
 	}
+}
+
+func phase5GateCommand(path []string, summary, requestSchema, dataSchema string, risk RiskClass, flags []FlagDefinition, example []string) CommandDefinition {
+	return CommandDefinition{Path: path, Summary: summary, Availability: AvailabilityAvailable, OwnerPhase: "5", Risk: risk,
+		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
+		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}}}
+}
+
+func gateListCommand() CommandDefinition {
+	return phase5GateCommand([]string{"gate", "list"}, "List scoped generated gate definitions and derived blockers.", "", gateListDataSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
+		[]string{"gate", "list", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func gateInspectCommand() CommandDefinition {
+	return phase5GateCommand([]string{"gate", "inspect"}, "Inspect one scoped gate and derived blocker.", "", gateViewSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--gate-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one generated gate ID."}},
+		[]string{"gate", "inspect", "--config", "fixture/server-profile.json", "--gate-id", "G-008", "--output", "json"})
+}
+
+func gateCheckCommand() CommandDefinition {
+	return phase5GateCommand([]string{"gate", "check"}, "Check one gate for one subject without changing state.", gateCheckRequestSchemaID, gateEvaluationSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--gate-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one generated gate ID."}, {Name: "--subject-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one subject ID."}},
+		[]string{"gate", "check", "--config", "fixture/server-profile.json", "--gate-id", "G-008", "--subject-id", "site-a", "--output", "json"})
+}
+
+func gateEvidenceCommand() CommandDefinition {
+	return phase5GateCommand([]string{"gate", "evidence"}, "Submit a bounded typed proof as an inert change; no gate pass is set.", gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed evidence-request JSON file (64 KiB max)."}},
+		[]string{"gate", "evidence", "--config", "fixture/server-profile.json", "--file", "fixture/gate-evidence-request.json", "--output", "json"})
+}
+
+func gateProfileDraftCommand() CommandDefinition {
+	return phase5GateCommand([]string{"gate", "profile", "draft"}, "Submit a bounded profile/policy candidate as an inert change; application still needs an exact human-approved plan.", gateProfileDraftRequestSchemaID, gateProfileDraftSubmissionSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed profile-draft JSON file (4 KiB max)."}},
+		[]string{"gate", "profile", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/gate-profile-draft.json", "--output", "json"})
 }
 
 func planCommand() CommandDefinition {
@@ -718,6 +765,9 @@ func currentSchemas() []SchemaDefinition {
 	schemas = append(schemas, readAPISchemas()...)
 	schemas = append(schemas, inventoryOperationSchemas()...)
 	schemas = append(schemas, phase4Schemas()...)
+	schemas = append(schemas, phase5GateCredentialSchemas()...)
+	schemas = append(schemas, phase5RecoveryJobSchemas()...)
+	schemas = append(schemas, phase5RequestSchemas()...)
 	return append(schemas, apiSshSchemas()...)
 }
 

@@ -10,6 +10,31 @@ Available commands:
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  gate check               Check one gate for one subject without changing state.
+    --config <path>        Read one protected server profile.
+    --gate-id <id>         Select one generated gate ID.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --subject-id <id>      Select one subject ID.
+  gate evidence            Submit a bounded typed proof as an inert change; no gate pass is set.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact typed evidence-request JSON file (64 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  gate inspect             Inspect one scoped gate and derived blocker.
+    --config <path>        Read one protected server profile.
+    --gate-id <id>         Select one generated gate ID.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  gate list                List scoped generated gate definitions and derived blockers.
+    --config <path>        Read one protected server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  gate profile draft       Submit a bounded profile/policy candidate as an inert change; application still needs an exact human-approved plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact typed profile-draft JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   help                     Show generated command help.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
@@ -108,10 +133,6 @@ Planned commands (unavailable):
   device request           Create an inert device-enrollment request.
   device revoke            Create an inert device-revocation change.
   doctor                   Diagnose one actionable platform invariant at a time.
-  gate check               Evaluate applicable gates without changing infrastructure.
-  gate evidence            Validate evidence and create an inert evidence change.
-  gate inspect             Inspect one gate and its evidence requirements.
-  gate list                List applicable implementation gates.
   maintenance plan         Create an immutable maintenance plan.
   maintenance run          Run one authorized maintenance plan.
   node add                 Create an inert managed-node change.

@@ -10,6 +10,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/failure"
+	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -134,6 +135,11 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	if declaration.Status != "draft" || declaration.DeclarationID != request.DeclarationID || declaration.Revision != request.DeclarationRevision {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeStateConflict)
 	}
+	// Credential bindings are declared facts. A plan cannot invent, omit, or
+	// replace their digest after the inert draft has been committed.
+	if !credentialBindingExtensionsEqual(declaration.Extensions, extensions) {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+	}
 	reason, err := service.config.Repository.GetDeclarationReason(ctx, request.DeclarationID, request.DeclarationRevision)
 	if err != nil {
 		return store.PlanCommitResult{}, err
@@ -154,6 +160,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	}
 	declarationOperations := append([]generated.DeclarationOperation(nil), declaration.Operations...)
 	sort.Slice(declarationOperations, func(i, j int) bool { return declarationOperations[i].Sequence < declarationOperations[j].Sequence })
+	if gate.ValidateGateOperations(declarationOperations, service.config.ExecutorMode == "central") != nil {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
+	}
+	if gate.HasGateOperation(declarationOperations) && service.config.AuthorizationBranch != "human" {
+		return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+	}
 	operations := make([]generated.PlanOperation, len(declarationOperations))
 	for index, operation := range declarationOperations {
 		if operation.Sequence != int64(index+1) {
@@ -209,6 +221,9 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 	if err != nil {
 		return err
 	}
+	if !credentialBindingExtensionsEqual(declaration.Extensions, candidate.Extensions) {
+		return planError(generated.ErrorCodeStateConflict)
+	}
 	fingerprint, err := service.config.Observations.CurrentFingerprint(ctx, declaration.DeclarationID, declaration.Operations)
 	if err != nil {
 		return err
@@ -217,6 +232,22 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 		return planError(generated.ErrorCodeStateConflict)
 	}
 	return nil
+}
+
+func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
+	const name = "x-credential-bindings"
+	var leftDigest, rightDigest string
+	for _, item := range left {
+		if item.Name == name {
+			leftDigest = item.ValueDigest
+		}
+	}
+	for _, item := range right {
+		if item.Name == name {
+			rightDigest = item.ValueDigest
+		}
+	}
+	return leftDigest == rightDigest
 }
 
 func (service *Service) Get(ctx context.Context, planID string) (store.PlanCommitResult, error) {

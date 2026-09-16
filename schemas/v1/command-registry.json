@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.15.0",
+  "schemaVersion": "1.17.0",
   "commands": [
     {
       "path": [
@@ -79,7 +79,8 @@
       "summary": "Inspect sanitized audit history.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "dataSchema": "vegastack-labs.dev/audit-checkpoint-list-data"
     },
     {
       "path": [
@@ -89,7 +90,9 @@
       "summary": "Run one exact approved backup policy.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/backup-run-request",
+      "dataSchema": "vegastack-labs.dev/backup-job"
     },
     {
       "path": [
@@ -99,7 +102,8 @@
       "summary": "Inspect backup status.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "dataSchema": "vegastack-labs.dev/backup-status-data"
     },
     {
       "path": [
@@ -109,7 +113,9 @@
       "summary": "Verify a declared backup.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/backup-verify-request",
+      "dataSchema": "vegastack-labs.dev/backup-job"
     },
     {
       "path": [
@@ -158,7 +164,9 @@
       "summary": "Create a verified control-database backup.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/backup-run-request",
+      "dataSchema": "vegastack-labs.dev/backup-job"
     },
     {
       "path": [
@@ -168,7 +176,9 @@
       "summary": "Export authorized sanitized control data.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/database-export-request",
+      "dataSchema": "vegastack-labs.dev/sanitized-export-data"
     },
     {
       "path": [
@@ -178,7 +188,9 @@
       "summary": "Create an inert control-database restore change.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/restore-request",
+      "dataSchema": "vegastack-labs.dev/restore-binding"
     },
     {
       "path": [
@@ -247,7 +259,9 @@
       "summary": "Verify control-database integrity or backup content.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/backup-verify-request",
+      "dataSchema": "vegastack-labs.dev/backup-job"
     },
     {
       "path": [
@@ -293,40 +307,355 @@
         "gate",
         "check"
       ],
-      "summary": "Evaluate applicable gates without changing infrastructure.",
-      "availability": "planned",
+      "summary": "Check one gate for one subject without changing state.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--gate-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one generated gate ID.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--subject-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one subject ID.",
+          "enum": null
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/gate-check-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/gate-evaluation",
+      "examples": [
+        {
+          "summary": "Check one gate for one subject without changing state.",
+          "arguments": [
+            "gate",
+            "check",
+            "--config",
+            "fixture/server-profile.json",
+            "--gate-id",
+            "G-008",
+            "--subject-id",
+            "site-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "gate",
         "evidence"
       ],
-      "summary": "Validate evidence and create an inert evidence change.",
-      "availability": "planned",
+      "summary": "Submit a bounded typed proof as an inert change; no gate pass is set.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed evidence-request JSON file (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/gate-evidence-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/gate-evidence-submission",
+      "examples": [
+        {
+          "summary": "Submit a bounded typed proof as an inert change; no gate pass is set.",
+          "arguments": [
+            "gate",
+            "evidence",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/gate-evidence-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "gate",
         "inspect"
       ],
-      "summary": "Inspect one gate and its evidence requirements.",
-      "availability": "planned",
+      "summary": "Inspect one scoped gate and derived blocker.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--gate-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one generated gate ID.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/gate-view",
+      "examples": [
+        {
+          "summary": "Inspect one scoped gate and derived blocker.",
+          "arguments": [
+            "gate",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--gate-id",
+            "G-008",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "gate",
         "list"
       ],
-      "summary": "List applicable implementation gates.",
-      "availability": "planned",
+      "summary": "List scoped generated gate definitions and derived blockers.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/gate-list-data",
+      "examples": [
+        {
+          "summary": "List scoped generated gate definitions and derived blockers.",
+          "arguments": [
+            "gate",
+            "list",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "gate",
+        "profile",
+        "draft"
+      ],
+      "summary": "Submit a bounded profile/policy candidate as an inert change; application still needs an exact human-approved plan.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed profile-draft JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/gate-profile-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/gate-profile-draft-submission",
+      "examples": [
+        {
+          "summary": "Submit a bounded profile/policy candidate as an inert change; application still needs an exact human-approved plan.",
+          "arguments": [
+            "gate",
+            "profile",
+            "draft",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/gate-profile-draft.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -1030,7 +1359,9 @@
       "summary": "Create an immutable restore plan.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/restore-request",
+      "dataSchema": "vegastack-labs.dev/restore-binding"
     },
     {
       "path": [
@@ -1040,7 +1371,9 @@
       "summary": "Run one authorized restore plan.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/restore-run-request",
+      "dataSchema": "vegastack-labs.dev/restore-binding"
     },
     {
       "path": [
@@ -1050,7 +1383,9 @@
       "summary": "Verify a completed restore.",
       "availability": "planned",
       "ownerPhase": "5",
-      "risk": "unassigned"
+      "risk": "unassigned",
+      "requestSchema": "vegastack-labs.dev/restore-verify-request",
+      "dataSchema": "vegastack-labs.dev/restore-verification"
     },
     {
       "path": [
@@ -1670,6 +2005,10 @@
       "exitCode": 6
     },
     {
+      "code": "RATE_LIMITED",
+      "exitCode": 6
+    },
+    {
       "code": "RECOVERY_EPOCH_MISMATCH",
       "exitCode": 5
     },
@@ -1870,6 +2209,21 @@
       "artifactPath": "schemas/v1/approval-status.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/audit-checkpoint",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/audit-checkpoint.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/audit-checkpoint-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/audit-checkpoint-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/audit-checkpoint-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/audit-checkpoint-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/audit-event",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/audit-event.schema.json"
@@ -1884,6 +2238,31 @@
       "artifactPath": "schemas/v1/authorization-decision.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/backup-job",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-job.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-run-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-run-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-status-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-verify-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-verify-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/browser-audit-event",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-audit-event.schema.json"
@@ -1892,6 +2271,11 @@
       "id": "vegastack-labs.dev/browser-declaration-revision",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-declaration-revision.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-restore-status",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-restore-status.schema.json"
     },
     {
       "id": "vegastack-labs.dev/browser-run",
@@ -1915,6 +2299,26 @@
     {
       "id": "vegastack-labs.dev/contract-extension",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-reference",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/credential-reference.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-reference-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/credential-reference-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-resolution-record",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/credential-resolution-record.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/database-export-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/database-export-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/database-status-data",
@@ -1959,6 +2363,76 @@
       "id": "vegastack-labs.dev/executor-renew-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/executor-renew-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-check-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/gate-check-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-definition",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-definition.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evaluation",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evaluation.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-attachment",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-attachment.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-bundle",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-bundle.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-check",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-check.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-fact",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-fact.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-evidence-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-evidence-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-list-data",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-profile-draft-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-profile-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-profile-draft-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-profile-draft-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/gate-view",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/gate-view.schema.json"
     },
     {
       "id": "vegastack-labs.dev/inventory-diff-counts",
@@ -2113,6 +2587,11 @@
       "artifactPath": "schemas/v1/plan-reference-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/recovery-point",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/recovery-point.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/release-asset",
       "version": "1.0.0"
     },
@@ -2145,6 +2624,31 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/restore-binding",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/restore-binding.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/restore-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/restore-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/restore-run-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/restore-run-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/restore-verification",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/restore-verification.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/restore-verify-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/restore-verify-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/result-error",
       "version": "1.0.0"
     },
@@ -2175,6 +2679,26 @@
     {
       "id": "vegastack-labs.dev/run-uncertain-guidance",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/sanitized-export-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/sanitized-export-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/scheduled-job",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/scheduled-job.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/scheduled-job-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/scheduled-job-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/scheduled-job-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/scheduled-job-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/server-profile",
@@ -2244,6 +2768,106 @@
       {
         "from": "running",
         "to": "succeeded"
+      }
+    ],
+    "gateEvidenceTransitions": [
+      {
+        "from": "applied",
+        "to": "revoked"
+      },
+      {
+        "from": "draft",
+        "to": "applied"
+      },
+      {
+        "from": "draft",
+        "to": "revoked"
+      }
+    ],
+    "backupJobTransitions": [
+      {
+        "from": "queued",
+        "to": "failed"
+      },
+      {
+        "from": "queued",
+        "to": "running"
+      },
+      {
+        "from": "running",
+        "to": "failed"
+      },
+      {
+        "from": "running",
+        "to": "uncertain"
+      },
+      {
+        "from": "running",
+        "to": "verified"
+      }
+    ],
+    "restoreTransitions": [
+      {
+        "from": "fenced",
+        "to": "failed"
+      },
+      {
+        "from": "fenced",
+        "to": "restoring"
+      },
+      {
+        "from": "planned",
+        "to": "failed"
+      },
+      {
+        "from": "planned",
+        "to": "fenced"
+      },
+      {
+        "from": "restoring",
+        "to": "failed"
+      },
+      {
+        "from": "restoring",
+        "to": "uncertain"
+      },
+      {
+        "from": "restoring",
+        "to": "verification-required"
+      },
+      {
+        "from": "verification-required",
+        "to": "failed"
+      },
+      {
+        "from": "verification-required",
+        "to": "uncertain"
+      },
+      {
+        "from": "verification-required",
+        "to": "verified"
+      }
+    ],
+    "scheduledJobTransitions": [
+      {
+        "from": "queued",
+        "to": "failed"
+      },
+      {
+        "from": "queued",
+        "to": "running"
+      },
+      {
+        "from": "running",
+        "to": "failed"
+      },
+      {
+        "from": "running",
+        "to": "succeeded"
+      },
+      {
+        "from": "running",
+        "to": "uncertain"
       }
     ]
   }

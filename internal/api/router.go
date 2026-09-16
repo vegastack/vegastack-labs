@@ -257,6 +257,12 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if runID, exists := params["runId"]; exists {
 			resourceID = runID
 		}
+		if gateID, exists := params["gateId"]; exists {
+			resourceID = strings.ToLower(gateID)
+		}
+		if candidate.id == "api.v1.gate-profile-drafts.create" {
+			resourceID = "profile-drafts"
+		}
 		if candidate.id == "api.v1.inventory-drafts.import" {
 			resourceID = "inventory-drafts"
 		}

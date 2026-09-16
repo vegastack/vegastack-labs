@@ -72,6 +72,10 @@ func Generate(registry metadata.Registry) ([]Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
+	gateSource, err := renderGoGateDefinitions(registry.GateDefinitions)
+	if err != nil {
+		return nil, err
+	}
 	goValidators, err := renderGoValidators(registry)
 	if err != nil {
 		return nil, err
@@ -80,7 +84,7 @@ func Generate(registry metadata.Registry) ([]Artifact, error) {
 	if err != nil {
 		return nil, err
 	}
-	registrySchema, err := renderRegistrySchema()
+	registrySchema, err := renderRegistrySchema(registry)
 	if err != nil {
 		return nil, err
 	}
@@ -107,6 +111,7 @@ func Generate(registry metadata.Registry) ([]Artifact, error) {
 		{Path: "docs/generated/command-registry.md", Content: markdown},
 		{Path: "docs/generated/endpoint-registry.md", Content: endpointMarkdown},
 		{Path: "internal/generated/contracts_gen.go", Content: goSource},
+		{Path: "internal/generated/gate_definitions_gen.go", Content: gateSource},
 		{Path: "internal/generated/contracts_validate_gen.go", Content: goValidators},
 		{Path: "schemas/v1/command-registry.json", Content: registryJSON},
 		{Path: "schemas/v1/command-registry.schema.json", Content: registrySchema},
@@ -162,6 +167,14 @@ func normalizedRegistry(registry metadata.Registry) metadata.Registry {
 	registry.Exits = append([]metadata.ExitDefinition(nil), registry.Exits...)
 	sort.Slice(registry.Exits, func(left, right int) bool { return registry.Exits[left].Code < registry.Exits[right].Code })
 	registry.Schemas = append([]metadata.SchemaDefinition(nil), registry.Schemas...)
+	registry.GateDefinitions = append([]metadata.GateDefinitionSource(nil), registry.GateDefinitions...)
+	for index := range registry.GateDefinitions {
+		registry.GateDefinitions[index].SubjectKinds = append([]string(nil), registry.GateDefinitions[index].SubjectKinds...)
+		registry.GateDefinitions[index].PrerequisiteGateIDs = append([]string(nil), registry.GateDefinitions[index].PrerequisiteGateIDs...)
+	}
+	sort.Slice(registry.GateDefinitions, func(left, right int) bool {
+		return registry.GateDefinitions[left].GateID < registry.GateDefinitions[right].GateID
+	})
 	registry.Endpoints = append([]metadata.EndpointDefinition(nil), registry.Endpoints...)
 	for index := range registry.Endpoints {
 		registry.Endpoints[index].Audiences = append([]metadata.EndpointAudience(nil), registry.Endpoints[index].Audiences...)
@@ -176,15 +189,24 @@ func normalizedRegistry(registry metadata.Registry) metadata.Registry {
 			registry.Schemas[index].Fields[fieldIndex].Enum = append([]string(nil), registry.Schemas[index].Fields[fieldIndex].Enum...)
 		}
 	}
-	registry.Lifecycle.RunTransitions = append([]metadata.TransitionDefinition(nil), registry.Lifecycle.RunTransitions...)
-	sort.Slice(registry.Lifecycle.RunTransitions, func(left, right int) bool {
-		if registry.Lifecycle.RunTransitions[left].From == registry.Lifecycle.RunTransitions[right].From {
-			return registry.Lifecycle.RunTransitions[left].To < registry.Lifecycle.RunTransitions[right].To
-		}
-		return registry.Lifecycle.RunTransitions[left].From < registry.Lifecycle.RunTransitions[right].From
-	})
+	registry.Lifecycle.RunTransitions = normalizedTransitions(registry.Lifecycle.RunTransitions)
+	registry.Lifecycle.GateEvidenceTransitions = normalizedTransitions(registry.Lifecycle.GateEvidenceTransitions)
+	registry.Lifecycle.BackupJobTransitions = normalizedTransitions(registry.Lifecycle.BackupJobTransitions)
+	registry.Lifecycle.RestoreTransitions = normalizedTransitions(registry.Lifecycle.RestoreTransitions)
+	registry.Lifecycle.ScheduledJobTransitions = normalizedTransitions(registry.Lifecycle.ScheduledJobTransitions)
 	sort.Slice(registry.Schemas, func(left, right int) bool { return registry.Schemas[left].ID < registry.Schemas[right].ID })
 	return registry
+}
+
+func normalizedTransitions(values []metadata.TransitionDefinition) []metadata.TransitionDefinition {
+	values = append([]metadata.TransitionDefinition(nil), values...)
+	sort.Slice(values, func(left, right int) bool {
+		if values[left].From == values[right].From {
+			return values[left].To < values[right].To
+		}
+		return values[left].From < values[right].From
+	})
+	return values
 }
 
 func renderEndpointRegistryJSON(registry metadata.Registry) ([]byte, error) {
@@ -193,16 +215,19 @@ func renderEndpointRegistryJSON(registry metadata.Registry) ([]byte, error) {
 
 func renderEndpointRegistrySchema() ([]byte, error) {
 	endpoint := strictObject([]string{"id", "method", "path", "availability", "ownerPhase", "dataSchema", "stream", "audiences"}, map[string]any{
-		"id":            map[string]any{"type": "string", "pattern": "^api\\.v1\\.[a-z0-9.-]+$"},
-		"method":        map[string]any{"enum": []string{"GET", "POST"}},
-		"path":          map[string]any{"type": "string", "pattern": "^/api/v1/"},
-		"availability":  map[string]any{"enum": []string{"available", "planned"}},
-		"ownerPhase":    map[string]any{"type": "string", "enum": []string{"2", "3", "4"}},
-		"querySchema":   map[string]any{"type": "string"},
-		"requestSchema": map[string]any{"type": "string"},
-		"dataSchema":    map[string]any{"type": "string", "minLength": 1},
-		"stream":        map[string]any{"enum": []string{"finite", "sse"}},
-		"audiences":     map[string]any{"type": "array", "minItems": 1, "uniqueItems": true, "items": map[string]any{"enum": []string{"browser", "executor", "operator", "server-adapter"}}},
+		"id":              map[string]any{"type": "string", "pattern": "^api\\.v1\\.[a-z0-9.-]+$"},
+		"method":          map[string]any{"enum": []string{"GET", "POST"}},
+		"path":            map[string]any{"type": "string", "pattern": "^/api/v1/"},
+		"availability":    map[string]any{"enum": []string{"available", "planned"}},
+		"ownerPhase":      map[string]any{"type": "string", "enum": []string{"2", "3", "4", "5"}},
+		"querySchema":     map[string]any{"type": "string"},
+		"requestSchema":   map[string]any{"type": "string"},
+		"requestEncoding": map[string]any{"enum": []string{"json", "binary"}},
+		"transportScope":  map[string]any{"enum": []string{"any", "local"}},
+		"maxRequestBytes": map[string]any{"type": "integer", "minimum": 0, "maximum": 4096},
+		"dataSchema":      map[string]any{"type": "string", "minLength": 1},
+		"stream":          map[string]any{"enum": []string{"finite", "sse"}},
+		"audiences":       map[string]any{"type": "array", "minItems": 1, "uniqueItems": true, "items": map[string]any{"enum": []string{"browser", "executor", "operator", "server-adapter"}}},
 	})
 	endpoint["allOf"] = []any{
 		map[string]any{"if": map[string]any{"properties": map[string]any{"method": map[string]any{"const": "POST"}}, "required": []string{"method"}}, "then": map[string]any{"required": []string{"requestSchema"}}},
@@ -249,7 +274,7 @@ func renderRegistryJSON(registry metadata.Registry) ([]byte, error) {
 	return encodeJSON(document)
 }
 
-func renderRegistrySchema() ([]byte, error) {
+func renderRegistrySchema(registry metadata.Registry) ([]byte, error) {
 	stringArray := map[string]any{
 		"type": "array", "minItems": 1, "items": map[string]any{"type": "string", "minLength": 1},
 	}
@@ -313,13 +338,21 @@ func renderRegistrySchema() ([]byte, error) {
 					"flags":    map[string]any{"maxItems": 0},
 					"examples": map[string]any{"maxItems": 0},
 				},
-				"not": map[string]any{
-					"anyOf": []any{
-						map[string]any{"required": []string{"requestSchema"}},
-						map[string]any{"required": []string{"resultSchema"}},
-						map[string]any{"required": []string{"dataSchema"}},
+				"not": map[string]any{"required": []string{"resultSchema"}},
+				"allOf": []any{map[string]any{
+					"if": map[string]any{
+						"properties": map[string]any{"ownerPhase": map[string]any{"not": map[string]any{"const": "5"}}},
+						"required":   []string{"ownerPhase"},
 					},
-				},
+					"then": map[string]any{
+						"not": map[string]any{
+							"anyOf": []any{
+								map[string]any{"required": []string{"requestSchema"}},
+								map[string]any{"required": []string{"dataSchema"}},
+							},
+						},
+					},
+				}},
 			},
 		},
 		map[string]any{
@@ -362,11 +395,15 @@ func renderRegistrySchema() ([]byte, error) {
 		"from": map[string]any{"type": "string", "enum": []string{"interrupted", "queued", "running"}},
 		"to":   map[string]any{"type": "string", "enum": []string{"cancelled", "failed", "interrupted", "partial", "queued", "running", "succeeded"}},
 	})
-	lifecycle := strictObject([]string{"planValiditySeconds", "leaseDurationSeconds", "executorCheckInSeconds", "runTransitions"}, map[string]any{
-		"planValiditySeconds":    map[string]any{"const": 1800},
-		"leaseDurationSeconds":   map[string]any{"const": 60},
-		"executorCheckInSeconds": map[string]any{"const": 20},
-		"runTransitions":         map[string]any{"type": "array", "minItems": 1, "uniqueItems": true, "items": transition},
+	lifecycle := strictObject([]string{"planValiditySeconds", "leaseDurationSeconds", "executorCheckInSeconds", "runTransitions", "gateEvidenceTransitions", "backupJobTransitions", "restoreTransitions", "scheduledJobTransitions"}, map[string]any{
+		"planValiditySeconds":     map[string]any{"const": 1800},
+		"leaseDurationSeconds":    map[string]any{"const": 60},
+		"executorCheckInSeconds":  map[string]any{"const": 20},
+		"runTransitions":          map[string]any{"type": "array", "minItems": 1, "uniqueItems": true, "items": transition},
+		"gateEvidenceTransitions": exactTransitionArray(registry.Lifecycle.GateEvidenceTransitions),
+		"backupJobTransitions":    exactTransitionArray(registry.Lifecycle.BackupJobTransitions),
+		"restoreTransitions":      exactTransitionArray(registry.Lifecycle.RestoreTransitions),
+		"scheduledJobTransitions": exactTransitionArray(registry.Lifecycle.ScheduledJobTransitions),
 	})
 	document := map[string]any{
 		"$schema":              jsonSchemaDialect,
@@ -390,6 +427,17 @@ func renderRegistrySchema() ([]byte, error) {
 	return encodeJSON(document)
 }
 
+func exactTransitionArray(transitions []metadata.TransitionDefinition) map[string]any {
+	allowed := make([]any, 0, len(transitions))
+	for _, transition := range transitions {
+		allowed = append(allowed, strictObject([]string{"from", "to"}, map[string]any{
+			"from": map[string]any{"const": transition.From},
+			"to":   map[string]any{"const": transition.To},
+		}))
+	}
+	return map[string]any{"type": "array", "minItems": len(transitions), "maxItems": len(transitions), "uniqueItems": true, "items": map[string]any{"oneOf": allowed}}
+}
+
 func renderSchema(root metadata.SchemaDefinition, registry metadata.Registry) ([]byte, error) {
 	definitions := make(map[string]metadata.SchemaDefinition, len(registry.Schemas))
 	for _, definition := range registry.Schemas {
@@ -411,7 +459,11 @@ func renderSchema(root metadata.SchemaDefinition, registry metadata.Registry) ([
 		if err != nil {
 			return nil, err
 		}
-		defs[schemaShortName(identifier)] = strictObject(definitionRequired, definitionProperties)
+		nested := strictObject(definitionRequired, definitionProperties)
+		if rules := phase5SchemaRelations(definition); len(rules) != 0 {
+			nested["allOf"] = rules
+		}
+		defs[schemaShortName(identifier)] = nested
 	}
 	document := map[string]any{
 		"$schema":              jsonSchemaDialect,
@@ -426,7 +478,58 @@ func renderSchema(root metadata.SchemaDefinition, registry metadata.Registry) ([
 	if len(defs) != 0 {
 		document["$defs"] = defs
 	}
+	if rules := phase5SchemaRelations(root); len(rules) != 0 {
+		document["allOf"] = rules
+	}
 	return encodeJSON(document)
+}
+
+func phase5SchemaRelations(definition metadata.SchemaDefinition) []any {
+	fields := map[string]bool{}
+	for _, field := range definition.Fields {
+		fields[field.JSONName] = true
+	}
+	rules := []any{}
+	if fields["sourceKind"] && fields["proofClass"] {
+		rules = append(rules, map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"sourceKind": map[string]any{"const": "fixture"}}, "required": []string{"sourceKind"}},
+			"then": map[string]any{"properties": map[string]any{"proofClass": map[string]any{"const": "fixture"}}},
+		})
+	}
+	if definition.ID == "vegastack-labs.dev/audit-checkpoint" {
+		rules = append(rules, map[string]any{
+			"if": map[string]any{"properties": map[string]any{
+				"sourceKind": map[string]any{"const": "independent"},
+				"proofClass": map[string]any{"const": "live"},
+			}, "required": []string{"sourceKind", "proofClass"}},
+			"then": map[string]any{"properties": map[string]any{"independentCopyDigest": map[string]any{"type": "string"}}, "required": []string{"independentCopyDigest"}},
+		})
+	}
+	if fields["verificationStatus"] && fields["verifiedAt"] {
+		rules = append(rules, map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"verificationStatus": map[string]any{"const": "verified"}}, "required": []string{"verificationStatus"}},
+			"then": map[string]any{"properties": map[string]any{"verifiedAt": map[string]any{"type": "string"}}},
+		})
+	}
+	if definition.ID == "vegastack-labs.dev/gate-evaluation" {
+		rules = append(rules, map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"outcome": map[string]any{"const": "passed"}}, "required": []string{"outcome"}},
+			"then": map[string]any{"properties": map[string]any{"evidenceIds": map[string]any{"minItems": 1}}},
+		})
+	}
+	if definition.ID == "vegastack-labs.dev/backup-job" {
+		rules = append(rules, map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"status": map[string]any{"const": "verified"}}, "required": []string{"status"}},
+			"then": map[string]any{"properties": map[string]any{"pointId": map[string]any{"type": "string"}, "verificationDigest": map[string]any{"type": "string"}}},
+		})
+	}
+	if definition.ID == "vegastack-labs.dev/restore-verification" {
+		rules = append(rules, map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"status": map[string]any{"const": "verified"}}, "required": []string{"status"}},
+			"then": map[string]any{"properties": map[string]any{"fenceVerified": map[string]any{"const": true}, "databaseVerified": map[string]any{"const": true}, "auditVerified": map[string]any{"const": true}, "verifiedAt": map[string]any{"type": "string"}}},
+		})
+	}
+	return rules
 }
 
 func collectSchemaReferences(definition metadata.SchemaDefinition, definitions map[string]metadata.SchemaDefinition, found map[string]bool) {
@@ -520,6 +623,37 @@ func schemaProperties(definition metadata.SchemaDefinition, errors []metadata.Er
 	return properties, required, nil
 }
 
+func renderGoGateDefinitions(definitions []metadata.GateDefinitionSource) ([]byte, error) {
+	var output bytes.Buffer
+	output.WriteString("// Code generated by go run ./tooling/generate-contracts --write; DO NOT EDIT.\n\npackage generated\n\n")
+	output.WriteString("func gateDefinitionPointer(value string) *string { return &value }\n\n")
+	output.WriteString("var GeneratedGateDefinitions = []GateDefinition{\n")
+	stringSlice := func(values []string) string {
+		parts := make([]string, len(values))
+		for index, value := range values {
+			parts[index] = strconv.Quote(value)
+		}
+		return "[]string{" + strings.Join(parts, ",") + "}"
+	}
+	for _, definition := range definitions {
+		profile, capability := "nil", "nil"
+		if definition.ProfileID != "" {
+			profile = "gateDefinitionPointer(" + strconv.Quote(definition.ProfileID) + ")"
+		}
+		if definition.CapabilityID != "" {
+			capability = "gateDefinitionPointer(" + strconv.Quote(definition.CapabilityID) + ")"
+		}
+		fmt.Fprintf(&output, "{Schema: SchemaIDGateDefinition, SchemaVersion: %q, GateID: %q, DefinitionVersion: %q, Layer: %q, ProfileID: %s, CapabilityID: %s, SubjectKinds: %s, Applicability: %q, PrerequisiteGateIDs: %s, EvidenceSchemaID: %q, EvaluatorVersion: %q, FreshnessSeconds: %d, RecoveryEpochBound: %t},\n",
+			"1.1.0", definition.GateID, definition.DefinitionVersion, definition.Layer, profile, capability, stringSlice(definition.SubjectKinds), definition.Applicability, stringSlice(definition.PrerequisiteGateIDs), definition.EvidenceSchemaID, definition.EvaluatorVersion, definition.FreshnessSeconds, definition.RecoveryEpochBound)
+	}
+	output.WriteString("}\n")
+	formatted, err := format.Source(output.Bytes())
+	if err != nil {
+		return nil, artifactError("GENERATED_GO_INVALID", "internal/generated/gate_definitions_gen.go")
+	}
+	return formatted, nil
+}
+
 func renderGo(registry metadata.Registry) ([]byte, error) {
 	var output bytes.Buffer
 	output.WriteString("// Code generated by go run ./tooling/generate-contracts --write; DO NOT EDIT.\n\n")
@@ -581,13 +715,28 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 	}
 
 	output.WriteString("type Command struct {\n\tPath []string `json:\"path\"`\n\tSummary string `json:\"summary\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tRisk string `json:\"risk\"`\n\tFlags []Flag `json:\"flags,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tResultSchema string `json:\"resultSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema,omitempty\"`\n\tExamples []Example `json:\"examples,omitempty\"`\n}\n\n")
-	output.WriteString("type Endpoint struct {\n\tID string `json:\"id\"`\n\tMethod string `json:\"method\"`\n\tPath string `json:\"path\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tQuerySchema string `json:\"querySchema,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema\"`\n\tStream string `json:\"stream\"`\n\tAudiences []string `json:\"audiences\"`\n}\n\n")
+	output.WriteString("type Endpoint struct {\n\tID string `json:\"id\"`\n\tMethod string `json:\"method\"`\n\tPath string `json:\"path\"`\n\tAvailability string `json:\"availability\"`\n\tOwnerPhase string `json:\"ownerPhase\"`\n\tQuerySchema string `json:\"querySchema,omitempty\"`\n\tRequestSchema string `json:\"requestSchema,omitempty\"`\n\tDataSchema string `json:\"dataSchema\"`\n\tStream string `json:\"stream\"`\n\tAudiences []string `json:\"audiences\"`\n\tRequestEncoding string `json:\"requestEncoding,omitempty\"`\n\tTransportScope string `json:\"transportScope,omitempty\"`\n\tMaxRequestBytes int `json:\"maxRequestBytes,omitempty\"`\n}\n\n")
 	output.WriteString("type RunTransition struct { From string; To string }\n\n")
 	output.WriteString("var RunTransitions = []RunTransition{\n")
 	for _, transition := range registry.Lifecycle.RunTransitions {
 		fmt.Fprintf(&output, "\t{From: %s, To: %s},\n", strconv.Quote(transition.From), strconv.Quote(transition.To))
 	}
 	output.WriteString("}\n\n")
+	for _, group := range []struct {
+		name   string
+		values []metadata.TransitionDefinition
+	}{
+		{"GateEvidenceTransitions", registry.Lifecycle.GateEvidenceTransitions},
+		{"BackupJobTransitions", registry.Lifecycle.BackupJobTransitions},
+		{"RestoreTransitions", registry.Lifecycle.RestoreTransitions},
+		{"ScheduledJobTransitions", registry.Lifecycle.ScheduledJobTransitions},
+	} {
+		fmt.Fprintf(&output, "var %s = []RunTransition{\n", group.name)
+		for _, transition := range group.values {
+			fmt.Fprintf(&output, "\t{From: %s, To: %s},\n", strconv.Quote(transition.From), strconv.Quote(transition.To))
+		}
+		output.WriteString("}\n\n")
+	}
 	output.WriteString("type Flag struct {\n\tName string `json:\"name\"`\n\tKind string `json:\"kind\"`\n\tValueName string `json:\"valueName\"`\n\tRequired bool `json:\"required\"`\n\tRepeatable bool `json:\"repeatable\"`\n\tSummary string `json:\"summary\"`\n\tEnum []string `json:\"enum\"`\n}\n\n")
 	output.WriteString("type Example struct {\n\tSummary string `json:\"summary\"`\n\tArguments []string `json:\"arguments\"`\n}\n\n")
 	output.WriteString("var Commands = []Command{\n")
@@ -625,7 +774,7 @@ func renderGo(registry metadata.Registry) ([]byte, error) {
 		for index, audience := range endpoint.Audiences {
 			audiences[index] = string(audience)
 		}
-		fmt.Fprintf(&output, "\t{ID: %s, Method: %s, Path: %s, Availability: %s, OwnerPhase: %s, QuerySchema: %s, RequestSchema: %s, DataSchema: %s, Stream: %s, Audiences: %#v},\n", strconv.Quote(endpoint.ID), strconv.Quote(endpoint.Method), strconv.Quote(endpoint.Path), strconv.Quote(string(endpoint.Availability)), strconv.Quote(endpoint.OwnerPhase), strconv.Quote(endpoint.QuerySchema), strconv.Quote(endpoint.RequestSchema), strconv.Quote(endpoint.DataSchema), strconv.Quote(string(endpoint.Stream)), audiences)
+		fmt.Fprintf(&output, "\t{ID: %s, Method: %s, Path: %s, Availability: %s, OwnerPhase: %s, QuerySchema: %s, RequestSchema: %s, DataSchema: %s, Stream: %s, Audiences: %#v, RequestEncoding: %s, TransportScope: %s, MaxRequestBytes: %d},\n", strconv.Quote(endpoint.ID), strconv.Quote(endpoint.Method), strconv.Quote(endpoint.Path), strconv.Quote(string(endpoint.Availability)), strconv.Quote(endpoint.OwnerPhase), strconv.Quote(endpoint.QuerySchema), strconv.Quote(endpoint.RequestSchema), strconv.Quote(endpoint.DataSchema), strconv.Quote(string(endpoint.Stream)), audiences, strconv.Quote(endpoint.RequestEncoding), strconv.Quote(endpoint.TransportScope), endpoint.MaxRequestBytes)
 	}
 	output.WriteString("}\n\n")
 	output.WriteString("var ErrorExitCodes = map[string]int{\n")

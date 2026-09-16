@@ -20,6 +20,7 @@
             "MIGRATION_BLOCKED",
             "PLAN_STALE",
             "PREREQUISITE_BLOCKED",
+            "RATE_LIMITED",
             "RECOVERY_EPOCH_MISMATCH",
             "RECOVERY_REQUIRED",
             "RESOURCE_NOT_FOUND",

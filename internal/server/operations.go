@@ -170,7 +170,18 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
 	adapters := productionAdapterRegistry()
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Clock: time.Now, ExecutionContext: ctx})
+	gateRepository := store.NewGateRepository(authority)
+	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	coreGate, err := runengine.NewCoreGateEffect(gateRepository, store.NewAcknowledgementRepository(authority), operations.build.ReleaseBuildID, operations.build.ToolVersion, time.Now)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	credentialStep := &runengine.CredentialStep{Bindings: store.NewCredentialRepository(authority), Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -207,6 +218,9 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 // productionAdapterRegistry is the single composition point for adapters that
 // the shipped server may execute. Keeping the constructor explicit lets the
 // acceptance suite prove that test-only adapters cannot enter the real runtime.
+// It also starts with no credential resolver: the optional 1Password SDK seam
+// requires an applied capability/profile and a native loaded service token,
+// and #104 has no production live-proof verifier to admit secret steps.
 func productionAdapterRegistry() *adapter.Registry {
 	return adapter.NewRegistry()
 }
@@ -301,6 +315,46 @@ func (operations *Operations) DatabaseStatus(ctx context.Context, configPath str
 		return localapi.TypedResponse[generated.DatabaseStatusData]{}, err
 	}
 	return client.DatabaseStatus(ctx, profile)
+}
+
+func (operations *Operations) Gates(ctx context.Context, configPath string) (localapi.TypedResponse[generated.GateListData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.GateListData]{}, err
+	}
+	return client.Gates(ctx, profile)
+}
+
+func (operations *Operations) GetGate(ctx context.Context, configPath, gateID string) (localapi.TypedResponse[generated.GateView], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.GateView]{}, err
+	}
+	return client.GetGate(ctx, profile, gateID)
+}
+
+func (operations *Operations) CheckGate(ctx context.Context, configPath, gateID, subjectID string) (localapi.TypedResponse[generated.GateEvaluation], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.GateEvaluation]{}, err
+	}
+	return client.CheckGate(ctx, profile, gateID, subjectID)
+}
+
+func (operations *Operations) SubmitGateEvidence(ctx context.Context, configPath string, input generated.GateEvidenceRequest) (localapi.TypedResponse[generated.GateEvidenceSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.GateEvidenceSubmission]{}, err
+	}
+	return client.SubmitGateEvidence(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitProfileDraft(ctx context.Context, configPath string, input generated.GateProfileDraftRequest) (localapi.TypedResponse[generated.GateProfileDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.GateProfileDraftSubmission]{}, err
+	}
+	return client.SubmitProfileDraft(ctx, profile, input)
 }
 
 func (operations *Operations) ImportInventory(ctx context.Context, configPath string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {

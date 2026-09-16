@@ -5,6 +5,17 @@ type DomainFixtureState = "healthy" | "stale" | "unknown" | "unavailable" | "fai
 export const fixtureState: { mode: FixtureMode; delay: number; domainState: DomainFixtureState } = { mode: "healthy", delay: 0, domainState: "unavailable" };
 export const fixtureAudit: { requests: string[]; responses: string[]; domainProjections: Array<{ source: string; candidates: number; excluded: number }> } = { requests: [], responses: [], domainProjections: [] };
 const digest = `sha256:${"a".repeat(64)}`;
+const gateFixtures = [
+  { gateId: "G-008", applicability: "profile", outcome: "blocked", reasonCode: "proof-unavailable", applicabilityReasonCode: "applicable" },
+  { gateId: "G-023", applicability: "deferred", outcome: "not-applicable", reasonCode: "deferred", applicabilityReasonCode: "deferred" },
+] as const;
+function gateViewFixture(source: typeof gateFixtures[number]) {
+  return {
+    schema: "vegastack-labs.dev/gate-view", schemaVersion: "1.1.0", applicabilityReasonCode: source.applicabilityReasonCode,
+    definition: { schema: "vegastack-labs.dev/gate-definition", schemaVersion: "1.1.0", gateId: source.gateId, definitionVersion: "1.0.0", layer: "deployment-profile", profileId: "vegastack-labs", capabilityId: null, subjectKinds: ["site"], applicability: source.applicability, prerequisiteGateIds: [], evidenceSchemaId: "vegastack-labs.dev/gate-evidence", evaluatorVersion: "1.0.0", freshnessSeconds: 86400, recoveryEpochBound: true },
+    evaluation: { schema: "vegastack-labs.dev/gate-evaluation", schemaVersion: "1.1.0", evaluationId: `eval-${source.gateId.toLowerCase()}`, gateId: source.gateId, subjectId: "scope", definitionVersion: "1.0.0", evaluatorVersion: "1.0.0", evidenceIds: [], evaluatedAt: "2026-09-15T08:00:00Z", recoveryEpoch: 2, outcome: source.outcome, reasonCode: source.reasonCode, evidenceSource: "none", readyForInput: source.outcome === "blocked" },
+  };
+}
 const nodeBackingRecords = [
   { scope: "draft-one", page: 1, authority: "draft", validationStatus: "valid", id: "node-one", assetId: "asset-one", parentId: "site-one" },
   { scope: "draft-one", page: 2, authority: "draft", validationStatus: "valid", id: "node-two", assetId: "asset-two", parentId: "site-one" },
@@ -71,6 +82,9 @@ async function respond(route: Route) {
       const reason = state === "healthy" ? "source observation is current" : state === "stale" ? "source observation is stale" : state === "unknown" ? "source has no observation timestamp" : state === "failed" ? "source reported a collection failure" : "source capability is unavailable";
       return { id, capability: id === "database" ? "database.status.read" : id === "nodes" ? "inventory.node.read" : id === "gates" ? "gate.read" : id === "people" ? "identity.person.read" : id === "services" ? "service.read" : id === "backups" ? "backup.status.read" : "adapter.status.read", state, collectedAt: state === "healthy" ? "2026-09-11T08:00:00Z" : null, lastSuccessAt: state === "healthy" ? "2026-09-11T08:00:00Z" : "2026-09-10T07:00:00Z", lastErrorAt: state === "failed" || state === "unavailable" ? "2026-09-11T08:00:00Z" : null, reason };
     }).filter(Boolean), nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
+  } else if (path === "/api/v1/gates") {
+    command = "api.v1.gates.list";
+    data = { schema: "vegastack-labs.dev/gate-list-data", schemaVersion: "1.1.0", gates: fixtureState.mode === "empty" || fixtureState.mode === "missing" ? [] : gateFixtures.map(gateViewFixture), recoveryEpoch: 2 };
   } else if (path === "/api/v1/inventory-drafts") {
     command = "api.v1.inventory-drafts.list";
     data = { items: fixtureState.mode === "empty" ? [] : [{ authority: "draft", draftId: "draft-one", revision: 1, validationStatus: "valid", contentDigest: digest, createdAt: "2026-09-11T08:00:00Z", counts: { assets: 1, nodes: 2, aliases: 2, addresses: 0, observations: 2, hardwareFacts: 0, provenance: 1, findings: 0 } }], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };

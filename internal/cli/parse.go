@@ -10,6 +10,7 @@ import (
 )
 
 var phase4IDPattern = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
+var gateIDPattern = regexp.MustCompile(`^(G-[0-9]{3}|[a-z][a-z0-9._:-]{0,127})$`)
 
 type outputMode string
 
@@ -109,10 +110,21 @@ func parseArguments(args []string) (parsedArguments, *argumentFailure) {
 			return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 		}
 	}
-	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) {
+	if invalidInventoryShape(parsed) || invalidPhase4Shape(parsed) || invalidServerShape(parsed) || invalidGateShape(parsed) {
 		return parsed, &argumentFailure{code: generated.ErrorCodeInputInvalid, target: "arguments"}
 	}
 	return parsed, nil
+}
+
+func invalidGateShape(parsed parsedArguments) bool {
+	switch parsed.commandName() {
+	case generated.CommandNameGateInspect:
+		return !gateIDPattern.MatchString(parsed.Value(generated.FlagGateID))
+	case generated.CommandNameGateCheck:
+		return !gateIDPattern.MatchString(parsed.Value(generated.FlagGateID)) || !phase4IDPattern.MatchString(parsed.Value(generated.FlagSubjectID))
+	default:
+		return false
+	}
 }
 
 func invalidServerShape(parsed parsedArguments) bool {

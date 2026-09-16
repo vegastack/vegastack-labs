@@ -48,6 +48,30 @@ test("the server verifier accepts reviewed Linux filesystem access in backup and
   assert.deepEqual(await verifyServer(root), { status: "pass", codes: [] });
 });
 
+test("the server verifier accepts only the reviewed native credential Linux files", async (t) => {
+  const accepted = await fixtureRepo(t, {
+    "internal/adapter/nativecredential/encrypt_linux.go":
+      "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
+    "internal/adapter/nativecredential/resolver_linux.go":
+      "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
+    "internal/server/credential_resolver_linux.go":
+      "package server\nimport _ \"golang.org/x/sys/unix\"\n",
+  });
+  assert.deepEqual(await verifyServer(accepted), { status: "pass", codes: [] });
+
+  const rejected = await fixtureRepo(t, {
+    "internal/adapter/nativecredential/escape_linux.go":
+      "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
+  });
+  assert.deepEqual((await verifyServer(rejected)).codes, ["SERVER_XSYS_SCOPE"]);
+
+  const rejectedServerSibling = await fixtureRepo(t, {
+    "internal/server/credential_escape_linux.go":
+      "package server\nimport _ \"golang.org/x/sys/unix\"\n",
+  });
+  assert.deepEqual((await verifyServer(rejectedServerSibling)).codes, ["SERVER_XSYS_SCOPE"]);
+});
+
 test("the server verifier accepts only the reviewed acknowledgement credential files", async (t) => {
   const root = await fixtureRepo(t, {
     "internal/server/slack_acknowledgement_config_linux.go":

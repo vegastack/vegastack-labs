@@ -125,6 +125,9 @@ func (executor *ExternalExecutor) Claim(ctx context.Context, principal identity.
 			return generated.ExecutorLease{}, getErr
 		}
 		plan := stored.Plan
+		if credentialPlanDigest(plan) != "" {
+			return generated.ExecutorLease{}, runError(generated.ErrorCodePrerequisiteBlocked, "external-credential-handoff")
+		}
 		if err := executor.admission.VerifyRun(ctx, plan, current); err != nil {
 			return generated.ExecutorLease{}, err
 		}
