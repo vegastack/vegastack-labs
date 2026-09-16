@@ -18,6 +18,28 @@ Owner phase: `4` · risk: `mutation` · availability: `available`
 
 - Execute one exact current and authorized immutable plan.: `vsk-labs apply --config fixture/server-profile.json --plan-id plan-1 --output json`
 
+### `vsk-labs credential import`
+
+Import a local encrypted credential as an inert draft.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--consumer-id <id>` — Bind the draft to one consumer.
+- `--expected-state-revision <revision>` — Require one current state revision.
+- `--idempotency-key <id>` — Bind retries to one import intent.
+- `--input-fd <descriptor>` — Read private bytes from an already-open descriptor instead of stdin.
+- `--material-version <id>` — Name the proposed material version.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--purpose-id <id>` — Bind the draft to one purpose.
+- `--recovery-epoch <epoch>` — Require one current recovery epoch.
+- `--reference-id <id>` — Bind the draft to one credential reference.
+- `--resolver-id <id>` — Select the native systemd resolver. Allowed: `native-systemd`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--target-id <id>` — Bind the draft to one public target.
+
+- Import a local encrypted credential as an inert draft.: `vsk-labs credential import --config fixture/server-profile.json --reference-id reference-a --consumer-id consumer-a --purpose-id purpose-a --target-id target-a --resolver-id native-systemd --material-version version-a --idempotency-key import-a --expected-state-revision 7 --recovery-epoch 2 --output json`
+
 ### `vsk-labs database status`
 
 Inspect control-database status.

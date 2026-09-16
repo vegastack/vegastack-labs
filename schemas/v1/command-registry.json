@@ -158,6 +158,176 @@
     },
     {
       "path": [
+        "credential",
+        "import"
+      ],
+      "summary": "Import a local encrypted credential as an inert draft.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--consumer-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Bind the draft to one consumer.",
+          "enum": null
+        },
+        {
+          "name": "--expected-state-revision",
+          "kind": "value",
+          "valueName": "revision",
+          "required": true,
+          "repeatable": false,
+          "summary": "Require one current state revision.",
+          "enum": null
+        },
+        {
+          "name": "--idempotency-key",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Bind retries to one import intent.",
+          "enum": null
+        },
+        {
+          "name": "--input-fd",
+          "kind": "value",
+          "valueName": "descriptor",
+          "required": false,
+          "repeatable": false,
+          "summary": "Read private bytes from an already-open descriptor instead of stdin.",
+          "enum": null
+        },
+        {
+          "name": "--material-version",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Name the proposed material version.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--purpose-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Bind the draft to one purpose.",
+          "enum": null
+        },
+        {
+          "name": "--recovery-epoch",
+          "kind": "value",
+          "valueName": "epoch",
+          "required": true,
+          "repeatable": false,
+          "summary": "Require one current recovery epoch.",
+          "enum": null
+        },
+        {
+          "name": "--reference-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Bind the draft to one credential reference.",
+          "enum": null
+        },
+        {
+          "name": "--resolver-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select the native systemd resolver.",
+          "enum": [
+            "native-systemd"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--target-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Bind the draft to one public target.",
+          "enum": null
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/credential-import-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/credential-import-submission",
+      "examples": [
+        {
+          "summary": "Import a local encrypted credential as an inert draft.",
+          "arguments": [
+            "credential",
+            "import",
+            "--config",
+            "fixture/server-profile.json",
+            "--reference-id",
+            "reference-a",
+            "--consumer-id",
+            "consumer-a",
+            "--purpose-id",
+            "purpose-a",
+            "--target-id",
+            "target-a",
+            "--resolver-id",
+            "native-systemd",
+            "--material-version",
+            "version-a",
+            "--idempotency-key",
+            "import-a",
+            "--expected-state-revision",
+            "7",
+            "--recovery-epoch",
+            "2",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "database",
         "backup"
       ],
@@ -2299,6 +2469,16 @@
     {
       "id": "vegastack-labs.dev/contract-extension",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-import-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/credential-import-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-import-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/credential-import-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-reference",

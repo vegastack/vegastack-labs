@@ -84,10 +84,10 @@
       "id": "api.v1.credential-references.import-stream",
       "method": "POST",
       "path": "/api/v1/credential-references/{referenceId}/import-stream",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
-      "requestSchema": "vegastack-labs.dev/credential-reference-request",
-      "dataSchema": "vegastack-labs.dev/credential-reference",
+      "requestSchema": "vegastack-labs.dev/credential-import-request",
+      "dataSchema": "vegastack-labs.dev/credential-import-submission",
       "stream": "finite",
       "audiences": [
         "operator"

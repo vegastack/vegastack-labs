@@ -39,6 +39,7 @@ var allowedCredentialAPI = []string{
 	`field StepBinding.StateRevision int64`,
 	`field StepBinding.TargetID string`,
 	`func ManifestDigest func([]StepBinding) (string)`,
+	`func ImportTargetDigest func(generated.CredentialImportRequest) (string)`,
 	`func NewValue func([]byte) (*Value, error)`,
 	`func OperationManifestDigest func([]StepBinding, string) (string)`,
 	`func ParseID func(string) (Identifier, error)`,
