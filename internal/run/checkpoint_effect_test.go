@@ -89,8 +89,14 @@ func (store *uncertainCheckpointStore) PutIfAbsent(_ context.Context, path strin
 	}
 	return audit.ExportReceipt{CheckpointID: store.repo.checkpoint.CheckpointID, ExactPath: path, PayloadDigest: digest, ReceiptDigest: store.receipt}, nil
 }
-func (store *uncertainCheckpointStore) ReadLast(context.Context, string) (audit.IndependentCheckpoint, error) {
-	return audit.IndependentCheckpoint{CheckpointID: store.repo.checkpoint.CheckpointID, InstanceID: store.repo.checkpoint.InstanceID, RecoveryEpoch: store.repo.checkpoint.RecoveryEpoch, LastEventID: audit.EventID(store.repo.checkpoint.LastEventID), LastSequence: store.repo.checkpoint.LastSegmentSequence, ChainDigest: audit.Fingerprint(store.repo.checkpoint.ChainDigest), Signature: store.signer.last, ExportReceipt: store.receipt, IndependentRead: checkpointDigest([]byte("independent"))}, nil
+func (store *uncertainCheckpointStore) ReadLast(_ context.Context, namespace string) (audit.IndependentCheckpoint, error) {
+	cp := store.repo.checkpoint
+	reference := credentialref.Reference{ID: cp.SignerReferenceID, Consumer: "core.audit.signer"}
+	signed, err := audit.CheckpointBindingDigest(audit.EventID(cp.FirstEventID), audit.EventID(cp.LastEventID), cp.FirstSegmentSequence, cp.LastSegmentSequence, audit.Fingerprint(cp.ChainDigest), cp.InstanceID, cp.RecoveryEpoch, reference, cp.SignerMaterialVersion, namespace)
+	if err != nil {
+		return audit.IndependentCheckpoint{}, err
+	}
+	return audit.IndependentCheckpoint{CheckpointID: cp.CheckpointID, InstanceID: cp.InstanceID, RecoveryEpoch: cp.RecoveryEpoch, LastEventID: audit.EventID(cp.LastEventID), LastSequence: cp.LastSegmentSequence, ChainDigest: audit.Fingerprint(cp.ChainDigest), SignerReference: reference, MaterialVersion: cp.SignerMaterialVersion, Namespace: namespace, SignedDigest: signed, Signature: store.signer.last, ExportReceipt: store.receipt, IndependentRead: checkpointDigest([]byte("independent"))}, nil
 }
 
 func TestExportTimeoutNeverMarksCheckpointAnchored(t *testing.T) {

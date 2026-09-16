@@ -109,6 +109,41 @@ func TestAuditIntentRollbackCannotLeaveOrphanLink(t *testing.T) {
 	}
 }
 
+func TestRecoveryEpochMustBindPriorCheckpointAndDecisionBeforeAppend(t *testing.T) {
+	t.Run("missing binding fails closed", func(t *testing.T) {
+		authority := openAuditTestStore(t)
+		if _, err := authority.conn.ExecContext(context.Background(), `UPDATE system_meta SET recovery_epoch=1 WHERE id=1`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.writeIntent(context.Background(), chainTestIntent(t, 0), insertSyntheticBusiness); err == nil {
+			t.Fatal("unbound recovery epoch accepted an audit event")
+		}
+		if authority.health.Mode != DatabaseSafeMode || authority.health.MutationEnabled {
+			t.Fatalf("unbound recovery epoch did not fail closed: %#v", authority.health)
+		}
+	})
+	t.Run("bound epoch continues from explicit recovery inputs", func(t *testing.T) {
+		authority := openAuditTestStore(t)
+		prior, decision := fingerprint("a"), fingerprint("b")
+		if err := authority.PrepareRecoveryAuditEpoch(context.Background(), 1, prior, decision); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.conn.ExecContext(context.Background(), `UPDATE system_meta SET recovery_epoch=1 WHERE id=1`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.writeIntent(context.Background(), chainTestIntent(t, 1), insertSyntheticBusiness); err != nil {
+			t.Fatal(err)
+		}
+		var gotPrior, gotDecision audit.Fingerprint
+		if err := authority.conn.QueryRowContext(context.Background(), `SELECT prior_checkpoint_digest,recovery_decision_digest FROM audit_epoch_genesis WHERE recovery_epoch=1`).Scan(&gotPrior, &gotDecision); err != nil {
+			t.Fatal(err)
+		}
+		if gotPrior != prior || gotDecision != decision {
+			t.Fatalf("genesis inputs = %q / %q", gotPrior, gotDecision)
+		}
+	})
+}
+
 func TestAuditChainStoresReconstructableContext(t *testing.T) {
 	authority := openAuditTestStore(t)
 	_, err := authority.writeIntent(context.Background(), chainTestIntent(t, 0), func(ctx context.Context, tx *sql.Tx) error {

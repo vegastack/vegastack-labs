@@ -77,6 +77,7 @@ func (effect *CheckpointEffect) Execute(ctx context.Context, binding ExactStepBi
 			return adapter.Effect{}, runError(generated.ErrorCodeIntegrityFailure, "audit-checkpoint-signature")
 		}
 		signed := audit.IndependentCheckpoint{CheckpointID: cp.CheckpointID, InstanceID: cp.InstanceID, RecoveryEpoch: cp.RecoveryEpoch, LastEventID: audit.EventID(cp.LastEventID), LastSequence: cp.LastSegmentSequence, ChainDigest: chain.RangeDigest, Signature: signature}
+		signed.SignerReference, signed.MaterialVersion, signed.Namespace, signed.SignedDigest = effect.reference, cp.SignerMaterialVersion, effect.namespace, digest
 		plaintext, err := audit.EncodeSignedCheckpoint(signed)
 		if err != nil {
 			return adapter.Effect{}, err
@@ -113,7 +114,7 @@ func (effect *CheckpointEffect) Execute(ctx context.Context, binding ExactStepBi
 		if err != nil {
 			return adapter.Effect{Status: "partial", ResultDigest: cp.ChainDigest, Changed: true, EffectObserved: true}, err
 		}
-		if remote.CheckpointID != cp.CheckpointID || remote.InstanceID != cp.InstanceID || remote.RecoveryEpoch != cp.RecoveryEpoch || int64(remote.LastEventID) != cp.LastEventID || remote.LastSequence != cp.LastSegmentSequence || string(remote.ChainDigest) != cp.ChainDigest || cp.ExportReceiptDigest == nil || remote.ExportReceipt != audit.Fingerprint(*cp.ExportReceiptDigest) || effect.signer.Verify(digest, remote.Signature, effect.publicKey) != nil || !audit.ValidFingerprint(remote.IndependentRead) {
+		if remote.CheckpointID != cp.CheckpointID || remote.InstanceID != cp.InstanceID || remote.RecoveryEpoch != cp.RecoveryEpoch || int64(remote.LastEventID) != cp.LastEventID || remote.LastSequence != cp.LastSegmentSequence || string(remote.ChainDigest) != cp.ChainDigest || remote.SignerReference != effect.reference || remote.MaterialVersion != cp.SignerMaterialVersion || remote.Namespace != effect.namespace || remote.SignedDigest != digest || cp.ExportReceiptDigest == nil || remote.ExportReceipt != audit.Fingerprint(*cp.ExportReceiptDigest) || effect.signer.Verify(digest, remote.Signature, effect.publicKey) != nil || !audit.ValidFingerprint(remote.IndependentRead) {
 			return adapter.Effect{}, runError(generated.ErrorCodeIntegrityFailure, "audit-checkpoint-independent")
 		}
 		cp, err = effect.repository.SettleCheckpoint(ctx, store.CheckpointSettleRequest{CheckpointID: cp.CheckpointID, IndependentDigest: remote.IndependentRead, At: effect.clock().UTC(), KeyDigest: checkpointDigest([]byte(binding.Run.RunID + ":anchored")), RequestDigest: checkpointDigest([]byte(string(remote.IndependentRead))), Attribution: binding.Attribution})
