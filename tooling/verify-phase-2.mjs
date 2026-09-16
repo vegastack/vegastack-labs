@@ -61,7 +61,7 @@ const REVIEWED_CREDENTIAL_WAVE = Object.freeze({
     `${MODULE_PREFIX}internal/adapter/nativecredential`,
     `${MODULE_PREFIX}internal/adapter/onepassword`,
   ]),
-  mutationBoundaryDigest: "sha256:c8be80769982d0fc828895d4c9151b7361f2a5fd26be945592d40ee2cf03d8b2",
+  mutationBoundaryDigest: "sha256:1a0880f9d4590f1adee2a24117f855787c73e06193e2e4973506e3e20d237ef2",
 });
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
