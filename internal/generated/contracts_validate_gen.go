@@ -170,6 +170,10 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 	if !ok {
 		return fmt.Errorf("expected object at %s", path)
 	}
+	credentialV10 := root && mode == ContractCompatibleRead && schemaID == SchemaIDCredentialReference && object["schemaVersion"] == "1.0.0"
+	if credentialV10 && object["status"] == "staged" {
+		return fmt.Errorf("unknown state or value at %s.status", path)
+	}
 	fields := make(map[string]contractFieldRule, len(rule.Fields))
 	for _, field := range rule.Fields {
 		fields[field.Name] = field
@@ -185,7 +189,7 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 	for _, field := range rule.Fields {
 		fieldValue, present := object[field.Name]
 		if !present {
-			if field.Required {
+			if field.Required && !(credentialV10 && credentialReferenceV10OmittedField(field.Name)) {
 				return fmt.Errorf("required property at %s.%s", path, field.Name)
 			}
 			continue
@@ -201,6 +205,15 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 		}
 	}
 	return validatePhase5Relations(schemaID, object)
+}
+
+func credentialReferenceV10OmittedField(name string) bool {
+	switch name {
+	case "targetId", "resolverId", "stateRevision", "activatedAt", "verifiedConsumerIds":
+		return true
+	default:
+		return false
+	}
 }
 
 func validateContractField(rule contractFieldRule, value any, path string, mode ContractValidationMode) error {

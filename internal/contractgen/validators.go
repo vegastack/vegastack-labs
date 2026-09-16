@@ -105,6 +105,8 @@ func validatePhase5Relations(schemaID string, value any) error {
 func validateContractValue(schemaID string, value any, path string, mode ContractValidationMode, root bool) error {
 	rule, ok := contractRules[schemaID]; if !ok { return fmt.Errorf("unknown schema at %s", path) }
 	object, ok := value.(map[string]any); if !ok { return fmt.Errorf("expected object at %s", path) }
+	credentialV10 := root && mode == ContractCompatibleRead && schemaID == SchemaIDCredentialReference && object["schemaVersion"] == "1.0.0"
+	if credentialV10 && object["status"] == "staged" { return fmt.Errorf("unknown state or value at %s.status", path) }
 	fields := make(map[string]contractFieldRule, len(rule.Fields)); for _, field := range rule.Fields { fields[field.Name] = field }
 	for name := range object {
 		if _, known := fields[name]; known { continue }
@@ -112,11 +114,15 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 	}
 	for _, field := range rule.Fields {
 		fieldValue, present := object[field.Name]
-		if !present { if field.Required { return fmt.Errorf("required property at %s.%s", path, field.Name) }; continue }
+		if !present { if field.Required && !(credentialV10 && credentialReferenceV10OmittedField(field.Name)) { return fmt.Errorf("required property at %s.%s", path, field.Name) }; continue }
 		if fieldValue == nil { if field.Nullable { continue }; return fmt.Errorf("null at %s.%s", path, field.Name) }
 		if err := validateContractField(field, fieldValue, path+"."+field.Name, mode); err != nil { return err }
 	}
 	return validatePhase5Relations(schemaID, object)
+}
+
+func credentialReferenceV10OmittedField(name string) bool {
+	switch name { case "targetId", "resolverId", "stateRevision", "activatedAt", "verifiedConsumerIds": return true; default: return false }
 }
 
 func validateContractField(rule contractFieldRule, value any, path string, mode ContractValidationMode) error {
