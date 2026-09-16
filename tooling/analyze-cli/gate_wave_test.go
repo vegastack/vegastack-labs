@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-func TestReviewedGateLocalClientWaveRejectsChangedAndAddedSource(t *testing.T) {
+func TestReviewedGateAndAuditLocalClientWavesRejectChangedAndAddedSource(t *testing.T) {
 	for _, testCase := range []struct {
 		name  string
 		files []string
 	}{
-		{"linux", []string{"client.go", "gates_client.go", "listener.go", "listener_linux.go"}},
-		{"unsupported", []string{"client.go", "gates_client.go", "listener.go", "listener_unsupported.go"}},
+		{"linux", []string{"audit_client.go", "client.go", "gates_client.go", "listener.go", "listener_linux.go"}},
+		{"unsupported", []string{"audit_client.go", "client.go", "gates_client.go", "listener.go", "listener_unsupported.go"}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			temporary := t.TempDir()
@@ -27,25 +27,25 @@ func TestReviewedGateLocalClientWaveRejectsChangedAndAddedSource(t *testing.T) {
 			}
 			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{Dir: temporary, GoFiles: testCase.files}}}
 			if !reviewedLocalAPISource(candidate) {
-				t.Fatal("the exact reviewed local gate client source was not accepted")
+				t.Fatal("the exact reviewed local gate and audit client source was not accepted")
 			}
-			gateFile := filepath.Join(temporary, "gates_client.go")
-			original, err := os.ReadFile(gateFile)
+			auditFile := filepath.Join(temporary, "audit_client.go")
+			original, err := os.ReadFile(auditFile)
 			if err != nil {
 				t.Fatal(err)
 			}
-			if err := os.WriteFile(gateFile, append(original, []byte("\n// unreviewed forwarding seam\n")...), 0o600); err != nil {
+			if err := os.WriteFile(auditFile, append(original, []byte("\n// unreviewed forwarding seam\n")...), 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if reviewedLocalAPISource(candidate) {
-				t.Fatal("changed gate client source inherited the reviewed wave")
+				t.Fatal("changed audit client source inherited the reviewed wave")
 			}
-			if err := os.WriteFile(gateFile, original, 0o600); err != nil {
+			if err := os.WriteFile(auditFile, original, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			candidate.listed.GoFiles = append(candidate.listed.GoFiles, "bypass.go")
 			if reviewedLocalAPISource(candidate) {
-				t.Fatal("added gate client source inherited the reviewed wave")
+				t.Fatal("added local client source inherited the reviewed wave")
 			}
 		})
 	}
