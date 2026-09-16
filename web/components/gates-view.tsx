@@ -1,11 +1,9 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { RefreshCw } from "lucide-react";
 import type { GateView } from "@/generated/read-api";
 import { ReadViewState } from "@/components/read-view-state";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { classifyReadFailure, readQueries } from "@/lib/read-queries";
@@ -66,12 +64,6 @@ export function GatesView() {
       <PageHeader
         title="Gates"
         description="Read-only gate readiness derived from applied evidence. Inspect an exact subject with the local CLI."
-        actions={
-          <Button variant="outline" loading={query.isFetching} onClick={() => void query.refetch()}>
-            <RefreshCw aria-hidden />
-            Refresh Gates
-          </Button>
-        }
       />
       {body}
     </>
