@@ -6,6 +6,14 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --plan-id <id>         Select the exact immutable plan; this does not acknowledge it.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  audit checkpoints        List sanitized audit checkpoints.
+    --config <path>        Read one protected server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  audit verify             Verify local audit history against independent checkpoint state.
+    --config <path>        Read one protected server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   database status          Inspect control-database status.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

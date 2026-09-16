@@ -266,6 +266,9 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if candidate.id == "api.v1.inventory-drafts.import" {
 			resourceID = "inventory-drafts"
 		}
+		if candidate.id == "api.v1.audit-checkpoints.create" {
+			resourceID = "audit-checkpoints"
+		}
 		var scope authorization.ReadScope
 		if candidate.action != "" {
 			if !pathToken.MatchString(resourceID) {

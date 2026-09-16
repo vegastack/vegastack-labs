@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 16-09-2026 — Audit history can expose a fork without choosing one ([#107](https://github.com/vegastack/vegastack-labs/issues/107))
+
+- **What:** Every new canonical audit event now receives a serialized instance/epoch-bound hash-chain link in the same SQLite transaction. Operators can inspect sanitized checkpoints and verify local history against a separately read signed checkpoint; proven disagreement leaves reads available but blocks mutation in audit-incident mode.
+- **Why:** Append-only rows alone cannot reveal privileged edits, restored lost suffixes or a returning old controller, and recovery must not silently bless whichever history is local.
+- **How it went:** The preserved red-first branch rebased cleanly after its credential dependency landed. Linux ext4 checks caught one verification query typo and contract tests caught a v1.1 response-version mismatch; both were corrected without using a live signer, store, credential or host.
+- **Changed:** Same-transaction audit chain and pre-anchor backfill · signed checkpoint lifecycle and separate writer/reader authority · local/independent verification and recovery-epoch genesis binding · sanitized API and CLI inspection · human recovery guidance.
+- **Decisions:** none; production signer/export composition, retention proof and live independent-anchor evidence remain separately gated.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/5.6-audit-history
+
 ## 16-09-2026 — Credential handling has a fail-closed foundation without a live secret path ([#123](https://github.com/vegastack/vegastack-labs/issues/123))
 
 - **What:** The server now has provider-neutral credential metadata, append-only exact-plan bindings, a Debian host-key encrypted primitive, an optional exact-ID 1Password resolver seam, and just-in-time run checks. Production still cannot import, activate, resolve, or execute a live secret-bearing step because no resolver or live proof verifier is registered.

@@ -117,6 +117,10 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	planRepository := store.NewPlanRepository(authority)
+	if err := api.RegisterAuditOperations(application, api.AuditOperations{Audit: authority, Revisions: planRepository, Declarations: declarations, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	effectiveAuthorization := store.NewEffectiveAuthorizationRepository(authority)
 	observations, err := planengine.NewStateObservationReader(planRepository)
 	if err != nil {
@@ -315,6 +319,22 @@ func (operations *Operations) DatabaseStatus(ctx context.Context, configPath str
 		return localapi.TypedResponse[generated.DatabaseStatusData]{}, err
 	}
 	return client.DatabaseStatus(ctx, profile)
+}
+
+func (operations *Operations) AuditCheckpoints(ctx context.Context, configPath string) (localapi.TypedResponse[generated.AuditCheckpointListData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.AuditCheckpointListData]{}, err
+	}
+	return client.AuditCheckpoints(ctx, profile)
+}
+
+func (operations *Operations) VerifyAudit(ctx context.Context, configPath string) (localapi.TypedResponse[generated.AuditVerificationData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.AuditVerificationData]{}, err
+	}
+	return client.VerifyAudit(ctx, profile)
 }
 
 func (operations *Operations) Gates(ctx context.Context, configPath string) (localapi.TypedResponse[generated.GateListData], error) {

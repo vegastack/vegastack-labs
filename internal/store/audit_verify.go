@@ -112,7 +112,7 @@ func (store *Store) recordAuditIncident(reason string) {
 func auditVerificationData(local audit.LocalResult, result audit.VerificationResult) generated.AuditVerificationData {
 	data := generated.AuditVerificationData{
 		Schema:               generated.SchemaIDAuditVerificationData,
-		SchemaVersion:        "1.0.0",
+		SchemaVersion:        "1.1.0",
 		Status:               result.Status,
 		InstanceID:           local.InstanceID,
 		RecoveryEpoch:        local.RecoveryEpoch,

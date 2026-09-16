@@ -88,10 +88,58 @@
         "checkpoints"
       ],
       "summary": "List sanitized audit checkpoints.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
-      "dataSchema": "vegastack-labs.dev/audit-checkpoint-list-data"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/audit-checkpoint-list-data",
+      "examples": [
+        {
+          "summary": "List sanitized audit checkpoints.",
+          "arguments": [
+            "audit",
+            "checkpoints",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -99,10 +147,58 @@
         "verify"
       ],
       "summary": "Verify local audit history against independent checkpoint state.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
-      "dataSchema": "vegastack-labs.dev/audit-verification-data"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/audit-verification-data",
+      "examples": [
+        {
+          "summary": "Verify local audit history against independent checkpoint state.",
+          "arguments": [
+            "audit",
+            "verify",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [

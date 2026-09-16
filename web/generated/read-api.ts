@@ -4882,6 +4882,8 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 }
 
 export type ReadClient = {
+  readonly listAuditCheckpoints: (options?: RequestOptions) => Promise<ReadResult<AuditCheckpointListData>>;
+  readonly getAuditHistory: (options?: RequestOptions) => Promise<ReadResult<AuditVerificationData>>;
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
@@ -4909,6 +4911,14 @@ export type ReadClient = {
 
 export function createReadClient(fetchTransport: FetchTransport): ReadClient {
   return {
+    async listAuditCheckpoints(options = {}) {
+      const operation = "api.v1.audit-checkpoints.list";
+      return performRead(fetchTransport, "/api/v1/audit-checkpoints", options, operation, decodeAuditCheckpointListData);
+    },
+    async getAuditHistory(options = {}) {
+      const operation = "api.v1.audit-history.verification";
+      return performRead(fetchTransport, "/api/v1/audit-history/verification", options, operation, decodeAuditVerificationData);
+    },
     async getDatabaseStatus(options = {}) {
       const operation = "api.v1.database-status.get";
       return performRead(fetchTransport, "/api/v1/database/status", options, operation, decodeDatabaseStatusData);

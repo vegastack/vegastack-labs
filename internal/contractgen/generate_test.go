@@ -112,7 +112,7 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 	}) {
 		t.Errorf("#102 Phase 5 endpoint baseline or #104/#105 scoped additions changed: %v", phase5EndpointIDs)
 	}
-	if !reflect.DeepEqual(availableGateEndpoints, []string{"api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
+	if !reflect.DeepEqual(availableGateEndpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
 		t.Errorf("unexpected available Phase 5 endpoints: %v", availableGateEndpoints)
 	}
 	var gateSchema map[string]any
@@ -681,12 +681,12 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 22 || planned != 36 {
-		t.Fatalf("command availability = (%d available, %d planned), want (22, 36)", available, planned)
+	if available != 24 || planned != 34 {
+		t.Fatalf("command availability = (%d available, %d planned), want (24, 34)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft.
-	if !reflect.DeepEqual(availablePhase5, []string{"gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
+	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 

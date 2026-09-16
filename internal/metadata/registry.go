@@ -204,9 +204,10 @@ func Current() Registry {
 		runCancelCommand(),
 		runResumeCommand(),
 		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
+		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || isAvailablePhase4Command(command.path) {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -308,6 +309,18 @@ func phase5GateCommand(path []string, summary, requestSchema, dataSchema string,
 	return CommandDefinition{Path: path, Summary: summary, Availability: AvailabilityAvailable, OwnerPhase: "5", Risk: risk,
 		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
 		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}}}
+}
+
+func auditCheckpointsCommand() CommandDefinition {
+	return phase5GateCommand([]string{"audit", "checkpoints"}, "List sanitized audit checkpoints.", "", auditCheckpointListDataSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
+		[]string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func auditVerifyCommand() CommandDefinition {
+	return phase5GateCommand([]string{"audit", "verify"}, "Verify local audit history against independent checkpoint state.", "", auditVerificationDataSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
+		[]string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"})
 }
 
 func gateListCommand() CommandDefinition {

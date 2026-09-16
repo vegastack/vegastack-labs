@@ -18,6 +18,30 @@ Owner phase: `4` · risk: `mutation` · availability: `available`
 
 - Execute one exact current and authorized immutable plan.: `vsk-labs apply --config fixture/server-profile.json --plan-id plan-1 --output json`
 
+### `vsk-labs audit checkpoints`
+
+List sanitized audit checkpoints.
+
+Owner phase: `5` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- List sanitized audit checkpoints.: `vsk-labs audit checkpoints --config fixture/server-profile.json --output json`
+
+### `vsk-labs audit verify`
+
+Verify local audit history against independent checkpoint state.
+
+Owner phase: `5` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Verify local audit history against independent checkpoint state.: `vsk-labs audit verify --config fixture/server-profile.json --output json`
+
 ### `vsk-labs database status`
 
 Inspect control-database status.
@@ -301,18 +325,6 @@ Owner phase: `1` · risk: `read-only` · availability: `available`
 ### `vsk-labs audit`
 
 Inspect sanitized audit history.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs audit checkpoints`
-
-List sanitized audit checkpoints.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs audit verify`
-
-Verify local audit history against independent checkpoint state.
 
 Owner phase: `5` · risk: `unassigned` · availability: `planned`
 
