@@ -42,7 +42,18 @@ func LoadedName(binding credentialref.StepBinding) string {
 	if !credentialref.ValidBinding(binding) {
 		return ""
 	}
-	sum := sha256.Sum256([]byte("native-loaded-credential-v1\x00" + binding.ConsumerID + "\x00" + binding.ReferenceID + "\x00" + binding.MaterialVersion))
+	return LoadedNameForVersion(binding.ConsumerID, binding.ReferenceID, binding.MaterialVersion)
+}
+
+// LoadedNameForVersion is stable across inert import and later exact-plan
+// staging; it carries no plaintext, profile or controller-host identity.
+func LoadedNameForVersion(consumerID, referenceID, materialVersion string) string {
+	for _, id := range []string{consumerID, referenceID, materialVersion} {
+		if _, err := credentialref.ParseID(id); err != nil {
+			return ""
+		}
+	}
+	sum := sha256.Sum256([]byte("native-loaded-credential-v1\x00" + consumerID + "\x00" + referenceID + "\x00" + materialVersion))
 	return "credential-" + hex.EncodeToString(sum[:16])
 }
 
