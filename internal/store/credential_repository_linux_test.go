@@ -53,7 +53,7 @@ func TestCredentialMigrationAppliesAfterRestorablePreMigrationSnapshot(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) != 13 || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" {
+	if len(catalog) != 14 || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" {
 		t.Fatalf("fresh migration catalog: %#v", catalog)
 	}
 	file, err := os.OpenFile(config.DatabasePath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)

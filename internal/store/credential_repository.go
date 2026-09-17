@@ -264,7 +264,7 @@ func (repository *CredentialRepository) StageCredentialVersion(ctx context.Conte
 	} else if Code(err) != generated.ErrorCodeResourceNotFound {
 		return generated.CredentialReference{}, err
 	}
-	return repository.applyCredentialVersion(ctx, request, "credential.stage")
+	return repository.applyCredentialVersion(ctx, request, "credential.stage", nil)
 }
 
 func (repository *CredentialRepository) AppendCredentialStatus(ctx context.Context, request CredentialStatusRequest) (generated.CredentialReference, error) {
@@ -297,10 +297,15 @@ func (repository *CredentialRepository) AppendCredentialStatus(ctx context.Conte
 		value.VerifiedConsumerIDs = current.VerifiedConsumerIDs
 	}
 	request.Stage.Reference = value
-	return repository.applyCredentialVersion(ctx, request.Stage, "credential."+request.Status)
+	return repository.applyCredentialVersion(ctx, request.Stage, "credential."+request.Status, nil)
 }
 
-func (repository *CredentialRepository) applyCredentialVersion(ctx context.Context, request CredentialStageRequest, operationType string) (generated.CredentialReference, error) {
+// applyCredentialVersion appends exactly one credential reference version inside
+// one intent transaction, only after the exact human central plan, running step
+// and active lease are proven. The optional extra hook appends additional
+// lifecycle evidence (consumer verifications, recovery records) in the same
+// transaction; it must never read or persist credential material.
+func (repository *CredentialRepository) applyCredentialVersion(ctx context.Context, request CredentialStageRequest, operationType string, extra func(ctx context.Context, tx *sql.Tx, versionID, created string) error) (generated.CredentialReference, error) {
 	if repository == nil || repository.store == nil {
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-repository")
 	}
@@ -341,8 +346,13 @@ func (repository *CredentialRepository) applyCredentialVersion(ctx context.Conte
 		if err := credentialExactStep(ctx, tx, request, operationType, created); err != nil {
 			return err
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, versionID, value.ReferenceID, value.ConsumerID, value.PurposeID, value.TargetID, value.ResolverID, value.MaterialVersion, value.Fingerprint, value.Status, value.StateRevision, value.RecoveryEpoch, value.ActivatedAt, verified, request.DeclarationID, request.DeclarationRevision, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.LeaseID, request.HumanID, created)
-		return err
+		if _, err := tx.ExecContext(ctx, `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, versionID, value.ReferenceID, value.ConsumerID, value.PurposeID, value.TargetID, value.ResolverID, value.MaterialVersion, value.Fingerprint, value.Status, value.StateRevision, value.RecoveryEpoch, value.ActivatedAt, verified, request.DeclarationID, request.DeclarationRevision, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.LeaseID, request.HumanID, created); err != nil {
+			return err
+		}
+		if extra != nil {
+			return extra(ctx, tx, versionID, created)
+		}
+		return nil
 	})
 	if Code(err) == generated.ErrorCodeStateConflict {
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePlanStale, "credential-plan")

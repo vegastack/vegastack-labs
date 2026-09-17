@@ -73,7 +73,7 @@ func (service *Service) Revise(ctx context.Context, author AuthorScope, request 
 	// manifest are identical. Multi-operation drafts are proven later against
 	// the persisted binding bytes by StageStepBindings, before any plan exists.
 	for _, extension := range extensions {
-		if extension.Name == "x-credential-bindings" && (len(operations) == 0 || len(operations) == 1 && operations[0].InputDigest != extension.ValueDigest) {
+		if (extension.Name == "x-credential-bindings" || extension.Name == "x-credential-lifecycle") && (len(operations) == 0 || len(operations) == 1 && operations[0].InputDigest != extension.ValueDigest) {
 			return Result{}, inputError()
 		}
 	}
