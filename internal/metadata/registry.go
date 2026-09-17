@@ -204,7 +204,6 @@ func Current() Registry {
 		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
 		credentialImportCommand(),
 	}
-	commands = append(commands, credentialLifecycleCommands()...)
 	for _, command := range plannedCommands {
 		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || command.path == "credential import" || isAvailablePhase4Command(command.path) {
 			continue
@@ -356,39 +355,6 @@ func credentialImportCommand() CommandDefinition {
 			{Name: "--input-fd", Kind: FlagValue, ValueName: "descriptor", Summary: "Read private bytes from an already-open descriptor instead of stdin."},
 		},
 		[]string{"credential", "import", "--config", "fixture/server-profile.json", "--reference-id", "reference-a", "--consumer-id", "consumer-a", "--purpose-id", "purpose-a", "--target-id", "target-a", "--resolver-id", "native-systemd", "--material-version", "version-a", "--idempotency-key", "import-a", "--expected-state-revision", "7", "--recovery-epoch", "2", "--output", "json"})
-}
-
-func credentialLifecycleCommands() []CommandDefinition {
-	return []CommandDefinition{
-		credentialLifecycleCommand("stage", "Stage an inert credential draft as a lifecycle declaration; no status changes."),
-		credentialLifecycleCommand("activate", "Draft an activation of a staged version after every declared consumer is verified; no status changes."),
-		credentialLifecycleCommand("rotate", "Draft a bounded-overlap rotation to a replacement version; no status changes."),
-		credentialLifecycleCommand("revoke", "Draft the revocation of one exact credential version; no status changes."),
-		credentialLifecycleCommand("recover", "Draft a clean-host credential recovery bound to the current external epoch; no status changes."),
-	}
-}
-
-func credentialLifecycleCommand(action, summary string) CommandDefinition {
-	return phase5GateCommand([]string{"credential", action}, summary, credentialLifecycleRequestSchemaID, credentialLifecycleSubmissionID, RiskMutation,
-		[]FlagDefinition{
-			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."},
-			{Name: "--reference-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one credential reference."},
-			{Name: "--material-version", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Name the exact material version this action binds."},
-			{Name: "--resolver-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Name the declared resolver identity."},
-			{Name: "--target-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the draft to one public target."},
-			{Name: "--consumer-id", Kind: FlagValue, ValueName: "id", Repeatable: true, Summary: "Require one declared consumer; repeat for each positive consumer."},
-			{Name: "--denied-consumer-id", Kind: FlagValue, ValueName: "id", Repeatable: true, Summary: "Require one denied cross-consumer read; repeat for each."},
-			{Name: "--draft-id", Kind: FlagValue, ValueName: "id", Summary: "Select the inert import draft staged or recovered by this action."},
-			{Name: "--prior-material-version", Kind: FlagValue, ValueName: "id", Summary: "Name the prior version kept during a bounded rotation overlap."},
-			{Name: "--overlap-seconds", Kind: FlagValue, ValueName: "seconds", Summary: "Bound the rotation overlap window in seconds (0-3600)."},
-			{Name: "--prior-recovery-epoch", Kind: FlagValue, ValueName: "epoch", Summary: "Name the superseded epoch for a clean-host recovery."},
-			{Name: "--custody-proof-digest", Kind: FlagValue, ValueName: "digest", Summary: "Bind independent custody proof for a clean-host recovery."},
-			{Name: "--former-controller-fence-digest", Kind: FlagValue, ValueName: "digest", Summary: "Bind the former-controller fence proof for a clean-host recovery."},
-			{Name: "--idempotency-key", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind retries to one lifecycle intent."},
-			{Name: "--expected-state-revision", Kind: FlagValue, ValueName: "revision", Required: true, Summary: "Require one current state revision."},
-			{Name: "--recovery-epoch", Kind: FlagValue, ValueName: "epoch", Required: true, Summary: "Require one current recovery epoch."},
-		},
-		[]string{"credential", action, "--config", "fixture/server-profile.json", "--reference-id", "reference-a", "--material-version", "version-a", "--resolver-id", "native-systemd", "--target-id", "target-a", "--consumer-id", "consumer-a", "--idempotency-key", "lifecycle-a", "--expected-state-revision", "12", "--recovery-epoch", "3", "--output", "json"})
 }
 
 func planCommand() CommandDefinition {

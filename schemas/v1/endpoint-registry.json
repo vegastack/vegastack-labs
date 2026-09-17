@@ -69,19 +69,6 @@
       ]
     },
     {
-      "id": "api.v1.credential-lifecycle-drafts.create",
-      "method": "POST",
-      "path": "/api/v1/credential-lifecycle-drafts",
-      "availability": "available",
-      "ownerPhase": "5",
-      "requestSchema": "vegastack-labs.dev/credential-lifecycle-request",
-      "dataSchema": "vegastack-labs.dev/credential-lifecycle-submission",
-      "stream": "finite",
-      "audiences": [
-        "operator"
-      ]
-    },
-    {
       "id": "api.v1.credential-references.get",
       "method": "GET",
       "path": "/api/v1/credential-references/{referenceId}",

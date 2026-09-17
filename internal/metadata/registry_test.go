@@ -443,7 +443,6 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
 		"credential import": false,
-		"credential stage": false, "credential activate": false, "credential rotate": false, "credential revoke": false, "credential recover": false,
 	}
 	wantPlanned := map[string]string{
 		"doctor": "2", "audit": "5",
