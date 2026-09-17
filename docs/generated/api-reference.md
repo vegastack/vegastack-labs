@@ -11,7 +11,7 @@ Contract schema: `1.17.0`
 | `api.v1.backups.status` | `GET` | `/api/v1/backups/status` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/backup-status-data` |
 | `api.v1.backups.verify` | `POST` | `/api/v1/backups/{jobId}/verify` | `planned` | `operator` | `finite` | `vegastack-labs.dev/backup-verify-request` | `vegastack-labs.dev/backup-job` |
 | `api.v1.credential-references.get` | `GET` | `/api/v1/credential-references/{referenceId}` | `planned` | `operator` | `finite` | `` | `vegastack-labs.dev/credential-reference` |
-| `api.v1.credential-references.import-stream` | `POST` | `/api/v1/credential-references/{referenceId}/import-stream` | `planned` | `operator` | `finite` | `vegastack-labs.dev/credential-reference-request` | `vegastack-labs.dev/credential-reference` |
+| `api.v1.credential-references.import-stream` | `POST` | `/api/v1/credential-references/{referenceId}/import-stream` | `available` | `operator` | `finite` | `vegastack-labs.dev/credential-import-request` | `vegastack-labs.dev/credential-import-submission` |
 | `api.v1.credential-resolution-records.get` | `GET` | `/api/v1/credential-resolution-records/{recordId}` | `planned` | `operator` | `finite` | `` | `vegastack-labs.dev/credential-resolution-record` |
 | `api.v1.database-status.get` | `GET` | `/api/v1/database/status` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/database-status-data` |
 | `api.v1.declarations.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-declaration-revision` |

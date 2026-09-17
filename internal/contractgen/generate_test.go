@@ -88,14 +88,14 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 		t.Fatal(err)
 	}
 	phase5 := 0
-	availableGateEndpoints := []string{}
+	availablePhase5Endpoints := []string{}
 	phase5EndpointIDs := []string{}
 	for _, endpoint := range endpointRegistry.Endpoints {
 		if endpoint.OwnerPhase == "5" {
 			phase5++
 			phase5EndpointIDs = append(phase5EndpointIDs, endpoint.ID)
 			if endpoint.Availability == metadata.AvailabilityAvailable {
-				availableGateEndpoints = append(availableGateEndpoints, endpoint.ID)
+				availablePhase5Endpoints = append(availablePhase5Endpoints, endpoint.ID)
 			} else if endpoint.Availability != metadata.AvailabilityPlanned {
 				t.Errorf("endpoint %s has unknown availability %s", endpoint.ID, endpoint.Availability)
 			}
@@ -112,8 +112,8 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 	}) {
 		t.Errorf("#102 Phase 5 endpoint baseline or #104/#105 scoped additions changed: %v", phase5EndpointIDs)
 	}
-	if !reflect.DeepEqual(availableGateEndpoints, []string{"api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
-		t.Errorf("unexpected available Phase 5 endpoints: %v", availableGateEndpoints)
+	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
+		t.Errorf("unexpected available Phase 5 endpoints: %v", availablePhase5Endpoints)
 	}
 	var gateSchema map[string]any
 	if err := json.Unmarshal([]byte(byPath["schemas/v1/gate-definition.schema.json"]), &gateSchema); err != nil {
@@ -192,6 +192,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/browser-run-result.schema.json",
 		"schemas/v1/browser-run.schema.json",
 		"schemas/v1/cloudflare-access-profile.schema.json",
+		"schemas/v1/credential-import-request.schema.json",
+		"schemas/v1/credential-import-submission.schema.json",
 		"schemas/v1/credential-reference-request.schema.json",
 		"schemas/v1/credential-reference.schema.json",
 		"schemas/v1/credential-resolution-record.schema.json",
@@ -680,12 +682,13 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 22 || planned != 34 {
-		t.Fatalf("command availability = (%d available, %d planned), want (22, 34)", available, planned)
+	if available != 23 || planned != 34 {
+		t.Fatalf("command availability = (%d available, %d planned), want (23, 34)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
-	// #104 promoted four exact gate commands and added one exact profile draft.
-	if !reflect.DeepEqual(availablePhase5, []string{"gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
+	// #104 promoted four exact gate commands and added one exact profile draft;
+	// #124 promoted one exact local-only credential import command.
+	if !reflect.DeepEqual(availablePhase5, []string{"credential import", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 

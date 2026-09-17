@@ -40,6 +40,12 @@ const REVIEWED_GATE_ENDPOINTS = [
   "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
   "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list",
 ];
+// #124 adds one local binary write route. Keep it separate from both the
+// historical read/API surface and #104's gate wave so neither allowance can
+// absorb an unrelated credential read, activation, browser or SSH route.
+const REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS = [
+  "api.v1.credential-references.import-stream",
+];
 
 async function filesBelow(root, relative) {
   const start = path.join(root, relative); const files = [];
@@ -73,9 +79,11 @@ export async function verifyReadAPI(root = ROOT) {
         .map((endpoint) => endpoint.id)
         .sort();
       const gateIDs = ids.filter((id) => id.startsWith("api.v1.gate-") || id.startsWith("api.v1.gates."));
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id));
+      const credentialImportIDs = ids.filter((id) => id.startsWith("api.v1.credential-references."));
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id));
       if (JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
-          JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
+          JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
+          JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
     } catch { codes.add("READ_API_ENDPOINT_DRIFT"); }
   }
 

@@ -90,6 +90,16 @@ func renderHumanServerStatus(output io.Writer, data generated.ServerStatusData, 
 	return exitCode
 }
 
+func renderHumanCredentialImport(output io.Writer, data generated.CredentialImportSubmission) int {
+	if _, err := fmt.Fprintf(output,
+		"Credential draft %s\nReference %s\nStatus %s\nCiphertext fingerprint %s\nState revision %d\nRecovery epoch %d\n",
+		data.DraftID, data.ReferenceID, data.Status, data.CiphertextFingerprint, data.StateRevision, data.RecoveryEpoch,
+	); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	return 0
+}
+
 func renderHumanSummary(output io.Writer, data generated.ApiSummaryData) int {
 	if _, err := fmt.Fprintf(output,
 		"Database mode %s\nRead available %t\nMutation available %t\nDrafts %d (valid %d, blocked %d)\nLast event %d\nSources %d (healthy %d, stale %d, unknown %d, unavailable %d, failed %d)\nWorst source state %s\nState revision %d\nRecovery epoch %d\n",

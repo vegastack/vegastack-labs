@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -180,7 +181,8 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	credentialStep := &runengine.CredentialStep{Bindings: store.NewCredentialRepository(authority), Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
+	credentialRepository := store.NewCredentialRepository(authority)
+	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
 	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
@@ -196,6 +198,11 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	if err := api.RegisterExecutorOperations(application, api.ExecutorOperationConfig{Lifecycle: executors, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	credentialImports := newProductionCredentialImporter(credentialRepository, planRepository, operations.databasePath, profile.SocketOwnerUID)
+	if err := api.RegisterCredentialImportOperation(application, api.CredentialImportOperations{Imports: credentialImports, Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -315,6 +322,14 @@ func (operations *Operations) DatabaseStatus(ctx context.Context, configPath str
 		return localapi.TypedResponse[generated.DatabaseStatusData]{}, err
 	}
 	return client.DatabaseStatus(ctx, profile)
+}
+
+func (operations *Operations) ImportCredential(ctx context.Context, configPath string, input generated.CredentialImportRequest, source io.Reader) (localapi.TypedResponse[generated.CredentialImportSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.CredentialImportSubmission]{}, err
+	}
+	return client.ImportCredential(ctx, profile, input, source)
 }
 
 func (operations *Operations) Gates(ctx context.Context, configPath string) (localapi.TypedResponse[generated.GateListData], error) {
