@@ -33,6 +33,8 @@ const (
 	credentialReferenceRequestSchemaID = "vegastack-labs.dev/credential-reference-request"
 	credentialImportRequestSchemaID    = "vegastack-labs.dev/credential-import-request"
 	credentialImportSubmissionSchemaID = "vegastack-labs.dev/credential-import-submission"
+	credentialLifecycleRequestSchemaID = "vegastack-labs.dev/credential-lifecycle-request"
+	credentialLifecycleSubmissionID    = "vegastack-labs.dev/credential-lifecycle-submission"
 	auditCheckpointRequestSchemaID     = "vegastack-labs.dev/audit-checkpoint-request"
 	databaseExportRequestSchemaID      = "vegastack-labs.dev/database-export-request"
 	gateListDataSchemaID               = "vegastack-labs.dev/gate-list-data"
@@ -291,6 +293,39 @@ func phase5CredentialRequest(identifier string, fields ...FieldDefinition) Schem
 	return schema
 }
 
+// Credential lifecycle is a scoped additive revision introduced by issue #125.
+// Its request and submission sources carry only exact metadata; they never
+// accept a credential value or a caller-authored ciphertext fingerprint.
+func phase5LifecycleSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
+func phase5LifecycleRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(identifier, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
+func phase5NullableNonnegative(name, goName string) FieldDefinition {
+	field := phase5Nonnegative(name, goName)
+	field.Nullable = true
+	return field
+}
+
+func phase5BoundedNonnegative(name, goName string, maximum int64) FieldDefinition {
+	field := phase5Nonnegative(name, goName)
+	field.Maximum = int64Pointer(maximum)
+	return field
+}
+
+func phase5LifecycleAction() FieldDefinition {
+	return phase5Enum("action", "Action", "credential.stage", "credential.activate", "credential.rotate", "credential.revoke", "credential.recover")
+}
+
 func phase5RequestSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
 		phase5GateSchema(gateEvidenceFactSchemaID,
@@ -382,6 +417,27 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5LifecycleRequest(credentialLifecycleRequestSchemaID,
+			phase5LifecycleAction(),
+			phase5NullableID("draftId", "DraftID"),
+			phase5ID("referenceId", "ReferenceID"),
+			phase5IDs("consumerIds", "ConsumerIDs", 64),
+			phase5IDs("requiredDeniedConsumerIds", "RequiredDeniedConsumerIDs", 64),
+			phase5ID("materialVersion", "MaterialVersion"),
+			phase5NullableID("priorMaterialVersion", "PriorMaterialVersion"),
+			phase5ID("resolverId", "ResolverID"),
+			phase5ID("targetId", "TargetID"),
+			phase5BoundedNonnegative("overlapSeconds", "OverlapSeconds", 3600),
+			phase5NullableNonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"),
+			phase5NullableDigest("custodyProofDigest", "CustodyProofDigest"),
+			phase5NullableDigest("formerControllerFenceDigest", "FormerControllerFenceDigest"),
+		),
+		phase5LifecycleSchema(credentialLifecycleSubmissionID,
+			phase5ID("changeId", "ChangeID"), phase5ID("operationId", "OperationID"),
+			phase5ID("referenceId", "ReferenceID"), phase5LifecycleAction(),
+			phase5Enum("status", "Status", "draft"),
+			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5Request(auditCheckpointRequestSchemaID,
 			phase5Positive("firstEventId", "FirstEventID"), phase5Positive("lastEventId", "LastEventID"),
 		),
@@ -450,6 +506,7 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5Endpoint("api.v1.credential-references.get", "GET", "/api/v1/credential-references/{referenceId}", "", credentialReferenceSchemaID, false),
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
 		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialImportRequestSchemaID, DataSchema: credentialImportSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
+		{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", RequestSchema: credentialLifecycleRequestSchemaID, DataSchema: credentialLifecycleSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5Endpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5Endpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
