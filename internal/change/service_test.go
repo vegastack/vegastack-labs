@@ -50,25 +50,33 @@ func TestCredentialBindingExtensionCannotBeDraftedWithoutMatchingOperationInput(
 	}
 }
 
-func TestCredentialLifecycleExtensionRequiresMatchingOperationInput(t *testing.T) {
+func TestCredentialLifecycleExtensionIsInertAtRevise(t *testing.T) {
 	repository := &fakeRepository{}
 	service, err := NewService(repository, func() time.Time { return time.Date(2026, 9, 17, 19, 0, 0, 0, time.UTC) })
 	if err != nil {
 		t.Fatal(err)
 	}
-	digest := testDigestString("a")
-	request := generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: "declaration-test-1", DeclarationType: "application", ExpectedRevision: 1, ExpectedStateRevision: 4, RecoveryEpoch: 2, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-a", OperationType: "credential.activate", AdapterID: "core.credential", TargetID: "target-a", InputDigest: digest, ArtifactDigest: testDigestString("b"), Idempotent: false}}, ReasonDigest: testDigestString("c"), Extensions: []generated.ContractExtension{{Name: "x-credential-lifecycle", ValueDigest: digest}}}
-	if _, err := service.Revise(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-test"}, request); err != nil {
-		t.Fatalf("matching lifecycle draft rejected: %v", err)
+	// The lifecycle binding is sealed in the extension and proven later against
+	// persisted binding bytes by PutLifecycleDraft; at Revise the extension is an
+	// opaque inert fact, so the operation input (the ciphertext fingerprint) need
+	// not equal the extension digest.
+	request := generated.DeclarationRevisionRequest{Schema: generated.SchemaIDDeclarationRevisionRequest, SchemaVersion: "1.0.0", DeclarationID: "declaration-test-1", DeclarationType: "application", ExpectedRevision: 1, ExpectedStateRevision: 4, RecoveryEpoch: 2, Operations: []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-a", OperationType: "credential.activate", AdapterID: "core.credential", TargetID: "target-a", InputDigest: testDigestString("f"), ArtifactDigest: testDigestString("f"), Idempotent: false}}, ReasonDigest: testDigestString("c"), Extensions: []generated.ContractExtension{{Name: "x-credential-lifecycle", ValueDigest: testDigestString("a")}}}
+	stored, err := service.Revise(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-test"}, request)
+	if err != nil {
+		t.Fatalf("inert lifecycle draft rejected: %v", err)
 	}
-	// A lifecycle extension digest is inert; a different operation input must not
-	// look like a bound lifecycle draft.
-	mismatch := request
-	mismatch.Operations = append([]generated.DeclarationOperation(nil), request.Operations...)
-	mismatch.Operations[0].InputDigest = testDigestString("d")
-	if _, err := service.Revise(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-test"}, mismatch); err == nil {
-		t.Fatal("unrelated operation input accepted with lifecycle extension")
+	if draftLifecycleExtensionDigest(stored.Document.Extensions) != testDigestString("a") {
+		t.Fatal("lifecycle extension digest not carried into the inert draft")
 	}
+}
+
+func draftLifecycleExtensionDigest(extensions []generated.ContractExtension) string {
+	for _, extension := range extensions {
+		if extension.Name == "x-credential-lifecycle" {
+			return extension.ValueDigest
+		}
+	}
+	return ""
 }
 
 type fakeRepository struct {

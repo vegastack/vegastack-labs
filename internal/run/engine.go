@@ -85,6 +85,7 @@ type Config struct {
 	Admission        AdmissionVerifier
 	Adapters         AdapterRegistry
 	Core             CoreEffect
+	CredentialCore   CoreEffect
 	SecretGate       GateVerifier
 	CredentialStep   *CredentialStep
 	Clock            func() time.Time
@@ -106,6 +107,7 @@ type Engine struct {
 	admission         AdmissionVerifier
 	adapters          AdapterRegistry
 	core              CoreEffect
+	credentialCore    CoreEffect
 	secretGate        GateVerifier
 	credentialStep    *CredentialStep
 	clock             func() time.Time
@@ -131,6 +133,15 @@ func isGateOperation(kind string) bool {
 	}
 }
 
+func isCredentialLifecycleOperation(kind string) bool {
+	switch kind {
+	case "credential.stage", "credential.activate", "credential.rotate", "credential.revoke", "credential.recover":
+		return true
+	default:
+		return false
+	}
+}
+
 func NewEngine(config Config) (*Engine, error) {
 	if config.Repository == nil || config.Plans == nil || config.Admission == nil || config.Adapters == nil {
 		return nil, runError(generated.ErrorCodeInputInvalid, "run-engine")
@@ -150,7 +161,7 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.SecretGate == nil {
 		config.SecretGate = UnavailableGateVerifier{}
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, credentialCore: config.CredentialCore, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -522,6 +533,10 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			if engine.core == nil || !isGateOperation(operation.OperationType) || operation.InputDigest != operation.ArtifactDigest || plan.ExecutorMode != "central" {
 				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-gate-unavailable")
 			}
+		} else if operation.AdapterID == "core.credential" {
+			if engine.credentialCore == nil || !isCredentialLifecycleOperation(operation.OperationType) || plan.ExecutorMode != "central" {
+				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-credential-unavailable")
+			}
 		} else {
 			implementation, err = engine.adapters.Resolve(operation.AdapterID)
 		}
@@ -576,6 +591,8 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		var executeErr error
 		if operation.AdapterID == "core.gate" {
 			effect, executeErr = engine.core.Execute(leaseContext, binding)
+		} else if operation.AdapterID == "core.credential" {
+			effect, executeErr = engine.credentialCore.Execute(leaseContext, binding)
 		} else if credentialPlanDigest(plan) != "" {
 			effect, executeErr = engine.executeSecretStep(leaseContext, plan, *intentStep, lease, operation, implementation)
 		} else {
@@ -618,6 +635,8 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		var verifyErr error
 		if operation.AdapterID == "core.gate" {
 			verification, verifyErr = engine.core.Verify(leaseContext, binding, effect)
+		} else if operation.AdapterID == "core.credential" {
+			verification, verifyErr = engine.credentialCore.Verify(leaseContext, binding, effect)
 		} else {
 			verification, verifyErr = implementation.Verify(leaseContext, operation, effect)
 		}

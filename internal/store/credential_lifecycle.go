@@ -82,7 +82,11 @@ func (repository *CredentialRepository) PutLifecycleDraft(ctx context.Context, r
 			break
 		}
 	}
-	if operation == nil || operation.AdapterID != "core.credential" || operation.TargetID != binding.TargetID || operation.InputDigest != digest || len(draft.Operations) != 1 {
+	// The lifecycle binding is sealed in the x-credential-lifecycle extension
+	// (checked above). The single core.credential operation binds input and
+	// artifact digests to the exact ciphertext fingerprint, matching the exact
+	// run step the append later requires.
+	if operation == nil || operation.AdapterID != "core.credential" || operation.TargetID != binding.TargetID || operation.InputDigest != binding.CiphertextFingerprint || operation.ArtifactDigest != binding.CiphertextFingerprint || len(draft.Operations) != 1 {
 		return zero, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-operation")
 	}
 	body, encodeErr := json.Marshal(binding)
@@ -162,7 +166,7 @@ func (repository *CredentialRepository) GetLifecycleBinding(ctx context.Context,
 			break
 		}
 	}
-	if operation == nil || operation.AdapterID != "core.credential" || operation.TargetID != binding.TargetID || operation.InputDigest != extensionDigest {
+	if operation == nil || operation.AdapterID != "core.credential" || operation.TargetID != binding.TargetID || operation.InputDigest != binding.CiphertextFingerprint || operation.ArtifactDigest != binding.CiphertextFingerprint {
 		return zero, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-binding")
 	}
 	return binding, nil
@@ -232,6 +236,45 @@ func (repository *CredentialRepository) ListCredentialVersions(ctx context.Conte
 		return nil, err
 	}
 	return versions, nil
+}
+
+// LookupImportDraftByReference returns the single inert import draft for one
+// reference, material version and recovery epoch. It fails closed when no draft
+// or more than one draft matches, so an ambiguous owning consumer never silently
+// selects an identity. It exposes metadata only.
+func (repository *CredentialRepository) LookupImportDraftByReference(ctx context.Context, referenceID, materialVersion string, recoveryEpoch int64) (CredentialImportDraft, error) {
+	if repository == nil || repository.store == nil || recoveryEpoch < 0 {
+		return CredentialImportDraft{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-import-draft")
+	}
+	if _, err := credentialref.ParseID(referenceID); err != nil {
+		return CredentialImportDraft{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-import-draft")
+	}
+	if _, err := credentialref.ParseID(materialVersion); err != nil {
+		return CredentialImportDraft{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-import-draft")
+	}
+	var drafts []CredentialImportDraft
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, queryErr := tx.query(ctx, `SELECT draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,ciphertext_fingerprint,state_revision,recovery_epoch FROM credential_import_drafts WHERE reference_id=? AND material_version=? AND recovery_epoch=? ORDER BY draft_id`, referenceID, materialVersion, recoveryEpoch)
+		if queryErr != nil {
+			return queryErr
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var draft CredentialImportDraft
+			if scanErr := rows.Scan(&draft.DraftID, &draft.ReferenceID, &draft.ConsumerID, &draft.PurposeID, &draft.TargetID, &draft.ResolverID, &draft.MaterialVersion, &draft.CiphertextFingerprint, &draft.StateRevision, &draft.RecoveryEpoch); scanErr != nil {
+				return scanErr
+			}
+			drafts = append(drafts, draft)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return CredentialImportDraft{}, err
+	}
+	if len(drafts) != 1 {
+		return CredentialImportDraft{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft")
+	}
+	return drafts[0], nil
 }
 
 // CredentialLifecycleApplyRequest carries the complete, server-derived exact
