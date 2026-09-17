@@ -364,7 +364,45 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-action")
 	}
 
-	return repository.applyCredentialVersion(ctx, request.Stage, string(binding.Action), extra)
+	return repository.applyCredentialVersion(ctx, request.Stage, string(binding.Action), repository.lifecycleAppendExtra(request.Stage, extra))
+}
+
+// lifecycleAppendExtra wraps every lifecycle append with the consumed
+// human-acknowledgement proof (Finding F3). The #123 exact-step primitive joins
+// plan/run/step/lease but never the acknowledgement row, so the lifecycle layer
+// proves it here, inside the same append transaction, before running any
+// action-specific evidence hook. No lifecycle status can be appended without it,
+// including by a direct in-process caller that seeds an otherwise exact step.
+func (repository *CredentialRepository) lifecycleAppendExtra(stage CredentialStageRequest, actionExtra func(ctx context.Context, tx *sql.Tx, versionID, created string) error) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
+	return func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
+		if err := requireConsumedHumanAcknowledgement(ctx, tx, stage); err != nil {
+			return err
+		}
+		if actionExtra != nil {
+			return actionExtra(ctx, tx, versionID, created)
+		}
+		return nil
+	}
+}
+
+// requireConsumedHumanAcknowledgement proves, inside the append transaction, that
+// this exact run consumed an approved human acknowledgement bound to the same
+// plan, plan digest, responsible human, state revision and recovery epoch. It is
+// the lifecycle-layer complement to the #123 exact-step join (which never proves
+// the acknowledgement); a NULL run acknowledgement, an unapproved or unconsumed
+// request, or a mismatched human/plan/revision/epoch yields no row and blocks the
+// append. It never reads or persists credential material.
+func requireConsumedHumanAcknowledgement(ctx context.Context, tx *sql.Tx, request CredentialStageRequest) error {
+	var count int
+	err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM plan_runs r JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id WHERE r.run_id=? AND r.plan_id=? AND r.plan_digest=? AND r.acknowledgement_id IS NOT NULL AND a.plan_id=? AND a.plan_digest=? AND a.human_id=? AND a.state_revision=? AND a.recovery_epoch=? AND a.status='approved' AND a.consumed_at IS NOT NULL`,
+		request.RunID, request.PlanID, request.PlanDigest, request.PlanID, request.PlanDigest, request.HumanID, request.Expected.StateRevision, request.Expected.RecoveryEpoch).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-acknowledgement")
+	}
+	return nil
 }
 
 // requireConsumerVerifications enforces one positive result per declared

@@ -63,10 +63,18 @@ func (verifier *recordingLifecycleVerifier) Verify(context.Context, ExactStepBin
 	return verifier.results, nil
 }
 
-type countingGate struct{ calls int }
+type countingGate struct {
+	calls     int
+	sequence  *int
+	gateOrder int
+}
 
 func (gate *countingGate) VerifySecretStep(context.Context, generated.Plan, generated.PlanOperation) error {
 	gate.calls++
+	if gate.sequence != nil {
+		*gate.sequence++
+		gate.gateOrder = *gate.sequence
+	}
 	return nil
 }
 
@@ -160,7 +168,7 @@ func TestCredentialEffectVerifierRunsBeforeAppend(t *testing.T) {
 		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: lifecycleFingerprint, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
 		{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: lifecycleFingerprint, RestartObserved: false, Result: "denied", ReasonCode: "denied"},
 	}}
-	gate := &countingGate{}
+	gate := &countingGate{sequence: &sequence}
 	effect, err := NewCoreCredentialEffect(repo, approval, gate, verifier, UnavailableCredentialRecoveryVerifier{}, func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
@@ -168,8 +176,14 @@ func TestCredentialEffectVerifierRunsBeforeAppend(t *testing.T) {
 	if _, err := effect.Execute(context.Background(), binding); err != nil {
 		t.Fatalf("activation failed: %v", err)
 	}
-	if gate.calls != 1 || verifier.verifyOrder == 0 || repo.applyOrder == 0 || verifier.verifyOrder >= repo.applyOrder {
-		t.Fatalf("verifier must run after the gate and before the append: gate=%d verify=%d apply=%d", gate.calls, verifier.verifyOrder, repo.applyOrder)
+	// The gate, verifier and append all advance the same sequence counter, so a
+	// regression that ran the gate after the verifier (or appended before either)
+	// would be caught here, not silently pass (Finding F6).
+	if gate.calls != 1 || gate.gateOrder == 0 || verifier.verifyOrder == 0 || repo.applyOrder == 0 {
+		t.Fatalf("gate, verify and append must all run: gate=%d gateOrder=%d verify=%d apply=%d", gate.calls, gate.gateOrder, verifier.verifyOrder, repo.applyOrder)
+	}
+	if !(gate.gateOrder < verifier.verifyOrder && verifier.verifyOrder < repo.applyOrder) {
+		t.Fatalf("order must be gate -> verify -> append: gate=%d verify=%d apply=%d", gate.gateOrder, verifier.verifyOrder, repo.applyOrder)
 	}
 	if repo.applied == nil || len(repo.applied.Verifications) != 2 {
 		t.Fatalf("verification evidence not carried to the append: %+v", repo.applied)
