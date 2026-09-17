@@ -16,7 +16,7 @@ test("the Changes route uses typed queries and keeps plan generation separate", 
   const [page, queries, sidebar] = await Promise.all([
     read("app/changes/page.tsx"),
     read("lib/change-queries.ts"),
-    read("app/dashboard/components/app-sidebar.tsx"),
+    read("components/app-sidebar.tsx"),
   ]);
   assert.match(page, /ChangesWorkspace/);
   assert.match(sidebar, /href: "\/changes"/);

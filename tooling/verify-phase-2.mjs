@@ -63,13 +63,29 @@ const REVIEWED_CREDENTIAL_FOUNDATION_WAVE = Object.freeze({
   ]),
   mutationBoundaryDigest: "sha256:1e72e5133f8446b73494065096dec7f91d6bbc771b6ca137c0b7b4a3d1b1d4ed",
 });
+// Issue #128 re-sealed the production source closure after refreshing the embedded
+// Console assets to design-system registry 0.9.1. It adds NO production command and NO
+// Go import — the only closure delta is the inert embedded `internal/consoleassets`
+// bytes (verified: zero .go/schemas/go.mod/internal-metadata changes) — so its wave
+// carries empty commands/imports and only the new boundary digest.
+const REVIEWED_DESIGN_SYSTEM_WAVE = Object.freeze({
+  id: "designsystem-issue128-v1", issue: 128,
+  commands: Object.freeze([]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:0b2d4b56d0d5ca1e3ba7c8e796cf0a22a171faad87213cedafcd8ecedf714680",
+});
+// Issue #124 adds the inert local encrypted-credential import wave. Because it lands
+// after the #128 design-system reseal, its boundary digest is the combined closure of
+// the credential-import production sources over the resealed Console assets — the
+// current head closure that `postPhase2MutationBoundaryDigest` reproduces and that this
+// wave, as the final Phase 5 wave, must equal.
 const REVIEWED_CREDENTIAL_IMPORT_WAVE = Object.freeze({
   id: "phase5-issue124-v1", issue: 124,
   commands: Object.freeze(["credential import"]),
   imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:470e543492cd65ef73f0b2c2ff5b6f290df8bed7fd33d39201a9670b5dd71b63",
+  mutationBoundaryDigest: "sha256:c18f9df9999784b2c319741cb65172dd802f61bca61abb29a4ecd0a96ce53ba1",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });

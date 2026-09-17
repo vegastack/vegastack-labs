@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "authority": "node tooling/provenance.mjs --write --approve-current-lock",
-  "reviewedOn": "11-09-2026",
-  "lockfileSha256": "9b33e39b3d21cd7ff0dfeb6fc91abb35589c374127ef8f9fa0116185c2a2c7d9",
+  "reviewedOn": "16-09-2026",
+  "lockfileSha256": "fb75666fda27e5109039783541c246ec23af8f9fa05c523ffe8766b49dfd77a7",
   "registry": "https://registry.npmjs.org",
   "packages": [
     {
@@ -1897,11 +1897,11 @@
     },
     {
       "name": "@vegastack/design",
-      "version": "0.3.2",
+      "version": "0.4.1",
       "source": "https://registry.npmjs.org",
-      "integrity": "sha512-66rsbkMTy3kqNTNd2aiN05JD0fKL/LsJi0YP4YXkufnSI9EogevdzfpsUk+YKBEUuenBX/8uRI+K4Cihb7A1Tg==",
+      "integrity": "sha512-oKi67sP+AJpvJLdQK4s+Dr2hxV2LleT9dwNs+kwtdFUgmkK25zGDw2FRze6ttkzyP5eH+yt+V5v9SRPN39Vzhg==",
       "lockKeys": [
-        "@vegastack/design@0.3.2"
+        "@vegastack/design@0.4.1"
       ],
       "license": "MIT",
       "homepage": "https://github.com/VegaStack/vegastack-design#readme",
@@ -1911,11 +1911,11 @@
     },
     {
       "name": "@vegastack/design-tokens",
-      "version": "0.2.0",
+      "version": "0.4.0",
       "source": "https://registry.npmjs.org",
-      "integrity": "sha512-TnRHvclGpqxwT8y28ZG4eFRSqkZc1oR8mMv9IHwLPNWMeB1lrpPEkavSonLmAp6Z0PuL9TzYMjdki5vGwwLEig==",
+      "integrity": "sha512-TNCg3An95ZbCUg5r6KBhVuT6eg9fmhehKQsypKTiD4Ery+EVr22kWu1TJJQTqr/7hjIhMhlE7vXx3i2PJ3UUmQ==",
       "lockKeys": [
-        "@vegastack/design-tokens@0.2.0"
+        "@vegastack/design-tokens@0.4.0"
       ],
       "license": "MIT",
       "homepage": "https://github.com/VegaStack/vegastack-design#readme",
@@ -3478,6 +3478,20 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     },
     {
+      "name": "framer-motion",
+      "version": "13.3.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-nry9figMPgd/7tTy9zzGRsD+kJ9tjZ74sKJ3jFBa7j6DTBIM04T6eBgneFLXCB0151wychIxsiojPlcG4JxeoA==",
+      "lockKeys": [
+        "framer-motion@13.3.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/motiondivision/motion#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
       "name": "function-bind",
       "version": "1.1.2",
       "source": "https://registry.npmjs.org",
@@ -4747,6 +4761,48 @@
       ],
       "license": "MIT",
       "homepage": "https://github.com/minimistjs/minimist",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "motion",
+      "version": "13.3.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-WHLzq1EQCoJO9S+HSDl9WlJYUpCsSAGYPoI0R4qO9ZScx7uLhpYzpoF8iobYvG248idzkl35pAShfWftEUjsdQ==",
+      "lockKeys": [
+        "motion@13.3.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/motiondivision/motion#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "motion-dom",
+      "version": "13.3.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-AmAnB6pHdZ1vHGzWzuzteG6Q3j1lHKeX/lbST6jGlgm0cjvLUgaCk1xhOuPMOy5SgovN6wnnUdwFrkcsus7Ftg==",
+      "lockKeys": [
+        "motion-dom@13.3.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/motiondivision/motion#readme",
+      "role": "runtime",
+      "reviewDecision": "approved",
+      "reviewReason": "Reviewed permissive license for this exact locked package."
+    },
+    {
+      "name": "motion-utils",
+      "version": "13.3.0",
+      "source": "https://registry.npmjs.org",
+      "integrity": "sha512-sgSschQp7EseHInIlR7hBbMuvet3RA0bs28KPZAXJcGKGdxHGvh1ogpYDilY3bOMtl73EqPNmp75sAKHYPU5sg==",
+      "lockKeys": [
+        "motion-utils@13.3.0"
+      ],
+      "license": "MIT",
+      "homepage": "https://github.com/motiondivision/motion#readme",
       "role": "runtime",
       "reviewDecision": "approved",
       "reviewReason": "Reviewed permissive license for this exact locked package."
@@ -6460,5 +6516,5 @@
       "reviewReason": "Reviewed permissive license for this exact locked package."
     }
   ],
-  "reviewMetadataSha256": "3196fd4aa4f3cfe7feeb8a9a80f32f780ff0f76bc04d1a58228c80e10d495af7"
+  "reviewMetadataSha256": "020c5686708296117c0a4d1ccddbf285c3e2ad897fb5e13a5e8310cb3d5ee73c"
 }

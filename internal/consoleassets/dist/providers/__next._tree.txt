@@ -1,2 +1,2 @@
-:HL["/_next/static/chunks/093tyniz-b8xu.css","style"]
+:HL["/_next/static/chunks/0v_7bi9hhwwtu.css","style"]
 0:{"tree":{"name":"","param":null,"prefetchHints":4180,"slots":{"children":{"name":"providers","param":null,"prefetchHints":4192,"slots":{"children":{"name":"__PAGE__","param":null,"prefetchHints":4256,"slots":null}}}}},"staleTime":300,"buildId":"vegastack-console-v1"}

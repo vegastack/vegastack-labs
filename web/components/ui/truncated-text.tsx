@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { cn } from "@vegastack/design";
+import { cn, mergeRefs } from "@vegastack/design";
+import { useOverflow } from "@/components/ui/use-overflow";
 import {
   Tooltip,
   TooltipContent,
@@ -21,6 +22,67 @@ const LINE_CLAMP: Record<number, string> = {
   5: "line-clamp-5",
   6: "line-clamp-6",
 };
+
+/**
+ * The ambient default for `focusable`, set by a host that owns its own keyboard
+ * model. `null` means "no host" — a standalone truncation is focusable.
+ *
+ * WHY (audit B2-04 / decision D9): when text is clipped, the element becomes a
+ * Tooltip trigger and takes `tabIndex=0` so keyboard users can read it. In a
+ * 50-row table that is 50 extra tab stops layered on top of a data grid's own roving
+ * cell focus — and CSS truncation never hides text from a screen reader, so the
+ * tooltip only ever served sighted keyboard users. Geist and Linear do not make
+ * truncated cells focusable either. Inside a grid or list the host turns it off;
+ * standalone it stays on.
+ */
+const TruncationFocusContext = React.createContext<boolean | null>(null);
+
+/** Props accepted by `TruncationFocusProvider`. */
+export interface TruncationFocusProviderProps {
+  /**
+   * The `focusable` default for every `TruncatedText` / `IconText` /
+   * `RelativeTime` beneath this provider. A component's own `focusable` prop
+   * still wins.
+   */
+  focusable: boolean;
+  /**
+   * The region the default applies to — typically the rows of a grid or list.
+   * @default undefined
+   */
+  children?: React.ReactNode;
+}
+
+/**
+ * `TruncationFocusProvider` — set the ambient `focusable` default for truncated
+ * text inside a region that owns its own keyboard model.
+ *
+ * A grid or list host wraps its content in
+ * `<TruncationFocusProvider focusable={false}>` so consumer-supplied cells do not
+ * each become a tab stop (decision D9) — that is the contract `DataList` and
+ * `DataGrid` adopt. Any single cell can still opt back in with `focusable`.
+ *
+ * @example
+ * <TruncationFocusProvider focusable={false}>{rows}</TruncationFocusProvider>
+ */
+export function TruncationFocusProvider({
+  focusable,
+  children,
+}: TruncationFocusProviderProps) {
+  return (
+    <TruncationFocusContext value={focusable}>
+      {children}
+    </TruncationFocusContext>
+  );
+}
+
+/**
+ * Resolve the effective `focusable`: the component's own prop, else the ambient
+ * provider value, else `true` (standalone).
+ */
+export function useTruncationFocusable(focusable?: boolean): boolean {
+  const ambient = React.useContext(TruncationFocusContext);
+  return focusable ?? ambient ?? true;
+}
 
 /**
  * SSR-safe read of the `(hover: none)` media query — true on devices whose primary
@@ -145,6 +207,20 @@ export interface TruncatedTextProps extends Omit<
    * @default 'span'
    */
   as?: "span" | "p" | "div";
+  /**
+   * Whether clipped text becomes a tab stop so keyboard users can open the
+   * overflow Tooltip. Defaults to `true` standalone and to whatever a
+   * `TruncationFocusProvider` sets — `false` under a grid or list host, whose
+   * roving focus already owns cell reachability (decision D9).
+   *
+   * Turning it off never hides content: CSS truncation is invisible to a screen
+   * reader, which still reads the full string. On a device that cannot hover the
+   * element stays focusable regardless, because the tap-to-toggle disclosure is
+   * then the only way to read the text at all.
+
+   * @default undefined
+   */
+  focusable?: boolean;
 }
 
 /**
@@ -180,6 +256,7 @@ export function TruncatedText({
   lines = 1,
   tooltipSide = "top",
   as: Component = "span",
+  focusable,
   className,
   children,
   ref,
@@ -191,25 +268,23 @@ export function TruncatedText({
   const [node, setNode] = React.useState<HTMLElement | null>(null);
   const [expanded, setExpanded] = React.useState(false);
   const noHover = usePrefersNoHover();
+  const isFocusable = useTruncationFocusable(focusable);
 
   // Compose the internal measurement callback ref with the consumer's `ref` so BOTH
   // observe the same rendered element: `setNode` drives the overflow ResizeObserver while
   // the forwarded ref reaches the consumer. Re-created only when the consumer ref changes.
-  const setMergedRef = React.useCallback(
-    (instance: HTMLElement | null) => {
-      setNode(instance);
-      if (typeof ref === "function") ref(instance);
-      else if (ref) ref.current = instance;
-    },
-    [ref],
-  );
+  const setMergedRef = React.useMemo(() => mergeRefs(setNode, ref), [ref]);
 
   // Detect whether the text is *actually* clipped (shared measurement — see `useOverflow`):
   // single-line compares scroll/client width, multi-line compares height. Re-measured on
   // mount/remount, on content change, and on every resize. Measurement is PAUSED while
   // `expanded` — expanding removes the clamp, which would otherwise flip this to `false`
   // and immediately re-collapse the disclosure it just opened.
-  const isTruncated = useOverflow(node, [children], lines > 1, expanded);
+  const isTruncated = useOverflow(node, {
+    axis: lines > 1 ? "block" : "inline",
+    paused: expanded,
+    deps: [children],
+  });
   const touchToggleActive = isTruncated && noHover;
   const touchToggleProps = getTouchToggleProps(
     touchToggleActive,
@@ -223,10 +298,13 @@ export function TruncatedText({
       data-slot="truncated-text"
       data-lines={lines}
       // When clipped, the element becomes the Tooltip trigger (hover-capable devices) — it
-      // must be focusable so keyboard users can reveal the full text (register P0-04; same
-      // pattern as RelativeTime). Stays focusable on touch too, so the tap-toggle below is
-      // keyboard-operable as well.
-      tabIndex={isTruncated ? 0 : undefined}
+      // takes focus so keyboard users can reveal the full text (register P0-04; same pattern
+      // as RelativeTime), UNLESS a host with its own roving focus turned that off (D9).
+      // `touchToggleActive` overrides the opt-out: on a no-hover device the tap-toggle is the
+      // only disclosure there is, and a `role="button"` must be reachable.
+      tabIndex={
+        isTruncated && (isFocusable || touchToggleActive) ? 0 : undefined
+      }
       role={touchToggleProps.role}
       aria-expanded={touchToggleProps["aria-expanded"]}
       className={cn(
@@ -267,42 +345,6 @@ export function TruncatedText({
   );
 }
 
-/**
- * Internal hook: report whether `node` is overflowing along the relevant axis.
- * Single-line compares scroll/client width; multi-line compares height. Shared
- * by every variant so the measurement (mount/remount + content + resize) stays
- * identical across `TruncatedText`, `IconText`, and `TableCellText`.
- *
- * `paused` (used by the touch tap-to-toggle disclosure) freezes the last
- * measured value instead of re-observing — while a disclosure is expanded, its
- * clamp is removed, which would otherwise flip this to `false` mid-interaction
- * and immediately re-collapse it. Re-measures for real as soon as `paused`
- * clears (i.e. once re-clamped).
- */
-function useOverflow(
-  node: HTMLElement | null,
-  deps: React.DependencyList,
-  multiline = false,
-  paused = false,
-) {
-  const [isTruncated, setIsTruncated] = React.useState(false);
-  React.useEffect(() => {
-    if (!node || paused) return;
-    const check = () => {
-      const overflowing = multiline
-        ? node.scrollHeight > node.clientHeight + 1
-        : node.scrollWidth > node.clientWidth + 1;
-      setIsTruncated(overflowing);
-    };
-    check();
-    const observer = new ResizeObserver(check);
-    observer.observe(node);
-    return () => observer.disconnect();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [node, multiline, paused, ...deps]);
-  return isTruncated;
-}
-
 /** Props accepted by `IconText`. */
 export interface IconTextProps extends Omit<
   React.ComponentPropsWithRef<"div">,
@@ -325,6 +367,13 @@ export interface IconTextProps extends Omit<
    * @default 'top'
    */
   tooltipSide?: "top" | "right" | "bottom" | "left";
+  /**
+   * Whether a clipped row becomes a tab stop. Same contract as
+   * `TruncatedText.focusable` — see that prop.
+
+   * @default undefined
+   */
+  focusable?: boolean;
 }
 
 /**
@@ -344,6 +393,7 @@ export function IconText({
   text,
   trailing,
   tooltipSide = "top",
+  focusable,
   className,
   ref,
   ...props
@@ -351,15 +401,23 @@ export function IconText({
   const [node, setNode] = React.useState<HTMLElement | null>(null);
   const [expanded, setExpanded] = React.useState(false);
   const noHover = usePrefersNoHover();
+  const isFocusable = useTruncationFocusable(focusable);
   // Paused while expanded — see `useOverflow`'s doc for why (removing the clamp would
   // otherwise flip `isTruncated` false and immediately re-collapse the disclosure).
-  const isTruncated = useOverflow(node, [text], false, expanded);
+  const isTruncated = useOverflow(node, { paused: expanded, deps: [text] });
   const touchToggleActive = isTruncated && noHover;
   const touchToggleProps = getTouchToggleProps(
     touchToggleActive,
     expanded,
     setExpanded,
   );
+  // A clipped row becomes a real control — a Tooltip trigger, and on a no-hover device a
+  // `role="button"` disclosure — so it has to meet the 24px pointer-target floor. A single
+  // line of `text-base` is 21px, so the row carries an invisible `::before` hit area
+  // (`-inset-y-1`) exactly as `RelativeTime` does; unlike `TruncatedText`, whose focusable box
+  // IS the `truncate`d (and therefore `overflow-hidden`) element, this row only wraps the
+  // clipped span, so a pseudo-element can extend past it. Measured: 206.00x21.00 -> 206.00x29.00.
+  const isInteractive = isTruncated && (isFocusable || touchToggleActive);
 
   const row = (
     <div
@@ -367,11 +425,17 @@ export function IconText({
       data-slot="icon-text"
       // When the label is clipped, the row becomes the Tooltip trigger (hover-capable
       // devices) — keyboard-focusable so the full text is reachable without a pointer
-      // (register P0-04). Stays focusable on touch too, for the tap-toggle below.
-      tabIndex={isTruncated ? 0 : undefined}
+      // (register P0-04), unless a host turned that off (D9). See TruncatedText for why
+      // `touchToggleActive` overrides the opt-out.
+      tabIndex={isInteractive ? 0 : undefined}
       role={touchToggleProps.role}
       aria-expanded={touchToggleProps["aria-expanded"]}
-      className={cn("flex min-w-0 items-center gap-2", className)}
+      className={cn(
+        "flex min-w-0 items-center gap-2",
+        isInteractive &&
+          "relative before:absolute before:inset-x-0 before:-inset-y-1",
+        className,
+      )}
       {...props}
       onClick={composeHandlers(touchToggleProps.onClick, props.onClick)}
       onKeyDown={composeHandlers(touchToggleProps.onKeyDown, props.onKeyDown)}
@@ -430,6 +494,14 @@ export interface TableCellTextProps {
    * @default false
    */
   mono?: boolean;
+  /**
+   * Whether a clipped cell becomes a tab stop. Same contract as
+   * `TruncatedText.focusable`; under a grid or list host the ambient default is
+   * already `false`.
+
+   * @default undefined
+   */
+  focusable?: boolean;
   /** Extra classes for the text box.
    * @default undefined
    */
@@ -451,6 +523,7 @@ export function TableCellText({
   width,
   lines = 1,
   mono = false,
+  focusable,
   className,
 }: TableCellTextProps) {
   // `width` is a runtime consumer value (e.g. `"200px"`), not a token. It's passed as a CSS custom
@@ -459,6 +532,7 @@ export function TableCellText({
   return (
     <TruncatedText
       lines={lines}
+      focusable={focusable}
       data-slot="table-cell-text"
       className={cn(
         width && "max-w-[var(--cell-w)]",

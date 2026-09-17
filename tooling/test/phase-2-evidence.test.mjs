@@ -12,13 +12,13 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while #104 and #123-#124 have exact reviewed waves", async () => {
+test("the original Phase 2 baseline stays immutable while #104, #123, #128, and #124 have exact reviewed waves", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 3);
+  assert.equal(manifest.contract.reviewedWaves?.length, 4);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -29,11 +29,18 @@ test("the original Phase 2 baseline stays immutable while #104 and #123-#124 hav
     "github.com/vegastack/vegastack-labs/internal/adapter/nativecredential",
     "github.com/vegastack/vegastack-labs/internal/adapter/onepassword",
   ]);
-  assert.equal(manifest.contract.reviewedWaves[2].id, "phase5-issue124-v1");
-  assert.equal(manifest.contract.reviewedWaves[2].issue, 124);
-  assert.deepEqual(manifest.contract.reviewedWaves[2].commands, ["credential import"]);
+  // #128 re-sealed the boundary after the design-system 0.9.1 embedded-asset refresh:
+  // no new command, no new import, only the new boundary digest.
+  assert.equal(manifest.contract.reviewedWaves[2].id, "designsystem-issue128-v1");
+  assert.equal(manifest.contract.reviewedWaves[2].issue, 128);
+  assert.deepEqual(manifest.contract.reviewedWaves[2].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[2].imports, []);
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[2].mutationBoundaryDigest);
+  // #124 credential-import wave lands last, carrying the combined head-closure digest.
+  assert.equal(manifest.contract.reviewedWaves[3].id, "phase5-issue124-v1");
+  assert.equal(manifest.contract.reviewedWaves[3].issue, 124);
+  assert.deepEqual(manifest.contract.reviewedWaves[3].commands, ["credential import"]);
+  assert.deepEqual(manifest.contract.reviewedWaves[3].imports, []);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[3].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 

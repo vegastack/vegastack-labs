@@ -142,10 +142,12 @@ export type BreadcrumbPageProps = React.ComponentPropsWithRef<"span">;
  */
 function BreadcrumbPage({ className, ...props }: BreadcrumbPageProps) {
   return (
+    // A plain span with `aria-current="page"`. It is NOT a link and must not claim to be one:
+    // shadcn's inherited `role="link" aria-disabled="true"` made screen readers announce the
+    // current page as a *disabled link* — an interactive promise the element never keeps
+    // (B6-04). `aria-current` alone is the whole contract here.
     <span
       data-slot="breadcrumb-page"
-      role="link"
-      aria-disabled="true"
       aria-current="page"
       className={cn("font-normal text-foreground", className)}
       {...props}
@@ -193,6 +195,11 @@ export type BreadcrumbEllipsisProps = React.ComponentPropsWithRef<"span">;
  * `BreadcrumbEllipsis` — a collapsed-segments indicator (`…`) for long trails.
  * Decorative only: expose hidden segments with a separate accessible menu/trigger
  * when users need to navigate them. Place inside a `BreadcrumbItem`.
+ *
+ * The glyph box is 20px, so it is the WRAPPING TRIGGER that owns the WCAG 2.5.8
+ * 24×24 target — add `relative before:absolute before:-inset-0.5` to it, as
+ * {@link BreadcrumbCollapsed} does. Expanding this span instead would grow the
+ * trail's line box; the invisible expansion does not.
 
  *
  * @example
@@ -291,8 +298,17 @@ function BreadcrumbCollapsed({
         ref={ref}
         aria-label={label}
         data-slot="breadcrumb-collapsed-trigger"
+        // The focus ring is the global `:focus-visible` rule — restating it here (B6-10) only
+        // gave the two a way to drift.
+        //
+        // The trigger's visible box is the 20px `BreadcrumbEllipsis` glyph, which is under the
+        // WCAG 2.5.8 24×24 CSS px floor. A transparent `::before` expansion (`relative` +
+        // `before:absolute before:-inset-0.5`) brings the EFFECTIVE target to exactly 24×24
+        // without touching the visible box or the trail's line height. 2px per side stays well
+        // inside `BreadcrumbList`'s 6px `gap-1.5`, so it never reaches into a neighbouring
+        // segment's own target square.
         className={cn(
-          "rounded-sm  hover:text-foreground focus-visible:outline-ring",
+          "relative rounded-sm before:absolute before:-inset-0.5 hover:text-foreground",
           className,
         )}
         {...props}

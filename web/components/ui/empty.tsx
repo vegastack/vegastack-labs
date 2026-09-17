@@ -3,9 +3,11 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@vegastack/design";
 
 /**
- * Empty root variants — `size` (vertical density) × `bordered` (dashed
- * outline) × `surface` (card vs. transparent background). Every value is a
- * semantic Tailwind token (no hardcoded colors, no inline styles).
+ * Empty root variants — `size` (vertical density) × `variant` (the container treatment). ONE
+ * border axis: the old `bordered` + `surface` pair could express "dashed AND filled card", which
+ * tw-merge silently resolved by letting the dashed style win — a compound with no defined
+ * outcome (B7-07). Every value is a semantic Tailwind token (no hardcoded colors, no inline
+ * styles).
  */
 export const emptyVariants = cva(
   "flex min-w-0 flex-col items-center justify-center gap-4 rounded-lg p-6 text-center text-balance",
@@ -13,28 +15,32 @@ export const emptyVariants = cva(
     variants: {
       size: {
         sm: "py-8",
-        default: "py-12",
+        md: "py-12",
         lg: "py-16",
       },
-      bordered: {
-        true: "border border-dashed border-border",
-        false: "",
-      },
-      surface: {
-        // A border (borders-only canon — no shadows) keeps the block self-contained
-        // even on card-colored canvases where `bg-card` alone is invisible. Combined
-        // with `bordered` (dashed), the dashed style wins via tw-merge.
+      variant: {
+        /** No container — the block blends into whatever surface it sits on. */
+        plain: "bg-transparent",
+        /**
+         * A filled panel. The hairline (borders-only canon — no shadows) keeps the block
+         * self-contained even on card-coloured canvases where `bg-card` alone is invisible.
+         */
         card: "border border-border bg-card",
-        transparent: "bg-transparent",
+        /** The classic drop-zone outline. */
+        dashed: "border border-dashed border-border",
       },
     },
     defaultVariants: {
-      size: "default",
-      bordered: false,
-      surface: "transparent",
+      size: "md",
+      variant: "plain",
     },
   },
 );
+
+/** The container treatment an `Empty` root can take. */
+export type EmptyVariant = NonNullable<
+  VariantProps<typeof emptyVariants>["variant"]
+>;
 
 /**
  * Media variants — `variant` follows the shadcn Empty anatomy (`default` bare /
@@ -88,22 +94,19 @@ export interface EmptyProps
     React.ComponentPropsWithRef<"div">,
     VariantProps<typeof emptyVariants> {
   /**
-   * Vertical density — `sm` for inside cards, `default` standalone, `lg` for
+   * Vertical density — `sm` for inside cards, `md` standalone, `lg` for
    * full-page empties.
-   * @default "default"
+   * @default "md"
    */
   size?: VariantProps<typeof emptyVariants>["size"];
   /**
-   * Draw a dashed border around the container (the classic "drop zone" look).
-   * @default false
+   * Container treatment.
+   * - `plain`: no border, no fill — blends into the parent surface (default).
+   * - `card`: a filled `bg-card` panel with the one hairline.
+   * - `dashed`: the classic dashed drop-zone outline.
+   * @default "plain"
    */
-  bordered?: boolean;
-  /**
-   * Background surface — `card` for a filled panel, `transparent` to inherit the
-   * parent surface.
-   * @default "transparent"
-   */
-  surface?: VariantProps<typeof emptyVariants>["surface"];
+  variant?: EmptyVariant;
 }
 
 /**
@@ -113,7 +116,7 @@ export interface EmptyProps
  * (call-to-action row). Server-safe (no hooks / no `'use client'`).
  *
  * @example
- * <Empty bordered>
+ * <Empty variant="dashed">
  *   <EmptyHeader>
  *     <EmptyMedia variant="icon">
  *       <Inbox />
@@ -128,17 +131,16 @@ export interface EmptyProps
  */
 function Empty({
   className,
-  size = "default",
-  bordered = false,
-  surface = "transparent",
+  size = "md",
+  variant = "plain",
   ...props
 }: EmptyProps) {
   return (
     <div
       data-slot="empty"
-      data-bordered={bordered ? "" : undefined}
-      data-surface={surface}
-      className={cn(emptyVariants({ size, bordered, surface }), className)}
+      data-variant={variant}
+      data-size={size}
+      className={cn(emptyVariants({ size, variant }), className)}
       {...props}
     />
   );
@@ -216,17 +218,36 @@ function EmptyMedia({
   );
 }
 
-/** Props accepted by `EmptyTitle`. */
-export type EmptyTitleProps = React.ComponentPropsWithRef<"h3">;
+/** The elements `EmptyTitle` may render as — every heading level, or a non-heading line. */
+export type EmptyTitleAs = "h1" | "h2" | "h3" | "h4" | "h5" | "h6" | "p";
 
-/** `EmptyTitle` — the primary heading of the empty state.
+/** Props accepted by `EmptyTitle`. */
+export interface EmptyTitleProps extends React.ComponentPropsWithRef<"h3"> {
+  /**
+   * The element to render. The default `<h3>` is a GUESS about the host page's heading outline:
+   * an empty state under an `<h2>` section wants `h3`, one that replaces a whole page body may
+   * want `h2`, and one inside a card that already has its own heading should not introduce a
+   * heading at all (`p`). Say which rather than inheriting the guess (B7-07).
+   *
+   * This is an `as` union rather than Base UI's polymorphic `render`, because `useRender` is a
+   * hook and `Empty` is server-safe — the whole file has no `'use client'` and must keep it.
+   * @default 'h3'
+   */
+  as?: EmptyTitleAs;
+}
+
+/** `EmptyTitle` — the primary heading of the empty state. `<h3>` unless `as` says otherwise.
  *
  * @example
  * <EmptyTitle />
+ *
+ * @example
+ * // the empty state IS the page body — its title is the page's second-level heading
+ * <EmptyTitle as="h2">No projects yet</EmptyTitle>
  */
-function EmptyTitle({ className, ...props }: EmptyTitleProps) {
+function EmptyTitle({ className, as: Tag = "h3", ...props }: EmptyTitleProps) {
   return (
-    <h3
+    <Tag
       data-slot="empty-title"
       className={cn("text-base font-medium text-foreground", className)}
       {...props}

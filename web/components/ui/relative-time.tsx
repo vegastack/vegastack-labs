@@ -7,6 +7,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useTruncationFocusable } from "@/components/ui/truncated-text";
 
 /** Parse a `Date | string | number` input into a `Date`. */
 function toDate(date: Date | string | number): Date {
@@ -82,6 +83,26 @@ function formatDay(
 }
 
 /**
+ * The label rendered on the server and on the hydration render of an uncontrolled
+ * instance: an absolute medium-form date (`"Mar 15, 2025"`).
+ *
+ * WHY (audit B2-05): a relative label needs `Date.now()`, which the server cannot
+ * reproduce, so the previous build rendered an empty string until hydration — a
+ * visible pop and a layout shift on every row of a list. This is derived from the
+ * target instant ALONE, so the server HTML and the client's first render agree
+ * byte-for-byte and the swap to the relative label is a text change inside a box
+ * that already has the right size.
+ */
+function formatAbsolute(
+  target: Date,
+  locale: string | string[] | undefined,
+): string {
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(
+    target,
+  );
+}
+
+/**
  * Refresh cadence (ms) for a live timestamp, by age. Recent timestamps tick
  * faster (where the displayed value changes often), older ones slower.
  * `0` disables the timer.
@@ -150,6 +171,17 @@ export interface RelativeTimeProps extends Omit<
    * @default 0
    */
   tooltipDelay?: number;
+  /**
+   * Whether the timestamp becomes a tab stop so keyboard users can open the
+   * absolute-date Tooltip. Defaults to `true` standalone and to whatever a
+   * `TruncationFocusProvider` sets — `false` under a grid or list host, where 50
+   * rows would otherwise mean 50 extra tab stops on top of that host's own roving
+   * focus (audit B2-04 / decision D9). The machine-readable `dateTime` attribute is
+   * unaffected either way.
+
+   * @default undefined
+   */
+  focusable?: boolean;
 }
 
 /**
@@ -162,6 +194,12 @@ export interface RelativeTimeProps extends Omit<
  * always present. Self-updating: while the date is recent it refreshes on a timer
  * (off once it is a day old), and an absolute date-time is revealed in a Tooltip
  * by default. Purely presentational — text inherits color from its context.
+ *
+ * An uncontrolled instance renders the ABSOLUTE date (`"Mar 15, 2025"`) on the
+ * server and on the hydration render, then swaps to the relative label once the
+ * client clock is available. There is no empty frame and no layout jump — the
+ * previous build rendered `""` until mount (audit B2-05). Pass `now` to make the
+ * output fully deterministic and skip the swap entirely.
  *
  * @example
  * <RelativeTime date={comment.createdAt} />            // "2 hours ago"
@@ -183,10 +221,12 @@ export function RelativeTime({
   locale,
   title = true,
   tooltipDelay = 0,
+  focusable,
   className,
   ref,
   ...props
 }: RelativeTimeProps) {
+  const isFocusable = useTruncationFocusable(focusable);
   const target = React.useMemo(() => toDate(date), [date]);
   const targetMs = target.getTime();
   const localeKey = Array.isArray(locale) ? locale.join(",") : locale;
@@ -195,8 +235,9 @@ export function RelativeTime({
   const isControlled = now !== undefined;
 
   // Uncontrolled live time cannot be reproduced by the server at hydration.
-  // Start from a deterministic empty state on both sides, then reveal the live
-  // label after mount. Controlled `now` output remains server-renderable.
+  // Both sides start from the deterministic ABSOLUTE date (see `formatAbsolute`),
+  // then the live relative label lands after mount. Controlled `now` output is
+  // server-renderable as-is and never swaps.
   const [hydrated, setHydrated] = React.useState(isControlled);
   const [clock, setClock] = React.useState(() => now ?? 0);
 
@@ -234,9 +275,10 @@ export function RelativeTime({
 
   const isValid = !Number.isNaN(targetMs);
   const isPendingHydration = !isControlled && !hydrated;
-  const display =
-    !isValid || isPendingHydration
-      ? ""
+  const display = !isValid
+    ? ""
+    : isPendingHydration
+      ? formatAbsolute(target, locale)
       : mode === "day"
         ? formatDay(target, nowDate, locale, rtf)
         : formatAgo(targetMs - nowMs, rtf);
@@ -250,10 +292,11 @@ export function RelativeTime({
       data-slot="relative-time"
       data-mode={mode}
       dateTime={isoString}
-      aria-busy={isPendingHydration || undefined}
-      // When wrapped in a Tooltip the <time> becomes the trigger; it must be
-      // focusable so keyboard users can reveal the absolute date.
-      tabIndex={hasTooltip ? 0 : undefined}
+      // When wrapped in a Tooltip the <time> becomes the trigger, and takes focus so
+      // keyboard users can reveal the absolute date — unless a host with its own
+      // roving focus turned that off (D9). No `aria-busy`: the pre-hydration render is
+      // a real, readable absolute date, not a placeholder.
+      tabIndex={hasTooltip && isFocusable ? 0 : undefined}
       className={cn(
         "relative inline-flex rounded-sm tabular-nums before:absolute before:inset-x-0 before:-inset-y-1",
         className,

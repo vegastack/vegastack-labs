@@ -1,3 +1,13 @@
 /* The public package supplies Tailwind v4, semantic tokens, base accessibility,
  * motion, and utilities. Do not add a second Tailwind import. */
 @import "@vegastack/design/preset.css";
+
+/* Project accessibility standard (WCAG 2.5.5): interactive controls in the
+ * Console's main region meet a 44x44 CSS-pixel minimum touch target. The design
+ * system's control sizes top out at 40px (--size-lg), so the Console raises the
+ * floor here rather than per control. Header/overlay controls set their own size
+ * (theme toggle, sheet close) since they live outside <main>. min-height wins
+ * over the smaller height utility a Button size sets. */
+main :is(button, [data-slot="button"], a[data-slot="button"]) {
+  min-height: 2.75rem;
+}

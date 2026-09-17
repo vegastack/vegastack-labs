@@ -49,7 +49,8 @@
     "reviewedWaves": [
       { "id": "phase5-issue104-v1", "issue": 104, "commands": ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/gate"], "mutationBoundaryDigest": "sha256:e93cbd898ee0ddd237bd90e83f7b7db153451883fbf590fbd5f42146a5b0a4a9" },
       { "id": "phase5-issue123-v1", "issue": 123, "commands": [], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/nativecredential", "github.com/vegastack/vegastack-labs/internal/adapter/onepassword"], "mutationBoundaryDigest": "sha256:1e72e5133f8446b73494065096dec7f91d6bbc771b6ca137c0b7b4a3d1b1d4ed" },
-      { "id": "phase5-issue124-v1", "issue": 124, "commands": ["credential import"], "imports": [], "mutationBoundaryDigest": "sha256:470e543492cd65ef73f0b2c2ff5b6f290df8bed7fd33d39201a9670b5dd71b63" }
+      { "id": "designsystem-issue128-v1", "issue": 128, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:0b2d4b56d0d5ca1e3ba7c8e796cf0a22a171faad87213cedafcd8ecedf714680" },
+      { "id": "phase5-issue124-v1", "issue": 124, "commands": ["credential import"], "imports": [], "mutationBoundaryDigest": "sha256:c18f9df9999784b2c319741cb65172dd802f61bca61abb29a4ecd0a96ce53ba1" }
     ]
   },
   "children": [

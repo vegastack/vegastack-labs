@@ -9,7 +9,7 @@ export function ConsoleState({ kind, title, description, action }: { kind: Conso
   const Icon = icons[kind];
   const isAlert = kind === "error" || kind === "unavailable";
   return (
-    <Empty bordered className="min-h-80 bg-card" role={isAlert ? "status" : undefined} aria-live={isAlert ? "polite" : undefined} data-console-state={kind}>
+    <Empty variant="card" size="lg" className="min-h-80" role={isAlert ? "status" : undefined} aria-live={isAlert ? "polite" : undefined} data-console-state={kind}>
       <EmptyHeader>
         <EmptyMedia intent={isAlert ? "destructive" : "info"}><Icon aria-hidden className={kind === "loading" ? "animate-spin" : undefined} /></EmptyMedia>
         <EmptyTitle>{title}</EmptyTitle>

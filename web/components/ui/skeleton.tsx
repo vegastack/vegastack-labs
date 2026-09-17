@@ -5,27 +5,28 @@ import { cn } from "@vegastack/design";
 /**
  * Skeleton variants — the `shape` of a single loading placeholder. Every value
  * is a semantic token (`bg-muted`, `rounded-*`) — no hardcoded colors or sizes.
- * The pulse uses `animate-pulse` and is suppressed under `prefers-reduced-motion`
- * via `motion-reduce:animate-none`.
+ * The pulse uses `animate-pulse`; reduced motion is handled globally by the
+ * `base.css` reset, never restated here.
  */
-export const skeletonVariants = cva(
-  "block shrink-0 bg-muted animate-pulse motion-reduce:animate-none",
-  {
-    variants: {
-      shape: {
-        /** A single text line — full width, line-height tall, fully rounded. */
-        line: "h-4 w-full rounded-md",
-        /** A circular placeholder (avatar/icon) — square footprint, full radius. */
-        circle: "size-(--size-lg) rounded-full",
-        /** A rectangular block (image/thumbnail) — fills its container. */
-        rect: "h-24 w-full rounded-md",
-        /** A larger surface (card body) — taller block. */
-        card: "h-40 w-full rounded-lg",
-      },
+export const skeletonVariants = cva("block shrink-0 bg-muted animate-pulse", {
+  variants: {
+    shape: {
+      /**
+       * A single text line — full width, line-height tall. `rounded-sm` (6px), not
+       * `rounded-md`: 8px on a 16px bar reads as a pill rather than as text
+       * (audit B2-09), and 6px is the Kbd/menu-item geometry text sits in.
+       */
+      line: "h-4 w-full rounded-sm",
+      /** A circular placeholder (avatar/icon) — square footprint, full radius. */
+      circle: "size-(--size-lg) rounded-full",
+      /** A rectangular block (image/thumbnail) — fills its container. */
+      rect: "h-24 w-full rounded-md",
+      /** A larger surface (card body) — taller block. */
+      card: "h-40 w-full rounded-lg",
     },
-    defaultVariants: { shape: "line" },
   },
-);
+  defaultVariants: { shape: "line" },
+});
 
 /** Shape tokens Skeleton supports. */
 export type SkeletonShape = NonNullable<
