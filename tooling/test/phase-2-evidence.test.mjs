@@ -70,7 +70,7 @@ test("the #124 wave rejects import activation outside the local inert boundary",
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   const cases = [
-    ["extra command", (m) => { m.contract.reviewedWaves[2].commands.push("credential activate"); }, "PHASE2_TRACEABILITY_GAP"],
+    ["extra command", (m) => { m.contract.reviewedWaves.find((wave) => wave.issue === 124).commands.push("credential activate"); }, "PHASE2_TRACEABILITY_GAP"],
     ["private flag", (m, f) => { f.credentialImportFlags.push("--value"); }, "PHASE2_MUTATION_AVAILABLE"],
     ["unrelated credential read", (m, f) => { f.credentialEndpointIds.push("api.v1.credential-references.get"); }, "PHASE2_MUTATION_AVAILABLE"],
     ["remote transport", (m, f) => { f.credentialImportRemoteAllowed = true; }, "PHASE2_PRODUCTION_BYPASS"],
