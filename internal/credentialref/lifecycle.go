@@ -262,6 +262,14 @@ func (binding LifecycleBinding) Digest() string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
+// LifecycleManifestDigestOf is the variadic form of LifecycleManifestDigest.
+// It lets a caller seal one exact binding into a manifest digest without
+// materialising a slice literal at the call site, and returns a value
+// identical to LifecycleManifestDigest over the same bindings.
+func LifecycleManifestDigestOf(bindings ...LifecycleBinding) string {
+	return LifecycleManifestDigest(bindings)
+}
+
 // LifecycleManifestDigest binds a set of lifecycle bindings into one stable
 // digest independent of insertion order. Any invalid member voids the digest.
 func LifecycleManifestDigest(bindings []LifecycleBinding) string {

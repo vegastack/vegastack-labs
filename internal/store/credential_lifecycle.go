@@ -64,7 +64,7 @@ func (repository *CredentialRepository) PutLifecycleDraft(ctx context.Context, r
 	if !credentialref.ValidLifecycleBinding(binding) || binding.RecoveryEpoch != request.Expected.RecoveryEpoch {
 		return zero, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-binding")
 	}
-	digest := credentialref.LifecycleManifestDigest([]credentialref.LifecycleBinding{binding})
+	digest := credentialref.LifecycleManifestDigestOf(binding)
 	if digest == "" {
 		return zero, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-binding")
 	}
@@ -153,7 +153,7 @@ func (repository *CredentialRepository) GetLifecycleBinding(ctx context.Context,
 	if len(raw) > 4096 || json.Unmarshal(raw, &binding) != nil || binding.Digest() != digest || binding.RecoveryEpoch != epoch {
 		return zero, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-binding")
 	}
-	if credentialref.LifecycleManifestDigest([]credentialref.LifecycleBinding{binding}) != extensionDigest || binding.OperationID != operationID {
+	if credentialref.LifecycleManifestDigestOf(binding) != extensionDigest || binding.OperationID != operationID {
 		return zero, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-uncommitted")
 	}
 	if binding.StateRevision != plan.Binding.StateRevision || binding.RecoveryEpoch != plan.Binding.RecoveryEpoch {

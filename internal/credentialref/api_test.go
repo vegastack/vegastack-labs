@@ -84,6 +84,7 @@ var allowedCredentialAPI = []string{
 	`method LifecycleBinding.Digest func() (string)`,
 	`func ValidLifecycleBinding func(LifecycleBinding) (bool)`,
 	`func LifecycleManifestDigest func([]LifecycleBinding) (string)`,
+	`func LifecycleManifestDigestOf func(...LifecycleBinding) (string)`,
 	`func ManifestDigest func([]StepBinding) (string)`,
 	`func ImportTargetDigest func(generated.CredentialImportRequest) (string)`,
 	`func NewValue func([]byte) (*Value, error)`,

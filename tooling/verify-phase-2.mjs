@@ -98,7 +98,7 @@ const REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE = Object.freeze({
   id: "phase5-issue125-v1", issue: 125,
   commands: Object.freeze([]),
   imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:78730ab02b24bd0015ef207150a98a9fb93889c730f4ed0022fe6e203b6af82c",
+  mutationBoundaryDigest: "sha256:ea7e75b94a60cb59726955c64570edbc56fb6943daefa43c61507fd7d3d75232",
 });
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
