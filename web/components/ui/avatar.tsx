@@ -1,5 +1,3 @@
-"use client";
-
 import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Avatar as BaseAvatar } from "@base-ui/react/avatar";
@@ -21,12 +19,12 @@ export const avatarVariants = cva(
       size: {
         xs: "size-6 text-sm",
         sm: "size-(--size-sm) text-base",
-        default: "size-(--size-md) text-base",
+        md: "size-(--size-md) text-base",
         lg: "size-(--size-lg) text-lg",
         xl: "size-12 text-xl",
       },
     },
-    defaultVariants: { size: "default" },
+    defaultVariants: { size: "md" },
   },
 );
 
@@ -72,9 +70,9 @@ export type AvatarProps = Omit<
     fallbackDelay?: number;
     /**
      * Diameter of the avatar — also scales the fallback text.
-     * @default 'default'
+     * @default 'md'
      */
-    size?: "xs" | "sm" | "default" | "lg" | "xl";
+    size?: "xs" | "sm" | "md" | "lg" | "xl";
   };
 
 /**
@@ -95,7 +93,7 @@ export type AvatarProps = Omit<
  */
 export function Avatar({
   className,
-  size = "default",
+  size = "md",
   src,
   alt,
   fallback,

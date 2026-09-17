@@ -38,7 +38,7 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 	for _, schema := range Current().Schemas {
 		versions[schema.ID] = schema.Version
 	}
-	for _, id := range []string{credentialReferenceSchemaID, credentialResolutionRecordSchemaID, credentialReferenceRequestSchemaID} {
+	for _, id := range []string{credentialReferenceSchemaID, credentialResolutionRecordSchemaID, credentialReferenceRequestSchemaID, credentialImportRequestSchemaID, credentialImportSubmissionSchemaID} {
 		if versions[id] != "1.1.0" {
 			t.Errorf("credential schema %s version = %s", id, versions[id])
 		}
@@ -57,7 +57,7 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 			continue
 		}
 		found = true
-		if endpoint.Method != "POST" || endpoint.RequestEncoding != "binary" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || endpoint.Availability != AvailabilityPlanned || len(endpoint.Audiences) != 1 || endpoint.Audiences[0] != AudienceOperator {
+		if endpoint.Method != "POST" || endpoint.RequestEncoding != "binary" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || endpoint.Availability != AvailabilityAvailable || endpoint.RequestSchema != credentialImportRequestSchemaID || endpoint.DataSchema != credentialImportSubmissionSchemaID || len(endpoint.Audiences) != 1 || endpoint.Audiences[0] != AudienceOperator {
 			t.Fatalf("unsafe credential import descriptor: %#v", endpoint)
 		}
 	}
@@ -111,7 +111,7 @@ func TestPhase5SurfaceRemainsPlanned(t *testing.T) {
 			continue
 		}
 		found = true
-		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification"
+		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification"
 		if (!available && endpoint.Availability != AvailabilityPlanned) || (available && endpoint.Availability != AvailabilityAvailable) || endpoint.DataSchema == "" {
 			t.Errorf("unsafe Phase 5 endpoint %s", endpoint.ID)
 		}

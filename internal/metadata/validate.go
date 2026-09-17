@@ -104,7 +104,7 @@ func validateEndpoints(endpoints []EndpointDefinition, schemas map[string]struct
 			return validationError("METADATA_REQUIRED", location+".requestSchema")
 		}
 		if endpoint.RequestEncoding == "binary" {
-			if endpoint.ID != "api.v1.credential-references.import-stream" || endpoint.Method != "POST" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || seenAudiences[AudienceBrowser] || seenAudiences[AudienceExecutor] || !seenAudiences[AudienceOperator] {
+			if endpoint.ID != "api.v1.credential-references.import-stream" || endpoint.Method != "POST" || endpoint.TransportScope != "local" || endpoint.MaxRequestBytes != 4096 || endpoint.RequestSchema != credentialImportRequestSchemaID || endpoint.DataSchema != credentialImportSubmissionSchemaID || seenAudiences[AudienceBrowser] || seenAudiences[AudienceExecutor] || !seenAudiences[AudienceOperator] {
 				return validationError("METADATA_INVALID", location+".requestEncoding")
 			}
 		} else if (endpoint.RequestEncoding != "" && endpoint.RequestEncoding != "json") || (endpoint.TransportScope != "" && endpoint.TransportScope != "any") || endpoint.MaxRequestBytes != 0 {
@@ -211,7 +211,7 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 			switch name {
 			case "server run", "server api-ssh":
 				wantRisk = RiskLocalService
-			case "apply", "run cancel", "run resume", "gate evidence", "gate profile draft":
+			case "apply", "run cancel", "run resume", "gate evidence", "gate profile draft", "credential import":
 				wantRisk = RiskMutation
 			}
 			if command.Risk != wantRisk {

@@ -442,6 +442,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"status": false, "database status": false, "inventory import": false, "inventory diff": false, "inventory export": false,
 		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
+		"credential import": false,
 		"audit checkpoints": false, "audit verify": false,
 	}
 	wantPlanned := map[string]string{

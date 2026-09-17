@@ -38,6 +38,11 @@ const BASE_FILES = {
     "var Commands = []Command{}",
     "",
   ].join("\n"),
+  "internal/credentialref/id.go": [
+    "package credentialref",
+    "func ParseID(string) (string, error) { return \"\", nil }",
+    "",
+  ].join("\n"),
 };
 
 async function fixtureRepo(t, files = {}) {
@@ -64,6 +69,13 @@ function localClientFixture(source) {
     ].join("\n"),
     "internal/localapi/client.go": source,
   };
+}
+
+function fixtureLocalTransportSource(source) {
+  return source.replaceAll(
+    '"github.com/vegastack/vegastack-labs/internal/credentialref"',
+    '"example.test/internal/credentialref"',
+  );
 }
 
 test("the CLI verifier accepts one generated-registry consumer", async (t) => {
@@ -341,7 +353,7 @@ test("the local transport implementation is sealed to the reviewed Unix source",
       "}",
       "",
     ].join("\n")),
-    "internal/localtransport/transport.go": transportSource.replace('"unix"', '"tcp"'),
+    "internal/localtransport/transport.go": fixtureLocalTransportSource(transportSource).replace('"unix"', '"tcp"'),
   });
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
@@ -365,7 +377,7 @@ test("the local client boundary rejects caller-controlled values forwarded to th
       "}",
       "",
     ].join("\n")),
-    "internal/localtransport/transport.go": transportSource,
+    "internal/localtransport/transport.go": fixtureLocalTransportSource(transportSource),
   });
   const result = await verifyCLI(root, { crossBuild: false });
   assert.deepEqual(result.codes, ["CLI_LOCAL_CLIENT_BOUNDARY"]);
@@ -392,9 +404,16 @@ test("the local client boundary rejects raw network syscalls", async (t) => {
 test("only localapi may import the sealed local transport", async (t) => {
   const transportSource = await readFile(new URL("../../internal/localtransport/transport.go", import.meta.url), "utf8");
   const root = await fixtureRepo(t, {
+    "go.mod": "module github.com/vegastack/vegastack-labs\n\ngo 1.27.0\n",
+    "cmd/vsk-labs/main.go": [
+      "package main",
+      'import "github.com/vegastack/vegastack-labs/internal/cli"',
+      "func main() { cli.Run() }",
+      "",
+    ].join("\n"),
     "internal/cli/run.go": [
       "package cli",
-      'import ("context"; "time"; "example.test/internal/generated"; "example.test/internal/localtransport")',
+      'import ("context"; "time"; "github.com/vegastack/vegastack-labs/internal/generated"; "github.com/vegastack/vegastack-labs/internal/localtransport")',
       MATCHING_RUN,
       "func Raw(ctx context.Context, socketPath, requestPath string, body []byte) error {",
       "  _, err := localtransport.RoundTrip(ctx, localtransport.Request{SocketPath: socketPath, Method: localtransport.MethodPost, Path: requestPath, Body: body, Timeout: time.Second, ResponseLimit: 1024})",

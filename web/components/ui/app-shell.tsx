@@ -1,3 +1,5 @@
+"use client";
+
 import * as React from "react";
 import { cn } from "@vegastack/design";
 import {
@@ -8,6 +10,29 @@ import {
   type SidebarProps,
 } from "@/components/ui/sidebar";
 import { Skeleton } from "@/components/ui/skeleton";
+
+/**
+ * The id `AppShell`'s skip link points at and `AppShellContent` claims — generated once per
+ * shell so a page may hold more than one.
+ *
+ * It used to be the literal string `"main-content"` in both places. That is a document-global
+ * name, so a page rendering two shells published the id twice and EVERY skip link resolved to
+ * the first region: measured on this system's own `app-shell` docs page, where four
+ * `landmark="region"` previews each carried `id="main-content"` and the documented "Tab once,
+ * press Enter" flow landed the reader in the first preview from every frame. Nothing caught it
+ * — axe dropped the non-ARIA `duplicate-id` rule, and the geometry lane mounts one fixture at
+ * a time.
+ *
+ * Sharing one generated id between two sibling components is what makes this file a client
+ * module: `React.createContext`/`useContext` are `undefined` under the `react-server`
+ * condition (`tooling/verify-rsc-safety.mjs`). The boundary is at the shell root, which is
+ * already where `SidebarProvider`'s own client context lives, and the consumer's page content
+ * still renders on the server and passes through as `children`.
+ *
+ * The fallback is the historical literal, so an `AppShellContent` composed OUTSIDE an
+ * `AppShell` keeps the id its previous users linked to.
+ */
+const AppShellContentIdContext = React.createContext<string>("main-content");
 
 /** Props accepted by `AppShell`. */
 export interface AppShellProps extends React.ComponentProps<"div"> {
@@ -44,6 +69,16 @@ export interface AppShellProps extends React.ComponentProps<"div"> {
    * @default 'Skip to content'
    */
   skipLinkLabel?: string;
+  /**
+   * The `id` this shell's `AppShellContent` claims and this shell's skip link targets. Generated
+   * with `React.useId()` when omitted, so two shells on one page never collide.
+   *
+   * Pass it when the id has to be stable and known — a documented deep link, an external
+   * `aria-controls`, or a test harness. Setting `id` through `{...props}` on `AppShell` or on
+   * `AppShellContent` does NOT rewire the skip link; this prop is the one that does.
+   * @default undefined
+   */
+  contentId?: string;
 }
 
 /**
@@ -51,8 +86,10 @@ export interface AppShellProps extends React.ComponentProps<"div"> {
  * `defaultOpen`/`open`/`onOpenChange`/`mobileBreakpoint`/`keyboardShortcut` — everything the
  * sidebar's expand/collapse and mobile-Sheet behavior needs) and renders the flex row that
  * `AppShellSidebar` and your content column sit in, plus a skip-to-content link
- * (`sr-only focus:not-sr-only`, targeting `AppShellContent`'s `#main-content`) as the very first
- * focusable element in the shell.
+ * (`sr-only focus:not-sr-only`, targeting THIS shell's `AppShellContent`) as the very first
+ * focusable element in the shell. The target id is generated per shell with `React.useId()` and
+ * shared down, so a page may hold several shells and each skip link lands in its own region;
+ * `contentId` pins it when the id has to be known.
  *
  * **No extra wrapper `<div>`.** `SidebarProvider` already renders exactly the flex row a shell
  * needs (`sidebar.tsx`'s internal `sidebar-wrapper` div — `flex min-h-svh w-full`) and forwards
@@ -94,10 +131,13 @@ export function AppShell({
   mobileBreakpoint,
   keyboardShortcut,
   skipLinkLabel = "Skip to content",
+  contentId,
   className,
   children,
   ...props
 }: AppShellProps) {
+  const generatedId = React.useId();
+  const resolvedContentId = contentId ?? generatedId;
   return (
     <SidebarProvider
       defaultOpen={defaultOpen}
@@ -110,13 +150,15 @@ export function AppShell({
       {...props}
     >
       <a
-        href="#main-content"
+        href={`#${resolvedContentId}`}
         data-slot="app-shell-skip-link"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:start-2 focus:z-(--z-overlay) focus:rounded-md focus:border focus:border-border focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-overlay focus-visible:outline-ring"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:start-2 focus:z-(--z-overlay) focus:rounded-md focus:border focus:border-border focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-overlay"
       >
         {skipLinkLabel}
       </a>
-      {children}
+      <AppShellContentIdContext.Provider value={resolvedContentId}>
+        {children}
+      </AppShellContentIdContext.Provider>
     </SidebarProvider>
   );
 }
@@ -189,7 +231,7 @@ export function AppShellHeader({
     <header
       data-slot="app-shell-header"
       className={cn(
-        "flex h-14 shrink-0 items-center gap-2 border-b border-border bg-background px-4",
+        "flex h-(--layout-header-height) shrink-0 items-center gap-2 border-b border-border bg-background px-4",
         className,
       )}
       {...props}
@@ -214,7 +256,9 @@ export function AppShellHeader({
 }
 
 /** Props accepted by `AppShellContent`. */
-export interface AppShellContentProps extends React.ComponentProps<"main"> {
+// Typed off `div`, not `main`: `landmark` decides which of the two is actually rendered, and a
+// `div` ref narrows to either element while a `main` (HTMLElement) ref does not.
+export interface AppShellContentProps extends React.ComponentProps<"div"> {
   /**
    * Panel treatment mirroring the sibling `Sidebar`/`AppShellSidebar`'s `variant` — pass the SAME
    * value on both so the shell reads as one consistent layout. Applied directly as a prop here
@@ -222,12 +266,26 @@ export interface AppShellContentProps extends React.ComponentProps<"main"> {
    * @default 'sidebar'
    */
   variant?: "sidebar" | "floating" | "inset";
+  /**
+   * Which landmark this region claims. `main` (the default) is what a real application wants —
+   * one `<main>` per document, and the skip link's target.
+   *
+   * `region` renders a `<div role="region">` instead, for the case where the shell is EMBEDDED in
+   * a page that already owns a `<main>`: a docs preview, a design gallery, a shell shown inside a
+   * larger document. Two `<main>` elements in one document is a real defect (axe
+   * `landmark-no-duplicate-main`), and it was one this system's own showcase kept hitting. A
+   * `region` needs an accessible name to be exposed as a landmark at all, so pass `aria-label`
+   * with it; without one it is simply a plain container, which is also a correct outcome here.
+   * @default 'main'
+   */
+  landmark?: "main" | "region";
 }
 
 /**
- * `AppShellContent` — the shell's main region: a real `<main id="main-content" tabIndex={-1}>`,
- * the skip-link's target (`AppShell`'s skip link points at `#main-content`; `tabIndex={-1}` makes
- * it programmatically focusable without joining the normal Tab order).
+ * `AppShellContent` — the shell's main region: a real `<main tabIndex={-1}>` carrying the id the
+ * enclosing `AppShell` generated, which is what that shell's skip link points at (`tabIndex={-1}`
+ * makes it programmatically focusable without joining the normal Tab order). To pin the id, pass
+ * `contentId` to `AppShell` — an `id` set here alone moves the element but not the link.
  *
  * **Container queries, not viewport breakpoints.** Carries `@container/app-shell-content`
  * (Tailwind v4 native `@container`) — the sidebar's expand/collapse changes THIS region's actual
@@ -268,12 +326,21 @@ export interface AppShellContentProps extends React.ComponentProps<"main"> {
 export function AppShellContent({
   className,
   variant = "sidebar",
+  landmark = "main",
   ...props
 }: AppShellContentProps) {
+  const Element = landmark === "main" ? "main" : "div";
+  // The id comes from the enclosing `AppShell`, which is the only place that also knows what the
+  // skip link points at. A raw `id` in `{...props}` still wins — it is spread after — but it
+  // rewires nothing, which is why `AppShell`'s `contentId` is the supported override.
+  const contentId = React.useContext(AppShellContentIdContext);
   return (
-    <main
-      id="main-content"
+    <Element
+      // The skip-link target moves with the region either way; `tabIndex={-1}` keeps it
+      // programmatically focusable without joining the Tab order.
+      id={contentId}
       tabIndex={-1}
+      role={landmark === "region" ? "region" : undefined}
       data-slot="app-shell-content"
       data-variant={variant}
       className={cn(
@@ -353,7 +420,7 @@ export function AppShellSkeleton({
       </div>
 
       <div className="flex h-svh min-w-0 flex-1 flex-col">
-        <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+        <div className="flex h-(--layout-header-height) shrink-0 items-center gap-2 border-b border-border px-4">
           <Skeleton shape="circle" className="size-(--icon-default)" />
           <Skeleton className="h-4 w-32" />
         </div>

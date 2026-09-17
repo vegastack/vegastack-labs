@@ -7,6 +7,7 @@ package localtransport
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"io"
 	"net"
@@ -14,6 +15,8 @@ import (
 	"path"
 	"strings"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
 
 type Method = string
@@ -47,12 +50,14 @@ var (
 )
 
 type Request struct {
-	SocketPath    string
-	Method        Method
-	Path          string
-	Body          []byte
-	Timeout       time.Duration
-	ResponseLimit int64
+	SocketPath         string
+	Method             Method
+	Path               string
+	Body               []byte
+	BinaryCredential   bool
+	CredentialMetadata []byte
+	Timeout            time.Duration
+	ResponseLimit      int64
 }
 
 type Response struct {
@@ -89,7 +94,12 @@ func RoundTrip(ctx context.Context, input Request) (Response, error) {
 		return Response{}, ErrInvalid
 	}
 	if input.Method == MethodPost {
-		request.Header.Set("Content-Type", "application/json")
+		if input.BinaryCredential {
+			request.Header.Set("Content-Type", "application/octet-stream")
+			request.Header.Set("X-Vsk-Credential-Request", base64.RawURLEncoding.EncodeToString(input.CredentialMetadata))
+		} else {
+			request.Header.Set("Content-Type", "application/json")
+		}
 	}
 	response, err := client.Do(request)
 	if err != nil {
@@ -115,6 +125,13 @@ func validRequest(input Request) bool {
 		input.Timeout <= 0 || input.Timeout > maximumTimeout || input.ResponseLimit <= 0 || input.ResponseLimit > maximumResponseBytes || len(input.Body) > maximumRequestBytes {
 		return false
 	}
+	if input.BinaryCredential {
+		if input.Method != MethodPost || len(input.Body) < 8 || len(input.Body) > 4096 || len(input.CredentialMetadata) == 0 || len(input.CredentialMetadata) > 4096 || !credentialImportPath(input.Path) {
+			return false
+		}
+	} else if len(input.CredentialMetadata) != 0 {
+		return false
+	}
 	switch input.Method {
 	case MethodGet:
 		return len(input.Body) == 0
@@ -123,4 +140,14 @@ func validRequest(input Request) bool {
 	default:
 		return false
 	}
+}
+
+func credentialImportPath(requestPath string) bool {
+	const prefix, suffix = "/api/v1/credential-references/", "/import-stream"
+	if !strings.HasPrefix(requestPath, prefix) || !strings.HasSuffix(requestPath, suffix) {
+		return false
+	}
+	id := strings.TrimSuffix(strings.TrimPrefix(requestPath, prefix), suffix)
+	_, err := credentialref.ParseID(id)
+	return err == nil
 }

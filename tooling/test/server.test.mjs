@@ -52,6 +52,8 @@ test("the server verifier accepts only the reviewed native credential Linux file
   const accepted = await fixtureRepo(t, {
     "internal/adapter/nativecredential/encrypt_linux.go":
       "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
+    "internal/adapter/nativecredential/inspect_linux.go":
+      "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
     "internal/adapter/nativecredential/resolver_linux.go":
       "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
     "internal/server/credential_resolver_linux.go":

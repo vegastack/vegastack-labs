@@ -477,7 +477,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	return result, nil
 }
 
-const reviewedMainCompositionDigest = "2257058f84305545a1658c7b3b65382535f4f88879111b54260ef5af2d431722"
+const reviewedMainCompositionDigest = "f029c8f3e41b0f66ee2984d971d5d35735a456a60d36fcae6c07ca8ff64ef2d3"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
 	approvedInternal := map[string]bool{
@@ -640,17 +640,18 @@ func moduleDependencyClosure(packages []listedPackage, root string) map[string]b
 
 func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
 	approved := map[string]bool{
-		localAPIImport:                        true,
-		localTransportImport:                  true,
-		sshTransportImport:                    true,
-		modulePath + "/internal/apissh":       true,
-		modulePath + "/internal/failure":      true,
-		modulePath + "/internal/generated":    true,
-		modulePath + "/internal/principal":    true,
-		modulePath + "/internal/result":       true,
-		modulePath + "/internal/runprotocol":  true,
-		modulePath + "/internal/serverconfig": true,
-		modulePath + "/internal/strictjson":   true,
+		localAPIImport:                         true,
+		localTransportImport:                   true,
+		sshTransportImport:                     true,
+		modulePath + "/internal/apissh":        true,
+		modulePath + "/internal/credentialref": true,
+		modulePath + "/internal/failure":       true,
+		modulePath + "/internal/generated":     true,
+		modulePath + "/internal/principal":     true,
+		modulePath + "/internal/result":        true,
+		modulePath + "/internal/runprotocol":   true,
+		modulePath + "/internal/serverconfig":  true,
+		modulePath + "/internal/strictjson":    true,
 	}
 	for importPath := range closure {
 		if !approved[importPath] {
@@ -767,10 +768,16 @@ const (
 	// wave digests are separate from, and do not replace, the baseline goldens.
 	reviewedGateLocalAPILinuxDigest       = "bbeb263e7cfba9102961e338cc51c0fdbc364bf20e472adf85ef135658681e06"
 	reviewedGateLocalAPIUnsupportedDigest = "d03ab3381a723be7e6b4027164e00c6d2723d8fae8e3c6a7da4690b5834999e4"
+	// #124 adds the one bounded local binary credential-import method. These
+	// exact package seals do not authorize another method, transport or target.
+	reviewedCredentialImportLocalAPILinuxDigest       = "8697120933958c3b2b47a9b6e8095e723d45dec8ed297c60a6f1f23d8e5660d7"
+	reviewedCredentialImportLocalAPIUnsupportedDigest = "bda08c1a3c877f6fa353aa6fd6d73e05076b759c710eac8df95a6d1e488bed88"
 	// #107 adds typed audit checkpoint and verification reads without adding a
-	// transport escape hatch. These digests seal the combined #104/#107 wave.
-	reviewedAuditLocalAPILinuxDigest       = "05759e7f0cd624adeace4c93e14e38669d2100fb71df458822116aefd5286170"
-	reviewedAuditLocalAPIUnsupportedDigest = "134b53467f0b0227d6b98be5bcb2055b9746229b3f4ebdad13d545a62f2b06b4"
+	// transport escape hatch. The audit and credential-import clients now coexist
+	// in the production package, so its byte-for-byte seal is the combined closure
+	// of both waves over the current sources.
+	reviewedAuditCredentialLocalAPILinuxDigest       = "a0fa1ad5845527ea5bba96709e3e6f0c81528fc6cb77823733666850a8c53812"
+	reviewedAuditCredentialLocalAPIUnsupportedDigest = "c4a5a8bddeb0579d7dbd537c248836c92fa98fe4ac52fd77dccae7a47d7867d4"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -785,7 +792,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 	if containsString(names, "listener_linux.go") {
 		expected = reviewedLocalAPILinuxDigest
 	}
-	if containsString(names, "gates_client.go") && !containsString(names, "audit_client.go") {
+	if containsString(names, "gates_client.go") && !containsString(names, "credential_client.go") && !containsString(names, "audit_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -798,17 +805,30 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedGateLocalAPIUnsupportedDigest
 		}
 	}
-	if containsString(names, "audit_client.go") {
+	if containsString(names, "credential_client.go") && !containsString(names, "audit_client.go") {
 		if containsString(names, "listener_linux.go") {
-			if strings.Join(names, ",") != "audit_client.go,client.go,gates_client.go,listener.go,listener_linux.go" {
+			if strings.Join(names, ",") != "client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
 			}
-			expected = reviewedAuditLocalAPILinuxDigest
+			expected = reviewedCredentialImportLocalAPILinuxDigest
 		} else {
-			if strings.Join(names, ",") != "audit_client.go,client.go,gates_client.go,listener.go,listener_unsupported.go" {
+			if strings.Join(names, ",") != "client.go,credential_client.go,gates_client.go,listener.go,listener_unsupported.go" {
 				return false
 			}
-			expected = reviewedAuditLocalAPIUnsupportedDigest
+			expected = reviewedCredentialImportLocalAPIUnsupportedDigest
+		}
+	}
+	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = reviewedAuditCredentialLocalAPILinuxDigest
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = reviewedAuditCredentialLocalAPIUnsupportedDigest
 		}
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected
@@ -948,17 +968,17 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 	}
 }
 
-const reviewedLocalTransportDigest = "b7363c8b9c166d1a71b63a9f1912fc3d578389a5d27bebbb4ddd6e12851c639e"
+const reviewedLocalTransportDigest = "3f97f09b0fb0280196e869b0defe165fee6eefbb0caec1fbbf91fa2e4a1143c4"
 
 const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
 
-const reviewedNativeCredentialDigest = "aacca27fe548b4c16b871e027026e289843341cb341281c09732ea3e3ed56d48"
+const reviewedNativeCredentialDigest = "05fafae34779cdadf1f57948efc381bbc3fcf239cdd53832c511c5ee9549242d"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
 	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
 		return false
 	}
-	expectedFiles := []string{"encrypt_linux.go", "resolver_linux.go"}
+	expectedFiles := []string{"encrypt_linux.go", "inspect_linux.go", "resolver_linux.go"}
 	if len(candidate.listed.GoFiles) != len(expectedFiles) {
 		return false
 	}
@@ -968,7 +988,7 @@ func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCrede
 		}
 	}
 	approvedImports := map[string]bool{
-		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true,
+		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true, "errors": true,
 		"io": true, "os": true, "os/exec": true, "path/filepath": true,
 		"slices": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
 		modulePath + "/internal/credentialref": true,
@@ -1017,8 +1037,9 @@ func reviewedSSHTransportPackage(candidate checkedSourcePackage, localTransportI
 
 func reviewedLocalTransportPackage(candidate checkedSourcePackage) bool {
 	approvedImports := map[string]bool{
-		"bytes": true, "context": true, "errors": true, "io": true, "net": true,
+		"bytes": true, "context": true, "encoding/base64": true, "errors": true, "io": true, "net": true,
 		"net/http": true, "path": true, "strings": true, "time": true,
+		"github.com/vegastack/vegastack-labs/internal/credentialref": true,
 	}
 	if len(candidate.listed.GoFiles) != 1 || candidate.listed.GoFiles[0] != "transport.go" || len(candidate.listed.Imports) != len(approvedImports) {
 		return false

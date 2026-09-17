@@ -204,10 +204,11 @@ func Current() Registry {
 		runCancelCommand(),
 		runResumeCommand(),
 		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
+		credentialImportCommand(),
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -351,6 +352,24 @@ func gateProfileDraftCommand() CommandDefinition {
 	return phase5GateCommand([]string{"gate", "profile", "draft"}, "Submit a bounded profile/policy candidate as an inert change; application still needs an exact human-approved plan.", gateProfileDraftRequestSchemaID, gateProfileDraftSubmissionSchemaID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed profile-draft JSON file (4 KiB max)."}},
 		[]string{"gate", "profile", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/gate-profile-draft.json", "--output", "json"})
+}
+
+func credentialImportCommand() CommandDefinition {
+	return phase5GateCommand([]string{"credential", "import"}, "Import a local encrypted credential as an inert draft.", credentialImportRequestSchemaID, credentialImportSubmissionSchemaID, RiskMutation,
+		[]FlagDefinition{
+			{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."},
+			{Name: "--reference-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the draft to one credential reference."},
+			{Name: "--consumer-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the draft to one consumer."},
+			{Name: "--purpose-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the draft to one purpose."},
+			{Name: "--target-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind the draft to one public target."},
+			{Name: "--resolver-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select the native systemd resolver.", Enum: []string{"native-systemd"}},
+			{Name: "--material-version", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Name the proposed material version."},
+			{Name: "--idempotency-key", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Bind retries to one import intent."},
+			{Name: "--expected-state-revision", Kind: FlagValue, ValueName: "revision", Required: true, Summary: "Require one current state revision."},
+			{Name: "--recovery-epoch", Kind: FlagValue, ValueName: "epoch", Required: true, Summary: "Require one current recovery epoch."},
+			{Name: "--input-fd", Kind: FlagValue, ValueName: "descriptor", Summary: "Read private bytes from an already-open descriptor instead of stdin."},
+		},
+		[]string{"credential", "import", "--config", "fixture/server-profile.json", "--reference-id", "reference-a", "--consumer-id", "consumer-a", "--purpose-id", "purpose-a", "--target-id", "target-a", "--resolver-id", "native-systemd", "--material-version", "version-a", "--idempotency-key", "import-a", "--expected-state-revision", "7", "--recovery-epoch", "2", "--output", "json"})
 }
 
 func planCommand() CommandDefinition {

@@ -14,6 +14,20 @@ Available commands:
     --config <path>        Read one protected server profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  credential import        Import a local encrypted credential as an inert draft.
+    --config <path>        Read one protected local server profile.
+    --consumer-id <id>     Bind the draft to one consumer.
+    --expected-state-revision <revision> Require one current state revision.
+    --idempotency-key <id> Bind retries to one import intent.
+    --input-fd <descriptor> Read private bytes from an already-open descriptor instead of stdin.
+    --material-version <id> Name the proposed material version.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --purpose-id <id>      Bind the draft to one purpose.
+    --recovery-epoch <epoch> Require one current recovery epoch.
+    --reference-id <id>    Bind the draft to one credential reference.
+    --resolver-id <id>     Select the native systemd resolver. Allowed: native-systemd.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --target-id <id>       Bind the draft to one public target.
   database status          Inspect control-database status.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

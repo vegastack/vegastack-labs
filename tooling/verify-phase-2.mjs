@@ -54,7 +54,7 @@ const REVIEWED_GATE_WAVE = Object.freeze({
   imports: Object.freeze([`${MODULE_PREFIX}internal/gate`]),
   mutationBoundaryDigest: "sha256:e93cbd898ee0ddd237bd90e83f7b7db153451883fbf590fbd5f42146a5b0a4a9",
 });
-const REVIEWED_CREDENTIAL_WAVE = Object.freeze({
+const REVIEWED_CREDENTIAL_FOUNDATION_WAVE = Object.freeze({
   id: "phase5-issue123-v1", issue: 123,
   commands: Object.freeze([]),
   imports: Object.freeze([
@@ -63,24 +63,45 @@ const REVIEWED_CREDENTIAL_WAVE = Object.freeze({
   ]),
   mutationBoundaryDigest: "sha256:1e72e5133f8446b73494065096dec7f91d6bbc771b6ca137c0b7b4a3d1b1d4ed",
 });
+// Issue #128 re-sealed the production source closure after refreshing the embedded
+// Console assets to design-system registry 0.9.1. It adds NO production command and NO
+// Go import — the only closure delta is the inert embedded `internal/consoleassets`
+// bytes (verified: zero .go/schemas/go.mod/internal-metadata changes) — so its wave
+// carries empty commands/imports and only the new boundary digest.
+const REVIEWED_DESIGN_SYSTEM_WAVE = Object.freeze({
+  id: "designsystem-issue128-v1", issue: 128,
+  commands: Object.freeze([]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:0b2d4b56d0d5ca1e3ba7c8e796cf0a22a171faad87213cedafcd8ecedf714680",
+});
+// Issue #124 adds the inert local encrypted-credential import wave. Because it lands
+// after the #128 design-system reseal, its boundary digest is the combined closure of
+// the credential-import production sources over the resealed Console assets.
+const REVIEWED_CREDENTIAL_IMPORT_WAVE = Object.freeze({
+  id: "phase5-issue124-v1", issue: 124,
+  commands: Object.freeze(["credential import"]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:c18f9df9999784b2c319741cb65172dd802f61bca61abb29a4ecd0a96ce53ba1",
+});
+// Issue #107 adds the two typed audit read commands (checkpoint listing and history
+// verification) with no new Go import. It lands after #124, so as the final Phase 5
+// wave its boundary digest is the current head closure that
+// `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal.
 const REVIEWED_AUDIT_WAVE = Object.freeze({
   id: "phase5-issue107-v1", issue: 107,
   commands: Object.freeze(["audit checkpoints", "audit verify"]),
   imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:774a057eaaa4081c83d076c4eec08c9c7835eb312710c334adce1289a61a2790",
+  mutationBoundaryDigest: "sha256:f7f91580362c31d0d9f66cc9ebb427df1080b8bef771c1a0ab620138da0ecd39",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_WAVE, REVIEWED_AUDIT_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
-const CREDENTIAL_IMPORT_WIP_PATHS = Object.freeze([
-  "internal/api/credential_references.go",
-  "internal/credentialref/import.go",
-  "internal/localapi/credential_client.go",
-  "internal/server/credential_importer_linux.go",
-  "internal/server/credential_importer_unsupported.go",
-  "internal/store/credential_import.go",
-  "schemas/v1/credential-import-request.schema.json",
-  "schemas/v1/credential-import-submission.schema.json",
+const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
+const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
+const CREDENTIAL_IMPORT_FLAGS = Object.freeze([
+  "--config", "--consumer-id", "--expected-state-revision", "--idempotency-key", "--input-fd", "--material-version",
+  "--output", "--purpose-id", "--recovery-epoch", "--reference-id", "--resolver-id", "--schema-version", "--target-id",
 ]);
+const CREDENTIAL_IMPORT_ENDPOINTS = Object.freeze(["api.v1.credential-references.import-stream"]);
 // Phase 2's no-mutation proof predates Phase 4. Later commands are accepted
 // only while the complete local production source closure of cmd/vsk-labs
 // remains byte-for-byte reviewed. This avoids a brittle hand-maintained file
@@ -467,14 +488,13 @@ export async function collectIntegratedFacts(root = ROOT) {
   const onePasswordSDKVersion = await commandOutput(root, "go", [
     "list", "-m", "-f", "{{.Version}}", "github.com/1password/onepassword-sdk-go",
   ], { env: pinnedGoEnvironment() });
-  let credentialImportWIP = "";
-  for (const relative of CREDENTIAL_IMPORT_WIP_PATHS) {
-    if (await pathExists(path.join(root, relative))) {
-      credentialImportWIP = relative;
-      break;
-    }
-  }
+  const credentialCommand = commands.commands.find(({ path: segments }) => segments.join(" ") === "credential import");
   const credentialImportEndpoint = endpoints.endpoints.find(({ id }) => id === "api.v1.credential-references.import-stream");
+  const credentialEndpointIds = endpoints.endpoints.filter(({ id, availability }) => id.includes("credential-reference") && availability === "available").map(({ id }) => id).sort();
+  const credentialImportFlags = credentialCommand?.flags?.map(({ name }) => name).sort() ?? [];
+  const routerSource = await readFile(path.join(root, "internal/api/router.go"), "utf8");
+  const operationsSource = await readFile(path.join(root, "internal/server/operations.go"), "utf8");
+  const importStoreSource = await readFile(path.join(root, "internal/store/credential_import.go"), "utf8");
   const fixtureFiles = await filesBelow(path.join(root, "tooling/testdata/phase-2"));
   let privateFixture = false;
   for (const filename of fixtureFiles) {
@@ -500,8 +520,13 @@ export async function collectIntegratedFacts(root = ROOT) {
       !REVIEWED_PHASE5_WAVES.some(({ commands: reviewed }) => reviewed.includes(segments.join(" ")))),
     productionImports,
     onePasswordSDKVersion,
-    credentialImportWIP,
+    credentialImportFlags,
+    credentialEndpointIds,
     credentialImportAvailability: credentialImportEndpoint?.availability ?? "missing",
+    credentialImportRemoteAllowed: routerSource.includes("api.v1.credential-references.import-stream") || routerSource.includes("/api/v1/credential-references/"),
+    credentialProductionResolverEnabled: !/func productionAdapterRegistry\(\) \*adapter\.Registry \{\s*return adapter\.NewRegistry\(\)\s*\}/s.test(operationsSource),
+    credentialLiveGateEnabled: !operationsSource.includes("SecretGate: runengine.UnavailableGateVerifier{}"),
+    credentialImportTouchesCurrentAuthority: ["credential_reference_versions", "credential_step_bindings", "credential_resolution_records"].some((table) => importStoreSource.includes(table)),
     privateFixture,
     children,
   };
@@ -573,6 +598,7 @@ export function validateEvidence(manifest, facts) {
   const expectedReviewedCommands = REVIEWED_PHASE5_WAVES.flatMap(({ commands }) => commands).sort();
   const reviewedWaveImportsPresent = REVIEWED_PHASE5_WAVES.every(({ imports }) =>
     imports.every((name) => facts.productionImports.includes(name)));
+  const availableCredentialCommands = facts.availableCommands.filter((name) => name.startsWith("credential "));
   const reviewedWavesActive = waveRecordsValid && same(availableReviewedCommands, expectedReviewedCommands) &&
     reviewedWaveImportsPresent &&
     facts.postPhase2MutationBoundaryDigest === reviewedWaves.at(-1).mutationBoundaryDigest;
@@ -587,14 +613,18 @@ export function validateEvidence(manifest, facts) {
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
       !(reviewedWavesActive || historicalBaselineActive) ||
-      facts.credentialImportAvailability !== "planned" ||
+      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, REVIEWED_CREDENTIAL_IMPORT_WAVE.commands) ||
+      !same(facts.credentialImportFlags, CREDENTIAL_IMPORT_FLAGS) || !same(facts.credentialEndpointIds, CREDENTIAL_IMPORT_ENDPOINTS) ||
+      !facts.migrations.some((migration) => same(migration, CREDENTIAL_FOUNDATION_MIGRATION)) ||
+      !facts.migrations.some((migration) => same(migration, CREDENTIAL_IMPORT_MIGRATION)) ||
       !same(manifest.contract.availableCommands, EXPECTED_AVAILABLE_COMMANDS) ||
       !containsAll(facts.availableCommands, EXPECTED_AVAILABLE_COMMANDS))) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
   if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports, reviewedWavesActive) ||
       availableReviewedCommands.length > 0 && !reviewedWaveImportsPresent ||
-      facts.onePasswordSDKVersion !== ONEPASSWORD_SDK_VERSION || facts.credentialImportWIP !== "" ||
+      facts.onePasswordSDKVersion !== ONEPASSWORD_SDK_VERSION || facts.credentialImportRemoteAllowed ||
+      facts.credentialProductionResolverEnabled || facts.credentialLiveGateEnabled || facts.credentialImportTouchesCurrentAuthority ||
       facts.postPhase2SourceOverride !== "" ||
       facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");

@@ -59,6 +59,10 @@ type ControlOperations interface {
 	ResumeRun(context.Context, string, string) (localapi.TypedResponse[generated.RunPresentation], error)
 }
 
+type CredentialControlOperations interface {
+	ImportCredential(context.Context, string, generated.CredentialImportRequest, io.Reader) (localapi.TypedResponse[generated.CredentialImportSubmission], error)
+}
+
 type GateControlOperations interface {
 	Gates(context.Context, string) (localapi.TypedResponse[generated.GateListData], error)
 	GetGate(context.Context, string, string) (localapi.TypedResponse[generated.GateView], error)
@@ -99,16 +103,30 @@ func WithControlOperations(operations ControlOperations, files clientfile.Reader
 	}
 }
 
+func WithCredentialControlOperations(operations CredentialControlOperations) Option {
+	return func(app *App) {
+		app.credentials = operations
+	}
+}
+
+func WithCredentialDescriptorOpener(opener CredentialDescriptorOpener) Option {
+	return func(app *App) {
+		app.openCredentialDescriptor = opener
+	}
+}
+
 type App struct {
-	stdin      io.Reader
-	stdout     io.Writer
-	stderr     io.Writer
-	build      BuildInfo
-	requestIDs RequestIDSource
-	releases   ReleaseOperations
-	server     ServerOperations
-	control    ControlOperations
-	files      clientfile.Reader
+	stdin                    io.Reader
+	stdout                   io.Writer
+	stderr                   io.Writer
+	build                    BuildInfo
+	requestIDs               RequestIDSource
+	releases                 ReleaseOperations
+	server                   ServerOperations
+	control                  ControlOperations
+	credentials              CredentialControlOperations
+	files                    clientfile.Reader
+	openCredentialDescriptor CredentialDescriptorOpener
 }
 
 func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, options ...Option) *App {
@@ -119,7 +137,7 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs}
+	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor}
 	for _, option := range options {
 		if option != nil {
 			option(app)
@@ -222,6 +240,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return response.ExitCode
 		}
 		return renderHumanServerStatus(app.stdout, response.Status, response.ExitCode)
+	case generated.CommandNameCredentialImport:
+		return app.runCredentialImport(ctx, parsed)
 	case generated.CommandNameStatus:
 		if app.control == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
@@ -467,6 +487,7 @@ var serverErrorTargets = map[string]struct{}{
 	"control-service-response": {}, "control-socket": {}, "control-socket-parent": {},
 	"identity-header": {}, "local-peer": {}, "method": {}, "principal-bindings": {},
 	"inventory-file": {}, "request-body": {}, "server-config": {}, "server-platform": {},
+	"credential-import": {}, "credential-import-local-only": {}, "credential-import-metadata": {}, "credential-import-stream": {},
 }
 
 func writeRemoteJSON(output io.Writer, raw []byte, exitCode int) int {

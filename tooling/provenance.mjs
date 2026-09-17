@@ -23,7 +23,7 @@ const APPROVED_MPL_PACKAGES = new Set([
 // role, decision, and derived reason. Resolution data is verified separately
 // against the lockfile. A provenance refresh cannot approve its own metadata.
 const REVIEWED_METADATA_SHA256 =
-  "3196fd4aa4f3cfe7feeb8a9a80f32f780ff0f76bc04d1a58228c80e10d495af7";
+  "020c5686708296117c0a4d1ccddbf285c3e2ad897fb5e13a5e8310cb3d5ee73c";
 const REVIEWED_LICENSES = new Set([
   "0BSD",
   "Apache-2.0",

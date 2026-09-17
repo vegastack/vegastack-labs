@@ -53,7 +53,7 @@ func TestCredentialMigrationAppliesAfterRestorablePreMigrationSnapshot(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) < 12 || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" {
+	if len(catalog) != 14 || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" || catalog[13].ID != 14 || catalog[13].Name != "0014_audit_chain" {
 		t.Fatalf("fresh migration catalog: %#v", catalog)
 	}
 	file, err := os.OpenFile(config.DatabasePath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
@@ -119,6 +119,78 @@ func TestCredentialMigrationAppliesAfterRestorablePreMigrationSnapshot(t *testin
 	}
 	if err := authority.conn.QueryRowContext(context.Background(), `SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='credential_reference_versions'`).Scan(&tableCount); err != nil || tableCount != 1 {
 		t.Fatalf("0012 not applied: %d %v", tableCount, err)
+	}
+}
+
+func TestCredentialImportMigrationAppliesAfterRestorablePre0013Snapshot(t *testing.T) {
+	config := testConfig(t)
+	catalog, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := os.OpenFile(config.DatabasePath, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	database, err := sql.Open(sqliteDriverName, sqliteURI(config.DatabasePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := database.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, migration := range catalog[:12] {
+		if _, err := transaction.ExecContext(context.Background(), migration.SQL); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.ExecContext(context.Background(), `INSERT INTO schema_migrations(id,name,sha256,applied_at,tool_version,build_version) VALUES(?,?,?,?,?,?)`, migration.ID, migration.Name, migration.SHA256[:], time.Now().UTC().Format(time.RFC3339Nano), config.ToolVersion, config.BuildVersion); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := transaction.ExecContext(context.Background(), `UPDATE system_meta SET schema_version=12 WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.ExecContext(context.Background(), `CREATE TABLE credential_import_migration_sentinel(value TEXT NOT NULL) STRICT; INSERT INTO credential_import_migration_sentinel(value) VALUES('pre-0013')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.Close(); err != nil {
+		t.Fatal(err)
+	}
+	recovery := &credentialMigrationRecovery{snapshot: filepath.Join(filepath.Dir(config.DatabasePath), "credential-pre-0013.db"), restored: filepath.Join(filepath.Dir(config.DatabasePath), "credential-pre-0013-isolated-restore.db")}
+	config.Mode, config.Recovery = OpenExisting, recovery
+	authority, err := Open(context.Background(), config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = authority.Close() })
+	if recovery.source == nil || recovery.verified.SchemaVersion != 12 {
+		t.Fatal("pre-0013 backup was not prepared")
+	}
+	if _, err := recovery.VerifyRestorable(context.Background(), recovery.source, recovery.verified); err != nil {
+		t.Fatal(err)
+	}
+	old, err := sql.Open(sqliteDriverName, fileURI(recovery.restored, "ro"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer old.Close()
+	var sentinel string
+	if err := old.QueryRowContext(context.Background(), `SELECT value FROM credential_import_migration_sentinel`).Scan(&sentinel); err != nil || sentinel != "pre-0013" {
+		t.Fatalf("restore lost pre-0013 state: %s %v", sentinel, err)
+	}
+	var tableCount int
+	if err := old.QueryRowContext(context.Background(), `SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='credential_import_drafts'`).Scan(&tableCount); err != nil || tableCount != 0 {
+		t.Fatalf("pre-0013 snapshot polluted: %d %v", tableCount, err)
+	}
+	if err := authority.conn.QueryRowContext(context.Background(), `SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='credential_import_drafts'`).Scan(&tableCount); err != nil || tableCount != 1 {
+		t.Fatalf("0013 not applied: %d %v", tableCount, err)
 	}
 }
 

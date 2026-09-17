@@ -65,6 +65,7 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	ImportCredential(context.Context, serverconfig.Profile, generated.CredentialImportRequest, io.Reader) (TypedResponse[generated.CredentialImportSubmission], error)
 	Gates(context.Context, serverconfig.Profile) (TypedResponse[generated.GateListData], error)
 	GetGate(context.Context, serverconfig.Profile, string) (TypedResponse[generated.GateView], error)
 	CheckGate(context.Context, serverconfig.Profile, string, string) (TypedResponse[generated.GateEvaluation], error)

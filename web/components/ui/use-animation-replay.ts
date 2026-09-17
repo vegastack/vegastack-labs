@@ -196,7 +196,7 @@ function readInvalidAttribute(element: HTMLElement): boolean {
  * @example
  * function MyField({ invalid, shakeAttempt, ...props }) {
  *   const shake = useShakeOnInvalid({ shakeSignal: shakeAttempt });
- *   const ref = mergeRefs(props.ref, shake.invalidRef);
+ *   const ref = React.useMemo(() => mergeRefs(props.ref, shake.invalidRef), [props.ref, shake.invalidRef]);
  *   return (
  *     <input
  *       ref={ref}
@@ -261,25 +261,4 @@ export function useShakeOnInvalid(
   }, [shakeSignal, replay]);
 
   return { invalidRef, className, onAnimationEnd, isShaking: isActive };
-}
-
-/**
- * Combine multiple refs (a forwarded `ref` prop plus this file's `invalidRef`, typically) into
- * one ref callback so both land on the same DOM node. Skips `null`/`undefined` entries. Not
- * memoized internally — wrap the CALL in `React.useCallback`/`React.useMemo` at the call site if
- * the inputs are stable, to avoid detaching/reattaching refs on every render.
- */
-export function mergeRefs<T>(
-  ...refs: Array<React.Ref<T> | null | undefined>
-): React.RefCallback<T> {
-  return (node: T | null) => {
-    for (const ref of refs) {
-      if (ref == null) continue;
-      if (typeof ref === "function") {
-        ref(node);
-      } else {
-        (ref as React.RefObject<T | null>).current = node;
-      }
-    }
-  };
 }

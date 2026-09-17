@@ -31,6 +31,8 @@ const (
 	restoreVerifyRequestSchemaID       = "vegastack-labs.dev/restore-verify-request"
 	scheduledJobRequestSchemaID        = "vegastack-labs.dev/scheduled-job-request"
 	credentialReferenceRequestSchemaID = "vegastack-labs.dev/credential-reference-request"
+	credentialImportRequestSchemaID    = "vegastack-labs.dev/credential-import-request"
+	credentialImportSubmissionSchemaID = "vegastack-labs.dev/credential-import-submission"
 	auditCheckpointRequestSchemaID     = "vegastack-labs.dev/audit-checkpoint-request"
 	databaseExportRequestSchemaID      = "vegastack-labs.dev/database-export-request"
 	gateListDataSchemaID               = "vegastack-labs.dev/gate-list-data"
@@ -384,6 +386,17 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5ID("purposeId", "PurposeID"), phase5ID("targetId", "TargetID"), phase5ID("resolverId", "ResolverID"),
 			phase5ID("materialVersion", "MaterialVersion"), phase5Digest("fingerprint", "Fingerprint"),
 		),
+		phase5CredentialRequest(credentialImportRequestSchemaID,
+			phase5ID("referenceId", "ReferenceID"), phase5ID("consumerId", "ConsumerID"),
+			phase5ID("purposeId", "PurposeID"), phase5ID("targetId", "TargetID"), phase5Enum("resolverId", "ResolverID", "native-systemd"),
+			phase5ID("materialVersion", "MaterialVersion"),
+		),
+		phase5CredentialSchema(credentialImportSubmissionSchemaID,
+			phase5ID("draftId", "DraftID"), phase5ID("referenceId", "ReferenceID"),
+			phase5Digest("ciphertextFingerprint", "CiphertextFingerprint"),
+			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5Request(auditCheckpointRequestSchemaID,
 			phase5Positive("firstEventId", "FirstEventID"), phase5Positive("lastEventId", "LastEventID"),
 		),
@@ -458,7 +471,7 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5AvailableGateEndpoint("api.v1.gate-evidence.create", "POST", "/api/v1/gates/{gateId}/evidence", gateEvidenceRequestSchemaID, gateEvidenceSubmissionSchemaID, false),
 		phase5Endpoint("api.v1.credential-references.get", "GET", "/api/v1/credential-references/{referenceId}", "", credentialReferenceSchemaID, false),
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
-		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialReferenceRequestSchemaID, DataSchema: credentialReferenceSchemaID, Availability: AvailabilityPlanned, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
+		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialImportRequestSchemaID, DataSchema: credentialImportSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
 		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5Endpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5Endpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),

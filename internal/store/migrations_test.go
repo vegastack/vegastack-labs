@@ -125,11 +125,11 @@ func TestCatalogAddsAuditOutboxAsExactlyMigrationThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) != 13 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" || catalog[9].ID != 10 || catalog[9].Name != "0010_external_executor_leases" || catalog[10].ID != 11 || catalog[10].Name != "0011_gate_evidence" || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_audit_chain" {
+	if len(catalog) != 14 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" || catalog[9].ID != 10 || catalog[9].Name != "0010_external_executor_leases" || catalog[10].ID != 11 || catalog[10].Name != "0011_gate_evidence" || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" || catalog[13].ID != 14 || catalog[13].Name != "0014_audit_chain" {
 		t.Fatalf("third migration = %#v", catalog)
 	}
 	for _, required := range []string{"audit_instances", "audit_epoch_genesis", "audit_chain_links", "audit_checkpoints", "audit_checkpoint_outbox", "no_update", "no_delete"} {
-		if !containsFold(catalog[12].SQL, required) {
+		if !containsFold(catalog[13].SQL, required) {
 			t.Errorf("audit chain migration is missing %q", required)
 		}
 	}

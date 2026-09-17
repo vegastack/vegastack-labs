@@ -136,6 +136,44 @@ func TestParseServerAPISSHRequiresFixedBindingArguments(t *testing.T) {
 	}
 }
 
+func TestParseCredentialImportAllowsOnlyBoundedPublicSelectors(t *testing.T) {
+	t.Parallel()
+	base := credentialImportArguments()
+	for _, arguments := range [][]string{
+		base,
+		append(append([]string{}, base...), "--input-fd", "3"),
+		append(append([]string{}, base...), "--input-fd", "1048575"),
+	} {
+		parsed, failure := parseArguments(arguments)
+		if failure != nil || parsed.commandName() != generated.CommandNameCredentialImport {
+			t.Fatalf("valid credential import %v = (%#v, %#v)", arguments, parsed, failure)
+		}
+	}
+	for _, extra := range [][]string{
+		{"--expected-state-revision", "-1"},
+		{"--recovery-epoch", "-1"},
+		{"--input-fd", "2"},
+		{"--input-fd", "1048576"},
+		{"--input-fd", "invalid"},
+		{"--value", privateCredentialCanary},
+		{"--file", "/private/path/canary"},
+	} {
+		arguments := append([]string{}, base...)
+		if strings.HasPrefix(extra[0], "--expected-") || extra[0] == "--recovery-epoch" {
+			for index := range arguments {
+				if arguments[index] == extra[0] {
+					arguments[index+1] = extra[1]
+				}
+			}
+		} else {
+			arguments = append(arguments, extra...)
+		}
+		if _, failure := parseArguments(arguments); failure == nil || failure.code != generated.ErrorCodeInputInvalid {
+			t.Errorf("invalid credential import %v failure = %#v", arguments, failure)
+		}
+	}
+}
+
 func TestParseInventoryDiffRequiresExactlyOneCompleteSelector(t *testing.T) {
 	base := []string{"inventory", "diff", "--config", "profile.json"}
 	invalid := [][]string{

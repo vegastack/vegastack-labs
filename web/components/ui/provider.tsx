@@ -4,13 +4,14 @@
 // (`packages/ui/src/provider/vegastack-provider.tsx` + `use-vegastack-theme.ts`) is
 // mirrored from this implementation so the private npm build and the registry copy-in
 // do not diverge — if they must differ, change ONLY this file and re-mirror there.
-// (Same discipline as the Toaster: `registry/ui/sonner.tsx` ↔ `src/provider/toaster.tsx`.)
+// (Same discipline as the Toaster: `registry/ui/toast.tsx` ↔ `src/provider/toaster.tsx`.)
 
 import * as React from "react";
+import { TIMINGS } from "@vegastack/design";
 import { ThemeProvider as NextThemesProvider, useTheme } from "next-themes";
 import { Tooltip } from "@base-ui/react/tooltip";
 import { DirectionProvider } from "@base-ui/react/direction-provider";
-import { Toaster } from "@/components/ui/sonner";
+import { ToastProvider, Toaster } from "@/components/ui/toast";
 
 /** Props accepted by `VegaStackProvider`. */
 export interface VegaStackProviderProps extends Omit<
@@ -32,17 +33,22 @@ export interface VegaStackProviderProps extends Omit<
 
 /**
  * `VegaStackProvider` — single root wrapper bundling theme (next-themes),
- * toasts (Sonner), tooltip coordination, and text direction. Wrap your app
- * root with it exactly once; every VegaStack component below it then gets
+ * toasts (Base UI Toast), tooltip coordination, and text direction. Wrap your
+ * app root with it exactly once; every VegaStack component below it then gets
  * dark mode, working `toast()` calls, shared tooltip delays, and direction
  * context for free.
  *
  * The host `<html>` needs `suppressHydrationWarning` (next-themes mutates it
  * on the client before hydration).
  *
- * The `toaster` prop lets a host suppress (`false`) or replace the bundled
- * `<Toaster />` — necessary because a Sonner toaster is a mount-once portal
- * that must not be mounted twice.
+ * `ToastProvider` always mounts — it is the context the imperative `toast()`
+ * writes into, and mounting it unconditionally means a host that renders its
+ * own `<Toaster />` still shares one toast queue. The `toaster` prop suppresses
+ * (`false`) or replaces only the VISIBLE viewport, which is the part that must
+ * not be mounted twice.
+ *
+ * Tooltip delays are set here from `TIMINGS`, so every tooltip in the app opens
+ * on the same rhythm and there is exactly one place to change it.
  *
  * @example
  * ```tsx
@@ -75,9 +81,14 @@ export function VegaStackProvider({
       {...themeProps}
     >
       <DirectionProvider direction={direction}>
-        <Tooltip.Provider>
-          {children}
-          {toasterNode}
+        <Tooltip.Provider
+          delay={TIMINGS.tooltipOpenDelayMs}
+          closeDelay={TIMINGS.tooltipCloseDelayMs}
+        >
+          <ToastProvider>
+            {children}
+            {toasterNode}
+          </ToastProvider>
         </Tooltip.Provider>
       </DirectionProvider>
     </NextThemesProvider>
