@@ -302,3 +302,71 @@ func TestCredentialLifecycleRejectsForgedActionNullables(t *testing.T) {
 		t.Fatalf("non-increasing recover epoch admitted: %v", err)
 	}
 }
+
+func TestLifecycleBindingStoreRoundtripAndTamperDenial(t *testing.T) {
+	for _, mode := range []string{"roundtrip", "bytes-tamper", "digest-tamper"} {
+		t.Run(mode, func(t *testing.T) {
+			ctx := context.Background()
+			repository := openCredentialStore(t)
+			binding := stageBinding()
+			binding.StateRevision = 3 // declaration + inert binding + plan commits
+			manifest := credentialref.LifecycleManifestDigestOf(binding)
+			request := validDeclarationStoreRequest()
+			request.Document.DeclarationType = "credential.lifecycle"
+			request.Document.Operations = []generated.DeclarationOperation{{Sequence: 1, OperationID: binding.OperationID, OperationType: string(binding.Action), AdapterID: "core.credential", TargetID: binding.TargetID, InputDigest: binding.CiphertextFingerprint, ArtifactDigest: binding.CiphertextFingerprint, Idempotent: false}}
+			request.Document.Extensions = []generated.ContractExtension{{Name: "x-credential-lifecycle", ValueDigest: manifest}}
+			request.Document.ContentDigest = declarationContentDigest(request.Document, request.ReasonDigest)
+			draft, err := NewDeclarationRepository(repository.store).CreateRevision(ctx, request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = repository.PutLifecycleDraft(ctx, CredentialLifecycleDraftRequest{DeclarationID: draft.Document.DeclarationID, DeclarationRevision: draft.Document.Revision, Binding: binding, Expected: RevisionToken{StateRevision: 1}, Attribution: request.Attribution, KeyDigest: gateDigest([]byte("binding-key")), RequestDigest: gateDigest([]byte("binding-request"))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			planRequest := validPlanStoreRequest(draft.Document)
+			planRequest.Expected.StateRevision = 2
+			planRequest.DesiredDeclaration.StateRevision = 3
+			planRequest.Plan.Binding.PriorStateRevision = 2
+			planRequest.Plan.Binding.StateRevision = 3
+			planRequest.Plan.Extensions = request.Document.Extensions
+			planRequest.Plan.Operations = []generated.PlanOperation{{Sequence: 1, OperationID: binding.OperationID, OperationType: string(binding.Action), AdapterID: "core.credential", ExecutorID: "executor-central", TargetID: binding.TargetID, InputDigest: binding.CiphertextFingerprint, ArtifactDigest: binding.CiphertextFingerprint, Idempotent: false}}
+			planRequest.Plan.PlanID, planRequest.Plan.PlanDigest = "", ""
+			preimage, _ := json.Marshal(planRequest.Plan)
+			sum := sha256.Sum256(preimage)
+			planRequest.Plan.PlanDigest = "sha256:" + hex.EncodeToString(sum[:])
+			planRequest.Plan.PlanID = "plan-" + hex.EncodeToString(sum[:16])
+			planRequest.CanonicalBytes, _ = json.Marshal(planRequest.Plan)
+			planned, err := NewPlanRepository(repository.store).CommitDeclarationAndPlan(ctx, planRequest)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if mode != "roundtrip" {
+				// Model privileged persisted-data corruption; production append-only
+				// triggers are separately proven. The reader must still fail closed.
+				if _, err := repository.store.conn.ExecContext(ctx, `DROP TRIGGER credential_lifecycle_bindings_no_update`); err != nil {
+					t.Fatal(err)
+				}
+				if mode == "bytes-tamper" {
+					changed := binding
+					changed.CiphertextFingerprint = testDigest
+					body, _ := json.Marshal(changed)
+					_, err = repository.store.conn.ExecContext(ctx, `UPDATE credential_lifecycle_bindings SET binding_bytes=?`, body)
+				} else {
+					_, err = repository.store.conn.ExecContext(ctx, `UPDATE credential_lifecycle_bindings SET binding_digest=?`, testDigest)
+				}
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+			loaded, err := repository.GetLifecycleBinding(ctx, planned.Plan, binding.OperationID)
+			if mode == "roundtrip" {
+				if err != nil || loaded.Digest() != binding.Digest() {
+					t.Fatalf("persisted binding roundtrip failed: %+v %v", loaded, err)
+				}
+			} else if Code(err) != generated.ErrorCodeIntegrityFailure {
+				t.Fatalf("corrupt persisted binding admitted: %+v %v", loaded, err)
+			}
+		})
+	}
+}

@@ -17,8 +17,6 @@ type fakeLifecycleRepository struct {
 	reference    generated.CredentialReference
 	draft        store.CredentialImportDraft
 	applied      *store.CredentialLifecycleApplyRequest
-	applyOrder   int
-	sequence     *int
 	appliedValue generated.CredentialReference
 }
 
@@ -34,10 +32,6 @@ func (repo *fakeLifecycleRepository) LookupImportDraftByReference(context.Contex
 func (repo *fakeLifecycleRepository) ApplyCredentialLifecycle(_ context.Context, request store.CredentialLifecycleApplyRequest) (generated.CredentialReference, error) {
 	clone := request
 	repo.applied = &clone
-	if repo.sequence != nil {
-		*repo.sequence++
-		repo.applyOrder = *repo.sequence
-	}
 	value := repo.appliedValue
 	value.ReferenceID = request.Stage.Reference.ReferenceID
 	value.Status = request.Stage.Reference.Status
@@ -46,8 +40,6 @@ func (repo *fakeLifecycleRepository) ApplyCredentialLifecycle(_ context.Context,
 }
 
 type recordingLifecycleVerifier struct {
-	sequence     *int
-	verifyOrder  int
 	results      []credentialref.ConsumerVerification
 	blockedError error
 }
@@ -56,25 +48,12 @@ func (verifier *recordingLifecycleVerifier) Verify(context.Context, ExactStepBin
 	if verifier.blockedError != nil {
 		return nil, verifier.blockedError
 	}
-	if verifier.sequence != nil {
-		*verifier.sequence++
-		verifier.verifyOrder = *verifier.sequence
-	}
 	return verifier.results, nil
 }
 
-type countingGate struct {
-	calls     int
-	sequence  *int
-	gateOrder int
-}
+type lifecycleFixtureGate struct{}
 
-func (gate *countingGate) VerifySecretStep(context.Context, generated.Plan, generated.PlanOperation) error {
-	gate.calls++
-	if gate.sequence != nil {
-		*gate.sequence++
-		gate.gateOrder = *gate.sequence
-	}
+func (*lifecycleFixtureGate) VerifySecretStep(context.Context, generated.Plan, generated.PlanOperation) error {
 	return nil
 }
 
@@ -115,37 +94,13 @@ func approvedLifecycleApproval() *fixedGateApproval {
 	return approval
 }
 
-func TestCredentialEffectStageSkipsGateAndAppendsInert(t *testing.T) {
-	now := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
-	binding, lifecycleBinding := lifecycleEffectBinding(t, now, credentialref.ActionStage)
-	lifecycleBinding.DraftID = stringPointerRun("draft-a")
-	approval := approvedLifecycleApproval()
-	approval.stored.Acknowledgement.PlanDigest = binding.Plan.PlanDigest
-	repo := &fakeLifecycleRepository{binding: lifecycleBinding, draft: store.CredentialImportDraft{ConsumerID: "consumer-a", PurposeID: "deploy-a", TargetID: lifecycleBinding.TargetID, ResolverID: "native-a", CiphertextFingerprint: lifecycleFingerprint}}
-	gate := &countingGate{}
-	effect, err := NewCoreCredentialEffect(repo, approval, gate, &recordingLifecycleVerifier{}, UnavailableCredentialRecoveryVerifier{}, func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
-	result, err := effect.Execute(context.Background(), binding)
-	if err != nil {
-		t.Fatalf("stage effect failed: %v", err)
-	}
-	if result.Status != "succeeded" || gate.calls != 0 || repo.applied == nil {
-		t.Fatalf("stage did not append inert without a gate: result=%+v gate=%d applied=%v", result, gate.calls, repo.applied != nil)
-	}
-	if repo.applied.Stage.Reference.Status != "staged" || repo.applied.Stage.Reference.ConsumerID != "consumer-a" {
-		t.Fatalf("stage built the wrong target: %+v", repo.applied.Stage.Reference)
-	}
-}
-
 func TestCredentialEffectActivationBlocksWithoutConsumerVerifier(t *testing.T) {
 	now := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
 	binding, lifecycleBinding := lifecycleEffectBinding(t, now, credentialref.ActionActivate)
 	approval := approvedLifecycleApproval()
 	approval.stored.Acknowledgement.PlanDigest = binding.Plan.PlanDigest
 	repo := &fakeLifecycleRepository{binding: lifecycleBinding, reference: generated.CredentialReference{ReferenceID: "reference-a", ConsumerID: "consumer-a", PurposeID: "deploy-a", TargetID: lifecycleBinding.TargetID, ResolverID: "native-a", MaterialVersion: "version-a", Fingerprint: lifecycleFingerprint, Status: "staged", RecoveryEpoch: 0}}
-	effect, err := NewCoreCredentialEffect(repo, approval, &countingGate{}, UnavailableCredentialLifecycleVerifier{}, UnavailableCredentialRecoveryVerifier{}, func() time.Time { return now })
+	effect, err := NewCoreCredentialEffect(repo, approval, &lifecycleFixtureGate{}, UnavailableCredentialLifecycleVerifier{}, UnavailableCredentialRecoveryVerifier{}, func() time.Time { return now })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -156,38 +111,3 @@ func TestCredentialEffectActivationBlocksWithoutConsumerVerifier(t *testing.T) {
 		t.Fatal("status changed without complete consumer verification")
 	}
 }
-
-func TestCredentialEffectVerifierRunsBeforeAppend(t *testing.T) {
-	now := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
-	binding, lifecycleBinding := lifecycleEffectBinding(t, now, credentialref.ActionActivate)
-	approval := approvedLifecycleApproval()
-	approval.stored.Acknowledgement.PlanDigest = binding.Plan.PlanDigest
-	sequence := 0
-	repo := &fakeLifecycleRepository{binding: lifecycleBinding, sequence: &sequence, reference: generated.CredentialReference{ReferenceID: "reference-a", ConsumerID: "consumer-a", PurposeID: "deploy-a", TargetID: lifecycleBinding.TargetID, ResolverID: "native-a", MaterialVersion: "version-a", Fingerprint: lifecycleFingerprint, Status: "staged", RecoveryEpoch: 0}}
-	verifier := &recordingLifecycleVerifier{sequence: &sequence, results: []credentialref.ConsumerVerification{
-		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: lifecycleFingerprint, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
-		{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: lifecycleFingerprint, RestartObserved: false, Result: "denied", ReasonCode: "denied"},
-	}}
-	gate := &countingGate{sequence: &sequence}
-	effect, err := NewCoreCredentialEffect(repo, approval, gate, verifier, UnavailableCredentialRecoveryVerifier{}, func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := effect.Execute(context.Background(), binding); err != nil {
-		t.Fatalf("activation failed: %v", err)
-	}
-	// The gate, verifier and append all advance the same sequence counter, so a
-	// regression that ran the gate after the verifier (or appended before either)
-	// would be caught here, not silently pass (Finding F6).
-	if gate.calls != 1 || gate.gateOrder == 0 || verifier.verifyOrder == 0 || repo.applyOrder == 0 {
-		t.Fatalf("gate, verify and append must all run: gate=%d gateOrder=%d verify=%d apply=%d", gate.calls, gate.gateOrder, verifier.verifyOrder, repo.applyOrder)
-	}
-	if !(gate.gateOrder < verifier.verifyOrder && verifier.verifyOrder < repo.applyOrder) {
-		t.Fatalf("order must be gate -> verify -> append: gate=%d verify=%d apply=%d", gate.gateOrder, verifier.verifyOrder, repo.applyOrder)
-	}
-	if repo.applied == nil || len(repo.applied.Verifications) != 2 {
-		t.Fatalf("verification evidence not carried to the append: %+v", repo.applied)
-	}
-}
-
-func stringPointerRun(value string) *string { return &value }

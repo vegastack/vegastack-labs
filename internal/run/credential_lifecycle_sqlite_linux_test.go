@@ -89,7 +89,6 @@ func prepareSQLiteCredentialLifecycle(t *testing.T, fixture *sqliteRestartFixtur
 		t.Fatal(err)
 	}
 	fixture.engine.credentialCore = core
-	fixture.request = fixture.submitRequest()
 	// Round-trip the actual persisted binding before dispatch. This fails when
 	// the reader confuses the member digest with the stored manifest digest.
 	loaded, err := repository.GetLifecycleBinding(ctx, fixture.plan, binding.OperationID)
@@ -99,6 +98,7 @@ func prepareSQLiteCredentialLifecycle(t *testing.T, fixture *sqliteRestartFixtur
 	if loaded.Digest() != binding.Digest() {
 		t.Fatal("stored binding changed")
 	}
+	fixture.request = fixture.submitRequest()
 	if _, err := repository.GetReference(ctx, binding.ReferenceID); action == credentialref.ActionStage && store.Code(err) != generated.ErrorCodeResourceNotFound {
 		t.Fatalf("draft activated reference: %v", err)
 	}
