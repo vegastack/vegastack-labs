@@ -41,14 +41,48 @@ var retainedObjectTypes = map[string]struct{}{
 	"snapshots": {},
 }
 
-// objectRequest is the parsed, validated form of one restic REST object path.
+// objectRequest is the parsed, validated form of one restic REST request path.
 type objectRequest struct {
-	repositoryID string
-	objectType   string // "config" | "keys" | "data" | "index" | "snapshots" | "locks"
-	name         string // "" for the config object; 64-hex otherwise
-	isConfig     bool
-	isLock       bool
-	retained     bool
+	repositoryID     string
+	objectType       string // "config" | "keys" | "data" | "index" | "snapshots" | "locks"
+	name             string // "" for the config object; 64-hex otherwise
+	isConfig         bool
+	isLock           bool
+	retained         bool
+	isRepositoryRoot bool // POST /<repo>/ (with ?create=true): create the layout
+	isList           bool // GET /<repo>/<type>/: list objects of that type
+}
+
+// listableObjectTypes are the restic repository-format-v2 object classes a
+// directory listing may enumerate.
+var listableObjectTypes = map[string]struct{}{
+	"keys": {}, "data": {}, "index": {}, "snapshots": {}, "locks": {},
+}
+
+// parseRepositoryRequest classifies a restic REST request path that is not a
+// single object: the repository root (for create) or a type directory (for
+// listing). It returns false for anything else so the object parser can run.
+func parseRepositoryRequest(path, expectedRepositoryID string) (objectRequest, bool) {
+	if expectedRepositoryID == "" || !validObjectSegment(expectedRepositoryID) {
+		return objectRequest{}, false
+	}
+	trimmed := strings.TrimPrefix(path, "/")
+	// Repository root: "<repo>" or "<repo>/".
+	if trimmed == expectedRepositoryID || trimmed == expectedRepositoryID+"/" {
+		return objectRequest{repositoryID: expectedRepositoryID, isRepositoryRoot: true}, true
+	}
+	// Type directory listing: "<repo>/<type>/".
+	if !strings.HasSuffix(trimmed, "/") {
+		return objectRequest{}, false
+	}
+	segments := strings.Split(strings.TrimSuffix(trimmed, "/"), "/")
+	if len(segments) != 2 || segments[0] != expectedRepositoryID || !validObjectSegment(segments[1]) {
+		return objectRequest{}, false
+	}
+	if _, ok := listableObjectTypes[segments[1]]; !ok {
+		return objectRequest{}, false
+	}
+	return objectRequest{repositoryID: segments[0], objectType: segments[1], isList: true}, true
 }
 
 // parseObjectPath validates one restic REST object path of the form

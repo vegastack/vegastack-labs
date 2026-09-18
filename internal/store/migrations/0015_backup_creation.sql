@@ -76,6 +76,7 @@ CREATE TABLE recovery_points (
     object_bytes INTEGER NOT NULL CHECK (object_bytes >= 0),
     content_digest TEXT NOT NULL CHECK (length(content_digest) = 71 AND substr(content_digest,1,7) = 'sha256:'),
     manifest_digest TEXT NOT NULL CHECK (length(manifest_digest) = 71 AND substr(manifest_digest,1,7) = 'sha256:'),
+    manifest_json TEXT NOT NULL CHECK (length(manifest_json) BETWEEN 2 AND 262144),
     inventory_digest TEXT NOT NULL CHECK (length(inventory_digest) = 71 AND substr(inventory_digest,1,7) = 'sha256:'),
     source_revision INTEGER NOT NULL CHECK (source_revision >= 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),

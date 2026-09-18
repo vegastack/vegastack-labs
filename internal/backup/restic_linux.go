@@ -71,9 +71,13 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	if outputLimit <= 0 {
 		outputLimit = defaultResticOutputLimit
 	}
-	if err := runner.verifyBinary(request); err != nil {
+	binaryFile, err := runner.verifyBinary(request)
+	if err != nil {
 		return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-binary", false)
 	}
+	// The verified inode stays open and is executed via /proc/self/fd so the child
+	// runs exactly the hashed binary, not a path re-resolved after the check.
+	defer binaryFile.Close()
 
 	mode := request.Mode
 	if mode == "" {
@@ -107,7 +111,10 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	}
 	command := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	command.Env = []string{} // empty environment: the password never travels via any env variable or a helper command
-	command.ExtraFiles = []*os.File{passwordFile}
+	// Password is the child's fd 3; the verified binary is fd 4. Executing
+	// /proc/self/fd/4 binds exec to the exact verified inode.
+	command.ExtraFiles = []*os.File{passwordFile, binaryFile}
+	command.Path = "/proc/self/fd/4"
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &boundedWriter{limit: outputLimit, buffer: &stdout}
 	command.Stderr = &boundedWriter{limit: outputLimit, buffer: &stderr}
@@ -149,12 +156,12 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 // verifyBinary confirms the restic executable is a service-owned regular file
 // that is not group/other writable and whose SHA-256 matches the exact pinned
 // (or test-pinned) digest, without executing it first.
-func (runner *resticRunner) verifyBinary(request ResticRequest) error {
+func (runner *resticRunner) verifyBinary(request ResticRequest) (*os.File, error) {
 	expected := runner.expectedDigest
 	if expected == "" {
 		digest, ok := serverconfig.ExpectedResticExecutableDigest(request.Architecture)
 		if !ok {
-			return errors.New("unsupported architecture")
+			return nil, errors.New("unsupported architecture")
 		}
 		expected = digest
 	}
@@ -163,26 +170,31 @@ func (runner *resticRunner) verifyBinary(request ResticRequest) error {
 		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	file := os.NewFile(uintptr(descriptor), "restic-binary")
 	if file == nil {
 		_ = unix.Close(descriptor)
-		return errors.New("descriptor unavailable")
+		return nil, errors.New("descriptor unavailable")
 	}
-	defer file.Close()
 	var stat unix.Stat_t
 	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Mode&0o022 != 0 || stat.Size <= 0 || stat.Size > maxResticBinaryBytes {
-		return errors.New("unsafe restic binary")
+		_ = file.Close()
+		return nil, errors.New("unsafe restic binary")
 	}
 	hasher := sha256.New()
 	if _, err := io.Copy(hasher, file); err != nil {
-		return err
+		_ = file.Close()
+		return nil, err
 	}
 	if hex.EncodeToString(hasher.Sum(nil)) != expected {
-		return errors.New("restic binary digest mismatch")
+		_ = file.Close()
+		return nil, errors.New("restic binary digest mismatch")
 	}
-	return nil
+	// Return the still-open verified descriptor so the child executes exactly this
+	// inode (via /proc/self/fd) rather than re-resolving the path, closing the
+	// check-then-exec window.
+	return file, nil
 }
 
 // sealedPasswordFile creates an anonymous memory file, writes the borrowed

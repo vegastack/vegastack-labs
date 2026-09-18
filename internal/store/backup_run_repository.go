@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -48,6 +50,7 @@ type PendingRecoveryPointRequest struct {
 	ObjectBytes     int64
 	ContentDigest   string
 	ManifestDigest  string
+	ManifestJSON    []byte
 	InventoryDigest string
 	SourceRevision  int64
 	RecoveryEpoch   int64
@@ -67,6 +70,15 @@ func (repository *BackupRepository) AcquireBackupWriterLease(ctx context.Context
 	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	return repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		// Reclaim any expired active lease on this physical root (a crashed run)
+		// before acquiring, marking its still-open job uncertain; otherwise the
+		// partial unique index would block the repository forever.
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_jobs SET status='uncertain', updated_at=? WHERE status IN ('queued','running') AND job_id IN (SELECT job_id FROM backup_writer_leases WHERE repository_class=? AND released_at IS NULL AND maximum_expires_at < ?)`, now, request.RepositoryClass, now); err != nil {
+			return backupWriteError(err)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_writer_leases SET released_at=? WHERE repository_class=? AND released_at IS NULL AND maximum_expires_at < ?`, now, request.RepositoryClass, now); err != nil {
+			return backupWriteError(err)
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,?,?,?,?,?,NULL,?,?,'running',?,?,?)`,
 			request.JobID, request.PolicyID, request.PolicyDigest, request.RepositoryID, request.RepositoryClass, request.RunID, "local", "fixture", request.RecoveryEpoch, now, now); err != nil {
 			return backupWriteError(err)
@@ -97,6 +109,26 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 	if request.SourceKind != "local" || request.ProofClass != "fixture" {
 		return "", "", backupStoreError(generated.ErrorCodeInputInvalid, "backup-pending-point-provenance")
 	}
+	// The canonical manifest bytes are persisted with the point and must reproduce
+	// the bound manifest digest exactly, and the declared object count/bytes must
+	// match the exact expected inventory — recomputed here, not trusted.
+	if len(request.ManifestJSON) < 2 {
+		return "", "", backupStoreError(generated.ErrorCodeInputInvalid, "backup-pending-point-manifest")
+	}
+	manifestSum := sha256.Sum256(request.ManifestJSON)
+	if "sha256:"+hex.EncodeToString(manifestSum[:]) != request.ManifestDigest {
+		return "", "", backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-manifest")
+	}
+	var inventoryBytes int64
+	for _, object := range request.ExpectedObjects {
+		if object.Name == "" || object.Bytes < 0 || !validBackupDigest(object.Digest) {
+			return "", "", backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-inventory")
+		}
+		inventoryBytes += object.Bytes
+	}
+	if request.ObjectCount != int64(len(request.ExpectedObjects)) || request.ObjectBytes != inventoryBytes {
+		return "", "", backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-inventory")
+	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	err := repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var jobID, policyID, policyDigest, repositoryID, repositoryClass string
@@ -119,8 +151,8 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 		if draftCount != 1 {
 			return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-policy-draft")
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,inventory_digest,source_revision,recovery_epoch,verification_status,verified_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',NULL,?)`,
-			request.PointID, jobID, policyID, policyDigest, repositoryID, repositoryClass, request.SourceKind, request.ProofClass, request.SnapshotID, request.SnapshotCount, request.ObjectCount, request.ObjectBytes, request.ContentDigest, request.ManifestDigest, request.InventoryDigest, request.SourceRevision, epoch, now); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,verified_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',NULL,?)`,
+			request.PointID, jobID, policyID, policyDigest, repositoryID, repositoryClass, request.SourceKind, request.ProofClass, request.SnapshotID, request.SnapshotCount, request.ObjectCount, request.ObjectBytes, request.ContentDigest, request.ManifestDigest, string(request.ManifestJSON), request.InventoryDigest, request.SourceRevision, epoch, now); err != nil {
 			return backupWriteError(err)
 		}
 		for _, object := range request.ExpectedObjects {

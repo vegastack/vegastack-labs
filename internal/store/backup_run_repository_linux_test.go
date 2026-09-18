@@ -4,6 +4,8 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -33,9 +35,11 @@ func acquireFixtureLease(t *testing.T, repository *BackupRepository, policyDiges
 }
 
 func pendingPointRequest(leaseID, pointID, snapshot string) PendingRecoveryPointRequest {
+	manifest := []byte(`{"schema":"vegastack-labs.dev/backup-creation-manifest","pointId":"` + pointID + `"}`)
+	sum := sha256.Sum256(manifest)
 	return PendingRecoveryPointRequest{
 		LeaseID: leaseID, PointID: pointID, SnapshotID: snapshot, SnapshotCount: 1, ObjectCount: 1, ObjectBytes: 4096,
-		ContentDigest: "sha256:" + strings.Repeat("c", 64), ManifestDigest: "sha256:" + strings.Repeat("d", 64),
+		ContentDigest: "sha256:" + strings.Repeat("c", 64), ManifestDigest: "sha256:" + hex.EncodeToString(sum[:]), ManifestJSON: manifest,
 		InventoryDigest: "sha256:" + strings.Repeat("e", 64), SourceRevision: 3, RecoveryEpoch: 0,
 		SourceKind: "local", ProofClass: "fixture",
 		ExpectedObjects: []ExpectedObjectRow{{Type: "data", Name: strings.Repeat("b", 64), Bytes: 4096, Digest: "sha256:" + strings.Repeat("f", 64)}},

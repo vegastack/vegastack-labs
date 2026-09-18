@@ -4,6 +4,7 @@ package backup
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net"
@@ -78,9 +79,14 @@ func (server *RESTServer) Serve(ctx context.Context, listener net.Listener) erro
 }
 
 func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// The only query restic sends is ?create=true on repository initialization.
+	create := false
 	if r.URL.RawQuery != "" {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
+		if r.URL.RawQuery != "create=true" {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		create = true
 	}
 	// Every request re-verifies the exact writer lease and its deadline.
 	if err := server.verifier.VerifyWriterLease(server.lease, server.clock()); err != nil {
@@ -91,8 +97,21 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
+	// Repository-level requests (create the layout, or list a type directory)
+	// are classified before single-object parsing.
+	if repositoryRequest, ok := parseRepositoryRequest(r.URL.Path, server.repositoryID); ok {
+		switch {
+		case repositoryRequest.isRepositoryRoot && (r.Method == http.MethodPost || r.Method == http.MethodPut):
+			server.handleRepositoryCreate(w)
+		case repositoryRequest.isList && r.Method == http.MethodGet:
+			server.handleList(w, repositoryRequest)
+		default:
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		}
+		return
+	}
 	request, ok := parseObjectPath(r.URL.Path, server.repositoryID)
-	if !ok {
+	if !ok || create {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -108,6 +127,78 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+// handleRepositoryCreate creates the repository-format-v2 object-type directories
+// under the (already validated) repository root. It never overwrites an existing
+// retained object; the config object itself is written separately by the client.
+func (server *RESTServer) handleRepositoryCreate(w http.ResponseWriter) {
+	rootDescriptor, err := server.openRepositoryRoot()
+	if err != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	defer unix.Close(rootDescriptor)
+	for _, objectType := range []string{"keys", "data", "index", "snapshots", "locks"} {
+		if err := unix.Mkdirat(rootDescriptor, objectType, 0o700); err != nil && !errors.Is(err, unix.EEXIST) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+	}
+	_ = unix.Fsync(rootDescriptor)
+	w.WriteHeader(http.StatusOK)
+}
+
+// handleList returns the restic REST v2 object listing for one type directory:
+// a JSON array of {name,size}. It enumerates through the validated directory
+// descriptor and reports only service-owned regular files.
+func (server *RESTServer) handleList(w http.ResponseWriter, request objectRequest) {
+	typeDescriptor, err := server.openTypeDir(request.objectType, false)
+	if err != nil {
+		w.Header().Set("Content-Type", "application/vnd.x.restic.rest.v2")
+		_, _ = w.Write([]byte("[]"))
+		return
+	}
+	// os.NewFile takes ownership of the descriptor; closing the directory below
+	// closes it, so we must not also unix.Close it.
+	directory := os.NewFile(uintptr(typeDescriptor), request.objectType)
+	if directory == nil {
+		_ = unix.Close(typeDescriptor)
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	defer directory.Close()
+	names, readErr := directory.Readdirnames(-1)
+	if readErr != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	type entry struct {
+		Name string `json:"name"`
+		Size int64  `json:"size"`
+	}
+	entries := make([]entry, 0, len(names))
+	for _, name := range names {
+		if !validObjectName(name) {
+			continue
+		}
+		descriptor, err := unix.Openat(typeDescriptor, name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
+		if err != nil {
+			continue
+		}
+		var stat unix.Stat_t
+		if unix.Fstat(descriptor, &stat) == nil && stat.Mode&unix.S_IFMT == unix.S_IFREG && stat.Uid == server.expectedUID {
+			entries = append(entries, entry{Name: name, Size: stat.Size})
+		}
+		_ = unix.Close(descriptor)
+	}
+	body, err := json.Marshal(entries)
+	if err != nil {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	w.Header().Set("Content-Type", "application/vnd.x.restic.rest.v2")
+	_, _ = w.Write(body)
 }
 
 func (server *RESTServer) handleGet(w http.ResponseWriter, r *http.Request, request objectRequest) {
@@ -212,27 +303,16 @@ func (server *RESTServer) handleDelete(w http.ResponseWriter, request objectRequ
 	w.WriteHeader(http.StatusOK)
 }
 
-// mayDeleteLock allows removing only a lock this lease session created (its own
-// writer lock) or a proven stale orphan older than the stale threshold. A live
-// lock held by another session (for example a concurrent verifier) is preserved.
-func (server *RESTServer) mayDeleteLock(typeDescriptor int, name string) bool {
+// mayDeleteLock allows removing only a lock this exact lease session created.
+// A foreign lock — including a concurrent verifier's live lock — is never deleted
+// through the routine writer, so a long-running live lock cannot be removed here.
+// Stale-orphan reclamation is a separate, explicitly-proven recovery operation,
+// not a time-threshold guess on the write path.
+func (server *RESTServer) mayDeleteLock(_ int, name string) bool {
 	server.mu.Lock()
+	defer server.mu.Unlock()
 	_, own := server.ownLocks[name]
-	server.mu.Unlock()
-	if own {
-		return true
-	}
-	descriptor, err := unix.Openat(typeDescriptor, name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
-	if err != nil {
-		return false
-	}
-	defer unix.Close(descriptor)
-	var stat unix.Stat_t
-	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Uid != server.expectedUID {
-		return false
-	}
-	modified := time.Unix(stat.Mtim.Sec, stat.Mtim.Nsec)
-	return server.clock().Sub(modified) > server.staleAfter
+	return own
 }
 
 // openObject opens one existing object read-only under the repository root using

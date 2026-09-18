@@ -256,7 +256,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		SignatureDependencyDigest: dependencyDigest(policy, "signature"),
 		StartedAt:                 result.StartedAt.Format(time.RFC3339), CompletedAt: result.CompletedAt.Format(time.RFC3339),
 	}
-	_, manifestDigest, err := backup.CanonicalCreationManifest(manifest)
+	canonicalManifest, manifestDigest, err := backup.CanonicalCreationManifest(manifest)
 	if err != nil {
 		return adapter.Effect{}, err
 	}
@@ -269,14 +269,16 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	resultPointID, resultDigest, err := adapterImpl.config.Backups.AppendPendingRecoveryPoint(ctx, store.PendingRecoveryPointRequest{
 		LeaseID: lease.LeaseID, PointID: pointID, SnapshotID: result.SnapshotID, SnapshotCount: result.SnapshotCount,
 		ObjectCount: int64(len(inventory)), ObjectBytes: totalBytes(inventory), ContentDigest: contentDigest,
-		ManifestDigest: manifestDigest, InventoryDigest: manifest.InventoryDigest, SourceRevision: manifest.SourceRevision,
+		ManifestDigest: manifestDigest, ManifestJSON: canonicalManifest, InventoryDigest: manifest.InventoryDigest, SourceRevision: manifest.SourceRevision,
 		RecoveryEpoch: binding.RecoveryEpoch, SourceKind: "local", ProofClass: "fixture", ExpectedObjects: rows,
 	})
 	if err != nil {
 		return adapter.Effect{}, err
 	}
-	// The central receipt carries only the opaque pending point ID and result
-	// digest; no secret, no snapshot content, no last-good claim.
+	// The central receipt carries only the sanitized result digest — the canonical
+	// manifest digest, which the recovery_points row is keyed by, so the pending
+	// point is identifiable without exposing a secret, snapshot content, or any
+	// last-good claim. (resultPointID equals pointID; the row lookup is by digest.)
 	_ = resultPointID
 	return adapter.Effect{Status: "succeeded", ResultDigest: resultDigest, Changed: true, EffectObserved: true}, nil
 }
