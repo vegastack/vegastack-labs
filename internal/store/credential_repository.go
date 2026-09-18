@@ -242,6 +242,13 @@ func (repository *CredentialRepository) GetReference(ctx context.Context, refere
 	if err != nil {
 		return generated.CredentialReference{}, err
 	}
+	active, activeErr := repository.GetActiveVersion(ctx, referenceID, result.RecoveryEpoch)
+	if activeErr == nil {
+		return active, nil
+	}
+	if Code(activeErr) != generated.ErrorCodeResourceNotFound {
+		return generated.CredentialReference{}, activeErr
+	}
 	result.Schema, result.SchemaVersion = generated.SchemaIDCredentialReference, "1.1.0"
 	if json.Unmarshal(verified, &result.VerifiedConsumerIDs) != nil || !strings.HasPrefix(result.Fingerprint, "sha256:") {
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-reference")

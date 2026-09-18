@@ -19,6 +19,7 @@ import (
 type CredentialLifecycleRepository interface {
 	GetLifecycleBinding(context.Context, generated.Plan, string) (credentialref.LifecycleBinding, error)
 	GetReference(context.Context, string) (generated.CredentialReference, error)
+	GetCredentialVersion(context.Context, string, string) (generated.CredentialReference, error)
 	LookupImportDraftByReference(context.Context, string, string, int64) (store.CredentialImportDraft, error)
 	ApplyCredentialLifecycle(context.Context, store.CredentialLifecycleApplyRequest) (generated.CredentialReference, error)
 }
@@ -201,7 +202,7 @@ func (effect *CoreCredentialEffect) referenceIdentity(ctx context.Context, bindi
 		}
 		return draft.ConsumerID, draft.PurposeID, nil
 	default:
-		current, err := effect.repository.GetReference(ctx, binding.ReferenceID)
+		current, err := effect.repository.GetCredentialVersion(ctx, binding.ReferenceID, binding.MaterialVersion)
 		if err != nil {
 			return "", "", err
 		}
@@ -223,7 +224,7 @@ func (effect *CoreCredentialEffect) Verify(ctx context.Context, binding ExactSte
 	if lifecycleBinding.Digest() != result.ResultDigest {
 		return adapter.Verification{Verified: false, Digest: result.ResultDigest}, errors.New("credential lifecycle digest mismatch")
 	}
-	version, err := effect.repository.GetReference(ctx, lifecycleBinding.ReferenceID)
+	version, err := effect.repository.GetCredentialVersion(ctx, lifecycleBinding.ReferenceID, lifecycleBinding.MaterialVersion)
 	if err != nil {
 		return adapter.Verification{}, err
 	}

@@ -304,7 +304,7 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-mismatch")
 	}
 
-	current, currentErr := repository.GetReference(ctx, binding.ReferenceID)
+	current, currentErr := repository.GetCredentialVersion(ctx, binding.ReferenceID, binding.MaterialVersion)
 	if currentErr != nil && Code(currentErr) != generated.ErrorCodeResourceNotFound {
 		return generated.CredentialReference{}, currentErr
 	}
@@ -317,7 +317,7 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		if target.Status != "staged" || target.ActivatedAt != nil || len(target.VerifiedConsumerIDs) != 0 {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-stage")
 		}
-		if hasCurrent && current.RecoveryEpoch == binding.RecoveryEpoch && (current.Status == "staged" || current.MaterialVersion == binding.MaterialVersion) {
+		if hasCurrent && current.RecoveryEpoch == binding.RecoveryEpoch {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeStateConflict, "credential-lifecycle-version")
 		}
 	case credentialref.ActionActivate:
@@ -325,6 +325,13 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-activate")
 		}
 		if !hasCurrent || current.RecoveryEpoch != binding.RecoveryEpoch || current.MaterialVersion != binding.MaterialVersion || current.Fingerprint != binding.CiphertextFingerprint || (current.Status != "staged" && current.Status != "unavailable") {
+			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-activate")
+		}
+		active, activeErr := repository.GetActiveVersion(ctx, binding.ReferenceID, binding.RecoveryEpoch)
+		if activeErr != nil && Code(activeErr) != generated.ErrorCodeResourceNotFound {
+			return generated.CredentialReference{}, activeErr
+		}
+		if activeErr == nil && active.MaterialVersion != binding.MaterialVersion {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-activate")
 		}
 		if err := requireConsumerVerifications(binding, request.Verifications, target.VerifiedConsumerIDs); err != nil {
@@ -335,7 +342,11 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		if target.Status != "active" || target.ActivatedAt == nil || binding.PriorMaterialVersion == nil || *binding.PriorMaterialVersion == binding.MaterialVersion {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-rotate")
 		}
-		if !hasCurrent || current.RecoveryEpoch != binding.RecoveryEpoch || current.Status != "active" || current.MaterialVersion != *binding.PriorMaterialVersion {
+		active, activeErr := repository.GetActiveVersion(ctx, binding.ReferenceID, binding.RecoveryEpoch)
+		if activeErr != nil && Code(activeErr) != generated.ErrorCodeResourceNotFound {
+			return generated.CredentialReference{}, activeErr
+		}
+		if activeErr != nil || active.MaterialVersion != *binding.PriorMaterialVersion || !hasCurrent || current.RecoveryEpoch != binding.RecoveryEpoch || current.Status != "staged" || current.Fingerprint != binding.CiphertextFingerprint {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-rotate")
 		}
 		if err := requireConsumerVerifications(binding, request.Verifications, target.VerifiedConsumerIDs); err != nil {
@@ -358,7 +369,11 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		}
 		// A recovered version is staged under the new epoch; any prior version
 		// belongs to a superseded epoch and cannot be current here.
-		if hasCurrent && current.RecoveryEpoch >= binding.RecoveryEpoch {
+		prior, priorErr := repository.GetReference(ctx, binding.ReferenceID)
+		if priorErr != nil && Code(priorErr) != generated.ErrorCodeResourceNotFound {
+			return generated.CredentialReference{}, priorErr
+		}
+		if priorErr == nil && prior.RecoveryEpoch >= binding.RecoveryEpoch {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeRecoveryEpochMismatch, "credential-lifecycle-recover")
 		}
 		extra = repository.recoveryRecordExtra(binding, *request.Recovery)

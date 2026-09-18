@@ -60,7 +60,7 @@ func credentialLifecyclePlan(declarationID, targetID, fingerprint, action string
 // CredentialStageRequest the run engine would compose, so a store-level test
 // exercises the real append spine rather than a fake repository. Production
 // evidence is created by the plan/run engine, never by this helper.
-func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository, action credentialref.LifecycleAction, reference generated.CredentialReference, stateRevision int64, mode ackMode) CredentialStageRequest {
+func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository, action credentialref.LifecycleAction, reference generated.CredentialReference, stateRevision int64, mode ackMode, sealed ...credentialref.LifecycleBinding) CredentialStageRequest {
 	t.Helper()
 	db := repository.store.conn
 	now := repository.store.config.Clock().UTC().Truncate(time.Second)
@@ -76,7 +76,38 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 	leaseID := "lease-" + shortDigest(suffix+"-lease")
 	ackID := "ack-" + shortDigest(suffix+"-ack")
 
-	plan, canonical := credentialLifecyclePlan(declarationID, reference.TargetID, fingerprint, string(action), 1, stateRevision)
+	declRevision := int64(1)
+	if len(sealed) > 0 {
+		declarationID = "declaration-" + shortDigest(suffix)
+		declRevision = 2
+	}
+	plan, canonical := credentialLifecyclePlan(declarationID, reference.TargetID, fingerprint, string(action), declRevision, stateRevision)
+	if len(sealed) > 0 {
+		binding := sealed[0]
+		plan.Extensions = []generated.ContractExtension{{Name: "x-credential-lifecycle", ValueDigest: credentialref.LifecycleManifestDigestOf(binding)}}
+		plan.PlanID, plan.PlanDigest = "", ""
+		preimage, _ := json.Marshal(plan)
+		sum := sha256.Sum256(preimage)
+		plan.PlanDigest = "sha256:" + hex.EncodeToString(sum[:])
+		plan.PlanID = "plan-" + hex.EncodeToString(sum[:16])
+		canonical, _ = json.Marshal(plan)
+		doc := validDeclarationStoreRequest().Document
+		doc.DeclarationID = declarationID
+		doc.Revision = 2
+		doc.StateRevision = stateRevision
+		doc.Status = "committed"
+		doc.Extensions = plan.Extensions
+		doc.Operations = []generated.DeclarationOperation{{Sequence: 1, OperationID: binding.OperationID, OperationType: string(binding.Action), AdapterID: "core.credential", TargetID: binding.TargetID, InputDigest: fingerprint, ArtifactDigest: fingerprint, Idempotent: true}}
+		doc.ContentDigest = declarationContentDigest(doc, digest)
+		body, _ := json.Marshal(doc)
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,2,'credential',?,0,?,?,'committed',?,?,?,'session-a')`, declarationID, stateRevision, doc.ContentDigest, digest, body, nowText, human); err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := json.Marshal(binding)
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO credential_lifecycle_bindings(binding_id,declaration_id,declaration_revision,operation_id,action,reference_id,binding_digest,binding_bytes,recovery_epoch,created_at) VALUES(?,?,1,?,?,?,?,?,0,?)`, "binding-"+shortDigest(suffix), declarationID, binding.OperationID, string(binding.Action), binding.ReferenceID, credentialref.LifecycleManifestDigestOf(binding), raw, nowText); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	// The authoritative revision counter must equal the effect's Expected token,
 	// exactly as the run engine would have advanced it to this point.
@@ -88,7 +119,7 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 	if _, err := db.ExecContext(context.Background(), `INSERT OR IGNORE INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,1,'credential',1,0,?,?,'committed',X'7B7D',?,?,'session-a')`, declarationID, digest, digest, nowText, human); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,1,?,0,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, declarationID, stateRevision, gateDigest([]byte(plan.PlanID)), gateDigest([]byte(plan.PlanID+"-key")), digest, canonical, "readable\n", plan.ReadableDigest, nowText, expires); err != nil {
+	if _, err := db.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,0,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, declarationID, declRevision, stateRevision, gateDigest([]byte(plan.PlanID)), gateDigest([]byte(plan.PlanID+"-key")), digest, canonical, "readable\n", plan.ReadableDigest, nowText, expires); err != nil {
 		t.Fatal(err)
 	}
 
@@ -120,7 +151,7 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 	}
 
 	return CredentialStageRequest{
-		Reference: reference, DeclarationID: declarationID, DeclarationRevision: 1,
+		Reference: reference, DeclarationID: declarationID, DeclarationRevision: declRevision,
 		PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: runID, StepID: stepID, LeaseID: leaseID, HumanID: human,
 		Expected: RevisionToken{StateRevision: stateRevision, RecoveryEpoch: 0}, Attribution: validDeclarationStoreRequest().Attribution,
 		KeyDigest: gateDigest([]byte(plan.PlanID + "-key")), RequestDigest: gateDigest([]byte(plan.PlanID + "-req")),
@@ -401,7 +432,7 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 			ref.Status = "revoked"
 			binding.ConsumerIDs = nil
 		}
-		request := seedCredentialLifecycleStep(t, repository, action, ref, state, ackConsumed)
+		request := seedCredentialLifecycleStep(t, repository, action, ref, state, ackConsumed, binding)
 		result, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request, Verifications: checks})
 		releaseLease(t, repository, request.LeaseID)
 		state++
