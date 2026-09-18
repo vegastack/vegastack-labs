@@ -107,7 +107,14 @@ const REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE = Object.freeze({
   imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:89dd556b7afa3ebc646dc1c5cba24add52888317883cedf082b701128e46b6f2",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE]);
+// Issue #132 correctness fixes precede surface availability. The empty command
+// set is expanded only when the metadata-only lifecycle surface is wired.
+const REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE = Object.freeze({
+  id: "phase5-issue132-v1", issue: 132,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:de4cf566093c3b1966550e0c96516a549025c1d6cc5cfa5e7f6b65fc2027b73e",
+});
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
