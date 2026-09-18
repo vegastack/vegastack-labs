@@ -235,7 +235,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 }
 
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-credential-bindings", "x-audit-checkpoint"} {
+	for _, name := range []string{"x-credential-bindings", "x-audit-checkpoint", "x-backup-policy"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

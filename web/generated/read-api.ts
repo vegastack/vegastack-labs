@@ -255,8 +255,6 @@ export interface AuditVerificationData {
 }
 
 export interface BackupDependency {
-  readonly "schema": "vegastack-labs.dev/backup-dependency";
-  readonly "schemaVersion": "1.1.0";
   readonly "dependencyId": string;
   readonly "kind": "binary" | "schema" | "config" | "image" | "signature";
   readonly "digest": string;
@@ -1926,24 +1924,6 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
   {
     "id": "vegastack-labs.dev/backup-dependency",
     "fields": [
-      {
-        "name": "schema",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "vegastack-labs.dev/backup-dependency"
-        ]
-      },
-      {
-        "name": "schemaVersion",
-        "kind": "string",
-        "required": true,
-        "nullable": false,
-        "enum": [
-          "1.1.0"
-        ]
-      },
       {
         "name": "dependencyId",
         "kind": "string",

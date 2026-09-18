@@ -233,11 +233,13 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 
 func phase5RecoveryJobSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
-		phase5BackupSchema(backupDependencySchemaID,
+		// BackupDependency is a nested sub-object (like a principal binding); it
+		// carries no schema/schemaVersion envelope of its own.
+		{ID: backupDependencySchemaID, Version: "1.1.0", ArtifactPath: schemaPath(backupDependencySchemaID), Fields: []FieldDefinition{
 			phase5ID("dependencyId", "DependencyID"),
 			phase5Enum("kind", "Kind", "binary", "schema", "config", "image", "signature"),
 			phase5Digest("digest", "Digest"),
-		),
+		}},
 		phase5BackupSchema(backupPolicySchemaID,
 			phase5ID("policyId", "PolicyID"), phase5ID("ownerId", "OwnerID"), phase5ID("sourceId", "SourceID"),
 			phase5IDs("sourceSelectors", "SourceSelectors", 64),

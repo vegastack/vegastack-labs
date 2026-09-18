@@ -20,23 +20,9 @@
             "signature"
           ],
           "type": "string"
-        },
-        "schema": {
-          "enum": [
-            "vegastack-labs.dev/backup-dependency"
-          ],
-          "type": "string"
-        },
-        "schemaVersion": {
-          "enum": [
-            "1.1.0"
-          ],
-          "type": "string"
         }
       },
       "required": [
-        "schema",
-        "schemaVersion",
         "dependencyId",
         "kind",
         "digest"

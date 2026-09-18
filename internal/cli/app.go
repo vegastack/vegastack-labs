@@ -76,6 +76,10 @@ type AuditControlOperations interface {
 	VerifyAudit(context.Context, string) (localapi.TypedResponse[generated.AuditVerificationData], error)
 }
 
+type BackupControlOperations interface {
+	SubmitBackupPolicyDraft(context.Context, string, generated.BackupPolicyDraftRequest) (localapi.TypedResponse[generated.BackupPolicyDraftSubmission], error)
+}
+
 type Option func(*App)
 
 func WithReleaseOperations(operations ReleaseOperations) Option {
@@ -387,6 +391,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.handlePlanResponse(mode, response)
 	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:
 		return app.runGateCommand(ctx, mode, parsed)
+	case generated.CommandNameBackupPolicyDraft:
+		return app.runBackupCommand(ctx, mode, parsed)
 	case generated.CommandNameApply:
 		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagPlanID))
 	case generated.CommandNameRunInspect:

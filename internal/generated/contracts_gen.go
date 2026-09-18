@@ -581,11 +581,9 @@ type AuthorizationDecision struct {
 }
 
 type BackupDependency struct {
-	Schema        string `json:"schema"`
-	SchemaVersion string `json:"schemaVersion"`
-	DependencyID  string `json:"dependencyId"`
-	Kind          string `json:"kind"`
-	Digest        string `json:"digest"`
+	DependencyID string `json:"dependencyId"`
+	Kind         string `json:"kind"`
+	Digest       string `json:"digest"`
 }
 
 type BackupJob struct {

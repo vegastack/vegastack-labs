@@ -210,6 +210,10 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: store.NewBackupRepository(authority), Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := api.ValidateRegisteredRoutes(application); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -390,6 +394,14 @@ func (operations *Operations) SubmitProfileDraft(ctx context.Context, configPath
 		return localapi.TypedResponse[generated.GateProfileDraftSubmission]{}, err
 	}
 	return client.SubmitProfileDraft(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitBackupPolicyDraft(ctx context.Context, configPath string, input generated.BackupPolicyDraftRequest) (localapi.TypedResponse[generated.BackupPolicyDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupPolicyDraftSubmission]{}, err
+	}
+	return client.SubmitBackupPolicyDraft(ctx, profile, input)
 }
 
 func (operations *Operations) ImportInventory(ctx context.Context, configPath string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {

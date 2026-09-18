@@ -41,7 +41,7 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			controlOperations := successfulControlOperations(t)
 			credentialOperations := successfulCredentialOperations(t)
 			files := &stubFileReader{content: []byte("synthetic fixture")}
-			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft {
+			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft {
 				files.content = syntheticGateRequest(t, commandName(command.Path))
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
