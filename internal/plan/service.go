@@ -239,7 +239,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 // the secret-resolution binding manifest and the lifecycle binding are declared
 // facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle"} {
+	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

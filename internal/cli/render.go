@@ -132,6 +132,35 @@ func renderHumanDatabaseStatus(output io.Writer, data generated.DatabaseStatusDa
 	return 0
 }
 
+func renderHumanAuditCheckpoints(output io.Writer, data generated.AuditCheckpointListData) int {
+	if _, err := fmt.Fprintf(output, "Audit checkpoints %d\nRecovery epoch %d\n", len(data.Checkpoints), data.RecoveryEpoch); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	for _, checkpoint := range data.Checkpoints {
+		if _, err := fmt.Fprintf(output, "Checkpoint %s events %d-%d status %s reason %s digest %s\n", checkpoint.CheckpointID, checkpoint.FirstEventID, checkpoint.LastEventID, checkpoint.Status, checkpoint.ReasonCode, checkpoint.ChainDigest); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	return 0
+}
+
+func renderHumanAuditVerification(output io.Writer, data generated.AuditVerificationData) int {
+	if _, err := fmt.Fprintf(output, "Audit verification %s\nReason %s\nInstance %s\nRecovery epoch %d\nLocal digest %s\nIndependent match %t\nLast anchored sequence %d\nPre-anchor %t\n", data.Status, data.ReasonCode, data.InstanceID, data.RecoveryEpoch, data.LocalDigest, data.IndependentMatch, data.LastAnchoredSequence, data.PreAnchor); err != nil {
+		return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+	}
+	if data.IndependentDigest != nil {
+		if _, err := fmt.Fprintf(output, "Independent digest %s\n", *data.IndependentDigest); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	if data.Status == "incident" {
+		if _, err := fmt.Fprintln(output, "Mutations are blocked. Compare the independent signed checkpoint, fence the old controller, and use the documented recovery plan."); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+	}
+	return 0
+}
+
 func renderHumanInventoryImport(output io.Writer, data generated.InventoryImportData) int {
 	if _, err := fmt.Fprintf(output,
 		"Inert draft %s revision %d\nValidation %s\nCreated %t\nRecords assets=%d nodes=%d aliases=%d addresses=%d observations=%d\nFindings %d\nState revision %d\nRecovery epoch %d\n",

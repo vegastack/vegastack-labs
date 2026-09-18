@@ -74,6 +74,8 @@ type Client interface {
 	Status(context.Context, serverconfig.Profile) (Response, error)
 	Summary(context.Context, serverconfig.Profile) (TypedResponse[generated.ApiSummaryData], error)
 	DatabaseStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.DatabaseStatusData], error)
+	AuditCheckpoints(context.Context, serverconfig.Profile) (TypedResponse[generated.AuditCheckpointListData], error)
+	VerifyAudit(context.Context, serverconfig.Profile) (TypedResponse[generated.AuditVerificationData], error)
 	ImportInventory(context.Context, serverconfig.Profile, generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, serverconfig.Profile, generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, serverconfig.Profile, generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error)

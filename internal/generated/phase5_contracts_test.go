@@ -40,6 +40,39 @@ func TestCredentialReferenceV11RequiresExactBinding(t *testing.T) {
 	}
 }
 
+func validCheckpointV11(t *testing.T) []byte {
+	t.Helper()
+	return phase5Document(t, map[string]any{
+		"schema": SchemaIDAuditCheckpoint, "schemaVersion": "1.1.0", "checkpointId": "checkpoint-a",
+		"instanceId": "instance-a", "recoveryEpoch": 2, "firstEventId": 1, "lastEventId": 3,
+		"firstSegmentSequence": 1, "lastSegmentSequence": 3, "chainDigest": phase5DigestFixture(),
+		"signerReferenceId": "signer-a", "signerMaterialVersion": "version-a",
+		"signatureDigest": phase5DigestFixture(), "publicKeyId": "public-key-a",
+		"exportReceiptDigest": phase5DigestFixture(), "independentReadDigest": phase5DigestFixture(),
+		"status": "anchored", "reasonCode": "independent-match", "preAnchor": false,
+		"independentCopyDigest": phase5DigestFixture(), "sourceKind": "independent", "proofClass": "live",
+		"verifiedAt": "2026-09-16T08:00:00Z", "verificationStatus": "verified",
+	})
+}
+
+func TestCheckpointV11RequiresIndependentBindings(t *testing.T) {
+	raw := []byte(`{"schema":"vegastack-labs.dev/audit-checkpoint","schemaVersion":"1.1.0","checkpointId":"cp-a"}`)
+	if err := ValidateContractJSON(SchemaIDAuditCheckpoint, raw, ContractExact); err == nil {
+		t.Fatal("unbound checkpoint accepted")
+	}
+	if err := ValidateContractJSON(SchemaIDAuditCheckpoint, validCheckpointV11(t), ContractExact); err != nil {
+		t.Fatal(err)
+	}
+	var checkpoint map[string]any
+	if err := json.Unmarshal(validCheckpointV11(t), &checkpoint); err != nil {
+		t.Fatal(err)
+	}
+	delete(checkpoint, "independentReadDigest")
+	if err := ValidateContractJSON(SchemaIDAuditCheckpoint, phase5Document(t, checkpoint), ContractExact); err == nil {
+		t.Fatal("anchored checkpoint without independent read accepted")
+	}
+}
+
 func TestCredentialReferenceV10CompatibleReadCannotAuthorizeResolution(t *testing.T) {
 	legacy := map[string]any{
 		"schema": SchemaIDCredentialReference, "schemaVersion": "1.0.0",

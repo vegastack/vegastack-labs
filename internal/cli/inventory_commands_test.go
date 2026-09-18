@@ -23,6 +23,8 @@ type stubControlOperations struct {
 	gateProfileResponse  localapi.TypedResponse[generated.GateProfileDraftSubmission]
 	summaryResponse      localapi.TypedResponse[generated.ApiSummaryData]
 	databaseResponse     localapi.TypedResponse[generated.DatabaseStatusData]
+	auditListResponse    localapi.TypedResponse[generated.AuditCheckpointListData]
+	auditVerifyResponse  localapi.TypedResponse[generated.AuditVerificationData]
 	importResponse       localapi.TypedResponse[generated.InventoryImportData]
 	diffResponse         localapi.TypedResponse[generated.InventoryDiffData]
 	exportResponse       localapi.TypedResponse[generated.InventoryExportData]
@@ -62,6 +64,18 @@ func (stub *stubControlOperations) DatabaseStatus(_ context.Context, config stri
 	stub.calls++
 	stub.config = config
 	return stub.databaseResponse, stub.err
+}
+
+func (stub *stubControlOperations) AuditCheckpoints(_ context.Context, config string) (localapi.TypedResponse[generated.AuditCheckpointListData], error) {
+	stub.calls++
+	stub.config = config
+	return stub.auditListResponse, stub.err
+}
+
+func (stub *stubControlOperations) VerifyAudit(_ context.Context, config string) (localapi.TypedResponse[generated.AuditVerificationData], error) {
+	stub.calls++
+	stub.config = config
+	return stub.auditVerifyResponse, stub.err
 }
 
 func (stub *stubControlOperations) ImportInventory(_ context.Context, config string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {
@@ -126,6 +140,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	t.Helper()
 	summary := generated.ApiSummaryData{DatabaseMode: "read-write", ReadAvailable: true, DraftCount: 2, ValidDraftCount: 1, BlockedDraftCount: 1, LastEventID: 9, StateRevision: 7, RecoveryEpoch: 2, SourceCounts: generated.ApiSourceCountsData{Total: 7, Healthy: 1, Stale: 1, Unknown: 1, Unavailable: 3, Failed: 1}, WorstSourceState: "failed"}
 	database := generated.DatabaseStatusData{Mode: "read-write", SchemaVersion: 1, SQLiteVersion: "3.synthetic", IntegrityStatus: "ok"}
+	auditList := generated.AuditCheckpointListData{Schema: generated.SchemaIDAuditCheckpointListData, SchemaVersion: "1.0.0", Checkpoints: []generated.AuditCheckpoint{}, RecoveryEpoch: 2}
+	auditVerify := generated.AuditVerificationData{Schema: generated.SchemaIDAuditVerificationData, SchemaVersion: "1.1.0", Status: "degraded", InstanceID: "instance-test", RecoveryEpoch: 2, LocalDigest: "sha256:" + strings.Repeat("5", 64), IndependentMatch: false, LastAnchoredSequence: 0, ReasonCode: "no-independent-anchor", PreAnchor: false}
 	imported := generated.InventoryImportData{DraftID: "draft-test", DraftRevision: 1, ValidationStatus: "valid", StateRevision: 8, RecoveryEpoch: 2, Created: true, Findings: []generated.InventoryFinding{}}
 	diff := generated.InventoryDiffData{CandidateKind: "draft", CandidateDigest: "sha256:" + strings.Repeat("1", 64), BaselineKind: "draft", BaselineDraft: generated.InventoryDraftRef{DraftID: "draft-base", DraftRevision: 1}, StateRevision: 8, RecoveryEpoch: 2, Records: []generated.InventoryDiffRecord{}, Findings: []generated.InventoryFinding{}}
 	exported := generated.InventoryExportData{ExportID: "sha256:" + strings.Repeat("2", 64), SubjectKind: "draft", Draft: generated.InventoryDraftRef{DraftID: "draft-test", DraftRevision: 1}, StateRevision: 9, RecoveryEpoch: 2, ContentDigest: "sha256:" + strings.Repeat("3", 64), Algorithm: "ed25519", KeyID: "synthetic-key", KeyFingerprint: "sha256:" + strings.Repeat("4", 64), VerificationStatus: "verified", PublicationStatus: "published", SignedBytesBase64: "e30K"}
@@ -145,6 +161,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		gateProfileResponse:  operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
 		summaryResponse:      operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
 		databaseResponse:     operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
+		auditListResponse:    operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),
+		auditVerifyResponse:  operationResponse(t, "api.v1.audit-history.verification", false, 2, 7, auditVerify),
 		importResponse:       operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
 		diffResponse:         operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
 		exportResponse:       operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),

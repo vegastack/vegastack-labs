@@ -238,6 +238,48 @@ func TestCredentialLifecycleExtensionCannotBeIntroducedOrChangedAtPlanCreate(t *
 	}
 }
 
+func TestCombinedAuditAndCredentialExtensionsRemainPlanBound(t *testing.T) {
+	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint"} {
+		for _, mode := range []string{"unchanged", "changed", "omitted"} {
+			t.Run(name+"/"+mode, func(t *testing.T) {
+				declaration := validDeclaration()
+				declaration.Extensions = []generated.ContractExtension{
+					{Name: "x-credential-bindings", ValueDigest: testDigestString("c")},
+					{Name: "x-credential-lifecycle", ValueDigest: testDigestString("d")},
+					{Name: "x-audit-checkpoint", ValueDigest: testDigestString("e")},
+				}
+				repository := &fakePlanRepository{declaration: declaration, current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
+				service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, func() time.Time {
+					return time.Date(2026, 9, 18, 9, 30, 0, 0, time.UTC)
+				})
+				request := validRequest()
+				for _, extension := range declaration.Extensions {
+					if extension.Name == name {
+						if mode == "omitted" {
+							continue
+						}
+						if mode == "changed" {
+							extension.ValueDigest = testDigestString("f")
+						}
+					}
+					request.Extensions = append(request.Extensions, extension)
+				}
+				result, err := service.Create(context.Background(), AuthorScope{PrincipalID: "principal-test", PrincipalMethod: "local-os-peer", AgentSessionID: "session-plan"}, request)
+				if mode == "unchanged" {
+					if err != nil {
+						t.Fatal(err)
+					}
+					if len(result.Plan.Extensions) != 3 {
+						t.Fatal("plan lost sealed extensions")
+					}
+				} else if err == nil {
+					t.Fatal("plan accepted modified or omitted sealed extension")
+				}
+			})
+		}
+	}
+}
+
 func TestStateObservationFingerprintDoesNotBecomeStaleWhenPlanCommitAdvancesState(t *testing.T) {
 	repository := &fakePlanRepository{current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
 	reader, err := NewStateObservationReader(repository)

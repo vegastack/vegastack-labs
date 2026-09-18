@@ -77,7 +77,18 @@
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
+        "exportReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "firstEventId": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "firstSegmentSequence": {
           "minimum": 1,
           "type": "integer"
         },
@@ -88,15 +99,44 @@
             "null"
           ]
         },
+        "independentReadDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "instanceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "lastEventId": {
           "minimum": 1,
           "type": "integer"
+        },
+        "lastSegmentSequence": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "preAnchor": {
+          "type": "boolean"
         },
         "proofClass": {
           "enum": [
             "fixture",
             "live"
           ],
+          "type": "string"
+        },
+        "publicKeyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "reasonCode": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
         "recoveryEpoch": {
@@ -111,8 +151,23 @@
         },
         "schemaVersion": {
           "enum": [
-            "1.0.0"
+            "1.1.0"
           ],
+          "type": "string"
+        },
+        "signatureDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "signerMaterialVersion": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "signerReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
         "sourceKind": {
@@ -120,6 +175,17 @@
             "fixture",
             "local",
             "independent"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "signed",
+            "export-pending",
+            "anchored",
+            "degraded",
+            "incident"
           ],
           "type": "string"
         },
@@ -146,6 +212,18 @@
         "firstEventId",
         "lastEventId",
         "chainDigest",
+        "instanceId",
+        "firstSegmentSequence",
+        "lastSegmentSequence",
+        "signerReferenceId",
+        "signerMaterialVersion",
+        "signatureDigest",
+        "publicKeyId",
+        "exportReceiptDigest",
+        "independentReadDigest",
+        "status",
+        "reasonCode",
+        "preAnchor",
         "independentCopyDigest",
         "sourceKind",
         "proofClass",

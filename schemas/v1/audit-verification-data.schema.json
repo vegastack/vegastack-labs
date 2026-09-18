@@ -1,0 +1,77 @@
+{
+  "$id": "vegastack-labs.dev/audit-verification-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "independentDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "independentMatch": {
+      "type": "boolean"
+    },
+    "instanceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "lastAnchoredSequence": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "localDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "preAnchor": {
+      "type": "boolean"
+    },
+    "reasonCode": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/audit-verification-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "anchored",
+        "degraded",
+        "incident"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "status",
+    "instanceId",
+    "recoveryEpoch",
+    "localDigest",
+    "independentDigest",
+    "independentMatch",
+    "lastAnchoredSequence",
+    "reasonCode",
+    "preAnchor"
+  ],
+  "title": "VegaStack Labs audit verification data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

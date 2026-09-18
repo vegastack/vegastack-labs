@@ -2,6 +2,26 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 18-09-2026 — Credential status changes have a human-authorized execution core ([#125](https://github.com/vegastack/vegastack-labs/issues/125))
+
+- **What:** The server has an append-only credential lifecycle execution core with exact plan, run, lease and consumed human acknowledgement checks. Lifecycle commands and real consumer/recovery verifiers remain deferred and production fails closed.
+- **Why:** Credential activation and recovery need the same authorization engine as other infrastructure changes, without storing or returning secret values.
+- **How it went:** Claude built and parked the core; Codex resumed its integration after audit history landed, preserving that migration and guard wave and moving the unmerged credential migration to the next slot. Earlier review fixed acknowledgement enforcement and real append/denial tests; the remaining findings belong to the approved follow-ups.
+- **Changed:** Metadata-only lifecycle contracts · inert binding storage · exact central execution dispatch · transactional acknowledgement proof · append-only evidence · combined audit and credential plan guards.
+- **Decisions:** none; API/CLI surfaces, version/draft fixes, real verifiers, clean-host recovery and full lifecycle acceptance remain in the follow-up issues. No live gate or deployment is admitted.
+
+— approved by (omkarmohanta09) · built by Claude and Codex · branch feat/125-credential-lifecycle-recovery
+
+## 16-09-2026 — Audit history can expose a fork without choosing one ([#107](https://github.com/vegastack/vegastack-labs/issues/107))
+
+- **What:** Every new canonical audit event now receives a serialized instance/epoch-bound hash-chain link in the same SQLite transaction. Operators can inspect sanitized checkpoints and verify local history against a separately read signed checkpoint; proven disagreement leaves reads available but blocks mutation in audit-incident mode.
+- **Why:** Append-only rows alone cannot reveal privileged edits, restored lost suffixes or a returning old controller, and recovery must not silently bless whichever history is local.
+- **How it went:** The preserved red-first branch rebased cleanly after its credential dependency landed. Linux ext4 checks caught one verification query typo and contract tests caught a v1.1 response-version mismatch; both were corrected without using a live signer, store, credential or host.
+- **Changed:** Same-transaction audit chain and pre-anchor backfill · signed checkpoint lifecycle and separate writer/reader authority · local/independent verification and recovery-epoch genesis binding · sanitized API and CLI inspection · human recovery guidance.
+- **Decisions:** none; production signer/export composition, retention proof and live independent-anchor evidence remain separately gated.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/5.6-audit-history
+
 ## 16-09-2026 — Local credential material can be captured without becoming live authority ([#124](https://github.com/vegastack/vegastack-labs/issues/124))
 
 - **What:** An authorized local OS-peer operator can now send a small credential value through standard input or an already-open descriptor. The server encrypts it with the qualified native host-key path, keeps only an inert append-only draft and sanitized metadata, and classifies exact retries or interrupted promotion without making the material resolvable.

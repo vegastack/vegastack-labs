@@ -71,7 +71,7 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 		t.Error("Phase 5 Go behavior validators absent")
 	}
 	client := byPath["web/generated/read-api.ts"]
-	for _, name := range []string{"listGates", "getGate", "checkGate", "getBackupStatus", "getRecoveryPoint", "listAuditCheckpoints", "getRestoreStatus", "getScheduledJobPolicy"} {
+	for _, name := range []string{"listGates", "getGate", "checkGate", "getBackupStatus", "getRecoveryPoint", "listAuditCheckpoints", "getAuditHistory", "getRestoreStatus", "getScheduledJobPolicy"} {
 		if !strings.Contains(client, "readonly "+name+":") {
 			t.Errorf("browser method %s absent", name)
 		}
@@ -101,18 +101,18 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 			}
 		}
 	}
-	if phase5 != 20 {
-		t.Errorf("Phase 5 endpoint count = %d, want 20", phase5)
+	if phase5 != 21 {
+		t.Errorf("Phase 5 endpoint count = %d, want 21", phase5)
 	}
 	if !reflect.DeepEqual(phase5EndpointIDs, []string{
-		"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
+		"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
 		"api.v1.credential-references.get", "api.v1.credential-references.import-stream", "api.v1.credential-resolution-records.get", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
 		"api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list", "api.v1.recovery-points.get", "api.v1.restores.get", "api.v1.restores.plan",
 		"api.v1.restores.run", "api.v1.restores.verify", "api.v1.scheduled-job-policies.get", "api.v1.scheduled-jobs.create",
 	}) {
 		t.Errorf("#102 Phase 5 endpoint baseline or #104/#105 scoped additions changed: %v", phase5EndpointIDs)
 	}
-	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
+	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
 		t.Errorf("unexpected available Phase 5 endpoints: %v", availablePhase5Endpoints)
 	}
 	var gateSchema map[string]any
@@ -180,6 +180,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/audit-checkpoint-request.schema.json",
 		"schemas/v1/audit-checkpoint.schema.json",
 		"schemas/v1/audit-event.schema.json",
+		"schemas/v1/audit-verification-data.schema.json",
 		"schemas/v1/authorization-decision.schema.json",
 		"schemas/v1/backup-job.schema.json",
 		"schemas/v1/backup-policy.schema.json",
@@ -684,13 +685,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 23 || planned != 34 {
-		t.Fatalf("command availability = (%d available, %d planned), want (23, 34)", available, planned)
+	if available != 25 || planned != 34 {
+		t.Fatalf("command availability = (%d available, %d planned), want (25, 34)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;
-	// #124 promoted one exact local-only credential import command.
-	if !reflect.DeepEqual(availablePhase5, []string{"credential import", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
+	// #124 promoted one exact local-only credential import command;
+	// #107 promoted two exact audit read commands.
+	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "credential import", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 

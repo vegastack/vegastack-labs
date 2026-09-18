@@ -25,6 +25,7 @@ import (
 	"github.com/go-jose/go-jose/v4/jwt"
 	_ "github.com/ncruces/go-sqlite3/driver"
 	"github.com/vegastack/vegastack-labs/internal/api"
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	"github.com/vegastack/vegastack-labs/internal/result"
@@ -158,6 +159,14 @@ func TestRealBrowserStackAndLocalRecoveryRemainIndependent(t *testing.T) {
 
 	recoveryBound := createRealBrowserSession(t, remote, assertion)
 	localPrincipal := identity.Principal{ID: "principal.local", Method: identity.LocalOSPeerMethod}
+	if err := authority.PrepareRecoveryAuditEpoch(
+		context.Background(),
+		1,
+		audit.Fingerprint("sha256:"+strings.Repeat("a", 64)),
+		audit.Fingerprint("sha256:"+strings.Repeat("b", 64)),
+	); err != nil {
+		t.Fatal(err)
+	}
 	if err := updateBrowserIntegrationDatabase(databasePath, `UPDATE system_meta SET recovery_epoch=recovery_epoch+1 WHERE id=1`); err != nil {
 		t.Fatal(err)
 	}

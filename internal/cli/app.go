@@ -71,6 +71,11 @@ type GateControlOperations interface {
 	SubmitProfileDraft(context.Context, string, generated.GateProfileDraftRequest) (localapi.TypedResponse[generated.GateProfileDraftSubmission], error)
 }
 
+type AuditControlOperations interface {
+	AuditCheckpoints(context.Context, string) (localapi.TypedResponse[generated.AuditCheckpointListData], error)
+	VerifyAudit(context.Context, string) (localapi.TypedResponse[generated.AuditVerificationData], error)
+}
+
 type Option func(*App)
 
 func WithReleaseOperations(operations ReleaseOperations) Option {
@@ -267,6 +272,38 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
 		return renderHumanDatabaseStatus(app.stdout, response.Data)
+	case generated.CommandNameAuditCheckpoints:
+		control, ok := app.control.(AuditControlOperations)
+		if !ok {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		response, err := control.AuditCheckpoints(ctx, parsed.Value(generated.FlagConfig))
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		return renderHumanAuditCheckpoints(app.stdout, response.Data)
+	case generated.CommandNameAuditVerify:
+		control, ok := app.control.(AuditControlOperations)
+		if !ok {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
+		}
+		response, err := control.VerifyAudit(ctx, parsed.Value(generated.FlagConfig))
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		return renderHumanAuditVerification(app.stdout, response.Data)
 	case generated.CommandNameInventoryImport:
 		if app.control == nil || app.files == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
