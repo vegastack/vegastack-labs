@@ -4,7 +4,10 @@ package run
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"net/url"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
@@ -84,11 +87,7 @@ func prepareSQLiteCredentialLifecycle(t *testing.T, fixture *sqliteRestartFixtur
 	}
 	fixture.plan = planned.Plan
 	fixture.recompose()
-	core, err := NewCoreCredentialEffect(repository, store.NewAcknowledgementRepository(fixture.authority), UnavailableGateVerifier{}, UnavailableCredentialLifecycleVerifier{}, UnavailableCredentialRecoveryVerifier{}, fixture.clock)
-	if err != nil {
-		t.Fatal(err)
-	}
-	fixture.engine.credentialCore = core
+	fixture.engine.credentialCore = sqliteCredentialCore(t, fixture, repository)
 	// Round-trip the actual persisted binding before dispatch. This fails when
 	// the reader confuses the member digest with the stored manifest digest.
 	loaded, err := repository.GetLifecycleBinding(ctx, fixture.plan, binding.OperationID)
@@ -100,6 +99,8 @@ func prepareSQLiteCredentialLifecycle(t *testing.T, fixture *sqliteRestartFixtur
 	}
 	fixture.request = fixture.submitRequest()
 	fixture.request.Reference.IdempotencyKey = "submit-lifecycle-" + string(action)
+	fixture.request.Attribution.ResponsibleHumanPrincipalID = &fixture.request.Acknowledgement.HumanID
+	fixture.request.Attribution.Agent = &audit.AgentMetadata{Name: "codex", SessionID: "session-lifecycle"}
 	if _, err := repository.GetReference(ctx, binding.ReferenceID); action == credentialref.ActionStage && store.Code(err) != generated.ErrorCodeResourceNotFound {
 		t.Fatalf("draft activated reference: %v", err)
 	}
@@ -138,6 +139,7 @@ func TestSQLiteCredentialLifecycleEngineAdmissionAndAppend(t *testing.T) {
 			if len(versions) != 1 || versions[0].Status != "staged" {
 				t.Fatalf("stage did not append exactly once: %+v err=%v", versions, err)
 			}
+			assertSQLiteCredentialAudit(t, fixture)
 			if mode == "allowed" {
 				if err != nil || result.Status != "succeeded" {
 					t.Fatalf("real engine stage failed: result=%+v err=%v", result, err)
@@ -152,9 +154,11 @@ func TestSQLiteCredentialLifecycleEngineAdmissionAndAppend(t *testing.T) {
 				if err == nil {
 					t.Fatal("interruption reported success")
 				}
-				// Fresh engine composition reconciles persisted uncertainty without a
-				// caller-supplied lease/intent or repeating the append.
-				fixture.recompose()
+				// Close and reopen SQLite, then recompose the actual core so a
+				// regression can neither hide behind a missing core nor repeat the append.
+				fixture.restart(t)
+				repository = store.NewCredentialRepository(fixture.authority)
+				fixture.engine.credentialCore = sqliteCredentialCore(t, fixture, repository)
 				if err := fixture.engine.Reconcile(context.Background()); err != nil {
 					t.Fatal(err)
 				}
@@ -169,5 +173,41 @@ func TestSQLiteCredentialLifecycleEngineAdmissionAndAppend(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func sqliteCredentialCore(t *testing.T, fixture *sqliteRestartFixture, repository *store.CredentialRepository) *CoreCredentialEffect {
+	t.Helper()
+	core, err := NewCoreCredentialEffect(repository, store.NewAcknowledgementRepository(fixture.authority), UnavailableGateVerifier{}, UnavailableCredentialLifecycleVerifier{}, UnavailableCredentialRecoveryVerifier{}, fixture.clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return core
+}
+
+func assertSQLiteCredentialAudit(t *testing.T, fixture *sqliteRestartFixture) {
+	t.Helper()
+	// A read-only test observer checks durable public audit metadata. Writable
+	// SQLite remains exclusively owned by the production Store under test.
+	location := (&url.URL{Scheme: "file", Path: fixture.config.DatabasePath}).String() + "?mode=ro"
+	observer, err := sql.Open("sqlite3", location)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer observer.Close()
+	var count int
+	if err := observer.QueryRow(`SELECT COUNT(*) FROM audit_events WHERE event_type='credential.version-applied' AND correlation_id='reference-lifecycle'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("missing or repeated credential audit result: %d %v", count, err)
+	}
+	var payload []byte
+	if err := observer.QueryRow(`SELECT canonical_payload FROM audit_events WHERE event_type='credential.version-applied' AND correlation_id='reference-lifecycle'`).Scan(&payload); err != nil {
+		t.Fatal(err)
+	}
+	var event audit.Event
+	if err := json.Unmarshal(payload, &event); err != nil {
+		t.Fatal(err)
+	}
+	if event.HumanID == nil || *event.HumanID != fixture.request.Acknowledgement.HumanID || event.AgentName == nil || *event.AgentName != "codex" || event.AgentSessionID == nil || *event.AgentSessionID != "session-lifecycle" {
+		t.Fatalf("credential audit lost human/agent attribution: %+v", event)
 	}
 }
