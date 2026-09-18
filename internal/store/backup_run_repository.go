@@ -1,0 +1,227 @@
+package store
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
+)
+
+// BackupWriterLeaseRequest asks for one exact single-writer lease bound to a
+// running backup job for one repository at a recovery epoch.
+type BackupWriterLeaseRequest struct {
+	LeaseID          string
+	JobID            string
+	PolicyID         string
+	PolicyDigest     string
+	PlanID           string
+	PlanDigest       string
+	RunID            string
+	StepID           string
+	RepositoryID     string
+	RepositoryClass  string
+	TargetID         string
+	SourceRevision   int64
+	RecoveryEpoch    int64
+	MaximumExpiresAt time.Time
+}
+
+// ExpectedObjectRow is one exact expected object in a pending point's inventory.
+type ExpectedObjectRow struct {
+	Type   string
+	Name   string
+	Bytes  int64
+	Digest string
+}
+
+// PendingRecoveryPointRequest publishes exactly one pending point receipt bound
+// to an active writer lease. It never carries verification evidence or last-good
+// state; the store rejects any attempt to set them.
+type PendingRecoveryPointRequest struct {
+	LeaseID         string
+	PointID         string
+	SnapshotID      string
+	SnapshotCount   int64
+	ObjectCount     int64
+	ObjectBytes     int64
+	ContentDigest   string
+	ManifestDigest  string
+	InventoryDigest string
+	SourceRevision  int64
+	RecoveryEpoch   int64
+	SourceKind      string
+	ProofClass      string
+	ExpectedObjects []ExpectedObjectRow
+}
+
+// AcquireBackupWriterLease atomically records a running backup job and its single
+// active writer lease. A second active lease for the same repository conflicts,
+// giving before-effect two-writer exclusion.
+func (repository *BackupRepository) AcquireBackupWriterLease(ctx context.Context, request BackupWriterLeaseRequest) error {
+	if repository == nil || repository.store == nil || request.LeaseID == "" || request.JobID == "" ||
+		!validBackupDigest(request.PolicyDigest) || !validBackupDigest(request.PlanDigest) ||
+		(request.RepositoryClass != "standard" && request.RepositoryClass != "critical") || request.RecoveryEpoch < 0 {
+		return backupStoreError(generated.ErrorCodeInputInvalid, "backup-writer-lease")
+	}
+	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	return repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,?,?,?,?,?,NULL,?,?,'running',?,?,?)`,
+			request.JobID, request.PolicyID, request.PolicyDigest, request.RepositoryID, request.RepositoryClass, request.RunID, "local", "fixture", request.RecoveryEpoch, now, now); err != nil {
+			return backupWriteError(err)
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_writer_leases(lease_id,policy_id,policy_digest,job_id,point_id,plan_id,plan_digest,run_id,step_id,repository_id,repository_class,target_id,source_revision,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES(?,?,?,?,NULL,?,?,?,?,?,?,?,?,?,?,?,NULL)`,
+			request.LeaseID, request.PolicyID, request.PolicyDigest, request.JobID, request.PlanID, request.PlanDigest, request.RunID, request.StepID, request.RepositoryID, request.RepositoryClass, request.TargetID, request.SourceRevision, request.RecoveryEpoch, request.MaximumExpiresAt.UTC().Truncate(time.Second).Format(time.RFC3339), now)
+		if err != nil {
+			return backupWriteError(err)
+		}
+		return nil
+	})
+}
+
+// AppendPendingRecoveryPoint publishes one immutable pending point receipt and
+// its exact expected inventory in a single transaction, then closes the job and
+// releases the lease. It verifies the active lease and that the bound policy
+// draft is still present unchanged, and it never sets verification or last-good
+// state. It returns only a sanitized point ID and the bound manifest digest.
+func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Context, request PendingRecoveryPointRequest) (string, string, error) {
+	if repository == nil || repository.store == nil || request.LeaseID == "" || request.PointID == "" || request.SnapshotID == "" ||
+		!validBackupDigest(request.ContentDigest) || !validBackupDigest(request.ManifestDigest) || !validBackupDigest(request.InventoryDigest) ||
+		request.SnapshotCount < 1 || request.ObjectCount < 0 || len(request.ExpectedObjects) == 0 {
+		return "", "", backupStoreError(generated.ErrorCodeInputInvalid, "backup-pending-point")
+	}
+	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	err := repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var jobID, policyID, policyDigest, repositoryID, repositoryClass string
+		var epoch int64
+		err := tx.QueryRowContext(ctx, `SELECT job_id,policy_id,policy_digest,repository_id,repository_class,recovery_epoch FROM backup_writer_leases WHERE lease_id=? AND released_at IS NULL`, request.LeaseID).Scan(&jobID, &policyID, &policyDigest, &repositoryID, &repositoryClass, &epoch)
+		if errors.Is(err, sql.ErrNoRows) {
+			return backupStoreError(generated.ErrorCodePlanStale, "backup-writer-lease")
+		}
+		if err != nil {
+			return backupWriteError(err)
+		}
+		if epoch != request.RecoveryEpoch {
+			return backupStoreError(generated.ErrorCodePlanStale, "backup-writer-lease")
+		}
+		// The bound policy draft must still exist unchanged at this exact digest and epoch.
+		var draftCount int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_policy_drafts WHERE policy_digest=? AND recovery_epoch=?`, policyDigest, epoch).Scan(&draftCount); err != nil {
+			return backupWriteError(err)
+		}
+		if draftCount != 1 {
+			return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-policy-draft")
+		}
+		if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,inventory_digest,source_revision,recovery_epoch,verification_status,verified_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',NULL,?)`,
+			request.PointID, jobID, policyID, policyDigest, repositoryID, repositoryClass, request.SourceKind, request.ProofClass, request.SnapshotID, request.SnapshotCount, request.ObjectCount, request.ObjectBytes, request.ContentDigest, request.ManifestDigest, request.InventoryDigest, request.SourceRevision, epoch, now); err != nil {
+			return backupWriteError(err)
+		}
+		for _, object := range request.ExpectedObjects {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO backup_expected_objects(point_id,object_type,object_name,object_bytes,object_digest) VALUES(?,?,?,?,?)`,
+				request.PointID, object.Type, object.Name, object.Bytes, object.Digest); err != nil {
+				return backupWriteError(err)
+			}
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_jobs SET status='pending', point_id=?, updated_at=? WHERE job_id=?`, request.PointID, now, jobID); err != nil {
+			return backupWriteError(err)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_writer_leases SET released_at=?, point_id=? WHERE lease_id=?`, now, request.PointID, request.LeaseID); err != nil {
+			return backupWriteError(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return request.PointID, request.ManifestDigest, nil
+}
+
+// VerifyActiveWriterLease confirms one writer lease is still the single active
+// lease for its repository at the given epoch and has not passed its deadline.
+// The REST object boundary calls it before every mutation (through a small
+// adapter that owns the backup WriterLease type, keeping this package free of a
+// dependency on the backup package).
+func (repository *BackupRepository) VerifyActiveWriterLease(ctx context.Context, leaseID, repositoryID string, recoveryEpoch int64, now time.Time) error {
+	if repository == nil || repository.store == nil || leaseID == "" || repositoryID == "" || recoveryEpoch < 0 {
+		return backupStoreError(generated.ErrorCodeInputInvalid, "backup-writer-lease")
+	}
+	var maximumExpiresAt string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT maximum_expires_at FROM backup_writer_leases WHERE lease_id=? AND repository_id=? AND recovery_epoch=? AND released_at IS NULL`, leaseID, repositoryID, recoveryEpoch).Scan(&maximumExpiresAt)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return backupStoreError(generated.ErrorCodePlanStale, "backup-writer-lease")
+	}
+	if err != nil {
+		return err
+	}
+	deadline, err := time.Parse(time.RFC3339, maximumExpiresAt)
+	if err != nil {
+		return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-writer-lease")
+	}
+	if !now.Before(deadline) {
+		return backupStoreError(generated.ErrorCodePlanStale, "backup-writer-lease")
+	}
+	return nil
+}
+
+// FailBackupJob records a failed or uncertain outcome, releases the lease, and
+// preserves every prior point. It never prunes or deletes retained data.
+func (repository *BackupRepository) FailBackupJob(ctx context.Context, leaseID, status string) error {
+	if repository == nil || repository.store == nil || leaseID == "" || (status != "failed" && status != "uncertain") {
+		return backupStoreError(generated.ErrorCodeInputInvalid, "backup-job-finish")
+	}
+	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	return repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var jobID string
+		err := tx.QueryRowContext(ctx, `SELECT job_id FROM backup_writer_leases WHERE lease_id=? AND released_at IS NULL`, leaseID).Scan(&jobID)
+		if errors.Is(err, sql.ErrNoRows) {
+			return backupStoreError(generated.ErrorCodeResourceNotFound, "backup-writer-lease")
+		}
+		if err != nil {
+			return backupWriteError(err)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_jobs SET status=?, updated_at=? WHERE job_id=?`, status, now, jobID); err != nil {
+			return backupWriteError(err)
+		}
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_writer_leases SET released_at=? WHERE lease_id=?`, now, leaseID); err != nil {
+			return backupWriteError(err)
+		}
+		return nil
+	})
+}
+
+// inTx runs one serialized read-write backup transaction. Backup-domain tables
+// enforce their own append-only, one-active-lease and pending-only invariants, so
+// this deliberately does not advance the control-plane declaration revision.
+func (repository *BackupRepository) inTx(ctx context.Context, business func(context.Context, *sql.Tx) error) error {
+	store := repository.store
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if err := store.readyForTransaction(ctx); err != nil {
+		return err
+	}
+	tx, err := store.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return store.transactionError(ctx, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := business(ctx, tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return store.transactionError(ctx, err)
+	}
+	return nil
+}
+
+// backupWriteError classifies a driver error: a unique/constraint violation
+// (for example a second active writer lease) maps to STATE_CONFLICT; everything
+// else fails closed as an integrity failure.
+func backupWriteError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return classifySQLiteError(context.Background(), err)
+}

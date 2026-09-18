@@ -9,8 +9,10 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/clientprofile"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
@@ -175,6 +177,33 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
 	adapters := productionAdapterRegistry()
+	// The protected local backup adapter is registered only when the complete
+	// standard/critical/restic profile triplet is present. It fails closed
+	// off-Linux and its effect always runs through the exact bound credential
+	// path; a partial or absent profile leaves it unregistered.
+	if profile.LocalBackup != nil {
+		snapshots, snapshotErr := store.NewOnlineSnapshotSource(authority)
+		if snapshotErr != nil {
+			_ = application.Shutdown(ctx)
+			return snapshotErr
+		}
+		localAdapter, adapterErr := localbackup.New(localbackup.Config{
+			LocalBackup: profile.LocalBackup,
+			ExpectedUID: profile.SocketOwnerUID,
+			Backups:     store.NewBackupRepository(authority),
+			Snapshots:   snapshots,
+			Plans:       plans,
+			Hooks:       backup.DefaultHookRegistry(),
+			Runner:      backup.NewResticRunner(),
+			Clock:       time.Now,
+		})
+		if adapterErr == nil {
+			if registerErr := adapters.Register(localbackup.AdapterID, localAdapter); registerErr != nil {
+				_ = application.Shutdown(ctx)
+				return registerErr
+			}
+		}
+	}
 	gateRepository := store.NewGateRepository(authority)
 	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
 		_ = application.Shutdown(ctx)

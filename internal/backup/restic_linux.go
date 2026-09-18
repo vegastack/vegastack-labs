@@ -64,7 +64,7 @@ type resticSummary struct {
 
 func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, password *credentialref.Value) (result ResticResult, outcomeErr error) {
 	runner.observation = ResticObservation{PasswordFileMode: "sealed-memfd"}
-	if password == nil || len(password.Bytes()) == 0 || request.BinaryPath == "" || request.RepositoryURL == "" || request.SnapshotPath == "" {
+	if password == nil || len(password.Bytes()) == 0 || request.BinaryPath == "" || request.RepositoryURL == "" {
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 	outputLimit := request.OutputLimit
@@ -73,6 +73,17 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	}
 	if err := runner.verifyBinary(request); err != nil {
 		return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-binary", false)
+	}
+
+	mode := request.Mode
+	if mode == "" {
+		mode = "backup"
+	}
+	if mode != "backup" && mode != "init" {
+		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
+	}
+	if mode == "backup" && request.SnapshotPath == "" {
+		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 
 	passwordFile, err := sealedPasswordFile(password.Bytes())
@@ -88,8 +99,11 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		"-r", "rest:" + request.RepositoryURL,
 		"--json", "--no-cache",
 		"--password-file", passwordFilePath,
-		"backup", request.SnapshotPath,
-		"--host", "vsk-labs",
+	}
+	if mode == "init" {
+		argv = append(argv, "init", "--repository-version", "2")
+	} else {
+		argv = append(argv, "backup", request.SnapshotPath, "--host", "vsk-labs")
 	}
 	command := exec.CommandContext(ctx, argv[0], argv[1:]...)
 	command.Env = []string{} // no RESTIC_PASSWORD, no RESTIC_PASSWORD_COMMAND, no inherited environment
@@ -111,6 +125,10 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 			return ResticResult{}, failure.New(generated.ErrorCodeInterrupted, "backup-restic", false)
 		}
 		return ResticResult{}, failure.New(generated.ErrorCodeExecutionFailed, "backup-restic", false)
+	}
+
+	if mode == "init" {
+		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
 	}
 
 	summary, err := parseResticSummary(stdout.Bytes())

@@ -703,10 +703,21 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		}
 		return adapter.Effect{}, err
 	}
-	return invokeCredentialEffect(ctx, credentialExecutor, operation, values)
+	// The exact binding is derived only from the current plan, run, step and lease
+	// the engine has already verified; no adapter may widen or choose it.
+	binding := adapter.ExactExecutionBinding{
+		PlanID:           plan.PlanID,
+		PlanDigest:       plan.PlanDigest,
+		RunID:            lease.RunID,
+		StepID:           lease.StepID,
+		LeaseID:          lease.LeaseID,
+		RecoveryEpoch:    plan.Binding.RecoveryEpoch,
+		MaximumExpiresAt: lease.MaximumExpiresAt,
+	}
+	return invokeCredentialEffect(ctx, credentialExecutor, operation, binding, values)
 }
 
-func invokeCredentialEffect(ctx context.Context, implementation adapter.CredentialExecutor, operation adapter.Operation, values []*credentialref.Value) (effect adapter.Effect, err error) {
+func invokeCredentialEffect(ctx context.Context, implementation adapter.CredentialExecutor, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (effect adapter.Effect, err error) {
 	defer func() {
 		// A third-party adapter can panic with a plaintext value. Discard the
 		// panic payload without formatting it and conservatively mark the
@@ -717,7 +728,13 @@ func invokeCredentialEffect(ctx context.Context, implementation adapter.Credenti
 		}
 		closeCredentialValues(values)
 	}()
-	effect, err = implementation.ExecuteWithCredentials(ctx, operation, values)
+	// A bound credential adapter is preferred and receives the exact execution
+	// binding; the plain credential path remains for adapters that do not need it.
+	if bound, ok := implementation.(adapter.BoundCredentialExecutor); ok {
+		effect, err = bound.ExecuteBoundWithCredentials(ctx, operation, binding, values)
+	} else {
+		effect, err = implementation.ExecuteWithCredentials(ctx, operation, values)
+	}
 	if err != nil {
 		// Adapter errors can contain provider/credential text. Never relay it.
 		return effect, runError(generated.ErrorCodeExecutionFailed, "credential-effect")
