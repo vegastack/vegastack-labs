@@ -2,6 +2,7 @@ package generated
 
 import (
 	"encoding/json"
+	"os"
 	"strings"
 	"testing"
 )
@@ -295,5 +296,31 @@ func TestPhase5ScheduledJobBindingRejectsWidening(t *testing.T) {
 	job.RecoveryEpoch = 3
 	if err := ValidateScheduledJobBinding(policy, job); err == nil {
 		t.Fatal("scheduled job changed epoch")
+	}
+}
+
+func TestCredentialLifecycleContractHasOnlyExactMetadata(t *testing.T) {
+	schema, err := os.ReadFile("../../schemas/v1/credential-lifecycle-request.schema.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var document struct {
+		Properties map[string]json.RawMessage `json:"properties"`
+	}
+	if json.Unmarshal(schema, &document) != nil {
+		t.Fatal("invalid generated schema")
+	}
+	for _, forbidden := range []string{"value", "secret", "plaintext", "material", "ciphertextFingerprint"} {
+		if _, found := document.Properties[forbidden]; found {
+			t.Fatalf("private or caller-derived field %q present in lifecycle request", forbidden)
+		}
+	}
+	raw := []byte(`{"schema":"vegastack-labs.dev/credential-lifecycle-request","schemaVersion":"1.2.0","action":"credential.activate","draftId":null,"referenceId":"reference-a","consumerIds":["consumer-a"],"requiredDeniedConsumerIds":["consumer-b"],"materialVersion":"version-a","priorMaterialVersion":null,"resolverId":"native-systemd","targetId":"target-a","overlapSeconds":0,"expectedStateRevision":12,"recoveryEpoch":3,"priorRecoveryEpoch":null,"custodyProofDigest":null,"formerControllerFenceDigest":null,"targetDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","idempotencyKey":"request-a"}`)
+	if err := ValidateContractJSON(SchemaIDCredentialLifecycleRequest, raw, ContractExact); err != nil {
+		t.Fatalf("valid lifecycle request rejected: %v", err)
+	}
+	forged := []byte(`{"schema":"vegastack-labs.dev/credential-lifecycle-request","schemaVersion":"1.2.0","action":"credential.activate","draftId":null,"referenceId":"reference-a","consumerIds":["consumer-a"],"requiredDeniedConsumerIds":["consumer-b"],"materialVersion":"version-a","priorMaterialVersion":null,"resolverId":"native-systemd","targetId":"target-a","overlapSeconds":0,"expectedStateRevision":12,"recoveryEpoch":3,"priorRecoveryEpoch":null,"custodyProofDigest":null,"formerControllerFenceDigest":null,"targetDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","idempotencyKey":"request-a","ciphertextFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`)
+	if err := ValidateContractJSON(SchemaIDCredentialLifecycleRequest, forged, ContractExact); err == nil {
+		t.Fatal("lifecycle request accepted a caller-authored ciphertext fingerprint")
 	}
 }

@@ -195,6 +195,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/cloudflare-access-profile.schema.json",
 		"schemas/v1/credential-import-request.schema.json",
 		"schemas/v1/credential-import-submission.schema.json",
+		"schemas/v1/credential-lifecycle-request.schema.json",
+		"schemas/v1/credential-lifecycle-submission.schema.json",
 		"schemas/v1/credential-reference-request.schema.json",
 		"schemas/v1/credential-reference.schema.json",
 		"schemas/v1/credential-resolution-record.schema.json",
@@ -722,7 +724,7 @@ func TestGeneratedGoIsRuntimeSerializable(t *testing.T) {
 	}
 	for _, want := range []string{
 		`RegistrySchemaVersion`,
-		`= "1.17.0"`,
+		`= "1.18.0"`,
 		`type Endpoint struct`,
 		`var Endpoints = []Endpoint`,
 		`type DatabaseStatusData struct`,

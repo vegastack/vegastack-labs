@@ -234,8 +234,12 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 	return nil
 }
 
+// credentialBindingExtensionsEqual proves the sealed credential extension
+// digests are carried from the inert declaration into the plan unchanged. Both
+// the secret-resolution binding manifest and the lifecycle binding are declared
+// facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-credential-bindings", "x-audit-checkpoint"} {
+	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

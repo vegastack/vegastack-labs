@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.17.0"
+	RegistrySchemaVersion                   = "1.18.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -61,6 +61,8 @@ const (
 	SchemaIDContractExtension               = "vegastack-labs.dev/contract-extension"
 	SchemaIDCredentialImportRequest         = "vegastack-labs.dev/credential-import-request"
 	SchemaIDCredentialImportSubmission      = "vegastack-labs.dev/credential-import-submission"
+	SchemaIDCredentialLifecycleRequest      = "vegastack-labs.dev/credential-lifecycle-request"
+	SchemaIDCredentialLifecycleSubmission   = "vegastack-labs.dev/credential-lifecycle-submission"
 	SchemaIDCredentialReference             = "vegastack-labs.dev/credential-reference"
 	SchemaIDCredentialReferenceRequest      = "vegastack-labs.dev/credential-reference-request"
 	SchemaIDCredentialResolutionRecord      = "vegastack-labs.dev/credential-resolution-record"
@@ -759,6 +761,40 @@ type CredentialImportSubmission struct {
 	Status                string `json:"status"`
 	StateRevision         int64  `json:"stateRevision"`
 	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+}
+
+type CredentialLifecycleRequest struct {
+	Schema                      string   `json:"schema"`
+	SchemaVersion               string   `json:"schemaVersion"`
+	ExpectedStateRevision       int64    `json:"expectedStateRevision"`
+	RecoveryEpoch               int64    `json:"recoveryEpoch"`
+	TargetDigest                string   `json:"targetDigest"`
+	IdempotencyKey              string   `json:"idempotencyKey"`
+	Action                      string   `json:"action"`
+	DraftID                     *string  `json:"draftId"`
+	ReferenceID                 string   `json:"referenceId"`
+	ConsumerIDs                 []string `json:"consumerIds"`
+	RequiredDeniedConsumerIDs   []string `json:"requiredDeniedConsumerIds"`
+	MaterialVersion             string   `json:"materialVersion"`
+	PriorMaterialVersion        *string  `json:"priorMaterialVersion"`
+	ResolverID                  string   `json:"resolverId"`
+	TargetID                    string   `json:"targetId"`
+	OverlapSeconds              int64    `json:"overlapSeconds"`
+	PriorRecoveryEpoch          *int64   `json:"priorRecoveryEpoch"`
+	CustodyProofDigest          *string  `json:"custodyProofDigest"`
+	FormerControllerFenceDigest *string  `json:"formerControllerFenceDigest"`
+}
+
+type CredentialLifecycleSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ChangeID      string `json:"changeId"`
+	OperationID   string `json:"operationId"`
+	ReferenceID   string `json:"referenceId"`
+	Action        string `json:"action"`
+	Status        string `json:"status"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
 type CredentialReference struct {

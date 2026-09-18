@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.17.0",
+  "schemaVersion": "1.18.0",
   "commands": [
     {
       "path": [
@@ -2602,6 +2602,16 @@
       "id": "vegastack-labs.dev/credential-import-submission",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-import-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-lifecycle-request",
+      "version": "1.2.0",
+      "artifactPath": "schemas/v1/credential-lifecycle-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-lifecycle-submission",
+      "version": "1.2.0",
+      "artifactPath": "schemas/v1/credential-lifecycle-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-reference",
