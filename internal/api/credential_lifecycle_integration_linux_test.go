@@ -213,7 +213,7 @@ func TestLifecycleRotateAndRecoverDraftsRejectOriginSubstitution(t *testing.T) {
 					if err != nil {
 						t.Fatal(err)
 					}
-					_, err = db.Exec("UPDATE control_state SET recovery_epoch=1 WHERE id=1")
+					_, err = db.Exec("UPDATE system_meta SET recovery_epoch=1 WHERE id=1")
 					_ = db.Close()
 					if err != nil {
 						t.Fatal(err)
