@@ -28,6 +28,7 @@ type intentRequest struct {
 	Expected     *RevisionToken
 	Idempotency  audit.IntentKey
 	Event        audit.EventDraft
+	Context      audit.ContextIDs
 	Destinations []audit.OutboxRequirement
 }
 
@@ -189,6 +190,9 @@ func (store *Store) appendAuditInTx(ctx context.Context, transaction *sql.Tx, re
 		return intentResult{}, store.transactionError(ctx, err)
 	}
 	if err := store.runAuditFault(auditAfterEvent); err != nil {
+		return intentResult{}, err
+	}
+	if _, err := store.appendAuditLink(ctx, transaction, event, request.Context); err != nil {
 		return intentResult{}, err
 	}
 

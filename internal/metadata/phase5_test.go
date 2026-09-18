@@ -43,7 +43,10 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 			t.Errorf("credential schema %s version = %s", id, versions[id])
 		}
 	}
-	for _, id := range []string{backupJobSchemaID, auditCheckpointSchemaID, restoreBindingSchemaID} {
+	if versions[auditCheckpointSchemaID] != "1.1.0" || versions[auditVerificationDataSchemaID] != "1.1.0" {
+		t.Errorf("audit schemas were not versioned together")
+	}
+	for _, id := range []string{backupJobSchemaID, restoreBindingSchemaID} {
 		if versions[id] != "1.0.0" {
 			t.Errorf("unowned schema %s version = %s", id, versions[id])
 		}
@@ -108,8 +111,8 @@ func TestPhase5SurfaceRemainsPlanned(t *testing.T) {
 			continue
 		}
 		found = true
-		gateAvailable := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream"
-		if (!gateAvailable && endpoint.Availability != AvailabilityPlanned) || (gateAvailable && endpoint.Availability != AvailabilityAvailable) || endpoint.DataSchema == "" {
+		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification"
+		if (!available && endpoint.Availability != AvailabilityPlanned) || (available && endpoint.Availability != AvailabilityAvailable) || endpoint.DataSchema == "" {
 			t.Errorf("unsafe Phase 5 endpoint %s", endpoint.ID)
 		}
 		if endpoint.ID == "api.v1.credential-resolution-records.get" {

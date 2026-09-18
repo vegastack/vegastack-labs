@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 )
@@ -364,6 +365,14 @@ func TestBrowserSessionDenialAndRecoveryInvalidationAreSanitizedAndAudited(t *te
 		t.Fatal(err)
 	}
 	if err := s.AuditBrowserSessionDenial(context.Background(), principal, "session-invalid"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.PrepareRecoveryAuditEpoch(
+		context.Background(),
+		1,
+		audit.Fingerprint("sha256:"+strings.Repeat("a", 64)),
+		audit.Fingerprint("sha256:"+strings.Repeat("b", 64)),
+	); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.conn.ExecContext(context.Background(), `UPDATE system_meta SET recovery_epoch=recovery_epoch+1 WHERE id=1`); err != nil {

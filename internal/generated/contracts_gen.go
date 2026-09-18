@@ -44,6 +44,7 @@ const (
 	SchemaIDAuditCheckpointRequest          = "vegastack-labs.dev/audit-checkpoint-request"
 	SchemaIDAuditEvent                      = "vegastack-labs.dev/audit-event"
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
+	SchemaIDAuditVerificationData           = "vegastack-labs.dev/audit-verification-data"
 	SchemaIDAuthorizationDecision           = "vegastack-labs.dev/authorization-decision"
 	SchemaIDBackupJob                       = "vegastack-labs.dev/backup-job"
 	SchemaIDBackupPolicy                    = "vegastack-labs.dev/backup-policy"
@@ -165,6 +166,8 @@ const (
 	OutputJSON                              = "json"
 	FlagPlanID                              = "--plan-id"
 	FlagSchemaVersion                       = "--schema-version"
+	CommandNameAuditCheckpoints             = "audit checkpoints"
+	CommandNameAuditVerify                  = "audit verify"
 	CommandNameCredentialImport             = "credential import"
 	FlagConsumerID                          = "--consumer-id"
 	FlagExpectedStateRevision               = "--expected-state-revision"
@@ -477,6 +480,18 @@ type AuditCheckpoint struct {
 	FirstEventID          int64   `json:"firstEventId"`
 	LastEventID           int64   `json:"lastEventId"`
 	ChainDigest           string  `json:"chainDigest"`
+	InstanceID            string  `json:"instanceId"`
+	FirstSegmentSequence  int64   `json:"firstSegmentSequence"`
+	LastSegmentSequence   int64   `json:"lastSegmentSequence"`
+	SignerReferenceID     string  `json:"signerReferenceId"`
+	SignerMaterialVersion string  `json:"signerMaterialVersion"`
+	SignatureDigest       *string `json:"signatureDigest"`
+	PublicKeyID           *string `json:"publicKeyId"`
+	ExportReceiptDigest   *string `json:"exportReceiptDigest"`
+	IndependentReadDigest *string `json:"independentReadDigest"`
+	Status                string  `json:"status"`
+	ReasonCode            string  `json:"reasonCode"`
+	PreAnchor             bool    `json:"preAnchor"`
 	IndependentCopyDigest *string `json:"independentCopyDigest"`
 	SourceKind            string  `json:"sourceKind"`
 	ProofClass            string  `json:"proofClass"`
@@ -528,6 +543,20 @@ type AuditEvent struct {
 type AuditTarget struct {
 	Kind string `json:"kind"`
 	ID   string `json:"id"`
+}
+
+type AuditVerificationData struct {
+	Schema               string  `json:"schema"`
+	SchemaVersion        string  `json:"schemaVersion"`
+	Status               string  `json:"status"`
+	InstanceID           string  `json:"instanceId"`
+	RecoveryEpoch        int64   `json:"recoveryEpoch"`
+	LocalDigest          string  `json:"localDigest"`
+	IndependentDigest    *string `json:"independentDigest"`
+	IndependentMatch     bool    `json:"independentMatch"`
+	LastAnchoredSequence int64   `json:"lastAnchoredSequence"`
+	ReasonCode           string  `json:"reasonCode"`
+	PreAnchor            bool    `json:"preAnchor"`
 }
 
 type AuthorizationDecision struct {
@@ -1904,6 +1933,8 @@ type Example struct {
 var Commands = []Command{
 	{Path: []string{"apply"}, Summary: "Execute one exact current and authorized immutable plan.", Availability: "available", OwnerPhase: "4", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--plan-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the exact immutable plan; this does not acknowledge it.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-reference-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/run-presentation", Examples: []Example{{Summary: "Execute one exact current and authorized immutable plan.", Arguments: []string{"apply", "--config", "fixture/server-profile.json", "--plan-id", "plan-1", "--output", "json"}}}},
 	{Path: []string{"audit"}, Summary: "Inspect sanitized audit history.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data"},
+	{Path: []string{"audit", "checkpoints"}, Summary: "List sanitized audit checkpoints.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Examples: []Example{{Summary: "List sanitized audit checkpoints.", Arguments: []string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"}}}},
+	{Path: []string{"audit", "verify"}, Summary: "Verify local audit history against independent checkpoint state.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-verification-data", Examples: []Example{{Summary: "Verify local audit history against independent checkpoint state.", Arguments: []string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"backup", "run"}, Summary: "Run one exact approved backup policy.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job"},
 	{Path: []string{"backup", "status"}, Summary: "Inspect backup status.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/backup-status-data"},
 	{Path: []string{"backup", "verify"}, Summary: "Verify a declared backup.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job"},
@@ -1962,8 +1993,9 @@ var Commands = []Command{
 }
 
 var Endpoints = []Endpoint{
-	{ID: "api.v1.audit-checkpoints.create", Method: "POST", Path: "/api/v1/audit-checkpoints", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/audit-checkpoint-request", DataSchema: "vegastack-labs.dev/audit-checkpoint", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.audit-checkpoints.list", Method: "GET", Path: "/api/v1/audit-checkpoints", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.audit-checkpoints.create", Method: "POST", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/audit-checkpoint-request", DataSchema: "vegastack-labs.dev/audit-checkpoint", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.audit-checkpoints.list", Method: "GET", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.audit-history.verification", Method: "GET", Path: "/api/v1/audit-history/verification", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-verification-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.run", Method: "POST", Path: "/api/v1/backups/run", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.status", Method: "GET", Path: "/api/v1/backups/status", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/backup-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.verify", Method: "POST", Path: "/api/v1/backups/{jobId}/verify", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

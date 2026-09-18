@@ -128,6 +128,10 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 			return nil, err
 		}
 	}
+	if _, err := store.backfillPreAnchor(ctx); err != nil {
+		store.enterSafeMode("audit-chain-backfill")
+		return nil, err
+	}
 	if err := store.readAndValidateState(ctx); err != nil {
 		return nil, err
 	}

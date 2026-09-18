@@ -55,6 +55,22 @@ test("the reviewed #124 credential wave allows only the local import route", asy
   }
 });
 
+test("the reviewed #107 audit routes add only their exact registry IDs", async (t) => {
+  const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
+  for (const id of ["api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification"]) {
+    const copy = structuredClone(registry);
+    copy.endpoints = copy.endpoints.filter((endpoint) => endpoint.id !== id);
+    const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(copy)}\n`});
+    assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), id);
+  }
+  const extra = structuredClone(registry);
+  const added = structuredClone(extra.endpoints.find((endpoint) => endpoint.id === "api.v1.audit-history.verification"));
+  added.id = "api.v1.audit-history.rewrite";
+  extra.endpoints.push(added);
+  const root = await fixtureRepo(t, {"schemas/v1/endpoint-registry.json": `${JSON.stringify(extra)}\n`});
+  assert.ok((await verifyReadAPI(root)).codes.includes("READ_API_ENDPOINT_DRIFT"), "audit rewrite route");
+});
+
 test("the read API verifier rejects a registry without the source health endpoint", async (t) => {
   const registry = JSON.parse(await readFile(path.join(process.cwd(), "schemas/v1/endpoint-registry.json"), "utf8"));
   registry.endpoints = registry.endpoints.filter((endpoint) => endpoint.id !== "api.v1.sources.list");

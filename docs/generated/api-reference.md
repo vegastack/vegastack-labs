@@ -5,8 +5,9 @@ Contract schema: `1.17.0`
 
 | Operation | Method | Path | Availability | Audience | Stream | Request schema | Data schema |
 |---|---|---|---|---|---|---|---|
-| `api.v1.audit-checkpoints.create` | `POST` | `/api/v1/audit-checkpoints` | `planned` | `operator` | `finite` | `vegastack-labs.dev/audit-checkpoint-request` | `vegastack-labs.dev/audit-checkpoint` |
-| `api.v1.audit-checkpoints.list` | `GET` | `/api/v1/audit-checkpoints` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/audit-checkpoint-list-data` |
+| `api.v1.audit-checkpoints.create` | `POST` | `/api/v1/audit-checkpoints` | `available` | `operator` | `finite` | `vegastack-labs.dev/audit-checkpoint-request` | `vegastack-labs.dev/audit-checkpoint` |
+| `api.v1.audit-checkpoints.list` | `GET` | `/api/v1/audit-checkpoints` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/audit-checkpoint-list-data` |
+| `api.v1.audit-history.verification` | `GET` | `/api/v1/audit-history/verification` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/audit-verification-data` |
 | `api.v1.backups.run` | `POST` | `/api/v1/backups/run` | `planned` | `operator` | `finite` | `vegastack-labs.dev/backup-run-request` | `vegastack-labs.dev/backup-job` |
 | `api.v1.backups.status` | `GET` | `/api/v1/backups/status` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/backup-status-data` |
 | `api.v1.backups.verify` | `POST` | `/api/v1/backups/{jobId}/verify` | `planned` | `operator` | `finite` | `vegastack-labs.dev/backup-verify-request` | `vegastack-labs.dev/backup-job` |

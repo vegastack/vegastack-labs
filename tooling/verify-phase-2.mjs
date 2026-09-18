@@ -76,16 +76,24 @@ const REVIEWED_DESIGN_SYSTEM_WAVE = Object.freeze({
 });
 // Issue #124 adds the inert local encrypted-credential import wave. Because it lands
 // after the #128 design-system reseal, its boundary digest is the combined closure of
-// the credential-import production sources over the resealed Console assets — the
-// current head closure that `postPhase2MutationBoundaryDigest` reproduces and that this
-// wave, as the final Phase 5 wave, must equal.
+// the credential-import production sources over the resealed Console assets.
 const REVIEWED_CREDENTIAL_IMPORT_WAVE = Object.freeze({
   id: "phase5-issue124-v1", issue: 124,
   commands: Object.freeze(["credential import"]),
   imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:c18f9df9999784b2c319741cb65172dd802f61bca61abb29a4ecd0a96ce53ba1",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE]);
+// Issue #107 adds the two typed audit read commands (checkpoint listing and history
+// verification) with no new Go import. It lands after #124, so as the final Phase 5
+// wave its boundary digest is the current head closure that
+// `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal.
+const REVIEWED_AUDIT_WAVE = Object.freeze({
+  id: "phase5-issue107-v1", issue: 107,
+  commands: Object.freeze(["audit checkpoints", "audit verify"]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:f7f91580362c31d0d9f66cc9ebb427df1080b8bef771c1a0ab620138da0ecd39",
+});
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -584,14 +592,17 @@ export function validateEvidence(manifest, facts) {
       manifest.contract.postPhase2MutationBoundaryDigest !== PHASE2_BASELINE_MUTATION_DIGEST)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   }
-  const availableGateCommands = facts.availableCommands.filter((name) => name.startsWith("gate "));
-  const availableCredentialCommands = facts.availableCommands.filter((name) => name.startsWith("credential "));
+  const reviewedCommandPrefixes = ["gate ", "credential ", "audit "];
+  const availableReviewedCommands = facts.availableCommands.filter((name) =>
+    reviewedCommandPrefixes.some((prefix) => name.startsWith(prefix)));
+  const expectedReviewedCommands = REVIEWED_PHASE5_WAVES.flatMap(({ commands }) => commands).sort();
   const reviewedWaveImportsPresent = REVIEWED_PHASE5_WAVES.every(({ imports }) =>
     imports.every((name) => facts.productionImports.includes(name)));
-  const reviewedWavesActive = waveRecordsValid && same(availableGateCommands, REVIEWED_GATE_WAVE.commands) &&
-    same(availableCredentialCommands, REVIEWED_CREDENTIAL_IMPORT_WAVE.commands) && reviewedWaveImportsPresent &&
+  const availableCredentialCommands = facts.availableCommands.filter((name) => name.startsWith("credential "));
+  const reviewedWavesActive = waveRecordsValid && same(availableReviewedCommands, expectedReviewedCommands) &&
+    reviewedWaveImportsPresent &&
     facts.postPhase2MutationBoundaryDigest === reviewedWaves.at(-1).mutationBoundaryDigest;
-  const historicalBaselineActive = availableGateCommands.length === 0 &&
+  const historicalBaselineActive = availableReviewedCommands.length === 0 &&
     facts.postPhase2MutationBoundaryDigest === PHASE2_BASELINE_MUTATION_DIGEST;
   if (manifest.contract && (!same(manifest.contract.endpointIds, EXPECTED_ENDPOINT_IDS) ||
       !containsAll(facts.endpointIds, EXPECTED_ENDPOINT_IDS) ||
@@ -611,7 +622,7 @@ export function validateEvidence(manifest, facts) {
     codes.add("PHASE2_MUTATION_AVAILABLE");
   }
   if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports, reviewedWavesActive) ||
-      availableGateCommands.length > 0 && !reviewedWaveImportsPresent ||
+      availableReviewedCommands.length > 0 && !reviewedWaveImportsPresent ||
       facts.onePasswordSDKVersion !== ONEPASSWORD_SDK_VERSION || facts.credentialImportRemoteAllowed ||
       facts.credentialProductionResolverEnabled || facts.credentialLiveGateEnabled || facts.credentialImportTouchesCurrentAuthority ||
       facts.postPhase2SourceOverride !== "" ||

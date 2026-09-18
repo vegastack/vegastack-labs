@@ -144,13 +144,15 @@ type IntentStore interface {
 }
 
 type Config struct {
-	DatabasePath string
-	Mode         OpenMode
-	BusyTimeout  time.Duration
-	ExpectedUID  uint32
-	ToolVersion  string
-	BuildVersion string
-	Clock        func() time.Time
-	Filesystem   FilesystemInspector
-	Recovery     MigrationRecovery
+	DatabasePath             string
+	Mode                     OpenMode
+	BusyTimeout              time.Duration
+	ExpectedUID              uint32
+	ToolVersion              string
+	BuildVersion             string
+	Clock                    func() time.Time
+	Filesystem               FilesystemInspector
+	Recovery                 MigrationRecovery
+	AuditCheckpointPublicKey audit.PublicKey
+	AuditCheckpointNamespace string
 }

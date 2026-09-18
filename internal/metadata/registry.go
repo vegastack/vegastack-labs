@@ -135,6 +135,8 @@ var plannedCommands = []plannedCommand{
 	{path: "run cancel", phase: "4", summary: "Request cancellation of one durable run at a safe boundary."},
 	{path: "run resume", phase: "4", summary: "Resume one safely resumable durable run."},
 	{path: "audit", phase: "5", summary: "Inspect sanitized audit history."},
+	{path: "audit checkpoints", phase: "5", summary: "List sanitized audit checkpoints."},
+	{path: "audit verify", phase: "5", summary: "Verify local audit history against independent checkpoint state."},
 	{path: "inventory import", phase: "2", summary: "Import typed inventory as an inert change."},
 	{path: "inventory export", phase: "2", summary: "Export authorized inventory data."},
 	{path: "inventory diff", phase: "2", summary: "Compare declared and supplied inventory."},
@@ -203,9 +205,10 @@ func Current() Registry {
 		runResumeCommand(),
 		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
 		credentialImportCommand(),
+		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || command.path == "credential import" || isAvailablePhase4Command(command.path) {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -307,6 +310,18 @@ func phase5GateCommand(path []string, summary, requestSchema, dataSchema string,
 	return CommandDefinition{Path: path, Summary: summary, Availability: AvailabilityAvailable, OwnerPhase: "5", Risk: risk,
 		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
 		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}}}
+}
+
+func auditCheckpointsCommand() CommandDefinition {
+	return phase5GateCommand([]string{"audit", "checkpoints"}, "List sanitized audit checkpoints.", "", auditCheckpointListDataSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
+		[]string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func auditVerifyCommand() CommandDefinition {
+	return phase5GateCommand([]string{"audit", "verify"}, "Verify local audit history against independent checkpoint state.", "", auditVerificationDataSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
+		[]string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"})
 }
 
 func gateListCommand() CommandDefinition {
