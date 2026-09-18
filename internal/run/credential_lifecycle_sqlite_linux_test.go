@@ -13,6 +13,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
@@ -174,6 +175,77 @@ func TestSQLiteCredentialLifecycleEngineAdmissionAndAppend(t *testing.T) {
 			}
 		})
 	}
+}
+
+// This gate fixture represents only the external gate-verification boundary.
+// Admission, consumed approval, durable intent and lease remain production state.
+type sqliteLifecycleGate struct {
+	fixture *sqliteRestartFixture
+}
+
+func (gate sqliteLifecycleGate) VerifySecretStep(ctx context.Context, plan generated.Plan, operation generated.PlanOperation) error {
+	runs, err := store.NewRunRepository(gate.fixture.authority).ActiveRuns(ctx)
+	if err != nil {
+		return err
+	}
+	location := (&url.URL{Scheme: "file", Path: gate.fixture.config.DatabasePath}).String() + "?mode=ro"
+	observer, err := sql.Open("sqlite3", location)
+	if err != nil {
+		return err
+	}
+	defer observer.Close()
+	for _, run := range runs {
+		if run.PlanID != plan.PlanID || run.Status != "running" || run.ExecutorMode != "central" || run.StateRevision != plan.Binding.StateRevision || run.RecoveryEpoch != plan.Binding.RecoveryEpoch {
+			continue
+		}
+		for _, step := range run.Steps {
+			if step.OperationID != operation.OperationID || step.Status != "running" || step.EffectState != "intent-recorded" {
+				continue
+			}
+			var payload []byte
+			err := observer.QueryRowContext(ctx, `SELECT leases.canonical_bytes FROM target_execution_leases AS leases JOIN plan_run_steps AS steps ON steps.active_lease_id=leases.lease_id WHERE steps.run_id=? AND steps.step_id=? AND steps.status='running' AND steps.effect_state='intent-recorded' AND leases.status='active'`, run.RunID, step.StepID).Scan(&payload)
+			if err != nil {
+				return err
+			}
+			var lease generated.ExecutorLease
+			if err := json.Unmarshal(payload, &lease); err != nil {
+				return err
+			}
+			if lease.Status != "active" || generated.ValidateExecutorLeaseBinding(plan, run, lease) != nil {
+				return errors.New("synthetic gate requires an exact persisted active lease")
+			}
+			return nil
+		}
+	}
+	return errors.New("synthetic gate requires a persisted running intent")
+}
+
+func TestSQLiteCredentialLifecycleActivationBlocksWithoutConsumerVerifier(t *testing.T) {
+	fixture := newSQLiteRestartFixture(t, "human")
+	repository := prepareSQLiteCredentialLifecycle(t, fixture, credentialref.ActionStage)
+	if result, err := fixture.engine.Submit(context.Background(), fixture.request); err != nil || result.Status != "succeeded" {
+		t.Fatalf("stage failed: %+v %v", result, err)
+	}
+	prepareSQLiteCredentialLifecycle(t, fixture, credentialref.ActionActivate)
+	core, err := NewCoreCredentialEffect(repository, store.NewAcknowledgementRepository(fixture.authority), sqliteLifecycleGate{fixture: fixture}, UnavailableCredentialLifecycleVerifier{}, UnavailableCredentialRecoveryVerifier{}, fixture.clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.engine.credentialCore = core
+	blocked, err := fixture.engine.Submit(context.Background(), fixture.request)
+	stable, ok := failure.As(err)
+	if !ok || stable.Code != generated.ErrorCodePrerequisiteBlocked || stable.Target != "credential-consumer-verifier-unavailable" || blocked.Status != "failed" {
+		t.Fatalf("missing consumer verifier denial changed: result=%+v err=%v", blocked, err)
+	}
+	versions, err := repository.ListCredentialVersions(context.Background(), "reference-lifecycle", 0)
+	if err != nil || len(versions) != 1 || versions[0].Status != "staged" {
+		t.Fatalf("consumer absence appended or activated: %+v %v", versions, err)
+	}
+	reference, err := repository.GetReference(context.Background(), "reference-lifecycle")
+	if err != nil || reference.Status != "staged" || reference.ActivatedAt != nil || len(reference.VerifiedConsumerIDs) != 0 {
+		t.Fatalf("consumer absence changed durable status/evidence: %+v %v", reference, err)
+	}
+	assertSQLiteCredentialAudit(t, fixture)
 }
 
 func sqliteCredentialCore(t *testing.T, fixture *sqliteRestartFixture, repository *store.CredentialRepository) *CoreCredentialEffect {
