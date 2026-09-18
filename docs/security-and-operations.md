@@ -388,3 +388,9 @@ Each runbook must have prerequisites, plan, approval class, deterministic comman
 - CI runner drain/re-register;
 - 1Password service-account rotation;
 - Harbor restore and later clean migration cutover.
+
+### Exact credential lifecycle draft origin
+
+Credential lifecycle drafts remain inert; only the ordinary exact human plan, lease and durable intent path can append a status. For stage, rotate and recover, the server seals the immutable import draft's exact ID, origin state revision, owning consumer and purpose alongside reference, material version, ciphertext fingerprint, target, resolver and recovery epoch. The internal lifecycle binding derives `ImportDraftStateRevision`, `ImportDraftConsumerID` and `ImportDraftPurposeID` from stored metadata; public requests cannot supply these fields or the fingerprint. Lookup and the append transaction must prove the same exact immutable origin. Incomplete historical bindings fail closed.
+
+The origin revision is distinct from the future execution revision: `LifecycleBinding.StateRevision` must equal the committed plan's state revision. Neither equality is weakened to an ordering comparison. Activation and revocation use the exact named applied version and carry no import-origin fields. Rotation preserves the prior version's exact active status during declared overlap until named revocation, while verified genuinely applied rotation lineage selects the logical current version. Inert or merely planned bindings cannot change that selection.

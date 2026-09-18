@@ -76,10 +76,37 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 	leaseID := "lease-" + shortDigest(suffix+"-lease")
 	ackID := "ack-" + shortDigest(suffix+"-ack")
 
+	if len(sealed) == 0 {
+		binding := stageBinding()
+		binding.Action = action
+		binding.StateRevision = stateRevision
+		binding.MaterialVersion = reference.MaterialVersion
+		if action == credentialref.ActionActivate || action == credentialref.ActionRevoke {
+			binding.DraftID = nil
+			binding.ImportDraftStateRevision = nil
+			binding.ImportDraftConsumerID = nil
+			binding.ImportDraftPurposeID = nil
+		}
+		if action == credentialref.ActionActivate {
+			binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+		}
+		sealed = []credentialref.LifecycleBinding{binding}
+	}
 	declRevision := int64(1)
 	if len(sealed) > 0 {
 		declarationID = "declaration-" + shortDigest(suffix)
 		declRevision = 2
+	}
+	if action == credentialref.ActionStage || action == credentialref.ActionRotate || action == credentialref.ActionRecover {
+		binding := stageBinding()
+		if len(sealed) > 0 {
+			binding = sealed[0]
+		}
+		if binding.DraftID != nil && binding.ImportDraftStateRevision != nil {
+			if _, err := db.ExecContext(context.Background(), `INSERT OR IGNORE INTO credential_import_drafts(draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,idempotency_key_digest,request_digest,target_digest,ciphertext_name,ciphertext_fingerprint,state_revision,recovery_epoch,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)`, *binding.DraftID, reference.ReferenceID, reference.ConsumerID, reference.PurposeID, reference.TargetID, reference.ResolverID, reference.MaterialVersion, gateDigest([]byte(*binding.DraftID+"-key")), digest, testDigest, "ciphertext-a", fingerprint, *binding.ImportDraftStateRevision, human, nowText); err != nil {
+				t.Fatal(err)
+			}
+		}
 	}
 	plan, canonical := credentialLifecyclePlan(declarationID, reference.TargetID, fingerprint, string(action), declRevision, stateRevision)
 	if len(sealed) > 0 {
@@ -193,7 +220,7 @@ func stageBinding() credentialref.LifecycleBinding {
 		OperationID: "operation-a", Action: credentialref.ActionStage, DraftID: stringPointer("draft-a"),
 		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, MaterialVersion: "version-a",
 		ResolverID: "native-a", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
-		StateRevision: 1, RecoveryEpoch: 0,
+		StateRevision: 2, RecoveryEpoch: 0, ImportDraftStateRevision: int64PointerLifecycle(1), ImportDraftConsumerID: stringPointer("consumer-a"), ImportDraftPurposeID: stringPointer("deploy-a"),
 	}
 }
 
@@ -415,6 +442,7 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 				binding := stageBinding()
 				binding.Action = action
 				binding.MaterialVersion = version
+				binding.DraftID = stringPointer("draft-" + version)
 				binding.StateRevision = state
 				binding.PriorMaterialVersion = prior
 				var checks []credentialref.ConsumerVerification
@@ -431,6 +459,9 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 				}
 				if action == credentialref.ActionActivate || action == credentialref.ActionRevoke {
 					binding.DraftID = nil
+					binding.ImportDraftStateRevision = nil
+					binding.ImportDraftConsumerID = nil
+					binding.ImportDraftPurposeID = nil
 				}
 				if action == credentialref.ActionRevoke {
 					ref.Status = "revoked"
@@ -545,5 +576,32 @@ func TestLogicalActiveSelectorRejectsUnrelatedMultipleActiveVersions(t *testing.
 	}
 	if _, err := repository.GetReference(context.Background(), "reference-a"); Code(err) != generated.ErrorCodeIntegrityFailure {
 		t.Fatalf("logical current cannot mask ambiguity: %v", err)
+	}
+}
+
+func TestLifecycleAppendRejectsSubstitutedDraftOrigin(t *testing.T) {
+	for _, mode := range []string{"missing-id", "wrong-origin-revision", "wrong-consumer", "wrong-purpose"} {
+		t.Run(mode, func(t *testing.T) {
+			repository := openCredentialStore(t)
+			binding := stageBinding()
+			request := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed, binding)
+			switch mode {
+			case "missing-id":
+				binding.DraftID = stringPointer("missing-draft")
+			case "wrong-origin-revision":
+				binding.ImportDraftStateRevision = int64PointerLifecycle(2)
+			case "wrong-consumer":
+				binding.ImportDraftConsumerID = stringPointer("consumer-other")
+				binding.ConsumerIDs = []string{"consumer-other"}
+			case "wrong-purpose":
+				binding.ImportDraftPurposeID = stringPointer("purpose-other")
+			}
+			if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request}); err == nil {
+				t.Fatal("substituted immutable draft origin must not append")
+			}
+			if tableCount(t, repository, "credential_reference_versions") != 0 {
+				t.Fatal("origin denial must roll back version append")
+			}
+		})
 	}
 }

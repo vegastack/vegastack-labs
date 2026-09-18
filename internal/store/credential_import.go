@@ -148,3 +148,36 @@ func validImportFingerprint(value string) bool {
 	}
 	return true
 }
+
+// GetImportDraftByID selects one exact immutable draft, never a reference-based substitute.
+func (repository *CredentialRepository) GetImportDraftByID(ctx context.Context, draftID string) (CredentialImportDraft, error) {
+	var value CredentialImportDraft
+	if repository == nil || repository.store == nil {
+		return value, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-import-draft")
+	}
+	if _, err := credentialref.ParseID(draftID); err != nil {
+		return value, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-import-draft")
+	}
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,idempotency_key_digest,request_digest,target_digest,ciphertext_name,ciphertext_fingerprint,state_revision,recovery_epoch,created_by,created_at FROM credential_import_drafts WHERE draft_id=?`, draftID).Scan(&value.DraftID, &value.ReferenceID, &value.ConsumerID, &value.PurposeID, &value.TargetID, &value.ResolverID, &value.MaterialVersion, &value.KeyDigest, &value.RequestDigest, &value.TargetDigest, &value.CiphertextName, &value.CiphertextFingerprint, &value.StateRevision, &value.RecoveryEpoch, &value.CreatedBy, &value.CreatedAt)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return CredentialImportDraft{}, credentialStoreError(generated.ErrorCodeResourceNotFound, "credential-import-draft")
+	}
+	if err != nil {
+		return CredentialImportDraft{}, err
+	}
+	if value.DraftID != draftID || value.StateRevision <= 0 || value.RecoveryEpoch < 0 || !validImportFingerprint(value.CiphertextFingerprint) || !validImportFingerprint(value.KeyDigest) || !validImportFingerprint(value.RequestDigest) || !validImportFingerprint(value.TargetDigest) {
+		return CredentialImportDraft{}, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-import-draft")
+	}
+	for _, id := range []string{value.ReferenceID, value.ConsumerID, value.PurposeID, value.TargetID, value.ResolverID, value.MaterialVersion} {
+		if _, err := credentialref.ParseID(id); err != nil {
+			return CredentialImportDraft{}, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-import-draft")
+		}
+	}
+	return value, nil
+}
+
+func (draft CredentialImportDraft) MatchesLifecycleBinding(binding credentialref.LifecycleBinding) bool {
+	return credentialref.ValidLifecycleBinding(binding) && binding.DraftID != nil && binding.ImportDraftStateRevision != nil && binding.ImportDraftConsumerID != nil && binding.ImportDraftPurposeID != nil && draft.DraftID == *binding.DraftID && draft.StateRevision == *binding.ImportDraftStateRevision && draft.ConsumerID == *binding.ImportDraftConsumerID && draft.PurposeID == *binding.ImportDraftPurposeID && draft.ReferenceID == binding.ReferenceID && draft.MaterialVersion == binding.MaterialVersion && draft.CiphertextFingerprint == binding.CiphertextFingerprint && draft.TargetID == binding.TargetID && draft.ResolverID == binding.ResolverID && draft.RecoveryEpoch == binding.RecoveryEpoch
+}
