@@ -111,8 +111,8 @@ const REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE = Object.freeze({
 // set is expanded only when the metadata-only lifecycle surface is wired.
 const REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE = Object.freeze({
   id: "phase5-issue132-v1", issue: 132,
-  commands: Object.freeze([]), imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:44c82af2962e55e65b4a1de6a020c0a37c09840e0382930071c3c4d2c060008f",
+  commands: Object.freeze(["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:ed1278ac206dc257f40fb0f9485aa26444eebdb4441805990118551e8005577f",
 });
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
@@ -634,7 +634,7 @@ export function validateEvidence(manifest, facts) {
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
       !(reviewedWavesActive || historicalBaselineActive) ||
-      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, REVIEWED_CREDENTIAL_IMPORT_WAVE.commands) ||
+      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, [...REVIEWED_CREDENTIAL_IMPORT_WAVE.commands, ...REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE.commands].sort()) ||
       !same(facts.credentialImportFlags, CREDENTIAL_IMPORT_FLAGS) || !same(facts.credentialEndpointIds, CREDENTIAL_IMPORT_ENDPOINTS) ||
       !facts.migrations.some((migration) => same(migration, CREDENTIAL_FOUNDATION_MIGRATION)) ||
       !facts.migrations.some((migration) => same(migration, CREDENTIAL_IMPORT_MIGRATION)) ||

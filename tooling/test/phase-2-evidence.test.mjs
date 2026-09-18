@@ -54,7 +54,7 @@ test("the original Phase 2 baseline stays immutable while #104, #123, #128, #124
   assert.deepEqual(manifest.contract.reviewedWaves[5].imports, []);
   assert.equal(manifest.contract.reviewedWaves[6].id, "phase5-issue132-v1");
   assert.equal(manifest.contract.reviewedWaves[6].issue, 132);
-  assert.deepEqual(manifest.contract.reviewedWaves[6].commands, []);
+  assert.deepEqual(manifest.contract.reviewedWaves[6].commands, ["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"]);
   assert.deepEqual(manifest.contract.reviewedWaves[6].imports, []);
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[6].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");

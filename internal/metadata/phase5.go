@@ -520,6 +520,7 @@ func phase5GateRequest(identifier string, fields ...FieldDefinition) SchemaDefin
 
 func phase5Endpoints() []EndpointDefinition {
 	return []EndpointDefinition{
+		{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", RequestSchema: credentialLifecycleRequestSchemaID, DataSchema: credentialLifecycleSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		{ID: "api.v1.gate-profile-drafts.create", Method: "POST", Path: "/api/v1/gates/profile-drafts", RequestSchema: gateProfileDraftRequestSchemaID, DataSchema: gateProfileDraftSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		phase5AvailableGateEndpoint("api.v1.gates.list", "GET", "/api/v1/gates", "", gateListDataSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.gates.get", "GET", "/api/v1/gates/{gateId}", "", gateViewSchemaID, true),

@@ -63,6 +63,10 @@ type CredentialControlOperations interface {
 	ImportCredential(context.Context, string, generated.CredentialImportRequest, io.Reader) (localapi.TypedResponse[generated.CredentialImportSubmission], error)
 }
 
+type CredentialLifecycleControlOperations interface {
+	CreateCredentialLifecycleDraft(context.Context, string, generated.CredentialLifecycleRequest) (localapi.TypedResponse[generated.CredentialLifecycleSubmission], error)
+}
+
 type GateControlOperations interface {
 	Gates(context.Context, string) (localapi.TypedResponse[generated.GateListData], error)
 	GetGate(context.Context, string, string) (localapi.TypedResponse[generated.GateView], error)
@@ -242,6 +246,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return renderHumanServerStatus(app.stdout, response.Status, response.ExitCode)
 	case generated.CommandNameCredentialImport:
 		return app.runCredentialImport(ctx, parsed)
+	case generated.CommandNameCredentialStage, generated.CommandNameCredentialActivate, generated.CommandNameCredentialRotate, generated.CommandNameCredentialRevoke, generated.CommandNameCredentialRecover:
+		return app.runCredentialLifecycle(ctx, parsed)
 	case generated.CommandNameStatus:
 		if app.control == nil {
 			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)

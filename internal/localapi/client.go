@@ -65,6 +65,7 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
+	CreateCredentialLifecycleDraft(context.Context, serverconfig.Profile, generated.CredentialLifecycleRequest) (TypedResponse[generated.CredentialLifecycleSubmission], error)
 	ImportCredential(context.Context, serverconfig.Profile, generated.CredentialImportRequest, io.Reader) (TypedResponse[generated.CredentialImportSubmission], error)
 	Gates(context.Context, serverconfig.Profile) (TypedResponse[generated.GateListData], error)
 	GetGate(context.Context, serverconfig.Profile, string) (TypedResponse[generated.GateView], error)
