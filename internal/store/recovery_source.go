@@ -29,6 +29,24 @@ func NewOnlineSnapshotSource(authority *Store) (OnlineSnapshotSource, error) {
 	return &recoverySource{store: authority, catalog: catalog}, nil
 }
 
+// CurrentExpectation reads the live database's current schema version, state
+// revision, recovery epoch and migration-catalog digest. Binding this to a
+// capture lets OnlineSnapshot reject any concurrent mutation.
+func (source *recoverySource) CurrentExpectation(ctx context.Context) (SnapshotExpectation, error) {
+	if source == nil || source.store == nil || len(source.catalog) == 0 {
+		return SnapshotExpectation{}, newStoreError("INPUT_INVALID", "backup-capture", false, nil)
+	}
+	var expectation SnapshotExpectation
+	err := source.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT schema_version, state_revision, recovery_epoch FROM system_meta WHERE id = 1`).Scan(&expectation.SchemaVersion, &expectation.Revision.StateRevision, &expectation.Revision.RecoveryEpoch)
+	})
+	if err != nil {
+		return SnapshotExpectation{}, err
+	}
+	expectation.CatalogSHA256 = catalogSHA256(source.catalog)
+	return expectation, nil
+}
+
 // OnlineSnapshot produces one consistent read-only snapshot of the live control
 // database and verifies it before returning a secret-free description. It never
 // exposes the live database file and returns no snapshot on any failure.

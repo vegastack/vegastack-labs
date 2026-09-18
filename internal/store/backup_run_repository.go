@@ -91,6 +91,12 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 		request.SnapshotCount < 1 || request.ObjectCount < 0 || len(request.ExpectedObjects) == 0 {
 		return "", "", backupStoreError(generated.ErrorCodeInputInvalid, "backup-pending-point")
 	}
+	// A #106 pending point is always local, fixture-class creation evidence. The
+	// store forces these regardless of the caller; the DB CHECKs enforce the same
+	// so a pending point can never be recorded as independent or live proof.
+	if request.SourceKind != "local" || request.ProofClass != "fixture" {
+		return "", "", backupStoreError(generated.ErrorCodeInputInvalid, "backup-pending-point-provenance")
+	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	err := repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var jobID, policyID, policyDigest, repositoryID, repositoryClass string

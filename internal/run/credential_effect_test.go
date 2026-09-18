@@ -213,3 +213,36 @@ func TestInvokeCredentialEffectPrefersBoundExecutor(t *testing.T) {
 		t.Fatal("borrowed credential value was not closed after the bound effect")
 	}
 }
+
+// boundOnlyExecutor implements ONLY the bound credential boundary (like the local
+// backup adapter): it must still be invoked, proving the engine no longer
+// requires the plain CredentialExecutor interface.
+type boundOnlyExecutor struct {
+	boundCalls int
+	binding    adapter.ExactExecutionBinding
+}
+
+func (executor *boundOnlyExecutor) ExecuteBoundWithCredentials(_ context.Context, _ adapter.Operation, binding adapter.ExactExecutionBinding, _ []*credentialref.Value) (adapter.Effect, error) {
+	executor.boundCalls++
+	executor.binding = binding
+	return adapter.Effect{Status: "succeeded", ResultDigest: digest("boundonly"), EffectObserved: true}, nil
+}
+
+func TestInvokeCredentialEffectRunsBoundOnlyAdapter(t *testing.T) {
+	value, err := credentialref.NewValue([]byte("synthetic-private-canary"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	executor := &boundOnlyExecutor{}
+	binding := adapter.ExactExecutionBinding{PlanID: "plan-a", RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", RecoveryEpoch: 4}
+	effect, err := invokeCredentialEffect(context.Background(), executor, adapter.Operation{}, binding, []*credentialref.Value{value})
+	if err != nil || effect.Status != "succeeded" {
+		t.Fatalf("bound-only adapter not executed: effect=%#v err=%v", effect, err)
+	}
+	if executor.boundCalls != 1 || executor.binding.RecoveryEpoch != 4 {
+		t.Fatalf("bound-only executor state = %#v", executor)
+	}
+	if value.Bytes() != nil {
+		t.Fatal("borrowed value not closed after bound-only effect")
+	}
+}

@@ -40,8 +40,10 @@ CREATE TABLE backup_jobs (
     repository_class TEXT NOT NULL CHECK (repository_class IN ('standard','critical')),
     run_id TEXT CHECK (run_id IS NULL OR length(run_id) BETWEEN 1 AND 128),
     point_id TEXT CHECK (point_id IS NULL OR length(point_id) BETWEEN 1 AND 128),
-    source_kind TEXT NOT NULL CHECK (source_kind IN ('fixture','local','independent')),
-    proof_class TEXT NOT NULL CHECK (proof_class IN ('fixture','live')),
+    -- #106 creates only local, fixture-class jobs. Independent/live provenance is
+    -- reserved for #117's separate verification and never written here.
+    source_kind TEXT NOT NULL CHECK (source_kind = 'local'),
+    proof_class TEXT NOT NULL CHECK (proof_class = 'fixture'),
     status TEXT NOT NULL CHECK (status IN ('queued','running','pending','failed','uncertain')),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     created_at TEXT NOT NULL,
@@ -63,8 +65,11 @@ CREATE TABLE recovery_points (
     policy_digest TEXT NOT NULL CHECK (length(policy_digest) = 71 AND substr(policy_digest,1,7) = 'sha256:'),
     repository_id TEXT NOT NULL CHECK (length(repository_id) BETWEEN 1 AND 128),
     repository_class TEXT NOT NULL CHECK (repository_class IN ('standard','critical')),
-    source_kind TEXT NOT NULL CHECK (source_kind IN ('fixture','local','independent')),
-    proof_class TEXT NOT NULL CHECK (proof_class IN ('fixture','live')),
+    -- A pending point is always local, fixture-class creation evidence: it can
+    -- never be independent or live (that is #117's separate verification concern,
+    -- recorded elsewhere, never by mutating this append-only row).
+    source_kind TEXT NOT NULL CHECK (source_kind = 'local'),
+    proof_class TEXT NOT NULL CHECK (proof_class = 'fixture'),
     snapshot_id TEXT NOT NULL CHECK (length(snapshot_id) BETWEEN 1 AND 128),
     snapshot_count INTEGER NOT NULL CHECK (snapshot_count >= 0),
     object_count INTEGER NOT NULL CHECK (object_count >= 0),
@@ -127,8 +132,12 @@ CREATE TABLE backup_writer_leases (
     released_at TEXT CHECK (released_at IS NULL OR length(released_at) BETWEEN 1 AND 64)
 ) STRICT;
 
+-- At most one active writer per physical repository root. Standard and critical
+-- each map to exactly one protected root, so fencing by class (the physical root
+-- identity) prevents two differently-labelled repositories from writing the same
+-- root concurrently; a per-repository-id index would not.
 CREATE UNIQUE INDEX backup_writer_leases_active_idx
-ON backup_writer_leases(repository_id) WHERE released_at IS NULL;
+ON backup_writer_leases(repository_class) WHERE released_at IS NULL;
 
 CREATE TRIGGER backup_writer_leases_no_delete BEFORE DELETE ON backup_writer_leases
 BEGIN SELECT RAISE(ABORT, 'backup writer leases are retained'); END;

@@ -42,6 +42,10 @@ func (source *fakeOnlineSource) OnlineSnapshot(_ context.Context, _ store.Online
 	return source.result, source.err
 }
 
+func (source *fakeOnlineSource) CurrentExpectation(context.Context) (store.SnapshotExpectation, error) {
+	return store.SnapshotExpectation{SchemaVersion: 15, Revision: store.RevisionToken{StateRevision: 3, RecoveryEpoch: 0}}, nil
+}
+
 func validPolicySource() PolicySource {
 	return PolicySource{
 		Policy:         generated.BackupPolicy{ConsistencyHookID: "sqlite-online"},

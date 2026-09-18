@@ -22,6 +22,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 
 	"golang.org/x/sys/unix"
@@ -103,6 +104,13 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	if err != nil {
 		return adapter.Effect{}, err
 	}
+	// The one resolved credential must be exactly the policy's declared encryption
+	// key reference, so a different authorized secret cannot initialize the
+	// repository while the receipt claims the declared key.
+	if policy.EncryptionKeyReferenceID == nil || len(operation.SecretReferences) != 1 ||
+		operation.SecretReferences[0].ID != *policy.EncryptionKeyReferenceID {
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-key-reference")
+	}
 	root, ok := adapterImpl.repositoryRoot(policy.RepositoryClass)
 	if !ok {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-repository")
@@ -139,7 +147,11 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 		if stable, ok := failure.As(runErr); ok && stable.Code == generated.ErrorCodeRecoveryRequired {
 			status = "uncertain"
 		}
-		_ = adapterImpl.config.Backups.FailBackupJob(context.WithoutCancel(ctx), leaseID, status)
+		if cleanupErr := adapterImpl.config.Backups.FailBackupJob(context.WithoutCancel(ctx), leaseID, status); cleanupErr != nil {
+			// The job/lease could not be closed; leave the outcome uncertain so
+			// recovery reconciles it rather than silently swallowing the error.
+			return adapter.Effect{EffectObserved: true}, backupError(generated.ErrorCodeRecoveryRequired, "local-backup-cleanup")
+		}
 		return effect, runErr
 	}
 	return effect, nil
@@ -158,7 +170,17 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	defer os.RemoveAll(staging)
 	snapshotPath := filepath.Join(staging, "database.sqlite")
 
-	source := backup.PolicySource{Policy: policy, PolicyDigest: policyDigest, RecoveryEpoch: binding.RecoveryEpoch}
+	// Bind the exact current consistency expectation so the store-owned snapshot
+	// fails closed if the live database drifts during the copy. A zero expectation
+	// would never match a migrated production database.
+	expectation, err := adapterImpl.config.Snapshots.CurrentExpectation(ctx)
+	if err != nil {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-expectation")
+	}
+	if expectation.Revision.RecoveryEpoch != binding.RecoveryEpoch {
+		return adapter.Effect{}, backupError(generated.ErrorCodePlanStale, "local-backup-expectation")
+	}
+	source := backup.PolicySource{Policy: policy, PolicyDigest: policyDigest, SourceRevision: expectation.Revision.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, Expectation: expectation}
 	capture, err := backup.Capture(ctx, source, adapterImpl.config.Snapshots, adapterImpl.config.Hooks, snapshotPath)
 	if err != nil {
 		return adapter.Effect{}, err
@@ -191,10 +213,18 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		RepositoryURL: repositoryURL, RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
 		RepositoryRoot: root, PolicyDigest: policyDigest, Lease: lease,
 	}
-	initRequest := base
-	initRequest.Mode = "init"
-	if _, err := adapterImpl.config.Runner.Run(ctx, initRequest, password); err != nil {
-		return adapter.Effect{}, err
+	// Initialize the repository only when it is provably absent (no retained
+	// config object). Re-running init against an existing repository-format-v2
+	// repository would fail because retained config is immutable, blocking every
+	// point after the first.
+	if _, statErr := os.Stat(filepath.Join(root, "config")); os.IsNotExist(statErr) {
+		initRequest := base
+		initRequest.Mode = "init"
+		if _, err := adapterImpl.config.Runner.Run(ctx, initRequest, password); err != nil {
+			return adapter.Effect{}, err
+		}
+	} else if statErr != nil {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-repository")
 	}
 	backupRequest := base
 	backupRequest.Mode = "backup"
@@ -207,7 +237,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-format")
 	}
 
-	inventory, err := enumerateRepository(root)
+	inventory, err := enumerateRepository(root, adapterImpl.config.ExpectedUID)
 	if err != nil || len(inventory) == 0 {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-inventory")
 	}
@@ -220,7 +250,11 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		SnapshotID: result.SnapshotID, SnapshotCount: result.SnapshotCount, ExpectedObjectCount: int64(len(inventory)),
 		ExpectedObjectBytes: totalBytes(inventory), InventoryDigest: backup.ExpectedInventoryDigest(inventory), ExpectedObjects: inventory,
 		KeyReferenceID: keyReference(policy), ResticDigest: pinnedResticDigest(), PlatformDigest: platformDigest(),
-		StartedAt: result.StartedAt.Format(time.RFC3339), CompletedAt: result.CompletedAt.Format(time.RFC3339),
+		SchemaDependencyDigest:    dependencyDigest(policy, "schema"),
+		ConfigDependencyDigest:    dependencyDigest(policy, "config"),
+		ImageDependencyDigest:     dependencyDigest(policy, "image"),
+		SignatureDependencyDigest: dependencyDigest(policy, "signature"),
+		StartedAt:                 result.StartedAt.Format(time.RFC3339), CompletedAt: result.CompletedAt.Format(time.RFC3339),
 	}
 	_, manifestDigest, err := backup.CanonicalCreationManifest(manifest)
 	if err != nil {
@@ -319,6 +353,17 @@ func totalBytes(objects []backup.ExpectedObject) int64 {
 	return total
 }
 
+// dependencyDigest returns the declared digest for one dependency kind, or empty
+// when the policy declares none of that kind.
+func dependencyDigest(policy generated.BackupPolicy, kind string) string {
+	for _, dependency := range policy.Dependencies {
+		if dependency.Kind == kind {
+			return dependency.Digest
+		}
+	}
+	return ""
+}
+
 func keyReference(policy generated.BackupPolicy) string {
 	if policy.EncryptionKeyReferenceID != nil {
 		return *policy.EncryptionKeyReferenceID
@@ -356,56 +401,85 @@ func admitCapacity(root string, policy generated.BackupPolicy) error {
 func backupError(code, target string) error { return failure.New(code, target, false) }
 
 // enumerateRepository lists the retained restic objects under the repository root
-// (config plus keys/data/index/snapshots) and hashes each, producing the exact
-// expected inventory. Locks are mutable and excluded.
-func enumerateRepository(root string) ([]backup.ExpectedObject, error) {
+// (config plus keys/data/index/snapshots) and hashes each through FD-relative,
+// symlink-refusing access, producing the exact expected inventory. Locks are
+// mutable and excluded. Every object is confirmed a service-owned single-link
+// regular file, so a swapped symlink, hardlink, or wrong-owner file cannot enter
+// the durable inventory.
+func enumerateRepository(root string, expectedUID uint32) ([]backup.ExpectedObject, error) {
+	rootDescriptor, err := unix.Openat2(unix.AT_FDCWD, root, &unix.OpenHow{
+		Flags:   unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC,
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	defer unix.Close(rootDescriptor)
+
 	var inventory []backup.ExpectedObject
-	if object, err := hashRepositoryObject(root, "config", "config"); err == nil {
+	if object, err := hashObjectAt(rootDescriptor, "config", "config", expectedUID); err == nil {
 		inventory = append(inventory, object)
 	}
 	for _, objectType := range []string{"keys", "data", "index", "snapshots"} {
-		entries, err := os.ReadDir(filepath.Join(root, objectType))
+		typeDescriptor, err := unix.Openat(rootDescriptor, objectType, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 		if err != nil {
-			if os.IsNotExist(err) {
+			if errors.Is(err, unix.ENOENT) {
 				continue
 			}
 			return nil, err
 		}
-		for _, entry := range entries {
-			if !entry.Type().IsRegular() {
-				return nil, errors.New("non-regular repository object")
-			}
-			object, err := hashRepositoryObject(root, objectType, entry.Name())
+		directory := os.NewFile(uintptr(typeDescriptor), objectType)
+		if directory == nil {
+			_ = unix.Close(typeDescriptor)
+			return nil, errors.New("unsafe repository directory")
+		}
+		names, readErr := directory.Readdirnames(-1)
+		if readErr != nil {
+			_ = directory.Close()
+			return nil, readErr
+		}
+		for _, name := range names {
+			object, err := hashObjectAt(typeDescriptor, objectType, name, expectedUID)
 			if err != nil {
+				_ = directory.Close()
 				return nil, err
 			}
 			inventory = append(inventory, object)
+		}
+		if err := directory.Close(); err != nil {
+			return nil, err
 		}
 	}
 	return inventory, nil
 }
 
-func hashRepositoryObject(root, objectType, name string) (backup.ExpectedObject, error) {
-	var path string
-	if objectType == "config" {
-		path = filepath.Join(root, "config")
-	} else {
-		path = filepath.Join(root, objectType, name)
+// hashObjectAt opens one object by name relative to an already-validated
+// directory descriptor, refusing symlinks, and hashes the same descriptor after
+// confirming it is a service-owned single-link regular file on a local filesystem.
+func hashObjectAt(directoryDescriptor int, objectType, name string, expectedUID uint32) (backup.ExpectedObject, error) {
+	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") {
+		return backup.ExpectedObject{}, errors.New("unsafe object name")
 	}
-	file, err := os.Open(path)
+	descriptor, err := unix.Openat(directoryDescriptor, name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err != nil {
 		return backup.ExpectedObject{}, err
 	}
+	file := os.NewFile(uintptr(descriptor), name)
+	if file == nil {
+		_ = unix.Close(descriptor)
+		return backup.ExpectedObject{}, errors.New("unsafe repository object")
+	}
 	defer file.Close()
-	info, err := file.Stat()
-	if err != nil || !info.Mode().IsRegular() {
+	var stat unix.Stat_t
+	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != expectedUID {
 		return backup.ExpectedObject{}, errors.New("unsafe repository object")
 	}
 	hasher := sha256.New()
-	if _, err := io.Copy(hasher, file); err != nil {
+	written, err := io.Copy(hasher, file)
+	if err != nil {
 		return backup.ExpectedObject{}, err
 	}
-	return backup.ExpectedObject{Type: objectType, Name: name, Bytes: info.Size(), Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil))}, nil
+	return backup.ExpectedObject{Type: objectType, Name: name, Bytes: written, Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil))}, nil
 }
 
 func freeBytes(root string) (uint64, error) {

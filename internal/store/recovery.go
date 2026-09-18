@@ -85,6 +85,11 @@ type OnlineSnapshotResult struct {
 
 // OnlineSnapshotSource is the store-owned read-only snapshot port consumed by
 // the backup capture seam. The backup package never opens the live SQLite file.
+// CurrentExpectation reads the live database's current schema version, state
+// revision, recovery epoch and migration-catalog digest so the caller can bind
+// an exact consistency expectation to the capture; OnlineSnapshot then fails
+// closed if the database drifts from it during the copy.
 type OnlineSnapshotSource interface {
+	CurrentExpectation(context.Context) (SnapshotExpectation, error)
 	OnlineSnapshot(context.Context, OnlineSnapshotRequest) (OnlineSnapshotResult, error)
 }

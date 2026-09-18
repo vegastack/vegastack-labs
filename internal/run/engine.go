@@ -689,8 +689,13 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 	if !secret {
 		return implementation.Execute(ctx, operation)
 	}
-	credentialExecutor, ok := implementation.(adapter.CredentialExecutor)
-	if !ok {
+	// An adapter may implement the plain credential effect boundary, the stricter
+	// bound boundary (which also receives the exact execution binding), or both.
+	// A backup-style adapter implements only the bound boundary, so requiring the
+	// plain interface here would make it permanently unavailable.
+	_, boundOK := implementation.(adapter.BoundCredentialExecutor)
+	_, plainOK := implementation.(adapter.CredentialExecutor)
+	if !boundOK && !plainOK {
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-adapter-unavailable")
 	}
 	if err := engine.secretGate.VerifySecretStep(ctx, plan, *plannedOperation); err != nil {
@@ -714,10 +719,10 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		RecoveryEpoch:    plan.Binding.RecoveryEpoch,
 		MaximumExpiresAt: lease.MaximumExpiresAt,
 	}
-	return invokeCredentialEffect(ctx, credentialExecutor, operation, binding, values)
+	return invokeCredentialEffect(ctx, implementation, operation, binding, values)
 }
 
-func invokeCredentialEffect(ctx context.Context, implementation adapter.CredentialExecutor, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (effect adapter.Effect, err error) {
+func invokeCredentialEffect(ctx context.Context, implementation any, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (effect adapter.Effect, err error) {
 	defer func() {
 		// A third-party adapter can panic with a plaintext value. Discard the
 		// panic payload without formatting it and conservatively mark the
@@ -732,8 +737,10 @@ func invokeCredentialEffect(ctx context.Context, implementation adapter.Credenti
 	// binding; the plain credential path remains for adapters that do not need it.
 	if bound, ok := implementation.(adapter.BoundCredentialExecutor); ok {
 		effect, err = bound.ExecuteBoundWithCredentials(ctx, operation, binding, values)
+	} else if plain, ok := implementation.(adapter.CredentialExecutor); ok {
+		effect, err = plain.ExecuteWithCredentials(ctx, operation, values)
 	} else {
-		effect, err = implementation.ExecuteWithCredentials(ctx, operation, values)
+		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-adapter-unavailable")
 	}
 	if err != nil {
 		// Adapter errors can contain provider/credential text. Never relay it.

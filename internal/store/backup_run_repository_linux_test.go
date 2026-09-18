@@ -118,3 +118,19 @@ func TestVerifyActiveWriterLeaseRejectsReleasedAndExpired(t *testing.T) {
 		t.Fatalf("released lease code = %q", Code(err))
 	}
 }
+
+func TestAppendPendingRecoveryPointRejectsNonLocalFixtureProvenance(t *testing.T) {
+	for _, mutate := range []func(*PendingRecoveryPointRequest){
+		func(r *PendingRecoveryPointRequest) { r.SourceKind = "independent" },
+		func(r *PendingRecoveryPointRequest) { r.ProofClass = "live" },
+	} {
+		repository := openBackupStore(t)
+		digest := seededDraftDigest(t, repository)
+		acquireFixtureLease(t, repository, digest, "lease-a", "job-a")
+		request := pendingPointRequest("lease-a", "point-a", strings.Repeat("1", 64))
+		mutate(&request)
+		if _, _, err := repository.AppendPendingRecoveryPoint(context.Background(), request); Code(err) != generated.ErrorCodeInputInvalid {
+			t.Fatalf("non-local/fixture provenance accepted (code=%q)", Code(err))
+		}
+	}
+}
