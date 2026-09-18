@@ -99,6 +99,7 @@ func prepareSQLiteCredentialLifecycle(t *testing.T, fixture *sqliteRestartFixtur
 		t.Fatal("stored binding changed")
 	}
 	fixture.request = fixture.submitRequest()
+	fixture.request.Reference.IdempotencyKey = "submit-lifecycle-" + string(action)
 	if _, err := repository.GetReference(ctx, binding.ReferenceID); action == credentialref.ActionStage && store.Code(err) != generated.ErrorCodeResourceNotFound {
 		t.Fatalf("draft activated reference: %v", err)
 	}
@@ -144,7 +145,7 @@ func TestSQLiteCredentialLifecycleEngineAdmissionAndAppend(t *testing.T) {
 				prepareSQLiteCredentialLifecycle(t, fixture, credentialref.ActionActivate)
 				blocked, err := fixture.engine.Submit(context.Background(), fixture.request)
 				after, readErr := repository.ListCredentialVersions(context.Background(), "reference-lifecycle", 0)
-				if err == nil || blocked.Status == "succeeded" || readErr != nil || len(after) != 1 || after[0].Status != "staged" {
+				if Code(err) != generated.ErrorCodePrerequisiteBlocked || blocked.Status != "failed" || readErr != nil || len(after) != 1 || after[0].Status != "staged" {
 					t.Fatalf("production verifier absence admitted activation: result=%+v err=%v versions=%+v read=%v", blocked, err, after, readErr)
 				}
 			} else {

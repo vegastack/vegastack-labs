@@ -150,7 +150,9 @@ func (repository *CredentialRepository) GetLifecycleBinding(ctx context.Context,
 		return zero, err
 	}
 	var binding credentialref.LifecycleBinding
-	if len(raw) > 4096 || json.Unmarshal(raw, &binding) != nil || binding.Digest() != digest || binding.RecoveryEpoch != epoch {
+	// PutLifecycleDraft seals the single-member manifest, not its domain-separated
+	// member digest. Validate the persisted bytes under that same manifest domain.
+	if len(raw) > 4096 || json.Unmarshal(raw, &binding) != nil || credentialref.LifecycleManifestDigestOf(binding) != digest || binding.RecoveryEpoch != epoch {
 		return zero, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-binding")
 	}
 	if credentialref.LifecycleManifestDigestOf(binding) != extensionDigest || binding.OperationID != operationID {
