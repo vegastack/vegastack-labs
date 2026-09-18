@@ -370,3 +370,69 @@ func TestLifecycleBindingStoreRoundtripAndTamperDenial(t *testing.T) {
 		})
 	}
 }
+
+func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
+	repository := openCredentialStore(t)
+	state := int64(2)
+	apply := func(action credentialref.LifecycleAction, version string, prior *string) (generated.CredentialReference, error) {
+		ref := stagedReference(state)
+		ref.MaterialVersion = version
+		binding := stageBinding()
+		binding.Action = action
+		binding.MaterialVersion = version
+		binding.StateRevision = state
+		binding.PriorMaterialVersion = prior
+		var checks []credentialref.ConsumerVerification
+		if action == credentialref.ActionActivate || action == credentialref.ActionRotate {
+			stamp := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+			ref.Status = "active"
+			ref.ActivatedAt = &stamp
+			ref.VerifiedConsumerIDs = []string{"consumer-a"}
+			binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+			checks = []credentialref.ConsumerVerification{
+				{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
+				{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, Result: "denied", ReasonCode: "denied"},
+			}
+		}
+		if action == credentialref.ActionActivate || action == credentialref.ActionRevoke {
+			binding.DraftID = nil
+		}
+		if action == credentialref.ActionRevoke {
+			ref.Status = "revoked"
+			binding.ConsumerIDs = nil
+		}
+		request := seedCredentialLifecycleStep(t, repository, action, ref, state, ackConsumed)
+		result, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request, Verifications: checks})
+		releaseLease(t, repository, request.LeaseID)
+		state++
+		return result, err
+	}
+	mustApply := func(action credentialref.LifecycleAction, version string, prior *string) {
+		t.Helper()
+		if _, err := apply(action, version, prior); err != nil {
+			t.Fatalf("%s %s: %v", action, version, err)
+		}
+	}
+	assertCurrent := func(want string) {
+		t.Helper()
+		got, err := repository.GetReference(context.Background(), "reference-a")
+		if err != nil || got.MaterialVersion != want || got.Status != "active" {
+			t.Fatalf("logical active version must be%s, got%+v err%v", want, got, err)
+		}
+	}
+	mustApply(credentialref.ActionStage, "version-1", nil)
+	mustApply(credentialref.ActionActivate, "version-1", nil)
+	mustApply(credentialref.ActionStage, "version-2", nil)
+	assertCurrent("version-1")
+	before := tableCount(t, repository, "credential_reference_versions")
+	if _, err := apply(credentialref.ActionActivate, "version-2", nil); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("direct activation while v1active mustfail: %v", err)
+	}
+	if tableCount(t, repository, "credential_reference_versions") != before {
+		t.Fatal("denied direct activation appended status")
+	}
+	mustApply(credentialref.ActionRotate, "version-2", stringPointer("version-1"))
+	assertCurrent("version-2")
+	mustApply(credentialref.ActionRevoke, "version-1", nil)
+	assertCurrent("version-2")
+}
