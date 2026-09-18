@@ -33,7 +33,6 @@ type RESTServer struct {
 	lease        WriterLease
 	verifier     LeaseVerifier
 	clock        func() time.Time
-	staleAfter   time.Duration
 	mu           sync.Mutex
 	ownLocks     map[string]struct{}
 }
@@ -54,7 +53,6 @@ func NewRESTServer(root string, expectedUID uint32, lease WriterLease, verifier 
 		lease:        lease,
 		verifier:     verifier,
 		clock:        clock,
-		staleAfter:   30 * time.Minute,
 		ownLocks:     map[string]struct{}{},
 	}, nil
 }
@@ -288,7 +286,7 @@ func (server *RESTServer) handleDelete(w http.ResponseWriter, request objectRequ
 		return
 	}
 	defer unix.Close(typeDescriptor)
-	if !server.mayDeleteLock(typeDescriptor, request.name) {
+	if !server.mayDeleteLock(request.name) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -308,7 +306,7 @@ func (server *RESTServer) handleDelete(w http.ResponseWriter, request objectRequ
 // through the routine writer, so a long-running live lock cannot be removed here.
 // Stale-orphan reclamation is a separate, explicitly-proven recovery operation,
 // not a time-threshold guess on the write path.
-func (server *RESTServer) mayDeleteLock(_ int, name string) bool {
+func (server *RESTServer) mayDeleteLock(name string) bool {
 	server.mu.Lock()
 	defer server.mu.Unlock()
 	_, own := server.ownLocks[name]

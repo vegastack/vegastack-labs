@@ -997,16 +997,31 @@ const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42
 // or a disabled repository lock.
 var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC_PASSWORD=", "--no-lock"}
 
-// reviewedBackupProcessPackage allows os/exec only in the reviewed backup process
-// package (#106), which runs the pinned restic child. It confirms the exact
-// import path and that no source uses a forbidden password/lock transport, so the
-// sealed-FD discipline cannot be silently replaced.
+// reviewedBackupSubprocessFile is the single reviewed source file in the backup
+// package permitted to import os/exec: the pinned restic child runner. Its exact
+// bytes are pinned by reviewedBackupSubprocessDigest so the sealed-FD discipline
+// cannot be silently rewritten, and no other file in the package may take on a
+// subprocess dependency.
+const reviewedBackupSubprocessFile = "restic_linux.go"
+
+// reviewedBackupSubprocessDigest pins the exact reviewed bytes of the restic
+// child runner. Any edit to restic_linux.go must be re-reviewed and this digest
+// resealed; until then the os/exec allowance fails closed.
+const reviewedBackupSubprocessDigest = "06abfc6bcc275f52232adc5b743fd16a26a77d4a7af955e22a4ca1b3eaeebe6d"
+
+// reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
+// subprocess file (#106). It confirms the import path, that os/exec is confined
+// to restic_linux.go (parsed per file, not merely the package import set), that
+// the subprocess file carries the linux build tag and matches its reviewed
+// digest, and that no source uses a forbidden password/lock transport.
 func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport string) bool {
 	if candidate.listed.ImportPath != backupImport {
 		return false
 	}
+	subprocessFilePresent := false
 	for _, name := range candidate.listed.GoFiles {
-		source, err := os.ReadFile(filepath.Join(candidate.listed.Dir, name))
+		path := filepath.Join(candidate.listed.Dir, name)
+		source, err := os.ReadFile(path)
 		if err != nil {
 			return false
 		}
@@ -1015,8 +1030,43 @@ func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport s
 				return false
 			}
 		}
+		usesExec, err := fileImportsOSExec(path)
+		if err != nil {
+			return false
+		}
+		if name == reviewedBackupSubprocessFile {
+			subprocessFilePresent = true
+			if !usesExec || !strings.HasPrefix(string(source), "//go:build linux") {
+				return false
+			}
+			if digestSourceFiles(candidate.listed.Dir, []string{name}) != reviewedBackupSubprocessDigest {
+				return false
+			}
+			continue
+		}
+		if usesExec {
+			// A new backup subprocess file cannot inherit the os/exec allowance.
+			return false
+		}
 	}
-	return true
+	return subprocessFilePresent
+}
+
+// fileImportsOSExec reports whether one Go source file imports os/exec, parsing
+// only its import block so a mention of the string in a comment or identifier is
+// never mistaken for a real subprocess dependency.
+func fileImportsOSExec(path string) (bool, error) {
+	fileSet := token.NewFileSet()
+	parsed, err := parser.ParseFile(fileSet, path, nil, parser.ImportsOnly)
+	if err != nil {
+		return false, err
+	}
+	for _, spec := range parsed.Imports {
+		if spec.Path != nil && spec.Path.Value == `"os/exec"` {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 const reviewedNativeCredentialDigest = "05fafae34779cdadf1f57948efc381bbc3fcf239cdd53832c511c5ee9549242d"
