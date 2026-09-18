@@ -103,7 +103,7 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 			binding = sealed[0]
 		}
 		if binding.DraftID != nil && binding.ImportDraftStateRevision != nil {
-			if _, err := db.ExecContext(context.Background(), `INSERT OR IGNORE INTO credential_import_drafts(draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,idempotency_key_digest,request_digest,target_digest,ciphertext_name,ciphertext_fingerprint,state_revision,recovery_epoch,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)`, *binding.DraftID, reference.ReferenceID, reference.ConsumerID, reference.PurposeID, reference.TargetID, reference.ResolverID, reference.MaterialVersion, gateDigest([]byte(*binding.DraftID+"-key")), digest, testDigest, "ciphertext-a", fingerprint, *binding.ImportDraftStateRevision, human, nowText); err != nil {
+			if _, err := db.ExecContext(context.Background(), `INSERT INTO credential_import_drafts(draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,idempotency_key_digest,request_digest,target_digest,ciphertext_name,ciphertext_fingerprint,state_revision,recovery_epoch,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?) ON CONFLICT DO NOTHING`, *binding.DraftID, reference.ReferenceID, reference.ConsumerID, reference.PurposeID, reference.TargetID, reference.ResolverID, reference.MaterialVersion, gateDigest([]byte(*binding.DraftID+"-key")), digest, testDigest, "ciphertext-a", fingerprint, *binding.ImportDraftStateRevision, human, nowText); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -209,7 +209,7 @@ func stagedReference(stateRevision int64) generated.CredentialReference {
 	return generated.CredentialReference{
 		Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0",
 		ReferenceID: "reference-a", ConsumerID: "consumer-a", PurposeID: "deploy-a",
-		TargetID: "service-a", ResolverID: "native-a", MaterialVersion: "version-a",
+		TargetID: "service-a", ResolverID: "native-systemd", MaterialVersion: "version-a",
 		Fingerprint: lifecycleFingerprint, Status: "staged", StateRevision: stateRevision + 1, RecoveryEpoch: 0,
 		VerifiedConsumerIDs: []string{},
 	}
@@ -219,7 +219,7 @@ func stageBinding() credentialref.LifecycleBinding {
 	return credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionStage, DraftID: stringPointer("draft-a"),
 		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, MaterialVersion: "version-a",
-		ResolverID: "native-a", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
+		ResolverID: "native-systemd", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
 		StateRevision: 2, RecoveryEpoch: 0, ImportDraftStateRevision: int64PointerLifecycle(1), ImportDraftConsumerID: stringPointer("consumer-a"), ImportDraftPurposeID: stringPointer("deploy-a"),
 	}
 }
@@ -263,7 +263,7 @@ func TestCredentialLifecycleSpineStageThenActivate(t *testing.T) {
 	activateBinding := credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionActivate, ReferenceID: "reference-a",
 		ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{"consumer-denied"},
-		MaterialVersion: "version-a", ResolverID: "native-a", TargetID: "service-a",
+		MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "service-a",
 		CiphertextFingerprint: lifecycleFingerprint, StateRevision: 3, RecoveryEpoch: 0,
 	}
 	verifications := []credentialref.ConsumerVerification{
@@ -617,6 +617,9 @@ func TestLifecycleAppendRechecksImmutableDraftMetadata(t *testing.T) {
 			binding := stageBinding()
 			request := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed, binding)
 			if _, err := repository.store.conn.ExecContext(context.Background(), `DROP TRIGGER credential_import_drafts_no_update`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.store.conn.ExecContext(context.Background(), `PRAGMA ignore_check_constraints=ON`); err != nil {
 				t.Fatal(err)
 			}
 			// field comes from the closed literal test table, never caller input.
