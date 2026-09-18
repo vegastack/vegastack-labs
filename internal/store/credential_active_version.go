@@ -20,8 +20,8 @@ func (repository *CredentialRepository) GetActiveVersion(ctx context.Context, re
 	}
 	latest := map[string]generated.CredentialReference{}
 	type rotation struct {
-		planID, operationID, materialVersion, fingerprint string
-		stateRevision                                     int64
+		planID, planDigest, operationID, materialVersion, fingerprint, targetID, resolverID string
+		stateRevision                                                                       int64
 	}
 	var rotations []rotation
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
@@ -49,14 +49,14 @@ func (repository *CredentialRepository) GetActiveVersion(ctx context.Context, re
 		}
 		versionRows.Close()
 
-		rows, err := tx.query(ctx, `SELECT v.plan_id,s.operation_id,v.material_version,v.fingerprint,v.state_revision FROM credential_reference_versions v JOIN plan_run_steps s ON s.run_id=v.run_id AND s.step_id=v.step_id WHERE v.reference_id=? AND v.recovery_epoch=? AND v.status='active' AND s.operation_type='credential.rotate'`, referenceID, recoveryEpoch)
+		rows, err := tx.query(ctx, `SELECT v.plan_id,v.plan_digest,s.operation_id,v.material_version,v.fingerprint,v.target_id,v.resolver_id,v.state_revision FROM credential_reference_versions v JOIN plan_run_steps s ON s.run_id=v.run_id AND s.step_id=v.step_id WHERE v.reference_id=? AND v.recovery_epoch=? AND v.status='active' AND s.operation_type='credential.rotate'`, referenceID, recoveryEpoch)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var r rotation
-			if err := rows.Scan(&r.planID, &r.operationID, &r.materialVersion, &r.fingerprint, &r.stateRevision); err != nil {
+			if err := rows.Scan(&r.planID, &r.planDigest, &r.operationID, &r.materialVersion, &r.fingerprint, &r.targetID, &r.resolverID, &r.stateRevision); err != nil {
 				return err
 			}
 			rotations = append(rotations, r)
@@ -76,7 +76,7 @@ func (repository *CredentialRepository) GetActiveVersion(ctx context.Context, re
 		if err != nil {
 			return generated.CredentialReference{}, err
 		}
-		if binding.Action != credentialref.ActionRotate || binding.PriorMaterialVersion == nil || binding.ReferenceID != referenceID || binding.MaterialVersion != rotation.materialVersion || binding.CiphertextFingerprint != rotation.fingerprint || binding.StateRevision+1 != rotation.stateRevision || binding.RecoveryEpoch != recoveryEpoch {
+		if stored.Plan.PlanDigest != rotation.planDigest || binding.TargetID != rotation.targetID || binding.ResolverID != rotation.resolverID || binding.Action != credentialref.ActionRotate || binding.PriorMaterialVersion == nil || binding.ReferenceID != referenceID || binding.MaterialVersion != rotation.materialVersion || binding.CiphertextFingerprint != rotation.fingerprint || binding.StateRevision+1 != rotation.stateRevision || binding.RecoveryEpoch != recoveryEpoch {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-rotation-lineage")
 		}
 		superseded[*binding.PriorMaterialVersion] = true

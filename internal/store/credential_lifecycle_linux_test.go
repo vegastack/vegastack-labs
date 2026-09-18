@@ -495,6 +495,17 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 			if _, err := repository.GetActiveVersion(context.Background(), "reference-a", 0); Code(err) != generated.ErrorCodeResourceNotFound {
 				t.Fatalf("revoking replacement must not resurrect superseded prior: %v", err)
 			}
+			// A damaged append row cannot qualify as verified historical lineage.
+			if _, err := repository.store.conn.ExecContext(context.Background(), `DROP TRIGGER credential_reference_versions_no_update`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE credential_reference_versions SET target_id='wrong-target' WHERE material_version='version-2' AND status='active'`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.GetActiveVersion(context.Background(), "reference-a", 0); Code(err) != generated.ErrorCodeIntegrityFailure {
+				t.Fatalf("corrupted applied lineage must fail integrity: %v", err)
+			}
+
 		})
 	}
 }
