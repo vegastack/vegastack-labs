@@ -556,6 +556,9 @@ func TestLogicalActiveSelectorRejectsUnrelatedMultipleActiveVersions(t *testing.
 	binding := stageBinding()
 	binding.Action = credentialref.ActionActivate
 	binding.DraftID = nil
+	binding.ImportDraftStateRevision = nil
+	binding.ImportDraftConsumerID = nil
+	binding.ImportDraftPurposeID = nil
 	binding.StateRevision = 3
 	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
 	request := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, ref, 3, ackConsumed)
@@ -601,6 +604,30 @@ func TestLifecycleAppendRejectsSubstitutedDraftOrigin(t *testing.T) {
 			}
 			if tableCount(t, repository, "credential_reference_versions") != 0 {
 				t.Fatal("origin denial must roll back version append")
+			}
+		})
+	}
+}
+
+func TestLifecycleAppendRechecksImmutableDraftMetadata(t *testing.T) {
+	cases := map[string]any{"draft_id": "wrong-draft", "reference_id": "wrong-reference", "consumer_id": "wrong-consumer", "purpose_id": "wrong-purpose", "target_id": "wrong-target", "resolver_id": "wrong-resolver", "material_version": "wrong-version", "ciphertext_fingerprint": testDigest, "state_revision": int64(9), "recovery_epoch": int64(9)}
+	for field, value := range cases {
+		t.Run(field, func(t *testing.T) {
+			repository := openCredentialStore(t)
+			binding := stageBinding()
+			request := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed, binding)
+			if _, err := repository.store.conn.ExecContext(context.Background(), `DROP TRIGGER credential_import_drafts_no_update`); err != nil {
+				t.Fatal(err)
+			}
+			// field comes from the closed literal test table, never caller input.
+			if _, err := repository.store.conn.ExecContext(context.Background(), "UPDATE credential_import_drafts SET "+field+"=? WHERE draft_id='draft-a'", value); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request}); err == nil {
+				t.Fatal("damaged immutable origin metadata must not append")
+			}
+			if tableCount(t, repository, "credential_reference_versions") != 0 {
+				t.Fatal("origin mismatch must be atomic")
 			}
 		})
 	}
