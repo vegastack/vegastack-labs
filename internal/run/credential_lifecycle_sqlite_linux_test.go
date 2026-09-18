@@ -13,7 +13,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
-	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
@@ -233,8 +232,8 @@ func TestSQLiteCredentialLifecycleActivationBlocksWithoutConsumerVerifier(t *tes
 	}
 	fixture.engine.credentialCore = core
 	blocked, err := fixture.engine.Submit(context.Background(), fixture.request)
-	stable, ok := failure.As(err)
-	if !ok || stable.Code != generated.ErrorCodePrerequisiteBlocked || stable.Target != "credential-consumer-verifier-unavailable" || blocked.Status != "failed" {
+	var stable *Error
+	if !errors.As(err, &stable) || stable.Code() != generated.ErrorCodePrerequisiteBlocked || stable.Target() != "credential-consumer-verifier-unavailable" || blocked.Status != "failed" {
 		t.Fatalf("missing consumer verifier denial changed: result=%+v err=%v", blocked, err)
 	}
 	versions, err := repository.ListCredentialVersions(context.Background(), "reference-lifecycle", 0)
