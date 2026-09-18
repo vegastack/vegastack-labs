@@ -3,14 +3,78 @@ package store
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"errors"
+	"io"
 	"net/url"
+	"os"
 	"time"
 
 	"github.com/ncruces/go-sqlite3"
 	sqliteDriver "github.com/ncruces/go-sqlite3/driver"
 )
+
+// NewOnlineSnapshotSource exposes the store-owned read-only online snapshot port
+// used by the backup capture seam. The returned source shares the single store
+// SQLite owner; it never opens a second writable connection to the database.
+func NewOnlineSnapshotSource(authority *Store) (OnlineSnapshotSource, error) {
+	if authority == nil {
+		return nil, newStoreError("INPUT_INVALID", "backup-capture", false, nil)
+	}
+	catalog, err := Catalog()
+	if err != nil {
+		return nil, err
+	}
+	return &recoverySource{store: authority, catalog: catalog}, nil
+}
+
+// OnlineSnapshot produces one consistent read-only snapshot of the live control
+// database and verifies it before returning a secret-free description. It never
+// exposes the live database file and returns no snapshot on any failure.
+func (source *recoverySource) OnlineSnapshot(ctx context.Context, request OnlineSnapshotRequest) (OnlineSnapshotResult, error) {
+	if source == nil || source.store == nil || request.Destination == "" || request.Destination == source.store.config.DatabasePath {
+		return OnlineSnapshotResult{}, newStoreError("INPUT_INVALID", "backup-capture", false, nil)
+	}
+	if err := source.OnlineBackup(ctx, request.Destination, BackupStepPolicy{PagesPerStep: 128, BusyBudget: request.BusyBudget}); err != nil {
+		return OnlineSnapshotResult{}, err
+	}
+	inspection, err := source.InspectSnapshot(ctx, request.Destination, request.Expected)
+	if err != nil {
+		return OnlineSnapshotResult{}, err
+	}
+	if inspection.IntegrityStatus != IntegrityVerified {
+		return OnlineSnapshotResult{}, newStoreError("INTEGRITY_FAILURE", "backup-capture", false, nil)
+	}
+	digest, size, err := hashSnapshotFile(request.Destination)
+	if err != nil {
+		return OnlineSnapshotResult{}, databaseError("INTEGRITY_FAILURE", err)
+	}
+	return OnlineSnapshotResult{
+		SQLiteVersion:  inspection.SQLiteVersion,
+		SchemaVersion:  inspection.SchemaVersion,
+		Revision:       inspection.Revision,
+		CatalogSHA256:  request.Expected.CatalogSHA256,
+		DatabaseSHA256: digest,
+		Bytes:          size,
+	}, nil
+}
+
+func hashSnapshotFile(path string) ([32]byte, int64, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return [32]byte{}, 0, err
+	}
+	defer file.Close()
+	hasher := sha256.New()
+	size, err := io.Copy(hasher, file)
+	if err != nil {
+		return [32]byte{}, 0, err
+	}
+	var digest [32]byte
+	copy(digest[:], hasher.Sum(nil))
+	return digest, size, nil
+}
 
 type recoverySource struct {
 	store   *Store
