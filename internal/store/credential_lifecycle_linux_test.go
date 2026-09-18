@@ -405,6 +405,7 @@ func TestLifecycleBindingStoreRoundtripAndTamperDenial(t *testing.T) {
 func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 	repository := openCredentialStore(t)
 	state := int64(2)
+	inertOnly := false
 	apply := func(action credentialref.LifecycleAction, version string, prior *string) (generated.CredentialReference, error) {
 		ref := stagedReference(state)
 		ref.MaterialVersion = version
@@ -433,6 +434,11 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 			binding.ConsumerIDs = nil
 		}
 		request := seedCredentialLifecycleStep(t, repository, action, ref, state, ackConsumed, binding)
+		if inertOnly {
+			releaseLease(t, repository, request.LeaseID)
+			state++
+			return generated.CredentialReference{}, nil
+		}
 		result, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request, Verifications: checks})
 		releaseLease(t, repository, request.LeaseID)
 		state++
@@ -455,6 +461,11 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 	mustApply(credentialref.ActionActivate, "version-1", nil)
 	mustApply(credentialref.ActionStage, "version-2", nil)
 	assertCurrent("version-1")
+	// A planned rotation and its inert binding cannot select a replacement.
+	inertOnly = true
+	mustApply(credentialref.ActionRotate, "version-2", stringPointer("version-1"))
+	inertOnly = false
+	assertCurrent("version-1")
 	before := tableCount(t, repository, "credential_reference_versions")
 	if _, err := apply(credentialref.ActionActivate, "version-2", nil); Code(err) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatalf("direct activation while v1active mustfail: %v", err)
@@ -463,7 +474,58 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 		t.Fatal("denied direct activation appended status")
 	}
 	mustApply(credentialref.ActionRotate, "version-2", stringPointer("version-1"))
+	// The durable version append proves lineage even when no effect receipt or
+	// successful run exists: model reconciliation marking that interrupted run partial.
+	if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE plan_runs SET status='partial' WHERE plan_id=(SELECT plan_id FROM credential_reference_versions WHERE material_version='version-2' AND status='active' ORDER BY state_revision DESC LIMIT 1)`); err != nil {
+		t.Fatal(err)
+	}
 	assertCurrent("version-2")
+	prior, err := repository.GetCredentialVersion(context.Background(), "reference-a", "version-1")
+	if err != nil || prior.Status != "active" {
+		t.Fatalf("rotation must preserve exact prior status during overlap: %+v %v", prior, err)
+	}
 	mustApply(credentialref.ActionRevoke, "version-1", nil)
 	assertCurrent("version-2")
+	mustApply(credentialref.ActionRevoke, "version-2", nil)
+	if _, err := repository.GetActiveVersion(context.Background(), "reference-a", 0); Code(err) != generated.ErrorCodeResourceNotFound {
+		t.Fatalf("revoking replacement must not resurrect superseded prior: %v", err)
+	}
+}
+
+func TestLogicalActiveSelectorRejectsUnrelatedMultipleActiveVersions(t *testing.T) {
+	repository := openCredentialStore(t)
+	stage := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed)
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: stageBinding(), Stage: stage}); err != nil {
+		t.Fatal(err)
+	}
+	releaseLease(t, repository, stage.LeaseID)
+	ref := stagedReference(3)
+	ref.Status = "active"
+	stamp := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	ref.ActivatedAt = &stamp
+	ref.VerifiedConsumerIDs = []string{"consumer-a"}
+	binding := stageBinding()
+	binding.Action = credentialref.ActionActivate
+	binding.DraftID = nil
+	binding.StateRevision = 3
+	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	request := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, ref, 3, ackConsumed)
+	checks := []credentialref.ConsumerVerification{
+		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: ref.MaterialVersion, CiphertextFingerprint: ref.Fingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
+		{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: ref.MaterialVersion, CiphertextFingerprint: ref.Fingerprint, EvidenceDigest: testDigest, Result: "denied", ReasonCode: "denied"},
+	}
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request, Verifications: checks}); err != nil {
+		t.Fatal(err)
+	}
+	// Model privileged persisted-data corruption with an unrelated active version;
+	// the reader must reject ambiguity even when its metadata passes the schema.
+	if _, err := repository.store.conn.ExecContext(context.Background(), `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) SELECT 'version-unrelated',reference_id,consumer_id,purpose_id,target_id,resolver_id,'version-unrelated',fingerprint,status,state_revision+1,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at FROM credential_reference_versions WHERE status='active' LIMIT 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.GetActiveVersion(context.Background(), "reference-a", 0); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("unrelated multiple active versions must fail closed: %v", err)
+	}
+	if _, err := repository.GetReference(context.Background(), "reference-a"); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("logical current cannot mask ambiguity: %v", err)
+	}
 }
