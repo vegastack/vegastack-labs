@@ -11,8 +11,8 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 		name  string
 		files []string
 	}{
-		{"linux", []string{"audit_client.go", "client.go", "credential_client.go", "gates_client.go", "listener.go", "listener_linux.go"}},
-		{"unsupported", []string{"audit_client.go", "client.go", "credential_client.go", "gates_client.go", "listener.go", "listener_unsupported.go"}},
+		{"linux", []string{"audit_client.go", "backup_client.go", "client.go", "credential_client.go", "gates_client.go", "listener.go", "listener_linux.go"}},
+		{"unsupported", []string{"audit_client.go", "backup_client.go", "client.go", "credential_client.go", "gates_client.go", "listener.go", "listener_unsupported.go"}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			temporary := t.TempDir()

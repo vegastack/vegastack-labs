@@ -105,7 +105,11 @@ func analyze(root string) (analysis, error) {
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
 			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go"
 			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (approvedNativeCredentialFile || strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || relative == "internal/server/credential_resolver_linux.go" || relative == "internal/server/remote_tls_linux.go" || relative == "internal/server/slack_acknowledgement_config_linux.go" || relative == "internal/server/systemd_credentials_linux.go" || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile) {
+			// #106: the Linux-only local backup adapter (guarded by a //go:build
+			// linux tag) uses x/sys/unix for capacity forecasting; it is a reviewed
+			// server-side backup package, like internal/backup.
+			approvedBackupAdapterFile := strings.HasPrefix(relative, "internal/adapter/localbackup/")
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile) {
 				result.XSysOutsideScope = true
 			}
 		}

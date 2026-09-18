@@ -93,7 +93,19 @@ const REVIEWED_AUDIT_WAVE = Object.freeze({
   imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:f7f91580362c31d0d9f66cc9ebb427df1080b8bef771c1a0ab620138da0ecd39",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE]);
+// Issue #106 adds the inert local backup-policy-draft command and the local
+// recovery-point creation source closure (the guarded REST object boundary, the
+// sealed-FD restic child and the exact bound adapter). It lands after #107, so as
+// the final Phase 5 wave its boundary digest is the current head closure that
+// `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal. Its
+// only new production imports are the backup package and its local adapter.
+const REVIEWED_BACKUP_WAVE = Object.freeze({
+  id: "phase5-issue106-v1", issue: 106,
+  commands: Object.freeze(["backup policy draft"]),
+  imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`]),
+  mutationBoundaryDigest: "sha256:cb10dfc7f69a42dfd3dbbbdfc3ae97641394d9ee44c00648c7455858fc06eedb",
+});
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_BACKUP_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -144,10 +156,11 @@ const EXPECTED_CHILDREN = [
   [37, 47, "34e9e9d01f6c0bbb14c8e54d4a2ab4a1b1e77fc3"],
 ];
 const EXPECTED_AVAILABLE_COMMANDS = [
-  "database status", "help", "inventory diff", "inventory export", "inventory import",
+  "backup policy draft", "database status", "help", "inventory diff", "inventory export", "inventory import",
   "release inspect", "release verify", "server run", "server status", "status", "version",
 ];
 const EXPECTED_ENDPOINT_IDS = [
+  "api.v1.backup-policy-drafts.create",
   "api.v1.database-status.get", "api.v1.events.stream", "api.v1.health.get",
   "api.v1.inventory-diffs.create", "api.v1.inventory-draft-aliases.get",
   "api.v1.inventory-draft-aliases.list", "api.v1.inventory-draft-assets.get",
@@ -592,7 +605,7 @@ export function validateEvidence(manifest, facts) {
       manifest.contract.postPhase2MutationBoundaryDigest !== PHASE2_BASELINE_MUTATION_DIGEST)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   }
-  const reviewedCommandPrefixes = ["gate ", "credential ", "audit "];
+  const reviewedCommandPrefixes = ["gate ", "credential ", "audit ", "backup "];
   const availableReviewedCommands = facts.availableCommands.filter((name) =>
     reviewedCommandPrefixes.some((prefix) => name.startsWith(prefix)));
   const expectedReviewedCommands = REVIEWED_PHASE5_WAVES.flatMap(({ commands }) => commands).sort();

@@ -106,7 +106,7 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		argv = append(argv, "backup", request.SnapshotPath, "--host", "vsk-labs")
 	}
 	command := exec.CommandContext(ctx, argv[0], argv[1:]...)
-	command.Env = []string{} // no RESTIC_PASSWORD, no RESTIC_PASSWORD_COMMAND, no inherited environment
+	command.Env = []string{} // empty environment: the password never travels via any env variable or a helper command
 	command.ExtraFiles = []*os.File{passwordFile}
 	var stdout, stderr bytes.Buffer
 	command.Stdout = &boundedWriter{limit: outputLimit, buffer: &stdout}

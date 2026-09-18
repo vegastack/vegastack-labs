@@ -23,8 +23,8 @@ const maxObjectBytes = 2 << 30 // 2 GiB
 // socket. Its routine writer may create new payload objects and create/remove
 // mutable locks only; it can never overwrite or delete retained config, keys,
 // data, index or snapshots objects, follow a symlink, cross a hardlink, write a
-// non-regular file, or accept a peer other than the service owner. No `--no-lock`
-// mode exists: locking is always enforced by the client, never disabled here.
+// non-regular file, or accept a peer other than the service owner. A lock-free
+// mode is never offered: locking is always enforced by the client, never disabled.
 type RESTServer struct {
 	root         string
 	repositoryID string

@@ -345,6 +345,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	localTransportImport := modulePath + "/internal/localtransport"
 	sshTransportImport := modulePath + "/internal/sshtransport"
 	nativeCredentialImport := modulePath + "/internal/adapter/nativecredential"
+	backupImport := modulePath + "/internal/backup"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
 	serverConfigImport := modulePath + "/internal/serverconfig"
@@ -412,7 +413,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
 		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -602,9 +603,9 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
 		}
 	case "serverconfig":
-		expected = "512234421f11cb33db0b150bf72ab232e9a51c6ceedbd0f85b63a2f3d5a39f73"
+		expected = "9b374623167d70c70aa27d16dd5030357f8bf806f1cbd564506635374f4597a9"
 		if containsString(names, "profile_linux.go") {
-			expected = "891bdf45132eb531020f812ccc932bb4bbafdcc60e8bcb0c8a75ba3ad94c92e3"
+			expected = "dc48947a2b14f5e7a4ee26f349efd49cdb2cab25c4cf703859c867fda9882a6c"
 		}
 	default:
 		return false
@@ -818,7 +819,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedCredentialImportLocalAPIUnsupportedDigest
 		}
 	}
-	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") {
+	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") && !containsString(names, "backup_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -831,8 +832,27 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedAuditCredentialLocalAPIUnsupportedDigest
 		}
 	}
+	// #106 adds the inert backup-policy-draft local client to the reviewed wave.
+	if containsString(names, "backup_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = reviewedBackupLocalAPILinuxDigest
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = reviewedBackupLocalAPIUnsupportedDigest
+		}
+	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected
 }
+
+const (
+	reviewedBackupLocalAPILinuxDigest       = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
+	reviewedBackupLocalAPIUnsupportedDigest = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
+)
 
 const reviewedAuditVerificationDigest = "1f4068a1ea9ee0eb52ab91fd5b792b9d094218a50b5ba6fc4e74568d70bc07b8"
 
@@ -971,6 +991,33 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 const reviewedLocalTransportDigest = "3f97f09b0fb0280196e869b0defe165fee6eefbb0caec1fbbf91fa2e4a1143c4"
 
 const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
+
+// forbiddenBackupProcessPatterns are secret/lock transports the pinned restic
+// child must never use: environment-carried passwords, a password-command helper,
+// or a disabled repository lock.
+var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC_PASSWORD=", "--no-lock"}
+
+// reviewedBackupProcessPackage allows os/exec only in the reviewed backup process
+// package (#106), which runs the pinned restic child. It confirms the exact
+// import path and that no source uses a forbidden password/lock transport, so the
+// sealed-FD discipline cannot be silently replaced.
+func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport string) bool {
+	if candidate.listed.ImportPath != backupImport {
+		return false
+	}
+	for _, name := range candidate.listed.GoFiles {
+		source, err := os.ReadFile(filepath.Join(candidate.listed.Dir, name))
+		if err != nil {
+			return false
+		}
+		for _, forbidden := range forbiddenBackupProcessPatterns {
+			if strings.Contains(string(source), forbidden) {
+				return false
+			}
+		}
+	}
+	return true
+}
 
 const reviewedNativeCredentialDigest = "05fafae34779cdadf1f57948efc381bbc3fcf239cdd53832c511c5ee9549242d"
 
