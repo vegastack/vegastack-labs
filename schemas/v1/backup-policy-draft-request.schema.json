@@ -43,139 +43,6 @@
       ],
       "type": "object"
     },
-    "backup-job": {
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "if": {
-            "properties": {
-              "sourceKind": {
-                "const": "fixture"
-              }
-            },
-            "required": [
-              "sourceKind"
-            ]
-          },
-          "then": {
-            "properties": {
-              "proofClass": {
-                "const": "fixture"
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "status": {
-                "const": "verified"
-              }
-            },
-            "required": [
-              "status"
-            ]
-          },
-          "then": {
-            "properties": {
-              "pointId": {
-                "type": "string"
-              },
-              "verificationDigest": {
-                "type": "string"
-              }
-            }
-          }
-        }
-      ],
-      "properties": {
-        "jobId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": "string"
-        },
-        "pointId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "policyId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": "string"
-        },
-        "proofClass": {
-          "enum": [
-            "fixture",
-            "live"
-          ],
-          "type": "string"
-        },
-        "recoveryEpoch": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "runId": {
-          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "schema": {
-          "enum": [
-            "vegastack-labs.dev/backup-job"
-          ],
-          "type": "string"
-        },
-        "schemaVersion": {
-          "enum": [
-            "1.1.0"
-          ],
-          "type": "string"
-        },
-        "sourceKind": {
-          "enum": [
-            "fixture",
-            "local",
-            "independent"
-          ],
-          "type": "string"
-        },
-        "status": {
-          "enum": [
-            "queued",
-            "running",
-            "pending",
-            "failed",
-            "verified",
-            "uncertain"
-          ],
-          "type": "string"
-        },
-        "verificationDigest": {
-          "pattern": "^sha256:[a-f0-9]{64}$",
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      },
-      "required": [
-        "schema",
-        "schemaVersion",
-        "jobId",
-        "policyId",
-        "sourceKind",
-        "proofClass",
-        "pointId",
-        "status",
-        "runId",
-        "recoveryEpoch",
-        "verificationDigest"
-      ],
-      "type": "object"
-    },
     "backup-policy": {
       "additionalProperties": false,
       "properties": {
@@ -318,23 +185,20 @@
       "type": "object"
     }
   },
-  "$id": "vegastack-labs.dev/backup-status-data",
+  "$id": "vegastack-labs.dev/backup-policy-draft-request",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "jobs": {
-      "items": {
-        "$ref": "#/$defs/backup-job"
-      },
-      "maxItems": 256,
-      "type": "array"
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
     },
-    "policies": {
-      "items": {
-        "$ref": "#/$defs/backup-policy"
-      },
-      "maxItems": 256,
-      "type": "array"
+    "idempotencyKey": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "policy": {
+      "$ref": "#/$defs/backup-policy"
     },
     "recoveryEpoch": {
       "minimum": 0,
@@ -342,25 +206,31 @@
     },
     "schema": {
       "enum": [
-        "vegastack-labs.dev/backup-status-data"
+        "vegastack-labs.dev/backup-policy-draft-request"
       ],
       "type": "string"
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
+      "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     }
   },
   "required": [
     "schema",
     "schemaVersion",
-    "policies",
-    "jobs",
-    "recoveryEpoch"
+    "expectedStateRevision",
+    "recoveryEpoch",
+    "targetDigest",
+    "idempotencyKey",
+    "policy"
   ],
-  "title": "VegaStack Labs backup status data",
+  "title": "VegaStack Labs backup policy draft request",
   "type": "object",
   "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
 }

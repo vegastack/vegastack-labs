@@ -144,7 +144,7 @@ func TestPhase5GateEvidenceRejectsFixturePromotionAndInvalidFreshness(t *testing
 
 func TestPhase5NestedBackupStatusRejectsFixturePromotion(t *testing.T) {
 	job := map[string]any{
-		"schema": SchemaIDBackupJob, "schemaVersion": "1.0.0", "jobId": "job-a", "policyId": "policy-a",
+		"schema": SchemaIDBackupJob, "schemaVersion": "1.1.0", "jobId": "job-a", "policyId": "policy-a",
 		"sourceKind": "fixture", "proofClass": "live", "pointId": nil, "status": "queued", "runId": nil,
 		"recoveryEpoch": 2, "verificationDigest": nil,
 	}

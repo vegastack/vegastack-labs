@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.17.0",
+  "schemaVersion": "1.18.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -39,6 +39,19 @@
       "stream": "finite",
       "audiences": [
         "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.backup-policy-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/backups/policies/drafts",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-policy-draft-request",
+      "dataSchema": "vegastack-labs.dev/backup-policy-draft-submission",
+      "stream": "finite",
+      "audiences": [
         "operator"
       ]
     },
