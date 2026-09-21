@@ -53,7 +53,7 @@
       { "id": "phase5-issue124-v1", "issue": 124, "commands": ["credential import"], "imports": [], "mutationBoundaryDigest": "sha256:c18f9df9999784b2c319741cb65172dd802f61bca61abb29a4ecd0a96ce53ba1" },
       { "id": "phase5-issue107-v1", "issue": 107, "commands": ["audit checkpoints", "audit verify"], "imports": [], "mutationBoundaryDigest": "sha256:f7f91580362c31d0d9f66cc9ebb427df1080b8bef771c1a0ab620138da0ecd39" },
       { "id": "phase5-issue125-v1", "issue": 125, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:89dd556b7afa3ebc646dc1c5cba24add52888317883cedf082b701128e46b6f2" },
-      { "id": "phase5-issue132-v1", "issue": 132, "commands": ["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"], "imports": [], "mutationBoundaryDigest": "sha256:ed1278ac206dc257f40fb0f9485aa26444eebdb4441805990118551e8005577f" }
+      { "id": "phase5-issue132-v1", "issue": 132, "commands": ["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"], "imports": [], "mutationBoundaryDigest": "sha256:d60a5558a03a291b91ef608035db327223c0ee0574c80791346063d720e055f6" }
     ]
   },
   "children": [

@@ -107,12 +107,12 @@ const REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE = Object.freeze({
   imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:89dd556b7afa3ebc646dc1c5cba24add52888317883cedf082b701128e46b6f2",
 });
-// Issue #132 correctness fixes precede surface availability. The empty command
-// set is expanded only when the metadata-only lifecycle surface is wired.
+// Issue #132's reviewed surface wave includes the five metadata-only lifecycle
+// commands. Recompute its boundary digest live when production code changes.
 const REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE = Object.freeze({
   id: "phase5-issue132-v1", issue: 132,
   commands: Object.freeze(["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"]), imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:ed1278ac206dc257f40fb0f9485aa26444eebdb4441805990118551e8005577f",
+  mutationBoundaryDigest: "sha256:d60a5558a03a291b91ef608035db327223c0ee0574c80791346063d720e055f6",
 });
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";

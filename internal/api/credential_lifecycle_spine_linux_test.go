@@ -14,8 +14,10 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
+	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/store"
+	"net/http/httptest"
 	"testing"
 	"time"
 )
@@ -67,6 +69,10 @@ func (reader lifecyclePublicPlanReader) ValidateCurrent(ctx context.Context, pla
 }
 
 func (fixture *lifecyclePublicFixture) applyDraft(t *testing.T, submission generated.CredentialLifecycleSubmission, missingAck bool) (generated.Run, error) {
+	return fixture.applyDraftWithExecutor(t, submission, missingAck, identity.Principal{ID: "human-lifecycle", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman})
+}
+
+func (fixture *lifecyclePublicFixture) applyDraftWithExecutor(t *testing.T, submission generated.CredentialLifecycleSubmission, missingAck bool, executor identity.Principal) (generated.Run, error) {
 	t.Helper()
 	ctx := context.Background()
 	draft, err := store.NewDeclarationRepository(fixture.authority).GetRevision(ctx, submission.ChangeID, 1)
@@ -116,12 +122,15 @@ func (fixture *lifecyclePublicFixture) applyDraft(t *testing.T, submission gener
 	if err != nil {
 		t.Fatal(err)
 	}
-	decision, err := authorizer.Authorize(ctx, human, authorization.Request{Action: authorization.ActionExecute, Target: authorization.Target{Capability: "plan.execute", ResourceKind: "plan-target", ResourceID: plan.Operations[0].TargetID}, Plan: &plan, Branches: []authorization.Branch{authorization.BranchHuman}})
-	if err != nil || !decision.Allowed {
-		t.Fatalf("real execute policy: %+v %v", decision, err)
+	effective := store.NewEffectiveAuthorizationRepository(fixture.authority)
+	factory := result.NewFactory(result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}, func() (string, error) { return "decision-" + submission.OperationID, nil })
+	app := &Application{config: Config{Results: factory}, effective: EffectiveAuthorizationConfig{Authorizer: authorization.NewEvaluator(effective), Recorder: effective, Clock: fixture.clock}}
+	httpRequest := httptest.NewRequest("POST", "/v1/runs", nil)
+	httpRequest = httpRequest.WithContext(identity.WithVerifiedPrincipal(httpRequest.Context(), executor))
+	projected, err := app.authorizeRunPlan(httpRequest, plan)
+	if err != nil || !projected.Allowed || projected.Action != "execute" || projected.TargetID != plan.Operations[0].TargetID {
+		t.Fatalf("production execute policy: %+v %v", projected, err)
 	}
-	branch := "human"
-	projected := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-" + submission.OperationID, PrincipalID: human.ID, Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: decision.Allowed, Branch: &branch, ReasonCode: decision.ReasonCode, GrantRevision: decision.GrantRevision, RecoveryEpoch: decision.RecoveryEpoch, PlanDigest: decision.PlanDigest, DecidedAt: fixture.clock().Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 	verifier := lifecyclePublicVerifier{fixture}
 	core, err := runengine.NewCoreCredentialEffect(fixture.references, store.NewAcknowledgementRepository(fixture.authority), verifier, verifier, runengine.UnavailableCredentialRecoveryVerifier{}, fixture.clock)
 	if err != nil {
@@ -133,11 +142,30 @@ func (fixture *lifecyclePublicFixture) applyDraft(t *testing.T, submission gener
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "apply-" + submission.OperationID, Extensions: []generated.ContractExtension{}}, Authorization: projected, Acknowledgement: &proof, Attribution: audit.Attribution{AuthenticatedPrincipalID: fixture.principal.ID, AuthenticatedPrincipalMethod: fixture.principal.Method, ResponsibleHumanPrincipalID: &human.ID, Agent: &audit.AgentMetadata{Name: "codex", SessionID: "session-public-lifecycle"}}}
+	attribution := audit.Attribution{AuthenticatedPrincipalID: executor.ID, AuthenticatedPrincipalMethod: executor.Method, ResponsibleHumanPrincipalID: &human.ID}
+	if executor.Kind == identity.PrincipalAgent {
+		attribution.Agent = &audit.AgentMetadata{Name: executor.ID, SessionID: "session-public-lifecycle"}
+	}
+	request := runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "apply-" + submission.OperationID, Extensions: []generated.ContractExtension{}}, Authorization: projected, Acknowledgement: &proof, Attribution: attribution}
 	if missingAck {
 		request.Acknowledgement = nil
 	}
 	return engine.Submit(ctx, request)
+}
+
+func TestCredentialLifecyclePublicAgentExecutionConsumesSeparateHumanAcknowledgement(t *testing.T) {
+	fixture := newLifecyclePublicFixture(t)
+	imported := fixture.importDraft(t, "version-1")
+	request := fixture.stageRequest(t, imported)
+	submission, err := fixture.service.CreateDraft(context.Background(), request, fixture.principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	agent := identity.Principal{ID: "agent-lifecycle", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalAgent}
+	run, err := fixture.applyDraftWithExecutor(t, submission, false, agent)
+	if err != nil || run.Status != "succeeded" {
+		t.Fatalf("explicitly granted agent execution with human acknowledgement: %+v %v", run, err)
+	}
 }
 
 func TestCredentialLifecyclePublicDraftPlanAckApplySpine(t *testing.T) {

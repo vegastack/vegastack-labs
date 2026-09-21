@@ -41,6 +41,11 @@ var operationRisk = map[string]RiskClass{
 	"secret-provider.change":             RiskControlPlane,
 	"control-plane.change":               RiskControlPlane,
 	"control-plane.recover":              RiskControlPlane,
+	"credential.stage":                   RiskControlPlane,
+	"credential.activate":                RiskControlPlane,
+	"credential.rotate":                  RiskControlPlane,
+	"credential.revoke":                  RiskControlPlane,
+	"credential.recover":                 RiskControlPlane,
 }
 
 var riskRank = map[RiskClass]int{

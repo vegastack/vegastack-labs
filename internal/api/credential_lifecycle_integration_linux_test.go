@@ -62,13 +62,19 @@ func newLifecyclePublicFixture(t *testing.T) *lifecyclePublicFixture {
 			t.Fatal(err)
 		}
 	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO effective_authorization_principals(principal_id,principal_kind,status,grant_revision,created_at,updated_at) VALUES('agent-lifecycle','agent','active',1,'2026-09-18T12:00:00Z','2026-09-18T12:00:00Z')`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := db.ExecContext(ctx, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES('grant-lifecycle-author','operator-lifecycle','author','author','credential.lifecycle.author','credential-reference','reference-lifecycle',NULL,1,'active','2026-09-18T12:00:00Z','2026-09-18T12:00:00Z')`); err != nil {
 		t.Fatal(err)
 	}
-	for _, grant := range []struct{ action, capability string }{{"acknowledge", "plan.acknowledge"}, {"execute", "plan.execute"}} {
-		if _, err := db.ExecContext(ctx, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,'human-lifecycle','infrastructure-admin',?,?,'plan-target','target-lifecycle','human',1,'active','2026-09-18T12:00:00Z','2026-09-18T12:00:00Z')`, "grant-lifecycle-"+grant.action, grant.action, grant.capability); err != nil {
+	for _, grant := range []struct{ action, capability, kind string }{{"acknowledge", "plan.acknowledge", "plan-target"}, {"execute", "credential.stage", "execution-target"}, {"execute", "credential.activate", "execution-target"}, {"execute", "credential.rotate", "execution-target"}, {"execute", "credential.revoke", "execution-target"}, {"execute", "credential.recover", "execution-target"}} {
+		if _, err := db.ExecContext(ctx, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES(?,'human-lifecycle','control-plane-admin',?,?,?,'target-lifecycle','human',1,'active','2026-09-18T12:00:00Z','2026-09-18T12:00:00Z')`, "grant-lifecycle-"+grant.action+"-"+grant.capability, grant.action, grant.capability, grant.kind); err != nil {
 			t.Fatal(err)
 		}
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO effective_authorization_grants(grant_id,principal_id,role_id,action,capability,resource_kind,resource_id,branch,grant_revision,status,created_at,updated_at) VALUES('grant-lifecycle-agent-stage','agent-lifecycle','control-plane-admin','execute','credential.stage','execution-target','target-lifecycle','human',1,'active','2026-09-18T12:00:00Z','2026-09-18T12:00:00Z')`); err != nil {
+		t.Fatal(err)
 	}
 	refs := store.NewCredentialRepository(authority)
 	revisions := store.NewPlanRepository(authority)
