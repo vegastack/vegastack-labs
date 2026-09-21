@@ -9,6 +9,7 @@ const STATUS_PATTERN = /^(?:[AMDTUXB]|[RC][0-9]{1,3})$/;
 export const CHECK_GROUPS = Object.freeze(["always", "phase", "go", "tooling", "web", "browser"]);
 const GO_BROWSER_TESTS = Object.freeze([
   "TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary",
+  "TestPhase4AcceptanceBuiltExecutableKeepsIntentInertAndPrivate",
   "TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary",
   "TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS",
 ]);
@@ -119,7 +120,7 @@ function validPath(value) {
 
 function browserServerPath(file) {
   return /^internal\/api\//.test(file) ||
-    /^internal\/server\/(?:application|browser_auth|console|phase3_acceptance|phase4_console_acceptance|remote)/.test(file) ||
+    /^internal\/server\/(?:application|browser_auth|console|phase3_acceptance|phase4_acceptance|phase4_console_acceptance|phase4_fixture|remote)/.test(file) ||
     /^internal\/(?:consoleassets|metadata|contractgen|generated)\//.test(file) ||
     /^internal\/serverconfig\//.test(file);
 }
