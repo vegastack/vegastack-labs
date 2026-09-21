@@ -45,3 +45,14 @@ test('rendered polkit rule grants only the enrolled restart tuple', () => {
     ['vsk-labs', 'org.freedesktop.systemd1.reload-daemon', 'alpha.service', 'restart'],
   ]) assert.equal(decision(user, id, unit, verb), user === 'vsk-labs' ? 'no' : 'not-handled');
 });
+
+test('native CI acceptance is manual, exact-branch/SHA-bound, and always cleans up', () => {
+  const workflow = file('.github/workflows/ci.yml');
+  const fixture = file('tooling/native-credential-authority-ci-fixture.sh');
+  assert.match(workflow, /github\.event_name == 'workflow_dispatch' && github\.ref == 'refs\/heads\/feat\/143-native-credential-authority' && inputs\.native_credential_sha != ''/);
+  assert.match(workflow, /test "\$GITHUB_SHA" = "\$VSK143_SHA"/);
+  assert.match(workflow, /if: always\(\) && github\.event_name == 'workflow_dispatch'/);
+  assert.match(fixture, /vsk-node-01\|vsk-node-06/);
+  assert.match(fixture, /trap clean_fixture EXIT/);
+  assert.match(fixture, /Fixture path already exists/);
+});

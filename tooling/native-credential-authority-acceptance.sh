@@ -22,7 +22,7 @@ test "$positive_uid" -gt 0
 test "$denied_uid" -gt 0
 test "$positive_uid" != "$denied_uid"
 
-tmpdir="$(mktemp -d -p /run vsk-native-accept.XXXXXX)"
+tmpdir="$(mktemp -d -p "${VSK143_FIXTURE_TMP:-/run}" vsk-native-accept.XXXXXX)"
 chmod 700 "$tmpdir"
 cleanup() {
   rm -f /etc/polkit-1/rules.d/90-vsk-native-permissive-fixture.rules /etc/polkit-1/rules.d/00-aaa-vsk-native-permissive-fixture.rules /etc/sudoers.d/00-vsk-native-broad-fixture
