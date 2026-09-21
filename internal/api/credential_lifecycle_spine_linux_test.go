@@ -54,7 +54,11 @@ func (verifier lifecyclePublicVerifier) Verify(ctx context.Context, step runengi
 		result string
 	}{{binding.ConsumerIDs, "verified"}, {binding.RequiredDeniedConsumerIDs, "denied"}} {
 		for _, consumer := range group.ids {
-			results = append(results, credentialref.ConsumerVerification{ConsumerID: consumer, ProfileID: "profile-test", RoleID: "role-test", MaterialVersion: binding.MaterialVersion, CiphertextFingerprint: binding.CiphertextFingerprint, EvidenceDigest: lifecyclePublicDigest("synthetic-" + consumer), RestartObserved: true, Result: group.result, ReasonCode: "fixture-observed"})
+			verification, err := credentialref.NewConsumerVerification(binding, consumer, "profile-test", "role-test", lifecyclePublicDigest("synthetic-"+consumer), "fixture-observed", group.result, group.result == "verified")
+			if err != nil {
+				return nil, err
+			}
+			results = append(results, verification)
 		}
 	}
 	return results, nil

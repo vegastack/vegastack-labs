@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"slices"
 	"sync"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
@@ -74,6 +75,25 @@ func (registry *Registry) ResolveCredentialResolver(resolverID, consumerID, prof
 		return nil, &Error{code: generated.ErrorCodePrerequisiteBlocked, target: "credential-resolver"}
 	}
 	return resolved, nil
+}
+
+// RegisteredCredentialConsumers returns the exact enabled consumer set for a
+// resolver and applied profile. It reveals no resolver or credential material.
+func (registry *Registry) RegisteredCredentialConsumers(resolverID, profileID string) ([]string, error) {
+	if registry == nil || !adapterToken.MatchString(resolverID) || !adapterToken.MatchString(profileID) || resolverID == "test.fake" {
+		return nil, &Error{code: generated.ErrorCodePrerequisiteBlocked, target: "credential-consumer-registry"}
+	}
+	registry.mu.RLock()
+	defer registry.mu.RUnlock()
+	consumers := make([]string, 0)
+	for key, scope := range registry.credentialScopes {
+		if !scope.Enabled || scope.ResolverID != resolverID || scope.ProfileID != profileID || registry.credentialResolvers[key] == nil || !adapterToken.MatchString(scope.ConsumerID) {
+			continue
+		}
+		consumers = append(consumers, scope.ConsumerID)
+	}
+	slices.Sort(consumers)
+	return slices.Compact(consumers), nil
 }
 
 func (registry *Registry) Register(id string, implementation Adapter) error {

@@ -16,13 +16,13 @@ function commandStep(name, group, command, args, options = {}) {
   });
 }
 
-function packageStep(name, group, args) {
+function packageStep(name, group, args, options = {}) {
   return Object.freeze({
     name,
     group,
     run: (root, { capture = false } = {}) => {
       const invocation = packageManagerInvocation(args);
-      return runCommand(invocation.command, invocation.args, { cwd: root, capture });
+      return runCommand(invocation.command, invocation.args, { cwd: root, capture, ...options });
     },
   });
 }
@@ -60,7 +60,9 @@ const steps = Object.freeze([
   commandStep("Go vet", "go", "go", ["vet", "./..."]),
   commandStep("Go unit tests", "go", "go", ["test", "./..."]),
   commandStep("Go package build", "go", "go", ["build", "./..."]),
-  packageStep("tooling tests", "tooling", ["test:tooling"]),
+  // Cold Go dependency analysis in the CLI tooling fixtures can exceed the
+  // generic five-minute subprocess limit even when every assertion is healthy.
+  packageStep("tooling tests", "tooling", ["test:tooling"], { timeoutMs: 600_000 }),
   packageStep("web lint", "web", ["--filter", "@vegastack/labs-web", "lint"]),
   packageStep("web typecheck", "web", ["--filter", "@vegastack/labs-web", "typecheck"]),
   packageStep("web unit tests", "web", ["--filter", "@vegastack/labs-web", "test"]),

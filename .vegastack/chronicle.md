@@ -2,6 +2,26 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — Credential evidence is bound and failures stay redacted ([#133](https://github.com/vegastack/vegastack-labs/issues/133))
+
+- **What:** Credential lifecycle verification now checks strict evidence digests and exact positive and denied consumer sets. A verifier panic, cancellation or uncertain external effect is reported through a redacted recovery-required boundary.
+- **Why:** An activation must not become authoritative from malformed evidence, a partial consumer set or an error message that could contain secret material.
+- **How it went:** The implementation narrowed the issue to evidence hardening and registered-consumer enumeration after finding that real native service delivery and optional provider version proof require separate OS and provider work. Linux CI fixture failures exposed stale assumptions about denied observations and the new migration count; those fixtures were corrected and independently re-reviewed.
+- **Changed:** Strict SHA-256 and reason validation · append-only SQLite evidence hardening · exact registered-consumer enumeration · panic and uncertain-effect redaction · live Phase 2 evidence reseal. Production lifecycle and recovery verifiers remain unavailable; production cannot activate a credential.
+- **Decisions:** none; native delivery is tracked in [#140](https://github.com/vegastack/vegastack-labs/issues/140) and [#141](https://github.com/vegastack/vegastack-labs/issues/141), optional provider proof in [#139](https://github.com/vegastack/vegastack-labs/issues/139), and recovery in [#134](https://github.com/vegastack/vegastack-labs/issues/134).
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/133-credential-consumer-verifiers
+
+## 22-09-2026 — An unchanged PR head can reuse its complete CI proof ([#138](https://github.com/vegastack/vegastack-labs/issues/138))
+
+- **What:** The development PR guard accepts one successful manual full Public CI run bound to the exact clean local and pushed branch commit as the complete pre-PR proof, without launching another complete check.
+- **Why:** The old guard repeated an expensive complete run at PR creation even after the unchanged head had already passed the complete lane.
+- **How it went:** The workflow reused the existing full-plan CI result and checked its run, job, step and structured output identities. An exact-head full CI run exposed an older future-session assertion and AGENTS.md wording that still required a separate local command; both were aligned with the selected one-proof rule. The guard change is installed locally on this workstation; the repository profile alone does not update another machine's skill installation.
+- **Changed:** Opt-in exact-head CI proof guard · focused fail-closed tests · repository agent contract, workflow profile, mandate and policy assertion. PR and post-merge checks remain separate.
+- **Decisions:** none; no product, deployment, or repository protection policy changed.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/138-reuse-exact-head-ci
+
 ## 21-09-2026 — Credential changes can be drafted without activating them ([#132](https://github.com/vegastack/vegastack-labs/issues/132))
 
 - **What:** Operators can draft staging, activation, rotation, named revocation and recovery through the same server API and CLI. Drafts carry only metadata and derive the exact stored fingerprint and import identity on the server. Status changes still require a current immutable plan and independent human acknowledgement.

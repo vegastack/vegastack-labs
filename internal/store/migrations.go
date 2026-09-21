@@ -17,7 +17,7 @@ import (
 // Migration ownership is fixed: 0001 belongs to #30, 0002 to #31, 0003 to
 // #33, 0004 to #35, 0005 to #54, 0006 to #76, 0007 to #71, 0008 to #77,
 // 0009 to #74, 0010 to #69, 0011 to #104, 0012 to #123, 0013 to #124, and
-// 0014 to #107, and 0015 to #125.
+// 0014 to #107, 0015 to #125, and 0016 to #133.
 
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
@@ -53,7 +53,8 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 13, Name: "0013_credential_import_drafts", SHA256: mustSHA256("2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204")},
 	{ID: 14, Name: "0014_audit_chain", SHA256: mustSHA256("11ab59848b8410e6bac8c59101332cf56fd1de96c3a1b89c365df127c70c94d7")},
 	{ID: 15, Name: "0015_credential_lifecycle", SHA256: mustSHA256("f5f09a0756ccfd3d6f9686f9e177aba11436fd10d6e98a1b6765fd6c993014e9")},
-	{ID: 16, Name: "0016_backup_creation", SHA256: mustSHA256("4ed6f7effbce9174d01d5976179e15309f9bacc1f26b1ead3ac916a2bc1b64d2")},
+	{ID: 16, Name: "0016_credential_evidence_hardening", SHA256: mustSHA256("45c41bfd0c9d6e8a5a9b340ea74b0f10cdd8dd4d6beaaa20ea6ad44a3b34a798")},
+	{ID: 17, Name: "0017_backup_creation", SHA256: mustSHA256("4ed6f7effbce9174d01d5976179e15309f9bacc1f26b1ead3ac916a2bc1b64d2")},
 }
 
 func Catalog() ([]Migration, error) {
