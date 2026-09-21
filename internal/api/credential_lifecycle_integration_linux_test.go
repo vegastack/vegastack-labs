@@ -214,7 +214,11 @@ func TestLifecycleRotateAndRecoverDraftsRejectOriginSubstitution(t *testing.T) {
 			t.Run(action+"/"+mode, func(t *testing.T) {
 				fixture := newLifecyclePublicFixture(t)
 				if action == "credential.recover" {
-					// Test-only restored-epoch setup, never a runtime recovery authority.
+					// Test-only restored-epoch setup. The store requires an explicit
+					// prior checkpoint and decision before the epoch can admit writes.
+					if err := fixture.authority.PrepareRecoveryAuditEpoch(context.Background(), 1, audit.Fingerprint(lifecyclePublicDigest("prior-checkpoint")), audit.Fingerprint(lifecyclePublicDigest("recovery-decision"))); err != nil {
+						t.Fatal(err)
+					}
 					db, err := sql.Open("sqlite3", fixture.path)
 					if err != nil {
 						t.Fatal(err)
