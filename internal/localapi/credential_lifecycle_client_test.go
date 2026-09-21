@@ -14,7 +14,7 @@ import (
 
 func TestLifecycleClientUsesFiniteRouteAndRejectsSubstitutedSubmission(t *testing.T) {
 	draft := "draft-a"
-	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.2.0", Action: "credential.stage", DraftID: &draft, ReferenceID: "reference-a", MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, ExpectedStateRevision: 7, RecoveryEpoch: 2, IdempotencyKey: "key-a"}
+	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: "credential.stage", DraftID: &draft, ReferenceID: "reference-a", MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, ExpectedStateRevision: 7, RecoveryEpoch: 2, IdempotencyKey: "key-a"}
 	input.TargetDigest = credentialref.LifecycleTargetDigest(input)
 	for _, wrong := range []bool{false, true} {
 		data := generated.CredentialLifecycleSubmission{Schema: generated.SchemaIDCredentialLifecycleSubmission, SchemaVersion: "1.2.0", ChangeID: "change-a", OperationID: "operation-a", ReferenceID: input.ReferenceID, Action: input.Action, Status: "draft", StateRevision: 9, RecoveryEpoch: 2}

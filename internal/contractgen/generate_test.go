@@ -200,6 +200,8 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/credential-import-submission.schema.json",
 		"schemas/v1/credential-lifecycle-request.schema.json",
 		"schemas/v1/credential-lifecycle-submission.schema.json",
+		"schemas/v1/credential-native-consumer.schema.json",
+		"schemas/v1/credential-native-denied-reader.schema.json",
 		"schemas/v1/credential-reference-request.schema.json",
 		"schemas/v1/credential-reference.schema.json",
 		"schemas/v1/credential-resolution-record.schema.json",

@@ -37,6 +37,8 @@ const (
 	credentialImportRequestSchemaID     = "vegastack-labs.dev/credential-import-request"
 	credentialImportSubmissionSchemaID  = "vegastack-labs.dev/credential-import-submission"
 	credentialLifecycleRequestSchemaID  = "vegastack-labs.dev/credential-lifecycle-request"
+	credentialNativeConsumerSchemaID    = "vegastack-labs.dev/credential-native-consumer"
+	credentialNativeDeniedReaderID      = "vegastack-labs.dev/credential-native-denied-reader"
 	credentialLifecycleSubmissionID     = "vegastack-labs.dev/credential-lifecycle-submission"
 	auditCheckpointRequestSchemaID      = "vegastack-labs.dev/audit-checkpoint-request"
 	databaseExportRequestSchemaID       = "vegastack-labs.dev/database-export-request"
@@ -357,8 +359,8 @@ func phase5LifecycleSchema(identifier string, fields ...FieldDefinition) SchemaD
 
 func phase5LifecycleRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Request(identifier, fields...)
-	schema.Version = "1.2.0"
-	schema.Fields[1].Enum = []string{"1.2.0"}
+	schema.Version = "1.3.0"
+	schema.Fields[1].Enum = []string{"1.3.0"}
 	return schema
 }
 
@@ -478,12 +480,27 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Enum("status", "Status", "draft"),
 			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5Schema(credentialNativeConsumerSchemaID,
+			phase5ID("consumerId", "ConsumerID"), phase5ID("targetId", "TargetID"),
+			FieldDefinition{JSONName: "hostMachineId", GoName: "HostMachineID", Kind: ValueString, Required: true, Pattern: `^[0-9a-f]{32}$`},
+			FieldDefinition{JSONName: "unitName", GoName: "UnitName", Kind: ValueString, Required: true, Pattern: `^[a-z0-9][a-z0-9_.@-]{0,119}\.service$`},
+			phase5BoundedNonnegative("serviceUid", "ServiceUID", 4294967295), phase5BoundedNonnegative("serviceGid", "ServiceGID", 4294967295),
+			phase5ID("profileId", "ProfileID"), phase5ID("roleId", "RoleID"),
+		),
+		phase5Schema(credentialNativeDeniedReaderID,
+			phase5ID("consumerId", "ConsumerID"), phase5ID("targetId", "TargetID"),
+			FieldDefinition{JSONName: "hostMachineId", GoName: "HostMachineID", Kind: ValueString, Required: true, Pattern: `^[0-9a-f]{32}$`},
+			phase5BoundedNonnegative("readerUid", "ReaderUID", 4294967295), phase5BoundedNonnegative("readerGid", "ReaderGID", 4294967295),
+			phase5ID("profileId", "ProfileID"), phase5ID("roleId", "RoleID"),
+		),
 		phase5LifecycleRequest(credentialLifecycleRequestSchemaID,
 			phase5LifecycleAction(),
 			phase5NullableID("draftId", "DraftID"),
 			phase5ID("referenceId", "ReferenceID"),
 			phase5IDs("consumerIds", "ConsumerIDs", 64),
 			phase5IDs("requiredDeniedConsumerIds", "RequiredDeniedConsumerIDs", 64),
+			FieldDefinition{JSONName: "nativeConsumers", GoName: "NativeConsumers", Kind: ValueArray, Required: false, Nullable: true, ItemRef: credentialNativeConsumerSchemaID, MaxItems: intPointer(64)},
+			FieldDefinition{JSONName: "nativeDeniedReaders", GoName: "NativeDeniedReaders", Kind: ValueArray, Required: false, Nullable: true, ItemRef: credentialNativeDeniedReaderID, MaxItems: intPointer(64)},
 			phase5ID("materialVersion", "MaterialVersion"),
 			phase5NullableID("priorMaterialVersion", "PriorMaterialVersion"),
 			phase5ID("resolverId", "ResolverID"),

@@ -76,12 +76,37 @@ func ValidateLifecycleRequestSemantics(request CredentialLifecycleRequest) error
  invalid := func() error { return errors.New(ErrorCodeInputInvalid) }
  identifier := regexp.MustCompile("^[a-z][a-z0-9._:-]{0,127}$")
  digest := regexp.MustCompile("^sha256:[a-f0-9]{64}$")
- if request.Schema != SchemaIDCredentialLifecycleRequest || request.SchemaVersion != "1.2.0" || request.ExpectedStateRevision < 0 || request.RecoveryEpoch < 0 || !digest.MatchString(request.TargetDigest) || !identifier.MatchString(request.IdempotencyKey) { return invalid() }
+ if request.Schema != SchemaIDCredentialLifecycleRequest || request.SchemaVersion != "1.3.0" || request.ExpectedStateRevision < 0 || request.RecoveryEpoch < 0 || !digest.MatchString(request.TargetDigest) || !identifier.MatchString(request.IdempotencyKey) { return invalid() }
  for _, id := range []string{request.ReferenceID, request.MaterialVersion, request.ResolverID, request.TargetID} { if !identifier.MatchString(id) { return invalid() } }
  for _, id := range []*string{request.DraftID, request.PriorMaterialVersion} { if id != nil && !identifier.MatchString(*id) { return invalid() } }
  seen := map[string]bool{}
  if len(request.ConsumerIDs) > 64 || len(request.RequiredDeniedConsumerIDs) > 64 { return invalid() }
  for _, id := range append(append([]string(nil), request.ConsumerIDs...), request.RequiredDeniedConsumerIDs...) { if !identifier.MatchString(id) || seen[id] { return invalid() }; seen[id] = true }
+ nativeOperation := request.ResolverID == "native-systemd" && (request.Action == "credential.activate" || request.Action == "credential.rotate")
+ if !nativeOperation {
+  if request.NativeConsumers != nil && len(*request.NativeConsumers) != 0 || request.NativeDeniedReaders != nil && len(*request.NativeDeniedReaders) != 0 { return invalid() }
+ } else {
+  if request.NativeConsumers == nil || request.NativeDeniedReaders == nil || len(*request.NativeConsumers) != len(request.ConsumerIDs) || len(*request.NativeDeniedReaders) != len(request.RequiredDeniedConsumerIDs) { return invalid() }
+  machineID := regexp.MustCompile("^[0-9a-f]{32}$")
+  unitName := regexp.MustCompile("^[a-z0-9][a-z0-9_.@-]{0,119}\\.service$")
+  positive := map[string]bool{}
+  positiveUID := map[int64]bool{}
+  for _, id := range request.ConsumerIDs { positive[id] = true }
+  host := ""
+  for _, item := range *request.NativeConsumers {
+   if item.Schema != SchemaIDCredentialNativeConsumer || item.SchemaVersion != "1.0.0" || !positive[item.ConsumerID] || item.TargetID != request.TargetID || !machineID.MatchString(item.HostMachineID) || !unitName.MatchString(item.UnitName) || strings.Contains(item.UnitName, "..") || item.ServiceUID <= 0 || item.ServiceUID > 4294967295 || item.ServiceGID <= 0 || item.ServiceGID > 4294967295 || !identifier.MatchString(item.ProfileID) || !identifier.MatchString(item.RoleID) { return invalid() }
+   if host != "" && item.HostMachineID != host { return invalid() }; host = item.HostMachineID
+   delete(positive, item.ConsumerID); positiveUID[item.ServiceUID] = true
+  }
+  if len(positive) != 0 { return invalid() }
+  denied := map[string]bool{}
+  for _, id := range request.RequiredDeniedConsumerIDs { denied[id] = true }
+  for _, item := range *request.NativeDeniedReaders {
+   if item.Schema != SchemaIDCredentialNativeDeniedReader || item.SchemaVersion != "1.0.0" || !denied[item.ConsumerID] || item.TargetID != request.TargetID || item.HostMachineID != host || item.ReaderUID <= 0 || item.ReaderUID > 4294967295 || item.ReaderGID <= 0 || item.ReaderGID > 4294967295 || positiveUID[item.ReaderUID] || !identifier.MatchString(item.ProfileID) || !identifier.MatchString(item.RoleID) { return invalid() }
+   delete(denied, item.ConsumerID)
+  }
+  if len(denied) != 0 { return invalid() }
+ }
  noRecovery := request.PriorRecoveryEpoch == nil && request.CustodyProofDigest == nil && request.FormerControllerFenceDigest == nil
  switch request.Action {
  case "credential.stage":
