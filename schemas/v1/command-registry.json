@@ -2995,7 +2995,7 @@
     },
     {
       "id": "vegastack-labs.dev/backup-verify-request",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/backup-verify-request.schema.json"
     },
     {

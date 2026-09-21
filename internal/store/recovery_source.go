@@ -29,6 +29,17 @@ func NewOnlineSnapshotSource(authority *Store) (OnlineSnapshotSource, error) {
 	return &recoverySource{store: authority, catalog: catalog}, nil
 }
 
+func NewRestoredSQLiteInspector(authority *Store) (RestoredSQLiteInspector, error) {
+	if authority == nil {
+		return nil, newStoreError("INPUT_INVALID", "backup-restored-inspector", false, nil)
+	}
+	catalog, err := Catalog()
+	if err != nil {
+		return nil, err
+	}
+	return &recoverySource{store: authority, catalog: catalog}, nil
+}
+
 // CurrentExpectation reads the live database's current schema version, state
 // revision, recovery epoch and migration-catalog digest. Binding this to a
 // capture lets OnlineSnapshot reject any concurrent mutation.

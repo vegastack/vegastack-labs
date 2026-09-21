@@ -12,6 +12,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
@@ -88,10 +90,13 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	if mode == "" {
 		mode = "backup"
 	}
-	if mode != "backup" && mode != "init" && mode != "config" {
+	if mode != "backup" && mode != "init" && mode != "config" && mode != "snapshots" && mode != "check-full" && mode != "restore" {
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 	if mode == "backup" && request.SnapshotPath == "" {
+		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
+	}
+	if mode == "restore" && (!validObjectName(request.SnapshotID) || !safeRestoreTarget(request)) {
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 
@@ -113,6 +118,12 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		argv = append(argv, "init", "--repository-version", "2")
 	} else if mode == "config" {
 		argv = append(argv, "cat", "config")
+	} else if mode == "snapshots" {
+		argv = append(argv, "snapshots")
+	} else if mode == "check-full" {
+		argv = append(argv, "check", "--read-data")
+	} else if mode == "restore" {
+		argv = append(argv, "restore", request.SnapshotID, "--target", request.RestoreTarget)
 	} else {
 		argv = append(argv, "backup", request.SnapshotPath, "--host", "vsk-labs")
 	}
@@ -144,6 +155,9 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		}
 		return ResticResult{}, failure.New(generated.ErrorCodeExecutionFailed, "backup-restic", false)
 	}
+	if stdoutWriter.exceeded || stderrWriter.exceeded {
+		return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-output", false)
+	}
 
 	if mode == "init" {
 		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
@@ -152,6 +166,16 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		if stdoutWriter.exceeded || stderrWriter.exceeded || parseResticConfig(stdout.Bytes()) != nil {
 			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-config", false)
 		}
+		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
+	}
+	if mode == "snapshots" {
+		ids, paths, err := parseResticSnapshotRecords(stdout.Bytes())
+		if err != nil {
+			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-snapshots", false)
+		}
+		return ResticResult{SnapshotIDs: ids, SnapshotPaths: paths, RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
+	}
+	if mode == "check-full" || mode == "restore" {
 		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
 	}
 
@@ -168,6 +192,65 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		StartedAt:        started,
 		CompletedAt:      completed,
 	}, nil
+}
+
+// A restore target is a fresh, empty, owner-only sibling of the repository
+// root. The exact target is created by the server and is never supplied by an
+// API caller. In particular restic cannot be pointed at authoritative SQLite.
+func safeRestoreTarget(request ResticRequest) bool {
+	target, root := request.RestoreTarget, request.RepositoryRoot
+	if !filepath.IsAbs(target) || !filepath.IsAbs(root) || filepath.Clean(target) != target ||
+		filepath.Dir(target) != filepath.Dir(root) || !strings.HasPrefix(filepath.Base(target), ".vsk-backup-verify-") {
+		return false
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, target, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC, Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS})
+	if err != nil {
+		return false
+	}
+	if err := validateOwnedDirectoryDescriptor(descriptor, uint32(os.Geteuid())); err != nil {
+		_ = unix.Close(descriptor)
+		return false
+	}
+	directory := os.NewFile(uintptr(descriptor), "restore-target")
+	if directory == nil {
+		_ = unix.Close(descriptor)
+		return false
+	}
+	names, err := directory.Readdirnames(1)
+	_ = directory.Close()
+	return err == io.EOF && len(names) == 0
+}
+
+func parseResticSnapshots(output []byte) ([]string, error) {
+	ids, _, err := parseResticSnapshotRecords(output)
+	return ids, err
+}
+
+func parseResticSnapshotRecords(output []byte) ([]string, map[string][]string, error) {
+	var snapshots []struct {
+		ID    string   `json:"id"`
+		Paths []string `json:"paths"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(output))
+	if err := decoder.Decode(&snapshots); err != nil {
+		return nil, nil, err
+	}
+	var extra json.RawMessage
+	if err := decoder.Decode(&extra); !errors.Is(err, io.EOF) {
+		return nil, nil, errors.New("trailing snapshot data")
+	}
+	ids := make([]string, 0, len(snapshots))
+	seen := make(map[string]bool, len(snapshots))
+	paths := make(map[string][]string, len(snapshots))
+	for _, snapshot := range snapshots {
+		if !validObjectName(snapshot.ID) || seen[snapshot.ID] {
+			return nil, nil, errors.New("invalid snapshot id")
+		}
+		seen[snapshot.ID] = true
+		ids = append(ids, snapshot.ID)
+		paths[snapshot.ID] = append([]string(nil), snapshot.Paths...)
+	}
+	return ids, paths, nil
 }
 
 // verifyBinary confirms the restic executable is a service-owned regular file

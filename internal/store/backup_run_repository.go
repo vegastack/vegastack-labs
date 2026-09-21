@@ -81,6 +81,16 @@ func (repository *BackupRepository) AcquireBackupWriterLease(ctx context.Context
 		if _, err := tx.ExecContext(ctx, `UPDATE backup_writer_leases SET released_at=? WHERE repository_class=? AND released_at IS NULL AND maximum_expires_at < ?`, now, request.RepositoryClass, now); err != nil {
 			return backupWriteError(err)
 		}
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_read_leases SET released_at=? WHERE repository_class=? AND released_at IS NULL AND maximum_expires_at<=?`, now, request.RepositoryClass, now); err != nil {
+			return backupWriteError(err)
+		}
+		var activeReaders int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_read_leases WHERE repository_class=? AND released_at IS NULL`, request.RepositoryClass).Scan(&activeReaders); err != nil {
+			return backupWriteError(err)
+		}
+		if activeReaders != 0 {
+			return backupStoreError(generated.ErrorCodeStateConflict, "backup-writer-lease")
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,?,?,?,?,?,NULL,?,?,'running',?,?,?)`,
 			request.JobID, request.PolicyID, request.PolicyDigest, request.RepositoryID, request.RepositoryClass, request.RunID, "local", "fixture", request.RecoveryEpoch, now, now); err != nil {
 			return backupWriteError(err)
@@ -206,6 +216,7 @@ type PendingRecoveryPoint struct {
 	PointID         string
 	ManifestDigest  string
 	ManifestJSON    []byte
+	ContentDigest   string
 	InventoryDigest string
 	ExpectedObjects []ExpectedObjectRow
 	SourceRevision  int64
@@ -280,6 +291,7 @@ func (repository *BackupRepository) GetPendingRecoveryPoint(ctx context.Context,
 		return point, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-read")
 	}
 	return PendingRecoveryPoint{PointID: pointID, ManifestDigest: request.ManifestDigest, ManifestJSON: request.ManifestJSON,
+		ContentDigest:   request.ContentDigest,
 		InventoryDigest: request.InventoryDigest, ExpectedObjects: request.ExpectedObjects,
 		SourceRevision: request.SourceRevision, RecoveryEpoch: request.RecoveryEpoch}, nil
 }

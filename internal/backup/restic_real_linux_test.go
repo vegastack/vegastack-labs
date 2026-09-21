@@ -73,6 +73,7 @@ func TestPinnedResticEndToEnd(t *testing.T) {
 	snapshot := filepath.Join(fixture, "snapshot.sqlite")
 	request.Mode = "backup"
 	request.SnapshotPath = snapshot
+	var lastSnapshotID string
 	for point := 1; point <= 2; point++ {
 		if err := os.WriteFile(snapshot, []byte(strings.Repeat("captured-sqlite-page", 4096)+string(rune('0'+point))), 0o600); err != nil {
 			t.Fatal(err)
@@ -84,6 +85,48 @@ func TestPinnedResticEndToEnd(t *testing.T) {
 		if result.RepositoryFormat != 2 || result.SnapshotID == "" || result.SnapshotCount != 1 {
 			t.Fatalf("backup %d result = %#v", point, result)
 		}
+		lastSnapshotID = result.SnapshotID
+	}
+	// The independent read role must see the exact snapshot IDs and perform a
+	// full payload read before an isolated exact-ID restore. This uses the real
+	// pinned child and REST locks; the earlier backup result alone is not proof.
+	readLease := ReadLease{LeaseID: "read-real", PointID: "point-real", RepositoryID: "repo-real", MaximumExpiresAt: time.Now().Add(10 * time.Minute)}
+	readServer, err := NewVerifierRESTServer(root, uint32(os.Geteuid()), readLease, allowingReadLeaseVerifier{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	readSocket := filepath.Join(fixture, "read.sock")
+	readListener, err := net.Listen("unix", readSocket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer readListener.Close()
+	go func() { _ = readServer.Serve(ctx, readListener) }()
+	readRequest := request
+	readRequest.RepositoryURL = "http+unix://" + readSocket + ":/repo-real/"
+	readRequest.Mode = "snapshots"
+	readRequest.OutputLimit = 4 << 20
+	snapshots, err := runner.Run(ctx, readRequest, password)
+	if err != nil || len(snapshots.SnapshotIDs) != 2 {
+		t.Fatalf("exact snapshots: %v %#v", err, snapshots)
+	}
+	readRequest.Mode = "check-full"
+	if _, err := runner.Run(ctx, readRequest, password); err != nil {
+		t.Fatalf("full payload read: %v", err)
+	}
+	target, err := os.MkdirTemp(filepath.Dir(root), ".vsk-backup-verify-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(target)
+	readRequest.Mode = "restore"
+	readRequest.SnapshotID = lastSnapshotID
+	readRequest.RestoreTarget = target
+	if _, err := runner.Run(ctx, readRequest, password); err != nil {
+		t.Fatalf("isolated exact restore: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(target, strings.TrimPrefix(snapshot, "/"))); err != nil {
+		t.Fatalf("restored snapshot missing: %v", err)
 	}
 	entries, err := os.ReadDir(filepath.Join(root, "snapshots"))
 	if err != nil || len(entries) != 2 {
