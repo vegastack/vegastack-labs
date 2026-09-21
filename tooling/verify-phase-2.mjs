@@ -103,7 +103,7 @@ const REVIEWED_BACKUP_WAVE = Object.freeze({
   id: "phase5-issue106-v1", issue: 106,
   commands: Object.freeze(["backup policy draft"]),
   imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`]),
-  mutationBoundaryDigest: "sha256:7e5229e37879453f3e1ee1997425548ba2f4142e175a4e26f8e5807ae4c1b987",
+  mutationBoundaryDigest: "sha256:ec34b3fee5173307d42c33091b7d73011199839a86a952da952bc1dbeaa60760",
 });
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_BACKUP_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";

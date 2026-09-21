@@ -1007,7 +1007,7 @@ const reviewedBackupSubprocessFile = "restic_linux.go"
 // reviewedBackupSubprocessDigest pins the exact reviewed bytes of the restic
 // child runner. Any edit to restic_linux.go must be re-reviewed and this digest
 // resealed; until then the os/exec allowance fails closed.
-const reviewedBackupSubprocessDigest = "1d357edd9be8b786cf3ef2f3a1265637da4e6c8a0b8776203010f33ba7ae1088"
+const reviewedBackupSubprocessDigest = "91609ed68c29813edb3e06c456cfd5bffd6063d171813bac1cffcf1ceec25baa"
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
 // subprocess file (#106). It confirms the import path, that os/exec is confined

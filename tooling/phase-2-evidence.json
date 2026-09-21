@@ -54,7 +54,7 @@
       { "id": "designsystem-issue128-v1", "issue": 128, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:0b2d4b56d0d5ca1e3ba7c8e796cf0a22a171faad87213cedafcd8ecedf714680" },
       { "id": "phase5-issue124-v1", "issue": 124, "commands": ["credential import"], "imports": [], "mutationBoundaryDigest": "sha256:c18f9df9999784b2c319741cb65172dd802f61bca61abb29a4ecd0a96ce53ba1" },
       { "id": "phase5-issue107-v1", "issue": 107, "commands": ["audit checkpoints", "audit verify"], "imports": [], "mutationBoundaryDigest": "sha256:f7f91580362c31d0d9f66cc9ebb427df1080b8bef771c1a0ab620138da0ecd39" },
-      { "id": "phase5-issue106-v1", "issue": 106, "commands": ["backup policy draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/localbackup", "github.com/vegastack/vegastack-labs/internal/backup"], "mutationBoundaryDigest": "sha256:7e5229e37879453f3e1ee1997425548ba2f4142e175a4e26f8e5807ae4c1b987" }
+      { "id": "phase5-issue106-v1", "issue": 106, "commands": ["backup policy draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/localbackup", "github.com/vegastack/vegastack-labs/internal/backup"], "mutationBoundaryDigest": "sha256:ec34b3fee5173307d42c33091b7d73011199839a86a952da952bc1dbeaa60760" }
     ]
   },
   "children": [
