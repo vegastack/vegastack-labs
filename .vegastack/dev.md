@@ -10,6 +10,7 @@ authority: `AGENTS.md` → `docs/development/operating-mandate.md` → current a
 ## Knobs
 
 review: subagent            # operator instruction 18-09-2026: independent Codex reviewers; no Claude before 22-09-2026 04:30 AM IST. Revisit after cutoff; setting does not auto-revert.
+ship-check: ci-full-exact-head # workstation-local dev-ship guard accepts a successful manual full Public CI run only for the exact clean branch HEAD; a fresh machine needs the matching installed skill update.
 ui-evidence: playwright
 evidence-repo: vegastack/agent-dev-review-evidence
 gates: 3
@@ -26,7 +27,7 @@ chronicle: on
 ## Ship — permitted landing route, in order
 
 - ask: create a pull request only after the operator explicitly requests it for the approved issue.
-- guard: the exact clean branch head has one successful complete `pnpm check` immediately before the pull request is requested, invoked locally through the pinned Node wrapper shown above.
+- guard: the exact clean branch head has one successful complete `pnpm check` immediately before the pull request is requested, invoked locally through the pinned Node wrapper shown above. The installed dev-ship PR guard reuses an existing successful full-mode manual Public CI run for that exact clean head instead of rerunning the complete command at PR creation; missing or unverifiable CI proof blocks rather than launching an implicit duplicate.
 - guard: later review, rebase, or conflict-resolution edits rerun only affected checks; PR CI verifies the actual candidate through `pnpm check:affected` on GitHub-hosted Ubuntu 24.04, while trusted `main`/manual checks may use the two explicitly authorized disposable Debian hosts.
 - ask: squash-merge only after a separate explicit operator instruction, required checks, and a fresh review with no unresolved correctness, security, or acceptance findings.
 - auto: verify the integrated `main` commit through the affected post-merge CI plan, post the implementation/evidence summary, and close the approved issue when all acceptance criteria are satisfied.

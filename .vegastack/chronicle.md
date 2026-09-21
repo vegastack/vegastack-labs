@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — An unchanged PR head can reuse its complete CI proof ([#138](https://github.com/vegastack/vegastack-labs/issues/138))
+
+- **What:** The development PR guard can accept a successful manual full Public CI run bound to the exact clean branch commit, without launching the same complete local check again.
+- **Why:** The old guard repeated an expensive complete run at PR creation even after the unchanged head had already passed the complete lane.
+- **How it went:** The workflow reused the existing full-plan CI result and checked its run, job, step and structured output identities. The guard change is installed locally on this workstation; the repository profile alone does not update another machine's skill installation.
+- **Changed:** Opt-in exact-head CI proof guard · focused fail-closed tests · repository workflow profile. PR and post-merge checks remain separate.
+- **Decisions:** none; no product, deployment, or repository protection policy changed.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/138-reuse-exact-head-ci
+
 ## 18-09-2026 — Credential status changes have a human-authorized execution core ([#125](https://github.com/vegastack/vegastack-labs/issues/125))
 
 - **What:** The server has an append-only credential lifecycle execution core with exact plan, run, lease and consumed human acknowledgement checks. Lifecycle commands and real consumer/recovery verifiers remain deferred and production fails closed.
