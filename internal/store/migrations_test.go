@@ -3,9 +3,115 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
+	"os"
+	"path/filepath"
 	"testing"
 	"testing/fstest"
 )
+
+func openCredentialMigrationFixture(t *testing.T) *sql.DB {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "credential-migration.db")
+	file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_RDWR, 0o600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open(sqliteDriverName, sqliteURI(path))
+	if err != nil {
+		t.Fatal(err)
+	}
+	db.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = db.Close() })
+	return db
+}
+
+func TestCredentialEvidenceMigrationPreservesRowsAndAppendOnlyChecks(t *testing.T) {
+	catalog, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := openCredentialMigrationFixture(t)
+	for _, migration := range catalog[14:16] {
+		if _, err := db.Exec(migration.SQL); err != nil {
+			t.Fatalf("apply %s: %v", migration.Name, err)
+		}
+		if migration.ID == 15 {
+			good := "sha256:" + hexRepeatForMigration("a", 64)
+			if _, err := db.Exec(`INSERT INTO credential_consumer_verifications VALUES('v1','r','version-a','consumer-a','profile-a','role-a','material-a',?,?,1,'verified','loaded',0,'now')`, good, good); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := db.Exec(`INSERT INTO credential_recovery_records VALUES('r1','r','version-a','draft-a',?,?,0,1,?,'now')`, good, good, good); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	for _, table := range []string{"credential_consumer_verifications", "credential_recovery_records"} {
+		var count int
+		if err := db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count); err != nil || count != 1 {
+			t.Fatalf("%s rows not preserved: count=%d err=%v", table, count, err)
+		}
+		if _, err := db.Exec("DELETE FROM " + table); err == nil {
+			t.Fatalf("%s lost its append-only trigger", table)
+		}
+	}
+	good := "sha256:" + hexRepeatForMigration("a", 64)
+	bad := "sha256:" + hexRepeatForMigration("z", 64)
+	if _, err := db.Exec(`INSERT INTO credential_consumer_verifications VALUES('v2','r','version-b','consumer-a','profile-a','role-a','material-a',?,?,1,'verified','loaded',0,'now')`, good, bad); err == nil {
+		t.Fatal("migrated table accepted nonhex evidence")
+	}
+	if _, err := db.Exec(`INSERT INTO credential_consumer_verifications VALUES('v3','r','version-c','consumer-a','profile-a','role-a','material-a',?,?,1,'verified','Bad Reason',0,'now')`, good, good); err == nil {
+		t.Fatal("migrated table accepted invalid reason")
+	}
+	if _, err := db.Exec(`INSERT INTO credential_recovery_records VALUES('r2','r','version-b','draft-a',?,?,0,1,?,'now')`, bad, good, good); err == nil {
+		t.Fatal("migrated recovery table accepted nonhex custody digest")
+	}
+}
+
+func TestCredentialEvidenceMigrationFailsClosedOnRetainedInvalidRow(t *testing.T) {
+	catalog, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := openCredentialMigrationFixture(t)
+	if _, err := db.Exec(catalog[14].SQL); err != nil {
+		t.Fatal(err)
+	}
+	good := "sha256:" + hexRepeatForMigration("a", 64)
+	bad := "sha256:" + hexRepeatForMigration("z", 64)
+	if _, err := db.Exec(`INSERT INTO credential_consumer_verifications VALUES('v1','r','version-a','consumer-a','profile-a','role-a','material-a',?,?,1,'verified','loaded',0,'now')`, good, bad); err != nil {
+		t.Fatalf("older schema must accept the adversarial retained row: %v", err)
+	}
+	transaction, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(catalog[15].SQL); err == nil {
+		_ = transaction.Rollback()
+		t.Fatal("migration silently accepted retained nonhex evidence")
+	}
+	if err := transaction.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.QueryRow(`SELECT COUNT(*) FROM credential_consumer_verifications WHERE verification_id='v1'`).Scan(&count); err != nil || count != 1 {
+		t.Fatalf("failed migration did not preserve old evidence: count=%d err=%v", count, err)
+	}
+	if _, err := db.Exec(`DELETE FROM credential_consumer_verifications`); err == nil {
+		t.Fatal("failed migration lost old append-only trigger")
+	}
+}
+
+func hexRepeatForMigration(char string, count int) string {
+	result := make([]byte, count)
+	for i := range result {
+		result[i] = char[0]
+	}
+	return string(result)
+}
 
 type recoveryContractFake struct{}
 
@@ -125,7 +231,7 @@ func TestCatalogAddsAuditOutboxAsExactlyMigrationThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) != 15 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" || catalog[9].ID != 10 || catalog[9].Name != "0010_external_executor_leases" || catalog[10].ID != 11 || catalog[10].Name != "0011_gate_evidence" || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" || catalog[13].ID != 14 || catalog[13].Name != "0014_audit_chain" || catalog[14].ID != 15 || catalog[14].Name != "0015_credential_lifecycle" {
+	if len(catalog) != 16 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" || catalog[9].ID != 10 || catalog[9].Name != "0010_external_executor_leases" || catalog[10].ID != 11 || catalog[10].Name != "0011_gate_evidence" || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" || catalog[13].ID != 14 || catalog[13].Name != "0014_audit_chain" || catalog[14].ID != 15 || catalog[14].Name != "0015_credential_lifecycle" || catalog[15].ID != 16 || catalog[15].Name != "0016_credential_evidence_hardening" {
 		t.Fatalf("third migration = %#v", catalog)
 	}
 	for _, required := range []string{"audit_instances", "audit_epoch_genesis", "audit_chain_links", "audit_checkpoints", "audit_checkpoint_outbox", "no_update", "no_delete"} {

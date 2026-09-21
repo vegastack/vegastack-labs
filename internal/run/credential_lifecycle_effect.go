@@ -146,9 +146,16 @@ func (effect *CoreCredentialEffect) Execute(ctx context.Context, binding ExactSt
 		if err := effect.gate.VerifySecretStep(ctx, binding.Plan, *plannedOperation); err != nil {
 			return adapter.Effect{}, err
 		}
-		results, verifyErr := effect.lifecycleVerifier.Verify(ctx, binding, lifecycleBinding)
+		results, verifyErr := guardedLifecycleVerify(ctx, effect.lifecycleVerifier, binding, lifecycleBinding)
 		if verifyErr != nil {
-			return adapter.Effect{}, verifyErr
+			if _, unavailable := effect.lifecycleVerifier.(UnavailableCredentialLifecycleVerifier); unavailable {
+				// The built-in sentinel performs no external work.
+				return adapter.Effect{}, verifyErr
+			}
+			// A verifier may have restarted or read a consumer before failing.
+			// The engine must persist effect-unknown/partial, never retry it as
+			// an unobserved pre-effect failure.
+			return adapter.Effect{EffectObserved: true}, verifyErr
 		}
 		verifications = results
 		activatedAt := effect.clock().UTC().Truncate(time.Second).Format(time.RFC3339)
@@ -161,9 +168,12 @@ func (effect *CoreCredentialEffect) Execute(ctx context.Context, binding ExactSt
 		if err := effect.gate.VerifySecretStep(ctx, binding.Plan, *plannedOperation); err != nil {
 			return adapter.Effect{}, err
 		}
-		result, verifyErr := effect.recoveryVerifier.Verify(ctx, binding, lifecycleBinding)
+		result, verifyErr := guardedRecoveryVerify(ctx, effect.recoveryVerifier, binding, lifecycleBinding)
 		if verifyErr != nil {
-			return adapter.Effect{}, verifyErr
+			if _, unavailable := effect.recoveryVerifier.(UnavailableCredentialRecoveryVerifier); unavailable {
+				return adapter.Effect{}, verifyErr
+			}
+			return adapter.Effect{EffectObserved: true}, verifyErr
 		}
 		recovery = &result
 		reference.Status = "staged"
