@@ -68,6 +68,7 @@ const (
 
 type AccessProbeResult struct {
 	Status   AccessProbeStatus `json:"status"`
+	Device   uint64            `json:"device,omitempty"`
 	Inode    uint64            `json:"inode,omitempty"`
 	OwnerUID uint32            `json:"owner_uid,omitempty"`
 	OwnerGID uint32            `json:"owner_gid,omitempty"`
@@ -137,9 +138,9 @@ func validProbeResult(result AccessProbeResult) bool {
 		return false
 	}
 	if result.Status == AccessProbeOpened {
-		return result.Inode != 0 && result.Mode&unix.S_IFMT == unix.S_IFREG
+		return result.Device != 0 && result.Inode != 0 && result.Mode&unix.S_IFMT == unix.S_IFREG
 	}
-	return result.Inode == 0 && result.OwnerUID == 0 && result.OwnerGID == 0 && result.Mode == 0
+	return result.Device == 0 && result.Inode == 0 && result.OwnerUID == 0 && result.OwnerGID == 0 && result.Mode == 0
 }
 
 // RunAccessProbeMode is the sole root entry. It accepts one bounded structured stdin request.
@@ -261,7 +262,7 @@ func probeCredentialFileAt(root, unit, name string) AccessProbeResult {
 	if unix.Fstat(checkFD, &check) != nil || check.Dev != stat.Dev || check.Ino != stat.Ino || check.Mode != stat.Mode || check.Uid != stat.Uid || check.Gid != stat.Gid {
 		return AccessProbeResult{Status: AccessProbeUnknown}
 	}
-	return AccessProbeResult{Status: AccessProbeOpened, Inode: stat.Ino, OwnerUID: stat.Uid, OwnerGID: stat.Gid, Mode: stat.Mode}
+	return AccessProbeResult{Status: AccessProbeOpened, Device: uint64(stat.Dev), Inode: stat.Ino, OwnerUID: stat.Uid, OwnerGID: stat.Gid, Mode: stat.Mode}
 }
 
 func probeError(err error) AccessProbeResult {

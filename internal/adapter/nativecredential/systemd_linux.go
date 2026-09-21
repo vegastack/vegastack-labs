@@ -91,7 +91,7 @@ func decodeAppliedUnit(unit string, unitProps, serviceProps map[string]dbus.Vari
 	group, okGroup := get(serviceProps, "Group").(string)
 	rawSources, okSources := get(serviceProps, "LoadCredentialEncrypted").([][]interface{})
 	if !okID || !okLoad || !okActive || !okReload || !okInvocation || !okPID || !okStarted || !okUser || !okGroup || !okSources ||
-		id != unit || load != "loaded" || active != "active" || reload || pid <= 1 || started == 0 || len(invocation) != 16 ||
+		id != unit || load != "loaded" || reload || len(invocation) != 16 ||
 		len(rawSources) == 0 || len(rawSources) > 64 {
 		return AppliedUnitSnapshot{}, errAppliedUnit
 	}
