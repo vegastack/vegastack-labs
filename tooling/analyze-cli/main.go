@@ -338,6 +338,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	releaseImport := modulePath + "/internal/release"
 	stateExportImport := modulePath + "/internal/stateexport"
 	auditImport := modulePath + "/internal/audit"
+	recoveryImport := modulePath + "/internal/recovery"
 	identityImport := modulePath + "/internal/identity"
 	apiImport := modulePath + "/internal/api"
 	serverImport := modulePath + "/internal/server"
@@ -423,7 +424,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				// Issue #107 verifies independently signed audit checkpoints
 				// with public material only. Seal that exact package; every
 				// other Ed25519 dependency remains forbidden production trust.
-				if candidate.ImportPath != auditImport || !reviewedAuditVerificationPackage(parsed) {
+				if !(candidate.ImportPath == auditImport && reviewedAuditVerificationPackage(parsed)) &&
+					!(candidate.ImportPath == recoveryImport && reviewedRecoveryVerificationPackage(parsed)) {
 					result.StateExportTrust = true
 				}
 			case "crypto/rsa":
@@ -894,6 +896,74 @@ func reviewedAuditVerificationPackage(candidate checkedSourcePackage) bool {
 		return false
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == reviewedAuditVerificationDigest
+}
+
+// The recovery contract verifies independently signed public artifacts. It
+// never holds an Ed25519 signing key or signs state in the controller. Keep
+// both platform source sets pinned and reject signing references explicitly.
+func reviewedRecoveryVerificationPackage(candidate checkedSourcePackage) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	var expected string
+	switch strings.Join(names, ",") {
+	case "artifact.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,receipt_file_unix.go,transport.go,witness.go":
+		expected = "0323065bcb35a55d999e271be1330abc1453ad5160436e3bb6ef2eb5074aece6"
+	case "artifact.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,receipt_file_unsupported.go,transport.go,witness.go":
+		expected = "1232ac61b79bc15df35c6fc6b6f09929d68792249e785ccd4faeeaa29d2aa402"
+	default:
+		return false
+	}
+	if digestSourceFiles(candidate.listed.Dir, names) != expected {
+		return false
+	}
+	for _, name := range names {
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(candidate.listed.Dir, name), nil, parser.ImportsOnly)
+		if err != nil {
+			return false
+		}
+		alias := ""
+		for _, imported := range file.Imports {
+			path, err := strconv.Unquote(imported.Path.Value)
+			if err != nil {
+				return false
+			}
+			if path == "crypto/ed25519" {
+				alias = "ed25519"
+				if imported.Name != nil {
+					alias = imported.Name.Name
+				}
+				if alias == "." {
+					return false
+				}
+			}
+		}
+		if alias == "" || alias == "_" {
+			continue
+		}
+		file, err = parser.ParseFile(token.NewFileSet(), filepath.Join(candidate.listed.Dir, name), nil, 0)
+		if err != nil {
+			return false
+		}
+		forbidden := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			selector, ok := node.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			identifier, ok := selector.X.(*ast.Ident)
+			if ok && identifier.Name == alias {
+				switch selector.Sel.Name {
+				case "Sign", "GenerateKey", "NewKeyFromSeed", "PrivateKey":
+					forbidden = true
+				}
+			}
+			return !forbidden
+		})
+		if forbidden {
+			return false
+		}
+	}
+	return true
 }
 
 func reviewedNetworkFunctionPackage(packagePath string) bool {

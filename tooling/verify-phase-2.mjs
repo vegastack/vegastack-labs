@@ -131,11 +131,9 @@ const REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE = Object.freeze({
 });
 // Issue #106 adds the inert local backup-policy-draft command and the local
 // recovery-point creation source closure (the guarded REST object boundary, the
-// sealed-FD restic child and the exact bound adapter). It lands after #134, so as
-// the final Phase 5 wave its boundary digest is the current head closure that
-// `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal. Its
-// new production imports are the backup package, fixed identity registry and
-// local adapter.
+// sealed-FD restic child and the exact bound adapter). Its reviewed imports
+// cover the backup package, fixed identity registry and local adapter. The
+// later #146 wave owns the merged final boundary digest.
 const REVIEWED_BACKUP_WAVE = Object.freeze({
   id: "phase5-issue106-v1", issue: 106,
   commands: Object.freeze(["backup policy draft"]),
@@ -143,7 +141,16 @@ const REVIEWED_BACKUP_WAVE = Object.freeze({
   mutationBoundaryDigest: "sha256:adb10fa89d1ded9b316adf689b3e1ae35dcdb3a17fbf6a6a08f506e0e55d9a6b",
 });
 
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE]);
+// Issue #146 adds a bounded witness/recovery evidence contract but does not
+// register a production source or available command. Its recovery package is
+// an exact new production import for public verification only.
+const REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE = Object.freeze({
+  id: "phase5-issue146-v1", issue: 146,
+  commands: Object.freeze([]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/recovery"]),
+  mutationBoundaryDigest: "sha256:4c1e231743f35fd482d3b8541bc99ee9d2c4cb20276f13bafba297cf4c231125",
+});
+
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
