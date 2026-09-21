@@ -57,17 +57,17 @@ test("CI uses affected checks and installs Chromium only when selected", async (
     "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
   );
   assert.equal(hostedChromium.if, "needs.plan.outputs.browser == 'true'");
-  assert.equal(trustedChromium.if, "needs.plan.outputs.browser == 'true' || github.event_name == 'push'");
+  assert.equal(trustedChromium.if, "needs.plan.outputs.browser == 'true' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
   assert.equal(hostedChecks.run, "pnpm check:affected --execute-plan");
   assert.equal(trustedChecks.run, "pnpm check:affected --execute-plan");
   assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
-  assert.equal(trustedChecks.if, "github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'");
+  assert.equal(trustedChecks.if, "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'");
   const backupAcceptance = trustedSteps.find(({ name }) => name === "Run pinned local-backup acceptance");
   assert.equal(backupAcceptance.if, "github.event_name == 'workflow_dispatch' && inputs.backup_acceptance");
   assert.match(backupAcceptance.run, /VSK_RESTIC_0191_BINARY/);
   assert.match(backupAcceptance.run, /TestPinnedResticEndToEnd\|TestLocalBackupComposition/);
-  assert.equal(phase4Exit.if, "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
+  assert.equal(phase4Exit.if, "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
   assert.equal(phase4Exit.run, "pnpm --silent check:phase-4-exit --commit \"$GITHUB_SHA\"");
   assert.equal(trustedNode.with.cache, undefined);
   assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
@@ -109,7 +109,7 @@ test("the workflow guard rejects unconditional Chromium and a repeated full lane
   delete unconditional.jobs.verify_pr.steps.find(({ name }) => name === "Install pinned Chromium").if;
   assert.throws(
     () => verifyWorkflowDocument(unconditional, source),
-    /Chromium only for selected PR\/manual checks or the exact main exit/,
+    /Chromium only for selected checks or the explicit main exit/,
   );
 
   const repeated = parseYaml(source);
@@ -126,6 +126,22 @@ test("the workflow guard rejects unconditional Chromium and a repeated full lane
   assert.throws(
     () => verifyWorkflowDocument(literalSeparator, source),
     /execute the exact affected check plan/,
+  );
+
+  const repeatedExit = parseYaml(source);
+  repeatedExit.jobs.verify_trusted.steps.find(({ name }) => name === "Run exact Phase 4 exit acceptance").if =
+    "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'";
+  assert.throws(
+    () => verifyWorkflowDocument(repeatedExit, source),
+    /only explicit manual main runs may execute Phase 4 exit/,
+  );
+
+  const skippedPush = parseYaml(source);
+  skippedPush.jobs.verify_trusted.steps.find(({ name }) => name === "Run affected public checks").if =
+    "github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'";
+  assert.throws(
+    () => verifyWorkflowDocument(skippedPush, source),
+    /must execute the affected plan on main pushes/,
   );
 });
 
