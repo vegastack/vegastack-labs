@@ -96,12 +96,13 @@ func TestBoundarySetRequiresCompleteDirectDenial(t *testing.T) {
 
 func TestVerifyWitnessBundleRejectsTranscriptChange(t *testing.T) {
 	required, payload, qualified, now := boundaryFixture()
-	_, binding, _, _ := witnessFixture(t)
+	pin, binding, _, _ := witnessFixture(t)
 	public, private, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pin := PinnedWitness{KeyID: "witness-key-1", WitnessInstanceID: "outside-instance", PublicKey: public, AuthenticatedExternally: true, ExpiresAt: now.Add(time.Minute)}
+	pin.PublicKey = public
+	pin.pinSeal = pin.seal()
 	payload.Binding = binding
 	payload.KeyID = pin.KeyID
 	payload.WitnessInstanceID = pin.WitnessInstanceID

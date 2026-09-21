@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"context"
+	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/rand"
 	"testing"
@@ -16,7 +17,12 @@ func witnessFixture(t *testing.T) (PinnedWitness, WitnessBinding, SignedWitness,
 	}
 	now := time.Date(2026, 9, 22, 0, 0, 0, 0, time.UTC)
 	binding := WitnessBinding{FormerHostID: "old-host", FormerInstanceID: "old-instance", ReplacementHostID: "new-host", ReplacementInstanceID: "new-instance", DraftID: "draft-1", CiphertextFingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PlanDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", RunID: "run-1", StepID: "step-1", LeaseID: "lease-1", ChallengeID: "challenge-1", ReceiptID: "receipt-1", PriorEpoch: 3, NewEpoch: 4, StateRevision: 9}
-	pin := PinnedWitness{KeyID: "witness-key-1", WitnessInstanceID: "outside-instance", PublicKey: public, AuthenticatedExternally: true, ExpiresAt: now.Add(time.Hour)}
+	recipient, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin := PinnedWitness{KeyID: "witness-key-1", WitnessInstanceID: "outside-instance", PublicKey: public, RecipientKeyID: "recipient-1", RecipientPublicKey: recipient.PublicKey().Bytes(), ManifestDigest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", AuthenticatedExternally: true, ExpiresAt: now.Add(time.Hour), manifestAuthenticated: true, manifestBinding: manifestBoundIdentity{binding.FormerHostID, binding.FormerInstanceID, binding.ReplacementHostID, binding.ReplacementInstanceID, binding.PriorEpoch, binding.NewEpoch}}
+	pin.pinSeal = pin.seal()
 	payload := WitnessPayload{Binding: binding, KeyID: pin.KeyID, WitnessInstanceID: pin.WitnessInstanceID, IssuedAt: now.Add(-time.Second), ObservedAt: now.Add(-time.Second), ExpiresAt: now.Add(30 * time.Second)}
 	canonical, err := CanonicalWitnessPayload(payload)
 	if err != nil {
@@ -84,6 +90,7 @@ func TestVerifySignedWitnessRejectsStaleIssueEvenWithFreshObservation(t *testing
 		t.Fatal(err)
 	}
 	pin.PublicKey = public
+	pin.pinSeal = pin.seal()
 	signed.Payload.IssuedAt = now.Add(-61 * time.Second)
 	canonical, err := CanonicalWitnessPayload(signed.Payload)
 	if err != nil {

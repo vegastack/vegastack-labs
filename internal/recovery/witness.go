@@ -3,6 +3,7 @@ package recovery
 import (
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"regexp"
@@ -38,15 +39,36 @@ type WitnessBinding struct {
 }
 
 // PinnedWitness is supplied only by a protected manifest authenticated by an
-// infrastructure administrator outside both controllers. There is no
-// production manifest loader or registry in this package.
+// infrastructure administrator outside both controllers. Public fields are
+// sealed against caller mutation by an unexported manifest digest.
 type PinnedWitness struct {
 	KeyID                   string
 	WitnessInstanceID       string
 	PublicKey               ed25519.PublicKey
+	RecipientKeyID          string
+	RecipientPublicKey      []byte
+	ManifestDigest          string
 	AuthenticatedExternally bool
 	Revoked                 bool
 	ExpiresAt               time.Time
+	manifestAuthenticated   bool
+	manifestBinding         manifestBoundIdentity
+	pinSeal                 [32]byte
+}
+
+type manifestBoundIdentity struct {
+	FormerHostID, FormerInstanceID, ReplacementHostID, ReplacementInstanceID string
+	PriorEpoch, NewEpoch                                                     int64
+}
+
+func (pin PinnedWitness) seal() [32]byte {
+	data, _ := json.Marshal(struct {
+		KeyID, WitnessInstanceID, RecipientKeyID, ManifestDigest string
+		PublicKey, RecipientPublicKey                            []byte
+		ExpiresAt                                                time.Time
+		Binding                                                  manifestBoundIdentity
+	}{pin.KeyID, pin.WitnessInstanceID, pin.RecipientKeyID, pin.ManifestDigest, pin.PublicKey, pin.RecipientPublicKey, pin.ExpiresAt, pin.manifestBinding})
+	return sha256.Sum256(data)
 }
 
 type WitnessPayload struct {
@@ -81,10 +103,14 @@ func CanonicalWitnessPayload(payload WitnessPayload) ([]byte, error) {
 }
 
 func VerifySignedWitness(ctx context.Context, pin PinnedWitness, expected WitnessBinding, signed SignedWitness, now time.Time) error {
-	if err := ctx.Err(); err != nil {
+	if ctx == nil || ctx.Err() != nil {
 		return ErrWitnessUnavailable
 	}
-	if !pin.AuthenticatedExternally || pin.Revoked || len(pin.PublicKey) != ed25519.PublicKeySize || !validWitnessToken(pin.KeyID) || !validWitnessToken(pin.WitnessInstanceID) || !validBinding(expected) {
+	if !pin.AuthenticatedExternally || !pin.manifestAuthenticated || pin.pinSeal != pin.seal() || pin.Revoked || len(pin.PublicKey) != ed25519.PublicKeySize || len(pin.RecipientPublicKey) != 32 || !validWitnessToken(pin.KeyID) || !validWitnessToken(pin.WitnessInstanceID) || !validWitnessToken(pin.RecipientKeyID) || !witnessDigest.MatchString(pin.ManifestDigest) || !validBinding(expected) {
+		return ErrWitnessUnavailable
+	}
+	bound := pin.manifestBinding
+	if bound.FormerHostID != expected.FormerHostID || bound.FormerInstanceID != expected.FormerInstanceID || bound.ReplacementHostID != expected.ReplacementHostID || bound.ReplacementInstanceID != expected.ReplacementInstanceID || bound.PriorEpoch != expected.PriorEpoch || bound.NewEpoch != expected.NewEpoch {
 		return ErrWitnessUnavailable
 	}
 	if pin.WitnessInstanceID == expected.FormerInstanceID || pin.WitnessInstanceID == expected.ReplacementInstanceID || expected.FormerInstanceID == expected.ReplacementInstanceID || expected.FormerHostID == expected.ReplacementHostID {

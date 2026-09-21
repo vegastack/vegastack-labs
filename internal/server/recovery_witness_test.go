@@ -3,8 +3,10 @@ package server
 import (
 	"bytes"
 	"context"
+	"crypto/ecdh"
 	"crypto/ed25519"
 	"crypto/rand"
+	"encoding/json"
 	"io"
 	"testing"
 	"time"
@@ -45,7 +47,27 @@ func TestRecoveryWitnessCandidateRejectsReplayAndUnavailableRecipient(t *testing
 		t.Fatal(err)
 	}
 	binding := recovery.WitnessBinding{FormerHostID: "old-host", FormerInstanceID: "old-instance", ReplacementHostID: "new-host", ReplacementInstanceID: "new-instance", DraftID: "draft-1", CiphertextFingerprint: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", PlanDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", RunID: "run-1", StepID: "step-1", LeaseID: "lease-1", ChallengeID: "challenge-1", ReceiptID: "receipt-1", PriorEpoch: 3, NewEpoch: 4, StateRevision: 9}
-	pin := recovery.PinnedWitness{KeyID: "key-1", WitnessInstanceID: "outside-instance", PublicKey: public, AuthenticatedExternally: true, ExpiresAt: now.Add(time.Minute)}
+	adminPublic, adminPrivate, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recipientKey, err := ecdh.X25519().GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifest := recovery.RecoveryManifest{ManifestID: "manifest-1", WitnessKeyID: "key-1", WitnessInstanceID: "outside-instance", WitnessPublicKey: public, RecipientKeyID: "ephemeral-recipient-1", RecipientPublicKey: recipientKey.PublicKey().Bytes(), FormerHostID: binding.FormerHostID, FormerInstanceID: binding.FormerInstanceID, ReplacementHostID: binding.ReplacementHostID, ReplacementInstanceID: binding.ReplacementInstanceID, PriorEpoch: binding.PriorEpoch, NewEpoch: binding.NewEpoch, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute)}
+	manifestCanonical, err := recovery.CanonicalRecoveryManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestBytes, err := json.Marshal(recovery.SignedRecoveryManifest{Payload: manifest, Signature: ed25519.Sign(adminPrivate, manifestCanonical)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin, err := recovery.ParseSignedRecoveryManifest(manifestBytes, adminPublic, binding, now)
+	if err != nil {
+		t.Fatal(err)
+	}
 	required := []recovery.BoundaryRequirement{{Kind: "host-service", SubjectID: "subject-1", TargetID: "target-1", AdapterID: "adapter-1", FormerIdentityID: "old-identity", ProbeID: "service-denied"}, {Kind: "host-service", SubjectID: "subject-1", TargetID: "target-1", AdapterID: "adapter-1", FormerIdentityID: "old-identity", ProbeID: "alternate-process-denied"}}
 	transcripts := make([]recovery.DirectDenialTranscript, 0, len(required))
 	for _, req := range required {
@@ -60,7 +82,7 @@ func TestRecoveryWitnessCandidateRejectsReplayAndUnavailableRecipient(t *testing
 	qualified.Register("adapter-1", isolatedWitnessAdapter{})
 	recipient := &isolatedRecipient{material: []byte("synthetic-custody")}
 	receipts := &isolatedReceipts{}
-	candidate := RecoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: recovery.SignedWitness{Payload: payload, Signature: ed25519.Sign(private, canonical)}, Required: required, Qualified: qualified, Envelope: recovery.ProtectedEnvelope{RecipientKeyID: "ephemeral-recipient-1", Ciphertext: []byte("synthetic-encrypted-envelope"), ReceiptID: binding.ReceiptID}, Recipient: recipient, Receipts: receipts}
+	candidate := recoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: recovery.SignedWitness{Payload: payload, Signature: ed25519.Sign(private, canonical)}, Required: required, Qualified: qualified, Envelope: recovery.ProtectedEnvelope{RecipientKeyID: "ephemeral-recipient-1", Ciphertext: []byte("synthetic-encrypted-envelope"), ReceiptID: binding.ReceiptID}, Recipient: recipient, Receipts: receipts}
 	compare := func(r io.ReadCloser) error {
 		defer r.Close()
 		buf := make([]byte, 64)
@@ -70,17 +92,17 @@ func TestRecoveryWitnessCandidateRejectsReplayAndUnavailableRecipient(t *testing
 		}
 		return nil
 	}
-	if err := candidate.Verify(context.Background(), compare); err != nil {
+	if err := candidate.verify(context.Background(), compare); err != nil {
 		t.Fatal(err)
 	}
 	if !receipts.used || recipient.opens != 1 {
 		t.Fatal("custody not consumed once")
 	}
-	if err := candidate.Verify(context.Background(), compare); err == nil {
+	if err := candidate.verify(context.Background(), compare); err == nil {
 		t.Fatal("one-use candidate replay accepted")
 	}
 	candidate.Recipient = nil
-	if err := candidate.Verify(context.Background(), compare); err == nil {
+	if err := candidate.verify(context.Background(), compare); err == nil {
 		t.Fatal("unavailable independent recipient accepted")
 	}
 }
