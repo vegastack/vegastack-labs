@@ -1,8 +1,76 @@
 {
+  "$defs": {
+    "backup-dependency": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "binary",
+            "schema",
+            "config",
+            "image",
+            "signature"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "dependencyId",
+        "kind",
+        "digest"
+      ],
+      "type": "object"
+    }
+  },
   "$id": "vegastack-labs.dev/backup-policy",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
+    "consistencyHookId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "dependencies": {
+      "items": {
+        "$ref": "#/$defs/backup-dependency"
+      },
+      "maxItems": 64,
+      "type": "array"
+    },
+    "encryptionKeyReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "expectedBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "expectedGrowthBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "functionalTestRequired": {
+      "type": "boolean"
+    },
+    "minimumFreeBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "ownerId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "policyId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
@@ -11,13 +79,48 @@
       "minimum": 0,
       "type": "integer"
     },
-    "retentionClass": {
+    "recoveryKeyReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "repositoryClass": {
+      "enum": [
+        "none",
+        "standard",
+        "critical"
+      ],
+      "type": "string"
+    },
+    "repositoryId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "restoreTargetId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
+    },
+    "retentionDays": {
+      "minimum": 0,
+      "type": "integer"
     },
     "revision": {
       "minimum": 1,
       "type": "integer"
+    },
+    "scheduleIntent": {
+      "enum": [
+        "manual",
+        "hourly",
+        "daily",
+        "weekly"
+      ],
+      "type": "string"
     },
     "schema": {
       "enum": [
@@ -27,31 +130,43 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
-      "type": "string"
-    },
-    "scopeDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
     "sourceId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
-    "verificationRequirement": {
-      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
-      "type": "string"
+    "sourceSelectors": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
     }
   },
   "required": [
     "schema",
     "schemaVersion",
     "policyId",
+    "ownerId",
     "sourceId",
-    "scopeDigest",
-    "retentionClass",
-    "verificationRequirement",
+    "sourceSelectors",
+    "consistencyHookId",
+    "repositoryId",
+    "repositoryClass",
+    "scheduleIntent",
+    "expectedBytes",
+    "expectedGrowthBytes",
+    "minimumFreeBytes",
+    "encryptionKeyReferenceId",
+    "recoveryKeyReferenceId",
+    "retentionDays",
+    "restoreTargetId",
+    "dependencies",
+    "functionalTestRequired",
     "recoveryEpoch",
     "revision"
   ],

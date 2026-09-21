@@ -4,11 +4,78 @@ package serverconfig
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"io"
 	"os"
+	"runtime"
 
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"golang.org/x/sys/unix"
 )
+
+const maxResticExecutableBytes = 128 * 1024 * 1024
+
+// VerifyLocalBackup is the protected-profile preflight for local recovery-point
+// creation. It confirms both backup roots are service-owned 0700 directories on
+// a supported local filesystem, and that the pinned restic executable is a
+// service-owned regular file, not group/other writable, whose SHA-256 matches
+// the exact pinned 0.19.1 digest for this architecture. It never executes the
+// binary. It fails closed on any deviation and leaks no path in its error.
+func VerifyLocalBackup(backup *LocalBackup, expectedUID uint32) error {
+	if backup == nil {
+		return failure.New("PREREQUISITE_BLOCKED", "backup-profile", false)
+	}
+	if backup.SourceID != backupidentity.ControlDatabaseSource || backup.StandardRepositoryID != backupidentity.StandardRepository || backup.CriticalRepositoryID != backupidentity.CriticalRepository {
+		return failure.New("INTEGRITY_FAILURE", "backup-profile", false)
+	}
+	for _, root := range []string{backup.StandardRoot, backup.CriticalRoot} {
+		if err := validateInventoryExportRoot(root, expectedUID); err != nil {
+			return failure.New("INTEGRITY_FAILURE", "backup-profile", false)
+		}
+	}
+	if err := verifyResticExecutable(backup.ResticBinaryPath, expectedUID); err != nil {
+		return failure.New("INTEGRITY_FAILURE", "backup-profile", false)
+	}
+	return nil
+}
+
+func verifyResticExecutable(path string, expectedUID uint32) error {
+	expectedDigest, ok := ExpectedResticExecutableDigest(runtime.GOARCH)
+	if !ok {
+		return unix.ENOTSUP
+	}
+	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{
+		Flags:   uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW),
+		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return err
+	}
+	file := os.NewFile(uintptr(descriptor), "restic")
+	if file == nil {
+		_ = unix.Close(descriptor)
+		return unix.EPERM
+	}
+	defer file.Close()
+	var stat unix.Stat_t
+	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG ||
+		stat.Nlink != 1 || stat.Uid != expectedUID || stat.Mode&0o022 != 0 || stat.Mode&0o100 == 0 {
+		return unix.EPERM
+	}
+	if stat.Size <= 0 || stat.Size > maxResticExecutableBytes {
+		return unix.EPERM
+	}
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, io.LimitReader(file, maxResticExecutableBytes+1)); err != nil {
+		return err
+	}
+	if hex.EncodeToString(hasher.Sum(nil)) != expectedDigest {
+		return unix.EPERM
+	}
+	return nil
+}
 
 type protectedLoader struct {
 	expectedOwnerUID uint32

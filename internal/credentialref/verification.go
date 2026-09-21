@@ -55,9 +55,31 @@ func ValidConsumerVerification(binding LifecycleBinding, verification ConsumerVe
 	}
 	switch verification.Result {
 	case "verified":
-		return verification.RestartObserved && slices.Contains(binding.ConsumerIDs, verification.ConsumerID)
+		if !verification.RestartObserved || !slices.Contains(binding.ConsumerIDs, verification.ConsumerID) {
+			return false
+		}
+		if binding.ResolverID == "native-systemd" {
+			for _, reader := range binding.NativeConsumers {
+				if reader.ConsumerID == verification.ConsumerID {
+					return reader.ProfileID == verification.ProfileID && reader.RoleID == verification.RoleID
+				}
+			}
+			return false
+		}
+		return true
 	case "denied":
-		return !verification.RestartObserved && slices.Contains(binding.RequiredDeniedConsumerIDs, verification.ConsumerID)
+		if verification.RestartObserved || !slices.Contains(binding.RequiredDeniedConsumerIDs, verification.ConsumerID) {
+			return false
+		}
+		if binding.ResolverID == "native-systemd" {
+			for _, reader := range binding.NativeDeniedReaders {
+				if reader.ConsumerID == verification.ConsumerID {
+					return reader.ProfileID == verification.ProfileID && reader.RoleID == verification.RoleID
+				}
+			}
+			return false
+		}
+		return true
 	default:
 		return false
 	}

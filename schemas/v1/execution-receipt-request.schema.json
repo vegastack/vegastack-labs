@@ -56,6 +56,13 @@
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
+        "pendingPointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "planDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
@@ -133,6 +140,7 @@
         "receiptId",
         "status",
         "resultDigest",
+        "pendingPointId",
         "recordedAt",
         "extensions"
       ],

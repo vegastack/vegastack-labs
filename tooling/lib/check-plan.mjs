@@ -7,6 +7,18 @@ const SHA_PATTERN = /^[0-9a-f]{40}$/;
 const STATUS_PATTERN = /^(?:[AMDTUXB]|[RC][0-9]{1,3})$/;
 
 export const CHECK_GROUPS = Object.freeze(["always", "phase", "go", "tooling", "web", "browser"]);
+const GO_BROWSER_TESTS = Object.freeze([
+  "TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary",
+  "TestPhase4AcceptanceBuiltExecutableKeepsIntentInertAndPrivate",
+  "TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary",
+  "TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS",
+]);
+
+export function goUnitTestArgs(browser) {
+  const args = ["test", "./..."];
+  if (!browser) args.push("-skip", `^(${GO_BROWSER_TESTS.join("|")})$`);
+  return args;
+}
 
 function commandStep(name, group, command, args, options = {}) {
   return Object.freeze({
@@ -16,13 +28,13 @@ function commandStep(name, group, command, args, options = {}) {
   });
 }
 
-function packageStep(name, group, args) {
+function packageStep(name, group, args, options = {}) {
   return Object.freeze({
     name,
     group,
     run: (root, { capture = false } = {}) => {
       const invocation = packageManagerInvocation(args);
-      return runCommand(invocation.command, invocation.args, { cwd: root, capture });
+      return runCommand(invocation.command, invocation.args, { cwd: root, capture, ...options });
     },
   });
 }
@@ -58,9 +70,11 @@ const steps = Object.freeze([
   commandStep("portable CLI boundary and target builds", "go", process.execPath, ["tooling/verify-cli.mjs"]),
   commandStep("local control service boundary", "go", process.execPath, ["tooling/verify-server.mjs"]),
   commandStep("Go vet", "go", "go", ["vet", "./..."]),
-  commandStep("Go unit tests", "go", "go", ["test", "./..."]),
+  commandStep("Go unit tests", "go", "go", goUnitTestArgs(true)),
   commandStep("Go package build", "go", "go", ["build", "./..."]),
-  packageStep("tooling tests", "tooling", ["test:tooling"]),
+  // Cold Go dependency analysis in the CLI tooling fixtures can exceed the
+  // generic five-minute subprocess limit even when every assertion is healthy.
+  packageStep("tooling tests", "tooling", ["test:tooling"], { timeoutMs: 600_000 }),
   packageStep("web lint", "web", ["--filter", "@vegastack/labs-web", "lint"]),
   packageStep("web typecheck", "web", ["--filter", "@vegastack/labs-web", "typecheck"]),
   packageStep("web unit tests", "web", ["--filter", "@vegastack/labs-web", "test"]),
@@ -106,7 +120,7 @@ function validPath(value) {
 
 function browserServerPath(file) {
   return /^internal\/api\//.test(file) ||
-    /^internal\/server\/(?:application|browser_auth|console|phase3_acceptance|remote)/.test(file) ||
+    /^internal\/server\/(?:application|browser_auth|console|phase3_acceptance|phase4_acceptance|phase4_console_acceptance|phase4_fixture|remote)/.test(file) ||
     /^internal\/(?:consoleassets|metadata|contractgen|generated)\//.test(file) ||
     /^internal\/serverconfig\//.test(file);
 }
@@ -270,8 +284,12 @@ export function validateCheckPlan(plan) {
 }
 
 export function checkStepsForPlan(plan) {
-  const selected = new Set(validateCheckPlan(plan).groups);
-  return Object.freeze(steps.filter((step) => selected.has(step.group)));
+  const validated = validateCheckPlan(plan);
+  const selected = new Set(validated.groups);
+  return Object.freeze(steps.filter((step) => selected.has(step.group)).map((step) =>
+    step.name === "Go unit tests" && !validated.browser
+      ? commandStep(step.name, step.group, "go", goUnitTestArgs(false))
+      : step));
 }
 
 export async function runCheckPlan(plan, { root = DEFAULT_ROOT, quiet = false, onStep } = {}) {

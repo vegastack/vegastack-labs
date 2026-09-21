@@ -21,6 +21,7 @@ type stubControlOperations struct {
 	gateCheckResponse    localapi.TypedResponse[generated.GateEvaluation]
 	gateEvidenceResponse localapi.TypedResponse[generated.GateEvidenceSubmission]
 	gateProfileResponse  localapi.TypedResponse[generated.GateProfileDraftSubmission]
+	backupPolicyResponse localapi.TypedResponse[generated.BackupPolicyDraftSubmission]
 	summaryResponse      localapi.TypedResponse[generated.ApiSummaryData]
 	databaseResponse     localapi.TypedResponse[generated.DatabaseStatusData]
 	auditListResponse    localapi.TypedResponse[generated.AuditCheckpointListData]
@@ -52,6 +53,9 @@ func (stub *stubControlOperations) SubmitGateEvidence(_ context.Context, _ strin
 }
 func (stub *stubControlOperations) SubmitProfileDraft(_ context.Context, _ string, _ generated.GateProfileDraftRequest) (localapi.TypedResponse[generated.GateProfileDraftSubmission], error) {
 	return stub.gateProfileResponse, stub.err
+}
+func (stub *stubControlOperations) SubmitBackupPolicyDraft(_ context.Context, _ string, _ generated.BackupPolicyDraftRequest) (localapi.TypedResponse[generated.BackupPolicyDraftSubmission], error) {
+	return stub.backupPolicyResponse, stub.err
 }
 
 func (stub *stubControlOperations) Summary(_ context.Context, config string) (localapi.TypedResponse[generated.ApiSummaryData], error) {
@@ -153,12 +157,14 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	list := generated.GateListData{Schema: generated.SchemaIDGateListData, SchemaVersion: "1.1.0", Gates: []generated.GateView{view}, RecoveryEpoch: 2}
 	evidence := generated.GateEvidenceSubmission{Schema: generated.SchemaIDGateEvidenceSubmission, SchemaVersion: "1.1.0", DraftID: "draft-test", ChangeID: "gate-evidence-test", EvidenceID: "evidence-test", Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	profile := generated.GateProfileDraftSubmission{Schema: generated.SchemaIDGateProfileDraftSubmission, SchemaVersion: "1.1.0", DraftID: "binding-test", ChangeID: "gate-profile-binding-test", BindingID: "binding-test", Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
+	backup := generated.BackupPolicyDraftSubmission{Schema: generated.SchemaIDBackupPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: "backup-draft-test", PolicyID: "policy-a", PolicyDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	return &stubControlOperations{
 		gateListResponse:     operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
 		gateViewResponse:     operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
 		gateCheckResponse:    operationResponse(t, "api.v1.gates.check", false, 2, 7, evaluation),
 		gateEvidenceResponse: operationResponse(t, "api.v1.gate-evidence.create", true, 2, 8, evidence),
 		gateProfileResponse:  operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
+		backupPolicyResponse: operationResponse(t, "api.v1.backup-policy-drafts.create", true, 2, 8, backup),
 		summaryResponse:      operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
 		databaseResponse:     operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
 		auditListResponse:    operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),

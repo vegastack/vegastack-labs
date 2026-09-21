@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.19.0"
+	RegistrySchemaVersion                   = "1.20.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -46,8 +46,11 @@ const (
 	SchemaIDAuditTarget                     = "vegastack-labs.dev/audit-target"
 	SchemaIDAuditVerificationData           = "vegastack-labs.dev/audit-verification-data"
 	SchemaIDAuthorizationDecision           = "vegastack-labs.dev/authorization-decision"
+	SchemaIDBackupDependency                = "vegastack-labs.dev/backup-dependency"
 	SchemaIDBackupJob                       = "vegastack-labs.dev/backup-job"
 	SchemaIDBackupPolicy                    = "vegastack-labs.dev/backup-policy"
+	SchemaIDBackupPolicyDraftRequest        = "vegastack-labs.dev/backup-policy-draft-request"
+	SchemaIDBackupPolicyDraftSubmission     = "vegastack-labs.dev/backup-policy-draft-submission"
 	SchemaIDBackupRunRequest                = "vegastack-labs.dev/backup-run-request"
 	SchemaIDBackupStatusData                = "vegastack-labs.dev/backup-status-data"
 	SchemaIDBackupVerifyRequest             = "vegastack-labs.dev/backup-verify-request"
@@ -63,6 +66,8 @@ const (
 	SchemaIDCredentialImportSubmission      = "vegastack-labs.dev/credential-import-submission"
 	SchemaIDCredentialLifecycleRequest      = "vegastack-labs.dev/credential-lifecycle-request"
 	SchemaIDCredentialLifecycleSubmission   = "vegastack-labs.dev/credential-lifecycle-submission"
+	SchemaIDCredentialNativeConsumer        = "vegastack-labs.dev/credential-native-consumer"
+	SchemaIDCredentialNativeDeniedReader    = "vegastack-labs.dev/credential-native-denied-reader"
 	SchemaIDCredentialReference             = "vegastack-labs.dev/credential-reference"
 	SchemaIDCredentialReferenceRequest      = "vegastack-labs.dev/credential-reference-request"
 	SchemaIDCredentialResolutionRecord      = "vegastack-labs.dev/credential-resolution-record"
@@ -170,8 +175,9 @@ const (
 	FlagSchemaVersion                       = "--schema-version"
 	CommandNameAuditCheckpoints             = "audit checkpoints"
 	CommandNameAuditVerify                  = "audit verify"
-	CommandNameCredentialActivate           = "credential activate"
+	CommandNameBackupPolicyDraft            = "backup policy draft"
 	FlagFile                                = "--file"
+	CommandNameCredentialActivate           = "credential activate"
 	CommandNameCredentialImport             = "credential import"
 	FlagConsumerID                          = "--consumer-id"
 	FlagExpectedStateRevision               = "--expected-state-revision"
@@ -583,6 +589,12 @@ type AuthorizationDecision struct {
 	Extensions    []ContractExtension `json:"extensions"`
 }
 
+type BackupDependency struct {
+	DependencyID string `json:"dependencyId"`
+	Kind         string `json:"kind"`
+	Digest       string `json:"digest"`
+}
+
 type BackupJob struct {
 	Schema             string  `json:"schema"`
 	SchemaVersion      string  `json:"schemaVersion"`
@@ -598,15 +610,48 @@ type BackupJob struct {
 }
 
 type BackupPolicy struct {
-	Schema                  string `json:"schema"`
-	SchemaVersion           string `json:"schemaVersion"`
-	PolicyID                string `json:"policyId"`
-	SourceID                string `json:"sourceId"`
-	ScopeDigest             string `json:"scopeDigest"`
-	RetentionClass          string `json:"retentionClass"`
-	VerificationRequirement string `json:"verificationRequirement"`
-	RecoveryEpoch           int64  `json:"recoveryEpoch"`
-	Revision                int64  `json:"revision"`
+	Schema                   string             `json:"schema"`
+	SchemaVersion            string             `json:"schemaVersion"`
+	PolicyID                 string             `json:"policyId"`
+	OwnerID                  string             `json:"ownerId"`
+	SourceID                 string             `json:"sourceId"`
+	SourceSelectors          []string           `json:"sourceSelectors"`
+	ConsistencyHookID        string             `json:"consistencyHookId"`
+	RepositoryID             *string            `json:"repositoryId"`
+	RepositoryClass          string             `json:"repositoryClass"`
+	ScheduleIntent           string             `json:"scheduleIntent"`
+	ExpectedBytes            int64              `json:"expectedBytes"`
+	ExpectedGrowthBytes      int64              `json:"expectedGrowthBytes"`
+	MinimumFreeBytes         int64              `json:"minimumFreeBytes"`
+	EncryptionKeyReferenceID *string            `json:"encryptionKeyReferenceId"`
+	RecoveryKeyReferenceID   *string            `json:"recoveryKeyReferenceId"`
+	RetentionDays            int64              `json:"retentionDays"`
+	RestoreTargetID          string             `json:"restoreTargetId"`
+	Dependencies             []BackupDependency `json:"dependencies"`
+	FunctionalTestRequired   bool               `json:"functionalTestRequired"`
+	RecoveryEpoch            int64              `json:"recoveryEpoch"`
+	Revision                 int64              `json:"revision"`
+}
+
+type BackupPolicyDraftRequest struct {
+	Schema                string       `json:"schema"`
+	SchemaVersion         string       `json:"schemaVersion"`
+	ExpectedStateRevision int64        `json:"expectedStateRevision"`
+	RecoveryEpoch         int64        `json:"recoveryEpoch"`
+	TargetDigest          string       `json:"targetDigest"`
+	IdempotencyKey        string       `json:"idempotencyKey"`
+	Policy                BackupPolicy `json:"policy"`
+}
+
+type BackupPolicyDraftSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	DraftID       string `json:"draftId"`
+	PolicyID      string `json:"policyId"`
+	PolicyDigest  string `json:"policyDigest"`
+	Status        string `json:"status"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
 type BackupRunRequest struct {
@@ -769,25 +814,27 @@ type CredentialImportSubmission struct {
 }
 
 type CredentialLifecycleRequest struct {
-	Schema                      string   `json:"schema"`
-	SchemaVersion               string   `json:"schemaVersion"`
-	ExpectedStateRevision       int64    `json:"expectedStateRevision"`
-	RecoveryEpoch               int64    `json:"recoveryEpoch"`
-	TargetDigest                string   `json:"targetDigest"`
-	IdempotencyKey              string   `json:"idempotencyKey"`
-	Action                      string   `json:"action"`
-	DraftID                     *string  `json:"draftId"`
-	ReferenceID                 string   `json:"referenceId"`
-	ConsumerIDs                 []string `json:"consumerIds"`
-	RequiredDeniedConsumerIDs   []string `json:"requiredDeniedConsumerIds"`
-	MaterialVersion             string   `json:"materialVersion"`
-	PriorMaterialVersion        *string  `json:"priorMaterialVersion"`
-	ResolverID                  string   `json:"resolverId"`
-	TargetID                    string   `json:"targetId"`
-	OverlapSeconds              int64    `json:"overlapSeconds"`
-	PriorRecoveryEpoch          *int64   `json:"priorRecoveryEpoch"`
-	CustodyProofDigest          *string  `json:"custodyProofDigest"`
-	FormerControllerFenceDigest *string  `json:"formerControllerFenceDigest"`
+	Schema                      string                          `json:"schema"`
+	SchemaVersion               string                          `json:"schemaVersion"`
+	ExpectedStateRevision       int64                           `json:"expectedStateRevision"`
+	RecoveryEpoch               int64                           `json:"recoveryEpoch"`
+	TargetDigest                string                          `json:"targetDigest"`
+	IdempotencyKey              string                          `json:"idempotencyKey"`
+	Action                      string                          `json:"action"`
+	DraftID                     *string                         `json:"draftId"`
+	ReferenceID                 string                          `json:"referenceId"`
+	ConsumerIDs                 []string                        `json:"consumerIds"`
+	RequiredDeniedConsumerIDs   []string                        `json:"requiredDeniedConsumerIds"`
+	NativeConsumers             *[]CredentialNativeConsumer     `json:"nativeConsumers"`
+	NativeDeniedReaders         *[]CredentialNativeDeniedReader `json:"nativeDeniedReaders"`
+	MaterialVersion             string                          `json:"materialVersion"`
+	PriorMaterialVersion        *string                         `json:"priorMaterialVersion"`
+	ResolverID                  string                          `json:"resolverId"`
+	TargetID                    string                          `json:"targetId"`
+	OverlapSeconds              int64                           `json:"overlapSeconds"`
+	PriorRecoveryEpoch          *int64                          `json:"priorRecoveryEpoch"`
+	CustodyProofDigest          *string                         `json:"custodyProofDigest"`
+	FormerControllerFenceDigest *string                         `json:"formerControllerFenceDigest"`
 }
 
 type CredentialLifecycleSubmission struct {
@@ -800,6 +847,31 @@ type CredentialLifecycleSubmission struct {
 	Status        string `json:"status"`
 	StateRevision int64  `json:"stateRevision"`
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
+}
+
+type CredentialNativeConsumer struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ConsumerID    string `json:"consumerId"`
+	TargetID      string `json:"targetId"`
+	HostMachineID string `json:"hostMachineId"`
+	UnitName      string `json:"unitName"`
+	ServiceUID    int64  `json:"serviceUid"`
+	ServiceGID    int64  `json:"serviceGid"`
+	ProfileID     string `json:"profileId"`
+	RoleID        string `json:"roleId"`
+}
+
+type CredentialNativeDeniedReader struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ConsumerID    string `json:"consumerId"`
+	TargetID      string `json:"targetId"`
+	HostMachineID string `json:"hostMachineId"`
+	ReaderUID     int64  `json:"readerUid"`
+	ReaderGID     int64  `json:"readerGid"`
+	ProfileID     string `json:"profileId"`
+	RoleID        string `json:"roleId"`
 }
 
 type CredentialReference struct {
@@ -936,6 +1008,7 @@ type ExecutionReceipt struct {
 	ReceiptID      string              `json:"receiptId"`
 	Status         string              `json:"status"`
 	ResultDigest   string              `json:"resultDigest"`
+	PendingPointID *string             `json:"pendingPointId"`
 	RecordedAt     string              `json:"recordedAt"`
 	Extensions     []ContractExtension `json:"extensions"`
 }
@@ -1821,6 +1894,9 @@ type ServerProfile struct {
 	PrincipalBindings                []LocalPrincipalBinding `json:"principalBindings"`
 	RemoteRead                       RemoteReadProfile       `json:"remoteRead"`
 	AcknowledgementAdapterConfigPath string                  `json:"acknowledgementAdapterConfigPath"`
+	StandardBackupRoot               *string                 `json:"standardBackupRoot"`
+	CriticalBackupRoot               *string                 `json:"criticalBackupRoot"`
+	ResticBinaryPath                 *string                 `json:"resticBinaryPath"`
 }
 
 type ServerStatusData struct {
@@ -1928,11 +2004,13 @@ var GateEvidenceTransitions = []RunTransition{
 }
 
 var BackupJobTransitions = []RunTransition{
+	{From: "pending", To: "failed"},
+	{From: "pending", To: "verified"},
 	{From: "queued", To: "failed"},
 	{From: "queued", To: "running"},
 	{From: "running", To: "failed"},
+	{From: "running", To: "pending"},
 	{From: "running", To: "uncertain"},
-	{From: "running", To: "verified"},
 }
 
 var RestoreTransitions = []RunTransition{
@@ -1976,6 +2054,7 @@ var Commands = []Command{
 	{Path: []string{"audit"}, Summary: "Inspect sanitized audit history.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data"},
 	{Path: []string{"audit", "checkpoints"}, Summary: "List sanitized audit checkpoints.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Examples: []Example{{Summary: "List sanitized audit checkpoints.", Arguments: []string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"audit", "verify"}, Summary: "Verify local audit history against independent checkpoint state.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-verification-data", Examples: []Example{{Summary: "Verify local audit history against independent checkpoint state.", Arguments: []string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"}}}},
+	{Path: []string{"backup", "policy", "draft"}, Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-policy-draft-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Examples: []Example{{Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Arguments: []string{"backup", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-policy-draft-request.json", "--output", "json"}}}},
 	{Path: []string{"backup", "run"}, Summary: "Run one exact approved backup policy.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job"},
 	{Path: []string{"backup", "status"}, Summary: "Inspect backup status.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/backup-status-data"},
 	{Path: []string{"backup", "verify"}, Summary: "Verify a declared backup.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job"},
@@ -2042,6 +2121,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.audit-checkpoints.create", Method: "POST", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/audit-checkpoint-request", DataSchema: "vegastack-labs.dev/audit-checkpoint", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-checkpoints.list", Method: "GET", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-history.verification", Method: "GET", Path: "/api/v1/audit-history/verification", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-verification-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.run", Method: "POST", Path: "/api/v1/backups/run", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.status", Method: "GET", Path: "/api/v1/backups/status", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/backup-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.verify", Method: "POST", Path: "/api/v1/backups/{jobId}/verify", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

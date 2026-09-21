@@ -36,6 +36,7 @@ type Operation struct {
 type Effect struct {
 	Status         string
 	ResultDigest   string
+	PendingPointID *string
 	Changed        bool
 	EffectObserved bool
 }
@@ -80,6 +81,31 @@ type CredentialExecutor interface {
 	ExecuteWithCredentials(context.Context, Operation, []*credentialref.Value) (Effect, error)
 }
 
+// ExactExecutionBinding carries the exact plan/run/step/lease identity of one
+// in-flight operation. It is provider-neutral and secret-free; a bound executor
+// uses it to fence its effect to exactly this authorized plan, run, step, lease,
+// recovery epoch and deadline.
+type ExactExecutionBinding struct {
+	PlanID           string
+	PlanDigest       string
+	RunID            string
+	StepID           string
+	LeaseID          string
+	StateRevision    int64
+	RecoveryEpoch    int64
+	MaximumExpiresAt string
+}
+
+// BoundCredentialExecutor is an optional, stricter in-process effect boundary. A
+// credential-bound adapter that also needs the exact execution binding (for a
+// server-owned writer lease, say) implements it; the run engine prefers it and
+// passes the binding derived from the same current plan, run, step and lease it
+// already verified. Values are borrowed for this call only and closed by the
+// engine afterwards, exactly as for CredentialExecutor.
+type BoundCredentialExecutor interface {
+	ExecuteBoundWithCredentials(context.Context, Operation, ExactExecutionBinding, []*credentialref.Value) (Effect, error)
+}
+
 type Error struct {
 	code      string
 	target    string
@@ -120,6 +146,9 @@ func ValidateOperation(operation Operation) error {
 
 func ValidateEffect(effect Effect) error {
 	if (effect.Status != "succeeded" && effect.Status != "failed" && effect.Status != "partial") || !adapterDigest.MatchString(effect.ResultDigest) {
+		return &Error{code: generated.ErrorCodeIntegrityFailure, target: "adapter-effect"}
+	}
+	if effect.PendingPointID != nil && (effect.Status != "succeeded" || !adapterToken.MatchString(*effect.PendingPointID)) {
 		return &Error{code: generated.ErrorCodeIntegrityFailure, target: "adapter-effect"}
 	}
 	if effect.Status == "succeeded" && !effect.EffectObserved {

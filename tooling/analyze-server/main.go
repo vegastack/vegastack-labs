@@ -2,6 +2,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -105,7 +106,10 @@ func analyze(root string) (analysis, error) {
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
 			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/authority_linux.go" || relative == "internal/adapter/nativecredential/probe_linux.go" || relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go"
 			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (approvedNativeCredentialFile || strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || relative == "internal/server/credential_resolver_linux.go" || relative == "internal/server/remote_tls_linux.go" || relative == "internal/server/slack_acknowledgement_config_linux.go" || relative == "internal/server/systemd_credentials_linux.go" || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile) {
+			// #106's guarded local adapter and #146's exact protected recovery
+			// files are separate reviewed Unix file-descriptor scopes.
+			approvedBackupAdapterFile := relative == "internal/adapter/localbackup/adapter.go"
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || reviewedRecoveryUnixFile(relative, content)) {
 				result.XSysOutsideScope = true
 			}
 		}
@@ -163,6 +167,25 @@ func analyze(root string) (analysis, error) {
 	source := serverSource.String()
 	result.PlatformScopeInvalid = !(strings.Contains(source, `"linux"`) && strings.Contains(source, `"amd64"`) && strings.Contains(source, `"debian"`) && (strings.Contains(source, "Major == 13") || strings.Contains(source, "major == 13") || strings.Contains(source, "major != 13")))
 	return result, nil
+}
+
+// These custody paths use no-follow Unix file descriptors for one protected
+// manifest, one durable receipt and one fixed systemd-loaded recipient key.
+// No other recovery source gains a blanket x/sys/unix exception.
+func reviewedRecoveryUnixFile(relative string, content []byte) bool {
+	var expected string
+	switch relative {
+	case "internal/recovery/manifest_file_unix.go":
+		expected = "c037f299077084fb66ed6fa660e9a434732ecc006c5d986982b4bea538cdbebe"
+	case "internal/recovery/receipt_file_unix.go":
+		expected = "87b5ac429e13b1631a7d9c17160d1b6978b1bbb66626e714b463de97befcac3c"
+	case "internal/server/recovery_recipient_linux.go":
+		expected = "1bb55d15e07c13baddab7e1933f56e767179ddf01ba0bc42dca76aa710b5e10e"
+	default:
+		return false
+	}
+	sum := sha256.Sum256(content)
+	return fmt.Sprintf("%x", sum) == expected
 }
 
 func reviewedRemoteListener(file *ast.File, aliases map[string]string) (token.Pos, bool) {
