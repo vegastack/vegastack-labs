@@ -95,7 +95,7 @@ func VerifySignedWitness(ctx context.Context, pin PinnedWitness, expected Witnes
 		return ErrWitnessUnavailable
 	}
 	now = now.UTC()
-	if pin.ExpiresAt.IsZero() || !now.Before(pin.ExpiresAt) || payload.IssuedAt.After(payload.ObservedAt) || payload.ObservedAt.After(now) || payload.IssuedAt.After(now) || now.Sub(payload.ObservedAt) > maxWitnessAge || !now.Before(payload.ExpiresAt) || payload.ExpiresAt.Sub(payload.ObservedAt) > maxWitnessAge || payload.ExpiresAt.After(pin.ExpiresAt) {
+	if pin.ExpiresAt.IsZero() || !now.Before(pin.ExpiresAt) || payload.IssuedAt.After(payload.ObservedAt) || payload.ObservedAt.After(now) || payload.IssuedAt.After(now) || now.Sub(payload.IssuedAt) > maxWitnessAge || now.Sub(payload.ObservedAt) > maxWitnessAge || !now.Before(payload.ExpiresAt) || payload.ExpiresAt.Sub(payload.ObservedAt) > maxWitnessAge || payload.ExpiresAt.After(pin.ExpiresAt) {
 		return ErrWitnessUnavailable
 	}
 	canonical, err := CanonicalWitnessPayload(payload)

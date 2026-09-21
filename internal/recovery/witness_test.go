@@ -76,3 +76,21 @@ func TestVerifySignedWitness(t *testing.T) {
 		t.Fatal("cancelled witness accepted")
 	}
 }
+
+func TestVerifySignedWitnessRejectsStaleIssueEvenWithFreshObservation(t *testing.T) {
+	pin, binding, signed, now := witnessFixture(t)
+	public, private, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	pin.PublicKey = public
+	signed.Payload.IssuedAt = now.Add(-61 * time.Second)
+	canonical, err := CanonicalWitnessPayload(signed.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	signed.Signature = ed25519.Sign(private, canonical)
+	if err := VerifySignedWitness(context.Background(), pin, binding, signed, now); err == nil {
+		t.Fatal("stale signed issuance accepted")
+	}
+}
