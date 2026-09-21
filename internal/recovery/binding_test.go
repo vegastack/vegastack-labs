@@ -1,6 +1,9 @@
 package recovery
 
-import "testing"
+import (
+	"math"
+	"testing"
+)
 
 func TestValidateRunBindingRejectsStaleAndSubstitutedAuthority(t *testing.T) {
 	plan := RestorePlanBinding{PlanID: "plan-a", PlanDigest: testDigest("a"), PointID: "point-a", PointDigest: testDigest("b"), ManifestDigest: testDigest("c"), VerificationDigest: testDigest("d"), FenceSetDigest: testDigest("e"), AuditDecisionDigest: testDigest("f"), CandidateDigest: testDigest("1"), TargetDigest: testDigest("2"), PriorInstanceID: "instance-old", NewInstanceID: "instance-new", StateRevision: 6, PriorRecoveryEpoch: 4, NextRecoveryEpoch: 5}
@@ -32,6 +35,11 @@ func TestValidateRunBindingRejectsStaleAndSubstitutedAuthority(t *testing.T) {
 		"nonadjacent epoch": func(p *RestorePlanBinding, r *RestoreRunIntent, l *AuthorityRevision) {
 			r.NextRecoveryEpoch += 1
 			p.NextRecoveryEpoch += 1
+		},
+		"epoch overflow": func(p *RestorePlanBinding, r *RestoreRunIntent, l *AuthorityRevision) {
+			p.PriorRecoveryEpoch, p.NextRecoveryEpoch = math.MaxInt64, math.MinInt64
+			r.PriorRecoveryEpoch, r.NextRecoveryEpoch = math.MaxInt64, math.MinInt64
+			l.RecoveryEpoch = math.MaxInt64
 		},
 	} {
 		t.Run(name, func(t *testing.T) {

@@ -135,9 +135,18 @@ const REVIEWED_BACKUP_WAVE = Object.freeze({
   imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`, `${MODULE_PREFIX}internal/backupidentity`]),
   mutationBoundaryDigest: "sha256:6e04ba0fac70068f678e6eff83789fa3c638b3f2b77f9705f1a59dcf70e02fba",
 });
+// Issue #108's independently reviewed checkpoint adds only dormant source and
+// exact run-binding validation. No restore command, endpoint, production import,
+// or authority transition becomes available in this wave. The digest is the
+// live source closure computed with postPhase2MutationBoundaryDigest().
+const REVIEWED_RESTORE_PREFLIGHT_WAVE = Object.freeze({
+  id: "phase5-issue108-preflight-v1", issue: 108,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:ff4fcde59cb2d28332528720d4c264ec3b72d09854d491e7edeff44e1108f12e",
+});
 
 
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_BACKUP_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_RESTORE_PREFLIGHT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
