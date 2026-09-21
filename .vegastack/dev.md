@@ -10,7 +10,7 @@ authority: `AGENTS.md` → `docs/development/operating-mandate.md` → current a
 ## Knobs
 
 review: subagent            # operator instruction 18-09-2026: independent Codex reviewers; no Claude before 22-09-2026 04:30 AM IST. Revisit after cutoff; setting does not auto-revert.
-ship-check: ci-full-exact-head # workstation-local dev-ship guard accepts a successful manual full Public CI run only for the exact clean branch HEAD; a fresh machine needs the matching installed skill update.
+ship-check: ci-full-exact-head # selected pre-PR complete-check proof: successful manual full Public CI at the exact clean local and remote branch HEAD; installed dev-ship guard is workstation-local and a fresh machine needs the matching skill update.
 ui-evidence: playwright
 evidence-repo: vegastack/agent-dev-review-evidence
 gates: 3
@@ -27,7 +27,7 @@ chronicle: on
 ## Ship — permitted landing route, in order
 
 - ask: create a pull request only after the operator explicitly requests it for the approved issue.
-- guard: the exact clean branch head has one successful complete `pnpm check` immediately before the pull request is requested, invoked locally through the pinned Node wrapper shown above. The installed dev-ship PR guard reuses an existing successful full-mode manual Public CI run for that exact clean head instead of rerunning the complete command at PR creation; missing or unverifiable CI proof blocks rather than launching an implicit duplicate.
+- guard: before asking for a pull request, run one successful complete public check at the exact clean local and pushed branch head. This profile selects a manual full-mode Public CI run as that proof; the installed dev-ship PR guard verifies its exact SHA, full plan and successful run/job/step result without repeating the suite. A local pinned `pnpm check` may diagnose development work but is not an additional pre-PR requirement or a substitute for missing selected CI proof. Missing or unverifiable proof blocks rather than launching an implicit duplicate.
 - guard: later review, rebase, or conflict-resolution edits rerun only affected checks; PR CI verifies the actual candidate through `pnpm check:affected` on GitHub-hosted Ubuntu 24.04, while trusted `main`/manual checks may use the two explicitly authorized disposable Debian hosts.
 - ask: squash-merge only after a separate explicit operator instruction, required checks, and a fresh review with no unresolved correctness, security, or acceptance findings.
 - auto: verify the integrated `main` commit through the affected post-merge CI plan, post the implementation/evidence summary, and close the approved issue when all acceptance criteria are satisfied.
@@ -38,7 +38,7 @@ chronicle: on
 
 - Install public dependencies: `pnpm install --frozen-lockfile` under Node.js 24.20.0 and pnpm 11.24.0.
 - During implementation and review fixes, run only the narrow affected Go, tooling, web, security, failure, recovery, or integration checks.
-- Run one successful complete `pnpm check` at the exact clean branch head immediately before asking for pull request creation, using the pinned Node wrapper shown above.
+- Run one successful manual full-mode Public CI check at the exact clean, pushed branch head immediately before asking for pull request creation; verify the structured result is the complete `runCheckPlan(fullCheckPlan())` lane. Use the pinned local `pnpm check` command above for development when needed, without repeating a successful complete lane solely because the PR gate is invoked.
 - PR and `main` CI run `pnpm check:affected` from explicit base/head commits. Pull requests use GitHub-hosted Ubuntu 24.04. Under the temporary Issue #81 exception, trusted `main` pushes and explicit manual runs may use disposable `vsk-node-01` or `vsk-node-06`; the job checks the hostname before checkout and has no fleet-admin or deployment credentials. Browser installation and Playwright run only for browser-impacting changes. A missing, invalid, or unclassifiable diff fails closed to the full suite.
 - The `web/` Playwright e2e suite shares a module-global fixture (`fixtureState`) and MUST run single-worker: `pnpm exec playwright test … --workers=1` (or set `VSK_PHASE3_PLAYWRIGHT_OUTPUT`, which pins one worker). Parallel runs race and report spurious, shifting failures. Rebuild the static export before every e2e/screenshot run — `next build` type-checks the `e2e/` specs and, when it fails, leaves a **stale `out/`** that `pnpm preview` keeps serving, so trust only a fresh clean build. Read counts from the `list` reporter, never the `line` reporter (its overwriting summary hides failures). If Playwright reports every test failing at ~0ms, the browser binary is missing — `pnpm exec playwright install chromium chromium-headless-shell`.
 - Explicit phase-acceptance commands remain required by their owning issues and are never replaced by the generic selector.
