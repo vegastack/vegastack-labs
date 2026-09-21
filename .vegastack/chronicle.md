@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — Credential evidence is bound and failures stay redacted ([#133](https://github.com/vegastack/vegastack-labs/issues/133))
+
+- **What:** Credential lifecycle verification now checks strict evidence digests and exact positive and denied consumer sets. A verifier panic, cancellation or uncertain external effect is reported through a redacted recovery-required boundary.
+- **Why:** An activation must not become authoritative from malformed evidence, a partial consumer set or an error message that could contain secret material.
+- **How it went:** The implementation narrowed the issue to evidence hardening and registered-consumer enumeration after finding that real native service delivery and optional provider version proof require separate OS and provider work. Linux CI fixture failures exposed stale assumptions about denied observations and the new migration count; those fixtures were corrected and independently re-reviewed.
+- **Changed:** Strict SHA-256 and reason validation · append-only SQLite evidence hardening · exact registered-consumer enumeration · panic and uncertain-effect redaction · live Phase 2 evidence reseal. Production lifecycle and recovery verifiers remain unavailable; no credential is activated.
+- **Decisions:** none; native delivery is tracked in #140 and #141, optional provider proof in #139, and recovery in #134.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/133-credential-consumer-verifiers
+
 ## 21-09-2026 — Credential changes can be drafted without activating them ([#132](https://github.com/vegastack/vegastack-labs/issues/132))
 
 - **What:** Operators can draft staging, activation, rotation, named revocation and recovery through the same server API and CLI. Drafts carry only metadata and derive the exact stored fingerprint and import identity on the server. Status changes still require a current immutable plan and independent human acknowledgement.
