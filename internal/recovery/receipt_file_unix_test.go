@@ -38,7 +38,15 @@ func TestFileReceiptStoreConsumesOnceAcrossRestart(t *testing.T) {
 	if err := restarted.Consume(context.Background(), "receipt-1", "challenge-1"); err == nil {
 		t.Fatal("receipt replayed after restart")
 	}
-	if err := restarted.Consume(context.Background(), "receipt-2", "challenge-1"); err != nil {
+	if err := restarted.Consume(context.Background(), "receipt-1", "challenge-2"); err == nil {
+		t.Fatal("receipt reused with a new challenge")
+	}
+	if err := restarted.Consume(context.Background(), "receipt-2", "challenge-1"); err == nil {
+		t.Fatal("challenge reused with a new receipt")
+	}
+	// The rejected cross-pair conservatively burns receipt-2; only two fresh
+	// identities can form another attempt.
+	if err := restarted.Consume(context.Background(), "receipt-3", "challenge-2"); err != nil {
 		t.Fatal(err)
 	}
 }

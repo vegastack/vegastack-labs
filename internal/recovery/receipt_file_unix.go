@@ -27,8 +27,9 @@ type fileReceiptStore struct {
 	expectedUID uint32
 }
 
-// Consume is an atomic no-replace claim. A failed or interrupted claim is
-// never undone: retrying the same receipt must remain unavailable.
+// Consume durably claims each receipt ID and challenge ID independently. A
+// partial or interrupted claim is never undone; conservative burn-on-failure
+// prevents a new pair from reusing either successful attempt's identity.
 func (store fileReceiptStore) Consume(ctx context.Context, receiptID, challengeID string) error {
 	if ctx == nil || ctx.Err() != nil || !validWitnessToken(receiptID) || !validWitnessToken(challengeID) || !filepath.IsAbs(store.directory) || filepath.Clean(store.directory) != store.directory {
 		return ErrWitnessUnavailable
@@ -42,7 +43,18 @@ func (store fileReceiptStore) Consume(ctx context.Context, receiptID, challengeI
 	if unix.Fstat(directoryFD, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Uid != store.expectedUID || stat.Mode&0o777 != 0o700 {
 		return ErrWitnessUnavailable
 	}
-	sum := sha256.Sum256([]byte(receiptDomain + receiptID + "\x00" + challengeID))
+	if claimReceiptMarker(directoryFD, "receipt", receiptID) != nil ||
+		claimReceiptMarker(directoryFD, "challenge", challengeID) != nil {
+		return ErrWitnessUnavailable
+	}
+	if unix.Fsync(directoryFD) != nil || ctx.Err() != nil {
+		return ErrWitnessUnavailable
+	}
+	return nil
+}
+
+func claimReceiptMarker(directoryFD int, kind, id string) error {
+	sum := sha256.Sum256([]byte(receiptDomain + kind + "\x00" + id))
 	name := hex.EncodeToString(sum[:])
 	fd, err := unix.Openat(directoryFD, name, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0o600)
 	if err != nil {
@@ -52,7 +64,7 @@ func (store fileReceiptStore) Consume(ctx context.Context, receiptID, challengeI
 		_ = unix.Close(fd)
 		return ErrWitnessUnavailable
 	}
-	if unix.Close(fd) != nil || unix.Fsync(directoryFD) != nil || ctx.Err() != nil {
+	if unix.Close(fd) != nil {
 		return ErrWitnessUnavailable
 	}
 	return nil
