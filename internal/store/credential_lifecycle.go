@@ -487,18 +487,7 @@ func requireConsumerVerifications(binding credentialref.LifecycleBinding, verifi
 }
 
 func recoveryEvidenceMatchesBinding(binding credentialref.LifecycleBinding, evidence credentialref.RecoveryVerification) bool {
-	if binding.DraftID == nil || binding.CustodyProofDigest == nil || binding.FormerControllerFenceDigest == nil || binding.PriorRecoveryEpoch == nil {
-		return false
-	}
-	return evidence.DraftID == *binding.DraftID &&
-		evidence.CustodyProofDigest == *binding.CustodyProofDigest &&
-		evidence.FormerControllerFenceDigest == *binding.FormerControllerFenceDigest &&
-		evidence.PriorRecoveryEpoch == *binding.PriorRecoveryEpoch &&
-		evidence.RecoveryEpoch == binding.RecoveryEpoch &&
-		evidence.RecoveryEpoch > evidence.PriorRecoveryEpoch &&
-		credentialref.ValidSHA256Digest(evidence.EvidenceDigest) &&
-		credentialref.ValidSHA256Digest(evidence.CustodyProofDigest) &&
-		credentialref.ValidSHA256Digest(evidence.FormerControllerFenceDigest)
+	return credentialref.ValidRecoveryVerification(binding, evidence)
 }
 
 func (repository *CredentialRepository) consumerVerificationExtra(binding credentialref.LifecycleBinding, verifications []credentialref.ConsumerVerification) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
