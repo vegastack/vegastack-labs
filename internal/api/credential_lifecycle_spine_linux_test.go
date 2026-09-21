@@ -239,16 +239,20 @@ func (fixture *lifecyclePublicFixture) submitAndApply(t *testing.T, input genera
 	input.RecoveryEpoch = current.RecoveryEpoch
 	input.IdempotencyKey = "intent-" + input.Action + "-" + input.MaterialVersion
 	if input.Action == "credential.activate" || input.Action == "credential.rotate" {
+		hostID, err := localNativeHostID()
+		if err != nil {
+			t.Fatal(err)
+		}
 		input.NativeConsumers = &[]generated.CredentialNativeConsumer{{
 			Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0",
 			ConsumerID: "consumer-lifecycle", TargetID: input.TargetID,
-			HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service",
+			HostMachineID: hostID, UnitName: "alpha.service",
 			ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-test", RoleID: "role-test",
 		}}
 		input.NativeDeniedReaders = &[]generated.CredentialNativeDeniedReader{{
 			Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0",
 			ConsumerID: "consumer-denied", TargetID: input.TargetID,
-			HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001,
+			HostMachineID: hostID, ReaderUID: 2001, ReaderGID: 2001,
 			ProfileID: "profile-test", RoleID: "role-test",
 		}}
 	} else {
