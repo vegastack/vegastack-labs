@@ -12,6 +12,10 @@ on:
         required: false
         default: false
         type: boolean
+      native_credential_sha:
+        description: 'Exact #143 branch SHA for disposable native credential acceptance; leave empty for ordinary checks'
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -155,6 +159,20 @@ jobs:
           cache: false
           go-version: 1.27.0
 
+      - name: Run exact #143 disposable native credential acceptance
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/143-native-credential-authority' && inputs.native_credential_sha != ''
+        env:
+          VSK143_SHA: ${{ inputs.native_credential_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$VSK143_SHA"
+          test "$(git rev-parse HEAD)" = "$VSK143_SHA"
+          test -z "$(git status --porcelain)"
+          case "$(hostname)" in vsk-node-01|vsk-node-06) ;; *) exit 1 ;; esac
+          sudo -n true
+          go build -o "$RUNNER_TEMP/vsk143-binary" ./cmd/vsk-labs
+          sudo -n env VSK_NATIVE_AUTHORITY_DISPOSABLE=1 VSK143_RUN_ID="$GITHUB_RUN_ID" VSK143_SHA="$VSK143_SHA" VSK143_WORKSPACE="$GITHUB_WORKSPACE" VSK143_BINARY="$RUNNER_TEMP/vsk143-binary" bash tooling/native-credential-authority-ci-fixture.sh
+
       - name: Install public dependencies
         run: pnpm install --frozen-lockfile
 
@@ -203,3 +221,12 @@ jobs:
             *) echo "Refusing unexpected cleanup path" >&2; exit 1 ;;
           esac
           rm -rf -- "$TMPDIR"
+
+      - name: Remove exact #143 disposable native credential fixture
+        if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/143-native-credential-authority' && inputs.native_credential_sha != ''
+        env:
+          VSK143_SHA: ${{ inputs.native_credential_sha }}
+        run: |
+          set -euo pipefail
+          test "$GITHUB_SHA" = "$VSK143_SHA"
+          sudo -n env VSK143_RUN_ID="$GITHUB_RUN_ID" VSK143_SHA="$VSK143_SHA" bash tooling/native-credential-authority-ci-fixture.sh --cleanup
