@@ -14,6 +14,11 @@ Available commands:
     --config <path>        Read one protected server profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  credential activate      Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   credential import        Import a local encrypted credential as an inert draft.
     --config <path>        Read one protected local server profile.
     --consumer-id <id>     Bind the draft to one consumer.
@@ -28,6 +33,26 @@ Available commands:
     --resolver-id <id>     Select the native systemd resolver. Allowed: native-systemd.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
     --target-id <id>       Bind the draft to one public target.
+  credential recover       Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  credential revoke        Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  credential rotate        Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  credential stage         Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   database status          Inspect control-database status.
     --config <path>        Read the protected server profile at this explicit path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

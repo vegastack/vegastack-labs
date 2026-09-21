@@ -48,6 +48,8 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.match(plan.run, /node tooling\/check-affected\.mjs[\s\S]*--format github/);
   assert.equal(workflow.jobs.plan["runs-on"], "ubuntu-24.04");
   assert.equal(workflow.jobs.verify_pr["runs-on"], "ubuntu-24.04");
+  assert.equal(workflow.jobs.verify_pr["timeout-minutes"], 20);
+  assert.equal(workflow.jobs.verify_trusted["timeout-minutes"], 15);
   assert.deepEqual(workflow.jobs.verify_trusted["runs-on"], ["self-hosted", "linux", "x64"]);
   assert.equal(workflow.jobs.verify_pr.if, "github.event_name == 'pull_request'");
   assert.equal(
@@ -79,6 +81,19 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(trustedSteps[2].name, "Check out repository");
   assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
+});
+
+test("the hosted PR timeout stays bounded to the reviewed 20-minute ceiling", async () => {
+  const source = await readFile(
+    new URL("../../.github/workflows/ci.yml", import.meta.url),
+    "utf8",
+  );
+  const extended = parseYaml(source);
+  extended.jobs.verify_pr["timeout-minutes"] = 21;
+  assert.throws(
+    () => verifyWorkflowDocument(extended, source),
+    /verify_pr job timeout must be at most 20 minutes/,
+  );
 });
 
 test("the workflow guard rejects unconditional Chromium and a repeated full lane", async () => {

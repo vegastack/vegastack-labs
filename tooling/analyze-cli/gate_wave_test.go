@@ -11,8 +11,8 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 		name  string
 		files []string
 	}{
-		{"linux", []string{"audit_client.go", "client.go", "credential_client.go", "gates_client.go", "listener.go", "listener_linux.go"}},
-		{"unsupported", []string{"audit_client.go", "client.go", "credential_client.go", "gates_client.go", "listener.go", "listener_unsupported.go"}},
+		{"linux", []string{"audit_client.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "gates_client.go", "listener.go", "listener_linux.go"}},
+		{"unsupported", []string{"audit_client.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "gates_client.go", "listener.go", "listener_unsupported.go"}},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
 			temporary := t.TempDir()
@@ -29,7 +29,7 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 			if !reviewedLocalAPISource(candidate) {
 				t.Fatal("the exact reviewed local gate, credential import, and audit client source was not accepted")
 			}
-			for _, clientFile := range []string{"audit_client.go", "credential_client.go"} {
+			for _, clientFile := range []string{"audit_client.go", "credential_client.go", "credential_lifecycle_client.go"} {
 				file := filepath.Join(temporary, clientFile)
 				original, err := os.ReadFile(file)
 				if err != nil {

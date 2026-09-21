@@ -60,7 +60,7 @@ func credentialLifecyclePlan(declarationID, targetID, fingerprint, action string
 // CredentialStageRequest the run engine would compose, so a store-level test
 // exercises the real append spine rather than a fake repository. Production
 // evidence is created by the plan/run engine, never by this helper.
-func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository, action credentialref.LifecycleAction, reference generated.CredentialReference, stateRevision int64, mode ackMode) CredentialStageRequest {
+func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository, action credentialref.LifecycleAction, reference generated.CredentialReference, stateRevision int64, mode ackMode, sealed ...credentialref.LifecycleBinding) CredentialStageRequest {
 	t.Helper()
 	db := repository.store.conn
 	now := repository.store.config.Clock().UTC().Truncate(time.Second)
@@ -76,7 +76,65 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 	leaseID := "lease-" + shortDigest(suffix+"-lease")
 	ackID := "ack-" + shortDigest(suffix+"-ack")
 
-	plan, canonical := credentialLifecyclePlan(declarationID, reference.TargetID, fingerprint, string(action), 1, stateRevision)
+	if len(sealed) == 0 {
+		binding := stageBinding()
+		binding.Action = action
+		binding.StateRevision = stateRevision
+		binding.MaterialVersion = reference.MaterialVersion
+		if action == credentialref.ActionActivate || action == credentialref.ActionRevoke {
+			binding.DraftID = nil
+			binding.ImportDraftStateRevision = nil
+			binding.ImportDraftConsumerID = nil
+			binding.ImportDraftPurposeID = nil
+		}
+		if action == credentialref.ActionActivate {
+			binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+		}
+		sealed = []credentialref.LifecycleBinding{binding}
+	}
+	declRevision := int64(1)
+	if len(sealed) > 0 {
+		declarationID = "declaration-" + shortDigest(suffix)
+		declRevision = 2
+	}
+	if action == credentialref.ActionStage || action == credentialref.ActionRotate || action == credentialref.ActionRecover {
+		binding := stageBinding()
+		if len(sealed) > 0 {
+			binding = sealed[0]
+		}
+		if binding.DraftID != nil && binding.ImportDraftStateRevision != nil {
+			if _, err := db.ExecContext(context.Background(), `INSERT INTO credential_import_drafts(draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,idempotency_key_digest,request_digest,target_digest,ciphertext_name,ciphertext_fingerprint,state_revision,recovery_epoch,created_by,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?) ON CONFLICT DO NOTHING`, *binding.DraftID, reference.ReferenceID, reference.ConsumerID, reference.PurposeID, reference.TargetID, reference.ResolverID, reference.MaterialVersion, gateDigest([]byte(*binding.DraftID+"-key")), digest, testDigest, "ciphertext-a", fingerprint, *binding.ImportDraftStateRevision, human, nowText); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	plan, canonical := credentialLifecyclePlan(declarationID, reference.TargetID, fingerprint, string(action), declRevision, stateRevision)
+	if len(sealed) > 0 {
+		binding := sealed[0]
+		plan.Extensions = []generated.ContractExtension{{Name: "x-credential-lifecycle", ValueDigest: credentialref.LifecycleManifestDigestOf(binding)}}
+		plan.PlanID, plan.PlanDigest = "", ""
+		preimage, _ := json.Marshal(plan)
+		sum := sha256.Sum256(preimage)
+		plan.PlanDigest = "sha256:" + hex.EncodeToString(sum[:])
+		plan.PlanID = "plan-" + hex.EncodeToString(sum[:16])
+		canonical, _ = json.Marshal(plan)
+		doc := validDeclarationStoreRequest().Document
+		doc.DeclarationID = declarationID
+		doc.Revision = 2
+		doc.StateRevision = stateRevision
+		doc.Status = "committed"
+		doc.Extensions = plan.Extensions
+		doc.Operations = []generated.DeclarationOperation{{Sequence: 1, OperationID: binding.OperationID, OperationType: string(binding.Action), AdapterID: "core.credential", TargetID: binding.TargetID, InputDigest: fingerprint, ArtifactDigest: fingerprint, Idempotent: true}}
+		doc.ContentDigest = declarationContentDigest(doc, digest)
+		body, _ := json.Marshal(doc)
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,2,'credential',?,0,?,?,'committed',?,?,?,'session-a')`, declarationID, stateRevision, doc.ContentDigest, digest, body, nowText, human); err != nil {
+			t.Fatal(err)
+		}
+		raw, _ := json.Marshal(binding)
+		if _, err := db.ExecContext(context.Background(), `INSERT INTO credential_lifecycle_bindings(binding_id,declaration_id,declaration_revision,operation_id,action,reference_id,binding_digest,binding_bytes,recovery_epoch,created_at) VALUES(?,?,1,?,?,?,?,?,0,?)`, "binding-"+shortDigest(suffix), declarationID, binding.OperationID, string(binding.Action), binding.ReferenceID, credentialref.LifecycleManifestDigestOf(binding), raw, nowText); err != nil {
+			t.Fatal(err)
+		}
+	}
 
 	// The authoritative revision counter must equal the effect's Expected token,
 	// exactly as the run engine would have advanced it to this point.
@@ -88,7 +146,7 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 	if _, err := db.ExecContext(context.Background(), `INSERT OR IGNORE INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,1,'credential',1,0,?,?,'committed',X'7B7D',?,?,'session-a')`, declarationID, digest, digest, nowText, human); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := db.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,1,?,0,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, declarationID, stateRevision, gateDigest([]byte(plan.PlanID)), gateDigest([]byte(plan.PlanID+"-key")), digest, canonical, "readable\n", plan.ReadableDigest, nowText, expires); err != nil {
+	if _, err := db.ExecContext(context.Background(), `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,0,?,?,?,?,?,?,?,?)`, plan.PlanID, plan.PlanDigest, declarationID, declRevision, stateRevision, gateDigest([]byte(plan.PlanID)), gateDigest([]byte(plan.PlanID+"-key")), digest, canonical, "readable\n", plan.ReadableDigest, nowText, expires); err != nil {
 		t.Fatal(err)
 	}
 
@@ -120,7 +178,7 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 	}
 
 	return CredentialStageRequest{
-		Reference: reference, DeclarationID: declarationID, DeclarationRevision: 1,
+		Reference: reference, DeclarationID: declarationID, DeclarationRevision: declRevision,
 		PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: runID, StepID: stepID, LeaseID: leaseID, HumanID: human,
 		Expected: RevisionToken{StateRevision: stateRevision, RecoveryEpoch: 0}, Attribution: validDeclarationStoreRequest().Attribution,
 		KeyDigest: gateDigest([]byte(plan.PlanID + "-key")), RequestDigest: gateDigest([]byte(plan.PlanID + "-req")),
@@ -151,7 +209,7 @@ func stagedReference(stateRevision int64) generated.CredentialReference {
 	return generated.CredentialReference{
 		Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0",
 		ReferenceID: "reference-a", ConsumerID: "consumer-a", PurposeID: "deploy-a",
-		TargetID: "service-a", ResolverID: "native-a", MaterialVersion: "version-a",
+		TargetID: "service-a", ResolverID: "native-systemd", MaterialVersion: "version-a",
 		Fingerprint: lifecycleFingerprint, Status: "staged", StateRevision: stateRevision + 1, RecoveryEpoch: 0,
 		VerifiedConsumerIDs: []string{},
 	}
@@ -161,8 +219,8 @@ func stageBinding() credentialref.LifecycleBinding {
 	return credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionStage, DraftID: stringPointer("draft-a"),
 		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, MaterialVersion: "version-a",
-		ResolverID: "native-a", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
-		StateRevision: 1, RecoveryEpoch: 0,
+		ResolverID: "native-systemd", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
+		StateRevision: 2, RecoveryEpoch: 0, ImportDraftStateRevision: int64PointerLifecycle(1), ImportDraftConsumerID: stringPointer("consumer-a"), ImportDraftPurposeID: stringPointer("deploy-a"),
 	}
 }
 
@@ -205,7 +263,7 @@ func TestCredentialLifecycleSpineStageThenActivate(t *testing.T) {
 	activateBinding := credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionActivate, ReferenceID: "reference-a",
 		ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{"consumer-denied"},
-		MaterialVersion: "version-a", ResolverID: "native-a", TargetID: "service-a",
+		MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "service-a",
 		CiphertextFingerprint: lifecycleFingerprint, StateRevision: 3, RecoveryEpoch: 0,
 	}
 	verifications := []credentialref.ConsumerVerification{
@@ -366,6 +424,213 @@ func TestLifecycleBindingStoreRoundtripAndTamperDenial(t *testing.T) {
 				}
 			} else if Code(err) != generated.ErrorCodeIntegrityFailure {
 				t.Fatalf("corrupt persisted binding admitted: %+v %v", loaded, err)
+			}
+		})
+	}
+}
+
+func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
+	for _, revokePrior := range []bool{false, true} {
+		t.Run(strconv.FormatBool(revokePrior), func(t *testing.T) {
+
+			repository := openCredentialStore(t)
+			state := int64(2)
+			inertOnly := false
+			apply := func(action credentialref.LifecycleAction, version string, prior *string) (generated.CredentialReference, error) {
+				ref := stagedReference(state)
+				ref.MaterialVersion = version
+				binding := stageBinding()
+				binding.Action = action
+				binding.MaterialVersion = version
+				binding.DraftID = stringPointer("draft-" + version)
+				binding.StateRevision = state
+				binding.PriorMaterialVersion = prior
+				var checks []credentialref.ConsumerVerification
+				if action == credentialref.ActionActivate || action == credentialref.ActionRotate {
+					stamp := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+					ref.Status = "active"
+					ref.ActivatedAt = &stamp
+					ref.VerifiedConsumerIDs = []string{"consumer-a"}
+					binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+					checks = []credentialref.ConsumerVerification{
+						{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
+						{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, Result: "denied", ReasonCode: "denied"},
+					}
+				}
+				if action == credentialref.ActionActivate || action == credentialref.ActionRevoke {
+					binding.DraftID = nil
+					binding.ImportDraftStateRevision = nil
+					binding.ImportDraftConsumerID = nil
+					binding.ImportDraftPurposeID = nil
+				}
+				if action == credentialref.ActionRevoke {
+					ref.Status = "revoked"
+					binding.ConsumerIDs = nil
+				}
+				request := seedCredentialLifecycleStep(t, repository, action, ref, state, ackConsumed, binding)
+				if inertOnly {
+					releaseLease(t, repository, request.LeaseID)
+					state++
+					return generated.CredentialReference{}, nil
+				}
+				result, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request, Verifications: checks})
+				releaseLease(t, repository, request.LeaseID)
+				state++
+				return result, err
+			}
+			mustApply := func(action credentialref.LifecycleAction, version string, prior *string) {
+				t.Helper()
+				if _, err := apply(action, version, prior); err != nil {
+					t.Fatalf("%s %s: %v", action, version, err)
+				}
+			}
+			assertCurrent := func(want string) {
+				t.Helper()
+				got, err := repository.GetReference(context.Background(), "reference-a")
+				if err != nil || got.MaterialVersion != want || got.Status != "active" {
+					t.Fatalf("logical active version must be%s, got%+v err%v", want, got, err)
+				}
+			}
+			mustApply(credentialref.ActionStage, "version-1", nil)
+			mustApply(credentialref.ActionActivate, "version-1", nil)
+			mustApply(credentialref.ActionStage, "version-2", nil)
+			assertCurrent("version-1")
+			// A planned rotation and its inert binding cannot select a replacement.
+			inertOnly = true
+			mustApply(credentialref.ActionRotate, "version-2", stringPointer("version-1"))
+			inertOnly = false
+			assertCurrent("version-1")
+			before := tableCount(t, repository, "credential_reference_versions")
+			if _, err := apply(credentialref.ActionActivate, "version-2", nil); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+				t.Fatalf("direct activation while v1active mustfail: %v", err)
+			}
+			if tableCount(t, repository, "credential_reference_versions") != before {
+				t.Fatal("denied direct activation appended status")
+			}
+			mustApply(credentialref.ActionRotate, "version-2", stringPointer("version-1"))
+			// The durable version append proves lineage even when no effect receipt or
+			// successful run exists: model reconciliation marking that interrupted run partial.
+			if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE plan_runs SET status='partial' WHERE plan_id=(SELECT plan_id FROM credential_reference_versions WHERE material_version='version-2' AND status='active' ORDER BY state_revision DESC LIMIT 1)`); err != nil {
+				t.Fatal(err)
+			}
+			assertCurrent("version-2")
+			prior, err := repository.GetCredentialVersion(context.Background(), "reference-a", "version-1")
+			if err != nil || prior.Status != "active" {
+				t.Fatalf("rotation must preserve exact prior status during overlap: %+v %v", prior, err)
+			}
+			if revokePrior {
+				mustApply(credentialref.ActionRevoke, "version-1", nil)
+			}
+			assertCurrent("version-2")
+			mustApply(credentialref.ActionRevoke, "version-2", nil)
+			if _, err := repository.GetActiveVersion(context.Background(), "reference-a", 0); Code(err) != generated.ErrorCodeResourceNotFound {
+				t.Fatalf("revoking replacement must not resurrect superseded prior: %v", err)
+			}
+			// A damaged append row cannot qualify as verified historical lineage.
+			if _, err := repository.store.conn.ExecContext(context.Background(), `DROP TRIGGER credential_reference_versions_no_update`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE credential_reference_versions SET target_id='wrong-target' WHERE material_version='version-2' AND status='active'`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.GetActiveVersion(context.Background(), "reference-a", 0); Code(err) != generated.ErrorCodeIntegrityFailure {
+				t.Fatalf("corrupted applied lineage must fail integrity: %v", err)
+			}
+
+		})
+	}
+}
+
+func TestLogicalActiveSelectorRejectsUnrelatedMultipleActiveVersions(t *testing.T) {
+	repository := openCredentialStore(t)
+	stage := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed)
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: stageBinding(), Stage: stage}); err != nil {
+		t.Fatal(err)
+	}
+	releaseLease(t, repository, stage.LeaseID)
+	ref := stagedReference(3)
+	ref.Status = "active"
+	stamp := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	ref.ActivatedAt = &stamp
+	ref.VerifiedConsumerIDs = []string{"consumer-a"}
+	binding := stageBinding()
+	binding.Action = credentialref.ActionActivate
+	binding.DraftID = nil
+	binding.ImportDraftStateRevision = nil
+	binding.ImportDraftConsumerID = nil
+	binding.ImportDraftPurposeID = nil
+	binding.StateRevision = 3
+	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	request := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, ref, 3, ackConsumed)
+	checks := []credentialref.ConsumerVerification{
+		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: ref.MaterialVersion, CiphertextFingerprint: ref.Fingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
+		{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: ref.MaterialVersion, CiphertextFingerprint: ref.Fingerprint, EvidenceDigest: testDigest, Result: "denied", ReasonCode: "denied"},
+	}
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request, Verifications: checks}); err != nil {
+		t.Fatal(err)
+	}
+	// Model privileged persisted-data corruption with an unrelated active version;
+	// the reader must reject ambiguity even when its metadata passes the schema.
+	if _, err := repository.store.conn.ExecContext(context.Background(), `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) SELECT 'version-unrelated',reference_id,consumer_id,purpose_id,target_id,resolver_id,'version-unrelated',fingerprint,status,state_revision+1,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at FROM credential_reference_versions WHERE status='active' LIMIT 1`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.GetActiveVersion(context.Background(), "reference-a", 0); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("unrelated multiple active versions must fail closed: %v", err)
+	}
+	if _, err := repository.GetReference(context.Background(), "reference-a"); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("logical current cannot mask ambiguity: %v", err)
+	}
+}
+
+func TestLifecycleAppendRejectsSubstitutedDraftOrigin(t *testing.T) {
+	for _, mode := range []string{"missing-id", "wrong-origin-revision", "wrong-consumer", "wrong-purpose"} {
+		t.Run(mode, func(t *testing.T) {
+			repository := openCredentialStore(t)
+			binding := stageBinding()
+			request := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed, binding)
+			switch mode {
+			case "missing-id":
+				binding.DraftID = stringPointer("missing-draft")
+			case "wrong-origin-revision":
+				binding.ImportDraftStateRevision = int64PointerLifecycle(2)
+			case "wrong-consumer":
+				binding.ImportDraftConsumerID = stringPointer("consumer-other")
+				binding.ConsumerIDs = []string{"consumer-other"}
+			case "wrong-purpose":
+				binding.ImportDraftPurposeID = stringPointer("purpose-other")
+			}
+			if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request}); err == nil {
+				t.Fatal("substituted immutable draft origin must not append")
+			}
+			if tableCount(t, repository, "credential_reference_versions") != 0 {
+				t.Fatal("origin denial must roll back version append")
+			}
+		})
+	}
+}
+
+func TestLifecycleAppendRechecksImmutableDraftMetadata(t *testing.T) {
+	cases := map[string]any{"draft_id": "wrong-draft", "reference_id": "wrong-reference", "consumer_id": "wrong-consumer", "purpose_id": "wrong-purpose", "target_id": "wrong-target", "resolver_id": "wrong-resolver", "material_version": "wrong-version", "ciphertext_fingerprint": testDigest, "state_revision": int64(9), "recovery_epoch": int64(9)}
+	for field, value := range cases {
+		t.Run(field, func(t *testing.T) {
+			repository := openCredentialStore(t)
+			binding := stageBinding()
+			request := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed, binding)
+			if _, err := repository.store.conn.ExecContext(context.Background(), `DROP TRIGGER credential_import_drafts_no_update`); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.store.conn.ExecContext(context.Background(), `PRAGMA ignore_check_constraints=ON`); err != nil {
+				t.Fatal(err)
+			}
+			// field comes from the closed literal test table, never caller input.
+			if _, err := repository.store.conn.ExecContext(context.Background(), "UPDATE credential_import_drafts SET "+field+"=? WHERE draft_id='draft-a'", value); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request}); err == nil {
+				t.Fatal("damaged immutable origin metadata must not append")
+			}
+			if tableCount(t, repository, "credential_reference_versions") != 0 {
+				t.Fatal("origin mismatch must be atomic")
 			}
 		})
 	}

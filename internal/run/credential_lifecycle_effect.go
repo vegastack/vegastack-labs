@@ -19,7 +19,8 @@ import (
 type CredentialLifecycleRepository interface {
 	GetLifecycleBinding(context.Context, generated.Plan, string) (credentialref.LifecycleBinding, error)
 	GetReference(context.Context, string) (generated.CredentialReference, error)
-	LookupImportDraftByReference(context.Context, string, string, int64) (store.CredentialImportDraft, error)
+	GetCredentialVersion(context.Context, string, string) (generated.CredentialReference, error)
+	GetImportDraftByID(context.Context, string) (store.CredentialImportDraft, error)
 	ApplyCredentialLifecycle(context.Context, store.CredentialLifecycleApplyRequest) (generated.CredentialReference, error)
 }
 
@@ -191,17 +192,20 @@ func (effect *CoreCredentialEffect) Execute(ctx context.Context, binding ExactSt
 
 func (effect *CoreCredentialEffect) referenceIdentity(ctx context.Context, binding credentialref.LifecycleBinding) (string, string, error) {
 	switch binding.Action {
-	case credentialref.ActionStage, credentialref.ActionRecover:
-		draft, err := effect.repository.LookupImportDraftByReference(ctx, binding.ReferenceID, binding.MaterialVersion, binding.RecoveryEpoch)
+	case credentialref.ActionStage, credentialref.ActionRecover, credentialref.ActionRotate:
+		if binding.DraftID == nil {
+			return "", "", runError(generated.ErrorCodeInputInvalid, "credential-import-draft")
+		}
+		draft, err := effect.repository.GetImportDraftByID(ctx, *binding.DraftID)
 		if err != nil {
 			return "", "", err
 		}
-		if draft.CiphertextFingerprint != binding.CiphertextFingerprint || draft.TargetID != binding.TargetID || draft.ResolverID != binding.ResolverID {
+		if !draft.MatchesLifecycleBinding(binding) {
 			return "", "", runError(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft")
 		}
 		return draft.ConsumerID, draft.PurposeID, nil
 	default:
-		current, err := effect.repository.GetReference(ctx, binding.ReferenceID)
+		current, err := effect.repository.GetCredentialVersion(ctx, binding.ReferenceID, binding.MaterialVersion)
 		if err != nil {
 			return "", "", err
 		}
@@ -223,7 +227,7 @@ func (effect *CoreCredentialEffect) Verify(ctx context.Context, binding ExactSte
 	if lifecycleBinding.Digest() != result.ResultDigest {
 		return adapter.Verification{Verified: false, Digest: result.ResultDigest}, errors.New("credential lifecycle digest mismatch")
 	}
-	version, err := effect.repository.GetReference(ctx, lifecycleBinding.ReferenceID)
+	version, err := effect.repository.GetCredentialVersion(ctx, lifecycleBinding.ReferenceID, lifecycleBinding.MaterialVersion)
 	if err != nil {
 		return adapter.Verification{}, err
 	}

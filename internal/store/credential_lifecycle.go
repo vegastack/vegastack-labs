@@ -304,7 +304,7 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-mismatch")
 	}
 
-	current, currentErr := repository.GetReference(ctx, binding.ReferenceID)
+	current, currentErr := repository.GetCredentialVersion(ctx, binding.ReferenceID, binding.MaterialVersion)
 	if currentErr != nil && Code(currentErr) != generated.ErrorCodeResourceNotFound {
 		return generated.CredentialReference{}, currentErr
 	}
@@ -317,7 +317,7 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		if target.Status != "staged" || target.ActivatedAt != nil || len(target.VerifiedConsumerIDs) != 0 {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-stage")
 		}
-		if hasCurrent && current.RecoveryEpoch == binding.RecoveryEpoch && (current.Status == "staged" || current.MaterialVersion == binding.MaterialVersion) {
+		if hasCurrent && current.RecoveryEpoch == binding.RecoveryEpoch {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeStateConflict, "credential-lifecycle-version")
 		}
 	case credentialref.ActionActivate:
@@ -325,6 +325,13 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-activate")
 		}
 		if !hasCurrent || current.RecoveryEpoch != binding.RecoveryEpoch || current.MaterialVersion != binding.MaterialVersion || current.Fingerprint != binding.CiphertextFingerprint || (current.Status != "staged" && current.Status != "unavailable") {
+			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-activate")
+		}
+		active, activeErr := repository.GetActiveVersion(ctx, binding.ReferenceID, binding.RecoveryEpoch)
+		if activeErr != nil && Code(activeErr) != generated.ErrorCodeResourceNotFound {
+			return generated.CredentialReference{}, activeErr
+		}
+		if activeErr == nil && active.MaterialVersion != binding.MaterialVersion {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-activate")
 		}
 		if err := requireConsumerVerifications(binding, request.Verifications, target.VerifiedConsumerIDs); err != nil {
@@ -335,7 +342,11 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		if target.Status != "active" || target.ActivatedAt == nil || binding.PriorMaterialVersion == nil || *binding.PriorMaterialVersion == binding.MaterialVersion {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-rotate")
 		}
-		if !hasCurrent || current.RecoveryEpoch != binding.RecoveryEpoch || current.Status != "active" || current.MaterialVersion != *binding.PriorMaterialVersion {
+		active, activeErr := repository.GetActiveVersion(ctx, binding.ReferenceID, binding.RecoveryEpoch)
+		if activeErr != nil && Code(activeErr) != generated.ErrorCodeResourceNotFound {
+			return generated.CredentialReference{}, activeErr
+		}
+		if activeErr != nil || active.MaterialVersion != *binding.PriorMaterialVersion || !hasCurrent || current.RecoveryEpoch != binding.RecoveryEpoch || current.Status != "staged" || current.Fingerprint != binding.CiphertextFingerprint {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-rotate")
 		}
 		if err := requireConsumerVerifications(binding, request.Verifications, target.VerifiedConsumerIDs); err != nil {
@@ -358,7 +369,11 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		}
 		// A recovered version is staged under the new epoch; any prior version
 		// belongs to a superseded epoch and cannot be current here.
-		if hasCurrent && current.RecoveryEpoch >= binding.RecoveryEpoch {
+		prior, priorErr := repository.GetReference(ctx, binding.ReferenceID)
+		if priorErr != nil && Code(priorErr) != generated.ErrorCodeResourceNotFound {
+			return generated.CredentialReference{}, priorErr
+		}
+		if priorErr == nil && prior.RecoveryEpoch >= binding.RecoveryEpoch {
 			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeRecoveryEpochMismatch, "credential-lifecycle-recover")
 		}
 		extra = repository.recoveryRecordExtra(binding, *request.Recovery)
@@ -366,7 +381,7 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-action")
 	}
 
-	return repository.applyCredentialVersion(ctx, request.Stage, string(binding.Action), repository.lifecycleAppendExtra(request.Stage, extra))
+	return repository.applyCredentialVersion(ctx, request.Stage, string(binding.Action), repository.lifecycleAppendExtra(request, extra))
 }
 
 // lifecycleAppendExtra wraps every lifecycle append with the consumed
@@ -375,9 +390,12 @@ func (repository *CredentialRepository) ApplyCredentialLifecycle(ctx context.Con
 // proves it here, inside the same append transaction, before running any
 // action-specific evidence hook. No lifecycle status can be appended without it,
 // including by a direct in-process caller that seeds an otherwise exact step.
-func (repository *CredentialRepository) lifecycleAppendExtra(stage CredentialStageRequest, actionExtra func(ctx context.Context, tx *sql.Tx, versionID, created string) error) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
+func (repository *CredentialRepository) lifecycleAppendExtra(request CredentialLifecycleApplyRequest, actionExtra func(ctx context.Context, tx *sql.Tx, versionID, created string) error) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
 	return func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
-		if err := requireConsumedHumanAcknowledgement(ctx, tx, stage); err != nil {
+		if err := requireConsumedHumanAcknowledgement(ctx, tx, request.Stage); err != nil {
+			return err
+		}
+		if err := requireExactLifecycleBinding(ctx, tx, request); err != nil {
 			return err
 		}
 		if actionExtra != nil {
@@ -514,4 +532,40 @@ func lifecycleEvidenceID(versionID, discriminator, kind string) string {
 
 func credentialValidDigest(value string) bool {
 	return len(value) == 71 && value[:7] == "sha256:"
+}
+
+// requireExactLifecycleBinding rechecks the exact sealed bytes and immutable
+// import origin inside the same version append/CAS transaction.
+func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request CredentialLifecycleApplyRequest) error {
+	binding := request.Binding
+	stage := request.Stage
+	var digest string
+	var raw []byte
+	var epoch int64
+	err := tx.QueryRowContext(ctx, `SELECT binding_digest,binding_bytes,recovery_epoch FROM credential_lifecycle_bindings WHERE declaration_id=? AND declaration_revision=? AND operation_id=?`, stage.DeclarationID, stage.DeclarationRevision-1, binding.OperationID).Scan(&digest, &raw, &epoch)
+	if err != nil {
+		return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-lifecycle-unbound")
+	}
+	var canonical []byte
+	var readable string
+	var plan generated.Plan
+	if tx.QueryRowContext(ctx, `SELECT canonical_bytes,readable_plan FROM immutable_plans WHERE plan_id=? AND plan_digest=?`, stage.PlanID, stage.PlanDigest).Scan(&canonical, &readable) != nil || !decodeStoredPlan(canonical, readable, &plan) || draftLifecycleDigest(plan.Extensions) != digest || plan.Binding.StateRevision != binding.StateRevision || plan.Binding.RecoveryEpoch != binding.RecoveryEpoch {
+		return credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-plan-seal")
+	}
+	var sealed credentialref.LifecycleBinding
+	if len(raw) > 4096 || json.Unmarshal(raw, &sealed) != nil || credentialref.LifecycleManifestDigestOf(sealed) != digest || epoch != binding.RecoveryEpoch || digest != credentialref.LifecycleManifestDigestOf(binding) || binding.StateRevision != stage.Expected.StateRevision {
+		return credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-seal")
+	}
+	switch binding.Action {
+	case credentialref.ActionStage, credentialref.ActionRotate, credentialref.ActionRecover:
+		if binding.DraftID == nil {
+			return credentialStoreError(generated.ErrorCodeInputInvalid, "credential-import-draft")
+		}
+		var draft CredentialImportDraft
+		err := tx.QueryRowContext(ctx, `SELECT draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,ciphertext_fingerprint,state_revision,recovery_epoch FROM credential_import_drafts WHERE draft_id=?`, *binding.DraftID).Scan(&draft.DraftID, &draft.ReferenceID, &draft.ConsumerID, &draft.PurposeID, &draft.TargetID, &draft.ResolverID, &draft.MaterialVersion, &draft.CiphertextFingerprint, &draft.StateRevision, &draft.RecoveryEpoch)
+		if err != nil || !draft.MatchesLifecycleBinding(binding) || draft.ConsumerID != stage.Reference.ConsumerID || draft.PurposeID != stage.Reference.PurposeID {
+			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft-exact-origin")
+		}
+	}
+	return nil
 }
