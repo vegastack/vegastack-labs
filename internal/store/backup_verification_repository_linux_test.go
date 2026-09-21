@@ -38,7 +38,7 @@ func verificationRequest(t *testing.T, point PendingRecoveryPoint, revision Revi
 	if err := json.Unmarshal(point.ManifestJSON, &manifest); err != nil {
 		t.Fatal(err)
 	}
-	return LocalVerificationRequest{VerificationID: "verify-" + proofClass + "-" + result, PointID: point.PointID, ReadLeaseID: "reader-a",
+	return LocalVerificationRequest{VerificationID: "verify-" + proofClass + "-" + result, RunID: "run-verify", PointID: point.PointID, ReadLeaseID: "reader-a",
 		ManifestDigest: point.ManifestDigest, InventoryDigest: point.InventoryDigest, ObservedDigest: point.InventoryDigest,
 		ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest,
 		KeyReferenceID: manifest.KeyReferenceID, SourceRevision: point.SourceRevision, Expected: revision,
@@ -72,6 +72,13 @@ func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
 	fixtureReceipt, err := repository.AppendLocalVerification(ctx, fixture)
 	if err != nil || fixtureReceipt.Status != "fixture-only" {
 		t.Fatalf("fixture proof: %#v %v", fixtureReceipt, err)
+	}
+	readback, err := repository.GetLocalVerificationByDigest(ctx, fixtureReceipt.ProofDigest)
+	if err != nil || readback.VerificationID != fixtureReceipt.VerificationID || readback.ProofDigest != fixtureReceipt.ProofDigest {
+		t.Fatalf("exact immutable proof readback=%#v err=%v", readback, err)
+	}
+	if _, err := repository.GetLocalVerificationByDigest(ctx, "sha256:"+strings.Repeat("0", 64)); err == nil {
+		t.Fatal("unknown proof digest resolved to an older point attempt")
 	}
 	if err := repository.AdvanceLocalLastGood(ctx, fixtureReceipt, revision, ""); err == nil {
 		t.Fatal("fixture proof advanced last-good")

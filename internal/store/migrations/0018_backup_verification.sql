@@ -18,7 +18,9 @@ CREATE TRIGGER backup_read_leases_no_delete BEFORE DELETE ON backup_read_leases 
 
 CREATE TABLE backup_local_verifications (
     verification_id TEXT PRIMARY KEY CHECK (length(verification_id) BETWEEN 1 AND 128),
+	proof_digest TEXT NOT NULL UNIQUE CHECK (length(proof_digest)=71 AND substr(proof_digest,1,7)='sha256:'),
     point_id TEXT NOT NULL REFERENCES recovery_points(point_id),
+    run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 128),
     read_lease_id TEXT NOT NULL REFERENCES backup_read_leases(lease_id),
     status TEXT NOT NULL CHECK (status IN ('fixture-only','local-verified','failed','uncertain')),
     proof_class TEXT NOT NULL CHECK (proof_class IN ('fixture','live')),

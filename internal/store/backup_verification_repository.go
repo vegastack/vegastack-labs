@@ -2,7 +2,9 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"time"
@@ -105,7 +107,7 @@ func (repository *BackupRepository) ReleaseBackupReadLease(ctx context.Context, 
 }
 
 type LocalVerificationRequest struct {
-	VerificationID, PointID, ReadLeaseID                           string
+	VerificationID, RunID, PointID, ReadLeaseID                    string
 	ManifestDigest, InventoryDigest, ObservedDigest                string
 	ContentDigest, CatalogDigest, DependencyDigest, KeyReferenceID string
 	SourceRevision                                                 int64
@@ -117,8 +119,8 @@ type LocalVerificationRequest struct {
 }
 
 type LocalVerificationReceipt struct {
-	VerificationID, PointID, RepositoryClass, Status, ProofClass string
-	StateRevision, RecoveryEpoch                                 int64
+	VerificationID, ProofDigest, PointID, RepositoryClass, Status, ProofClass string
+	StateRevision, RecoveryEpoch                                              int64
 }
 
 // AppendLocalVerification records an immutable result. A passed fixture stays
@@ -126,7 +128,7 @@ type LocalVerificationReceipt struct {
 // both full-read and isolated functional restore.
 func (repository *BackupRepository) AppendLocalVerification(ctx context.Context, request LocalVerificationRequest) (LocalVerificationReceipt, error) {
 	var receipt LocalVerificationReceipt
-	if repository == nil || repository.store == nil || request.VerificationID == "" || request.PointID == "" || request.ReadLeaseID == "" ||
+	if repository == nil || repository.store == nil || request.VerificationID == "" || request.RunID == "" || request.PointID == "" || request.ReadLeaseID == "" ||
 		(request.ProofClass != "fixture" && request.ProofClass != "live") ||
 		(request.Result != "passed" && request.Result != "failed" && request.Result != "uncertain") ||
 		request.Expected.StateRevision < 0 || request.Expected.RecoveryEpoch < 0 || request.SourceRevision < 0 {
@@ -166,7 +168,13 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 		}
 		return value.UTC().Format(time.RFC3339)
 	}
-	err := repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	proofBytes, err := json.Marshal(request)
+	if err != nil {
+		return receipt, backupStoreError(generated.ErrorCodeInputInvalid, "backup-local-verification")
+	}
+	proofSum := sha256.Sum256(proofBytes)
+	proofDigest := "sha256:" + hex.EncodeToString(proofSum[:])
+	err = repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var class, manifestDigest, inventoryDigest, contentDigest, manifestJSON string
 		var sourceRevision, pointEpoch, stateRevision, currentEpoch int64
 		if err := tx.QueryRowContext(ctx, `SELECT p.repository_class,p.manifest_digest,p.inventory_digest,p.content_digest,p.manifest_json,p.source_revision,p.recovery_epoch,m.state_revision,m.recovery_epoch FROM recovery_points p CROSS JOIN system_meta m WHERE p.point_id=? AND m.id=1`, request.PointID).Scan(&class, &manifestDigest, &inventoryDigest, &contentDigest, &manifestJSON, &sourceRevision, &pointEpoch, &stateRevision, &currentEpoch); err != nil {
@@ -188,15 +196,44 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 		if leaseCount != 1 {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-local-verification")
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,point_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			request.VerificationID, request.PointID, request.ReadLeaseID, status, request.ProofClass, request.ManifestDigest, request.InventoryDigest, request.ObservedDigest, request.ContentDigest, request.CatalogDigest, request.DependencyDigest, request.KeyReferenceID, request.SourceRevision, stateRevision, currentEpoch, formatOptional(request.FullReadAt), formatOptional(request.FunctionalRestoredAt), request.ReasonCode, created.Format(time.RFC3339))
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			request.VerificationID, proofDigest, request.PointID, request.RunID, request.ReadLeaseID, status, request.ProofClass, request.ManifestDigest, request.InventoryDigest, request.ObservedDigest, request.ContentDigest, request.CatalogDigest, request.DependencyDigest, request.KeyReferenceID, request.SourceRevision, stateRevision, currentEpoch, formatOptional(request.FullReadAt), formatOptional(request.FunctionalRestoredAt), request.ReasonCode, created.Format(time.RFC3339))
 		if err != nil {
 			return backupWriteError(err)
 		}
-		receipt = LocalVerificationReceipt{VerificationID: request.VerificationID, PointID: request.PointID, RepositoryClass: class, Status: status, ProofClass: request.ProofClass, StateRevision: stateRevision, RecoveryEpoch: currentEpoch}
+		receipt = LocalVerificationReceipt{VerificationID: request.VerificationID, ProofDigest: proofDigest, PointID: request.PointID, RepositoryClass: class, Status: status, ProofClass: request.ProofClass, StateRevision: stateRevision, RecoveryEpoch: currentEpoch}
 		return nil
 	})
 	return receipt, err
+}
+
+// GetLocalVerificationByDigest binds an adapter effect to the exact immutable
+// attempt it just appended, rather than accepting an older proof for the point.
+func (repository *BackupRepository) GetLocalVerificationByDigest(ctx context.Context, digest string) (LocalVerificationReceipt, error) {
+	var receipt LocalVerificationReceipt
+	if repository == nil || repository.store == nil || !validBackupDigest(digest) {
+		return receipt, backupStoreError(generated.ErrorCodeInputInvalid, "backup-local-verification")
+	}
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT v.verification_id,v.proof_digest,v.point_id,p.repository_class,v.status,v.proof_class,v.state_revision,v.recovery_epoch FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.proof_digest=?`, digest).Scan(&receipt.VerificationID, &receipt.ProofDigest, &receipt.PointID, &receipt.RepositoryClass, &receipt.Status, &receipt.ProofClass, &receipt.StateRevision, &receipt.RecoveryEpoch)
+	})
+	return receipt, err
+}
+
+// CurrentLocalLastGood returns the compare-and-swap predecessor for one class.
+// A missing row is represented by an empty verification ID.
+func (repository *BackupRepository) CurrentLocalLastGood(ctx context.Context, class string) (string, error) {
+	if repository == nil || repository.store == nil || (class != "standard" && class != "critical") {
+		return "", backupStoreError(generated.ErrorCodeInputInvalid, "backup-last-good")
+	}
+	var id string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT verification_id FROM backup_local_last_good WHERE repository_class=?`, class).Scan(&id)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	return id, err
 }
 
 // AdvanceLocalLastGood is a separate CAS. A fixture, failed, uncertain, stale

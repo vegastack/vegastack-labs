@@ -39,8 +39,9 @@ import (
 // AdapterID and OperationType are the exact provider-neutral identifiers for the
 // local backup creation effect.
 const (
-	AdapterID     = "local.backup"
-	OperationType = "backup.local.create"
+	AdapterID           = "local.backup"
+	OperationType       = "backup.local.create"
+	VerifyOperationType = "backup.local.verify"
 )
 
 // PlanSource resolves one immutable plan by ID for exact policy-binding readback.
@@ -55,10 +56,14 @@ type Config struct {
 	ExpectedUID uint32
 	Backups     *store.BackupRepository
 	Snapshots   store.OnlineSnapshotSource
-	Plans       PlanSource
-	Hooks       *backup.HookRegistry
-	Runner      backup.ResticRunner
-	Clock       func() time.Time
+	Inspector   store.RestoredSQLiteInspector
+	// LiveProof is set only by the protected server runtime. Isolated fixture
+	// composition leaves it false, so tests never advance operational last-good.
+	LiveProof bool
+	Plans     PlanSource
+	Hooks     *backup.HookRegistry
+	Runner    backup.ResticRunner
+	Clock     func() time.Time
 }
 
 // Adapter implements the exact bound local backup creation effect.
@@ -86,9 +91,20 @@ func (adapterImpl *Adapter) Execute(context.Context, adapter.Operation) (adapter
 
 // Verify confirms the effect's result digest is present. The manifest digest is
 // bound to the point receipt in the same transaction that recorded it.
-func (adapterImpl *Adapter) Verify(ctx context.Context, _ adapter.Operation, effect adapter.Effect) (adapter.Verification, error) {
+func (adapterImpl *Adapter) Verify(ctx context.Context, operation adapter.Operation, effect adapter.Effect) (adapter.Verification, error) {
 	if effect.Status != "succeeded" || effect.ResultDigest == "" || effect.PendingPointID == nil || *effect.PendingPointID == "" {
 		return adapter.Verification{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify")
+	}
+	if operation.OperationType == VerifyOperationType {
+		proof, err := adapterImpl.config.Backups.GetLocalVerificationByDigest(ctx, effect.ResultDigest)
+		if err != nil || proof.PointID != *effect.PendingPointID ||
+			(proof.Status != "local-verified" && proof.Status != "fixture-only") {
+			return adapter.Verification{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify")
+		}
+		return adapter.Verification{Verified: true, Digest: effect.ResultDigest}, nil
+	}
+	if operation.OperationType != OperationType {
+		return adapter.Verification{}, backupError(generated.ErrorCodeInputInvalid, "local-backup-verify")
 	}
 	point, err := adapterImpl.config.Backups.GetPendingRecoveryPoint(ctx, *effect.PendingPointID)
 	if err != nil || point.ManifestDigest != effect.ResultDigest {
@@ -101,6 +117,9 @@ func (adapterImpl *Adapter) Verify(ctx context.Context, _ adapter.Operation, eff
 // a single pending point. Every failure path releases the lease with a failed or
 // uncertain job, preserves prior points, and never prunes.
 func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (adapter.Effect, error) {
+	if operation.OperationType == VerifyOperationType {
+		return adapterImpl.executeBoundVerify(ctx, operation, binding, values)
+	}
 	if operation.OperationType != OperationType || operation.AdapterID != AdapterID || len(values) != 1 || values[0] == nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-binding")
 	}
