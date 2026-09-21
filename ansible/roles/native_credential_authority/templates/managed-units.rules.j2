@@ -2,8 +2,10 @@
 const vskNativeUnits = {{ native_credential_enrolled_units | to_json }};
 polkit.addRule(function(action, subject) {
     if (subject.user !== 'vsk-labs') return polkit.Result.NOT_HANDLED;
+    if (action.id === 'org.freedesktop.systemd1.manage-unit-files' ||
+        action.id === 'org.freedesktop.systemd1.reload-daemon') return polkit.Result.NO;
     if (action.id !== 'org.freedesktop.systemd1.manage-units') return polkit.Result.NOT_HANDLED;
     const unit = action.lookup('unit');
     if (action.lookup('verb') === 'restart' && vskNativeUnits.indexOf(unit) !== -1) return polkit.Result.YES;
-    return polkit.Result.NOT_HANDLED;
+    return polkit.Result.NO;
 });

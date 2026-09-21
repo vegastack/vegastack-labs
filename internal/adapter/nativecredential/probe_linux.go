@@ -23,6 +23,7 @@ import (
 const (
 	accessProbeMode      = "__native-credential-access-probe"
 	accessProbeChildMode = "__native-credential-access-probe-child"
+	policyCheckMode      = "__native-credential-policy-check"
 	defaultNativeBinary  = "/usr/local/bin/vsk-labs"
 	nsenterBinary        = "/usr/bin/nsenter"
 	probePolicyPath      = "/etc/vsk-labs/native-credential-authority.json"
@@ -228,10 +229,10 @@ func RunAccessProbeChildMode(input io.Reader, output io.Writer) int {
 }
 
 func probeCredentialFile(unit, name string) AccessProbeResult {
-	return probeCredentialFileAt("/run/credentials",unit,name)
+	return probeCredentialFileAt("/run/credentials", unit, name)
 }
 
-func probeCredentialFileAt(root,unit,name string) AccessProbeResult {
+func probeCredentialFileAt(root, unit, name string) AccessProbeResult {
 	rootFD, err := unix.Open(root, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_NOFOLLOW|unix.O_CLOEXEC, 0)
 	if err != nil {
 		return probeError(err)
@@ -271,6 +272,9 @@ func probeError(err error) AccessProbeResult {
 }
 
 func verifyTargetProcess(request AccessProbeRequest) error {
+	if !systemdUnitRootSafe(request.UnitName) {
+		return errProbeBlocked
+	}
 	if !systemdMainPIDMatches(request.UnitName, request.MainPID) {
 		return errProbeBlocked
 	}
@@ -299,6 +303,44 @@ func verifyTargetProcess(request AccessProbeRequest) error {
 		return errProbeBlocked
 	}
 	return nil
+}
+
+func systemdUnitRootSafe(unit string) bool {
+	if !unitNamePattern.MatchString(unit) {
+		return false
+	}
+	trusted, err := openTrustedExecutable("/usr/bin/systemctl")
+	if err != nil {
+		return false
+	}
+	defer trusted.Close()
+	bounded, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(bounded, "/usr/bin/systemctl", "--system", "show", "--property=RootDirectory", "--property=RootImage", unit)
+	cmd.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	return cmd.Run() == nil && bounded.Err() == nil && stderr.Len() == 0 && stdout.Len() <= 256 && parseSystemdRootProfile(stdout.String())
+}
+
+func parseSystemdRootProfile(output string) bool {
+	if !strings.HasSuffix(output, "\n") {
+		return false
+	}
+	lines := strings.Split(strings.TrimSuffix(output, "\n"), "\n")
+	if len(lines) != 2 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, line := range lines {
+		key, value, found := strings.Cut(line, "=")
+		if !found || value != "" || (key != "RootDirectory" && key != "RootImage") || seen[key] {
+			return false
+		}
+		seen[key] = true
+	}
+	return seen["RootDirectory"] && seen["RootImage"]
 }
 
 func systemdMainPIDMatches(unit string, pid int) bool {

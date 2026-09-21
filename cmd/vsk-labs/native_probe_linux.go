@@ -13,6 +13,11 @@ func runPrivateNativeProbe(ctx context.Context, args []string) (bool, int) {
 		return false, 0
 	}
 	switch args[0] {
+	case "__native-credential-policy-check":
+		if len(args) != 1 {
+			return true, 2
+		}
+		return true, nativecredential.RunPolicyCheckMode(ctx, os.Stdin)
 	case "__native-credential-access-probe":
 		if len(args) != 1 {
 			return true, 2

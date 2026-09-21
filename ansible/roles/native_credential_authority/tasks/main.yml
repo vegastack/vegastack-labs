@@ -92,10 +92,15 @@
     group: vsk-labs
     mode: '0640'
 
+- name: Remove superseded later-sorting native polkit rule
+  ansible.builtin.file:
+    path: /etc/polkit-1/rules.d/49-vsk-native-credential-restart.rules
+    state: absent
+
 - name: Render exact systemd restart polkit rule
   ansible.builtin.template:
     src: managed-units.rules.j2
-    dest: /etc/polkit-1/rules.d/49-vsk-native-credential-restart.rules
+    dest: /etc/polkit-1/rules.d/00-vsk-native-credential-restart.rules
     owner: root
     group: polkitd
     mode: '0640'
@@ -120,7 +125,7 @@
     follow: false
   loop:
     - /etc/vsk-labs/native-credential-authority.json
-    - /etc/polkit-1/rules.d/49-vsk-native-credential-restart.rules
+    - /etc/polkit-1/rules.d/00-vsk-native-credential-restart.rules
     - /etc/sudoers.d/49-vsk-native-credential-probe
   register: native_credential_authority_files
 

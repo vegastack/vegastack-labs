@@ -43,16 +43,25 @@ func NewNativeAuthority(units []string) (*LocalNativeAuthority, error) {
 	return &LocalNativeAuthority{enrolled: append([]string(nil), units...)}, nil
 }
 
-func (a *LocalNativeAuthority) qualified(unit string) bool {
-	if a == nil {
+func (a *LocalNativeAuthority) qualified(ctx context.Context, unit string) bool {
+	if a == nil || ctx == nil || ctx.Err() != nil {
 		return false
 	}
 	policy, err := readProbePolicy(probePolicyPath)
 	if err != nil || !reflect.DeepEqual(policy.Units, a.enrolled) {
 		return false
 	}
-	machine,err:=os.ReadFile("/etc/machine-id")
-	if err!=nil || strings.TrimSpace(string(machine))!=policy.MachineID { return false }
+	machine, err := os.ReadFile("/etc/machine-id")
+	if err != nil || strings.TrimSpace(string(machine)) != policy.MachineID {
+		return false
+	}
+	if !systemdUnitRootSafe(unit) {
+		return false
+	}
+	subject, err := currentPolicySubject()
+	if err != nil || !effectiveAuthorityPolicy(ctx, unit, subject, a.enrolled, runEffectivePolicyCommand, readEffectiveSudoAggregate, requestRootPolicyCheck) {
+		return false
+	}
 	for _, allowed := range a.enrolled {
 		if unit == allowed {
 			return true
@@ -62,7 +71,7 @@ func (a *LocalNativeAuthority) qualified(unit string) bool {
 }
 
 func (a *LocalNativeAuthority) Restart(ctx context.Context, unit string) (RestartReceipt, error) {
-	if ctx == nil || ctx.Err() != nil || !a.qualified(unit) {
+	if ctx == nil || ctx.Err() != nil || !a.qualified(ctx, unit) {
 		return RestartReceipt{}, errProbeBlocked
 	}
 	bootBefore, err := currentBootID()
@@ -75,8 +84,10 @@ func (a *LocalNativeAuthority) Restart(ctx context.Context, unit string) (Restar
 	}
 	bounded, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
-	systemctlFD,err:=openTrustedExecutable("/usr/bin/systemctl")
-	if err!=nil { return RestartReceipt{},errProbeBlocked }
+	systemctlFD, err := openTrustedExecutable("/usr/bin/systemctl")
+	if err != nil {
+		return RestartReceipt{}, errProbeBlocked
+	}
 	defer systemctlFD.Close()
 	cmd := exec.CommandContext(bounded, "/usr/bin/systemctl", "--system", "--no-ask-password", "restart", unit)
 	cmd.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
@@ -91,14 +102,14 @@ func (a *LocalNativeAuthority) Restart(ctx context.Context, unit string) (Restar
 		return RestartReceipt{}, errProbeBlocked
 	}
 	bootAfter, err := currentBootID()
-	if err != nil || bootAfter != bootBefore || !a.qualified(unit) {
+	if err != nil || bootAfter != bootBefore || !a.qualified(ctx, unit) {
 		return RestartReceipt{}, errProbeBlocked
 	}
 	return RestartReceipt{UnitName: unit, BootID: bootAfter, RequestMonotonicNanos: start, FinishMonotonicNanos: finish, Status: "completed"}, nil
 }
 
 func (a *LocalNativeAuthority) Probe(ctx context.Context, request AccessProbeRequest) (AccessProbeResult, error) {
-	if request.Validate() != nil || !a.qualified(request.UnitName) {
+	if request.Validate() != nil || !a.qualified(ctx, request.UnitName) {
 		return AccessProbeResult{}, errProbeBlocked
 	}
 	return ProbeReader(ctx, request)
