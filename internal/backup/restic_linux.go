@@ -123,8 +123,10 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	command.ExtraFiles = []*os.File{passwordFile, binaryFile}
 	command.Path = "/proc/self/fd/4"
 	var stdout, stderr bytes.Buffer
-	command.Stdout = &boundedWriter{limit: outputLimit, buffer: &stdout}
-	command.Stderr = &boundedWriter{limit: outputLimit, buffer: &stderr}
+	stdoutWriter := &boundedWriter{limit: outputLimit, buffer: &stdout}
+	stderrWriter := &boundedWriter{limit: outputLimit, buffer: &stderr}
+	command.Stdout = stdoutWriter
+	command.Stderr = stderrWriter
 
 	runner.observation.Argv = append([]string(nil), argv...)
 	runner.observation.Env = append([]string(nil), command.Env...)
@@ -147,23 +149,10 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
 	}
 	if mode == "config" {
-		var config struct {
-			Version int    `json:"version"`
-			ID      string `json:"id"`
-		}
-		decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
-		if err := decoder.Decode(&config); err != nil || config.Version != 2 {
+		if stdoutWriter.exceeded || stderrWriter.exceeded || parseResticConfig(stdout.Bytes()) != nil {
 			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-config", false)
 		}
-		id, idErr := hex.DecodeString(config.ID)
-		if idErr != nil || len(id) != 32 {
-			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-config", false)
-		}
-		var trailing any
-		if err := decoder.Decode(&trailing); err != io.EOF {
-			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-config", false)
-		}
-		return ResticResult{RepositoryFormat: config.Version, StartedAt: started, CompletedAt: completed}, nil
+		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
 	}
 
 	summary, err := parseResticSummary(stdout.Bytes())
@@ -283,20 +272,45 @@ func parseResticSummary(output []byte) (resticSummary, error) {
 	return summary, nil
 }
 
+func parseResticConfig(output []byte) error {
+	var config struct {
+		Version int    `json:"version"`
+		ID      string `json:"id"`
+	}
+	decoder := json.NewDecoder(bytes.NewReader(output))
+	if err := decoder.Decode(&config); err != nil || config.Version != 2 {
+		return errors.New("unsupported repository config")
+	}
+	id, err := hex.DecodeString(config.ID)
+	if err != nil || len(id) != 32 {
+		return errors.New("invalid repository id")
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return errors.New("trailing repository config data")
+	}
+	return nil
+}
+
 // boundedWriter caps captured child output and never records more than its limit,
 // keeping any inadvertently large or hostile output from exhausting memory.
 type boundedWriter struct {
-	limit   int64
-	written int64
-	buffer  *bytes.Buffer
+	limit    int64
+	written  int64
+	buffer   *bytes.Buffer
+	exceeded bool
 }
 
 func (writer *boundedWriter) Write(data []byte) (int, error) {
 	if writer.written >= writer.limit {
+		if len(data) > 0 {
+			writer.exceeded = true
+		}
 		return len(data), nil
 	}
 	remaining := writer.limit - writer.written
 	if int64(len(data)) > remaining {
+		writer.exceeded = true
 		writer.buffer.Write(data[:remaining])
 		writer.written = writer.limit
 		return len(data), nil

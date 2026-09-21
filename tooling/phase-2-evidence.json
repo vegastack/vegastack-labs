@@ -57,7 +57,7 @@
       { "id": "phase5-issue125-v1", "issue": 125, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:89dd556b7afa3ebc646dc1c5cba24add52888317883cedf082b701128e46b6f2" },
       { "id": "phase5-issue132-v1", "issue": 132, "commands": ["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"], "imports": [], "mutationBoundaryDigest": "sha256:e6d31940c5e8ce3f14720592b374e397c66eef11e477fcb2afe68a6b1b2a87c4" },
       { "id": "phase5-issue133-v1", "issue": 133, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:1b31eaa862d23433611a5638d9876dc2d5f8aedbccfd76d80106a579d1b0e76b" },
-      { "id": "phase5-issue106-v1", "issue": 106, "commands": ["backup policy draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/localbackup", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/backupidentity"], "mutationBoundaryDigest": "sha256:fc1885f102828cf91e74d3c7e8d65ffb209c02dd04b9cb63eff8488e1b6910c9" }
+      { "id": "phase5-issue106-v1", "issue": 106, "commands": ["backup policy draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/localbackup", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/backupidentity"], "mutationBoundaryDigest": "sha256:d00f3670b3f6c0e8ef97b866fe0bf86f70f19dcd5914b4b8223503355b9b9193" }
     ]
   },
   "children": [

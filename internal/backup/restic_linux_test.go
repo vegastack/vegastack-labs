@@ -3,6 +3,7 @@
 package backup
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -16,6 +17,34 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
+
+func TestResticConfigRequiresExactV2IdentityAndBoundedOutput(t *testing.T) {
+	valid := []byte(`{"version":2,"id":"` + strings.Repeat("a", 64) + `"}`)
+	if err := parseResticConfig(valid); err != nil {
+		t.Fatalf("valid decrypted restic config: %v", err)
+	}
+	for name, body := range map[string][]byte{
+		"v1":         []byte(`{"version":1,"id":"` + strings.Repeat("a", 64) + `"}`),
+		"missing id": []byte(`{"version":2}`),
+		"bad id":     []byte(`{"version":2,"id":"` + strings.Repeat("z", 64) + `"}`),
+		"malformed":  []byte(`{"version":2`),
+		"trailing":   append(append([]byte(nil), valid...), []byte(`{}`)...),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if err := parseResticConfig(body); err == nil {
+				t.Fatal("unsupported decrypted config accepted")
+			}
+		})
+	}
+	var output bytes.Buffer
+	writer := &boundedWriter{limit: int64(len(valid)), buffer: &output}
+	if _, err := writer.Write(valid); err != nil || writer.exceeded {
+		t.Fatalf("exactly bounded config: err=%v exceeded=%t", err, writer.exceeded)
+	}
+	if _, err := writer.Write([]byte("padding")); err != nil || !writer.exceeded {
+		t.Fatalf("oversized config prefix: err=%v exceeded=%t", err, writer.exceeded)
+	}
+}
 
 func buildFakeRestic(t *testing.T) (path, digest string) {
 	t.Helper()

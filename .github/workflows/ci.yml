@@ -186,7 +186,7 @@ jobs:
           chmod 700 "$TMPDIR/restic-acceptance/restic"
           printf '%s  %s\n' "$binary_sha" "$TMPDIR/restic-acceptance/restic" | sha256sum --check --status
           VSK_RESTIC_0191_BINARY="$TMPDIR/restic-acceptance/restic" \
-            go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestLocalBackupComposition' -count=1 -timeout 45s -v
+            go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestPinnedResticRejectsAuthenticatedV1Repository|TestLocalBackupComposition' -count=1 -timeout 45s -v
 
       - name: Run exact Phase 4 exit acceptance
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
