@@ -240,6 +240,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/plan-reference-request.schema.json",
 		"schemas/v1/plan.schema.json",
 		"schemas/v1/recovery-point.schema.json",
+		"schemas/v1/recovery-witness-collection-data.schema.json",
 		"schemas/v1/release-inspect-data.schema.json",
 		"schemas/v1/release-manifest.schema.json",
 		"schemas/v1/release-trust-policy.schema.json",
@@ -685,14 +686,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 30 || planned != 34 {
-		t.Fatalf("command availability = (%d available, %d planned), want (30, 34)", available, planned)
+	if available != 31 || planned != 34 {
+		t.Fatalf("command availability = (%d available, %d planned), want (31, 34)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;
 	// #124 promoted one exact local-only credential import command;
 	// #107 promoted two exact audit read commands.
-	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"}) {
+	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 

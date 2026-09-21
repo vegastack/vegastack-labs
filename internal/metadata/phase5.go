@@ -1,48 +1,49 @@
 package metadata
 
 const (
-	gateDefinitionSchemaID             = "vegastack-labs.dev/gate-definition"
-	gateEvidenceSchemaID               = "vegastack-labs.dev/gate-evidence"
-	gateEvaluationSchemaID             = "vegastack-labs.dev/gate-evaluation"
-	credentialReferenceSchemaID        = "vegastack-labs.dev/credential-reference"
-	credentialResolutionRecordSchemaID = "vegastack-labs.dev/credential-resolution-record"
-	backupPolicySchemaID               = "vegastack-labs.dev/backup-policy"
-	backupJobSchemaID                  = "vegastack-labs.dev/backup-job"
-	recoveryPointSchemaID              = "vegastack-labs.dev/recovery-point"
-	auditCheckpointSchemaID            = "vegastack-labs.dev/audit-checkpoint"
-	restoreBindingSchemaID             = "vegastack-labs.dev/restore-binding"
-	restoreVerificationSchemaID        = "vegastack-labs.dev/restore-verification"
-	scheduledJobPolicySchemaID         = "vegastack-labs.dev/scheduled-job-policy"
-	scheduledJobSchemaID               = "vegastack-labs.dev/scheduled-job"
-	gateCheckRequestSchemaID           = "vegastack-labs.dev/gate-check-request"
-	gateEvidenceRequestSchemaID        = "vegastack-labs.dev/gate-evidence-request"
-	gateProfileDraftRequestSchemaID    = "vegastack-labs.dev/gate-profile-draft-request"
-	gateProfileDraftSubmissionSchemaID = "vegastack-labs.dev/gate-profile-draft-submission"
-	gateEvidenceFactSchemaID           = "vegastack-labs.dev/gate-evidence-fact"
-	gateEvidenceCheckSchemaID          = "vegastack-labs.dev/gate-evidence-check"
-	gateEvidenceAttachmentSchemaID     = "vegastack-labs.dev/gate-evidence-attachment"
-	gateEvidenceBundleSchemaID         = "vegastack-labs.dev/gate-evidence-bundle"
-	gateEvidenceSubmissionSchemaID     = "vegastack-labs.dev/gate-evidence-submission"
-	gateViewSchemaID                   = "vegastack-labs.dev/gate-view"
-	backupRunRequestSchemaID           = "vegastack-labs.dev/backup-run-request"
-	backupVerifyRequestSchemaID        = "vegastack-labs.dev/backup-verify-request"
-	restoreRequestSchemaID             = "vegastack-labs.dev/restore-request"
-	restoreRunRequestSchemaID          = "vegastack-labs.dev/restore-run-request"
-	restoreVerifyRequestSchemaID       = "vegastack-labs.dev/restore-verify-request"
-	scheduledJobRequestSchemaID        = "vegastack-labs.dev/scheduled-job-request"
-	credentialReferenceRequestSchemaID = "vegastack-labs.dev/credential-reference-request"
-	credentialImportRequestSchemaID    = "vegastack-labs.dev/credential-import-request"
-	credentialImportSubmissionSchemaID = "vegastack-labs.dev/credential-import-submission"
-	credentialLifecycleRequestSchemaID = "vegastack-labs.dev/credential-lifecycle-request"
-	credentialLifecycleSubmissionID    = "vegastack-labs.dev/credential-lifecycle-submission"
-	auditCheckpointRequestSchemaID     = "vegastack-labs.dev/audit-checkpoint-request"
-	databaseExportRequestSchemaID      = "vegastack-labs.dev/database-export-request"
-	gateListDataSchemaID               = "vegastack-labs.dev/gate-list-data"
-	backupStatusDataSchemaID           = "vegastack-labs.dev/backup-status-data"
-	auditCheckpointListDataSchemaID    = "vegastack-labs.dev/audit-checkpoint-list-data"
-	auditVerificationDataSchemaID      = "vegastack-labs.dev/audit-verification-data"
-	browserRestoreStatusSchemaID       = "vegastack-labs.dev/browser-restore-status"
-	sanitizedExportDataSchemaID        = "vegastack-labs.dev/sanitized-export-data"
+	gateDefinitionSchemaID                = "vegastack-labs.dev/gate-definition"
+	gateEvidenceSchemaID                  = "vegastack-labs.dev/gate-evidence"
+	gateEvaluationSchemaID                = "vegastack-labs.dev/gate-evaluation"
+	credentialReferenceSchemaID           = "vegastack-labs.dev/credential-reference"
+	credentialResolutionRecordSchemaID    = "vegastack-labs.dev/credential-resolution-record"
+	backupPolicySchemaID                  = "vegastack-labs.dev/backup-policy"
+	backupJobSchemaID                     = "vegastack-labs.dev/backup-job"
+	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
+	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
+	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
+	restoreVerificationSchemaID           = "vegastack-labs.dev/restore-verification"
+	scheduledJobPolicySchemaID            = "vegastack-labs.dev/scheduled-job-policy"
+	scheduledJobSchemaID                  = "vegastack-labs.dev/scheduled-job"
+	gateCheckRequestSchemaID              = "vegastack-labs.dev/gate-check-request"
+	gateEvidenceRequestSchemaID           = "vegastack-labs.dev/gate-evidence-request"
+	gateProfileDraftRequestSchemaID       = "vegastack-labs.dev/gate-profile-draft-request"
+	gateProfileDraftSubmissionSchemaID    = "vegastack-labs.dev/gate-profile-draft-submission"
+	gateEvidenceFactSchemaID              = "vegastack-labs.dev/gate-evidence-fact"
+	gateEvidenceCheckSchemaID             = "vegastack-labs.dev/gate-evidence-check"
+	gateEvidenceAttachmentSchemaID        = "vegastack-labs.dev/gate-evidence-attachment"
+	gateEvidenceBundleSchemaID            = "vegastack-labs.dev/gate-evidence-bundle"
+	gateEvidenceSubmissionSchemaID        = "vegastack-labs.dev/gate-evidence-submission"
+	gateViewSchemaID                      = "vegastack-labs.dev/gate-view"
+	backupRunRequestSchemaID              = "vegastack-labs.dev/backup-run-request"
+	backupVerifyRequestSchemaID           = "vegastack-labs.dev/backup-verify-request"
+	restoreRequestSchemaID                = "vegastack-labs.dev/restore-request"
+	restoreRunRequestSchemaID             = "vegastack-labs.dev/restore-run-request"
+	restoreVerifyRequestSchemaID          = "vegastack-labs.dev/restore-verify-request"
+	scheduledJobRequestSchemaID           = "vegastack-labs.dev/scheduled-job-request"
+	credentialReferenceRequestSchemaID    = "vegastack-labs.dev/credential-reference-request"
+	credentialImportRequestSchemaID       = "vegastack-labs.dev/credential-import-request"
+	credentialImportSubmissionSchemaID    = "vegastack-labs.dev/credential-import-submission"
+	credentialLifecycleRequestSchemaID    = "vegastack-labs.dev/credential-lifecycle-request"
+	credentialLifecycleSubmissionID       = "vegastack-labs.dev/credential-lifecycle-submission"
+	auditCheckpointRequestSchemaID        = "vegastack-labs.dev/audit-checkpoint-request"
+	databaseExportRequestSchemaID         = "vegastack-labs.dev/database-export-request"
+	gateListDataSchemaID                  = "vegastack-labs.dev/gate-list-data"
+	backupStatusDataSchemaID              = "vegastack-labs.dev/backup-status-data"
+	auditCheckpointListDataSchemaID       = "vegastack-labs.dev/audit-checkpoint-list-data"
+	auditVerificationDataSchemaID         = "vegastack-labs.dev/audit-verification-data"
+	recoveryWitnessCollectionDataSchemaID = "vegastack-labs.dev/recovery-witness-collection-data"
+	browserRestoreStatusSchemaID          = "vegastack-labs.dev/browser-restore-status"
+	sanitizedExportDataSchemaID           = "vegastack-labs.dev/sanitized-export-data"
 )
 
 // Phase 5 metadata describes public shapes. It does not make an evidence
@@ -147,6 +148,11 @@ func phase5NullableTimestamp(name, goName string) FieldDefinition {
 
 func phase5GateCredentialSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		phase5Schema(recoveryWitnessCollectionDataSchemaID,
+			phase5Digest("manifestDigest", "ManifestDigest"), phase5Timestamp("expiresAt", "ExpiresAt"),
+			FieldDefinition{JSONName: "signedArtifactBase64", GoName: "SignedArtifactBase64", Kind: ValueString, Required: true, Pattern: `^[A-Za-z0-9_-]+$`, MaxLength: intPointer(350000)},
+			FieldDefinition{JSONName: "protectedEnvelopeBase64", GoName: "ProtectedEnvelopeBase64", Kind: ValueString, Required: true, Pattern: `^[A-Za-z0-9_-]+$`, MaxLength: intPointer(10000)},
+		),
 		phase5GateSchema(gateDefinitionSchemaID,
 			phase5GateID(), phase5Version("definitionVersion", "DefinitionVersion"),
 			phase5Enum("layer", "Layer", "platform", "adapter", "deployment-profile", "site"),
@@ -563,6 +569,8 @@ func phase5CommandSchemas(path string) (request string, data string) {
 		return gateProfileDraftRequestSchemaID, gateProfileDraftSubmissionSchemaID
 	case "backup status":
 		return "", backupStatusDataSchemaID
+	case "recovery witness collect":
+		return "", recoveryWitnessCollectionDataSchemaID
 	case "backup run", "database backup":
 		return backupRunRequestSchemaID, backupJobSchemaID
 	case "backup verify", "database verify":

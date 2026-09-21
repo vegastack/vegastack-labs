@@ -48,6 +48,12 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 				files.content = syntheticLifecycleRequest(t, commandName(command.Path))
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
+			if commandName(command.Path) == generated.CommandNameRecoveryWitnessCollect {
+				if code != 6 || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || stderr != "" {
+					t.Fatalf("unqualified witness command: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
 			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {
 					t.Fatalf("planned command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)

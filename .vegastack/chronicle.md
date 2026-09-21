@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — A custodian can collect a bounded recovery witness on disposable endpoints ([#153](https://github.com/vegastack/vegastack-labs/issues/153))
+
+- **What:** The single `vsk-labs` executable has a finite custodian-side command that reads a protected admin pin and two private descriptors, probes every declared former-controller boundary, signs one exact attempt, and encrypts the held material to the replacement recipient.
+- **Why:** The verification protocol alone could check a witness artifact but did not collect it from an independently held source; a status bit or a copied controller secret cannot prove former-controller denial.
+- **How it went:** Red-first result-binding and collector tests preceded a typed CLI route. Disposable Linux synthetic endpoints exercise all seven boundary kinds, including re-enrollment, already-open sessions and outstanding writers. The CLI analyzer was extended only for the exact reviewed custodian signing source; changed source bytes fail closed.
+- **Changed:** Typed challenge/result binding · finite collection and re-probe · bounded descriptor custody · generated JSON command/data contract · exact-source CLI analyzer guard · disposable endpoint acceptance and manual handback.
+- **Decisions:** none; the production adapter registry is empty, no custodian or key was enrolled, and #144/#108 still require real clean-host composition and current-authority proof before any recovery gate can move.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/153-custodian-witness-collection
+
 ## 22-09-2026 — Independent recovery evidence has a bounded software handback ([#146](https://github.com/vegastack/vegastack-labs/issues/146))
 
 - **What:** A separately pinned witness can sign one exact recovery attempt, carry typed old-identity denial results, encrypt protected material to an authenticated replacement recipient, and consume a durable one-use receipt outside restored SQLite.
