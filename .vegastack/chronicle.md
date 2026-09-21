@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — Recovery evidence can be checked without claiming a recovered host ([#134](https://github.com/vegastack/vegastack-labs/issues/134))
+
+- **What:** The server can validate recovery evidence against the exact inert draft, prior and current epoch, and custody/fence digests. A typed verifier contract checks current metadata before asking an independent source for proof; production recovery remains unavailable.
+- **Why:** Clean-host recovery must preserve old history and reject stale authority without letting a copied key, a local database digest or a test fixture stand in for independent custody and fencing.
+- **How it went:** Code inspection showed that fresh systemd encryption creates a new ciphertext, so its fingerprint cannot be compared with the already-sealed draft. The repository also had no production independent custody/fence source. The original runtime plan was split: this issue binds evidence and stays closed, while #144 owns native replacement-host decryption and independent proof.
+- **Changed:** Strict recovery-evidence constructor and store validator · exact draft/current-epoch proof contract · redacted missing-proof behavior · human fallback procedure.
+- **Decisions:** none; #144 must qualify the production source before #135 can claim complete native lifecycle software, and G-007 remains evidence-required.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/134-credential-recovery-custody
+
 ## 21-09-2026 — Credential changes can be drafted without activating them ([#132](https://github.com/vegastack/vegastack-labs/issues/132))
 
 - **What:** Operators can draft staging, activation, rotation, named revocation and recovery through the same server API and CLI. Drafts carry only metadata and derive the exact stored fingerprint and import identity on the server. Status changes still require a current immutable plan and independent human acknowledgement.

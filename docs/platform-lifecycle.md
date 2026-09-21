@@ -41,6 +41,18 @@ The human procedure and the CLI have the same boundary:
 
 The ciphertext remains bound to the current systemd host key. This limits ordinary file disclosure but does not protect against root or whole-disk theft when that key is on the same disk. Host replacement still needs independent retained recovery material and authorized re-encryption under a newly qualified host key; copying the old host key is not accepted recovery.
 
+### Clean-host credential recovery boundary
+
+The recover action remains unavailable in production until an independently trusted custody and former-controller fence source, plus native replacement-host decryption proof, is composed and reviewed. The current software validates only metadata: the exact sealed #124 inert draft, its ciphertext fingerprint and origin revision, the current recovery epoch, and the custody/fence evidence digests. A local database epoch, audit-genesis row, plan digest, fixture or ciphertext file alone is not independent recovery proof. An existing inert draft must be validated as-is; encrypting the same value again creates a different ciphertext and cannot prove the draft's fingerprint.
+
+The human recovery procedure has the same prerequisites and safe stop:
+
+1. Establish the new authoritative control-plane epoch through the separately approved restore/fence procedure. Prove the former controller cannot write, and invalidate its plans, leases, sessions and credentials. Do not let a credential recover command create or advance the epoch.
+2. On the replacement host, qualify its own systemd host key and restore material only from independently verified custody. Use the protected local binary import path to create a new inert draft in the already-current epoch; never copy the old host key or ciphertext into the new host.
+3. Compare the exact draft ID, reference, consumer, purpose, target, material version, native ciphertext fingerprint, import-origin revision and epoch with the immutable recover plan. Verify independently that this exact ciphertext decrypts under the replacement host key to the retained material, and that the custody and former-controller fence receipts are current and bound to the same epoch.
+4. Require a current exact human-approved control-plane plan and the assigned action-scoped execution grant. The recover effect may append only a staged version and recovery evidence; activation still needs its own plan and real positive/denied consumer verification.
+5. If any source, key, draft, digest, epoch, decryption or fence proof is missing or disagrees, stop with `RECOVERY_REQUIRED` or `RECOVERY_EPOCH_MISMATCH`. Preserve the database, ciphertext, prior recovery records, audit history and any compromised/revoked status. Do not delete or overwrite evidence, retry an old plan, or treat a test fixture as proof. Resume only through a newly reviewed plan after the independent prerequisite is restored.
+
 Audit chaining is local core behavior; independent checkpoint export is an optional capability. Every new canonical event receives one same-transaction instance/epoch-bound link even when no signer or external store is configured. Existing rows are preserved as pre-anchor history. A selected signer, encrypted append-only writer and separately scoped reader enable exact-plan checkpoint settlement, but their absence reports pending/degraded state and cannot disable local inspection or unrelated work. A proven local/independent conflict is different from provider unavailability: it keeps reads available, blocks mutation as `audit-incident`, and requires the fenced recovery procedure below. The production profile still has no live signer/export composition, so only synthetic independent-anchor tests exist.
 
 ## Identity and configuration
