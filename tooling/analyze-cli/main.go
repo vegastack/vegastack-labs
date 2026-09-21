@@ -409,8 +409,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		isControlPackage := controlClosure[candidate.ImportPath]
-		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
+		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) {
 				result.ShellDispatch = true
@@ -472,15 +473,20 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				}
 			}
 		}
-		inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
+		if !sealedNativeCredential {
+			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
+		}
 	}
 	return result, nil
 }
 
 const reviewedMainCompositionDigest = "f029c8f3e41b0f66ee2984d971d5d35735a456a60d36fcae6c07ca8ff64ef2d3"
+const reviewedMainNativeLinuxDigest = "16116cb74720a2fb63ca0620d18de32562af85ac2bef14632ff099215f3298c5"
+const reviewedMainNativeOtherDigest = "85ceea51c9c743acc5f43deeda510390a9a2c14b03e0190e1de187059ed0df31"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
 	approvedInternal := map[string]bool{
+		modulePath + "/internal/adapter/nativecredential": true,
 		cliImport:                       true,
 		clientFileImport:                true,
 		releaseImport:                   true,
@@ -503,7 +509,14 @@ func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImpo
 	}
 	names := append([]string(nil), candidate.listed.GoFiles...)
 	sort.Strings(names)
-	return digestSourceFiles(candidate.listed.Dir, names) == reviewedMainCompositionDigest
+	digest := digestSourceFiles(candidate.listed.Dir, names)
+	if containsString(names, "native_probe_linux.go") {
+		return digest == reviewedMainNativeLinuxDigest
+	}
+	if containsString(names, "native_probe_unsupported.go") {
+		return digest == reviewedMainNativeOtherDigest
+	}
+	return digest == reviewedMainCompositionDigest
 }
 
 func standardNetworkClosure(packages []listedPackage) map[string]bool {
@@ -985,13 +998,13 @@ const reviewedLocalTransportDigest = "3f97f09b0fb0280196e869b0defe165fee6eefbb0c
 
 const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
 
-const reviewedNativeCredentialDigest = "05fafae34779cdadf1f57948efc381bbc3fcf239cdd53832c511c5ee9549242d"
+const reviewedNativeCredentialDigest = "41f9ca05c638dfa62b7fdb7e81daca6ce60f0d9b4e011f062fb1296dc62ac914"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
 	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
 		return false
 	}
-	expectedFiles := []string{"encrypt_linux.go", "inspect_linux.go", "resolver_linux.go"}
+	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "policy_check_linux.go", "probe_linux.go", "resolver_linux.go"}
 	if len(candidate.listed.GoFiles) != len(expectedFiles) {
 		return false
 	}
@@ -1001,9 +1014,9 @@ func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCrede
 		}
 	}
 	approvedImports := map[string]bool{
-		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true, "errors": true,
-		"io": true, "os": true, "os/exec": true, "path/filepath": true,
-		"slices": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
+		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
+		"io": true, "os": true, "os/exec": true, "path/filepath": true, "reflect": true, "regexp": true,
+		"slices": true, "strconv": true, "strings": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
 		modulePath + "/internal/credentialref": true,
 		modulePath + "/internal/failure":       true,
 		modulePath + "/internal/generated":     true,
