@@ -19,6 +19,7 @@ import (
 
 // maxObjectBytes bounds any single object body the routine writer may create.
 const maxObjectBytes = 2 << 30 // 2 GiB
+const maxRepositoryConfigBytes = 64 << 10
 
 // RESTServer is the same-process, lease-bound restic REST object boundary. It
 // serves exactly one repository for exactly one exact writer lease over a Unix
@@ -345,6 +346,35 @@ func (server *RESTServer) openObject(request objectRequest, _ bool) (int, error)
 		return -1, errors.New("unsafe object")
 	}
 	return descriptor, nil
+}
+
+// RepositoryFormat reads the exact retained config through the same guarded
+// object open used by REST GET. A malformed, oversized, or unsupported config
+// cannot be treated as a v2 repository before a backup effect.
+func (server *RESTServer) RepositoryFormat() (int, error) {
+	request := objectRequest{objectType: "config", name: "config", isConfig: true}
+	descriptor, err := server.openObject(request, false)
+	if err != nil {
+		return 0, err
+	}
+	file := os.NewFile(uintptr(descriptor), "restic-config")
+	defer file.Close()
+	var config struct {
+		Version int    `json:"version"`
+		ID      string `json:"id"`
+	}
+	decoder := json.NewDecoder(io.LimitReader(file, maxRepositoryConfigBytes+1))
+	if err := decoder.Decode(&config); err != nil || config.Version != 2 || !validObjectName(config.ID) {
+		return 0, errors.New("unsupported repository config")
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		return 0, errors.New("malformed repository config")
+	}
+	if offset, err := file.Seek(0, io.SeekCurrent); err != nil || offset > maxRepositoryConfigBytes {
+		return 0, errors.New("oversized repository config")
+	}
+	return config.Version, nil
 }
 
 // openTypeDir opens (optionally creating) the object-type subdirectory of the

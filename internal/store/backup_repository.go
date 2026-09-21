@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
@@ -243,6 +244,9 @@ func validateBackupPolicy(policy generated.BackupPolicy, recoveryEpoch int64) er
 	case "standard", "critical":
 		if policy.RepositoryID == nil || policy.EncryptionKeyReferenceID == nil || policy.RecoveryKeyReferenceID == nil || policy.RetentionDays <= 0 {
 			return backupStoreError(generated.ErrorCodeInputInvalid, "backup-policy-class")
+		}
+		if !backupidentity.Registered(policy.SourceID, policy.SourceSelectors, policy.RepositoryClass, policy.RepositoryID) {
+			return backupStoreError(generated.ErrorCodeInputInvalid, "backup-policy-identity")
 		}
 		for _, id := range []string{*policy.RepositoryID, *policy.EncryptionKeyReferenceID, *policy.RecoveryKeyReferenceID} {
 			if _, err := credentialref.ParseID(id); err != nil {

@@ -10,6 +10,7 @@ import (
 	"os"
 	"runtime"
 
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"golang.org/x/sys/unix"
 )
@@ -25,6 +26,9 @@ const maxResticExecutableBytes = 128 * 1024 * 1024
 func VerifyLocalBackup(backup *LocalBackup, expectedUID uint32) error {
 	if backup == nil {
 		return failure.New("PREREQUISITE_BLOCKED", "backup-profile", false)
+	}
+	if backup.SourceID != backupidentity.ControlDatabaseSource || backup.StandardRepositoryID != backupidentity.StandardRepository || backup.CriticalRepositoryID != backupidentity.CriticalRepository {
+		return failure.New("INTEGRITY_FAILURE", "backup-profile", false)
 	}
 	for _, root := range []string{backup.StandardRoot, backup.CriticalRoot} {
 		if err := validateInventoryExportRoot(root, expectedUID); err != nil {

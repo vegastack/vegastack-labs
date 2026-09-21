@@ -67,6 +67,7 @@ test("the original Phase 2 baseline stays immutable while #104, #123, #128, #124
   assert.deepEqual(manifest.contract.reviewedWaves[8].imports, [
     "github.com/vegastack/vegastack-labs/internal/adapter/localbackup",
     "github.com/vegastack/vegastack-labs/internal/backup",
+    "github.com/vegastack/vegastack-labs/internal/backupidentity",
   ]);
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[8].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");

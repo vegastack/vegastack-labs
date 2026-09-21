@@ -127,12 +127,13 @@ const REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE = Object.freeze({
 // sealed-FD restic child and the exact bound adapter). It lands after #133, so as
 // the final Phase 5 wave its boundary digest is the current head closure that
 // `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal. Its
-// only new production imports are the backup package and its local adapter.
+// new production imports are the backup package, fixed identity registry and
+// local adapter.
 const REVIEWED_BACKUP_WAVE = Object.freeze({
   id: "phase5-issue106-v1", issue: 106,
   commands: Object.freeze(["backup policy draft"]),
-  imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`]),
-  mutationBoundaryDigest: "sha256:b1c9f2c9a62c9739f5d11b99346847bb7c8d137b94c16b86ff9b6b3202d192a8",
+  imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`, `${MODULE_PREFIX}internal/backupidentity`]),
+  mutationBoundaryDigest: "sha256:6e04ba0fac70068f678e6eff83789fa3c638b3f2b77f9705f1a59dcf70e02fba",
 });
 
 

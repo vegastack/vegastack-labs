@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 )
@@ -22,9 +23,9 @@ func openBackupStore(t *testing.T) *BackupRepository {
 func backupPolicyFixture() generated.BackupPolicy {
 	return generated.BackupPolicy{
 		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
-		PolicyID: "policy-a", OwnerID: "owner-a", SourceID: "source-a",
-		SourceSelectors: []string{"selector-a"}, ConsistencyHookID: "sqlite-online",
-		RepositoryID: backupPtr("repo-a"), RepositoryClass: "standard", ScheduleIntent: "daily",
+		PolicyID: "policy-a", OwnerID: "owner-a", SourceID: backupidentity.ControlDatabaseSource,
+		SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: "sqlite-online",
+		RepositoryID: backupPtr(backupidentity.StandardRepository), RepositoryClass: "standard", ScheduleIntent: "daily",
 		ExpectedBytes: 1024, ExpectedGrowthBytes: 512, MinimumFreeBytes: 4096,
 		EncryptionKeyReferenceID: backupPtr("enc-a"), RecoveryKeyReferenceID: backupPtr("rec-a"),
 		RetentionDays: 7, RestoreTargetID: "restore-a",
@@ -112,6 +113,9 @@ func TestBackupPolicyDraftEnforcesPolicyClassInvariants(t *testing.T) {
 		"standard without repository": func(p *generated.BackupPolicy) { p.RepositoryID = nil },
 		"standard without keys":       func(p *generated.BackupPolicy) { p.EncryptionKeyReferenceID = nil },
 		"standard zero retention":     func(p *generated.BackupPolicy) { p.RetentionDays = 0 },
+		"unregistered source":         func(p *generated.BackupPolicy) { p.SourceID = "source-a" },
+		"unregistered selector":       func(p *generated.BackupPolicy) { p.SourceSelectors = []string{"selector-a"} },
+		"unregistered repository":     func(p *generated.BackupPolicy) { p.RepositoryID = backupPtr("repo-a") },
 		"duplicate selector":          func(p *generated.BackupPolicy) { p.SourceSelectors = []string{"selector-a", "selector-a"} },
 	}
 	for name, mutate := range cases {
