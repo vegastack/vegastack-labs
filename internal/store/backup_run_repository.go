@@ -5,7 +5,9 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -153,12 +155,21 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-writer-lease")
 		}
 		// The bound policy draft must still exist unchanged at this exact digest and epoch.
-		var draftCount int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_policy_drafts WHERE policy_digest=? AND recovery_epoch=?`, policyDigest, epoch).Scan(&draftCount); err != nil {
-			return backupWriteError(err)
-		}
-		if draftCount != 1 {
+		var policyJSON string
+		if err := tx.QueryRowContext(ctx, `SELECT canonical_json FROM backup_policy_drafts WHERE policy_digest=? AND recovery_epoch=?`, policyDigest, epoch).Scan(&policyJSON); err != nil {
 			return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-policy-draft")
+		}
+		var policy generated.BackupPolicy
+		if json.Unmarshal([]byte(policyJSON), &policy) != nil || manifest.SourceID != policy.SourceID ||
+			!slices.Equal(manifest.SourceSelectors, policy.SourceSelectors) ||
+			policy.EncryptionKeyReferenceID == nil || manifest.KeyReferenceID != *policy.EncryptionKeyReferenceID ||
+			len(manifest.ExpectedDependencies) != len(policy.Dependencies) {
+			return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-policy-binding")
+		}
+		for index, dependency := range policy.Dependencies {
+			if manifest.ExpectedDependencies[index] != (ExpectedDependencyRow{DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest}) {
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-policy-dependencies")
+			}
 		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,verified_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'pending',NULL,?)`,
 			request.PointID, jobID, policyID, policyDigest, repositoryID, repositoryClass, request.SourceKind, request.ProofClass, request.SnapshotID, request.SnapshotCount, request.ObjectCount, request.ObjectBytes, request.ContentDigest, request.ManifestDigest, string(request.ManifestJSON), request.InventoryDigest, request.SourceRevision, epoch, now); err != nil {
@@ -182,6 +193,91 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 		return "", "", err
 	}
 	return request.PointID, request.ManifestDigest, nil
+}
+
+// PendingRecoveryPoint is a typed, secret-free readback of the immutable point
+// receipt and its exact expected object inventory. It is always pending local
+// fixture evidence; later independent verification lives in a separate record.
+type PendingRecoveryPoint struct {
+	PointID         string
+	ManifestDigest  string
+	ManifestJSON    []byte
+	InventoryDigest string
+	ExpectedObjects []ExpectedObjectRow
+	SourceRevision  int64
+	RecoveryEpoch   int64
+}
+
+// GetPendingRecoveryPoint independently rechecks the durable manifest and
+// inventory. The adapter uses this readback before confirming a run receipt.
+func (repository *BackupRepository) GetPendingRecoveryPoint(ctx context.Context, pointID string) (PendingRecoveryPoint, error) {
+	var point PendingRecoveryPoint
+	if repository == nil || repository.store == nil || pointID == "" {
+		return point, backupStoreError(generated.ErrorCodeInputInvalid, "backup-pending-point-read")
+	}
+	var request PendingRecoveryPointRequest
+	var manifestJSON, sourceKind, proofClass, verificationStatus string
+	var verifiedAt *string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if err := tx.queryRow(ctx, `SELECT point_id,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,source_kind,proof_class,verification_status,verified_at FROM recovery_points WHERE point_id=?`, pointID).Scan(
+			&request.PointID, &request.SnapshotID, &request.SnapshotCount, &request.ObjectCount, &request.ObjectBytes, &request.ContentDigest,
+			&request.ManifestDigest, &manifestJSON, &request.InventoryDigest, &request.SourceRevision, &request.RecoveryEpoch,
+			&sourceKind, &proofClass, &verificationStatus, &verifiedAt); err != nil {
+			return err
+		}
+		rows, err := tx.query(ctx, `SELECT object_type,object_name,object_bytes,object_digest FROM backup_expected_objects WHERE point_id=?`, pointID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var object ExpectedObjectRow
+			if err := rows.Scan(&object.Type, &object.Name, &object.Bytes, &object.Digest); err != nil {
+				return err
+			}
+			request.ExpectedObjects = append(request.ExpectedObjects, object)
+		}
+		return rows.Err()
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return point, backupStoreError(generated.ErrorCodeResourceNotFound, "backup-pending-point-read")
+	}
+	if err != nil {
+		return point, err
+	}
+	if sourceKind != "local" || proofClass != "fixture" || verificationStatus != "pending" || verifiedAt != nil {
+		return point, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-read")
+	}
+	request.ManifestJSON = []byte(manifestJSON)
+	manifestSum := sha256.Sum256(request.ManifestJSON)
+	if "sha256:"+hex.EncodeToString(manifestSum[:]) != request.ManifestDigest {
+		return point, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-read")
+	}
+	// Rows are read in primary-key order, while the manifest has canonical
+	// capture order. Compare exact sets and then validate manifest bytes/order.
+	var manifest pendingCreationManifest
+	if json.Unmarshal(request.ManifestJSON, &manifest) != nil || len(manifest.ExpectedObjects) != len(request.ExpectedObjects) {
+		return point, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-read")
+	}
+	objects := make(map[ExpectedObjectRow]int, len(request.ExpectedObjects))
+	for _, object := range request.ExpectedObjects {
+		objects[object]++
+	}
+	for _, object := range manifest.ExpectedObjects {
+		objects[object]--
+	}
+	for _, count := range objects {
+		if count != 0 {
+			return point, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-read")
+		}
+	}
+	request.ExpectedObjects = manifest.ExpectedObjects
+	if _, err := validatePendingManifest(request); err != nil {
+		return point, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-read")
+	}
+	return PendingRecoveryPoint{PointID: pointID, ManifestDigest: request.ManifestDigest, ManifestJSON: request.ManifestJSON,
+		InventoryDigest: request.InventoryDigest, ExpectedObjects: request.ExpectedObjects,
+		SourceRevision: request.SourceRevision, RecoveryEpoch: request.RecoveryEpoch}, nil
 }
 
 // VerifyActiveWriterLease confirms one writer lease is still the single active

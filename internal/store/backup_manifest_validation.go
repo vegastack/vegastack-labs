@@ -15,35 +15,45 @@ import (
 // The store cannot import backup (backup already imports store), so this exact
 // shape independently validates the bytes before they become durable authority.
 type pendingCreationManifest struct {
-	Schema                    string              `json:"schema"`
-	SchemaVersion             string              `json:"schemaVersion"`
-	PolicyID                  string              `json:"policyId"`
-	PolicyDigest              string              `json:"policyDigest"`
-	PointID                   string              `json:"pointId"`
-	RunID                     string              `json:"runId"`
-	StepID                    string              `json:"stepId"`
-	RepositoryID              string              `json:"repositoryId"`
-	RepositoryClass           string              `json:"repositoryClass"`
-	SourceRevision            int64               `json:"sourceRevision"`
-	RecoveryEpoch             int64               `json:"recoveryEpoch"`
-	ConsistencyHookID         string              `json:"consistencyHookId"`
-	ConsistencySuccess        bool                `json:"consistencySuccess"`
-	SnapshotID                string              `json:"snapshotId"`
-	SnapshotCount             int64               `json:"snapshotCount"`
-	ExpectedObjectCount       int64               `json:"expectedObjectCount"`
-	ExpectedObjectBytes       int64               `json:"expectedObjectBytes"`
-	InventoryDigest           string              `json:"inventoryDigest"`
-	ExpectedObjects           []ExpectedObjectRow `json:"expectedObjects"`
-	KeyReferenceID            string              `json:"keyReferenceId"`
-	ResticDigest              string              `json:"resticDigest"`
-	PlatformDigest            string              `json:"platformDigest"`
-	SchemaDependencyDigest    string              `json:"schemaDependencyDigest"`
-	ConfigDependencyDigest    string              `json:"configDependencyDigest"`
-	ImageDependencyDigest     string              `json:"imageDependencyDigest"`
-	SignatureDependencyDigest string              `json:"signatureDependencyDigest"`
-	StartedAt                 string              `json:"startedAt"`
-	CompletedAt               string              `json:"completedAt"`
-	FailureCode               string              `json:"failureCode"`
+	Schema                    string                  `json:"schema"`
+	SchemaVersion             string                  `json:"schemaVersion"`
+	PolicyID                  string                  `json:"policyId"`
+	PolicyDigest              string                  `json:"policyDigest"`
+	PointID                   string                  `json:"pointId"`
+	RunID                     string                  `json:"runId"`
+	StepID                    string                  `json:"stepId"`
+	RepositoryID              string                  `json:"repositoryId"`
+	RepositoryClass           string                  `json:"repositoryClass"`
+	SourceID                  string                  `json:"sourceId"`
+	SourceSelectors           []string                `json:"sourceSelectors"`
+	SourceRevision            int64                   `json:"sourceRevision"`
+	RecoveryEpoch             int64                   `json:"recoveryEpoch"`
+	ConsistencyHookID         string                  `json:"consistencyHookId"`
+	ConsistencySuccess        bool                    `json:"consistencySuccess"`
+	SnapshotID                string                  `json:"snapshotId"`
+	SnapshotCount             int64                   `json:"snapshotCount"`
+	ExpectedObjectCount       int64                   `json:"expectedObjectCount"`
+	ExpectedObjectBytes       int64                   `json:"expectedObjectBytes"`
+	InventoryDigest           string                  `json:"inventoryDigest"`
+	ExpectedObjects           []ExpectedObjectRow     `json:"expectedObjects"`
+	DependencyInventoryDigest string                  `json:"dependencyInventoryDigest"`
+	ExpectedDependencies      []ExpectedDependencyRow `json:"expectedDependencies"`
+	KeyReferenceID            string                  `json:"keyReferenceId"`
+	ResticDigest              string                  `json:"resticDigest"`
+	PlatformDigest            string                  `json:"platformDigest"`
+	SchemaDependencyDigest    string                  `json:"schemaDependencyDigest"`
+	ConfigDependencyDigest    string                  `json:"configDependencyDigest"`
+	ImageDependencyDigest     string                  `json:"imageDependencyDigest"`
+	SignatureDependencyDigest string                  `json:"signatureDependencyDigest"`
+	StartedAt                 string                  `json:"startedAt"`
+	CompletedAt               string                  `json:"completedAt"`
+	FailureCode               string                  `json:"failureCode"`
+}
+
+type ExpectedDependencyRow struct {
+	DependencyID string `json:"dependencyId"`
+	Kind         string `json:"kind"`
+	Digest       string `json:"digest"`
 }
 
 func validatePendingManifest(request PendingRecoveryPointRequest) (pendingCreationManifest, error) {
@@ -60,11 +70,13 @@ func validatePendingManifest(request PendingRecoveryPointRequest) (pendingCreati
 	if err != nil || !bytes.Equal(canonical, request.ManifestJSON) {
 		return manifest, errors.New("noncanonical manifest")
 	}
-	if manifest.Schema != "vegastack-labs.dev/backup-creation-manifest" || manifest.SchemaVersion != "1.0.0" ||
+	if manifest.Schema != "vegastack-labs.dev/backup-creation-manifest" || manifest.SchemaVersion != "1.1.0" ||
 		manifest.PointID != request.PointID || manifest.SnapshotID != request.SnapshotID ||
 		manifest.SnapshotCount != request.SnapshotCount || manifest.SourceRevision != request.SourceRevision ||
 		manifest.RecoveryEpoch != request.RecoveryEpoch || !manifest.ConsistencySuccess || manifest.FailureCode != "" ||
-		manifest.KeyReferenceID == "" || !validBackupDigest(manifest.ResticDigest) || !validBackupDigest(manifest.PlatformDigest) ||
+		manifest.KeyReferenceID == "" || manifest.SourceID == "" || len(manifest.SourceSelectors) == 0 ||
+		!validBackupDigest(manifest.ResticDigest) || !validBackupDigest(manifest.PlatformDigest) ||
+		!validBackupDigest(manifest.DependencyInventoryDigest) || manifest.ExpectedDependencies == nil ||
 		manifest.ExpectedObjectCount != request.ObjectCount || manifest.ExpectedObjectBytes != request.ObjectBytes ||
 		manifest.InventoryDigest != request.InventoryDigest || len(manifest.ExpectedObjects) != len(request.ExpectedObjects) {
 		return manifest, errors.New("manifest binding mismatch")
@@ -74,15 +86,63 @@ func validatePendingManifest(request PendingRecoveryPointRequest) (pendingCreati
 			return manifest, errors.New("invalid dependency digest")
 		}
 	}
+	configCount, keyCount, snapshotCount := 0, 0, 0
 	for index, object := range manifest.ExpectedObjects {
 		if object != request.ExpectedObjects[index] || !validPendingObject(object) {
 			return manifest, errors.New("manifest inventory mismatch")
 		}
+		switch object.Type {
+		case "config":
+			configCount++
+		case "keys":
+			keyCount++
+		case "snapshots":
+			if object.Name == request.SnapshotID {
+				snapshotCount++
+			}
+		}
+	}
+	if configCount != 1 || keyCount < 1 || snapshotCount != 1 {
+		return manifest, errors.New("required repository object missing")
 	}
 	if pendingInventoryDigest(request.ExpectedObjects) != request.InventoryDigest {
 		return manifest, errors.New("inventory digest mismatch")
 	}
+	if pendingDependencyInventoryDigest(manifest.ExpectedDependencies) != manifest.DependencyInventoryDigest {
+		return manifest, errors.New("dependency inventory mismatch")
+	}
+	seenDependencies := map[string]bool{}
+	for _, dependency := range manifest.ExpectedDependencies {
+		if dependency.DependencyID == "" || seenDependencies[dependency.DependencyID] || !validBackupDigest(dependency.Digest) {
+			return manifest, errors.New("invalid dependency")
+		}
+		seenDependencies[dependency.DependencyID] = true
+		switch dependency.Kind {
+		case "binary", "schema", "config", "image", "signature":
+		default:
+			return manifest, errors.New("invalid dependency kind")
+		}
+	}
 	return manifest, nil
+}
+
+func pendingDependencyInventoryDigest(dependencies []ExpectedDependencyRow) string {
+	sorted := append([]ExpectedDependencyRow(nil), dependencies...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].Kind != sorted[j].Kind {
+			return sorted[i].Kind < sorted[j].Kind
+		}
+		return sorted[i].DependencyID < sorted[j].DependencyID
+	})
+	hasher := sha256.New()
+	_, _ = hasher.Write([]byte("backup-expected-dependencies-v1"))
+	for _, dependency := range sorted {
+		for _, value := range []string{dependency.Kind, dependency.DependencyID, dependency.Digest} {
+			_, _ = hasher.Write([]byte{0})
+			_, _ = hasher.Write([]byte(value))
+		}
+	}
+	return "sha256:" + hex.EncodeToString(hasher.Sum(nil))
 }
 
 func validPendingObject(object ExpectedObjectRow) bool {

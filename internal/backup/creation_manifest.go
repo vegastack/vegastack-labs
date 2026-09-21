@@ -21,49 +21,83 @@ type ExpectedObject struct {
 	Digest string `json:"digest"`
 }
 
+// ExpectedDependency is one exact policy-declared dependency captured with the
+// pending point. A later verifier compares this immutable set with current
+// trusted dependency state before qualifying the point.
+type ExpectedDependency struct {
+	DependencyID string `json:"dependencyId"`
+	Kind         string `json:"kind"`
+	Digest       string `json:"digest"`
+}
+
 // CreationManifest is the canonical secret-free record binding one exact policy,
 // point, run and step to the consistency result, repository, expected inventory
 // and pinned dependency digests. Field order is also the canonical JSON order.
 type CreationManifest struct {
-	Schema                    string           `json:"schema"`
-	SchemaVersion             string           `json:"schemaVersion"`
-	PolicyID                  string           `json:"policyId"`
-	PolicyDigest              string           `json:"policyDigest"`
-	PointID                   string           `json:"pointId"`
-	RunID                     string           `json:"runId"`
-	StepID                    string           `json:"stepId"`
-	RepositoryID              string           `json:"repositoryId"`
-	RepositoryClass           string           `json:"repositoryClass"`
-	SourceRevision            int64            `json:"sourceRevision"`
-	RecoveryEpoch             int64            `json:"recoveryEpoch"`
-	ConsistencyHookID         string           `json:"consistencyHookId"`
-	ConsistencySuccess        bool             `json:"consistencySuccess"`
-	SnapshotID                string           `json:"snapshotId"`
-	SnapshotCount             int64            `json:"snapshotCount"`
-	ExpectedObjectCount       int64            `json:"expectedObjectCount"`
-	ExpectedObjectBytes       int64            `json:"expectedObjectBytes"`
-	InventoryDigest           string           `json:"inventoryDigest"`
-	ExpectedObjects           []ExpectedObject `json:"expectedObjects"`
-	KeyReferenceID            string           `json:"keyReferenceId"`
-	ResticDigest              string           `json:"resticDigest"`
-	PlatformDigest            string           `json:"platformDigest"`
-	SchemaDependencyDigest    string           `json:"schemaDependencyDigest"`
-	ConfigDependencyDigest    string           `json:"configDependencyDigest"`
-	ImageDependencyDigest     string           `json:"imageDependencyDigest"`
-	SignatureDependencyDigest string           `json:"signatureDependencyDigest"`
-	StartedAt                 string           `json:"startedAt"`
-	CompletedAt               string           `json:"completedAt"`
-	FailureCode               string           `json:"failureCode"`
+	Schema                    string               `json:"schema"`
+	SchemaVersion             string               `json:"schemaVersion"`
+	PolicyID                  string               `json:"policyId"`
+	PolicyDigest              string               `json:"policyDigest"`
+	PointID                   string               `json:"pointId"`
+	RunID                     string               `json:"runId"`
+	StepID                    string               `json:"stepId"`
+	RepositoryID              string               `json:"repositoryId"`
+	RepositoryClass           string               `json:"repositoryClass"`
+	SourceID                  string               `json:"sourceId"`
+	SourceSelectors           []string             `json:"sourceSelectors"`
+	SourceRevision            int64                `json:"sourceRevision"`
+	RecoveryEpoch             int64                `json:"recoveryEpoch"`
+	ConsistencyHookID         string               `json:"consistencyHookId"`
+	ConsistencySuccess        bool                 `json:"consistencySuccess"`
+	SnapshotID                string               `json:"snapshotId"`
+	SnapshotCount             int64                `json:"snapshotCount"`
+	ExpectedObjectCount       int64                `json:"expectedObjectCount"`
+	ExpectedObjectBytes       int64                `json:"expectedObjectBytes"`
+	InventoryDigest           string               `json:"inventoryDigest"`
+	ExpectedObjects           []ExpectedObject     `json:"expectedObjects"`
+	DependencyInventoryDigest string               `json:"dependencyInventoryDigest"`
+	ExpectedDependencies      []ExpectedDependency `json:"expectedDependencies"`
+	KeyReferenceID            string               `json:"keyReferenceId"`
+	ResticDigest              string               `json:"resticDigest"`
+	PlatformDigest            string               `json:"platformDigest"`
+	SchemaDependencyDigest    string               `json:"schemaDependencyDigest"`
+	ConfigDependencyDigest    string               `json:"configDependencyDigest"`
+	ImageDependencyDigest     string               `json:"imageDependencyDigest"`
+	SignatureDependencyDigest string               `json:"signatureDependencyDigest"`
+	StartedAt                 string               `json:"startedAt"`
+	CompletedAt               string               `json:"completedAt"`
+	FailureCode               string               `json:"failureCode"`
 }
 
 // CreationManifestSchema/Version identify the canonical creation manifest.
 const (
 	CreationManifestSchema  = "vegastack-labs.dev/backup-creation-manifest"
-	CreationManifestVersion = "1.0.0"
+	CreationManifestVersion = "1.1.0"
 )
 
 var expectedObjectTypes = map[string]struct{}{
-	"config": {}, "keys": {}, "data": {}, "index": {}, "snapshots": {}, "locks": {},
+	"config": {}, "keys": {}, "data": {}, "index": {}, "snapshots": {},
+}
+
+// ExpectedDependencyInventoryDigest binds the complete typed dependency set,
+// including multiple dependencies of the same kind, without trusting order.
+func ExpectedDependencyInventoryDigest(dependencies []ExpectedDependency) string {
+	sorted := append([]ExpectedDependency(nil), dependencies...)
+	sort.Slice(sorted, func(left, right int) bool {
+		if sorted[left].Kind != sorted[right].Kind {
+			return sorted[left].Kind < sorted[right].Kind
+		}
+		return sorted[left].DependencyID < sorted[right].DependencyID
+	})
+	hasher := sha256.New()
+	hasher.Write([]byte("backup-expected-dependencies-v1"))
+	for _, dependency := range sorted {
+		for _, value := range []string{dependency.Kind, dependency.DependencyID, dependency.Digest} {
+			hasher.Write([]byte{0})
+			hasher.Write([]byte(value))
+		}
+	}
+	return "sha256:" + hex.EncodeToString(hasher.Sum(nil))
 }
 
 // ExpectedInventoryDigest returns the SHA-256 over the canonical, sorted expected
@@ -113,7 +147,7 @@ func CanonicalCreationManifest(manifest CreationManifest) ([]byte, string, error
 	if manifest.Schema != CreationManifestSchema || manifest.SchemaVersion != CreationManifestVersion {
 		return invalid()
 	}
-	for _, id := range []string{manifest.PolicyID, manifest.PointID, manifest.RunID, manifest.StepID, manifest.RepositoryID, manifest.SnapshotID, manifest.KeyReferenceID, manifest.ConsistencyHookID} {
+	for _, id := range []string{manifest.PolicyID, manifest.PointID, manifest.RunID, manifest.StepID, manifest.RepositoryID, manifest.SourceID, manifest.SnapshotID, manifest.KeyReferenceID, manifest.ConsistencyHookID} {
 		if id == "" {
 			return invalid()
 		}
@@ -121,7 +155,7 @@ func CanonicalCreationManifest(manifest CreationManifest) ([]byte, string, error
 	if manifest.RepositoryClass != "standard" && manifest.RepositoryClass != "critical" {
 		return invalid()
 	}
-	for _, digest := range []string{manifest.PolicyDigest, manifest.InventoryDigest, manifest.ResticDigest, manifest.PlatformDigest} {
+	for _, digest := range []string{manifest.PolicyDigest, manifest.InventoryDigest, manifest.DependencyInventoryDigest, manifest.ResticDigest, manifest.PlatformDigest} {
 		if !validBackupManifestDigest(digest) {
 			return invalid()
 		}
@@ -130,11 +164,29 @@ func CanonicalCreationManifest(manifest CreationManifest) ([]byte, string, error
 		return invalid()
 	}
 	var total int64
+	configCount, keyCount, snapshotCount := 0, 0, 0
 	for _, object := range manifest.ExpectedObjects {
 		if _, ok := expectedObjectTypes[object.Type]; !ok || object.Name == "" || object.Bytes < 0 || !validBackupManifestDigest(object.Digest) {
 			return invalid()
 		}
+		if object.Type == "config" {
+			if object.Name != "config" {
+				return invalid()
+			}
+			configCount++
+		} else if !validObjectName(object.Name) {
+			return invalid()
+		}
+		if object.Type == "keys" {
+			keyCount++
+		}
+		if object.Type == "snapshots" && object.Name == manifest.SnapshotID {
+			snapshotCount++
+		}
 		total += object.Bytes
+	}
+	if configCount != 1 || keyCount < 1 || snapshotCount != 1 {
+		return invalid()
 	}
 	if manifest.ExpectedObjectCount != int64(len(manifest.ExpectedObjects)) || len(manifest.ExpectedObjects) == 0 {
 		return invalid()
@@ -144,6 +196,26 @@ func CanonicalCreationManifest(manifest CreationManifest) ([]byte, string, error
 	}
 	if manifest.InventoryDigest != ExpectedInventoryDigest(manifest.ExpectedObjects) {
 		return invalid()
+	}
+	if len(manifest.SourceSelectors) == 0 || manifest.ExpectedDependencies == nil || manifest.DependencyInventoryDigest != ExpectedDependencyInventoryDigest(manifest.ExpectedDependencies) {
+		return invalid()
+	}
+	for _, selector := range manifest.SourceSelectors {
+		if selector == "" {
+			return invalid()
+		}
+	}
+	seenDependencies := map[string]bool{}
+	for _, dependency := range manifest.ExpectedDependencies {
+		if dependency.DependencyID == "" || seenDependencies[dependency.DependencyID] || !validBackupManifestDigest(dependency.Digest) {
+			return invalid()
+		}
+		seenDependencies[dependency.DependencyID] = true
+		switch dependency.Kind {
+		case "binary", "schema", "config", "image", "signature":
+		default:
+			return invalid()
+		}
 	}
 	canonical, err := json.Marshal(manifest)
 	if err != nil {

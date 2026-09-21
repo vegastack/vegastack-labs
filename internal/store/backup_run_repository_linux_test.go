@@ -37,21 +37,31 @@ func acquireFixtureLease(t *testing.T, repository *BackupRepository, policyDiges
 }
 
 func pendingPointRequest(leaseID, pointID, snapshot, policyDigest string) PendingRecoveryPointRequest {
-	objects := []ExpectedObjectRow{{Type: "data", Name: strings.Repeat("b", 64), Bytes: 4096, Digest: "sha256:" + strings.Repeat("f", 64)}}
+	objects := []ExpectedObjectRow{
+		{Type: "data", Name: strings.Repeat("b", 64), Bytes: 4096, Digest: "sha256:" + strings.Repeat("f", 64)},
+		{Type: "config", Name: "config", Bytes: 512, Digest: "sha256:" + strings.Repeat("a", 64)},
+		{Type: "keys", Name: strings.Repeat("c", 64), Bytes: 256, Digest: "sha256:" + strings.Repeat("b", 64)},
+		{Type: "snapshots", Name: snapshot, Bytes: 1024, Digest: "sha256:" + strings.Repeat("c", 64)},
+	}
+	objectBytes := int64(4096 + 512 + 256 + 1024)
 	inventoryDigest := pendingInventoryDigest(objects)
+	dependencies := []ExpectedDependencyRow{{DependencyID: "dep-a", Kind: "binary", Digest: testDigest}}
 	manifest, _ := json.Marshal(pendingCreationManifest{
-		Schema: "vegastack-labs.dev/backup-creation-manifest", SchemaVersion: "1.0.0",
+		Schema: "vegastack-labs.dev/backup-creation-manifest", SchemaVersion: "1.1.0",
 		PolicyID: "policy-a", PolicyDigest: policyDigest,
 		PointID: pointID, RunID: "run-a", StepID: "step-a", RepositoryID: "repo-a", RepositoryClass: "standard",
+		SourceID: "source-a", SourceSelectors: []string{"selector-a"},
 		SourceRevision: 3, RecoveryEpoch: 0, ConsistencyHookID: "hook-a", ConsistencySuccess: true,
-		SnapshotID: snapshot, SnapshotCount: 1, ExpectedObjectCount: 1, ExpectedObjectBytes: 4096,
-		InventoryDigest: inventoryDigest, ExpectedObjects: objects, KeyReferenceID: "key-a",
-		ResticDigest: "sha256:" + strings.Repeat("1", 64), PlatformDigest: "sha256:" + strings.Repeat("2", 64),
+		SnapshotID: snapshot, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: objectBytes,
+		InventoryDigest: inventoryDigest, ExpectedObjects: objects,
+		DependencyInventoryDigest: pendingDependencyInventoryDigest(dependencies), ExpectedDependencies: dependencies,
+		KeyReferenceID: "enc-a",
+		ResticDigest:   "sha256:" + strings.Repeat("1", 64), PlatformDigest: "sha256:" + strings.Repeat("2", 64),
 		StartedAt: "2026-09-21T00:00:00Z", CompletedAt: "2026-09-21T00:00:01Z",
 	})
 	sum := sha256.Sum256(manifest)
 	return PendingRecoveryPointRequest{
-		LeaseID: leaseID, PointID: pointID, SnapshotID: snapshot, SnapshotCount: 1, ObjectCount: 1, ObjectBytes: 4096,
+		LeaseID: leaseID, PointID: pointID, SnapshotID: snapshot, SnapshotCount: 1, ObjectCount: int64(len(objects)), ObjectBytes: objectBytes,
 		ContentDigest: "sha256:" + strings.Repeat("c", 64), ManifestDigest: "sha256:" + hex.EncodeToString(sum[:]), ManifestJSON: manifest,
 		InventoryDigest: inventoryDigest, SourceRevision: 3, RecoveryEpoch: 0,
 		SourceKind: "local", ProofClass: "fixture",
@@ -81,6 +91,10 @@ func TestAppendPendingRecoveryPointIsPendingOnlyAndPreservesPriorPoints(t *testi
 	pointID, resultDigest, err := repository.AppendPendingRecoveryPoint(context.Background(), pendingPointRequest("lease-a", "point-a", strings.Repeat("1", 64), digest))
 	if err != nil || pointID != "point-a" || !validBackupDigest(resultDigest) {
 		t.Fatalf("append pending point = %q %q %v", pointID, resultDigest, err)
+	}
+	readback, err := repository.GetPendingRecoveryPoint(context.Background(), pointID)
+	if err != nil || readback.PointID != pointID || readback.ManifestDigest != resultDigest || len(readback.ExpectedObjects) != 4 {
+		t.Fatalf("typed pending receipt readback = %#v, %v", readback, err)
 	}
 
 	// The point is pending with no verification, and no last-good column exists.

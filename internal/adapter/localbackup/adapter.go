@@ -86,8 +86,12 @@ func (adapterImpl *Adapter) Execute(context.Context, adapter.Operation) (adapter
 
 // Verify confirms the effect's result digest is present. The manifest digest is
 // bound to the point receipt in the same transaction that recorded it.
-func (adapterImpl *Adapter) Verify(_ context.Context, _ adapter.Operation, effect adapter.Effect) (adapter.Verification, error) {
+func (adapterImpl *Adapter) Verify(ctx context.Context, _ adapter.Operation, effect adapter.Effect) (adapter.Verification, error) {
 	if effect.Status != "succeeded" || effect.ResultDigest == "" || effect.PendingPointID == nil || *effect.PendingPointID == "" {
+		return adapter.Verification{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify")
+	}
+	point, err := adapterImpl.config.Backups.GetPendingRecoveryPoint(ctx, *effect.PendingPointID)
+	if err != nil || point.ManifestDigest != effect.ResultDigest {
 		return adapter.Verification{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify")
 	}
 	return adapter.Verification{Verified: true, Digest: effect.ResultDigest}, nil
@@ -246,11 +250,14 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	manifest := backup.CreationManifest{
 		Schema: backup.CreationManifestSchema, SchemaVersion: backup.CreationManifestVersion,
 		PolicyID: policy.PolicyID, PolicyDigest: policyDigest, PointID: pointID, RunID: binding.RunID, StepID: binding.StepID,
-		RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass, SourceRevision: capture.Snapshot.Revision.StateRevision,
+		RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass, SourceID: policy.SourceID,
+		SourceSelectors: append([]string(nil), policy.SourceSelectors...), SourceRevision: capture.Snapshot.Revision.StateRevision,
 		RecoveryEpoch: binding.RecoveryEpoch, ConsistencyHookID: policy.ConsistencyHookID, ConsistencySuccess: capture.Consistency.Success,
 		SnapshotID: result.SnapshotID, SnapshotCount: result.SnapshotCount, ExpectedObjectCount: int64(len(inventory)),
 		ExpectedObjectBytes: totalBytes(inventory), InventoryDigest: backup.ExpectedInventoryDigest(inventory), ExpectedObjects: inventory,
-		KeyReferenceID: keyReference(policy), ResticDigest: pinnedResticDigest(), PlatformDigest: platformDigest(),
+		DependencyInventoryDigest: backup.ExpectedDependencyInventoryDigest(expectedDependencies(policy)),
+		ExpectedDependencies:      expectedDependencies(policy),
+		KeyReferenceID:            keyReference(policy), ResticDigest: pinnedResticDigest(), PlatformDigest: platformDigest(),
 		SchemaDependencyDigest:    dependencyDigest(policy, "schema"),
 		ConfigDependencyDigest:    dependencyDigest(policy, "config"),
 		ImageDependencyDigest:     dependencyDigest(policy, "image"),
@@ -352,6 +359,16 @@ func totalBytes(objects []backup.ExpectedObject) int64 {
 		total += object.Bytes
 	}
 	return total
+}
+
+func expectedDependencies(policy generated.BackupPolicy) []backup.ExpectedDependency {
+	dependencies := make([]backup.ExpectedDependency, 0, len(policy.Dependencies))
+	for _, dependency := range policy.Dependencies {
+		dependencies = append(dependencies, backup.ExpectedDependency{
+			DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest,
+		})
+	}
+	return dependencies
 }
 
 // dependencyDigest returns the declared digest for one dependency kind, or empty

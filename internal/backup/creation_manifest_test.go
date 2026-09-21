@@ -11,21 +11,24 @@ func validCreationManifest(t *testing.T) CreationManifest {
 	t.Helper()
 	objects := []ExpectedObject{
 		{Type: "config", Name: "config", Bytes: 155, Digest: digest64("a")},
+		{Type: "keys", Name: strings.Repeat("f", 64), Bytes: 256, Digest: digest64("b")},
 		{Type: "data", Name: strings.Repeat("b", 64), Bytes: 4096, Digest: digest64("c")},
-		{Type: "snapshots", Name: strings.Repeat("d", 64), Bytes: 512, Digest: digest64("e")},
+		{Type: "snapshots", Name: strings.Repeat("1", 64), Bytes: 512, Digest: digest64("e")},
 	}
 	var total int64
 	for _, object := range objects {
 		total += object.Bytes
 	}
+	dependencies := []ExpectedDependency{{DependencyID: "dep-a", Kind: "binary", Digest: digest64("7")}}
 	return CreationManifest{
 		Schema: CreationManifestSchema, SchemaVersion: CreationManifestVersion,
 		PolicyID: "policy-a", PolicyDigest: digest64("f"), PointID: "point-a", RunID: "run-a", StepID: "step-a",
-		RepositoryID: "repo-a", RepositoryClass: "standard", SourceRevision: 3, RecoveryEpoch: 0,
+		RepositoryID: "repo-a", RepositoryClass: "standard", SourceID: "source-a", SourceSelectors: []string{"selector-a"}, SourceRevision: 3, RecoveryEpoch: 0,
 		ConsistencyHookID: "sqlite-online", ConsistencySuccess: true,
 		SnapshotID: strings.Repeat("1", 64), SnapshotCount: 1,
 		ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: total,
 		InventoryDigest: ExpectedInventoryDigest(objects), ExpectedObjects: objects,
+		DependencyInventoryDigest: ExpectedDependencyInventoryDigest(dependencies), ExpectedDependencies: dependencies,
 		KeyReferenceID: "enc-a", ResticDigest: digest64("9"), PlatformDigest: digest64("8"),
 		StartedAt: "2026-09-18T00:00:00Z", CompletedAt: "2026-09-18T00:01:00Z",
 	}
@@ -63,6 +66,13 @@ func TestCanonicalManifestRejectsInconsistentInventory(t *testing.T) {
 	t.Run("failed consistency", func(t *testing.T) {
 		manifest := validCreationManifest(t)
 		manifest.ConsistencySuccess = false
+		if _, _, err := CanonicalCreationManifest(manifest); codeOf(err) != "INTEGRITY_FAILURE" {
+			t.Fatalf("err = %v", err)
+		}
+	})
+	t.Run("missing dependency", func(t *testing.T) {
+		manifest := validCreationManifest(t)
+		manifest.ExpectedDependencies = []ExpectedDependency{}
 		if _, _, err := CanonicalCreationManifest(manifest); codeOf(err) != "INTEGRITY_FAILURE" {
 			t.Fatalf("err = %v", err)
 		}
