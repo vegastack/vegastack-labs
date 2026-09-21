@@ -185,6 +185,7 @@ func pendingInventoryDigest(objects []ExpectedObjectRow) string {
 		}
 		var size [8]byte
 		binary.BigEndian.PutUint64(size[:], uint64(object.Bytes))
+		_, _ = hasher.Write([]byte{0})
 		_, _ = hasher.Write(size[:])
 	}
 	return "sha256:" + hex.EncodeToString(hasher.Sum(nil))
