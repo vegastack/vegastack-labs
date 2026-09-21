@@ -603,9 +603,9 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
 		}
 	case "serverconfig":
-		expected = "9b374623167d70c70aa27d16dd5030357f8bf806f1cbd564506635374f4597a9"
+		expected = "7e91eac4a55dd1d5b6b2d37a159165b952774cb85afb230b47409fdc58a46429"
 		if containsString(names, "profile_linux.go") {
-			expected = "dc48947a2b14f5e7a4ee26f349efd49cdb2cab25c4cf703859c867fda9882a6c"
+			expected = "a6a599e60e960cdfa717903a4e197c04284ca3dcfabb9f8a26a47841935a1421"
 		}
 	default:
 		return false
@@ -641,18 +641,19 @@ func moduleDependencyClosure(packages []listedPackage, root string) map[string]b
 
 func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
 	approved := map[string]bool{
-		localAPIImport:                         true,
-		localTransportImport:                   true,
-		sshTransportImport:                     true,
-		modulePath + "/internal/apissh":        true,
-		modulePath + "/internal/credentialref": true,
-		modulePath + "/internal/failure":       true,
-		modulePath + "/internal/generated":     true,
-		modulePath + "/internal/principal":     true,
-		modulePath + "/internal/result":        true,
-		modulePath + "/internal/runprotocol":   true,
-		modulePath + "/internal/serverconfig":  true,
-		modulePath + "/internal/strictjson":    true,
+		localAPIImport:                          true,
+		localTransportImport:                    true,
+		sshTransportImport:                      true,
+		modulePath + "/internal/apissh":         true,
+		modulePath + "/internal/credentialref":  true,
+		modulePath + "/internal/backupidentity": true,
+		modulePath + "/internal/failure":        true,
+		modulePath + "/internal/generated":      true,
+		modulePath + "/internal/principal":      true,
+		modulePath + "/internal/result":         true,
+		modulePath + "/internal/runprotocol":    true,
+		modulePath + "/internal/serverconfig":   true,
+		modulePath + "/internal/strictjson":     true,
 	}
 	for importPath := range closure {
 		if !approved[importPath] {
@@ -671,6 +672,11 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 	}
 	if candidate.listed.ImportPath == sshTransportImport {
 		return reviewedSSHTransportPackage(candidate, localTransportImport)
+	}
+	// The backup identity registry is portable constant/data logic shared with
+	// serverconfig. It has no imports or runtime capability of its own.
+	if candidate.listed.ImportPath == modulePath+"/internal/backupidentity" {
+		return len(candidate.listed.Imports) == 0
 	}
 	if candidate.listed.ImportPath != localAPIImport {
 		for _, imported := range candidate.listed.Imports {
