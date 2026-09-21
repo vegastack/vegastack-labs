@@ -109,6 +109,27 @@ func TestBackupPolicyDraftEndpointDoesNotActivateBackupRun(t *testing.T) {
 	}
 }
 
+func TestBackupStatusRequiresCurrentGlobalReadTarget(t *testing.T) {
+	runs := &runAPIStub{plan: apiRunPlan()}
+	app := newRunTestApplication(t, runs)
+	seen := authorization.ReadTarget{}
+	app.config.Authorizer = authorizerFunc(func(_ context.Context, _ identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
+		seen = target
+		return authorization.ReadScope{PrincipalID: "human-run-test", Capability: target.Capability, ResourceKind: target.ResourceKind, ScopeDigest: "scope-test", GrantRevision: 1}, nil
+	})
+	status := backupStatusStub{data: generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.1.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}}}
+	if err := RegisterBackupOperations(app, BackupOperations{Drafts: &backupDraftServiceStub{}, Status: status, Runs: RunOperationConfig{Runs: runs, Plans: runs, Acknowledgements: runs, Results: app.config.Results, Authorization: app.effective}, Results: app.config.Results}); err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/backups/status", nil)
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusOK || seen != (authorization.ReadTarget{Capability: "backup.read", ResourceKind: "backup", ResourceID: "current"}) {
+		t.Fatalf("status=%d target=%#v body=%s", response.Code, seen, response.Body.String())
+	}
+}
+
 func TestBackupVerifyRouteRequiresExactPointPlanAndHumanAcknowledgement(t *testing.T) {
 	plan := apiRunPlan()
 	plan.Operations[0].OperationType = "backup.local.verify"

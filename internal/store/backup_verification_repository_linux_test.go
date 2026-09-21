@@ -12,6 +12,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
 
 func seededVerificationPoint(t *testing.T) (*BackupRepository, PendingRecoveryPoint, RevisionToken) {
@@ -90,6 +91,23 @@ func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
 	}
 	if _, err := repository.ReadLocalBackupStatusScoped(ctx, authorization.ReadScope{PrincipalID: "fake", Capability: "backup.read", ResourceKind: "backup", GrantRevision: 1, ScopeDigest: "fake"}); Code(err) != generated.ErrorCodeAuthorizationDenied {
 		t.Fatalf("forged backup read scope admitted: %v", err)
+	}
+	seedReadGrant(t, repository.store, "backup-reader", "backup.read", "backup", "point-a", 1, "active")
+	reader := NewReadAuthorizer(repository.store)
+	pointScope, err := reader.AuthorizeRead(ctx, identity.Principal{ID: "backup-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "backup.read", ResourceKind: "backup", ResourceID: "point-a"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repository.ReadLocalBackupStatusScoped(ctx, pointScope); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("point-only grant read global status: %v", err)
+	}
+	seedReadGrant(t, repository.store, "backup-global-reader", "backup.read", "backup", "current", 1, "active")
+	globalScope, err := reader.AuthorizeRead(ctx, identity.Principal{ID: "backup-global-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "backup.read", ResourceKind: "backup", ResourceID: "current"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scoped, err := repository.ReadLocalBackupStatusScoped(ctx, globalScope); err != nil || len(scoped.Jobs) != 1 || scoped.Jobs[0].JobID != point.JobID {
+		t.Fatalf("global backup status=%#v err=%v", scoped, err)
 	}
 	stale := verificationRequest(t, point, revision, "live", "passed")
 	stale.Expected.RecoveryEpoch++

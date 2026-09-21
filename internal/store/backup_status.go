@@ -37,7 +37,7 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 	now := repository.store.config.Clock().UTC()
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
 		if scope != nil {
-			if err := verifyReadScope(ctx, tx, *scope, ""); err != nil {
+			if err := verifyReadScope(ctx, tx, *scope, "current"); err != nil {
 				return err
 			}
 		}
