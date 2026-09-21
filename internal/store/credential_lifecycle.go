@@ -438,6 +438,9 @@ func requireConsumerVerifications(binding credentialref.LifecycleBinding, verifi
 		denied[id] = false
 	}
 	for _, verification := range verifications {
+		if !credentialref.ValidConsumerVerification(binding, verification) {
+			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-consumer-verification")
+		}
 		switch verification.Result {
 		case "verified":
 			seen, known := positive[verification.ConsumerID]
@@ -455,9 +458,6 @@ func requireConsumerVerifications(binding credentialref.LifecycleBinding, verifi
 			}
 			denied[verification.ConsumerID] = true
 		default:
-			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-consumer-verification")
-		}
-		if !credentialValidDigest(verification.EvidenceDigest) {
 			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-consumer-verification")
 		}
 	}
@@ -487,18 +487,7 @@ func requireConsumerVerifications(binding credentialref.LifecycleBinding, verifi
 }
 
 func recoveryEvidenceMatchesBinding(binding credentialref.LifecycleBinding, evidence credentialref.RecoveryVerification) bool {
-	if binding.DraftID == nil || binding.CustodyProofDigest == nil || binding.FormerControllerFenceDigest == nil || binding.PriorRecoveryEpoch == nil {
-		return false
-	}
-	return evidence.DraftID == *binding.DraftID &&
-		evidence.CustodyProofDigest == *binding.CustodyProofDigest &&
-		evidence.FormerControllerFenceDigest == *binding.FormerControllerFenceDigest &&
-		evidence.PriorRecoveryEpoch == *binding.PriorRecoveryEpoch &&
-		evidence.RecoveryEpoch == binding.RecoveryEpoch &&
-		evidence.RecoveryEpoch > evidence.PriorRecoveryEpoch &&
-		credentialValidDigest(evidence.EvidenceDigest) &&
-		credentialValidDigest(evidence.CustodyProofDigest) &&
-		credentialValidDigest(evidence.FormerControllerFenceDigest)
+	return credentialref.ValidRecoveryVerification(binding, evidence)
 }
 
 func (repository *CredentialRepository) consumerVerificationExtra(binding credentialref.LifecycleBinding, verifications []credentialref.ConsumerVerification) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
@@ -528,10 +517,6 @@ func (repository *CredentialRepository) recoveryRecordExtra(binding credentialre
 func lifecycleEvidenceID(versionID, discriminator, kind string) string {
 	sum := sha256.Sum256([]byte(versionID + "\x00" + discriminator + "\x00" + kind))
 	return "evidence-" + hex.EncodeToString(sum[:16])
-}
-
-func credentialValidDigest(value string) bool {
-	return len(value) == 71 && value[:7] == "sha256:"
 }
 
 // requireExactLifecycleBinding rechecks the exact sealed bytes and immutable

@@ -224,6 +224,46 @@ func stageBinding() credentialref.LifecycleBinding {
 	}
 }
 
+func TestRecoverEvidenceRequiresExactDraftEpochAndDigestBeforeAppend(t *testing.T) {
+	repository := openCredentialStore(t)
+	binding := stageBinding()
+	binding.Action = credentialref.ActionRecover
+	binding.PriorRecoveryEpoch = int64PointerLifecycle(0)
+	binding.RecoveryEpoch = 1
+	binding.CustodyProofDigest = stringPointer(testDigest)
+	binding.FormerControllerFenceDigest = stringPointer(lifecycleFingerprint)
+	if !credentialref.ValidLifecycleBinding(binding) {
+		t.Fatal("invalid recovery test binding")
+	}
+	evidence, err := credentialref.NewRecoveryVerification(binding, testDigest, lifecycleFingerprint, testDigest)
+	if err != nil || !recoveryEvidenceMatchesBinding(binding, evidence) {
+		t.Fatalf("exact recovery evidence rejected: %v", err)
+	}
+	stage := CredentialStageRequest{Reference: stagedReference(2), Expected: RevisionToken{StateRevision: 2, RecoveryEpoch: 1}}
+	stage.Reference.RecoveryEpoch = 1
+	for name, change := range map[string]func(*credentialref.RecoveryVerification){
+		"foreign draft": func(v *credentialref.RecoveryVerification) { v.DraftID = "draft-other" },
+		"prior epoch":   func(v *credentialref.RecoveryVerification) { v.PriorRecoveryEpoch = -1 },
+		"new epoch":     func(v *credentialref.RecoveryVerification) { v.RecoveryEpoch = 2 },
+		"nonhex digest": func(v *credentialref.RecoveryVerification) { v.EvidenceDigest = "sha256:" + hexRepeat("z", 64) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := evidence
+			change(&changed)
+			if recoveryEvidenceMatchesBinding(binding, changed) {
+				t.Fatal("foreign recovery evidence matched")
+			}
+			_, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: stage, Recovery: &changed})
+			if Code(err) != generated.ErrorCodePrerequisiteBlocked {
+				t.Fatalf("invalid recovery evidence reached append: %v", err)
+			}
+			if got := tableCount(t, repository, "credential_recovery_records"); got != 0 {
+				t.Fatalf("denied recovery appended %d records", got)
+			}
+		})
+	}
+}
+
 func tableCount(t *testing.T, repository *CredentialRepository, table string) int {
 	t.Helper()
 	var count int
@@ -285,6 +325,45 @@ func TestCredentialLifecycleSpineStageThenActivate(t *testing.T) {
 	}
 }
 
+func TestCredentialLifecycleAppendRejectsDeniedEvidenceForOldMaterial(t *testing.T) {
+	repository := openCredentialStore(t)
+	stageRequest := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed)
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: stageBinding(), Stage: stageRequest}); err != nil {
+		t.Fatal(err)
+	}
+	releaseLease(t, repository, stageRequest.LeaseID)
+
+	activatedAt := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	reference := stagedReference(3)
+	reference.Status = "active"
+	reference.ActivatedAt = &activatedAt
+	reference.VerifiedConsumerIDs = []string{"consumer-a"}
+	request := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, reference, 3, ackConsumed)
+	binding := stageBinding()
+	binding.Action = credentialref.ActionActivate
+	binding.DraftID = nil
+	binding.ImportDraftStateRevision = nil
+	binding.ImportDraftConsumerID = nil
+	binding.ImportDraftPurposeID = nil
+	binding.StateRevision = 3
+	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	positive, err := credentialref.NewConsumerVerification(binding, "consumer-a", "profile-a", "role-a", testDigest, "loaded", "verified", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denied, err := credentialref.NewConsumerVerification(binding, "consumer-denied", "profile-b", "role-b", testDigest, "reader-denied", "denied", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denied.MaterialVersion = "version-old"
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: request, Verifications: []credentialref.ConsumerVerification{positive, denied}}); err == nil {
+		t.Fatal("denied evidence from an old material version activated")
+	}
+	if tableCount(t, repository, "credential_reference_versions") != 1 || tableCount(t, repository, "credential_consumer_verifications") != 0 {
+		t.Fatal("failed activation appended a version or evidence row")
+	}
+}
+
 // TestCredentialLifecycleAppendRequiresConsumedAcknowledgement is Finding F3: an
 // otherwise exact core.credential step whose run has no consumed human
 // acknowledgement must not append any credential status, even from a direct
@@ -337,6 +416,44 @@ func TestCredentialLifecycleTablesRejectMutation(t *testing.T) {
 		if count := tableCount(t, repository, insert.table); count != 1 {
 			t.Fatalf("%s row changed despite append-only triggers: %d", insert.table, count)
 		}
+	}
+}
+
+// TestCredentialEvidenceSQLRejectsNonCanonicalFields proves the database
+// boundary rejects values that are length-correct but not lowercase hex, even
+// if a future caller skips the Go constructor.
+func TestCredentialEvidenceSQLRejectsNonCanonicalFields(t *testing.T) {
+	for _, test := range []struct {
+		name, statement string
+		args            []any
+	}{
+		{
+			name:      "consumer evidence digest",
+			statement: `INSERT INTO credential_consumer_verifications(verification_id,reference_id,version_id,consumer_id,profile_id,role_id,material_version,ciphertext_fingerprint,evidence_digest,restart_observed,result,reason_code,recovery_epoch,created_at) VALUES('verification-bad-digest','reference-a','version-a','consumer-a','profile-a','role-a','material-a',?,?,1,'verified','loaded',0,'2026-09-22T00:00:00Z')`,
+			args:      []any{lifecycleFingerprint, "sha256:" + hexRepeat("z", 64)},
+		},
+		{
+			name:      "consumer ciphertext fingerprint",
+			statement: `INSERT INTO credential_consumer_verifications(verification_id,reference_id,version_id,consumer_id,profile_id,role_id,material_version,ciphertext_fingerprint,evidence_digest,restart_observed,result,reason_code,recovery_epoch,created_at) VALUES('verification-bad-fingerprint','reference-a','version-a','consumer-a','profile-a','role-a','material-a',?,?,1,'verified','loaded',0,'2026-09-22T00:00:00Z')`,
+			args:      []any{"sha256:" + hexRepeat("z", 64), testDigest},
+		},
+		{
+			name:      "consumer reason code",
+			statement: `INSERT INTO credential_consumer_verifications(verification_id,reference_id,version_id,consumer_id,profile_id,role_id,material_version,ciphertext_fingerprint,evidence_digest,restart_observed,result,reason_code,recovery_epoch,created_at) VALUES('verification-bad-reason','reference-a','version-a','consumer-a','profile-a','role-a','material-a',?,?,1,'verified','Bad Reason',0,'2026-09-22T00:00:00Z')`,
+			args:      []any{lifecycleFingerprint, testDigest},
+		},
+		{
+			name:      "recovery custody digest",
+			statement: `INSERT INTO credential_recovery_records(record_id,reference_id,version_id,draft_id,custody_proof_digest,former_controller_fence_digest,prior_recovery_epoch,recovery_epoch,evidence_digest,created_at) VALUES('record-bad-custody','reference-a','version-a','draft-a',?,?,0,1,?,'2026-09-22T00:00:00Z')`,
+			args:      []any{"sha256:" + hexRepeat("z", 64), testDigest, testDigest},
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			repository := openCredentialStore(t)
+			if _, err := repository.store.conn.ExecContext(context.Background(), test.statement, test.args...); err == nil {
+				t.Fatal("non-canonical credential evidence passed SQLite CHECK")
+			}
+		})
 	}
 }
 

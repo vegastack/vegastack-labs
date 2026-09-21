@@ -132,10 +132,9 @@ test("the built vsk-labs executable preserves its complete process contract", as
     encoding: "utf8",
     shell: false,
   });
-  assert.deepEqual(
-    { status: build.status, signal: build.signal, stdout: build.stdout, stderr: build.stderr },
-    { status: 0, signal: null, stdout: "", stderr: "" },
-  );
+  assert.equal(build.status, 0, `go build failed: ${build.stderr}`);
+  assert.equal(build.signal, null);
+  assert.equal(build.stdout, "");
 
   const registry = JSON.parse(
     await readFile(path.join(ROOT, "schemas/v1/command-registry.json"), "utf8"),

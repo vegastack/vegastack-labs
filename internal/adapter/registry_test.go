@@ -50,6 +50,30 @@ func TestCredentialResolverRegistryRequiresExactCapabilityProfileAndConsumer(t *
 	}
 }
 
+func TestRegisteredCredentialConsumersEnumeratesOnlyExactResolverProfile(t *testing.T) {
+	registry := NewRegistry()
+	for _, scope := range []CredentialCapabilityScope{
+		{ResolverID: "native-systemd", ConsumerID: "consumer-b", ProfileID: "profile-a", CapabilityID: "credential.native.read", Enabled: true},
+		{ResolverID: "native-systemd", ConsumerID: "consumer-a", ProfileID: "profile-a", CapabilityID: "credential.native.read", Enabled: true},
+		{ResolverID: "native-systemd", ConsumerID: "consumer-other", ProfileID: "profile-b", CapabilityID: "credential.native.read", Enabled: true},
+		{ResolverID: "onepassword-a", ConsumerID: "consumer-provider", ProfileID: "profile-a", CapabilityID: "credential.onepassword.read", Enabled: true},
+	} {
+		if err := registry.RegisterCredentialResolver(scope, fakeCredentialResolver{}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	got, err := registry.RegisteredCredentialConsumers("native-systemd", "profile-a")
+	if err != nil || !reflect.DeepEqual(got, []string{"consumer-a", "consumer-b"}) {
+		t.Fatalf("registered set=%v err=%v", got, err)
+	}
+	if got, err := registry.RegisteredCredentialConsumers("native-systemd", "profile-missing"); err != nil || len(got) != 0 {
+		t.Fatalf("unregistered profile has consumers: %v %v", got, err)
+	}
+	if _, err := (*Registry)(nil).RegisteredCredentialConsumers("native-systemd", "profile-a"); err == nil {
+		t.Fatal("nil registry returned a consumer set")
+	}
+}
+
 func TestRegistryRejectsUnknownAndWidenedOperations(t *testing.T) {
 	registry := NewRegistry()
 	if _, err := registry.Resolve("test.fake"); Code(err) != "PREREQUISITE_BLOCKED" {
