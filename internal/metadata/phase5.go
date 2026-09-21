@@ -101,6 +101,13 @@ func phase5BackupRequest(identifier string, fields ...FieldDefinition) SchemaDef
 	return schema
 }
 
+func phase5BackupVerifyRequest(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(backupVerifyRequestSchemaID, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
 func phase5ID(name, goName string) FieldDefinition {
 	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`}
 }
@@ -428,8 +435,10 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
 			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
 		),
-		phase5Request(backupVerifyRequestSchemaID,
+		phase5BackupVerifyRequest(
 			phase5ID("jobId", "JobID"), phase5ID("pointId", "PointID"),
+			phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
+			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
 		),
 		phase5Request(restoreRequestSchemaID,
 			phase5ID("pointId", "PointID"), phase5IDs("dependencyIds", "DependencyIDs", 256),

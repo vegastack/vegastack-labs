@@ -93,3 +93,9 @@ type OnlineSnapshotSource interface {
 	CurrentExpectation(context.Context) (SnapshotExpectation, error)
 	OnlineSnapshot(context.Context, OnlineSnapshotRequest) (OnlineSnapshotResult, error)
 }
+
+// RestoredSQLiteInspector opens only the isolated recovered copy read-only and
+// checks its integrity, foreign keys, catalog, revision and recovery epoch.
+type RestoredSQLiteInspector interface {
+	InspectSnapshot(context.Context, string, SnapshotExpectation) (SnapshotInspection, error)
+}

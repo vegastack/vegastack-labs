@@ -675,14 +675,17 @@ type BackupStatusData struct {
 }
 
 type BackupVerifyRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	TargetDigest          string `json:"targetDigest"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	JobID                 string `json:"jobId"`
-	PointID               string `json:"pointId"`
+	Schema                 string `json:"schema"`
+	SchemaVersion          string `json:"schemaVersion"`
+	ExpectedStateRevision  int64  `json:"expectedStateRevision"`
+	RecoveryEpoch          int64  `json:"recoveryEpoch"`
+	TargetDigest           string `json:"targetDigest"`
+	IdempotencyKey         string `json:"idempotencyKey"`
+	JobID                  string `json:"jobId"`
+	PointID                string `json:"pointId"`
+	PlanID                 string `json:"planId"`
+	PlanDigest             string `json:"planDigest"`
+	HumanAcknowledgementID string `json:"humanAcknowledgementId"`
 }
 
 type BrowserAuditEvent struct {
