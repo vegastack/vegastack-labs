@@ -34,7 +34,11 @@ func lifecycleSSHTestDigest(value string) string {
 
 func TestAPISSHCredentialLifecycleFramePersistsOnlyInertMetadata(t *testing.T) {
 	ctx := context.Background()
-	path := filepath.Join(t.TempDir(), "control.db")
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "control.db")
 	clock := func() time.Time { return time.Date(2026, 9, 21, 12, 0, 0, 0, time.UTC) }
 	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "test", BuildVersion: "test", Clock: clock})
 	if err != nil {
