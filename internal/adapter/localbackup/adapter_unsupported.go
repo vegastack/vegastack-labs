@@ -19,8 +19,9 @@ import (
 )
 
 const (
-	AdapterID     = "local.backup"
-	OperationType = "backup.local.create"
+	AdapterID           = "local.backup"
+	OperationType       = "backup.local.create"
+	VerifyOperationType = "backup.local.verify"
 )
 
 type PlanSource interface {
@@ -32,6 +33,8 @@ type Config struct {
 	ExpectedUID uint32
 	Backups     *store.BackupRepository
 	Snapshots   store.OnlineSnapshotSource
+	Inspector   store.RestoredSQLiteInspector
+	LiveProof   bool
 	Plans       PlanSource
 	Hooks       *backup.HookRegistry
 	Runner      backup.ResticRunner

@@ -3141,7 +3141,7 @@
     },
     {
       "id": "vegastack-labs.dev/backup-policy",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-policy.schema.json"
     },
     {

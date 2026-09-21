@@ -120,6 +120,7 @@ type LocalVerificationRequest struct {
 
 type LocalVerificationReceipt struct {
 	VerificationID, ProofDigest, PointID, RepositoryClass, Status, ProofClass string
+	ManifestDigest, InventoryDigest                                           string
 	StateRevision, RecoveryEpoch                                              int64
 }
 
@@ -175,9 +176,9 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 	proofSum := sha256.Sum256(proofBytes)
 	proofDigest := "sha256:" + hex.EncodeToString(proofSum[:])
 	err = repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var class, manifestDigest, inventoryDigest, contentDigest, manifestJSON string
+		var class, manifestDigest, inventoryDigest, contentDigest, manifestJSON, policyDigest string
 		var sourceRevision, pointEpoch, stateRevision, currentEpoch int64
-		if err := tx.QueryRowContext(ctx, `SELECT p.repository_class,p.manifest_digest,p.inventory_digest,p.content_digest,p.manifest_json,p.source_revision,p.recovery_epoch,m.state_revision,m.recovery_epoch FROM recovery_points p CROSS JOIN system_meta m WHERE p.point_id=? AND m.id=1`, request.PointID).Scan(&class, &manifestDigest, &inventoryDigest, &contentDigest, &manifestJSON, &sourceRevision, &pointEpoch, &stateRevision, &currentEpoch); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT p.repository_class,p.manifest_digest,p.inventory_digest,p.content_digest,p.manifest_json,p.policy_digest,p.source_revision,p.recovery_epoch,m.state_revision,m.recovery_epoch FROM recovery_points p CROSS JOIN system_meta m WHERE p.point_id=? AND m.id=1`, request.PointID).Scan(&class, &manifestDigest, &inventoryDigest, &contentDigest, &manifestJSON, &policyDigest, &sourceRevision, &pointEpoch, &stateRevision, &currentEpoch); err != nil {
 			return backupWriteError(err)
 		}
 		var manifest pendingCreationManifest
@@ -188,6 +189,23 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 			sourceRevision != request.SourceRevision || pointEpoch != request.Expected.RecoveryEpoch ||
 			stateRevision != request.Expected.StateRevision || currentEpoch != request.Expected.RecoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-local-verification")
+		}
+		var canonicalPolicy string
+		if err := tx.QueryRowContext(ctx, `SELECT canonical_json FROM backup_policy_drafts WHERE policy_digest=? AND recovery_epoch=?`, policyDigest, currentEpoch).Scan(&canonicalPolicy); err != nil {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-local-verification-policy")
+		}
+		var policy generated.BackupPolicy
+		if json.Unmarshal([]byte(canonicalPolicy), &policy) != nil || policy.SchemaVersion != "1.2.0" ||
+			policy.FullPayloadIntervalHours < 1 || policy.FullPayloadIntervalHours > 8760 ||
+			policy.FunctionalTestIntervalHours < 1 || policy.FunctionalTestIntervalHours > 8760 {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-local-verification-cadence")
+		}
+		if status == "local-verified" {
+			if !created.Before(request.FullReadAt.Add(time.Duration(policy.FullPayloadIntervalHours) * time.Hour)) {
+				status = "full-payload-due"
+			} else if !created.Before(request.FunctionalRestoredAt.Add(time.Duration(policy.FunctionalTestIntervalHours) * time.Hour)) {
+				status = "functional-test-due"
+			}
 		}
 		var leaseCount int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_read_leases WHERE lease_id=? AND point_id=? AND repository_class=? AND state_revision=? AND recovery_epoch=? AND released_at IS NULL AND maximum_expires_at>?`, request.ReadLeaseID, request.PointID, class, stateRevision, currentEpoch, created.Format(time.RFC3339)).Scan(&leaseCount); err != nil {
@@ -201,7 +219,7 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 		if err != nil {
 			return backupWriteError(err)
 		}
-		receipt = LocalVerificationReceipt{VerificationID: request.VerificationID, ProofDigest: proofDigest, PointID: request.PointID, RepositoryClass: class, Status: status, ProofClass: request.ProofClass, StateRevision: stateRevision, RecoveryEpoch: currentEpoch}
+		receipt = LocalVerificationReceipt{VerificationID: request.VerificationID, ProofDigest: proofDigest, PointID: request.PointID, RepositoryClass: class, Status: status, ProofClass: request.ProofClass, ManifestDigest: request.ManifestDigest, InventoryDigest: request.InventoryDigest, StateRevision: stateRevision, RecoveryEpoch: currentEpoch}
 		return nil
 	})
 	return receipt, err
@@ -215,7 +233,7 @@ func (repository *BackupRepository) GetLocalVerificationByDigest(ctx context.Con
 		return receipt, backupStoreError(generated.ErrorCodeInputInvalid, "backup-local-verification")
 	}
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT v.verification_id,v.proof_digest,v.point_id,p.repository_class,v.status,v.proof_class,v.state_revision,v.recovery_epoch FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.proof_digest=?`, digest).Scan(&receipt.VerificationID, &receipt.ProofDigest, &receipt.PointID, &receipt.RepositoryClass, &receipt.Status, &receipt.ProofClass, &receipt.StateRevision, &receipt.RecoveryEpoch)
+		return tx.queryRow(ctx, `SELECT v.verification_id,v.proof_digest,v.point_id,p.repository_class,v.status,v.proof_class,v.manifest_digest,v.inventory_digest,v.state_revision,v.recovery_epoch FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.proof_digest=?`, digest).Scan(&receipt.VerificationID, &receipt.ProofDigest, &receipt.PointID, &receipt.RepositoryClass, &receipt.Status, &receipt.ProofClass, &receipt.ManifestDigest, &receipt.InventoryDigest, &receipt.StateRevision, &receipt.RecoveryEpoch)
 	})
 	return receipt, err
 }
@@ -239,7 +257,7 @@ func (repository *BackupRepository) CurrentLocalLastGood(ctx context.Context, cl
 // AdvanceLocalLastGood is a separate CAS. A fixture, failed, uncertain, stale
 // or second conflicting proof cannot replace a prior verified point.
 func (repository *BackupRepository) AdvanceLocalLastGood(ctx context.Context, receipt LocalVerificationReceipt, expected RevisionToken, previousVerificationID string) error {
-	if repository == nil || repository.store == nil || receipt.Status != "local-verified" || receipt.ProofClass != "live" || receipt.VerificationID == "" || receipt.PointID == "" {
+	if repository == nil || repository.store == nil || receipt.Status != "local-verified" || receipt.ProofClass != "live" || receipt.VerificationID == "" || receipt.PointID == "" || !validBackupDigest(receipt.ProofDigest) {
 		return backupStoreError(generated.ErrorCodeInputInvalid, "backup-last-good")
 	}
 	return repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
@@ -250,12 +268,19 @@ func (repository *BackupRepository) AdvanceLocalLastGood(ctx context.Context, re
 		if revision != expected.StateRevision || epoch != expected.RecoveryEpoch || revision != receipt.StateRevision || epoch != receipt.RecoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-last-good")
 		}
-		var count int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.verification_id=? AND v.point_id=? AND p.repository_class=? AND v.status='local-verified' AND v.proof_class='live' AND v.state_revision=? AND v.recovery_epoch=? AND v.full_read_at IS NOT NULL AND v.functional_restored_at IS NOT NULL AND v.manifest_digest=p.manifest_digest AND v.inventory_digest=p.inventory_digest AND v.content_digest=p.content_digest`, receipt.VerificationID, receipt.PointID, receipt.RepositoryClass, revision, epoch).Scan(&count); err != nil {
-			return backupWriteError(err)
-		}
-		if count != 1 {
+		var fullText, restoredText, policyJSON string
+		if err := tx.QueryRowContext(ctx, `SELECT v.full_read_at,v.functional_restored_at,d.canonical_json FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch WHERE v.verification_id=? AND v.proof_digest=? AND v.point_id=? AND p.repository_class=? AND v.status='local-verified' AND v.proof_class='live' AND v.state_revision=? AND v.recovery_epoch=? AND v.full_read_at IS NOT NULL AND v.functional_restored_at IS NOT NULL AND v.manifest_digest=p.manifest_digest AND v.inventory_digest=p.inventory_digest AND v.content_digest=p.content_digest`, receipt.VerificationID, receipt.ProofDigest, receipt.PointID, receipt.RepositoryClass, revision, epoch).Scan(&fullText, &restoredText, &policyJSON); err != nil {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-last-good")
+		}
+		var policy generated.BackupPolicy
+		fullAt, fullErr := time.Parse(time.RFC3339, fullText)
+		restoredAt, restoreErr := time.Parse(time.RFC3339, restoredText)
+		if json.Unmarshal([]byte(policyJSON), &policy) != nil || policy.SchemaVersion != "1.2.0" ||
+			policy.FullPayloadIntervalHours < 1 || policy.FullPayloadIntervalHours > 8760 ||
+			policy.FunctionalTestIntervalHours < 1 || policy.FunctionalTestIntervalHours > 8760 || fullErr != nil || restoreErr != nil ||
+			!repository.store.config.Clock().UTC().Before(fullAt.Add(time.Duration(policy.FullPayloadIntervalHours)*time.Hour)) ||
+			!repository.store.config.Clock().UTC().Before(restoredAt.Add(time.Duration(policy.FunctionalTestIntervalHours)*time.Hour)) {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-last-good-cadence")
 		}
 		var current string
 		err := tx.QueryRowContext(ctx, `SELECT verification_id FROM backup_local_last_good WHERE repository_class=?`, receipt.RepositoryClass).Scan(&current)

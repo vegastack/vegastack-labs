@@ -97,7 +97,8 @@ func (adapterImpl *Adapter) Verify(ctx context.Context, operation adapter.Operat
 	}
 	if operation.OperationType == VerifyOperationType {
 		proof, err := adapterImpl.config.Backups.GetLocalVerificationByDigest(ctx, effect.ResultDigest)
-		if err != nil || proof.PointID != *effect.PendingPointID ||
+		if err != nil || proof.PointID != *effect.PendingPointID || proof.PointID != operation.TargetID ||
+			proof.ManifestDigest != operation.InputDigest || proof.InventoryDigest != operation.ArtifactDigest ||
 			(proof.Status != "local-verified" && proof.Status != "fixture-only") {
 			return adapter.Verification{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify")
 		}

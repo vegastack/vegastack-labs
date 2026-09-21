@@ -68,7 +68,7 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	keyID, recoveryID, repositoryID := "enc-a", "recovery-a", backupidentity.StandardRepository
 	policy := generated.BackupPolicy{
-		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
+		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0",
 		PolicyID: "policy-real", OwnerID: "owner-real", SourceID: backupidentity.ControlDatabaseSource,
 		SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: backup.SQLiteOnlineHookID,
 		RepositoryID: &repositoryID, RepositoryClass: "standard", ScheduleIntent: "manual",
@@ -76,7 +76,7 @@ func TestLocalBackupComposition(t *testing.T) {
 		EncryptionKeyReferenceID: &keyID, RecoveryKeyReferenceID: &recoveryID,
 		RetentionDays: 7, RestoreTargetID: "isolated-test",
 		Dependencies:           []generated.BackupDependency{{DependencyID: "binary-restic", Kind: "binary", Digest: "sha256:" + strings.Repeat("a", 64)}},
-		FunctionalTestRequired: true, RecoveryEpoch: 0, Revision: 1,
+		FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 168, RecoveryEpoch: 0, Revision: 1,
 	}
 	for name, mutate := range map[string]func(*generated.BackupPolicy){
 		"foreign source":     func(p *generated.BackupPolicy) { p.SourceID = "source-foreign" },

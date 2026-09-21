@@ -55,7 +55,7 @@ func backupDraftRequestJSON(t *testing.T) []byte {
 		Schema: generated.SchemaIDBackupPolicyDraftRequest, SchemaVersion: "1.1.0",
 		ExpectedStateRevision: 0, RecoveryEpoch: 0, TargetDigest: digest, IdempotencyKey: "backup-a",
 		Policy: generated.BackupPolicy{
-			Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
+			Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0",
 			PolicyID: "policy-a", OwnerID: "owner-a", SourceID: "source-a",
 			SourceSelectors: []string{"selector-a"}, ConsistencyHookID: "sqlite-online",
 			RepositoryID: &repo, RepositoryClass: "standard", ScheduleIntent: "daily",
@@ -63,7 +63,7 @@ func backupDraftRequestJSON(t *testing.T) []byte {
 			EncryptionKeyReferenceID: &enc, RecoveryKeyReferenceID: &rec,
 			RetentionDays: 7, RestoreTargetID: "restore-a",
 			Dependencies:           []generated.BackupDependency{{DependencyID: "dep-a", Kind: "binary", Digest: digest}},
-			FunctionalTestRequired: true, RecoveryEpoch: 0, Revision: 1,
+			FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 168, RecoveryEpoch: 0, Revision: 1,
 		},
 	}
 	raw, err := json.Marshal(request)

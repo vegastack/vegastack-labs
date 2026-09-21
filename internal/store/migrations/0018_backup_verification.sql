@@ -22,7 +22,7 @@ CREATE TABLE backup_local_verifications (
     point_id TEXT NOT NULL REFERENCES recovery_points(point_id),
     run_id TEXT NOT NULL CHECK (length(run_id) BETWEEN 1 AND 128),
     read_lease_id TEXT NOT NULL REFERENCES backup_read_leases(lease_id),
-    status TEXT NOT NULL CHECK (status IN ('fixture-only','local-verified','failed','uncertain')),
+    status TEXT NOT NULL CHECK (status IN ('fixture-only','local-verified','full-payload-due','functional-test-due','failed','uncertain')),
     proof_class TEXT NOT NULL CHECK (proof_class IN ('fixture','live')),
     manifest_digest TEXT NOT NULL CHECK (length(manifest_digest)=71 AND substr(manifest_digest,1,7)='sha256:'),
     inventory_digest TEXT NOT NULL CHECK (length(inventory_digest)=71 AND substr(inventory_digest,1,7)='sha256:'),

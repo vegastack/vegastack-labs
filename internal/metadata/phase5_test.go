@@ -80,7 +80,11 @@ func TestBackupCreationContractsAreVersionedAndInert(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing backup schema %s", id)
 		}
-		if schema.Version != "1.1.0" {
+		wantVersion := "1.1.0"
+		if id == backupPolicySchemaID {
+			wantVersion = "1.2.0"
+		}
+		if schema.Version != wantVersion {
 			t.Errorf("backup schema %s version = %s", id, schema.Version)
 		}
 	}

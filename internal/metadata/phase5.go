@@ -96,6 +96,13 @@ func phase5BackupSchema(identifier string, fields ...FieldDefinition) SchemaDefi
 	return schema
 }
 
+func phase5BackupPolicySchema(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5BackupSchema(backupPolicySchemaID, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
 func phase5BackupRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Request(identifier, fields...)
 	schema.Version = "1.1.0"
@@ -251,7 +258,7 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Enum("kind", "Kind", "binary", "schema", "config", "image", "signature"),
 			phase5Digest("digest", "Digest"),
 		}},
-		phase5BackupSchema(backupPolicySchemaID,
+		phase5BackupPolicySchema(
 			phase5ID("policyId", "PolicyID"), phase5ID("ownerId", "OwnerID"), phase5ID("sourceId", "SourceID"),
 			phase5IDs("sourceSelectors", "SourceSelectors", 64),
 			phase5ID("consistencyHookId", "ConsistencyHookID"),
@@ -265,6 +272,8 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Nonnegative("retentionDays", "RetentionDays"), phase5ID("restoreTargetId", "RestoreTargetID"),
 			FieldDefinition{JSONName: "dependencies", GoName: "Dependencies", Kind: ValueArray, Required: true, ItemRef: backupDependencySchemaID, MaxItems: intPointer(64)},
 			phase5Bool("functionalTestRequired", "FunctionalTestRequired"),
+			FieldDefinition{JSONName: "fullPayloadIntervalHours", GoName: "FullPayloadIntervalHours", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(8760)},
+			FieldDefinition{JSONName: "functionalTestIntervalHours", GoName: "FunctionalTestIntervalHours", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(8760)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5Positive("revision", "Revision"),
 		),
 		phase5BackupSchema(backupJobSchemaID,

@@ -623,27 +623,29 @@ type BackupLastGood struct {
 }
 
 type BackupPolicy struct {
-	Schema                   string             `json:"schema"`
-	SchemaVersion            string             `json:"schemaVersion"`
-	PolicyID                 string             `json:"policyId"`
-	OwnerID                  string             `json:"ownerId"`
-	SourceID                 string             `json:"sourceId"`
-	SourceSelectors          []string           `json:"sourceSelectors"`
-	ConsistencyHookID        string             `json:"consistencyHookId"`
-	RepositoryID             *string            `json:"repositoryId"`
-	RepositoryClass          string             `json:"repositoryClass"`
-	ScheduleIntent           string             `json:"scheduleIntent"`
-	ExpectedBytes            int64              `json:"expectedBytes"`
-	ExpectedGrowthBytes      int64              `json:"expectedGrowthBytes"`
-	MinimumFreeBytes         int64              `json:"minimumFreeBytes"`
-	EncryptionKeyReferenceID *string            `json:"encryptionKeyReferenceId"`
-	RecoveryKeyReferenceID   *string            `json:"recoveryKeyReferenceId"`
-	RetentionDays            int64              `json:"retentionDays"`
-	RestoreTargetID          string             `json:"restoreTargetId"`
-	Dependencies             []BackupDependency `json:"dependencies"`
-	FunctionalTestRequired   bool               `json:"functionalTestRequired"`
-	RecoveryEpoch            int64              `json:"recoveryEpoch"`
-	Revision                 int64              `json:"revision"`
+	Schema                      string             `json:"schema"`
+	SchemaVersion               string             `json:"schemaVersion"`
+	PolicyID                    string             `json:"policyId"`
+	OwnerID                     string             `json:"ownerId"`
+	SourceID                    string             `json:"sourceId"`
+	SourceSelectors             []string           `json:"sourceSelectors"`
+	ConsistencyHookID           string             `json:"consistencyHookId"`
+	RepositoryID                *string            `json:"repositoryId"`
+	RepositoryClass             string             `json:"repositoryClass"`
+	ScheduleIntent              string             `json:"scheduleIntent"`
+	ExpectedBytes               int64              `json:"expectedBytes"`
+	ExpectedGrowthBytes         int64              `json:"expectedGrowthBytes"`
+	MinimumFreeBytes            int64              `json:"minimumFreeBytes"`
+	EncryptionKeyReferenceID    *string            `json:"encryptionKeyReferenceId"`
+	RecoveryKeyReferenceID      *string            `json:"recoveryKeyReferenceId"`
+	RetentionDays               int64              `json:"retentionDays"`
+	RestoreTargetID             string             `json:"restoreTargetId"`
+	Dependencies                []BackupDependency `json:"dependencies"`
+	FunctionalTestRequired      bool               `json:"functionalTestRequired"`
+	FullPayloadIntervalHours    int64              `json:"fullPayloadIntervalHours"`
+	FunctionalTestIntervalHours int64              `json:"functionalTestIntervalHours"`
+	RecoveryEpoch               int64              `json:"recoveryEpoch"`
+	Revision                    int64              `json:"revision"`
 }
 
 type BackupPolicyDraftRequest struct {

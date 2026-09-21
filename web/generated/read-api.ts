@@ -286,7 +286,7 @@ export interface BackupLastGood {
 
 export interface BackupPolicy {
   readonly "schema": "vegastack-labs.dev/backup-policy";
-  readonly "schemaVersion": "1.1.0";
+  readonly "schemaVersion": "1.2.0";
   readonly "policyId": string;
   readonly "ownerId": string;
   readonly "sourceId": string;
@@ -304,6 +304,8 @@ export interface BackupPolicy {
   readonly "restoreTargetId": string;
   readonly "dependencies": ReadonlyArray<BackupDependency>;
   readonly "functionalTestRequired": boolean;
+  readonly "fullPayloadIntervalHours": number;
+  readonly "functionalTestIntervalHours": number;
   readonly "recoveryEpoch": number;
   readonly "revision": number;
 }
@@ -2160,7 +2162,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.1.0"
+          "1.2.0"
         ]
       },
       {
@@ -2292,6 +2294,22 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "boolean",
         "required": true,
         "nullable": false
+      },
+      {
+        "name": "fullPayloadIntervalHours",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0,
+        "maximum": 8760
+      },
+      {
+        "name": "functionalTestIntervalHours",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0,
+        "maximum": 8760
       },
       {
         "name": "recoveryEpoch",

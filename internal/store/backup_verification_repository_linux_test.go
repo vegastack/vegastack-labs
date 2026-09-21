@@ -83,6 +83,10 @@ func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
 	if err := repository.AdvanceLocalLastGood(ctx, fixtureReceipt, revision, ""); err == nil {
 		t.Fatal("fixture proof advanced last-good")
 	}
+	status, err := repository.ReadLocalBackupStatus(ctx)
+	if err != nil || len(status.LastGood) != 0 || status.Jobs[0].Status != "pending" || status.Verifications[0].Status != "fixture-only" {
+		t.Fatalf("fixture backup status=%#v err=%v", status, err)
+	}
 	stale := verificationRequest(t, point, revision, "live", "passed")
 	stale.Expected.RecoveryEpoch++
 	if _, err := repository.AppendLocalVerification(ctx, stale); Code(err) != generated.ErrorCodePlanStale {
@@ -110,11 +114,46 @@ func TestLocalLastGoodCurrentLiveProofAdvancesOnce(t *testing.T) {
 	if err := repository.AdvanceLocalLastGood(ctx, receipt, revision, ""); err != nil {
 		t.Fatal(err)
 	}
+	status, err := repository.ReadLocalBackupStatus(ctx)
+	if err != nil || len(status.Policies) != 1 || len(status.Jobs) != 1 || len(status.Verifications) != 1 || len(status.LastGood) != 1 ||
+		status.Jobs[0].Status != "verified" || status.Verifications[0].Status != "local-verified" ||
+		status.Verifications[0].FullPayloadDueAt == nil || status.Verifications[0].FunctionalTestDueAt == nil {
+		t.Fatalf("live backup status=%#v err=%v", status, err)
+	}
+	repository.store.config.Clock = func() time.Time { return time.Now().Add(25 * time.Hour) }
+	overdue, err := repository.ReadLocalBackupStatus(ctx)
+	if err != nil || overdue.Verifications[0].Status != "full-payload-due" || overdue.Jobs[0].Status == "verified" || len(overdue.LastGood) != 1 {
+		t.Fatalf("overdue backup status=%#v err=%v", overdue, err)
+	}
+	repository.store.config.Clock = time.Now
 	if err := repository.AdvanceLocalLastGood(ctx, receipt, revision, ""); Code(err) != generated.ErrorCodeStateConflict {
 		t.Fatalf("second advance: %v", err)
 	}
 	var last string
 	if err := repository.store.conn.QueryRowContext(ctx, `SELECT verification_id FROM backup_local_last_good WHERE repository_class='standard'`).Scan(&last); err != nil || last != receipt.VerificationID {
 		t.Fatalf("last-good=%q err=%v", last, err)
+	}
+}
+
+func TestOverdueFullReadCannotAdvanceLastGood(t *testing.T) {
+	ctx := context.Background()
+	repository, point, revision := seededVerificationPoint(t)
+	lease := BackupReadLeaseRequest{LeaseID: "reader-a", PointID: point.PointID, RepositoryID: backupidentity.StandardRepository,
+		RepositoryClass: "standard", SourceRevision: point.SourceRevision, Expected: revision, MaximumExpiresAt: time.Now().Add(time.Hour)}
+	if err := repository.AcquireBackupReadLease(ctx, lease); err != nil {
+		t.Fatal(err)
+	}
+	request := verificationRequest(t, point, revision, "live", "passed")
+	request.FullReadAt = time.Now().Add(-25 * time.Hour)
+	receipt, err := repository.AppendLocalVerification(ctx, request)
+	if err != nil || receipt.Status != "full-payload-due" {
+		t.Fatalf("overdue proof=%#v err=%v", receipt, err)
+	}
+	if err := repository.AdvanceLocalLastGood(ctx, receipt, revision, ""); err == nil {
+		t.Fatal("overdue full-read advanced last-good")
+	}
+	status, err := repository.ReadLocalBackupStatus(ctx)
+	if err != nil || status.Verifications[0].Status != "full-payload-due" || status.Jobs[0].Status == "verified" || len(status.LastGood) != 0 {
+		t.Fatalf("overdue backup status=%#v err=%v", status, err)
 	}
 }
