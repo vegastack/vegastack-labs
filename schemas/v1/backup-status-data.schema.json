@@ -162,6 +162,56 @@
       ],
       "type": "object"
     },
+    "backup-last-good": {
+      "additionalProperties": false,
+      "properties": {
+        "manifestDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "repositoryClass": {
+          "enum": [
+            "standard",
+            "critical"
+          ],
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-last-good"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "verificationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "repositoryClass",
+        "pointId",
+        "verificationId",
+        "manifestDigest",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
     "backup-policy": {
       "additionalProperties": false,
       "properties": {
@@ -302,6 +352,109 @@
         "revision"
       ],
       "type": "object"
+    },
+    "backup-verification-attempt": {
+      "additionalProperties": false,
+      "properties": {
+        "fullPayloadDueAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "functionalTestDueAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "jobId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "proofClass": {
+          "enum": [
+            "fixture",
+            "live"
+          ],
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "runId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-verification-attempt"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "pending",
+            "fixture-only",
+            "local-verified",
+            "full-payload-due",
+            "functional-test-due",
+            "uncertain",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "verificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "verificationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "verifiedAt": {
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "verificationId",
+        "jobId",
+        "pointId",
+        "runId",
+        "status",
+        "proofClass",
+        "verificationDigest",
+        "verifiedAt",
+        "fullPayloadDueAt",
+        "functionalTestDueAt",
+        "recoveryEpoch"
+      ],
+      "type": "object"
     }
   },
   "$id": "vegastack-labs.dev/backup-status-data",
@@ -313,6 +466,13 @@
         "$ref": "#/$defs/backup-job"
       },
       "maxItems": 256,
+      "type": "array"
+    },
+    "lastGood": {
+      "items": {
+        "$ref": "#/$defs/backup-last-good"
+      },
+      "maxItems": 16,
       "type": "array"
     },
     "policies": {
@@ -334,9 +494,16 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
+    },
+    "verifications": {
+      "items": {
+        "$ref": "#/$defs/backup-verification-attempt"
+      },
+      "maxItems": 256,
+      "type": "array"
     }
   },
   "required": [
@@ -344,6 +511,8 @@
     "schemaVersion",
     "policies",
     "jobs",
+    "verifications",
+    "lastGood",
     "recoveryEpoch"
   ],
   "title": "VegaStack Labs backup status data",

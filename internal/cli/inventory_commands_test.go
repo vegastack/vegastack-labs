@@ -22,6 +22,8 @@ type stubControlOperations struct {
 	gateEvidenceResponse localapi.TypedResponse[generated.GateEvidenceSubmission]
 	gateProfileResponse  localapi.TypedResponse[generated.GateProfileDraftSubmission]
 	backupPolicyResponse localapi.TypedResponse[generated.BackupPolicyDraftSubmission]
+	backupStatusResponse localapi.TypedResponse[generated.BackupStatusData]
+	backupJobResponse    localapi.TypedResponse[generated.BackupJob]
 	summaryResponse      localapi.TypedResponse[generated.ApiSummaryData]
 	databaseResponse     localapi.TypedResponse[generated.DatabaseStatusData]
 	auditListResponse    localapi.TypedResponse[generated.AuditCheckpointListData]
@@ -56,6 +58,15 @@ func (stub *stubControlOperations) SubmitProfileDraft(_ context.Context, _ strin
 }
 func (stub *stubControlOperations) SubmitBackupPolicyDraft(_ context.Context, _ string, _ generated.BackupPolicyDraftRequest) (localapi.TypedResponse[generated.BackupPolicyDraftSubmission], error) {
 	return stub.backupPolicyResponse, stub.err
+}
+func (stub *stubControlOperations) BackupStatus(_ context.Context, _ string) (localapi.TypedResponse[generated.BackupStatusData], error) {
+	return stub.backupStatusResponse, stub.err
+}
+func (stub *stubControlOperations) RunBackup(_ context.Context, _ string, _ generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	return stub.backupJobResponse, stub.err
+}
+func (stub *stubControlOperations) VerifyBackup(_ context.Context, _ string, _ generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	return stub.backupJobResponse, stub.err
 }
 
 func (stub *stubControlOperations) Summary(_ context.Context, config string) (localapi.TypedResponse[generated.ApiSummaryData], error) {
@@ -158,6 +169,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	evidence := generated.GateEvidenceSubmission{Schema: generated.SchemaIDGateEvidenceSubmission, SchemaVersion: "1.1.0", DraftID: "draft-test", ChangeID: "gate-evidence-test", EvidenceID: "evidence-test", Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	profile := generated.GateProfileDraftSubmission{Schema: generated.SchemaIDGateProfileDraftSubmission, SchemaVersion: "1.1.0", DraftID: "binding-test", ChangeID: "gate-profile-binding-test", BindingID: "binding-test", Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	backup := generated.BackupPolicyDraftSubmission{Schema: generated.SchemaIDBackupPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: "backup-draft-test", PolicyID: "policy-a", PolicyDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
+	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.1.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, RecoveryEpoch: 2}
+	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
 	return &stubControlOperations{
 		gateListResponse:     operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
 		gateViewResponse:     operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
@@ -165,6 +178,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		gateEvidenceResponse: operationResponse(t, "api.v1.gate-evidence.create", true, 2, 8, evidence),
 		gateProfileResponse:  operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
 		backupPolicyResponse: operationResponse(t, "api.v1.backup-policy-drafts.create", true, 2, 8, backup),
+		backupStatusResponse: operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
+		backupJobResponse:    operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
 		summaryResponse:      operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
 		databaseResponse:     operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
 		auditListResponse:    operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),

@@ -19,6 +19,20 @@ Available commands:
     --file <path>          Read one exact typed backup-policy-draft-request JSON file (64 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  backup run               Execute one exact approved backup-creation plan; the point remains pending.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact typed backup-run-request JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  backup status            Inspect local backup jobs and qualification status.
+    --config <path>        Read one protected server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  backup verify            Execute one exact approved local-backup verification plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact typed backup-verify-request JSON file (4 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   credential activate      Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
     --config <path>        Read one protected server profile.
     --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
@@ -170,9 +184,6 @@ Available commands:
 
 Planned commands (unavailable):
   audit                    Inspect sanitized audit history.
-  backup run               Run one exact approved backup policy.
-  backup status            Inspect backup status.
-  backup verify            Verify a declared backup.
   connect                  Open a constrained connection to an authorized node endpoint.
   control-plane plan       Create an immutable control-plane change plan.
   control-plane recover    Create an inert control-plane recovery change.
