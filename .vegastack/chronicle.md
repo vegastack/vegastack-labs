@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — Independent recovery evidence has a bounded software handback ([#146](https://github.com/vegastack/vegastack-labs/issues/146))
+
+- **What:** A separately pinned witness can sign one exact recovery attempt, carry typed old-identity denial results, encrypt protected material to an authenticated replacement recipient, and consume a durable one-use receipt outside restored SQLite.
+- **Why:** A restored database or controller status cannot prove that the old controller lost mutation authority or that recovery material was independently held.
+- **How it went:** Red-first protocol and failure tests were followed by isolated Linux process identities and real synthetic endpoint denial probes. The tests prove the software shape only; no administrator enrolled a live witness and no production provider adapter was qualified.
+- **Changed:** Canonical signed witness artifact · admin-signed manifest and fixed protected pin · typed direct-denial transcripts · bounded encrypted custody stream · protected recipient source · durable clean-host receipt · synthetic Linux acceptance · human handback procedure.
+- **Decisions:** none; #144 still owns exact opened-ciphertext-inode comparison, #108 owns current authority and boundary derivation, and production recovery remains unavailable.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/146-witness-recovery-contract
+
 ## 22-09-2026 — Recovery evidence can be checked without claiming a recovered host ([#134](https://github.com/vegastack/vegastack-labs/issues/134))
 
 - **What:** The server can validate recovery evidence against the exact inert draft, prior and current epoch, and custody/fence digests. A typed verifier contract checks current metadata before asking an independent source for proof; production recovery remains unavailable.
