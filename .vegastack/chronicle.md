@@ -7,8 +7,8 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **What:** Credential lifecycle verification now checks strict evidence digests and exact positive and denied consumer sets. A verifier panic, cancellation or uncertain external effect is reported through a redacted recovery-required boundary.
 - **Why:** An activation must not become authoritative from malformed evidence, a partial consumer set or an error message that could contain secret material.
 - **How it went:** The implementation narrowed the issue to evidence hardening and registered-consumer enumeration after finding that real native service delivery and optional provider version proof require separate OS and provider work. Linux CI fixture failures exposed stale assumptions about denied observations and the new migration count; those fixtures were corrected and independently re-reviewed.
-- **Changed:** Strict SHA-256 and reason validation · append-only SQLite evidence hardening · exact registered-consumer enumeration · panic and uncertain-effect redaction · live Phase 2 evidence reseal. Production lifecycle and recovery verifiers remain unavailable; no credential is activated.
-- **Decisions:** none; native delivery is tracked in #140 and #141, optional provider proof in #139, and recovery in #134.
+- **Changed:** Strict SHA-256 and reason validation · append-only SQLite evidence hardening · exact registered-consumer enumeration · panic and uncertain-effect redaction · live Phase 2 evidence reseal. Production lifecycle and recovery verifiers remain unavailable; production cannot activate a credential.
+- **Decisions:** none; native delivery is tracked in [#140](https://github.com/vegastack/vegastack-labs/issues/140) and [#141](https://github.com/vegastack/vegastack-labs/issues/141), optional provider proof in [#139](https://github.com/vegastack/vegastack-labs/issues/139), and recovery in [#134](https://github.com/vegastack/vegastack-labs/issues/134).
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/133-credential-consumer-verifiers
 
