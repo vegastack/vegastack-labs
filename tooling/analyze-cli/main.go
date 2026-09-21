@@ -346,6 +346,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	localTransportImport := modulePath + "/internal/localtransport"
 	sshTransportImport := modulePath + "/internal/sshtransport"
 	nativeCredentialImport := modulePath + "/internal/adapter/nativecredential"
+	backupImport := modulePath + "/internal/backup"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
 	serverConfigImport := modulePath + "/internal/serverconfig"
@@ -413,7 +414,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary)
 		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport
 		for _, imported := range candidate.Imports {
-			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) {
+			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) {
 				result.ShellDispatch = true
 			}
 			switch imported {
@@ -604,9 +605,9 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
 		}
 	case "serverconfig":
-		expected = "512234421f11cb33db0b150bf72ab232e9a51c6ceedbd0f85b63a2f3d5a39f73"
+		expected = "7e91eac4a55dd1d5b6b2d37a159165b952774cb85afb230b47409fdc58a46429"
 		if containsString(names, "profile_linux.go") {
-			expected = "891bdf45132eb531020f812ccc932bb4bbafdcc60e8bcb0c8a75ba3ad94c92e3"
+			expected = "a6a599e60e960cdfa717903a4e197c04284ca3dcfabb9f8a26a47841935a1421"
 		}
 	default:
 		return false
@@ -642,18 +643,19 @@ func moduleDependencyClosure(packages []listedPackage, root string) map[string]b
 
 func reviewedLocalClientDependencies(closure map[string]bool, modulePath, localAPIImport, localTransportImport, sshTransportImport string) bool {
 	approved := map[string]bool{
-		localAPIImport:                         true,
-		localTransportImport:                   true,
-		sshTransportImport:                     true,
-		modulePath + "/internal/apissh":        true,
-		modulePath + "/internal/credentialref": true,
-		modulePath + "/internal/failure":       true,
-		modulePath + "/internal/generated":     true,
-		modulePath + "/internal/principal":     true,
-		modulePath + "/internal/result":        true,
-		modulePath + "/internal/runprotocol":   true,
-		modulePath + "/internal/serverconfig":  true,
-		modulePath + "/internal/strictjson":    true,
+		localAPIImport:                          true,
+		localTransportImport:                    true,
+		sshTransportImport:                      true,
+		modulePath + "/internal/apissh":         true,
+		modulePath + "/internal/credentialref":  true,
+		modulePath + "/internal/backupidentity": true,
+		modulePath + "/internal/failure":        true,
+		modulePath + "/internal/generated":      true,
+		modulePath + "/internal/principal":      true,
+		modulePath + "/internal/result":         true,
+		modulePath + "/internal/runprotocol":    true,
+		modulePath + "/internal/serverconfig":   true,
+		modulePath + "/internal/strictjson":     true,
 	}
 	for importPath := range closure {
 		if !approved[importPath] {
@@ -672,6 +674,11 @@ func reviewedLocalClientPackage(candidate checkedSourcePackage, modulePath, loca
 	}
 	if candidate.listed.ImportPath == sshTransportImport {
 		return reviewedSSHTransportPackage(candidate, localTransportImport)
+	}
+	// The backup identity registry is portable constant/data logic shared with
+	// serverconfig. It has no imports or runtime capability of its own.
+	if candidate.listed.ImportPath == modulePath+"/internal/backupidentity" {
+		return len(candidate.listed.Imports) == 0
 	}
 	if candidate.listed.ImportPath != localAPIImport {
 		for _, imported := range candidate.listed.Imports {
@@ -820,7 +827,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedCredentialImportLocalAPIUnsupportedDigest
 		}
 	}
-	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") && !containsString(names, "credential_lifecycle_client.go") {
+	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") && !containsString(names, "backup_client.go") && !containsString(names, "credential_lifecycle_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -833,7 +840,31 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedAuditCredentialLocalAPIUnsupportedDigest
 		}
 	}
-	if containsString(names, "credential_lifecycle_client.go") {
+	if containsString(names, "backup_client.go") && containsString(names, "credential_lifecycle_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = reviewedBackupLifecycleLocalAPILinuxDigest
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = reviewedBackupLifecycleLocalAPIUnsupportedDigest
+		}
+	} else if containsString(names, "backup_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = reviewedBackupLocalAPILinuxDigest
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = reviewedBackupLocalAPIUnsupportedDigest
+		}
+	} else if containsString(names, "credential_lifecycle_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -848,6 +879,13 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected
 }
+
+const (
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "8d5678d444138bd4fa8002481045befaccd47000355d660128624b989012787d"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "d0a10ffc95eb8b51b77ab7518269a3271dd3ec36a76e133e1d3f00d3e67fd0da"
+	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
+	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
+)
 
 const reviewedAuditVerificationDigest = "1f4068a1ea9ee0eb52ab91fd5b792b9d094218a50b5ba6fc4e74568d70bc07b8"
 
@@ -1054,6 +1092,83 @@ func reviewedUnixDial(function *types.Func, call *ast.CallExpr) bool {
 const reviewedLocalTransportDigest = "3f97f09b0fb0280196e869b0defe165fee6eefbb0caec1fbbf91fa2e4a1143c4"
 
 const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42238a26f06c289f4f69d3"
+
+// forbiddenBackupProcessPatterns are secret/lock transports the pinned restic
+// child must never use: environment-carried passwords, a password-command helper,
+// or a disabled repository lock.
+var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC_PASSWORD=", "--no-lock"}
+
+// reviewedBackupSubprocessFile is the single reviewed source file in the backup
+// package permitted to import os/exec: the pinned restic child runner. Its exact
+// bytes are pinned by reviewedBackupSubprocessDigest so the sealed-FD discipline
+// cannot be silently rewritten, and no other file in the package may take on a
+// subprocess dependency.
+const reviewedBackupSubprocessFile = "restic_linux.go"
+
+// reviewedBackupSubprocessDigest pins the exact reviewed bytes of the restic
+// child runner. Any edit to restic_linux.go must be re-reviewed and this digest
+// resealed; until then the os/exec allowance fails closed.
+const reviewedBackupSubprocessDigest = "052750e112f6259ecfa84e8c34ddd82458a61fa5b2cd0b35349249d3ba20d2f1"
+
+// reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
+// subprocess file (#106). It confirms the import path, that os/exec is confined
+// to restic_linux.go (parsed per file, not merely the package import set), that
+// the subprocess file carries the linux build tag and matches its reviewed
+// digest, and that no source uses a forbidden password/lock transport.
+func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport string) bool {
+	if candidate.listed.ImportPath != backupImport {
+		return false
+	}
+	subprocessFilePresent := false
+	for _, name := range candidate.listed.GoFiles {
+		path := filepath.Join(candidate.listed.Dir, name)
+		source, err := os.ReadFile(path)
+		if err != nil {
+			return false
+		}
+		for _, forbidden := range forbiddenBackupProcessPatterns {
+			if strings.Contains(string(source), forbidden) {
+				return false
+			}
+		}
+		usesExec, err := fileImportsOSExec(path)
+		if err != nil {
+			return false
+		}
+		if name == reviewedBackupSubprocessFile {
+			subprocessFilePresent = true
+			if !usesExec || !strings.HasPrefix(string(source), "//go:build linux") {
+				return false
+			}
+			if digestSourceFiles(candidate.listed.Dir, []string{name}) != reviewedBackupSubprocessDigest {
+				return false
+			}
+			continue
+		}
+		if usesExec {
+			// A new backup subprocess file cannot inherit the os/exec allowance.
+			return false
+		}
+	}
+	return subprocessFilePresent
+}
+
+// fileImportsOSExec reports whether one Go source file imports os/exec, parsing
+// only its import block so a mention of the string in a comment or identifier is
+// never mistaken for a real subprocess dependency.
+func fileImportsOSExec(path string) (bool, error) {
+	fileSet := token.NewFileSet()
+	parsed, err := parser.ParseFile(fileSet, path, nil, parser.ImportsOnly)
+	if err != nil {
+		return false, err
+	}
+	for _, spec := range parsed.Imports {
+		if spec.Path != nil && spec.Path.Value == `"os/exec"` {
+			return true, nil
+		}
+	}
+	return false, nil
+}
 
 const reviewedNativeCredentialDigest = "05fafae34779cdadf1f57948efc381bbc3fcf239cdd53832c511c5ee9549242d"
 

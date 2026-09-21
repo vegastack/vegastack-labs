@@ -12,6 +12,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/146-witness-recovery-contract
 
+## 22-09-2026 — Local backups can create pending encrypted recovery points ([#106](https://github.com/vegastack/vegastack-labs/issues/106))
+
+- **What:** The server can accept an inert backup-policy draft, bind it to an exact approved run, capture a consistent local source, and create an encrypted restic point in a protected standard or critical repository. It records a pending point with an immutable creation manifest, expected object and dependency inventory, and a typed receipt; the point is not yet recovery-qualified.
+- **Why:** The later local verification and off-site flows need a trustworthy, policy-bound point whose source, repository, retained objects and execution authority can be checked without treating creation as proof of recoverability.
+- **How it went:** Earlier review exposed false provenance from unregistered IDs, a repository-format assumption and capacity overflow; those were closed before native acceptance. Real restic revealed that its retained config is encrypted, so the preflight now authenticates and decrypts it through the pinned child. Linux acceptance proved two sequential points and a valid version-1 repository denial. A stale exact-source analyzer digest briefly blocked CI and was resealed without widening subprocess authority.
+- **Changed:** Inert policy draft and exact run binding · registered source and repository identities · guarded local REST object writer and pinned restic child · consistent capture and append-only pending manifest/receipt · protected storage and bounded output · real Linux composition and denial checks.
+- **Decisions:** none; [#117](https://github.com/vegastack/vegastack-labs/issues/117) owns isolated restore, integrity cadence and local last-good qualification. Pending creation alone does not satisfy a recovery or live gate.
+
+— approved by (omkarmohanta09) · built by Claude and Codex · branch feat/106-pending-local-recovery-points
+
 ## 22-09-2026 — Recovery evidence can be checked without claiming a recovered host ([#134](https://github.com/vegastack/vegastack-labs/issues/134))
 
 - **What:** The server can validate recovery evidence against the exact inert draft, prior and current epoch, and custody/fence digests. A typed verifier contract checks current metadata before asking an independent source for proof; production recovery remains unavailable.

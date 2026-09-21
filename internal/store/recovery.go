@@ -62,3 +62,34 @@ type SnapshotInspection struct {
 	Revision        RevisionToken
 	IntegrityStatus IntegrityStatus
 }
+
+// OnlineSnapshotRequest asks the store to produce one consistent read-only
+// snapshot of the live control database at a protected destination path, then
+// verify its integrity, foreign keys, schema catalog, state revision and
+// recovery epoch. It never exposes the live database file to the caller.
+type OnlineSnapshotRequest struct {
+	Destination string
+	Expected    SnapshotExpectation
+	BusyBudget  time.Duration
+}
+
+// OnlineSnapshotResult is the secret-free description of a consistent snapshot.
+type OnlineSnapshotResult struct {
+	SQLiteVersion  string
+	SchemaVersion  uint64
+	Revision       RevisionToken
+	CatalogSHA256  [32]byte
+	DatabaseSHA256 [32]byte
+	Bytes          int64
+}
+
+// OnlineSnapshotSource is the store-owned read-only snapshot port consumed by
+// the backup capture seam. The backup package never opens the live SQLite file.
+// CurrentExpectation reads the live database's current schema version, state
+// revision, recovery epoch and migration-catalog digest so the caller can bind
+// an exact consistency expectation to the capture; OnlineSnapshot then fails
+// closed if the database drifts from it during the copy.
+type OnlineSnapshotSource interface {
+	CurrentExpectation(context.Context) (SnapshotExpectation, error)
+	OnlineSnapshot(context.Context, OnlineSnapshotRequest) (OnlineSnapshotResult, error)
+}

@@ -515,7 +515,7 @@ func productionOperationsFixture(t *testing.T, remote generated.RemoteReadProfil
 	}
 	seedBrowserIntegrationAuthority(t, databasePath, "sha256:"+strings.Repeat("f", 64), time.Now())
 	generatedProfile := generated.ServerProfile{
-		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.1.0",
+		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.2.0",
 		SocketPath: filepath.Join(directory, "control.sock"), SocketOwnerUID: int64(uid), SocketMode: "0600", ShutdownGraceSeconds: 5,
 		InventoryExportRoot: exportRoot, PrincipalBindings: []generated.LocalPrincipalBinding{{UID: int64(uid), PrincipalID: "principal.local"}}, RemoteRead: remote,
 	}

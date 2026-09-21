@@ -63,6 +63,10 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
   assert.equal(trustedChecks.if, "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'");
+  const backupAcceptance = trustedSteps.find(({ name }) => name === "Run pinned local-backup acceptance");
+  assert.equal(backupAcceptance.if, "github.event_name == 'workflow_dispatch' && inputs.backup_acceptance");
+  assert.match(backupAcceptance.run, /VSK_RESTIC_0191_BINARY/);
+  assert.match(backupAcceptance.run, /TestPinnedResticEndToEnd\|TestPinnedResticRejectsAuthenticatedV1Repository\|TestLocalBackupComposition/);
   assert.equal(phase4Exit.if, "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
   assert.equal(phase4Exit.run, "pnpm --silent check:phase-4-exit --commit \"$GITHUB_SHA\"");
   assert.equal(trustedNode.with.cache, undefined);

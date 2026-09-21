@@ -43,7 +43,7 @@ export const EXECUTOR_CHECK_IN_SECONDS = 20;
 export const RUN_TRANSITIONS = [{"from":"interrupted","to":"cancelled"},{"from":"interrupted","to":"running"},{"from":"queued","to":"cancelled"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"interrupted"},{"from":"running","to":"partial"},{"from":"running","to":"succeeded"}] as const;
 
 export const GATE_EVIDENCE_TRANSITIONS = [{"from":"applied","to":"revoked"},{"from":"draft","to":"applied"},{"from":"draft","to":"revoked"}] as const;
-export const BACKUP_JOB_TRANSITIONS = [{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"uncertain"},{"from":"running","to":"verified"}] as const;
+export const BACKUP_JOB_TRANSITIONS = [{"from":"pending","to":"failed"},{"from":"pending","to":"verified"},{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"pending"},{"from":"running","to":"uncertain"}] as const;
 export const RESTORE_TRANSITIONS = [{"from":"fenced","to":"failed"},{"from":"fenced","to":"restoring"},{"from":"planned","to":"failed"},{"from":"planned","to":"fenced"},{"from":"restoring","to":"failed"},{"from":"restoring","to":"uncertain"},{"from":"restoring","to":"verification-required"},{"from":"verification-required","to":"failed"},{"from":"verification-required","to":"uncertain"},{"from":"verification-required","to":"verified"}] as const;
 export const SCHEDULED_JOB_TRANSITIONS = [{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"succeeded"},{"from":"running","to":"uncertain"}] as const;
 
@@ -254,15 +254,21 @@ export interface AuditVerificationData {
   readonly "preAnchor": boolean;
 }
 
+export interface BackupDependency {
+  readonly "dependencyId": string;
+  readonly "kind": "binary" | "schema" | "config" | "image" | "signature";
+  readonly "digest": string;
+}
+
 export interface BackupJob {
   readonly "schema": "vegastack-labs.dev/backup-job";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "jobId": string;
   readonly "policyId": string;
   readonly "sourceKind": "fixture" | "local" | "independent";
   readonly "proofClass": "fixture" | "live";
   readonly "pointId": string | null;
-  readonly "status": "queued" | "running" | "failed" | "verified" | "uncertain";
+  readonly "status": "queued" | "running" | "pending" | "failed" | "verified" | "uncertain";
   readonly "runId": string | null;
   readonly "recoveryEpoch": number;
   readonly "verificationDigest": string | null;
@@ -270,12 +276,24 @@ export interface BackupJob {
 
 export interface BackupPolicy {
   readonly "schema": "vegastack-labs.dev/backup-policy";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "policyId": string;
+  readonly "ownerId": string;
   readonly "sourceId": string;
-  readonly "scopeDigest": string;
-  readonly "retentionClass": string;
-  readonly "verificationRequirement": string;
+  readonly "sourceSelectors": ReadonlyArray<string>;
+  readonly "consistencyHookId": string;
+  readonly "repositoryId": string | null;
+  readonly "repositoryClass": "none" | "standard" | "critical";
+  readonly "scheduleIntent": "manual" | "hourly" | "daily" | "weekly";
+  readonly "expectedBytes": number;
+  readonly "expectedGrowthBytes": number;
+  readonly "minimumFreeBytes": number;
+  readonly "encryptionKeyReferenceId": string | null;
+  readonly "recoveryKeyReferenceId": string | null;
+  readonly "retentionDays": number;
+  readonly "restoreTargetId": string;
+  readonly "dependencies": ReadonlyArray<BackupDependency>;
+  readonly "functionalTestRequired": boolean;
   readonly "recoveryEpoch": number;
   readonly "revision": number;
 }
@@ -568,7 +586,7 @@ export interface PlanReferenceRequest {
 
 export interface RecoveryPoint {
   readonly "schema": "vegastack-labs.dev/recovery-point";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "pointId": string;
   readonly "sourceKind": "fixture" | "local" | "independent";
   readonly "proofClass": "fixture" | "live";
@@ -1904,6 +1922,38 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/backup-dependency",
+    "fields": [
+      {
+        "name": "dependencyId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "kind",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "binary",
+          "schema",
+          "config",
+          "image",
+          "signature"
+        ]
+      },
+      {
+        "name": "digest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/backup-job",
     "fields": [
       {
@@ -1921,7 +1971,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -1974,6 +2024,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "enum": [
           "queued",
           "running",
+          "pending",
           "failed",
           "verified",
           "uncertain"
@@ -2020,11 +2071,18 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
         "name": "policyId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "ownerId",
         "kind": "string",
         "required": true,
         "nullable": false,
@@ -2038,25 +2096,113 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
-        "name": "scopeDigest",
-        "kind": "string",
+        "name": "sourceSelectors",
+        "kind": "array",
         "required": true,
         "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
       },
       {
-        "name": "retentionClass",
+        "name": "consistencyHookId",
         "kind": "string",
         "required": true,
         "nullable": false,
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
-        "name": "verificationRequirement",
+        "name": "repositoryId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "repositoryClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "standard",
+          "critical"
+        ]
+      },
+      {
+        "name": "scheduleIntent",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "manual",
+          "hourly",
+          "daily",
+          "weekly"
+        ]
+      },
+      {
+        "name": "expectedBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "expectedGrowthBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "minimumFreeBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "encryptionKeyReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryKeyReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "retentionDays",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "restoreTargetId",
         "kind": "string",
         "required": true,
         "nullable": false,
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "dependencies",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/backup-dependency",
+        "maxItems": 64
+      },
+      {
+        "name": "functionalTestRequired",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
       },
       {
         "name": "recoveryEpoch",
@@ -3880,7 +4026,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -4499,6 +4645,10 @@ function decodeAuditTarget(value: unknown): AuditTarget {
 
 function decodeAuditVerificationData(value: unknown): AuditVerificationData {
   return decodeSchema("vegastack-labs.dev/audit-verification-data", value) as unknown as AuditVerificationData;
+}
+
+function decodeBackupDependency(value: unknown): BackupDependency {
+  return decodeSchema("vegastack-labs.dev/backup-dependency", value) as unknown as BackupDependency;
 }
 
 function decodeBackupJob(value: unknown): BackupJob {
