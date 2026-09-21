@@ -35,30 +35,16 @@ type VerifiedDraft struct {
 	HostKeyDigest         string
 }
 
-type boundedDecryption struct {
-	bytes  [4096]byte
-	length int
-}
-
-func (output *boundedDecryption) Write(value []byte) (int, error) {
-	if len(value) > len(output.bytes)-output.length {
-		return 0, io.ErrShortWrite
-	}
-	copy(output.bytes[output.length:], value)
-	output.length += len(value)
-	return len(value), nil
-}
-
 // VerifyRecoveredDraft decrypts the bytes read from the exact protected draft
 // inode under this host's fixed native systemd key and compares the result
 // with independently supplied material. It owns and closes the supplied
 // stream, including on cancellation. It grants no credential authority.
 func VerifyRecoveredDraft(ctx context.Context, request VerifyRecoveryRequest, independent io.ReadCloser) (result VerifiedDraft, err error) {
-	var expected []byte
-	var output boundedDecryption
+	var expected [4097]byte
+	var output [4097]byte
 	defer func() {
-		wipe(expected)
-		wipe(output.bytes[:])
+		wipe(expected[:])
+		wipe(output[:])
 		if recover() != nil {
 			result = VerifiedDraft{}
 			err = nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-verify")
@@ -112,8 +98,8 @@ func VerifyRecoveredDraft(ctx context.Context, request VerifyRecoveryRequest, in
 	if fingerprint != request.ExpectedFingerprint {
 		return result, nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-fingerprint")
 	}
-	expected, readErr = io.ReadAll(io.LimitReader(independent, 4097))
-	if readErr != nil || len(expected) < 8 || len(expected) > 4096 || ctx.Err() != nil {
+	expectedLength, readErr := readBoundedPrivate(independent, expected[:], 8, 4096)
+	if readErr != nil || ctx.Err() != nil {
 		return result, nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-custody")
 	}
 	sealedFD, memErr := unix.MemfdCreate("vsk-recovery-ciphertext", unix.MFD_CLOEXEC|unix.MFD_ALLOW_SEALING)
@@ -139,13 +125,30 @@ func VerifyRecoveredDraft(ctx context.Context, request VerifyRecoveryRequest, in
 	defer cancel()
 	command := exec.CommandContext(deadline, credsCommandPath, "decrypt", "--name="+request.Name, "/proc/self/fd/3", "-")
 	command.ExtraFiles = []*os.File{sealed}
-	command.Stdout = &output
-	command.Stderr = io.Discard
-	command.Env = []string{"LANG=C", "PATH=/usr/bin:/bin"}
-	if command.Run() != nil || deadline.Err() != nil || output.length < 8 || output.length > 4096 {
+	stdout, pipeErr := command.StdoutPipe()
+	if pipeErr != nil {
 		return result, nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-decrypt")
 	}
-	if subtle.ConstantTimeCompare(expected, output.bytes[:output.length]) != 1 {
+	defer stdout.Close()
+	discard, discardErr := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
+	if discardErr != nil {
+		return result, nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-decrypt")
+	}
+	defer discard.Close()
+	command.Stderr = discard
+	command.Env = []string{"LANG=C", "PATH=/usr/bin:/bin"}
+	if command.Start() != nil {
+		return result, nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-decrypt")
+	}
+	outputLength, outputErr := readBoundedPrivate(stdout, output[:], 8, 4096)
+	if outputErr != nil {
+		_ = command.Process.Kill()
+	}
+	waitErr := command.Wait()
+	if outputErr != nil || waitErr != nil || deadline.Err() != nil {
+		return result, nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-decrypt")
+	}
+	if subtle.ConstantTimeCompare(expected[:expectedLength], output[:outputLength]) != 1 {
 		return result, nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-custody-mismatch")
 	}
 	finalKeyDigest, finalKeyIdentity, keyErr := inspectRecoveryHostKey(request.ExpectedUID)
@@ -195,14 +198,51 @@ func inspectRecoveryHostKey(ownerUID uint32) (digest string, identity recoveryHo
 	if stat.Uid != 0 && stat.Uid != ownerUID {
 		return "", identity, nativeError(generated.ErrorCodeAuthorizationDenied, "native-host-key")
 	}
-	key, readErr := io.ReadAll(io.LimitReader(file, 8193))
-	if readErr != nil || len(key) != int(stat.Size) {
-		wipe(key)
+	var key [8193]byte
+	defer wipe(key[:])
+	keyLength, readErr := readBoundedPrivate(file, key[:int(stat.Size)+1], int(stat.Size), int(stat.Size))
+	if readErr != nil || keyLength != int(stat.Size) {
 		return "", identity, nativeError(generated.ErrorCodePrerequisiteBlocked, "native-host-key")
 	}
-	sum := sha256.Sum256(key)
-	wipe(key)
+	sum := sha256.Sum256(key[:keyLength])
 	return "sha256:" + hex.EncodeToString(sum[:]), recoveryHostKeyIdentity{device: uint64(stat.Dev), inode: stat.Ino}, nil
+}
+
+// readBoundedPrivate writes directly into a caller-owned fixed buffer. The
+// extra byte proves EOF at the exact maximum without allocating a private
+// copy. The caller wipes the entire buffer on every exit.
+func readBoundedPrivate(reader io.Reader, owned []byte, minimum, maximum int) (int, error) {
+	if reader == nil || minimum < 0 || maximum < minimum || len(owned) != maximum+1 {
+		return 0, io.ErrShortBuffer
+	}
+	count, emptyReads := 0, 0
+	for {
+		read, readErr := reader.Read(owned[count:])
+		if read < 0 || read > len(owned)-count {
+			return count, io.ErrUnexpectedEOF
+		}
+		count += read
+		if count > maximum {
+			return count, io.ErrShortBuffer
+		}
+		if readErr == io.EOF {
+			if count < minimum {
+				return count, io.ErrUnexpectedEOF
+			}
+			return count, nil
+		}
+		if readErr != nil {
+			return count, readErr
+		}
+		if read == 0 {
+			emptyReads++
+			if emptyReads >= 100 {
+				return count, io.ErrNoProgress
+			}
+		} else {
+			emptyReads = 0
+		}
+	}
 }
 
 func validRecoveryCiphertextStat(stat unix.Stat_t, ownerUID uint32) bool {

@@ -17,6 +17,24 @@ import (
 	"time"
 )
 
+func TestReadBoundedPrivateUsesCallerOwnedBufferAndRejectsOverflow(t *testing.T) {
+	var owned [5]byte
+	n, err := readBoundedPrivate(strings.NewReader("four"), owned[:], 1, 4)
+	if err != nil || n != 4 || string(owned[:n]) != "four" {
+		t.Fatalf("bounded private read = %d, %v", n, err)
+	}
+	wipe(owned[:])
+	if owned != [5]byte{} {
+		t.Fatal("caller could not wipe the complete private buffer")
+	}
+	if _, err := readBoundedPrivate(strings.NewReader("fifth"), owned[:], 1, 4); err == nil {
+		t.Fatal("private input over the exact bound was accepted")
+	}
+	if _, err := readBoundedPrivate(strings.NewReader(""), owned[:], 1, 4); err == nil {
+		t.Fatal("empty private input was accepted")
+	}
+}
+
 func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testing.T) {
 	if os.Getenv("VSK_NATIVE_CREDENTIAL_RECOVERY") != "1" {
 		t.Skip("disposable Linux systemd host-key fixture")
