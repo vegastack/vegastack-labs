@@ -21,7 +21,7 @@ func witnessFixture(t *testing.T) (PinnedWitness, WitnessBinding, SignedWitness,
 	if err != nil {
 		t.Fatal(err)
 	}
-	pin := PinnedWitness{KeyID: "witness-key-1", WitnessInstanceID: "outside-instance", PublicKey: public, RecipientKeyID: "recipient-1", RecipientPublicKey: recipient.PublicKey().Bytes(), ManifestDigest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", AuthenticatedExternally: true, ExpiresAt: now.Add(time.Hour), manifestAuthenticated: true, manifestBinding: manifestBoundIdentity{binding.FormerHostID, binding.FormerInstanceID, binding.ReplacementHostID, binding.ReplacementInstanceID, binding.PriorEpoch, binding.NewEpoch}}
+	pin := PinnedWitness{KeyID: "witness-key-1", WitnessInstanceID: "outside-instance", PublicKey: public, RecipientKeyID: "recipient-1", RecipientPublicKey: recipient.PublicKey().Bytes(), ManifestDigest: "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", AuthenticatedExternally: true, ExpiresAt: now.Add(time.Hour), manifestAuthenticated: true, manifestBinding: binding}
 	pin.pinSeal = pin.seal()
 	payload := WitnessPayload{Binding: binding, KeyID: pin.KeyID, WitnessInstanceID: pin.WitnessInstanceID, IssuedAt: now.Add(-time.Second), ObservedAt: now.Add(-time.Second), ExpiresAt: now.Add(30 * time.Second)}
 	canonical, err := CanonicalWitnessPayload(payload)
