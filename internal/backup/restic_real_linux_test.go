@@ -5,7 +5,6 @@ package backup
 import (
 	"context"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -54,7 +53,7 @@ func TestPinnedResticEndToEnd(t *testing.T) {
 	defer password.Close()
 	runner := NewResticRunner()
 	request := ResticRequest{BinaryPath: binary, Architecture: runtime.GOARCH,
-		RepositoryURL: "http+unix://" + url.PathEscape(socket) + ":/repo-real/",
+		RepositoryURL: "http+unix://" + socket + ":/repo-real/",
 		RepositoryID:  "repo-real", RepositoryClass: "standard", RepositoryRoot: root,
 		PolicyDigest: "sha256:" + strings.Repeat("b", 64), Lease: lease}
 	request.Mode = "init"

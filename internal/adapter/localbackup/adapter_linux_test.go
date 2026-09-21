@@ -43,6 +43,9 @@ func TestLocalBackupComposition(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	root := t.TempDir()
+	if err := os.Chmod(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
 	uid := uint32(os.Geteuid())
 	authority, err := store.Open(ctx, store.Config{
 		DatabasePath: filepath.Join(root, "control.db"), Mode: store.InitializeNew,

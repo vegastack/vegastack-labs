@@ -18,7 +18,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -212,7 +211,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	defer cancelServe()
 	go func() { _ = restServer.Serve(serveCtx, listener) }()
 
-	repositoryURL := "http+unix://" + url.PathEscape(socketPath) + ":/" + repositoryID + "/"
+	repositoryURL := "http+unix://" + socketPath + ":/" + repositoryID + "/"
 	base := backup.ResticRequest{
 		BinaryPath: adapterImpl.config.LocalBackup.ResticBinaryPath, Architecture: runtime.GOARCH,
 		RepositoryURL: repositoryURL, RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
