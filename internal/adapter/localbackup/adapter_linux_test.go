@@ -62,6 +62,10 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	inspector, err := store.NewRestoredSQLiteInspector(authority)
+	if err != nil {
+		t.Fatal(err)
+	}
 	keyID, recoveryID, repositoryID := "enc-a", "recovery-a", backupidentity.StandardRepository
 	policy := generated.BackupPolicy{
 		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
@@ -119,7 +123,7 @@ func TestLocalBackupComposition(t *testing.T) {
 		LocalBackup: &serverconfig.LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
 			SourceID: backupidentity.ControlDatabaseSource, StandardRepositoryID: backupidentity.StandardRepository,
 			CriticalRepositoryID: backupidentity.CriticalRepository},
-		ExpectedUID: uid, Backups: backups, Snapshots: snapshots, Plans: fixedPlanSource{plan},
+		ExpectedUID: uid, Backups: backups, Snapshots: snapshots, Inspector: inspector, Plans: fixedPlanSource{plan},
 		Hooks: backup.DefaultHookRegistry(), Runner: backup.NewResticRunner(), Clock: time.Now,
 	})
 	if err != nil {
@@ -176,6 +180,35 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	if _, err := backups.GetPendingRecoveryPoint(ctx, firstPoint); err != nil {
 		t.Fatalf("second point lost first pending point: %v", err)
+	}
+	first, err := backups.GetPendingRecoveryPoint(ctx, firstPoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifyOperation := adapter.Operation{OperationType: VerifyOperationType, AdapterID: AdapterID,
+		TargetID: firstPoint, InputDigest: first.ManifestDigest, ArtifactDigest: first.InventoryDigest,
+		SecretReferences: []adapter.SecretReference{{ID: keyID, Consumer: AdapterID}}}
+	verifyBinding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: planDigest,
+		RunID: "run-verify", StepID: "step-verify", StateRevision: submission.StateRevision,
+		RecoveryEpoch: 0, MaximumExpiresAt: time.Now().Add(5 * time.Minute).UTC().Format(time.RFC3339)}
+	verifyPassword, err := credentialref.NewValue([]byte("isolated-composition-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificationEffect, err := implementation.ExecuteBoundWithCredentials(ctx, verifyOperation, verifyBinding, []*credentialref.Value{verifyPassword})
+	verifyPassword.Close()
+	if err != nil || verificationEffect.Status != "succeeded" || verificationEffect.ResultDigest == "" {
+		t.Fatalf("fixture verification effect=%#v err=%v", verificationEffect, err)
+	}
+	verificationReceipt, err := backups.GetLocalVerificationByDigest(ctx, verificationEffect.ResultDigest)
+	if err != nil || verificationReceipt.Status != "fixture-only" || verificationReceipt.PointID != firstPoint {
+		t.Fatalf("fixture verification receipt=%#v err=%v", verificationReceipt, err)
+	}
+	if verification, err := implementation.Verify(ctx, verifyOperation, verificationEffect); err != nil || !verification.Verified {
+		t.Fatalf("exact fixture proof readback=%#v err=%v", verification, err)
+	}
+	if previous, err := backups.CurrentLocalLastGood(ctx, "standard"); err != nil || previous != "" {
+		t.Fatalf("fixture advanced last-good=%q err=%v", previous, err)
 	}
 	// A retained repository with an invalid format must fail before the next
 	// restic backup and leave both existing pending points intact.

@@ -9,7 +9,6 @@ import (
 	"errors"
 	"io"
 	"os"
-	"sort"
 
 	"golang.org/x/sys/unix"
 )
@@ -41,7 +40,7 @@ func VerifyLocalInventory(ctx context.Context, manifest CreationManifest, manife
 	if err := server.readVerifier.VerifyReadLease(server.readLease, server.clock()); err != nil || !server.clock().Before(server.readLease.MaximumExpiresAt) {
 		return LocalInventoryProof{}, invalid
 	}
-	observed, err := enumerateReadLeasedObjects(ctx, server)
+	observed, err := hashPointObjects(ctx, server, manifest.ExpectedObjects)
 	if err != nil || len(observed) != len(manifest.ExpectedObjects) || ExpectedInventoryDigest(observed) != manifest.InventoryDigest {
 		return LocalInventoryProof{}, invalid
 	}
@@ -63,48 +62,26 @@ func VerifyLocalInventory(ctx context.Context, manifest CreationManifest, manife
 		InventoryDigest: manifest.InventoryDigest, ObservedDigest: ExpectedInventoryDigest(observed), RecoveryEpoch: manifest.RecoveryEpoch}, nil
 }
 
-func enumerateReadLeasedObjects(ctx context.Context, server *RESTServer) ([]ExpectedObject, error) {
-	var objects []ExpectedObject
-	for _, objectType := range []string{"config", "keys", "data", "index", "snapshots"} {
+// hashPointObjects reads every object committed by this point's canonical
+// manifest. Later backup points may add immutable objects to the repository;
+// those cannot invalidate an earlier retained point's own inventory.
+func hashPointObjects(ctx context.Context, server *RESTServer, expected []ExpectedObject) ([]ExpectedObject, error) {
+	objects := make([]ExpectedObject, 0, len(expected))
+	for _, item := range expected {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		if objectType == "config" {
-			object, err := hashLeasedObject(server, objectRequest{objectType: "config", name: "config", isConfig: true, retained: true})
-			if err != nil {
-				return nil, err
-			}
-			objects = append(objects, object)
-			continue
+		request := objectRequest{objectType: item.Type, name: item.Name, retained: true}
+		if item.Type == "config" && item.Name == "config" {
+			request.isConfig = true
+		} else if _, allowed := retainedObjectTypes[item.Type]; !allowed || !validObjectName(item.Name) {
+			return nil, errors.New("invalid retained object reference")
 		}
-		descriptor, err := server.openTypeDir(objectType, false)
+		object, err := hashLeasedObject(server, request)
 		if err != nil {
 			return nil, err
 		}
-		directory := os.NewFile(uintptr(descriptor), objectType)
-		if directory == nil {
-			_ = unix.Close(descriptor)
-			return nil, errors.New("inventory directory unavailable")
-		}
-		names, err := directory.Readdirnames(-1)
-		closeErr := directory.Close()
-		if err != nil {
-			return nil, err
-		}
-		if closeErr != nil {
-			return nil, closeErr
-		}
-		sort.Strings(names)
-		for _, name := range names {
-			if !validObjectName(name) {
-				return nil, errors.New("invalid retained object name")
-			}
-			object, err := hashLeasedObject(server, objectRequest{objectType: objectType, name: name, retained: true})
-			if err != nil {
-				return nil, err
-			}
-			objects = append(objects, object)
-		}
+		objects = append(objects, object)
 	}
 	return objects, nil
 }
