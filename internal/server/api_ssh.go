@@ -165,7 +165,12 @@ func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string)
 		}
 		for _, action := range []string{"stage", "activate", "rotate", "revoke", "recover"} {
 			if arguments[1] == action {
-				return requestPath, true
+				for _, command := range generated.Commands {
+					if command.Availability == generated.AvailabilityAvailable && reflect.DeepEqual(command.Path, arguments) {
+						return requestPath, true
+					}
+				}
+				return "", false
 			}
 		}
 		return "", false
