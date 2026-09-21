@@ -44,6 +44,9 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft {
 				files.content = syntheticGateRequest(t, commandName(command.Path))
 			}
+			if strings.HasPrefix(commandName(command.Path), "credential ") && commandName(command.Path) != generated.CommandNameCredentialImport {
+				files.content = syntheticLifecycleRequest(t, commandName(command.Path))
+			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
 			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {

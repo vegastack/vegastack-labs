@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.18.0",
+  "schemaVersion": "1.20.0",
   "commands": [
     {
       "path": [
@@ -350,6 +350,77 @@
     {
       "path": [
         "credential",
+        "activate"
+      ],
+      "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one material-free lifecycle-request JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/credential-lifecycle-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/credential-lifecycle-submission",
+      "examples": [
+        {
+          "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+          "arguments": [
+            "credential",
+            "activate",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/credential-activate-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "credential",
         "import"
       ],
       "summary": "Import a local encrypted credential as an inert draft.",
@@ -511,6 +582,290 @@
             "7",
             "--recovery-epoch",
             "2",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "credential",
+        "recover"
+      ],
+      "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one material-free lifecycle-request JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/credential-lifecycle-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/credential-lifecycle-submission",
+      "examples": [
+        {
+          "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+          "arguments": [
+            "credential",
+            "recover",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/credential-recover-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "credential",
+        "revoke"
+      ],
+      "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one material-free lifecycle-request JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/credential-lifecycle-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/credential-lifecycle-submission",
+      "examples": [
+        {
+          "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+          "arguments": [
+            "credential",
+            "revoke",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/credential-revoke-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "credential",
+        "rotate"
+      ],
+      "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one material-free lifecycle-request JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/credential-lifecycle-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/credential-lifecycle-submission",
+      "examples": [
+        {
+          "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+          "arguments": [
+            "credential",
+            "rotate",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/credential-rotate-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "credential",
+        "stage"
+      ],
+      "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one material-free lifecycle-request JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/credential-lifecycle-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/credential-lifecycle-submission",
+      "examples": [
+        {
+          "summary": "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.",
+          "arguments": [
+            "credential",
+            "stage",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/credential-stage-request.json",
             "--output",
             "json"
           ]
@@ -2690,6 +3045,16 @@
       "id": "vegastack-labs.dev/credential-import-submission",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-import-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-lifecycle-request",
+      "version": "1.2.0",
+      "artifactPath": "schemas/v1/credential-lifecycle-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-lifecycle-submission",
+      "version": "1.2.0",
+      "artifactPath": "schemas/v1/credential-lifecycle-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-reference",

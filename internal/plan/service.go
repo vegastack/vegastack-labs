@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/gate"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -173,6 +174,13 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 		operations[index] = generated.PlanOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: service.config.OperationExecutorID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
 	}
+	risk := service.config.Risk
+	if credentialLifecyclePlanCandidate(declaration, operations) {
+		if !sealedSingleCredentialLifecycle(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskControlPlane)
+	}
 	targets, err := targetDigest(operations)
 	if err != nil {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
@@ -187,7 +195,7 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 	desired.AgentSessionID = author.AgentSessionID
 	desired.Operations = declarationOperations
 	desired.Extensions = append(make([]generated.ContractExtension, 0, len(declaration.Extensions)), declaration.Extensions...)
-	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: service.config.Risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
+	candidate := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: current.RecoveryEpoch, PriorStateRevision: current.StateRevision, StateRevision: current.StateRevision + 1, DeclarationRevision: desired.Revision, ObservationFingerprint: fingerprint, TargetDigest: targets, ReasonDigest: reason, PolicyVersion: service.config.PolicyVersion, ToolVersion: service.config.ToolVersion, ContractVersion: service.config.ContractVersion}, Operations: operations, Status: "planned", Risk: risk, AuthorizationBranch: service.config.AuthorizationBranch, ExecutorMode: service.config.ExecutorMode, ExecutorID: service.config.ExecutorID, CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), Extensions: extensions}
 	readable := readablePlan(candidate)
 	candidate.ReadableDigest = sha([]byte(readable))
 	candidate.PlanDigest, err = planDigest(candidate)
@@ -204,6 +212,34 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		attribution.Agent = &audit.AgentMetadata{Name: author.AgentName, SessionID: author.AgentSessionID}
 	}
 	return service.config.Repository.CommitDeclarationAndPlan(ctx, store.PlanCommitRequest{Plan: candidate, DesiredDeclaration: desired, SourceDeclarationRevision: declaration.Revision, ReasonDigest: reason, CanonicalBytes: canonical, Readable: readable, Expected: current, KeyDigest: keyDigest, RequestDigest: requestDigest, Attribution: attribution})
+}
+
+func credentialLifecycleOperation(operation string) bool {
+	switch operation {
+	case "credential.stage", "credential.activate", "credential.rotate", "credential.revoke", "credential.recover":
+		return true
+	default:
+		return false
+	}
+}
+
+func credentialLifecyclePlanCandidate(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if declaration.DeclarationType == "credential.lifecycle" {
+		return true
+	}
+	for _, operation := range operations {
+		if credentialLifecycleOperation(operation.OperationType) || operation.AdapterID == "core.credential" {
+			return true
+		}
+	}
+	return false
+}
+
+func sealedSingleCredentialLifecycle(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if declaration.DeclarationType != "credential.lifecycle" || len(operations) != 1 || operations[0].AdapterID != "core.credential" || !credentialLifecycleOperation(operations[0].OperationType) || len(declaration.Extensions) != 1 {
+		return false
+	}
+	return declaration.Extensions[0].Name == "x-credential-lifecycle" && declaration.Extensions[0].ValueDigest != ""
 }
 
 func (service *Service) ValidateCurrent(ctx context.Context, candidate generated.Plan) error {
@@ -234,8 +270,12 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 	return nil
 }
 
+// credentialBindingExtensionsEqual proves the sealed credential extension
+// digests are carried from the inert declaration into the plan unchanged. Both
+// the secret-resolution binding manifest and the lifecycle binding are declared
+// facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-credential-bindings", "x-audit-checkpoint", "x-backup-policy"} {
+	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

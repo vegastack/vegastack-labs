@@ -46,6 +46,7 @@ const REVIEWED_GATE_ENDPOINTS = [
 const REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS = [
   "api.v1.credential-references.import-stream",
 ];
+const REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS = ["api.v1.credential-lifecycle-drafts.create"];
 const REVIEWED_AUDIT_ENDPOINTS = [
   "api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list",
   "api.v1.audit-history.verification",
@@ -92,11 +93,12 @@ export async function verifyReadAPI(root = ROOT) {
       const credentialImportIDs = ids.filter((id) => id.startsWith("api.v1.credential-references."));
       const auditIDs = ids.filter((id) => id.startsWith("api.v1.audit-"));
       const backupIDs = ids.filter((id) => id.startsWith("api.v1.backup"));
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !backupIDs.includes(id));
+      const lifecycleIDs = ids.filter((id) => id.startsWith("api.v1.credential-lifecycle-"));
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id));
       if (JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
           JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
           JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS) ||
-          JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) ||
+          JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) ||
           JSON.stringify(backupIDs) !== JSON.stringify(REVIEWED_BACKUP_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
     } catch { codes.add("READ_API_ENDPOINT_DRIFT"); }
   }

@@ -216,7 +216,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	}
 	credentialRepository := store.NewCredentialRepository(authority)
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, runengine.UnavailableCredentialLifecycleVerifier{}, runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -235,6 +240,15 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	credentialImports := newProductionCredentialImporter(credentialRepository, planRepository, operations.databasePath, profile.SocketOwnerUID)
+	credentialLifecycle, err := api.NewCredentialLifecycleService(credentialRepository, planRepository, declarations, effectiveConfig.Authorizer)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterCredentialLifecycleOperation(application, api.CredentialLifecycleOperations{Lifecycle: credentialLifecycle, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := api.RegisterCredentialImportOperation(application, api.CredentialImportOperations{Imports: credentialImports, Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -367,6 +381,14 @@ func (operations *Operations) ImportCredential(ctx context.Context, configPath s
 		return localapi.TypedResponse[generated.CredentialImportSubmission]{}, err
 	}
 	return client.ImportCredential(ctx, profile, input, source)
+}
+
+func (operations *Operations) CreateCredentialLifecycleDraft(ctx context.Context, configPath string, input generated.CredentialLifecycleRequest) (localapi.TypedResponse[generated.CredentialLifecycleSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.CredentialLifecycleSubmission]{}, err
+	}
+	return client.CreateCredentialLifecycleDraft(ctx, profile, input)
 }
 
 func (operations *Operations) AuditCheckpoints(ctx context.Context, configPath string) (localapi.TypedResponse[generated.AuditCheckpointListData], error) {

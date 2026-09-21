@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.18.0",
+  "schemaVersion": "1.20.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -89,6 +89,19 @@
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/backup-verify-request",
       "dataSchema": "vegastack-labs.dev/backup-job",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.credential-lifecycle-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/credential-lifecycle-drafts",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/credential-lifecycle-request",
+      "dataSchema": "vegastack-labs.dev/credential-lifecycle-submission",
       "stream": "finite",
       "audiences": [
         "operator"

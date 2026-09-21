@@ -819,7 +819,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedCredentialImportLocalAPIUnsupportedDigest
 		}
 	}
-	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") && !containsString(names, "backup_client.go") {
+	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") && !containsString(names, "backup_client.go") && !containsString(names, "credential_lifecycle_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -832,8 +832,19 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedAuditCredentialLocalAPIUnsupportedDigest
 		}
 	}
-	// #106 adds the inert backup-policy-draft local client to the reviewed wave.
-	if containsString(names, "backup_client.go") {
+	if containsString(names, "backup_client.go") && containsString(names, "credential_lifecycle_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = reviewedBackupLifecycleLocalAPILinuxDigest
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = reviewedBackupLifecycleLocalAPIUnsupportedDigest
+		}
+	} else if containsString(names, "backup_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "audit_client.go,backup_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -845,13 +856,27 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			expected = reviewedBackupLocalAPIUnsupportedDigest
 		}
+	} else if containsString(names, "credential_lifecycle_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = "0b49c511c5450421d8a043d865dffd8ac9a36e4fe646dd1263d0ea75af995515"
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = "f4e3a49d5912730d1266ef549c344763e7632b400474aebd4c2d69e754334570"
+		}
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected
 }
 
 const (
-	reviewedBackupLocalAPILinuxDigest       = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
-	reviewedBackupLocalAPIUnsupportedDigest = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "8d5678d444138bd4fa8002481045befaccd47000355d660128624b989012787d"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "d0a10ffc95eb8b51b77ab7518269a3271dd3ec36a76e133e1d3f00d3e67fd0da"
+	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
+	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )
 
 const reviewedAuditVerificationDigest = "1f4068a1ea9ee0eb52ab91fd5b792b9d094218a50b5ba6fc4e74568d70bc07b8"

@@ -84,18 +84,39 @@ const REVIEWED_CREDENTIAL_IMPORT_WAVE = Object.freeze({
   mutationBoundaryDigest: "sha256:c18f9df9999784b2c319741cb65172dd802f61bca61abb29a4ecd0a96ce53ba1",
 });
 // Issue #107 adds the two typed audit read commands (checkpoint listing and history
-// verification) with no new Go import. It lands after #124, so as the final Phase 5
-// wave its boundary digest is the current head closure that
-// `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal.
+// verification) with no new Go import. Its historical landing digest remains
+// immutable when the subsequent #125 execution-core wave seals the combined closure.
 const REVIEWED_AUDIT_WAVE = Object.freeze({
   id: "phase5-issue107-v1", issue: 107,
   commands: Object.freeze(["audit checkpoints", "audit verify"]),
   imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:f7f91580362c31d0d9f66cc9ebb427df1080b8bef771c1a0ab620138da0ecd39",
 });
+// Issue #125 lands the credential lifecycle EXECUTION CORE only (contracts,
+// migration 0015, append-only store layer, and the in-process `core.credential`
+// run dispatch). The five `credential stage|activate|rotate|revoke|recover`
+// commands and the `credential-lifecycle-drafts` endpoint are DEFERRED to a
+// Task-5 follow-up, so this wave carries NO available command and NO new Go
+// import — the only closure delta is the added lifecycle production source under
+// `internal/**` and `schemas/v1/**`. As the new final Phase 5 wave it supersedes
+// #107 as the current head closure that `postPhase2MutationBoundaryDigest`
+// reproduces and must equal.
+const REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE = Object.freeze({
+  id: "phase5-issue125-v1", issue: 125,
+  commands: Object.freeze([]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:89dd556b7afa3ebc646dc1c5cba24add52888317883cedf082b701128e46b6f2",
+});
+// Issue #132's reviewed surface wave includes the five metadata-only lifecycle
+// commands. Recompute its boundary digest live when production code changes.
+const REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE = Object.freeze({
+  id: "phase5-issue132-v1", issue: 132,
+  commands: Object.freeze(["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:e6d31940c5e8ce3f14720592b374e397c66eef11e477fcb2afe68a6b1b2a87c4",
+});
 // Issue #106 adds the inert local backup-policy-draft command and the local
 // recovery-point creation source closure (the guarded REST object boundary, the
-// sealed-FD restic child and the exact bound adapter). It lands after #107, so as
+// sealed-FD restic child and the exact bound adapter). It lands after #132, so as
 // the final Phase 5 wave its boundary digest is the current head closure that
 // `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal. Its
 // only new production imports are the backup package and its local adapter.
@@ -103,9 +124,10 @@ const REVIEWED_BACKUP_WAVE = Object.freeze({
   id: "phase5-issue106-v1", issue: 106,
   commands: Object.freeze(["backup policy draft"]),
   imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`]),
-  mutationBoundaryDigest: "sha256:ec34b3fee5173307d42c33091b7d73011199839a86a952da952bc1dbeaa60760",
+  mutationBoundaryDigest: "sha256:945adc4a834f764ff6c3a306b02deaf1ad4c1df7fcb405949b3c99fbf970a1a2",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_BACKUP_WAVE]);
+
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_BACKUP_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -626,7 +648,7 @@ export function validateEvidence(manifest, facts) {
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
       !(reviewedWavesActive || historicalBaselineActive) ||
-      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, REVIEWED_CREDENTIAL_IMPORT_WAVE.commands) ||
+      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, [...REVIEWED_CREDENTIAL_IMPORT_WAVE.commands, ...REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE.commands].sort()) ||
       !same(facts.credentialImportFlags, CREDENTIAL_IMPORT_FLAGS) || !same(facts.credentialEndpointIds, CREDENTIAL_IMPORT_ENDPOINTS) ||
       !facts.migrations.some((migration) => same(migration, CREDENTIAL_FOUNDATION_MIGRATION)) ||
       !facts.migrations.some((migration) => same(migration, CREDENTIAL_IMPORT_MIGRATION)) ||

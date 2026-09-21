@@ -51,6 +51,37 @@ func TestCredentialPlanCannotUsePreauthorizedOrExternalAdmission(t *testing.T) {
 	}
 }
 
+func TestCredentialLifecycleOperationRequiresHumanCentralAdmission(t *testing.T) {
+	now := time.Date(2026, 9, 17, 0, 0, 0, 0, time.UTC)
+	plan := testPlan(now)
+	plan.Operations[0].AdapterID = "core.credential"
+	plan.Operations[0].OperationType = "credential.activate"
+	branch := "human"
+	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-test", PrincipalID: "policy-test", Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: "allowed", GrantRevision: 1, RecoveryEpoch: plan.Binding.RecoveryEpoch, PlanDigest: plan.PlanDigest, DecidedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	gate := NewAdmissionGate(nil, func() time.Time { return now })
+
+	external := plan
+	external.ExecutorMode = "external"
+	if err := gate.Verify(context.Background(), external, decision, nil); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("external credential lifecycle plan admitted: %v", err)
+	}
+
+	preauthorized := plan
+	preauthorized.AuthorizationBranch = "preauthorized"
+	preBranch := "preauthorized"
+	preDecision := decision
+	preDecision.Branch = &preBranch
+	if err := gate.Verify(context.Background(), preauthorized, preDecision, nil); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("preauthorized credential lifecycle plan admitted: %v", err)
+	}
+
+	unknown := plan
+	unknown.Operations[0].OperationType = "credential.set-status"
+	if err := gate.Verify(context.Background(), unknown, decision, nil); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("unknown credential operation admitted: %v", err)
+	}
+}
+
 type fixedAcknowledgementSource struct{ value generated.Acknowledgement }
 
 func (source fixedAcknowledgementSource) Status(context.Context, string) (generated.Acknowledgement, error) {

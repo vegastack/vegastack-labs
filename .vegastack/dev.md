@@ -9,7 +9,7 @@ authority: `AGENTS.md` → `docs/development/operating-mandate.md` → current a
 
 ## Knobs
 
-review: cross-agent-risky
+review: subagent            # operator instruction 18-09-2026: independent Codex reviewers; no Claude before 22-09-2026 04:30 AM IST. Revisit after cutoff; setting does not auto-revert.
 ui-evidence: playwright
 evidence-repo: vegastack/agent-dev-review-evidence
 gates: 3

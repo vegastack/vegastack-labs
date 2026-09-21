@@ -39,6 +39,9 @@ func (gate *AdmissionGate) verify(plan generated.Plan, decision generated.Author
 		if operation.AdapterID == "core.gate" && (plan.AuthorizationBranch != string(authorization.BranchHuman) || plan.ExecutorMode != "central" || !isGateOperation(operation.OperationType)) {
 			return runError(generated.ErrorCodeAuthorizationDenied, "gate-human-admission")
 		}
+		if operation.AdapterID == "core.credential" && (plan.AuthorizationBranch != string(authorization.BranchHuman) || plan.ExecutorMode != "central" || !isCredentialLifecycleOperation(operation.OperationType)) {
+			return runError(generated.ErrorCodeAuthorizationDenied, "credential-lifecycle-human-admission")
+		}
 	}
 	if credentialPlanDigest(plan) != "" && (plan.AuthorizationBranch != string(authorization.BranchHuman) || plan.ExecutorMode != "central") {
 		return runError(generated.ErrorCodeAuthorizationDenied, "credential-human-central-admission")

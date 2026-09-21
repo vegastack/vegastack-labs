@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.18.0"
+	RegistrySchemaVersion                   = "1.20.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -64,6 +64,8 @@ const (
 	SchemaIDContractExtension               = "vegastack-labs.dev/contract-extension"
 	SchemaIDCredentialImportRequest         = "vegastack-labs.dev/credential-import-request"
 	SchemaIDCredentialImportSubmission      = "vegastack-labs.dev/credential-import-submission"
+	SchemaIDCredentialLifecycleRequest      = "vegastack-labs.dev/credential-lifecycle-request"
+	SchemaIDCredentialLifecycleSubmission   = "vegastack-labs.dev/credential-lifecycle-submission"
 	SchemaIDCredentialReference             = "vegastack-labs.dev/credential-reference"
 	SchemaIDCredentialReferenceRequest      = "vegastack-labs.dev/credential-reference-request"
 	SchemaIDCredentialResolutionRecord      = "vegastack-labs.dev/credential-resolution-record"
@@ -173,6 +175,7 @@ const (
 	CommandNameAuditVerify                  = "audit verify"
 	CommandNameBackupPolicyDraft            = "backup policy draft"
 	FlagFile                                = "--file"
+	CommandNameCredentialActivate           = "credential activate"
 	CommandNameCredentialImport             = "credential import"
 	FlagConsumerID                          = "--consumer-id"
 	FlagExpectedStateRevision               = "--expected-state-revision"
@@ -184,6 +187,10 @@ const (
 	FlagReferenceID                         = "--reference-id"
 	FlagResolverID                          = "--resolver-id"
 	FlagTargetID                            = "--target-id"
+	CommandNameCredentialRecover            = "credential recover"
+	CommandNameCredentialRevoke             = "credential revoke"
+	CommandNameCredentialRotate             = "credential rotate"
+	CommandNameCredentialStage              = "credential stage"
 	CommandNameDatabaseStatus               = "database status"
 	CommandNameGateCheck                    = "gate check"
 	FlagGateID                              = "--gate-id"
@@ -802,6 +809,40 @@ type CredentialImportSubmission struct {
 	Status                string `json:"status"`
 	StateRevision         int64  `json:"stateRevision"`
 	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+}
+
+type CredentialLifecycleRequest struct {
+	Schema                      string   `json:"schema"`
+	SchemaVersion               string   `json:"schemaVersion"`
+	ExpectedStateRevision       int64    `json:"expectedStateRevision"`
+	RecoveryEpoch               int64    `json:"recoveryEpoch"`
+	TargetDigest                string   `json:"targetDigest"`
+	IdempotencyKey              string   `json:"idempotencyKey"`
+	Action                      string   `json:"action"`
+	DraftID                     *string  `json:"draftId"`
+	ReferenceID                 string   `json:"referenceId"`
+	ConsumerIDs                 []string `json:"consumerIds"`
+	RequiredDeniedConsumerIDs   []string `json:"requiredDeniedConsumerIds"`
+	MaterialVersion             string   `json:"materialVersion"`
+	PriorMaterialVersion        *string  `json:"priorMaterialVersion"`
+	ResolverID                  string   `json:"resolverId"`
+	TargetID                    string   `json:"targetId"`
+	OverlapSeconds              int64    `json:"overlapSeconds"`
+	PriorRecoveryEpoch          *int64   `json:"priorRecoveryEpoch"`
+	CustodyProofDigest          *string  `json:"custodyProofDigest"`
+	FormerControllerFenceDigest *string  `json:"formerControllerFenceDigest"`
+}
+
+type CredentialLifecycleSubmission struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ChangeID      string `json:"changeId"`
+	OperationID   string `json:"operationId"`
+	ReferenceID   string `json:"referenceId"`
+	Action        string `json:"action"`
+	Status        string `json:"status"`
+	StateRevision int64  `json:"stateRevision"`
+	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }
 
 type CredentialReference struct {
@@ -1992,7 +2033,12 @@ var Commands = []Command{
 	{Path: []string{"control-plane", "plan"}, Summary: "Create an immutable control-plane change plan.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"control-plane", "recover"}, Summary: "Create an inert control-plane recovery change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"control-plane", "verify"}, Summary: "Verify control-plane health and authority.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
+	{Path: []string{"credential", "activate"}, Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one material-free lifecycle-request JSON file (4 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Examples: []Example{{Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Arguments: []string{"credential", "activate", "--config", "fixture/server-profile.json", "--file", "fixture/credential-activate-request.json", "--output", "json"}}}},
 	{Path: []string{"credential", "import"}, Summary: "Import a local encrypted credential as an inert draft.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--consumer-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the draft to one consumer.", Enum: []string(nil)}, {Name: "--expected-state-revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Require one current state revision.", Enum: []string(nil)}, {Name: "--idempotency-key", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind retries to one import intent.", Enum: []string(nil)}, {Name: "--input-fd", Kind: "value", ValueName: "descriptor", Required: false, Repeatable: false, Summary: "Read private bytes from an already-open descriptor instead of stdin.", Enum: []string(nil)}, {Name: "--material-version", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Name the proposed material version.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--purpose-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the draft to one purpose.", Enum: []string(nil)}, {Name: "--recovery-epoch", Kind: "value", ValueName: "epoch", Required: true, Repeatable: false, Summary: "Require one current recovery epoch.", Enum: []string(nil)}, {Name: "--reference-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the draft to one credential reference.", Enum: []string(nil)}, {Name: "--resolver-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select the native systemd resolver.", Enum: []string{"native-systemd"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--target-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Bind the draft to one public target.", Enum: []string(nil)}}, RequestSchema: "vegastack-labs.dev/credential-import-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/credential-import-submission", Examples: []Example{{Summary: "Import a local encrypted credential as an inert draft.", Arguments: []string{"credential", "import", "--config", "fixture/server-profile.json", "--reference-id", "reference-a", "--consumer-id", "consumer-a", "--purpose-id", "purpose-a", "--target-id", "target-a", "--resolver-id", "native-systemd", "--material-version", "version-a", "--idempotency-key", "import-a", "--expected-state-revision", "7", "--recovery-epoch", "2", "--output", "json"}}}},
+	{Path: []string{"credential", "recover"}, Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one material-free lifecycle-request JSON file (4 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Examples: []Example{{Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Arguments: []string{"credential", "recover", "--config", "fixture/server-profile.json", "--file", "fixture/credential-recover-request.json", "--output", "json"}}}},
+	{Path: []string{"credential", "revoke"}, Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one material-free lifecycle-request JSON file (4 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Examples: []Example{{Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Arguments: []string{"credential", "revoke", "--config", "fixture/server-profile.json", "--file", "fixture/credential-revoke-request.json", "--output", "json"}}}},
+	{Path: []string{"credential", "rotate"}, Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one material-free lifecycle-request JSON file (4 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Examples: []Example{{Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Arguments: []string{"credential", "rotate", "--config", "fixture/server-profile.json", "--file", "fixture/credential-rotate-request.json", "--output", "json"}}}},
+	{Path: []string{"credential", "stage"}, Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one material-free lifecycle-request JSON file (4 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Examples: []Example{{Summary: "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", Arguments: []string{"credential", "stage", "--config", "fixture/server-profile.json", "--file", "fixture/credential-stage-request.json", "--output", "json"}}}},
 	{Path: []string{"database", "backup"}, Summary: "Create a verified control-database backup.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job"},
 	{Path: []string{"database", "export"}, Summary: "Export authorized sanitized control data.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/database-export-request", DataSchema: "vegastack-labs.dev/sanitized-export-data"},
 	{Path: []string{"database", "restore"}, Summary: "Create an inert control-database restore change.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/restore-request", DataSchema: "vegastack-labs.dev/restore-binding"},
@@ -2050,6 +2096,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.backups.run", Method: "POST", Path: "/api/v1/backups/run", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.status", Method: "GET", Path: "/api/v1/backups/status", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/backup-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backups.verify", Method: "POST", Path: "/api/v1/backups/{jobId}/verify", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.get", Method: "GET", Path: "/api/v1/credential-references/{referenceId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/credential-reference", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-import-request", DataSchema: "vegastack-labs.dev/credential-import-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
 	{ID: "api.v1.credential-resolution-records.get", Method: "GET", Path: "/api/v1/credential-resolution-records/{recordId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/credential-resolution-record", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},

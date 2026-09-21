@@ -327,7 +327,7 @@ func (fixture *sqliteRestartFixture) submitRequest() SubmitRequest {
 	if branch == string(authorization.BranchHuman) {
 		principalID = "human-sqlite-restart"
 		human := identity.Principal{ID: principalID, Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman}
-		card, err := fixture.acknowledger.Request(context.Background(), acknowledgement.Scope{Human: human, AuthorityID: "authority-sqlite-restart", Nonce: "nonce-sqlite-restart"}, fixture.plan.PlanID)
+		card, err := fixture.acknowledger.Request(context.Background(), acknowledgement.Scope{Human: human, AuthorityID: "authority-sqlite-restart", Nonce: "nonce-sqlite-restart-" + fixture.plan.PlanID}, fixture.plan.PlanID)
 		if err != nil {
 			t.Fatal(err)
 		}
