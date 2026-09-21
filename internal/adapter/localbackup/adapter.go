@@ -57,6 +57,7 @@ type Config struct {
 	Backups     *store.BackupRepository
 	Snapshots   store.OnlineSnapshotSource
 	Inspector   store.RestoredSQLiteInspector
+	Trust       DependencyTrustVerifier
 	// LiveProof is set only by the protected server runtime. Isolated fixture
 	// composition leaves it false, so tests never advance operational last-good.
 	LiveProof bool
@@ -76,6 +77,9 @@ type Adapter struct {
 func New(config Config) (*Adapter, error) {
 	if config.LocalBackup == nil || config.Backups == nil || config.Snapshots == nil || config.Plans == nil || config.Hooks == nil || config.Runner == nil {
 		return nil, failure.New(generated.ErrorCodePrerequisiteBlocked, "local-backup", false)
+	}
+	if config.LiveProof && config.Trust == nil {
+		return nil, failure.New(generated.ErrorCodePrerequisiteBlocked, "local-backup-trust", false)
 	}
 	if config.Clock == nil {
 		config.Clock = time.Now

@@ -4,6 +4,7 @@ package localbackup
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"net"
 	"os"
@@ -52,7 +53,10 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	var manifest backup.CreationManifest
 	if json.Unmarshal(point.ManifestJSON, &manifest) != nil || manifest.PointID != point.PointID ||
 		manifest.PolicyDigest != point.PolicyDigest || manifest.InventoryDigest != point.InventoryDigest ||
-		manifest.ContentDigest != point.ContentDigest || manifest.RepositoryID != point.RepositoryID {
+		manifest.ContentDigest != point.ContentDigest || manifest.RepositoryID != point.RepositoryID ||
+		manifest.ResticDigest != pinnedResticDigest() || manifest.PlatformDigest != platformDigest() ||
+		manifest.DependencyInventoryDigest != backup.ExpectedDependencyInventoryDigest(expectedDependencies(policy)) ||
+		len(manifest.ExpectedDependencies) != len(policy.Dependencies) {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-manifest")
 	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
@@ -121,6 +125,21 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	functional, err := backup.VerifyFunctionalRestore(ctx, inventory, manifest, adapterImpl.config.Runner, base, values[0], adapterImpl.config.Inspector)
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-functional")
+	}
+	if adapterImpl.config.LiveProof {
+		current, err := adapterImpl.config.Snapshots.CurrentExpectation(ctx)
+		if err != nil || current.Revision != leaseRequest.Expected || current.SchemaVersion != manifest.DatabaseSchemaVersion ||
+			"sha256:"+hex.EncodeToString(current.CatalogSHA256[:]) != manifest.CatalogDigest {
+			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-current-schema")
+		}
+		trustRequest := DependencyTrustRequest{PointID: point.PointID, PolicyDigest: policyDigest,
+			ResticDigest: manifest.ResticDigest, CatalogDigest: manifest.CatalogDigest,
+			StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch,
+			Expected: manifest.ExpectedDependencies}
+		evidence, err := adapterImpl.config.Trust.VerifyCurrent(ctx, trustRequest)
+		if err != nil || !exactDependencyTrust(trustRequest.Expected, evidence, binding.StateRevision, binding.RecoveryEpoch) {
+			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-dependency-trust")
+		}
 	}
 	if err := adapterImpl.config.Backups.VerifyActiveReadLease(ctx, leaseRequest, adapterImpl.config.Clock()); err != nil {
 		return adapter.Effect{}, err

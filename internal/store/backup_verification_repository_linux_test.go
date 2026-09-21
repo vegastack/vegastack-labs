@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
@@ -86,6 +87,9 @@ func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
 	status, err := repository.ReadLocalBackupStatus(ctx)
 	if err != nil || len(status.LastGood) != 0 || status.Jobs[0].Status != "pending" || status.Verifications[0].Status != "fixture-only" {
 		t.Fatalf("fixture backup status=%#v err=%v", status, err)
+	}
+	if _, err := repository.ReadLocalBackupStatusScoped(ctx, authorization.ReadScope{PrincipalID: "fake", Capability: "backup.read", ResourceKind: "backup", GrantRevision: 1, ScopeDigest: "fake"}); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("forged backup read scope admitted: %v", err)
 	}
 	stale := verificationRequest(t, point, revision, "live", "passed")
 	stale.Expected.RecoveryEpoch++

@@ -198,6 +198,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			Backups:     store.NewBackupRepository(authority),
 			Snapshots:   snapshots,
 			Inspector:   inspector,
+			Trust:       localbackup.NewProtectedLocalDependencyTrust(),
 			LiveProof:   true,
 			Plans:       plans,
 			Hooks:       backup.DefaultHookRegistry(),

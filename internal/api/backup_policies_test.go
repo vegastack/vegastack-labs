@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
@@ -24,6 +25,10 @@ type backupDraftServiceStub struct {
 type backupStatusStub struct{ data generated.BackupStatusData }
 
 func (stub backupStatusStub) ReadLocalBackupStatus(context.Context) (generated.BackupStatusData, error) {
+	return stub.data, nil
+}
+
+func (stub backupStatusStub) ReadLocalBackupStatusScoped(context.Context, authorization.ReadScope) (generated.BackupStatusData, error) {
 	return stub.data, nil
 }
 

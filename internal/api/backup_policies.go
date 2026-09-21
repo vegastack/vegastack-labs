@@ -20,6 +20,7 @@ type BackupPolicyDraftService interface {
 
 type BackupStatusService interface {
 	ReadLocalBackupStatus(context.Context) (generated.BackupStatusData, error)
+	ReadLocalBackupStatusScoped(context.Context, authorization.ReadScope) (generated.BackupStatusData, error)
 }
 
 // BackupOperations exposes the backup catalog and submits exact backup plans
@@ -53,13 +54,13 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 }
 
 func (app *Application) backupStatus(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
-	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.backups.status"
 		if r.URL.RawQuery != "" {
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "query"))
 			return
 		}
-		status, err := config.Status.ReadLocalBackupStatus(r.Context())
+		status, err := config.Status.ReadLocalBackupStatusScoped(r.Context(), scope)
 		if err != nil {
 			app.failure(w, op, err)
 			return

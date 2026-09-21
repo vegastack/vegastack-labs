@@ -8,12 +8,26 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 // ReadLocalBackupStatus projects immutable local records into the generated,
 // sanitized API shape. Due dates come only from policy-bound observed checks.
 func (repository *BackupRepository) ReadLocalBackupStatus(ctx context.Context) (generated.BackupStatusData, error) {
+	return repository.readLocalBackupStatus(ctx, nil)
+}
+
+// ReadLocalBackupStatusScoped rechecks the read grant in the same SQLite
+// snapshot as the projection, closing the gap between API admission and read.
+func (repository *BackupRepository) ReadLocalBackupStatusScoped(ctx context.Context, scope authorization.ReadScope) (generated.BackupStatusData, error) {
+	if scope.Capability != "backup.read" || scope.ResourceKind != "backup" {
+		return generated.BackupStatusData{}, backupStoreError(generated.ErrorCodeAuthorizationDenied, "backup-status")
+	}
+	return repository.readLocalBackupStatus(ctx, &scope)
+}
+
+func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, scope *authorization.ReadScope) (generated.BackupStatusData, error) {
 	status := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.1.0",
 		Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{},
 		Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}}
@@ -22,6 +36,11 @@ func (repository *BackupRepository) ReadLocalBackupStatus(ctx context.Context) (
 	}
 	now := repository.store.config.Clock().UTC()
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if scope != nil {
+			if err := verifyReadScope(ctx, tx, *scope, ""); err != nil {
+				return err
+			}
+		}
 		if err := tx.queryRow(ctx, `SELECT recovery_epoch FROM system_meta WHERE id=1`).Scan(&status.RecoveryEpoch); err != nil {
 			return err
 		}

@@ -34,6 +34,7 @@ type Config struct {
 	Backups     *store.BackupRepository
 	Snapshots   store.OnlineSnapshotSource
 	Inspector   store.RestoredSQLiteInspector
+	Trust       DependencyTrustVerifier
 	LiveProof   bool
 	Plans       PlanSource
 	Hooks       *backup.HookRegistry
