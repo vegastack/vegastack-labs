@@ -183,7 +183,9 @@ func (runner *resticRunner) verifyBinary(request ResticRequest) (*os.File, error
 		return nil, errors.New("descriptor unavailable")
 	}
 	var stat unix.Stat_t
-	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Mode&0o022 != 0 || stat.Size <= 0 || stat.Size > maxResticBinaryBytes {
+	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 ||
+		stat.Uid != uint32(os.Geteuid()) || stat.Mode&0o022 != 0 || stat.Mode&0o100 == 0 ||
+		stat.Size <= 0 || stat.Size > maxResticBinaryBytes {
 		_ = file.Close()
 		return nil, errors.New("unsafe restic binary")
 	}

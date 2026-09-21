@@ -5,6 +5,7 @@ package localbackup
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -48,7 +49,7 @@ func TestLocalBackupComposition(t *testing.T) {
 		ExpectedUID: uid, BusyTimeout: 5 * time.Second, ToolVersion: "test", BuildVersion: "test",
 	})
 	if err != nil {
-		t.Fatalf("open authority: %v", err)
+		t.Fatalf("open authority: %v; cause=%v", err, errors.Unwrap(err))
 	}
 	defer authority.Close()
 	backups := store.NewBackupRepository(authority)

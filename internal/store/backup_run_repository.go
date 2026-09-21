@@ -160,7 +160,11 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 			return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-policy-draft")
 		}
 		var policy generated.BackupPolicy
-		if json.Unmarshal([]byte(policyJSON), &policy) != nil || manifest.SourceID != policy.SourceID ||
+		policySum := sha256.Sum256([]byte(policyJSON))
+		if "sha256:"+hex.EncodeToString(policySum[:]) != policyDigest ||
+			json.Unmarshal([]byte(policyJSON), &policy) != nil || policy.PolicyID != policyID ||
+			policy.RepositoryID == nil || *policy.RepositoryID != repositoryID || policy.RepositoryClass != repositoryClass ||
+			policy.RecoveryEpoch != epoch || manifest.SourceID != policy.SourceID ||
 			!slices.Equal(manifest.SourceSelectors, policy.SourceSelectors) ||
 			policy.EncryptionKeyReferenceID == nil || manifest.KeyReferenceID != *policy.EncryptionKeyReferenceID ||
 			len(manifest.ExpectedDependencies) != len(policy.Dependencies) {

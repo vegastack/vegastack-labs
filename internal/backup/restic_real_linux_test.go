@@ -59,7 +59,10 @@ func TestPinnedResticEndToEnd(t *testing.T) {
 		PolicyDigest: "sha256:" + strings.Repeat("b", 64), Lease: lease}
 	request.Mode = "init"
 	if _, err := runner.Run(ctx, request, password); err != nil {
-		t.Fatalf("real restic init: %v", err)
+		observation := runner.Observation()
+		t.Fatalf("real restic init: %v; child stdout=%q stderr=%q", err,
+			strings.ReplaceAll(observation.Stdout, string(password.Bytes()), "[redacted]"),
+			strings.ReplaceAll(observation.Stderr, string(password.Bytes()), "[redacted]"))
 	}
 	snapshot := filepath.Join(fixture, "snapshot.sqlite")
 	request.Mode = "backup"
