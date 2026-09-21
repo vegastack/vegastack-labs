@@ -107,7 +107,14 @@ const REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE = Object.freeze({
   imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:89dd556b7afa3ebc646dc1c5cba24add52888317883cedf082b701128e46b6f2",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE]);
+// Issue #132's reviewed surface wave includes the five metadata-only lifecycle
+// commands. Recompute its boundary digest live when production code changes.
+const REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE = Object.freeze({
+  id: "phase5-issue132-v1", issue: 132,
+  commands: Object.freeze(["credential activate", "credential recover", "credential revoke", "credential rotate", "credential stage"]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:e6d31940c5e8ce3f14720592b374e397c66eef11e477fcb2afe68a6b1b2a87c4",
+});
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -627,7 +634,7 @@ export function validateEvidence(manifest, facts) {
   }
   if (manifest.contract && (manifest.contract.mutationAvailable !== false || facts.mutationAvailable ||
       !(reviewedWavesActive || historicalBaselineActive) ||
-      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, REVIEWED_CREDENTIAL_IMPORT_WAVE.commands) ||
+      facts.credentialImportAvailability !== "available" || !same(availableCredentialCommands, [...REVIEWED_CREDENTIAL_IMPORT_WAVE.commands, ...REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE.commands].sort()) ||
       !same(facts.credentialImportFlags, CREDENTIAL_IMPORT_FLAGS) || !same(facts.credentialEndpointIds, CREDENTIAL_IMPORT_ENDPOINTS) ||
       !facts.migrations.some((migration) => same(migration, CREDENTIAL_FOUNDATION_MIGRATION)) ||
       !facts.migrations.some((migration) => same(migration, CREDENTIAL_IMPORT_MIGRATION)) ||

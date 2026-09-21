@@ -818,7 +818,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedCredentialImportLocalAPIUnsupportedDigest
 		}
 	}
-	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") {
+	if containsString(names, "audit_client.go") && containsString(names, "credential_client.go") && !containsString(names, "credential_lifecycle_client.go") {
 		if containsString(names, "listener_linux.go") {
 			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
@@ -829,6 +829,19 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 				return false
 			}
 			expected = reviewedAuditCredentialLocalAPIUnsupportedDigest
+		}
+	}
+	if containsString(names, "credential_lifecycle_client.go") {
+		if containsString(names, "listener_linux.go") {
+			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go" {
+				return false
+			}
+			expected = "0b49c511c5450421d8a043d865dffd8ac9a36e4fe646dd1263d0ea75af995515"
+		} else {
+			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go" {
+				return false
+			}
+			expected = "f4e3a49d5912730d1266ef549c344763e7632b400474aebd4c2d69e754334570"
 		}
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected

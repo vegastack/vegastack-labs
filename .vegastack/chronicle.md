@@ -12,6 +12,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch chore/138-reuse-exact-head-ci
 
+## 21-09-2026 — Credential changes can be drafted without activating them ([#132](https://github.com/vegastack/vegastack-labs/issues/132))
+
+- **What:** Operators can draft staging, activation, rotation, named revocation and recovery through the same server API and CLI. Drafts carry only metadata and derive the exact stored fingerprint and import identity on the server. Status changes still require a current immutable plan and independent human acknowledgement.
+- **Why:** The execution core needed a usable authoring surface without creating a second approval or secret-access path.
+- **How it went:** Re-grounding exposed that an import's original revision and a later execution revision describe different moments; the operator approved sealing both identities separately. Native acceptance then found the five actions absent from the closed risk table, so the operator approved their existing control-plane classification and exact action-scoped apply grants. Old test fixtures silently skipped invalid resolver metadata; those fixtures now fail visibly.
+- **Changed:** Five inert draft commands · strict action semantics · exact import-origin seal · named-version verification · rotation overlap that preserves the prior status · control-plane risk and real action-scoped apply authorization · matching human procedure. Production consumer and clean-host recovery verifiers remain unavailable and fail closed.
+- **Decisions:** none; approved corrections use existing internal identity and risk classes without changing public requests, roles, migrations or live authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/132-credential-lifecycle-surface
+
 ## 18-09-2026 — Credential status changes have a human-authorized execution core ([#125](https://github.com/vegastack/vegastack-labs/issues/125))
 
 - **What:** The server has an append-only credential lifecycle execution core with exact plan, run, lease and consumed human acknowledgement checks. Lifecycle commands and real consumer/recovery verifiers remain deferred and production fails closed.

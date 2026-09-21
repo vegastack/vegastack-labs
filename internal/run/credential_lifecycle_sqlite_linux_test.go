@@ -47,6 +47,15 @@ func prepareSQLiteCredentialLifecycle(t *testing.T, fixture *sqliteRestartFixtur
 		}
 	}
 	binding := credentialref.LifecycleBinding{OperationID: "operation-lifecycle", Action: action, DraftID: draftID, ReferenceID: "reference-lifecycle", ConsumerIDs: []string{"consumer-lifecycle"}, MaterialVersion: "version-lifecycle", ResolverID: "native-systemd", TargetID: "target-lifecycle", CiphertextFingerprint: fingerprint, StateRevision: current.StateRevision + 3, RecoveryEpoch: current.RecoveryEpoch}
+	if draftID != nil {
+		origin, err := repository.GetImportDraftByID(ctx, *draftID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		binding.ImportDraftStateRevision = &origin.StateRevision
+		binding.ImportDraftConsumerID = &origin.ConsumerID
+		binding.ImportDraftPurposeID = &origin.PurposeID
+	}
 	if action == credentialref.ActionActivate {
 		binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
 	}

@@ -205,6 +205,7 @@ func Current() Registry {
 		runResumeCommand(),
 		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
 		credentialImportCommand(),
+		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
@@ -224,7 +225,7 @@ func Current() Registry {
 	}
 
 	return Registry{
-		SchemaVersion:   "1.18.0",
+		SchemaVersion:   "1.19.0",
 		Commands:        commands,
 		Endpoints:       append(append(readEndpoints(), phase4Endpoints()...), phase5Endpoints()...),
 		GateDefinitions: CurrentGateDefinitions(),
@@ -370,6 +371,12 @@ func credentialImportCommand() CommandDefinition {
 			{Name: "--input-fd", Kind: FlagValue, ValueName: "descriptor", Summary: "Read private bytes from an already-open descriptor instead of stdin."},
 		},
 		[]string{"credential", "import", "--config", "fixture/server-profile.json", "--reference-id", "reference-a", "--consumer-id", "consumer-a", "--purpose-id", "purpose-a", "--target-id", "target-a", "--resolver-id", "native-systemd", "--material-version", "version-a", "--idempotency-key", "import-a", "--expected-state-revision", "7", "--recovery-epoch", "2", "--output", "json"})
+}
+
+func credentialLifecycleCommand(action string) CommandDefinition {
+	return phase5GateCommand([]string{"credential", action}, "Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.", credentialLifecycleRequestSchemaID, credentialLifecycleSubmissionID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one material-free lifecycle-request JSON file (4 KiB max)."}},
+		[]string{"credential", action, "--config", "fixture/server-profile.json", "--file", "fixture/credential-" + action + "-request.json", "--output", "json"})
 }
 
 func planCommand() CommandDefinition {

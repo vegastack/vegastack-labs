@@ -39,6 +39,9 @@ type LifecycleBinding struct {
 	OperationID                 string
 	Action                      LifecycleAction
 	DraftID                     *string
+	ImportDraftStateRevision    *int64
+	ImportDraftConsumerID       *string
+	ImportDraftPurposeID        *string
 	ReferenceID                 string
 	ConsumerIDs                 []string
 	RequiredDeniedConsumerIDs   []string
@@ -151,6 +154,23 @@ func ValidLifecycleBinding(binding LifecycleBinding) bool {
 			return false
 		}
 	}
+	draftAction := binding.Action == ActionStage || binding.Action == ActionRotate || binding.Action == ActionRecover
+	if draftAction {
+		if binding.ImportDraftStateRevision == nil || *binding.ImportDraftStateRevision <= 0 || binding.ImportDraftConsumerID == nil || binding.ImportDraftPurposeID == nil {
+			return false
+		}
+		if _, err := ParseID(*binding.ImportDraftConsumerID); err != nil {
+			return false
+		}
+		if _, err := ParseID(*binding.ImportDraftPurposeID); err != nil {
+			return false
+		}
+		if !slices.Contains(binding.ConsumerIDs, *binding.ImportDraftConsumerID) {
+			return false
+		}
+	} else if binding.ImportDraftStateRevision != nil || binding.ImportDraftConsumerID != nil || binding.ImportDraftPurposeID != nil {
+		return false
+	}
 	// Denied set is validated for every action; it must be disjoint from the
 	// positive set so a consumer can never be both required-positive and
 	// required-denied.
@@ -164,6 +184,7 @@ func ValidLifecycleBinding(binding LifecycleBinding) bool {
 	switch binding.Action {
 	case ActionStage:
 		return binding.DraftID != nil &&
+			len(binding.RequiredDeniedConsumerIDs) == 0 &&
 			validIDList(binding.ConsumerIDs, 1) &&
 			binding.PriorMaterialVersion == nil &&
 			binding.OverlapSeconds == 0 &&
@@ -193,6 +214,7 @@ func ValidLifecycleBinding(binding LifecycleBinding) bool {
 			noRecoveryFields(binding)
 	case ActionRecover:
 		return binding.DraftID != nil &&
+			len(binding.RequiredDeniedConsumerIDs) == 0 &&
 			validIDList(binding.ConsumerIDs, 1) &&
 			binding.PriorMaterialVersion == nil &&
 			binding.OverlapSeconds == 0 &&
@@ -243,6 +265,9 @@ func (binding LifecycleBinding) Digest() string {
 		binding.OperationID,
 		string(binding.Action),
 		canonicalStringPointer(binding.DraftID),
+		canonicalInt64Pointer(binding.ImportDraftStateRevision),
+		canonicalStringPointer(binding.ImportDraftConsumerID),
+		canonicalStringPointer(binding.ImportDraftPurposeID),
 		binding.ReferenceID,
 		canonicalIDSet(binding.ConsumerIDs),
 		canonicalIDSet(binding.RequiredDeniedConsumerIDs),

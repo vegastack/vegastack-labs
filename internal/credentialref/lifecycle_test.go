@@ -36,12 +36,14 @@ func TestValidLifecycleBindingAcceptsEachAction(t *testing.T) {
 	stage := validActivateBinding()
 	stage.Action = ActionStage
 	stage.DraftID = stagePointer("draft-a")
+	sealOrigin(&stage)
 	stage.RequiredDeniedConsumerIDs = nil
 	cases[ActionStage] = stage
 
 	rotate := validActivateBinding()
 	rotate.Action = ActionRotate
 	rotate.DraftID = stagePointer("draft-a")
+	sealOrigin(&rotate)
 	rotate.PriorMaterialVersion = stagePointer("version-old")
 	rotate.OverlapSeconds = 900
 	cases[ActionRotate] = rotate
@@ -54,7 +56,9 @@ func TestValidLifecycleBindingAcceptsEachAction(t *testing.T) {
 
 	recover := validActivateBinding()
 	recover.Action = ActionRecover
+	recover.RequiredDeniedConsumerIDs = nil
 	recover.DraftID = stagePointer("draft-a")
+	sealOrigin(&recover)
 	recover.PriorRecoveryEpoch = epochPointer(2)
 	recover.RecoveryEpoch = 3
 	recover.CustodyProofDigest = stagePointer(testCustody)
@@ -159,4 +163,20 @@ func TestLifecycleDigestIsDeterministicAndSensitive(t *testing.T) {
 	if LifecycleManifestDigest([]LifecycleBinding{base, {}}) != "" {
 		t.Fatal("manifest digest accepted an invalid member")
 	}
+}
+
+func TestLifecycleDraftOriginMustBeSealed(t *testing.T) {
+	binding := validActivateBinding()
+	binding.Action = ActionStage
+	binding.DraftID = stagePointer("draft-a")
+	binding.RequiredDeniedConsumerIDs = nil
+	if ValidLifecycleBinding(binding) || binding.Digest() != "" {
+		t.Fatal("incomplete historical draft binding must fail closed")
+	}
+}
+
+func sealOrigin(binding *LifecycleBinding) {
+	binding.ImportDraftStateRevision = epochPointer(1)
+	binding.ImportDraftConsumerID = stagePointer("consumer-a")
+	binding.ImportDraftPurposeID = stagePointer("purpose-a")
 }

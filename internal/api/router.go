@@ -19,9 +19,9 @@ import (
 type route struct {
 	id, method, pattern, capability, kind string
 	action                                authorization.Action
-	// deferredAuthorization is reserved for exact-plan run mutations. Their
-	// handlers must load immutable server state and authorize it before reading
-	// any caller-controlled body bytes.
+	// deferredAuthorization is for handlers whose exact authorization target is
+	// unavailable from the path. Each handler must authorize that target before
+	// mutation; sensitive callers are rejected before reading their body.
 	deferredAuthorization bool
 	handler               func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string)
 }
@@ -53,13 +53,14 @@ var remoteBrowserWriteEndpoints = map[string]bool{
 }
 
 var constrainedSSHWriteEndpoints = map[string]bool{
-	"api.v1.inventory-diffs.create":   true,
-	"api.v1.inventory-drafts.import":  true,
-	"api.v1.inventory-exports.create": true,
-	"api.v1.plans.create":             true,
-	"api.v1.plans.execute":            true,
-	"api.v1.runs.cancel":              true,
-	"api.v1.runs.resume":              true,
+	"api.v1.credential-lifecycle-drafts.create": true,
+	"api.v1.inventory-diffs.create":             true,
+	"api.v1.inventory-drafts.import":            true,
+	"api.v1.inventory-exports.create":           true,
+	"api.v1.plans.create":                       true,
+	"api.v1.plans.execute":                      true,
+	"api.v1.runs.cancel":                        true,
+	"api.v1.runs.resume":                        true,
 }
 
 // RemoteReadRequestAllowed is the server-side admission boundary for the

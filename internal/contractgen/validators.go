@@ -61,7 +61,42 @@ func ValidateContractJSON(schemaID string, document []byte, mode ContractValidat
 		object, ok := value.(map[string]any); if !ok { return errors.New("compatible contract must be an object") }
 		contractVersion, ok := object["schemaVersion"].(string); if !ok || !regexp.MustCompile("^1\\.[0-9]+\\.[0-9]+$").MatchString(contractVersion) { return errors.New("unsupported contract major") }
 	}
-	return validateContractValue(schemaID, value, schemaID, mode, true)
+	if err := validateContractValue(schemaID, value, schemaID, mode, true); err != nil { return err }
+ if schemaID == SchemaIDCredentialLifecycleRequest {
+  var request CredentialLifecycleRequest
+  if json.Unmarshal(document, &request) != nil { return errors.New(ErrorCodeInputInvalid) }
+  return ValidateLifecycleRequestSemantics(request)
+ }
+ return nil
+}
+
+// ValidateLifecycleRequestSemantics enforces action-dependent metadata rules at
+// typed service calls and every generated JSON decode boundary.
+func ValidateLifecycleRequestSemantics(request CredentialLifecycleRequest) error {
+ invalid := func() error { return errors.New(ErrorCodeInputInvalid) }
+ identifier := regexp.MustCompile("^[a-z][a-z0-9._:-]{0,127}$")
+ digest := regexp.MustCompile("^sha256:[a-f0-9]{64}$")
+ if request.Schema != SchemaIDCredentialLifecycleRequest || request.SchemaVersion != "1.2.0" || request.ExpectedStateRevision < 0 || request.RecoveryEpoch < 0 || !digest.MatchString(request.TargetDigest) || !identifier.MatchString(request.IdempotencyKey) { return invalid() }
+ for _, id := range []string{request.ReferenceID, request.MaterialVersion, request.ResolverID, request.TargetID} { if !identifier.MatchString(id) { return invalid() } }
+ for _, id := range []*string{request.DraftID, request.PriorMaterialVersion} { if id != nil && !identifier.MatchString(*id) { return invalid() } }
+ seen := map[string]bool{}
+ if len(request.ConsumerIDs) > 64 || len(request.RequiredDeniedConsumerIDs) > 64 { return invalid() }
+ for _, id := range append(append([]string(nil), request.ConsumerIDs...), request.RequiredDeniedConsumerIDs...) { if !identifier.MatchString(id) || seen[id] { return invalid() }; seen[id] = true }
+ noRecovery := request.PriorRecoveryEpoch == nil && request.CustodyProofDigest == nil && request.FormerControllerFenceDigest == nil
+ switch request.Action {
+ case "credential.stage":
+  if request.DraftID == nil || len(request.ConsumerIDs) == 0 || len(request.RequiredDeniedConsumerIDs) != 0 || request.PriorMaterialVersion != nil || request.OverlapSeconds != 0 || !noRecovery { return invalid() }
+ case "credential.activate":
+  if request.DraftID != nil || len(request.ConsumerIDs) == 0 || len(request.RequiredDeniedConsumerIDs) == 0 || request.PriorMaterialVersion != nil || request.OverlapSeconds != 0 || !noRecovery { return invalid() }
+ case "credential.rotate":
+  if request.DraftID == nil || len(request.ConsumerIDs) == 0 || len(request.RequiredDeniedConsumerIDs) == 0 || request.PriorMaterialVersion == nil || *request.PriorMaterialVersion == request.MaterialVersion || request.OverlapSeconds < 0 || request.OverlapSeconds > 3600 || !noRecovery { return invalid() }
+ case "credential.revoke":
+  if request.DraftID != nil || len(request.ConsumerIDs) != 0 || len(request.RequiredDeniedConsumerIDs) != 0 || request.PriorMaterialVersion != nil || request.OverlapSeconds != 0 || !noRecovery { return invalid() }
+ case "credential.recover":
+  if request.DraftID == nil || len(request.ConsumerIDs) == 0 || len(request.RequiredDeniedConsumerIDs) != 0 || request.PriorMaterialVersion != nil || request.OverlapSeconds != 0 || request.PriorRecoveryEpoch == nil || *request.PriorRecoveryEpoch < 0 || request.RecoveryEpoch <= *request.PriorRecoveryEpoch || request.CustodyProofDigest == nil || !digest.MatchString(*request.CustodyProofDigest) || request.FormerControllerFenceDigest == nil || !digest.MatchString(*request.FormerControllerFenceDigest) { return invalid() }
+ default: return invalid()
+ }
+ return nil
 }
 
 func contractInt(value map[string]any, name string) int64 {

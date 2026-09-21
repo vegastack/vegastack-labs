@@ -50,13 +50,20 @@ func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T
 
 func TestConstrainedSSHAdmissionIsGeneratedOperatorAPIWithoutAlternateAuthorities(t *testing.T) {
 	allowedWrites := map[string]bool{
-		"api.v1.inventory-diffs.create":   true,
-		"api.v1.inventory-drafts.import":  true,
-		"api.v1.inventory-exports.create": true,
-		"api.v1.plans.create":             true,
-		"api.v1.plans.execute":            true,
-		"api.v1.runs.cancel":              true,
-		"api.v1.runs.resume":              true,
+		"api.v1.credential-lifecycle-drafts.create": true,
+		"api.v1.inventory-diffs.create":             true,
+		"api.v1.inventory-drafts.import":            true,
+		"api.v1.inventory-exports.create":           true,
+		"api.v1.plans.create":                       true,
+		"api.v1.plans.execute":                      true,
+		"api.v1.runs.cancel":                        true,
+		"api.v1.runs.resume":                        true,
+	}
+	if RemoteReadRequestAllowed(http.MethodPost, "/api/v1/credential-lifecycle-drafts") {
+		t.Fatal("metadata-only credential lifecycle endpoint entered browser admission")
+	}
+	if ConstrainedSSHRequestAllowed(http.MethodPost, "/api/v1/credential-imports") {
+		t.Fatal("private credential import stream entered constrained SSH admission")
 	}
 	for _, endpoint := range generated.Endpoints {
 		requestPath := strings.NewReplacer(
