@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
@@ -254,6 +255,31 @@ func TestSQLiteCredentialLifecycleActivationBlocksWithoutConsumerVerifier(t *tes
 		t.Fatalf("consumer absence changed durable status/evidence: %+v %v", reference, err)
 	}
 	assertSQLiteCredentialAudit(t, fixture)
+}
+
+func TestSQLiteCredentialVerifierPanicRecordsPartialWithoutSecretLeak(t *testing.T) {
+	fixture := newSQLiteRestartFixture(t, "human")
+	repository := prepareSQLiteCredentialLifecycle(t, fixture, credentialref.ActionStage)
+	if result, err := fixture.engine.Submit(context.Background(), fixture.request); err != nil || result.Status != "succeeded" {
+		t.Fatalf("stage failed: %+v %v", result, err)
+	}
+	prepareSQLiteCredentialLifecycle(t, fixture, credentialref.ActionActivate)
+	canary := "private-verifier-value-" + strings.Repeat("s", 32)
+	core, err := NewCoreCredentialEffect(repository, store.NewAcknowledgementRepository(fixture.authority), sqliteLifecycleGate{fixture: fixture}, lifecycleVerifierFunc(func(context.Context, ExactStepBinding, credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
+		panic(canary)
+	}), UnavailableCredentialRecoveryVerifier{}, fixture.clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.engine.credentialCore = core
+	result, err := fixture.engine.Submit(context.Background(), fixture.request)
+	if Code(err) != generated.ErrorCodeRecoveryRequired || result.Status != "partial" || strings.Contains(err.Error(), canary) {
+		t.Fatalf("verifier panic must become redacted effect-unknown partial: result=%+v err=%v", result, err)
+	}
+	versions, readErr := repository.ListCredentialVersions(context.Background(), "reference-lifecycle", 0)
+	if readErr != nil || len(versions) != 1 || versions[0].Status != "staged" {
+		t.Fatalf("uncertain verification appended an active version: %+v %v", versions, readErr)
+	}
 }
 
 func sqliteCredentialCore(t *testing.T, fixture *sqliteRestartFixture, repository *store.CredentialRepository) *CoreCredentialEffect {
