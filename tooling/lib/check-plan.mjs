@@ -119,7 +119,7 @@ function validPath(value) {
 
 function browserServerPath(file) {
   return /^internal\/api\//.test(file) ||
-    /^internal\/server\/(?:application|browser_auth|console|phase3_acceptance|remote)/.test(file) ||
+    /^internal\/server\/(?:application|browser_auth|console|phase3_acceptance|phase4_console_acceptance|remote)/.test(file) ||
     /^internal\/(?:consoleassets|metadata|contractgen|generated)\//.test(file) ||
     /^internal\/serverconfig\//.test(file);
 }

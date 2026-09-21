@@ -80,6 +80,10 @@ test("Go-only changes omit only the three Chromium-backed Go acceptance tests", 
   ]);
   assert.deepEqual(goUnitTestArgs(true), ["test", "./..."]);
   assert.equal(fullCheckPlan().browser, true);
+  const browserTestChange = classifyChangedPaths([{
+    status: "M", path: "internal/server/phase4_console_acceptance_linux_test.go",
+  }]);
+  assert.equal(browserTestChange.browser, true);
 });
 
 for (const scenario of scenarios) {
