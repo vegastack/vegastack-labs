@@ -70,15 +70,6 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 	changeID := "credential-change-" + keyDigest[7:39]
 	operationID := "credential-operation-" + keyDigest[7:39]
 	binding := credentialref.LifecycleBinding{OperationID: operationID, Action: credentialref.LifecycleAction(input.Action), DraftID: input.DraftID, ReferenceID: input.ReferenceID, ConsumerIDs: input.ConsumerIDs, RequiredDeniedConsumerIDs: input.RequiredDeniedConsumerIDs, MaterialVersion: input.MaterialVersion, PriorMaterialVersion: input.PriorMaterialVersion, ResolverID: input.ResolverID, TargetID: input.TargetID, OverlapSeconds: input.OverlapSeconds, StateRevision: input.ExpectedStateRevision + 3, RecoveryEpoch: input.RecoveryEpoch, PriorRecoveryEpoch: input.PriorRecoveryEpoch, CustodyProofDigest: input.CustodyProofDigest, FormerControllerFenceDigest: input.FormerControllerFenceDigest}
-	if input.ResolverID == "native-systemd" && (input.Action == "credential.activate" || input.Action == "credential.rotate") {
-		hostID, hostErr := localNativeHostID()
-		if hostErr != nil {
-			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-host-identity")
-		}
-		if bindNativeLifecycleReaders(input, hostID, &binding) != nil {
-			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-host-identity")
-		}
-	}
 	if input.DraftID != nil {
 		draft, lookupErr := service.references.GetImportDraftByID(ctx, *input.DraftID)
 		if lookupErr != nil {
@@ -86,6 +77,9 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 		}
 		binding.ImportDraftStateRevision, binding.ImportDraftConsumerID, binding.ImportDraftPurposeID = &draft.StateRevision, &draft.ConsumerID, &draft.PurposeID
 		binding.CiphertextFingerprint = draft.CiphertextFingerprint
+		if input.ResolverID == "native-systemd" && input.Action == "credential.rotate" {
+			binding.NativeArtifactConsumerID = draft.ConsumerID
+		}
 		if !draft.MatchesLifecycleBinding(binding) {
 			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft-exact-origin")
 		}
@@ -98,6 +92,21 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "credential-version-identity")
 		}
 		binding.CiphertextFingerprint = version.Fingerprint
+		if input.ResolverID == "native-systemd" && input.Action == "credential.activate" {
+			if version.Status != "staged" {
+				return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-staged-origin")
+			}
+			binding.NativeArtifactConsumerID = version.ConsumerID
+		}
+	}
+	if input.ResolverID == "native-systemd" && (input.Action == "credential.activate" || input.Action == "credential.rotate") {
+		hostID, hostErr := localNativeHostID()
+		if hostErr != nil {
+			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-host-identity")
+		}
+		if bindNativeLifecycleReaders(input, hostID, &binding) != nil {
+			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-reader-map")
+		}
 	}
 	manifest := credentialref.LifecycleManifestDigestOf(binding)
 	if manifest == "" {
@@ -144,7 +153,7 @@ func bindNativeLifecycleReaders(input generated.CredentialLifecycleRequest, host
 		if item.HostMachineID != hostID {
 			return apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-host-identity")
 		}
-		binding.NativeConsumers = append(binding.NativeConsumers, credentialref.NativeConsumerBinding{ConsumerID: item.ConsumerID, TargetID: item.TargetID, HostMachineID: item.HostMachineID, UnitName: item.UnitName, ServiceUID: uint32(item.ServiceUID), ServiceGID: uint32(item.ServiceGID), ProfileID: item.ProfileID, RoleID: item.RoleID, LoadedName: credentialref.LoadedNameForVersion(item.ConsumerID, input.ReferenceID, input.MaterialVersion)})
+		binding.NativeConsumers = append(binding.NativeConsumers, credentialref.NativeConsumerBinding{ConsumerID: item.ConsumerID, TargetID: item.TargetID, HostMachineID: item.HostMachineID, UnitName: item.UnitName, ServiceUID: uint32(item.ServiceUID), ServiceGID: uint32(item.ServiceGID), ProfileID: item.ProfileID, RoleID: item.RoleID, LoadedName: credentialref.LoadedNameForVersion(binding.NativeArtifactConsumerID, input.ReferenceID, input.MaterialVersion)})
 	}
 	for _, item := range *input.NativeDeniedReaders {
 		if item.HostMachineID != hostID {

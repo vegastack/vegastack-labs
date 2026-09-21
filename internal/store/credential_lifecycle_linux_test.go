@@ -236,6 +236,7 @@ func TestNativeMappingPlanSealRejectsChangedReaderUID(t *testing.T) {
 	binding.ImportDraftPurposeID = nil
 	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
 	binding.ResolverID = "native-systemd"
+	binding.NativeArtifactConsumerID = "consumer-a"
 	binding.NativeConsumers = []credentialref.NativeConsumerBinding{{ConsumerID: "consumer-a", TargetID: "service-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a", LoadedName: credentialref.LoadedNameForVersion("consumer-a", binding.ReferenceID, binding.MaterialVersion)}}
 	binding.NativeDeniedReaders = []credentialref.NativeDeniedReaderBinding{{ConsumerID: "consumer-denied", TargetID: "service-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-b", RoleID: "role-b"}}
 	binding.StateRevision = 2
@@ -245,11 +246,13 @@ func TestNativeMappingPlanSealRejectsChangedReaderUID(t *testing.T) {
 	reference := stagedReference(2)
 	reference.ResolverID = "native-systemd"
 	stage := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, reference, 2, ackConsumed, binding)
+	if _, err := repository.store.conn.ExecContext(context.Background(), `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) VALUES('origin-a','reference-a','consumer-a','deploy-a','service-a','native-systemd','version-a',?,'staged',1,0,NULL,X'5B5D','declaration-a',1,?,?,?,?,?,'principal-test-1','2026-09-12T18:30:00Z')`, lifecycleFingerprint, stage.PlanID, stage.PlanDigest, stage.RunID, stage.StepID, stage.LeaseID); err != nil {
+		t.Fatal(err)
+	}
 	tx, err := repository.store.conn.BeginTx(context.Background(), nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer tx.Rollback()
 	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: binding, Stage: stage}); err != nil {
 		t.Fatalf("sealed native map rejected: %v", err)
 	}
@@ -258,6 +261,22 @@ func TestNativeMappingPlanSealRejectsChangedReaderUID(t *testing.T) {
 	mutated.NativeDeniedReaders[0].ReaderUID++
 	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: mutated, Stage: stage}); Code(err) != generated.ErrorCodeIntegrityFailure {
 		t.Fatalf("changed physical reader identity passed plan/CAS: %v", err)
+	}
+	if err := tx.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	// A later version with the same public reference and material version must
+	// invalidate the old plan's staged artifact origin before append.
+	if _, err := repository.store.conn.ExecContext(context.Background(), `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) SELECT 'origin-substituted',reference_id,'consumer-other',purpose_id,target_id,resolver_id,material_version,fingerprint,status,2,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at FROM credential_reference_versions WHERE version_id='origin-a'`); err != nil {
+		t.Fatal(err)
+	}
+	tx, err = repository.store.conn.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: binding, Stage: stage}); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("substituted staged artifact origin passed plan/CAS: %v", err)
 	}
 }
 

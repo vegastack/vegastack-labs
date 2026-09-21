@@ -173,6 +173,16 @@ func (repository *CredentialRepository) GetLifecycleBinding(ctx context.Context,
 	if operation == nil || operation.AdapterID != "core.credential" || operation.TargetID != binding.TargetID || operation.InputDigest != binding.CiphertextFingerprint || operation.ArtifactDigest != binding.CiphertextFingerprint {
 		return zero, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-binding")
 	}
+	if binding.NativeArtifactConsumerID != "" {
+		err = repository.store.Read(ctx, func(tx ReadTx) error {
+			return requireNativeArtifactOrigin(binding, func(query string, arguments ...any) *sql.Row {
+				return tx.queryRow(ctx, query, arguments...)
+			})
+		})
+		if err != nil {
+			return zero, err
+		}
+	}
 	return binding, nil
 }
 
@@ -554,6 +564,16 @@ func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request Crede
 	if len(raw) > maxLifecycleBindingBytes || json.Unmarshal(raw, &sealed) != nil || credentialref.LifecycleManifestDigestOf(sealed) != digest || epoch != binding.RecoveryEpoch || digest != credentialref.LifecycleManifestDigestOf(binding) || binding.StateRevision != stage.Expected.StateRevision {
 		return credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-seal")
 	}
+	if binding.NativeArtifactConsumerID != "" {
+		if err := requireNativeArtifactOrigin(binding, func(query string, arguments ...any) *sql.Row {
+			return tx.QueryRowContext(ctx, query, arguments...)
+		}); err != nil {
+			return err
+		}
+		if stage.Reference.ConsumerID != binding.NativeArtifactConsumerID {
+			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "native-artifact-origin")
+		}
+	}
 	switch binding.Action {
 	case credentialref.ActionStage, credentialref.ActionRotate, credentialref.ActionRecover:
 		if binding.DraftID == nil {
@@ -564,6 +584,30 @@ func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request Crede
 		if err != nil || !draft.MatchesLifecycleBinding(binding) || draft.ConsumerID != stage.Reference.ConsumerID || draft.PurposeID != stage.Reference.PurposeID {
 			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft-exact-origin")
 		}
+	}
+	return nil
+}
+
+func requireNativeArtifactOrigin(binding credentialref.LifecycleBinding, queryRow func(string, ...any) *sql.Row) error {
+	switch binding.Action {
+	case credentialref.ActionActivate:
+		var consumerID, targetID, resolverID, fingerprint, status string
+		var epoch int64
+		err := queryRow(`SELECT consumer_id,target_id,resolver_id,fingerprint,status,recovery_epoch FROM credential_reference_versions WHERE reference_id=? AND material_version=? ORDER BY state_revision DESC,version_id DESC LIMIT 1`, binding.ReferenceID, binding.MaterialVersion).Scan(&consumerID, &targetID, &resolverID, &fingerprint, &status, &epoch)
+		if err != nil || consumerID != binding.NativeArtifactConsumerID || targetID != binding.TargetID || resolverID != binding.ResolverID || fingerprint != binding.CiphertextFingerprint || status != "staged" || epoch != binding.RecoveryEpoch {
+			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "native-artifact-origin")
+		}
+	case credentialref.ActionRotate:
+		if binding.DraftID == nil {
+			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "native-artifact-origin")
+		}
+		var draft CredentialImportDraft
+		err := queryRow(`SELECT draft_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,ciphertext_fingerprint,state_revision,recovery_epoch FROM credential_import_drafts WHERE draft_id=?`, *binding.DraftID).Scan(&draft.DraftID, &draft.ReferenceID, &draft.ConsumerID, &draft.PurposeID, &draft.TargetID, &draft.ResolverID, &draft.MaterialVersion, &draft.CiphertextFingerprint, &draft.StateRevision, &draft.RecoveryEpoch)
+		if err != nil || draft.ConsumerID != binding.NativeArtifactConsumerID || !draft.MatchesLifecycleBinding(binding) {
+			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "native-artifact-origin")
+		}
+	default:
+		return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "native-artifact-origin")
 	}
 	return nil
 }

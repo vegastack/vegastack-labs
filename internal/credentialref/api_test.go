@@ -54,6 +54,7 @@ var allowedCredentialAPI = []string{
 	`field LifecycleBinding.DraftID *string`,
 	`field LifecycleBinding.ImportDraftStateRevision *int64`,
 	`field LifecycleBinding.ImportDraftConsumerID *string`,
+	`field LifecycleBinding.NativeArtifactConsumerID string`,
 	`field LifecycleBinding.ImportDraftPurposeID *string`,
 	`field LifecycleBinding.ReferenceID string`,
 	`field LifecycleBinding.ConsumerIDs []string`,

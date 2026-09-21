@@ -42,7 +42,13 @@ func LoadedNameForVersion(consumerID, referenceID, materialVersion string) strin
 
 func ValidNativeBindings(binding LifecycleBinding) bool {
 	if binding.ResolverID != "native-systemd" || binding.Action != ActionActivate && binding.Action != ActionRotate {
-		return len(binding.NativeConsumers) == 0 && len(binding.NativeDeniedReaders) == 0
+		return binding.NativeArtifactConsumerID == "" && len(binding.NativeConsumers) == 0 && len(binding.NativeDeniedReaders) == 0
+	}
+	if _, err := ParseID(binding.NativeArtifactConsumerID); err != nil || !slices.Contains(binding.ConsumerIDs, binding.NativeArtifactConsumerID) {
+		return false
+	}
+	if binding.Action == ActionRotate && (binding.ImportDraftConsumerID == nil || *binding.ImportDraftConsumerID != binding.NativeArtifactConsumerID) {
+		return false
 	}
 	if len(binding.NativeConsumers) != len(binding.ConsumerIDs) || len(binding.NativeDeniedReaders) != len(binding.RequiredDeniedConsumerIDs) || len(binding.NativeConsumers) == 0 || len(binding.NativeConsumers) > MaxLifecycleConsumers || len(binding.NativeDeniedReaders) == 0 || len(binding.NativeDeniedReaders) > MaxLifecycleConsumers {
 		return false
@@ -54,7 +60,7 @@ func ValidNativeBindings(binding LifecycleBinding) bool {
 	}
 	host := ""
 	for _, item := range binding.NativeConsumers {
-		if !positive[item.ConsumerID] || item.TargetID != binding.TargetID || !nativeMachineID.MatchString(item.HostMachineID) || !nativeUnitName.MatchString(item.UnitName) || strings.Contains(item.UnitName, "..") || item.ServiceUID == 0 || item.ServiceGID == 0 || item.LoadedName != LoadedNameForVersion(item.ConsumerID, binding.ReferenceID, binding.MaterialVersion) {
+		if !positive[item.ConsumerID] || item.TargetID != binding.TargetID || !nativeMachineID.MatchString(item.HostMachineID) || !nativeUnitName.MatchString(item.UnitName) || strings.Contains(item.UnitName, "..") || item.ServiceUID == 0 || item.ServiceGID == 0 || item.LoadedName != LoadedNameForVersion(binding.NativeArtifactConsumerID, binding.ReferenceID, binding.MaterialVersion) {
 			return false
 		}
 		if _, err := ParseID(item.ProfileID); err != nil {
