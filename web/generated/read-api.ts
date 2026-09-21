@@ -274,6 +274,16 @@ export interface BackupJob {
   readonly "verificationDigest": string | null;
 }
 
+export interface BackupLastGood {
+  readonly "schema": "vegastack-labs.dev/backup-last-good";
+  readonly "schemaVersion": "1.1.0";
+  readonly "repositoryClass": "standard" | "critical";
+  readonly "pointId": string;
+  readonly "verificationId": string;
+  readonly "manifestDigest": string;
+  readonly "recoveryEpoch": number;
+}
+
 export interface BackupPolicy {
   readonly "schema": "vegastack-labs.dev/backup-policy";
   readonly "schemaVersion": "1.1.0";
@@ -300,9 +310,27 @@ export interface BackupPolicy {
 
 export interface BackupStatusData {
   readonly "schema": "vegastack-labs.dev/backup-status-data";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "policies": ReadonlyArray<BackupPolicy>;
   readonly "jobs": ReadonlyArray<BackupJob>;
+  readonly "verifications": ReadonlyArray<BackupVerificationAttempt>;
+  readonly "lastGood": ReadonlyArray<BackupLastGood>;
+  readonly "recoveryEpoch": number;
+}
+
+export interface BackupVerificationAttempt {
+  readonly "schema": "vegastack-labs.dev/backup-verification-attempt";
+  readonly "schemaVersion": "1.1.0";
+  readonly "verificationId": string;
+  readonly "jobId": string;
+  readonly "pointId": string;
+  readonly "runId": string | null;
+  readonly "status": "pending" | "fixture-only" | "local-verified" | "full-payload-due" | "functional-test-due" | "uncertain" | "failed";
+  readonly "proofClass": "fixture" | "live";
+  readonly "verificationDigest": string | null;
+  readonly "verifiedAt": string | null;
+  readonly "fullPayloadDueAt": string | null;
+  readonly "functionalTestDueAt": string | null;
   readonly "recoveryEpoch": number;
 }
 
@@ -2054,6 +2082,67 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/backup-last-good",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/backup-last-good"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "repositoryClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "standard",
+          "critical"
+        ]
+      },
+      {
+        "name": "pointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "verificationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "manifestDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/backup-policy",
     "fields": [
       {
@@ -2238,7 +2327,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -2256,6 +2345,133 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "itemRef": "vegastack-labs.dev/backup-job",
         "maxItems": 256
+      },
+      {
+        "name": "verifications",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/backup-verification-attempt",
+        "maxItems": 256
+      },
+      {
+        "name": "lastGood",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/backup-last-good",
+        "maxItems": 16
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/backup-verification-attempt",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/backup-verification-attempt"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "verificationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "jobId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "pointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "runId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "pending",
+          "fixture-only",
+          "local-verified",
+          "full-payload-due",
+          "functional-test-due",
+          "uncertain",
+          "failed"
+        ]
+      },
+      {
+        "name": "proofClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "fixture",
+          "live"
+        ]
+      },
+      {
+        "name": "verificationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "verifiedAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "fullPayloadDueAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "functionalTestDueAt",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
       },
       {
         "name": "recoveryEpoch",
@@ -4655,12 +4871,20 @@ function decodeBackupJob(value: unknown): BackupJob {
   return decodeSchema("vegastack-labs.dev/backup-job", value) as unknown as BackupJob;
 }
 
+function decodeBackupLastGood(value: unknown): BackupLastGood {
+  return decodeSchema("vegastack-labs.dev/backup-last-good", value) as unknown as BackupLastGood;
+}
+
 function decodeBackupPolicy(value: unknown): BackupPolicy {
   return decodeSchema("vegastack-labs.dev/backup-policy", value) as unknown as BackupPolicy;
 }
 
 function decodeBackupStatusData(value: unknown): BackupStatusData {
   return decodeSchema("vegastack-labs.dev/backup-status-data", value) as unknown as BackupStatusData;
+}
+
+function decodeBackupVerificationAttempt(value: unknown): BackupVerificationAttempt {
+  return decodeSchema("vegastack-labs.dev/backup-verification-attempt", value) as unknown as BackupVerificationAttempt;
 }
 
 function decodeBrowserAuditEvent(value: unknown): BrowserAuditEvent {
@@ -5034,6 +5258,7 @@ async function* streamSSE<T>(fetchTransport: FetchTransport, url: string, option
 export type ReadClient = {
   readonly listAuditCheckpoints: (options?: RequestOptions) => Promise<ReadResult<AuditCheckpointListData>>;
   readonly getAuditHistory: (options?: RequestOptions) => Promise<ReadResult<AuditVerificationData>>;
+  readonly getBackupStatus: (options?: RequestOptions) => Promise<ReadResult<BackupStatusData>>;
   readonly getDatabaseStatus: (options?: RequestOptions) => Promise<ReadResult<DatabaseStatusData>>;
   readonly getDeclaration: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<BrowserDeclarationRevision>>;
   readonly preparePlan: (path: { readonly declarationId: string; readonly revision: number }, options?: RequestOptions) => Promise<ReadResult<PlanPreparation>>;
@@ -5068,6 +5293,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getAuditHistory(options = {}) {
       const operation = "api.v1.audit-history.verification";
       return performRead(fetchTransport, "/api/v1/audit-history/verification", options, operation, decodeAuditVerificationData);
+    },
+    async getBackupStatus(options = {}) {
+      const operation = "api.v1.backups.status";
+      return performRead(fetchTransport, "/api/v1/backups/status", options, operation, decodeBackupStatusData);
     },
     async getDatabaseStatus(options = {}) {
       const operation = "api.v1.database-status.get";
