@@ -70,6 +70,7 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 	changeID := "credential-change-" + keyDigest[7:39]
 	operationID := "credential-operation-" + keyDigest[7:39]
 	binding := credentialref.LifecycleBinding{OperationID: operationID, Action: credentialref.LifecycleAction(input.Action), DraftID: input.DraftID, ReferenceID: input.ReferenceID, ConsumerIDs: input.ConsumerIDs, RequiredDeniedConsumerIDs: input.RequiredDeniedConsumerIDs, MaterialVersion: input.MaterialVersion, PriorMaterialVersion: input.PriorMaterialVersion, ResolverID: input.ResolverID, TargetID: input.TargetID, OverlapSeconds: input.OverlapSeconds, StateRevision: input.ExpectedStateRevision + 3, RecoveryEpoch: input.RecoveryEpoch, PriorRecoveryEpoch: input.PriorRecoveryEpoch, CustodyProofDigest: input.CustodyProofDigest, FormerControllerFenceDigest: input.FormerControllerFenceDigest}
+	var importDraft *store.CredentialImportDraft
 	if input.DraftID != nil {
 		draft, lookupErr := service.references.GetImportDraftByID(ctx, *input.DraftID)
 		if lookupErr != nil {
@@ -80,9 +81,7 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 		if input.ResolverID == "native-systemd" && input.Action == "credential.rotate" {
 			binding.NativeArtifactConsumerID = draft.ConsumerID
 		}
-		if !draft.MatchesLifecycleBinding(binding) {
-			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft-exact-origin")
-		}
+		importDraft = &draft
 	} else {
 		version, lookupErr := service.references.GetCredentialVersion(ctx, input.ReferenceID, input.MaterialVersion)
 		if lookupErr != nil {
@@ -107,6 +106,9 @@ func (service *credentialLifecycleService) createDraftResult(ctx context.Context
 		if bindNativeLifecycleReaders(input, hostID, &binding) != nil {
 			return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "native-reader-map")
 		}
+	}
+	if importDraft != nil && !importDraft.MatchesLifecycleBinding(binding) {
+		return zero, false, apiFailure(generated.ErrorCodePrerequisiteBlocked, "credential-import-draft-exact-origin")
 	}
 	manifest := credentialref.LifecycleManifestDigestOf(binding)
 	if manifest == "" {
