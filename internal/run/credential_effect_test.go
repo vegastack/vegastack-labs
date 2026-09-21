@@ -138,7 +138,7 @@ func TestCredentialEffectSanitizesAdapterErrorAndClosesBorrowedBytes(t *testing.
 		t.Fatal(err)
 	}
 	implementation := &leakingCredentialExecutor{}
-	_, err = invokeCredentialEffect(context.Background(), implementation, adapter.Operation{}, []*credentialref.Value{value})
+	_, err = invokeCredentialEffect(context.Background(), implementation, adapter.Operation{}, adapter.ExactExecutionBinding{}, []*credentialref.Value{value})
 	if Code(err) != generated.ErrorCodeExecutionFailed || strings.Contains(err.Error(), "synthetic-private-canary") {
 		t.Fatalf("unsanitized credential effect error: %v", err)
 	}
@@ -162,7 +162,7 @@ func TestCredentialEffectClosesBytesOnInterruptedAdapterPanic(t *testing.T) {
 		t.Fatal(err)
 	}
 	implementation := &panickingCredentialExecutor{}
-	effect, effectErr := invokeCredentialEffect(context.Background(), implementation, adapter.Operation{}, []*credentialref.Value{value})
+	effect, effectErr := invokeCredentialEffect(context.Background(), implementation, adapter.Operation{}, adapter.ExactExecutionBinding{}, []*credentialref.Value{value})
 	if Code(effectErr) != generated.ErrorCodeRecoveryRequired || !effect.EffectObserved || strings.Contains(effectErr.Error(), "synthetic-private-canary") {
 		t.Fatalf("adapter panic escaped or claimed no effect: effect=%#v err=%v", effect, effectErr)
 	}
@@ -176,5 +176,73 @@ func TestCredentialEffectClosesBytesOnInterruptedAdapterPanic(t *testing.T) {
 func TestDefaultLiveSecretGateUnavailable(t *testing.T) {
 	if Code((UnavailableGateVerifier{}).VerifySecretStep(context.Background(), generated.Plan{}, generated.PlanOperation{})) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatal("unregistered live gate verifier admitted a secret step")
+	}
+}
+
+type boundRecordingExecutor struct {
+	plainCalls int
+	boundCalls int
+	binding    adapter.ExactExecutionBinding
+}
+
+func (executor *boundRecordingExecutor) ExecuteWithCredentials(context.Context, adapter.Operation, []*credentialref.Value) (adapter.Effect, error) {
+	executor.plainCalls++
+	return adapter.Effect{Status: "succeeded", ResultDigest: digest("bound"), EffectObserved: true}, nil
+}
+
+func (executor *boundRecordingExecutor) ExecuteBoundWithCredentials(_ context.Context, _ adapter.Operation, binding adapter.ExactExecutionBinding, _ []*credentialref.Value) (adapter.Effect, error) {
+	executor.boundCalls++
+	executor.binding = binding
+	return adapter.Effect{Status: "succeeded", ResultDigest: digest("bound"), EffectObserved: true}, nil
+}
+
+func TestInvokeCredentialEffectPrefersBoundExecutor(t *testing.T) {
+	value, err := credentialref.NewValue([]byte("synthetic-private-canary"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	executor := &boundRecordingExecutor{}
+	binding := adapter.ExactExecutionBinding{PlanID: "plan-a", RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", RecoveryEpoch: 2}
+	if _, err := invokeCredentialEffect(context.Background(), executor, adapter.Operation{}, binding, []*credentialref.Value{value}); err != nil {
+		t.Fatal(err)
+	}
+	if executor.boundCalls != 1 || executor.plainCalls != 0 || executor.binding.LeaseID != "lease-a" || executor.binding.RecoveryEpoch != 2 {
+		t.Fatalf("bound executor not preferred: %#v", executor)
+	}
+	if value.Bytes() != nil {
+		t.Fatal("borrowed credential value was not closed after the bound effect")
+	}
+}
+
+// boundOnlyExecutor implements ONLY the bound credential boundary (like the local
+// backup adapter): it must still be invoked, proving the engine no longer
+// requires the plain CredentialExecutor interface.
+type boundOnlyExecutor struct {
+	boundCalls int
+	binding    adapter.ExactExecutionBinding
+}
+
+func (executor *boundOnlyExecutor) ExecuteBoundWithCredentials(_ context.Context, _ adapter.Operation, binding adapter.ExactExecutionBinding, _ []*credentialref.Value) (adapter.Effect, error) {
+	executor.boundCalls++
+	executor.binding = binding
+	return adapter.Effect{Status: "succeeded", ResultDigest: digest("boundonly"), EffectObserved: true}, nil
+}
+
+func TestInvokeCredentialEffectRunsBoundOnlyAdapter(t *testing.T) {
+	value, err := credentialref.NewValue([]byte("synthetic-private-canary"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	executor := &boundOnlyExecutor{}
+	binding := adapter.ExactExecutionBinding{PlanID: "plan-a", RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", RecoveryEpoch: 4}
+	effect, err := invokeCredentialEffect(context.Background(), executor, adapter.Operation{}, binding, []*credentialref.Value{value})
+	if err != nil || effect.Status != "succeeded" {
+		t.Fatalf("bound-only adapter not executed: effect=%#v err=%v", effect, err)
+	}
+	if executor.boundCalls != 1 || executor.binding.RecoveryEpoch != 4 {
+		t.Fatalf("bound-only executor state = %#v", executor)
+	}
+	if value.Bytes() != nil {
+		t.Fatal("borrowed value not closed after bound-only effect")
 	}
 }

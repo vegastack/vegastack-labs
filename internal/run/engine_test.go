@@ -59,6 +59,25 @@ func TestQueuedRunAfterCreateCrashContinuesOnExactRetry(t *testing.T) {
 	}
 }
 
+func TestCentralReceiptCarriesOpaquePendingPointID(t *testing.T) {
+	fixture := newEngineFixture(t)
+	pointID := "recovery-point-fixture"
+	fixture.adapter.pendingPointID = &pointID
+	if _, err := fixture.engine.Submit(context.Background(), fixture.request); err != nil {
+		t.Fatal(err)
+	}
+	fixture.store.mu.Lock()
+	defer fixture.store.mu.Unlock()
+	if len(fixture.store.receipts) != 1 {
+		t.Fatalf("receipts = %d", len(fixture.store.receipts))
+	}
+	for _, receipt := range fixture.store.receipts {
+		if receipt.PendingPointID == nil || *receipt.PendingPointID != pointID {
+			t.Fatalf("pending point missing from central receipt: %#v", receipt.PendingPointID)
+		}
+	}
+}
+
 func TestRestartAfterVerifiedFailurePreservesFailedOutcome(t *testing.T) {
 	fixture := newEngineFixture(t)
 	fixture.adapter.status = "failed"
@@ -537,12 +556,13 @@ func (fixture *engineFixture) restart(t *testing.T) *Engine {
 }
 
 type fakeAdapter struct {
-	calls         int
-	verify        bool
-	changed       bool
-	beforeExecute func()
-	executeErr    error
-	status        string
+	calls          int
+	verify         bool
+	changed        bool
+	beforeExecute  func()
+	executeErr     error
+	status         string
+	pendingPointID *string
 }
 
 func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operation) (adapter.Effect, error) {
@@ -560,7 +580,7 @@ func (adapterFixture *fakeAdapter) Execute(ctx context.Context, _ adapter.Operat
 	if status == "" {
 		status = "succeeded"
 	}
-	return adapter.Effect{Status: status, ResultDigest: digest("result"), Changed: adapterFixture.changed, EffectObserved: true}, nil
+	return adapter.Effect{Status: status, ResultDigest: digest("result"), PendingPointID: adapterFixture.pendingPointID, Changed: adapterFixture.changed, EffectObserved: true}, nil
 }
 func (adapterFixture *fakeAdapter) Verify(context.Context, adapter.Operation, adapter.Effect) (adapter.Verification, error) {
 	return adapter.Verification{Verified: adapterFixture.verify, Digest: digest("verification")}, nil

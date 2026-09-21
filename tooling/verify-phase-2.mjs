@@ -129,7 +129,21 @@ const REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE = Object.freeze({
   commands: Object.freeze([]), imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:5d0d831196eb25b842999dc70d19c97b4f503ad827ba64148b3c283a70b0855a",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE]);
+// Issue #106 adds the inert local backup-policy-draft command and the local
+// recovery-point creation source closure (the guarded REST object boundary, the
+// sealed-FD restic child and the exact bound adapter). It lands after #134, so as
+// the final Phase 5 wave its boundary digest is the current head closure that
+// `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal. Its
+// new production imports are the backup package, fixed identity registry and
+// local adapter.
+const REVIEWED_BACKUP_WAVE = Object.freeze({
+  id: "phase5-issue106-v1", issue: 106,
+  commands: Object.freeze(["backup policy draft"]),
+  imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`, `${MODULE_PREFIX}internal/backupidentity`]),
+  mutationBoundaryDigest: "sha256:adb10fa89d1ded9b316adf689b3e1ae35dcdb3a17fbf6a6a08f506e0e55d9a6b",
+});
+
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -180,10 +194,11 @@ const EXPECTED_CHILDREN = [
   [37, 47, "34e9e9d01f6c0bbb14c8e54d4a2ab4a1b1e77fc3"],
 ];
 const EXPECTED_AVAILABLE_COMMANDS = [
-  "database status", "help", "inventory diff", "inventory export", "inventory import",
+  "backup policy draft", "database status", "help", "inventory diff", "inventory export", "inventory import",
   "release inspect", "release verify", "server run", "server status", "status", "version",
 ];
 const EXPECTED_ENDPOINT_IDS = [
+  "api.v1.backup-policy-drafts.create",
   "api.v1.database-status.get", "api.v1.events.stream", "api.v1.health.get",
   "api.v1.inventory-diffs.create", "api.v1.inventory-draft-aliases.get",
   "api.v1.inventory-draft-aliases.list", "api.v1.inventory-draft-assets.get",
@@ -628,7 +643,7 @@ export function validateEvidence(manifest, facts) {
       manifest.contract.postPhase2MutationBoundaryDigest !== PHASE2_BASELINE_MUTATION_DIGEST)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   }
-  const reviewedCommandPrefixes = ["gate ", "credential ", "audit "];
+  const reviewedCommandPrefixes = ["gate ", "credential ", "audit ", "backup "];
   const availableReviewedCommands = facts.availableCommands.filter((name) =>
     reviewedCommandPrefixes.some((prefix) => name.startsWith(prefix)));
   const expectedReviewedCommands = REVIEWED_PHASE5_WAVES.flatMap(({ commands }) => commands).sort();
