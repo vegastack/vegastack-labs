@@ -8,8 +8,6 @@ import (
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
-	"github.com/vegastack/vegastack-labs/internal/generated"
-	"github.com/vegastack/vegastack-labs/internal/run"
 )
 
 type deniedAuthority struct{ openedUID uint32 }
@@ -39,7 +37,7 @@ func TestExactDeniedReaders(t *testing.T) {
 		},
 		MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64), StateRevision: 12, RecoveryEpoch: 3,
 	}
-	step := run.ExactStepBinding{Step: generated.RunStep{OperationID: binding.OperationID, OperationType: string(binding.Action), TargetID: binding.TargetID, ArtifactDigest: binding.CiphertextFingerprint}}
+	step := NativeVerificationStep{OperationID: binding.OperationID, OperationType: string(binding.Action), TargetID: binding.TargetID, ArtifactDigest: binding.CiphertextFingerprint}
 	authority := &deniedAuthority{openedUID: 2002}
 	verifier := &NativeLifecycleVerifier{Authority: authority, policy: func(credentialref.LifecycleBinding) error { return nil },
 		observe: func(_ context.Context, _ credentialref.LifecycleBinding, reader credentialref.NativeConsumerBinding) (NativeInvocationProof, error) {
@@ -55,11 +53,11 @@ func TestExactDeniedReaders(t *testing.T) {
 			return nil
 		},
 	}
-	if results, err := verifier.Verify(context.Background(), step, binding); err == nil || len(results) != 0 {
+	if results, err := verifier.VerifyNative(context.Background(), step, binding); err == nil || len(results) != 0 {
 		t.Fatalf("unexpectedly opened denied reader was accepted: %v %+v", err, results)
 	}
 	authority.openedUID = 0
-	if results, err := verifier.Verify(context.Background(), step, binding); err != nil || len(results) != 4 {
+	if results, err := verifier.VerifyNative(context.Background(), step, binding); err != nil || len(results) != 4 {
 		t.Fatalf("exact positive/denied set rejected: %v %+v", err, results)
 	}
 }

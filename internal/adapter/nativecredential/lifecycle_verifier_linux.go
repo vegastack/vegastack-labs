@@ -14,11 +14,11 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
-	"github.com/vegastack/vegastack-labs/internal/run"
 )
 
 var errNativeLifecycle = errors.New("native credential lifecycle verification unavailable")
@@ -34,6 +34,13 @@ type NativeLifecycleVerifier struct {
 	policy             func(credentialref.LifecycleBinding) error
 	observe            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding) (NativeInvocationProof, error)
 	recheck            func(context.Context, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding, NativeInvocationProof) error
+}
+
+// NativeVerificationStep carries only immutable public plan identifiers. The
+// server translates its run-engine binding into this narrow adapter input.
+type NativeVerificationStep struct {
+	OperationID, OperationType, TargetID, ArtifactDigest string
+	PlanDigest, RunID, StepID                            string
 }
 
 func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUnitReader, ciphertextRoot string, ownerUID uint32) (*NativeLifecycleVerifier, error) {
@@ -60,7 +67,7 @@ func NewInstalledNativeLifecycleVerifier(ctx context.Context, ciphertextRoot str
 	if err != nil || !root.IsDir() || root.Mode().Perm() != 0o700 {
 		return nil, errNativeLifecycle
 	}
-	rootStat, ok := root.Sys().(*unix.Stat_t)
+	rootStat, ok := root.Sys().(*syscall.Stat_t)
 	if !ok || rootStat.Uid != ownerUID {
 		return nil, errNativeLifecycle
 	}
@@ -84,11 +91,11 @@ func NewInstalledNativeLifecycleVerifier(ctx context.Context, ciphertextRoot str
 	return NewNativeLifecycleVerifier(authority, SystemdUnitReader{}, ciphertextRoot, ownerUID)
 }
 
-func (v *NativeLifecycleVerifier) Verify(ctx context.Context, step run.ExactStepBinding, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
+func (v *NativeLifecycleVerifier) VerifyNative(ctx context.Context, step NativeVerificationStep, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
 	if ctx == nil || ctx.Err() != nil || v == nil || v.Authority == nil || v.policy == nil || v.observe == nil || v.recheck == nil ||
 		!credentialref.ValidLifecycleBinding(binding) || binding.ResolverID != "native-systemd" ||
-		step.Step.OperationID != binding.OperationID || step.Step.OperationType != string(binding.Action) ||
-		step.Step.TargetID != binding.TargetID || step.Step.ArtifactDigest != binding.CiphertextFingerprint || v.policy(binding) != nil {
+		step.OperationID != binding.OperationID || step.OperationType != string(binding.Action) ||
+		step.TargetID != binding.TargetID || step.ArtifactDigest != binding.CiphertextFingerprint || v.policy(binding) != nil {
 		return nil, errNativeLifecycle
 	}
 	positive := append([]credentialref.NativeConsumerBinding(nil), binding.NativeConsumers...)
@@ -101,7 +108,7 @@ func (v *NativeLifecycleVerifier) Verify(ctx context.Context, step run.ExactStep
 			return nil, errNativeLifecycle
 		}
 		proofs[reader.ConsumerID] = proof
-		evidence := nativeEvidenceDigest("positive", binding.Digest(), step.Plan.PlanDigest, step.Run.RunID, step.Step.StepID,
+		evidence := nativeEvidenceDigest("positive", binding.Digest(), step.PlanDigest, step.RunID, step.StepID,
 			reader.ConsumerID, reader.ProfileID, reader.RoleID, reader.UnitName, proof.BootID, proof.InvocationID,
 			strconv.FormatUint(uint64(proof.MainPID), 10), strconv.FormatUint(proof.ProcessStartTicks, 10),
 			strconv.FormatUint(proof.NamespaceDevice, 10), strconv.FormatUint(proof.NamespaceInode, 10),
@@ -118,7 +125,7 @@ func (v *NativeLifecycleVerifier) Verify(ctx context.Context, step run.ExactStep
 		return strings.Compare(a.ConsumerID, b.ConsumerID)
 	})
 	for _, reader := range denied {
-		parts := []string{"denied", binding.Digest(), step.Plan.PlanDigest, step.Run.RunID, step.Step.StepID,
+		parts := []string{"denied", binding.Digest(), step.PlanDigest, step.RunID, step.StepID,
 			reader.ConsumerID, reader.ProfileID, reader.RoleID, strconv.FormatUint(uint64(reader.ReaderUID), 10), strconv.FormatUint(uint64(reader.ReaderGID), 10)}
 		for _, target := range positive {
 			proof := proofs[target.ConsumerID]
@@ -214,13 +221,13 @@ func (v *NativeLifecycleVerifier) recheckProof(ctx context.Context, binding cred
 		return errNativeLifecycle
 	}
 	process, err := observeProcessIdentity(ctx, snapshot, reader)
-	if err != nil || process.StartTicks != proof.ProcessStartTicks || process.NamespaceDevice != proof.NamespaceDevice || process.NamespaceInode != proof.NamespaceInode {
+	if err != nil || process.StartTicks != proof.ProcessStartTicks {
 		return errNativeLifecycle
 	}
 	request := AccessProbeRequest{UID: reader.ServiceUID, GID: reader.ServiceGID, UnitName: reader.UnitName, CredentialName: reader.LoadedName,
 		MainPID: int(proof.MainPID), ProcessStartTicks: proof.ProcessStartTicks, BootID: proof.BootID}
 	loaded, err := v.Authority.Probe(ctx, request)
-	if err != nil || loaded.Status != AccessProbeOpened || loaded.Device != proof.CredentialDevice || loaded.Inode != proof.CredentialInode ||
+	if err != nil || loaded.Status != AccessProbeOpened || loaded.NamespaceDevice != proof.NamespaceDevice || loaded.NamespaceInode != proof.NamespaceInode || loaded.Device != proof.CredentialDevice || loaded.Inode != proof.CredentialInode ||
 		loaded.OwnerUID != proof.CredentialUID || loaded.OwnerGID != proof.CredentialGID || loaded.Mode != proof.CredentialMode {
 		return errNativeLifecycle
 	}

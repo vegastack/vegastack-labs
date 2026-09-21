@@ -24,14 +24,21 @@ func (s *sequenceUnits) ObserveAppliedUnit(_ context.Context, _ string) (Applied
 	return item, nil
 }
 
-type fixedAuthority struct{ probes int }
+type fixedAuthority struct {
+	probes            int
+	mismatchNamespace bool
+}
 
 func (*fixedAuthority) Restart(context.Context, string) (RestartReceipt, error) {
 	return RestartReceipt{UnitName: "alpha.service", BootID: "00000000-0000-0000-0000-000000000001", RequestMonotonicNanos: 1000, FinishMonotonicNanos: 1500, Status: "completed"}, nil
 }
 func (a *fixedAuthority) Probe(context.Context, AccessProbeRequest) (AccessProbeResult, error) {
 	a.probes++
-	return AccessProbeResult{Status: AccessProbeOpened, Device: 2, Inode: 3, OwnerUID: 1001, OwnerGID: 1001, Mode: 0o100400}, nil
+	result := AccessProbeResult{Status: AccessProbeOpened, Device: 2, Inode: 3, NamespaceDevice: 6, NamespaceInode: 8, OwnerUID: 1001, OwnerGID: 1001, Mode: 0o100400}
+	if a.mismatchNamespace && a.probes == 2 {
+		result.NamespaceInode++
+	}
+	return result, nil
 }
 
 func nativeInvocationFixture() (invocationObserver, credentialref.LifecycleBinding, credentialref.NativeConsumerBinding, *sequenceUnits, *fixedAuthority) {
@@ -64,6 +71,17 @@ func TestInvocationReplacement(t *testing.T) {
 	}
 	if authority.probes == 0 {
 		t.Fatal("test never reached the observation boundary")
+	}
+}
+
+func TestInvocationNamespaceReplacement(t *testing.T) {
+	observer, binding, reader, _, authority := nativeInvocationFixture()
+	authority.mismatchNamespace = true
+	if _, err := observer.observe(context.Background(), binding, reader); err == nil {
+		t.Fatal("mount namespace replacement during proof accepted")
+	}
+	if authority.probes != 2 {
+		t.Fatal("test never reached the namespace recheck")
 	}
 }
 

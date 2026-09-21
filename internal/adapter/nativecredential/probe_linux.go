@@ -67,12 +67,14 @@ const (
 )
 
 type AccessProbeResult struct {
-	Status   AccessProbeStatus `json:"status"`
-	Device   uint64            `json:"device,omitempty"`
-	Inode    uint64            `json:"inode,omitempty"`
-	OwnerUID uint32            `json:"owner_uid,omitempty"`
-	OwnerGID uint32            `json:"owner_gid,omitempty"`
-	Mode     uint32            `json:"mode,omitempty"`
+	Status          AccessProbeStatus `json:"status"`
+	Device          uint64            `json:"device,omitempty"`
+	Inode           uint64            `json:"inode,omitempty"`
+	NamespaceDevice uint64            `json:"namespace_device,omitempty"`
+	NamespaceInode  uint64            `json:"namespace_inode,omitempty"`
+	OwnerUID        uint32            `json:"owner_uid,omitempty"`
+	OwnerGID        uint32            `json:"owner_gid,omitempty"`
+	Mode            uint32            `json:"mode,omitempty"`
 }
 
 func decodeAccessProbeRequest(input io.Reader) (AccessProbeRequest, error) {
@@ -140,7 +142,7 @@ func validProbeResult(result AccessProbeResult) bool {
 	if result.Status == AccessProbeOpened {
 		return result.Device != 0 && result.Inode != 0 && result.Mode&unix.S_IFMT == unix.S_IFREG
 	}
-	return result.Device == 0 && result.Inode == 0 && result.OwnerUID == 0 && result.OwnerGID == 0 && result.Mode == 0
+	return result.Device == 0 && result.Inode == 0 && result.NamespaceDevice == 0 && result.NamespaceInode == 0 && result.OwnerUID == 0 && result.OwnerGID == 0 && result.Mode == 0
 }
 
 // RunAccessProbeMode is the sole root entry. It accepts one bounded structured stdin request.
@@ -198,6 +200,13 @@ func RunAccessProbeMode(ctx context.Context, input io.Reader, output io.Writer) 
 	decoder.DisallowUnknownFields()
 	if decoder.Decode(&result) != nil || decoder.Decode(new(any)) != io.EOF || !validProbeResult(result) || result.Status == AccessProbeUnknown {
 		return 2
+	}
+	if result.Status == AccessProbeOpened {
+		var namespace unix.Stat_t
+		if unix.Fstat(nsFD, &namespace) != nil || namespace.Ino == 0 {
+			return 2
+		}
+		result.NamespaceDevice, result.NamespaceInode = uint64(namespace.Dev), namespace.Ino
 	}
 	encoded, _ := json.Marshal(result)
 	if _, err := output.Write(append(encoded, '\n')); err != nil {

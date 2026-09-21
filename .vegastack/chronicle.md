@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — Native credential delivery can be proven on a disposable host ([#141](https://github.com/vegastack/vegastack-labs/issues/141))
+
+- **What:** The local Linux verifier can compare a planned encrypted credential with the exact systemd unit, running process, loaded credential file and denied reader set. It returns one complete typed proof only after every positive and denied probe agrees; server composition still leaves the production gate unavailable.
+- **Why:** The earlier lifecycle engine had no trustworthy evidence that the intended service actually received the host-key credential or that other local identities could not read it.
+- **How it went:** The first real Debian VM run exposed a root-owned credential file and mount-namespace observation that the synthetic tests had missed. The verifier was corrected to prove access under the service identity and use a root-owned namespace receipt, then a two-unit, two-denied-identity matrix passed with negative mutations and cleanup.
+- **Changed:** Typed systemd D-Bus observation · exact process and inode binding · direct denied-reader probes · qualified local server composition · disposable Linux acceptance fixture · sealed CLI and Phase 2 source checks. No production authority or live G-007 proof was registered.
+- **Decisions:** none; the separately reviewed [#140](https://github.com/vegastack/vegastack-labs/issues/140) reader map and [#143](https://github.com/vegastack/vegastack-labs/issues/143) OS authority must land before this composition is integrated.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/141-native-credential-lifecycle
+
 ## 22-09-2026 — Credential evidence is bound and failures stay redacted ([#133](https://github.com/vegastack/vegastack-labs/issues/133))
 
 - **What:** Credential lifecycle verification now checks strict evidence digests and exact positive and denied consumer sets. A verifier panic, cancellation or uncertain external effect is reported through a redacted recovery-required boundary.

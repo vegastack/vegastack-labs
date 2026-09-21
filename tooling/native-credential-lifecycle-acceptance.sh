@@ -10,6 +10,7 @@ alpha_unit=/etc/systemd/system/vsk141-alpha.service
 beta_unit=/etc/systemd/system/vsk141-beta.service
 app_binary=/usr/local/bin/vsk-labs
 test_binary=/usr/local/libexec/vsk141-native-lifecycle.test
+server_test_binary=/usr/local/libexec/vsk141-server.test
 
 fatal() { printf '%s\n' "$*" >&2; exit 1; }
 test "${VSK141_DISPOSABLE:-}" = 1 || fatal 'Disposable marker missing'
@@ -17,11 +18,11 @@ test "$(id -u)" = 0 || fatal 'Root required for isolated fixture'
 test "$(hostname)" = lima-vsk141-disposable || fatal 'Unexpected host'
 test "$(ps -p 1 -o comm= | tr -d ' ')" = systemd || fatal 'PID1 systemd required'
 test -n "${VSK141_WORKSPACE:-}" && test -d "$VSK141_WORKSPACE/ansible/roles/native_credential_authority" || fatal 'Role workspace missing'
-test -f "${VSK141_APP_BINARY:-}" && test -f "${VSK141_TEST_BINARY:-}" || fatal 'Fixture binaries missing'
+test -f "${VSK141_APP_BINARY:-}" && test -f "${VSK141_TEST_BINARY:-}" && test -f "${VSK141_SERVER_TEST_BINARY:-}" || fatal 'Fixture binaries missing'
 for command in ansible-playbook systemd-creds systemctl pkcheck sudo nsenter runuser python3 visudo sha256sum; do
   command -v "$command" >/dev/null || fatal "Missing disposable prerequisite: $command"
 done
-for path in "$marker" "$policy" "$polkit_rule" "$sudo_rule" "$alpha_unit" "$beta_unit" "$app_binary" "$test_binary" /etc/vsk-labs; do
+for path in "$marker" "$policy" "$polkit_rule" "$sudo_rule" "$alpha_unit" "$beta_unit" "$app_binary" "$test_binary" "$server_test_binary" /etc/vsk-labs; do
   test ! -e "$path" || fatal "Fixture path already exists: $path"
 done
 for account in vsk-labs vsk141-alpha vsk141-beta vsk141-denied-a vsk141-denied-b; do
@@ -39,7 +40,7 @@ umask 077
 install -d -o root -g root -m 0755 "$marker"
 cleanup() {
   systemctl stop vsk141-alpha.service vsk141-beta.service >/dev/null 2>&1 || true
-  rm -f -- "$policy" "$polkit_rule" "$sudo_rule" "$alpha_unit" "$beta_unit" "$app_binary" "$test_binary"
+  rm -f -- "$policy" "$polkit_rule" "$sudo_rule" "$alpha_unit" "$beta_unit" "$app_binary" "$test_binary" "$server_test_binary"
   systemctl daemon-reload >/dev/null 2>&1 || true
   systemctl restart polkit.service >/dev/null 2>&1 || true
   rmdir /etc/vsk-labs >/dev/null 2>&1 || true
@@ -61,6 +62,7 @@ useradd -M -u 21145 -U vsk141-denied-b
 install -d -o root -g root -m 0755 /usr/local/libexec
 install -o root -g root -m 0755 "$VSK141_APP_BINARY" "$app_binary"
 install -o root -g root -m 0755 "$VSK141_TEST_BINARY" "$test_binary"
+install -o root -g root -m 0755 "$VSK141_SERVER_TEST_BINARY" "$server_test_binary"
 install -d -o vsk-labs -g vsk-labs -m 0700 "$marker/credential-drafts"
 name="$(python3 - <<'PY'
 import hashlib
@@ -81,6 +83,7 @@ write_unit() {
   cat >"$path" <<UNIT
 [Unit]
 Description=Disposable #141 encrypted credential lifecycle fixture
+StartLimitIntervalSec=0
 [Service]
 User=$service_user
 Group=$service_user
@@ -116,13 +119,17 @@ YAML
 ANSIBLE_ROLES_PATH="$VSK141_WORKSPACE/ansible/roles" ansible-playbook -i localhost, -e "@$marker/vars.json" "$marker/role.yml" >"$marker/ansible.out"
 systemctl restart polkit.service
 
+runuser -u vsk-labs -- env VSK141_DISPOSABLE=1 VSK141_CIPHERTEXT_ROOT="$marker/credential-drafts" \
+  "$server_test_binary" -test.run='^TestDisposableNativeVerifierComposition$' >"$marker/composition.out" 2>&1 || { cat "$marker/composition.out" >&2; fatal 'Qualified server composition failed'; }
+
 run_verifier() {
   local expectation="$1"
   runuser -u vsk-labs -- env VSK141_DISPOSABLE=1 VSK141_EXPECT_DENIAL="$expectation" \
     VSK141_CIPHERTEXT_ROOT="$marker/credential-drafts" VSK141_FINGERPRINT="$fingerprint" VSK141_MACHINE_ID="$machine" \
     "$test_binary" -test.run='^TestDisposableNativeLifecycle$' >"$marker/test.out" 2>&1
 }
-run_verifier 0 || fatal 'Real encrypted two-unit lifecycle proof failed'
+run_verifier 0 || { cat "$marker/test.out" >&2; fatal 'Real encrypted two-unit lifecycle proof failed'; }
+"$test_binary" -test.run='^TestInvocationNamespaceReplacement$' >"$marker/namespace.out" 2>&1 || { cat "$marker/namespace.out" >&2; fatal 'Mount namespace replacement was accepted'; }
 
 write_unit "$beta_unit" vsk141-beta "$name" "$marker/credential-drafts/nonexistent"
 systemctl daemon-reload
@@ -141,5 +148,5 @@ chmod 0600 "$marker/credential-drafts/$name"
 mv "$policy" "$marker/policy.saved"
 run_verifier 1 || fatal 'Missing root authority was accepted'
 mv "$marker/policy.saved" "$policy"
-run_verifier 0 || fatal 'Restored exact lifecycle proof failed'
+run_verifier 0 || { cat "$marker/test.out" >&2; fatal 'Restored exact lifecycle proof failed'; }
 printf 'native encrypted credential lifecycle disposable matrix passed\n'
