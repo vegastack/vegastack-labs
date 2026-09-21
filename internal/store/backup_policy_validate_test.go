@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 )
@@ -18,9 +19,9 @@ func validateBackupPtr(value string) *string { return &value }
 func validBackupPolicy() generated.BackupPolicy {
 	return generated.BackupPolicy{
 		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
-		PolicyID: "policy-a", OwnerID: "owner-a", SourceID: "source-a",
-		SourceSelectors: []string{"selector-a"}, ConsistencyHookID: "sqlite-online",
-		RepositoryID: validateBackupPtr("repo-a"), RepositoryClass: "standard", ScheduleIntent: "daily",
+		PolicyID: "policy-a", OwnerID: "owner-a", SourceID: backupidentity.ControlDatabaseSource,
+		SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: "sqlite-online",
+		RepositoryID: validateBackupPtr(backupidentity.StandardRepository), RepositoryClass: "standard", ScheduleIntent: "daily",
 		ExpectedBytes: 1024, ExpectedGrowthBytes: 512, MinimumFreeBytes: 4096,
 		EncryptionKeyReferenceID: validateBackupPtr("enc-a"), RecoveryKeyReferenceID: validateBackupPtr("rec-a"),
 		RetentionDays: 7, RestoreTargetID: "restore-a",
@@ -66,6 +67,9 @@ func TestValidateBackupPolicyClassRules(t *testing.T) {
 		"standard missing encryption": func(p *generated.BackupPolicy) { p.EncryptionKeyReferenceID = nil },
 		"standard missing recovery":   func(p *generated.BackupPolicy) { p.RecoveryKeyReferenceID = nil },
 		"standard zero retention":     func(p *generated.BackupPolicy) { p.RetentionDays = 0 },
+		"unregistered source":         func(p *generated.BackupPolicy) { p.SourceID = "source-a" },
+		"unregistered selector":       func(p *generated.BackupPolicy) { p.SourceSelectors = []string{"selector-a"} },
+		"unregistered repository":     func(p *generated.BackupPolicy) { p.RepositoryID = validateBackupPtr("repo-a") },
 		"unknown class":               func(p *generated.BackupPolicy) { p.RepositoryClass = "archive" },
 		"duplicate selector":          func(p *generated.BackupPolicy) { p.SourceSelectors = []string{"a", "a"} },
 		"empty selectors":             func(p *generated.BackupPolicy) { p.SourceSelectors = nil },

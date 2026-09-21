@@ -122,29 +122,38 @@ const REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE = Object.freeze({
   commands: Object.freeze([]), imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:1b31eaa862d23433611a5638d9876dc2d5f8aedbccfd76d80106a579d1b0e76b",
 });
+// Issue #134 binds clean-host recovery evidence to an exact inert draft and
+// epoch, but registers no production recovery source, command, or import.
+const REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE = Object.freeze({
+  id: "phase5-issue134-v1", issue: 134,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:5d0d831196eb25b842999dc70d19c97b4f503ad827ba64148b3c283a70b0855a",
+});
 // Issue #106 adds the inert local backup-policy-draft command and the local
 // recovery-point creation source closure (the guarded REST object boundary, the
-// sealed-FD restic child and the exact bound adapter). It lands after #133, so as
+// sealed-FD restic child and the exact bound adapter). It lands after #134, so as
 // the final Phase 5 wave its boundary digest is the current head closure that
 // `postPhase2MutationBoundaryDigest` reproduces and that this wave must equal. Its
-// only new production imports are the backup package and its local adapter.
+// new production imports are the backup package, fixed identity registry and
+// local adapter.
 const REVIEWED_BACKUP_WAVE = Object.freeze({
   id: "phase5-issue106-v1", issue: 106,
   commands: Object.freeze(["backup policy draft"]),
-  imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`]),
-  mutationBoundaryDigest: "sha256:b1c9f2c9a62c9739f5d11b99346847bb7c8d137b94c16b86ff9b6b3202d192a8",
+  imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`, `${MODULE_PREFIX}internal/backupidentity`]),
+  mutationBoundaryDigest: "sha256:adb10fa89d1ded9b316adf689b3e1ae35dcdb3a17fbf6a6a08f506e0e55d9a6b",
 });
+
 // Issue #140 seals local native credential consumer and denied-reader identities
 // into inert lifecycle plans. It registers no runtime verifier or new command.
 // Recheck this measured production-source closure after final main integration.
 const REVIEWED_NATIVE_READER_MAP_WAVE = Object.freeze({
   id: "phase5-issue140-v1", issue: 140,
   commands: Object.freeze([]), imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:df21fd4f24250db4f0fe21453957d32305d47f6ae68351fc8cdab6c2086263f3",
+  mutationBoundaryDigest: "sha256:ccc3faff7ca4767813cc7b0a6c2950faeeba50586e8b934aa45b0b8da9d9a9a9",
 });
 
 
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });

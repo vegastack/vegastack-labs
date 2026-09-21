@@ -37,7 +37,7 @@ The source commit and canonical scenario digest make two runs from the same clea
 
 Run this portable command during implementation and pull-request verification. The public pull-request affected-check route already selects this browser group for Phase 4, browser, schema, workflow, or verifier changes.
 
-The stronger `pnpm check:phase-4-exit --commit <exact-main-sha>` certificate runs only on Linux and requires the clean checkout's `HEAD` and trusted `refs/remotes/origin/main` to equal the supplied commit before and after verification. It rejects a feature branch and a portable result with `linux-required` scenarios. After merge, the trusted `main` push supplies the first exact run; an explicit `workflow_dispatch` at the unchanged same `main` commit supplies the second. Compare their JSON lines exactly, including the evidence digest. Do not record operator acceptance before both exact default-branch runs pass.
+The stronger `pnpm check:phase-4-exit --commit <exact-main-sha>` certificate runs only on Linux and requires the clean checkout's `HEAD` and trusted `refs/remotes/origin/main` to equal the supplied commit before and after verification. It rejects a feature branch and a portable result with `linux-required` scenarios. Phase 4 exit acceptance was certified by two exact default-branch runs at its accepted historical commit. For any new Phase 4 exit claim, use explicit `workflow_dispatch` twice at the same unchanged `main` commit and compare their JSON lines exactly, including the evidence digest. Routine `main` pushes execute the affected post-merge plan and do not create a new Phase 4 certificate. Do not record a new operator acceptance before both exact default-branch certificate runs pass.
 
 ## Failure and recovery
 

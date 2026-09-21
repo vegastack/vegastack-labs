@@ -107,7 +107,8 @@ func TestVerifyLocalBackupRejectsUnsafeRootsAndBinary(t *testing.T) {
 	if err := os.WriteFile(binary, []byte("not-real-restic"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	backup := &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary}
+	backup := &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
+		SourceID: "control-database", StandardRepositoryID: "local-standard", CriticalRepositoryID: "local-critical"}
 	if err := VerifyLocalBackup(backup, uid); err == nil {
 		t.Fatal("non-pinned restic binary accepted")
 	} else if strings.Contains(err.Error(), binary) || strings.Contains(err.Error(), standard) {

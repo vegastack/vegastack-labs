@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -28,7 +29,7 @@ func acquireFixtureLease(t *testing.T, repository *BackupRepository, policyDiges
 	if err := repository.AcquireBackupWriterLease(context.Background(), BackupWriterLeaseRequest{
 		LeaseID: leaseID, JobID: jobID, PolicyID: "policy-a", PolicyDigest: policyDigest,
 		PlanID: "plan-a", PlanDigest: "sha256:" + strings.Repeat("a", 64), RunID: "run-a", StepID: "step-a",
-		RepositoryID: "repo-a", RepositoryClass: "standard", TargetID: "target-a", RecoveryEpoch: 0,
+		RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", TargetID: "target-a", RecoveryEpoch: 0,
 		SourceRevision:   3,
 		MaximumExpiresAt: time.Now().Add(time.Hour),
 	}); err != nil {
@@ -49,9 +50,9 @@ func pendingPointRequest(leaseID, pointID, snapshot, policyDigest string) Pendin
 	manifest, _ := json.Marshal(pendingCreationManifest{
 		Schema: "vegastack-labs.dev/backup-creation-manifest", SchemaVersion: "1.1.0",
 		PolicyID: "policy-a", PolicyDigest: policyDigest,
-		PointID: pointID, RunID: "run-a", StepID: "step-a", RepositoryID: "repo-a", RepositoryClass: "standard",
-		SourceID: "source-a", SourceSelectors: []string{"selector-a"},
-		SourceRevision: 3, RecoveryEpoch: 0, ConsistencyHookID: "hook-a", ConsistencySuccess: true,
+		PointID: pointID, RunID: "run-a", StepID: "step-a", RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard",
+		SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector},
+		SourceRevision: 3, RecoveryEpoch: 0, ConsistencyHookID: "sqlite-online", ConsistencySuccess: true,
 		SnapshotID: snapshot, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: objectBytes,
 		InventoryDigest: inventoryDigest, ExpectedObjects: objects,
 		DependencyInventoryDigest: pendingDependencyInventoryDigest(dependencies), ExpectedDependencies: dependencies,
@@ -75,7 +76,7 @@ func TestBackupWriterLeaseExcludesSecondWriter(t *testing.T) {
 	acquireFixtureLease(t, repository, digest, "lease-a", "job-a")
 	err := repository.AcquireBackupWriterLease(context.Background(), BackupWriterLeaseRequest{
 		LeaseID: "lease-b", JobID: "job-b", PolicyID: "policy-a", PolicyDigest: digest, PlanID: "plan-a",
-		PlanDigest: "sha256:" + strings.Repeat("a", 64), RunID: "run-b", StepID: "step-b", RepositoryID: "repo-a",
+		PlanDigest: "sha256:" + strings.Repeat("a", 64), RunID: "run-b", StepID: "step-b", RepositoryID: backupidentity.StandardRepository,
 		RepositoryClass: "standard", TargetID: "target-a", RecoveryEpoch: 0, MaximumExpiresAt: time.Now().Add(time.Hour),
 	})
 	if Code(err) != generated.ErrorCodeStateConflict {
@@ -134,18 +135,18 @@ func TestVerifyActiveWriterLeaseRejectsReleasedAndExpired(t *testing.T) {
 	repository := openBackupStore(t)
 	digest := seededDraftDigest(t, repository)
 	acquireFixtureLease(t, repository, digest, "lease-a", "job-a")
-	if err := repository.VerifyActiveWriterLease(context.Background(), "lease-a", "repo-a", 0, time.Now()); err != nil {
+	if err := repository.VerifyActiveWriterLease(context.Background(), "lease-a", backupidentity.StandardRepository, 0, time.Now()); err != nil {
 		t.Fatalf("active lease rejected: %v", err)
 	}
 	// Expired deadline is rejected.
-	if err := repository.VerifyActiveWriterLease(context.Background(), "lease-a", "repo-a", 0, time.Now().Add(2*time.Hour)); Code(err) != generated.ErrorCodePlanStale {
+	if err := repository.VerifyActiveWriterLease(context.Background(), "lease-a", backupidentity.StandardRepository, 0, time.Now().Add(2*time.Hour)); Code(err) != generated.ErrorCodePlanStale {
 		t.Fatalf("expired lease code = %q", Code(err))
 	}
 	// After the point is appended (lease released) the lease no longer verifies.
 	if _, _, err := repository.AppendPendingRecoveryPoint(context.Background(), pendingPointRequest("lease-a", "point-a", strings.Repeat("1", 64), digest)); err != nil {
 		t.Fatal(err)
 	}
-	if err := repository.VerifyActiveWriterLease(context.Background(), "lease-a", "repo-a", 0, time.Now()); Code(err) != generated.ErrorCodePlanStale {
+	if err := repository.VerifyActiveWriterLease(context.Background(), "lease-a", backupidentity.StandardRepository, 0, time.Now()); Code(err) != generated.ErrorCodePlanStale {
 		t.Fatalf("released lease code = %q", Code(err))
 	}
 }

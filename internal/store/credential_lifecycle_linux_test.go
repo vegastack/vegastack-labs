@@ -280,6 +280,46 @@ func TestNativeMappingPlanSealRejectsChangedReaderUID(t *testing.T) {
 	}
 }
 
+func TestRecoverEvidenceRequiresExactDraftEpochAndDigestBeforeAppend(t *testing.T) {
+	repository := openCredentialStore(t)
+	binding := stageBinding()
+	binding.Action = credentialref.ActionRecover
+	binding.PriorRecoveryEpoch = int64PointerLifecycle(0)
+	binding.RecoveryEpoch = 1
+	binding.CustodyProofDigest = stringPointer(testDigest)
+	binding.FormerControllerFenceDigest = stringPointer(lifecycleFingerprint)
+	if !credentialref.ValidLifecycleBinding(binding) {
+		t.Fatal("invalid recovery test binding")
+	}
+	evidence, err := credentialref.NewRecoveryVerification(binding, testDigest, lifecycleFingerprint, testDigest)
+	if err != nil || !recoveryEvidenceMatchesBinding(binding, evidence) {
+		t.Fatalf("exact recovery evidence rejected: %v", err)
+	}
+	stage := CredentialStageRequest{Reference: stagedReference(2), Expected: RevisionToken{StateRevision: 2, RecoveryEpoch: 1}}
+	stage.Reference.RecoveryEpoch = 1
+	for name, change := range map[string]func(*credentialref.RecoveryVerification){
+		"foreign draft": func(v *credentialref.RecoveryVerification) { v.DraftID = "draft-other" },
+		"prior epoch":   func(v *credentialref.RecoveryVerification) { v.PriorRecoveryEpoch = -1 },
+		"new epoch":     func(v *credentialref.RecoveryVerification) { v.RecoveryEpoch = 2 },
+		"nonhex digest": func(v *credentialref.RecoveryVerification) { v.EvidenceDigest = "sha256:" + hexRepeat("z", 64) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := evidence
+			change(&changed)
+			if recoveryEvidenceMatchesBinding(binding, changed) {
+				t.Fatal("foreign recovery evidence matched")
+			}
+			_, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: stage, Recovery: &changed})
+			if Code(err) != generated.ErrorCodePrerequisiteBlocked {
+				t.Fatalf("invalid recovery evidence reached append: %v", err)
+			}
+			if got := tableCount(t, repository, "credential_recovery_records"); got != 0 {
+				t.Fatalf("denied recovery appended %d records", got)
+			}
+		})
+	}
+}
+
 func tableCount(t *testing.T, repository *CredentialRepository, table string) int {
 	t.Helper()
 	var count int

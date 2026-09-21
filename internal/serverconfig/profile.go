@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/principal"
@@ -38,9 +39,12 @@ type Profile struct {
 // local backup creation entirely, and no declaration can override it. Callers
 // select registered repository/source IDs, never these host paths.
 type LocalBackup struct {
-	StandardRoot     string
-	CriticalRoot     string
-	ResticBinaryPath string
+	StandardRoot         string
+	CriticalRoot         string
+	ResticBinaryPath     string
+	SourceID             string
+	StandardRepositoryID string
+	CriticalRepositoryID string
 }
 
 // ConstrainedSSH is a client-only transport. Arguments are produced by the
@@ -189,7 +193,9 @@ func convertLocalBackup(input generated.ServerProfile) (*LocalBackup, error) {
 	if standard == critical || standard == binary || critical == binary {
 		return nil, failure.New("INPUT_INVALID", "server-config", false)
 	}
-	return &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary}, nil
+	return &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
+		SourceID: backupidentity.ControlDatabaseSource, StandardRepositoryID: backupidentity.StandardRepository,
+		CriticalRepositoryID: backupidentity.CriticalRepository}, nil
 }
 
 func convertRemoteRead(input generated.RemoteReadProfile) (RemoteRead, error) {
