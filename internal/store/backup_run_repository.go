@@ -133,7 +133,7 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 	}
 	manifest, err := validatePendingManifest(request)
 	if err != nil {
-		return "", "", backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-manifest")
+		return "", "", newStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-manifest", false, err)
 	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	err = repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {

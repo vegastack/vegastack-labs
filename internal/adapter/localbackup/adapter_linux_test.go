@@ -118,7 +118,7 @@ func TestLocalBackupComposition(t *testing.T) {
 		effect, runErr := implementation.ExecuteBoundWithCredentials(ctx, operation, binding, []*credentialref.Value{password})
 		password.Close()
 		if runErr != nil || effect.PendingPointID == nil || effect.Status != "succeeded" {
-			t.Fatalf("attempt %d effect=%#v err=%v", attempt, effect, runErr)
+			t.Fatalf("attempt %d effect=%#v err=%v cause=%v", attempt, effect, runErr, errors.Unwrap(runErr))
 		}
 		verification, err := implementation.Verify(ctx, operation, effect)
 		if err != nil || !verification.Verified {
