@@ -7,11 +7,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 )
 
 func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testing.T) {
@@ -51,7 +54,7 @@ func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testi
 		t.Fatalf("new disposable host key not created: %v", err)
 	}
 	oldRequest := VerifyRecoveryRequest{Name: old.Name, CiphertextDirectory: dir, ExpectedUID: 0, ExpectedFingerprint: oldFingerprint}
-	if _, err := VerifyRecoveredDraft(context.Background(), oldRequest, bytes.NewReader(canary)); err == nil {
+	if _, err := VerifyRecoveredDraft(context.Background(), oldRequest, io.NopCloser(bytes.NewReader(canary))); err == nil {
 		t.Fatal("former-host ciphertext decrypted under replacement host key")
 	}
 	name := "credential-new-recovery-version"
@@ -60,7 +63,7 @@ func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testi
 		t.Fatal(err)
 	}
 	request := VerifyRecoveryRequest{Name: name, CiphertextDirectory: dir, ExpectedUID: 0, ExpectedFingerprint: fingerprint}
-	result, err := VerifyRecoveredDraft(context.Background(), request, bytes.NewReader(canary))
+	result, err := VerifyRecoveredDraft(context.Background(), request, io.NopCloser(bytes.NewReader(canary)))
 	keyBytes, keyErr := os.ReadFile(hostKeyPath)
 	if keyErr != nil {
 		t.Fatal(keyErr)
@@ -74,26 +77,47 @@ func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testi
 		"fingerprint": {Name: name, CiphertextDirectory: dir, ExpectedUID: 0, ExpectedFingerprint: oldFingerprint},
 		"name":        {Name: old.Name, CiphertextDirectory: dir, ExpectedUID: 0, ExpectedFingerprint: fingerprint},
 	} {
-		if _, err := VerifyRecoveredDraft(context.Background(), changed, bytes.NewReader(canary)); err == nil || strings.Contains(err.Error(), string(canary)) {
+		if _, err := VerifyRecoveredDraft(context.Background(), changed, io.NopCloser(bytes.NewReader(canary))); err == nil || strings.Contains(err.Error(), string(canary)) {
 			t.Fatalf("%s accepted or leaked private bytes", label)
 		}
 	}
-	if _, err := VerifyRecoveredDraft(context.Background(), request, bytes.NewReader([]byte("wrong-independent-custody-material"))); err == nil || strings.Contains(err.Error(), string(canary)) {
+	if _, err := VerifyRecoveredDraft(context.Background(), request, io.NopCloser(bytes.NewReader([]byte("wrong-independent-custody-material")))); err == nil || strings.Contains(err.Error(), string(canary)) {
 		t.Fatal("wrong independent material accepted or leaked")
 	}
 	if _, err := VerifyRecoveredDraft(context.Background(), request, panicCustodyReader{}); err == nil || strings.Contains(err.Error(), string(canary)) {
 		t.Fatal("custody reader panic accepted or leaked")
 	}
+	blocked := &blockingCustodyReader{started: make(chan struct{}), closed: make(chan struct{})}
+	blockedContext, cancelBlocked := context.WithCancel(context.Background())
+	blockedResult := make(chan error, 1)
+	go func() {
+		_, verifyErr := VerifyRecoveredDraft(blockedContext, request, blocked)
+		blockedResult <- verifyErr
+	}()
+	select {
+	case <-blocked.started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("custody reader did not start")
+	}
+	cancelBlocked()
+	select {
+	case verifyErr := <-blockedResult:
+		if verifyErr == nil || strings.Contains(verifyErr.Error(), string(canary)) {
+			t.Fatal("cancelled custody read accepted or leaked")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("cancelled custody read did not close")
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if _, err := VerifyRecoveredDraft(ctx, request, bytes.NewReader(canary)); err == nil {
+	if _, err := VerifyRecoveredDraft(ctx, request, io.NopCloser(bytes.NewReader(canary))); err == nil {
 		t.Fatal("cancelled recovery verified")
 	}
 	path := filepath.Join(dir, name)
 	if err := os.Chmod(path, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := VerifyRecoveredDraft(context.Background(), request, bytes.NewReader(canary)); err == nil {
+	if _, err := VerifyRecoveredDraft(context.Background(), request, io.NopCloser(bytes.NewReader(canary))); err == nil {
 		t.Fatal("weak ciphertext permissions accepted")
 	}
 	if err := os.Chmod(path, 0o600); err != nil {
@@ -102,7 +126,7 @@ func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testi
 	if err := os.Chown(path, 12345, 12345); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := VerifyRecoveredDraft(context.Background(), request, bytes.NewReader(canary)); err == nil {
+	if _, err := VerifyRecoveredDraft(context.Background(), request, io.NopCloser(bytes.NewReader(canary))); err == nil {
 		t.Fatal("foreign ciphertext owner accepted")
 	}
 	if err := os.Chown(path, 0, 0); err != nil {
@@ -113,7 +137,7 @@ func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testi
 		t.Fatal(err)
 	}
 	request.Name = "credential-link"
-	if _, err := VerifyRecoveredDraft(context.Background(), request, bytes.NewReader(canary)); err == nil {
+	if _, err := VerifyRecoveredDraft(context.Background(), request, io.NopCloser(bytes.NewReader(canary))); err == nil {
 		t.Fatal("symlink ciphertext accepted")
 	}
 	request.Name = name
@@ -121,7 +145,7 @@ func TestVerifyRecoveredDraftRequiresExactCiphertextAndIndependentBytes(t *testi
 	if err := os.Link(path, hardlink); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := VerifyRecoveredDraft(context.Background(), request, bytes.NewReader(canary)); err == nil {
+	if _, err := VerifyRecoveredDraft(context.Background(), request, io.NopCloser(bytes.NewReader(canary))); err == nil {
 		t.Fatal("hardlinked ciphertext accepted")
 	}
 }
@@ -130,4 +154,22 @@ type panicCustodyReader struct{}
 
 func (panicCustodyReader) Read([]byte) (int, error) {
 	panic("synthetic-independent-custody-canary")
+}
+
+func (panicCustodyReader) Close() error { return nil }
+
+type blockingCustodyReader struct {
+	started, closed      chan struct{}
+	startOnce, closeOnce sync.Once
+}
+
+func (reader *blockingCustodyReader) Read([]byte) (int, error) {
+	reader.startOnce.Do(func() { close(reader.started) })
+	<-reader.closed
+	return 0, os.ErrClosed
+}
+
+func (reader *blockingCustodyReader) Close() error {
+	reader.closeOnce.Do(func() { close(reader.closed) })
+	return nil
 }

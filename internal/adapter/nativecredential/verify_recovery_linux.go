@@ -51,8 +51,9 @@ func (output *boundedDecryption) Write(value []byte) (int, error) {
 
 // VerifyRecoveredDraft decrypts the bytes read from the exact protected draft
 // inode under this host's fixed native systemd key and compares the result
-// with independently supplied material. It grants no credential authority.
-func VerifyRecoveredDraft(ctx context.Context, request VerifyRecoveryRequest, independent io.Reader) (result VerifiedDraft, err error) {
+// with independently supplied material. It owns and closes the supplied
+// stream, including on cancellation. It grants no credential authority.
+func VerifyRecoveredDraft(ctx context.Context, request VerifyRecoveryRequest, independent io.ReadCloser) (result VerifiedDraft, err error) {
 	var expected []byte
 	var output boundedDecryption
 	defer func() {
@@ -63,9 +64,14 @@ func VerifyRecoveredDraft(ctx context.Context, request VerifyRecoveryRequest, in
 			err = nativeError(generated.ErrorCodeRecoveryRequired, "credential-recovery-verify")
 		}
 	}()
+	if independent != nil {
+		defer independent.Close()
+	}
 	if ctx == nil || ctx.Err() != nil || independent == nil || !filepath.IsAbs(request.CiphertextDirectory) || filepath.Clean(request.CiphertextDirectory) != request.CiphertextDirectory || !validRecoveryFingerprint(request.ExpectedFingerprint) {
 		return result, nativeError(generated.ErrorCodeInputInvalid, "credential-recovery-request")
 	}
+	stopClose := context.AfterFunc(ctx, func() { _ = independent.Close() })
+	defer stopClose()
 	if _, parseErr := credentialref.ParseID(request.Name); parseErr != nil {
 		return result, nativeError(generated.ErrorCodeInputInvalid, "credential-recovery-name")
 	}
