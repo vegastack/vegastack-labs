@@ -836,12 +836,12 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go" {
 				return false
 			}
-			expected = "94b5762e7da670daaf3dd9184a977dd317601387aca599c97b202a94abb2b0d7"
+			expected = "0b49c511c5450421d8a043d865dffd8ac9a36e4fe646dd1263d0ea75af995515"
 		} else {
 			if strings.Join(names, ",") != "audit_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go" {
 				return false
 			}
-			expected = "31c814bbf60d133b7e67ada9286f48858e7cab4da1a80ed208653d7e3aa9f048"
+			expected = "f4e3a49d5912730d1266ef549c344763e7632b400474aebd4c2d69e754334570"
 		}
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == expected
