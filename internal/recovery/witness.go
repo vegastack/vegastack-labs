@@ -52,13 +52,8 @@ type PinnedWitness struct {
 	Revoked                 bool
 	ExpiresAt               time.Time
 	manifestAuthenticated   bool
-	manifestBinding         manifestBoundIdentity
+	manifestBinding         WitnessBinding
 	pinSeal                 [32]byte
-}
-
-type manifestBoundIdentity struct {
-	FormerHostID, FormerInstanceID, ReplacementHostID, ReplacementInstanceID string
-	PriorEpoch, NewEpoch                                                     int64
 }
 
 func (pin PinnedWitness) seal() [32]byte {
@@ -66,9 +61,13 @@ func (pin PinnedWitness) seal() [32]byte {
 		KeyID, WitnessInstanceID, RecipientKeyID, ManifestDigest string
 		PublicKey, RecipientPublicKey                            []byte
 		ExpiresAt                                                time.Time
-		Binding                                                  manifestBoundIdentity
+		Binding                                                  WitnessBinding
 	}{pin.KeyID, pin.WitnessInstanceID, pin.RecipientKeyID, pin.ManifestDigest, pin.PublicKey, pin.RecipientPublicKey, pin.ExpiresAt, pin.manifestBinding})
 	return sha256.Sum256(data)
+}
+
+func (pin PinnedWitness) matchesBinding(expected WitnessBinding) bool {
+	return pin.AuthenticatedExternally && pin.manifestAuthenticated && pin.pinSeal == pin.seal() && !pin.Revoked && validBinding(expected) && len(pin.RecipientPublicKey) == 32 && validWitnessToken(pin.RecipientKeyID) && witnessDigest.MatchString(pin.ManifestDigest) && pin.manifestBinding == expected
 }
 
 type WitnessPayload struct {
@@ -106,11 +105,7 @@ func VerifySignedWitness(ctx context.Context, pin PinnedWitness, expected Witnes
 	if ctx == nil || ctx.Err() != nil {
 		return ErrWitnessUnavailable
 	}
-	if !pin.AuthenticatedExternally || !pin.manifestAuthenticated || pin.pinSeal != pin.seal() || pin.Revoked || len(pin.PublicKey) != ed25519.PublicKeySize || len(pin.RecipientPublicKey) != 32 || !validWitnessToken(pin.KeyID) || !validWitnessToken(pin.WitnessInstanceID) || !validWitnessToken(pin.RecipientKeyID) || !witnessDigest.MatchString(pin.ManifestDigest) || !validBinding(expected) {
-		return ErrWitnessUnavailable
-	}
-	bound := pin.manifestBinding
-	if bound.FormerHostID != expected.FormerHostID || bound.FormerInstanceID != expected.FormerInstanceID || bound.ReplacementHostID != expected.ReplacementHostID || bound.ReplacementInstanceID != expected.ReplacementInstanceID || bound.PriorEpoch != expected.PriorEpoch || bound.NewEpoch != expected.NewEpoch {
+	if !pin.matchesBinding(expected) || len(pin.PublicKey) != ed25519.PublicKeySize || !validWitnessToken(pin.KeyID) || !validWitnessToken(pin.WitnessInstanceID) {
 		return ErrWitnessUnavailable
 	}
 	if pin.WitnessInstanceID == expected.FormerInstanceID || pin.WitnessInstanceID == expected.ReplacementInstanceID || expected.FormerInstanceID == expected.ReplacementInstanceID || expected.FormerHostID == expected.ReplacementHostID {

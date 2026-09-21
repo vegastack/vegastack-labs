@@ -20,14 +20,14 @@ func (isolatedWitnessAdapter) VerifyDirectDenial(context.Context, recovery.Direc
 	return nil
 }
 
-type isolatedRecipient struct {
-	material []byte
-	opens    int
+type isolatedRecipientKeySource struct {
+	key   []byte
+	opens int
 }
 
-func (r *isolatedRecipient) Open(_ context.Context, _ recovery.ProtectedEnvelope, _ recovery.WitnessBinding) (recovery.CustodyStream, error) {
-	r.opens++
-	return recovery.CustodyStream{Reader: io.NopCloser(bytes.NewReader(r.material)), MaxBytes: 4096, ReceiptID: "receipt-1"}, nil
+func (s *isolatedRecipientKeySource) OpenPrivate(context.Context, string) (io.ReadCloser, error) {
+	s.opens++
+	return io.NopCloser(bytes.NewReader(s.key)), nil
 }
 
 type isolatedReceipts struct{ used bool }
@@ -55,7 +55,7 @@ func TestRecoveryWitnessCandidateRejectsReplayAndUnavailableRecipient(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	manifest := recovery.RecoveryManifest{ManifestID: "manifest-1", WitnessKeyID: "key-1", WitnessInstanceID: "outside-instance", WitnessPublicKey: public, RecipientKeyID: "ephemeral-recipient-1", RecipientPublicKey: recipientKey.PublicKey().Bytes(), FormerHostID: binding.FormerHostID, FormerInstanceID: binding.FormerInstanceID, ReplacementHostID: binding.ReplacementHostID, ReplacementInstanceID: binding.ReplacementInstanceID, PriorEpoch: binding.PriorEpoch, NewEpoch: binding.NewEpoch, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute)}
+	manifest := recovery.RecoveryManifest{ManifestID: "manifest-1", WitnessKeyID: "key-1", WitnessInstanceID: "outside-instance", WitnessPublicKey: public, RecipientKeyID: "ephemeral-recipient-1", RecipientPublicKey: recipientKey.PublicKey().Bytes(), Binding: binding, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute)}
 	manifestCanonical, err := recovery.CanonicalRecoveryManifest(manifest)
 	if err != nil {
 		t.Fatal(err)
@@ -80,13 +80,24 @@ func TestRecoveryWitnessCandidateRejectsReplayAndUnavailableRecipient(t *testing
 	}
 	qualified := recovery.NewQualifiedAdapters()
 	qualified.Register("adapter-1", isolatedWitnessAdapter{})
-	recipient := &isolatedRecipient{material: []byte("synthetic-custody")}
+	material := []byte("synthetic-custody")
+	envelope, err := recovery.SealProtectedEnvelope(context.Background(), pin, binding, io.NopCloser(bytes.NewReader(material)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	keySource := &isolatedRecipientKeySource{key: recipientKey.Bytes()}
+	recipient := recovery.NewProtectedRecipient(pin, keySource)
 	receipts := &isolatedReceipts{}
-	candidate := recoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: recovery.SignedWitness{Payload: payload, Signature: ed25519.Sign(private, canonical)}, Required: required, Qualified: qualified, Envelope: recovery.ProtectedEnvelope{RecipientKeyID: "ephemeral-recipient-1", Ciphertext: []byte("synthetic-encrypted-envelope"), ReceiptID: binding.ReceiptID}, Recipient: recipient, Receipts: receipts}
+	candidate := recoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: recovery.SignedWitness{Payload: payload, Signature: ed25519.Sign(private, canonical)}, Required: required, Qualified: qualified, Envelope: envelope, Recipient: recipient, Receipts: receipts}
 	compare := func(r io.ReadCloser) error {
 		defer r.Close()
-		buf := make([]byte, 64)
-		n, _ := r.Read(buf)
+		var buf [64]byte
+		defer func() {
+			for i := range buf {
+				buf[i] = 0
+			}
+		}()
+		n, _ := r.Read(buf[:])
 		if string(buf[:n]) != "synthetic-custody" {
 			return recovery.ErrWitnessUnavailable
 		}
@@ -95,7 +106,7 @@ func TestRecoveryWitnessCandidateRejectsReplayAndUnavailableRecipient(t *testing
 	if err := candidate.verify(context.Background(), compare); err != nil {
 		t.Fatal(err)
 	}
-	if !receipts.used || recipient.opens != 1 {
+	if !receipts.used || keySource.opens != 1 {
 		t.Fatal("custody not consumed once")
 	}
 	if err := candidate.verify(context.Background(), compare); err == nil {

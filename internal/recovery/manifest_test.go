@@ -28,7 +28,7 @@ func TestSignedProtectedManifestEstablishesPin(t *testing.T) {
 		t.Fatal(err)
 	}
 	_, binding, _, now := witnessFixture(t)
-	payload := RecoveryManifest{ManifestID: "manifest-1", WitnessKeyID: "witness-key-1", WitnessInstanceID: "outside-instance", WitnessPublicKey: witnessPublic, RecipientKeyID: "recipient-1", RecipientPublicKey: recipient.PublicKey().Bytes(), FormerHostID: binding.FormerHostID, FormerInstanceID: binding.FormerInstanceID, ReplacementHostID: binding.ReplacementHostID, ReplacementInstanceID: binding.ReplacementInstanceID, PriorEpoch: binding.PriorEpoch, NewEpoch: binding.NewEpoch, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)}
+	payload := RecoveryManifest{ManifestID: "manifest-1", WitnessKeyID: "witness-key-1", WitnessInstanceID: "outside-instance", WitnessPublicKey: witnessPublic, RecipientKeyID: "recipient-1", RecipientPublicKey: recipient.PublicKey().Bytes(), Binding: binding, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)}
 	canonical, err := CanonicalRecoveryManifest(payload)
 	if err != nil {
 		t.Fatal(err)
@@ -56,13 +56,22 @@ func TestSignedProtectedManifestEstablishesPin(t *testing.T) {
 	}
 	for name, mutate := range map[string]func(*SignedRecoveryManifest){
 		"changed-recipient": func(a *SignedRecoveryManifest) { a.Payload.RecipientKeyID = "other" },
-		"wrong-host":        func(a *SignedRecoveryManifest) { a.Payload.ReplacementHostID = "other" },
+		"wrong-host":        func(a *SignedRecoveryManifest) { a.Payload.Binding.ReplacementHostID = "other" },
+		"wrong-draft":       func(a *SignedRecoveryManifest) { a.Payload.Binding.DraftID = "other" },
+		"wrong-challenge":   func(a *SignedRecoveryManifest) { a.Payload.Binding.ChallengeID = "other" },
 		"old-witness":       func(a *SignedRecoveryManifest) { a.Payload.WitnessInstanceID = binding.FormerInstanceID },
 		"revoked":           func(a *SignedRecoveryManifest) { a.Payload.Revoked = true },
 	} {
 		t.Run(name, func(t *testing.T) {
 			copy := artifact
 			mutate(&copy)
+			if name != "changed-recipient" && name != "revoked" {
+				changedCanonical, err := CanonicalRecoveryManifest(copy.Payload)
+				if err != nil {
+					t.Fatal(err)
+				}
+				copy.Signature = ed25519.Sign(adminPrivate, changedCanonical)
+			}
 			data, _ := json.Marshal(copy)
 			if _, err := ParseSignedRecoveryManifest(data, adminPublic, binding, now); err == nil {
 				t.Fatal("invalid manifest accepted")

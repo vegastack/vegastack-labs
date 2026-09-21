@@ -10,9 +10,13 @@ import (
 // key must be authenticated separately from both controllers. This package
 // has no production recipient or custodian implementation.
 type ProtectedEnvelope struct {
-	RecipientKeyID string
-	Ciphertext     []byte
-	ReceiptID      string
+	Version            int
+	RecipientKeyID     string
+	EphemeralPublicKey []byte
+	Nonce              []byte
+	BindingDigest      string
+	Ciphertext         []byte
+	ReceiptID          string
 }
 
 // ProtectedRecipient opens one envelope only after independently checking the
@@ -20,6 +24,13 @@ type ProtectedEnvelope struct {
 // reader is owned by VerifyCustody; no plaintext is persisted by this seam.
 type ProtectedRecipient interface {
 	Open(context.Context, ProtectedEnvelope, WitnessBinding) (CustodyStream, error)
+}
+
+// RecipientPrivateKeySource yields one protected private-key stream for an
+// admin-authenticated replacement recipient. The server never receives a key
+// through a request, plan, restored database, log, or command argument.
+type RecipientPrivateKeySource interface {
+	OpenPrivate(context.Context, string) (io.ReadCloser, error)
 }
 
 type CustodyStream struct {
