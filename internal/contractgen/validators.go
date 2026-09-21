@@ -91,18 +91,24 @@ func ValidateLifecycleRequestSemantics(request CredentialLifecycleRequest) error
   unitName := regexp.MustCompile("^[a-z0-9][a-z0-9_.@-]{0,119}\\.service$")
   positive := map[string]bool{}
   positiveUID := map[int64]bool{}
+  positiveUnits := map[struct{ host, unit string }]bool{}
   for _, id := range request.ConsumerIDs { positive[id] = true }
   host := ""
   for _, item := range *request.NativeConsumers {
    if item.Schema != SchemaIDCredentialNativeConsumer || item.SchemaVersion != "1.0.0" || !positive[item.ConsumerID] || item.TargetID != request.TargetID || !machineID.MatchString(item.HostMachineID) || !unitName.MatchString(item.UnitName) || strings.Contains(item.UnitName, "..") || item.ServiceUID <= 0 || item.ServiceUID > 4294967295 || item.ServiceGID <= 0 || item.ServiceGID > 4294967295 || !identifier.MatchString(item.ProfileID) || !identifier.MatchString(item.RoleID) { return invalid() }
    if host != "" && item.HostMachineID != host { return invalid() }; host = item.HostMachineID
+   unitKey := struct{ host, unit string }{item.HostMachineID, item.UnitName}
+   if positiveUnits[unitKey] { return invalid() }; positiveUnits[unitKey] = true
    delete(positive, item.ConsumerID); positiveUID[item.ServiceUID] = true
   }
   if len(positive) != 0 { return invalid() }
   denied := map[string]bool{}
+  deniedReaders := map[struct { host string; uid, gid int64 }]bool{}
   for _, id := range request.RequiredDeniedConsumerIDs { denied[id] = true }
   for _, item := range *request.NativeDeniedReaders {
    if item.Schema != SchemaIDCredentialNativeDeniedReader || item.SchemaVersion != "1.0.0" || !denied[item.ConsumerID] || item.TargetID != request.TargetID || item.HostMachineID != host || item.ReaderUID <= 0 || item.ReaderUID > 4294967295 || item.ReaderGID <= 0 || item.ReaderGID > 4294967295 || positiveUID[item.ReaderUID] || !identifier.MatchString(item.ProfileID) || !identifier.MatchString(item.RoleID) { return invalid() }
+   readerKey := struct { host string; uid, gid int64 }{item.HostMachineID, item.ReaderUID, item.ReaderGID}
+   if deniedReaders[readerKey] { return invalid() }; deniedReaders[readerKey] = true
    delete(denied, item.ConsumerID)
   }
   if len(denied) != 0 { return invalid() }

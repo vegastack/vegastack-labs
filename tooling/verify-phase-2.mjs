@@ -149,7 +149,7 @@ const REVIEWED_BACKUP_WAVE = Object.freeze({
 const REVIEWED_NATIVE_READER_MAP_WAVE = Object.freeze({
   id: "phase5-issue140-v1", issue: 140,
   commands: Object.freeze([]), imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:ccc3faff7ca4767813cc7b0a6c2950faeeba50586e8b934aa45b0b8da9d9a9a9",
+  mutationBoundaryDigest: "sha256:86e5f138bcf4302cd0353911e15faaab71187cfe932e9216534304661df2c88f",
 });
 
 

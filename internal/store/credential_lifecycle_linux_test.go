@@ -89,6 +89,7 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 		}
 		if action == credentialref.ActionActivate {
 			binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+			setNativeLifecycleReaders(&binding)
 		}
 		sealed = []credentialref.LifecycleBinding{binding}
 	}
@@ -209,7 +210,7 @@ func stagedReference(stateRevision int64) generated.CredentialReference {
 	return generated.CredentialReference{
 		Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0",
 		ReferenceID: "reference-a", ConsumerID: "consumer-a", PurposeID: "deploy-a",
-		TargetID: "service-a", ResolverID: "fixture-resolver", MaterialVersion: "version-a",
+		TargetID: "service-a", ResolverID: "native-systemd", MaterialVersion: "version-a",
 		Fingerprint: lifecycleFingerprint, Status: "staged", StateRevision: stateRevision + 1, RecoveryEpoch: 0,
 		VerifiedConsumerIDs: []string{},
 	}
@@ -219,9 +220,22 @@ func stageBinding() credentialref.LifecycleBinding {
 	return credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionStage, DraftID: stringPointer("draft-a"),
 		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, MaterialVersion: "version-a",
-		ResolverID: "fixture-resolver", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
+		ResolverID: "native-systemd", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
 		StateRevision: 2, RecoveryEpoch: 0, ImportDraftStateRevision: int64PointerLifecycle(1), ImportDraftConsumerID: stringPointer("consumer-a"), ImportDraftPurposeID: stringPointer("deploy-a"),
 	}
+}
+
+func setNativeLifecycleReaders(binding *credentialref.LifecycleBinding) {
+	binding.NativeArtifactConsumerID = "consumer-a"
+	binding.NativeConsumers = []credentialref.NativeConsumerBinding{{
+		ConsumerID: "consumer-a", TargetID: binding.TargetID, HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a",
+		LoadedName: credentialref.LoadedNameForVersion("consumer-a", binding.ReferenceID, binding.MaterialVersion),
+	}}
+	binding.NativeDeniedReaders = []credentialref.NativeDeniedReaderBinding{{
+		ConsumerID: "consumer-denied", TargetID: binding.TargetID, HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-b", RoleID: "role-b",
+	}}
 }
 
 // The native identity map is plan metadata, not proof that a consumer loaded
@@ -359,9 +373,10 @@ func TestCredentialLifecycleSpineStageThenActivate(t *testing.T) {
 	activateBinding := credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionActivate, ReferenceID: "reference-a",
 		ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{"consumer-denied"},
-		MaterialVersion: "version-a", ResolverID: "fixture-resolver", TargetID: "service-a",
+		MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "service-a",
 		CiphertextFingerprint: lifecycleFingerprint, StateRevision: 3, RecoveryEpoch: 0,
 	}
+	setNativeLifecycleReaders(&activateBinding)
 	verifications := []credentialref.ConsumerVerification{
 		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
 		{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: false, Result: "denied", ReasonCode: "denied"},
@@ -403,6 +418,7 @@ func TestCredentialLifecycleAppendRejectsDeniedEvidenceForOldMaterial(t *testing
 	binding.ImportDraftPurposeID = nil
 	binding.StateRevision = 3
 	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	setNativeLifecycleReaders(&binding)
 	positive, err := credentialref.NewConsumerVerification(binding, "consumer-a", "profile-a", "role-a", testDigest, "loaded", "verified", true)
 	if err != nil {
 		t.Fatal(err)
@@ -625,6 +641,7 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 					ref.ActivatedAt = &stamp
 					ref.VerifiedConsumerIDs = []string{"consumer-a"}
 					binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+					setNativeLifecycleReaders(&binding)
 					checks = []credentialref.ConsumerVerification{
 						{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
 						{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, Result: "denied", ReasonCode: "denied"},
@@ -734,6 +751,7 @@ func TestLogicalActiveSelectorRejectsUnrelatedMultipleActiveVersions(t *testing.
 	binding.ImportDraftPurposeID = nil
 	binding.StateRevision = 3
 	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	setNativeLifecycleReaders(&binding)
 	request := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, ref, 3, ackConsumed)
 	checks := []credentialref.ConsumerVerification{
 		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: ref.MaterialVersion, CiphertextFingerprint: ref.Fingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},

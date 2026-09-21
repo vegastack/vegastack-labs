@@ -138,6 +138,7 @@ func ValidateLifecycleRequestSemantics(request CredentialLifecycleRequest) error
 		unitName := regexp.MustCompile("^[a-z0-9][a-z0-9_.@-]{0,119}\\.service$")
 		positive := map[string]bool{}
 		positiveUID := map[int64]bool{}
+		positiveUnits := map[struct{ host, unit string }]bool{}
 		for _, id := range request.ConsumerIDs {
 			positive[id] = true
 		}
@@ -150,6 +151,11 @@ func ValidateLifecycleRequestSemantics(request CredentialLifecycleRequest) error
 				return invalid()
 			}
 			host = item.HostMachineID
+			unitKey := struct{ host, unit string }{item.HostMachineID, item.UnitName}
+			if positiveUnits[unitKey] {
+				return invalid()
+			}
+			positiveUnits[unitKey] = true
 			delete(positive, item.ConsumerID)
 			positiveUID[item.ServiceUID] = true
 		}
@@ -157,6 +163,10 @@ func ValidateLifecycleRequestSemantics(request CredentialLifecycleRequest) error
 			return invalid()
 		}
 		denied := map[string]bool{}
+		deniedReaders := map[struct {
+			host     string
+			uid, gid int64
+		}]bool{}
 		for _, id := range request.RequiredDeniedConsumerIDs {
 			denied[id] = true
 		}
@@ -164,6 +174,14 @@ func ValidateLifecycleRequestSemantics(request CredentialLifecycleRequest) error
 			if item.Schema != SchemaIDCredentialNativeDeniedReader || item.SchemaVersion != "1.0.0" || !denied[item.ConsumerID] || item.TargetID != request.TargetID || item.HostMachineID != host || item.ReaderUID <= 0 || item.ReaderUID > 4294967295 || item.ReaderGID <= 0 || item.ReaderGID > 4294967295 || positiveUID[item.ReaderUID] || !identifier.MatchString(item.ProfileID) || !identifier.MatchString(item.RoleID) {
 				return invalid()
 			}
+			readerKey := struct {
+				host     string
+				uid, gid int64
+			}{item.HostMachineID, item.ReaderUID, item.ReaderGID}
+			if deniedReaders[readerKey] {
+				return invalid()
+			}
+			deniedReaders[readerKey] = true
 			delete(denied, item.ConsumerID)
 		}
 		if len(denied) != 0 {
