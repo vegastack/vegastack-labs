@@ -5,6 +5,7 @@ import {
   checkStepsForPlan,
   classifyChangedPaths,
   fullCheckPlan,
+  goUnitTestArgs,
 } from "../lib/check-plan.mjs";
 import {
   decodeExecutionPlan,
@@ -67,6 +68,18 @@ test("browser runs only for browser impact and unknown input fails closed", () =
   assert.equal(fallback.failClosed, true);
   assert.equal(Object.hasOwn(docs, "linux"), false);
   assert.equal(Object.hasOwn(fallback, "linux"), false);
+});
+
+test("Go-only changes omit only the three Chromium-backed Go acceptance tests", () => {
+  const goOnly = classifyChangedPaths([{ status: "M", path: "internal/store/backup.go" }]);
+  assert.equal(goOnly.browser, false);
+  assert.ok(checkStepsForPlan(goOnly).some((step) => step.name === "Go unit tests"));
+  assert.deepEqual(goUnitTestArgs(false), [
+    "test", "./...", "-skip",
+    "^(TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary|TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary|TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS)$",
+  ]);
+  assert.deepEqual(goUnitTestArgs(true), ["test", "./..."]);
+  assert.equal(fullCheckPlan().browser, true);
 });
 
 for (const scenario of scenarios) {
