@@ -116,7 +116,7 @@ probe_json() {
 
 probe_json "$positive_uid" "$positive_gid" | runuser -u vsk-labs -- /usr/bin/sudo -n -- /usr/local/bin/vsk-labs __native-credential-access-probe >"$tmpdir/positive.json" 2>"$tmpdir/positive.stderr"
 test ! -s "$tmpdir/positive.stderr"
-jq -e '.status == "opened" and .inode > 0 and .mode > 0 and .owner_uid >= 0' "$tmpdir/positive.json" >/dev/null
+jq -e '.status == "opened" and .inode > 0 and .mode > 0 and (.owner_uid // 0) == 0 and (.owner_gid // 0) == 0' "$tmpdir/positive.json" >/dev/null
 probe_json "$denied_uid" "$denied_gid" | runuser -u vsk-labs -- /usr/bin/sudo -n -- /usr/local/bin/vsk-labs __native-credential-access-probe >"$tmpdir/denied.json" 2>"$tmpdir/probe.stderr"
 test ! -s "$tmpdir/probe.stderr"
 jq -e '.status == "denied" and (.inode // 0) == 0' "$tmpdir/denied.json" >/dev/null
