@@ -15,6 +15,8 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
+const maxLifecycleBindingBytes = 262144
+
 // draftLifecycleDigest reads the sealed x-credential-lifecycle extension digest.
 func draftLifecycleDigest(extensions []generated.ContractExtension) string {
 	for _, extension := range extensions {
@@ -90,7 +92,7 @@ func (repository *CredentialRepository) PutLifecycleDraft(ctx context.Context, r
 		return zero, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-operation")
 	}
 	body, encodeErr := json.Marshal(binding)
-	if encodeErr != nil || len(body) > 4096 {
+	if encodeErr != nil || len(body) > maxLifecycleBindingBytes {
 		return zero, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-lifecycle-binding")
 	}
 	key := audit.IntentKey{Scope: "credential-lifecycle-stage", KeyDigest: audit.Fingerprint(request.KeyDigest), RequestDigest: audit.Fingerprint(request.RequestDigest)}
@@ -152,7 +154,7 @@ func (repository *CredentialRepository) GetLifecycleBinding(ctx context.Context,
 	var binding credentialref.LifecycleBinding
 	// PutLifecycleDraft seals the single-member manifest, not its domain-separated
 	// member digest. Validate the persisted bytes under that same manifest domain.
-	if len(raw) > 4096 || json.Unmarshal(raw, &binding) != nil || credentialref.LifecycleManifestDigestOf(binding) != digest || binding.RecoveryEpoch != epoch {
+	if len(raw) > maxLifecycleBindingBytes || json.Unmarshal(raw, &binding) != nil || credentialref.LifecycleManifestDigestOf(binding) != digest || binding.RecoveryEpoch != epoch {
 		return zero, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-binding")
 	}
 	if credentialref.LifecycleManifestDigestOf(binding) != extensionDigest || binding.OperationID != operationID {
@@ -549,7 +551,7 @@ func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request Crede
 		return credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-plan-seal")
 	}
 	var sealed credentialref.LifecycleBinding
-	if len(raw) > 4096 || json.Unmarshal(raw, &sealed) != nil || credentialref.LifecycleManifestDigestOf(sealed) != digest || epoch != binding.RecoveryEpoch || digest != credentialref.LifecycleManifestDigestOf(binding) || binding.StateRevision != stage.Expected.StateRevision {
+	if len(raw) > maxLifecycleBindingBytes || json.Unmarshal(raw, &sealed) != nil || credentialref.LifecycleManifestDigestOf(sealed) != digest || epoch != binding.RecoveryEpoch || digest != credentialref.LifecycleManifestDigestOf(binding) || binding.StateRevision != stage.Expected.StateRevision {
 		return credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-seal")
 	}
 	switch binding.Action {

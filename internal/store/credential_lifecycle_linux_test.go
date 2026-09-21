@@ -209,7 +209,7 @@ func stagedReference(stateRevision int64) generated.CredentialReference {
 	return generated.CredentialReference{
 		Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0",
 		ReferenceID: "reference-a", ConsumerID: "consumer-a", PurposeID: "deploy-a",
-		TargetID: "service-a", ResolverID: "native-systemd", MaterialVersion: "version-a",
+		TargetID: "service-a", ResolverID: "fixture-resolver", MaterialVersion: "version-a",
 		Fingerprint: lifecycleFingerprint, Status: "staged", StateRevision: stateRevision + 1, RecoveryEpoch: 0,
 		VerifiedConsumerIDs: []string{},
 	}
@@ -219,8 +219,45 @@ func stageBinding() credentialref.LifecycleBinding {
 	return credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionStage, DraftID: stringPointer("draft-a"),
 		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, MaterialVersion: "version-a",
-		ResolverID: "native-systemd", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
+		ResolverID: "fixture-resolver", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
 		StateRevision: 2, RecoveryEpoch: 0, ImportDraftStateRevision: int64PointerLifecycle(1), ImportDraftConsumerID: stringPointer("consumer-a"), ImportDraftPurposeID: stringPointer("deploy-a"),
+	}
+}
+
+// The native identity map is plan metadata, not proof that a consumer loaded
+// bytes. This checks only the exact SQLite plan/append boundary.
+func TestNativeMappingPlanSealRejectsChangedReaderUID(t *testing.T) {
+	repository := openCredentialStore(t)
+	binding := stageBinding()
+	binding.Action = credentialref.ActionActivate
+	binding.DraftID = nil
+	binding.ImportDraftStateRevision = nil
+	binding.ImportDraftConsumerID = nil
+	binding.ImportDraftPurposeID = nil
+	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	binding.ResolverID = "native-systemd"
+	binding.NativeConsumers = []credentialref.NativeConsumerBinding{{ConsumerID: "consumer-a", TargetID: "service-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a", LoadedName: credentialref.LoadedNameForVersion("consumer-a", binding.ReferenceID, binding.MaterialVersion)}}
+	binding.NativeDeniedReaders = []credentialref.NativeDeniedReaderBinding{{ConsumerID: "consumer-denied", TargetID: "service-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-b", RoleID: "role-b"}}
+	binding.StateRevision = 2
+	if !credentialref.ValidLifecycleBinding(binding) {
+		t.Fatal("native fixture must carry a complete exact map")
+	}
+	reference := stagedReference(2)
+	reference.ResolverID = "native-systemd"
+	stage := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, reference, 2, ackConsumed, binding)
+	tx, err := repository.store.conn.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer tx.Rollback()
+	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: binding, Stage: stage}); err != nil {
+		t.Fatalf("sealed native map rejected: %v", err)
+	}
+	mutated := binding
+	mutated.NativeDeniedReaders = append([]credentialref.NativeDeniedReaderBinding(nil), binding.NativeDeniedReaders...)
+	mutated.NativeDeniedReaders[0].ReaderUID++
+	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: mutated, Stage: stage}); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("changed physical reader identity passed plan/CAS: %v", err)
 	}
 }
 
@@ -263,7 +300,7 @@ func TestCredentialLifecycleSpineStageThenActivate(t *testing.T) {
 	activateBinding := credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionActivate, ReferenceID: "reference-a",
 		ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{"consumer-denied"},
-		MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "service-a",
+		MaterialVersion: "version-a", ResolverID: "fixture-resolver", TargetID: "service-a",
 		CiphertextFingerprint: lifecycleFingerprint, StateRevision: 3, RecoveryEpoch: 0,
 	}
 	verifications := []credentialref.ConsumerVerification{

@@ -12,7 +12,7 @@ func TestConsumerVerificationRequiresExactBoundDeniedEvidence(t *testing.T) {
 		OperationID: "operation-a", Action: credentialref.ActionActivate,
 		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"},
 		RequiredDeniedConsumerIDs: []string{"consumer-denied"},
-		MaterialVersion:           "version-a", ResolverID: "native-systemd", TargetID: "target-a",
+		MaterialVersion:           "version-a", ResolverID: "fixture-resolver", TargetID: "target-a",
 		CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64),
 		StateRevision:         3, RecoveryEpoch: 1,
 	}

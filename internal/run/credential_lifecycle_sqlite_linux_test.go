@@ -59,6 +59,8 @@ func prepareSQLiteCredentialLifecycle(t *testing.T, fixture *sqliteRestartFixtur
 	}
 	if action == credentialref.ActionActivate {
 		binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+		binding.NativeConsumers = []credentialref.NativeConsumerBinding{{ConsumerID: "consumer-lifecycle", TargetID: "target-lifecycle", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "lifecycle.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-lifecycle", RoleID: "role-lifecycle", LoadedName: credentialref.LoadedNameForVersion("consumer-lifecycle", binding.ReferenceID, binding.MaterialVersion)}}
+		binding.NativeDeniedReaders = []credentialref.NativeDeniedReaderBinding{{ConsumerID: "consumer-denied", TargetID: "target-lifecycle", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-denied", RoleID: "role-denied"}}
 	}
 	extensions := []generated.ContractExtension{{Name: "x-credential-lifecycle", ValueDigest: credentialref.LifecycleManifestDigestOf(binding)}}
 	declarations, err := change.NewService(store.NewDeclarationRepository(fixture.authority), fixture.clock)
