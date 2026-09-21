@@ -63,6 +63,12 @@ func TestPinnedResticEndToEnd(t *testing.T) {
 			strings.ReplaceAll(observation.Stdout, string(password.Bytes()), "[redacted]"),
 			strings.ReplaceAll(observation.Stderr, string(password.Bytes()), "[redacted]"))
 	}
+	request.Mode = "config"
+	if result, err := runner.Run(ctx, request, password); err != nil || result.RepositoryFormat != 2 {
+		observation := runner.Observation()
+		t.Fatalf("real restic config preflight: format=%d err=%v stderr=%q", result.RepositoryFormat, err,
+			strings.ReplaceAll(observation.Stderr, string(password.Bytes()), "[redacted]"))
+	}
 	snapshot := filepath.Join(fixture, "snapshot.sqlite")
 	request.Mode = "backup"
 	request.SnapshotPath = snapshot

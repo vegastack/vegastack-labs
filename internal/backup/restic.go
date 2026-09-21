@@ -11,8 +11,9 @@ import (
 // only logical references and paths; the repository password is passed
 // separately as a borrowed credential value and never appears here.
 type ResticRequest struct {
-	// Mode is "init" (create an empty repository-format-v2 repository) or
-	// "backup" (create one snapshot). It defaults to "backup".
+	// Mode is "init" (create an empty repository-format-v2 repository),
+	// "config" (read the authenticated repository format), or "backup"
+	// (create one snapshot). It defaults to "backup".
 	Mode            string
 	BinaryPath      string
 	Architecture    string

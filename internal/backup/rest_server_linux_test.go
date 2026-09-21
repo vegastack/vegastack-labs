@@ -181,39 +181,3 @@ func TestRESTBoundaryRejectsWhenLeaseVerifierDenies(t *testing.T) {
 		t.Fatalf("denied lease = %d, want 403", code)
 	}
 }
-
-func TestRepositoryFormatReadsGuardedRetainedConfig(t *testing.T) {
-	server, _, done := newRESTFixture(t)
-	defer done()
-	for name, body := range map[string]string{
-		"v1":              `{"version":1,"id":"old"}`,
-		"missing version": `{"id":"missing"}`,
-		"missing id":      `{"version":2}`,
-		"malformed":       `{"version":2`,
-		"trailing object": `{"version":2}{}`,
-	} {
-		t.Run(name, func(t *testing.T) {
-			if err := os.WriteFile(filepath.Join(server.root, "config"), []byte(body), 0o600); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := server.RepositoryFormat(); err == nil {
-				t.Fatal("invalid retained config accepted")
-			}
-		})
-	}
-	if err := os.WriteFile(filepath.Join(server.root, "config"), []byte(`{"version":2,"id":"`+strings.Repeat("a", 64)+`"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if format, err := server.RepositoryFormat(); err != nil || format != 2 {
-		t.Fatalf("valid config = %d, %v", format, err)
-	}
-	if err := os.Remove(filepath.Join(server.root, "config")); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.Symlink(filepath.Join(server.root, "outside"), filepath.Join(server.root, "config")); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := server.RepositoryFormat(); err == nil {
-		t.Fatal("symlinked config accepted")
-	}
-}

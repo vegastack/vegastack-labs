@@ -236,10 +236,12 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	} else if statErr != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-repository")
 	}
-	// The config is read through the same FD-relative, ownership-checked object
-	// boundary that serves restic. A retained non-v2 repository blocks before
-	// any backup write, including on the second and later points.
-	if format, err := restServer.RepositoryFormat(); err != nil || format != 2 {
+	// The pinned child decrypts the retained config through the guarded REST
+	// boundary. A non-v2 repository blocks before any backup write.
+	configRequest := base
+	configRequest.Mode = "config"
+	configRequest.OutputLimit = 64 << 10
+	if config, err := adapterImpl.config.Runner.Run(ctx, configRequest, password); err != nil || config.RepositoryFormat != 2 {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-format")
 	}
 	backupRequest := base

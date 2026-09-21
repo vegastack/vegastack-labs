@@ -88,7 +88,7 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	if mode == "" {
 		mode = "backup"
 	}
-	if mode != "backup" && mode != "init" {
+	if mode != "backup" && mode != "init" && mode != "config" {
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 	if mode == "backup" && request.SnapshotPath == "" {
@@ -111,6 +111,8 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	}
 	if mode == "init" {
 		argv = append(argv, "init", "--repository-version", "2")
+	} else if mode == "config" {
+		argv = append(argv, "cat", "config")
 	} else {
 		argv = append(argv, "backup", request.SnapshotPath, "--host", "vsk-labs")
 	}
@@ -130,7 +132,9 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	started := runner.clock().UTC()
 	runErr := command.Run()
 	completed := runner.clock().UTC()
-	runner.observation.Stdout = stdout.String()
+	if mode != "config" {
+		runner.observation.Stdout = stdout.String()
+	}
 	runner.observation.Stderr = stderr.String()
 	if runErr != nil {
 		if ctx.Err() != nil {
@@ -141,6 +145,25 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 
 	if mode == "init" {
 		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
+	}
+	if mode == "config" {
+		var config struct {
+			Version int    `json:"version"`
+			ID      string `json:"id"`
+		}
+		decoder := json.NewDecoder(bytes.NewReader(stdout.Bytes()))
+		if err := decoder.Decode(&config); err != nil || config.Version != 2 {
+			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-config", false)
+		}
+		id, idErr := hex.DecodeString(config.ID)
+		if idErr != nil || len(id) != 32 {
+			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-config", false)
+		}
+		var trailing any
+		if err := decoder.Decode(&trailing); err != io.EOF {
+			return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-config", false)
+		}
+		return ResticResult{RepositoryFormat: config.Version, StartedAt: started, CompletedAt: completed}, nil
 	}
 
 	summary, err := parseResticSummary(stdout.Bytes())
