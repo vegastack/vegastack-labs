@@ -122,14 +122,21 @@ const REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE = Object.freeze({
   commands: Object.freeze([]), imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:1b31eaa862d23433611a5638d9876dc2d5f8aedbccfd76d80106a579d1b0e76b",
 });
+// Issue #134 binds clean-host recovery evidence to an exact inert draft and
+// epoch, but registers no production recovery source, command, or import.
+const REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE = Object.freeze({
+  id: "phase5-issue134-v1", issue: 134,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:5d0d831196eb25b842999dc70d19c97b4f503ad827ba64148b3c283a70b0855a",
+});
 // Issue #146 adds a bounded witness/recovery evidence contract but does not
 // register a production source, available command, or new production import.
 const REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE = Object.freeze({
   id: "phase5-issue146-v1", issue: 146,
   commands: Object.freeze([]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/recovery"]),
-  mutationBoundaryDigest: "sha256:c51ea1cd7f896f279169ab9bfb83dfe5feb86cd019e5a0a6e524dcf4801be60f",
+  mutationBoundaryDigest: "sha256:85a21b75148a624846924aea8fef673331436ed4f854eb714d6b4fd768477b10",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
