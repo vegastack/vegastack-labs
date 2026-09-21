@@ -263,7 +263,7 @@ func requestTyped[T any](client *client, ctx context.Context, profile serverconf
 		response, err = sshtransport.RoundTrip(ctx, sshtransport.Request{
 			Executable: profile.ConstrainedSSH.Executable, Arguments: profile.ConstrainedSSH.Arguments,
 			RequestID: requestID, SSHPrincipalID: profile.ConstrainedSSH.SSHPrincipalID, DeviceID: profile.ConstrainedSSH.DeviceID,
-			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: remoteCommandArguments(spec),
+			RecoveryEpoch: profile.ConstrainedSSH.RecoveryEpoch, OperationArgs: remoteCommandArgumentsForInput(spec, input),
 			Method: request.Method, Path: request.Path, Body: request.Body, Timeout: request.Timeout, ResponseLimit: request.ResponseLimit,
 		})
 	} else {
@@ -323,6 +323,27 @@ func remoteCommandArguments(spec requestSpec) []string {
 		"api.v1.runs.resume":                       {"run", "resume"},
 	}
 	return append([]string(nil), arguments[spec.command]...)
+}
+
+func remoteCommandArgumentsForInput(spec requestSpec, input any) []string {
+	if spec.command == "api.v1.credential-lifecycle-drafts.create" {
+		if request, ok := input.(generated.CredentialLifecycleRequest); ok {
+			switch request.Action {
+			case "credential.stage":
+				return []string{"credential", "stage"}
+			case "credential.activate":
+				return []string{"credential", "activate"}
+			case "credential.rotate":
+				return []string{"credential", "rotate"}
+			case "credential.revoke":
+				return []string{"credential", "revoke"}
+			case "credential.recover":
+				return []string{"credential", "recover"}
+			}
+		}
+		return nil
+	}
+	return remoteCommandArguments(spec)
 }
 
 func pathID(path, prefix, suffix string) (string, bool) {

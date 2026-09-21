@@ -96,6 +96,12 @@ func (handler apiSSHHandler) Serve(ctx context.Context, input io.Reader, output 
 	if request.Header.SSHPrincipalID != handler.verifiedPrincipalID || request.Header.DeviceID != handler.verifiedDeviceID || !handler.bindingMatches() {
 		return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeAuthorizationDenied, "api-ssh-binding", 0, 0)
 	}
+	if operationID == "api.v1.credential-lifecycle-drafts.create" {
+		var metadata generated.CredentialLifecycleRequest
+		if len(request.Payload) > 4096 || generated.ValidateContractJSON(generated.SchemaIDCredentialLifecycleRequest, request.Payload, generated.ContractExact) != nil || json.Unmarshal(request.Payload, &metadata) != nil || metadata.Action != "credential."+request.Header.Arguments[1] {
+			return handler.writeFailure(output, request.Header.RequestID, backendCommand, generated.ErrorCodeInputInvalid, "api-ssh-lifecycle-metadata", 0, 0)
+		}
+	}
 	health, err := handler.forward(ctx, localtransport.Request{
 		SocketPath: handler.profile.SocketPath, Method: localtransport.MethodGet, Path: "/api/v1/health",
 		Timeout: 3 * time.Second, ResponseLimit: 64 * 1024,
@@ -153,6 +159,17 @@ func (handler apiSSHHandler) readRequest(ctx context.Context, input io.Reader) (
 }
 
 func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string) (string, bool) {
+	if operationID == "api.v1.credential-lifecycle-drafts.create" {
+		if requestPath != "/api/v1/credential-lifecycle-drafts" || len(arguments) != 2 || arguments[0] != "credential" {
+			return "", false
+		}
+		for _, action := range []string{"stage", "activate", "rotate", "revoke", "recover"} {
+			if arguments[1] == action {
+				return requestPath, true
+			}
+		}
+		return "", false
+	}
 	commandArguments, available := apiSSHCommandArguments(operationID)
 	if !available {
 		return "", false

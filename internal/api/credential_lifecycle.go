@@ -20,7 +20,7 @@ func RegisterCredentialLifecycleOperation(app *Application, config CredentialLif
 	if app == nil || config.Lifecycle == nil || config.Results == nil || config.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "credential-lifecycle-config")
 	}
-	app.routes = append(app.routes, route{id: "api.v1.credential-lifecycle-drafts.create", method: http.MethodPost, pattern: "/api/v1/credential-lifecycle-drafts", capability: "credential.lifecycle.author", kind: "credential-reference", action: authorization.ActionAuthor, handler: app.credentialLifecycleDraft(config)})
+	app.routes = append(app.routes, route{id: "api.v1.credential-lifecycle-drafts.create", method: http.MethodPost, pattern: "/api/v1/credential-lifecycle-drafts", deferredAuthorization: true, handler: app.credentialLifecycleDraft(config)})
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-1]
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")

@@ -3,6 +3,8 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -40,6 +42,47 @@ func syntheticLifecycleRequest(t *testing.T, command string) []byte {
 		t.Fatal(err)
 	}
 	return raw
+}
+
+func TestLifecycleCLIValidLeavesReturnMetadataOnly(t *testing.T) {
+	for _, action := range []string{"stage", "activate", "rotate", "revoke", "recover"} {
+		for _, output := range []string{"human", "json"} {
+			t.Run(action+"/"+output, func(t *testing.T) {
+				operations := successfulCredentialOperations(t)
+				files := &stubFileReader{content: syntheticLifecycleRequest(t, "credential "+action)}
+				code, stdout, stderr := runTestAppWithOptions(t, context.Background(), []string{"credential", action, "--config", "profile.json", "--file", "request.json", "--output", output}, nil, WithControlOperations(successfulControlOperations(t), files), WithCredentialControlOperations(operations))
+				if code != 0 || operations.calls != 1 || operations.config != "profile.json" || stderr != "" {
+					t.Fatalf("valid lifecycle command: code=%d calls=%d stderr=%q", code, operations.calls, stderr)
+				}
+				if strings.Contains(stdout+stderr, "private-canary") || strings.Contains(stdout+stderr, "ciphertextFingerprint") || strings.Contains(stdout+stderr, "\"value\"") {
+					t.Fatal("lifecycle output disclosed private data")
+				}
+				if output == "json" {
+					var envelope generated.RunResult
+					if err := json.Unmarshal([]byte(stdout), &envelope); err != nil || envelope.Command != "api.v1.credential-lifecycle-drafts.create" || envelope.StateRevision != 9 {
+						t.Fatalf("JSON lifecycle envelope = %+v %v", envelope, err)
+					}
+					var submission generated.CredentialLifecycleSubmission
+					if err := json.Unmarshal(envelope.Data, &submission); err != nil || submission.Action != "credential."+action || submission.ChangeID != "change-a" || submission.Status != "draft" {
+						t.Fatalf("JSON lifecycle submission = %+v %v", submission, err)
+					}
+				} else {
+					want := "Credential lifecycle draft draft\nAction: credential." + action + "\nReference: reference-a\nChange: change-a\nState revision: 9\nRecovery epoch: 2\n"
+					if action == "stage" {
+						golden, err := os.ReadFile(filepath.Join("testdata", "credential-lifecycle-human.golden"))
+						if err != nil {
+							t.Fatal(err)
+						}
+						want = string(golden)
+					}
+					if stdout != want {
+						t.Fatalf("human lifecycle output = %q, want %q", stdout, want)
+					}
+				}
+			})
+		}
+	}
+
 }
 
 func (stub *stubCredentialOperations) CreateCredentialLifecycleDraft(_ context.Context, config string, input generated.CredentialLifecycleRequest) (localapi.TypedResponse[generated.CredentialLifecycleSubmission], error) {
