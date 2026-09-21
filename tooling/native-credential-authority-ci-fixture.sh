@@ -44,7 +44,6 @@ test "$(git -c "safe.directory=$VSK143_WORKSPACE" -C "$VSK143_WORKSPACE" status 
 for command in git systemctl pkcheck sudo nsenter jq python3 useradd userdel groupdel node visudo; do
   command -v "$command" >/dev/null || fatal "Missing fixture prerequisite: $command"
 done
-test -x "$VSK143_ANSIBLE" || fatal 'Missing pinned fixture Ansible'
 test "$(stat -c '%u:%a' "$VSK143_BINARY")" = "$(id -u "${SUDO_USER:-root}"):755" || fatal 'Built fixture binary metadata is unexpected'
 for path in "$marker" "$unit_allow" "$unit_other" "$policy" "$polkit_rule" "$sudo_rule" "$binary" /etc/vsk-labs /run/vsk-native-authority-disposable /etc/polkit-1/rules.d/90-vsk-native-permissive-fixture.rules /etc/polkit-1/rules.d/00-aaa-vsk-native-permissive-fixture.rules /etc/sudoers.d/00-vsk-native-broad-fixture; do
   test ! -e "$path" || fatal "Fixture path already exists: $path"
@@ -53,6 +52,7 @@ for account in vsk-labs vsk-native-positive vsk-native-denied; do
   getent passwd "$account" >/dev/null && fatal "Fixture account exists: $account"
   getent group "$account" >/dev/null && fatal "Fixture group exists: $account"
 done
+getent group polkitd >/dev/null || fatal 'Missing polkitd group'
 for uid in 20143 20144 20145; do
   getent passwd "$uid" >/dev/null && fatal "Fixture UID exists: $uid"
   getent group "$uid" >/dev/null && fatal "Fixture GID exists: $uid"
@@ -92,21 +92,16 @@ chmod 0644 "$unit_allow" "$unit_other"
 systemctl daemon-reload
 systemctl start vsk-native-allow.service vsk-native-other.service
 machine_id="$(cat /etc/machine-id)"
-export machine_id
-python3 - "$marker/playbook.json" <<'PY'
-import json, os, sys
-root=os.environ['VSK143_WORKSPACE']
-play=[{'hosts':'localhost','connection':'local','become':True,'gather_facts':False,
-'vars':{'native_credential_enrolled_units':['vsk-native-allow.service'],
-'native_credential_host_machine_id':os.environ['machine_id'].strip(),
-'native_credential_binary_path':'/usr/local/bin/vsk-labs',
-'native_credential_probe_bindings':[
-{'unit_name':'vsk-native-allow.service','credential_name':'credential-a','uid':20144,'gid':20144},
-{'unit_name':'vsk-native-allow.service','credential_name':'credential-a','uid':20145,'gid':20145}]},
-'roles':[root+'/ansible/roles/native_credential_authority']}]
-with open(sys.argv[1],'w') as output: json.dump(play,output)
-PY
-"$VSK143_ANSIBLE" -i localhost, "$marker/playbook.json" >/dev/null
+node "$VSK143_WORKSPACE/tooling/render-native-credential-fixture.mjs" "$machine_id" "$marker"
+install -d -o root -g vsk-labs -m 0750 /etc/vsk-labs
+install -o root -g vsk-labs -m 0640 "$marker/policy" "$policy"
+install -o root -g polkitd -m 0640 "$marker/rule" "$polkit_rule"
+install -o root -g root -m 0440 "$marker/sudoers" "$sudo_rule"
+test "$(stat -c '%U:%G:%a' /etc/vsk-labs)" = root:vsk-labs:750
+test "$(stat -c '%U:%G:%a' "$policy")" = root:vsk-labs:640
+test "$(stat -c '%U:%G:%a' "$polkit_rule")" = root:polkitd:640
+test "$(stat -c '%U:%G:%a' "$sudo_rule")" = root:root:440
+systemctl restart polkit.service
 node --check <"$polkit_rule"
 visudo -c -f "$sudo_rule" >/dev/null
 VSK_NATIVE_AUTHORITY_DISPOSABLE=1 VSK143_FIXTURE_TMP="$marker" bash "$VSK143_WORKSPACE/tooling/native-credential-authority-acceptance.sh"
