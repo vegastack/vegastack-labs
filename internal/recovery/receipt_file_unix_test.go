@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+
+	"golang.org/x/sys/unix"
 )
 
 func TestFileReceiptStoreConsumesOnceAcrossRestart(t *testing.T) {
@@ -48,6 +50,32 @@ func TestFileReceiptStoreConsumesOnceAcrossRestart(t *testing.T) {
 	// identities can form another attempt.
 	if err := restarted.Consume(context.Background(), "receipt-3", "challenge-2"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestFileReceiptStoreSyncsFirstClaimBeforeSecondClaimFails(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.Chmod(dir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	owner := uint32(os.Geteuid())
+	first := fileReceiptStore{directory: dir, expectedUID: owner}
+	if err := first.Consume(context.Background(), "receipt-old", "challenge-used"); err != nil {
+		t.Fatal(err)
+	}
+	directorySyncs := 0
+	restarted := fileReceiptStore{directory: dir, expectedUID: owner, syncDirectory: func(fd int) error {
+		directorySyncs++
+		return unix.Fsync(fd)
+	}}
+	if err := restarted.Consume(context.Background(), "receipt-partial", "challenge-used"); err == nil {
+		t.Fatal("reused challenge accepted")
+	}
+	if directorySyncs != 1 {
+		t.Fatalf("first marker was not durable before second claim failed: directory syncs=%d", directorySyncs)
+	}
+	if err := (fileReceiptStore{directory: dir, expectedUID: owner}).Consume(context.Background(), "receipt-partial", "challenge-fresh"); err == nil {
+		t.Fatal("partial receipt claim was reused after store reconstruction")
 	}
 }
 

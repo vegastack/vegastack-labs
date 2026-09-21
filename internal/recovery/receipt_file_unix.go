@@ -23,8 +23,16 @@ func NewSystemReceiptStore() ReceiptStore {
 }
 
 type fileReceiptStore struct {
-	directory   string
-	expectedUID uint32
+	directory     string
+	expectedUID   uint32
+	syncDirectory func(int) error // test fault/ordering seam; nil uses fsync
+}
+
+func (store fileReceiptStore) sync(fd int) error {
+	if store.syncDirectory != nil {
+		return store.syncDirectory(fd)
+	}
+	return unix.Fsync(fd)
 }
 
 // Consume durably claims each receipt ID and challenge ID independently. A
@@ -43,11 +51,12 @@ func (store fileReceiptStore) Consume(ctx context.Context, receiptID, challengeI
 	if unix.Fstat(directoryFD, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Uid != store.expectedUID || stat.Mode&0o777 != 0o700 {
 		return ErrWitnessUnavailable
 	}
-	if claimReceiptMarker(directoryFD, "receipt", receiptID) != nil ||
-		claimReceiptMarker(directoryFD, "challenge", challengeID) != nil {
+	if claimReceiptMarker(directoryFD, "receipt", receiptID) != nil || store.sync(directoryFD) != nil || ctx.Err() != nil {
 		return ErrWitnessUnavailable
 	}
-	if unix.Fsync(directoryFD) != nil || ctx.Err() != nil {
+	// Persist the first directory entry before attempting the second claim: a
+	// duplicate challenge, cancellation or crash must not resurrect the receipt.
+	if claimReceiptMarker(directoryFD, "challenge", challengeID) != nil || store.sync(directoryFD) != nil || ctx.Err() != nil {
 		return ErrWitnessUnavailable
 	}
 	return nil
