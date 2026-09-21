@@ -7,6 +7,9 @@ const (
 	credentialReferenceSchemaID           = "vegastack-labs.dev/credential-reference"
 	credentialResolutionRecordSchemaID    = "vegastack-labs.dev/credential-resolution-record"
 	backupPolicySchemaID                  = "vegastack-labs.dev/backup-policy"
+	backupDependencySchemaID              = "vegastack-labs.dev/backup-dependency"
+	backupPolicyDraftRequestSchemaID      = "vegastack-labs.dev/backup-policy-draft-request"
+	backupPolicyDraftSubmissionSchemaID   = "vegastack-labs.dev/backup-policy-draft-submission"
 	backupJobSchemaID                     = "vegastack-labs.dev/backup-job"
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
@@ -77,6 +80,23 @@ func phase5CredentialSchema(identifier string, fields ...FieldDefinition) Schema
 
 func phase5AuditSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
+// Backup creation contracts are versioned to 1.1.0 by issue #106. The draft,
+// policy, job and recovery-point shapes are inert public metadata; they resolve
+// no credential and publish no evidence.
+func phase5BackupSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
+func phase5BackupRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(identifier, fields...)
 	schema.Version = "1.1.0"
 	schema.Fields[1].Enum = []string{"1.1.0"}
 	return schema
@@ -221,22 +241,39 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 
 func phase5RecoveryJobSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
-		phase5Schema(backupPolicySchemaID,
-			phase5ID("policyId", "PolicyID"), phase5ID("sourceId", "SourceID"),
-			phase5Digest("scopeDigest", "ScopeDigest"), phase5ID("retentionClass", "RetentionClass"),
-			phase5ID("verificationRequirement", "VerificationRequirement"),
+		// BackupDependency is a nested sub-object (like a principal binding); it
+		// carries no schema/schemaVersion envelope of its own.
+		{ID: backupDependencySchemaID, Version: "1.1.0", ArtifactPath: schemaPath(backupDependencySchemaID), Fields: []FieldDefinition{
+			phase5ID("dependencyId", "DependencyID"),
+			phase5Enum("kind", "Kind", "binary", "schema", "config", "image", "signature"),
+			phase5Digest("digest", "Digest"),
+		}},
+		phase5BackupSchema(backupPolicySchemaID,
+			phase5ID("policyId", "PolicyID"), phase5ID("ownerId", "OwnerID"), phase5ID("sourceId", "SourceID"),
+			phase5IDs("sourceSelectors", "SourceSelectors", 64),
+			phase5ID("consistencyHookId", "ConsistencyHookID"),
+			phase5NullableID("repositoryId", "RepositoryID"),
+			phase5Enum("repositoryClass", "RepositoryClass", "none", "standard", "critical"),
+			phase5Enum("scheduleIntent", "ScheduleIntent", "manual", "hourly", "daily", "weekly"),
+			phase5Nonnegative("expectedBytes", "ExpectedBytes"), phase5Nonnegative("expectedGrowthBytes", "ExpectedGrowthBytes"),
+			phase5Nonnegative("minimumFreeBytes", "MinimumFreeBytes"),
+			phase5NullableID("encryptionKeyReferenceId", "EncryptionKeyReferenceID"),
+			phase5NullableID("recoveryKeyReferenceId", "RecoveryKeyReferenceID"),
+			phase5Nonnegative("retentionDays", "RetentionDays"), phase5ID("restoreTargetId", "RestoreTargetID"),
+			FieldDefinition{JSONName: "dependencies", GoName: "Dependencies", Kind: ValueArray, Required: true, ItemRef: backupDependencySchemaID, MaxItems: intPointer(64)},
+			phase5Bool("functionalTestRequired", "FunctionalTestRequired"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5Positive("revision", "Revision"),
 		),
-		phase5Schema(backupJobSchemaID,
+		phase5BackupSchema(backupJobSchemaID,
 			phase5ID("jobId", "JobID"), phase5ID("policyId", "PolicyID"),
 			phase5Enum("sourceKind", "SourceKind", "fixture", "local", "independent"),
 			phase5Enum("proofClass", "ProofClass", "fixture", "live"),
 			phase5NullableID("pointId", "PointID"),
-			phase5Enum("status", "Status", "queued", "running", "failed", "verified", "uncertain"),
+			phase5Enum("status", "Status", "queued", "running", "pending", "failed", "verified", "uncertain"),
 			phase5NullableID("runId", "RunID"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5NullableDigest("verificationDigest", "VerificationDigest"),
 		),
-		phase5Schema(recoveryPointSchemaID,
+		phase5BackupSchema(recoveryPointSchemaID,
 			phase5ID("pointId", "PointID"),
 			phase5Enum("sourceKind", "SourceKind", "fixture", "local", "independent"),
 			phase5Enum("proofClass", "ProofClass", "fixture", "live"),
@@ -438,6 +475,15 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5BackupRequest(backupPolicyDraftRequestSchemaID,
+			FieldDefinition{JSONName: "policy", GoName: "Policy", Kind: ValueObject, Required: true, Ref: backupPolicySchemaID},
+		),
+		phase5BackupSchema(backupPolicyDraftSubmissionSchemaID,
+			phase5ID("draftId", "DraftID"), phase5ID("policyId", "PolicyID"),
+			phase5Digest("policyDigest", "PolicyDigest"),
+			phase5Enum("status", "Status", "draft"),
+			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5LifecycleRequest(credentialLifecycleRequestSchemaID,
 			phase5LifecycleAction(),
 			phase5NullableID("draftId", "DraftID"),
@@ -535,6 +581,7 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5Endpoint("api.v1.credential-references.get", "GET", "/api/v1/credential-references/{referenceId}", "", credentialReferenceSchemaID, false),
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
 		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialImportRequestSchemaID, DataSchema: credentialImportSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
+		{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", RequestSchema: backupPolicyDraftRequestSchemaID, DataSchema: backupPolicyDraftSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5Endpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5Endpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
@@ -593,7 +640,7 @@ func phase5GateEvidenceTransitions() []TransitionDefinition {
 }
 
 func phase5BackupJobTransitions() []TransitionDefinition {
-	return []TransitionDefinition{{From: "queued", To: "running"}, {From: "queued", To: "failed"}, {From: "running", To: "verified"}, {From: "running", To: "failed"}, {From: "running", To: "uncertain"}}
+	return []TransitionDefinition{{From: "queued", To: "running"}, {From: "queued", To: "failed"}, {From: "running", To: "pending"}, {From: "running", To: "failed"}, {From: "running", To: "uncertain"}, {From: "pending", To: "verified"}, {From: "pending", To: "failed"}}
 }
 
 func phase5RestoreTransitions() []TransitionDefinition {

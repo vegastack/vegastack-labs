@@ -350,6 +350,38 @@
                 "additionalProperties": false,
                 "properties": {
                   "from": {
+                    "const": "pending"
+                  },
+                  "to": {
+                    "const": "failed"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "pending"
+                  },
+                  "to": {
+                    "const": "verified"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
                     "const": "queued"
                   },
                   "to": {
@@ -386,6 +418,22 @@
                   },
                   "to": {
                     "const": "failed"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "running"
+                  },
+                  "to": {
+                    "const": "pending"
                   }
                 },
                 "required": [
@@ -409,27 +457,11 @@
                   "to"
                 ],
                 "type": "object"
-              },
-              {
-                "additionalProperties": false,
-                "properties": {
-                  "from": {
-                    "const": "running"
-                  },
-                  "to": {
-                    "const": "verified"
-                  }
-                },
-                "required": [
-                  "from",
-                  "to"
-                ],
-                "type": "object"
               }
             ]
           },
-          "maxItems": 5,
-          "minItems": 5,
+          "maxItems": 7,
+          "minItems": 7,
           "type": "array",
           "uniqueItems": true
         },

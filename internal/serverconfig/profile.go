@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/principal"
@@ -30,6 +31,20 @@ type Profile struct {
 	PrincipalBindings                []principal.Binding
 	RemoteRead                       RemoteRead
 	AcknowledgementAdapterConfigPath string
+	LocalBackup                      *LocalBackup
+}
+
+// LocalBackup names the protected server-owned local recovery roots and the
+// pinned restic executable. It is an all-or-none profile field: absent disables
+// local backup creation entirely, and no declaration can override it. Callers
+// select registered repository/source IDs, never these host paths.
+type LocalBackup struct {
+	StandardRoot         string
+	CriticalRoot         string
+	ResticBinaryPath     string
+	SourceID             string
+	StandardRepositoryID string
+	CriticalRepositoryID string
 }
 
 // ConstrainedSSH is a client-only transport. Arguments are produced by the
@@ -80,7 +95,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	invalid := func() (Profile, error) {
 		return Profile{}, failure.New("INPUT_INVALID", "server-config", false)
 	}
-	if input.Schema != generated.SchemaIDServerProfile || input.SchemaVersion != "1.1.0" ||
+	if input.Schema != generated.SchemaIDServerProfile || input.SchemaVersion != "1.2.0" ||
 		input.SocketOwnerUID < 0 || input.SocketOwnerUID > int64(^uint32(0)) || uint32(input.SocketOwnerUID) != expectedOwnerUID ||
 		input.ShutdownGraceSeconds != 5 || len(input.SocketPath) > 107 || strings.ContainsRune(input.SocketPath, 0) ||
 		!filepath.IsAbs(input.SocketPath) || filepath.Clean(input.SocketPath) != input.SocketPath ||
@@ -132,6 +147,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if adapterConfigPath != "" && (len(adapterConfigPath) > 4096 || !filepath.IsAbs(adapterConfigPath) || filepath.Clean(adapterConfigPath) != adapterConfigPath || adapterConfigPath == string(filepath.Separator)) {
 		return invalid()
 	}
+	localBackup, err := convertLocalBackup(input)
+	if err != nil {
+		return invalid()
+	}
 	return Profile{
 		SocketPath:                       input.SocketPath,
 		InventoryExportRoot:              input.InventoryExportRoot,
@@ -142,7 +161,41 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		PrincipalBindings:                append([]principal.Binding(nil), bindings...),
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
+		LocalBackup:                      localBackup,
 	}, nil
+}
+
+// convertLocalBackup enforces the all-or-none backup profile triplet. Absent
+// (all three nil) disables local backup. A partial configuration fails closed.
+// Each path must be absolute, clean and non-root, and the two backup roots must
+// differ. Live path/mode/filesystem/executable identity is rechecked before any
+// effect by the platform-specific preflight; these are the structural checks.
+func convertLocalBackup(input generated.ServerProfile) (*LocalBackup, error) {
+	present := 0
+	for _, value := range []*string{input.StandardBackupRoot, input.CriticalBackupRoot, input.ResticBinaryPath} {
+		if value != nil {
+			present++
+		}
+	}
+	if present == 0 {
+		return nil, nil
+	}
+	if present != 3 {
+		return nil, failure.New("INPUT_INVALID", "server-config", false)
+	}
+	standard, critical, binary := *input.StandardBackupRoot, *input.CriticalBackupRoot, *input.ResticBinaryPath
+	for _, candidate := range []string{standard, critical, binary} {
+		if len(candidate) < 2 || len(candidate) > 4096 || strings.ContainsRune(candidate, 0) ||
+			!filepath.IsAbs(candidate) || filepath.Clean(candidate) != candidate || candidate == string(filepath.Separator) {
+			return nil, failure.New("INPUT_INVALID", "server-config", false)
+		}
+	}
+	if standard == critical || standard == binary || critical == binary {
+		return nil, failure.New("INPUT_INVALID", "server-config", false)
+	}
+	return &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
+		SourceID: backupidentity.ControlDatabaseSource, StandardRepositoryID: backupidentity.StandardRepository,
+		CriticalRepositoryID: backupidentity.CriticalRepository}, nil
 }
 
 func convertRemoteRead(input generated.RemoteReadProfile) (RemoteRead, error) {

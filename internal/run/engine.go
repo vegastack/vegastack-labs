@@ -624,7 +624,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return engine.partial(ctx, current, *live, attribution, firstError(executeErr, adapter.ValidateEffect(effect)))
 		}
 		recorded := engine.clock().UTC().Truncate(time.Second)
-		receipt := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", LeaseID: lease.LeaseID, PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, OperationID: lease.OperationID, ExecutorID: lease.ExecutorID, AdapterID: lease.AdapterID, TargetID: lease.TargetID, ArtifactDigest: lease.ArtifactDigest, BindingDigest: lease.BindingDigest, NonceDigest: lease.NonceDigest, RecoveryEpoch: lease.RecoveryEpoch, ReceiptID: receiptID(lease.LeaseID), Status: effect.Status, ResultDigest: effect.ResultDigest, RecordedAt: recorded.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+		receipt := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", LeaseID: lease.LeaseID, PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, OperationID: lease.OperationID, ExecutorID: lease.ExecutorID, AdapterID: lease.AdapterID, TargetID: lease.TargetID, ArtifactDigest: lease.ArtifactDigest, BindingDigest: lease.BindingDigest, NonceDigest: lease.NonceDigest, RecoveryEpoch: lease.RecoveryEpoch, ReceiptID: receiptID(lease.LeaseID), Status: effect.Status, ResultDigest: effect.ResultDigest, PendingPointID: effect.PendingPointID, RecordedAt: recorded.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 		cleanup := context.WithoutCancel(ctx)
 		current, err = engine.repository.RecordReceipt(cleanup, store.ReceiptRecordRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, At: recorded, Attribution: attribution})
 		if err != nil {
@@ -708,8 +708,13 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 	if !secret {
 		return implementation.Execute(ctx, operation)
 	}
-	credentialExecutor, ok := implementation.(adapter.CredentialExecutor)
-	if !ok {
+	// An adapter may implement the plain credential effect boundary, the stricter
+	// bound boundary (which also receives the exact execution binding), or both.
+	// A backup-style adapter implements only the bound boundary, so requiring the
+	// plain interface here would make it permanently unavailable.
+	_, boundOK := implementation.(adapter.BoundCredentialExecutor)
+	_, plainOK := implementation.(adapter.CredentialExecutor)
+	if !boundOK && !plainOK {
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-adapter-unavailable")
 	}
 	if err := engine.secretGate.VerifySecretStep(ctx, plan, *plannedOperation); err != nil {
@@ -722,10 +727,22 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		}
 		return adapter.Effect{}, err
 	}
-	return invokeCredentialEffect(ctx, credentialExecutor, operation, values)
+	// The exact binding is derived only from the current plan, run, step and lease
+	// the engine has already verified; no adapter may widen or choose it.
+	binding := adapter.ExactExecutionBinding{
+		PlanID:           plan.PlanID,
+		PlanDigest:       plan.PlanDigest,
+		RunID:            lease.RunID,
+		StepID:           lease.StepID,
+		LeaseID:          lease.LeaseID,
+		StateRevision:    plan.Binding.StateRevision,
+		RecoveryEpoch:    plan.Binding.RecoveryEpoch,
+		MaximumExpiresAt: lease.MaximumExpiresAt,
+	}
+	return invokeCredentialEffect(ctx, implementation, operation, binding, values)
 }
 
-func invokeCredentialEffect(ctx context.Context, implementation adapter.CredentialExecutor, operation adapter.Operation, values []*credentialref.Value) (effect adapter.Effect, err error) {
+func invokeCredentialEffect(ctx context.Context, implementation any, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (effect adapter.Effect, err error) {
 	defer func() {
 		// A third-party adapter can panic with a plaintext value. Discard the
 		// panic payload without formatting it and conservatively mark the
@@ -736,7 +753,15 @@ func invokeCredentialEffect(ctx context.Context, implementation adapter.Credenti
 		}
 		closeCredentialValues(values)
 	}()
-	effect, err = implementation.ExecuteWithCredentials(ctx, operation, values)
+	// A bound credential adapter is preferred and receives the exact execution
+	// binding; the plain credential path remains for adapters that do not need it.
+	if bound, ok := implementation.(adapter.BoundCredentialExecutor); ok {
+		effect, err = bound.ExecuteBoundWithCredentials(ctx, operation, binding, values)
+	} else if plain, ok := implementation.(adapter.CredentialExecutor); ok {
+		effect, err = plain.ExecuteWithCredentials(ctx, operation, values)
+	} else {
+		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-adapter-unavailable")
+	}
 	if err != nil {
 		// Adapter errors can contain provider/credential text. Never relay it.
 		return effect, runError(generated.ErrorCodeExecutionFailed, "credential-effect")

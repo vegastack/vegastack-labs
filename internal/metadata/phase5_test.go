@@ -1,6 +1,9 @@
 package metadata
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestPhase5GateCredentialSchemas(t *testing.T) {
 	wanted := map[string]bool{
@@ -46,7 +49,7 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 	if versions[auditCheckpointSchemaID] != "1.1.0" || versions[auditVerificationDataSchemaID] != "1.1.0" {
 		t.Errorf("audit schemas were not versioned together")
 	}
-	for _, id := range []string{backupJobSchemaID, restoreBindingSchemaID} {
+	for _, id := range []string{restoreBindingSchemaID} {
 		if versions[id] != "1.0.0" {
 			t.Errorf("unowned schema %s version = %s", id, versions[id])
 		}
@@ -63,6 +66,86 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 	}
 	if !found {
 		t.Fatal("local binary import descriptor missing")
+	}
+}
+
+func TestBackupCreationContractsAreVersionedAndInert(t *testing.T) {
+	registry := Current()
+	schemas := map[string]SchemaDefinition{}
+	for _, schema := range registry.Schemas {
+		schemas[schema.ID] = schema
+	}
+	for _, id := range []string{backupPolicySchemaID, backupJobSchemaID, recoveryPointSchemaID, backupDependencySchemaID, backupPolicyDraftRequestSchemaID, backupPolicyDraftSubmissionSchemaID} {
+		schema, ok := schemas[id]
+		if !ok {
+			t.Fatalf("missing backup schema %s", id)
+		}
+		if schema.Version != "1.1.0" {
+			t.Errorf("backup schema %s version = %s", id, schema.Version)
+		}
+	}
+
+	policy := schemas[backupPolicySchemaID]
+	policyFields := map[string]FieldDefinition{}
+	for _, field := range policy.Fields {
+		policyFields[field.JSONName] = field
+		if field.JSONName == "value" || field.JSONName == "material" || field.JSONName == "payload" || field.AdditionalProperties {
+			t.Fatalf("unsafe backup policy field %s", field.JSONName)
+		}
+	}
+	for _, name := range []string{"ownerId", "sourceSelectors", "consistencyHookId", "repositoryClass", "expectedBytes", "expectedGrowthBytes", "minimumFreeBytes", "encryptionKeyReferenceId", "recoveryKeyReferenceId", "retentionDays", "restoreTargetId", "dependencies", "functionalTestRequired"} {
+		if _, ok := policyFields[name]; !ok {
+			t.Errorf("backup policy missing field %s", name)
+		}
+	}
+	if policyFields["repositoryId"].Kind != ValueString || !policyFields["repositoryId"].Nullable {
+		t.Errorf("repositoryId must be a nullable string, got %#v", policyFields["repositoryId"])
+	}
+
+	job := schemas[backupJobSchemaID]
+	pending := false
+	for _, field := range job.Fields {
+		if field.JSONName == "status" {
+			for _, value := range field.Enum {
+				if value == "pending" {
+					pending = true
+				}
+			}
+		}
+	}
+	if !pending {
+		t.Error("backup job status enum missing pending")
+	}
+
+	var draftEndpoint *EndpointDefinition
+	for index := range registry.Endpoints {
+		if registry.Endpoints[index].ID == "api.v1.backup-policy-drafts.create" {
+			draftEndpoint = &registry.Endpoints[index]
+		}
+		if registry.Endpoints[index].ID == "api.v1.backups.run" && registry.Endpoints[index].Availability != AvailabilityPlanned {
+			t.Error("backup run became available")
+		}
+	}
+	if draftEndpoint == nil || draftEndpoint.Method != "POST" || draftEndpoint.Path != "/api/v1/backups/policies/drafts" ||
+		draftEndpoint.Availability != AvailabilityAvailable || draftEndpoint.RequestSchema != backupPolicyDraftRequestSchemaID ||
+		draftEndpoint.DataSchema != backupPolicyDraftSubmissionSchemaID {
+		t.Fatalf("inert backup draft endpoint = %#v", draftEndpoint)
+	}
+
+	command := false
+	for _, candidate := range registry.Commands {
+		if strings.Join(candidate.Path, " ") == "backup policy draft" {
+			command = true
+			if candidate.Availability != AvailabilityAvailable || candidate.RequestSchema != backupPolicyDraftRequestSchemaID {
+				t.Fatalf("backup policy draft command = %#v", candidate)
+			}
+		}
+	}
+	if !command {
+		t.Fatal("backup policy draft command absent")
+	}
+	if err := Validate(registry); err != nil {
+		t.Fatal(err)
 	}
 }
 
@@ -111,7 +194,7 @@ func TestPhase5SurfaceRemainsPlanned(t *testing.T) {
 			continue
 		}
 		found = true
-		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.credential-lifecycle-drafts.create" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification"
+		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.credential-lifecycle-drafts.create" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification" || endpoint.ID == "api.v1.backup-policy-drafts.create"
 		if (!available && endpoint.Availability != AvailabilityPlanned) || (available && endpoint.Availability != AvailabilityAvailable) || endpoint.DataSchema == "" {
 			t.Errorf("unsafe Phase 5 endpoint %s", endpoint.ID)
 		}

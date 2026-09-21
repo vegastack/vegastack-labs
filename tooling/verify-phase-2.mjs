@@ -129,12 +129,24 @@ const REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE = Object.freeze({
   commands: Object.freeze([]), imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:5d0d831196eb25b842999dc70d19c97b4f503ad827ba64148b3c283a70b0855a",
 });
-// Issue #146 adds a bounded witness/recovery evidence contract but does not
-// register a production source, available command, or new production import.
+// Issue #106 adds the inert local backup-policy-draft command and the local
+// recovery-point creation source closure (the guarded REST object boundary, the
+// sealed-FD restic child and the exact bound adapter). Its reviewed imports
+// cover the backup package, fixed identity registry and local adapter. The
+// later #146 wave owns the merged final boundary digest.
+const REVIEWED_BACKUP_WAVE = Object.freeze({
+  id: "phase5-issue106-v1", issue: 106,
+  commands: Object.freeze(["backup policy draft"]),
+  imports: Object.freeze([`${MODULE_PREFIX}internal/adapter/localbackup`, `${MODULE_PREFIX}internal/backup`, `${MODULE_PREFIX}internal/backupidentity`]),
+  mutationBoundaryDigest: "sha256:adb10fa89d1ded9b316adf689b3e1ae35dcdb3a17fbf6a6a08f506e0e55d9a6b",
+});
+
+// Issue #146 adds the public recovery-verification contract and exactly one
+// production import, with no available command or registered source.
 const REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE = Object.freeze({
   id: "phase5-issue146-v1", issue: 146,
   commands: Object.freeze([]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/recovery"]),
-  mutationBoundaryDigest: "sha256:85a21b75148a624846924aea8fef673331436ed4f854eb714d6b4fd768477b10",
+  mutationBoundaryDigest: "sha256:4c1e231743f35fd482d3b8541bc99ee9d2c4cb20276f13bafba297cf4c231125",
 });
 // #153 exposes a finite, default-blocked custodian collection command and
 // typed direct-denial interface. No qualified production adapter is wired.
@@ -142,9 +154,9 @@ const REVIEWED_WITNESS_COLLECTION_WAVE = Object.freeze({
   id: "phase5-issue153-v1", issue: 153,
   commands: Object.freeze(["recovery witness collect"]),
   imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"]),
-  mutationBoundaryDigest: "sha256:f8b12627428cf5622ddc223ef399954b767a97602d5ff43e56d263663621bf32",
+  mutationBoundaryDigest: "sha256:3df60eddedeea336c3ab558856d2cad15f070a0d764e1c011137369bc50e0f43",
 });
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });
@@ -195,10 +207,11 @@ const EXPECTED_CHILDREN = [
   [37, 47, "34e9e9d01f6c0bbb14c8e54d4a2ab4a1b1e77fc3"],
 ];
 const EXPECTED_AVAILABLE_COMMANDS = [
-  "database status", "help", "inventory diff", "inventory export", "inventory import",
+  "backup policy draft", "database status", "help", "inventory diff", "inventory export", "inventory import",
   "release inspect", "release verify", "server run", "server status", "status", "version",
 ];
 const EXPECTED_ENDPOINT_IDS = [
+  "api.v1.backup-policy-drafts.create",
   "api.v1.database-status.get", "api.v1.events.stream", "api.v1.health.get",
   "api.v1.inventory-diffs.create", "api.v1.inventory-draft-aliases.get",
   "api.v1.inventory-draft-aliases.list", "api.v1.inventory-draft-assets.get",
@@ -643,7 +656,7 @@ export function validateEvidence(manifest, facts) {
       manifest.contract.postPhase2MutationBoundaryDigest !== PHASE2_BASELINE_MUTATION_DIGEST)) {
     codes.add("PHASE2_TRACEABILITY_GAP");
   }
-  const reviewedCommandPrefixes = ["gate ", "credential ", "audit ", "recovery witness "];
+  const reviewedCommandPrefixes = ["gate ", "credential ", "audit ", "backup ", "recovery witness "];
   const availableReviewedCommands = facts.availableCommands.filter((name) =>
     reviewedCommandPrefixes.some((prefix) => name.startsWith(prefix)));
   const expectedReviewedCommands = REVIEWED_PHASE5_WAVES.flatMap(({ commands }) => commands).sort();

@@ -87,7 +87,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
     },
@@ -103,6 +103,7 @@
       "enum": [
         "queued",
         "running",
+        "pending",
         "failed",
         "verified",
         "uncertain"
