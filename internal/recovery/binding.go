@@ -1,6 +1,8 @@
 package recovery
 
 import (
+	"math"
+
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
@@ -44,7 +46,7 @@ func ValidateRunBinding(plan RestorePlanBinding, run RestoreRunIntent, live Auth
 		plan.PlanID == "" || plan.PointID == "" ||
 		plan.PriorInstanceID == "" || plan.NewInstanceID == "" || plan.PriorInstanceID == plan.NewInstanceID ||
 		plan.StateRevision < 0 || plan.PriorRecoveryEpoch < 0 ||
-		plan.PriorRecoveryEpoch == int64(^uint64(0)>>1) || plan.NextRecoveryEpoch != plan.PriorRecoveryEpoch+1 ||
+		plan.PriorRecoveryEpoch == math.MaxInt64 || plan.NextRecoveryEpoch != plan.PriorRecoveryEpoch+1 ||
 		live.StateRevision != plan.StateRevision || live.RecoveryEpoch != plan.PriorRecoveryEpoch || live.InstanceID != plan.PriorInstanceID {
 		return blocked()
 	}
