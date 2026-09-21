@@ -1,0 +1,133 @@
+---
+- name: Validate exact native credential authority inputs
+  ansible.builtin.assert:
+    that:
+      - native_credential_enrolled_units is defined
+      - native_credential_enrolled_units is sequence
+      - native_credential_enrolled_units is not string
+      - native_credential_enrolled_units | length > 0
+      - native_credential_enrolled_units | length <= 64
+      - native_credential_enrolled_units == (native_credential_enrolled_units | unique | sort | list)
+      - native_credential_probe_bindings is defined
+      - native_credential_probe_bindings is sequence
+      - native_credential_probe_bindings is not string
+      - native_credential_probe_bindings | length > 0
+      - native_credential_probe_bindings | length <= 256
+      - native_credential_host_machine_id is match('^[0-9a-f]{32}$')
+      - native_credential_binary_path == '/usr/local/bin/vsk-labs'
+    fail_msg: Native credential authority requires an exact, sorted enrollment and the pinned executable.
+
+- name: Reject unsafe native credential unit names
+  ansible.builtin.assert:
+    that:
+      - item is match('^[A-Za-z0-9][A-Za-z0-9_.@-]{0,126}\\.service$')
+      - "'@.service' not in item"
+      - "'..' not in item"
+    fail_msg: Native credential enrollment contains an unsafe unit name.
+  loop: "{{ native_credential_enrolled_units }}"
+
+- name: Reject unsafe native credential probe tuples
+  ansible.builtin.assert:
+    that:
+      - item.unit_name in native_credential_enrolled_units
+      - item.credential_name is match('^[A-Za-z0-9][A-Za-z0-9_.-]{0,126}$')
+      - "'..' not in item.credential_name"
+      - item.uid | int > 0
+      - item.uid | int <= 2147483647
+      - item.gid | int > 0
+      - item.gid | int <= 2147483647
+    fail_msg: Native credential probe tuple is not exact and safe.
+  loop: "{{ native_credential_probe_bindings }}"
+
+- name: Read current host machine identity
+  ansible.builtin.slurp:
+    src: /etc/machine-id
+  register: native_credential_machine_id_file
+
+- name: Require the enrolled host identity
+  ansible.builtin.assert:
+    that:
+      - (native_credential_machine_id_file.content | b64decode | trim) == native_credential_host_machine_id
+    fail_msg: Native credential authority cannot enroll a different host.
+
+- name: Inspect control service account groups
+  ansible.builtin.command:
+    argv: [/usr/bin/id, -nG, vsk-labs]
+  register: native_credential_service_groups
+  changed_when: false
+
+- name: Require isolated control service group membership
+  ansible.builtin.assert:
+    that:
+      - native_credential_service_groups.stdout | trim == 'vsk-labs'
+    fail_msg: vsk-labs must have only its isolated service group before authority enrollment.
+
+- name: Inspect installed native credential executable without following links
+  ansible.builtin.stat:
+    path: "{{ native_credential_binary_path }}"
+    follow: false
+  register: native_credential_binary_stat
+
+- name: Require root-owned nonwritable installed executable
+  ansible.builtin.assert:
+    that:
+      - native_credential_binary_stat.stat.isreg | default(false)
+      - native_credential_binary_stat.stat.pw_name == 'root'
+      - native_credential_binary_stat.stat.mode is match('^0[1357][0145][0145]$')
+    fail_msg: Native credential executable must be a root-owned, non-group/world-writable regular executable.
+
+- name: Create root-owned native authority directory
+  ansible.builtin.file:
+    path: /etc/vsk-labs
+    state: directory
+    owner: root
+    group: vsk-labs
+    mode: '0750'
+
+- name: Render exact root-owned probe enrollment
+  ansible.builtin.template:
+    src: probe-policy.json.j2
+    dest: /etc/vsk-labs/native-credential-authority.json
+    owner: root
+    group: vsk-labs
+    mode: '0640'
+
+- name: Render exact systemd restart polkit rule
+  ansible.builtin.template:
+    src: managed-units.rules.j2
+    dest: /etc/polkit-1/rules.d/49-vsk-native-credential-restart.rules
+    owner: root
+    group: polkitd
+    mode: '0640'
+
+- name: Render exact private probe sudoers rule
+  ansible.builtin.template:
+    src: native-denied-probe.sudoers.j2
+    dest: /etc/sudoers.d/49-vsk-native-credential-probe
+    owner: root
+    group: root
+    mode: '0440'
+    validate: /usr/sbin/visudo -c -f %s
+
+- name: Verify installed sudoers syntax
+  ansible.builtin.command:
+    argv: [/usr/sbin/visudo, -c, -f, /etc/sudoers.d/49-vsk-native-credential-probe]
+  changed_when: false
+
+- name: Verify installed authority file metadata
+  ansible.builtin.stat:
+    path: "{{ item }}"
+    follow: false
+  loop:
+    - /etc/vsk-labs/native-credential-authority.json
+    - /etc/polkit-1/rules.d/49-vsk-native-credential-restart.rules
+    - /etc/sudoers.d/49-vsk-native-credential-probe
+  register: native_credential_authority_files
+
+- name: Require installed authority files remain root-owned and restricted
+  ansible.builtin.assert:
+    that:
+      - item.stat.isreg | default(false)
+      - item.stat.pw_name == 'root'
+      - item.stat.mode is match('^0[046][04]0$')
+  loop: "{{ native_credential_authority_files.results }}"
