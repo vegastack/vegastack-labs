@@ -12,13 +12,13 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while #104, #123, #128, #124, #107, #125, and #132/#133 and #106 have exact reviewed waves", async () => {
+test("the original Phase 2 baseline stays immutable while Phase 5 waves through #140 have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 9);
+  assert.equal(manifest.contract.reviewedWaves?.length, 10);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -60,7 +60,7 @@ test("the original Phase 2 baseline stays immutable while #104, #123, #128, #124
   assert.equal(manifest.contract.reviewedWaves[7].issue, 133);
   assert.deepEqual(manifest.contract.reviewedWaves[7].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[7].imports, []);
-  // #106 local backup-creation wave is the current exact closure.
+  // #106 local backup-creation wave precedes the native reader-map closure.
   assert.equal(manifest.contract.reviewedWaves[8].id, "phase5-issue106-v1");
   assert.equal(manifest.contract.reviewedWaves[8].issue, 106);
   assert.deepEqual(manifest.contract.reviewedWaves[8].commands, ["backup policy draft"]);
@@ -68,7 +68,11 @@ test("the original Phase 2 baseline stays immutable while #104, #123, #128, #124
     "github.com/vegastack/vegastack-labs/internal/adapter/localbackup",
     "github.com/vegastack/vegastack-labs/internal/backup",
   ]);
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[8].mutationBoundaryDigest);
+  assert.equal(manifest.contract.reviewedWaves[9].id, "phase5-issue140-v1");
+  assert.equal(manifest.contract.reviewedWaves[9].issue, 140);
+  assert.deepEqual(manifest.contract.reviewedWaves[9].commands, []);
+  assert.deepEqual(manifest.contract.reviewedWaves[9].imports, []);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[9].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
