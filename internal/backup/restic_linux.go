@@ -36,6 +36,8 @@ type resticRunner struct {
 	expectedDigest string
 	clock          func() time.Time
 	observation    ResticObservation
+	// afterVerify is used only by the Linux path-swap test. Production leaves it nil.
+	afterVerify func()
 }
 
 // NewResticRunner builds the production pinned restic runner.
@@ -78,6 +80,9 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	// The verified inode stays open and is executed via /proc/self/fd so the child
 	// runs exactly the hashed binary, not a path re-resolved after the check.
 	defer binaryFile.Close()
+	if runner.afterVerify != nil {
+		runner.afterVerify()
+	}
 
 	mode := request.Mode
 	if mode == "" {

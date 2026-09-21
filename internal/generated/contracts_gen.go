@@ -938,6 +938,7 @@ type ExecutionReceipt struct {
 	ReceiptID      string              `json:"receiptId"`
 	Status         string              `json:"status"`
 	ResultDigest   string              `json:"resultDigest"`
+	PendingPointID *string             `json:"pendingPointId"`
 	RecordedAt     string              `json:"recordedAt"`
 	Extensions     []ContractExtension `json:"extensions"`
 }

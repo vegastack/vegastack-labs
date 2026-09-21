@@ -101,7 +101,7 @@ func TestAdapterOperationSurfaceStaysClosedAndSecretValueFree(t *testing.T) {
 	}
 	assertFields(Operation{}, []string{"AdapterID", "ArtifactDigest", "ExecutorID", "Idempotent", "InputDigest", "OperationID", "OperationType", "SecretReferences", "TargetID"})
 	assertFields(SecretReference{}, []string{"Consumer", "ID"})
-	assertFields(Effect{}, []string{"Changed", "EffectObserved", "ResultDigest", "Status"})
+	assertFields(Effect{}, []string{"Changed", "EffectObserved", "PendingPointID", "ResultDigest", "Status"})
 	assertFields(Verification{}, []string{"Digest", "Verified"})
 }
 

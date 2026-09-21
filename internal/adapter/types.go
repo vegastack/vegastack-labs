@@ -36,6 +36,7 @@ type Operation struct {
 type Effect struct {
 	Status         string
 	ResultDigest   string
+	PendingPointID *string
 	Changed        bool
 	EffectObserved bool
 }
@@ -90,6 +91,7 @@ type ExactExecutionBinding struct {
 	RunID            string
 	StepID           string
 	LeaseID          string
+	StateRevision    int64
 	RecoveryEpoch    int64
 	MaximumExpiresAt string
 }
@@ -144,6 +146,9 @@ func ValidateOperation(operation Operation) error {
 
 func ValidateEffect(effect Effect) error {
 	if (effect.Status != "succeeded" && effect.Status != "failed" && effect.Status != "partial") || !adapterDigest.MatchString(effect.ResultDigest) {
+		return &Error{code: generated.ErrorCodeIntegrityFailure, target: "adapter-effect"}
+	}
+	if effect.PendingPointID != nil && (effect.Status != "succeeded" || !adapterToken.MatchString(*effect.PendingPointID)) {
 		return &Error{code: generated.ErrorCodeIntegrityFailure, target: "adapter-effect"}
 	}
 	if effect.Status == "succeeded" && !effect.EffectObserved {

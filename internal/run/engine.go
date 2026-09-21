@@ -607,7 +607,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return engine.partial(ctx, current, *live, attribution, firstError(executeErr, adapter.ValidateEffect(effect)))
 		}
 		recorded := engine.clock().UTC().Truncate(time.Second)
-		receipt := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", LeaseID: lease.LeaseID, PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, OperationID: lease.OperationID, ExecutorID: lease.ExecutorID, AdapterID: lease.AdapterID, TargetID: lease.TargetID, ArtifactDigest: lease.ArtifactDigest, BindingDigest: lease.BindingDigest, NonceDigest: lease.NonceDigest, RecoveryEpoch: lease.RecoveryEpoch, ReceiptID: receiptID(lease.LeaseID), Status: effect.Status, ResultDigest: effect.ResultDigest, RecordedAt: recorded.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+		receipt := generated.ExecutionReceipt{Schema: generated.SchemaIDExecutionReceipt, SchemaVersion: "1.0.0", LeaseID: lease.LeaseID, PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, OperationID: lease.OperationID, ExecutorID: lease.ExecutorID, AdapterID: lease.AdapterID, TargetID: lease.TargetID, ArtifactDigest: lease.ArtifactDigest, BindingDigest: lease.BindingDigest, NonceDigest: lease.NonceDigest, RecoveryEpoch: lease.RecoveryEpoch, ReceiptID: receiptID(lease.LeaseID), Status: effect.Status, ResultDigest: effect.ResultDigest, PendingPointID: effect.PendingPointID, RecordedAt: recorded.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
 		cleanup := context.WithoutCancel(ctx)
 		current, err = engine.repository.RecordReceipt(cleanup, store.ReceiptRecordRequest{RunID: current.RunID, StepID: live.StepID, LeaseID: lease.LeaseID, Receipt: receipt, At: recorded, Attribution: attribution})
 		if err != nil {
@@ -716,6 +716,7 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		RunID:            lease.RunID,
 		StepID:           lease.StepID,
 		LeaseID:          lease.LeaseID,
+		StateRevision:    plan.Binding.StateRevision,
 		RecoveryEpoch:    plan.Binding.RecoveryEpoch,
 		MaximumExpiresAt: lease.MaximumExpiresAt,
 	}

@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"time"
 
@@ -99,9 +100,9 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// are classified before single-object parsing.
 	if repositoryRequest, ok := parseRepositoryRequest(r.URL.Path, server.repositoryID); ok {
 		switch {
-		case repositoryRequest.isRepositoryRoot && (r.Method == http.MethodPost || r.Method == http.MethodPut):
+		case repositoryRequest.isRepositoryRoot && create && r.Method == http.MethodPost:
 			server.handleRepositoryCreate(w)
-		case repositoryRequest.isList && r.Method == http.MethodGet:
+		case repositoryRequest.isList && !create && r.Method == http.MethodGet:
 			server.handleList(w, repositoryRequest)
 		default:
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -153,8 +154,11 @@ func (server *RESTServer) handleRepositoryCreate(w http.ResponseWriter) {
 func (server *RESTServer) handleList(w http.ResponseWriter, request objectRequest) {
 	typeDescriptor, err := server.openTypeDir(request.objectType, false)
 	if err != nil {
-		w.Header().Set("Content-Type", "application/vnd.x.restic.rest.v2")
-		_, _ = w.Write([]byte("[]"))
+		if errors.Is(err, unix.ENOENT) {
+			http.Error(w, "not found", http.StatusNotFound)
+		} else {
+			http.Error(w, "forbidden", http.StatusForbidden)
+		}
 		return
 	}
 	// os.NewFile takes ownership of the descriptor; closing the directory below
@@ -185,7 +189,7 @@ func (server *RESTServer) handleList(w http.ResponseWriter, request objectReques
 			continue
 		}
 		var stat unix.Stat_t
-		if unix.Fstat(descriptor, &stat) == nil && stat.Mode&unix.S_IFMT == unix.S_IFREG && stat.Uid == server.expectedUID {
+		if unix.Fstat(descriptor, &stat) == nil && stat.Mode&unix.S_IFMT == unix.S_IFREG && stat.Nlink == 1 && stat.Uid == server.expectedUID && isLocalDescriptor(descriptor) {
 			entries = append(entries, entry{Name: name, Size: stat.Size})
 		}
 		_ = unix.Close(descriptor)
@@ -213,7 +217,9 @@ func (server *RESTServer) handleGet(w http.ResponseWriter, r *http.Request, requ
 	}
 	defer file.Close()
 	w.Header().Set("Content-Type", "application/octet-stream")
-	_, _ = io.Copy(w, file)
+	// restic 0.19.1 reads encrypted packs by byte range. ServeContent supplies
+	// exact Content-Length/Content-Range and 416 handling from this verified FD.
+	http.ServeContent(w, r, request.name, time.Time{}, file)
 }
 
 func (server *RESTServer) handleHead(w http.ResponseWriter, request objectRequest) {
@@ -222,7 +228,14 @@ func (server *RESTServer) handleHead(w http.ResponseWriter, request objectReques
 		http.Error(w, "not found", http.StatusNotFound)
 		return
 	}
+	var stat unix.Stat_t
+	if unix.Fstat(descriptor, &stat) != nil {
+		_ = unix.Close(descriptor)
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
 	_ = unix.Close(descriptor)
+	w.Header().Set("Content-Length", strconv.FormatInt(stat.Size, 10))
 	w.WriteHeader(http.StatusOK)
 }
 

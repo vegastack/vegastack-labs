@@ -86,6 +86,54 @@ func TestRESTBoundaryCreatesButCannotRewriteOrDeleteRetainedObject(t *testing.T)
 	}
 }
 
+func TestRESTBoundaryImplementsResticV2RangeStatAndList(t *testing.T) {
+	_, client, done := newRESTFixture(t)
+	defer done()
+	if code := restDo(t, client, http.MethodPost, "/repo-a/?create=true", nil); code != http.StatusOK {
+		t.Fatalf("repository create = %d", code)
+	}
+	if code := restDo(t, client, http.MethodPost, "/repo-a/", nil); code != http.StatusMethodNotAllowed {
+		t.Fatalf("repository create without token = %d", code)
+	}
+	name := strings.Repeat("a", 64)
+	if code := restDo(t, client, http.MethodPost, "/repo-a/data/"+name, []byte("abcdef")); code != http.StatusOK {
+		t.Fatalf("object create = %d", code)
+	}
+	request, err := http.NewRequest(http.MethodGet, "http://unix/repo-a/data/"+name, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Range", "bytes=2-4")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err := io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil || response.StatusCode != http.StatusPartialContent || string(body) != "cde" || response.ContentLength != 3 {
+		t.Fatalf("range status=%d length=%d body=%q err=%v", response.StatusCode, response.ContentLength, body, err)
+	}
+	request, _ = http.NewRequest(http.MethodHead, "http://unix/repo-a/data/"+name, nil)
+	response, err = client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = response.Body.Close()
+	if response.StatusCode != http.StatusOK || response.ContentLength != 6 {
+		t.Fatalf("stat status=%d length=%d", response.StatusCode, response.ContentLength)
+	}
+	request, _ = http.NewRequest(http.MethodGet, "http://unix/repo-a/data/", nil)
+	response, err = client.Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, err = io.ReadAll(response.Body)
+	_ = response.Body.Close()
+	if err != nil || response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/vnd.x.restic.rest.v2" || !bytes.Contains(body, []byte(name)) || !bytes.Contains(body, []byte(`"size":6`)) {
+		t.Fatalf("list status=%d body=%q err=%v", response.StatusCode, body, err)
+	}
+}
+
 func TestRESTBoundaryManagesOwnLockLifecycle(t *testing.T) {
 	_, client, done := newRESTFixture(t)
 	defer done()

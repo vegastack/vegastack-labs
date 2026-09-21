@@ -87,7 +87,7 @@ func (adapterImpl *Adapter) Execute(context.Context, adapter.Operation) (adapter
 // Verify confirms the effect's result digest is present. The manifest digest is
 // bound to the point receipt in the same transaction that recorded it.
 func (adapterImpl *Adapter) Verify(_ context.Context, _ adapter.Operation, effect adapter.Effect) (adapter.Verification, error) {
-	if effect.Status != "succeeded" || effect.ResultDigest == "" {
+	if effect.Status != "succeeded" || effect.ResultDigest == "" || effect.PendingPointID == nil || *effect.PendingPointID == "" {
 		return adapter.Verification{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify")
 	}
 	return adapter.Verification{Verified: true, Digest: effect.ResultDigest}, nil
@@ -118,6 +118,13 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	if err := serverconfig.VerifyLocalBackup(adapterImpl.config.LocalBackup, adapterImpl.config.ExpectedUID); err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-profile")
 	}
+	expectation, err := adapterImpl.config.Snapshots.CurrentExpectation(ctx)
+	if err != nil {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-expectation")
+	}
+	if expectation.Revision.StateRevision != binding.StateRevision || expectation.Revision.RecoveryEpoch != binding.RecoveryEpoch {
+		return adapter.Effect{}, backupError(generated.ErrorCodePlanStale, "local-backup-expectation")
+	}
 
 	leaseID, jobID, pointID := "backup-lease-"+randomHex(16), "backup-job-"+randomHex(16), "recovery-point-"+randomHex(16)
 	repositoryID := policy.PolicyID + "." + policy.RepositoryClass
@@ -128,18 +135,19 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	lease := backup.WriterLease{
 		PolicyID: policy.PolicyID, PointID: pointID, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest,
 		RunID: binding.RunID, StepID: binding.StepID, LeaseID: leaseID, RepositoryID: repositoryID,
-		RepositoryClass: policy.RepositoryClass, TargetID: operation.TargetID, SourceRevision: 0,
+		RepositoryClass: policy.RepositoryClass, TargetID: operation.TargetID, SourceRevision: expectation.Revision.StateRevision,
 		RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline,
 	}
 	if err := adapterImpl.config.Backups.AcquireBackupWriterLease(ctx, store.BackupWriterLeaseRequest{
 		LeaseID: leaseID, JobID: jobID, PolicyID: policy.PolicyID, PolicyDigest: policyDigest, PlanID: binding.PlanID,
 		PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, RepositoryID: repositoryID,
-		RepositoryClass: policy.RepositoryClass, TargetID: operation.TargetID, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline,
+		RepositoryClass: policy.RepositoryClass, TargetID: operation.TargetID, SourceRevision: expectation.Revision.StateRevision,
+		RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline,
 	}); err != nil {
 		return adapter.Effect{}, err
 	}
 
-	effect, runErr := adapterImpl.runBoundBackup(ctx, policy, policyDigest, repositoryID, root, lease, pointID, binding, values[0])
+	effect, runErr := adapterImpl.runBoundBackup(ctx, policy, policyDigest, repositoryID, root, lease, pointID, binding, expectation, values[0])
 	if runErr != nil {
 		// Classify a lost/ambiguous publish as uncertain; every other pre-publication
 		// failure as failed. Prior points are preserved; nothing is pruned.
@@ -157,7 +165,7 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	return effect, nil
 }
 
-func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated.BackupPolicy, policyDigest, repositoryID, root string, lease backup.WriterLease, pointID string, binding adapter.ExactExecutionBinding, password *credentialref.Value) (adapter.Effect, error) {
+func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated.BackupPolicy, policyDigest, repositoryID, root string, lease backup.WriterLease, pointID string, binding adapter.ExactExecutionBinding, expectation store.SnapshotExpectation, password *credentialref.Value) (adapter.Effect, error) {
 	// Capacity admission: a full destination blocks a new backup without prune.
 	if err := admitCapacity(root, policy); err != nil {
 		return adapter.Effect{}, err
@@ -173,13 +181,6 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	// Bind the exact current consistency expectation so the store-owned snapshot
 	// fails closed if the live database drifts during the copy. A zero expectation
 	// would never match a migrated production database.
-	expectation, err := adapterImpl.config.Snapshots.CurrentExpectation(ctx)
-	if err != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-expectation")
-	}
-	if expectation.Revision.RecoveryEpoch != binding.RecoveryEpoch {
-		return adapter.Effect{}, backupError(generated.ErrorCodePlanStale, "local-backup-expectation")
-	}
 	source := backup.PolicySource{Policy: policy, PolicyDigest: policyDigest, SourceRevision: expectation.Revision.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, Expectation: expectation}
 	capture, err := backup.Capture(ctx, source, adapterImpl.config.Snapshots, adapterImpl.config.Hooks, snapshotPath)
 	if err != nil {
@@ -275,12 +276,10 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	if err != nil {
 		return adapter.Effect{}, err
 	}
-	// The central receipt carries only the sanitized result digest — the canonical
-	// manifest digest, which the recovery_points row is keyed by, so the pending
-	// point is identifiable without exposing a secret, snapshot content, or any
-	// last-good claim. (resultPointID equals pointID; the row lookup is by digest.)
-	_ = resultPointID
-	return adapter.Effect{Status: "succeeded", ResultDigest: resultDigest, Changed: true, EffectObserved: true}, nil
+	// The central typed receipt identifies the opaque pending point directly;
+	// the digest separately binds its canonical manifest. Neither carries a
+	// secret, snapshot content, or any verification/last-good claim.
+	return adapter.Effect{Status: "succeeded", ResultDigest: resultDigest, PendingPointID: &resultPointID, Changed: true, EffectObserved: true}, nil
 }
 
 func (adapterImpl *Adapter) resolvePolicy(ctx context.Context, binding adapter.ExactExecutionBinding) (generated.BackupPolicy, string, error) {

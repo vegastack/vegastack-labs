@@ -32,10 +32,10 @@ type BackupWriterLeaseRequest struct {
 
 // ExpectedObjectRow is one exact expected object in a pending point's inventory.
 type ExpectedObjectRow struct {
-	Type   string
-	Name   string
-	Bytes  int64
-	Digest string
+	Type   string `json:"type"`
+	Name   string `json:"name"`
+	Bytes  int64  `json:"bytes"`
+	Digest string `json:"digest"`
 }
 
 // PendingRecoveryPointRequest publishes exactly one pending point receipt bound
@@ -129,18 +129,27 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 	if request.ObjectCount != int64(len(request.ExpectedObjects)) || request.ObjectBytes != inventoryBytes {
 		return "", "", backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-inventory")
 	}
+	manifest, err := validatePendingManifest(request)
+	if err != nil {
+		return "", "", backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-manifest")
+	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
-	err := repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var jobID, policyID, policyDigest, repositoryID, repositoryClass string
-		var epoch int64
-		err := tx.QueryRowContext(ctx, `SELECT job_id,policy_id,policy_digest,repository_id,repository_class,recovery_epoch FROM backup_writer_leases WHERE lease_id=? AND released_at IS NULL`, request.LeaseID).Scan(&jobID, &policyID, &policyDigest, &repositoryID, &repositoryClass, &epoch)
+	err = repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var jobID, policyID, policyDigest, repositoryID, repositoryClass, runID, stepID string
+		var epoch, sourceRevision int64
+		var expiresAt string
+		err := tx.QueryRowContext(ctx, `SELECT job_id,policy_id,policy_digest,repository_id,repository_class,run_id,step_id,source_revision,recovery_epoch,maximum_expires_at FROM backup_writer_leases WHERE lease_id=? AND released_at IS NULL`, request.LeaseID).Scan(&jobID, &policyID, &policyDigest, &repositoryID, &repositoryClass, &runID, &stepID, &sourceRevision, &epoch, &expiresAt)
 		if errors.Is(err, sql.ErrNoRows) {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-writer-lease")
 		}
 		if err != nil {
 			return backupWriteError(err)
 		}
-		if epoch != request.RecoveryEpoch {
+		if epoch != request.RecoveryEpoch || sourceRevision != request.SourceRevision ||
+			manifest.PolicyID != policyID || manifest.PolicyDigest != policyDigest ||
+			manifest.RepositoryID != repositoryID || manifest.RepositoryClass != repositoryClass ||
+			manifest.RunID != runID || manifest.StepID != stepID || manifest.SourceRevision != sourceRevision ||
+			expiresAt <= now {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-writer-lease")
 		}
 		// The bound policy draft must still exist unchanged at this exact digest and epoch.

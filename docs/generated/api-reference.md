@@ -240,6 +240,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `receiptId`
 - `status`: `failed`, `partial`, `running`, `succeeded`
 - `resultDigest`
+- `pendingPointId`
 - `recordedAt`
 - `extensions`
 

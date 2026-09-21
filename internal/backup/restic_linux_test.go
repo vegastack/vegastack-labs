@@ -89,3 +89,39 @@ func TestResticRejectsBinaryDigestMismatch(t *testing.T) {
 		t.Fatal("digest mismatch accepted")
 	}
 }
+
+func TestResticExecutesVerifiedInodeAfterAtomicPathSwap(t *testing.T) {
+	binary, digest := buildFakeRestic(t)
+	marker := filepath.Join(t.TempDir(), "replacement-executed")
+	replacement := filepath.Join(t.TempDir(), "replacement")
+	if err := os.WriteFile(replacement, []byte("#!/bin/sh\nprintf replaced > '"+marker+"'\nexit 1\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	value, err := credentialref.NewValue([]byte("path-swap-canary"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer value.Close()
+	runner := NewResticRunnerForTest(digest, time.Now).(*resticRunner)
+	runner.afterVerify = func() {
+		if err := os.Rename(binary, binary+".verified"); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Rename(replacement, binary); err != nil {
+			t.Fatal(err)
+		}
+	}
+	snapshot := filepath.Join(t.TempDir(), "snapshot.sqlite")
+	if err := os.WriteFile(snapshot, []byte("db"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	request := ResticRequest{BinaryPath: binary, Architecture: runtime.GOARCH,
+		RepositoryURL: "http+unix://%2Ftmp%2Frest.sock:/repo-a/", RepositoryID: "repo-a", RepositoryClass: "standard",
+		SnapshotPath: snapshot, PolicyDigest: "sha256:" + strings.Repeat("a", 64)}
+	if _, err := runner.Run(context.Background(), request, value); err != nil {
+		t.Fatalf("verified inode was not executed: %v", err)
+	}
+	if _, err := os.Stat(marker); !os.IsNotExist(err) {
+		t.Fatalf("replacement binary executed: %v", err)
+	}
+}

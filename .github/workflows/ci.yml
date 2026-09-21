@@ -6,6 +6,12 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      backup_acceptance:
+        description: Run the pinned restic 0.19.1 Linux composition lane
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -161,6 +167,26 @@ jobs:
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
         run: pnpm check:affected --execute-plan
+
+      - name: Run pinned local-backup acceptance
+        if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
+        run: |
+          set -eu
+          case "$(uname -m)" in
+            x86_64) archive_sha=f415415624dcc452f2a02b8c33641791a8c6d6d3b65bbb3543fcf9a25151585c; binary_sha=20d4142678d0d95ec11a4759def1b73fd9190abc9ca19e4b62d067c0b387e639; suffix=amd64 ;;
+            aarch64) archive_sha=a5f64aaab53d51e311fa3829124c5b703f2d14cf187d8640b6be3b2b49376465; binary_sha=2fb45ac6f9071b6f20eb883953a188f9e7c7cb6bbe43c67a2e47ada4e85ee7f0; suffix=arm64 ;;
+            *) echo 'Unsupported restic acceptance architecture' >&2; exit 1 ;;
+          esac
+          mkdir -m 700 "$TMPDIR/restic-acceptance"
+          curl --fail --location --silent --show-error \
+            "https://github.com/restic/restic/releases/download/v0.19.1/restic_0.19.1_linux_${suffix}.bz2" \
+            --output "$TMPDIR/restic-acceptance/restic.bz2"
+          printf '%s  %s\n' "$archive_sha" "$TMPDIR/restic-acceptance/restic.bz2" | sha256sum --check --status
+          bzip2 -dc "$TMPDIR/restic-acceptance/restic.bz2" > "$TMPDIR/restic-acceptance/restic"
+          chmod 700 "$TMPDIR/restic-acceptance/restic"
+          printf '%s  %s\n' "$binary_sha" "$TMPDIR/restic-acceptance/restic" | sha256sum --check --status
+          VSK_RESTIC_0191_BINARY="$TMPDIR/restic-acceptance/restic" \
+            go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestLocalBackupComposition' -count=1
 
       - name: Run exact Phase 4 exit acceptance
         if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
