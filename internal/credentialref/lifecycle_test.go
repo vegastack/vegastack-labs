@@ -18,12 +18,17 @@ func validActivateBinding() LifecycleBinding {
 		ReferenceID:               "reference-a",
 		ConsumerIDs:               []string{"consumer-a", "consumer-b"},
 		RequiredDeniedConsumerIDs: []string{"consumer-denied"},
-		MaterialVersion:           "version-a",
-		ResolverID:                "native-systemd",
-		TargetID:                  "target-a",
-		CiphertextFingerprint:     testFingerprint,
-		StateRevision:             12,
-		RecoveryEpoch:             3,
+		NativeConsumers: []NativeConsumerBinding{
+			{ConsumerID: "consumer-a", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a", LoadedName: LoadedNameForVersion("consumer-a", "reference-a", "version-a")},
+			{ConsumerID: "consumer-b", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "beta.service", ServiceUID: 1002, ServiceGID: 1002, ProfileID: "profile-a", RoleID: "role-b", LoadedName: LoadedNameForVersion("consumer-b", "reference-a", "version-a")},
+		},
+		NativeDeniedReaders:   []NativeDeniedReaderBinding{{ConsumerID: "consumer-denied", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-a", RoleID: "role-denied"}},
+		MaterialVersion:       "version-a",
+		ResolverID:            "native-systemd",
+		TargetID:              "target-a",
+		CiphertextFingerprint: testFingerprint,
+		StateRevision:         12,
+		RecoveryEpoch:         3,
 	}
 }
 
@@ -38,6 +43,7 @@ func TestValidLifecycleBindingAcceptsEachAction(t *testing.T) {
 	stage.DraftID = stagePointer("draft-a")
 	sealOrigin(&stage)
 	stage.RequiredDeniedConsumerIDs = nil
+	stage.NativeConsumers, stage.NativeDeniedReaders = nil, nil
 	cases[ActionStage] = stage
 
 	rotate := validActivateBinding()
@@ -52,11 +58,13 @@ func TestValidLifecycleBindingAcceptsEachAction(t *testing.T) {
 	revoke.Action = ActionRevoke
 	revoke.ConsumerIDs = nil
 	revoke.RequiredDeniedConsumerIDs = nil
+	revoke.NativeConsumers, revoke.NativeDeniedReaders = nil, nil
 	cases[ActionRevoke] = revoke
 
 	recover := validActivateBinding()
 	recover.Action = ActionRecover
 	recover.RequiredDeniedConsumerIDs = nil
+	recover.NativeConsumers, recover.NativeDeniedReaders = nil, nil
 	recover.DraftID = stagePointer("draft-a")
 	sealOrigin(&recover)
 	recover.PriorRecoveryEpoch = epochPointer(2)
@@ -154,6 +162,10 @@ func TestLifecycleDigestIsDeterministicAndSensitive(t *testing.T) {
 	}
 	changed := validActivateBinding()
 	changed.MaterialVersion = "version-b"
+	changed.NativeConsumers = append([]NativeConsumerBinding(nil), changed.NativeConsumers...)
+	for index := range changed.NativeConsumers {
+		changed.NativeConsumers[index].LoadedName = LoadedNameForVersion(changed.NativeConsumers[index].ConsumerID, changed.ReferenceID, changed.MaterialVersion)
+	}
 	if base.Digest() == changed.Digest() {
 		t.Fatal("digest ignored the material version")
 	}
@@ -170,6 +182,7 @@ func TestLifecycleDraftOriginMustBeSealed(t *testing.T) {
 	binding.Action = ActionStage
 	binding.DraftID = stagePointer("draft-a")
 	binding.RequiredDeniedConsumerIDs = nil
+	binding.NativeConsumers, binding.NativeDeniedReaders = nil, nil
 	if ValidLifecycleBinding(binding) || binding.Digest() != "" {
 		t.Fatal("incomplete historical draft binding must fail closed")
 	}
