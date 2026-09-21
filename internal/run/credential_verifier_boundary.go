@@ -12,6 +12,11 @@ import (
 // this boundary receives metadata only. An interrupted call may already have
 // restarted a consumer, so its result is always uncertain.
 func guardedLifecycleVerify(ctx context.Context, verifier CredentialLifecycleVerifier, binding ExactStepBinding, lifecycle credentialref.LifecycleBinding) (results []credentialref.ConsumerVerification, err error) {
+	if _, unavailable := verifier.(UnavailableCredentialLifecycleVerifier); unavailable {
+		// This built-in sentinel cannot have observed an external effect. Keep
+		// its established stable denial target and pre-effect semantics.
+		return verifier.Verify(ctx, binding, lifecycle)
+	}
 	defer func() {
 		if recover() != nil {
 			results = nil
@@ -31,6 +36,9 @@ func guardedLifecycleVerify(ctx context.Context, verifier CredentialLifecycleVer
 // guardedRecoveryVerify applies the same uncertain-effect and redaction
 // boundary to clean-host custody/fence verification.
 func guardedRecoveryVerify(ctx context.Context, verifier CredentialRecoveryVerifier, binding ExactStepBinding, lifecycle credentialref.LifecycleBinding) (result credentialref.RecoveryVerification, err error) {
+	if _, unavailable := verifier.(UnavailableCredentialRecoveryVerifier); unavailable {
+		return verifier.Verify(ctx, binding, lifecycle)
+	}
 	defer func() {
 		if recover() != nil {
 			result = credentialref.RecoveryVerification{}

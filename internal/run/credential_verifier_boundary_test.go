@@ -91,3 +91,20 @@ func TestCredentialVerifierBoundaryPreservesOnlyStableCode(t *testing.T) {
 		t.Fatalf("stable rate-limit code was lost or provider target leaked: %v", err)
 	}
 }
+
+func TestCredentialVerifierBoundaryPreservesBuiltInUnavailableDenials(t *testing.T) {
+	_, lifecycleErr := guardedLifecycleVerify(context.Background(), UnavailableCredentialLifecycleVerifier{}, ExactStepBinding{}, credentialref.LifecycleBinding{})
+	_, recoveryErr := guardedRecoveryVerify(context.Background(), UnavailableCredentialRecoveryVerifier{}, ExactStepBinding{}, credentialref.LifecycleBinding{})
+	for _, test := range []struct {
+		err    error
+		target string
+	}{
+		{lifecycleErr, "credential-consumer-verifier-unavailable"},
+		{recoveryErr, "credential-recovery-verifier-unavailable"},
+	} {
+		var stable *Error
+		if !errors.As(test.err, &stable) || stable.Code() != generated.ErrorCodePrerequisiteBlocked || stable.Target() != test.target {
+			t.Fatalf("built-in unavailable verifier denial changed: %v", test.err)
+		}
+	}
+}
