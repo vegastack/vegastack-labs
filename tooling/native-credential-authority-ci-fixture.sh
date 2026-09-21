@@ -39,9 +39,9 @@ check_host
 if test "${1:-}" = --cleanup; then clean_fixture; exit 0; fi
 test $# = 0 || fatal 'Unexpected fixture argument'
 test "${VSK_NATIVE_AUTHORITY_DISPOSABLE:-}" = 1 || fatal 'Disposable fixture marker missing'
-test "$(git -C "$VSK143_WORKSPACE" rev-parse HEAD)" = "$VSK143_SHA" || fatal 'Checkout SHA differs from requested fixture SHA'
-test "$(git -C "$VSK143_WORKSPACE" status --porcelain)" = '' || fatal 'Checkout is not clean'
-for command in systemctl pkcheck sudo nsenter jq python3 useradd userdel groupdel node visudo; do
+test "$(git -c "safe.directory=$VSK143_WORKSPACE" -C "$VSK143_WORKSPACE" rev-parse HEAD)" = "$VSK143_SHA" || fatal 'Checkout SHA differs from requested fixture SHA'
+test "$(git -c "safe.directory=$VSK143_WORKSPACE" -C "$VSK143_WORKSPACE" status --porcelain)" = '' || fatal 'Checkout is not clean'
+for command in git systemctl pkcheck sudo nsenter jq python3 useradd userdel groupdel node visudo; do
   command -v "$command" >/dev/null || fatal "Missing fixture prerequisite: $command"
 done
 test -x "$VSK143_ANSIBLE" || fatal 'Missing pinned fixture Ansible'
