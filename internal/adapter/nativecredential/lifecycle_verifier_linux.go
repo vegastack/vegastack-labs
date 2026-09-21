@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"reflect"
 	"slices"
@@ -46,6 +47,41 @@ func NewNativeLifecycleVerifier(authority *LocalNativeAuthority, units AppliedUn
 	v.observe = observer.observe
 	v.recheck = v.recheckProof
 	return v, nil
+}
+
+// NewInstalledNativeLifecycleVerifier is the only production constructor. An
+// absent or drifting root-owned OS enrollment leaves the server on its
+// unavailable sentinel; the sealed binding is checked again at Verify time.
+func NewInstalledNativeLifecycleVerifier(ctx context.Context, ciphertextRoot string, ownerUID uint32) (*NativeLifecycleVerifier, error) {
+	if ctx == nil || ctx.Err() != nil {
+		return nil, errNativeLifecycle
+	}
+	root, err := os.Lstat(ciphertextRoot)
+	if err != nil || !root.IsDir() || root.Mode().Perm() != 0o700 {
+		return nil, errNativeLifecycle
+	}
+	rootStat, ok := root.Sys().(*unix.Stat_t)
+	if !ok || rootStat.Uid != ownerUID {
+		return nil, errNativeLifecycle
+	}
+	policy, err := readProbePolicy(probePolicyPath)
+	if err != nil {
+		return nil, errNativeLifecycle
+	}
+	machine, err := os.ReadFile("/etc/machine-id")
+	if err != nil || strings.TrimSpace(string(machine)) != policy.MachineID {
+		return nil, errNativeLifecycle
+	}
+	authority, err := NewNativeAuthority(policy.Units)
+	if err != nil {
+		return nil, errNativeLifecycle
+	}
+	for _, unit := range policy.Units {
+		if !authority.qualified(ctx, unit) {
+			return nil, errNativeLifecycle
+		}
+	}
+	return NewNativeLifecycleVerifier(authority, SystemdUnitReader{}, ciphertextRoot, ownerUID)
 }
 
 func (v *NativeLifecycleVerifier) Verify(ctx context.Context, step run.ExactStepBinding, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
@@ -114,8 +150,8 @@ func (v *NativeLifecycleVerifier) Verify(ctx context.Context, step run.ExactStep
 
 func validNativeProof(proof NativeInvocationProof, reader credentialref.NativeConsumerBinding, binding credentialref.LifecycleBinding) bool {
 	return bootIDPattern.MatchString(proof.BootID) && len(proof.InvocationID) == 32 && proof.MainPID > 1 && proof.ProcessStartTicks != 0 &&
-		proof.NamespaceInode != 0 && proof.CredentialDevice != 0 && proof.CredentialInode != 0 && proof.CredentialUID == reader.ServiceUID &&
-		proof.CredentialGID == reader.ServiceGID && proof.CredentialMode&unix.S_IFMT == unix.S_IFREG && proof.CredentialMode&0o077 == 0 &&
+		proof.NamespaceInode != 0 && proof.CredentialDevice != 0 && proof.CredentialInode != 0 && (proof.CredentialUID == 0 || proof.CredentialUID == reader.ServiceUID) &&
+		(proof.CredentialGID == 0 || proof.CredentialGID == reader.ServiceGID) && proof.CredentialMode&unix.S_IFMT == unix.S_IFREG && proof.CredentialMode&0o022 == 0 &&
 		proof.SourceDevice != 0 && proof.SourceInode != 0 && proof.SourceFingerprint == binding.CiphertextFingerprint
 }
 

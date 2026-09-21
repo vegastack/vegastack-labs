@@ -89,7 +89,9 @@ func (o invocationObserver) observe(ctx context.Context, binding credentialref.L
 	request := AccessProbeRequest{UID: reader.ServiceUID, GID: reader.ServiceGID, UnitName: reader.UnitName, CredentialName: reader.LoadedName,
 		MainPID: int(after.MainPID), ProcessStartTicks: process.StartTicks, BootID: after.BootID}
 	loaded, err := o.authority.Probe(ctx, request)
-	if err != nil || !validProbeResult(loaded) || loaded.Status != AccessProbeOpened || loaded.OwnerUID != reader.ServiceUID || loaded.OwnerGID != reader.ServiceGID || loaded.Mode&unix.S_IFMT != unix.S_IFREG || loaded.Mode&0o077 != 0 {
+	if err != nil || !validProbeResult(loaded) || loaded.Status != AccessProbeOpened ||
+		(loaded.OwnerUID != 0 && loaded.OwnerUID != reader.ServiceUID) || (loaded.OwnerGID != 0 && loaded.OwnerGID != reader.ServiceGID) ||
+		loaded.Mode&unix.S_IFMT != unix.S_IFREG || loaded.Mode&0o022 != 0 {
 		return NativeInvocationProof{}, errNativeInvocation
 	}
 	rechecked, err := o.units.ObserveAppliedUnit(ctx, reader.UnitName)

@@ -43,7 +43,7 @@ func ObserveAppliedUnit(ctx context.Context, unit string) (AppliedUnitSnapshot, 
 	if ctx == nil || ctx.Err() != nil || !unitNamePattern.MatchString(unit) || strings.Contains(unit, "..") || strings.Contains(unit, "@.service") {
 		return AppliedUnitSnapshot{}, errAppliedUnit
 	}
-	conn, err := dbus.SystemBusPrivate()
+	conn, err := dbus.SystemBusPrivate(dbus.WithContext(ctx))
 	if err != nil {
 		return AppliedUnitSnapshot{}, errAppliedUnit
 	}
