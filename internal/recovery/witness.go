@@ -50,12 +50,13 @@ type PinnedWitness struct {
 }
 
 type WitnessPayload struct {
-	Binding           WitnessBinding `json:"binding"`
-	KeyID             string         `json:"keyId"`
-	WitnessInstanceID string         `json:"witnessInstanceId"`
-	IssuedAt          time.Time      `json:"issuedAt"`
-	ObservedAt        time.Time      `json:"observedAt"`
-	ExpiresAt         time.Time      `json:"expiresAt"`
+	Binding           WitnessBinding           `json:"binding"`
+	KeyID             string                   `json:"keyId"`
+	WitnessInstanceID string                   `json:"witnessInstanceId"`
+	IssuedAt          time.Time                `json:"issuedAt"`
+	ObservedAt        time.Time                `json:"observedAt"`
+	ExpiresAt         time.Time                `json:"expiresAt"`
+	Transcripts       []DirectDenialTranscript `json:"transcripts"`
 }
 
 type SignedWitness struct {
