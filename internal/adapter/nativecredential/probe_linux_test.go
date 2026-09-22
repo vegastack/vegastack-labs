@@ -117,12 +117,22 @@ func TestExactUnitCgroupMembership(t *testing.T) {
 }
 
 func TestProbeRejectsSymlinkAndReturnsOnlyMetadata(t *testing.T) {
-	root:=t.TempDir()
-	unitDir:=filepath.Join(root,"alpha.service")
-	if err:=os.Mkdir(unitDir,0o700);err!=nil { t.Fatal(err) }
-	if err:=os.WriteFile(filepath.Join(unitDir,"credential-a"),[]byte("synthetic-fixture"),0o600);err!=nil { t.Fatal(err) }
-	if err:=os.Symlink("credential-a",filepath.Join(unitDir,"credential-link"));err!=nil { t.Fatal(err) }
-	opened:=probeCredentialFileAt(root,"alpha.service","credential-a")
-	if opened.Status!=AccessProbeOpened || opened.Inode==0 || opened.Mode==0 { t.Fatalf("fixture open metadata missing: %+v",opened) }
-	if got:=probeCredentialFileAt(root,"alpha.service","credential-link");got.Status!=AccessProbeUnknown { t.Fatalf("symlink accepted: %+v",got) }
+	root := t.TempDir()
+	unitDir := filepath.Join(root, "alpha.service")
+	if err := os.Mkdir(unitDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(unitDir, "credential-a"), []byte("synthetic-fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink("credential-a", filepath.Join(unitDir, "credential-link")); err != nil {
+		t.Fatal(err)
+	}
+	opened := probeCredentialFileAt(root, "alpha.service", "credential-a")
+	if opened.Status != AccessProbeOpened || opened.Inode == 0 || opened.Mode == 0 {
+		t.Fatalf("fixture open metadata missing: %+v", opened)
+	}
+	if got := probeCredentialFileAt(root, "alpha.service", "credential-link"); got.Status != AccessProbeUnknown {
+		t.Fatalf("symlink accepted: %+v", got)
+	}
 }
