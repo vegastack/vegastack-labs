@@ -28,17 +28,23 @@ const maxObjectBytes = 2 << 30 // 2 GiB
 // non-regular file, or accept a peer other than the service owner. A lock-free
 // mode is never offered: locking is always enforced by the client, never disabled.
 type RESTServer struct {
-	root         string
-	repositoryID string
-	expectedUID  uint32
-	lease        WriterLease
-	verifier     LeaseVerifier
-	readLease    ReadLease
-	readVerifier ReadLeaseVerifier
-	readOnly     bool
-	clock        func() time.Time
-	mu           sync.Mutex
-	ownLocks     map[string]struct{}
+	root               string
+	repositoryID       string
+	expectedUID        uint32
+	lease              WriterLease
+	verifier           LeaseVerifier
+	readLease          ReadLease
+	readVerifier       ReadLeaseVerifier
+	readOnly           bool
+	retentionLease     *RetentionLease
+	retentionVerifier  RetentionLeaseVerifier
+	retentionJournal   RetainedMutationJournal
+	quarantineRoot     string
+	retentionMutations int64
+	retentionBytes     int64
+	clock              func() time.Time
+	mu                 sync.Mutex
+	ownLocks           map[string]struct{}
 }
 
 // NewVerifierRESTServer creates a point-bound read role. The read role may
@@ -106,14 +112,15 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// no writer lease and cannot fall through to writer authority.
 	now := server.clock()
 	if (server.readOnly && (server.readVerifier.VerifyReadLease(server.readLease, now) != nil || !now.Before(server.readLease.MaximumExpiresAt))) ||
-		(!server.readOnly && (server.verifier.VerifyWriterLease(server.lease, now) != nil || !now.Before(server.lease.MaximumExpiresAt))) {
+		(server.retentionLease != nil && (server.retentionVerifier.VerifyRetentionLease(*server.retentionLease, now) != nil || !now.Before(server.retentionLease.MaximumExpiresAt))) ||
+		(!server.readOnly && server.retentionLease == nil && (server.verifier.VerifyWriterLease(server.lease, now) != nil || !now.Before(server.lease.MaximumExpiresAt))) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	// Repository-level requests (create the layout, or list a type directory)
 	// are classified before single-object parsing.
 	if repositoryRequest, ok := parseRepositoryRequest(r.URL.Path, server.repositoryID); ok {
-		if server.readOnly && create {
+		if (server.readOnly || server.retentionLease != nil) && create {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
@@ -142,9 +149,17 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodHead:
 		server.handleHead(w, request)
 	case http.MethodPost, http.MethodPut:
-		server.handleCreate(w, r, request)
+		if server.retentionLease != nil {
+			server.handleRetainedCreate(w, r, request)
+		} else {
+			server.handleCreate(w, r, request)
+		}
 	case http.MethodDelete:
-		server.handleDelete(w, request)
+		if server.retentionLease != nil {
+			server.handleRetainedDelete(w, r, request)
+		} else {
+			server.handleDelete(w, request)
+		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
