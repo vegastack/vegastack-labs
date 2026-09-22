@@ -19,6 +19,7 @@ export const changeFixture: {
   eventConnections: number;
   eventLastIds: string[];
   eventMode: "offline" | "reconnect";
+  changeRunRevisionAfterFirstEvent: boolean;
   hardFailurePath: string | null;
   retryableFailurePath: string | null;
   runReadFailuresRemaining: number;
@@ -27,7 +28,7 @@ export const changeFixture: {
   requestPaths: string[];
   reasonDigest: string;
   planDigest: string;
-} = { approval: "pending", run: "running", runAfterExecute: null, executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalRequestPosts: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, runReadFailuresRemaining: 0, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
+} = { approval: "pending", run: "running", runAfterExecute: null, executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalRequestPosts: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", changeRunRevisionAfterFirstEvent: false, hardFailurePath: null, retryableFailurePath: null, runReadFailuresRemaining: 0, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
 
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
@@ -57,7 +58,7 @@ function runPresentation() {
 	const progressState = changeFixture.run === "succeeded" ? "verified" : changeFixture.run === "partial" ? "unknown" : changeFixture.run === "running" ? "started" : "not-started";
 	const step = { sequence: operation.sequence, operationId: operation.operationId, operationType: operation.operationType, targetId: operation.targetId, stepId: "step-one", status: changeFixture.run, progressState };
   const nextSafeAction = changeFixture.run === "succeeded" ? "none; execution completed" : changeFixture.run === "partial" ? "recovery required; inspect the durable run" : changeFixture.run === "interrupted" ? "inspect, then resume or cancel through the server" : changeFixture.run === "queued" || changeFixture.run === "running" ? "inspect or cancel through the server" : "inspect the durable run";
-	return { run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId: "run-one", planId: plan.planId, planDigest: plan.planDigest, status: changeFixture.run, steps: [step], cancellationRequested: false, rollbackStatus: changeFixture.run === "partial" ? "required" : "not-requested", verificationStatus: changeFixture.run === "succeeded" ? "verified" : terminal ? "incomplete" : "pending", verificationDigest: changeFixture.run === "succeeded" ? digest("5") : null, changed: changeFixture.run !== "queued", stateRevision: 11, recoveryEpoch: 2, createdAt: "2026-09-13T12:33:00Z", updatedAt: "2026-09-13T12:34:00Z", extensions: [] }, completedWork: changeFixture.run === "succeeded" ? [step] : [], incompleteWork: changeFixture.run === "succeeded" ? [] : [step], nextSafeAction };
+	return { run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId: "run-one", planId: plan.planId, planDigest: plan.planDigest, status: changeFixture.run, steps: [step], cancellationRequested: false, rollbackStatus: changeFixture.run === "partial" ? "required" : "not-requested", verificationStatus: changeFixture.run === "succeeded" ? "verified" : terminal ? "incomplete" : "pending", verificationDigest: changeFixture.run === "succeeded" ? digest("5") : null, changed: changeFixture.run !== "queued", stateRevision: changeFixture.changeRunRevisionAfterFirstEvent && changeFixture.eventConnections > 0 ? 12 : 11, recoveryEpoch: 2, createdAt: "2026-09-13T12:33:00Z", updatedAt: "2026-09-13T12:34:00Z", extensions: [] }, completedWork: changeFixture.run === "succeeded" ? [step] : [], incompleteWork: changeFixture.run === "succeeded" ? [] : [step], nextSafeAction };
 }
 
 function envelope(command: string, data: unknown, status = "succeeded", errors: unknown[] = []) {
@@ -137,6 +138,7 @@ export function resetChangeFixture() {
   changeFixture.eventConnections = 0;
   changeFixture.eventLastIds.length = 0;
   changeFixture.eventMode = "offline";
+  changeFixture.changeRunRevisionAfterFirstEvent = false;
   changeFixture.hardFailurePath = null;
   changeFixture.retryableFailurePath = null;
   changeFixture.runReadFailuresRemaining = 0;

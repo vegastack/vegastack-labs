@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — A durable run keeps its SSE cursor across same-run reads ([#156](https://github.com/vegastack/vegastack-labs/issues/156))
+
+- **What:** The Console keeps `Last-Event-ID` while the same run's GET response changes, and Phase 4 CI reports a bounded browser failure line, status and class.
+- **Why:** A normal read could replace the cached response, restart the watcher and clear the cursor; the acceptance wrapper then hid the browser failure behind a stage code.
+- **How it went:** A focused browser test forced a revision change after the first event and failed with an empty second cursor before the fix. The repaired test, existing reconnect proof and focused workflow suite passed. No live run or private operational state was involved.
+- **Changed:** Run watcher lifecycle · deterministic SSE regression fixture · sanitized Phase 4 and exit diagnostics.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/156-phase4-browser-reconnect
+
 ## 22-09-2026 — Independent recovery evidence has a bounded software handback ([#146](https://github.com/vegastack/vegastack-labs/issues/146))
 
 - **What:** A separately pinned witness can sign one exact recovery attempt, carry typed old-identity denial results, encrypt protected material to an authenticated replacement recipient, and consume a durable one-use receipt outside restored SQLite.

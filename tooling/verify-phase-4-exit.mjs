@@ -223,6 +223,12 @@ const FULL_CHECK_STAGE_CODES = new Map(checkStepsForPlan(fullCheckPlan()).map(({
   name, `PHASE4_EXIT_CHECK_${name.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_|_$/g, "")}`,
 ]));
 
+export function phase4BrowserFailureLine(stderr) {
+  const line = typeof stderr === "string" ? stderr.split("\n").find(item => item.startsWith("Phase 4 verification failed at scenario-")) : undefined;
+  const match = /^Phase 4 verification failed at scenario-(?:execution|result) \(scenario (browser\.[a-z0-9.-]+); browser line (?:[1-9][0-9]{0,4}|unknown); status (?:failed|timedOut|interrupted|unknown); class (?:assertion|timeout|browser|other)\)$/.exec(line ?? "");
+  return match && REQUIRED_PHASE4_SCENARIO_IDS.includes(match[1]) ? `${line}\n` : "";
+}
+
 export async function defaultRunChecks(root, { runPlan = runCheckPlan, run = runCommand } = {}) {
   let currentStage = "PHASE4_EXIT_CHECK_PUBLIC_CHECK_CATALOG";
   try {
@@ -231,7 +237,12 @@ export async function defaultRunChecks(root, { runPlan = runCheckPlan, run = run
       quiet: true,
       onStep: ({ name }) => { currentStage = FULL_CHECK_STAGE_CODES.get(name) ?? "PHASE4_EXIT_CHECK_PUBLIC_CHECK_CATALOG"; },
     });
-  } catch { fail(currentStage); }
+  } catch (error) {
+    if (currentStage === "PHASE4_EXIT_CHECK_PHASE_4_ADVERSARIAL_ACCEPTANCE") {
+      process.stderr.write(phase4BrowserFailureLine(error?.stderr));
+    }
+    fail(currentStage);
+  }
   try {
     await run("go", ["test", "-race", "-count=1", "./..."], { cwd: root, capture: true, timeoutMs: 600_000 });
   } catch { fail("PHASE4_EXIT_CHECK_GO_RACE_FULL"); }

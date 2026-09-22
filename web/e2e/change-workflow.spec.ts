@@ -252,6 +252,23 @@ test("SSE reconnect carries the last event and re-reads without resubmitting", a
   expect(changeFixture.executeRequests).toBe(1);
 });
 
+test("same-run GET revision after SSE keeps the reconnect cursor without resubmitting", async ({ page }) => {
+  changeFixture.eventMode = "reconnect";
+  changeFixture.changeRunRevisionAfterFirstEvent = true;
+  await page.goto("/changes");
+  await page.getByLabel("Declaration ID").fill("declaration-one");
+  await page.getByLabel("Revision").fill("1");
+  await page.getByRole("button", { name: "Open declaration" }).click();
+  await page.getByRole("button", { name: "Generate plan" }).click();
+  changeFixture.approval = "approved";
+  await page.getByRole("button", { name: "Request Slack approval" }).click();
+  await page.getByRole("button", { name: "Start run" }).click();
+  await page.getByRole("button", { name: "Start exact run" }).click();
+  await expect.poll(() => changeFixture.eventConnections).toBeGreaterThanOrEqual(2);
+  expect(changeFixture.eventLastIds.slice(0, 2)).toEqual(["", "1"]);
+  expect(changeFixture.executeRequests).toBe(1);
+});
+
 test("a one-shot durable GET failure retries before opening SSE without resubmitting", async ({ page }) => {
   changeFixture.eventMode = "reconnect";
   changeFixture.runReadFailuresRemaining = 1;

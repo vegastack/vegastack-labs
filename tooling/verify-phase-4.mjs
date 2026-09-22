@@ -13,6 +13,7 @@ const SCENARIO_ID_PATTERN = /^[a-z0-9]+(?:[.-][a-z0-9]+)*$/;
 const SCENARIO_KINDS = new Set(["browser-test", "go-test", "node-test"]);
 const SCENARIO_ENVIRONMENTS = new Set(["built-linux", "chromium", "fixture"]);
 const TEST_PATHS = { "browser-test": /\.spec\.ts$/, "go-test": /_test\.go$/, "node-test": /\.test\.mjs$/ };
+const BROWSER_SUMMARY_PATTERN = /^browser line (?:[1-9][0-9]{0,4}|unknown); status (?:failed|timedOut|interrupted|unknown); class (?:assertion|timeout|browser|other)$/;
 
 // This code-owned list prevents coordinated edits to the two JSON files from
 // silently shrinking the closed Phase 4 acceptance set.
@@ -40,7 +41,8 @@ export function phase4FailureDiagnostic(error) {
     if (!stage.startsWith("scenario-") || !REQUIRED_PHASE4_SCENARIO_ID_SET.has(scenarioID)) {
       return "Phase 4 verification failed at verification\n";
     }
-    return `Phase 4 verification failed at ${stage} (scenario ${scenarioID})\n`;
+    const summary = BROWSER_SUMMARY_PATTERN.test(error.browserSummary ?? "") ? `; ${error.browserSummary}` : "";
+    return `Phase 4 verification failed at ${stage} (scenario ${scenarioID}${summary})\n`;
   }
   return `Phase 4 verification failed at ${stage}\n`;
 }
@@ -166,6 +168,19 @@ function collectPlaywrightSpecs(suite, found = []) {
   return found;
 }
 
+export function summarizeBrowserFailure(report, selector) {
+  const matches = collectPlaywrightSpecs(report).filter(spec => spec.title === selector);
+  const spec = matches.length === 1 ? matches[0] : undefined;
+  const line = Number.isInteger(spec?.line) && spec.line > 0 && spec.line <= 99_999 ? spec.line : "unknown";
+  const result = spec?.tests?.flatMap(test => test.results ?? []).find(item => item.status !== "passed");
+  const status = ["failed", "timedOut", "interrupted"].includes(result?.status) ? result.status : "unknown";
+  const messages = (result?.errors ?? []).map(item => String(item?.message ?? ""));
+  const failureClass = status === "timedOut" || messages.some(message => /TimeoutError|timed out|timeout .* exceeded/i.test(message)) ? "timeout" :
+    messages.some(message => /expect\(|AssertionError/.test(message)) ? "assertion" :
+    messages.some(message => /browser has been closed|net::|Target closed/i.test(message)) ? "browser" : "other";
+  return `browser line ${line}; status ${status}; class ${failureClass}`;
+}
+
 async function runBrowserScenario(root, scenario, artifacts) {
   const reportRoot = await mkdtemp(path.join(tmpdir(), "vsk-phase4-report-"));
   const reportPath = path.join(reportRoot, "report.json");
@@ -182,8 +197,11 @@ async function runBrowserScenario(root, scenario, artifacts) {
     const report = JSON.parse(await readFile(reportPath, "utf8"));
     parsePlaywrightScenarioPass(report, scenario.selector);
   } catch (error) {
-    if (error?.message === "PHASE4_FAILED:scenario-result") throw error;
-    throw new Error("PHASE4_FAILED:scenario-execution");
+    let summary = "browser line unknown; status unknown; class other";
+    try { summary = summarizeBrowserFailure(JSON.parse(await readFile(reportPath, "utf8")), scenario.selector); } catch { /* report absent or invalid */ }
+    const failure = error?.message === "PHASE4_FAILED:scenario-result" ? error : new Error("PHASE4_FAILED:scenario-execution");
+    failure.browserSummary = summary;
+    throw failure;
   } finally {
     await rm(reportRoot, { recursive: true, force: true });
   }
@@ -256,7 +274,11 @@ export async function executePhase4Scenarios(root, definition) {
           else await runNodeScenario(root, scenario);
         } catch (error) {
           const failure = /^PHASE4_FAILED:(scenario-(?:execution|result))$/.exec(error?.message ?? "");
-          if (failure) throw new Error(`${error.message}:${scenario.id}`);
+          if (failure) {
+            const tagged = new Error(`${error.message}:${scenario.id}`);
+            tagged.browserSummary = error.browserSummary;
+            throw tagged;
+          }
           throw error;
         }
         proofResults.set(proof, true);
