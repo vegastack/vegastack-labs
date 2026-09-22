@@ -227,6 +227,68 @@ func TestRetentionDeleteRejectsObjectSwappedAfterHash(t *testing.T) {
 	}
 }
 
+// A last-moment pathname stat is only a detection step. Linux renameat2 has
+// no expected-inode argument, so a same-UID writer that can edit this owner-
+// only directory can replace the object after stat and before the rename.
+// Keep the production retirement claim disabled until custody excludes that
+// writer for the entire hash/journal/quarantine interval.
+func TestRetentionPostStatRenameHasNoInodeCompareAndSwap(t *testing.T) {
+	var fs unix.Statfs_t
+	if err := unix.Statfs(t.TempDir(), &fs); err != nil || fs.Type != unix.EXT4_SUPER_MAGIC {
+		t.Skip("disposable ext-family filesystem required")
+	}
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	source, held := filepath.Join(directory, "source"), filepath.Join(directory, "held")
+	if err := os.Mkdir(source, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(held, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	name := strings.Repeat("d", 64)
+	original := filepath.Join(source, name)
+	if err := os.WriteFile(original, []byte("original pack"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	sourceFD, err := unix.Open(source, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(sourceFD)
+	heldFD, err := unix.Open(held, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer unix.Close(heldFD)
+	var checked unix.Stat_t
+	if err := unix.Fstatat(sourceFD, name, &checked, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Rename(original, filepath.Join(directory, "saved-original")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(original, []byte("replacement!!"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Renameat2(sourceFD, name, heldFD, name, unix.RENAME_NOREPLACE); err != nil {
+		t.Fatal(err)
+	}
+	var moved unix.Stat_t
+	if err := unix.Fstatat(heldFD, name, &moved, unix.AT_SYMLINK_NOFOLLOW); err != nil {
+		t.Fatal(err)
+	}
+	if moved.Ino == checked.Ino || moved.Dev != checked.Dev {
+		t.Fatal("test did not replace the exact checked inode before rename")
+	}
+	contents, err := os.ReadFile(filepath.Join(held, name))
+	if err != nil || string(contents) != "replacement!!" {
+		t.Fatalf("unexpected renamed bytes %q: %v", contents, err)
+	}
+}
+
 type allowingRetentionLeaseVerifier struct{}
 
 func (allowingRetentionLeaseVerifier) VerifyRetentionLease(RetentionLease, time.Time) error {
