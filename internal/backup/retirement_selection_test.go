@@ -6,6 +6,9 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 func retirementCandidate(id string, day int, proof bool) RetirementCandidate {
@@ -18,10 +21,24 @@ func retirementCandidate(id string, day int, proof bool) RetirementCandidate {
 	return result
 }
 
+func retirementLocks(t *testing.T, pointIDs ...string) store.AppliedLocalRetentionLocks {
+	t.Helper()
+	catalog := store.LocalRetentionLockCatalog{Schema: "vegastack-labs.dev/local-retention-lock-catalog", SchemaVersion: "1.0.0",
+		RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", SourceCoverageDigest: store.LocalPromiseSourceCoverageDigest(),
+		RecoveryEpoch: 8, Revision: 2, Complete: true, Locks: []store.LocalRetentionLock{}}
+	for _, pointID := range pointIDs {
+		catalog.Locks = append(catalog.Locks, store.LocalRetentionLock{PointID: pointID, ReasonDigest: "sha256:" + strings.Repeat("a", 64)})
+	}
+	_, digest, err := store.CanonicalLocalRetentionLockCatalog(catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return store.AppliedLocalRetentionLocks{ActivationID: "catalog-applied", CatalogDigest: digest, Sequence: 1, Catalog: catalog}
+}
+
 func TestLocalKeepWithinPreservesOnlyGoodAfterOutage(t *testing.T) {
 	catalog := []RetirementCandidate{retirementCandidate("old", 1, false), retirementCandidate("only-good", 10, true), retirementCandidate("rollback-promised", 3, false), retirementCandidate("new-pending", 15, false)}
-	catalog[2].ActivePromise = true
-	selection, err := SelectLocalRetirement(catalog, []string{"only-good"}, 7*24*time.Hour, 8)
+	selection, err := SelectLocalRetirement(catalog, []string{"only-good"}, retirementLocks(t, "rollback-promised"), 7*24*time.Hour, 8)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -30,6 +47,9 @@ func TestLocalKeepWithinPreservesOnlyGoodAfterOutage(t *testing.T) {
 	}
 	if len(selection.Survivors) != 3 || selection.ExpectedInventoryDigest == "" {
 		t.Fatalf("missing survivors or digest: %#v", selection)
+	}
+	if selection.LockCatalogDigest == "" || selection.LockCatalogSequence != 1 {
+		t.Fatal("selection lost applied lock catalog binding")
 	}
 	if len(selection.InertOffsiteGenerationIDs) != 0 {
 		t.Fatal("off-site candidate became executable")
@@ -60,9 +80,29 @@ func TestLocalRetirementRejectsUnqualifiedOrAmbiguousCatalog(t *testing.T) {
 			if name == "no-current-good" {
 				good = []string{"old"}
 			}
-			if _, err := SelectLocalRetirement(c, good, 7*24*time.Hour, 8); err == nil {
+			if _, err := SelectLocalRetirement(c, good, retirementLocks(t), 7*24*time.Hour, 8); err == nil {
 				t.Fatal("unsafe catalog admitted")
 			}
 		})
+	}
+}
+
+func TestLocalRetirementSelectionDeniesMissingOrForgedLocks(t *testing.T) {
+	catalog := []RetirementCandidate{retirementCandidate("good", 10, true), retirementCandidate("old", 1, false)}
+	if _, err := SelectLocalRetirement(catalog, []string{"good"}, store.AppliedLocalRetentionLocks{}, 7*24*time.Hour, 8); err == nil {
+		t.Fatal("missing applied lock catalog admitted")
+	}
+	forged := retirementLocks(t, "old")
+	forged.CatalogDigest = "sha256:" + strings.Repeat("0", 64)
+	if _, err := SelectLocalRetirement(catalog, []string{"good"}, forged, 7*24*time.Hour, 8); err == nil {
+		t.Fatal("forged lock catalog digest admitted")
+	}
+	unknown := retirementLocks(t, "other-point")
+	if _, err := SelectLocalRetirement(catalog, []string{"good"}, unknown, 7*24*time.Hour, 8); err == nil {
+		t.Fatal("unknown promised point admitted")
+	}
+	selection, err := SelectLocalRetirement(catalog, []string{"good"}, retirementLocks(t, "old"), 7*24*time.Hour, 8)
+	if err != nil || len(selection.Targets) != 0 || len(selection.Survivors) != 2 {
+		t.Fatalf("locked old point retired: %#v %v", selection, err)
 	}
 }

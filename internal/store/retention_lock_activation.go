@@ -34,7 +34,7 @@ func (repository *LocalRetirementRepository) ActivateLocalRetentionLockCatalog(c
 			(request.Attribution.ResponsibleHumanPrincipalID == nil || *request.Attribution.ResponsibleHumanPrincipalID != request.HumanID)) {
 		return "", newStoreError(generated.ErrorCodeInputInvalid, "local-retention-lock-activation", false, nil)
 	}
-	canonical, catalogDigest, err := canonicalLocalRetentionLockCatalog(request.Catalog)
+	canonical, catalogDigest, err := CanonicalLocalRetentionLockCatalog(request.Catalog)
 	if err != nil {
 		return "", err
 	}

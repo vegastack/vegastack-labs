@@ -20,7 +20,7 @@ func retentionLockActivationFixture(t *testing.T, authority *Store) LocalRetenti
 	catalog := LocalRetentionLockCatalog{Schema: "vegastack-labs.dev/local-retention-lock-catalog", SchemaVersion: "1.0.0",
 		RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", SourceCoverageDigest: LocalPromiseSourceCoverageDigest(),
 		RecoveryEpoch: 0, Revision: 2, Complete: true, Locks: []LocalRetentionLock{}}
-	_, digest, err := canonicalLocalRetentionLockCatalog(catalog)
+	_, digest, err := CanonicalLocalRetentionLockCatalog(catalog)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,7 +96,7 @@ func seedRetentionLockRun(t *testing.T, authority *Store, request LocalRetention
 
 func catalogDigestForTest(t *testing.T, catalog LocalRetentionLockCatalog) string {
 	t.Helper()
-	_, digest, err := canonicalLocalRetentionLockCatalog(catalog)
+	_, digest, err := CanonicalLocalRetentionLockCatalog(catalog)
 	if err != nil {
 		t.Fatal(err)
 	}

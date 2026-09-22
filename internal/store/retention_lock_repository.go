@@ -48,7 +48,7 @@ type AppliedLocalRetentionLocks struct {
 	Catalog                     LocalRetentionLockCatalog
 }
 
-func canonicalLocalRetentionLockCatalog(value LocalRetentionLockCatalog) ([]byte, string, error) {
+func CanonicalLocalRetentionLockCatalog(value LocalRetentionLockCatalog) ([]byte, string, error) {
 	invalid := func() ([]byte, string, error) {
 		return nil, "", newStoreError(generated.ErrorCodeInputInvalid, "local-retention-lock-catalog", false, nil)
 	}
@@ -127,7 +127,7 @@ func (repository *LocalRetirementRepository) CurrentAppliedLocalRetentionLocks(c
 			plan.Binding.DeclarationRevision != result.Catalog.Revision {
 			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retention-lock-catalog-plan", false, nil)
 		}
-		remarshal, digest, err := canonicalLocalRetentionLockCatalog(result.Catalog)
+		remarshal, digest, err := CanonicalLocalRetentionLockCatalog(result.Catalog)
 		if err != nil || string(remarshal) != canonical || digest != result.CatalogDigest || coverage != result.Catalog.SourceCoverageDigest ||
 			result.Catalog.RepositoryClass != class || result.Catalog.RepositoryID != repositoryID || result.Catalog.RecoveryEpoch != epoch ||
 			result.Sequence < 1 || activationStateRevision > stateRevision {

@@ -99,7 +99,7 @@ func TestLocalRetentionLockCatalogRequiresAppliedCompleteness(t *testing.T) {
 	base := LocalRetentionLockCatalog{Schema: "vegastack-labs.dev/local-retention-lock-catalog", SchemaVersion: "1.0.0",
 		RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", RecoveryEpoch: 0, Revision: 1,
 		SourceCoverageDigest: LocalPromiseSourceCoverageDigest(), Complete: true, Locks: []LocalRetentionLock{}}
-	if _, digest, err := canonicalLocalRetentionLockCatalog(base); err != nil || !validBackupDigest(digest) {
+	if _, digest, err := CanonicalLocalRetentionLockCatalog(base); err != nil || !validBackupDigest(digest) {
 		t.Fatalf("explicit complete empty declaration invalid: %s %v", digest, err)
 	}
 	for name, mutate := range map[string]func(*LocalRetentionLockCatalog){
@@ -115,7 +115,7 @@ func TestLocalRetentionLockCatalogRequiresAppliedCompleteness(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			candidate := base
 			mutate(&candidate)
-			if _, _, err := canonicalLocalRetentionLockCatalog(candidate); err == nil {
+			if _, _, err := CanonicalLocalRetentionLockCatalog(candidate); err == nil {
 				t.Fatal("invalid lock catalog canonicalized")
 			}
 		})

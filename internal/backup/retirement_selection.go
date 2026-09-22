@@ -9,6 +9,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 // RetirementCandidate is one point in the complete, current local repository
@@ -18,7 +19,6 @@ type RetirementCandidate struct {
 	ManifestDigest, DependencyDigest, InventoryDigest, ProofDigest string
 	CreatedAt                                                      time.Time
 	Bytes, RecoveryEpoch                                           int64
-	ActivePromise                                                  bool
 }
 
 // RetirementSelection is an inert, deterministic proposal. Its target list is
@@ -28,18 +28,27 @@ type RetirementSelection struct {
 	Targets, Survivors                            []RetirementCandidate
 	InertOffsiteGenerationIDs                     []string
 	ExpectedInventoryDigest                       string
+	LockCatalogDigest, SourceCoverageDigest       string
+	LockCatalogSequence                           int64
 	MaxWork, MaxRepackBytes, ExpectedReclaimBytes int64
 	RecoveryEpoch                                 int64
 }
 
 // SelectLocalRetirement measures keep-within relative to the latest verified
 // local point. It never retires any current last-good or active recovery promise.
-// A missing/ambiguous catalog or unproved last-good fails the whole proposal.
-func SelectLocalRetirement(catalog []RetirementCandidate, lastGoodIDs []string, window time.Duration, epoch int64) (RetirementSelection, error) {
+// A missing/ambiguous point or applied-lock catalog, or unproved last-good,
+// fails the whole proposal. The selection remains inert; the store rechecks
+// the applied activation before any future executable claim.
+func SelectLocalRetirement(catalog []RetirementCandidate, lastGoodIDs []string, locks store.AppliedLocalRetentionLocks, window time.Duration, epoch int64) (RetirementSelection, error) {
 	invalid := func() (RetirementSelection, error) {
 		return RetirementSelection{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "local-retirement-selection", false)
 	}
 	if len(catalog) == 0 || len(catalog) > 256 || len(lastGoodIDs) == 0 || len(lastGoodIDs) > len(catalog) || window <= 0 || window > 14*24*time.Hour || epoch < 0 {
+		return invalid()
+	}
+	_, lockDigest, err := store.CanonicalLocalRetentionLockCatalog(locks.Catalog)
+	if err != nil || locks.ActivationID == "" || locks.Sequence < 1 || locks.CatalogDigest != lockDigest ||
+		locks.Catalog.RecoveryEpoch != epoch || locks.Catalog.RepositoryID != catalog[0].RepositoryID {
 		return invalid()
 	}
 	sorted := append([]RetirementCandidate(nil), catalog...)
@@ -69,10 +78,18 @@ func SelectLocalRetirement(catalog []RetirementCandidate, lastGoodIDs []string, 
 			latest = candidate.CreatedAt
 		}
 	}
+	locked := make(map[string]bool, len(locks.Catalog.Locks))
+	for _, lock := range locks.Catalog.Locks {
+		if _, found := points[lock.PointID]; !found {
+			return invalid()
+		}
+		locked[lock.PointID] = true
+	}
 	cutoff := latest.Add(-window)
-	selection := RetirementSelection{Targets: []RetirementCandidate{}, Survivors: []RetirementCandidate{}, InertOffsiteGenerationIDs: []string{}, RecoveryEpoch: epoch}
+	selection := RetirementSelection{Targets: []RetirementCandidate{}, Survivors: []RetirementCandidate{}, InertOffsiteGenerationIDs: []string{}, RecoveryEpoch: epoch,
+		LockCatalogDigest: locks.CatalogDigest, LockCatalogSequence: locks.Sequence, SourceCoverageDigest: locks.Catalog.SourceCoverageDigest}
 	for _, candidate := range sorted {
-		if !good[candidate.PointID] && !candidate.ActivePromise && candidate.CreatedAt.Before(cutoff) {
+		if !good[candidate.PointID] && !locked[candidate.PointID] && candidate.CreatedAt.Before(cutoff) {
 			selection.Targets = append(selection.Targets, candidate)
 		} else {
 			selection.Survivors = append(selection.Survivors, candidate)
