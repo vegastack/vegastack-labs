@@ -48,7 +48,7 @@ func SelectLocalRetirement(catalog []RetirementCandidate, lastGoodIDs []string, 
 	snapshots := make(map[string]bool, len(sorted))
 	repo := sorted[0].RepositoryID
 	for _, candidate := range sorted {
-		if candidate.PointID == "" || !validObjectName(candidate.SnapshotID) || candidate.RepositoryID == "" || candidate.RepositoryID != repo || candidate.RecoveryEpoch != epoch || candidate.Bytes < 0 || candidate.CreatedAt.IsZero() || !validBackupManifestDigest(candidate.ManifestDigest) || !validBackupManifestDigest(candidate.DependencyDigest) || !validBackupManifestDigest(candidate.InventoryDigest) || (candidate.ProofDigest != "" && !validBackupManifestDigest(candidate.ProofDigest)) || snapshots[candidate.SnapshotID] {
+		if candidate.PointID == "" || len(candidate.SnapshotID) != 64 || !validBackupManifestDigest("sha256:"+candidate.SnapshotID) || candidate.RepositoryID == "" || candidate.RepositoryID != repo || candidate.RecoveryEpoch != epoch || candidate.Bytes < 0 || candidate.CreatedAt.IsZero() || !validBackupManifestDigest(candidate.ManifestDigest) || !validBackupManifestDigest(candidate.DependencyDigest) || !validBackupManifestDigest(candidate.InventoryDigest) || (candidate.ProofDigest != "" && !validBackupManifestDigest(candidate.ProofDigest)) || snapshots[candidate.SnapshotID] {
 			return invalid()
 		}
 		if _, duplicate := points[candidate.PointID]; duplicate {

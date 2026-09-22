@@ -45,6 +45,14 @@ func TestLocalRetirementRejectsUnqualifiedOrAmbiguousCatalog(t *testing.T) {
 		"foreign-repository": func(c []RetirementCandidate) []RetirementCandidate { c[1].RepositoryID = "other"; return c },
 		"missing-digest":     func(c []RetirementCandidate) []RetirementCandidate { c[1].InventoryDigest = ""; return c },
 		"malformed-snapshot": func(c []RetirementCandidate) []RetirementCandidate { c[1].SnapshotID = "short"; return c },
+		"uppercase-snapshot": func(c []RetirementCandidate) []RetirementCandidate {
+			c[1].SnapshotID = strings.Repeat("A", 64)
+			return c
+		},
+		"nonhex-snapshot": func(c []RetirementCandidate) []RetirementCandidate {
+			c[1].SnapshotID = strings.Repeat("z", 64)
+			return c
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := mutate(append([]RetirementCandidate(nil), base...))
