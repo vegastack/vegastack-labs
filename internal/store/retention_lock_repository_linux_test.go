@@ -134,4 +134,19 @@ func TestLocalRetentionLockActivationRequiresExactHumanRunAndCompletedProof(t *t
 	if err != nil || applied.ActivationID != activationID || applied.CatalogDigest != catalogDigestForTest(t, request.Catalog) || !applied.Catalog.Complete {
 		t.Fatalf("completed applied catalog: %#v %v", applied, err)
 	}
+	// A later corrupt generation must deny retirement instead of silently
+	// falling back to the older, valid activation.
+	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_retention_lock_catalog_activations(
+		activation_id,repository_id,repository_class,catalog_digest,source_coverage_digest,canonical_json,
+		declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,acknowledgement_id,
+		human_id,state_revision,recovery_epoch,activated_at)
+		SELECT 'lock-catalog-tampered',repository_id,repository_class,?,source_coverage_digest,canonical_json,
+		declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,acknowledgement_id,
+		human_id,state_revision,recovery_epoch,activated_at
+		FROM backup_retention_lock_catalog_activations WHERE activation_id=?`, testDigest, activationID); err != nil {
+		t.Fatalf("seed later corrupt catalog: %v", err)
+	}
+	if _, err := repository.CurrentAppliedLocalRetentionLocks(ctx, "standard", 0); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("later invalid catalog fell back to prior applied generation: %v", err)
+	}
 }
