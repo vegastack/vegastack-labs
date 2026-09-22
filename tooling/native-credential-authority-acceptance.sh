@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
+# shellcheck disable=SC2154
 trap 'status=$?; printf "Native acceptance failed at line %s (status %s)\n" "$LINENO" "$status" >&2' ERR
 
 # Run only inside a disposable Debian/systemd fixture prepared by the role.
@@ -192,6 +193,7 @@ mv /etc/polkit-1/rules.d/00-vsk-native-credential-restart.rules "$tmpdir/polkit.
 /usr/bin/systemctl restart polkit.service
 expect_denied runuser -u vsk-labs -- /usr/bin/systemctl --system --no-ask-password restart "$unit"
 mv "$tmpdir/polkit.saved" /etc/polkit-1/rules.d/00-vsk-native-credential-restart.rules
+/usr/bin/systemctl reset-failed polkit.service
 /usr/bin/systemctl restart polkit.service
 runuser -u vsk-labs -- /usr/bin/systemctl --system --no-ask-password restart "$unit" >"$tmpdir/recovered.stdout" 2>"$tmpdir/recovered.stderr"
 test ! -s "$tmpdir/recovered.stdout"
