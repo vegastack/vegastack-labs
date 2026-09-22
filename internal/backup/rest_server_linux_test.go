@@ -37,7 +37,7 @@ func newRESTFixture(t *testing.T) (*RESTServer, *http.Client, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	socket := filepath.Join(t.TempDir(), "rest.sock")
+	socket := shortRESTSocketPath(t)
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
@@ -48,6 +48,18 @@ func newRESTFixture(t *testing.T) (*RESTServer, *http.Client, func()) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}}
 	return server, client, func() { cancel(); _ = listener.Close() }
+}
+
+// Unix socket names have a much smaller path limit than ordinary files. Keep
+// the socket beneath the protected test TMPDIR without the test-name suffix.
+func shortRESTSocketPath(t *testing.T) string {
+	t.Helper()
+	directory, err := os.MkdirTemp("", "vsk-rest-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	return filepath.Join(directory, "rest.sock")
 }
 
 func restDo(t *testing.T, client *http.Client, method, path string, body []byte) int {
@@ -167,7 +179,7 @@ func TestRESTBoundaryRejectsWhenLeaseVerifierDenies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	socket := filepath.Join(t.TempDir(), "rest.sock")
+	socket := shortRESTSocketPath(t)
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
