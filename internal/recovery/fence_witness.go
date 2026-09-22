@@ -40,6 +40,7 @@ type QualifiedAdapters struct {
 	entries             map[string]DirectDenialVerifier
 	sourceQualified     bool
 	qualificationDigest string
+	qualificationExpiry time.Time
 }
 
 func NewQualifiedAdapters() QualifiedAdapters {
@@ -55,6 +56,7 @@ func (registry *QualifiedAdapters) Register(id string, verifier DirectDenialVeri
 	// A post-qualification mutation cannot widen a sealed source registry.
 	registry.sourceQualified = false
 	registry.qualificationDigest = ""
+	registry.qualificationExpiry = time.Time{}
 	if !validWitnessToken(id) || verifier == nil {
 		return
 	}

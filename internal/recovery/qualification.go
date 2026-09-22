@@ -127,6 +127,7 @@ func parseQualifiedAdapters(raw []byte, adminPublic ed25519.PublicKey, required 
 	}
 	registry := NewQualifiedAdapters()
 	byAdapter := make(map[string]map[string]DirectDenialVerifier)
+	var earliestExpiry time.Time
 	for _, entry := range signed.Payload.Entries {
 		key := qualificationKey(entry)
 		factory, exists := factories[entry.AdapterID]
@@ -141,6 +142,9 @@ func parseQualifiedAdapters(raw []byte, adminPublic ed25519.PublicKey, required 
 			byAdapter[entry.AdapterID] = make(map[string]DirectDenialVerifier)
 		}
 		byAdapter[entry.AdapterID][key] = verifier
+		if earliestExpiry.IsZero() || entry.ExpiresAt.Before(earliestExpiry) {
+			earliestExpiry = entry.ExpiresAt
+		}
 	}
 	for id, groups := range byAdapter {
 		registry.Register(id, qualifiedGroupVerifier{groups: groups})
@@ -148,5 +152,6 @@ func parseQualifiedAdapters(raw []byte, adminPublic ed25519.PublicKey, required 
 	digest := sha256.Sum256(append(append([]byte(nil), canonical...), signed.Signature...))
 	registry.sourceQualified = true
 	registry.qualificationDigest = "sha256:" + hex.EncodeToString(digest[:])
+	registry.qualificationExpiry = earliestExpiry
 	return registry, nil
 }

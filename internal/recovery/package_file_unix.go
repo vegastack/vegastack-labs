@@ -5,8 +5,6 @@ package recovery
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"io"
 	"os"
@@ -69,8 +67,7 @@ func decodeProtectedEnvelope(raw []byte, pin PinnedWitness, expected WitnessBind
 	if err != nil || !bytes.Equal(canonical, raw) {
 		return ProtectedEnvelope{}, ErrWitnessUnavailable
 	}
-	digest, _, _, err := transportBinding(pin, expected)
-	if err != nil || envelope.Version != 1 || envelope.RecipientKeyID != pin.RecipientKeyID || envelope.BindingDigest != digest || envelope.ReceiptID != expected.ReceiptID || len(envelope.EphemeralPublicKey) != 32 || len(envelope.Nonce) != 12 || len(envelope.Ciphertext) < 24 || len(envelope.Ciphertext) > 4112 {
+	if validateProtectedEnvelope(envelope, pin, expected) != nil {
 		return ProtectedEnvelope{}, ErrWitnessUnavailable
 	}
 	return envelope, nil
@@ -153,10 +150,4 @@ func validProtectedPackageStat(stat unix.Stat_t, uid uint32, max int) bool {
 
 func sameProtectedPackageStat(left, right unix.Stat_t) bool {
 	return left.Dev == right.Dev && left.Ino == right.Ino && left.Mode == right.Mode && left.Uid == right.Uid && left.Gid == right.Gid && left.Nlink == right.Nlink && left.Size == right.Size && left.Mtim == right.Mtim && left.Ctim == right.Ctim
-}
-
-func protectedEnvelopeDigest(envelope ProtectedEnvelope) string {
-	encoded, _ := json.Marshal(envelope)
-	sum := sha256.Sum256(encoded)
-	return "sha256:" + hex.EncodeToString(sum[:])
 }
