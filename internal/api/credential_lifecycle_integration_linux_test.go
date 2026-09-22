@@ -111,7 +111,7 @@ func (fixture *lifecyclePublicFixture) stageRequest(t *testing.T, imported gener
 	if err != nil {
 		t.Fatal(err)
 	}
-	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.2.0", Action: "credential.stage", DraftID: &imported.DraftID, ReferenceID: imported.ReferenceID, ConsumerIDs: []string{"consumer-lifecycle"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: imported.DraftID[len("draft-"):], ResolverID: "native-systemd", TargetID: "target-lifecycle", ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "stage-" + imported.DraftID}
+	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: "credential.stage", DraftID: &imported.DraftID, ReferenceID: imported.ReferenceID, ConsumerIDs: []string{"consumer-lifecycle"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: imported.DraftID[len("draft-"):], ResolverID: "native-systemd", TargetID: "target-lifecycle", ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "stage-" + imported.DraftID}
 	input.TargetDigest = credentialref.LifecycleTargetDigest(input)
 	return input
 }

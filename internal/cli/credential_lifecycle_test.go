@@ -18,16 +18,20 @@ func syntheticLifecycleRequest(t *testing.T, command string) []byte {
 	draft, prior := "draft-a", "version-prior"
 	priorEpoch := int64(1)
 	digest := "sha256:" + strings.Repeat("a", 64)
-	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.2.0", Action: "credential." + strings.TrimPrefix(command, "credential "), ReferenceID: "reference-a", MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, ExpectedStateRevision: 7, RecoveryEpoch: 2, IdempotencyKey: "key-a"}
+	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: "credential." + strings.TrimPrefix(command, "credential "), ReferenceID: "reference-a", MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, ExpectedStateRevision: 7, RecoveryEpoch: 2, IdempotencyKey: "key-a"}
 	switch input.Action {
 	case "credential.stage":
 		input.DraftID = &draft
 	case "credential.activate":
 		input.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+		input.NativeConsumers = &[]generated.CredentialNativeConsumer{{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a"}}
+		input.NativeDeniedReaders = &[]generated.CredentialNativeDeniedReader{{Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "consumer-denied", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-a", RoleID: "role-denied"}}
 	case "credential.rotate":
 		input.DraftID = &draft
 		input.PriorMaterialVersion = &prior
 		input.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+		input.NativeConsumers = &[]generated.CredentialNativeConsumer{{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a"}}
+		input.NativeDeniedReaders = &[]generated.CredentialNativeDeniedReader{{Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "consumer-denied", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-a", RoleID: "role-denied"}}
 	case "credential.revoke":
 		input.ConsumerIDs = []string{}
 	case "credential.recover":

@@ -104,7 +104,7 @@ func TestLifecycleCLIValidDraftThenDenialsPreserveRealStoreState(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	request := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.2.0", Action: "credential.stage", DraftID: &imported.DraftID, ReferenceID: imported.ReferenceID, ConsumerIDs: []string{"consumer-lifecycle"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: "version-1", ResolverID: "native-systemd", TargetID: "target-lifecycle", ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "stage-draft-version-1"}
+	request := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: "credential.stage", DraftID: &imported.DraftID, ReferenceID: imported.ReferenceID, ConsumerIDs: []string{"consumer-lifecycle"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: "version-1", ResolverID: "native-systemd", TargetID: "target-lifecycle", ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "stage-draft-version-1"}
 	request.TargetDigest = credentialref.LifecycleTargetDigest(request)
 	validRaw, err := json.Marshal(request)
 	if err != nil {

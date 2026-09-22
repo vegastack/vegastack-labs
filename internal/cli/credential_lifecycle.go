@@ -14,7 +14,7 @@ func (app *App) runCredentialLifecycle(ctx context.Context, parsed parsedArgumen
 	if !ok || app.files == nil {
 		return app.fail(parsed.output, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "control-operations", generated.RunStatusFailed, false)
 	}
-	raw, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), 4096)
+	raw, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), 262144)
 	if err != nil {
 		return app.failServer(parsed.output, parsed.commandName(), err)
 	}

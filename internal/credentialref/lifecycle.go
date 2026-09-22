@@ -45,6 +45,9 @@ type LifecycleBinding struct {
 	ReferenceID                 string
 	ConsumerIDs                 []string
 	RequiredDeniedConsumerIDs   []string
+	NativeArtifactConsumerID    string
+	NativeConsumers             []NativeConsumerBinding
+	NativeDeniedReaders         []NativeDeniedReaderBinding
 	MaterialVersion             string
 	PriorMaterialVersion        *string
 	ResolverID                  string
@@ -180,6 +183,9 @@ func ValidLifecycleBinding(binding LifecycleBinding) bool {
 	if !disjoint(binding.ConsumerIDs, binding.RequiredDeniedConsumerIDs) {
 		return false
 	}
+	if !ValidNativeBindings(binding) {
+		return false
+	}
 
 	switch binding.Action {
 	case ActionStage:
@@ -261,7 +267,7 @@ func (binding LifecycleBinding) Digest() string {
 		return ""
 	}
 	parts := []string{
-		"credential-lifecycle-binding-v1",
+		"credential-lifecycle-binding-v3",
 		binding.OperationID,
 		string(binding.Action),
 		canonicalStringPointer(binding.DraftID),
@@ -271,6 +277,9 @@ func (binding LifecycleBinding) Digest() string {
 		binding.ReferenceID,
 		canonicalIDSet(binding.ConsumerIDs),
 		canonicalIDSet(binding.RequiredDeniedConsumerIDs),
+		binding.NativeArtifactConsumerID,
+		canonicalNativeConsumers(binding.NativeConsumers),
+		canonicalNativeDeniedReaders(binding.NativeDeniedReaders),
 		binding.MaterialVersion,
 		canonicalStringPointer(binding.PriorMaterialVersion),
 		binding.ResolverID,
