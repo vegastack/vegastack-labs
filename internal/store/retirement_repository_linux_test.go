@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 func retirementStageFixture(t *testing.T, authority *Store, risk, branch string) LocalRetirementStageRequest {
@@ -170,5 +171,78 @@ func TestLocalRetirementStageRequiresExactPointSets(t *testing.T) {
 				t.Fatal("ambiguous point selection staged")
 			}
 		})
+	}
+}
+
+func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
+	ctx := context.Background()
+	authority := openRetirementTestStore(t)
+	request := retirementStageFixture(t, authority, "destructive", "human")
+	intent, err := NewLocalRetirementRepository(authority).StageLocalRetirement(ctx, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp := authority.config.Clock().UTC().Format(time.RFC3339)
+	// All references are real rows with foreign keys enabled. The retention
+	// lease itself is synthetic because the executable claim path is still
+	// deliberately absent; this tests the existing writer's fence.
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO acknowledgement_requests(acknowledgement_id,plan_id,plan_digest,target_digest,reason_digest,human_id,authority_id,nonce_digest,state_revision,recovery_epoch,expires_at,status,request_bytes,pending_bytes,created_at,decided_at,consumed_at) VALUES('ack-retire',?,?,?,?, 'human-a','infra-admin',?, ?,?,'2026-09-13T00:00:00Z','approved',X'01',X'01',?,?,?)`, []any{request.PlanID, request.PlanDigest, request.SelectionDigest, testDigest, "sha256:" + strings.Repeat("e", 64), request.StateRevision, request.RecoveryEpoch, stamp, stamp, stamp}},
+		{`INSERT INTO acknowledgement_proofs(acknowledgement_id,proof_digest,status,canonical_bytes,received_at) VALUES('ack-retire',?,'approved',X'01',?)`, []any{"sha256:" + strings.Repeat("d", 64), stamp}},
+		{`INSERT INTO plan_runs(run_id,plan_id,plan_digest,authorization_decision_id,acknowledgement_id,policy_version,executor_mode,executor_id,executor_binding_digest,status,cancellation_requested,rollback_status,verification_status,changed,state_revision,recovery_epoch,submit_key_digest,request_digest,canonical_bytes,created_at,updated_at) VALUES('run-retire',?,?,'decision-retire','ack-retire','1.0.0','central','central',?,'running',0,'not-requested','pending',0,?,?,?, ?,X'01',?,?)`, []any{request.PlanID, request.PlanDigest, testDigest, request.StateRevision, request.RecoveryEpoch, "sha256:" + strings.Repeat("c", 64), "sha256:" + strings.Repeat("b", 64), stamp, stamp}},
+		{`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,started_at) VALUES('step-retire','run-retire',1,'op-retire','backup.local.retire','local.retention','central',?,?,?,0,'running','intent-recorded','exec-retire',?)`, []any{request.RepositoryID, request.SelectionDigest, request.ExpectedInventoryDigest, stamp}},
+		{`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES('exec-retire','run-retire','step-retire',?,?,?, ?,?,?,?,?, 'active',X'01')`, []any{request.RepositoryID, testDigest, "sha256:" + strings.Repeat("a", 64), request.RecoveryEpoch, stamp, stamp, stamp, stamp}},
+		{`INSERT INTO backup_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,retention_consumer_id,repository_class,recovery_epoch,maximum_expires_at,acquired_at) VALUES('retention-a',?,'run-retire','step-retire','exec-retire','ack-retire','human-a','retention-only',?,?,?,?)`, []any{intent.IntentID, request.RepositoryClass, request.RecoveryEpoch, "2026-09-12T18:30:01Z", stamp}},
+	}
+	for _, statement := range statements {
+		if _, err := authority.conn.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatalf("seed retention lease: %v", err)
+		}
+	}
+	backup := NewBackupRepository(authority)
+	err = backup.AcquireBackupWriterLease(ctx, BackupWriterLeaseRequest{LeaseID: "writer-after-retire", JobID: "job-after-retire", PolicyID: "policy-a", PolicyDigest: testDigest,
+		PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: "run-after-retire", StepID: "step-after-retire", RepositoryID: request.RepositoryID,
+		RepositoryClass: request.RepositoryClass, TargetID: request.RepositoryID, SourceRevision: request.SourceRevision, RecoveryEpoch: request.RecoveryEpoch,
+		MaximumExpiresAt: authority.config.Clock().Add(time.Hour)})
+	if Code(err) != generated.ErrorCodeStateConflict {
+		t.Fatalf("writer admitted during expired but unreconciled retention lease: %v", err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES('job-existing','policy-a',?,?,?,'run-existing','point-existing','local','fixture','pending',?,?,?)`,
+		testDigest, request.RepositoryID, request.RepositoryClass, request.RecoveryEpoch, stamp, stamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,created_at) VALUES('point-existing','job-existing','policy-a',?,?,?,'local','fixture',?,1,1,100,?,?,'{}',?,?,?,'pending',?)`,
+		testDigest, request.RepositoryID, request.RepositoryClass, strings.Repeat("1", 64), testDigest, testDigest, testDigest, request.SourceRevision, request.RecoveryEpoch, stamp); err != nil {
+		t.Fatal(err)
+	}
+	err = backup.AcquireBackupReadLease(ctx, BackupReadLeaseRequest{LeaseID: "reader-after-retire", PointID: "point-existing", RepositoryID: request.RepositoryID,
+		RepositoryClass: request.RepositoryClass, SourceRevision: request.SourceRevision,
+		Expected:         RevisionToken{StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch},
+		MaximumExpiresAt: authority.config.Clock().Add(time.Hour)})
+	if Code(err) != generated.ErrorCodeStateConflict {
+		t.Fatalf("reader admitted during expired but unreconciled retention lease: %v", err)
+	}
+	// Reconciliation must be explicit. Once it records a release, an ordinary
+	// read may proceed again; the previous expired timestamp is insufficient.
+	if _, err := authority.conn.ExecContext(ctx, `UPDATE backup_retirement_leases SET released_at=? WHERE lease_id='retention-a'`, authority.config.Clock().Add(time.Second).UTC().Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	if err := backup.AcquireBackupReadLease(ctx, BackupReadLeaseRequest{LeaseID: "reader-after-release", PointID: "point-existing", RepositoryID: request.RepositoryID,
+		RepositoryClass: request.RepositoryClass, SourceRevision: request.SourceRevision,
+		Expected:         RevisionToken{StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch},
+		MaximumExpiresAt: authority.config.Clock().Add(time.Hour)}); err != nil {
+		t.Fatalf("reader blocked after explicit retention release: %v", err)
+	}
+	if err := backup.ReleaseBackupReadLease(ctx, "reader-after-release"); err != nil {
+		t.Fatal(err)
+	}
+	if err := backup.AcquireBackupWriterLease(ctx, BackupWriterLeaseRequest{LeaseID: "writer-after-release", JobID: "job-after-release", PolicyID: "policy-a", PolicyDigest: testDigest,
+		PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: "run-after-release", StepID: "step-after-release", RepositoryID: request.RepositoryID,
+		RepositoryClass: request.RepositoryClass, TargetID: request.RepositoryID, SourceRevision: request.SourceRevision, RecoveryEpoch: request.RecoveryEpoch,
+		MaximumExpiresAt: authority.config.Clock().Add(time.Hour)}); err != nil {
+		t.Fatalf("writer blocked after explicit retention release and read release: %v", err)
 	}
 }

@@ -56,6 +56,14 @@ func (repository *BackupRepository) AcquireBackupReadLease(ctx context.Context, 
 		if count != 0 {
 			return backupStoreError(generated.ErrorCodeStateConflict, "backup-read-lease")
 		}
+		// A retirement may have changed pack inodes even when its deadline
+		// passed. Readers wait for an explicit, reconciled release.
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_retirement_leases WHERE repository_class=? AND released_at IS NULL`, request.RepositoryClass).Scan(&count); err != nil {
+			return backupWriteError(err)
+		}
+		if count != 0 {
+			return backupStoreError(generated.ErrorCodeStateConflict, "backup-read-lease")
+		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO backup_read_leases(lease_id,point_id,repository_id,repository_class,source_revision,state_revision,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES(?,?,?,?,?,?,?,?,?,NULL)`, request.LeaseID, request.PointID, request.RepositoryID, request.RepositoryClass, request.SourceRevision, revision, epoch, request.MaximumExpiresAt.UTC().Truncate(time.Second).Format(time.RFC3339), stamp)
 		return backupWriteError(err)
 	})
