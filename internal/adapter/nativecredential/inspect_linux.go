@@ -24,6 +24,7 @@ type InspectRequest struct {
 
 type CiphertextInspection struct {
 	State, Fingerprint string
+	Device, Inode      uint64
 }
 
 func InspectEncrypted(ctx context.Context, request InspectRequest) (CiphertextInspection, error) {
@@ -64,5 +65,5 @@ func InspectEncrypted(ctx context.Context, request InspectRequest) (CiphertextIn
 		return CiphertextInspection{}, nativeError(generated.ErrorCodeRecoveryRequired, "ciphertext-file")
 	}
 	sum := sha256.Sum256(ciphertext)
-	return CiphertextInspection{State: "present", Fingerprint: "sha256:" + hex.EncodeToString(sum[:])}, nil
+	return CiphertextInspection{State: "present", Fingerprint: "sha256:" + hex.EncodeToString(sum[:]), Device: uint64(stat.Dev), Inode: stat.Ino}, nil
 }

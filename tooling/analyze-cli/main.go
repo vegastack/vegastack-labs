@@ -411,6 +411,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		isControlPackage := controlClosure[candidate.ImportPath]
+		// The native credential package is a byte-for-byte sealed Linux OS adapter.
+		// Its D-Bus and /proc surface is reviewed as a whole, never as a portable
+		// control client capability. Any source or import change breaks this seal.
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential
 		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential
@@ -1183,13 +1186,16 @@ func fileImportsOSExec(path string) (bool, error) {
 	return false, nil
 }
 
-const reviewedNativeCredentialDigest = "41f9ca05c638dfa62b7fdb7e81daca6ce60f0d9b4e011f062fb1296dc62ac914"
+// Exact Linux-only package seal includes #143's delegated OS probe and #141's
+// typed D-Bus lifecycle verifier. Any production edit must be reviewed and
+// resealed; no generic shell, provider, or server path allowance is added.
+const reviewedNativeCredentialDigest = "b1755e3590a11c4e2a2861fe3b12c1b6aad16de8e53ea1714839424b22dbf20d"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
 	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
 		return false
 	}
-	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "policy_check_linux.go", "probe_linux.go", "resolver_linux.go"}
+	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "lifecycle_verifier_linux.go", "policy_check_linux.go", "probe_linux.go", "process_observer_linux.go", "resolver_linux.go", "systemd_linux.go"}
 	if len(candidate.listed.GoFiles) != len(expectedFiles) {
 		return false
 	}
@@ -1200,8 +1206,9 @@ func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCrede
 	}
 	approvedImports := map[string]bool{
 		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
-		"io": true, "os": true, "os/exec": true, "path/filepath": true, "reflect": true, "regexp": true,
+		"io": true, "os": true, "os/exec": true, "os/user": true, "path/filepath": true, "reflect": true, "regexp": true,
 		"slices": true, "strconv": true, "strings": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
+		"github.com/godbus/dbus/v5":            true,
 		modulePath + "/internal/credentialref": true,
 		modulePath + "/internal/failure":       true,
 		modulePath + "/internal/generated":     true,
