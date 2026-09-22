@@ -194,13 +194,66 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 		{`INSERT INTO acknowledgement_proofs(acknowledgement_id,proof_digest,status,canonical_bytes,received_at) VALUES('ack-retire',?,'approved',X'01',?)`, []any{"sha256:" + strings.Repeat("d", 64), stamp}},
 		{`INSERT INTO plan_runs(run_id,plan_id,plan_digest,authorization_decision_id,acknowledgement_id,policy_version,executor_mode,executor_id,executor_binding_digest,status,cancellation_requested,rollback_status,verification_status,changed,state_revision,recovery_epoch,submit_key_digest,request_digest,canonical_bytes,created_at,updated_at) VALUES('run-retire',?,?,'decision-retire','ack-retire','1.0.0','central','central',?,'running',0,'not-requested','pending',0,?,?,?, ?,X'01',?,?)`, []any{request.PlanID, request.PlanDigest, testDigest, request.StateRevision, request.RecoveryEpoch, "sha256:" + strings.Repeat("c", 64), "sha256:" + strings.Repeat("b", 64), stamp, stamp}},
 		{`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,started_at) VALUES('step-retire','run-retire',1,'op-retire','backup.local.retire','local.retention','central',?,?,?,0,'running','intent-recorded','exec-retire',?)`, []any{request.RepositoryID, request.SelectionDigest, request.ExpectedInventoryDigest, stamp}},
-		{`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES('exec-retire','run-retire','step-retire',?,?,?, ?,?,?,?,?, 'active',X'01')`, []any{request.RepositoryID, testDigest, "sha256:" + strings.Repeat("a", 64), request.RecoveryEpoch, stamp, stamp, stamp, stamp}},
+		{`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES('exec-retire','run-retire','step-retire',?,?,?, ?,?,?,?,?, 'active',X'01')`, []any{request.RepositoryID, testDigest, "sha256:" + strings.Repeat("a", 64), request.RecoveryEpoch, stamp, stamp, "2026-09-12T18:30:10Z", "2026-09-12T18:30:10Z"}},
 		{`INSERT INTO backup_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,retention_consumer_id,repository_class,recovery_epoch,maximum_expires_at,acquired_at) VALUES('retention-a',?,'run-retire','step-retire','exec-retire','ack-retire','human-a','retention-only',?,?,?,?)`, []any{intent.IntentID, request.RepositoryClass, request.RecoveryEpoch, "2026-09-12T18:30:01Z", stamp}},
 	}
 	for _, statement := range statements {
 		if _, err := authority.conn.ExecContext(ctx, statement.query, statement.args...); err != nil {
 			t.Fatalf("seed retention lease: %v", err)
 		}
+	}
+	mutation := LocalRetirementMutationAttempt{MutationID: "mutation-one", LeaseID: "retention-a", Sequence: 1,
+		MutationKind: "put", ObjectType: "data", ObjectName: strings.Repeat("f", 64), ObjectDigest: testDigest,
+		ObjectBytes: 100, RecoveryEpoch: request.RecoveryEpoch, Attribution: request.Attribution}
+	retirement := NewLocalRetirementRepository(authority)
+	unlisted := mutation
+	unlisted.MutationKind = "delete"
+	if err := retirement.BeginLocalMutation(ctx, unlisted); err == nil {
+		t.Fatal("unlisted pack deletion was journal-authorized")
+	}
+	overbudget := mutation
+	overbudget.ObjectBytes = request.MaxRepackBytes + 1
+	if err := retirement.BeginLocalMutation(ctx, overbudget); err == nil {
+		t.Fatal("repack budget exceeded before any retained-object effect")
+	}
+	if err := retirement.BeginLocalMutation(ctx, mutation); err != nil {
+		t.Fatalf("active exact lease could not journal attempt: %v", err)
+	}
+	if err := retirement.BeginLocalMutation(ctx, mutation); err == nil {
+		t.Fatal("byte-identical attempt replay was silently reauthorized")
+	}
+	unresolved := mutation
+	unresolved.MutationID, unresolved.Sequence = "mutation-two", 2
+	if err := retirement.BeginLocalMutation(ctx, unresolved); err == nil {
+		t.Fatal("unresolved mutation allowed another retained-object operation")
+	}
+	if err := retirement.FinishLocalMutation(ctx, LocalRetirementMutationOutcome{MutationID: mutation.MutationID, LeaseID: mutation.LeaseID,
+		Status: "quarantined", QuarantineName: "data/" + mutation.ObjectName, Attribution: request.Attribution}); err == nil {
+		t.Fatal("put attempt accepted a quarantine outcome")
+	}
+	created := LocalRetirementMutationOutcome{MutationID: mutation.MutationID, LeaseID: mutation.LeaseID, Status: "created", Attribution: request.Attribution}
+	if err := retirement.FinishLocalMutation(ctx, created); err != nil {
+		t.Fatalf("exact attempt outcome not durable: %v", err)
+	}
+	if err := retirement.FinishLocalMutation(ctx, created); err == nil {
+		t.Fatal("duplicate mutation outcome silently rewritten")
+	}
+	unresolved.ObjectName = strings.Repeat("e", 64)
+	if err := retirement.BeginLocalMutation(ctx, unresolved); err != nil {
+		t.Fatalf("settled prior attempt did not admit next bounded attempt: %v", err)
+	}
+	if err := retirement.FinishLocalMutation(ctx, LocalRetirementMutationOutcome{MutationID: unresolved.MutationID, LeaseID: unresolved.LeaseID,
+		Status: "uncertain", Attribution: request.Attribution}); err != nil {
+		t.Fatalf("uncertain outcome was not durable: %v", err)
+	}
+	third := unresolved
+	third.MutationID, third.Sequence, third.ObjectName = "mutation-three", 3, strings.Repeat("d", 64)
+	if err := retirement.BeginLocalMutation(ctx, third); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("uncertain outcome admitted another mutation: %v", err)
+	}
+	authority.config.Clock = func() time.Time { return time.Date(2026, 9, 12, 18, 30, 2, 0, time.UTC) }
+	if err := retirement.BeginLocalMutation(ctx, third); Code(err) != generated.ErrorCodeRecoveryRequired {
+		t.Fatalf("expired retention lease admitted journaled effect: %v", err)
 	}
 	backup := NewBackupRepository(authority)
 	err = backup.AcquireBackupWriterLease(ctx, BackupWriterLeaseRequest{LeaseID: "writer-after-retire", JobID: "job-after-retire", PolicyID: "policy-a", PolicyDigest: testDigest,
