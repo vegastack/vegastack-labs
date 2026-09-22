@@ -11,16 +11,20 @@ func lifecycleRequestFixture(action string) CredentialLifecycleRequest {
 	prior := "version-prior"
 	epoch := int64(1)
 	digest := "sha256:" + strings.Repeat("a", 64)
-	r := CredentialLifecycleRequest{Schema: SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.2.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "request-a", Action: action, ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a"}
+	r := CredentialLifecycleRequest{Schema: SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "request-a", Action: action, ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a"}
 	switch action {
 	case "credential.stage":
 		r.DraftID = &id
 	case "credential.activate":
 		r.RequiredDeniedConsumerIDs = []string{"consumer-b"}
+		r.NativeConsumers = &[]CredentialNativeConsumer{{Schema: SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a"}}
+		r.NativeDeniedReaders = &[]CredentialNativeDeniedReader{{Schema: SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "consumer-b", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-a", RoleID: "role-b"}}
 	case "credential.rotate":
 		r.DraftID = &id
 		r.PriorMaterialVersion = &prior
 		r.RequiredDeniedConsumerIDs = []string{"consumer-b"}
+		r.NativeConsumers = &[]CredentialNativeConsumer{{Schema: SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a"}}
+		r.NativeDeniedReaders = &[]CredentialNativeDeniedReader{{Schema: SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "consumer-b", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-a", RoleID: "role-b"}}
 	case "credential.revoke":
 		r.ConsumerIDs = []string{}
 	case "credential.recover":

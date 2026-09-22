@@ -68,6 +68,8 @@ const (
 	SchemaIDCredentialImportSubmission      = "vegastack-labs.dev/credential-import-submission"
 	SchemaIDCredentialLifecycleRequest      = "vegastack-labs.dev/credential-lifecycle-request"
 	SchemaIDCredentialLifecycleSubmission   = "vegastack-labs.dev/credential-lifecycle-submission"
+	SchemaIDCredentialNativeConsumer        = "vegastack-labs.dev/credential-native-consumer"
+	SchemaIDCredentialNativeDeniedReader    = "vegastack-labs.dev/credential-native-denied-reader"
 	SchemaIDCredentialReference             = "vegastack-labs.dev/credential-reference"
 	SchemaIDCredentialReferenceRequest      = "vegastack-labs.dev/credential-reference-request"
 	SchemaIDCredentialResolutionRecord      = "vegastack-labs.dev/credential-resolution-record"
@@ -850,25 +852,27 @@ type CredentialImportSubmission struct {
 }
 
 type CredentialLifecycleRequest struct {
-	Schema                      string   `json:"schema"`
-	SchemaVersion               string   `json:"schemaVersion"`
-	ExpectedStateRevision       int64    `json:"expectedStateRevision"`
-	RecoveryEpoch               int64    `json:"recoveryEpoch"`
-	TargetDigest                string   `json:"targetDigest"`
-	IdempotencyKey              string   `json:"idempotencyKey"`
-	Action                      string   `json:"action"`
-	DraftID                     *string  `json:"draftId"`
-	ReferenceID                 string   `json:"referenceId"`
-	ConsumerIDs                 []string `json:"consumerIds"`
-	RequiredDeniedConsumerIDs   []string `json:"requiredDeniedConsumerIds"`
-	MaterialVersion             string   `json:"materialVersion"`
-	PriorMaterialVersion        *string  `json:"priorMaterialVersion"`
-	ResolverID                  string   `json:"resolverId"`
-	TargetID                    string   `json:"targetId"`
-	OverlapSeconds              int64    `json:"overlapSeconds"`
-	PriorRecoveryEpoch          *int64   `json:"priorRecoveryEpoch"`
-	CustodyProofDigest          *string  `json:"custodyProofDigest"`
-	FormerControllerFenceDigest *string  `json:"formerControllerFenceDigest"`
+	Schema                      string                          `json:"schema"`
+	SchemaVersion               string                          `json:"schemaVersion"`
+	ExpectedStateRevision       int64                           `json:"expectedStateRevision"`
+	RecoveryEpoch               int64                           `json:"recoveryEpoch"`
+	TargetDigest                string                          `json:"targetDigest"`
+	IdempotencyKey              string                          `json:"idempotencyKey"`
+	Action                      string                          `json:"action"`
+	DraftID                     *string                         `json:"draftId"`
+	ReferenceID                 string                          `json:"referenceId"`
+	ConsumerIDs                 []string                        `json:"consumerIds"`
+	RequiredDeniedConsumerIDs   []string                        `json:"requiredDeniedConsumerIds"`
+	NativeConsumers             *[]CredentialNativeConsumer     `json:"nativeConsumers"`
+	NativeDeniedReaders         *[]CredentialNativeDeniedReader `json:"nativeDeniedReaders"`
+	MaterialVersion             string                          `json:"materialVersion"`
+	PriorMaterialVersion        *string                         `json:"priorMaterialVersion"`
+	ResolverID                  string                          `json:"resolverId"`
+	TargetID                    string                          `json:"targetId"`
+	OverlapSeconds              int64                           `json:"overlapSeconds"`
+	PriorRecoveryEpoch          *int64                          `json:"priorRecoveryEpoch"`
+	CustodyProofDigest          *string                         `json:"custodyProofDigest"`
+	FormerControllerFenceDigest *string                         `json:"formerControllerFenceDigest"`
 }
 
 type CredentialLifecycleSubmission struct {
@@ -881,6 +885,31 @@ type CredentialLifecycleSubmission struct {
 	Status        string `json:"status"`
 	StateRevision int64  `json:"stateRevision"`
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
+}
+
+type CredentialNativeConsumer struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ConsumerID    string `json:"consumerId"`
+	TargetID      string `json:"targetId"`
+	HostMachineID string `json:"hostMachineId"`
+	UnitName      string `json:"unitName"`
+	ServiceUID    int64  `json:"serviceUid"`
+	ServiceGID    int64  `json:"serviceGid"`
+	ProfileID     string `json:"profileId"`
+	RoleID        string `json:"roleId"`
+}
+
+type CredentialNativeDeniedReader struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	ConsumerID    string `json:"consumerId"`
+	TargetID      string `json:"targetId"`
+	HostMachineID string `json:"hostMachineId"`
+	ReaderUID     int64  `json:"readerUid"`
+	ReaderGID     int64  `json:"readerGid"`
+	ProfileID     string `json:"profileId"`
+	RoleID        string `json:"roleId"`
 }
 
 type CredentialReference struct {

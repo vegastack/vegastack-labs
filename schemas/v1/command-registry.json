@@ -3224,13 +3224,23 @@
     },
     {
       "id": "vegastack-labs.dev/credential-lifecycle-request",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "artifactPath": "schemas/v1/credential-lifecycle-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-lifecycle-submission",
       "version": "1.2.0",
       "artifactPath": "schemas/v1/credential-lifecycle-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-native-consumer",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/credential-native-consumer.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-native-denied-reader",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/credential-native-denied-reader.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-reference",

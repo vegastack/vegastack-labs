@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 )
@@ -68,6 +69,43 @@ func TestCredentialEvidenceMigrationPreservesRowsAndAppendOnlyChecks(t *testing.
 	}
 	if _, err := db.Exec(`INSERT INTO credential_recovery_records VALUES('r2','r','version-b','draft-a',?,?,0,1,?,'now')`, bad, good, good); err == nil {
 		t.Fatal("migrated recovery table accepted nonhex custody digest")
+	}
+}
+
+func TestNativeReaderMapMigrationExpandsBindingAndPreservesAppendOnlyRows(t *testing.T) {
+	catalog, err := Catalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	db := openCredentialMigrationFixture(t)
+	for _, migration := range catalog[14:16] {
+		if _, err := db.Exec(migration.SQL); err != nil {
+			t.Fatalf("apply %s: %v", migration.Name, err)
+		}
+	}
+	digest := "sha256:" + strings.Repeat("a", 64)
+	insert := `INSERT INTO credential_lifecycle_bindings(binding_id,declaration_id,declaration_revision,operation_id,action,reference_id,binding_digest,binding_bytes,recovery_epoch,created_at) VALUES(?,?,1,?,'credential.stage',?,?,?,0,'now')`
+	if _, err := db.Exec(insert, "old", "declaration-a", "operation-a", "reference-a", digest, []byte("{}")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(insert, "too-large-before", "declaration-b", "operation-b", "reference-b", digest, []byte(strings.Repeat("x", 4097))); err == nil {
+		t.Fatal("old 4 KiB bound unexpectedly accepted expanded map")
+	}
+	if _, err := db.Exec(catalog[17].SQL); err != nil {
+		t.Fatalf("expand binding table: %v", err)
+	}
+	var old []byte
+	if err := db.QueryRow(`SELECT binding_bytes FROM credential_lifecycle_bindings WHERE binding_id='old'`).Scan(&old); err != nil || string(old) != "{}" {
+		t.Fatalf("old sealed row lost: %q %v", old, err)
+	}
+	if _, err := db.Exec(insert, "expanded", "declaration-b", "operation-b", "reference-b", digest, []byte(strings.Repeat("x", 65537))); err != nil {
+		t.Fatalf("expanded map rejected: %v", err)
+	}
+	if _, err := db.Exec(`DELETE FROM credential_lifecycle_bindings WHERE binding_id='old'`); err == nil {
+		t.Fatal("migrated binding table lost append-only trigger")
+	}
+	if _, err := db.Exec(insert, "too-large-after", "declaration-c", "operation-c", "reference-c", digest, []byte(strings.Repeat("x", 262145))); err == nil {
+		t.Fatal("expanded bound accepted oversized map")
 	}
 }
 
@@ -231,7 +269,7 @@ func TestCatalogAddsAuditOutboxAsExactlyMigrationThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(catalog) != 18 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" || catalog[9].ID != 10 || catalog[9].Name != "0010_external_executor_leases" || catalog[10].ID != 11 || catalog[10].Name != "0011_gate_evidence" || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" || catalog[13].ID != 14 || catalog[13].Name != "0014_audit_chain" || catalog[14].ID != 15 || catalog[14].Name != "0015_credential_lifecycle" || catalog[15].ID != 16 || catalog[15].Name != "0016_credential_evidence_hardening" || catalog[16].ID != 17 || catalog[16].Name != "0017_backup_creation" {
+	if len(catalog) != 19 || catalog[2].ID != 3 || catalog[2].Name != "0003_audit_outbox" || catalog[3].ID != 4 || catalog[3].Name != "0004_read_authorization" || catalog[4].ID != 5 || catalog[4].Name != "0005_browser_sessions" || catalog[5].ID != 6 || catalog[5].Name != "0006_declarations_and_plans" || catalog[6].ID != 7 || catalog[6].Name != "0007_effective_authorization" || catalog[7].ID != 8 || catalog[7].Name != "0008_acknowledgements" || catalog[8].ID != 9 || catalog[8].Name != "0009_runs" || catalog[9].ID != 10 || catalog[9].Name != "0010_external_executor_leases" || catalog[10].ID != 11 || catalog[10].Name != "0011_gate_evidence" || catalog[11].ID != 12 || catalog[11].Name != "0012_credential_refs" || catalog[12].ID != 13 || catalog[12].Name != "0013_credential_import_drafts" || catalog[13].ID != 14 || catalog[13].Name != "0014_audit_chain" || catalog[14].ID != 15 || catalog[14].Name != "0015_credential_lifecycle" || catalog[15].ID != 16 || catalog[15].Name != "0016_credential_evidence_hardening" || catalog[16].ID != 17 || catalog[16].Name != "0017_backup_creation" || catalog[17].ID != 18 || catalog[17].Name != "0018_native_credential_reader_maps" || catalog[18].ID != 19 || catalog[18].Name != "0019_backup_verification" {
 		t.Fatalf("third migration = %#v", catalog)
 	}
 	for _, required := range []string{"backup_policy_drafts", "backup_jobs", "recovery_points", "backup_expected_objects", "backup_writer_leases", "no_update", "no_delete"} {

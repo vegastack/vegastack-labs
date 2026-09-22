@@ -35,7 +35,7 @@ func (repository *CredentialRepository) LookupLifecycleDraft(ctx context.Context
 		return zero, err
 	}
 	var binding credentialref.LifecycleBinding
-	if len(raw) > 4096 || json.Unmarshal(raw, &binding) != nil || binding.OperationID != operationID || binding.RecoveryEpoch != epoch || credentialref.LifecycleManifestDigestOf(binding) != digest || digest == "" {
+	if len(raw) > maxLifecycleBindingBytes || json.Unmarshal(raw, &binding) != nil || binding.OperationID != operationID || binding.RecoveryEpoch != epoch || credentialref.LifecycleManifestDigestOf(binding) != digest || digest == "" {
 		return zero, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-draft")
 	}
 	return binding, nil
