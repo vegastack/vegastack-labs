@@ -55,6 +55,11 @@ type retirementSelectionPayload struct {
 	ExpectedReclaimBytes, MaxWorkObjects, MaxMutationBytes, MaxRepackBytes int64
 }
 
+func retirementDeadlineCurrent(raw string, now time.Time) bool {
+	deadline, err := time.Parse(time.RFC3339Nano, raw)
+	return err == nil && now.Before(deadline)
+}
+
 func validRetirementID(value string) bool {
 	if len(value) < 1 || len(value) > 128 || value[0] < 'a' || value[0] > 'z' {
 		return false
@@ -155,7 +160,8 @@ func (repository *LocalRetirementRepository) StageLocalRetirement(ctx context.Co
 	if audit.ValidateIntentKey(key) != nil || audit.ValidateEventDraft(event) != nil {
 		return zero, newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-audit", false, nil)
 	}
-	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	nowTime := repository.store.config.Clock().UTC()
+	now := nowTime.Truncate(time.Second).Format(time.RFC3339)
 	intent, err := repository.store.executeAuditIntent(ctx, intentRequest{Expected: &RevisionToken{StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch}, Idempotency: key, Event: event}, false, func(ctx context.Context, tx *sql.Tx) error {
 		var canonicalPlan []byte
 		var readable, expires string
@@ -171,7 +177,7 @@ func (repository *LocalRetirementRepository) StageLocalRetirement(ctx context.Co
 			plan.Binding.DeclarationRevision != request.SourceRevision || plan.Binding.TargetDigest != digest || len(plan.Operations) != 1 ||
 			plan.Operations[0].OperationType != "backup.local.retire" || plan.Operations[0].AdapterID != "local.retention" ||
 			plan.Operations[0].TargetID != request.RepositoryID || plan.Operations[0].InputDigest != digest ||
-			plan.Operations[0].ArtifactDigest != request.ExpectedInventoryDigest || expires <= now {
+			plan.Operations[0].ArtifactDigest != request.ExpectedInventoryDigest || !retirementDeadlineCurrent(expires, nowTime) {
 			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-plan", false, nil)
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO backup_retirement_intents(intent_id,plan_id,plan_digest,repository_id,repository_class,catalog_digest,expected_inventory_digest,selection_digest,canonical_json,target_count,survivor_count,source_revision,state_revision,recovery_epoch,expected_reclaim_bytes,max_work_objects,max_mutation_bytes,max_repack_bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,

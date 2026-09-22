@@ -79,6 +79,15 @@ func openRetirementTestStore(t *testing.T) *Store {
 	return authority
 }
 
+func TestRetirementDeadlineParsesOffsetBeforeAdmission(t *testing.T) {
+	now := time.Date(2026, 9, 12, 18, 30, 0, 0, time.UTC)
+	if retirementDeadlineCurrent("2026-09-12T19:00:00+05:30", now) ||
+		!retirementDeadlineCurrent("2026-09-12T19:00:00Z", now) ||
+		retirementDeadlineCurrent("invalid", now) {
+		t.Fatal("retirement deadline compared text instead of absolute time")
+	}
+}
+
 func TestLocalRetirementStageIsInertExactAndAppendOnly(t *testing.T) {
 	authority := openRetirementTestStore(t)
 	request := retirementStageFixture(t, authority, "destructive", "human")

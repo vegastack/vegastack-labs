@@ -44,7 +44,8 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 	if audit.ValidateIntentKey(key) != nil || audit.ValidateEventDraft(event) != nil {
 		return newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-mutation-audit", false, nil)
 	}
-	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	nowTime := repository.store.config.Clock().UTC()
+	now := nowTime.Truncate(time.Second).Format(time.RFC3339)
 	result, err := repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: key, Event: event}, false, func(ctx context.Context, tx *sql.Tx) error {
 		var intentID, repositoryID, class, maxExpiry, planExpiry, executorExpiry string
 		var stateRevision, epoch, maxWork, maxMutationBytes, maxRepackBytes int64
@@ -57,7 +58,8 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 			JOIN immutable_plans p ON p.plan_id=i.plan_id AND p.plan_digest=i.plan_digest
 			WHERE l.lease_id=? AND l.released_at IS NULL`, request.LeaseID).Scan(&intentID, &repositoryID, &class, &maxExpiry, &planExpiry, &executorExpiry,
 			&stateRevision, &epoch, &maxWork, &maxMutationBytes, &maxRepackBytes)
-		if errors.Is(err, sql.ErrNoRows) || epoch != request.RecoveryEpoch || maxExpiry <= now || planExpiry <= now || executorExpiry <= now {
+		if errors.Is(err, sql.ErrNoRows) || epoch != request.RecoveryEpoch || !retirementDeadlineCurrent(maxExpiry, nowTime) ||
+			!retirementDeadlineCurrent(planExpiry, nowTime) || !retirementDeadlineCurrent(executorExpiry, nowTime) {
 			return newStoreError(generated.ErrorCodeRecoveryRequired, "local-retirement-mutation-lease", false, nil)
 		}
 		if err != nil {
