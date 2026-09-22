@@ -881,8 +881,8 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 }
 
 const (
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "8d5678d444138bd4fa8002481045befaccd47000355d660128624b989012787d"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "d0a10ffc95eb8b51b77ab7518269a3271dd3ec36a76e133e1d3f00d3e67fd0da"
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "c66cc57da456a68902352a088f660317d2c214d6216b77a17dc7f42505373ae4"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "4113633f07149494998d9e7de22ae4c79a229df0a328de3bf3bb1011e2f05a37"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )
@@ -1108,7 +1108,7 @@ const reviewedBackupSubprocessFile = "restic_linux.go"
 // reviewedBackupSubprocessDigest pins the exact reviewed bytes of the restic
 // child runner. Any edit to restic_linux.go must be re-reviewed and this digest
 // resealed; until then the os/exec allowance fails closed.
-const reviewedBackupSubprocessDigest = "052750e112f6259ecfa84e8c34ddd82458a61fa5b2cd0b35349249d3ba20d2f1"
+const reviewedBackupSubprocessDigest = "75a2d621f8a2509d651d4573077c2097b79ea8e811498ee388ebdd8c4ca1189b"
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
 // subprocess file (#106). It confirms the import path, that os/exec is confined
