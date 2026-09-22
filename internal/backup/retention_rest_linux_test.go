@@ -21,6 +21,7 @@ type retentionJournalFixture struct {
 	mu        sync.Mutex
 	beginErr  error
 	finishErr error
+	beginHook func()
 	attempts  []RetainedMutationAttempt
 	outcomes  []RetainedMutationOutcome
 }
@@ -29,6 +30,9 @@ func (fixture *retentionJournalFixture) BeginRetainedMutation(_ context.Context,
 	fixture.mu.Lock()
 	defer fixture.mu.Unlock()
 	fixture.attempts = append(fixture.attempts, attempt)
+	if fixture.beginHook != nil {
+		fixture.beginHook()
+	}
 	return fixture.beginErr
 }
 
@@ -173,6 +177,53 @@ func TestRetentionPutStagesBeforeJournalAndNeverOverwrites(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestRetentionDeleteRejectsObjectSwappedAfterHash(t *testing.T) {
+	var fs unix.Statfs_t
+	if err := unix.Statfs(t.TempDir(), &fs); err != nil || fs.Type != unix.EXT4_SUPER_MAGIC {
+		t.Skip("disposable ext-family filesystem required")
+	}
+	base := t.TempDir()
+	if err := os.Chmod(base, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	root, quarantine := filepath.Join(base, "repository"), filepath.Join(base, "quarantine")
+	if err := os.MkdirAll(filepath.Join(root, "data"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	name := strings.Repeat("c", 64)
+	visible := filepath.Join(root, "data", name)
+	if err := os.WriteFile(visible, []byte("original pack"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	j := &retentionJournalFixture{beginHook: func() {
+		if err := os.Rename(visible, filepath.Join(base, "swapped-original")); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(visible, []byte("forged pack!!"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}}
+	lease := RetentionLease{LeaseID: "lease-test", RepositoryID: "repo-test", RecoveryEpoch: 3, MaximumExpiresAt: time.Now().Add(time.Minute), MaxMutations: 1, MaxMutationBytes: 1024}
+	server, err := NewRetentionRESTServer(root, quarantine, uint32(os.Geteuid()), lease, allowingRetentionLeaseVerifier{}, j, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, httptest.NewRequest(http.MethodDelete, "/repo-test/data/"+name, nil))
+	if response.Code < 400 {
+		t.Fatalf("swapped object was quarantined: %d", response.Code)
+	}
+	if _, err := os.Stat(visible); err != nil {
+		t.Fatalf("replacement disappeared: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(quarantine, "data", name)); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("swapped object entered quarantine: %v", err)
+	}
+	if len(j.attempts) != 1 || len(j.outcomes) != 0 {
+		t.Fatalf("swapped effect was reported complete: attempts=%d outcomes=%d", len(j.attempts), len(j.outcomes))
 	}
 }
 

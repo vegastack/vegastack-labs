@@ -263,6 +263,12 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
+	var before unix.Stat_t
+	if err := unix.Fstat(fileFD, &before); err != nil || before.Mode&unix.S_IFMT != unix.S_IFREG || before.Nlink != 1 {
+		unix.Close(fileFD)
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
 	file := os.NewFile(uintptr(fileFD), object.name)
 	if file == nil {
 		unix.Close(fileFD)
@@ -271,8 +277,10 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 	}
 	hasher := sha256.New()
 	bytes, hashErr := io.Copy(hasher, file)
+	var afterHash unix.Stat_t
+	statErr := unix.Fstat(fileFD, &afterHash)
 	closeErr := file.Close()
-	if hashErr != nil || closeErr != nil || bytes < 0 {
+	if hashErr != nil || statErr != nil || closeErr != nil || bytes < 0 || bytes != before.Size || !sameRetainedObject(before, afterHash) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -305,6 +313,11 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 		return
 	}
 	defer unix.Close(sourceFD)
+	var beforeRename unix.Stat_t
+	if err := unix.Fstatat(sourceFD, object.name, &beforeRename, unix.AT_SYMLINK_NOFOLLOW); err != nil || !sameRetainedObject(before, beforeRename) {
+		http.Error(w, "uncertain", http.StatusServiceUnavailable)
+		return
+	}
 	holdFD, err := server.openQuarantineTypeDir(object.objectType)
 	if err != nil {
 		http.Error(w, "forbidden", http.StatusForbidden)
@@ -329,6 +342,12 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 		delete(server.ownLocks, object.name)
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func sameRetainedObject(left, right unix.Stat_t) bool {
+	return left.Dev == right.Dev && left.Ino == right.Ino && left.Size == right.Size &&
+		left.Mode == right.Mode && left.Nlink == right.Nlink &&
+		left.Ctim == right.Ctim && left.Mtim == right.Mtim
 }
 
 func (server *RESTServer) plannedSnapshot(name string) bool {
