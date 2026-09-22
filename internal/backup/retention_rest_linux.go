@@ -32,15 +32,22 @@ type RetentionLeaseVerifier interface {
 }
 
 // RetainedMutationAttempt is written durably before any retained object is
-// removed from restic's visible namespace. It contains no secret material.
+// removed from restic's visible namespace. Sequence is lease-scoped; a durable
+// journal must reject reuse after a crash, including byte-identical replay.
+// It contains no secret material.
 type RetainedMutationAttempt struct {
-	LeaseID, RepositoryID, MutationKind, ObjectType, ObjectName, Digest string
-	Bytes, RecoveryEpoch                                                int64
+	MutationID, LeaseID, RepositoryID, MutationKind, ObjectType, ObjectName, Digest string
+	Sequence, Bytes, RecoveryEpoch                                                  int64
 }
 
 type RetainedMutationOutcome struct {
-	LeaseID, ObjectType, ObjectName, QuarantineName string
-	Status                                          string
+	MutationID, LeaseID, ObjectType, ObjectName, QuarantineName string
+	Status                                                      string
+}
+
+func retainedMutationID(leaseID string, sequence int64) string {
+	sum := sha256.Sum256([]byte(fmt.Sprintf("retained-mutation-v1\x00%s\x00%d", leaseID, sequence)))
+	return "mutation-" + hex.EncodeToString(sum[:16])
 }
 
 type RetainedMutationJournal interface {
@@ -208,7 +215,9 @@ func (server *RESTServer) handleRetainedCreate(w http.ResponseWriter, r *http.Re
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
-	attempt := RetainedMutationAttempt{LeaseID: server.retentionLease.LeaseID, RepositoryID: server.repositoryID,
+	sequence := server.retentionMutations + 1
+	attempt := RetainedMutationAttempt{MutationID: retainedMutationID(server.retentionLease.LeaseID, sequence), Sequence: sequence,
+		LeaseID: server.retentionLease.LeaseID, RepositoryID: server.repositoryID,
 		MutationKind: "put", ObjectType: object.objectType, ObjectName: object.name, Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil)),
 		Bytes: bytes, RecoveryEpoch: server.retentionLease.RecoveryEpoch}
 	if err := server.retentionJournal.BeginRetainedMutation(r.Context(), attempt); err != nil {
@@ -231,7 +240,7 @@ func (server *RESTServer) handleRetainedCreate(w http.ResponseWriter, r *http.Re
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
-	if err := server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{LeaseID: server.retentionLease.LeaseID,
+	if err := server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{MutationID: attempt.MutationID, LeaseID: server.retentionLease.LeaseID,
 		ObjectType: object.objectType, ObjectName: object.name, Status: "created"}); err != nil {
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
@@ -279,7 +288,9 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
-	attempt := RetainedMutationAttempt{LeaseID: server.retentionLease.LeaseID, RepositoryID: server.repositoryID,
+	sequence := server.retentionMutations + 1
+	attempt := RetainedMutationAttempt{MutationID: retainedMutationID(server.retentionLease.LeaseID, sequence), Sequence: sequence,
+		LeaseID: server.retentionLease.LeaseID, RepositoryID: server.repositoryID,
 		MutationKind: "delete", ObjectType: object.objectType, ObjectName: object.name, Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil)), Bytes: bytes,
 		RecoveryEpoch: server.retentionLease.RecoveryEpoch}
 	if err := server.retentionJournal.BeginRetainedMutation(r.Context(), attempt); err != nil {
@@ -308,7 +319,7 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
-	outcome := RetainedMutationOutcome{LeaseID: server.retentionLease.LeaseID, ObjectType: object.objectType,
+	outcome := RetainedMutationOutcome{MutationID: attempt.MutationID, LeaseID: server.retentionLease.LeaseID, ObjectType: object.objectType,
 		ObjectName: object.name, QuarantineName: object.objectType + "/" + object.name, Status: "quarantined"}
 	if err := server.retentionJournal.FinishRetainedMutation(r.Context(), outcome); err != nil {
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)

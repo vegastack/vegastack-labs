@@ -39,6 +39,13 @@ func (fixture *retentionJournalFixture) FinishRetainedMutation(_ context.Context
 	return fixture.finishErr
 }
 
+func TestRetainedMutationIDBindsLeaseAndSequence(t *testing.T) {
+	first := retainedMutationID("lease-a", 1)
+	if first == "" || first != retainedMutationID("lease-a", 1) || first == retainedMutationID("lease-a", 2) || first == retainedMutationID("lease-b", 1) {
+		t.Fatal("retention mutation identity is not exact and replay-stable")
+	}
+}
+
 func TestRetentionDeleteQuarantinesExactInodeAcrossJournalCrashes(t *testing.T) {
 	var fs unix.Statfs_t
 	if err := unix.Statfs(t.TempDir(), &fs); err != nil || fs.Type != unix.EXT4_SUPER_MAGIC {

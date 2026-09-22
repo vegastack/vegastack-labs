@@ -185,7 +185,8 @@ func TestPinnedResticRetentionQuarantinesSharedPackUntilSuccessorProof(t *testin
 				t.Fatalf("old shared pack inode not quarantined: %v", err)
 			}
 		}
-		if journal.outcomes[index].ObjectType != attempt.ObjectType || journal.outcomes[index].ObjectName != attempt.ObjectName {
+		if attempt.MutationID == "" || attempt.Sequence != int64(index+1) || journal.outcomes[index].MutationID != attempt.MutationID ||
+			journal.outcomes[index].ObjectType != attempt.ObjectType || journal.outcomes[index].ObjectName != attempt.ObjectName {
 			t.Fatalf("journal outcome %d does not bind exact object", index)
 		}
 	}
