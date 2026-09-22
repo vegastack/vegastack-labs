@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+trap 'status=$?; printf "Native fixture failed at line %s (status %s)\n" "$LINENO" "$status" >&2' ERR
 
 # Root-only, disposable-host fixture. The second invocation cleans up after
 # a failed or cancelled acceptance step. No inventory host is an allowed target.
