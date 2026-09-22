@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/hex"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,6 +16,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/backup"
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
@@ -60,17 +62,35 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	keyID, recoveryID, repositoryID := "enc-a", "recovery-a", "repo-real"
+	keyID, recoveryID, repositoryID := "enc-a", "recovery-a", backupidentity.StandardRepository
 	policy := generated.BackupPolicy{
 		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
-		PolicyID: "policy-real", OwnerID: "owner-real", SourceID: "source-real",
-		SourceSelectors: []string{"control-database"}, ConsistencyHookID: backup.SQLiteOnlineHookID,
+		PolicyID: "policy-real", OwnerID: "owner-real", SourceID: backupidentity.ControlDatabaseSource,
+		SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: backup.SQLiteOnlineHookID,
 		RepositoryID: &repositoryID, RepositoryClass: "standard", ScheduleIntent: "manual",
 		ExpectedBytes: 4 << 20, ExpectedGrowthBytes: 4 << 20, MinimumFreeBytes: 4 << 20,
 		EncryptionKeyReferenceID: &keyID, RecoveryKeyReferenceID: &recoveryID,
 		RetentionDays: 7, RestoreTargetID: "isolated-test",
 		Dependencies:           []generated.BackupDependency{{DependencyID: "binary-restic", Kind: "binary", Digest: "sha256:" + strings.Repeat("a", 64)}},
 		FunctionalTestRequired: true, RecoveryEpoch: 0, Revision: 1,
+	}
+	for name, mutate := range map[string]func(*generated.BackupPolicy){
+		"foreign source":     func(p *generated.BackupPolicy) { p.SourceID = "source-foreign" },
+		"foreign selector":   func(p *generated.BackupPolicy) { p.SourceSelectors = []string{"selector-foreign"} },
+		"foreign repository": func(p *generated.BackupPolicy) { id := "repo-foreign"; p.RepositoryID = &id },
+	} {
+		t.Run(name, func(t *testing.T) {
+			foreign := policy
+			mutate(&foreign)
+			_, sum, err := stateexport.CanonicalJSON(foreign)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = backups.CreateBackupPolicyDraft(ctx, generated.BackupPolicyDraftRequest{Schema: generated.SchemaIDBackupPolicyDraftRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 0, RecoveryEpoch: 0, TargetDigest: "sha256:" + hex.EncodeToString(sum[:]), IdempotencyKey: "foreign-" + name, Policy: foreign}, audit.Attribution{AuthenticatedPrincipalID: "human-test", AuthenticatedPrincipalMethod: "local-os-peer"})
+			if store.Code(err) != generated.ErrorCodeInputInvalid {
+				t.Fatalf("unregistered identity admitted: %v", err)
+			}
+		})
 	}
 	_, policySum, err := stateexport.CanonicalJSON(policy)
 	if err != nil {
@@ -96,7 +116,9 @@ func TestLocalBackupComposition(t *testing.T) {
 		Binding:    generated.PlanBinding{RecoveryEpoch: 0, StateRevision: submission.StateRevision},
 		Extensions: []generated.ContractExtension{{Name: "x-backup-policy", ValueDigest: submission.PolicyDigest}}}
 	implementation, err := New(Config{
-		LocalBackup: &serverconfig.LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary},
+		LocalBackup: &serverconfig.LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
+			SourceID: backupidentity.ControlDatabaseSource, StandardRepositoryID: backupidentity.StandardRepository,
+			CriticalRepositoryID: backupidentity.CriticalRepository},
 		ExpectedUID: uid, Backups: backups, Snapshots: snapshots, Plans: fixedPlanSource{plan},
 		Hooks: backup.DefaultHookRegistry(), Runner: backup.NewResticRunner(), Clock: time.Now,
 	})
@@ -105,6 +127,24 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	operation := adapter.Operation{OperationType: OperationType, AdapterID: AdapterID, TargetID: "control-test",
 		SecretReferences: []adapter.SecretReference{{ID: keyID, Consumer: AdapterID}}}
+	invalidProfile := *implementation.config.LocalBackup
+	invalidProfile.SourceID = "source-foreign"
+	invalidConfig := implementation.config
+	invalidConfig.LocalBackup = &invalidProfile
+	invalidAdapter, err := New(invalidConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidPassword, err := credentialref.NewValue([]byte("isolated-composition-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidBinding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: planDigest, RunID: "run-invalid-profile", StepID: "step-invalid-profile", StateRevision: submission.StateRevision, RecoveryEpoch: 0}
+	_, err = invalidAdapter.ExecuteBoundWithCredentials(ctx, operation, invalidBinding, []*credentialref.Value{invalidPassword})
+	invalidPassword.Close()
+	if err == nil {
+		t.Fatal("unregistered protected profile reached a backup lease")
+	}
 	var firstPoint string
 	for attempt := 1; attempt <= 2; attempt++ {
 		password, err := credentialref.NewValue([]byte("isolated-composition-password"))
@@ -136,5 +176,33 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	if _, err := backups.GetPendingRecoveryPoint(ctx, firstPoint); err != nil {
 		t.Fatalf("second point lost first pending point: %v", err)
+	}
+	// A retained repository with an invalid format must fail before the next
+	// restic backup and leave both existing pending points intact.
+	if err := os.WriteFile(filepath.Join(standard, "config"), []byte(`{"version":1,"id":"old"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	password, err := credentialref.NewValue([]byte("isolated-composition-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: planDigest, RunID: "run-invalid-format", StepID: "step-invalid-format", LeaseID: "executor-invalid-format", StateRevision: submission.StateRevision, RecoveryEpoch: 0, MaximumExpiresAt: time.Now().Add(5 * time.Minute).UTC().Format(time.RFC3339)}
+	_, err = implementation.ExecuteBoundWithCredentials(ctx, operation, binding, []*credentialref.Value{password})
+	password.Close()
+	if err == nil {
+		t.Fatal("existing repository format v1 reached backup")
+	}
+	if entries, readErr := os.ReadDir(filepath.Join(standard, "snapshots")); readErr != nil || len(entries) != 2 {
+		t.Fatalf("invalid format wrote a new snapshot: entries=%d err=%v", len(entries), readErr)
+	}
+	if _, err := backups.GetPendingRecoveryPoint(ctx, firstPoint); err != nil {
+		t.Fatalf("failed third attempt lost prior point: %v", err)
+	}
+}
+
+func TestCapacityAdmissionRejectsInt64ForecastOverflow(t *testing.T) {
+	policy := generated.BackupPolicy{ExpectedBytes: math.MaxInt64, ExpectedGrowthBytes: math.MaxInt64, MinimumFreeBytes: 2}
+	if err := admitCapacity(t.TempDir(), policy); err == nil {
+		t.Fatal("wrapped capacity forecast admitted")
 	}
 }

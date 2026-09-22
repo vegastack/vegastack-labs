@@ -49,3 +49,28 @@ func TestNativeMappingSeal(t *testing.T) {
 		t.Fatal("valid different artifact origin must require a different plan")
 	}
 }
+
+func TestNativeMappingRejectsPhysicalReaderAliases(t *testing.T) {
+	base := validActivateBinding()
+	base.RequiredDeniedConsumerIDs = []string{"consumer-denied", "consumer-denied-b"}
+	base.NativeDeniedReaders = append(base.NativeDeniedReaders, NativeDeniedReaderBinding{
+		ConsumerID: "consumer-denied-b", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ReaderUID: 2002, ReaderGID: 2002, ProfileID: "profile-a", RoleID: "role-denied-b",
+	})
+	if !ValidLifecycleBinding(base) {
+		t.Fatal("distinct physical readers must be valid")
+	}
+	positiveAlias := base
+	positiveAlias.NativeConsumers = append([]NativeConsumerBinding(nil), base.NativeConsumers...)
+	positiveAlias.NativeConsumers[1].UnitName = positiveAlias.NativeConsumers[0].UnitName
+	if ValidLifecycleBinding(positiveAlias) || positiveAlias.Digest() != "" {
+		t.Fatal("two positive IDs aliased one physical unit")
+	}
+	deniedAlias := base
+	deniedAlias.NativeDeniedReaders = append([]NativeDeniedReaderBinding(nil), base.NativeDeniedReaders...)
+	deniedAlias.NativeDeniedReaders[1].ReaderUID = deniedAlias.NativeDeniedReaders[0].ReaderUID
+	deniedAlias.NativeDeniedReaders[1].ReaderGID = deniedAlias.NativeDeniedReaders[0].ReaderGID
+	if ValidLifecycleBinding(deniedAlias) || deniedAlias.Digest() != "" {
+		t.Fatal("two denied IDs aliased one physical reader")
+	}
+}

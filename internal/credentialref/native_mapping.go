@@ -55,6 +55,7 @@ func ValidNativeBindings(binding LifecycleBinding) bool {
 	}
 	positive := make(map[string]bool, len(binding.ConsumerIDs))
 	positiveUID := make(map[uint32]bool, len(binding.ConsumerIDs))
+	positiveUnits := make(map[struct{ host, unit string }]bool, len(binding.ConsumerIDs))
 	for _, id := range binding.ConsumerIDs {
 		positive[id] = true
 	}
@@ -72,6 +73,11 @@ func ValidNativeBindings(binding LifecycleBinding) bool {
 		if host != "" && host != item.HostMachineID {
 			return false
 		}
+		unitKey := struct{ host, unit string }{item.HostMachineID, item.UnitName}
+		if positiveUnits[unitKey] {
+			return false
+		}
+		positiveUnits[unitKey] = true
 		host = item.HostMachineID
 		delete(positive, item.ConsumerID)
 		positiveUID[item.ServiceUID] = true
@@ -80,6 +86,10 @@ func ValidNativeBindings(binding LifecycleBinding) bool {
 		return false
 	}
 	denied := make(map[string]bool, len(binding.RequiredDeniedConsumerIDs))
+	deniedReaders := make(map[struct {
+		host     string
+		uid, gid uint32
+	}]bool, len(binding.RequiredDeniedConsumerIDs))
 	for _, id := range binding.RequiredDeniedConsumerIDs {
 		denied[id] = true
 	}
@@ -93,6 +103,14 @@ func ValidNativeBindings(binding LifecycleBinding) bool {
 		if _, err := ParseID(item.RoleID); err != nil {
 			return false
 		}
+		readerKey := struct {
+			host     string
+			uid, gid uint32
+		}{item.HostMachineID, item.ReaderUID, item.ReaderGID}
+		if deniedReaders[readerKey] {
+			return false
+		}
+		deniedReaders[readerKey] = true
 		delete(denied, item.ConsumerID)
 	}
 	return len(denied) == 0

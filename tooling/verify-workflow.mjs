@@ -98,16 +98,19 @@ export function verifyWorkflowDocument(workflow, source = "") {
     const affected = steps.find((step) => step.name === "Run affected public checks");
     const expectedChromiumCondition = jobName === "verify_pr"
       ? "needs.plan.outputs.browser == 'true'"
-      : "needs.plan.outputs.browser == 'true' || github.event_name == 'push'";
+      : "needs.plan.outputs.browser == 'true' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'";
     if (chromium?.if !== expectedChromiumCondition) {
-      throw new Error("workflow must install Chromium only for selected PR/manual checks or the exact main exit");
+      throw new Error("workflow must install Chromium only for selected checks or the explicit main exit");
     }
     if (!affected || !/^pnpm check:affected --execute-plan$/.test(affected.run ?? "") ||
         affected.env?.VSK_CHECK_PLAN_B64 !== "${{ needs.plan.outputs.check_plan }}" ||
         Object.keys(affected.env ?? {}).length !== 1 ||
-        (jobName === "verify_trusted" && affected.if !== "github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'") ||
         (jobName === "verify_pr" && affected.if !== undefined)) {
-      throw new Error("workflow must execute the exact affected check plan in the PR and manual lanes");
+      throw new Error("workflow must execute the exact affected check plan in the PR and trusted lanes");
+    }
+    if (jobName === "verify_trusted" && affected.if !==
+      "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'") {
+      throw new Error("trusted job must execute the affected plan on main pushes and manual non-main runs");
     }
   }
   const trustedSteps = jobs.verify_trusted.steps ?? [];
@@ -116,9 +119,9 @@ export function verifyWorkflowDocument(workflow, source = "") {
     throw new Error("trusted runner must install dependencies without restoring the remote pnpm cache");
   }
   const phase4Exit = trustedSteps.find((step) => step.name === "Run exact Phase 4 exit acceptance");
-  if (phase4Exit?.if !== "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'" ||
+  if (phase4Exit?.if !== "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'" ||
       phase4Exit.run !== "pnpm --silent check:phase-4-exit --commit \"$GITHUB_SHA\"") {
-    throw new Error("main push and manual repeat must run Phase 4 exit against the exact checked-out commit");
+    throw new Error("only explicit manual main runs may execute Phase 4 exit against the exact checked-out commit");
   }
   const guard = trustedSteps[0];
   const temporary = trustedSteps[1];

@@ -6,6 +6,7 @@ import (
 	"context"
 	"net"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -63,6 +64,12 @@ func TestPinnedResticEndToEnd(t *testing.T) {
 			strings.ReplaceAll(observation.Stdout, string(password.Bytes()), "[redacted]"),
 			strings.ReplaceAll(observation.Stderr, string(password.Bytes()), "[redacted]"))
 	}
+	request.Mode = "config"
+	if result, err := runner.Run(ctx, request, password); err != nil || result.RepositoryFormat != 2 {
+		observation := runner.Observation()
+		t.Fatalf("real restic config preflight: format=%d err=%v stderr=%q", result.RepositoryFormat, err,
+			strings.ReplaceAll(observation.Stderr, string(password.Bytes()), "[redacted]"))
+	}
 	snapshot := filepath.Join(fixture, "snapshot.sqlite")
 	request.Mode = "backup"
 	request.SnapshotPath = snapshot
@@ -81,5 +88,70 @@ func TestPinnedResticEndToEnd(t *testing.T) {
 	entries, err := os.ReadDir(filepath.Join(root, "snapshots"))
 	if err != nil || len(entries) != 2 {
 		t.Fatalf("sequential snapshots: %d entries, %v", len(entries), err)
+	}
+}
+
+func TestPinnedResticRejectsAuthenticatedV1Repository(t *testing.T) {
+	binary := os.Getenv("VSK_RESTIC_0191_BINARY")
+	if binary == "" {
+		t.Skip("official pinned restic 0.19.1 binary not provided")
+	}
+	fixture := t.TempDir()
+	root := filepath.Join(fixture, "repository-v1")
+	if err := os.Mkdir(root, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	lease := WriterLease{LeaseID: "lease-v1", PolicyID: "policy-v1", PointID: "point-v1", PlanID: "plan-v1",
+		PlanDigest: "sha256:" + strings.Repeat("a", 64), RunID: "run-v1", StepID: "step-v1",
+		RepositoryID: "repo-v1", RepositoryClass: "standard", TargetID: "target-v1",
+		MaximumExpiresAt: time.Now().Add(10 * time.Minute)}
+	server, err := NewRESTServer(root, uint32(os.Geteuid()), lease, allowingLeaseVerifier{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	socket := filepath.Join(fixture, "rest-v1.sock")
+	listener, err := net.Listen("unix", socket)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	defer listener.Close()
+	go func() { _ = server.Serve(ctx, listener) }()
+	password, err := credentialref.NewValue([]byte("isolated-restic-v1-fixture-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer password.Close()
+	request := ResticRequest{BinaryPath: binary, Architecture: runtime.GOARCH,
+		RepositoryURL: "http+unix://" + socket + ":/repo-v1/", RepositoryID: "repo-v1"}
+	// The production runner only initializes v2. Build this valid v1 negative
+	// fixture with the same verified inode and sealed password FD.
+	runner := &resticRunner{clock: time.Now}
+	binaryFile, err := runner.verifyBinary(request)
+	if err != nil {
+		t.Fatalf("verify official restic binary: %v", err)
+	}
+	defer binaryFile.Close()
+	passwordFile, err := sealedPasswordFile(password.Bytes())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer passwordFile.Close()
+	command := exec.CommandContext(ctx, binary, "-r", "rest:"+request.RepositoryURL,
+		"--no-cache", "--password-file", passwordFilePath, "init", "--repository-version", "1")
+	command.Path = "/proc/self/fd/4"
+	command.ExtraFiles = []*os.File{passwordFile, binaryFile}
+	command.Env = []string{}
+	if err := command.Run(); err != nil {
+		t.Fatalf("initialize authenticated v1 fixture: %v", err)
+	}
+	request.Mode = "config"
+	if _, err := runner.Run(ctx, request, password); err == nil || !strings.Contains(err.Error(), "backup-restic-config") {
+		t.Fatalf("valid v1 repository was not rejected at authenticated format preflight: %v", err)
+	}
+	entries, err := os.ReadDir(filepath.Join(root, "snapshots"))
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("v1 preflight created a snapshot: entries=%d err=%v", len(entries), err)
 	}
 }

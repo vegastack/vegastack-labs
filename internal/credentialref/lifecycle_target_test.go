@@ -55,3 +55,37 @@ func TestNativeLifecycleTargetDigestSealsPhysicalReader(t *testing.T) {
 		t.Fatal("changed unit retained target digest")
 	}
 }
+
+func TestNativeLifecycleTargetDigestRejectsPhysicalAliases(t *testing.T) {
+	input := generated.CredentialLifecycleRequest{
+		Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: "credential.activate",
+		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a", "consumer-b"},
+		RequiredDeniedConsumerIDs: []string{"consumer-denied", "consumer-denied-b"},
+		MaterialVersion:           "version-a", ResolverID: "native-systemd", TargetID: "target-a", IdempotencyKey: "key-a",
+		NativeConsumers: &[]generated.CredentialNativeConsumer{
+			{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a"},
+			{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-b", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", UnitName: "beta.service", ServiceUID: 1002, ServiceGID: 1002, ProfileID: "profile-a", RoleID: "role-b"},
+		},
+		NativeDeniedReaders: &[]generated.CredentialNativeDeniedReader{
+			{Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "consumer-denied", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-a", RoleID: "role-denied"},
+			{Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "consumer-denied-b", TargetID: "target-a", HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ReaderUID: 2002, ReaderGID: 2002, ProfileID: "profile-a", RoleID: "role-denied-b"},
+		},
+	}
+	if LifecycleTargetDigest(input) == "" {
+		t.Fatal("distinct physical readers must have a target digest")
+	}
+	positiveAlias := input
+	positives := append([]generated.CredentialNativeConsumer(nil), (*input.NativeConsumers)...)
+	positives[1].UnitName = positives[0].UnitName
+	positiveAlias.NativeConsumers = &positives
+	if LifecycleTargetDigest(positiveAlias) != "" {
+		t.Fatal("two positive IDs aliased one unit")
+	}
+	deniedAlias := input
+	denied := append([]generated.CredentialNativeDeniedReader(nil), (*input.NativeDeniedReaders)...)
+	denied[1].ReaderUID, denied[1].ReaderGID = denied[0].ReaderUID, denied[0].ReaderGID
+	deniedAlias.NativeDeniedReaders = &denied
+	if LifecycleTargetDigest(deniedAlias) != "" {
+		t.Fatal("two denied IDs aliased one physical reader")
+	}
+}

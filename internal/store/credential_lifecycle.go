@@ -175,7 +175,7 @@ func (repository *CredentialRepository) GetLifecycleBinding(ctx context.Context,
 	}
 	if binding.NativeArtifactConsumerID != "" {
 		err = repository.store.Read(ctx, func(tx ReadTx) error {
-			return requireNativeArtifactOrigin(binding, func(query string, arguments ...any) *sql.Row {
+			return requireNativeArtifactOrigin(binding, "", func(query string, arguments ...any) *sql.Row {
 				return tx.queryRow(ctx, query, arguments...)
 			})
 		})
@@ -407,7 +407,7 @@ func (repository *CredentialRepository) lifecycleAppendExtra(request CredentialL
 		if err := requireConsumedHumanAcknowledgement(ctx, tx, request.Stage); err != nil {
 			return err
 		}
-		if err := requireExactLifecycleBinding(ctx, tx, request); err != nil {
+		if err := requireExactLifecycleBinding(ctx, tx, request, versionID); err != nil {
 			return err
 		}
 		if actionExtra != nil {
@@ -499,18 +499,7 @@ func requireConsumerVerifications(binding credentialref.LifecycleBinding, verifi
 }
 
 func recoveryEvidenceMatchesBinding(binding credentialref.LifecycleBinding, evidence credentialref.RecoveryVerification) bool {
-	if binding.DraftID == nil || binding.CustodyProofDigest == nil || binding.FormerControllerFenceDigest == nil || binding.PriorRecoveryEpoch == nil {
-		return false
-	}
-	return evidence.DraftID == *binding.DraftID &&
-		evidence.CustodyProofDigest == *binding.CustodyProofDigest &&
-		evidence.FormerControllerFenceDigest == *binding.FormerControllerFenceDigest &&
-		evidence.PriorRecoveryEpoch == *binding.PriorRecoveryEpoch &&
-		evidence.RecoveryEpoch == binding.RecoveryEpoch &&
-		evidence.RecoveryEpoch > evidence.PriorRecoveryEpoch &&
-		credentialref.ValidSHA256Digest(evidence.EvidenceDigest) &&
-		credentialref.ValidSHA256Digest(evidence.CustodyProofDigest) &&
-		credentialref.ValidSHA256Digest(evidence.FormerControllerFenceDigest)
+	return credentialref.ValidRecoveryVerification(binding, evidence)
 }
 
 func (repository *CredentialRepository) consumerVerificationExtra(binding credentialref.LifecycleBinding, verifications []credentialref.ConsumerVerification) func(ctx context.Context, tx *sql.Tx, versionID, created string) error {
@@ -544,7 +533,7 @@ func lifecycleEvidenceID(versionID, discriminator, kind string) string {
 
 // requireExactLifecycleBinding rechecks the exact sealed bytes and immutable
 // import origin inside the same version append/CAS transaction.
-func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request CredentialLifecycleApplyRequest) error {
+func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request CredentialLifecycleApplyRequest, appendedVersionID string) error {
 	binding := request.Binding
 	stage := request.Stage
 	var digest string
@@ -565,7 +554,7 @@ func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request Crede
 		return credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-lifecycle-seal")
 	}
 	if binding.NativeArtifactConsumerID != "" {
-		if err := requireNativeArtifactOrigin(binding, func(query string, arguments ...any) *sql.Row {
+		if err := requireNativeArtifactOrigin(binding, appendedVersionID, func(query string, arguments ...any) *sql.Row {
 			return tx.QueryRowContext(ctx, query, arguments...)
 		}); err != nil {
 			return err
@@ -588,12 +577,16 @@ func requireExactLifecycleBinding(ctx context.Context, tx *sql.Tx, request Crede
 	return nil
 }
 
-func requireNativeArtifactOrigin(binding credentialref.LifecycleBinding, queryRow func(string, ...any) *sql.Row) error {
+func requireNativeArtifactOrigin(binding credentialref.LifecycleBinding, appendedVersionID string, queryRow func(string, ...any) *sql.Row) error {
 	switch binding.Action {
 	case credentialref.ActionActivate:
 		var consumerID, targetID, resolverID, fingerprint, status string
 		var epoch int64
-		err := queryRow(`SELECT consumer_id,target_id,resolver_id,fingerprint,status,recovery_epoch FROM credential_reference_versions WHERE reference_id=? AND material_version=? ORDER BY state_revision DESC,version_id DESC LIMIT 1`, binding.ReferenceID, binding.MaterialVersion).Scan(&consumerID, &targetID, &resolverID, &fingerprint, &status, &epoch)
+		// The append hook runs after inserting the target ACTIVE row in the same
+		// transaction, and post-effect plan reads repeat this check. Exclude the
+		// exact appended row and rows newer than the sealed plan state so the
+		// latest eligible predecessor must be the authentic STAGED source.
+		err := queryRow(`SELECT consumer_id,target_id,resolver_id,fingerprint,status,recovery_epoch FROM credential_reference_versions WHERE reference_id=? AND material_version=? AND state_revision<=? AND version_id<>? ORDER BY state_revision DESC,version_id DESC LIMIT 1`, binding.ReferenceID, binding.MaterialVersion, binding.StateRevision, appendedVersionID).Scan(&consumerID, &targetID, &resolverID, &fingerprint, &status, &epoch)
 		if err != nil || consumerID != binding.NativeArtifactConsumerID || targetID != binding.TargetID || resolverID != binding.ResolverID || fingerprint != binding.CiphertextFingerprint || status != "staged" || epoch != binding.RecoveryEpoch {
 			return credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "native-artifact-origin")
 		}

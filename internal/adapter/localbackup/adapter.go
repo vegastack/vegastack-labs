@@ -28,6 +28,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/backup"
+	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -114,6 +115,14 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 		operation.SecretReferences[0].ID != *policy.EncryptionKeyReferenceID {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-key-reference")
 	}
+	if !backupidentity.Registered(policy.SourceID, policy.SourceSelectors, policy.RepositoryClass, policy.RepositoryID) {
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-identity")
+	}
+	if policy.SourceID != adapterImpl.config.LocalBackup.SourceID ||
+		(policy.RepositoryClass == "standard" && *policy.RepositoryID != adapterImpl.config.LocalBackup.StandardRepositoryID) ||
+		(policy.RepositoryClass == "critical" && *policy.RepositoryID != adapterImpl.config.LocalBackup.CriticalRepositoryID) {
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-profile-identity")
+	}
 	root, ok := adapterImpl.repositoryRoot(policy.RepositoryClass)
 	if !ok {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-repository")
@@ -130,10 +139,7 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	}
 
 	leaseID, jobID, pointID := "backup-lease-"+randomHex(16), "backup-job-"+randomHex(16), "recovery-point-"+randomHex(16)
-	repositoryID := policy.PolicyID + "." + policy.RepositoryClass
-	if policy.RepositoryID != nil {
-		repositoryID = *policy.RepositoryID
-	}
+	repositoryID := *policy.RepositoryID
 	deadline := adapterImpl.leaseDeadline(binding)
 	lease := backup.WriterLease{
 		PolicyID: policy.PolicyID, PointID: pointID, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest,
@@ -229,6 +235,14 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		}
 	} else if statErr != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-repository")
+	}
+	// The pinned child decrypts the retained config through the guarded REST
+	// boundary. A non-v2 repository blocks before any backup write.
+	configRequest := base
+	configRequest.Mode = "config"
+	configRequest.OutputLimit = 64 << 10
+	if config, err := adapterImpl.config.Runner.Run(ctx, configRequest, password); err != nil || config.RepositoryFormat != 2 {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-format")
 	}
 	backupRequest := base
 	backupRequest.Mode = "backup"
@@ -404,12 +418,21 @@ func platformDigest() string {
 // admitCapacity forecasts retained bytes plus declared growth and headroom and
 // blocks creation when the destination filesystem cannot hold it. It never prunes.
 func admitCapacity(root string, policy generated.BackupPolicy) error {
-	required := policy.ExpectedBytes + policy.ExpectedGrowthBytes + policy.MinimumFreeBytes
+	if policy.ExpectedBytes < 0 || policy.ExpectedGrowthBytes < 0 || policy.MinimumFreeBytes < 0 {
+		return backupError(generated.ErrorCodeInputInvalid, "local-backup-capacity")
+	}
+	required := uint64(policy.ExpectedBytes)
+	for _, part := range []int64{policy.ExpectedGrowthBytes, policy.MinimumFreeBytes} {
+		if required > ^uint64(0)-uint64(part) {
+			return backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-capacity")
+		}
+		required += uint64(part)
+	}
 	free, err := freeBytes(root)
 	if err != nil {
 		return backupError(generated.ErrorCodeIntegrityFailure, "local-backup-capacity")
 	}
-	if free < uint64(required) {
+	if free < required {
 		return backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-capacity")
 	}
 	return nil

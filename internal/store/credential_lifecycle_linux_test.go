@@ -5,6 +5,7 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"strconv"
@@ -89,6 +90,7 @@ func seedCredentialLifecycleStep(t *testing.T, repository *CredentialRepository,
 		}
 		if action == credentialref.ActionActivate {
 			binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+			setNativeLifecycleReaders(&binding)
 		}
 		sealed = []credentialref.LifecycleBinding{binding}
 	}
@@ -209,7 +211,7 @@ func stagedReference(stateRevision int64) generated.CredentialReference {
 	return generated.CredentialReference{
 		Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0",
 		ReferenceID: "reference-a", ConsumerID: "consumer-a", PurposeID: "deploy-a",
-		TargetID: "service-a", ResolverID: "fixture-resolver", MaterialVersion: "version-a",
+		TargetID: "service-a", ResolverID: "native-systemd", MaterialVersion: "version-a",
 		Fingerprint: lifecycleFingerprint, Status: "staged", StateRevision: stateRevision + 1, RecoveryEpoch: 0,
 		VerifiedConsumerIDs: []string{},
 	}
@@ -219,9 +221,22 @@ func stageBinding() credentialref.LifecycleBinding {
 	return credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionStage, DraftID: stringPointer("draft-a"),
 		ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, MaterialVersion: "version-a",
-		ResolverID: "fixture-resolver", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
+		ResolverID: "native-systemd", TargetID: "service-a", CiphertextFingerprint: lifecycleFingerprint,
 		StateRevision: 2, RecoveryEpoch: 0, ImportDraftStateRevision: int64PointerLifecycle(1), ImportDraftConsumerID: stringPointer("consumer-a"), ImportDraftPurposeID: stringPointer("deploy-a"),
 	}
+}
+
+func setNativeLifecycleReaders(binding *credentialref.LifecycleBinding) {
+	binding.NativeArtifactConsumerID = "consumer-a"
+	binding.NativeConsumers = []credentialref.NativeConsumerBinding{{
+		ConsumerID: "consumer-a", TargetID: binding.TargetID, HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		UnitName: "alpha.service", ServiceUID: 1001, ServiceGID: 1001, ProfileID: "profile-a", RoleID: "role-a",
+		LoadedName: credentialref.LoadedNameForVersion("consumer-a", binding.ReferenceID, binding.MaterialVersion),
+	}}
+	binding.NativeDeniedReaders = []credentialref.NativeDeniedReaderBinding{{
+		ConsumerID: "consumer-denied", TargetID: binding.TargetID, HostMachineID: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		ReaderUID: 2001, ReaderGID: 2001, ProfileID: "profile-b", RoleID: "role-b",
+	}}
 }
 
 // The native identity map is plan metadata, not proof that a consumer loaded
@@ -253,13 +268,13 @@ func TestNativeMappingPlanSealRejectsChangedReaderUID(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: binding, Stage: stage}); err != nil {
+	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: binding, Stage: stage}, ""); err != nil {
 		t.Fatalf("sealed native map rejected: %v", err)
 	}
 	mutated := binding
 	mutated.NativeDeniedReaders = append([]credentialref.NativeDeniedReaderBinding(nil), binding.NativeDeniedReaders...)
 	mutated.NativeDeniedReaders[0].ReaderUID++
-	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: mutated, Stage: stage}); Code(err) != generated.ErrorCodeIntegrityFailure {
+	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: mutated, Stage: stage}, ""); Code(err) != generated.ErrorCodeIntegrityFailure {
 		t.Fatalf("changed physical reader identity passed plan/CAS: %v", err)
 	}
 	if err := tx.Rollback(); err != nil {
@@ -275,8 +290,104 @@ func TestNativeMappingPlanSealRejectsChangedReaderUID(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer tx.Rollback()
-	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: binding, Stage: stage}); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+	if err := requireExactLifecycleBinding(context.Background(), tx, CredentialLifecycleApplyRequest{Binding: binding, Stage: stage}, ""); Code(err) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatalf("substituted staged artifact origin passed plan/CAS: %v", err)
+	}
+}
+
+func TestNativeArtifactOriginExcludesOnlyNewAppendRow(t *testing.T) {
+	for _, scenario := range []struct {
+		name, priorStatus, priorConsumer string
+		wantErr                          bool
+	}{
+		{name: "exact staged origin"},
+		{name: "prior active row", priorStatus: "active", priorConsumer: "consumer-a", wantErr: true},
+		{name: "substituted staged origin", priorStatus: "staged", priorConsumer: "consumer-other", wantErr: true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			repository := openCredentialStore(t)
+			stage := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed)
+			if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: stageBinding(), Stage: stage}); err != nil {
+				t.Fatal(err)
+			}
+			binding := stageBinding()
+			binding.Action = credentialref.ActionActivate
+			binding.DraftID, binding.ImportDraftStateRevision, binding.ImportDraftConsumerID, binding.ImportDraftPurposeID = nil, nil, nil, nil
+			binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+			binding.StateRevision = 3
+			if scenario.priorStatus != "" {
+				binding.StateRevision = 4
+			}
+			setNativeLifecycleReaders(&binding)
+			if !credentialref.ValidLifecycleBinding(binding) {
+				t.Fatal("invalid exact native fixture")
+			}
+			tx, err := repository.store.conn.BeginTx(context.Background(), nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer tx.Rollback()
+			var sourceID string
+			if err := tx.QueryRowContext(context.Background(), `SELECT version_id FROM credential_reference_versions WHERE reference_id='reference-a' AND status='staged'`).Scan(&sourceID); err != nil {
+				t.Fatal(err)
+			}
+			copyVersion := func(id, status, consumer string, revision int64) {
+				t.Helper()
+				if _, err := tx.ExecContext(context.Background(), `INSERT INTO credential_reference_versions(version_id,reference_id,consumer_id,purpose_id,target_id,resolver_id,material_version,fingerprint,status,state_revision,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at) SELECT ?,reference_id,?,purpose_id,target_id,resolver_id,material_version,fingerprint,?, ?,recovery_epoch,activated_at,verified_consumers_bytes,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,created_at FROM credential_reference_versions WHERE version_id=?`, id, consumer, status, revision, sourceID); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if scenario.priorStatus != "" {
+				copyVersion("prior-row", scenario.priorStatus, scenario.priorConsumer, 4)
+			}
+			copyVersion("new-active-row", "active", "consumer-a", 5)
+			err = requireNativeArtifactOrigin(binding, "new-active-row", func(query string, arguments ...any) *sql.Row {
+				return tx.QueryRowContext(context.Background(), query, arguments...)
+			})
+			if scenario.wantErr && Code(err) != generated.ErrorCodePrerequisiteBlocked || !scenario.wantErr && err != nil {
+				t.Fatalf("source qualification for %s: %v", scenario.name, err)
+			}
+		})
+	}
+}
+
+func TestRecoverEvidenceRequiresExactDraftEpochAndDigestBeforeAppend(t *testing.T) {
+	repository := openCredentialStore(t)
+	binding := stageBinding()
+	binding.Action = credentialref.ActionRecover
+	binding.PriorRecoveryEpoch = int64PointerLifecycle(0)
+	binding.RecoveryEpoch = 1
+	binding.CustodyProofDigest = stringPointer(testDigest)
+	binding.FormerControllerFenceDigest = stringPointer(lifecycleFingerprint)
+	if !credentialref.ValidLifecycleBinding(binding) {
+		t.Fatal("invalid recovery test binding")
+	}
+	evidence, err := credentialref.NewRecoveryVerification(binding, testDigest, lifecycleFingerprint, testDigest)
+	if err != nil || !recoveryEvidenceMatchesBinding(binding, evidence) {
+		t.Fatalf("exact recovery evidence rejected: %v", err)
+	}
+	stage := CredentialStageRequest{Reference: stagedReference(2), Expected: RevisionToken{StateRevision: 2, RecoveryEpoch: 1}}
+	stage.Reference.RecoveryEpoch = 1
+	for name, change := range map[string]func(*credentialref.RecoveryVerification){
+		"foreign draft": func(v *credentialref.RecoveryVerification) { v.DraftID = "draft-other" },
+		"prior epoch":   func(v *credentialref.RecoveryVerification) { v.PriorRecoveryEpoch = -1 },
+		"new epoch":     func(v *credentialref.RecoveryVerification) { v.RecoveryEpoch = 2 },
+		"nonhex digest": func(v *credentialref.RecoveryVerification) { v.EvidenceDigest = "sha256:" + hexRepeat("z", 64) },
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := evidence
+			change(&changed)
+			if recoveryEvidenceMatchesBinding(binding, changed) {
+				t.Fatal("foreign recovery evidence matched")
+			}
+			_, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: stage, Recovery: &changed})
+			if Code(err) != generated.ErrorCodePrerequisiteBlocked {
+				t.Fatalf("invalid recovery evidence reached append: %v", err)
+			}
+			if got := tableCount(t, repository, "credential_recovery_records"); got != 0 {
+				t.Fatalf("denied recovery appended %d records", got)
+			}
+		})
 	}
 }
 
@@ -319,12 +430,20 @@ func TestCredentialLifecycleSpineStageThenActivate(t *testing.T) {
 	activateBinding := credentialref.LifecycleBinding{
 		OperationID: "operation-a", Action: credentialref.ActionActivate, ReferenceID: "reference-a",
 		ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{"consumer-denied"},
-		MaterialVersion: "version-a", ResolverID: "fixture-resolver", TargetID: "service-a",
+		MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "service-a",
 		CiphertextFingerprint: lifecycleFingerprint, StateRevision: 3, RecoveryEpoch: 0,
 	}
+	setNativeLifecycleReaders(&activateBinding)
 	verifications := []credentialref.ConsumerVerification{
 		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
 		{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: "version-a", CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: false, Result: "denied", ReasonCode: "denied"},
+	}
+	origin, err := repository.GetCredentialVersion(context.Background(), activateBinding.ReferenceID, activateBinding.MaterialVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if origin.ConsumerID != activateBinding.NativeArtifactConsumerID || origin.TargetID != activateBinding.TargetID || origin.ResolverID != activateBinding.ResolverID || origin.Fingerprint != activateBinding.CiphertextFingerprint || origin.Status != "staged" || origin.RecoveryEpoch != activateBinding.RecoveryEpoch {
+		t.Fatalf("staged native artifact origin mismatch: origin=%+v binding=%+v", origin, activateBinding)
 	}
 	active, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: activateBinding, Stage: activateRequest, Verifications: verifications})
 	if err != nil {
@@ -363,6 +482,7 @@ func TestCredentialLifecycleAppendRejectsDeniedEvidenceForOldMaterial(t *testing
 	binding.ImportDraftPurposeID = nil
 	binding.StateRevision = 3
 	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	setNativeLifecycleReaders(&binding)
 	positive, err := credentialref.NewConsumerVerification(binding, "consumer-a", "profile-a", "role-a", testDigest, "loaded", "verified", true)
 	if err != nil {
 		t.Fatal(err)
@@ -585,6 +705,7 @@ func TestLifecycleVersionModelRotateThenRevokeKeepsV2Current(t *testing.T) {
 					ref.ActivatedAt = &stamp
 					ref.VerifiedConsumerIDs = []string{"consumer-a"}
 					binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+					setNativeLifecycleReaders(&binding)
 					checks = []credentialref.ConsumerVerification{
 						{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
 						{ConsumerID: "consumer-denied", ProfileID: "profile-b", RoleID: "role-b", MaterialVersion: version, CiphertextFingerprint: lifecycleFingerprint, EvidenceDigest: testDigest, Result: "denied", ReasonCode: "denied"},
@@ -694,6 +815,7 @@ func TestLogicalActiveSelectorRejectsUnrelatedMultipleActiveVersions(t *testing.
 	binding.ImportDraftPurposeID = nil
 	binding.StateRevision = 3
 	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	setNativeLifecycleReaders(&binding)
 	request := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, ref, 3, ackConsumed)
 	checks := []credentialref.ConsumerVerification{
 		{ConsumerID: "consumer-a", ProfileID: "profile-a", RoleID: "role-a", MaterialVersion: ref.MaterialVersion, CiphertextFingerprint: ref.Fingerprint, EvidenceDigest: testDigest, RestartObserved: true, Result: "verified", ReasonCode: "loaded"},
