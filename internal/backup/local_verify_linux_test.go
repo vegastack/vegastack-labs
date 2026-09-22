@@ -16,7 +16,9 @@ import (
 func TestLocalVerifierRejectsMissingExpectedSnapshotDespiteGreenMetadata(t *testing.T) {
 	writer, client, done := newRESTFixture(t)
 	defer done()
-	if code := restDo(t, client, http.MethodPost, "/repo-a/?create=true", nil); code != http.StatusOK { t.Fatalf("repository layout = %d", code) }
+	if code := restDo(t, client, http.MethodPost, "/repo-a/?create=true", nil); code != http.StatusOK {
+		t.Fatalf("repository layout = %d", code)
+	}
 	manifest := validCreationManifest(t)
 	for index := range manifest.ExpectedObjects {
 		object := &manifest.ExpectedObjects[index]
