@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
 
 import { phase3WorkerLimit } from "../../web/playwright.config.ts";
-import { phase3LinkerFlags, verifyPhase3 } from "../verify-phase-3.mjs";
+import { phase3FailureDiagnostic, phase3LinkerFlags, runPhase3, summarizePhase3BrowserFailure, verifyPhase3 } from "../verify-phase-3.mjs";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -61,4 +61,69 @@ test("Phase 3 evidence rejects unknown files and links", async (t) => {
   const linked = await evidenceFixture(t, { "target.txt": "safe\n" });
   await symlink(path.join(linked, "target.txt"), path.join(linked, "linked.txt"));
   assert.ok((await verifyPhase3({ artifacts: linked, root: ROOT })).errors.includes("PHASE3_ARTIFACT_UNSAFE_TYPE"));
+});
+
+test("Phase 3 browser report reduces a failed assertion without private values", () => {
+  const report = { suites: [{ specs: [{ title: "skip link, focus order", file: "console.spec.ts", tests: [{
+    results: [{ status: "failed", errors: [{
+      message: "expect(received).toEqual(private-provider-canary)",
+      location: { file: path.join(ROOT, "web/e2e/console.spec.ts"), line: 23 },
+    }], stdout: [{ text: "private-provider-canary" }] }],
+  }] }] }] };
+  const safe = summarizePhase3BrowserFailure(report, ROOT);
+  assert.equal(safe.location, "web/e2e/console.spec.ts:23");
+  assert.equal(safe.status, "failed");
+  assert.doesNotMatch(JSON.stringify(safe), /private-provider-canary/);
+  assert.equal(summarizePhase3BrowserFailure({ suites: [{ specs: [{ ...report.suites[0].specs[0],
+    tests: [{ results: [{ status: "failed", errors: [{ location: { file: "/home/private/secret.ts", line: 1 } }] }] }],
+  }] }] }, ROOT).location, "unknown");
+  const unsafe = phase3FailureDiagnostic({
+    message: "PHASE3_FAILED:browser-suite",
+    browserFailed: true,
+    browserSummary: { title: "private-provider-canary", location: "web/e2e/private-provider-canary.spec.ts:3", status: "private-provider-canary", matcher: "private-provider-canary" },
+    sanitizerCodes: ["PHASE3_PRIVATE_CANARY", "PHASE3_PRIVATE_CANARY", "PHASE3_PRIVATE_CANARY_private-provider-canary"],
+  });
+  assert.match(unsafe, /test=unknown location=unknown matcher=unknown/);
+  assert.doesNotMatch(unsafe, /private-provider-canary/);
+});
+
+test("Phase 3 preserves browser and sanitizer failures independently and deletes private reports", async (t) => {
+  const fixture = await evidenceFixture(t, {
+    "fake-pnpm.mjs": `import { writeFile } from "node:fs/promises";
+import path from "node:path";
+const failing = process.env.PHASE3_TEST_BROWSER_FAIL === "yes";
+const report = { suites: [{ specs: [{ title: "skip link, focus order, and named landmarks work", tests: [{ results: [{ status: failing ? "failed" : "passed", errors: failing ? [{ location: { file: path.join(process.cwd(), "web/e2e/console.spec.ts"), line: 23 }, message: "private-provider-canary" }] : [] }] }] }] }], errors: [], stats: { expected: failing ? 0 : 1, skipped: 0, unexpected: failing ? 1 : 0, flaky: 0 } };
+await writeFile(process.env.PHASE3_TEST_REPORT_MARKER, process.env.PLAYWRIGHT_JSON_OUTPUT_NAME);
+if (process.env.PHASE3_TEST_REPORT !== "missing") await writeFile(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME, process.env.PHASE3_TEST_REPORT === "malformed" ? "{private-provider-canary" : JSON.stringify(report));
+if (process.env.PHASE3_TEST_CANARY === "yes") await writeFile(path.join(process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT, "canary.txt"), "private-provider-canary");
+process.exitCode = process.env.PHASE3_TEST_BROWSER_FAIL === "yes" ? 1 : 0;`,
+  });
+  const original = process.env.npm_execpath;
+  process.env.npm_execpath = path.join(fixture, "fake-pnpm.mjs");
+  t.after(() => { if (original === undefined) delete process.env.npm_execpath; else process.env.npm_execpath = original; });
+  for (const [name, browserFail, canary, report, browserExpected, sanitizerExpected, missingExpected] of [
+    ["both", "yes", "yes", "valid", true, true, false],
+    ["browser", "yes", "no", "valid", true, false, false],
+    ["sanitizer", "no", "yes", "valid", false, true, false],
+    ["missing", "no", "no", "missing", false, false, true],
+    ["malformed", "yes", "no", "malformed", false, false, true],
+  ]) {
+    const marker = path.join(fixture, `${name}-report-path.txt`);
+    Object.assign(process.env, {
+      PHASE3_TEST_REPORT_MARKER: marker,
+      PHASE3_TEST_BROWSER_FAIL: browserFail,
+      PHASE3_TEST_CANARY: canary,
+      PHASE3_TEST_REPORT: report,
+    });
+    await assert.rejects(runPhase3(ROOT, { prepared: true }), (error) => {
+      const line = phase3FailureDiagnostic(error);
+      assert.equal(line.includes("web/e2e/console.spec.ts:23"), browserExpected, name);
+      assert.equal(line.includes("PHASE3_PRIVATE_CANARY"), sanitizerExpected, name);
+      assert.equal(line.includes("report-unavailable"), missingExpected, name);
+      assert.doesNotMatch(line, /private-provider-canary/, name);
+      return true;
+    });
+    await assert.rejects(access((await readFile(marker, "utf8")).trim()), /ENOENT/);
+  }
+  for (const key of ["PHASE3_TEST_REPORT_MARKER", "PHASE3_TEST_BROWSER_FAIL", "PHASE3_TEST_CANARY", "PHASE3_TEST_REPORT"]) delete process.env[key];
 });
