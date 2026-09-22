@@ -42,7 +42,10 @@ func retirementStageFixture(t *testing.T, authority *Store, risk, branch string)
 	}
 	commit := validPlanStoreRequest(created.Document)
 	commit.Plan.Risk, commit.Plan.AuthorizationBranch = risk, branch
-	commit.Plan.Binding.TargetDigest = digest
+	commit.Plan.Binding.TargetDigest, err = localRepositoryPlanTargetDigest(request.RepositoryID)
+	if err != nil {
+		t.Fatal(err)
+	}
 	commit.Plan.Operations[0].OperationType = "backup.local.retire"
 	commit.Plan.Operations[0].AdapterID = "local.retention"
 	commit.Plan.Operations[0].TargetID = request.RepositoryID

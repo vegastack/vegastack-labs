@@ -13,6 +13,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/stateexport"
 )
 
 // LocalRetirementRepository records only inert proposals. No method here
@@ -62,6 +63,14 @@ type retirementSelectionPayload struct {
 func retirementDeadlineCurrent(raw string, now time.Time) bool {
 	deadline, err := time.Parse(time.RFC3339Nano, raw)
 	return err == nil && now.Before(deadline)
+}
+
+func localRepositoryPlanTargetDigest(repositoryID string) (string, error) {
+	_, sum, err := stateexport.CanonicalJSON([]string{repositoryID})
+	if err != nil {
+		return "", err
+	}
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
 func validRetirementID(value string) bool {
@@ -148,6 +157,10 @@ func (repository *LocalRetirementRepository) StageLocalRetirement(ctx context.Co
 	if err != nil || request.SelectionDigest != digest {
 		return zero, newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-selection-digest", false, err)
 	}
+	targetDigest, err := localRepositoryPlanTargetDigest(request.RepositoryID)
+	if err != nil {
+		return zero, newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-plan-target", false, err)
+	}
 	canonical, err := json.Marshal(struct {
 		PlanID, PlanDigest, SelectionDigest string
 		Selection                           json.RawMessage
@@ -180,7 +193,7 @@ func (repository *LocalRetirementRepository) StageLocalRetirement(ctx context.Co
 		}
 		var plan generated.Plan
 		if !decodeStoredPlan(canonicalPlan, readable, &plan) || plan.Risk != "destructive" || plan.AuthorizationBranch != "human" || plan.ExecutorMode != "central" ||
-			plan.Binding.DeclarationRevision != request.SourceRevision || plan.Binding.TargetDigest != digest || len(plan.Operations) != 1 ||
+			plan.Binding.DeclarationRevision != request.SourceRevision || plan.Binding.TargetDigest != targetDigest || len(plan.Operations) != 1 ||
 			plan.Operations[0].OperationType != "backup.local.retire" || plan.Operations[0].AdapterID != "local.retention" ||
 			plan.Operations[0].TargetID != request.RepositoryID || plan.Operations[0].InputDigest != digest ||
 			plan.Operations[0].ArtifactDigest != request.ExpectedInventoryDigest || !retirementDeadlineCurrent(expires, nowTime) {

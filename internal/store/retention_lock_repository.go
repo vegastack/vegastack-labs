@@ -24,17 +24,22 @@ func LocalPromiseSourceCoverageDigest() string {
 }
 
 type LocalRetentionLock struct {
-	PointID, ReasonDigest string
+	PointID      string `json:"pointId"`
+	ReasonDigest string `json:"reasonDigest"`
 }
 
 // LocalRetentionLockCatalog is a complete, revisioned declaration payload.
 // Complete=false or an absent applied row means unknown, never no promises.
 type LocalRetentionLockCatalog struct {
-	Schema, SchemaVersion, RepositoryID, RepositoryClass string
-	SourceCoverageDigest                                 string
-	RecoveryEpoch, Revision                              int64
-	Complete                                             bool
-	Locks                                                []LocalRetentionLock
+	Schema               string               `json:"schema"`
+	SchemaVersion        string               `json:"schemaVersion"`
+	RepositoryID         string               `json:"repositoryId"`
+	RepositoryClass      string               `json:"repositoryClass"`
+	SourceCoverageDigest string               `json:"sourceCoverageDigest"`
+	RecoveryEpoch        int64                `json:"recoveryEpoch"`
+	Revision             int64                `json:"revision"`
+	Complete             bool                 `json:"complete"`
+	Locks                []LocalRetentionLock `json:"locks"`
 }
 
 type AppliedLocalRetentionLocks struct {
@@ -100,7 +105,7 @@ func (repository *LocalRetirementRepository) CurrentAppliedLocalRetentionLocks(c
 			JOIN immutable_plans p ON p.plan_id=a.plan_id AND p.plan_digest=a.plan_digest AND p.declaration_id=a.declaration_id AND p.declaration_revision=a.declaration_revision
 			JOIN declaration_revisions d ON d.declaration_id=a.declaration_id AND d.declaration_revision=a.declaration_revision AND d.declaration_type='backup.retention-locks' AND d.status='committed'
 			JOIN plan_runs r ON r.run_id=a.run_id AND r.plan_id=a.plan_id AND r.plan_digest=a.plan_digest AND r.acknowledgement_id=a.acknowledgement_id AND r.status='succeeded'
-			JOIN plan_run_steps s ON s.step_id=a.step_id AND s.run_id=a.run_id AND s.status='succeeded'
+			JOIN plan_run_steps s ON s.step_id=a.step_id AND s.run_id=a.run_id AND s.status='succeeded' AND s.effect_state='verified'
 			JOIN acknowledgement_requests ar ON ar.acknowledgement_id=a.acknowledgement_id AND ar.plan_id=a.plan_id AND ar.plan_digest=a.plan_digest AND ar.human_id=a.human_id AND ar.status='approved'
 			JOIN acknowledgement_proofs ap ON ap.acknowledgement_id=a.acknowledgement_id AND ap.status='approved'`, class, epoch).
 			Scan(&result.ActivationID, &result.Sequence, &result.CatalogDigest, &canonical, &coverage, &repositoryID, &activationStateRevision, &planBytes); err != nil {
@@ -113,8 +118,9 @@ func (repository *LocalRetirementRepository) CurrentAppliedLocalRetentionLocks(c
 			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retention-lock-catalog", false, nil)
 		}
 		var plan generated.Plan
+		targetDigest, targetErr := localRepositoryPlanTargetDigest(repositoryID)
 		if json.Unmarshal(planBytes, &plan) != nil || plan.AuthorizationBranch != "human" || plan.Risk != "destructive" || plan.ExecutorMode != "central" ||
-			plan.Binding.TargetDigest != result.CatalogDigest || plan.Binding.RecoveryEpoch != epoch || len(plan.Operations) != 1 ||
+			targetErr != nil || plan.Binding.TargetDigest != targetDigest || plan.Binding.RecoveryEpoch != epoch || len(plan.Operations) != 1 ||
 			plan.Operations[0].OperationType != "backup.retention-locks.activate" || plan.Operations[0].AdapterID != "core.retention-locks" ||
 			plan.Operations[0].TargetID != repositoryID || plan.Operations[0].InputDigest != result.CatalogDigest ||
 			plan.Operations[0].ArtifactDigest != coverage || plan.Binding.StateRevision != activationStateRevision ||
