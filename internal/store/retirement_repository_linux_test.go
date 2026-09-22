@@ -19,8 +19,8 @@ func retirementStageFixture(t *testing.T, authority *Store, risk, branch string)
 	t.Helper()
 	request := LocalRetirementStageRequest{RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard",
 		CatalogDigest: testDigest, ExpectedInventoryDigest: testDigest,
-		Targets:        []LocalRetirementTarget{{PointID: "old-point", SnapshotID: strings.Repeat("a", 64), ManifestDigest: testDigest, DependencyDigest: testDigest}},
-		Survivors:      []LocalRetirementSurvivor{{PointID: "good-point", SnapshotID: strings.Repeat("b", 64), ManifestDigest: testDigest, DependencyDigest: testDigest, ProofDigest: testDigest}},
+		Targets:        []LocalRetirementTarget{{PointID: "old-point", SnapshotID: strings.Repeat("a", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest}},
+		Survivors:      []LocalRetirementSurvivor{{PointID: "good-point", SnapshotID: strings.Repeat("b", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest, ProofDigest: testDigest}},
 		SourceRevision: 2, StateRevision: 2, RecoveryEpoch: 0, MaxWorkObjects: 10, MaxMutationBytes: 1024, MaxRepackBytes: 1024,
 		Attribution: validDeclarationStoreRequest().Attribution}
 	_, digest, err := canonicalRetirementSelection(request)
@@ -166,6 +166,7 @@ func TestLocalRetirementStageRequiresExactPointSets(t *testing.T) {
 		"wrong-repository":        func(r *LocalRetirementStageRequest) { r.RepositoryID = "other" },
 		"malformed-snapshot":      func(r *LocalRetirementStageRequest) { r.Targets[0].SnapshotID = "short" },
 		"missing-proof":           func(r *LocalRetirementStageRequest) { r.Survivors[0].ProofDigest = "" },
+		"missing-inventory":       func(r *LocalRetirementStageRequest) { r.Survivors[0].InventoryDigest = "" },
 	} {
 		t.Run(name, func(t *testing.T) {
 			invalid := request

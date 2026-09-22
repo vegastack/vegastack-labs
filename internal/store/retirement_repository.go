@@ -24,11 +24,11 @@ func NewLocalRetirementRepository(store *Store) *LocalRetirementRepository {
 }
 
 type LocalRetirementTarget struct {
-	PointID, SnapshotID, ManifestDigest, DependencyDigest string
+	PointID, SnapshotID, ManifestDigest, InventoryDigest, DependencyDigest string
 }
 
 type LocalRetirementSurvivor struct {
-	PointID, SnapshotID, ManifestDigest, DependencyDigest, ProofDigest string
+	PointID, SnapshotID, ManifestDigest, InventoryDigest, DependencyDigest, ProofDigest string
 }
 
 type LocalRetirementStageRequest struct {
@@ -104,14 +104,14 @@ func canonicalRetirementSelection(request LocalRetirementStageRequest) ([]byte, 
 	points, snapshots := make(map[string]bool), make(map[string]bool)
 	for _, target := range targets {
 		if !validRetirementID(target.PointID) || !validRetirementSnapshotID(target.SnapshotID) ||
-			!validBackupDigest(target.ManifestDigest) || !validBackupDigest(target.DependencyDigest) || points[target.PointID] || snapshots[target.SnapshotID] {
+			!validBackupDigest(target.ManifestDigest) || !validBackupDigest(target.InventoryDigest) || !validBackupDigest(target.DependencyDigest) || points[target.PointID] || snapshots[target.SnapshotID] {
 			return invalid()
 		}
 		points[target.PointID], snapshots[target.SnapshotID] = true, true
 	}
 	for _, survivor := range survivors {
 		if !validRetirementID(survivor.PointID) || !validRetirementSnapshotID(survivor.SnapshotID) ||
-			!validBackupDigest(survivor.ManifestDigest) || !validBackupDigest(survivor.DependencyDigest) || !validBackupDigest(survivor.ProofDigest) ||
+			!validBackupDigest(survivor.ManifestDigest) || !validBackupDigest(survivor.InventoryDigest) || !validBackupDigest(survivor.DependencyDigest) || !validBackupDigest(survivor.ProofDigest) ||
 			points[survivor.PointID] || snapshots[survivor.SnapshotID] {
 			return invalid()
 		}
