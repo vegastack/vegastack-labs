@@ -147,9 +147,14 @@ func TestRecoveryWitnessCollectBuiltProcessDisposable(t *testing.T) {
 	if err := os.Chmod("/etc/vsk-labs/recovery", 0o755); err != nil {
 		t.Fatal(err)
 	}
-	dir := t.TempDir()
-	_ = os.Chmod(filepath.Dir(dir), 0o755)
-	_ = os.Chmod(dir, 0o755)
+	dir, err := os.MkdirTemp(os.TempDir(), "vsk-witness-collection-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir)
+	if err := os.Chmod(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	endpoint := &disposableEndpoint{admitted: make(map[string]bool)}
 	server := httptest.NewServer(endpoint)
 	defer server.Close()
