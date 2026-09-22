@@ -9,6 +9,8 @@ func validRecoveryVerificationBinding() LifecycleBinding {
 	binding := validActivateBinding()
 	binding.Action = ActionRecover
 	binding.RequiredDeniedConsumerIDs = nil
+	binding.NativeConsumers, binding.NativeDeniedReaders = nil, nil
+	binding.NativeArtifactConsumerID = ""
 	binding.DraftID = stagePointer("draft-a")
 	sealOrigin(&binding)
 	binding.PriorRecoveryEpoch = epochPointer(2)
