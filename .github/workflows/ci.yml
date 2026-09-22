@@ -162,9 +162,9 @@ jobs:
       - name: Prepare disposable native credential authority prerequisite
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/143-native-credential-authority' && inputs.native_credential_sha != ''
         run: |
-          if ! command -v pkcheck >/dev/null; then
+          if ! command -v pkcheck >/dev/null || ! command -v jq >/dev/null || ! command -v visudo >/dev/null || ! command -v nsenter >/dev/null || ! command -v useradd >/dev/null; then
             sudo apt-get update -qq
-            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends polkitd
+            sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends polkitd jq sudo util-linux passwd
           fi
 
       - name: Run exact #143 disposable native credential acceptance
