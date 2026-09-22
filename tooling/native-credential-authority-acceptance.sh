@@ -129,6 +129,20 @@ if ! probe_json "$positive_uid" "$positive_gid" | runuser -u vsk-labs -- /usr/bi
   else
     printf 'Target namespace or UID/GID entry failed\n' >&2
   fi
+  if /usr/bin/systemctl --system show --property=RootDirectory --property=RootImage "$unit" >"$tmpdir/root-profile" 2>"$tmpdir/root-profile.stderr" &&
+      grep -qx 'RootDirectory=' "$tmpdir/root-profile" && grep -qx 'RootImage=' "$tmpdir/root-profile" &&
+      test "$(wc -l <"$tmpdir/root-profile")" -eq 2; then
+    printf 'Target root profile is empty and exact\n' >&2
+  else
+    printf 'Target root profile differs or is unavailable\n' >&2
+  fi
+  probe_json "$positive_uid" "$positive_gid" >"$tmpdir/positive-request.json"
+  if /usr/bin/nsenter --mount="/proc/$pid/ns/mnt" --setgid="$positive_gid" --setuid="$positive_uid" -- \
+      /usr/local/bin/vsk-labs __native-credential-access-probe-child <"$tmpdir/positive-request.json" >"$tmpdir/child.json" 2>"$tmpdir/child.stderr"; then
+    printf 'Direct synthetic child mode succeeded\n' >&2
+  else
+    printf 'Direct synthetic child mode refused\n' >&2
+  fi
   exit 2
 fi
 test ! -s "$tmpdir/positive.stderr"
