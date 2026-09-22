@@ -82,6 +82,15 @@ func TestPinnedResticRetentionQuarantinesSharedPackUntilSuccessorProof(t *testin
 	if err := os.WriteFile(filepath.Join(data, "changing"), changing, 0o600); err != nil {
 		t.Fatal(err)
 	}
+	// One file spans multiple content-defined chunks, placing retained and
+	// replaced chunks in the same old data pack for the prune experiment.
+	mixed := make([]byte, 8<<20)
+	if _, err := rand.Read(mixed); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "mixed"), mixed, 0o600); err != nil {
+		t.Fatal(err)
+	}
 	request.Mode, request.SnapshotPath = "backup", data
 	first, err := runner.Run(ctx, request, password)
 	if err != nil {
@@ -91,6 +100,12 @@ func TestPinnedResticRetentionQuarantinesSharedPackUntilSuccessorProof(t *testin
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(data, "changing"), changing, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := rand.Read(mixed[6<<20 : 7<<20]); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "mixed"), mixed, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	second, err := runner.Run(ctx, request, password)
@@ -115,7 +130,7 @@ func TestPinnedResticRetentionQuarantinesSharedPackUntilSuccessorProof(t *testin
 	retentionURL := "http+unix://" + retentionSocket + ":/repo-retirement-fixture/"
 	for _, mode := range []string{"forget-dry-run", "forget", "prune"} {
 		child := RetentionResticRequest{BinaryPath: binary, RepositoryURL: retentionURL, Mode: mode,
-			SnapshotIDs: []string{first.SnapshotID}, MaxRepackBytes: 0}
+			SnapshotIDs: []string{first.SnapshotID}, MaxRepackBytes: 64 << 20}
 		if mode == "prune" {
 			child.SnapshotIDs = nil
 		}
@@ -152,5 +167,29 @@ func TestPinnedResticRetentionQuarantinesSharedPackUntilSuccessorProof(t *testin
 	defer journal.mu.Unlock()
 	if len(journal.attempts) < 3 || len(journal.outcomes) != len(journal.attempts) {
 		t.Fatalf("incomplete mutation journal: attempts=%d outcomes=%d", len(journal.attempts), len(journal.outcomes))
+	}
+	var dataPut, dataDelete bool
+	for index, attempt := range journal.attempts {
+		if attempt.ObjectType != "data" {
+			continue
+		}
+		switch attempt.MutationKind {
+		case "put":
+			dataPut = true
+			if _, err := os.Stat(filepath.Join(root, "data", attempt.ObjectName)); err != nil {
+				t.Fatalf("new survivor pack absent after repack: %v", err)
+			}
+		case "delete":
+			dataDelete = true
+			if _, err := os.Stat(filepath.Join(quarantine, "data", attempt.ObjectName)); err != nil {
+				t.Fatalf("old shared pack inode not quarantined: %v", err)
+			}
+		}
+		if journal.outcomes[index].ObjectType != attempt.ObjectType || journal.outcomes[index].ObjectName != attempt.ObjectName {
+			t.Fatalf("journal outcome %d does not bind exact object", index)
+		}
+	}
+	if !dataPut || !dataDelete {
+		t.Fatalf("fixture did not exercise shared-pack repack: dataPut=%t dataDelete=%t", dataPut, dataDelete)
 	}
 }

@@ -32,7 +32,7 @@ func RunRetentionRestic(ctx context.Context, request RetentionResticRequest, pas
 		return observed, errors.New("retention restic mode invalid")
 	}
 	if request.Mode == "prune" {
-		if len(request.SnapshotIDs) != 0 || request.MaxRepackBytes < 0 || request.MaxRepackBytes > maxObjectBytes {
+		if len(request.SnapshotIDs) != 0 || request.MaxRepackBytes < 1 || request.MaxRepackBytes > maxObjectBytes {
 			return observed, errors.New("retention prune bounds invalid")
 		}
 	} else {
@@ -60,7 +60,7 @@ func RunRetentionRestic(ctx context.Context, request RetentionResticRequest, pas
 	defer passwordFile.Close()
 	argv := []string{request.BinaryPath, "-r", "rest:" + request.RepositoryURL, "--no-cache", "--password-file", passwordFilePath}
 	if request.Mode == "prune" {
-		argv = append(argv, "prune", "--max-unused", "unlimited", "--max-repack-size", strconv.FormatInt(request.MaxRepackBytes, 10))
+		argv = append(argv, "prune", "--max-unused", "0", "--max-repack-size", strconv.FormatInt(request.MaxRepackBytes, 10))
 	} else {
 		argv = append(argv, "forget")
 		if request.Mode == "forget-dry-run" {
