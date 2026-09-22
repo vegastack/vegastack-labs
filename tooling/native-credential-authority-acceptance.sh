@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
+trap 'status=$?; printf "Native acceptance failed at line %s (status %s)\n" "$LINENO" "$status" >&2' ERR
 
 # Run only inside a disposable Debian/systemd fixture prepared by the role.
 test "${VSK_NATIVE_AUTHORITY_DISPOSABLE:-}" = 1
