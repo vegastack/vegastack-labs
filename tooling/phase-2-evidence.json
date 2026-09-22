@@ -61,7 +61,7 @@
       { "id": "phase5-issue106-v1", "issue": 106, "commands": ["backup policy draft"], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/localbackup", "github.com/vegastack/vegastack-labs/internal/backup", "github.com/vegastack/vegastack-labs/internal/backupidentity"], "mutationBoundaryDigest": "sha256:adb10fa89d1ded9b316adf689b3e1ae35dcdb3a17fbf6a6a08f506e0e55d9a6b" },
       { "id": "phase5-issue146-v1", "issue": 146, "commands": [], "imports": ["github.com/vegastack/vegastack-labs/internal/recovery"], "mutationBoundaryDigest": "sha256:4c1e231743f35fd482d3b8541bc99ee9d2c4cb20276f13bafba297cf4c231125" },
       { "id": "phase5-issue140-v1", "issue": 140, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:1e0ddd40124fbd35a86ab13b26525e0765c7b0c13e2d108b72ae6f44d010f347" },
-      { "id": "phase5-issue117-v1", "issue": 117, "commands": ["backup run", "backup status", "backup verify"], "imports": [], "mutationBoundaryDigest": "sha256:a1a579b610c73b7067e7a3796231fe2bbad26ccfa3bd8bc122a929ba46f26def" }
+      { "id": "phase5-issue117-v1", "issue": 117, "commands": ["backup run", "backup status", "backup verify"], "imports": [], "mutationBoundaryDigest": "sha256:5ce811539500fea042bcb6ddebd75c751a533652b3a7d443b70dc2009d13aaf4" }
     ]
   },
   "children": [

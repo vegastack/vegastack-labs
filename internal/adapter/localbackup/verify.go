@@ -140,6 +140,14 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		if err != nil || !exactDependencyTrust(trustRequest.Expected, evidence, binding.StateRevision, binding.RecoveryEpoch) {
 			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-dependency-trust")
 		}
+		// The creation admission is historical. Recheck current filesystem
+		// headroom immediately before publishing a live proof or last-good CAS.
+		// A smaller isolated restore may succeed after the policy's declared
+		// recovery/retention capacity has been consumed by another workload.
+		if err := admitCapacity(root, policy); err != nil {
+			attempt.ReasonCode = string(generated.ErrorCodePrerequisiteBlocked)
+			return adapter.Effect{}, err
+		}
 	}
 	if err := adapterImpl.config.Backups.VerifyActiveReadLease(ctx, leaseRequest, adapterImpl.config.Clock()); err != nil {
 		return adapter.Effect{}, err
