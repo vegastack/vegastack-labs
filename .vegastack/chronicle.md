@@ -12,6 +12,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/141-native-credential-lifecycle
 
+## 22-09-2026 — Local credential checks can use narrowly delegated host authority ([#143](https://github.com/vegastack/vegastack-labs/issues/143))
+
+- **What:** The unprivileged server can request an exact enrolled service restart and a metadata-only credential access probe through a root-owned policy. The policy checks the current unit, process identity and allowed arguments; a broader host grant or changed identity blocks the result.
+- **Why:** Native credential verification needed a real way to restart the intended service and test the actual reader identities without making the server root or trusting a simulated observer.
+- **How it went:** The disposable self-hosted runner lacked required tools and its positive probe refused, so a fresh mount-free Debian VM supplied the full systemd, polkit and sudo allow/deny test. The VM passed and was deleted; a formatting miss in a Linux test required one CI correction.
+- **Changed:** Exact restart and probe policy · Ansible role · local authority adapter · synthetic acceptance fixture · fail-closed analyzer and Phase 2 guards · human test route.
+- **Decisions:** none; [#141](https://github.com/vegastack/vegastack-labs/issues/141) still owns native lifecycle composition, and live G-007 evidence remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/143-native-credential-authority
+
 ## 22-09-2026 — Independent recovery evidence has a bounded software handback ([#146](https://github.com/vegastack/vegastack-labs/issues/146))
 
 - **What:** A separately pinned witness can sign one exact recovery attempt, carry typed old-identity denial results, encrypt protected material to an authenticated replacement recipient, and consume a durable one-use receipt outside restored SQLite.
