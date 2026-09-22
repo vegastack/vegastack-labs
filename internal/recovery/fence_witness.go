@@ -37,7 +37,9 @@ type DirectDenialVerifier interface {
 }
 
 type QualifiedAdapters struct {
-	entries map[string]DirectDenialVerifier
+	entries             map[string]DirectDenialVerifier
+	sourceQualified     bool
+	qualificationDigest string
 }
 
 func NewQualifiedAdapters() QualifiedAdapters {
@@ -47,7 +49,13 @@ func NewQualifiedAdapters() QualifiedAdapters {
 // Register is intended only for independently reviewed, typed adapters.
 // Registration here never registers a production recovery source.
 func (registry *QualifiedAdapters) Register(id string, verifier DirectDenialVerifier) {
-	if registry == nil || !validWitnessToken(id) || verifier == nil {
+	if registry == nil {
+		return
+	}
+	// A post-qualification mutation cannot widen a sealed source registry.
+	registry.sourceQualified = false
+	registry.qualificationDigest = ""
+	if !validWitnessToken(id) || verifier == nil {
 		return
 	}
 	if registry.entries == nil {
