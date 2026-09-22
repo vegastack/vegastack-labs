@@ -115,7 +115,36 @@ probe_json() {
     '{unit_name:$unit,credential_name:$name,boot_id:$boot,main_pid:$pid,process_start_ticks:$ticks,uid:$uid,gid:$gid}'
 }
 
-probe_json "$positive_uid" "$positive_gid" | runuser -u vsk-labs -- /usr/bin/sudo -n -- /usr/local/bin/vsk-labs __native-credential-access-probe >"$tmpdir/positive.json" 2>"$tmpdir/positive.stderr"
+if ! probe_json "$positive_uid" "$positive_gid" | runuser -u vsk-labs -- /usr/bin/sudo -n -- /usr/local/bin/vsk-labs __native-credential-access-probe >"$tmpdir/positive.json" 2>"$tmpdir/positive.stderr"; then
+  # This disposable fixture carries a synthetic credential. Report only fixed
+  # preflight outcomes; never emit a child diagnostic or credential content.
+  printf 'Positive native probe refused; stdout bytes=%s stderr bytes=%s\n' "$(wc -c <"$tmpdir/positive.json")" "$(wc -c <"$tmpdir/positive.stderr")" >&2
+  if grep -Fq "/$unit" "/proc/$pid/cgroup"; then
+    printf 'Target cgroup contains exact unit\n' >&2
+  else
+    printf 'Target cgroup lacks exact unit\n' >&2
+  fi
+  if /usr/bin/nsenter --mount="/proc/$pid/ns/mnt" --setgid="$positive_gid" --setuid="$positive_uid" -- /usr/bin/true >"$tmpdir/nsenter.stdout" 2>"$tmpdir/nsenter.stderr"; then
+    printf 'Target namespace and UID/GID entry succeeded\n' >&2
+  else
+    printf 'Target namespace or UID/GID entry failed\n' >&2
+  fi
+  if /usr/bin/systemctl --system show --property=RootDirectory --property=RootImage "$unit" >"$tmpdir/root-profile" 2>"$tmpdir/root-profile.stderr" &&
+      grep -qx 'RootDirectory=' "$tmpdir/root-profile" && grep -qx 'RootImage=' "$tmpdir/root-profile" &&
+      test "$(wc -l <"$tmpdir/root-profile")" -eq 2; then
+    printf 'Target root profile is empty and exact\n' >&2
+  else
+    printf 'Target root profile differs or is unavailable\n' >&2
+  fi
+  probe_json "$positive_uid" "$positive_gid" >"$tmpdir/positive-request.json"
+  if /usr/bin/nsenter --mount="/proc/$pid/ns/mnt" --setgid="$positive_gid" --setuid="$positive_uid" -- \
+      /usr/local/bin/vsk-labs __native-credential-access-probe-child <"$tmpdir/positive-request.json" >"$tmpdir/child.json" 2>"$tmpdir/child.stderr"; then
+    printf 'Direct synthetic child mode succeeded\n' >&2
+  else
+    printf 'Direct synthetic child mode refused\n' >&2
+  fi
+  exit 2
+fi
 test ! -s "$tmpdir/positive.stderr"
 jq -e '.status == "opened" and .inode > 0 and .mode > 0 and (.owner_uid // 0) == 0 and (.owner_gid // 0) == 0' "$tmpdir/positive.json" >/dev/null
 probe_json "$denied_uid" "$denied_gid" | runuser -u vsk-labs -- /usr/bin/sudo -n -- /usr/local/bin/vsk-labs __native-credential-access-probe >"$tmpdir/denied.json" 2>"$tmpdir/probe.stderr"
