@@ -1,6 +1,8 @@
 package backup
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"strings"
 	"testing"
 	"time"
@@ -8,7 +10,8 @@ import (
 
 func retirementCandidate(id string, day int, proof bool) RetirementCandidate {
 	digest := "sha256:" + strings.Repeat("a", 64)
-	result := RetirementCandidate{PointID: id, SnapshotID: id + "-snapshot", RepositoryID: "local-standard", ManifestDigest: digest, DependencyDigest: digest, InventoryDigest: digest, CreatedAt: time.Date(2026, 9, day, 0, 0, 0, 0, time.UTC), Bytes: 1024, RecoveryEpoch: 8}
+	snapshot := sha256.Sum256([]byte(id))
+	result := RetirementCandidate{PointID: id, SnapshotID: hex.EncodeToString(snapshot[:]), RepositoryID: "local-standard", ManifestDigest: digest, DependencyDigest: digest, InventoryDigest: digest, CreatedAt: time.Date(2026, 9, day, 0, 0, 0, 0, time.UTC), Bytes: 1024, RecoveryEpoch: 8}
 	if proof {
 		result.ProofDigest = digest
 	}
@@ -41,6 +44,7 @@ func TestLocalRetirementRejectsUnqualifiedOrAmbiguousCatalog(t *testing.T) {
 		"stale-epoch":        func(c []RetirementCandidate) []RetirementCandidate { c[1].RecoveryEpoch = 7; return c },
 		"foreign-repository": func(c []RetirementCandidate) []RetirementCandidate { c[1].RepositoryID = "other"; return c },
 		"missing-digest":     func(c []RetirementCandidate) []RetirementCandidate { c[1].InventoryDigest = ""; return c },
+		"malformed-snapshot": func(c []RetirementCandidate) []RetirementCandidate { c[1].SnapshotID = "short"; return c },
 	} {
 		t.Run(name, func(t *testing.T) {
 			c := mutate(append([]RetirementCandidate(nil), base...))
