@@ -43,15 +43,6 @@ func TestRecoveryWitnessCollectCLIEmitsOnlySignedAndSealedArtifacts(t *testing.T
 	}
 	binding := recovery.WitnessBinding{FormerHostID: "old-host", FormerInstanceID: "old-instance", ReplacementHostID: "new-host", ReplacementInstanceID: "new-instance", DraftID: "draft-1", CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64), PlanDigest: "sha256:" + strings.Repeat("b", 64), RunID: "run-1", StepID: "step-1", LeaseID: "lease-1", ChallengeID: "challenge-1", ReceiptID: "receipt-1", PriorEpoch: 3, NewEpoch: 4, StateRevision: 9}
 	now := time.Now().UTC()
-	manifest := recovery.RecoveryManifest{ManifestID: "manifest-1", WitnessKeyID: "witness-key-1", WitnessInstanceID: "outside-instance", WitnessPublicKey: witnessPublic, RecipientKeyID: "recipient-1", RecipientPublicKey: recipient.PublicKey().Bytes(), Binding: binding, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)}
-	canonical, err := recovery.CanonicalRecoveryManifest(manifest)
-	if err != nil {
-		t.Fatal(err)
-	}
-	manifestBytes, err := json.Marshal(recovery.SignedRecoveryManifest{Payload: manifest, Signature: ed25519.Sign(adminPrivate, canonical)})
-	if err != nil {
-		t.Fatal(err)
-	}
 	probes := []struct {
 		kind string
 		ids  []string
@@ -70,7 +61,16 @@ func TestRecoveryWitnessCollectCLIEmitsOnlySignedAndSealedArtifacts(t *testing.T
 			required = append(required, recovery.BoundaryRequirement{Kind: group.kind, SubjectID: "subject-1", TargetID: "target-1", AdapterID: "fixture-adapter", FormerIdentityID: "old-identity", ProbeID: id})
 		}
 	}
-	input, err := json.Marshal(witnessCollectionInput{Binding: binding, Required: required})
+	manifest := recovery.RecoveryManifest{ManifestID: "manifest-1", WitnessKeyID: "witness-key-1", WitnessInstanceID: "outside-instance", WitnessPublicKey: witnessPublic, RecipientKeyID: "recipient-1", RecipientPublicKey: recipient.PublicKey().Bytes(), Binding: binding, Requirements: required, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)}
+	canonical, err := recovery.CanonicalRecoveryManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manifestBytes, err := json.Marshal(recovery.SignedRecoveryManifest{Payload: manifest, Signature: ed25519.Sign(adminPrivate, canonical)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	input, err := json.Marshal(witnessCollectionInput{Binding: binding})
 	if err != nil {
 		t.Fatal(err)
 	}

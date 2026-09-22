@@ -47,6 +47,7 @@ type PinnedWitness struct {
 	PublicKey               ed25519.PublicKey
 	RecipientKeyID          string
 	RecipientPublicKey      []byte
+	Requirements            []BoundaryRequirement
 	ManifestDigest          string
 	AuthenticatedExternally bool
 	Revoked                 bool
@@ -62,7 +63,8 @@ func (pin PinnedWitness) seal() [32]byte {
 		PublicKey, RecipientPublicKey                            []byte
 		ExpiresAt                                                time.Time
 		Binding                                                  WitnessBinding
-	}{pin.KeyID, pin.WitnessInstanceID, pin.RecipientKeyID, pin.ManifestDigest, pin.PublicKey, pin.RecipientPublicKey, pin.ExpiresAt, pin.manifestBinding})
+		Requirements                                             []BoundaryRequirement
+	}{pin.KeyID, pin.WitnessInstanceID, pin.RecipientKeyID, pin.ManifestDigest, pin.PublicKey, pin.RecipientPublicKey, pin.ExpiresAt, pin.manifestBinding, pin.Requirements})
 	return sha256.Sum256(data)
 }
 

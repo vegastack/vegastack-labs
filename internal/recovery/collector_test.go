@@ -25,8 +25,9 @@ func TestCollectWitnessSignsExactBundleAndSealsCustody(t *testing.T) {
 	}
 	pin, binding, _, now := witnessFixture(t)
 	pin.PublicKey = public
-	pin.pinSeal = pin.seal()
 	required, _, _, _ := boundaryFixture()
+	pin.Requirements = append([]BoundaryRequirement(nil), required...)
+	pin.pinSeal = pin.seal()
 	request := CollectRequest{Pin: pin, Binding: binding, Required: required, Adapters: map[string]recoverydenial.Adapter{"adapter-1": collectorAdapter{now: now}}, SigningKey: io.NopCloser(bytes.NewReader(private.Seed())), Material: io.NopCloser(bytes.NewReader([]byte("synthetic-private-canary"))), Now: func() time.Time { return now }}
 	signed, sealed, err := CollectWitness(context.Background(), request)
 	if err != nil || sealed.ReceiptID != binding.ReceiptID || signed.Payload.Binding != binding {
@@ -42,5 +43,13 @@ func TestCollectWitnessSignsExactBundleAndSealsCustody(t *testing.T) {
 	bad.Material = io.NopCloser(bytes.NewReader([]byte("synthetic-private-canary")))
 	if _, _, err := CollectWitness(context.Background(), bad); err == nil {
 		t.Fatal("foreign signing key accepted")
+	}
+	// Ordinary caller input cannot suppress an authenticated boundary group.
+	bad = request
+	bad.Required = append([]BoundaryRequirement(nil), required[:len(required)-2]...)
+	bad.SigningKey = io.NopCloser(bytes.NewReader(private.Seed()))
+	bad.Material = io.NopCloser(bytes.NewReader([]byte("synthetic-private-canary")))
+	if _, _, err := CollectWitness(context.Background(), bad); err == nil {
+		t.Fatal("omitted signed boundary accepted")
 	}
 }

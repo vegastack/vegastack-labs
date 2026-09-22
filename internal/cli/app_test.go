@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -49,7 +50,11 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
 			if commandName(command.Path) == generated.CommandNameRecoveryWitnessCollect {
-				if code != 6 || !strings.Contains(stdout, `"code":"PREREQUISITE_BLOCKED"`) || stderr != "" {
+				wantCode, wantError := 6, `"code":"PREREQUISITE_BLOCKED"`
+				if runtime.GOOS == "linux" {
+					wantCode, wantError = 2, `"code":"INPUT_INVALID"`
+				}
+				if code != wantCode || !strings.Contains(stdout, wantError) || stderr != "" {
 					t.Fatalf("unqualified witness command: code=%d stdout=%q stderr=%q", code, stdout, stderr)
 				}
 				return

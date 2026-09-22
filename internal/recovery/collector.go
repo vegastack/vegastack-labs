@@ -11,8 +11,8 @@ import (
 )
 
 // CollectRequest is a finite custodian-side input. Pin must originate from an
-// administrator-authenticated protected manifest. Required is only a copy of
-// the server-derived set: the replacement independently derives and checks it.
+// administrator-authenticated protected manifest. Required must exactly match
+// the manifest's independently sealed set; the replacement rederives it.
 type CollectRequest struct {
 	Pin        PinnedWitness
 	Binding    WitnessBinding
@@ -39,8 +39,13 @@ func CollectWitness(ctx context.Context, request CollectRequest) (signed SignedW
 	if request.Material != nil {
 		defer request.Material.Close()
 	}
-	if ctx == nil || ctx.Err() != nil || request.SigningKey == nil || request.Material == nil || request.Now == nil || !request.Pin.matchesBinding(request.Binding) || len(request.Required) == 0 || len(request.Required) > 256 {
+	if ctx == nil || ctx.Err() != nil || request.SigningKey == nil || request.Material == nil || request.Now == nil || !request.Pin.matchesBinding(request.Binding) || !validCompleteRequirements(request.Pin.Requirements) || len(request.Required) != len(request.Pin.Requirements) {
 		return SignedWitness{}, ProtectedEnvelope{}, ErrWitnessUnavailable
+	}
+	for index := range request.Required {
+		if request.Required[index] != request.Pin.Requirements[index] {
+			return SignedWitness{}, ProtectedEnvelope{}, ErrWitnessUnavailable
+		}
 	}
 	stopKey := context.AfterFunc(ctx, func() { _ = request.SigningKey.Close() })
 	defer stopKey()

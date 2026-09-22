@@ -16,8 +16,7 @@ import (
 )
 
 type witnessCollectionInput struct {
-	Binding  recovery.WitnessBinding        `json:"binding"`
-	Required []recovery.BoundaryRequirement `json:"required"`
+	Binding recovery.WitnessBinding `json:"binding"`
 }
 
 // This command is a finite custodian operation. A production adapter registry
@@ -39,7 +38,7 @@ func (app *App) runRecoveryWitnessCollect(ctx context.Context, mode outputMode, 
 	decoder := json.NewDecoder(bytes.NewReader(raw))
 	decoder.DisallowUnknownFields()
 	var input witnessCollectionInput
-	if decoder.Decode(&input) != nil || decoder.Decode(new(any)) != io.EOF || len(input.Required) == 0 || len(input.Required) > 256 {
+	if decoder.Decode(&input) != nil || decoder.Decode(new(any)) != io.EOF {
 		return app.fail(mode, command, generated.ErrorCodeInputInvalid, "recovery-witness-input", generated.RunStatusFailed, false)
 	}
 	pin, err := app.witnessPinLoader(input.Binding)
@@ -56,7 +55,7 @@ func (app *App) runRecoveryWitnessCollect(ctx context.Context, mode outputMode, 
 		return app.fail(mode, command, generated.ErrorCodePrerequisiteBlocked, "recovery-witness", generated.RunStatusBlocked, false)
 	}
 	signed, envelope, err := recovery.CollectWitness(ctx, recovery.CollectRequest{
-		Pin: pin, Binding: input.Binding, Required: input.Required, Adapters: app.witnessAdapters,
+		Pin: pin, Binding: input.Binding, Required: pin.Requirements, Adapters: app.witnessAdapters,
 		SigningKey: key, Material: material, Now: time.Now,
 	})
 	if err != nil {

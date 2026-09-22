@@ -149,7 +149,7 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor, witnessPinLoader: recovery.LoadSystemWitnessManifest}
+	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor, witnessPinLoader: recovery.LoadSystemWitnessManifest, witnessAdapters: disposableWitnessAdapters()}
 	for _, option := range options {
 		if option != nil {
 			option(app)

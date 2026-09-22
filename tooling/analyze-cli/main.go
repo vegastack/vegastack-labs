@@ -981,9 +981,9 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	var expected string
 	switch strings.Join(names, ",") {
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,receipt_file_unix.go,transport.go,witness.go":
-		expected = "21c4a90b935be4810b4220dd599329928ac25089525f98d994137c9dac45243a"
+		expected = "1323f08cdf7d4f71744f378d89a5b3cd7865ea800b71242d5490f0fbc67a6341"
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,receipt_file_unsupported.go,transport.go,witness.go":
-		expected = "b3a85a3c9fe7412a2f379bcd15464dc0d7862a760c50c9fa9eac144d1f030dfc"
+		expected = "22be2ccc6574690b47bf6854f3e0a255799fc96ec387d0072bda1e40813a7e29"
 	default:
 		return false
 	}

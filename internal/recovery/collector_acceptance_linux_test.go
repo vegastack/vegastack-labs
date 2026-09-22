@@ -44,6 +44,8 @@ func TestCollectWitnessAgainstDisposableOldIdentityEndpoints(t *testing.T) {
 	for i := range required {
 		required[i].AdapterID = "isolated-http-v1"
 	}
+	pin.Requirements = append([]BoundaryRequirement(nil), required...)
+	pin.pinSeal = pin.seal()
 	collect := func() (SignedWitness, ProtectedEnvelope, error) {
 		return CollectWitness(context.Background(), CollectRequest{
 			Pin: pin, Binding: binding, Required: required,
