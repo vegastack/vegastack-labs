@@ -18,7 +18,7 @@ import (
 func retirementStageFixture(t *testing.T, authority *Store, risk, branch string) LocalRetirementStageRequest {
 	t.Helper()
 	request := LocalRetirementStageRequest{RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard",
-		CatalogDigest: testDigest, ExpectedInventoryDigest: testDigest,
+		CatalogDigest: testDigest, ExpectedInventoryDigest: testDigest, LockCatalogDigest: testDigest, SourceCoverageDigest: testDigest, LockCatalogSequence: 1,
 		Targets:        []LocalRetirementTarget{{PointID: "old-point", SnapshotID: strings.Repeat("a", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest}},
 		Survivors:      []LocalRetirementSurvivor{{PointID: "good-point", SnapshotID: strings.Repeat("b", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest, ProofDigest: testDigest}},
 		SourceRevision: 2, StateRevision: 2, RecoveryEpoch: 0, MaxWorkObjects: 10, MaxMutationBytes: 1024, MaxRepackBytes: 1024,
@@ -85,6 +85,37 @@ func TestRetirementDeadlineParsesOffsetBeforeAdmission(t *testing.T) {
 		!retirementDeadlineCurrent("2026-09-12T19:00:00Z", now) ||
 		retirementDeadlineCurrent("invalid", now) {
 		t.Fatal("retirement deadline compared text instead of absolute time")
+	}
+}
+
+func TestLocalRetentionLockCatalogRequiresAppliedCompleteness(t *testing.T) {
+	authority := openRetirementTestStore(t)
+	if _, err := NewLocalRetirementRepository(authority).CurrentAppliedLocalRetentionLocks(context.Background(), "standard", 0); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("missing applied lock catalog was treated as empty: %v", err)
+	}
+	base := LocalRetentionLockCatalog{Schema: "vegastack-labs.dev/local-retention-lock-catalog", SchemaVersion: "1.0.0",
+		RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", RecoveryEpoch: 0, Revision: 1,
+		SourceCoverageDigest: LocalPromiseSourceCoverageDigest(), Complete: true, Locks: []LocalRetentionLock{}}
+	if _, digest, err := canonicalLocalRetentionLockCatalog(base); err != nil || !validBackupDigest(digest) {
+		t.Fatalf("explicit complete empty declaration invalid: %s %v", digest, err)
+	}
+	for name, mutate := range map[string]func(*LocalRetentionLockCatalog){
+		"missing-assertion": func(c *LocalRetentionLockCatalog) { c.Complete = false },
+		"stale-coverage":    func(c *LocalRetentionLockCatalog) { c.SourceCoverageDigest = testDigest },
+		"unknown-point-id": func(c *LocalRetentionLockCatalog) {
+			c.Locks = []LocalRetentionLock{{PointID: "", ReasonDigest: testDigest}}
+		},
+		"duplicate-lock": func(c *LocalRetentionLockCatalog) {
+			c.Locks = []LocalRetentionLock{{PointID: "point-a", ReasonDigest: testDigest}, {PointID: "point-a", ReasonDigest: testDigest}}
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			candidate := base
+			mutate(&candidate)
+			if _, _, err := canonicalLocalRetentionLockCatalog(candidate); err == nil {
+				t.Fatal("invalid lock catalog canonicalized")
+			}
+		})
 	}
 }
 

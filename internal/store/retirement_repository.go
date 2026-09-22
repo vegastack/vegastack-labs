@@ -34,6 +34,8 @@ type LocalRetirementSurvivor struct {
 type LocalRetirementStageRequest struct {
 	PlanID, PlanDigest, RepositoryID, RepositoryClass                      string
 	CatalogDigest, ExpectedInventoryDigest, SelectionDigest                string
+	LockCatalogDigest, SourceCoverageDigest                                string
+	LockCatalogSequence                                                    int64
 	Targets                                                                []LocalRetirementTarget
 	Survivors                                                              []LocalRetirementSurvivor
 	SourceRevision, StateRevision, RecoveryEpoch                           int64
@@ -49,6 +51,8 @@ type LocalRetirementIntent struct {
 
 type retirementSelectionPayload struct {
 	RepositoryID, RepositoryClass, CatalogDigest, ExpectedInventoryDigest  string
+	LockCatalogDigest, SourceCoverageDigest                                string
+	LockCatalogSequence                                                    int64
 	Targets                                                                []LocalRetirementTarget
 	Survivors                                                              []LocalRetirementSurvivor
 	SourceRevision, StateRevision, RecoveryEpoch                           int64
@@ -92,6 +96,7 @@ func canonicalRetirementSelection(request LocalRetirementStageRequest) ([]byte, 
 		wantRepository = backupidentity.CriticalRepository
 	}
 	if request.RepositoryID != wantRepository || !validBackupDigest(request.CatalogDigest) || !validBackupDigest(request.ExpectedInventoryDigest) ||
+		!validBackupDigest(request.LockCatalogDigest) || !validBackupDigest(request.SourceCoverageDigest) || request.LockCatalogSequence < 1 ||
 		request.SourceRevision < 1 || request.StateRevision < 1 || request.RecoveryEpoch < 0 || request.ExpectedReclaimBytes < 0 ||
 		request.MaxWorkObjects < 1 || request.MaxMutationBytes < 1 || request.MaxRepackBytes < 1 ||
 		len(request.Targets) < 1 || len(request.Survivors) < 1 || len(request.Targets)+len(request.Survivors) > 256 {
@@ -119,6 +124,7 @@ func canonicalRetirementSelection(request LocalRetirementStageRequest) ([]byte, 
 	}
 	payload := retirementSelectionPayload{RepositoryID: request.RepositoryID, RepositoryClass: request.RepositoryClass,
 		CatalogDigest: request.CatalogDigest, ExpectedInventoryDigest: request.ExpectedInventoryDigest,
+		LockCatalogDigest: request.LockCatalogDigest, SourceCoverageDigest: request.SourceCoverageDigest, LockCatalogSequence: request.LockCatalogSequence,
 		Targets: targets, Survivors: survivors, SourceRevision: request.SourceRevision, StateRevision: request.StateRevision,
 		RecoveryEpoch: request.RecoveryEpoch, ExpectedReclaimBytes: request.ExpectedReclaimBytes, MaxWorkObjects: request.MaxWorkObjects,
 		MaxMutationBytes: request.MaxMutationBytes, MaxRepackBytes: request.MaxRepackBytes}
@@ -180,8 +186,8 @@ func (repository *LocalRetirementRepository) StageLocalRetirement(ctx context.Co
 			plan.Operations[0].ArtifactDigest != request.ExpectedInventoryDigest || !retirementDeadlineCurrent(expires, nowTime) {
 			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-plan", false, nil)
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO backup_retirement_intents(intent_id,plan_id,plan_digest,repository_id,repository_class,catalog_digest,expected_inventory_digest,selection_digest,canonical_json,target_count,survivor_count,source_revision,state_revision,recovery_epoch,expected_reclaim_bytes,max_work_objects,max_mutation_bytes,max_repack_bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			intentID, request.PlanID, request.PlanDigest, request.RepositoryID, request.RepositoryClass, request.CatalogDigest, request.ExpectedInventoryDigest, digest, string(canonical), len(request.Targets), len(request.Survivors), request.SourceRevision, request.StateRevision, request.RecoveryEpoch, request.ExpectedReclaimBytes, request.MaxWorkObjects, request.MaxMutationBytes, request.MaxRepackBytes, now)
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_retirement_intents(intent_id,plan_id,plan_digest,repository_id,repository_class,catalog_digest,expected_inventory_digest,lock_catalog_digest,source_coverage_digest,lock_catalog_sequence,selection_digest,canonical_json,target_count,survivor_count,source_revision,state_revision,recovery_epoch,expected_reclaim_bytes,max_work_objects,max_mutation_bytes,max_repack_bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			intentID, request.PlanID, request.PlanDigest, request.RepositoryID, request.RepositoryClass, request.CatalogDigest, request.ExpectedInventoryDigest, request.LockCatalogDigest, request.SourceCoverageDigest, request.LockCatalogSequence, digest, string(canonical), len(request.Targets), len(request.Survivors), request.SourceRevision, request.StateRevision, request.RecoveryEpoch, request.ExpectedReclaimBytes, request.MaxWorkObjects, request.MaxMutationBytes, request.MaxRepackBytes, now)
 		return err
 	})
 	if err != nil {

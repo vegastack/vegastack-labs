@@ -1,6 +1,35 @@
 -- #115 local retirement is human-only and remains inert until the exact
 -- execution, survivor proof and atomic successor-generation paths are wired.
 -- Every row stores public bindings and digests, never a repository password.
+-- An absent activation is unknown, not an empty promise set. One row is the
+-- complete applied point-bound lock catalog for its generation. A later row
+-- supersedes it only through another exact human plan; no in-place release.
+CREATE TABLE backup_retention_lock_catalog_activations (
+    activation_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    activation_id TEXT NOT NULL UNIQUE CHECK (length(activation_id) BETWEEN 1 AND 128),
+    repository_id TEXT NOT NULL CHECK (length(repository_id) BETWEEN 1 AND 128),
+    repository_class TEXT NOT NULL CHECK (repository_class IN ('standard','critical')),
+    catalog_digest TEXT NOT NULL CHECK (length(catalog_digest)=71 AND substr(catalog_digest,1,7)='sha256:'),
+    source_coverage_digest TEXT NOT NULL CHECK (length(source_coverage_digest)=71 AND substr(source_coverage_digest,1,7)='sha256:'),
+    canonical_json TEXT NOT NULL CHECK (length(canonical_json) BETWEEN 2 AND 1048576),
+    declaration_id TEXT NOT NULL,
+    declaration_revision INTEGER NOT NULL CHECK (declaration_revision > 0),
+    plan_id TEXT NOT NULL REFERENCES immutable_plans(plan_id),
+    plan_digest TEXT NOT NULL CHECK (length(plan_digest)=71 AND substr(plan_digest,1,7)='sha256:'),
+    run_id TEXT NOT NULL REFERENCES plan_runs(run_id),
+    step_id TEXT NOT NULL REFERENCES plan_run_steps(step_id),
+    acknowledgement_id TEXT NOT NULL REFERENCES acknowledgement_proofs(acknowledgement_id),
+    human_id TEXT NOT NULL CHECK (length(human_id) BETWEEN 1 AND 128),
+    state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    activated_at TEXT NOT NULL,
+    FOREIGN KEY (declaration_id,declaration_revision) REFERENCES declaration_revisions(declaration_id,declaration_revision),
+    UNIQUE(repository_class,recovery_epoch,catalog_digest)
+) STRICT;
+CREATE INDEX backup_retention_lock_catalog_current_idx ON backup_retention_lock_catalog_activations(repository_class,recovery_epoch,activation_sequence DESC);
+CREATE TRIGGER backup_retention_lock_catalog_activations_no_update BEFORE UPDATE ON backup_retention_lock_catalog_activations BEGIN SELECT RAISE(ABORT,'retention lock catalog activations are append-only'); END;
+CREATE TRIGGER backup_retention_lock_catalog_activations_no_delete BEFORE DELETE ON backup_retention_lock_catalog_activations BEGIN SELECT RAISE(ABORT,'retention lock catalog activations are append-only'); END;
+
 CREATE TABLE backup_retirement_intents (
     intent_id TEXT PRIMARY KEY CHECK (length(intent_id) BETWEEN 1 AND 128),
     plan_id TEXT NOT NULL REFERENCES immutable_plans(plan_id),
@@ -9,6 +38,9 @@ CREATE TABLE backup_retirement_intents (
     repository_class TEXT NOT NULL CHECK (repository_class IN ('standard','critical')),
     catalog_digest TEXT NOT NULL CHECK (length(catalog_digest)=71 AND substr(catalog_digest,1,7)='sha256:'),
     expected_inventory_digest TEXT NOT NULL CHECK (length(expected_inventory_digest)=71 AND substr(expected_inventory_digest,1,7)='sha256:'),
+    lock_catalog_digest TEXT NOT NULL CHECK (length(lock_catalog_digest)=71 AND substr(lock_catalog_digest,1,7)='sha256:'),
+    source_coverage_digest TEXT NOT NULL CHECK (length(source_coverage_digest)=71 AND substr(source_coverage_digest,1,7)='sha256:'),
+    lock_catalog_sequence INTEGER NOT NULL CHECK (lock_catalog_sequence > 0),
     selection_digest TEXT NOT NULL CHECK (length(selection_digest)=71 AND substr(selection_digest,1,7)='sha256:'),
     canonical_json TEXT NOT NULL CHECK (length(canonical_json) BETWEEN 2 AND 1048576),
     target_count INTEGER NOT NULL CHECK (target_count BETWEEN 1 AND 256),
