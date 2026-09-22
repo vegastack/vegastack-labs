@@ -196,7 +196,13 @@ export async function verifyPhase3({ artifacts, root = ROOT } = {}) {
       if (!ALLOWED_ARTIFACTS.test(target)) errors.push("PHASE3_ARTIFACT_TYPE");
       if (size > MAX_FILE_BYTES) errors.push("PHASE3_ARTIFACT_SIZE");
       if (!ALLOWED_ARTIFACTS.test(target) || size > MAX_FILE_BYTES) continue;
-      const content = await readFile(target, "utf8");
+      let content;
+      try {
+        content = await readFile(target, "utf8");
+      } catch {
+        errors.push("PHASE3_ARTIFACT_READ_FAILED");
+        continue;
+      }
       if (secretCanaries.some((value) => content.includes(value))) errors.push("PHASE3_PRIVATE_CANARY");
       if (PRIVATE_MARKERS.some((pattern) => pattern.test(content))) errors.push("PHASE3_PRIVATE_MATERIAL");
     }

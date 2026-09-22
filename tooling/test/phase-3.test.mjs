@@ -89,24 +89,26 @@ test("Phase 3 browser report reduces a failed assertion without private values",
 
 test("Phase 3 preserves browser and sanitizer failures independently and deletes private reports", async (t) => {
   const fixture = await evidenceFixture(t, {
-    "fake-pnpm.mjs": `import { writeFile } from "node:fs/promises";
+    "fake-pnpm.mjs": `import { chmod, writeFile } from "node:fs/promises";
 import path from "node:path";
 const failing = process.env.PHASE3_TEST_BROWSER_FAIL === "yes";
 const report = { suites: [{ specs: [{ title: "skip link, focus order, and named landmarks work", tests: [{ results: [{ status: failing ? "failed" : "passed", errors: failing ? [{ location: { file: path.join(process.cwd(), "web/e2e/console.spec.ts"), line: 23 }, message: "private-provider-canary" }] : [] }] }] }] }], errors: [], stats: { expected: failing ? 0 : 1, skipped: 0, unexpected: failing ? 1 : 0, flaky: 0 } };
 await writeFile(process.env.PHASE3_TEST_REPORT_MARKER, process.env.PLAYWRIGHT_JSON_OUTPUT_NAME);
 if (process.env.PHASE3_TEST_REPORT !== "missing") await writeFile(process.env.PLAYWRIGHT_JSON_OUTPUT_NAME, process.env.PHASE3_TEST_REPORT === "malformed" ? "{private-provider-canary" : JSON.stringify(report));
 if (process.env.PHASE3_TEST_CANARY === "yes") await writeFile(path.join(process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT, "canary.txt"), "private-provider-canary");
+if (process.env.PHASE3_TEST_CANARY === "unreadable") { const artifact = path.join(process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT, "unreadable.txt"); await writeFile(artifact, "public assertion artifact"); await chmod(artifact, 0); }
 process.exitCode = process.env.PHASE3_TEST_BROWSER_FAIL === "yes" ? 1 : 0;`,
   });
   const original = process.env.npm_execpath;
   process.env.npm_execpath = path.join(fixture, "fake-pnpm.mjs");
   t.after(() => { if (original === undefined) delete process.env.npm_execpath; else process.env.npm_execpath = original; });
-  for (const [name, browserFail, canary, report, browserExpected, sanitizerExpected, missingExpected] of [
-    ["both", "yes", "yes", "valid", true, true, false],
-    ["browser", "yes", "no", "valid", true, false, false],
-    ["sanitizer", "no", "yes", "valid", false, true, false],
-    ["missing", "no", "no", "missing", false, false, true],
-    ["malformed", "yes", "no", "malformed", false, false, true],
+  for (const [name, browserFail, canary, report, browserExpected, sanitizerCode, missingExpected] of [
+    ["both", "yes", "yes", "valid", true, "PHASE3_PRIVATE_CANARY", false],
+    ["browser", "yes", "no", "valid", true, null, false],
+    ["unreadable", "yes", "unreadable", "valid", true, "PHASE3_ARTIFACT_READ_FAILED", false],
+    ["sanitizer", "no", "yes", "valid", false, "PHASE3_PRIVATE_CANARY", false],
+    ["missing", "no", "no", "missing", false, null, true],
+    ["malformed", "yes", "no", "malformed", false, null, true],
   ]) {
     const marker = path.join(fixture, `${name}-report-path.txt`);
     Object.assign(process.env, {
@@ -118,7 +120,7 @@ process.exitCode = process.env.PHASE3_TEST_BROWSER_FAIL === "yes" ? 1 : 0;`,
     await assert.rejects(runPhase3(ROOT, { prepared: true }), (error) => {
       const line = phase3FailureDiagnostic(error);
       assert.equal(line.includes("web/e2e/console.spec.ts:23"), browserExpected, name);
-      assert.equal(line.includes("PHASE3_PRIVATE_CANARY"), sanitizerExpected, name);
+      assert.equal(line.includes(sanitizerCode ?? "sanitizer="), Boolean(sanitizerCode), name);
       assert.equal(line.includes("report-unavailable"), missingExpected, name);
       assert.doesNotMatch(line, /private-provider-canary/, name);
       return true;
