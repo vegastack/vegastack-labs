@@ -8,6 +8,7 @@ import { runCommand } from "./lib/process.mjs";
 import {
   phase4ScenarioDigest,
   REQUIRED_PHASE4_SCENARIO_IDS,
+  validBrowserSummary,
   validatePhase4AcceptanceDefinition,
 } from "./verify-phase-4.mjs";
 
@@ -225,8 +226,8 @@ const FULL_CHECK_STAGE_CODES = new Map(checkStepsForPlan(fullCheckPlan()).map(({
 
 export function phase4BrowserFailureLine(stderr) {
   const line = typeof stderr === "string" ? stderr.split("\n").find(item => item.startsWith("Phase 4 verification failed at scenario-")) : undefined;
-  const match = /^Phase 4 verification failed at scenario-(?:execution|result) \(scenario (browser\.[a-z0-9.-]+); browser line (?:[1-9][0-9]{0,4}|unknown); status (?:failed|timedOut|interrupted|unknown); class (?:assertion|timeout|browser|other)\)$/.exec(line ?? "");
-  return match && REQUIRED_PHASE4_SCENARIO_IDS.includes(match[1]) ? `${line}\n` : "";
+  const match = /^Phase 4 verification failed at scenario-(?:execution|result) \(scenario (browser\.[a-z0-9.-]+); (browser title .+)\)$/.exec(line ?? "");
+  return match && REQUIRED_PHASE4_SCENARIO_IDS.includes(match[1]) && validBrowserSummary(match[2]) ? `${line}\n` : "";
 }
 
 export async function defaultRunChecks(root, { runPlan = runCheckPlan, run = runCommand } = {}) {
