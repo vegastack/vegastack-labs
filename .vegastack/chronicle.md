@@ -7,7 +7,7 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **What:** The Console keeps `Last-Event-ID` while the same run's GET response changes, resets it for a new run ID, and Phase 4 CI reports a bounded test title, failing assertion location, status and descriptor.
 - **Why:** A normal read could replace the cached response, restart the watcher and clear the cursor; the acceptance wrapper then hid the browser failure behind a stage code.
 - **How it went:** A focused browser test forced a revision change after the first event and failed with an empty second cursor before the fix. A separate two-run test failed with the old cursor when the reset was removed. The corrected tests and focused workflow suite passed. No live run or private operational state was involved.
-- **Changed:** Run watcher lifecycle · deterministic SSE regression fixture · sanitized Phase 4 and exit diagnostics.
+- **Changed:** Run watcher lifecycle · regenerated embedded Console assets · deterministic SSE regression fixture · sanitized Phase 4 and exit diagnostics.
 - **Decisions:** none.
 
 — approved by (omkarmohanta09) · built by Codex · branch fix/156-phase4-browser-reconnect
