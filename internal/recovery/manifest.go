@@ -76,7 +76,12 @@ func ParseSignedRecoveryManifest(raw []byte, adminPublic ed25519.PublicKey, expe
 		return zero, ErrWitnessUnavailable
 	}
 	sum := sha256.Sum256(append(append([]byte(nil), canonical...), artifact.Signature...))
-	pin := PinnedWitness{KeyID: payload.WitnessKeyID, WitnessInstanceID: payload.WitnessInstanceID, PublicKey: append(ed25519.PublicKey(nil), payload.WitnessPublicKey...), RecipientKeyID: payload.RecipientKeyID, RecipientPublicKey: append([]byte(nil), payload.RecipientPublicKey...), Requirements: append([]BoundaryRequirement(nil), payload.Requirements...), ManifestDigest: "sha256:" + hex.EncodeToString(sum[:]), AuthenticatedExternally: true, ExpiresAt: payload.ExpiresAt, manifestAuthenticated: true, manifestBinding: expected}
+	pin := PinnedWitness{KeyID: payload.WitnessKeyID, WitnessInstanceID: payload.WitnessInstanceID, PublicKey: append(ed25519.PublicKey(nil), payload.WitnessPublicKey...), RecipientKeyID: payload.RecipientKeyID, RecipientPublicKey: append([]byte(nil), payload.RecipientPublicKey...), Requirements: append([]BoundaryRequirement(nil), payload.Requirements...), ManifestDigest: "sha256:" + hex.EncodeToString(sum[:]), AuthenticatedExternally: true, ExpiresAt: payload.ExpiresAt, manifestAuthenticated: true, manifestBinding: expected, adminRootDigest: recoveryAdminRootDigest(adminPublic)}
 	pin.pinSeal = pin.seal()
 	return pin, nil
+}
+
+func recoveryAdminRootDigest(adminPublic ed25519.PublicKey) string {
+	sum := sha256.Sum256(adminPublic)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

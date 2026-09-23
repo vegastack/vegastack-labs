@@ -2,6 +2,46 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-09-2026 — Affected checks understand Linux-only Go packages ([#169](https://github.com/vegastack/vegastack-labs/issues/169))
+
+- **What:** Focused Go vet and test compilation now apply the supported Linux target when a changed package has no macOS-buildable files; Linux hosts run its tests normally.
+- **Why:** The first local affected check after the Phase 5 CI correction selected the right native-credential package but ran it under macOS, where every production file is excluded by build constraints.
+- **How it went:** A red package-selection regression reproduced the exact failure. The planner now carries an explicit target policy for the Linux-only package, preserves ordinary portable commands, cross-compiles its test binary on other hosts, and runs the real tests on Linux.
+- **Changed:** Target-aware affected Go vet · host-runnable target test proof · Linux-only fixture and regression test.
+- **Decisions:** none; unrecognized target-only topology still fails closed, and final native Linux acceptance remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/169-linux-go-target
+
+## 23-09-2026 — Phase 5 stopped starting CI for every landing ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
+
+- **What:** Intermediate Phase 5 changes now prove their exact current-main diff locally and do not start GitHub CI when a pull request opens or merges. Public CI is manual-only for the final full acceptance and named native lanes.
+- **Why:** Even an affected automatic lane repeated setup and check work at branch, pull-request, and post-merge stages; the operator required one focused proof per intermediate change and one broad proof at the end.
+- **How it went:** A follow-up correction removed the automatic triggers and hosted PR job, strengthened the workflow guard, and taught the local ship gate to bind the affected command to the clean pushed head and current remote base before and after it runs.
+- **Changed:** Dispatch-only Public CI · exact local affected ship proof · future-session policy and deterministic guards.
+- **Decisions:** none; unsafe affected classifications still fail closed locally, and named native acceptance remains explicit.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-manual-only-ci
+
+## 23-09-2026 — Phase 5 checks run at the scope that changed ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
+
+- **What:** Intermediate Phase 5 branches can prove an exact base and head with affected policy groups and changed Go package tests, while the final integration or acceptance candidate has one explicit complete lane.
+- **Why:** An implicit full manual check followed by PR and post-merge checks repeatedly exercised unchanged packages and browser acceptance, delaying a serial delivery chain without adding distinct evidence.
+- **How it went:** The existing affected planner already protected unknown and dependency changes. The correction added package targets, fail-closed Go topology changes, and explicit manual affected/full inputs while retaining repository-wide compilation and hosted integration checks.
+- **Changed:** Changed-package Go tests and vet · exact-base manual CI mode · explicit final full mode · exact-head ship proof policy.
+- **Decisions:** none; issue-specific native acceptance and the final Phase 5 full integration proof remain required.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-fast-batch
+
+## 22-09-2026 — A clean replacement can inspect a protected recovery handoff ([#159](https://github.com/vegastack/vegastack-labs/issues/159))
+
+- **What:** The software can read one administrator-installed public witness and encrypted envelope from protected files, match them to a signed manifest and a closed direct-denial verifier registration, and offer a one-use digest-only handoff to a later exact-inode comparator.
+- **Why:** The prior witness and collector fixtures proved protocol shape but offered no protected production source reader or qualified adapter registration seam for a clean replacement.
+- **How it went:** Red-first file tests caught both replaced inodes and same-size in-place rewrites. The ordinary production verifier registry remains empty; disposable endpoint and process tests prove software behavior only, not independent site enrollment.
+- **Changed:** Protected package reader · signed exact-boundary registration · fresh direct-denial recheck · one-use custody handoff · human failure procedure.
+- **Decisions:** none; #144 still needs an externally enrolled source and real endpoint qualification, while #108 owns current replacement authority. No live `G-007` or `G-008` evidence is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/159-recovery-source-admission
+
 ## 22-09-2026 — Failed browser acceptance now names a safe diagnostic ([#161](https://github.com/vegastack/vegastack-labs/issues/161))
 
 - **What:** A failed Phase 3 browser run now reports the public test and assertion line when Playwright supplies a trusted location. It also reports the sanitizer's fixed failure code, including when both checks fail.

@@ -1,12 +1,13 @@
 name: Public CI
 
 on:
-  pull_request:
-  push:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
+      full_check:
+        description: 'Run the complete lane for the final Phase 5 integration or acceptance candidate'
+        required: false
+        default: false
+        type: boolean
       native_credential_sha:
         description: 'Exact #143 branch SHA for disposable native credential acceptance; leave empty for ordinary checks'
         required: false
@@ -52,62 +53,27 @@ jobs:
       - name: Plan affected public checks
         id: check-plan
         env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}
-          HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+          FULL_CHECK: ${{ inputs.full_check || false }}
+          HEAD_SHA: ${{ github.sha }}
+          NATIVE_CREDENTIAL_SHA: ${{ inputs.native_credential_sha || '' }}
+          BACKUP_ACCEPTANCE: ${{ inputs.backup_acceptance || false }}
+          REF_NAME: ${{ github.ref }}
         run: |
-          node tooling/check-affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --dry-run
-          node tooling/check-affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --dry-run --format github >> "$GITHUB_OUTPUT"
-
-  verify_pr:
-    name: Public foundation checks
-    needs: plan
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
-        with:
-          run_install: false
-          version: 11.24.0
-
-      - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          cache: pnpm
-          node-version: 24.20.0
-
-      - name: Install Go
-        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-        with:
-          cache: false
-          go-version: 1.27.0
-
-      - name: Install public dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Install pinned Chromium
-        if: needs.plan.outputs.browser == 'true'
-        run: pnpm --filter @vegastack/labs-web exec playwright install --with-deps chromium
-
-      - name: Run affected public checks
-        env:
-          VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
-        run: pnpm check:affected --execute-plan
-
-      - name: Verify generated contracts and embedded Console stay unchanged
-        run: git diff --exit-code
+          if [ "$FULL_CHECK" != true ] && [ -z "$NATIVE_CREDENTIAL_SHA" ] && [ "$BACKUP_ACCEPTANCE" != true ]; then
+            echo "dispatch must explicitly select final full_check or a named native acceptance lane" >&2
+            exit 1
+          fi
+          if [ -n "$NATIVE_CREDENTIAL_SHA" ]; then
+            [[ "$NATIVE_CREDENTIAL_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "native credential acceptance requires an exact SHA" >&2; exit 1; }
+            test "$NATIVE_CREDENTIAL_SHA" = "$HEAD_SHA" || { echo "native credential acceptance SHA must equal the dispatch head" >&2; exit 1; }
+            test "$REF_NAME" = refs/heads/feat/143-native-credential-authority || { echo "native credential acceptance requires its reviewed branch" >&2; exit 1; }
+          fi
+          node tooling/check-affected.mjs --base "" --head "$HEAD_SHA" --dry-run
+          node tooling/check-affected.mjs --base "" --head "$HEAD_SHA" --dry-run --format github >> "$GITHUB_OUTPUT"
 
   verify_trusted:
     name: Public foundation checks
     needs: plan
-    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')
     runs-on: [self-hosted, linux, x64]
     timeout-minutes: 15
     steps:
@@ -160,7 +126,7 @@ jobs:
           cache: false
           go-version: 1.27.0
 
-      - name: Run exact #143 disposable native credential acceptance
+      - name: 'Run exact #143 disposable native credential acceptance'
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/143-native-credential-authority' && inputs.native_credential_sha != ''
         env:
           VSK143_SHA: ${{ inputs.native_credential_sha }}
@@ -175,14 +141,15 @@ jobs:
           sudo -n env VSK_NATIVE_AUTHORITY_DISPOSABLE=1 VSK143_RUN_ID="$GITHUB_RUN_ID" VSK143_SHA="$VSK143_SHA" VSK143_WORKSPACE="$GITHUB_WORKSPACE" VSK143_BINARY="$RUNNER_TEMP/vsk143-binary" bash tooling/native-credential-authority-ci-fixture.sh
 
       - name: Install public dependencies
+        if: inputs.full_check
         run: pnpm install --frozen-lockfile
 
       - name: Install pinned Chromium
-        if: needs.plan.outputs.browser == 'true' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        if: inputs.full_check
         run: pnpm --filter @vegastack/labs-web exec playwright install --with-deps chromium
 
       - name: Run affected public checks
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+        if: inputs.full_check
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
         run: pnpm check:affected --execute-plan
@@ -208,10 +175,11 @@ jobs:
             go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestPinnedResticRejectsAuthenticatedV1Repository|TestLocalBackupComposition' -count=1 -timeout 45s -v
 
       - name: Run exact Phase 4 exit acceptance
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        if: inputs.full_check && github.ref == 'refs/heads/main'
         run: pnpm --silent check:phase-4-exit --commit "$GITHUB_SHA"
 
       - name: Verify generated contracts and embedded Console stay unchanged
+        if: inputs.full_check
         run: git diff --exit-code
 
       - name: Remove protected local test storage
@@ -223,7 +191,7 @@ jobs:
           esac
           rm -rf -- "$TMPDIR"
 
-      - name: Remove exact #143 disposable native credential fixture
+      - name: 'Remove exact #143 disposable native credential fixture'
         if: always() && github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/feat/143-native-credential-authority' && inputs.native_credential_sha != ''
         env:
           VSK143_SHA: ${{ inputs.native_credential_sha }}
