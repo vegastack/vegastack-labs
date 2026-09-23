@@ -282,6 +282,11 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	recoveryCore, err := runengine.NewRecoveryEffect(authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if profile.LocalBackup != nil && restoreSnapshotSource != nil && restoreInspector != nil && restoreTrust != nil {
 		borrower := recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}
@@ -302,7 +307,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore}, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -372,9 +377,17 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		Execution:      recovery.SystemExactFenceWitnessVerifier(operations.build.ReleaseBuildID, "1.0.0"),
 		ReleaseBuildID: operations.build.ReleaseBuildID, EvaluatorVersion: "1.0.0",
 	}
+	restoreStoreCanary := recovery.StoreRecoveryCanary{Authority: authority, Restores: restoreRepository}
+	restoreCanary := recovery.CanaryVerifier{
+		Read: restoreStoreCanary, OldEpoch: restoreStoreCanary,
+		Noop: recovery.UnavailableCanaryNoop{}, Audit: recovery.UnavailableCanaryAudit{}, Backup: recovery.UnavailableCanaryBackup{},
+		FormerWriter: recovery.FreshFormerWriterCanary{Restores: restoreRepository, Fences: restoreFences.Execution},
+		Enable:       restoreStoreCanary,
+		Clock:        time.Now,
+	}
 	restoreService, err := recovery.NewOperationsService(recovery.OperationsConfig{
 		Sources: recovery.SourceVerifier{Local: backupRepository, Snapshots: restoreSnapshotResolver, Compatibility: restoreCompatibility, Audit: restoreAudit, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
-		Plans: restorePlanner, Sessions: restoreSessions, Candidates: restoreCandidates, Canary: recovery.CanaryVerifier{},
+		Plans: restorePlanner, Sessions: restoreSessions, Candidates: restoreCandidates, Canary: restoreCanary,
 		TargetReleaseBuildID: operations.build.ReleaseBuildID, TargetToolVersion: operations.build.ToolVersion, TargetSchemaVersion: strconv.FormatUint(health.SchemaVersion, 10),
 	})
 	if err != nil {
