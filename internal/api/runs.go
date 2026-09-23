@@ -150,29 +150,10 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 			return
 		}
 		// Exact submits form one in-process lane per key. The acknowledgement is
-		// inspected here, but its one-use proof is consumed only after the engine has
-		// persisted the unique queued run that owns it.
-		unlock := app.lockRunSubmit(input.PlanID + "\x00" + input.IdempotencyKey)
-		defer unlock()
-		existing, found, err := config.Runs.Existing(request.Context(), input)
-		if err != nil {
-			app.operationFailure(w, operation, input.IdempotencyKey, err)
-			return
-		} else if found && existing.Status != "queued" {
-			app.executeRunResult(w, operation, input.IdempotencyKey, existing, nil)
-			return
-		}
-		ack, err := app.runAcknowledgement(request.Context(), config, stored.Plan)
-		if err != nil {
-			app.failure(w, operation, err)
-			return
-		}
-		attribution, err := runAttribution(request, ack, config.Results)
-		if err != nil {
-			app.failure(w, operation, err)
-			return
-		}
-		value, err := config.Runs.Submit(request.Context(), runengine.SubmitRequest{Reference: input, Authorization: decision, Acknowledgement: ack, Attribution: attribution})
+		// inspected here, but its one-use proof is consumed only after the engine
+		// persists the unique queued run that owns it. Backup routes use this same
+		// exact executor rather than a parallel status-changing path.
+		value, err := app.submitExactPlan(request, config, stored.Plan, decision, input, "")
 		if value.RunID != "" {
 			app.executeRunResult(w, operation, input.IdempotencyKey, value, err)
 			return
@@ -183,6 +164,33 @@ func (app *Application) executePlan(config RunOperationConfig) func(http.Respons
 		}
 		app.operationFailure(w, operation, input.IdempotencyKey, apiFailure(generated.ErrorCodeIntegrityFailure, "run-result"))
 	}
+}
+
+func (app *Application) submitExactPlan(request *http.Request, config RunOperationConfig, plan generated.Plan, decision generated.AuthorizationDecision, input generated.PlanReferenceRequest, acknowledgementID string) (generated.Run, error) {
+	unlock := app.lockRunSubmit(input.PlanID + "\x00" + input.IdempotencyKey)
+	defer unlock()
+	existing, found, err := config.Runs.Existing(request.Context(), input)
+	if err != nil {
+		return generated.Run{}, err
+	}
+	if found && existing.Status != "queued" {
+		if acknowledgementID != "" && (existing.AcknowledgementID == nil || *existing.AcknowledgementID != acknowledgementID) {
+			return generated.Run{}, apiFailure(generated.ErrorCodeApprovalRequired, "acknowledgement")
+		}
+		return existing, nil
+	}
+	ack, err := app.runAcknowledgement(request.Context(), config, plan)
+	if err != nil {
+		return generated.Run{}, err
+	}
+	if acknowledgementID != "" && (ack == nil || ack.AcknowledgementID != acknowledgementID) {
+		return generated.Run{}, apiFailure(generated.ErrorCodeApprovalRequired, "acknowledgement")
+	}
+	attribution, err := runAttribution(request, ack, config.Results)
+	if err != nil {
+		return generated.Run{}, err
+	}
+	return config.Runs.Submit(request.Context(), runengine.SubmitRequest{Reference: input, Authorization: decision, Acknowledgement: ack, Attribution: attribution})
 }
 
 func (app *Application) getRun(config RunOperationConfig) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {

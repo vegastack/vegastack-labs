@@ -47,6 +47,9 @@ type CreationManifest struct {
 	SourceSelectors           []string             `json:"sourceSelectors"`
 	SourceRevision            int64                `json:"sourceRevision"`
 	RecoveryEpoch             int64                `json:"recoveryEpoch"`
+	DatabaseSchemaVersion     uint64               `json:"databaseSchemaVersion"`
+	CatalogDigest             string               `json:"catalogDigest"`
+	ContentDigest             string               `json:"contentDigest"`
 	ConsistencyHookID         string               `json:"consistencyHookId"`
 	ConsistencySuccess        bool                 `json:"consistencySuccess"`
 	SnapshotID                string               `json:"snapshotId"`
@@ -72,7 +75,7 @@ type CreationManifest struct {
 // CreationManifestSchema/Version identify the canonical creation manifest.
 const (
 	CreationManifestSchema  = "vegastack-labs.dev/backup-creation-manifest"
-	CreationManifestVersion = "1.1.0"
+	CreationManifestVersion = "1.2.0"
 )
 
 var expectedObjectTypes = map[string]struct{}{
@@ -155,12 +158,12 @@ func CanonicalCreationManifest(manifest CreationManifest) ([]byte, string, error
 	if manifest.RepositoryClass != "standard" && manifest.RepositoryClass != "critical" {
 		return invalid()
 	}
-	for _, digest := range []string{manifest.PolicyDigest, manifest.InventoryDigest, manifest.DependencyInventoryDigest, manifest.ResticDigest, manifest.PlatformDigest} {
+	for _, digest := range []string{manifest.PolicyDigest, manifest.InventoryDigest, manifest.DependencyInventoryDigest, manifest.ResticDigest, manifest.PlatformDigest, manifest.CatalogDigest, manifest.ContentDigest} {
 		if !validBackupManifestDigest(digest) {
 			return invalid()
 		}
 	}
-	if !manifest.ConsistencySuccess || manifest.SnapshotCount < 1 || manifest.FailureCode != "" {
+	if !manifest.ConsistencySuccess || manifest.SnapshotCount < 1 || manifest.FailureCode != "" || manifest.DatabaseSchemaVersion == 0 {
 		return invalid()
 	}
 	var total int64

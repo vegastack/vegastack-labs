@@ -55,6 +55,44 @@ Owner phase: `5` · risk: `mutation` · availability: `available`
 
 - Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.: `vsk-labs backup policy draft --config fixture/server-profile.json --file fixture/backup-policy-draft-request.json --output json`
 
+### `vsk-labs backup run`
+
+Execute one exact approved backup-creation plan; the point remains pending.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact typed backup-run-request JSON file (4 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Execute one exact approved backup-creation plan; the point remains pending.: `vsk-labs backup run --config fixture/server-profile.json --file fixture/backup-run-request.json --output json`
+
+### `vsk-labs backup status`
+
+Inspect local backup jobs and qualification status.
+
+Owner phase: `5` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Inspect local backup jobs and qualification status.: `vsk-labs backup status --config fixture/server-profile.json --output json`
+
+### `vsk-labs backup verify`
+
+Execute one exact approved local-backup verification plan.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact typed backup-verify-request JSON file (4 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Execute one exact approved local-backup verification plan.: `vsk-labs backup verify --config fixture/server-profile.json --file fixture/backup-verify-request.json --output json`
+
 ### `vsk-labs credential activate`
 
 Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
@@ -294,6 +332,20 @@ Owner phase: `4` · risk: `read-only` · availability: `available`
 
 - Create an immutable plan from one exact inert declaration revision.: `vsk-labs plan --config fixture/server-profile.json --declaration-id change-1 --revision 2 --output json`
 
+### `vsk-labs recovery witness collect`
+
+Collect one bounded independent recovery witness on a separately administered custodian.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--file <path>` — Read one exact public recovery binding and required-boundary document (64 KiB max).
+- `--material-fd <fd>` — Read the independently held protected material from an inherited descriptor.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--signing-key-fd <fd>` — Read the protected witness signing seed from an inherited descriptor.
+
+- Collect one bounded independent recovery witness on a separately administered custodian.: `vsk-labs recovery witness collect --file fixture/recovery-witness-input.json --signing-key-fd 3 --material-fd 4 --output json`
+
 ### `vsk-labs release inspect`
 
 Inspect a local release manifest and compatibility without claiming cryptographic verification.
@@ -425,24 +477,6 @@ Owner phase: `1` · risk: `read-only` · availability: `available`
 ### `vsk-labs audit`
 
 Inspect sanitized audit history.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs backup run`
-
-Run one exact approved backup policy.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs backup status`
-
-Inspect backup status.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs backup verify`
-
-Verify a declared backup.
 
 Owner phase: `5` · risk: `unassigned` · availability: `planned`
 

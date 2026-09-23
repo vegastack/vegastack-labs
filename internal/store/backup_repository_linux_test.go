@@ -22,7 +22,7 @@ func openBackupStore(t *testing.T) *BackupRepository {
 
 func backupPolicyFixture() generated.BackupPolicy {
 	return generated.BackupPolicy{
-		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
+		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0",
 		PolicyID: "policy-a", OwnerID: "owner-a", SourceID: backupidentity.ControlDatabaseSource,
 		SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: "sqlite-online",
 		RepositoryID: backupPtr(backupidentity.StandardRepository), RepositoryClass: "standard", ScheduleIntent: "daily",
@@ -30,7 +30,7 @@ func backupPolicyFixture() generated.BackupPolicy {
 		EncryptionKeyReferenceID: backupPtr("enc-a"), RecoveryKeyReferenceID: backupPtr("rec-a"),
 		RetentionDays: 7, RestoreTargetID: "restore-a",
 		Dependencies:           []generated.BackupDependency{{DependencyID: "dep-a", Kind: "binary", Digest: testDigest}},
-		FunctionalTestRequired: true, RecoveryEpoch: 0, Revision: 1,
+		FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 168, RecoveryEpoch: 0, Revision: 1,
 	}
 }
 

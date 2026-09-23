@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "authority": "manual-review:go-dependency-provenance",
-  "reviewedOn": "16-09-2026",
+  "reviewedOn": "22-09-2026",
   "modules": [
     {
       "path": "bitbucket.org/creachadair/shell",
@@ -1479,9 +1479,9 @@
       "checksum": "h1:4KLkAxT3aOY8Li4FRJe/KvhoNFFxo0m6fNuFUO8QJUk=",
       "license": "BSD-2-Clause",
       "source": "https://github.com/godbus/dbus",
-      "role": "build",
+      "role": "runtime",
       "reviewDecision": "approved",
-      "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
+      "reviewReason": "Reviewed BSD-2-Clause systemd D-Bus client compiled into the Linux vsk-labs native credential verifier; it reads typed applied unit metadata only."
     },
     {
       "path": "github.com/gogo/protobuf",
@@ -4034,5 +4034,5 @@
       "reviewReason": "Reviewed build-graph-only dependency; not compiled into the vsk-labs binary."
     }
   ],
-  "reviewMetadataSha256": "a61882d35b5c552f6c69754986ffbcb111142f24625c7f4cdb290c95eb1413a0"
+  "reviewMetadataSha256": "48c5a320194a8ffd4d4e05e2129f9a6c86fa25dffb29196e15bc552bdd7ed306"
 }
