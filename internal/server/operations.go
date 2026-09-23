@@ -219,6 +219,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	backupRepository := store.NewBackupRepository(authority)
+	var restoreSnapshotResolver recovery.SnapshotResolver
+	var restoreCompatibility recovery.CompatibilityVerifier
+	var restoreAudit recovery.AuditPositionVerifier
+	var restoreSnapshotSource store.OnlineSnapshotSource
+	var restoreInspector store.RestoredSQLiteInspector
+	var restoreTrust localbackup.DependencyTrustVerifier
 	// The protected local backup adapter is registered only when the complete
 	// standard/critical/restic profile triplet is present. It fails closed
 	// off-Linux and its effect always runs through the exact bound credential
@@ -235,6 +241,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			return inspectErr
 		}
 		localTrust := localbackup.NewProtectedLocalDependencyTrust()
+		restoreSnapshotSource, restoreInspector, restoreTrust = snapshots, inspector, localTrust
 		localAdapter, adapterErr := localbackup.New(localbackup.Config{
 			LocalBackup: profile.LocalBackup,
 			ExpectedUID: profile.SocketOwnerUID,
@@ -276,6 +283,14 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	credentialRepository := store.NewCredentialRepository(authority)
+	if profile.LocalBackup != nil && restoreSnapshotSource != nil && restoreInspector != nil && restoreTrust != nil {
+		borrower := recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}
+		restoreSnapshotResolver, restoreCompatibility, restoreAudit, err = composeLocalRecoverySource(profile.LocalBackup, profile.SocketOwnerUID, backupRepository, restoreInspector, borrower, restoreTrust, restoreSnapshotSource)
+		if err != nil {
+			_ = application.Shutdown(ctx)
+			return err
+		}
+	}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
@@ -358,7 +373,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		ReleaseBuildID: operations.build.ReleaseBuildID, EvaluatorVersion: "1.0.0",
 	}
 	restoreService, err := recovery.NewOperationsService(recovery.OperationsConfig{
-		Sources: recovery.SourceVerifier{Local: backupRepository, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
+		Sources: recovery.SourceVerifier{Local: backupRepository, Snapshots: restoreSnapshotResolver, Compatibility: restoreCompatibility, Audit: restoreAudit, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
 		Plans: restorePlanner, Sessions: restoreSessions, Candidates: restoreCandidates, Canary: recovery.CanaryVerifier{},
 		TargetReleaseBuildID: operations.build.ReleaseBuildID, TargetToolVersion: operations.build.ToolVersion, TargetSchemaVersion: strconv.FormatUint(health.SchemaVersion, 10),
 	})
