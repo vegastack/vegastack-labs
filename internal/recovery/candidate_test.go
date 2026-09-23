@@ -61,7 +61,7 @@ func TestCandidatePathsAreFixedSiblings(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if paths.Candidate != "/var/lib/vsk-labs/.control.db.recovery-plan-a.candidate" || paths.PreservedAuthority != "/var/lib/vsk-labs/.control.db.recovery-plan-a.former" || paths.AuthorityLock != "/var/lib/vsk-labs/control.db.lock" {
+	if paths.Candidate != "/var/lib/vsk-labs/.control.db.recovery-plan-a.candidate" || paths.PreservedAuthority != "/var/lib/vsk-labs/.control.db.recovery-plan-a.former" || paths.TransitionJournal != "/var/lib/vsk-labs/.control.db.recovery-plan-a.journal" || paths.AuthorityLock != "/var/lib/vsk-labs/control.db.lock" {
 		t.Fatalf("paths=%#v", paths)
 	}
 	if _, err := DeriveCandidatePaths("relative.db", "plan-a"); err == nil {

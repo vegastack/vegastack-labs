@@ -15,7 +15,7 @@ import (
 
 var candidatePlanID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 
-type CandidatePaths struct{ Candidate, PreservedAuthority, AuthorityLock string }
+type CandidatePaths struct{ Candidate, PreservedAuthority, TransitionJournal, AuthorityLock string }
 type candidateTarget struct{ path string }
 
 func (candidateTarget) recoveryCandidateTarget() {}
@@ -59,7 +59,15 @@ func DeriveCandidatePaths(databasePath, planID string) (CandidatePaths, error) {
 		return CandidatePaths{}, failure.New(generated.ErrorCodeInputInvalid, "recovery-candidate-path", false)
 	}
 	directory, base := filepath.Dir(databasePath), filepath.Base(databasePath)
-	return CandidatePaths{Candidate: filepath.Join(directory, "."+base+".recovery-"+planID+".candidate"), PreservedAuthority: filepath.Join(directory, "."+base+".recovery-"+planID+".former"), AuthorityLock: databasePath + ".lock"}, nil
+	prefix := filepath.Join(directory, "."+base+".recovery-"+planID)
+	return CandidatePaths{Candidate: prefix + ".candidate", PreservedAuthority: prefix + ".former", TransitionJournal: prefix + ".journal", AuthorityLock: databasePath + ".lock"}, nil
+}
+
+// CandidateTargetPath is the sole path disclosure to a snapshot resolver. The
+// resolver cannot construct a target and therefore cannot redirect a restore.
+func CandidateTargetPath(target CandidateTarget) (string, bool) {
+	value, ok := target.(candidateTarget)
+	return value.path, ok && value.path != ""
 }
 
 func (manager CandidateManager) Stage(ctx context.Context, binding generated.RestoreBinding, source VerifiedSource, fence FenceResult) (CandidateReceipt, error) {
