@@ -3,6 +3,7 @@ package server
 import (
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/tls"
 	"encoding/json"
 	"encoding/pem"
 	"net/http"
@@ -19,7 +20,7 @@ func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	server := httptest.NewTLSServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		var input recoveryCanaryCapabilityRequest
 		if request.Method != http.MethodPost || json.NewDecoder(request.Body).Decode(&input) != nil {
 			http.Error(writer, "bad request", http.StatusBadRequest)
@@ -33,9 +34,11 @@ func TestSystemRecoveryCanaryCapabilitiesBindExactFreshOutputs(t *testing.T) {
 		writer.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(writer).Encode(signedRecoveryCanaryCapabilityResult{Result: result, Signature: ed25519.Sign(private, append([]byte(recoveryCanaryResponseDomain), canonical...))})
 	}))
+	server.TLS = &tls.Config{MinVersion: tls.VersionTLS13, ClientAuth: tls.RequireAnyClientCert}
+	server.StartTLS()
 	defer server.Close()
 	root := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: server.Certificate().Raw})
-	config := recoveryCanaryCapabilityConfig{Schema: "vegastack-labs.dev/recovery-canary-capabilities", SchemaVersion: "1.0.0", Endpoint: server.URL + "/v1/canary", ObserverID: "independent-recovery-operator", ObserverPublicKey: public, RootCAPEM: root}
+	config := recoveryCanaryCapabilityConfig{Schema: "vegastack-labs.dev/recovery-canary-capabilities", SchemaVersion: "1.0.0", Endpoint: server.URL + "/v1/canary", ObserverID: "independent-recovery-operator", ObserverPublicKey: public, RootCAPEM: root, ClientCertificate: server.TLS.Certificates[0]}
 	capability := &systemRecoveryCanaryCapabilities{load: func() (recoveryCanaryCapabilityConfig, error) { return config, nil }, clock: func() time.Time { return now }}
 	request := recovery.CanaryRequest{PlanID: "plan-a", PlanDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", NewInstanceID: "instance-new", FenceSetDigest: "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", CanaryRunID: "canary-run-a", CanaryStepID: "canary-step-a", CanaryLeaseID: "canary-lease-a", CanaryChallengeID: "canary-challenge-a", CanaryReceiptID: "canary-receipt-a", RecoveryEpoch: 3, ExpectedStateRevision: 8, StartedAt: now.Add(-time.Second)}
 	if id, err := capability.AppendRecoveryCheckpoint(t.Context(), request, request.CanaryRunID); err != nil || id != "checkpoint-new" {

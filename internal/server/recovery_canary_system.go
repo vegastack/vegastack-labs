@@ -21,12 +21,13 @@ const systemRecoveryCanaryConfigPath = "/etc/vsk-labs/recovery/canary-capabiliti
 const recoveryCanaryResponseDomain = "vegastack-labs.dev/recovery-canary-capability-response/v1\x00"
 
 type recoveryCanaryCapabilityConfig struct {
-	Schema            string `json:"schema"`
-	SchemaVersion     string `json:"schemaVersion"`
-	Endpoint          string `json:"endpoint"`
-	ObserverID        string `json:"observerId"`
-	ObserverPublicKey []byte `json:"observerPublicKey"`
-	RootCAPEM         []byte `json:"rootCaPem"`
+	Schema            string          `json:"schema"`
+	SchemaVersion     string          `json:"schemaVersion"`
+	Endpoint          string          `json:"endpoint"`
+	ObserverID        string          `json:"observerId"`
+	ObserverPublicKey []byte          `json:"observerPublicKey"`
+	RootCAPEM         []byte          `json:"rootCaPem"`
+	ClientCertificate tls.Certificate `json:"-"`
 }
 
 type recoveryCanaryCapabilityRequest struct {
@@ -89,7 +90,7 @@ func (capability *systemRecoveryCanaryCapabilities) invoke(ctx context.Context, 
 	config, err := capability.load()
 	endpoint, parseErr := url.Parse(config.Endpoint)
 	pool := x509.NewCertPool()
-	if err != nil || parseErr != nil || config.Schema != "vegastack-labs.dev/recovery-canary-capabilities" || config.SchemaVersion != "1.0.0" || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Path == "" || config.ObserverID == "" || len(config.ObserverPublicKey) != ed25519.PublicKeySize || !pool.AppendCertsFromPEM(config.RootCAPEM) {
+	if err != nil || parseErr != nil || config.Schema != "vegastack-labs.dev/recovery-canary-capabilities" || config.SchemaVersion != "1.0.0" || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.Path == "" || config.ObserverID == "" || len(config.ObserverPublicKey) != ed25519.PublicKeySize || !pool.AppendCertsFromPEM(config.RootCAPEM) || len(config.ClientCertificate.Certificate) == 0 || config.ClientCertificate.PrivateKey == nil {
 		return blocked()
 	}
 	body, err := json.Marshal(request)
@@ -102,7 +103,7 @@ func (capability *systemRecoveryCanaryCapabilities) invoke(ctx context.Context, 
 	}
 	httpRequest.Header.Set("Content-Type", "application/json")
 	httpRequest.Header.Set("Accept", "application/json")
-	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pool, ServerName: endpoint.Hostname()}, DisableCompression: true, ForceAttemptHTTP2: true}, CheckRedirect: func(*http.Request, []*http.Request) error {
+	client := &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{MinVersion: tls.VersionTLS13, RootCAs: pool, ServerName: endpoint.Hostname(), Certificates: []tls.Certificate{config.ClientCertificate}}, DisableCompression: true, ForceAttemptHTTP2: true}, CheckRedirect: func(*http.Request, []*http.Request) error {
 		return failure.New(generated.ErrorCodeAuthorizationDenied, "recovery-canary-capability", false)
 	}}
 	response, err := client.Do(httpRequest)
