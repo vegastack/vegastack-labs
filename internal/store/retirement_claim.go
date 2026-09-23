@@ -70,20 +70,24 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-lock-catalog", false, lockErr)
 		}
 		var acknowledgementID, humanID, executorMaximum, planExpires, acknowledgementExpires string
+		planTargetDigest, targetErr := localRepositoryPlanTargetDigest(repo)
+		if targetErr != nil {
+			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-target", false, targetErr)
+		}
 		expiry := request.MaximumExpiresAt.Format(time.RFC3339)
 		err := tx.QueryRowContext(ctx, `SELECT a.acknowledgement_id,a.human_id,e.maximum_expires_at,p.expires_at,a.expires_at
 			FROM plan_runs r
 			JOIN immutable_plans p ON p.plan_id=r.plan_id AND p.plan_digest=r.plan_digest
 			JOIN plan_run_steps s ON s.run_id=r.run_id AND s.step_id=? AND s.status='running' AND s.effect_state='intent-recorded'
 				AND s.operation_type='backup.local.retire' AND s.adapter_id='local.retention' AND s.target_id=?
-				AND s.input_digest=(SELECT selection_digest FROM backup_retirement_intents WHERE intent_id=?) AND s.artifact_digest=? AND s.active_lease_id=?
+				AND s.input_digest=json_extract(p.canonical_bytes,'$.operations[0].inputDigest') AND s.artifact_digest=? AND s.active_lease_id=?
 			JOIN target_execution_leases e ON e.lease_id=? AND e.run_id=r.run_id AND e.step_id=s.step_id AND e.target_id=? AND e.recovery_epoch=? AND e.status='active'
 			JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id AND a.plan_id=r.plan_id AND a.plan_digest=r.plan_digest
-				AND a.target_digest=(SELECT selection_digest FROM backup_retirement_intents WHERE intent_id=?) AND a.state_revision=? AND a.recovery_epoch=?
+				AND a.target_digest=? AND a.state_revision=? AND a.recovery_epoch=?
 				AND a.status='approved' AND a.consumed_at IS NOT NULL
 			JOIN acknowledgement_proofs ap ON ap.acknowledgement_id=a.acknowledgement_id AND ap.status='approved'
 			WHERE r.run_id=? AND r.plan_id=? AND r.plan_digest=? AND r.executor_mode='central' AND r.status='running'`, request.StepID, repo,
-			request.IntentID, expectedInventory, request.ExecutorLeaseID, request.ExecutorLeaseID, repo, epoch, request.IntentID, stateRevision, epoch,
+			expectedInventory, request.ExecutorLeaseID, request.ExecutorLeaseID, repo, epoch, planTargetDigest, stateRevision, epoch,
 			request.RunID, request.PlanID, request.PlanDigest).Scan(&acknowledgementID, &humanID, &executorMaximum, &planExpires, &acknowledgementExpires)
 		if err != nil || acknowledgementID == "" || humanID == "" {
 			return newStoreError(generated.ErrorCodeAuthorizationDenied, "local-retirement-human-run", false, err)

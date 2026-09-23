@@ -740,14 +740,15 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 	// The exact binding is derived only from the current plan, run, step and lease
 	// the engine has already verified; no adapter may widen or choose it.
 	binding := adapter.ExactExecutionBinding{
-		PlanID:           plan.PlanID,
-		PlanDigest:       plan.PlanDigest,
-		RunID:            lease.RunID,
-		StepID:           lease.StepID,
-		LeaseID:          lease.LeaseID,
-		StateRevision:    plan.Binding.StateRevision,
-		RecoveryEpoch:    plan.Binding.RecoveryEpoch,
-		MaximumExpiresAt: lease.MaximumExpiresAt,
+		PlanID:             plan.PlanID,
+		PlanDigest:         plan.PlanDigest,
+		RunID:              lease.RunID,
+		StepID:             lease.StepID,
+		LeaseID:            lease.LeaseID,
+		StateRevision:      plan.Binding.StateRevision,
+		RecoveryEpoch:      plan.Binding.RecoveryEpoch,
+		MaximumExpiresAt:   lease.MaximumExpiresAt,
+		ContractExtensions: append([]generated.ContractExtension(nil), plan.Extensions...),
 	}
 	return invokeCredentialEffect(ctx, implementation, operation, binding, values)
 }

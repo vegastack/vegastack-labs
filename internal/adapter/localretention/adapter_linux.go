@@ -62,7 +62,11 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if adapter.ValidateOperation(op) != nil || op.OperationType != OperationType || op.AdapterID != AdapterID || len(values) != 1 || values[0] == nil || len(op.SecretReferences) != 1 || op.SecretReferences[0].Consumer != AdapterID {
 		return effect, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-binding")
 	}
-	intent, err := a.config.Retirements.GetLocalRetirementIntentBySelection(ctx, op.InputDigest)
+	selectionDigest, ok := boundSelectionDigest(binding.ContractExtensions, op.InputDigest)
+	if !ok {
+		return effect, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-declaration")
+	}
+	intent, err := a.config.Retirements.GetLocalRetirementIntentBySelection(ctx, selectionDigest)
 	if err != nil {
 		return effect, err
 	}
@@ -194,6 +198,27 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	}
 	id := intent.IntentID
 	return adapter.Effect{Status: "succeeded", ResultDigest: generation, PendingPointID: &id, Changed: true, EffectObserved: true}, nil
+}
+
+func boundSelectionDigest(extensions []generated.ContractExtension, credentialManifestDigest string) (string, bool) {
+	var selection, credential string
+	for _, extension := range extensions {
+		switch extension.Name {
+		case "x-backup-local-retirement":
+			if selection != "" {
+				return "", false
+			}
+			selection = extension.ValueDigest
+		case "x-credential-bindings":
+			if credential != "" {
+				return "", false
+			}
+			credential = extension.ValueDigest
+		default:
+			return "", false
+		}
+	}
+	return selection, selection != "" && credential != "" && credential == credentialManifestDigest
 }
 
 type custodyRunner struct{ backup.CustodyClient }

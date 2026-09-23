@@ -262,16 +262,28 @@ func localRetentionPlanCandidate(declaration generated.DeclarationRevision, oper
 }
 
 func sealedSingleLocalRetention(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
-	if len(operations) != 1 || operations[0].Idempotent || len(declaration.Extensions) != 1 || declaration.Extensions[0].ValueDigest == "" {
+	if len(operations) != 1 || operations[0].Idempotent {
 		return false
 	}
 	switch declaration.DeclarationType {
 	case "backup.retention-locks":
-		return operations[0].OperationType == "backup.retention-locks.activate" && operations[0].AdapterID == "core.retention-locks" &&
-			declaration.Extensions[0].Name == "x-backup-retention-lock-catalog"
+		return len(declaration.Extensions) == 1 && declaration.Extensions[0].ValueDigest != "" && operations[0].OperationType == "backup.retention-locks.activate" && operations[0].AdapterID == "core.retention-locks" && declaration.Extensions[0].Name == "x-backup-retention-lock-catalog" && operations[0].InputDigest == declaration.Extensions[0].ValueDigest
 	case "backup.retirement":
-		return operations[0].OperationType == "backup.local.retire" && operations[0].AdapterID == "local.retention" &&
-			declaration.Extensions[0].Name == "x-backup-local-retirement"
+		if len(declaration.Extensions) != 2 || operations[0].OperationType != "backup.local.retire" || operations[0].AdapterID != "local.retention" {
+			return false
+		}
+		var credentialDigest, selectionDigest string
+		for _, extension := range declaration.Extensions {
+			switch extension.Name {
+			case "x-credential-bindings":
+				credentialDigest = extension.ValueDigest
+			case "x-backup-local-retirement":
+				selectionDigest = extension.ValueDigest
+			default:
+				return false
+			}
+		}
+		return credentialDigest != "" && selectionDigest != "" && operations[0].InputDigest == credentialDigest
 	default:
 		return false
 	}

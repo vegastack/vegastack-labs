@@ -192,10 +192,22 @@ func (repository *LocalRetirementRepository) StageLocalRetirement(ctx context.Co
 			return err
 		}
 		var plan generated.Plan
-		if !decodeStoredPlan(canonicalPlan, readable, &plan) || plan.Risk != "destructive" || plan.AuthorizationBranch != "human" || plan.ExecutorMode != "central" ||
+		if !decodeStoredPlan(canonicalPlan, readable, &plan) {
+			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-plan", false, nil)
+		}
+		var selectionExtension, credentialExtension string
+		for _, extension := range plan.Extensions {
+			switch extension.Name {
+			case "x-backup-local-retirement":
+				selectionExtension = extension.ValueDigest
+			case "x-credential-bindings":
+				credentialExtension = extension.ValueDigest
+			}
+		}
+		if plan.Risk != "destructive" || plan.AuthorizationBranch != "human" || plan.ExecutorMode != "central" ||
 			plan.Binding.DeclarationRevision != request.SourceRevision || plan.Binding.TargetDigest != targetDigest || len(plan.Operations) != 1 ||
 			plan.Operations[0].OperationType != "backup.local.retire" || plan.Operations[0].AdapterID != "local.retention" ||
-			plan.Operations[0].TargetID != request.RepositoryID || plan.Operations[0].InputDigest != digest ||
+			plan.Operations[0].TargetID != request.RepositoryID || len(plan.Extensions) != 2 || selectionExtension != digest || credentialExtension == "" || plan.Operations[0].InputDigest != credentialExtension ||
 			plan.Operations[0].ArtifactDigest != request.ExpectedInventoryDigest || !retirementDeadlineCurrent(expires, nowTime) {
 			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-plan", false, nil)
 		}

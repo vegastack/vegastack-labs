@@ -12,16 +12,17 @@ import (
 
 func TestCreateSealsLocalRetentionPlansToOneHumanCentralOperation(t *testing.T) {
 	for _, fixture := range []struct {
-		declarationType, operationType, adapterID, extension string
+		declarationType, operationType, adapterID string
+		extensions                                []generated.ContractExtension
 	}{
-		{"backup.retention-locks", "backup.retention-locks.activate", "core.retention-locks", "x-backup-retention-lock-catalog"},
-		{"backup.retirement", "backup.local.retire", "local.retention", "x-backup-local-retirement"},
+		{"backup.retention-locks", "backup.retention-locks.activate", "core.retention-locks", []generated.ContractExtension{{Name: "x-backup-retention-lock-catalog", ValueDigest: testDigestString("a")}}},
+		{"backup.retirement", "backup.local.retire", "local.retention", []generated.ContractExtension{{Name: "x-credential-bindings", ValueDigest: testDigestString("a")}, {Name: "x-backup-local-retirement", ValueDigest: testDigestString("c")}}},
 	} {
 		t.Run(fixture.operationType, func(t *testing.T) {
 			declaration := validDeclaration()
 			declaration.DeclarationType = fixture.declarationType
 			declaration.Operations = []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-retention", OperationType: fixture.operationType, AdapterID: fixture.adapterID, TargetID: "repository-standard", InputDigest: testDigestString("a"), ArtifactDigest: testDigestString("b"), Idempotent: false}}
-			declaration.Extensions = []generated.ContractExtension{{Name: fixture.extension, ValueDigest: testDigestString("c")}}
+			declaration.Extensions = fixture.extensions
 			repository := &fakePlanRepository{declaration: declaration, current: store.RevisionToken{StateRevision: 9, RecoveryEpoch: 2}}
 			service := newTestService(t, repository, &fakeObservations{fingerprint: testDigestString("b")}, func() time.Time { return time.Date(2026, 9, 23, 8, 0, 0, 0, time.UTC) })
 			request := validRequest()
@@ -36,6 +37,9 @@ func TestCreateSealsLocalRetentionPlansToOneHumanCentralOperation(t *testing.T) 
 
 			for _, mutate := range []func(*generated.DeclarationRevision, *Service){
 				func(d *generated.DeclarationRevision, _ *Service) { d.Extensions = nil },
+				func(d *generated.DeclarationRevision, _ *Service) {
+					d.Operations[0].InputDigest = testDigestString("d")
+				},
 				func(d *generated.DeclarationRevision, _ *Service) { d.Operations[0].AdapterID = "adapter-test" },
 				func(d *generated.DeclarationRevision, _ *Service) { d.Operations[0].Idempotent = true },
 				func(d *generated.DeclarationRevision, _ *Service) {

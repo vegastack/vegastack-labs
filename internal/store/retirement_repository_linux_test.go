@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -35,13 +36,16 @@ func retirementStageFixture(t *testing.T, authority *Store, risk, branch string)
 		t.Fatal(err)
 	}
 	request.SelectionDigest = digest
+	binding := credentialref.StepBinding{OperationID: "operation-a", AdapterID: "local.retention", TargetID: request.RepositoryID, ReferenceID: "reference-a", ConsumerID: "local.retention", PurposeID: "backup-retention", MaterialVersion: "version-a", ResolverID: "native-systemd", StateRevision: 2, RecoveryEpoch: 0}
+	credentialDigest := credentialref.OperationManifestDigest([]credentialref.StepBinding{binding}, binding.OperationID)
 	draft := validDeclarationStoreRequest()
 	draft.Document.DeclarationType = "backup.retirement"
 	draft.Document.Operations[0].OperationType = "backup.local.retire"
 	draft.Document.Operations[0].AdapterID = "local.retention"
 	draft.Document.Operations[0].TargetID = request.RepositoryID
-	draft.Document.Operations[0].InputDigest = digest
+	draft.Document.Operations[0].InputDigest = credentialDigest
 	draft.Document.Operations[0].ArtifactDigest = request.ExpectedInventoryDigest
+	draft.Document.Extensions = []generated.ContractExtension{{Name: "x-backup-local-retirement", ValueDigest: digest}, {Name: "x-credential-bindings", ValueDigest: credentialDigest}}
 	draft.Document.ContentDigest = declarationContentDigest(draft.Document, draft.ReasonDigest)
 	created, err := NewDeclarationRepository(authority).CreateRevision(context.Background(), draft)
 	if err != nil {
@@ -56,8 +60,10 @@ func retirementStageFixture(t *testing.T, authority *Store, risk, branch string)
 	commit.Plan.Operations[0].OperationType = "backup.local.retire"
 	commit.Plan.Operations[0].AdapterID = "local.retention"
 	commit.Plan.Operations[0].TargetID = request.RepositoryID
-	commit.Plan.Operations[0].InputDigest = digest
+	commit.Plan.Operations[0].InputDigest = credentialDigest
 	commit.Plan.Operations[0].ArtifactDigest = request.ExpectedInventoryDigest
+	commit.Plan.Extensions = draft.Document.Extensions
+	commit.DesiredDeclaration.Extensions = draft.Document.Extensions
 	commit.Plan.PlanID, commit.Plan.PlanDigest = "", ""
 	preimage, err := json.Marshal(commit.Plan)
 	if err != nil {
