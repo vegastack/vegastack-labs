@@ -482,7 +482,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
+			registryGeneratedOrReviewed := candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed))
+			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
 	}
 	return result, nil
@@ -996,10 +997,12 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	sort.Strings(names)
 	var expected string
 	switch strings.Join(names, ",") {
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,receipt_file_unix.go,transport.go,witness.go":
-		expected = "1323f08cdf7d4f71744f378d89a5b3cd7865ea800b71242d5490f0fbc67a6341"
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,receipt_file_unsupported.go,transport.go,witness.go":
-		expected = "22be2ccc6574690b47bf6854f3e0a255799fc96ec387d0072bda1e40813a7e29"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source_handoff.go,transport.go,witness.go":
+		expected = "65b3dbb8e27253b48ca8a8f00f18fbaead4c0805f46d799c51fbbc0332c95d00"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source_handoff.go,transport.go,witness.go":
+		expected = "21122f580683725b5cc0f293943d0f5b391f0b34427428a6d4a0063f864fd033"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source_handoff.go,transport.go,witness.go":
+		expected = "f920c71a26208d5fb56f7e9d44569c5d3507925ad1827fded64fd7ca65236252"
 	default:
 		return false
 	}

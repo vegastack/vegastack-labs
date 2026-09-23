@@ -46,7 +46,7 @@ func cloneProtectedEnvelope(envelope ProtectedEnvelope) ProtectedEnvelope {
 // sourceQualified seal. It still re-probes every direct-denial endpoint now.
 func VerifyInstalledSource(ctx context.Context, expected WitnessBinding, required []BoundaryRequirement, installed InstalledPackage, qualified QualifiedAdapters, now time.Time) (VerifiedSourceHandoff, error) {
 	var unavailable VerifiedSourceHandoff
-	if ctx == nil || ctx.Err() != nil || now.IsZero() || !validCompleteRequirements(required) || !installed.Pin.matchesBinding(expected) || !qualified.sourceQualified || !witnessDigest.MatchString(qualified.qualificationDigest) || qualified.qualificationExpiry.IsZero() || !now.Before(qualified.qualificationExpiry) || len(required) != len(installed.Pin.Requirements) {
+	if ctx == nil || ctx.Err() != nil || now.IsZero() || !validCompleteRequirements(required) || !installed.Pin.matchesBinding(expected) || !witnessDigest.MatchString(installed.Pin.adminRootDigest) || installed.Pin.adminRootDigest != qualified.adminRootDigest || !qualified.sourceQualified || !witnessDigest.MatchString(qualified.qualificationDigest) || qualified.qualificationExpiry.IsZero() || !now.Before(qualified.qualificationExpiry) || len(required) != len(installed.Pin.Requirements) {
 		return unavailable, ErrWitnessUnavailable
 	}
 	for i := range required {

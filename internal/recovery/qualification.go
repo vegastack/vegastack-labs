@@ -153,5 +153,6 @@ func parseQualifiedAdapters(raw []byte, adminPublic ed25519.PublicKey, required 
 	registry.sourceQualified = true
 	registry.qualificationDigest = "sha256:" + hex.EncodeToString(digest[:])
 	registry.qualificationExpiry = earliestExpiry
+	registry.adminRootDigest = recoveryAdminRootDigest(adminPublic)
 	return registry, nil
 }

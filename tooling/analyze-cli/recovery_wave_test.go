@@ -7,13 +7,14 @@ import (
 )
 
 func TestReviewedRecoveryCustodianClosureRejectsSigningAndSourceDrift(t *testing.T) {
-	common := []string{"artifact.go", "collector.go", "custody.go", "fence_witness.go", "manifest.go", "transport.go", "witness.go"}
+	common := []string{"artifact.go", "collector.go", "custody.go", "fence_witness.go", "manifest.go", "qualification.go", "source_handoff.go", "transport.go", "witness.go"}
 	for _, platform := range []struct {
 		name  string
 		files []string
 	}{
-		{"unix", []string{"manifest_file_unix.go", "receipt_file_unix.go"}},
-		{"unsupported", []string{"manifest_file_unsupported.go", "receipt_file_unsupported.go"}},
+		{"unix", []string{"manifest_file_unix.go", "package_file_unix.go", "qualified_registry_linux.go", "receipt_file_unix.go"}},
+		{"darwin", []string{"manifest_file_unix.go", "package_file_unix.go", "qualified_registry_unsupported.go", "receipt_file_unix.go"}},
+		{"unsupported", []string{"manifest_file_unsupported.go", "package_file_unsupported.go", "qualified_registry_unsupported.go", "receipt_file_unsupported.go"}},
 	} {
 		t.Run(platform.name, func(t *testing.T) {
 			directory := t.TempDir()

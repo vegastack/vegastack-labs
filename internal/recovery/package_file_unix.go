@@ -115,9 +115,6 @@ func readProtectedPackageFiles(directory string, uid uint32, afterOpen func()) (
 			return empty, ErrWitnessUnavailable
 		}
 	}
-	if afterOpen != nil {
-		afterOpen()
-	}
 	var content [2][]byte
 	for i, file := range files {
 		data, readErr := io.ReadAll(io.LimitReader(file, int64(limits[i])+1))
@@ -125,6 +122,21 @@ func readProtectedPackageFiles(directory string, uid uint32, afterOpen func()) (
 			return empty, ErrWitnessUnavailable
 		}
 		content[i] = data
+	}
+	if afterOpen != nil {
+		afterOpen()
+	}
+	// Read each already-opened inode twice. Metadata timestamps alone can have
+	// insufficient resolution to expose a same-size rewrite on every supported
+	// filesystem, while byte equality closes that inspection/use race.
+	for i, file := range files {
+		if _, seekErr := file.Seek(0, io.SeekStart); seekErr != nil {
+			return empty, ErrWitnessUnavailable
+		}
+		data, readErr := io.ReadAll(io.LimitReader(file, int64(limits[i])+1))
+		if readErr != nil || len(data) != int(stats[i].Size) || !bytes.Equal(content[i], data) {
+			return empty, ErrWitnessUnavailable
+		}
 	}
 	for i, name := range names {
 		var opened, current unix.Stat_t

@@ -41,6 +41,7 @@ type QualifiedAdapters struct {
 	sourceQualified     bool
 	qualificationDigest string
 	qualificationExpiry time.Time
+	adminRootDigest     string
 }
 
 func NewQualifiedAdapters() QualifiedAdapters {
@@ -57,6 +58,7 @@ func (registry *QualifiedAdapters) Register(id string, verifier DirectDenialVeri
 	registry.sourceQualified = false
 	registry.qualificationDigest = ""
 	registry.qualificationExpiry = time.Time{}
+	registry.adminRootDigest = ""
 	if !validWitnessToken(id) || verifier == nil {
 		return
 	}

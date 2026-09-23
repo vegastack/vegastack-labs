@@ -54,6 +54,8 @@ func installedSourceFixture(t *testing.T) (InstalledPackage, []BoundaryRequireme
 		t.Fatal(err)
 	}
 	factories := map[string]qualifiedFactory{entry.AdapterID: {implementationDigest: entry.ImplementationDigest, new: func(AdapterQualification) DirectDenialVerifier { return fixtureDenialVerifier{} }}}
+	pin.adminRootDigest = recoveryAdminRootDigest(adminPublic)
+	pin.pinSeal = pin.seal()
 	qualified, err := parseQualifiedAdapters(raw, adminPublic, required, now, factories)
 	if err != nil {
 		t.Fatalf("qualification: %v", err)
@@ -65,6 +67,11 @@ func TestInstalledSourceRejectsPartialFenceAndBurnsFailedCustody(t *testing.T) {
 	installed, required, qualified, binding, now, recipientSeed := installedSourceFixture(t)
 	if _, err := VerifyInstalledSource(context.Background(), binding, required[:1], installed, qualified, now); err == nil {
 		t.Fatal("partial required boundary admitted")
+	}
+	otherRoot := qualified
+	otherRoot.adminRootDigest = "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+	if _, err := VerifyInstalledSource(context.Background(), binding, required, installed, otherRoot, now); err == nil {
+		t.Fatal("qualification from a different admin root admitted")
 	}
 	bad := qualified
 	bad.entries = map[string]DirectDenialVerifier{"adapter-1": fixtureDenialVerifier{reject: true}}

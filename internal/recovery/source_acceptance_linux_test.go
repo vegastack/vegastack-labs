@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"syscall"
 	"testing"
@@ -176,7 +177,7 @@ func TestSourceQualificationRequiresEveryDirectBoundaryAndExternalRoot(t *testin
 	_, binding, _, _ := witnessFixture(t)
 	now := time.Now().UTC()
 	required, _, _, _ := boundaryFixture()
-	required = append([]BoundaryRequirement(nil), required[:2]...)
+	required = append([]BoundaryRequirement(nil), required...)
 	for i := range required {
 		required[i].AdapterID = "isolated-http-v1"
 	}
@@ -189,9 +190,17 @@ func TestSourceQualificationRequiresEveryDirectBoundaryAndExternalRoot(t *testin
 	if err != nil {
 		t.Fatal(err)
 	}
-	first := required[0]
-	qualification := AdapterQualification{AdapterID: first.AdapterID, Kind: first.Kind, SubjectID: first.SubjectID, TargetID: first.TargetID, FormerIdentityID: first.FormerIdentityID, ImplementationDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)}
-	qualificationPayload := QualificationRecord{RecordID: "source-qualification-1", Entries: []AdapterQualification{qualification}}
+	qualificationsByGroup := make(map[string]AdapterQualification)
+	for _, item := range required {
+		entry := AdapterQualification{AdapterID: item.AdapterID, Kind: item.Kind, SubjectID: item.SubjectID, TargetID: item.TargetID, FormerIdentityID: item.FormerIdentityID, ImplementationDigest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Hour)}
+		qualificationsByGroup[qualificationKey(entry)] = entry
+	}
+	qualifications := make([]AdapterQualification, 0, len(qualificationsByGroup))
+	for _, entry := range qualificationsByGroup {
+		qualifications = append(qualifications, entry)
+	}
+	sort.Slice(qualifications, func(i, j int) bool { return qualificationKey(qualifications[i]) < qualificationKey(qualifications[j]) })
+	qualificationPayload := QualificationRecord{RecordID: "source-qualification-1", Entries: qualifications}
 	qualificationCanonical, err := CanonicalQualificationRecord(qualificationPayload)
 	if err != nil {
 		t.Fatal(err)
@@ -232,8 +241,20 @@ func TestSourceQualificationRequiresEveryDirectBoundaryAndExternalRoot(t *testin
 	if err := os.Chown(receiptDirectory, int(replacementUID), int(replacementUID)); err != nil {
 		t.Fatal(err)
 	}
+	testExecutable, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	testExecutableBytes, err := os.ReadFile(testExecutable)
+	if err != nil {
+		t.Fatal(err)
+	}
+	helperExecutable := filepath.Join(directory, "source-admission-helper")
+	if err := os.WriteFile(helperExecutable, testExecutableBytes, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	run := func(uid uint32, role string) string {
-		command := exec.Command(os.Args[0], "-test.run=^TestSourceQualificationProcessHelper$", "-test.v=false")
+		command := exec.Command(helperExecutable, "-test.run=^TestSourceQualificationProcessHelper$", "-test.v=false")
 		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: uid, Gid: uid}}
 		command.Env = append(os.Environ(), "VSK_SOURCE_ADMISSION_HELPER="+role, "VSK_SOURCE_ADMISSION_DIR="+directory, "VSK_SOURCE_ADMISSION_URL="+server.URL)
 		output, commandErr := command.CombinedOutput()
