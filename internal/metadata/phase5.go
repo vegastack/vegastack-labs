@@ -13,6 +13,7 @@ const (
 	backupJobSchemaID                     = "vegastack-labs.dev/backup-job"
 	backupVerificationAttemptSchemaID     = "vegastack-labs.dev/backup-verification-attempt"
 	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
+	backupTrustSourceDraftRequestSchemaID = "vegastack-labs.dev/backup-trust-source-draft-request"
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
 	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
@@ -259,6 +260,17 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 
 func phase5RecoveryJobSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		phase5Schema(backupTrustSourceDraftRequestSchemaID,
+			phase5ID("sourceId", "SourceID"), phase5ID("dependencyId", "DependencyID"),
+			phase5Enum("dependencyKind", "DependencyKind", "config", "image", "signature"),
+			phase5ID("artifactId", "ArtifactID"), phase5Digest("artifactDigest", "ArtifactDigest"),
+			phase5Digest("bundleDigest", "BundleDigest"), phase5ID("trustedRootReferenceId", "TrustedRootReferenceID"),
+			phase5Digest("trustRootDigest", "TrustRootDigest"),
+			FieldDefinition{JSONName: "signerIdentity", GoName: "SignerIdentity", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(512)},
+			FieldDefinition{JSONName: "signerIssuer", GoName: "SignerIssuer", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(512)},
+			phase5Positive("revision", "Revision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5ID("idempotencyKey", "IdempotencyKey"),
+		),
 		// BackupDependency is a nested sub-object (like a principal binding); it
 		// carries no schema/schemaVersion envelope of its own.
 		{ID: backupDependencySchemaID, Version: "1.1.0", ArtifactPath: schemaPath(backupDependencySchemaID), Fields: []FieldDefinition{
