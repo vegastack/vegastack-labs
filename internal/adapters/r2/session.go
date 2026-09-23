@@ -50,6 +50,7 @@ func (issuer SessionIssuer) Issue(ctx context.Context, request adapter.SessionRe
 	}
 	session, err := issuer.Signer.SignScopedSession(ctx, parent.Bytes(), request)
 	if err != nil {
+		zeroSession(&session)
 		return adapter.ScopedS3Session{}, err
 	}
 	if len(session.AccessKeyID) == 0 || len(session.SecretAccessKey) == 0 || len(session.SessionToken) == 0 ||
