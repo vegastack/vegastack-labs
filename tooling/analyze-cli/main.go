@@ -1243,16 +1243,17 @@ func fileImportsOSExec(path string) (bool, error) {
 	return false, nil
 }
 
-// Exact Linux-only package seal includes #143's delegated OS probe and #141's
-// typed D-Bus lifecycle verifier. Any production edit must be reviewed and
-// resealed; no generic shell, provider, or server path allowance is added.
-const reviewedNativeCredentialDigest = "b1755e3590a11c4e2a2861fe3b12c1b6aad16de8e53ea1714839424b22dbf20d"
+// Exact Linux-only package seal includes #143's delegated OS probe, #141's
+// typed D-Bus lifecycle verifier, and #144's existing-draft recovery compare.
+// Any production edit must be reviewed and resealed; no generic shell,
+// provider, or server path allowance is added.
+const reviewedNativeCredentialDigest = "20872b9996adb7eed1e2b5fb907ee213377fe365943158065b31f58b4d533c26"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
 	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
 		return false
 	}
-	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "lifecycle_verifier_linux.go", "policy_check_linux.go", "probe_linux.go", "process_observer_linux.go", "resolver_linux.go", "systemd_linux.go"}
+	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "lifecycle_verifier_linux.go", "policy_check_linux.go", "probe_linux.go", "process_observer_linux.go", "resolver_linux.go", "systemd_linux.go", "verify_recovery_linux.go"}
 	if len(candidate.listed.GoFiles) != len(expectedFiles) {
 		return false
 	}
@@ -1262,7 +1263,7 @@ func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCrede
 		}
 	}
 	approvedImports := map[string]bool{
-		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
+		"bytes": true, "context": true, "crypto/sha256": true, "crypto/subtle": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
 		"io": true, "os": true, "os/exec": true, "os/user": true, "path/filepath": true, "reflect": true, "regexp": true,
 		"slices": true, "strconv": true, "strings": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
 		"github.com/godbus/dbus/v5":            true,

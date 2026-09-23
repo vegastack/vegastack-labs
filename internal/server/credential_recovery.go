@@ -32,6 +32,7 @@ type RecoveryCustodyRequest struct {
 	PlanID, PlanDigest string
 	RunID, StepID      string
 	LeaseID            string
+	StateRevision      int64
 	PriorRecoveryEpoch int64
 	RecoveryEpoch      int64
 }
@@ -110,7 +111,7 @@ func (verifier *RecoveryCustodyVerifier) Verify(ctx context.Context, binding run
 	}
 	request := RecoveryCustodyRequest{Draft: draft, PlanID: binding.Plan.PlanID, PlanDigest: binding.Plan.PlanDigest,
 		RunID: binding.Run.RunID, StepID: binding.Step.StepID, LeaseID: binding.Lease.LeaseID,
-		PriorRecoveryEpoch: *lifecycle.PriorRecoveryEpoch, RecoveryEpoch: lifecycle.RecoveryEpoch}
+		StateRevision: lifecycle.StateRevision, PriorRecoveryEpoch: *lifecycle.PriorRecoveryEpoch, RecoveryEpoch: lifecycle.RecoveryEpoch}
 	proof, proofErr := verifier.source.VerifyRecovery(ctx, request)
 	if proofErr != nil || ctx.Err() != nil {
 		return result, recoveryError(generated.ErrorCodeRecoveryRequired, "credential-recovery-independent-proof")
