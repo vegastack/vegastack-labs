@@ -2,6 +2,56 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-09-2026 — Local backup repositories have a separate short-lived custodian ([#163](https://github.com/vegastack/vegastack-labs/issues/163))
+
+- **What:** Backup creation and verification now request one bounded custody mode of the existing `vsk-labs` executable through an exact root-owned systemd template. The persistent controller, repository owner and pinned restic process run as three distinct UIDs and exchange only authenticated typed messages.
+- **Why:** The earlier same-process REST boundary constrained operations but still left the controller able to open repository paths directly, so writer and verifier separation did not establish independent repository custody.
+- **How it went:** A disposable Debian 13 ext4 fixture ran the actual controller as UID 21164, custody as UID 21163 and official restic 0.19.1 as UID 21165. It proved two writes and restoration of the older point while direct repository opens and forged unit, argument, path, identity and nonce requests failed. Integration with the merged native-authority work added a live effective-policy check before each exact unit start.
+- **Changed:** Root-owned custody profile and finite supervisor · authenticated lease/journal IPC · distinct-UID restic execution · brokered inventory/capacity/results · direct-path and forged-request denial · analyzer and reviewed-source seals · human failure procedure.
+- **Decisions:** none; the fixture installs no live account, unit, policy or storage, and does not close `G-008` or authorize pruning, retention changes or recovery cutover.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/163-local-repository-custody
+
+## 23-09-2026 — Affected checks understand Linux-only Go packages ([#169](https://github.com/vegastack/vegastack-labs/issues/169))
+
+- **What:** Focused Go vet and test compilation now apply the supported Linux target when a changed package has no macOS-buildable files; Linux hosts run its tests normally.
+- **Why:** The first local affected check after the Phase 5 CI correction selected the right native-credential package but ran it under macOS, where every production file is excluded by build constraints.
+- **How it went:** A red package-selection regression reproduced the exact failure. The planner now carries an explicit target policy for the Linux-only package, preserves ordinary portable commands, cross-compiles its test binary on other hosts, and runs the real tests on Linux.
+- **Changed:** Target-aware affected Go vet · host-runnable target test proof · Linux-only fixture and regression test.
+- **Decisions:** none; unrecognized target-only topology still fails closed, and final native Linux acceptance remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/169-linux-go-target
+
+## 23-09-2026 — Phase 5 stopped starting CI for every landing ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
+
+- **What:** Intermediate Phase 5 changes now prove their exact current-main diff locally and do not start GitHub CI when a pull request opens or merges. Public CI is manual-only for the final full acceptance and named native lanes.
+- **Why:** Even an affected automatic lane repeated setup and check work at branch, pull-request, and post-merge stages; the operator required one focused proof per intermediate change and one broad proof at the end.
+- **How it went:** A follow-up correction removed the automatic triggers and hosted PR job, strengthened the workflow guard, and taught the local ship gate to bind the affected command to the clean pushed head and current remote base before and after it runs.
+- **Changed:** Dispatch-only Public CI · exact local affected ship proof · future-session policy and deterministic guards.
+- **Decisions:** none; unsafe affected classifications still fail closed locally, and named native acceptance remains explicit.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-manual-only-ci
+
+## 23-09-2026 — Phase 5 checks run at the scope that changed ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
+
+- **What:** Intermediate Phase 5 branches can prove an exact base and head with affected policy groups and changed Go package tests, while the final integration or acceptance candidate has one explicit complete lane.
+- **Why:** An implicit full manual check followed by PR and post-merge checks repeatedly exercised unchanged packages and browser acceptance, delaying a serial delivery chain without adding distinct evidence.
+- **How it went:** The existing affected planner already protected unknown and dependency changes. The correction added package targets, fail-closed Go topology changes, and explicit manual affected/full inputs while retaining repository-wide compilation and hosted integration checks.
+- **Changed:** Changed-package Go tests and vet · exact-base manual CI mode · explicit final full mode · exact-head ship proof policy.
+- **Decisions:** none; issue-specific native acceptance and the final Phase 5 full integration proof remain required.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-fast-batch
+
+## 22-09-2026 — A clean replacement can inspect a protected recovery handoff ([#159](https://github.com/vegastack/vegastack-labs/issues/159))
+
+- **What:** The software can read one administrator-installed public witness and encrypted envelope from protected files, match them to a signed manifest and a closed direct-denial verifier registration, and offer a one-use digest-only handoff to a later exact-inode comparator.
+- **Why:** The prior witness and collector fixtures proved protocol shape but offered no protected production source reader or qualified adapter registration seam for a clean replacement.
+- **How it went:** Red-first file tests caught both replaced inodes and same-size in-place rewrites. The ordinary production verifier registry remains empty; disposable endpoint and process tests prove software behavior only, not independent site enrollment.
+- **Changed:** Protected package reader · signed exact-boundary registration · fresh direct-denial recheck · one-use custody handoff · human failure procedure.
+- **Decisions:** none; #144 still needs an externally enrolled source and real endpoint qualification, while #108 owns current replacement authority. No live `G-007` or `G-008` evidence is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/159-recovery-source-admission
+
 ## 22-09-2026 — Local backup points can prove they are restorable ([#117](https://github.com/vegastack/vegastack-labs/issues/117))
 
 - **What:** A pending encrypted local point can now be checked against its exact retained objects, read fully by pinned restic, and restored into an isolated SQLite inspection before it becomes current local last-good. The backup status and exact human-approved run and verify commands expose the result without giving the CLI a separate mutation path.
@@ -11,6 +61,44 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none; [#115](https://github.com/vegastack/vegastack-labs/issues/115) still owns safe retirement and successor-pack lineage, [#154](https://github.com/vegastack/vegastack-labs/issues/154) owns the missing trusted dependency sources, and no off-site or live recovery gate is claimed.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/117-integration-140
+
+## 22-09-2026 — A durable run keeps its SSE cursor across same-run reads ([#156](https://github.com/vegastack/vegastack-labs/issues/156))
+
+- **What:** The Console keeps `Last-Event-ID` while the same run's GET response changes, resets it for a new run ID, and Phase 4 CI reports a bounded test title, failing assertion location, status and descriptor.
+- **Why:** A normal read could replace the cached response, restart the watcher and clear the cursor; the acceptance wrapper then hid the browser failure behind a stage code.
+- **How it went:** A focused browser test forced a revision change after the first event and failed with an empty second cursor before the fix. A separate two-run test failed with the old cursor when the reset was removed. CI then required regeneration of the embedded Console bundle and a new Phase 2 reviewed source seal for those measured production bytes. No live run or private operational state was involved.
+- **Changed:** Run watcher lifecycle · regenerated embedded Console assets · measured Phase 2 reviewed wave · deterministic SSE regression fixture · sanitized Phase 4 and exit diagnostics.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/156-phase4-browser-reconnect
+## 22-09-2026 — A custodian can collect a bounded recovery witness on disposable endpoints ([#153](https://github.com/vegastack/vegastack-labs/issues/153))
+
+- **What:** The single `vsk-labs` executable has a finite custodian-side command that reads a protected admin pin and two private descriptors, probes every declared former-controller boundary, signs one exact attempt, and encrypts the held material to the replacement recipient.
+- **Why:** The verification protocol alone could check a witness artifact but did not collect it from an independently held source; a status bit or a copied controller secret cannot prove former-controller denial.
+- **How it went:** Red-first result-binding and collector tests preceded a typed CLI route. An independent review found the ordinary request could omit a whole boundary kind and that only in-process tests could reach an adapter. The collector now takes its exact set from the administrator-signed manifest; a disposable-only binary runs the finite command as a separate Linux custodian identity and a replacement process rechecks the signed bundle and encrypted handoff. The production registry remains empty. The CLI analyzer pins the exact custodian source; changed source bytes fail closed.
+- **Changed:** Typed challenge/result binding · finite collection and re-probe · bounded descriptor custody · generated JSON command/data contract · exact-source CLI analyzer guard · disposable endpoint acceptance and manual handback.
+- **Decisions:** none; the production adapter registry is empty, no custodian or key was enrolled, and #144/#108 still require real clean-host composition and current-authority proof before any recovery gate can move.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/153-custodian-witness-collection
+## 22-09-2026 — Native credential delivery can be proven on a disposable host ([#141](https://github.com/vegastack/vegastack-labs/issues/141))
+
+- **What:** The local Linux verifier can compare a planned encrypted credential with the exact systemd unit, running process, loaded credential file and denied reader set. It returns one complete typed proof only after every positive and denied probe agrees; server composition still leaves the production gate unavailable.
+- **Why:** The earlier lifecycle engine had no trustworthy evidence that the intended service actually received the host-key credential or that other local identities could not read it.
+- **How it went:** The first real Debian VM run exposed a root-owned credential file and mount-namespace observation that the synthetic tests had missed. The verifier was corrected to prove access under the service identity and use a root-owned namespace receipt, then a two-unit, two-denied-identity matrix passed with negative mutations and cleanup.
+- **Changed:** Typed systemd D-Bus observation · exact process and inode binding · direct denied-reader probes · qualified local server composition · disposable Linux acceptance fixture · sealed CLI and Phase 2 source checks. No production authority or live G-007 proof was registered.
+- **Decisions:** none; the separately reviewed [#140](https://github.com/vegastack/vegastack-labs/issues/140) reader map and [#143](https://github.com/vegastack/vegastack-labs/issues/143) OS authority must land before this composition is integrated.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/141-native-credential-lifecycle
+
+## 22-09-2026 — Local credential checks can use narrowly delegated host authority ([#143](https://github.com/vegastack/vegastack-labs/issues/143))
+
+- **What:** The unprivileged server can request an exact enrolled service restart and a metadata-only credential access probe through a root-owned policy. The policy checks the current unit, process identity and allowed arguments; a broader host grant or changed identity blocks the result.
+- **Why:** Native credential verification needed a real way to restart the intended service and test the actual reader identities without making the server root or trusting a simulated observer.
+- **How it went:** The disposable self-hosted runner lacked required tools and its positive probe refused, so a fresh mount-free Debian VM supplied the full systemd, polkit and sudo allow/deny test. The VM passed and was deleted. Hosted CI also caught a Linux witness test fixture whose fixed expiry passed during development but expired at 06:30 AM IST; its acceptance test now pins expiry relative to the test clock.
+- **Changed:** Exact restart and probe policy · Ansible role · local authority adapter · synthetic acceptance fixture · fail-closed analyzer and Phase 2 guards · human test route.
+- **Decisions:** none; [#141](https://github.com/vegastack/vegastack-labs/issues/141) still owns native lifecycle composition, and live G-007 evidence remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/143-native-credential-authority
 
 ## 22-09-2026 — Independent recovery evidence has a bounded software handback ([#146](https://github.com/vegastack/vegastack-labs/issues/146))
 

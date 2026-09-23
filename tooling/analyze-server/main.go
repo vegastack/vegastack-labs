@@ -16,13 +16,14 @@ import (
 )
 
 type analysis struct {
-	ExecutableDirectories []string `json:"executableDirectories"`
-	TCPListener           bool     `json:"tcpListener"`
-	IdentityHeaderTrust   bool     `json:"identityHeaderTrust"`
-	ContextSetterOutside  bool     `json:"contextSetterOutside"`
-	SQLiteAccess          bool     `json:"sqliteAccess"`
-	XSysOutsideScope      bool     `json:"xSysOutsideScope"`
-	PlatformScopeInvalid  bool     `json:"platformScopeInvalid"`
+	ExecutableDirectories    []string `json:"executableDirectories"`
+	TCPListener              bool     `json:"tcpListener"`
+	IdentityHeaderTrust      bool     `json:"identityHeaderTrust"`
+	ContextSetterOutside     bool     `json:"contextSetterOutside"`
+	SQLiteAccess             bool     `json:"sqliteAccess"`
+	XSysOutsideScope         bool     `json:"xSysOutsideScope"`
+	PlatformScopeInvalid     bool     `json:"platformScopeInvalid"`
+	RepositoryCustodyInvalid bool     `json:"repositoryCustodyInvalid"`
 }
 
 func main() {
@@ -46,6 +47,7 @@ func analyze(root string) (analysis, error) {
 	var result analysis
 	mainDirectories := make(map[string]bool)
 	serverSource := strings.Builder{}
+	localBackupSource := strings.Builder{}
 	remoteListenerPresent := false
 	approvedRemoteTCP := make(map[token.Pos]bool)
 	err := filepath.WalkDir(root, func(filename string, entry os.DirEntry, walkErr error) error {
@@ -88,6 +90,9 @@ func analyze(root string) (analysis, error) {
 		if isServer {
 			serverSource.Write(content)
 		}
+		if relative == "internal/adapter/localbackup/adapter.go" || relative == "internal/adapter/localbackup/verify.go" {
+			localBackupSource.Write(content)
+		}
 		for _, imported := range file.Imports {
 			importPath, err := strconv.Unquote(imported.Path.Value)
 			if err != nil {
@@ -104,7 +109,7 @@ func analyze(root string) (analysis, error) {
 				result.SQLiteAccess = true
 			}
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
-			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go"
+			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/lifecycle_verifier_linux.go" || relative == "internal/adapter/nativecredential/process_observer_linux.go" || relative == "internal/adapter/nativecredential/authority_linux.go" || relative == "internal/adapter/nativecredential/probe_linux.go" || relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go"
 			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (approvedNativeCredentialFile || strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || relative == "internal/server/credential_resolver_linux.go" || relative == "internal/server/remote_tls_linux.go" || relative == "internal/server/slack_acknowledgement_config_linux.go" || relative == "internal/server/systemd_credentials_linux.go" || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
 			// #106's guarded local adapter and #146's exact protected recovery
 			// files are separate reviewed Unix file-descriptor scopes.
@@ -166,6 +171,13 @@ func analyze(root string) (analysis, error) {
 	}
 	source := serverSource.String()
 	result.PlatformScopeInvalid = !(strings.Contains(source, `"linux"`) && strings.Contains(source, `"amd64"`) && strings.Contains(source, `"debian"`) && (strings.Contains(source, "Major == 13") || strings.Contains(source, "major == 13") || strings.Contains(source, "major != 13")))
+	backupSource := localBackupSource.String()
+	for _, forbidden := range []string{"backup.NewRESTServer", "backup.NewVerifierRESTServer", "enumerateRepository(root", "os.ReadDir(root"} {
+		result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || strings.Contains(backupSource, forbidden)
+	}
+	for _, required := range []string{"backup.CustodyLauncher", "custody.Inventory", "custody.RunRestic", "CustodyPolicyPath"} {
+		result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || !strings.Contains(backupSource, required)
+	}
 	return result, nil
 }
 
@@ -179,6 +191,8 @@ func reviewedRecoveryUnixFile(relative string, content []byte) bool {
 		expected = "c037f299077084fb66ed6fa660e9a434732ecc006c5d986982b4bea538cdbebe"
 	case "internal/recovery/receipt_file_unix.go":
 		expected = "87b5ac429e13b1631a7d9c17160d1b6978b1bbb66626e714b463de97befcac3c"
+	case "internal/recovery/package_file_unix.go":
+		expected = "a29cef56decead9cd44283fc9cebb257f6ae3f4661a8fbd3cd12a631867e511e"
 	case "internal/server/recovery_recipient_linux.go":
 		expected = "1bb55d15e07c13baddab7e1933f56e767179ddf01ba0bc42dca76aa710b5e10e"
 	default:

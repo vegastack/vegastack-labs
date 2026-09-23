@@ -6,14 +6,15 @@ import (
 	"testing"
 )
 
-func TestReviewedRecoveryPublicVerificationRejectsSigningAndSourceDrift(t *testing.T) {
-	common := []string{"artifact.go", "custody.go", "fence_witness.go", "manifest.go", "transport.go", "witness.go"}
+func TestReviewedRecoveryCustodianClosureRejectsSigningAndSourceDrift(t *testing.T) {
+	common := []string{"artifact.go", "collector.go", "custody.go", "fence_witness.go", "manifest.go", "qualification.go", "source_handoff.go", "transport.go", "witness.go"}
 	for _, platform := range []struct {
 		name  string
 		files []string
 	}{
-		{"unix", []string{"manifest_file_unix.go", "receipt_file_unix.go"}},
-		{"unsupported", []string{"manifest_file_unsupported.go", "receipt_file_unsupported.go"}},
+		{"unix", []string{"manifest_file_unix.go", "package_file_unix.go", "qualified_registry_linux.go", "receipt_file_unix.go"}},
+		{"darwin", []string{"manifest_file_unix.go", "package_file_unix.go", "qualified_registry_unsupported.go", "receipt_file_unix.go"}},
+		{"unsupported", []string{"manifest_file_unsupported.go", "package_file_unsupported.go", "qualified_registry_unsupported.go", "receipt_file_unsupported.go"}},
 	} {
 		t.Run(platform.name, func(t *testing.T) {
 			directory := t.TempDir()
@@ -28,8 +29,8 @@ func TestReviewedRecoveryPublicVerificationRejectsSigningAndSourceDrift(t *testi
 				}
 			}
 			candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{Dir: directory, GoFiles: names}}}
-			if !reviewedRecoveryVerificationPackage(candidate) {
-				t.Fatal("exact public-key recovery verifier was rejected")
+			if !reviewedRecoveryCustodianPackage(candidate) {
+				t.Fatal("exact custodian recovery source was rejected")
 			}
 			file := filepath.Join(directory, "witness.go")
 			original, err := os.ReadFile(file)
@@ -39,15 +40,15 @@ func TestReviewedRecoveryPublicVerificationRejectsSigningAndSourceDrift(t *testi
 			if err := os.WriteFile(file, append(original, []byte("\nvar unreviewedSigner = ed25519.Sign\n")...), 0o600); err != nil {
 				t.Fatal(err)
 			}
-			if reviewedRecoveryVerificationPackage(candidate) {
-				t.Fatal("signing source inherited public verification authority")
+			if reviewedRecoveryCustodianPackage(candidate) {
+				t.Fatal("additional signing source inherited custodian authority")
 			}
 			if err := os.WriteFile(file, original, 0o600); err != nil {
 				t.Fatal(err)
 			}
 			candidate.listed.GoFiles = append(candidate.listed.GoFiles, "sign.go")
-			if reviewedRecoveryVerificationPackage(candidate) {
-				t.Fatal("added signing file inherited public verification authority")
+			if reviewedRecoveryCustodianPackage(candidate) {
+				t.Fatal("added signing file inherited custodian authority")
 			}
 		})
 	}

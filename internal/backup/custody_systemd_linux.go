@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -160,6 +161,11 @@ func startCustodyUnit(ctx context.Context, policy CustodyPolicy, instance string
 	if !custodyInstancePattern.MatchString(instance) {
 		return errors.New("custody unit rejected")
 	}
+	unit := strings.Replace(policy.UnitTemplate, "@.service", "@"+instance+".service", 1)
+	subject, err := currentCustodyPolicySubject(policy.ControllerUID)
+	if err != nil || !effectiveCustodyStartPolicy(ctx, unit, subject, runCustodyPolicyCommand) {
+		return errors.New("custody authority policy rejected")
+	}
 	file, err := openRootExecutable("/usr/bin/systemctl")
 	if err != nil {
 		return err
@@ -167,7 +173,6 @@ func startCustodyUnit(ctx context.Context, policy CustodyPolicy, instance string
 	defer file.Close()
 	bounded, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
-	unit := strings.Replace(policy.UnitTemplate, "@.service", "@"+instance+".service", 1)
 	command := exec.CommandContext(bounded, "/proc/self/fd/3", "--system", "--no-ask-password", "start", unit)
 	command.Args[0] = "/usr/bin/systemctl"
 	command.ExtraFiles = []*os.File{file}
@@ -178,6 +183,93 @@ func startCustodyUnit(ctx context.Context, policy CustodyPolicy, instance string
 		return errors.New("custody unit start rejected")
 	}
 	return nil
+}
+
+type custodyPolicyRunner func(context.Context, string, []string) int
+
+func currentCustodyPolicySubject(expectedUID uint32) (string, error) {
+	uid := os.Getuid()
+	if uid == 0 || uid != os.Geteuid() || uint32(uid) != expectedUID {
+		return "", errors.New("custody policy subject rejected")
+	}
+	data, err := os.ReadFile("/proc/self/stat")
+	if err != nil {
+		return "", err
+	}
+	end := bytes.LastIndexByte(data, ')')
+	if end < 0 || end+2 >= len(data) {
+		return "", errors.New("custody policy subject invalid")
+	}
+	fields := strings.Fields(string(data[end+2:]))
+	if len(fields) <= 19 {
+		return "", errors.New("custody policy subject invalid")
+	}
+	start, err := strconv.ParseUint(fields[19], 10, 64)
+	if err != nil || start == 0 {
+		return "", errors.New("custody policy subject invalid")
+	}
+	return fmt.Sprintf("%d,%d,%d", os.Getpid(), start, uid), nil
+}
+
+// effectiveCustodyStartPolicy mirrors the #143 local-authority qualification:
+// the exact action must be allowed while adjacent verbs, units and broader
+// systemd administration remain denied for the live controller subject.
+func effectiveCustodyStartPolicy(ctx context.Context, unit, subject string, run custodyPolicyRunner) bool {
+	if ctx == nil || ctx.Err() != nil || run == nil || subject == "" ||
+		!regexp.MustCompile(`^vsk-labs-backup-custody@[a-f0-9]{32}\.service$`).MatchString(unit) {
+		return false
+	}
+	pk := func(action string, details ...string) []string {
+		args := []string{"--action-id", action, "--process", subject}
+		return append(args, details...)
+	}
+	manage := "org.freedesktop.systemd1.manage-units"
+	checks := []struct {
+		args []string
+		want int
+	}{
+		{pk(manage, "--detail", "verb", "start", "--detail", "unit", unit), 0},
+		{pk(manage, "--detail", "verb", "stop", "--detail", "unit", unit), 1},
+		{pk(manage, "--detail", "verb", "restart", "--detail", "unit", unit), 1},
+		{pk(manage, "--detail", "verb", "start", "--detail", "unit", "vsk-authority-denied.service"), 1},
+		{pk(manage), 1},
+		{pk("org.freedesktop.systemd1.manage-unit-files"), 1},
+		{pk("org.freedesktop.systemd1.reload-daemon"), 1},
+	}
+	for _, check := range checks {
+		if run(ctx, "/usr/bin/pkcheck", check.args) != check.want {
+			return false
+		}
+	}
+	return true
+}
+
+func runCustodyPolicyCommand(ctx context.Context, path string, args []string) int {
+	trusted, err := openRootExecutable(path)
+	if err != nil {
+		return -1
+	}
+	defer trusted.Close()
+	bounded, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	command := exec.CommandContext(bounded, "/proc/self/fd/3", args...)
+	command.Args[0] = path
+	command.ExtraFiles = []*os.File{trusted}
+	command.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
+	command.Stdin = strings.NewReader("")
+	command.Stdout, command.Stderr = io.Discard, io.Discard
+	err = command.Run()
+	if bounded.Err() != nil {
+		return -1
+	}
+	if err == nil {
+		return 0
+	}
+	var exit *exec.ExitError
+	if errors.As(err, &exit) {
+		return exit.ExitCode()
+	}
+	return -1
 }
 
 func openRootExecutable(path string) (*os.File, error) {

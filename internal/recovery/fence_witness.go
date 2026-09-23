@@ -37,7 +37,11 @@ type DirectDenialVerifier interface {
 }
 
 type QualifiedAdapters struct {
-	entries map[string]DirectDenialVerifier
+	entries             map[string]DirectDenialVerifier
+	sourceQualified     bool
+	qualificationDigest string
+	qualificationExpiry time.Time
+	adminRootDigest     string
 }
 
 func NewQualifiedAdapters() QualifiedAdapters {
@@ -47,7 +51,15 @@ func NewQualifiedAdapters() QualifiedAdapters {
 // Register is intended only for independently reviewed, typed adapters.
 // Registration here never registers a production recovery source.
 func (registry *QualifiedAdapters) Register(id string, verifier DirectDenialVerifier) {
-	if registry == nil || !validWitnessToken(id) || verifier == nil {
+	if registry == nil {
+		return
+	}
+	// A post-qualification mutation cannot widen a sealed source registry.
+	registry.sourceQualified = false
+	registry.qualificationDigest = ""
+	registry.qualificationExpiry = time.Time{}
+	registry.adminRootDigest = ""
+	if !validWitnessToken(id) || verifier == nil {
 		return
 	}
 	if registry.entries == nil {
@@ -127,4 +139,33 @@ func validBoundaryRequirement(item BoundaryRequirement) bool {
 		}
 	}
 	return allowedProbes[item.Kind][item.ProbeID]
+}
+
+// validCompleteRequirements accepts only a bounded, exact direct-probe set.
+// Its authenticated source is still the administrator manifest; this helper
+// prevents that source from accidentally sealing a partial probe group.
+func validCompleteRequirements(required []BoundaryRequirement) bool {
+	if len(required) == 0 || len(required) > 256 {
+		return false
+	}
+	seen := make(map[BoundaryRequirement]bool, len(required))
+	groups := make(map[BoundaryRequirement]map[string]bool)
+	for _, item := range required {
+		if !validBoundaryRequirement(item) || seen[item] {
+			return false
+		}
+		seen[item] = true
+		group := item
+		group.ProbeID = ""
+		if groups[group] == nil {
+			groups[group] = make(map[string]bool)
+		}
+		groups[group][item.ProbeID] = true
+	}
+	for group, probes := range groups {
+		if len(probes) != len(allowedProbes[group.Kind]) {
+			return false
+		}
+	}
+	return true
 }

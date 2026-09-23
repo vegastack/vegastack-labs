@@ -37,6 +37,9 @@ func main() {
 	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	if handled, code := runPrivateNativeProbe(ctx, os.Args[1:]); handled {
+		os.Exit(code)
+	}
 
 	var revision *string
 	if sourceRevision != "" {

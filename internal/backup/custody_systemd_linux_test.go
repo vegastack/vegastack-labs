@@ -3,11 +3,36 @@
 package backup
 
 import (
+	"context"
 	"os"
 	"strings"
 	"testing"
 	"time"
 )
+
+func TestEffectiveCustodyStartPolicyRequiresExactNarrowGrant(t *testing.T) {
+	unit := "vsk-labs-backup-custody@0123456789abcdef0123456789abcdef.service"
+	subject := "123,456,21164"
+	exact := func(_ context.Context, path string, args []string) int {
+		if path != "/usr/bin/pkcheck" {
+			return -1
+		}
+		joined := strings.Join(args, " ")
+		if strings.Contains(joined, "--detail verb start --detail unit "+unit) {
+			return 0
+		}
+		return 1
+	}
+	if !effectiveCustodyStartPolicy(context.Background(), unit, subject, exact) {
+		t.Fatal("exact custody authority rejected")
+	}
+	if effectiveCustodyStartPolicy(context.Background(), unit, subject, func(context.Context, string, []string) int { return 0 }) {
+		t.Fatal("broad custody authority accepted")
+	}
+	if effectiveCustodyStartPolicy(context.Background(), "other.service", subject, exact) {
+		t.Fatal("foreign custody unit accepted")
+	}
+}
 
 func TestCustodyLaunchFrameDoesNotConsumeFollowingCommand(t *testing.T) {
 	left, right, err := socketPair("systemd-launch-frame")
