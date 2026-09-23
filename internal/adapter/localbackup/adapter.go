@@ -223,7 +223,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-capacity")
 	}
 
-	staging, err := os.MkdirTemp(filepath.Dir(root), ".vsk-backup-staging-")
+	staging, err := os.MkdirTemp(custodyPolicy.ExchangeRoot, ".vsk-backup-staging-")
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-staging")
 	}
@@ -238,15 +238,11 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	if err != nil {
 		return adapter.Effect{}, err
 	}
-	if os.Geteuid() != 0 || os.Chown(staging, int(custodyPolicy.ResticUID), int(custodyPolicy.ResticUID)) != nil ||
-		os.Chown(snapshotPath, int(custodyPolicy.ResticUID), int(custodyPolicy.ResticUID)) != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-restic-identity")
-	}
 	base := backup.ResticRequest{
 		BinaryPath: adapterImpl.config.LocalBackup.ResticBinaryPath, Architecture: runtime.GOARCH,
 		RepositoryURL: custody.RepositoryURL(), RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
-		RepositoryRoot: root, PolicyDigest: policyDigest, Lease: lease,
-		ExecutionUID: custodyPolicy.ResticUID, ExecutionGID: custodyPolicy.ResticUID,
+		RepositoryRoot: root, ExchangeRoot: custodyPolicy.ExchangeRoot, PolicyDigest: policyDigest, Lease: lease,
+		ExecutionUID: custodyPolicy.ResticUID, ExecutionGID: custodyPolicy.ResticUID, ControllerUID: custodyPolicy.ControllerUID,
 	}
 	// Initialize the repository only when it is provably absent (no retained
 	// config object). Re-running init against an existing repository-format-v2
@@ -259,7 +255,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	if !inventoryHasConfig(before) {
 		initRequest := base
 		initRequest.Mode = "init"
-		if _, err := adapterImpl.config.Runner.Run(ctx, initRequest, password); err != nil {
+		if _, err := custody.RunRestic(ctx, initRequest, password); err != nil {
 			return adapter.Effect{}, err
 		}
 	}
@@ -268,13 +264,13 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	configRequest := base
 	configRequest.Mode = "config"
 	configRequest.OutputLimit = 64 << 10
-	if config, err := adapterImpl.config.Runner.Run(ctx, configRequest, password); err != nil || config.RepositoryFormat != 2 {
+	if config, err := custody.RunRestic(ctx, configRequest, password); err != nil || config.RepositoryFormat != 2 {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-format")
 	}
 	backupRequest := base
 	backupRequest.Mode = "backup"
 	backupRequest.SnapshotPath = snapshotPath
-	result, err := adapterImpl.config.Runner.Run(ctx, backupRequest, password)
+	result, err := custody.RunRestic(ctx, backupRequest, password)
 	if err != nil {
 		return adapter.Effect{}, err
 	}

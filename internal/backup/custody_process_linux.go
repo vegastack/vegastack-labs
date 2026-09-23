@@ -22,6 +22,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"golang.org/x/sys/unix"
 )
 
@@ -53,6 +54,8 @@ type CustodyClient interface {
 	Inventory(context.Context) ([]ExpectedObject, error)
 	InventoryExpected(context.Context, []ExpectedObject) ([]ExpectedObject, error)
 	Capacity(context.Context) (uint64, error)
+	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
+	ResticObservation() ResticObservation
 	Close(context.Context) error
 }
 
@@ -74,6 +77,20 @@ type custodyLaunch struct {
 }
 
 func (launcher CustodyLauncher) Start(ctx context.Context, session CustodySession) (CustodyClient, error) {
+	policy, err := LoadCustodyPolicy(launcher.PolicyPath)
+	if err != nil {
+		return nil, errors.New("custody launch rejected")
+	}
+	if uint32(os.Geteuid()) == policy.ControllerUID {
+		return launcher.startSystemd(ctx, policy, session)
+	}
+	if os.Geteuid() == 0 && len(launcher.command) > 0 {
+		return launcher.startDirect(ctx, session)
+	}
+	return nil, errors.New("custody controller identity rejected")
+}
+
+func (launcher CustodyLauncher) startDirect(ctx context.Context, session CustodySession) (CustodyClient, error) {
 	policy, err := LoadCustodyPolicy(launcher.PolicyPath)
 	if err != nil ||
 		(session.Role == "writer" && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || launcher.Journal == nil {
@@ -166,6 +183,8 @@ func (launcher CustodyLauncher) Start(ctx context.Context, session CustodySessio
 	cmd := exec.CommandContext(ctx, executable, argv...)
 	cmd.Env = []string{"PATH=/usr/sbin:/usr/bin:/sbin:/bin", "VSK_BACKUP_CUSTODY=1", "VSK_BACKUP_CUSTODY_POLICY=" + launcher.PolicyPath}
 	cmd.ExtraFiles = []*os.File{sessionRead, restFile, verifyChild, commandChild}
+	cmd.Stdout = io.Discard
+	cmd.Stderr = os.Stderr
 	cmd.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: policy.OwnerUID, Gid: policy.OwnerGID}, Setsid: true}
 	if err := cmd.Start(); err != nil {
 		return nil, err
@@ -266,6 +285,11 @@ func (client *processCustodyClient) Capacity(ctx context.Context) (uint64, error
 	return result.Free, nil
 }
 
+func (*processCustodyClient) RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error) {
+	return ResticResult{}, errors.New("direct custody client cannot broker restic")
+}
+func (*processCustodyClient) ResticObservation() ResticObservation { return ResticObservation{} }
+
 func (client *processCustodyClient) Close(ctx context.Context) error {
 	_, requestErr := client.request(ctx, "close", nil)
 	_ = client.command.Close()
@@ -359,7 +383,7 @@ func RunCustodyChild(policyPath string) error {
 	if err != nil || !exactNonce(custodyNonceDigest(nonce), launch.Session.NonceDigest) || !launch.Session.valid(time.Now(), policy.MaximumLifetime) {
 		return errors.New("custody session authentication failed")
 	}
-	if err := VerifyCustodyPaths(policy, launch.Session.Role); err != nil {
+	if err := verifyRepositoryCustodyPaths(policy, launch.Session.Role); err != nil {
 		return err
 	}
 	root := policy.StandardRoot

@@ -30,6 +30,11 @@ type CustodyPolicy struct {
 	OwnerGID           uint32        `json:"ownerGid"`
 	ControllerUID      uint32        `json:"controllerUid"`
 	ResticUID          uint32        `json:"resticUid"`
+	RequestRoot        string        `json:"requestRoot"`
+	ExchangeRoot       string        `json:"exchangeRoot"`
+	UnitTemplate       string        `json:"unitTemplate"`
+	ExecutablePath     string        `json:"executablePath"`
+	ResticBinaryPath   string        `json:"resticBinaryPath"`
 	ExecutableDigest   string        `json:"executableDigest"`
 	MaximumLifetime    time.Duration `json:"maximumLifetime"`
 }
@@ -73,6 +78,21 @@ func LoadCustodyPolicy(path string) (CustodyPolicy, error) {
 	if err := verifyCustodyExecutable(policy.ExecutableDigest); err != nil {
 		return CustodyPolicy{}, err
 	}
+	configured, err := openCustodyPath(policy.ExecutablePath, false, 0)
+	if err != nil {
+		return CustodyPolicy{}, err
+	}
+	defer unix.Close(configured)
+	running, err := unix.Open("/proc/self/exe", unix.O_RDONLY|unix.O_CLOEXEC, 0)
+	if err != nil {
+		return CustodyPolicy{}, err
+	}
+	defer unix.Close(running)
+	var configuredStat, runningStat unix.Stat_t
+	if unix.Fstat(configured, &configuredStat) != nil || unix.Fstat(running, &runningStat) != nil ||
+		configuredStat.Dev != runningStat.Dev || configuredStat.Ino != runningStat.Ino {
+		return CustodyPolicy{}, unix.EPERM
+	}
 	return policy, nil
 }
 
@@ -80,6 +100,34 @@ func LoadCustodyPolicy(path string) (CustodyPolicy, error) {
 // and no ACL, combined with disjoint UIDs and root-owned ancestors, deny the
 // controller and restic direct traversal, including rename and chmod by path.
 func VerifyCustodyPaths(policy CustodyPolicy, role string) error {
+	if err := verifyRepositoryCustodyPaths(policy, role); err != nil {
+		return err
+	}
+	for index, path := range []string{policy.RequestRoot, policy.ExchangeRoot} {
+		fd, err := openCustodyPath(path, true, policy.ControllerUID)
+		if err != nil {
+			return err
+		}
+		var stat unix.Stat_t
+		statErr := unix.Fstat(fd, &stat)
+		acl := hasCustodyACL(fd, true)
+		local := isLocalDescriptor(fd)
+		_ = unix.Close(fd)
+		expectedMode := uint32(0o700)
+		if index == 1 {
+			// The restic child must traverse the exchange root to one fresh,
+			// random owner-only directory; 0711 permits traversal without
+			// listing or creating siblings.
+			expectedMode = 0o711
+		}
+		if statErr != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Gid != policy.ControllerUID || stat.Mode&0o7777 != expectedMode || acl || !local {
+			return unix.EPERM
+		}
+	}
+	return nil
+}
+
+func verifyRepositoryCustodyPaths(policy CustodyPolicy, role string) error {
 	if !validCustodyPolicy(policy) || (role != "writer" && role != "verifier" && role != "retention") {
 		return unix.EINVAL
 	}
@@ -110,6 +158,7 @@ func validCustodyPolicy(policy CustodyPolicy) bool {
 		policy.ControllerUID == 0 || policy.ResticUID == 0 ||
 		policy.OwnerUID == policy.ControllerUID || policy.OwnerUID == policy.ResticUID || policy.ControllerUID == policy.ResticUID ||
 		policy.MaximumLifetime < time.Second || policy.MaximumLifetime > 30*time.Minute ||
+		policy.UnitTemplate != "vsk-labs-backup-custody@.service" || !cleanCustodyPath(policy.ExecutablePath) || !cleanCustodyPath(policy.ResticBinaryPath) ||
 		len(policy.ExecutableDigest) != len("sha256:")+64 || !strings.HasPrefix(policy.ExecutableDigest, "sha256:") {
 		return false
 	}
@@ -117,7 +166,7 @@ func validCustodyPolicy(policy CustodyPolicy) bool {
 		return false
 	}
 	seen := map[string]bool{}
-	for _, path := range []string{policy.StandardRoot, policy.CriticalRoot, policy.StandardQuarantine, policy.CriticalQuarantine} {
+	for _, path := range []string{policy.StandardRoot, policy.CriticalRoot, policy.StandardQuarantine, policy.CriticalQuarantine, policy.RequestRoot, policy.ExchangeRoot, policy.ExecutablePath, policy.ResticBinaryPath} {
 		if !cleanCustodyPath(path) || seen[path] {
 			return false
 		}

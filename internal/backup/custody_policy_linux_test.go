@@ -43,6 +43,18 @@ func TestCustodyPolicyDeniesControllerRepositoryPath(t *testing.T) {
 	}
 	standard, critical := makeOwned("standard"), makeOwned("critical")
 	standardQuarantine, criticalQuarantine := makeOwned("standard-quarantine"), makeOwned("critical-quarantine")
+	makeControllerOwned := func(name string, mode os.FileMode) string {
+		path := filepath.Join(base, name)
+		if err := os.Mkdir(path, mode); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chown(path, custodyFixtureUID+1, custodyFixtureUID+1); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	requestRoot := makeControllerOwned("requests", 0o700)
+	exchangeRoot := makeControllerOwned("exchange", 0o711)
 	probe := filepath.Join(standard, "pack-a")
 	if err := os.WriteFile(probe, []byte("fixture ciphertext"), 0o600); err != nil {
 		t.Fatal(err)
@@ -62,8 +74,10 @@ func TestCustodyPolicyDeniesControllerRepositoryPath(t *testing.T) {
 	policy := CustodyPolicy{SchemaVersion: "1.0.0", StandardRoot: standard, CriticalRoot: critical,
 		StandardQuarantine: standardQuarantine, CriticalQuarantine: criticalQuarantine,
 		OwnerUID: custodyFixtureUID, OwnerGID: custodyFixtureUID, ControllerUID: custodyFixtureUID + 1,
-		ResticUID: custodyFixtureUID + 2, ExecutableDigest: "sha256:" + hex.EncodeToString(sum[:]),
-		MaximumLifetime: 10 * time.Minute}
+		ResticUID: custodyFixtureUID + 2, RequestRoot: requestRoot, ExchangeRoot: exchangeRoot,
+		UnitTemplate: "vsk-labs-backup-custody@.service", ExecutablePath: executable, ResticBinaryPath: "/bin/true",
+		ExecutableDigest: "sha256:" + hex.EncodeToString(sum[:]),
+		MaximumLifetime:  10 * time.Minute}
 	policyPath := filepath.Join(base, "custody-policy.json")
 	encoded, err := json.Marshal(policy)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -29,8 +30,19 @@ import (
 )
 
 func init() {
+	if os.Getenv("VSK_BACKUP_CUSTODY_SUPERVISOR") == "1" {
+		if len(os.Args) != 3 || os.Args[1] != backup.CustodySystemdMode {
+			os.Exit(1)
+		}
+		if err := backup.RunCustodySupervisor(os.Args[2]); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 	if os.Getenv("VSK_BACKUP_CUSTODY") == "1" {
 		if err := backup.RunCustodyChild(os.Getenv("VSK_BACKUP_CUSTODY_POLICY")); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
 			os.Exit(1)
 		}
 		os.Exit(0)
@@ -55,22 +67,30 @@ func TestLocalBackupComposition(t *testing.T) {
 	if binary == "" {
 		t.Skip("official pinned restic 0.19.1 binary not provided")
 	}
-	if os.Geteuid() != 0 {
+	systemdFixture := os.Getenv("VSK_CUSTODY_SYSTEMD_FIXTURE") == "1"
+	if !systemdFixture && os.Geteuid() != 0 {
 		t.Skip("distinct-UID custody acceptance requires disposable root")
+	}
+	if systemdFixture && os.Geteuid() != 21164 {
+		t.Fatalf("systemd fixture controller uid=%d want=21164", os.Geteuid())
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	root, err := os.MkdirTemp("/var/lib", "vsk-localbackup-custody-")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.RemoveAll(root) })
-	if err := os.Chmod(root, 0o755); err != nil {
-		t.Fatal(err)
+	root := "/var/lib/vsk163-systemd"
+	var err error
+	if !systemdFixture {
+		root, err = os.MkdirTemp("/var/lib", "vsk-localbackup-custody-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(root) })
+		if err := os.Chmod(root, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	uid := uint32(os.Geteuid())
 	controlRoot := filepath.Join(root, "control")
-	if err := os.Mkdir(controlRoot, 0o700); err != nil {
+	if err := os.Mkdir(controlRoot, 0o700); err != nil && !systemdFixture {
 		t.Fatal(err)
 	}
 	authority, err := store.Open(ctx, store.Config{
@@ -140,27 +160,34 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	standard := filepath.Join(root, "standard")
 	critical := filepath.Join(root, "critical")
-	standardQ, criticalQ := filepath.Join(root, "standard-quarantine"), filepath.Join(root, "critical-quarantine")
+	standardQ, criticalQ := filepath.Join(root, "standard-q"), filepath.Join(root, "critical-q")
 	const custodyUID, controllerUID, resticUID = uint32(21163), uint32(21164), uint32(21165)
-	for _, path := range []string{standard, critical, standardQ, criticalQ} {
-		if err := os.Mkdir(path, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.Chown(path, int(custodyUID), int(custodyUID)); err != nil {
-			t.Fatal(err)
+	if !systemdFixture {
+		for _, path := range []string{standard, critical, standardQ, criticalQ} {
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chown(path, int(custodyUID), int(custodyUID)); err != nil {
+				t.Fatal(err)
+			}
 		}
 	}
-	executable, err := os.ReadFile("/proc/self/exe")
-	if err != nil {
-		t.Fatal(err)
-	}
-	executableSum := sha256.Sum256(executable)
-	custody := backup.CustodyPolicy{SchemaVersion: "1.0.0", StandardRoot: standard, CriticalRoot: critical, StandardQuarantine: standardQ, CriticalQuarantine: criticalQ,
-		OwnerUID: custodyUID, OwnerGID: custodyUID, ControllerUID: controllerUID, ResticUID: resticUID, ExecutableDigest: "sha256:" + hex.EncodeToString(executableSum[:]), MaximumLifetime: 10 * time.Minute}
-	custodyBody, _ := json.Marshal(custody)
-	custodyPath := filepath.Join(root, "custody.json")
-	if err := os.WriteFile(custodyPath, custodyBody, 0o644); err != nil {
-		t.Fatal(err)
+	custodyPath := backup.CustodyPolicyPath
+	if !systemdFixture {
+		executable, err := os.ReadFile("/proc/self/exe")
+		if err != nil {
+			t.Fatal(err)
+		}
+		executableSum := sha256.Sum256(executable)
+		custody := backup.CustodyPolicy{SchemaVersion: "1.0.0", StandardRoot: standard, CriticalRoot: critical, StandardQuarantine: standardQ, CriticalQuarantine: criticalQ,
+			OwnerUID: custodyUID, OwnerGID: custodyUID, ControllerUID: controllerUID, ResticUID: resticUID,
+			RequestRoot: filepath.Join(root, "requests"), ExchangeRoot: filepath.Join(root, "exchange"), UnitTemplate: "vsk-labs-backup-custody@.service",
+			ExecutablePath: "/proc/self/exe", ResticBinaryPath: binary, ExecutableDigest: "sha256:" + hex.EncodeToString(executableSum[:]), MaximumLifetime: 10 * time.Minute}
+		custodyBody, _ := json.Marshal(custody)
+		custodyPath = filepath.Join(root, "custody.json")
+		if err := os.WriteFile(custodyPath, custodyBody, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	planDigest := "sha256:" + strings.Repeat("b", 64)
 	plan := generated.Plan{PlanID: "plan-real", PlanDigest: planDigest,
@@ -284,7 +311,12 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err != nil || priorGood == "" {
 		t.Fatalf("first live proof did not establish last-good: %q %v", priorGood, err)
 	}
-	filler, err := os.Create(filepath.Join(root, "capacity-reservation"))
+	custodyPolicy, err := backup.LoadCustodyPolicy(custodyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fillerPath := filepath.Join(custodyPolicy.ExchangeRoot, "capacity-reservation")
+	filler, err := os.Create(fillerPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -334,6 +366,15 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	if !failedAttempt {
 		t.Fatalf("low capacity did not append failed attempt: %#v", status.Verifications)
+	}
+	if err := os.Remove(fillerPath); err != nil {
+		t.Fatal(err)
+	}
+	if systemdFixture {
+		if err := os.WriteFile(filepath.Join(standard, "config"), []byte("forged"), 0o600); !errors.Is(err, unix.EACCES) {
+			t.Fatalf("controller direct repository write err=%v want EACCES", err)
+		}
+		return
 	}
 	// A retained repository with an invalid format must fail before the next
 	// restic backup and leave both existing pending points intact.

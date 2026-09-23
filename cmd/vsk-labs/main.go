@@ -23,6 +23,12 @@ var (
 )
 
 func main() {
+	if len(os.Args) == 3 && os.Args[1] == backup.CustodySystemdMode {
+		if backup.RunCustodySupervisor(os.Args[2]) != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	if os.Getenv("VSK_BACKUP_CUSTODY") == "1" {
 		if len(os.Args) != 4 || os.Args[1] != "backup-custody" || os.Args[2] != "--policy" || backup.RunCustodyChild(os.Args[3]) != nil {
 			os.Exit(1)

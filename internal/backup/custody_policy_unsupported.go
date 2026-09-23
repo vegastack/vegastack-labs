@@ -19,6 +19,11 @@ type CustodyPolicy struct {
 	OwnerGID           uint32        `json:"ownerGid"`
 	ControllerUID      uint32        `json:"controllerUid"`
 	ResticUID          uint32        `json:"resticUid"`
+	RequestRoot        string        `json:"requestRoot"`
+	ExchangeRoot       string        `json:"exchangeRoot"`
+	UnitTemplate       string        `json:"unitTemplate"`
+	ExecutablePath     string        `json:"executablePath"`
+	ResticBinaryPath   string        `json:"resticBinaryPath"`
 	ExecutableDigest   string        `json:"executableDigest"`
 	MaximumLifetime    time.Duration `json:"maximumLifetime"`
 }

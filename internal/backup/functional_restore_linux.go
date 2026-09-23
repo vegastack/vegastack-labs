@@ -44,8 +44,12 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	if err != nil || snapshots.RepositoryFormat != 2 {
 		return proof, invalid
 	}
+	exchangeRoot := base.ExchangeRoot
+	if exchangeRoot == "" {
+		exchangeRoot = filepath.Dir(base.RepositoryRoot)
+	}
 	paths, exists := snapshots.SnapshotPaths[manifest.SnapshotID]
-	if !exists || len(paths) != 1 || !safeCapturedSnapshotPath(paths[0], base.RepositoryRoot) {
+	if !exists || len(paths) != 1 || !safeCapturedSnapshotPath(paths[0], exchangeRoot) {
 		return proof, invalid
 	}
 	checkRequest := base
@@ -55,15 +59,9 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	if err != nil || check.RepositoryFormat != 2 {
 		return proof, invalid
 	}
-	target, err := os.MkdirTemp(filepath.Dir(base.RepositoryRoot), ".vsk-backup-verify-")
+	target, err := os.MkdirTemp(exchangeRoot, ".vsk-backup-verify-")
 	if err != nil {
 		return proof, invalid
-	}
-	if base.ExecutionUID != 0 || base.ExecutionGID != 0 {
-		if os.Geteuid() != 0 || base.ExecutionUID == 0 || base.ExecutionGID == 0 ||
-			os.Chown(target, int(base.ExecutionUID), int(base.ExecutionGID)) != nil || os.Chmod(target, 0o700) != nil {
-			return proof, invalid
-		}
 	}
 	defer func() {
 		if cleanupErr := os.RemoveAll(target); cleanupErr != nil {
@@ -82,8 +80,8 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	relative := strings.TrimPrefix(paths[0], string(filepath.Separator))
 	restoredPath := filepath.Join(target, relative)
 	expectedUID := uint32(os.Geteuid())
-	if base.ExecutionUID != 0 {
-		expectedUID = base.ExecutionUID
+	if base.ControllerUID != 0 {
+		expectedUID = base.ControllerUID
 	}
 	contentDigest, err := hashRestoredSQLite(restoredPath, expectedUID)
 	if err != nil || contentDigest != manifest.ContentDigest {
@@ -98,12 +96,12 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	expected := store.SnapshotExpectation{SchemaVersion: manifest.DatabaseSchemaVersion,
 		Revision: store.RevisionToken{StateRevision: manifest.SourceRevision, RecoveryEpoch: manifest.RecoveryEpoch}, CatalogSHA256: catalog}
 	var inspection store.SnapshotInspection
-	if base.ExecutionUID != 0 {
+	if base.ControllerUID != 0 {
 		ownerInspector, ok := inspector.(store.RestoredSQLiteOwnerInspector)
 		if !ok {
 			return proof, invalid
 		}
-		inspection, err = ownerInspector.InspectSnapshotOwned(ctx, restoredPath, expected, base.ExecutionUID)
+		inspection, err = ownerInspector.InspectSnapshotOwned(ctx, restoredPath, expected, base.ControllerUID)
 	} else {
 		inspection, err = inspector.InspectSnapshot(ctx, restoredPath, expected)
 	}
@@ -116,12 +114,12 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 		FullReadAt: check.CompletedAt, FunctionalRestoredAt: restored.CompletedAt}, nil
 }
 
-func safeCapturedSnapshotPath(path, repositoryRoot string) bool {
+func safeCapturedSnapshotPath(path, exchangeRoot string) bool {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || filepath.Base(path) != "database.sqlite" {
 		return false
 	}
 	stage := filepath.Dir(path)
-	return filepath.Dir(stage) == filepath.Dir(repositoryRoot) && strings.HasPrefix(filepath.Base(stage), ".vsk-backup-staging-")
+	return filepath.Dir(stage) == exchangeRoot && strings.HasPrefix(filepath.Base(stage), ".vsk-backup-staging-")
 }
 
 func hashRestoredSQLite(path string, expectedUID ...uint32) (string, error) {

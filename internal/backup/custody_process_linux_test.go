@@ -210,6 +210,18 @@ func custodyProcessPolicy(t *testing.T) (string, CustodyPolicy) {
 	}
 	standard, critical := makeOwned("standard"), makeOwned("critical")
 	sq, cq := makeOwned("standard-q"), makeOwned("critical-q")
+	makeControllerOwned := func(name string, mode os.FileMode) string {
+		path := filepath.Join(base, name)
+		if err := os.Mkdir(path, mode); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chown(path, custodyFixtureUID+1, custodyFixtureUID+1); err != nil {
+			t.Fatal(err)
+		}
+		return path
+	}
+	requestRoot := makeControllerOwned("requests", 0o700)
+	exchangeRoot := makeControllerOwned("exchange", 0o711)
 	if err := os.WriteFile(filepath.Join(standard, "config"), []byte("encrypted-config"), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -221,7 +233,14 @@ func custodyProcessPolicy(t *testing.T) (string, CustodyPolicy) {
 		t.Fatal(err)
 	}
 	sum := sha256.Sum256(executable)
-	policy := CustodyPolicy{SchemaVersion: "1.0.0", StandardRoot: standard, CriticalRoot: critical, StandardQuarantine: sq, CriticalQuarantine: cq, OwnerUID: custodyFixtureUID, OwnerGID: custodyFixtureUID, ControllerUID: custodyFixtureUID + 1, ResticUID: custodyFixtureUID + 2, ExecutableDigest: "sha256:" + hex.EncodeToString(sum[:]), MaximumLifetime: 10 * time.Minute}
+	executablePath, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := CustodyPolicy{SchemaVersion: "1.0.0", StandardRoot: standard, CriticalRoot: critical, StandardQuarantine: sq, CriticalQuarantine: cq,
+		OwnerUID: custodyFixtureUID, OwnerGID: custodyFixtureUID, ControllerUID: custodyFixtureUID + 1, ResticUID: custodyFixtureUID + 2,
+		RequestRoot: requestRoot, ExchangeRoot: exchangeRoot, UnitTemplate: "vsk-labs-backup-custody@.service",
+		ExecutablePath: executablePath, ResticBinaryPath: "/bin/true", ExecutableDigest: "sha256:" + hex.EncodeToString(sum[:]), MaximumLifetime: 10 * time.Minute}
 	body, _ := json.Marshal(policy)
 	path := filepath.Join(base, "policy.json")
 	if err := os.WriteFile(path, body, 0o644); err != nil {

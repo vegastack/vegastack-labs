@@ -124,9 +124,9 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	}
 	base := backup.ResticRequest{BinaryPath: adapterImpl.config.LocalBackup.ResticBinaryPath, Architecture: runtime.GOARCH,
 		RepositoryURL: custody.RepositoryURL(),
-		RepositoryID:  point.RepositoryID, RepositoryClass: point.RepositoryClass, RepositoryRoot: root,
-		PolicyDigest: policyDigest, ExecutionUID: custodyPolicy.ResticUID, ExecutionGID: custodyPolicy.ResticUID}
-	functional, err := backup.VerifyFunctionalRestore(ctx, inventory, manifest, adapterImpl.config.Runner, base, values[0], adapterImpl.config.Inspector)
+		RepositoryID:  point.RepositoryID, RepositoryClass: point.RepositoryClass, RepositoryRoot: root, ExchangeRoot: custodyPolicy.ExchangeRoot,
+		PolicyDigest: policyDigest, ExecutionUID: custodyPolicy.ResticUID, ExecutionGID: custodyPolicy.ResticUID, ControllerUID: custodyPolicy.ControllerUID}
+	functional, err := backup.VerifyFunctionalRestore(ctx, inventory, manifest, custodyResticRunner{client: custody}, base, values[0], adapterImpl.config.Inspector)
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-functional")
 	}
@@ -175,6 +175,16 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	}
 	return adapter.Effect{Status: "succeeded", ResultDigest: receipt.ProofDigest, PendingPointID: &point.PointID,
 		Changed: true, EffectObserved: true}, nil
+}
+
+type custodyResticRunner struct{ client backup.CustodyClient }
+
+func (runner custodyResticRunner) Run(ctx context.Context, request backup.ResticRequest, password *credentialref.Value) (backup.ResticResult, error) {
+	return runner.client.RunRestic(ctx, request, password)
+}
+
+func (runner custodyResticRunner) Observation() backup.ResticObservation {
+	return runner.client.ResticObservation()
 }
 
 func backupProfileMatches(profile *serverconfig.LocalBackup, policy generated.BackupPolicy) bool {
