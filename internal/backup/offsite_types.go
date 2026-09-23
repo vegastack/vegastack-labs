@@ -50,10 +50,11 @@ type GenerationAdmission struct {
 }
 
 type PendingOffsiteGeneration struct {
-	PointID, GenerationID, RepositoryID, SnapshotID string
-	ManifestDigest, InventoryDigest, RuleDigest     string
-	SessionExpiries                                 []time.Time
-	ObjectCount, ObjectBytes                        int64
+	SourcePointID, SourceSnapshotID, SourceManifestDigest, SourceInventoryDigest string
+	GenerationID, RepositoryID, OffsiteSnapshotID, OffsiteInventoryDigest        string
+	RuleDigest                                                                   string
+	SessionExpiries                                                              []time.Time
+	ObjectCount, ObjectBytes                                                     int64
 }
 
 // OffsiteCustody is the privileged process boundary. Implementations must run

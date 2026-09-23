@@ -33,16 +33,18 @@ func CopyOffsitePoint(ctx context.Context, config CopyConfig, point VerifiedCrit
 	if err != nil {
 		return PendingOffsiteGeneration{}, err
 	}
-	if !result.IAMCalled || !result.ChildExited || result.RepositoryID == "" || result.SnapshotID != point.SnapshotID ||
-		result.InventoryDigest != point.InventoryDigest || result.ObjectCount != point.ObjectCount || result.ObjectBytes != point.ObjectBytes {
+	if !result.IAMCalled || !result.ChildExited || !validObjectName(result.RepositoryID) || !validObjectName(result.SnapshotID) ||
+		!validBackupManifestDigest(result.InventoryDigest) || result.ObjectCount < 1 || result.ObjectBytes < 1 ||
+		result.ObjectBytes > admission.MaximumBytes || result.ObjectCount > admission.MaximumPUTs {
 		return PendingOffsiteGeneration{}, invalid
 	}
 	expiries := config.Endpoint.SessionExpiries()
 	if len(expiries) == 0 {
 		return PendingOffsiteGeneration{}, invalid
 	}
-	return PendingOffsiteGeneration{PointID: point.PointID, GenerationID: admission.GenerationID, RepositoryID: result.RepositoryID,
-		SnapshotID: result.SnapshotID, ManifestDigest: point.ManifestDigest, InventoryDigest: result.InventoryDigest,
+	return PendingOffsiteGeneration{SourcePointID: point.PointID, SourceSnapshotID: point.SnapshotID, SourceManifestDigest: point.ManifestDigest,
+		SourceInventoryDigest: point.InventoryDigest, GenerationID: admission.GenerationID, RepositoryID: result.RepositoryID,
+		OffsiteSnapshotID: result.SnapshotID, OffsiteInventoryDigest: result.InventoryDigest,
 		RuleDigest: admission.RuleDigest, SessionExpiries: expiries, ObjectCount: result.ObjectCount, ObjectBytes: result.ObjectBytes}, nil
 }
 
