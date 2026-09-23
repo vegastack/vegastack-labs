@@ -2,6 +2,15 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — A durable run keeps its SSE cursor across same-run reads ([#156](https://github.com/vegastack/vegastack-labs/issues/156))
+
+- **What:** The Console keeps `Last-Event-ID` while the same run's GET response changes, resets it for a new run ID, and Phase 4 CI reports a bounded test title, failing assertion location, status and descriptor.
+- **Why:** A normal read could replace the cached response, restart the watcher and clear the cursor; the acceptance wrapper then hid the browser failure behind a stage code.
+- **How it went:** A focused browser test forced a revision change after the first event and failed with an empty second cursor before the fix. A separate two-run test failed with the old cursor when the reset was removed. CI then required regeneration of the embedded Console bundle and a new Phase 2 reviewed source seal for those measured production bytes. No live run or private operational state was involved.
+- **Changed:** Run watcher lifecycle · regenerated embedded Console assets · measured Phase 2 reviewed wave · deterministic SSE regression fixture · sanitized Phase 4 and exit diagnostics.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/156-phase4-browser-reconnect
 ## 22-09-2026 — A custodian can collect a bounded recovery witness on disposable endpoints ([#153](https://github.com/vegastack/vegastack-labs/issues/153))
 
 - **What:** The single `vsk-labs` executable has a finite custodian-side command that reads a protected admin pin and two private descriptors, probes every declared former-controller boundary, signs one exact attempt, and encrypts the held material to the replacement recipient.

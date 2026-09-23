@@ -19,6 +19,9 @@ export const changeFixture: {
   eventConnections: number;
   eventLastIds: string[];
   eventMode: "offline" | "reconnect";
+  changeRunRevisionAfterFirstEvent: boolean;
+  switchRunIdAfterFirstEvent: boolean;
+  activeRunId: "run-one" | "run-two";
   hardFailurePath: string | null;
   retryableFailurePath: string | null;
   runReadFailuresRemaining: number;
@@ -27,7 +30,7 @@ export const changeFixture: {
   requestPaths: string[];
   reasonDigest: string;
   planDigest: string;
-} = { approval: "pending", run: "running", runAfterExecute: null, executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalRequestPosts: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", hardFailurePath: null, retryableFailurePath: null, runReadFailuresRemaining: 0, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
+} = { approval: "pending", run: "running", runAfterExecute: null, executeRequests: 0, resolutionRequests: 0, dropExecuteResponseOnce: false, resolutionDelayMs: 0, approvalStatusRequests: 0, approvalRequestPosts: 0, approvalExpiresAt: "2099-09-13T13:01:00Z", eventConnections: 0, eventLastIds: [], eventMode: "offline", changeRunRevisionAfterFirstEvent: false, switchRunIdAfterFirstEvent: false, activeRunId: "run-one", hardFailurePath: null, retryableFailurePath: null, runReadFailuresRemaining: 0, declarationDelayMs: 0, requestBodies: [], requestPaths: [], reasonDigest: digest("b"), planDigest: digest("c") };
 
 const operation = { sequence: 1, operationId: "operation-one", operationType: "fixture.reconcile", adapterId: "adapter.fake", targetId: "target-one", inputDigest: digest("d"), artifactDigest: digest("e"), idempotent: true } as const;
 
@@ -49,15 +52,16 @@ function approval() {
 }
 
 function auditEvent(eventId: number) {
-	return { event: { eventId, occurredAt: "2026-09-13T12:34:00Z", recoveryEpoch: 2, stateRevision: 11, type: "run.updated", target: { kind: "run", id: "run-one" } } };
+	return { event: { eventId, occurredAt: "2026-09-13T12:34:00Z", recoveryEpoch: 2, stateRevision: 11, type: "run.updated", target: { kind: "run", id: changeFixture.activeRunId } } };
 }
 
-function runPresentation() {
-  const terminal = ["partial", "failed", "cancelled", "interrupted", "succeeded"].includes(changeFixture.run);
-	const progressState = changeFixture.run === "succeeded" ? "verified" : changeFixture.run === "partial" ? "unknown" : changeFixture.run === "running" ? "started" : "not-started";
-	const step = { sequence: operation.sequence, operationId: operation.operationId, operationType: operation.operationType, targetId: operation.targetId, stepId: "step-one", status: changeFixture.run, progressState };
-  const nextSafeAction = changeFixture.run === "succeeded" ? "none; execution completed" : changeFixture.run === "partial" ? "recovery required; inspect the durable run" : changeFixture.run === "interrupted" ? "inspect, then resume or cancel through the server" : changeFixture.run === "queued" || changeFixture.run === "running" ? "inspect or cancel through the server" : "inspect the durable run";
-	return { run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId: "run-one", planId: plan.planId, planDigest: plan.planDigest, status: changeFixture.run, steps: [step], cancellationRequested: false, rollbackStatus: changeFixture.run === "partial" ? "required" : "not-requested", verificationStatus: changeFixture.run === "succeeded" ? "verified" : terminal ? "incomplete" : "pending", verificationDigest: changeFixture.run === "succeeded" ? digest("5") : null, changed: changeFixture.run !== "queued", stateRevision: 11, recoveryEpoch: 2, createdAt: "2026-09-13T12:33:00Z", updatedAt: "2026-09-13T12:34:00Z", extensions: [] }, completedWork: changeFixture.run === "succeeded" ? [step] : [], incompleteWork: changeFixture.run === "succeeded" ? [] : [step], nextSafeAction };
+function runPresentation(runId = changeFixture.activeRunId) {
+  const state = runId === "run-one" && changeFixture.activeRunId === "run-two" ? "interrupted" : changeFixture.run;
+  const terminal = ["partial", "failed", "cancelled", "interrupted", "succeeded"].includes(state);
+	const progressState = state === "succeeded" ? "verified" : state === "partial" ? "unknown" : state === "running" ? "started" : "not-started";
+	const step = { sequence: operation.sequence, operationId: operation.operationId, operationType: operation.operationType, targetId: operation.targetId, stepId: "step-one", status: state, progressState };
+  const nextSafeAction = state === "succeeded" ? "none; execution completed" : state === "partial" ? "recovery required; inspect the durable run" : state === "interrupted" ? "inspect, then resume or cancel through the server" : state === "queued" || state === "running" ? "inspect or cancel through the server" : "inspect the durable run";
+	return { run: { schema: "vegastack-labs.dev/browser-run", schemaVersion: "1.0.0", runId, planId: plan.planId, planDigest: plan.planDigest, status: state, steps: [step], cancellationRequested: false, rollbackStatus: state === "partial" ? "required" : "not-requested", verificationStatus: state === "succeeded" ? "verified" : terminal ? "incomplete" : "pending", verificationDigest: state === "succeeded" ? digest("5") : null, changed: state !== "queued", stateRevision: changeFixture.changeRunRevisionAfterFirstEvent && changeFixture.eventConnections > 0 ? 12 : 11, recoveryEpoch: 2, createdAt: "2026-09-13T12:33:00Z", updatedAt: "2026-09-13T12:34:00Z", extensions: [] }, completedWork: state === "succeeded" ? [step] : [], incompleteWork: state === "succeeded" ? [] : [step], nextSafeAction };
 }
 
 function envelope(command: string, data: unknown, status = "succeeded", errors: unknown[] = []) {
@@ -85,6 +89,7 @@ async function respond(route: Route) {
     if (changeFixture.eventMode !== "reconnect") return route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify(envelope("api.v1.events.stream", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: path, retryable: true }])) });
     const eventId = changeFixture.eventConnections;
     if (eventId > 1) changeFixture.run = "interrupted";
+    if (changeFixture.switchRunIdAfterFirstEvent && eventId === 1) changeFixture.run = "interrupted";
     const body = `id: ${eventId}\nevent: audit-event\ndata: ${JSON.stringify(auditEvent(eventId))}\n\n`;
     return route.fulfill({ status: 200, contentType: "text/event-stream", body });
   }
@@ -107,6 +112,10 @@ async function respond(route: Route) {
   if (path === "/api/v1/plans/plan-one/approval-status") { changeFixture.approvalStatusRequests += 1; return reply(route, "api.v1.plans.approval-status.get", approval()); }
   if (path === "/api/v1/plans/plan-one/execute" && request.method() === "POST") {
     changeFixture.executeRequests += 1;
+    if (changeFixture.switchRunIdAfterFirstEvent && changeFixture.executeRequests === 2) {
+      changeFixture.activeRunId = "run-two";
+      changeFixture.run = "running";
+    }
     if (changeFixture.dropExecuteResponseOnce) { changeFixture.dropExecuteResponseOnce = false; return route.abort("connectionclosed"); }
     const presentation = runPresentation();
     if (changeFixture.runAfterExecute) changeFixture.run = changeFixture.runAfterExecute;
@@ -117,7 +126,7 @@ async function respond(route: Route) {
     if (changeFixture.resolutionDelayMs > 0) await new Promise(resolve => setTimeout(resolve, changeFixture.resolutionDelayMs));
     return reply(route, "api.v1.plans.run-resolution.get", runPresentation());
   }
-  if (path === "/api/v1/runs/run-one" && request.method() === "GET") return reply(route, "api.v1.runs.get", runPresentation());
+  if ((path === "/api/v1/runs/run-one" || path === "/api/v1/runs/run-two") && request.method() === "GET") return reply(route, "api.v1.runs.get", runPresentation(path.endsWith("run-two") ? "run-two" : "run-one"));
   if (path === "/api/v1/runs/run-one/cancel" && request.method() === "POST") { changeFixture.run = "cancelled"; return reply(route, "api.v1.runs.cancel", runPresentation()); }
   if (path === "/api/v1/runs/run-one/resume" && request.method() === "POST") { changeFixture.run = "running"; return reply(route, "api.v1.runs.resume", runPresentation()); }
   await route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify(envelope("unknown", {}, "failed", [{ code: "RESOURCE_NOT_FOUND", target: path, retryable: false }])) });
@@ -137,6 +146,9 @@ export function resetChangeFixture() {
   changeFixture.eventConnections = 0;
   changeFixture.eventLastIds.length = 0;
   changeFixture.eventMode = "offline";
+  changeFixture.changeRunRevisionAfterFirstEvent = false;
+  changeFixture.switchRunIdAfterFirstEvent = false;
+  changeFixture.activeRunId = "run-one";
   changeFixture.hardFailurePath = null;
   changeFixture.retryableFailurePath = null;
   changeFixture.runReadFailuresRemaining = 0;
