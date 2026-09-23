@@ -275,6 +275,15 @@
           "github.com/vegastack/vegastack-labs/internal/adapters/r2"
         ],
         "mutationBoundaryDigest": "sha256:6c6a3ab5f366603d73c1bd07d91097d0062f49a48231aca42a4c1f500af0455d"
+      },
+      {
+        "id": "phase5-issue118-v1",
+        "issue": 118,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
+        ],
+        "mutationBoundaryDigest": "sha256:dae0cc67edf88464e74c7934ab4214de08657565d250c57de657abee2a2e1477"
       }
     ]
   },

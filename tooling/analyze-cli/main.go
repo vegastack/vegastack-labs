@@ -1186,8 +1186,8 @@ var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC
 // Each file is byte-pinned so neither authority can silently expand.
 var reviewedBackupSubprocesses = map[string]string{
 	"restic_linux.go":          "5298187bff0aa47d207f304329a24defb6096d292c977ac7cd5b0be2064e1123",
-	"custody_process_linux.go": "97e5505bc6684ca6efc4a9221aca4726490d56b8c8464e9787261d732bc234c6",
-	"custody_systemd_linux.go": "f44ab3782392a85a190c037a058b53894adee8e3c7de0dca0ab01642a6faf9d5",
+	"custody_process_linux.go": "c271d76bcc05bc63ff99ce396cb0ab896dbcbe364527ae6593122a8e15db4e57",
+	"custody_systemd_linux.go": "e43bced103cd0530812847b4fbf646d7bc931a3c7ba6c5b012bbed858925b910",
 }
 
 var reviewedLocalRetentionSources = map[string]string{
