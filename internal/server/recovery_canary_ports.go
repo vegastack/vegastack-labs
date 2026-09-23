@@ -25,3 +25,12 @@ func NewQualifiedRecoveryCanaryPortFactory(checkpoints recovery.RecoveryCheckpoi
 		return recovery.IndependentCheckpointCanary{Appender: checkpoints, Reader: authority}, recovery.CurrentEpochBackupCanary{Creator: backups, Reader: repository}, nil
 	}, nil
 }
+
+func systemRecoveryCanaryPortFactory() RecoveryCanaryPortFactory {
+	capabilities := NewSystemRecoveryCanaryCapabilities()
+	factory, err := NewQualifiedRecoveryCanaryPortFactory(capabilities, capabilities)
+	if err != nil {
+		return nil
+	}
+	return factory
+}

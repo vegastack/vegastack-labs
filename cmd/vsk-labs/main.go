@@ -54,9 +54,15 @@ func main() {
 		ReleaseBuildID: releaseBuildID,
 		SourceRevision: revision,
 	}
+	recoveryCanaryCapabilities := server.NewSystemRecoveryCanaryCapabilities()
+	recoveryCanaryPorts, err := server.NewQualifiedRecoveryCanaryPortFactory(recoveryCanaryCapabilities, recoveryCanaryCapabilities)
+	if err != nil {
+		os.Exit(1)
+	}
 	offsiteRunners := server.NewProfileOffsiteRunnerSource(server.NewLabsR2Runner)
 	operations := server.NewOperations(build, newRequestID,
-		server.WithOffsiteEffectFactory(server.NewProductionOffsiteEffectFactory(offsiteRunners)))
+		server.WithOffsiteEffectFactory(server.NewProductionOffsiteEffectFactory(offsiteRunners)),
+		server.WithRecoveryCanaryPortFactory(recoveryCanaryPorts))
 	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,
 		cli.WithInput(os.Stdin),
 		cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})),

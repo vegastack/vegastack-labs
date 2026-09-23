@@ -85,9 +85,15 @@ type qualifiedFactory struct {
 	new                  func(AdapterQualification) DirectDenialVerifier
 }
 
-// No real endpoint verifier has qualified for production. This is a compile-
-// time closed map; test-only disposable factories never enter it.
-var productionDenialFactories = map[string]qualifiedFactory{}
+// productionDenialFactories contains only reviewed protocol implementations.
+// A factory still returns nil unless its separate root-owned endpoint
+// configuration and administrator-signed qualification match exactly.
+var productionDenialFactories = map[string]qualifiedFactory{
+	"https-direct-denial-v1": {
+		implementationDigest: "sha256:7c8db8ea2b9fb723f4bfa00b63e603c32e89df316643e6d17933c7f70f8f01af",
+		new:                  newProductionDirectDenialVerifier,
+	},
+}
 
 type qualifiedGroupVerifier struct {
 	groups map[string]DirectDenialVerifier

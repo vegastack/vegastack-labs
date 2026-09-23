@@ -80,10 +80,8 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
 		},
-		recoveryCanaryPorts: func(context.Context, serverconfig.Profile, *store.Store, *store.BackupRepository) (recovery.CanaryAuditVerifier, recovery.CanaryBackupVerifier, error) {
-			return nil, nil, nil
-		},
-		newAdapterRegistry: productionAdapterRegistry,
+		recoveryCanaryPorts: systemRecoveryCanaryPortFactory(),
+		newAdapterRegistry:  productionAdapterRegistry,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -301,6 +299,10 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	}
 	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore}
 	credentialRepository := store.NewCredentialRepository(authority)
+	if err := registerProductionRecoveryCredentialResolver(ctx, adapters, credentialRepository, gateRepository, profile.SocketOwnerUID); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if profile.LocalBackup != nil && restoreSnapshotSource != nil && restoreInspector != nil && restoreTrust != nil {
 		borrower := recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}
 		restoreSnapshotResolver, restoreCompatibility, restoreAudit, err = composeLocalRecoverySource(profile.LocalBackup, profile.SocketOwnerUID, backupRepository, restoreInspector, borrower, restoreTrust, restoreSnapshotSource)

@@ -12,6 +12,8 @@ func run() {
  manager := CandidateManager{DatabasePath: productionDatabasePath}
  _ = StoreRecoveryCanary{}
  _ = CanaryVerifier{}
+ server.WithRecoveryCanaryPortFactory()
+ registerProductionRecoveryCredentialResolver()
  RegisterRestoreOperations()
 }
 func (operations *Operations) openAuthorityWithPromotion() {
@@ -20,7 +22,9 @@ func (operations *Operations) openAuthorityWithPromotion() {
  manager.PromoteAtStartup()
  return operations.openStore(ctx, configFor(operations.databasePath))
 }`
-	if invalidRecoveryAuthorityClosure(valid) {
+	recovery := `var productionDenialFactories = map[string]qualifiedFactory{"https-direct-denial-v1": {}}
+func (canary StoreRecoveryCanary) VerifyOldEpochDenied() { AttemptOldEpochMutation() }`
+	if invalidRecoveryAuthorityClosure(valid, recovery) {
 		t.Fatal("complete single-authority closure rejected")
 	}
 	for name, source := range map[string]string{
@@ -33,8 +37,19 @@ func (operations *Operations) openAuthorityWithPromotion() {
 		"second process":   valid + `\nfunc daemon(){ exec.Command("recovery-daemon") }`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			if !invalidRecoveryAuthorityClosure(source) {
+			if !invalidRecoveryAuthorityClosure(source, recovery) {
 				t.Fatal("unsafe recovery closure accepted")
+			}
+		})
+	}
+	for name, unsafeRecovery := range map[string]string{
+		"empty production denial registry": `var productionDenialFactories = map[string]qualifiedFactory{}`,
+		"observation only old epoch": recovery + `
+func weak(){ if bundle.Binding.PriorRecoveryEpoch+1 != current.RecoveryEpoch {} }`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if !invalidRecoveryAuthorityClosure(valid, unsafeRecovery) {
+				t.Fatal("unsafe recovery source accepted")
 			}
 		})
 	}

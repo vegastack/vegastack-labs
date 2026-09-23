@@ -48,6 +48,7 @@ func analyze(root string) (analysis, error) {
 	var result analysis
 	mainDirectories := make(map[string]bool)
 	serverSource := strings.Builder{}
+	recoveryAuthoritySource := strings.Builder{}
 	localBackupSource := strings.Builder{}
 	remoteListenerPresent := false
 	approvedRemoteTCP := make(map[token.Pos]bool)
@@ -93,6 +94,12 @@ func analyze(root string) (analysis, error) {
 		if isServer {
 			serverSource.Write(content)
 		}
+		if relative == "cmd/vsk-labs/main.go" {
+			serverSource.Write(content)
+		}
+		if relative == "internal/recovery/qualification.go" || relative == "internal/recovery/store_canary.go" {
+			recoveryAuthoritySource.Write(content)
+		}
 		if relative == "internal/adapter/localbackup/adapter.go" || relative == "internal/adapter/localbackup/verify.go" {
 			localBackupSource.Write(content)
 		}
@@ -113,7 +120,7 @@ func analyze(root string) (analysis, error) {
 			}
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
 			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/lifecycle_verifier_linux.go" || relative == "internal/adapter/nativecredential/process_observer_linux.go" || relative == "internal/adapter/nativecredential/authority_linux.go" || relative == "internal/adapter/nativecredential/probe_linux.go" || relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go" || relative == "internal/adapter/nativecredential/verify_recovery_linux.go"
-			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (approvedNativeCredentialFile || strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || relative == "internal/server/credential_resolver_linux.go" || relative == "internal/server/remote_tls_linux.go" || relative == "internal/server/slack_acknowledgement_config_linux.go" || relative == "internal/server/systemd_credentials_linux.go" || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
+			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (approvedNativeCredentialFile || strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || relative == "internal/server/credential_resolver_linux.go" || relative == "internal/server/recovery_canary_config_linux.go" || relative == "internal/server/recovery_source_registry_linux.go" || relative == "internal/server/remote_tls_linux.go" || relative == "internal/server/slack_acknowledgement_config_linux.go" || relative == "internal/server/systemd_credentials_linux.go" || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
 			// #106's guarded local adapter and #146's exact protected recovery
 			// files are separate reviewed Unix file-descriptor scopes.
 			approvedBackupAdapterFile := relative == "internal/adapter/localbackup/adapter.go"
@@ -186,7 +193,7 @@ func analyze(root string) (analysis, error) {
 			result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || !strings.Contains(backupSource, required)
 		}
 	}
-	result.RecoveryAuthorityInvalid = invalidRecoveryAuthorityClosure(source)
+	result.RecoveryAuthorityInvalid = invalidRecoveryAuthorityClosure(source, recoveryAuthoritySource.String())
 	return result, nil
 }
 
@@ -196,7 +203,7 @@ func analyze(root string) (analysis, error) {
 // keep normal mutation disabled until the canary enables it. An absent
 // coordinator is reported by Task 7 acceptance rather than misclassified as a
 // partially safe implementation.
-func invalidRecoveryAuthorityClosure(source string) bool {
+func invalidRecoveryAuthorityClosure(source, recoverySource string) bool {
 	markers := []string{"RegisterRestoreOperations", "PromoteAtStartup", "CandidateManager{", "StoreRecoveryCanary", "CanaryVerifier"}
 	present := 0
 	for _, marker := range markers {
@@ -214,6 +221,23 @@ func invalidRecoveryAuthorityClosure(source string) bool {
 		if strings.Contains(source, forbidden) {
 			return true
 		}
+	}
+	if start := strings.Index(source, "recoveryCanaryPorts: func"); start >= 0 {
+		end := start + 500
+		if end > len(source) {
+			end = len(source)
+		}
+		if strings.Contains(source[start:end], "return nil, nil, nil") {
+			return true
+		}
+	}
+	for _, required := range []string{"server.WithRecoveryCanaryPortFactory(", "registerProductionRecoveryCredentialResolver"} {
+		if !strings.Contains(source, required) {
+			return true
+		}
+	}
+	if strings.Contains(recoverySource, "productionDenialFactories = map[string]qualifiedFactory{}") || !strings.Contains(recoverySource, "https-direct-denial-v1") || strings.Contains(recoverySource, "bundle.Binding.PriorRecoveryEpoch+1 != current.RecoveryEpoch") {
+		return true
 	}
 	startup := strings.Index(source, "func (operations *Operations) openAuthorityWithPromotion")
 	if startup < 0 {
