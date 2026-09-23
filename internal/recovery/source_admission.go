@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"sort"
+	"time"
 )
 
 const sourceAdmissionDomain = "vegastack-labs.dev/recovery-source-admission/v1\x00"
@@ -33,6 +34,8 @@ type SourceAdmission struct {
 	AdminRootDigest          string                `json:"adminRootDigest"`
 	FenceQualificationDigest string                `json:"fenceQualificationDigest"`
 	Requirements             []BoundaryRequirement `json:"requirements"`
+	ValidFrom                time.Time             `json:"validFrom"`
+	ExpiresAt                time.Time             `json:"expiresAt"`
 }
 
 type SignedSourceAdmission struct {
@@ -56,9 +59,14 @@ func canonicalSourceAdmission(admission SourceAdmission) ([]byte, error) {
 	if !witnessDigest.MatchString(admission.CiphertextFingerprint) || !witnessDigest.MatchString(admission.AdminRootDigest) || !witnessDigest.MatchString(admission.FenceQualificationDigest) || admission.PriorEpoch < 0 || admission.NewEpoch != admission.PriorEpoch+1 || len(admission.WitnessPublicKey) != 32 || !validX25519PublicKey(admission.RecipientPublicKey) || !validCompleteRequirements(admission.Requirements) {
 		return nil, ErrWitnessUnavailable
 	}
+	if admission.ValidFrom.IsZero() || admission.ExpiresAt.IsZero() || !admission.ValidFrom.Before(admission.ExpiresAt) || admission.ExpiresAt.Sub(admission.ValidFrom) > 24*time.Hour {
+		return nil, ErrWitnessUnavailable
+	}
 	admission.WitnessPublicKey = append([]byte(nil), admission.WitnessPublicKey...)
 	admission.RecipientPublicKey = append([]byte(nil), admission.RecipientPublicKey...)
 	admission.Requirements = append([]BoundaryRequirement(nil), admission.Requirements...)
+	admission.ValidFrom = admission.ValidFrom.UTC()
+	admission.ExpiresAt = admission.ExpiresAt.UTC()
 	sort.Slice(admission.Requirements, func(i, j int) bool {
 		left, right := admission.Requirements[i], admission.Requirements[j]
 		if left.Kind != right.Kind {
@@ -94,8 +102,8 @@ func SourceAdmissionDigest(admission SourceAdmission) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
-func ParseSignedSourceAdmission(raw []byte, adminPublic ed25519.PublicKey, expected SourceAdmissionExpectation) (SourceAdmission, error) {
-	if len(raw) == 0 || len(raw) > 65536 || len(adminPublic) != ed25519.PublicKeySize || !validSourceAdmissionExpectation(expected) {
+func ParseSignedSourceAdmission(raw []byte, adminPublic ed25519.PublicKey, expected SourceAdmissionExpectation, now time.Time) (SourceAdmission, error) {
+	if len(raw) == 0 || len(raw) > 65536 || len(adminPublic) != ed25519.PublicKeySize || !validSourceAdmissionExpectation(expected) || now.IsZero() {
 		return SourceAdmission{}, ErrWitnessUnavailable
 	}
 	var signed SignedSourceAdmission
@@ -116,7 +124,7 @@ func ParseSignedSourceAdmission(raw []byte, adminPublic ed25519.PublicKey, expec
 		admission.DraftID != expected.DraftID || admission.CiphertextFingerprint != expected.CiphertextFingerprint ||
 		admission.FenceQualificationDigest != expected.FenceQualificationDigest || admission.PriorEpoch != expected.PriorEpoch ||
 		admission.NewEpoch != expected.NewEpoch || SourceAdmissionDigest(admission) != expected.SourceAdmissionDigest ||
-		admission.AdminRootDigest != recoveryAdminRootDigest(adminPublic) {
+		admission.AdminRootDigest != recoveryAdminRootDigest(adminPublic) || admission.ValidFrom.After(now.UTC()) || !now.UTC().Before(admission.ExpiresAt) {
 		return SourceAdmission{}, ErrWitnessUnavailable
 	}
 	return admission, nil

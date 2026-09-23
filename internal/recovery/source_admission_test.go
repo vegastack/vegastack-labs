@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestSourceAdmissionDigestIsCanonicalAndRejectsInvalidRecipient(t *testing.T) {
@@ -29,6 +30,7 @@ func TestSourceAdmissionDigestIsCanonicalAndRejectsInvalidRecipient(t *testing.T
 		WitnessKeyID: "witness-key", WitnessInstanceID: "outside-instance", RecipientKeyID: "recipient-key",
 		WitnessPublicKey: witnessPublic, RecipientPublicKey: recipient.PublicKey().Bytes(),
 		AdminRootDigest: "sha256:" + strings.Repeat("b", 64), FenceQualificationDigest: "sha256:" + strings.Repeat("c", 64), Requirements: required,
+		ValidFrom: time.Date(2026, 9, 24, 5, 0, 0, 0, time.UTC), ExpiresAt: time.Date(2026, 9, 24, 6, 0, 0, 0, time.UTC),
 	}
 	digest := SourceAdmissionDigest(admission)
 	if digest == "" {
@@ -65,6 +67,7 @@ func TestSignedSourceAdmissionIsPrePlanAndExact(t *testing.T) {
 			{Kind: "host-service", SubjectID: "service-a", TargetID: "former-host", AdapterID: "host-denial-v1", FormerIdentityID: "former-instance", ProbeID: "alternate-process-denied"},
 			{Kind: "host-service", SubjectID: "service-a", TargetID: "former-host", AdapterID: "host-denial-v1", FormerIdentityID: "former-instance", ProbeID: "service-denied"},
 		},
+		ValidFrom: time.Date(2026, 9, 24, 5, 0, 0, 0, time.UTC), ExpiresAt: time.Date(2026, 9, 24, 6, 0, 0, 0, time.UTC),
 	}
 	canonical, err := canonicalSourceAdmission(admission)
 	if err != nil {
@@ -72,11 +75,11 @@ func TestSignedSourceAdmissionIsPrePlanAndExact(t *testing.T) {
 	}
 	raw, _ := json.Marshal(SignedSourceAdmission{Payload: admission, Signature: ed25519.Sign(adminPrivate, canonical)})
 	expected := SourceAdmissionExpectation{FormerHostID: admission.FormerHostID, FormerInstanceID: admission.FormerInstanceID, ReplacementHostID: admission.ReplacementHostID, ReplacementInstanceID: admission.ReplacementInstanceID, DraftID: admission.DraftID, CiphertextFingerprint: admission.CiphertextFingerprint, SourceAdmissionDigest: SourceAdmissionDigest(admission), FenceQualificationDigest: admission.FenceQualificationDigest, PriorEpoch: admission.PriorEpoch, NewEpoch: admission.NewEpoch}
-	if _, err := ParseSignedSourceAdmission(raw, adminPublic, expected); err != nil {
+	if _, err := ParseSignedSourceAdmission(raw, adminPublic, expected, admission.ValidFrom.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
 	expected.SourceAdmissionDigest = "sha256:" + strings.Repeat("d", 64)
-	if _, err := ParseSignedSourceAdmission(raw, adminPublic, expected); err == nil {
+	if _, err := ParseSignedSourceAdmission(raw, adminPublic, expected, admission.ValidFrom.Add(time.Minute)); err == nil {
 		t.Fatal("wrong pre-plan source admission digest accepted")
 	}
 	// A plan digest is intentionally absent: this artifact closes the stable

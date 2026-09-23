@@ -5,6 +5,7 @@ package recovery
 import (
 	"crypto/ed25519"
 	"os"
+	"time"
 )
 
 const systemSourceAdmissionPath = "/etc/vsk-labs/recovery/source-admission.json"
@@ -24,5 +25,5 @@ func LoadSystemSourceAdmission(expected SourceAdmissionExpectation) (SourceAdmis
 	if err != nil {
 		return SourceAdmission{}, ErrWitnessUnavailable
 	}
-	return ParseSignedSourceAdmission(raw, root, expected)
+	return ParseSignedSourceAdmission(raw, root, expected, time.Now().UTC())
 }
