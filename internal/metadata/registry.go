@@ -208,6 +208,7 @@ func Current() Registry {
 		backupRetentionLockDraftCommand(),
 		backupRetirementDraftCommand(),
 		backupOffsiteRetirementStageCommand(),
+		backupOffsiteRetirementDryRunCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		credentialImportCommand(),
 		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
@@ -399,6 +400,12 @@ func backupOffsiteRetirementStageCommand() CommandDefinition {
 	return phase5GateCommand([]string{"backup", "offsite-retirement", "stage"}, "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.", backupOffsiteRetirementStageRequestID, backupOffsiteRetirementStageSubmissionID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max)."}},
 		[]string{"backup", "offsite-retirement", "stage", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-stage-request.json", "--output", "json"})
+}
+
+func backupOffsiteRetirementDryRunCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "offsite-retirement", "dry-run"}, "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.", backupOffsiteRetirementDryRunRequestID, backupOffsiteRetirementDryRunDataID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max)."}},
+		[]string{"backup", "offsite-retirement", "dry-run", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-dry-run-request.json", "--output", "json"})
 }
 
 func backupStatusCommand() CommandDefinition {

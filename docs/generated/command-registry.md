@@ -42,6 +42,19 @@ Owner phase: `5` · risk: `read-only` · availability: `available`
 
 - Verify local audit history against independent checkpoint state.: `vsk-labs audit verify --config fixture/server-profile.json --output json`
 
+### `vsk-labs backup offsite-retirement dry-run`
+
+Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.
+
+Owner phase: `5` · risk: `read-only` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--file <path>` — Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.: `vsk-labs backup offsite-retirement dry-run --config fixture/server-profile.json --file fixture/backup-offsite-retirement-dry-run-request.json --output json`
+
 ### `vsk-labs backup offsite-retirement stage`
 
 Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.

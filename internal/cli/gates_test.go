@@ -26,7 +26,9 @@ func syntheticGateRequest(t *testing.T, command string) []byte {
 	case generated.CommandNameBackupRetirementDraft:
 		value = generated.BackupRetirementDraftRequest{Schema: generated.SchemaIDBackupRetirementDraftRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "key-test", RepositoryClass: "standard", ReferenceID: "reference-test", ResolverID: "native-systemd", MaterialVersion: "version-test"}
 	case generated.CommandNameBackupOffsiteRetirementStage:
-		value = generated.BackupOffsiteRetirementStageRequest{Schema: generated.SchemaIDBackupOffsiteRetirementStageRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "key-test", SelectionDigest: digest, PlanID: "plan-a", PlanDigest: digest, OneOwnerProofID: "proof-a", LockAdminConsumerID: "lock-admin", RetentionConsumerID: "retention"}
+		value = generated.BackupOffsiteRetirementStageRequest{Schema: generated.SchemaIDBackupOffsiteRetirementStageRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "key-test", SelectionDigest: digest, PlanID: "plan-a", PlanDigest: digest, OneOwnerProofID: "proof-a", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", CredentialBindingDigest: digest}
+	case generated.CommandNameBackupOffsiteRetirementDryRun:
+		value = generated.BackupOffsiteRetirementDryRunRequest{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, SelectionDigest: digest, OneOwnerProofID: "proof-a", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", CredentialBindingDigest: digest}
 	case generated.CommandNameBackupRun:
 		value = generated.BackupRunRequest{Schema: generated.SchemaIDBackupRunRequest, SchemaVersion: "1.0.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "key-test", PolicyID: "policy-a", PolicyRevision: 1, PlanID: "plan-a", PlanDigest: digest, HumanAcknowledgementID: "ack-a"}
 	case generated.CommandNameBackupVerify:

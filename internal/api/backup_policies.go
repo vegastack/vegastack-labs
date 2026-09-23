@@ -47,8 +47,11 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 		added++
 	}
 	if config.OffsiteRetirements != nil {
-		app.routes = append(app.routes, route{id: "api.v1.backup-offsite-retirements.stage", method: http.MethodPost, pattern: "/api/v1/backups/offsite-retirements/stage", deferredAuthorization: true, handler: app.backupOffsiteRetirementStage(config)})
-		added++
+		app.routes = append(app.routes,
+			route{id: "api.v1.backup-offsite-retirements.dry-run", method: http.MethodPost, pattern: "/api/v1/backups/offsite-retirements/dry-run", deferredAuthorization: true, handler: app.backupOffsiteRetirementDryRun(config)},
+			route{id: "api.v1.backup-offsite-retirements.stage", method: http.MethodPost, pattern: "/api/v1/backups/offsite-retirements/stage", deferredAuthorization: true, handler: app.backupOffsiteRetirementStage(config)},
+		)
+		added += 2
 	}
 	if config.RetentionLocks != nil {
 		app.routes = append(app.routes, route{id: "api.v1.backup-retention-lock-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/retention-locks/drafts", deferredAuthorization: true, handler: app.backupRetentionLockDraft(config)})
@@ -69,6 +72,37 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 	return nil
 }
 
+func (app *Application) backupOffsiteRetirementDryRun(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
+		const op = "api.v1.backup-offsite-retirements.dry-run"
+		if r.URL.RawQuery != "" {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "query"))
+			return
+		}
+		var input generated.BackupOffsiteRetirementDryRunRequest
+		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "selectionDigest", "oneOwnerProofId", "lockAdminReferenceId", "retentionReferenceId", "credentialBindingDigest"}, &input); err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		principal, ok := identity.PrincipalFromContext(r.Context())
+		if !ok || principal.Method != identity.LocalOSPeerMethod {
+			app.failure(w, op, apiFailure(generated.ErrorCodeAuthorizationDenied, "offsite-retirement-operator-only"))
+			return
+		}
+		requestID, err := config.Results.RequestID()
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		result, err := config.OffsiteRetirements.DryRun(r.Context(), input, principal)
+		if err != nil {
+			app.operationFailure(w, op, requestID, err)
+			return
+		}
+		app.operationSuccess(w, op, requestID, false, result.StateRevision, result.RecoveryEpoch, result)
+	}
+}
+
 func (app *Application) backupOffsiteRetirementStage(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.backup-offsite-retirements.stage"
@@ -77,7 +111,7 @@ func (app *Application) backupOffsiteRetirementStage(config BackupOperations) fu
 			return
 		}
 		var input generated.BackupOffsiteRetirementStageRequest
-		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "selectionDigest", "planId", "planDigest", "oneOwnerProofId", "lockAdminConsumerId", "retentionConsumerId"}, &input); err != nil {
+		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "selectionDigest", "planId", "planDigest", "oneOwnerProofId", "lockAdminReferenceId", "retentionReferenceId", "credentialBindingDigest"}, &input); err != nil {
 			app.failure(w, op, err)
 			return
 		}

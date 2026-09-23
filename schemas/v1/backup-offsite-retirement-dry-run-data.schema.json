@@ -1,0 +1,120 @@
+{
+  "$id": "vegastack-labs.dev/backup-offsite-retirement-dry-run-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "bucketId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "catalogDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "credentialBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "expectedReclaimBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "generationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "intentDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "inventoryDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "manifestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "objectCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "pointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "preRuleCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "ruleSetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-offsite-retirement-dry-run-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "selectionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "survivorPointIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "survivorRuleCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "survivorRuleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "intentDigest",
+    "selectionDigest",
+    "credentialBindingDigest",
+    "generationId",
+    "pointId",
+    "bucketId",
+    "ruleSetDigest",
+    "survivorRuleDigest",
+    "manifestDigest",
+    "catalogDigest",
+    "inventoryDigest",
+    "survivorPointIds",
+    "objectCount",
+    "expectedReclaimBytes",
+    "preRuleCount",
+    "survivorRuleCount",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs backup offsite retirement dry run data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

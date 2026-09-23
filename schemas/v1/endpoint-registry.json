@@ -43,6 +43,19 @@
       ]
     },
     {
+      "id": "api.v1.backup-offsite-retirements.dry-run",
+      "method": "POST",
+      "path": "/api/v1/backups/offsite-retirements/dry-run",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-offsite-retirement-dry-run-request",
+      "dataSchema": "vegastack-labs.dev/backup-offsite-retirement-dry-run-data",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.backup-offsite-retirements.stage",
       "method": "POST",
       "path": "/api/v1/backups/offsite-retirements/stage",

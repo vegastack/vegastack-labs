@@ -22,6 +22,8 @@ const (
 	backupRetentionLockDraftSubmissionID     = "vegastack-labs.dev/backup-retention-lock-draft-submission"
 	backupRetirementDraftRequestID           = "vegastack-labs.dev/backup-retirement-draft-request"
 	backupRetirementDraftSubmissionID        = "vegastack-labs.dev/backup-retirement-draft-submission"
+	backupOffsiteRetirementDryRunRequestID   = "vegastack-labs.dev/backup-offsite-retirement-dry-run-request"
+	backupOffsiteRetirementDryRunDataID      = "vegastack-labs.dev/backup-offsite-retirement-dry-run-data"
 	backupOffsiteRetirementStageRequestID    = "vegastack-labs.dev/backup-offsite-retirement-stage-request"
 	backupOffsiteRetirementStageSubmissionID = "vegastack-labs.dev/backup-offsite-retirement-stage-submission"
 	backupTrustSourceDraftRequestSchemaID    = "vegastack-labs.dev/backup-trust-source-draft-request"
@@ -618,9 +620,23 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5IDs("targetPointIds", "TargetPointIDs", 256), phase5IDs("survivorPointIds", "SurvivorPointIDs", 256),
 			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5BackupSchema(backupOffsiteRetirementDryRunRequestID,
+			phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Digest("selectionDigest", "SelectionDigest"), phase5ID("oneOwnerProofId", "OneOwnerProofID"),
+			phase5ID("lockAdminReferenceId", "LockAdminReferenceID"), phase5ID("retentionReferenceId", "RetentionReferenceID"),
+			phase5Digest("credentialBindingDigest", "CredentialBindingDigest"),
+		),
+		phase5BackupSchema(backupOffsiteRetirementDryRunDataID,
+			phase5Digest("intentDigest", "IntentDigest"), phase5Digest("selectionDigest", "SelectionDigest"), phase5Digest("credentialBindingDigest", "CredentialBindingDigest"),
+			phase5ID("generationId", "GenerationID"), phase5ID("pointId", "PointID"), phase5ID("bucketId", "BucketID"),
+			phase5Digest("ruleSetDigest", "RuleSetDigest"), phase5Digest("survivorRuleDigest", "SurvivorRuleDigest"), phase5Digest("manifestDigest", "ManifestDigest"), phase5Digest("catalogDigest", "CatalogDigest"), phase5Digest("inventoryDigest", "InventoryDigest"),
+			phase5IDs("survivorPointIds", "SurvivorPointIDs", 256), phase5Nonnegative("objectCount", "ObjectCount"), phase5Nonnegative("expectedReclaimBytes", "ExpectedReclaimBytes"),
+			phase5Nonnegative("preRuleCount", "PreRuleCount"), phase5Nonnegative("survivorRuleCount", "SurvivorRuleCount"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5BackupRequest(backupOffsiteRetirementStageRequestID,
 			phase5Digest("selectionDigest", "SelectionDigest"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
-			phase5ID("oneOwnerProofId", "OneOwnerProofID"), phase5ID("lockAdminConsumerId", "LockAdminConsumerID"), phase5ID("retentionConsumerId", "RetentionConsumerID"),
+			phase5ID("oneOwnerProofId", "OneOwnerProofID"), phase5ID("lockAdminReferenceId", "LockAdminReferenceID"), phase5ID("retentionReferenceId", "RetentionReferenceID"),
+			phase5Digest("credentialBindingDigest", "CredentialBindingDigest"),
 		),
 		phase5BackupSchema(backupOffsiteRetirementStageSubmissionID,
 			phase5ID("intentId", "IntentID"), phase5ID("generationId", "GenerationID"), phase5ID("pointId", "PointID"),
@@ -755,6 +771,7 @@ func phase5Endpoints() []EndpointDefinition {
 		{ID: "api.v1.backup-retention-lock-drafts.create", Method: "POST", Path: "/api/v1/backups/retention-locks/drafts", RequestSchema: backupRetentionLockDraftRequestID, DataSchema: backupRetentionLockDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		{ID: "api.v1.backup-retirement-drafts.create", Method: "POST", Path: "/api/v1/backups/retirements/drafts", RequestSchema: backupRetirementDraftRequestID, DataSchema: backupRetirementDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		{ID: "api.v1.backup-offsite-retirements.stage", Method: "POST", Path: "/api/v1/backups/offsite-retirements/stage", RequestSchema: backupOffsiteRetirementStageRequestID, DataSchema: backupOffsiteRetirementStageSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.backup-offsite-retirements.dry-run", Method: "POST", Path: "/api/v1/backups/offsite-retirements/dry-run", RequestSchema: backupOffsiteRetirementDryRunRequestID, DataSchema: backupOffsiteRetirementDryRunDataID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		phase5AvailableGateEndpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
@@ -795,6 +812,8 @@ func phase5CommandSchemas(path string) (request string, data string) {
 		return backupRetirementDraftRequestID, backupRetirementDraftSubmissionID
 	case "backup offsite-retirement stage":
 		return backupOffsiteRetirementStageRequestID, backupOffsiteRetirementStageSubmissionID
+	case "backup offsite-retirement dry-run":
+		return backupOffsiteRetirementDryRunRequestID, backupOffsiteRetirementDryRunDataID
 	case "recovery witness collect":
 		return "", recoveryWitnessCollectionDataSchemaID
 	case "backup run", "database backup":

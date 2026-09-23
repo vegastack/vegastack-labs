@@ -309,6 +309,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	credentialRepository := store.NewCredentialRepository(authority)
+	secretGate := runengine.GateVerifier(runengine.UnavailableGateVerifier{})
+	if profile.OffsiteBackup != nil {
+		if composed, composeErr := composeR2RetirementCredentials(ctx, profile, adapters, gateRepository, store.NewOffsiteRetirementRepository(authority)); composeErr == nil {
+			secretGate = composed
+		}
+	}
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
 	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
@@ -320,7 +326,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: secretGate, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -598,6 +604,14 @@ func (operations *Operations) StageBackupOffsiteRetirement(ctx context.Context, 
 		return localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission]{}, err
 	}
 	return client.StageBackupOffsiteRetirement(ctx, profile, input)
+}
+
+func (operations *Operations) DryRunBackupOffsiteRetirement(ctx context.Context, configPath string, input generated.BackupOffsiteRetirementDryRunRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData]{}, err
+	}
+	return client.DryRunBackupOffsiteRetirement(ctx, profile, input)
 }
 
 func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {

@@ -16,9 +16,9 @@ type survivorVerifierFixture struct {
 	now  time.Time
 }
 
-func (v survivorVerifierFixture) ExpectedOffsiteSurvivor(_ context.Context, id string) (OffsiteSurvivorExpectation, error) {
+func (v survivorVerifierFixture) ExpectedOffsiteSurvivor(_ context.Context, id string) (store.OffsiteRetirementSurvivorSettlement, error) {
 	d := "sha256:" + strings.Repeat("a", 64)
-	return OffsiteSurvivorExpectation{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: d, RestoreDigest: d, RecoveryEpoch: 2}, nil
+	return store.OffsiteRetirementSurvivorSettlement{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: d, RestoreDigest: d, RecoveryEpoch: 2}, nil
 }
 func (v survivorVerifierFixture) CurrentOffsiteLastGood(context.Context, int64) (string, error) {
 	return "point-good", nil
@@ -29,7 +29,7 @@ func (v survivorVerifierFixture) VerifyOffsiteSurvivor(_ context.Context, id str
 		return OffsiteSurvivorProof{}, errors.New("restore failed")
 	}
 	d := "sha256:" + strings.Repeat("a", 64)
-	return OffsiteSurvivorProof{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: d, RestoreDigest: d, FullReadAt: v.now.Add(-time.Minute), RestoredAt: v.now.Add(-time.Minute), ObservedAt: v.now, RecoveryEpoch: 2}, nil
+	return OffsiteSurvivorProof{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: d, RestoreDigest: d, FullReadAt: v.now, RestoredAt: v.now, ObservedAt: v.now, RecoveryEpoch: 2}, nil
 }
 
 func TestOffsiteRetirementCannotSettleAfterPartialDeleteOrFailedSurvivor(t *testing.T) {

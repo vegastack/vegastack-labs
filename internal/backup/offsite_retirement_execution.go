@@ -12,7 +12,7 @@ import (
 )
 
 type OffsiteRetirementProviderFactory interface {
-	Clients(context.Context, store.OffsiteRetirementIntent, *credentialref.Value, *credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, error)
+	Clients(context.Context, store.OffsiteRetirementIntent, *credentialref.Value, *credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, OffsiteSurvivorVerifier, error)
 }
 
 // SQLRetirementExecution is the production destructive composition. It owns
@@ -40,7 +40,7 @@ func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, oper
 	}
 	intent, err := execution.repository.GetOffsiteRetirementIntentByDigest(ctx, operation.ArtifactDigest)
 	if err != nil || intent.PlanID != binding.PlanID || intent.PlanDigest != binding.PlanDigest || intent.GenerationID != operation.TargetID || intent.StateRevision != binding.StateRevision || intent.RecoveryEpoch != binding.RecoveryEpoch || intent.CredentialBindingDigest != operation.InputDigest ||
-		len(operation.SecretReferences) != 2 || operation.SecretReferences[0].Consumer != intent.LockAdminConsumerID || operation.SecretReferences[1].Consumer != intent.RetentionConsumerID || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID {
+		len(operation.SecretReferences) != 2 || operation.SecretReferences[0].Consumer != intent.LockAdminReferenceID || operation.SecretReferences[1].Consumer != intent.RetentionReferenceID || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID {
 		return "", errors.New("offsite retirement intent binding invalid")
 	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
@@ -51,9 +51,15 @@ func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, oper
 	if err != nil {
 		return "", err
 	}
-	rules, objects, err := execution.providers.Clients(ctx, intent, lockAdmin, retention)
+	rules, objects, verifier, err := execution.providers.Clients(ctx, intent, lockAdmin, retention)
 	if err != nil {
 		return "", err
+	}
+	defer closeRetirementClient(rules)
+	defer closeRetirementClient(objects)
+	defer closeRetirementClient(verifier)
+	if verifier == nil {
+		return "", errors.New("fresh offsite survivor verifier unavailable")
 	}
 	journal, err := r2retention.RetireExact(ctx, intent, lease, rules, objects, execution.repository)
 	if err != nil {
@@ -62,15 +68,26 @@ func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, oper
 	if journal.Status != "effects-observed" {
 		return "", errors.New("offsite retirement effects unresolved")
 	}
-	survivors, err := execution.repository.CurrentSurvivorSettlements(ctx, intent)
+	verifiedAt := execution.clock().UTC()
+	proof, err := VerifyOffsiteRetirement(ctx, intent, journal, execution.repository, verifier, verifiedAt)
 	if err != nil {
 		return "", err
+	}
+	survivors := make([]store.OffsiteRetirementSurvivorSettlement, len(proof.Survivors))
+	for index, value := range proof.Survivors {
+		survivors[index] = store.OffsiteRetirementSurvivorSettlement{PointID: value.PointID, GenerationID: value.GenerationID, RuleDigest: value.RuleDigest, InventoryDigest: value.InventoryDigest, FullReadDigest: value.FullReadDigest, RestoreDigest: value.RestoreDigest, RecoveryEpoch: value.RecoveryEpoch, ObservedAt: value.ObservedAt}
 	}
 	receipt, err := execution.repository.SettleVerifiedReceipt(ctx, store.OffsiteRetirementVerifiedSettlement{ReceiptID: "receipt-" + lease.LeaseID, IntentID: intent.IntentID, LeaseID: lease.LeaseID, ReclaimedBytes: journal.ReclaimedBytes, Survivors: survivors})
 	if err != nil {
 		return "", err
 	}
 	return receipt.EffectDigest, nil
+}
+
+func closeRetirementClient(value any) {
+	if closer, ok := value.(interface{ Close() error }); ok && closer != nil {
+		_ = closer.Close()
+	}
 }
 
 func (execution *SQLRetirementExecution) VerifiedReceiptExists(ctx context.Context, generationID, digest string) (bool, error) {

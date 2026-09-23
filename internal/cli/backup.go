@@ -13,6 +13,34 @@ import (
 // backup-policy-draft-request JSON file and submits it as an inert draft. It
 // activates nothing; an exact plan and human approval remain required to apply.
 func (app *App) runBackupCommand(ctx context.Context, mode outputMode, parsed parsedArguments) int {
+	if parsed.commandName() == generated.CommandNameBackupOffsiteRetirementDryRun {
+		control, ok := app.control.(BackupOffsiteRetirementControlOperations)
+		if !ok || app.files == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "backup-offsite-retirement-control", generated.RunStatusFailed, false)
+		}
+		raw, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), 65536)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		var input generated.BackupOffsiteRetirementDryRunRequest
+		if generated.ValidateContractJSON(generated.SchemaIDBackupOffsiteRetirementDryRunRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &input) != nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeInputInvalid, "backup-offsite-retirement-dry-run-contract", generated.RunStatusFailed, false)
+		}
+		response, err := control.DryRunBackupOffsiteRetirement(ctx, parsed.Value(generated.FlagConfig), input)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Off-site retirement dry-run selects generation %s with intent %s.\n", response.Data.GenerationID, response.Data.IntentDigest); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
 	if parsed.commandName() == generated.CommandNameBackupOffsiteRetirementStage {
 		control, ok := app.control.(BackupOffsiteRetirementControlOperations)
 		if !ok || app.files == nil {

@@ -25,6 +25,7 @@ type stubControlOperations struct {
 	retentionLockResponse     localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]
 	retirementResponse        localapi.TypedResponse[generated.BackupRetirementDraftSubmission]
 	offsiteRetirementResponse localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission]
+	offsiteDryRunResponse     localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData]
 	backupStatusResponse      localapi.TypedResponse[generated.BackupStatusData]
 	backupJobResponse         localapi.TypedResponse[generated.BackupJob]
 	summaryResponse           localapi.TypedResponse[generated.ApiSummaryData]
@@ -70,6 +71,9 @@ func (stub *stubControlOperations) SubmitBackupRetirementDraft(_ context.Context
 }
 func (stub *stubControlOperations) StageBackupOffsiteRetirement(context.Context, string, generated.BackupOffsiteRetirementStageRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error) {
 	return stub.offsiteRetirementResponse, stub.err
+}
+func (stub *stubControlOperations) DryRunBackupOffsiteRetirement(context.Context, string, generated.BackupOffsiteRetirementDryRunRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementDryRunData], error) {
+	return stub.offsiteDryRunResponse, stub.err
 }
 func (stub *stubControlOperations) BackupStatus(_ context.Context, _ string) (localapi.TypedResponse[generated.BackupStatusData], error) {
 	return stub.backupStatusResponse, stub.err
@@ -184,6 +188,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	retentionLock := generated.BackupRetentionLockDraftSubmission{Schema: generated.SchemaIDBackupRetentionLockDraftSubmission, SchemaVersion: "1.1.0", DraftID: "lock-draft-test", ChangeID: "retention-lock-change-test", OperationID: "retention-lock-operation-test", CatalogDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 9, RecoveryEpoch: 2}
 	retirement := generated.BackupRetirementDraftSubmission{Schema: generated.SchemaIDBackupRetirementDraftSubmission, SchemaVersion: "1.1.0", DraftID: "retirement-draft-test", ChangeID: "retirement-change-test", OperationID: "retirement-operation-test", SelectionDigest: "sha256:" + strings.Repeat("b", 64), CredentialManifestDigest: "sha256:" + strings.Repeat("c", 64), TargetPointIDs: []string{"point-old"}, SurvivorPointIDs: []string{"point-good"}, Status: "draft", StateRevision: 10, RecoveryEpoch: 2}
 	offsiteRetirement := generated.BackupOffsiteRetirementStageSubmission{Schema: generated.SchemaIDBackupOffsiteRetirementStageSubmission, SchemaVersion: "1.1.0", IntentID: "offsite-retirement-test", GenerationID: "generation-old", PointID: "point-old", RuleSetDigest: "sha256:" + strings.Repeat("a", 64), SurvivorRuleDigest: "sha256:" + strings.Repeat("b", 64), PreRuleCount: 10, SurvivorRuleCount: 5, SurvivorPointIDs: []string{"point-good"}, ExpectedReclaimBytes: 8, Status: "staged", StateRevision: 7, RecoveryEpoch: 2}
+	offsiteDryRun := generated.BackupOffsiteRetirementDryRunData{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunData, SchemaVersion: "1.1.0", IntentDigest: "sha256:" + strings.Repeat("a", 64), SelectionDigest: "sha256:" + strings.Repeat("a", 64), CredentialBindingDigest: "sha256:" + strings.Repeat("a", 64), GenerationID: "generation-old", PointID: "point-old", BucketID: "bucket-a", RuleSetDigest: "sha256:" + strings.Repeat("a", 64), SurvivorRuleDigest: "sha256:" + strings.Repeat("a", 64), ManifestDigest: "sha256:" + strings.Repeat("a", 64), CatalogDigest: "sha256:" + strings.Repeat("a", 64), InventoryDigest: "sha256:" + strings.Repeat("a", 64), SurvivorPointIDs: []string{"point-good"}, ObjectCount: 1, ExpectedReclaimBytes: 8, PreRuleCount: 10, SurvivorRuleCount: 5, StateRevision: 7, RecoveryEpoch: 2}
 	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: 2}
 	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
 	return &stubControlOperations{
@@ -196,6 +201,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		retentionLockResponse:     operationResponse(t, "api.v1.backup-retention-lock-drafts.create", true, 2, 9, retentionLock),
 		retirementResponse:        operationResponse(t, "api.v1.backup-retirement-drafts.create", true, 2, 10, retirement),
 		offsiteRetirementResponse: operationResponse(t, "api.v1.backup-offsite-retirements.stage", true, 2, 7, offsiteRetirement),
+		offsiteDryRunResponse:     operationResponse(t, "api.v1.backup-offsite-retirements.dry-run", false, 2, 7, offsiteDryRun),
 		backupStatusResponse:      operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
 		backupJobResponse:         operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
 		summaryResponse:           operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),

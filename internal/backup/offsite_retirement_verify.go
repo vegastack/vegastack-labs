@@ -21,15 +21,11 @@ type OffsiteSurvivorProof struct {
 type OffsiteSurvivorVerifier interface {
 	VerifyOffsiteSurvivor(context.Context, string) (OffsiteSurvivorProof, error)
 }
-type OffsiteSurvivorExpectation struct {
-	PointID, GenerationID, RuleDigest, InventoryDigest, FullReadDigest, RestoreDigest string
-	RecoveryEpoch                                                                     int64
-}
 
 // OffsiteRetirementSettlementCatalog is a durable #114 catalog view. The
 // verifier cannot settle against caller-authored digest-shaped values.
 type OffsiteRetirementSettlementCatalog interface {
-	ExpectedOffsiteSurvivor(context.Context, string) (OffsiteSurvivorExpectation, error)
+	ExpectedOffsiteSurvivor(context.Context, string) (store.OffsiteRetirementSurvivorSettlement, error)
 	CurrentOffsiteLastGood(context.Context, int64) (string, error)
 }
 type OffsiteRetirementProof struct {
@@ -69,7 +65,7 @@ func VerifyOffsiteRetirement(ctx context.Context, intent store.OffsiteRetirement
 			return OffsiteRetirementProof{}, errors.New("offsite survivor catalog failed")
 		}
 		p, err := verifier.VerifyOffsiteSurvivor(ctx, id)
-		if err != nil || p.PointID != id || p.GenerationID == intent.GenerationID || p.RecoveryEpoch != intent.RecoveryEpoch || p.FullReadAt.IsZero() || p.RestoredAt.IsZero() || p.ObservedAt.IsZero() || p.FullReadAt.After(p.ObservedAt) || p.RestoredAt.After(p.ObservedAt) ||
+		if err != nil || p.PointID != id || p.GenerationID == intent.GenerationID || p.RecoveryEpoch != intent.RecoveryEpoch || p.FullReadAt.IsZero() || p.RestoredAt.IsZero() || p.ObservedAt.IsZero() || p.FullReadAt.After(p.ObservedAt) || p.RestoredAt.After(p.ObservedAt) || p.FullReadAt.Before(now) || p.RestoredAt.Before(now) || p.ObservedAt.Before(now) ||
 			expected.PointID != id || expected.GenerationID != p.GenerationID || expected.RecoveryEpoch != p.RecoveryEpoch || expected.RuleDigest != p.RuleDigest || expected.InventoryDigest != p.InventoryDigest || expected.FullReadDigest != p.FullReadDigest || expected.RestoreDigest != p.RestoreDigest {
 			return OffsiteRetirementProof{}, errors.New("offsite survivor proof failed")
 		}

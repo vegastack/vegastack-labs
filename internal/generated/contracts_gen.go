@@ -50,6 +50,8 @@ const (
 	SchemaIDBackupJob                              = "vegastack-labs.dev/backup-job"
 	SchemaIDBackupLastGood                         = "vegastack-labs.dev/backup-last-good"
 	SchemaIDBackupLocalRetirementStatus            = "vegastack-labs.dev/backup-local-retirement-status"
+	SchemaIDBackupOffsiteRetirementDryRunData      = "vegastack-labs.dev/backup-offsite-retirement-dry-run-data"
+	SchemaIDBackupOffsiteRetirementDryRunRequest   = "vegastack-labs.dev/backup-offsite-retirement-dry-run-request"
 	SchemaIDBackupOffsiteRetirementStageRequest    = "vegastack-labs.dev/backup-offsite-retirement-stage-request"
 	SchemaIDBackupOffsiteRetirementStageSubmission = "vegastack-labs.dev/backup-offsite-retirement-stage-submission"
 	SchemaIDBackupOffsiteStatus                    = "vegastack-labs.dev/backup-offsite-status"
@@ -191,8 +193,9 @@ const (
 	FlagSchemaVersion                              = "--schema-version"
 	CommandNameAuditCheckpoints                    = "audit checkpoints"
 	CommandNameAuditVerify                         = "audit verify"
-	CommandNameBackupOffsiteRetirementStage        = "backup offsite-retirement stage"
+	CommandNameBackupOffsiteRetirementDryRun       = "backup offsite-retirement dry-run"
 	FlagFile                                       = "--file"
+	CommandNameBackupOffsiteRetirementStage        = "backup offsite-retirement stage"
 	CommandNameBackupPolicyDraft                   = "backup policy draft"
 	CommandNameBackupRetentionLocksDraft           = "backup retention-locks draft"
 	CommandNameBackupRetirementDraft               = "backup retirement draft"
@@ -664,19 +667,55 @@ type BackupLocalRetirementStatus struct {
 	RecoveryEpoch              int64    `json:"recoveryEpoch"`
 }
 
+type BackupOffsiteRetirementDryRunData struct {
+	Schema                  string   `json:"schema"`
+	SchemaVersion           string   `json:"schemaVersion"`
+	IntentDigest            string   `json:"intentDigest"`
+	SelectionDigest         string   `json:"selectionDigest"`
+	CredentialBindingDigest string   `json:"credentialBindingDigest"`
+	GenerationID            string   `json:"generationId"`
+	PointID                 string   `json:"pointId"`
+	BucketID                string   `json:"bucketId"`
+	RuleSetDigest           string   `json:"ruleSetDigest"`
+	SurvivorRuleDigest      string   `json:"survivorRuleDigest"`
+	ManifestDigest          string   `json:"manifestDigest"`
+	CatalogDigest           string   `json:"catalogDigest"`
+	InventoryDigest         string   `json:"inventoryDigest"`
+	SurvivorPointIDs        []string `json:"survivorPointIds"`
+	ObjectCount             int64    `json:"objectCount"`
+	ExpectedReclaimBytes    int64    `json:"expectedReclaimBytes"`
+	PreRuleCount            int64    `json:"preRuleCount"`
+	SurvivorRuleCount       int64    `json:"survivorRuleCount"`
+	StateRevision           int64    `json:"stateRevision"`
+	RecoveryEpoch           int64    `json:"recoveryEpoch"`
+}
+
+type BackupOffsiteRetirementDryRunRequest struct {
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	ExpectedStateRevision   int64  `json:"expectedStateRevision"`
+	RecoveryEpoch           int64  `json:"recoveryEpoch"`
+	SelectionDigest         string `json:"selectionDigest"`
+	OneOwnerProofID         string `json:"oneOwnerProofId"`
+	LockAdminReferenceID    string `json:"lockAdminReferenceId"`
+	RetentionReferenceID    string `json:"retentionReferenceId"`
+	CredentialBindingDigest string `json:"credentialBindingDigest"`
+}
+
 type BackupOffsiteRetirementStageRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	TargetDigest          string `json:"targetDigest"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	SelectionDigest       string `json:"selectionDigest"`
-	PlanID                string `json:"planId"`
-	PlanDigest            string `json:"planDigest"`
-	OneOwnerProofID       string `json:"oneOwnerProofId"`
-	LockAdminConsumerID   string `json:"lockAdminConsumerId"`
-	RetentionConsumerID   string `json:"retentionConsumerId"`
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	ExpectedStateRevision   int64  `json:"expectedStateRevision"`
+	RecoveryEpoch           int64  `json:"recoveryEpoch"`
+	TargetDigest            string `json:"targetDigest"`
+	IdempotencyKey          string `json:"idempotencyKey"`
+	SelectionDigest         string `json:"selectionDigest"`
+	PlanID                  string `json:"planId"`
+	PlanDigest              string `json:"planDigest"`
+	OneOwnerProofID         string `json:"oneOwnerProofId"`
+	LockAdminReferenceID    string `json:"lockAdminReferenceId"`
+	RetentionReferenceID    string `json:"retentionReferenceId"`
+	CredentialBindingDigest string `json:"credentialBindingDigest"`
 }
 
 type BackupOffsiteRetirementStageSubmission struct {
@@ -2329,6 +2368,7 @@ var Commands = []Command{
 	{Path: []string{"audit"}, Summary: "Inspect sanitized audit history.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data"},
 	{Path: []string{"audit", "checkpoints"}, Summary: "List sanitized audit checkpoints.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Examples: []Example{{Summary: "List sanitized audit checkpoints.", Arguments: []string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"audit", "verify"}, Summary: "Verify local audit history against independent checkpoint state.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-verification-data", Examples: []Example{{Summary: "Verify local audit history against independent checkpoint state.", Arguments: []string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"}}}},
+	{Path: []string{"backup", "offsite-retirement", "dry-run"}, Summary: "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-offsite-retirement-dry-run-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-data", Examples: []Example{{Summary: "Derive one exact off-site retirement intent from the qualified complete bucket catalog without staging it.", Arguments: []string{"backup", "offsite-retirement", "dry-run", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-dry-run-request.json", "--output", "json"}}}},
 	{Path: []string{"backup", "offsite-retirement", "stage"}, Summary: "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected local server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-submission", Examples: []Example{{Summary: "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.", Arguments: []string{"backup", "offsite-retirement", "stage", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-stage-request.json", "--output", "json"}}}},
 	{Path: []string{"backup", "policy", "draft"}, Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-policy-draft-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Examples: []Example{{Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Arguments: []string{"backup", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-policy-draft-request.json", "--output", "json"}}}},
 	{Path: []string{"backup", "retention-locks", "draft"}, Summary: "Store one complete inert local retention-lock catalog and its exact human-plan declaration.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-retention-lock-draft-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-retention-lock-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-retention-lock-draft-submission", Examples: []Example{{Summary: "Store one complete inert local retention-lock catalog and its exact human-plan declaration.", Arguments: []string{"backup", "retention-locks", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-retention-lock-draft-request.json", "--output", "json"}}}},
@@ -2400,6 +2440,7 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.audit-checkpoints.create", Method: "POST", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/audit-checkpoint-request", DataSchema: "vegastack-labs.dev/audit-checkpoint", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-checkpoints.list", Method: "GET", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-history.verification", Method: "GET", Path: "/api/v1/audit-history/verification", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-verification-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.backup-offsite-retirements.dry-run", Method: "POST", Path: "/api/v1/backups/offsite-retirements/dry-run", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-request", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-dry-run-data", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backup-offsite-retirements.stage", Method: "POST", Path: "/api/v1/backups/offsite-retirements/stage", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-request", DataSchema: "vegastack-labs.dev/backup-offsite-retirement-stage-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backup-retention-lock-drafts.create", Method: "POST", Path: "/api/v1/backups/retention-locks/drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-retention-lock-draft-request", DataSchema: "vegastack-labs.dev/backup-retention-lock-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
