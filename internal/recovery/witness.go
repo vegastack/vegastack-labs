@@ -152,7 +152,7 @@ func validBinding(b WitnessBinding) bool {
 			return false
 		}
 	}
-	return witnessDigest.MatchString(b.CiphertextFingerprint) && witnessDigest.MatchString(b.PlanDigest) && witnessDigest.MatchString(b.SourceAdmissionDigest) && witnessDigest.MatchString(b.FenceQualificationDigest) && validWitnessToken(b.TargetReleaseBuildID) && versionToken.MatchString(b.TargetToolVersion) && schemaVersionToken.MatchString(b.TargetSchemaVersion) && validRestoreDependencies(b.RequiredDependencies) && b.PriorEpoch >= 0 && b.NewEpoch == b.PriorEpoch+1 && b.StateRevision > 0
+	return witnessDigest.MatchString(b.CiphertextFingerprint) && witnessDigest.MatchString(b.PlanDigest) && witnessDigest.MatchString(b.SourceAdmissionDigest) && witnessDigest.MatchString(b.FenceQualificationDigest) && validOptionalRestoreCompatibility(b.TargetReleaseBuildID, b.TargetToolVersion, b.TargetSchemaVersion, b.RequiredDependencies) && b.PriorEpoch >= 0 && b.NewEpoch == b.PriorEpoch+1 && b.StateRevision > 0
 }
 
 func validWitnessToken(value string) bool { return witnessToken.MatchString(value) }

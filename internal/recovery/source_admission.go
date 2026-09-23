@@ -70,7 +70,7 @@ func canonicalSourceAdmission(admission SourceAdmission) ([]byte, error) {
 			return nil, ErrWitnessUnavailable
 		}
 	}
-	if !witnessDigest.MatchString(admission.CiphertextFingerprint) || !witnessDigest.MatchString(admission.AdminRootDigest) || !witnessDigest.MatchString(admission.FenceQualificationDigest) || !validRestoreDependencies(admission.RequiredDependencies) || !validWitnessToken(admission.TargetReleaseBuildID) || !versionToken.MatchString(admission.TargetToolVersion) || !schemaVersionToken.MatchString(admission.TargetSchemaVersion) || admission.PriorEpoch < 0 || admission.NewEpoch != admission.PriorEpoch+1 || len(admission.WitnessPublicKey) != 32 || !validX25519PublicKey(admission.RecipientPublicKey) || !validCompleteRequirements(admission.Requirements) {
+	if !witnessDigest.MatchString(admission.CiphertextFingerprint) || !witnessDigest.MatchString(admission.AdminRootDigest) || !witnessDigest.MatchString(admission.FenceQualificationDigest) || !validOptionalRestoreCompatibility(admission.TargetReleaseBuildID, admission.TargetToolVersion, admission.TargetSchemaVersion, admission.RequiredDependencies) || admission.PriorEpoch < 0 || admission.NewEpoch != admission.PriorEpoch+1 || len(admission.WitnessPublicKey) != 32 || !validX25519PublicKey(admission.RecipientPublicKey) || !validCompleteRequirements(admission.Requirements) {
 		return nil, ErrWitnessUnavailable
 	}
 	admission.WitnessPublicKey = append([]byte(nil), admission.WitnessPublicKey...)
@@ -166,7 +166,14 @@ func validSourceAdmissionExpectation(expected SourceAdmissionExpectation) bool {
 	}
 	return expected.FormerHostID != expected.ReplacementHostID && expected.FormerInstanceID != expected.ReplacementInstanceID &&
 		witnessDigest.MatchString(expected.CiphertextFingerprint) && witnessDigest.MatchString(expected.SourceAdmissionDigest) &&
-		witnessDigest.MatchString(expected.FenceQualificationDigest) && validWitnessToken(expected.TargetReleaseBuildID) && versionToken.MatchString(expected.TargetToolVersion) && schemaVersionToken.MatchString(expected.TargetSchemaVersion) && validRestoreDependencies(expected.RequiredDependencies) && expected.PriorEpoch >= 0 && expected.NewEpoch == expected.PriorEpoch+1
+		witnessDigest.MatchString(expected.FenceQualificationDigest) && validOptionalRestoreCompatibility(expected.TargetReleaseBuildID, expected.TargetToolVersion, expected.TargetSchemaVersion, expected.RequiredDependencies) && expected.PriorEpoch >= 0 && expected.NewEpoch == expected.PriorEpoch+1
+}
+
+func validOptionalRestoreCompatibility(releaseBuildID, toolVersion, schemaVersion string, dependencies []generated.RestoreDependencyBinding) bool {
+	if releaseBuildID == "" && toolVersion == "" && schemaVersion == "" && len(dependencies) == 0 {
+		return true
+	}
+	return validWitnessToken(releaseBuildID) && versionToken.MatchString(toolVersion) && schemaVersionToken.MatchString(schemaVersion) && validRestoreDependencies(dependencies)
 }
 
 func validRestoreDependencies(dependencies []generated.RestoreDependencyBinding) bool {
