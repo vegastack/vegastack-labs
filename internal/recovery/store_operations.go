@@ -123,6 +123,11 @@ func (sessions StoreRestoreSessions) RestoreStatus(ctx context.Context, planID s
 	return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: stored.Binding.PointID, PlanID: stored.Binding.PlanID, PlanDigest: stored.Binding.PlanDigest, TargetDigest: stored.Binding.TargetDigest, Status: stored.Status, RecoveryEpoch: stored.Binding.NextRecoveryEpoch, VerificationStatus: verification}, nil
 }
 
+func (sessions StoreRestoreSessions) RestoreExecutionStatus(ctx context.Context, planID string) (string, error) {
+	stored, err := sessions.Repository.Get(ctx, planID)
+	return stored.Status, err
+}
+
 type StoreCandidateStager struct {
 	Manager    CandidateManager
 	Repository *store.RestoreRepository
@@ -130,6 +135,13 @@ type StoreCandidateStager struct {
 }
 
 func (stager StoreCandidateStager) StageRestoreCandidate(ctx context.Context, binding generated.RestoreBinding, source VerifiedSource, fences FenceResult, expected store.RevisionToken) (CandidateReceipt, error) {
+	if existing, err := stager.Repository.Get(ctx, binding.PlanID); err == nil && existing.Candidate != nil {
+		candidate := existing.Candidate
+		if candidate.CandidateDigest != binding.CandidateDigest || candidate.FenceSetDigest != binding.FenceSetDigest || candidate.AuditDecisionDigest != binding.AuditDecisionDigest || candidate.Expected != expected {
+			return CandidateReceipt{}, failure.New(generated.ErrorCodeStateConflict, "recovery-candidate", false)
+		}
+		return CandidateReceipt{PlanID: binding.PlanID, CandidateDigest: candidate.CandidateDigest, DatabaseDigest: candidate.DatabaseDigest, JournalDigest: candidate.JournalDigest, BundleDigest: candidate.BundleDigest, NewInstanceID: binding.NewInstanceID, NextRecoveryEpoch: binding.NextRecoveryEpoch}, nil
+	}
 	manager := stager.Manager
 	if bundles, ok := manager.Bundles.(StoreRecoveryBundleStore); ok {
 		bundles.Plans = stager.Plans

@@ -27,7 +27,10 @@ func (stub *restorePlannerStub) RestoreAuthorizationPlan(context.Context, string
 	return generated.Plan{}, nil
 }
 
-type restoreSessionsStub struct{ transitions []string }
+type restoreSessionsStub struct {
+	transitions []string
+	status      string
+}
 
 func (stub *restoreSessionsStub) CreateRestoreSession(context.Context, generated.RestoreBinding, store.RevisionToken) error {
 	stub.transitions = append(stub.transitions, "session")
@@ -35,10 +38,41 @@ func (stub *restoreSessionsStub) CreateRestoreSession(context.Context, generated
 }
 func (stub *restoreSessionsStub) TransitionRestore(_ context.Context, _ generated.RestoreBinding, from, to, _ string, _ store.RevisionToken) error {
 	stub.transitions = append(stub.transitions, from+">"+to)
+	stub.status = to
 	return nil
 }
 func (stub *restoreSessionsStub) RestoreStatus(context.Context, string) (generated.BrowserRestoreStatus, error) {
 	return generated.BrowserRestoreStatus{}, nil
+}
+func (stub *restoreSessionsStub) RestoreExecutionStatus(context.Context, string) (string, error) {
+	if stub.status != "" {
+		return stub.status, nil
+	}
+	status := "planned"
+	if len(stub.transitions) > 0 {
+		last := stub.transitions[len(stub.transitions)-1]
+		if last != "session" {
+			for i := len(last) - 1; i >= 0; i-- {
+				if last[i] == '>' {
+					return last[i+1:], nil
+				}
+			}
+		}
+	}
+	return status, nil
+}
+
+func TestOperationsRunResumesAfterRestoringWithoutRestaging(t *testing.T) {
+	service, request, _, sessions, stager := operationsFixture(t)
+	sessions.status = "restoring"
+	binding := service.config.Plans.(*restorePlannerStub).qualification.Binding
+	run := generated.RestoreRunRequest{Schema: generated.SchemaIDRestoreRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-run-retry", Source: binding.Source, PointID: binding.PointID, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, HumanAcknowledgementID: "ack-a", FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch}
+	if _, err := service.Run(context.Background(), run, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod}); err != nil {
+		t.Fatal(err)
+	}
+	if stager.calls != 0 || sessions.status != "verification-required" {
+		t.Fatalf("restaged=%d status=%s", stager.calls, sessions.status)
+	}
 }
 
 type restoreStagerStub struct{ calls int }

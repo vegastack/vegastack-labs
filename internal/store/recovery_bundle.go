@@ -39,6 +39,10 @@ func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle Re
 		return "", newStoreError(generated.ErrorCodeStateConflict, "recovery-authority-bundle", false, err)
 	}
 	if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_authority_bundles(plan_id,plan_digest,bundle_digest,plan_bytes,readable_plan,request_bytes,binding_bytes,status,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, bundle.Plan.PlanID, bundle.Plan.PlanDigest, digest, planBytes, bundle.Readable, requestBytes, bindingBytes, bundle.Status, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)); err != nil {
+		var existingDigest string
+		if getErr := tx.QueryRowContext(ctx, `SELECT bundle_digest FROM recovery_authority_bundles WHERE plan_id=?`, bundle.Plan.PlanID).Scan(&existingDigest); getErr == nil && existingDigest == digest {
+			return digest, nil
+		}
 		return "", newStoreError(generated.ErrorCodeStateConflict, "recovery-authority-bundle", false, err)
 	}
 	if err := tx.Commit(); err != nil {

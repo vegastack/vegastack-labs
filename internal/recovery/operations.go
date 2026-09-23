@@ -25,6 +25,7 @@ type RestoreSessionCoordinator interface {
 	CreateRestoreSession(context.Context, generated.RestoreBinding, store.RevisionToken) error
 	TransitionRestore(context.Context, generated.RestoreBinding, string, string, string, store.RevisionToken) error
 	RestoreStatus(context.Context, string) (generated.BrowserRestoreStatus, error)
+	RestoreExecutionStatus(context.Context, string) (string, error)
 }
 
 type RestoreCandidateStager interface {
@@ -89,17 +90,33 @@ func (service *OperationsService) Run(ctx context.Context, request generated.Res
 	if err := service.config.Sessions.CreateRestoreSession(ctx, executionBinding, expected); err != nil {
 		return generated.RestoreBinding{}, err
 	}
-	if err := service.config.Sessions.TransitionRestore(ctx, executionBinding, "planned", "fenced", fences.FenceSetDigest, expected); err != nil {
+	status, err := service.config.Sessions.RestoreExecutionStatus(ctx, executionBinding.PlanID)
+	if err != nil {
 		return generated.RestoreBinding{}, err
 	}
-	if _, err := service.config.Candidates.StageRestoreCandidate(ctx, executionBinding, source, fences, expected); err != nil {
-		return generated.RestoreBinding{}, err
+	if status == "planned" {
+		if err := service.config.Sessions.TransitionRestore(ctx, executionBinding, "planned", "fenced", fences.FenceSetDigest, expected); err != nil {
+			return generated.RestoreBinding{}, err
+		}
+		status = "fenced"
 	}
-	if err := service.config.Sessions.TransitionRestore(ctx, executionBinding, "fenced", "restoring", executionBinding.CandidateDigest, expected); err != nil {
-		return generated.RestoreBinding{}, err
+	if status == "fenced" {
+		if _, err := service.config.Candidates.StageRestoreCandidate(ctx, executionBinding, source, fences, expected); err != nil {
+			return generated.RestoreBinding{}, err
+		}
+		if err := service.config.Sessions.TransitionRestore(ctx, executionBinding, "fenced", "restoring", executionBinding.CandidateDigest, expected); err != nil {
+			return generated.RestoreBinding{}, err
+		}
+		status = "restoring"
 	}
-	if err := service.config.Sessions.TransitionRestore(ctx, executionBinding, "restoring", "verification-required", executionBinding.CandidateDigest, expected); err != nil {
-		return generated.RestoreBinding{}, err
+	if status == "restoring" {
+		if err := service.config.Sessions.TransitionRestore(ctx, executionBinding, "restoring", "verification-required", executionBinding.CandidateDigest, expected); err != nil {
+			return generated.RestoreBinding{}, err
+		}
+		status = "verification-required"
+	}
+	if status != "verification-required" {
+		return generated.RestoreBinding{}, failure.New(generated.ErrorCodeStateConflict, "restore-run", false)
 	}
 	return executionBinding, nil
 }

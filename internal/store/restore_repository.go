@@ -238,6 +238,13 @@ func (repository *RestoreRepository) AppendTransition(ctx context.Context, reque
 		return err
 	}
 	if current != request.From {
+		if current == request.To {
+			var planDigest, evidenceDigest string
+			var stateRevision, recoveryEpoch int64
+			if err := tx.QueryRowContext(ctx, `SELECT plan_digest,evidence_digest,state_revision,recovery_epoch FROM restore_transitions WHERE plan_id=? AND from_status=?`, request.PlanID, request.From).Scan(&planDigest, &evidenceDigest, &stateRevision, &recoveryEpoch); err == nil && planDigest == request.PlanDigest && evidenceDigest == request.EvidenceDigest && stateRevision == request.Expected.StateRevision && recoveryEpoch == request.Expected.RecoveryEpoch {
+				return nil
+			}
+		}
 		return restoreStoreError(generated.ErrorCodeStateConflict, "restore-transition")
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO restore_transitions(plan_id,from_status,to_status,plan_digest,evidence_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?)`, request.PlanID, request.From, request.To, request.PlanDigest, request.EvidenceDigest, request.Expected.StateRevision, request.Expected.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
@@ -270,6 +277,11 @@ func (repository *RestoreRepository) BindCandidate(ctx context.Context, request 
 	}
 	_, err = tx.ExecContext(ctx, `INSERT INTO recovery_candidates(candidate_id,plan_id,candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,database_digest,journal_digest,bundle_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, request.CandidateID, request.PlanID, request.CandidateDigest, request.PreservedAuthorityDigest, request.FenceSetDigest, request.AuditDecisionDigest, request.DatabaseDigest, request.JournalDigest, request.BundleDigest, request.Expected.StateRevision, request.Expected.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
 	if err != nil {
+		var candidateDigest, preservedDigest, fenceDigest, auditDigest, databaseDigest, journalDigest, bundleDigest string
+		var stateRevision, recoveryEpoch int64
+		if getErr := tx.QueryRowContext(ctx, `SELECT candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,database_digest,journal_digest,bundle_digest,state_revision,recovery_epoch FROM recovery_candidates WHERE plan_id=?`, request.PlanID).Scan(&candidateDigest, &preservedDigest, &fenceDigest, &auditDigest, &databaseDigest, &journalDigest, &bundleDigest, &stateRevision, &recoveryEpoch); getErr == nil && candidateDigest == request.CandidateDigest && preservedDigest == request.PreservedAuthorityDigest && fenceDigest == request.FenceSetDigest && auditDigest == request.AuditDecisionDigest && databaseDigest == request.DatabaseDigest && journalDigest == request.JournalDigest && bundleDigest == request.BundleDigest && stateRevision == request.Expected.StateRevision && recoveryEpoch == request.Expected.RecoveryEpoch {
+			return nil
+		}
 		return restoreStoreError(generated.ErrorCodeStateConflict, "recovery-candidate")
 	}
 	return tx.Commit()
