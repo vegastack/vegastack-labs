@@ -106,22 +106,27 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 		if len(status.Jobs) > 256 {
 			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-status-limit")
 		}
-		verifyRows, err := tx.query(ctx, `SELECT v.verification_id,p.job_id,v.point_id,v.run_id,v.status,v.proof_class,v.proof_digest,v.functional_restored_at,v.full_read_at,p.policy_digest,v.recovery_epoch FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.recovery_epoch=? ORDER BY v.created_at DESC,v.verification_id DESC LIMIT 257`, status.RecoveryEpoch)
+		verifyRows, err := tx.query(ctx, `SELECT v.verification_id,p.job_id,v.point_id,v.run_id,v.status,v.proof_class,v.proof_digest,v.functional_restored_at,v.full_read_at,p.policy_digest,NULLIF(v.reason_code,''),v.recovery_epoch FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.recovery_epoch=? ORDER BY v.created_at DESC,v.verification_id DESC LIMIT 257`, status.RecoveryEpoch)
 		if err != nil {
 			return err
 		}
 		seenJob := map[string]bool{}
 		for verifyRows.Next() {
-			attempt := generated.BackupVerificationAttempt{Schema: generated.SchemaIDBackupVerificationAttempt, SchemaVersion: "1.1.0"}
-			var runID, restoredAt, fullAt sql.NullString
+			attempt := generated.BackupVerificationAttempt{Schema: generated.SchemaIDBackupVerificationAttempt, SchemaVersion: "1.2.0"}
+			var runID, restoredAt, fullAt, reasonCode sql.NullString
 			var digest, policyDigest string
 			if err := verifyRows.Scan(&attempt.VerificationID, &attempt.JobID, &attempt.PointID, &runID, &attempt.Status,
-				&attempt.ProofClass, &digest, &restoredAt, &fullAt, &policyDigest, &attempt.RecoveryEpoch); err != nil {
+				&attempt.ProofClass, &digest, &restoredAt, &fullAt, &policyDigest, &reasonCode, &attempt.RecoveryEpoch); err != nil {
 				verifyRows.Close()
 				return err
 			}
 			attempt.RunID = nullableString(runID)
 			attempt.VerificationDigest = &digest
+			attempt.ReasonCode = nullableString(reasonCode)
+			if attempt.ReasonCode != nil && !validRunToken(*attempt.ReasonCode) {
+				verifyRows.Close()
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-status-reason-code")
+			}
 			if attempt.Status == "local-verified" {
 				policy, ok := policies[policyDigest]
 				if !ok || !fullAt.Valid || !restoredAt.Valid {

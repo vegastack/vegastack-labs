@@ -32,7 +32,8 @@ func (protectedLocalDependencyTrust) VerifyCurrent(ctx context.Context, request 
 			return nil, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-dependency-trust")
 		}
 		evidence = append(evidence, DependencyTrustEvidence{DependencyID: dependency.DependencyID, Kind: dependency.Kind,
-			Digest: dependency.Digest, SourceKind: "protected-local-pin", StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch})
+			Digest: dependency.Digest, SourceKind: "protected-local-pin", PointID: request.PointID, PolicyDigest: request.PolicyDigest,
+			SourceID: "protected-local-pin", StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch})
 	}
 	return evidence, nil
 }
@@ -56,11 +57,24 @@ func exactDependencyTrust(expected []backup.ExpectedDependency, evidence []Depen
 	for index, dependency := range expected {
 		proof := evidence[index]
 		if seen[proof.DependencyID] || proof.DependencyID != dependency.DependencyID || proof.Kind != dependency.Kind ||
-			proof.Digest != dependency.Digest || proof.SourceKind != "protected-local-pin" ||
-			proof.StateRevision != revision || proof.RecoveryEpoch != epoch {
+			proof.Digest != dependency.Digest || proof.PointID == "" || proof.PolicyDigest == "" ||
+			proof.StateRevision != revision || proof.RecoveryEpoch != epoch || !exactDependencySource(proof) {
 			return false
 		}
 		seen[proof.DependencyID] = true
 	}
 	return true
+}
+
+func exactDependencySource(proof DependencyTrustEvidence) bool {
+	switch proof.Kind {
+	case "binary", "schema":
+		return proof.SourceKind == "protected-local-pin" && proof.SourceID == "protected-local-pin" && proof.SourceRevision == 0 &&
+			proof.ArtifactID == "" && proof.BundleDigest == "" && proof.TrustedRootReferenceID == "" && proof.TrustRootDigest == "" && proof.SignerIdentity == "" && proof.SignerIssuer == ""
+	case "config", "image", "signature":
+		return proof.SourceKind == "registered-signed-artifact" && proof.SourceID != "" && proof.SourceRevision > 0 && proof.ArtifactID != "" &&
+			proof.BundleDigest != "" && proof.TrustedRootReferenceID != "" && proof.TrustRootDigest != "" && proof.SignerIdentity != "" && proof.SignerIssuer != ""
+	default:
+		return false
+	}
 }

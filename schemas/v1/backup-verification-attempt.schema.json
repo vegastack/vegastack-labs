@@ -32,6 +32,13 @@
       ],
       "type": "string"
     },
+    "reasonCode": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "recoveryEpoch": {
       "minimum": 0,
       "type": "integer"
@@ -51,7 +58,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.1.0"
+        "1.2.0"
       ],
       "type": "string"
     },
@@ -99,6 +106,7 @@
     "verifiedAt",
     "fullPayloadDueAt",
     "functionalTestDueAt",
+    "reasonCode",
     "recoveryEpoch"
   ],
   "title": "VegaStack Labs backup verification attempt",

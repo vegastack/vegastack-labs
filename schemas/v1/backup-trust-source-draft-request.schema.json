@@ -1,0 +1,102 @@
+{
+  "$id": "vegastack-labs.dev/backup-trust-source-draft-request",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "artifactDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "artifactId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "bundleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "dependencyId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "dependencyKind": {
+      "enum": [
+        "config",
+        "image",
+        "signature"
+      ],
+      "type": "string"
+    },
+    "expectedStateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "idempotencyKey": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-trust-source-draft-request"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "signerIdentity": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "signerIssuer": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "sourceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "trustRootDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "trustedRootReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "sourceId",
+    "dependencyId",
+    "dependencyKind",
+    "artifactId",
+    "artifactDigest",
+    "bundleDigest",
+    "trustedRootReferenceId",
+    "trustRootDigest",
+    "signerIdentity",
+    "signerIssuer",
+    "revision",
+    "recoveryEpoch",
+    "expectedStateRevision",
+    "idempotencyKey"
+  ],
+  "title": "VegaStack Labs backup trust source draft request",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

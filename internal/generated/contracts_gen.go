@@ -54,6 +54,7 @@ const (
 	SchemaIDBackupPolicyDraftSubmission     = "vegastack-labs.dev/backup-policy-draft-submission"
 	SchemaIDBackupRunRequest                = "vegastack-labs.dev/backup-run-request"
 	SchemaIDBackupStatusData                = "vegastack-labs.dev/backup-status-data"
+	SchemaIDBackupTrustSourceDraftRequest   = "vegastack-labs.dev/backup-trust-source-draft-request"
 	SchemaIDBackupVerificationAttempt       = "vegastack-labs.dev/backup-verification-attempt"
 	SchemaIDBackupVerifyRequest             = "vegastack-labs.dev/backup-verify-request"
 	SchemaIDBrowserAuditEvent               = "vegastack-labs.dev/browser-audit-event"
@@ -699,6 +700,25 @@ type BackupStatusData struct {
 	RecoveryEpoch int64                       `json:"recoveryEpoch"`
 }
 
+type BackupTrustSourceDraftRequest struct {
+	Schema                 string `json:"schema"`
+	SchemaVersion          string `json:"schemaVersion"`
+	SourceID               string `json:"sourceId"`
+	DependencyID           string `json:"dependencyId"`
+	DependencyKind         string `json:"dependencyKind"`
+	ArtifactID             string `json:"artifactId"`
+	ArtifactDigest         string `json:"artifactDigest"`
+	BundleDigest           string `json:"bundleDigest"`
+	TrustedRootReferenceID string `json:"trustedRootReferenceId"`
+	TrustRootDigest        string `json:"trustRootDigest"`
+	SignerIdentity         string `json:"signerIdentity"`
+	SignerIssuer           string `json:"signerIssuer"`
+	Revision               int64  `json:"revision"`
+	RecoveryEpoch          int64  `json:"recoveryEpoch"`
+	ExpectedStateRevision  int64  `json:"expectedStateRevision"`
+	IdempotencyKey         string `json:"idempotencyKey"`
+}
+
 type BackupVerificationAttempt struct {
 	Schema              string  `json:"schema"`
 	SchemaVersion       string  `json:"schemaVersion"`
@@ -712,6 +732,7 @@ type BackupVerificationAttempt struct {
 	VerifiedAt          *string `json:"verifiedAt"`
 	FullPayloadDueAt    *string `json:"fullPayloadDueAt"`
 	FunctionalTestDueAt *string `json:"functionalTestDueAt"`
+	ReasonCode          *string `json:"reasonCode"`
 	RecoveryEpoch       int64   `json:"recoveryEpoch"`
 }
 
