@@ -212,6 +212,7 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
 		{ID: offsiteRunSpecSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
 			phase5ID("generationId", "GenerationID"), phase5ID("sourcePointId", "SourcePointID"),
+			phase5Nonnegative("sourceRevision", "SourceRevision"),
 			{JSONName: "snapshotPath", GoName: "SnapshotPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
 			{JSONName: "repositoryUrl", GoName: "RepositoryURL", Kind: ValueString, Required: true, MinLength: intPointer(12), MaxLength: intPointer(4096)},
 			phase5ID("parentReferenceId", "ParentReferenceID"), phase5ID("repositoryKeyReferenceId", "RepositoryKeyReferenceID"), phase5ID("observerReferenceId", "ObserverReferenceID"),

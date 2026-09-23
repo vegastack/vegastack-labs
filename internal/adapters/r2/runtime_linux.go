@@ -144,14 +144,14 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	}
 
 	maximum, _ := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
-	lease := backup.WriterLease{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID, RepositoryID: declaration.GenerationID, RepositoryClass: "critical-offsite", PointID: declaration.SourcePointID, TargetID: declaration.GenerationID, SourceRevision: declaration.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: maximum}
+	lease := backup.WriterLease{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID, RepositoryID: declaration.GenerationID, RepositoryClass: "critical-offsite", PointID: declaration.SourcePointID, TargetID: declaration.GenerationID, SourceRevision: declaration.SourceRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: maximum}
 	authority := &custodyAuthority{repository: store.NewOffsiteRepository(runtimeConfig.config.Authority), stateRevision: binding.StateRevision, context: ctx}
-	if err := authority.repository.BindCustodyLease(ctx, store.OffsiteCustodyBinding{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID, GenerationID: declaration.GenerationID, SourcePointID: declaration.SourcePointID, StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: maximum}); err != nil {
+	if err := authority.repository.BindCustodyLease(ctx, store.OffsiteCustodyBinding{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID, GenerationID: declaration.GenerationID, SourcePointID: declaration.SourcePointID, SourceRevision: declaration.SourceRevision, StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: maximum}); err != nil {
 		_ = endpoint.Close()
 		return backup.OffsiteRunSpec{}, err
 	}
 	session := backup.CustodySession{ProtocolVersion: backup.CustodyProtocolVersion, Role: "offsite-writer", PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID,
-		RepositoryID: declaration.GenerationID, RepositoryClass: "critical-offsite", GenerationID: declaration.GenerationID, OffsiteRepositoryURL: declaration.RepositoryURL, PointID: declaration.SourcePointID, SourceID: "verified-critical-point", SourceRevision: declaration.StateRevision,
+		RepositoryID: declaration.GenerationID, RepositoryClass: "critical-offsite", GenerationID: declaration.GenerationID, OffsiteRepositoryURL: declaration.RepositoryURL, PointID: declaration.SourcePointID, SourceID: "verified-critical-point", SourceRevision: declaration.SourceRevision,
 		RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: maximum, MaximumObjects: declaration.MaximumPUTs, MaximumBytes: declaration.MaximumBytes, WriterLease: &lease}
 	launcher := backup.CustodyLauncher{PolicyPath: runtimeConfig.config.CustodyPolicyPath, Writer: authority, Journal: authority, Clock: runtimeConfig.config.Clock}
 	custody := &lazyCustody{launcher: launcher, session: session}
@@ -203,10 +203,10 @@ type custodyAuthority struct {
 }
 
 func (authority *custodyAuthority) binding(session backup.CustodySession) store.OffsiteCustodyBinding {
-	return store.OffsiteCustodyBinding{AttemptID: "custody-" + session.NonceDigest[7:], PlanID: session.PlanID, PlanDigest: session.PlanDigest, RunID: session.RunID, StepID: session.StepID, LeaseID: session.LeaseID, Role: session.Role, GenerationID: session.GenerationID, SourcePointID: session.PointID, StateRevision: authority.stateRevision, RecoveryEpoch: session.RecoveryEpoch, MaximumExpiresAt: session.MaximumExpiresAt, NonceDigest: session.NonceDigest}
+	return store.OffsiteCustodyBinding{AttemptID: "custody-" + session.NonceDigest[7:], PlanID: session.PlanID, PlanDigest: session.PlanDigest, RunID: session.RunID, StepID: session.StepID, LeaseID: session.LeaseID, Role: session.Role, GenerationID: session.GenerationID, SourcePointID: session.PointID, SourceRevision: session.SourceRevision, StateRevision: authority.stateRevision, RecoveryEpoch: session.RecoveryEpoch, MaximumExpiresAt: session.MaximumExpiresAt, NonceDigest: session.NonceDigest}
 }
 func (authority *custodyAuthority) VerifyWriterLease(lease backup.WriterLease, now time.Time) error {
-	return authority.repository.VerifyCustodyLease(authority.context, store.OffsiteCustodyBinding{PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, LeaseID: lease.LeaseID, GenerationID: lease.TargetID, SourcePointID: lease.PointID, StateRevision: authority.stateRevision, RecoveryEpoch: lease.RecoveryEpoch, MaximumExpiresAt: lease.MaximumExpiresAt}, now)
+	return authority.repository.VerifyCustodyLease(authority.context, store.OffsiteCustodyBinding{PlanID: lease.PlanID, PlanDigest: lease.PlanDigest, RunID: lease.RunID, StepID: lease.StepID, LeaseID: lease.LeaseID, GenerationID: lease.TargetID, SourcePointID: lease.PointID, SourceRevision: lease.SourceRevision, StateRevision: authority.stateRevision, RecoveryEpoch: lease.RecoveryEpoch, MaximumExpiresAt: lease.MaximumExpiresAt}, now)
 }
 func (authority *custodyAuthority) BeginCustody(ctx context.Context, session backup.CustodySession) error {
 	return authority.repository.BeginCustody(ctx, authority.binding(session))
@@ -249,9 +249,7 @@ type runObserver struct {
 }
 
 func (observer *runObserver) zero() {
-	observer.credentials.AccessKeyID = ""
-	observer.credentials.SecretAccessKey = ""
-	observer.credentials.SessionToken = ""
+	zeroS3Credentials(&observer.credentials)
 	for index := range observer.readBearer {
 		observer.readBearer[index] = 0
 	}
@@ -313,6 +311,8 @@ func (probe *qualifiedCutoff) capture(session adapter.ScopedS3Session) {
 func (probe *qualifiedCutoff) zero() {
 	probe.mu.Lock()
 	defer probe.mu.Unlock()
+	zeroS3Credentials(&probe.issued)
+	zeroS3Credentials(&probe.cleanup)
 	probe.issued = S3Credentials{}
 	probe.cleanup = S3Credentials{}
 	probe.uploadID = ""
@@ -348,7 +348,7 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 		return time.Time{}, errors.New("writer expiry exceeds plan deadline")
 	}
 	issued, _, _ := probe.credentials()
-	if issued.AccessKeyID == "" || issued.SecretAccessKey == "" || issued.SessionToken == "" {
+	if len(issued.AccessKeyID) == 0 || len(issued.SecretAccessKey) == 0 || len(issued.SessionToken) == 0 {
 		return time.Time{}, errors.New("writer cutoff probe session unavailable")
 	}
 	probeCtx, cancel, err := probe.bounded(ctx)
@@ -377,27 +377,18 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 }
 
 func (probe *qualifiedCutoff) DenyNewPUT(ctx context.Context, _ string) (bool, error) {
-	issued, cleanup, _ := probe.credentials()
+	issued, _, _ := probe.credentials()
 	probeCtx, cancel, err := probe.bounded(ctx)
 	if err != nil {
 		return false, err
 	}
 	denied, probeErr := probe.s3.ProbePutDenied(probeCtx, probe.key, issued)
 	cancel()
-	cleanupCtx, cleanupCancel, boundErr := probe.bounded(context.WithoutCancel(ctx))
-	if boundErr != nil {
-		return false, boundErr
-	}
-	cleanupErr := probe.s3.DeleteObject(cleanupCtx, probe.key, cleanup)
-	cleanupCancel()
-	if probeErr != nil || cleanupErr != nil {
-		return false, errors.Join(probeErr, cleanupErr)
-	}
-	return denied, nil
+	return denied, probeErr
 }
 
 func (probe *qualifiedCutoff) DenyMultipartCompletion(ctx context.Context, _ string) (bool, error) {
-	issued, cleanup, uploadID := probe.credentials()
+	issued, _, uploadID := probe.credentials()
 	if uploadID == "" {
 		return false, errors.New("writer cutoff multipart setup unavailable")
 	}
@@ -407,17 +398,25 @@ func (probe *qualifiedCutoff) DenyMultipartCompletion(ctx context.Context, _ str
 	}
 	denied, probeErr := probe.s3.ProbeMultipartCompletionDenied(probeCtx, probe.key, uploadID, issued)
 	cancel()
-	cleanupCtx, cleanupCancel, boundErr := probe.bounded(context.WithoutCancel(ctx))
-	if boundErr != nil {
-		return false, boundErr
+	return denied, probeErr
+}
+
+func (probe *qualifiedCutoff) CleanupWriterProbes(ctx context.Context) error {
+	_, cleanup, uploadID := probe.credentials()
+	if uploadID == "" {
+		return nil
 	}
-	cleanupErr := probe.s3.AbortMultipart(cleanupCtx, probe.key, uploadID, cleanup)
-	cleanupCancel()
+	deleteCtx, cancelDelete := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	deleteErr := probe.s3.DeleteObject(deleteCtx, probe.key, cleanup)
+	cancelDelete()
+	abortCtx, cancelAbort := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	abortErr := probe.s3.AbortMultipart(abortCtx, probe.key, uploadID, cleanup)
+	cancelAbort()
+	// Retain the credential and upload identifier until both bounded cleanup
+	// attempts finish, then remove every in-memory copy even on provider error.
 	probe.zero()
-	if probeErr != nil || cleanupErr != nil {
-		return false, errors.Join(probeErr, cleanupErr)
-	}
-	return denied, nil
+	return errors.Join(deleteErr, abortErr)
 }
 
 var _ backup.QualifiedOffsiteRuntime = (*ProductionRuntime)(nil)
+var _ backup.OffsiteCutoffCleanup = (*qualifiedCutoff)(nil)

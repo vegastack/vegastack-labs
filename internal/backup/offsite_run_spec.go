@@ -18,12 +18,12 @@ import (
 // OffsiteRunDeclaration is the non-secret durable mapping from one immutable
 // plan target to the source point and both credentials it is allowed to borrow.
 type OffsiteRunDeclaration struct {
-	GenerationID, SourcePointID, SnapshotPath, RepositoryURL          string
-	ParentReferenceID, RepositoryKeyReferenceID, ObserverReferenceID  string
-	RuleDigest, G008EvidenceDigest                                    string
-	MaximumBytes, MaximumPUTs, MaximumLISTs                           int64
-	MaximumRetainedGenerations, RuleLimit                             int
-	RetentionSeconds, SessionTTLSeconds, StateRevision, RecoveryEpoch int64
+	GenerationID, SourcePointID, SnapshotPath, RepositoryURL                          string
+	ParentReferenceID, RepositoryKeyReferenceID, ObserverReferenceID                  string
+	RuleDigest, G008EvidenceDigest                                                    string
+	MaximumBytes, MaximumPUTs, MaximumLISTs                                           int64
+	MaximumRetainedGenerations, RuleLimit                                             int
+	RetentionSeconds, SessionTTLSeconds, SourceRevision, StateRevision, RecoveryEpoch int64
 }
 
 type QualifiedOffsiteRuntime interface {
@@ -89,7 +89,7 @@ func sameOffsiteRunSpecRecord(value OffsiteRunDeclaration, record store.OffsiteR
 	return value.GenerationID == record.GenerationID && value.SourcePointID == record.SourcePointID && value.SnapshotPath == record.SnapshotPath && value.RepositoryURL == record.RepositoryURL &&
 		value.ParentReferenceID == record.ParentReferenceID && value.RepositoryKeyReferenceID == record.RepositoryKeyReferenceID && value.ObserverReferenceID == record.ObserverReferenceID && value.RuleDigest == record.RuleDigest && value.G008EvidenceDigest == record.G008EvidenceDigest &&
 		value.MaximumBytes == record.MaximumBytes && value.MaximumPUTs == record.MaximumPUTs && value.MaximumLISTs == record.MaximumLISTs && value.MaximumRetainedGenerations == record.MaximumRetainedGenerations && value.RuleLimit == record.RuleLimit &&
-		value.RetentionSeconds == record.RetentionSeconds && value.SessionTTLSeconds == record.SessionTTLSeconds && value.StateRevision == record.StateRevision && value.RecoveryEpoch == record.RecoveryEpoch &&
+		value.RetentionSeconds == record.RetentionSeconds && value.SessionTTLSeconds == record.SessionTTLSeconds && value.SourceRevision == record.SourceRevision && value.StateRevision == record.StateRevision && value.RecoveryEpoch == record.RecoveryEpoch &&
 		value.RetentionSeconds <= int64((365*24*time.Hour)/time.Second) && value.SessionTTLSeconds <= int64((15*time.Minute)/time.Second)
 }
 

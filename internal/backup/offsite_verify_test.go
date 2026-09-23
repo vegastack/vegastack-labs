@@ -21,6 +21,26 @@ func (value cutoffFixture) DenyMultipartCompletion(context.Context, string) (boo
 	return value.multipart, nil
 }
 
+type cleanupCutoffFixture struct {
+	waitErr      error
+	putErr       error
+	cleanupCalls int
+}
+
+func (value *cleanupCutoffFixture) AwaitWriterCutoff(context.Context, PendingOffsiteGeneration) (time.Time, error) {
+	return time.Now().UTC(), value.waitErr
+}
+func (value *cleanupCutoffFixture) DenyNewPUT(context.Context, string) (bool, error) {
+	return false, value.putErr
+}
+func (value *cleanupCutoffFixture) DenyMultipartCompletion(context.Context, string) (bool, error) {
+	return true, nil
+}
+func (value *cleanupCutoffFixture) CleanupWriterProbes(context.Context) error {
+	value.cleanupCalls++
+	return nil
+}
+
 func expectedObservation(pending PendingOffsiteGeneration, now time.Time) OffsiteGenerationObservation {
 	return OffsiteGenerationObservation{GenerationID: pending.GenerationID, RepositoryID: pending.RepositoryID, SourcePointID: pending.SourcePointID,
 		SourceSnapshotID: pending.SourceSnapshotID, SourceManifestDigest: pending.SourceManifestDigest, SourceInventoryDigest: pending.SourceInventoryDigest,
@@ -137,6 +157,24 @@ func TestSealWriterRequiresExpiryAndBothQualifiedDenials(t *testing.T) {
 	seal, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, cutoffFixture{true, true})
 	if err != nil || !seal.NewPUTDenied || !seal.MultipartCompletionDenied {
 		t.Fatalf("seal = %#v, %v", seal, err)
+	}
+}
+
+func TestSealWriterAlwaysCleansCutoffProbesOnWaitAndProbeErrors(t *testing.T) {
+	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
+	pending := testPendingOffsite(now)
+	for name, fixture := range map[string]*cleanupCutoffFixture{
+		"cancelled-wait": {waitErr: context.Canceled},
+		"probe-error":    {putErr: context.DeadlineExceeded},
+	} {
+		t.Run(name, func(t *testing.T) {
+			if _, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, fixture); err == nil {
+				t.Fatal("cutoff failure sealed")
+			}
+			if fixture.cleanupCalls != 1 {
+				t.Fatalf("cleanup calls = %d", fixture.cleanupCalls)
+			}
+		})
 	}
 }
 

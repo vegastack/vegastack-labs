@@ -63,7 +63,7 @@ func parentS3Credentials(parent []byte) (S3Credentials, error) {
 	if err != nil {
 		return S3Credentials{}, err
 	}
-	return S3Credentials{AccessKeyID: credential.AccessKeyID, SecretAccessKey: credential.SecretAccessKey}, nil
+	return S3Credentials{AccessKeyID: []byte(credential.AccessKeyID), SecretAccessKey: []byte(credential.SecretAccessKey)}, nil
 }
 
 func (signer LocalSigner) sign(credential parentCredential, audience string, request adapter.SessionRequest) (adapter.ScopedS3Session, error) {

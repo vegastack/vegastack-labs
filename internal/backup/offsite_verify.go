@@ -43,6 +43,13 @@ type OffsiteCutoffWaiter interface {
 	AwaitWriterCutoff(context.Context, PendingOffsiteGeneration) (time.Time, error)
 }
 
+// OffsiteCutoffCleanup releases the exact temporary probe object and multipart
+// upload. SealWriter invokes it on every exit so cancellation and probe errors
+// cannot strand provider-side test material.
+type OffsiteCutoffCleanup interface {
+	CleanupWriterProbes(context.Context) error
+}
+
 func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pending PendingOffsiteGeneration, seal WriterSealProof) (OffsiteProof, error) {
 	if config.Source == nil || config.ProofID == "" || (config.ProofClass != OffsiteProofFixture && config.ProofClass != OffsiteProofQualified) || !validPendingOffsiteGeneration(pending) ||
 		config.FullReadMaximumAge <= 0 || config.FullReadMaximumAge > 31*24*time.Hour {
@@ -113,7 +120,15 @@ func compareOffsiteObject(left, right OffsiteObject) int {
 	return strings.Compare(left.Key, right.Key)
 }
 
-func SealWriter(ctx context.Context, pending PendingOffsiteGeneration, proofClass string, now time.Time, probe OffsiteCutoffProbe) (WriterSealProof, error) {
+func SealWriter(ctx context.Context, pending PendingOffsiteGeneration, proofClass string, now time.Time, probe OffsiteCutoffProbe) (proof WriterSealProof, resultErr error) {
+	if cleanup, ok := probe.(OffsiteCutoffCleanup); ok {
+		defer func() {
+			if err := cleanup.CleanupWriterProbes(context.WithoutCancel(ctx)); err != nil {
+				proof = WriterSealProof{}
+				resultErr = errors.Join(resultErr, errors.New("offsite writer cutoff cleanup failed"))
+			}
+		}()
+	}
 	if !validPendingOffsiteGeneration(pending) || probe == nil || proofClass != OffsiteProofQualified || now.IsZero() {
 		return WriterSealProof{}, errors.New("offsite writer seal blocked")
 	}

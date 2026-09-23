@@ -37,7 +37,7 @@ func TestS3InventoryPaginatesAndHashesFullObjects(t *testing.T) {
 	defer server.Close()
 
 	client := S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client(), Clock: func() time.Time { return time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC) }}
-	observation, err := client.Inventory(context.Background(), "critical/gen-a/", S3Credentials{AccessKeyID: "access", SecretAccessKey: "secret", SessionToken: "session-token"}, 3, 100)
+	observation, err := client.Inventory(context.Background(), "critical/gen-a/", S3Credentials{AccessKeyID: []byte("access"), SecretAccessKey: []byte("secret"), SessionToken: []byte("session-token")}, 3, 100)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -55,7 +55,7 @@ func TestS3InventoryRejectsProviderObjectOutsideRequestedGeneration(t *testing.T
 		_, _ = writer.Write([]byte(`<ListBucketResult><IsTruncated>false</IsTruncated><Contents><Key>critical/other/config</Key><Size>1</Size></Contents></ListBucketResult>`))
 	}))
 	defer server.Close()
-	_, err := (S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}).Inventory(context.Background(), "critical/gen-a/", S3Credentials{AccessKeyID: "access", SecretAccessKey: "secret"}, 2, 10)
+	_, err := (S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}).Inventory(context.Background(), "critical/gen-a/", S3Credentials{AccessKeyID: []byte("access"), SecretAccessKey: []byte("secret")}, 2, 10)
 	if err == nil {
 		t.Fatal("cross-generation object accepted")
 	}

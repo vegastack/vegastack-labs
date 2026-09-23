@@ -22,7 +22,7 @@ import (
 )
 
 type S3Credentials struct {
-	AccessKeyID, SecretAccessKey, SessionToken string
+	AccessKeyID, SecretAccessKey, SessionToken []byte
 }
 
 // S3Client is the narrow R2 data-plane client used by the qualified observer.
@@ -166,7 +166,7 @@ func (client S3Client) AbortMultipart(ctx context.Context, key, uploadID string,
 
 func (client S3Client) do(ctx context.Context, method, objectPath string, query url.Values, body []byte, credentials S3Credentials) (*http.Response, error) {
 	base, err := url.Parse(client.Endpoint)
-	if err != nil || base.Host == "" || base.Path != "" || credentials.AccessKeyID == "" || credentials.SecretAccessKey == "" {
+	if err != nil || base.Host == "" || base.Path != "" || len(credentials.AccessKeyID) == 0 || len(credentials.SecretAccessKey) == 0 {
 		return nil, errors.New("r2 s3 client unavailable")
 	}
 	base.Path = objectPath
@@ -183,28 +183,30 @@ func (client S3Client) do(ctx context.Context, method, objectPath string, query 
 	payloadHex := hex.EncodeToString(payload[:])
 	request.Header.Set("x-amz-content-sha256", payloadHex)
 	request.Header.Set("x-amz-date", now.Format("20060102T150405Z"))
-	if credentials.SessionToken != "" {
-		request.Header.Set("x-amz-security-token", credentials.SessionToken)
+	if len(credentials.SessionToken) != 0 {
+		request.Header.Set("x-amz-security-token", string(credentials.SessionToken))
 	}
 	signedHeaders := []string{"host", "x-amz-content-sha256", "x-amz-date"}
-	if credentials.SessionToken != "" {
+	if len(credentials.SessionToken) != 0 {
 		signedHeaders = append(signedHeaders, "x-amz-security-token")
 	}
 	canonicalHeaders := "host:" + request.URL.Host + "\n" + "x-amz-content-sha256:" + payloadHex + "\n" + "x-amz-date:" + request.Header.Get("x-amz-date") + "\n"
-	if credentials.SessionToken != "" {
-		canonicalHeaders += "x-amz-security-token:" + credentials.SessionToken + "\n"
+	if len(credentials.SessionToken) != 0 {
+		canonicalHeaders += "x-amz-security-token:" + string(credentials.SessionToken) + "\n"
 	}
 	canonicalRequest := strings.Join([]string{method, request.URL.EscapedPath(), request.URL.Query().Encode(), canonicalHeaders, strings.Join(signedHeaders, ";"), payloadHex}, "\n")
 	canonicalHash := sha256.Sum256([]byte(canonicalRequest))
 	date := now.Format("20060102")
 	scope := date + "/auto/s3/aws4_request"
 	stringToSign := "AWS4-HMAC-SHA256\n" + request.Header.Get("x-amz-date") + "\n" + scope + "\n" + hex.EncodeToString(canonicalHash[:])
-	dateKey := hmacSum([]byte("AWS4"+credentials.SecretAccessKey), date)
+	secret := append([]byte("AWS4"), credentials.SecretAccessKey...)
+	dateKey := hmacSum(secret, date)
+	zeroBytes(secret)
 	regionKey := hmacSum(dateKey, "auto")
 	serviceKey := hmacSum(regionKey, "s3")
 	signingKey := hmacSum(serviceKey, "aws4_request")
 	signature := hex.EncodeToString(hmacSum(signingKey, stringToSign))
-	request.Header.Set("Authorization", fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s", credentials.AccessKeyID, scope, strings.Join(signedHeaders, ";"), signature))
+	request.Header.Set("Authorization", fmt.Sprintf("AWS4-HMAC-SHA256 Credential=%s/%s, SignedHeaders=%s, Signature=%s", string(credentials.AccessKeyID), scope, strings.Join(signedHeaders, ";"), signature))
 	httpClient := client.Client
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
@@ -227,5 +229,21 @@ func escapeS3Key(key string) string {
 }
 
 func sessionCredentials(session adapter.ScopedS3Session) S3Credentials {
-	return S3Credentials{AccessKeyID: string(session.AccessKeyID), SecretAccessKey: string(session.SecretAccessKey), SessionToken: string(session.SessionToken)}
+	return S3Credentials{AccessKeyID: append([]byte(nil), session.AccessKeyID...), SecretAccessKey: append([]byte(nil), session.SecretAccessKey...), SessionToken: append([]byte(nil), session.SessionToken...)}
+}
+
+func zeroBytes(value []byte) {
+	for index := range value {
+		value[index] = 0
+	}
+}
+
+func zeroS3Credentials(credentials *S3Credentials) {
+	if credentials == nil {
+		return
+	}
+	zeroBytes(credentials.AccessKeyID)
+	zeroBytes(credentials.SecretAccessKey)
+	zeroBytes(credentials.SessionToken)
+	credentials.AccessKeyID, credentials.SecretAccessKey, credentials.SessionToken = nil, nil, nil
 }

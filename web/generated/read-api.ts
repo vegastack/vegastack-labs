@@ -583,6 +583,7 @@ export interface InventoryDraftCounts {
 export interface OffsiteRunSpec {
   readonly "generationId": string;
   readonly "sourcePointId": string;
+  readonly "sourceRevision": number;
   readonly "snapshotPath": string;
   readonly "repositoryUrl": string;
   readonly "parentReferenceId": string;
@@ -4143,6 +4144,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourceRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
       },
       {
         "name": "snapshotPath",

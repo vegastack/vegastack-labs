@@ -1666,6 +1666,7 @@ type LocalRetentionLockCatalog struct {
 type OffsiteRunSpec struct {
 	GenerationID               string `json:"generationId"`
 	SourcePointID              string `json:"sourcePointId"`
+	SourceRevision             int64  `json:"sourceRevision"`
 	SnapshotPath               string `json:"snapshotPath"`
 	RepositoryURL              string `json:"repositoryUrl"`
 	ParentReferenceID          string `json:"parentReferenceId"`

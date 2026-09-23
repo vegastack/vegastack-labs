@@ -145,11 +145,16 @@
         "sourcePointId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
+        },
+        "sourceRevision": {
+          "minimum": 0,
+          "type": "integer"
         }
       },
       "required": [
         "generationId",
         "sourcePointId",
+        "sourceRevision",
         "snapshotPath",
         "repositoryUrl",
         "parentReferenceId",
