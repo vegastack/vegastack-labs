@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"path"
+	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -54,6 +56,31 @@ func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context
 		!validBackupDigest(intent.RuleSetDigest) || !validBackupDigest(intent.SurvivorRuleDigest) || !validBackupDigest(intent.ManifestDigest) || !validBackupDigest(intent.CatalogDigest) || !validBackupDigest(intent.InventoryDigest) ||
 		intent.OneOwnerProofID == "" || intent.LockAdminConsumerID == "" || intent.RetentionConsumerID == "" || intent.LockAdminConsumerID == intent.RetentionConsumerID || len(intent.Rules) != 5 || len(intent.Objects) == 0 || len(intent.SurvivorPointIDs) == 0 || intent.MaxWorkObjects != int64(len(intent.Objects)) || intent.MaxMutationBytes < 0 {
 		return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-intent", false, nil)
+	}
+	ruleIDs, prefixes := map[string]bool{}, map[string]bool{}
+	for _, rule := range intent.Rules {
+		if !validRetirementID(rule.RuleID) || !safeOffsiteRetirementPath(rule.Prefix, 512) || ruleIDs[rule.RuleID] || prefixes[rule.Prefix] {
+			return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-rules", false, nil)
+		}
+		ruleIDs[rule.RuleID], prefixes[rule.Prefix] = true, true
+	}
+	objectKeys, survivors := map[string]bool{}, map[string]bool{}
+	var objectBytes int64
+	for _, object := range intent.Objects {
+		if !safeOffsiteRetirementPath(object.Key, 1024) || !validBackupDigest(object.Digest) || object.Bytes < 0 || objectKeys[object.Key] || object.Bytes > intent.MaxMutationBytes-objectBytes {
+			return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-objects", false, nil)
+		}
+		objectKeys[object.Key] = true
+		objectBytes += object.Bytes
+	}
+	if objectBytes != intent.MaxMutationBytes {
+		return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-object-bound", false, nil)
+	}
+	for _, pointID := range intent.SurvivorPointIDs {
+		if !validRetirementID(pointID) || survivors[pointID] || pointID == intent.PointID {
+			return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-survivors", false, nil)
+		}
+		survivors[pointID] = true
 	}
 	body, err := json.Marshal(intent)
 	if err != nil {
@@ -160,6 +187,11 @@ func nilIfEmpty(v string) any {
 		return nil
 	}
 	return v
+}
+
+func safeOffsiteRetirementPath(value string, maximum int) bool {
+	trimmed := strings.TrimSuffix(value, "/")
+	return trimmed != "" && len(value) <= maximum && !strings.HasPrefix(value, "/") && !strings.Contains(value, "\\") && path.Clean(trimmed) == trimmed && !strings.Contains(trimmed, "../")
 }
 
 func (r *OffsiteRetirementRepository) inTx(ctx context.Context, fn func(context.Context, *sql.Tx) error) error {
