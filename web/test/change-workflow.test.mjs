@@ -62,7 +62,7 @@ test("refresh restores only safe change handles from navigation history", async 
 test("terminal durable state never opens an SSE watcher", async () => {
   const queries = await read("lib/run-queries.ts");
   assert.match(queries, /terminalRunStatuses/);
-  assert.match(queries, /if \(!runId \|\| terminal \|\| \(!query\.data && !retryableFailure\)\) return/);
+  assert.match(queries, /if \(!runId \|\| terminal \|\| !watchable\) return/);
   assert.match(queries, /const fresh = await refetch\(\)/);
   assert.match(queries, /fresh\.isSuccess[\s\S]*terminalRunStatuses\.has\(fresh\.data\.data\.run\.status\)/);
 });
@@ -70,7 +70,8 @@ test("terminal durable state never opens an SSE watcher", async () => {
 test("a failed durable GET stays in the retry loop without opening SSE", async () => {
   const queries = await read("lib/run-queries.ts");
   assert.match(queries, /!fresh\.isSuccess[\s\S]*isTransientRunRead\(fresh\.error\)[\s\S]*waitForReconnect[\s\S]*continue/);
-  assert.match(queries, /retryableFailure[\s\S]*!query\.data && !retryableFailure/);
+  assert.match(queries, /const watchable = Boolean\(query\.data\) \|\| retryableFailure/);
+  assert.match(queries, /\[refetch, runId, terminal, watchable\]/);
   assert.doesNotMatch(queries, /!fresh\.isSuccess[^\n]+break/);
 });
 

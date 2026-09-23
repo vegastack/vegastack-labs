@@ -276,6 +276,9 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if candidate.id == "api.v1.backup-policy-drafts.create" {
 			resourceID = "policy-drafts"
 		}
+		if candidate.id == "api.v1.backups.status" {
+			resourceID = "current"
+		}
 		var scope authorization.ReadScope
 		if candidate.action != "" {
 			if !pathToken.MatchString(resourceID) {

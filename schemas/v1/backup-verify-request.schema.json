@@ -7,11 +7,23 @@
       "minimum": 0,
       "type": "integer"
     },
+    "humanAcknowledgementId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "idempotencyKey": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
     "jobId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "planDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "planId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
@@ -31,7 +43,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
     },
@@ -48,7 +60,10 @@
     "targetDigest",
     "idempotencyKey",
     "jobId",
-    "pointId"
+    "pointId",
+    "planId",
+    "planDigest",
+    "humanAcknowledgementId"
   ],
   "title": "VegaStack Labs backup verify request",
   "type": "object",

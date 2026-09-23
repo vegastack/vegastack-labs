@@ -19,6 +19,10 @@ func NewRESTServer(_ string, _ uint32, _ WriterLease, _ LeaseVerifier, _ func() 
 	return nil, failure.New(generated.ErrorCodeUnsupportedPlatform, "backup-rest", false)
 }
 
+func NewVerifierRESTServer(_ string, _ uint32, _ ReadLease, _ ReadLeaseVerifier, _ func() time.Time) (*RESTServer, error) {
+	return nil, failure.New(generated.ErrorCodeUnsupportedPlatform, "backup-rest", false)
+}
+
 func (*RESTServer) Serve(context.Context, net.Listener) error {
 	return failure.New(generated.ErrorCodeUnsupportedPlatform, "backup-rest", false)
 }

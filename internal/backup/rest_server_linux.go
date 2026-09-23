@@ -33,9 +33,24 @@ type RESTServer struct {
 	expectedUID  uint32
 	lease        WriterLease
 	verifier     LeaseVerifier
+	readLease    ReadLease
+	readVerifier ReadLeaseVerifier
+	readOnly     bool
 	clock        func() time.Time
 	mu           sync.Mutex
 	ownLocks     map[string]struct{}
+}
+
+// NewVerifierRESTServer creates a point-bound read role. The read role may
+// create and remove only its own restic locks; retained payload is immutable.
+func NewVerifierRESTServer(root string, expectedUID uint32, lease ReadLease, verifier ReadLeaseVerifier, clock func() time.Time) (*RESTServer, error) {
+	if root == "" || lease.LeaseID == "" || lease.PointID == "" || lease.RepositoryID == "" || lease.RecoveryEpoch < 0 || lease.MaximumExpiresAt.IsZero() || verifier == nil {
+		return nil, errors.New("backup verifier rest server misconfigured")
+	}
+	if clock == nil {
+		clock = time.Now
+	}
+	return &RESTServer{root: root, repositoryID: lease.RepositoryID, expectedUID: expectedUID, readLease: lease, readVerifier: verifier, readOnly: true, clock: clock, ownLocks: map[string]struct{}{}}, nil
 }
 
 // NewRESTServer builds a REST boundary bound to one resolved repository root and
@@ -87,20 +102,23 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		create = true
 	}
-	// Every request re-verifies the exact writer lease and its deadline.
-	if err := server.verifier.VerifyWriterLease(server.lease, server.clock()); err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
-		return
-	}
-	if !server.clock().Before(server.lease.MaximumExpiresAt) {
+	// Every request re-verifies the exact session and deadline. A verifier has
+	// no writer lease and cannot fall through to writer authority.
+	now := server.clock()
+	if (server.readOnly && (server.readVerifier.VerifyReadLease(server.readLease, now) != nil || !now.Before(server.readLease.MaximumExpiresAt))) ||
+		(!server.readOnly && (server.verifier.VerifyWriterLease(server.lease, now) != nil || !now.Before(server.lease.MaximumExpiresAt))) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	// Repository-level requests (create the layout, or list a type directory)
 	// are classified before single-object parsing.
 	if repositoryRequest, ok := parseRepositoryRequest(r.URL.Path, server.repositoryID); ok {
+		if server.readOnly && create {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
 		switch {
-		case repositoryRequest.isRepositoryRoot && create && r.Method == http.MethodPost:
+		case !server.readOnly && repositoryRequest.isRepositoryRoot && create && r.Method == http.MethodPost:
 			server.handleRepositoryCreate(w)
 		case repositoryRequest.isList && !create && r.Method == http.MethodGet:
 			server.handleList(w, repositoryRequest)
@@ -111,6 +129,10 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	request, ok := parseObjectPath(r.URL.Path, server.repositoryID)
 	if !ok || create {
+		http.Error(w, "forbidden", http.StatusForbidden)
+		return
+	}
+	if server.readOnly && request.retained && r.Method != http.MethodGet && r.Method != http.MethodHead {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}

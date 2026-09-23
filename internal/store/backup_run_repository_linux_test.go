@@ -48,11 +48,13 @@ func pendingPointRequest(leaseID, pointID, snapshot, policyDigest string) Pendin
 	inventoryDigest := pendingInventoryDigest(objects)
 	dependencies := []ExpectedDependencyRow{{DependencyID: "dep-a", Kind: "binary", Digest: testDigest}}
 	manifest, _ := json.Marshal(pendingCreationManifest{
-		Schema: "vegastack-labs.dev/backup-creation-manifest", SchemaVersion: "1.1.0",
+		Schema: "vegastack-labs.dev/backup-creation-manifest", SchemaVersion: "1.2.0",
 		PolicyID: "policy-a", PolicyDigest: policyDigest,
 		PointID: pointID, RunID: "run-a", StepID: "step-a", RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard",
 		SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector},
-		SourceRevision: 3, RecoveryEpoch: 0, ConsistencyHookID: "sqlite-online", ConsistencySuccess: true,
+		SourceRevision: 3, RecoveryEpoch: 0, DatabaseSchemaVersion: 17,
+		CatalogDigest: "sha256:" + strings.Repeat("d", 64), ContentDigest: "sha256:" + strings.Repeat("c", 64),
+		ConsistencyHookID: "sqlite-online", ConsistencySuccess: true,
 		SnapshotID: snapshot, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: objectBytes,
 		InventoryDigest: inventoryDigest, ExpectedObjects: objects,
 		DependencyInventoryDigest: pendingDependencyInventoryDigest(dependencies), ExpectedDependencies: dependencies,
@@ -185,6 +187,15 @@ func TestAppendPendingRecoveryPointRejectsForgedManifestInventoryAndLease(t *tes
 		{"source revision", func(request *PendingRecoveryPointRequest, manifest *pendingCreationManifest) {
 			request.SourceRevision++
 			manifest.SourceRevision = request.SourceRevision
+		}},
+		{"missing captured schema", func(_ *PendingRecoveryPointRequest, manifest *pendingCreationManifest) {
+			manifest.DatabaseSchemaVersion = 0
+		}},
+		{"invalid catalog digest", func(_ *PendingRecoveryPointRequest, manifest *pendingCreationManifest) {
+			manifest.CatalogDigest = "not-a-digest"
+		}},
+		{"content digest differs from captured point", func(_ *PendingRecoveryPointRequest, manifest *pendingCreationManifest) {
+			manifest.ContentDigest = "sha256:" + strings.Repeat("e", 64)
 		}},
 		{"policy binding", func(_ *PendingRecoveryPointRequest, manifest *pendingCreationManifest) {
 			manifest.PolicyDigest = "sha256:" + strings.Repeat("0", 64)

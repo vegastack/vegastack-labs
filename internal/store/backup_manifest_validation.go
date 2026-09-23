@@ -28,6 +28,9 @@ type pendingCreationManifest struct {
 	SourceSelectors           []string                `json:"sourceSelectors"`
 	SourceRevision            int64                   `json:"sourceRevision"`
 	RecoveryEpoch             int64                   `json:"recoveryEpoch"`
+	DatabaseSchemaVersion     uint64                  `json:"databaseSchemaVersion"`
+	CatalogDigest             string                  `json:"catalogDigest"`
+	ContentDigest             string                  `json:"contentDigest"`
 	ConsistencyHookID         string                  `json:"consistencyHookId"`
 	ConsistencySuccess        bool                    `json:"consistencySuccess"`
 	SnapshotID                string                  `json:"snapshotId"`
@@ -70,10 +73,12 @@ func validatePendingManifest(request PendingRecoveryPointRequest) (pendingCreati
 	if err != nil || !bytes.Equal(canonical, request.ManifestJSON) {
 		return manifest, errors.New("noncanonical manifest")
 	}
-	if manifest.Schema != "vegastack-labs.dev/backup-creation-manifest" || manifest.SchemaVersion != "1.1.0" ||
+	if manifest.Schema != "vegastack-labs.dev/backup-creation-manifest" || manifest.SchemaVersion != "1.2.0" ||
 		manifest.PointID != request.PointID || manifest.SnapshotID != request.SnapshotID ||
 		manifest.SnapshotCount != request.SnapshotCount || manifest.SourceRevision != request.SourceRevision ||
-		manifest.RecoveryEpoch != request.RecoveryEpoch || !manifest.ConsistencySuccess || manifest.FailureCode != "" ||
+		manifest.RecoveryEpoch != request.RecoveryEpoch || manifest.DatabaseSchemaVersion == 0 ||
+		!validBackupDigest(manifest.CatalogDigest) || manifest.ContentDigest != request.ContentDigest ||
+		!manifest.ConsistencySuccess || manifest.FailureCode != "" ||
 		manifest.KeyReferenceID == "" || manifest.SourceID == "" || len(manifest.SourceSelectors) == 0 ||
 		!validBackupDigest(manifest.ResticDigest) || !validBackupDigest(manifest.PlatformDigest) ||
 		!validBackupDigest(manifest.DependencyInventoryDigest) || manifest.ExpectedDependencies == nil ||

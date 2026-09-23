@@ -12,13 +12,13 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while Phase 5 waves through #159 have exact reviewed closures", async () => {
+test("the original Phase 2 baseline stays immutable while Phase 5 waves through #159 integrated after #117 have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 16);
+  assert.equal(manifest.contract.reviewedWaves?.length, 18);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -89,11 +89,19 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.equal(manifest.contract.reviewedWaves[14].id, "phase5-issue153-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[14].commands, ["recovery witness collect"]);
   assert.deepEqual(manifest.contract.reviewedWaves[14].imports, ["github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"]);
-  assert.equal(manifest.contract.reviewedWaves[15].id, "phase5-issue159-v1");
-  assert.equal(manifest.contract.reviewedWaves[15].issue, 159);
+  assert.equal(manifest.contract.reviewedWaves[15].id, "phase5-issue156-v1");
+  assert.equal(manifest.contract.reviewedWaves[15].issue, 156);
   assert.deepEqual(manifest.contract.reviewedWaves[15].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[15].imports, []);
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[15].mutationBoundaryDigest);
+  assert.equal(manifest.contract.reviewedWaves[16].id, "phase5-issue117-v1");
+  assert.equal(manifest.contract.reviewedWaves[16].issue, 117);
+  assert.deepEqual(manifest.contract.reviewedWaves[16].commands, ["backup run", "backup status", "backup verify"]);
+  assert.deepEqual(manifest.contract.reviewedWaves[16].imports, []);
+  assert.equal(manifest.contract.reviewedWaves[17].id, "phase5-issue159-v1");
+  assert.equal(manifest.contract.reviewedWaves[17].issue, 159);
+  assert.deepEqual(manifest.contract.reviewedWaves[17].commands, []);
+  assert.deepEqual(manifest.contract.reviewedWaves[17].imports, []);
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[17].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
