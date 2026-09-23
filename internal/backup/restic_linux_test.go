@@ -18,6 +18,18 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
 
+func TestParseResticSnapshotsRequiresExactUniqueIDs(t *testing.T) {
+	id := strings.Repeat("a", 64)
+	if got, err := parseResticSnapshots([]byte(`[{"id":"` + id + `"}]`)); err != nil || len(got) != 1 || got[0] != id {
+		t.Fatalf("valid snapshots: %v %v", got, err)
+	}
+	for _, body := range []string{`[] trailing`, `[{"id":"short"}]`, `[{"id":"` + id + `"},{"id":"` + id + `"}]`} {
+		if _, err := parseResticSnapshots([]byte(body)); err == nil {
+			t.Fatalf("accepted invalid snapshots %q", body)
+		}
+	}
+}
+
 func TestResticConfigRequiresExactV2IdentityAndBoundedOutput(t *testing.T) {
 	valid := []byte(`{"version":2,"id":"` + strings.Repeat("a", 64) + `"}`)
 	if err := parseResticConfig(valid); err != nil {

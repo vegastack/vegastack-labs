@@ -24,6 +24,7 @@ func validCreationManifest(t *testing.T) CreationManifest {
 		Schema: CreationManifestSchema, SchemaVersion: CreationManifestVersion,
 		PolicyID: "policy-a", PolicyDigest: digest64("f"), PointID: "point-a", RunID: "run-a", StepID: "step-a",
 		RepositoryID: "repo-a", RepositoryClass: "standard", SourceID: "source-a", SourceSelectors: []string{"selector-a"}, SourceRevision: 3, RecoveryEpoch: 0,
+		DatabaseSchemaVersion: 17, CatalogDigest: digest64("3"), ContentDigest: digest64("4"),
 		ConsistencyHookID: "sqlite-online", ConsistencySuccess: true,
 		SnapshotID: strings.Repeat("1", 64), SnapshotCount: 1,
 		ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: total,

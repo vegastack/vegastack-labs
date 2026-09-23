@@ -27,6 +27,15 @@
     "changedPaths": ["internal/store/store.go"]
   },
   {
+    "name": "Linux-only Go source",
+    "changes": [{ "status": "M", "path": "internal/adapter/nativecredential/authority_linux.go" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always", "go"],
+    "changedPaths": ["internal/adapter/nativecredential/authority_linux.go"]
+  },
+  {
     "name": "tooling only",
     "changes": [{ "status": "M", "path": "tooling/test/process.test.mjs" }],
     "mode": "affected",
@@ -110,11 +119,20 @@
   {
     "name": "rename evaluates old and new paths",
     "changes": [{ "status": "R100", "path": "docs/old.md", "previousPath": "internal/api/session.go" }],
-    "mode": "affected",
+    "mode": "full",
     "browser": true,
-    "failClosed": false,
-    "groups": ["always", "go", "tooling", "web", "browser"],
+    "failClosed": true,
+    "groups": ["always", "phase", "go", "tooling", "web", "browser"],
     "changedPaths": ["docs/old.md", "internal/api/session.go"]
+  },
+  {
+    "name": "deleted Go package fails closed",
+    "changes": [{ "status": "D", "path": "internal/store/retired.go" }],
+    "mode": "full",
+    "browser": true,
+    "failClosed": true,
+    "groups": ["always", "phase", "go", "tooling", "web", "browser"],
+    "changedPaths": ["internal/store/retired.go"]
   },
   {
     "name": "unknown root fails closed",

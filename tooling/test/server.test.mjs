@@ -56,6 +56,8 @@ test("the server verifier accepts only the reviewed native credential Linux file
       "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
     "internal/adapter/nativecredential/resolver_linux.go":
       "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
+    "internal/adapter/nativecredential/verify_recovery_linux.go":
+      "package nativecredential\nimport _ \"golang.org/x/sys/unix\"\n",
     "internal/server/credential_resolver_linux.go":
       "package server\nimport _ \"golang.org/x/sys/unix\"\n",
   });

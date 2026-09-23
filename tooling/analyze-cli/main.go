@@ -411,9 +411,14 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		}
 		isReleasePackage := candidate.ImportPath == releaseImport || strings.HasPrefix(candidate.ImportPath, releaseImport+"/")
 		isControlPackage := controlClosure[candidate.ImportPath]
+		// The native credential package is a byte-for-byte sealed Linux OS adapter.
+		// Its D-Bus and /proc surface is reviewed as a whole, never as a portable
+		// control client capability. Any source or import change breaks this seal.
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential
+		// The custodian command imports recovery's fixed protected pin/receipt
+		// source. Only this exact reviewed source closure may carry those paths.
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !(candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed))
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) {
 				result.ShellDispatch = true
@@ -426,7 +431,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				// with public material only. Seal that exact package; every
 				// other Ed25519 dependency remains forbidden production trust.
 				if !(candidate.ImportPath == auditImport && reviewedAuditVerificationPackage(parsed)) &&
-					!(candidate.ImportPath == recoveryImport && reviewedRecoveryVerificationPackage(parsed)) {
+					!(candidate.ImportPath == recoveryImport && (reviewedRecoveryVerificationPackage(parsed) || reviewedRecoveryCustodianPackage(parsed))) {
 					result.StateExportTrust = true
 				}
 			case "crypto/rsa":
@@ -477,7 +482,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			}
 		}
 		if !sealedNativeCredential {
-			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport, inspectControlPaths, &result)
+			registryGeneratedOrReviewed := candidate.ImportPath == apiImport || candidate.ImportPath == localAPIImport || (candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed))
+			inspectPackage(parsed, generatedImport, stateExportImport, isReleasePackage, registryGeneratedOrReviewed, inspectControlPaths, &result)
 		}
 	}
 	return result, nil
@@ -596,6 +602,9 @@ func reviewedControlExternalImport(candidate checkedSourcePackage, imported stri
 		return true
 	}
 	if candidatePath == serverConfigImport && imported == "golang.org/x/sys/unix" && reviewedControlPlatformSource(candidate, "serverconfig") {
+		return true
+	}
+	if candidatePath == modulePath+"/internal/recovery" && imported == "golang.org/x/sys/unix" && reviewedRecoveryCustodianPackage(candidate) {
 		return true
 	}
 	if candidatePath == releaseImport {
@@ -894,8 +903,8 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 }
 
 const (
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "8d5678d444138bd4fa8002481045befaccd47000355d660128624b989012787d"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "d0a10ffc95eb8b51b77ab7518269a3271dd3ec36a76e133e1d3f00d3e67fd0da"
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "c66cc57da456a68902352a088f660317d2c214d6216b77a17dc7f42505373ae4"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "4113633f07149494998d9e7de22ae4c79a229df0a328de3bf3bb1011e2f05a37"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )
@@ -973,6 +982,57 @@ func reviewedRecoveryVerificationPackage(candidate checkedSourcePackage) bool {
 			return !forbidden
 		})
 		if forbidden {
+			return false
+		}
+	}
+	return true
+}
+
+// #153's finite custodian command signs only an exact independently pinned
+// witness collection. This exception is confined to the complete reviewed
+// recovery source set and the one collector file; any source drift fails the
+// public-client analyzer closed until a fresh review reseals it.
+func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	var expected string
+	switch strings.Join(names, ",") {
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source_handoff.go,transport.go,witness.go":
+		expected = "65b3dbb8e27253b48ca8a8f00f18fbaead4c0805f46d799c51fbbc0332c95d00"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source_handoff.go,transport.go,witness.go":
+		expected = "21122f580683725b5cc0f293943d0f5b391f0b34427428a6d4a0063f864fd033"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source_handoff.go,transport.go,witness.go":
+		expected = "f920c71a26208d5fb56f7e9d44569c5d3507925ad1827fded64fd7ca65236252"
+	default:
+		return false
+	}
+	if digestSourceFiles(candidate.listed.Dir, names) != expected {
+		return false
+	}
+	for _, name := range names {
+		if name == "collector.go" {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(candidate.listed.Dir, name), nil, 0)
+		if err != nil {
+			return false
+		}
+		privateUse := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			selector, ok := node.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			identifier, ok := selector.X.(*ast.Ident)
+			if ok && identifier.Name == "ed25519" {
+				switch selector.Sel.Name {
+				case "Sign", "GenerateKey", "NewKeyFromSeed", "PrivateKey":
+					privateUse = true
+				}
+			}
+			return !privateUse
+		})
+		if privateUse {
 			return false
 		}
 	}
@@ -1121,7 +1181,7 @@ const reviewedBackupSubprocessFile = "restic_linux.go"
 // reviewedBackupSubprocessDigest pins the exact reviewed bytes of the restic
 // child runner. Any edit to restic_linux.go must be re-reviewed and this digest
 // resealed; until then the os/exec allowance fails closed.
-const reviewedBackupSubprocessDigest = "052750e112f6259ecfa84e8c34ddd82458a61fa5b2cd0b35349249d3ba20d2f1"
+const reviewedBackupSubprocessDigest = "75a2d621f8a2509d651d4573077c2097b79ea8e811498ee388ebdd8c4ca1189b"
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
 // subprocess file (#106). It confirms the import path, that os/exec is confined
@@ -1183,13 +1243,17 @@ func fileImportsOSExec(path string) (bool, error) {
 	return false, nil
 }
 
-const reviewedNativeCredentialDigest = "41f9ca05c638dfa62b7fdb7e81daca6ce60f0d9b4e011f062fb1296dc62ac914"
+// Exact Linux-only package seal includes #143's delegated OS probe, #141's
+// typed D-Bus lifecycle verifier, and #144's existing-draft recovery compare.
+// Any production edit must be reviewed and resealed; no generic shell,
+// provider, or server path allowance is added.
+const reviewedNativeCredentialDigest = "20872b9996adb7eed1e2b5fb907ee213377fe365943158065b31f58b4d533c26"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
 	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
 		return false
 	}
-	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "policy_check_linux.go", "probe_linux.go", "resolver_linux.go"}
+	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "lifecycle_verifier_linux.go", "policy_check_linux.go", "probe_linux.go", "process_observer_linux.go", "resolver_linux.go", "systemd_linux.go", "verify_recovery_linux.go"}
 	if len(candidate.listed.GoFiles) != len(expectedFiles) {
 		return false
 	}
@@ -1199,9 +1263,10 @@ func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCrede
 		}
 	}
 	approvedImports := map[string]bool{
-		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
-		"io": true, "os": true, "os/exec": true, "path/filepath": true, "reflect": true, "regexp": true,
+		"bytes": true, "context": true, "crypto/sha256": true, "crypto/subtle": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
+		"io": true, "os": true, "os/exec": true, "os/user": true, "path/filepath": true, "reflect": true, "regexp": true,
 		"slices": true, "strconv": true, "strings": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
+		"github.com/godbus/dbus/v5":            true,
 		modulePath + "/internal/credentialref": true,
 		modulePath + "/internal/failure":       true,
 		modulePath + "/internal/generated":     true,

@@ -48,11 +48,13 @@ const (
 	SchemaIDAuthorizationDecision           = "vegastack-labs.dev/authorization-decision"
 	SchemaIDBackupDependency                = "vegastack-labs.dev/backup-dependency"
 	SchemaIDBackupJob                       = "vegastack-labs.dev/backup-job"
+	SchemaIDBackupLastGood                  = "vegastack-labs.dev/backup-last-good"
 	SchemaIDBackupPolicy                    = "vegastack-labs.dev/backup-policy"
 	SchemaIDBackupPolicyDraftRequest        = "vegastack-labs.dev/backup-policy-draft-request"
 	SchemaIDBackupPolicyDraftSubmission     = "vegastack-labs.dev/backup-policy-draft-submission"
 	SchemaIDBackupRunRequest                = "vegastack-labs.dev/backup-run-request"
 	SchemaIDBackupStatusData                = "vegastack-labs.dev/backup-status-data"
+	SchemaIDBackupVerificationAttempt       = "vegastack-labs.dev/backup-verification-attempt"
 	SchemaIDBackupVerifyRequest             = "vegastack-labs.dev/backup-verify-request"
 	SchemaIDBrowserAuditEvent               = "vegastack-labs.dev/browser-audit-event"
 	SchemaIDBrowserDeclarationRevision      = "vegastack-labs.dev/browser-declaration-revision"
@@ -130,6 +132,7 @@ const (
 	SchemaIDPlanPresentation                = "vegastack-labs.dev/plan-presentation"
 	SchemaIDPlanReferenceRequest            = "vegastack-labs.dev/plan-reference-request"
 	SchemaIDRecoveryPoint                   = "vegastack-labs.dev/recovery-point"
+	SchemaIDRecoveryWitnessCollectionData   = "vegastack-labs.dev/recovery-witness-collection-data"
 	SchemaIDReleaseAsset                    = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification        = "vegastack-labs.dev/release-asset-verification"
 	SchemaIDReleaseInspectData              = "vegastack-labs.dev/release-inspect-data"
@@ -177,6 +180,9 @@ const (
 	CommandNameAuditVerify                  = "audit verify"
 	CommandNameBackupPolicyDraft            = "backup policy draft"
 	FlagFile                                = "--file"
+	CommandNameBackupRun                    = "backup run"
+	CommandNameBackupStatus                 = "backup status"
+	CommandNameBackupVerify                 = "backup verify"
 	CommandNameCredentialActivate           = "credential activate"
 	CommandNameCredentialImport             = "credential import"
 	FlagConsumerID                          = "--consumer-id"
@@ -213,6 +219,9 @@ const (
 	CommandNamePlan                         = "plan"
 	FlagDeclarationID                       = "--declaration-id"
 	FlagRevision                            = "--revision"
+	CommandNameRecoveryWitnessCollect       = "recovery witness collect"
+	FlagMaterialFd                          = "--material-fd"
+	FlagSigningKeyFd                        = "--signing-key-fd"
 	CommandNameReleaseInspect               = "release inspect"
 	FlagManifest                            = "--manifest"
 	CommandNameReleaseVerify                = "release verify"
@@ -609,28 +618,40 @@ type BackupJob struct {
 	VerificationDigest *string `json:"verificationDigest"`
 }
 
+type BackupLastGood struct {
+	Schema          string `json:"schema"`
+	SchemaVersion   string `json:"schemaVersion"`
+	RepositoryClass string `json:"repositoryClass"`
+	PointID         string `json:"pointId"`
+	VerificationID  string `json:"verificationId"`
+	ManifestDigest  string `json:"manifestDigest"`
+	RecoveryEpoch   int64  `json:"recoveryEpoch"`
+}
+
 type BackupPolicy struct {
-	Schema                   string             `json:"schema"`
-	SchemaVersion            string             `json:"schemaVersion"`
-	PolicyID                 string             `json:"policyId"`
-	OwnerID                  string             `json:"ownerId"`
-	SourceID                 string             `json:"sourceId"`
-	SourceSelectors          []string           `json:"sourceSelectors"`
-	ConsistencyHookID        string             `json:"consistencyHookId"`
-	RepositoryID             *string            `json:"repositoryId"`
-	RepositoryClass          string             `json:"repositoryClass"`
-	ScheduleIntent           string             `json:"scheduleIntent"`
-	ExpectedBytes            int64              `json:"expectedBytes"`
-	ExpectedGrowthBytes      int64              `json:"expectedGrowthBytes"`
-	MinimumFreeBytes         int64              `json:"minimumFreeBytes"`
-	EncryptionKeyReferenceID *string            `json:"encryptionKeyReferenceId"`
-	RecoveryKeyReferenceID   *string            `json:"recoveryKeyReferenceId"`
-	RetentionDays            int64              `json:"retentionDays"`
-	RestoreTargetID          string             `json:"restoreTargetId"`
-	Dependencies             []BackupDependency `json:"dependencies"`
-	FunctionalTestRequired   bool               `json:"functionalTestRequired"`
-	RecoveryEpoch            int64              `json:"recoveryEpoch"`
-	Revision                 int64              `json:"revision"`
+	Schema                      string             `json:"schema"`
+	SchemaVersion               string             `json:"schemaVersion"`
+	PolicyID                    string             `json:"policyId"`
+	OwnerID                     string             `json:"ownerId"`
+	SourceID                    string             `json:"sourceId"`
+	SourceSelectors             []string           `json:"sourceSelectors"`
+	ConsistencyHookID           string             `json:"consistencyHookId"`
+	RepositoryID                *string            `json:"repositoryId"`
+	RepositoryClass             string             `json:"repositoryClass"`
+	ScheduleIntent              string             `json:"scheduleIntent"`
+	ExpectedBytes               int64              `json:"expectedBytes"`
+	ExpectedGrowthBytes         int64              `json:"expectedGrowthBytes"`
+	MinimumFreeBytes            int64              `json:"minimumFreeBytes"`
+	EncryptionKeyReferenceID    *string            `json:"encryptionKeyReferenceId"`
+	RecoveryKeyReferenceID      *string            `json:"recoveryKeyReferenceId"`
+	RetentionDays               int64              `json:"retentionDays"`
+	RestoreTargetID             string             `json:"restoreTargetId"`
+	Dependencies                []BackupDependency `json:"dependencies"`
+	FunctionalTestRequired      bool               `json:"functionalTestRequired"`
+	FullPayloadIntervalHours    int64              `json:"fullPayloadIntervalHours"`
+	FunctionalTestIntervalHours int64              `json:"functionalTestIntervalHours"`
+	RecoveryEpoch               int64              `json:"recoveryEpoch"`
+	Revision                    int64              `json:"revision"`
 }
 
 type BackupPolicyDraftRequest struct {
@@ -669,22 +690,43 @@ type BackupRunRequest struct {
 }
 
 type BackupStatusData struct {
-	Schema        string         `json:"schema"`
-	SchemaVersion string         `json:"schemaVersion"`
-	Policies      []BackupPolicy `json:"policies"`
-	Jobs          []BackupJob    `json:"jobs"`
-	RecoveryEpoch int64          `json:"recoveryEpoch"`
+	Schema        string                      `json:"schema"`
+	SchemaVersion string                      `json:"schemaVersion"`
+	Policies      []BackupPolicy              `json:"policies"`
+	Jobs          []BackupJob                 `json:"jobs"`
+	Verifications []BackupVerificationAttempt `json:"verifications"`
+	LastGood      []BackupLastGood            `json:"lastGood"`
+	RecoveryEpoch int64                       `json:"recoveryEpoch"`
+}
+
+type BackupVerificationAttempt struct {
+	Schema              string  `json:"schema"`
+	SchemaVersion       string  `json:"schemaVersion"`
+	VerificationID      string  `json:"verificationId"`
+	JobID               string  `json:"jobId"`
+	PointID             string  `json:"pointId"`
+	RunID               *string `json:"runId"`
+	Status              string  `json:"status"`
+	ProofClass          string  `json:"proofClass"`
+	VerificationDigest  *string `json:"verificationDigest"`
+	VerifiedAt          *string `json:"verifiedAt"`
+	FullPayloadDueAt    *string `json:"fullPayloadDueAt"`
+	FunctionalTestDueAt *string `json:"functionalTestDueAt"`
+	RecoveryEpoch       int64   `json:"recoveryEpoch"`
 }
 
 type BackupVerifyRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	TargetDigest          string `json:"targetDigest"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	JobID                 string `json:"jobId"`
-	PointID               string `json:"pointId"`
+	Schema                 string `json:"schema"`
+	SchemaVersion          string `json:"schemaVersion"`
+	ExpectedStateRevision  int64  `json:"expectedStateRevision"`
+	RecoveryEpoch          int64  `json:"recoveryEpoch"`
+	TargetDigest           string `json:"targetDigest"`
+	IdempotencyKey         string `json:"idempotencyKey"`
+	JobID                  string `json:"jobId"`
+	PointID                string `json:"pointId"`
+	PlanID                 string `json:"planId"`
+	PlanDigest             string `json:"planDigest"`
+	HumanAcknowledgementID string `json:"humanAcknowledgementId"`
 }
 
 type BrowserAuditEvent struct {
@@ -1587,6 +1629,15 @@ type RecoveryPoint struct {
 	Dependencies       []string `json:"dependencies"`
 }
 
+type RecoveryWitnessCollectionData struct {
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	ManifestDigest          string `json:"manifestDigest"`
+	ExpiresAt               string `json:"expiresAt"`
+	SignedArtifactBase64    string `json:"signedArtifactBase64"`
+	ProtectedEnvelopeBase64 string `json:"protectedEnvelopeBase64"`
+}
+
 type ReleaseAsset struct {
 	ID             string  `json:"id"`
 	Kind           string  `json:"kind"`
@@ -2055,9 +2106,9 @@ var Commands = []Command{
 	{Path: []string{"audit", "checkpoints"}, Summary: "List sanitized audit checkpoints.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Examples: []Example{{Summary: "List sanitized audit checkpoints.", Arguments: []string{"audit", "checkpoints", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"audit", "verify"}, Summary: "Verify local audit history against independent checkpoint state.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/audit-verification-data", Examples: []Example{{Summary: "Verify local audit history against independent checkpoint state.", Arguments: []string{"audit", "verify", "--config", "fixture/server-profile.json", "--output", "json"}}}},
 	{Path: []string{"backup", "policy", "draft"}, Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-policy-draft-request JSON file (64 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Examples: []Example{{Summary: "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.", Arguments: []string{"backup", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-policy-draft-request.json", "--output", "json"}}}},
-	{Path: []string{"backup", "run"}, Summary: "Run one exact approved backup policy.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job"},
-	{Path: []string{"backup", "status"}, Summary: "Inspect backup status.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", DataSchema: "vegastack-labs.dev/backup-status-data"},
-	{Path: []string{"backup", "verify"}, Summary: "Verify a declared backup.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job"},
+	{Path: []string{"backup", "run"}, Summary: "Execute one exact approved backup-creation plan; the point remains pending.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-run-request JSON file (4 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-run-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-job", Examples: []Example{{Summary: "Execute one exact approved backup-creation plan; the point remains pending.", Arguments: []string{"backup", "run", "--config", "fixture/server-profile.json", "--file", "fixture/backup-run-request.json", "--output", "json"}}}},
+	{Path: []string{"backup", "status"}, Summary: "Inspect local backup jobs and qualification status.", Availability: "available", OwnerPhase: "5", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-status-data", Examples: []Example{{Summary: "Inspect local backup jobs and qualification status.", Arguments: []string{"backup", "status", "--config", "fixture/server-profile.json", "--output", "json"}}}},
+	{Path: []string{"backup", "verify"}, Summary: "Execute one exact approved local-backup verification plan.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one protected server profile.", Enum: []string(nil)}, {Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact typed backup-verify-request JSON file (4 KiB max).", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/backup-verify-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/backup-job", Examples: []Example{{Summary: "Execute one exact approved local-backup verification plan.", Arguments: []string{"backup", "verify", "--config", "fixture/server-profile.json", "--file", "fixture/backup-verify-request.json", "--output", "json"}}}},
 	{Path: []string{"connect"}, Summary: "Open a constrained connection to an authorized node endpoint.", Availability: "planned", OwnerPhase: "7", Risk: "unassigned"},
 	{Path: []string{"control-plane", "plan"}, Summary: "Create an immutable control-plane change plan.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"control-plane", "recover"}, Summary: "Create an inert control-plane recovery change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
@@ -2095,6 +2146,7 @@ var Commands = []Command{
 	{Path: []string{"node", "quarantine"}, Summary: "Create an inert node-quarantine change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"node", "replace"}, Summary: "Create an inert node-replacement change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"plan"}, Summary: "Create an immutable plan from one exact inert declaration revision.", Availability: "available", OwnerPhase: "4", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--declaration-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact inert declaration.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Select the exact positive declaration revision.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-create-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/plan", Examples: []Example{{Summary: "Create an immutable plan from one exact inert declaration revision.", Arguments: []string{"plan", "--config", "fixture/server-profile.json", "--declaration-id", "change-1", "--revision", "2", "--output", "json"}}}},
+	{Path: []string{"recovery", "witness", "collect"}, Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact public recovery binding and required-boundary document (64 KiB max).", Enum: []string(nil)}, {Name: "--material-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the independently held protected material from an inherited descriptor.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--signing-key-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the protected witness signing seed from an inherited descriptor.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/recovery-witness-collection-data", Examples: []Example{{Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Arguments: []string{"recovery", "witness", "collect", "--file", "fixture/recovery-witness-input.json", "--signing-key-fd", "3", "--material-fd", "4", "--output", "json"}}}},
 	{Path: []string{"release", "inspect"}, Summary: "Inspect a local release manifest and compatibility without claiming cryptographic verification.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-inspect-data", Examples: []Example{{Summary: "Inspect a local manifest as versioned JSON.", Arguments: []string{"release", "inspect", "--manifest", "release/manifest.json", "--output", "json"}}}},
 	{Path: []string{"release", "verify"}, Summary: "Verify a signed local manifest and explicitly selected assets against a supplied offline policy.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--all", Kind: "switch", ValueName: "", Required: false, Repeatable: false, Summary: "Explicitly verify every asset in the manifest.", Enum: []string(nil)}, {Name: "--asset", Kind: "value", ValueName: "id", Required: false, Repeatable: true, Summary: "Verify one named asset; repeat for additional assets.", Enum: []string(nil)}, {Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--policy", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the supplied local trust policy at this path.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-verify-data", Examples: []Example{{Summary: "Explicitly verify every local asset.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--all"}}, {Summary: "Verify one local asset against a supplied policy.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--asset", "linux-amd64", "--output", "json"}}}},
 	{Path: []string{"restore", "plan"}, Summary: "Create an immutable restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/restore-request", DataSchema: "vegastack-labs.dev/restore-binding"},
@@ -2122,9 +2174,9 @@ var Endpoints = []Endpoint{
 	{ID: "api.v1.audit-checkpoints.list", Method: "GET", Path: "/api/v1/audit-checkpoints", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-checkpoint-list-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.audit-history.verification", Method: "GET", Path: "/api/v1/audit-history/verification", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/audit-verification-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-policy-draft-request", DataSchema: "vegastack-labs.dev/backup-policy-draft-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.backups.run", Method: "POST", Path: "/api/v1/backups/run", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.backups.status", Method: "GET", Path: "/api/v1/backups/status", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/backup-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
-	{ID: "api.v1.backups.verify", Method: "POST", Path: "/api/v1/backups/{jobId}/verify", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.backups.run", Method: "POST", Path: "/api/v1/backups/run", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-run-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.backups.status", Method: "GET", Path: "/api/v1/backups/status", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/backup-status-data", Stream: "finite", Audiences: []string{"browser", "operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
+	{ID: "api.v1.backups.verify", Method: "POST", Path: "/api/v1/backups/{jobId}/verify", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/backup-verify-request", DataSchema: "vegastack-labs.dev/backup-job", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-lifecycle-drafts.create", Method: "POST", Path: "/api/v1/credential-lifecycle-drafts", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-lifecycle-request", DataSchema: "vegastack-labs.dev/credential-lifecycle-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.get", Method: "GET", Path: "/api/v1/credential-references/{referenceId}", Availability: "planned", OwnerPhase: "5", QuerySchema: "", RequestSchema: "", DataSchema: "vegastack-labs.dev/credential-reference", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "", TransportScope: "", MaxRequestBytes: 0},
 	{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", Availability: "available", OwnerPhase: "5", QuerySchema: "", RequestSchema: "vegastack-labs.dev/credential-import-request", DataSchema: "vegastack-labs.dev/credential-import-submission", Stream: "finite", Audiences: []string{"operator"}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},

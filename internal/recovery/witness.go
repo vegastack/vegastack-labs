@@ -47,22 +47,25 @@ type PinnedWitness struct {
 	PublicKey               ed25519.PublicKey
 	RecipientKeyID          string
 	RecipientPublicKey      []byte
+	Requirements            []BoundaryRequirement
 	ManifestDigest          string
 	AuthenticatedExternally bool
 	Revoked                 bool
 	ExpiresAt               time.Time
 	manifestAuthenticated   bool
 	manifestBinding         WitnessBinding
+	adminRootDigest         string
 	pinSeal                 [32]byte
 }
 
 func (pin PinnedWitness) seal() [32]byte {
 	data, _ := json.Marshal(struct {
-		KeyID, WitnessInstanceID, RecipientKeyID, ManifestDigest string
-		PublicKey, RecipientPublicKey                            []byte
-		ExpiresAt                                                time.Time
-		Binding                                                  WitnessBinding
-	}{pin.KeyID, pin.WitnessInstanceID, pin.RecipientKeyID, pin.ManifestDigest, pin.PublicKey, pin.RecipientPublicKey, pin.ExpiresAt, pin.manifestBinding})
+		KeyID, WitnessInstanceID, RecipientKeyID, ManifestDigest, AdminRootDigest string
+		PublicKey, RecipientPublicKey                                             []byte
+		ExpiresAt                                                                 time.Time
+		Binding                                                                   WitnessBinding
+		Requirements                                                              []BoundaryRequirement
+	}{pin.KeyID, pin.WitnessInstanceID, pin.RecipientKeyID, pin.ManifestDigest, pin.adminRootDigest, pin.PublicKey, pin.RecipientPublicKey, pin.ExpiresAt, pin.manifestBinding, pin.Requirements})
 	return sha256.Sum256(data)
 }
 

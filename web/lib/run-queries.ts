@@ -51,11 +51,12 @@ export function useRun(runId: string | null) {
   const refetch = query.refetch;
   const terminal = query.data ? terminalRunStatuses.has(query.data.data.run.status) : false;
   const retryableFailure = isTransientRunRead(query.error);
+  const watchable = Boolean(query.data) || retryableFailure;
   const lastEventId = useRef<string | undefined>(undefined);
+  useEffect(() => { lastEventId.current = undefined; }, [runId]);
   useEffect(() => {
-    if (!runId || terminal || (!query.data && !retryableFailure)) return;
+    if (!runId || terminal || !watchable) return;
     const controller = new AbortController();
-    lastEventId.current = undefined;
     const inspectDurableRun = () => { void refetch(); };
     globalThis.addEventListener("online", inspectDurableRun);
     void (async () => {
@@ -94,7 +95,7 @@ export function useRun(runId: string | null) {
       }
     })();
     return () => { controller.abort(); globalThis.removeEventListener("online", inspectDurableRun); };
-  }, [query.data, refetch, retryableFailure, runId, terminal]);
+  }, [refetch, runId, terminal, watchable]);
   return query;
 }
 

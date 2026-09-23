@@ -278,35 +278,201 @@
         "backup",
         "run"
       ],
-      "summary": "Run one exact approved backup policy.",
-      "availability": "planned",
+      "summary": "Execute one exact approved backup-creation plan; the point remains pending.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed backup-run-request JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/backup-run-request",
-      "dataSchema": "vegastack-labs.dev/backup-job"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "examples": [
+        {
+          "summary": "Execute one exact approved backup-creation plan; the point remains pending.",
+          "arguments": [
+            "backup",
+            "run",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/backup-run-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "backup",
         "status"
       ],
-      "summary": "Inspect backup status.",
-      "availability": "planned",
+      "summary": "Inspect local backup jobs and qualification status.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
-      "dataSchema": "vegastack-labs.dev/backup-status-data"
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-status-data",
+      "examples": [
+        {
+          "summary": "Inspect local backup jobs and qualification status.",
+          "arguments": [
+            "backup",
+            "status",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "backup",
         "verify"
       ],
-      "summary": "Verify a declared backup.",
-      "availability": "planned",
+      "summary": "Execute one exact approved local-backup verification plan.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed backup-verify-request JSON file (4 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/backup-verify-request",
-      "dataSchema": "vegastack-labs.dev/backup-job"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "examples": [
+        {
+          "summary": "Execute one exact approved local-backup verification plan.",
+          "arguments": [
+            "backup",
+            "verify",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/backup-verify-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -1908,6 +2074,89 @@
     },
     {
       "path": [
+        "recovery",
+        "witness",
+        "collect"
+      ],
+      "summary": "Collect one bounded independent recovery witness on a separately administered custodian.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact public recovery binding and required-boundary document (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--material-fd",
+          "kind": "value",
+          "valueName": "fd",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the independently held protected material from an inherited descriptor.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--signing-key-fd",
+          "kind": "value",
+          "valueName": "fd",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected witness signing seed from an inherited descriptor.",
+          "enum": null
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/recovery-witness-collection-data",
+      "examples": [
+        {
+          "summary": "Collect one bounded independent recovery witness on a separately administered custodian.",
+          "arguments": [
+            "recovery",
+            "witness",
+            "collect",
+            "--file",
+            "fixture/recovery-witness-input.json",
+            "--signing-key-fd",
+            "3",
+            "--material-fd",
+            "4",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "release",
         "inspect"
       ],
@@ -2969,8 +3218,13 @@
       "artifactPath": "schemas/v1/backup-job.schema.json"
     },
     {
-      "id": "vegastack-labs.dev/backup-policy",
+      "id": "vegastack-labs.dev/backup-last-good",
       "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-last-good.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-policy",
+      "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-policy.schema.json"
     },
     {
@@ -2990,12 +3244,17 @@
     },
     {
       "id": "vegastack-labs.dev/backup-status-data",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/backup-status-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/backup-verification-attempt",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-verification-attempt.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/backup-verify-request",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/backup-verify-request.schema.json"
     },
     {
@@ -3356,6 +3615,11 @@
       "id": "vegastack-labs.dev/recovery-point",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/recovery-point.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/recovery-witness-collection-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/recovery-witness-collection-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/release-asset",

@@ -104,7 +104,7 @@ func analyze(root string) (analysis, error) {
 				result.SQLiteAccess = true
 			}
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
-			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/authority_linux.go" || relative == "internal/adapter/nativecredential/probe_linux.go" || relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go"
+			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/lifecycle_verifier_linux.go" || relative == "internal/adapter/nativecredential/process_observer_linux.go" || relative == "internal/adapter/nativecredential/authority_linux.go" || relative == "internal/adapter/nativecredential/probe_linux.go" || relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go" || relative == "internal/adapter/nativecredential/verify_recovery_linux.go"
 			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (approvedNativeCredentialFile || strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || relative == "internal/server/credential_resolver_linux.go" || relative == "internal/server/remote_tls_linux.go" || relative == "internal/server/slack_acknowledgement_config_linux.go" || relative == "internal/server/systemd_credentials_linux.go" || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
 			// #106's guarded local adapter and #146's exact protected recovery
 			// files are separate reviewed Unix file-descriptor scopes.
@@ -179,6 +179,8 @@ func reviewedRecoveryUnixFile(relative string, content []byte) bool {
 		expected = "c037f299077084fb66ed6fa660e9a434732ecc006c5d986982b4bea538cdbebe"
 	case "internal/recovery/receipt_file_unix.go":
 		expected = "87b5ac429e13b1631a7d9c17160d1b6978b1bbb66626e714b463de97befcac3c"
+	case "internal/recovery/package_file_unix.go":
+		expected = "a29cef56decead9cd44283fc9cebb257f6ae3f4661a8fbd3cd12a631867e511e"
 	case "internal/server/recovery_recipient_linux.go":
 		expected = "1bb55d15e07c13baddab7e1933f56e767179ddf01ba0bc42dca76aa710b5e10e"
 	default:
