@@ -105,9 +105,9 @@ func (r *OffsiteRetirementRepository) ClaimOffsiteRetirement(ctx context.Context
 		return result, newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-claim", false, nil)
 	}
 	err := r.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var planID, planDigest, generation, bucket, lockAdmin, retention string
+		var planID, planDigest, generation, bucket, oneOwnerProof, lockAdmin, retention string
 		var revision, epoch, maxWork, maxBytes int64
-		if e := tx.QueryRowContext(ctx, `SELECT plan_id,plan_digest,generation_id,bucket_id,lock_admin_consumer_id,retention_consumer_id,state_revision,recovery_epoch,max_work_objects,max_mutation_bytes FROM backup_offsite_retirement_intents WHERE intent_id=?`, claim.IntentID).Scan(&planID, &planDigest, &generation, &bucket, &lockAdmin, &retention, &revision, &epoch, &maxWork, &maxBytes); e != nil {
+		if e := tx.QueryRowContext(ctx, `SELECT plan_id,plan_digest,generation_id,bucket_id,one_owner_proof_id,lock_admin_consumer_id,retention_consumer_id,state_revision,recovery_epoch,max_work_objects,max_mutation_bytes FROM backup_offsite_retirement_intents WHERE intent_id=?`, claim.IntentID).Scan(&planID, &planDigest, &generation, &bucket, &oneOwnerProof, &lockAdmin, &retention, &revision, &epoch, &maxWork, &maxBytes); e != nil {
 			return e
 		}
 		var ack, human, leaseExpiry, planExpiry, ackExpiry string
@@ -127,6 +127,10 @@ func (r *OffsiteRetirementRepository) ClaimOffsiteRetirement(ctx context.Context
 		}
 		if currentRevision != revision || currentEpoch != epoch {
 			return newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-claim", false, nil)
+		}
+		var qualified int
+		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM gate_applied_evidence e WHERE e.evidence_id=? AND e.gate_id='G-008' AND e.subject_id=? AND e.status='applied' AND e.source_kind<>'fixture' AND e.proof_class='live' AND e.recovery_epoch=? AND e.state_revision<=? AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)`, oneOwnerProof, bucket, epoch, currentRevision).Scan(&qualified); e != nil || qualified != 1 {
+			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-one-owner", false, e)
 		}
 		if _, e := tx.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,recovery_epoch,maximum_expires_at,acquired_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, claim.LeaseID, claim.IntentID, claim.RunID, claim.StepID, claim.ExecutorLeaseID, ack, human, epoch, claim.MaximumExpiresAt.Format(time.RFC3339), now.Format(time.RFC3339)); e != nil {
 			return e
