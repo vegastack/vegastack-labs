@@ -184,6 +184,36 @@ func (repository *GateRepository) ListAppliedGateEvidence(ctx context.Context, g
 	return result, err
 }
 
+// ListCurrentAppliedGateEvidence excludes historical, superseded, revoked,
+// future-revision, and prior-epoch rows. Recovery uses this only to derive
+// applicability; it is never independent fence proof.
+func (repository *GateRepository) ListCurrentAppliedGateEvidence(ctx context.Context, gateID, subjectID string) ([]generated.GateEvidence, error) {
+	if repository == nil || repository.store == nil || gateID == "" || subjectID == "" {
+		return nil, newStoreError(generated.ErrorCodeInputInvalid, "gate-evidence", false, nil)
+	}
+	result := []generated.GateEvidence{}
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, err := tx.query(ctx, `SELECT e.canonical_bytes FROM gate_applied_evidence e JOIN system_meta m ON m.id=1 WHERE e.gate_id=? AND e.subject_id=? AND e.status='applied' AND e.recovery_epoch=m.recovery_epoch AND e.state_revision<=m.state_revision AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.recovery_epoch=e.recovery_epoch AND later.state_revision<=m.state_revision AND (later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)) ORDER BY e.state_revision,e.evidence_id`, gateID, subjectID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var raw []byte
+			if err := rows.Scan(&raw); err != nil {
+				return err
+			}
+			var evidence generated.GateEvidence
+			if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || evidence.GateID != gateID || evidence.SubjectID != subjectID || evidence.Status != "applied" {
+				return newStoreError(generated.ErrorCodeIntegrityFailure, "gate-evidence", false, nil)
+			}
+			result = append(result, evidence)
+		}
+		return rows.Err()
+	})
+	return result, err
+}
+
 func (repository *GateRepository) ApplyGateEvidence(ctx context.Context, request GateApplyRequest) (generated.GateEvidence, error) {
 	if repository == nil || repository.store == nil {
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-evidence", false, nil)

@@ -205,6 +205,10 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	if err != nil || len(rows) != 1 {
 		t.Fatalf("rows %d %v", len(rows), err)
 	}
+	current, err := repository.ListCurrentAppliedGateEvidence(context.Background(), draft.GateID, draft.SubjectID)
+	if err != nil || len(current) != 1 || current[0].EvidenceID != evidence.EvidenceID {
+		t.Fatalf("current rows %#v %v", current, err)
+	}
 	if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE gate_applied_evidence SET status='revoked' WHERE evidence_id=?`, evidence.EvidenceID); err == nil {
 		t.Fatal("direct status edit accepted")
 	}
@@ -238,5 +242,9 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	rows, err = repository.ListAppliedGateEvidence(context.Background(), draft.GateID, draft.SubjectID)
 	if err != nil || len(rows) != 2 || rows[0].Status != "applied" || record.Status != "revoked" || rows[1].RevokesEvidenceID == nil || *rows[1].RevokesEvidenceID != evidence.EvidenceID {
 		t.Fatalf("append-only revoke: rows=%#v err=%v", rows, err)
+	}
+	current, err = repository.ListCurrentAppliedGateEvidence(context.Background(), draft.GateID, draft.SubjectID)
+	if err != nil || len(current) != 0 {
+		t.Fatalf("revoked evidence remained current: rows=%#v err=%v", current, err)
 	}
 }
