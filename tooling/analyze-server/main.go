@@ -215,8 +215,16 @@ func invalidRecoveryAuthorityClosure(source string) bool {
 			return true
 		}
 	}
-	promote, open := strings.Index(source, "PromoteAtStartup"), strings.Index(source, "operations.openStore")
-	return promote < 0 || open < 0 || promote > open
+	startup := strings.Index(source, "func (operations *Operations) openAuthorityWithPromotion")
+	if startup < 0 {
+		return true
+	}
+	startupSource := source[startup:]
+	initialOpen := strings.Index(startupSource, "authority, err := operations.openStore")
+	closeFormer := strings.Index(startupSource, "authority.Close()")
+	promote := strings.Index(startupSource, "manager.PromoteAtStartup")
+	openPromoted := strings.Index(startupSource, "return operations.openStore(ctx, configFor(operations.databasePath))")
+	return initialOpen < 0 || closeFormer < initialOpen || promote < closeFormer || openPromoted < promote
 }
 
 // These custody paths use no-follow Unix file descriptors for one protected
