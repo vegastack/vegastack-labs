@@ -239,6 +239,7 @@ func TestPhase5RestoreAndJobRequestsRequireExactBindingFields(t *testing.T) {
 			"priorInstanceId": "instance-old", "newInstanceId": "instance-new",
 			"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3,
 			"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
+			"canaryRunId": "canary-run-a", "canaryStepId": "canary-step-a", "canaryLeaseId": "canary-lease-a", "canaryBindingDigest": phase5DigestFixture(),
 		}},
 		{"job", SchemaIDScheduledJobRequest, map[string]any{
 			"schema": SchemaIDScheduledJobRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
