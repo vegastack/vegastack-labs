@@ -20,7 +20,10 @@ type Adapter interface {
 
 type Challenge struct {
 	ChallengeID      string
+	Kind             string
+	SubjectID        string
 	TargetID         string
+	AdapterID        string
 	FormerIdentityID string
 	ProbeID          string
 	Deadline         time.Time
@@ -28,23 +31,28 @@ type Challenge struct {
 
 type Result struct {
 	ChallengeID      string
+	Kind             string
+	SubjectID        string
 	TargetID         string
+	AdapterID        string
 	FormerIdentityID string
 	ProbeID          string
+	ObserverID       string
 	ResponseClass    string
 	ResponseDigest   string
 	ObservedAt       time.Time
 	ExpiresAt        time.Time
+	SessionExpiry    time.Time
 	Denied           bool
 }
 
 // ValidateResult checks the public result shape and exact challenge. It does
 // not qualify an adapter or assert that a real endpoint was probed.
 func ValidateResult(ctx context.Context, challenge Challenge, result Result, now time.Time) error {
-	if ctx == nil || ctx.Err() != nil || !token.MatchString(challenge.ChallengeID) || !token.MatchString(challenge.TargetID) || !token.MatchString(challenge.FormerIdentityID) || !token.MatchString(challenge.ProbeID) || challenge.Deadline.IsZero() || now.After(challenge.Deadline) {
+	if ctx == nil || ctx.Err() != nil || !token.MatchString(challenge.ChallengeID) || !token.MatchString(challenge.Kind) || !token.MatchString(challenge.SubjectID) || !token.MatchString(challenge.TargetID) || !token.MatchString(challenge.AdapterID) || !token.MatchString(challenge.FormerIdentityID) || !token.MatchString(challenge.ProbeID) || challenge.Deadline.IsZero() || now.After(challenge.Deadline) {
 		return ErrDenialUnavailable
 	}
-	if result.ChallengeID != challenge.ChallengeID || result.TargetID != challenge.TargetID || result.FormerIdentityID != challenge.FormerIdentityID || result.ProbeID != challenge.ProbeID || result.ResponseClass != "direct-denial" || !digest.MatchString(result.ResponseDigest) || !result.Denied || result.ObservedAt.IsZero() || result.ObservedAt.After(now) || now.Sub(result.ObservedAt) > 60*time.Second || !now.Before(result.ExpiresAt) || result.ExpiresAt.After(challenge.Deadline) {
+	if result.ChallengeID != challenge.ChallengeID || result.Kind != challenge.Kind || result.SubjectID != challenge.SubjectID || result.TargetID != challenge.TargetID || result.AdapterID != challenge.AdapterID || result.FormerIdentityID != challenge.FormerIdentityID || result.ProbeID != challenge.ProbeID || !token.MatchString(result.ObserverID) || result.ObserverID == result.FormerIdentityID || result.ResponseClass != "direct-denial" || !digest.MatchString(result.ResponseDigest) || !result.Denied || result.ObservedAt.IsZero() || result.ObservedAt.After(now) || now.Sub(result.ObservedAt) > 60*time.Second || !now.Before(result.ExpiresAt) || result.ExpiresAt.After(challenge.Deadline) || !now.Before(result.SessionExpiry) || result.SessionExpiry.Before(result.ObservedAt) {
 		return ErrDenialUnavailable
 	}
 	return nil

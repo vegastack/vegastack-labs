@@ -1,0 +1,48 @@
+{
+  "$id": "vegastack-labs.dev/recovery-witness-collection-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expiresAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "manifestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "protectedEnvelopeBase64": {
+      "maxLength": 10000,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/recovery-witness-collection-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "signedArtifactBase64": {
+      "maxLength": 350000,
+      "pattern": "^[A-Za-z0-9_-]+$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "manifestDigest",
+    "expiresAt",
+    "signedArtifactBase64",
+    "protectedEnvelopeBase64"
+  ],
+  "title": "VegaStack Labs recovery witness collection data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

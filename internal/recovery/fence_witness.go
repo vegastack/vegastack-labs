@@ -128,3 +128,32 @@ func validBoundaryRequirement(item BoundaryRequirement) bool {
 	}
 	return allowedProbes[item.Kind][item.ProbeID]
 }
+
+// validCompleteRequirements accepts only a bounded, exact direct-probe set.
+// Its authenticated source is still the administrator manifest; this helper
+// prevents that source from accidentally sealing a partial probe group.
+func validCompleteRequirements(required []BoundaryRequirement) bool {
+	if len(required) == 0 || len(required) > 256 {
+		return false
+	}
+	seen := make(map[BoundaryRequirement]bool, len(required))
+	groups := make(map[BoundaryRequirement]map[string]bool)
+	for _, item := range required {
+		if !validBoundaryRequirement(item) || seen[item] {
+			return false
+		}
+		seen[item] = true
+		group := item
+		group.ProbeID = ""
+		if groups[group] == nil {
+			groups[group] = make(map[string]bool)
+		}
+		groups[group][item.ProbeID] = true
+	}
+	for group, probes := range groups {
+		if len(probes) != len(allowedProbes[group.Kind]) {
+			return false
+		}
+	}
+	return true
+}

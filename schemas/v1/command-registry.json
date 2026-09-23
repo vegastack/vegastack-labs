@@ -1908,6 +1908,89 @@
     },
     {
       "path": [
+        "recovery",
+        "witness",
+        "collect"
+      ],
+      "summary": "Collect one bounded independent recovery witness on a separately administered custodian.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact public recovery binding and required-boundary document (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--material-fd",
+          "kind": "value",
+          "valueName": "fd",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the independently held protected material from an inherited descriptor.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--signing-key-fd",
+          "kind": "value",
+          "valueName": "fd",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected witness signing seed from an inherited descriptor.",
+          "enum": null
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/recovery-witness-collection-data",
+      "examples": [
+        {
+          "summary": "Collect one bounded independent recovery witness on a separately administered custodian.",
+          "arguments": [
+            "recovery",
+            "witness",
+            "collect",
+            "--file",
+            "fixture/recovery-witness-input.json",
+            "--signing-key-fd",
+            "3",
+            "--material-fd",
+            "4",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "release",
         "inspect"
       ],
@@ -3356,6 +3439,11 @@
       "id": "vegastack-labs.dev/recovery-point",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/recovery-point.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/recovery-witness-collection-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/recovery-witness-collection-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/release-asset",

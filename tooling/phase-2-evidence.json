@@ -62,7 +62,8 @@
       { "id": "phase5-issue146-v1", "issue": 146, "commands": [], "imports": ["github.com/vegastack/vegastack-labs/internal/recovery"], "mutationBoundaryDigest": "sha256:4c1e231743f35fd482d3b8541bc99ee9d2c4cb20276f13bafba297cf4c231125" },
       { "id": "phase5-issue140-v1", "issue": 140, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:1e0ddd40124fbd35a86ab13b26525e0765c7b0c13e2d108b72ae6f44d010f347" },
       { "id": "phase5-issue143-v1", "issue": 143, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:8f475ee6b254aef31714c2990053fe43964775d6521caf3f90acf0a41550f81a" },
-      { "id": "phase5-issue141-v1", "issue": 141, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:1c1c655f661db1efe1586da0e731dfb2d7471d76d742c4e0ba774a90c114f0a1" }
+      { "id": "phase5-issue141-v1", "issue": 141, "commands": [], "imports": [], "mutationBoundaryDigest": "sha256:1c1c655f661db1efe1586da0e731dfb2d7471d76d742c4e0ba774a90c114f0a1" },
+      { "id": "phase5-issue153-v1", "issue": 153, "commands": ["recovery witness collect"], "imports": ["github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"], "mutationBoundaryDigest": "sha256:d14608fe7b00ce92fe57cc4bed03beb44c8ac43d9e49bb5c18343da29a61da97" }
     ]
   },
   "children": [

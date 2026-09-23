@@ -416,7 +416,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		// control client capability. Any source or import change breaks this seal.
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
 		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential
+		// The custodian command imports recovery's fixed protected pin/receipt
+		// source. Only this exact reviewed source closure may carry those paths.
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !(candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed))
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) {
 				result.ShellDispatch = true
@@ -429,7 +431,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				// with public material only. Seal that exact package; every
 				// other Ed25519 dependency remains forbidden production trust.
 				if !(candidate.ImportPath == auditImport && reviewedAuditVerificationPackage(parsed)) &&
-					!(candidate.ImportPath == recoveryImport && reviewedRecoveryVerificationPackage(parsed)) {
+					!(candidate.ImportPath == recoveryImport && (reviewedRecoveryVerificationPackage(parsed) || reviewedRecoveryCustodianPackage(parsed))) {
 					result.StateExportTrust = true
 				}
 			case "crypto/rsa":
@@ -599,6 +601,9 @@ func reviewedControlExternalImport(candidate checkedSourcePackage, imported stri
 		return true
 	}
 	if candidatePath == serverConfigImport && imported == "golang.org/x/sys/unix" && reviewedControlPlatformSource(candidate, "serverconfig") {
+		return true
+	}
+	if candidatePath == modulePath+"/internal/recovery" && imported == "golang.org/x/sys/unix" && reviewedRecoveryCustodianPackage(candidate) {
 		return true
 	}
 	if candidatePath == releaseImport {
@@ -976,6 +981,55 @@ func reviewedRecoveryVerificationPackage(candidate checkedSourcePackage) bool {
 			return !forbidden
 		})
 		if forbidden {
+			return false
+		}
+	}
+	return true
+}
+
+// #153's finite custodian command signs only an exact independently pinned
+// witness collection. This exception is confined to the complete reviewed
+// recovery source set and the one collector file; any source drift fails the
+// public-client analyzer closed until a fresh review reseals it.
+func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	var expected string
+	switch strings.Join(names, ",") {
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,receipt_file_unix.go,transport.go,witness.go":
+		expected = "1323f08cdf7d4f71744f378d89a5b3cd7865ea800b71242d5490f0fbc67a6341"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,receipt_file_unsupported.go,transport.go,witness.go":
+		expected = "22be2ccc6574690b47bf6854f3e0a255799fc96ec387d0072bda1e40813a7e29"
+	default:
+		return false
+	}
+	if digestSourceFiles(candidate.listed.Dir, names) != expected {
+		return false
+	}
+	for _, name := range names {
+		if name == "collector.go" {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), filepath.Join(candidate.listed.Dir, name), nil, 0)
+		if err != nil {
+			return false
+		}
+		privateUse := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			selector, ok := node.(*ast.SelectorExpr)
+			if !ok {
+				return true
+			}
+			identifier, ok := selector.X.(*ast.Ident)
+			if ok && identifier.Name == "ed25519" {
+				switch selector.Sel.Name {
+				case "Sign", "GenerateKey", "NewKeyFromSeed", "PrivateKey":
+					privateUse = true
+				}
+			}
+			return !privateUse
+		})
+		if privateUse {
 			return false
 		}
 	}
