@@ -43,9 +43,34 @@ func ForecastGeneration(policy OffsitePolicy, point VerifiedCriticalPoint, obser
 	if !slices.Equal(protected, gotProtected) || !slices.Equal(mutable, gotMutable) {
 		return GenerationAdmission{}, invalid
 	}
-	return GenerationAdmission{GenerationID: policy.GenerationID, Prefix: base + "/", RuleDigest: observed.RuleDigest,
+	admission := GenerationAdmission{GenerationID: policy.GenerationID, Prefix: base + "/", RuleDigest: observed.RuleDigest,
 		MaximumBytes: policy.MaximumBytes, MaximumPUTs: policy.MaximumPUTs, MaximumLISTs: policy.MaximumLISTs,
-		ProtectedPrefixes: protected, MutablePrefixes: mutable}, nil
+		ProtectedPrefixes: protected, MutablePrefixes: mutable}
+	if !validGenerationAdmission(admission) {
+		return GenerationAdmission{}, invalid
+	}
+	return admission, nil
+}
+
+func validGenerationAdmission(admission GenerationAdmission) bool {
+	base := strings.TrimSuffix(admission.Prefix, "/")
+	if !validOffsiteToken(admission.GenerationID) || admission.Prefix != base+"/" || !validOffsitePrefix(base) ||
+		!strings.HasSuffix(base, "/"+admission.GenerationID) || !validBackupManifestDigest(admission.RuleDigest) ||
+		admission.MaximumBytes <= 0 || admission.MaximumPUTs <= 0 || admission.MaximumLISTs <= 0 {
+		return false
+	}
+	protected := make([]string, 0, len(protectedGenerationParts))
+	for _, part := range protectedGenerationParts {
+		protected = append(protected, path.Join(base, part)+map[bool]string{true: "/", false: ""}[part != "config"])
+	}
+	mutable := []string{path.Join(base, "locks") + "/"}
+	gotProtected := append([]string(nil), admission.ProtectedPrefixes...)
+	gotMutable := append([]string(nil), admission.MutablePrefixes...)
+	slices.Sort(protected)
+	slices.Sort(mutable)
+	slices.Sort(gotProtected)
+	slices.Sort(gotMutable)
+	return slices.Equal(protected, gotProtected) && slices.Equal(mutable, gotMutable)
 }
 
 func validOffsiteToken(value string) bool { return offsiteToken.MatchString(value) }

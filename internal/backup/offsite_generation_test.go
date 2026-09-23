@@ -40,3 +40,28 @@ func TestRetentionDigestSeparatesProtectedAndMutablePrefixes(t *testing.T) {
 		t.Fatal("retention digest did not bind prefix authority")
 	}
 }
+
+func TestGenerationAdmissionRequiresExactRuleBoundary(t *testing.T) {
+	admission := GenerationAdmission{GenerationID: "generation-a", Prefix: "critical/generation-a/", RuleDigest: offsiteDigest("a"), MaximumBytes: 1024, MaximumPUTs: 100, MaximumLISTs: 20,
+		ProtectedPrefixes: []string{"critical/generation-a/config", "critical/generation-a/keys/", "critical/generation-a/data/", "critical/generation-a/index/", "critical/generation-a/snapshots/"}, MutablePrefixes: []string{"critical/generation-a/locks/"}}
+	if !validGenerationAdmission(admission) {
+		t.Fatal("exact generation admission rejected")
+	}
+	for name, mutate := range map[string]func(*GenerationAdmission){
+		"missing rule digest": func(value *GenerationAdmission) { value.RuleDigest = "" },
+		"cross generation":    func(value *GenerationAdmission) { value.Prefix = "critical/generation-b/" },
+		"payload mutable": func(value *GenerationAdmission) {
+			value.MutablePrefixes = append(value.MutablePrefixes, "critical/generation-a/data/")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			altered := admission
+			altered.ProtectedPrefixes = append([]string(nil), admission.ProtectedPrefixes...)
+			altered.MutablePrefixes = append([]string(nil), admission.MutablePrefixes...)
+			mutate(&altered)
+			if validGenerationAdmission(altered) {
+				t.Fatal("forged generation admission accepted")
+			}
+		})
+	}
+}

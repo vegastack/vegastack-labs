@@ -14,7 +14,7 @@ import (
 func CopyOffsitePoint(ctx context.Context, config CopyConfig, point VerifiedCriticalPoint, admission GenerationAdmission) (PendingOffsiteGeneration, error) {
 	invalid := errors.New("offsite copy blocked")
 	if config.Custody == nil || config.Inventory == nil || config.Endpoint == nil || config.Password == nil || len(config.Password.Bytes()) == 0 || config.BinaryPath == "" || config.Architecture == "" ||
-		!offsiteRepositoryMatchesAdmission(config.RepositoryURL, config.Bucket, admission.Prefix) || config.SnapshotPath == "" || config.PasswordFDPath == "" ||
+		!validGenerationAdmission(admission) || !offsiteRepositoryMatchesAdmission(config.RepositoryURL, config.Bucket, admission.Prefix) || config.SnapshotPath == "" || config.PasswordFDPath == "" ||
 		config.AuthorizationTokenFDPath == "" || !validLoopbackIAMURI(config.IAMURI, config.Endpoint.config.Path) || point.PointID == "" || point.SnapshotID == "" ||
 		admission.GenerationID != config.Binding.GenerationID || admission.GenerationID == "" ||
 		config.Binding.PointID != point.PointID || config.Binding.RecoveryEpoch != point.RecoveryEpoch ||

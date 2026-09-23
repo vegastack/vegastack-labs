@@ -96,7 +96,8 @@ func TestCopyOffsitePointUsesCustodyAndOneRunIAM(t *testing.T) {
 	endpoint, binding, bearer := testOneRunEndpoint(t)
 	now := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
 	point := testVerifiedCriticalPoint(now)
-	admission := GenerationAdmission{GenerationID: "generation-a", Prefix: "critical/generation-a/", RuleDigest: offsiteDigest("f"), MaximumBytes: 1024, MaximumPUTs: 100, MaximumLISTs: 20}
+	admission := GenerationAdmission{GenerationID: "generation-a", Prefix: "critical/generation-a/", RuleDigest: offsiteDigest("f"), MaximumBytes: 1024, MaximumPUTs: 100, MaximumLISTs: 20,
+		ProtectedPrefixes: []string{"critical/generation-a/config", "critical/generation-a/keys/", "critical/generation-a/data/", "critical/generation-a/index/", "critical/generation-a/snapshots/"}, MutablePrefixes: []string{"critical/generation-a/locks/"}}
 	config := CopyConfig{Endpoint: endpoint, BinaryPath: "/opt/vsk/bin/restic-0.19.1", Architecture: "arm64", RepositoryURL: "s3:https://example.invalid/bucket/critical/generation-a", Bucket: "bucket", SnapshotPath: "/srv/vsk-exchange/point-a", PasswordFDPath: "/proc/self/fd/3", AuthorizationTokenFDPath: "/proc/self/fd/4", IAMURI: "http://127.0.0.1:54321" + OneRunIAMPath(binding), Binding: binding}
 	password, _ := credentialref.NewValue([]byte("repository-password"))
 	defer password.Close()
