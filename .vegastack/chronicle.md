@@ -22,6 +22,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-fast-batch
 
+## 22-09-2026 — A clean replacement can inspect a protected recovery handoff ([#159](https://github.com/vegastack/vegastack-labs/issues/159))
+
+- **What:** The software can read one administrator-installed public witness and encrypted envelope from protected files, match them to a signed manifest and a closed direct-denial verifier registration, and offer a one-use digest-only handoff to a later exact-inode comparator.
+- **Why:** The prior witness and collector fixtures proved protocol shape but offered no protected production source reader or qualified adapter registration seam for a clean replacement.
+- **How it went:** Red-first file tests caught both replaced inodes and same-size in-place rewrites. The ordinary production verifier registry remains empty; disposable endpoint and process tests prove software behavior only, not independent site enrollment.
+- **Changed:** Protected package reader · signed exact-boundary registration · fresh direct-denial recheck · one-use custody handoff · human failure procedure.
+- **Decisions:** none; #144 still needs an externally enrolled source and real endpoint qualification, while #108 owns current replacement authority. No live `G-007` or `G-008` evidence is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/159-recovery-source-admission
+
 ## 22-09-2026 — Local backup points can prove they are restorable ([#117](https://github.com/vegastack/vegastack-labs/issues/117))
 
 - **What:** A pending encrypted local point can now be checked against its exact retained objects, read fully by pinned restic, and restored into an isolated SQLite inspection before it becomes current local last-good. The backup status and exact human-approved run and verify commands expose the result without giving the CLI a separate mutation path.
