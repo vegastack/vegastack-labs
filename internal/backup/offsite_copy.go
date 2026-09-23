@@ -14,7 +14,7 @@ import (
 func CopyOffsitePoint(ctx context.Context, config CopyConfig, point VerifiedCriticalPoint, admission GenerationAdmission) (PendingOffsiteGeneration, error) {
 	invalid := errors.New("offsite copy blocked")
 	if config.Custody == nil || config.Inventory == nil || config.Endpoint == nil || config.Password == nil || len(config.Password.Bytes()) == 0 || config.BinaryPath == "" || config.Architecture == "" ||
-		!validOffsiteRepositoryURL(config.RepositoryURL) || config.SnapshotPath == "" || config.PasswordFDPath == "" ||
+		!offsiteRepositoryMatchesAdmission(config.RepositoryURL, config.Bucket, admission.Prefix) || config.SnapshotPath == "" || config.PasswordFDPath == "" ||
 		config.AuthorizationTokenFDPath == "" || !validLoopbackIAMURI(config.IAMURI, config.Endpoint.config.Path) || point.PointID == "" || point.SnapshotID == "" ||
 		admission.GenerationID != config.Binding.GenerationID || admission.GenerationID == "" ||
 		config.Binding.PointID != point.PointID || config.Binding.RecoveryEpoch != point.RecoveryEpoch ||
@@ -73,4 +73,16 @@ func validOffsiteRepositoryURL(raw string) bool {
 	}
 	parsed, err := url.Parse(strings.TrimPrefix(raw, "s3:"))
 	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
+}
+
+func offsiteRepositoryMatchesAdmission(raw, bucket, prefix string) bool {
+	if !validOffsiteRepositoryURL(raw) || bucket == "" || strings.Contains(bucket, "/") || prefix == "" {
+		return false
+	}
+	parsed, err := url.Parse(strings.TrimPrefix(raw, "s3:"))
+	if err != nil || parsed.RawPath != "" {
+		return false
+	}
+	wantPath := "/" + bucket + "/" + strings.TrimSuffix(prefix, "/")
+	return parsed.Path == wantPath
 }

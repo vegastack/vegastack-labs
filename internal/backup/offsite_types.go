@@ -95,12 +95,12 @@ type OffsiteInventoryObserver interface {
 }
 
 type CopyConfig struct {
-	Custody                                               OffsiteCustody
-	Endpoint                                              *OneRunEndpoint
-	BinaryPath, Architecture, RepositoryURL, SnapshotPath string
-	PasswordFDPath, AuthorizationTokenFDPath              string
-	IAMURI                                                string
-	Password                                              *credentialref.Value
-	Inventory                                             OffsiteInventoryObserver
-	Binding                                               adapter.SessionRequest
+	Custody                                                       OffsiteCustody
+	Endpoint                                                      *OneRunEndpoint
+	BinaryPath, Architecture, RepositoryURL, Bucket, SnapshotPath string
+	PasswordFDPath, AuthorizationTokenFDPath                      string
+	IAMURI                                                        string
+	Password                                                      *credentialref.Value
+	Inventory                                                     OffsiteInventoryObserver
+	Binding                                                       adapter.SessionRequest
 }
