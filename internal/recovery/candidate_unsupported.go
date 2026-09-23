@@ -18,6 +18,9 @@ func (LocalCandidateStorage) CreateCandidate(context.Context, CandidatePaths) er
 func (LocalCandidateStorage) VerifyCandidate(context.Context, CandidatePaths) error {
 	return failure.New(generated.ErrorCodeUnsupportedPlatform, "recovery-candidate", false)
 }
+func (LocalCandidateStorage) VerifyPromoted(context.Context, CandidatePaths, StartupExpectation) error {
+	return failure.New(generated.ErrorCodeUnsupportedPlatform, "recovery-candidate", false)
+}
 func (LocalCandidateStorage) ReadTransitionJournal(context.Context, CandidatePaths, string) ([]byte, error) {
 	return nil, failure.New(generated.ErrorCodeUnsupportedPlatform, "recovery-candidate", false)
 }

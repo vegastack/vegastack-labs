@@ -44,6 +44,23 @@ func (storage LocalCandidateStorage) VerifyCandidate(ctx context.Context, paths 
 	return verifyRecoveryFile(paths.Candidate, storage.ExpectedUID, "", false)
 }
 
+func (storage LocalCandidateStorage) VerifyPromoted(ctx context.Context, paths CandidatePaths, expected StartupExpectation) error {
+	if err := ctx.Err(); err != nil {
+		return failure.New(generated.ErrorCodeInterrupted, "recovery-promotion", false)
+	}
+	if _, err := os.Lstat(paths.Candidate); !errors.Is(err, fs.ErrNotExist) {
+		return failure.New(generated.ErrorCodeStateConflict, "recovery-promotion", false)
+	}
+	active := filepath.Join(filepath.Dir(paths.Candidate), stringsTrimCandidateBase(filepath.Base(paths.Candidate), expected.Binding.PlanID))
+	if err := verifyRecoveryFile(active, storage.ExpectedUID, "", false); err != nil {
+		return err
+	}
+	if err := verifyRecoveryFile(paths.PreservedAuthority, storage.ExpectedUID, "", false); err != nil {
+		return err
+	}
+	return verifyRecoveryFile(paths.TransitionJournal, storage.ExpectedUID, expected.JournalDigest, false)
+}
+
 func (storage LocalCandidateStorage) WriteTransitionJournal(ctx context.Context, paths CandidatePaths, body []byte) error {
 	if err := ctx.Err(); err != nil || len(body) == 0 {
 		return failure.New(generated.ErrorCodeInterrupted, "recovery-journal", false)

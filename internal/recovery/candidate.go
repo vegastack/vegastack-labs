@@ -41,6 +41,7 @@ type PromotionResult struct {
 type CandidateStorage interface {
 	CreateCandidate(context.Context, CandidatePaths) error
 	VerifyCandidate(context.Context, CandidatePaths) error
+	VerifyPromoted(context.Context, CandidatePaths, StartupExpectation) error
 	WriteTransitionJournal(context.Context, CandidatePaths, []byte) error
 	ReadTransitionJournal(context.Context, CandidatePaths, string) ([]byte, error)
 	AcquireAuthorityLock(context.Context, CandidatePaths) (io.Closer, error)
@@ -136,9 +137,6 @@ func (manager CandidateManager) PromoteAtStartup(ctx context.Context, expected S
 		return PromotionResult{}, err
 	}
 	defer lock.Close()
-	if err := manager.Storage.VerifyCandidate(ctx, paths); err != nil {
-		return PromotionResult{}, err
-	}
 	journal, err := manager.Storage.ReadTransitionJournal(ctx, paths, expected.JournalDigest)
 	if err != nil {
 		return PromotionResult{}, err
@@ -146,6 +144,15 @@ func (manager CandidateManager) PromoteAtStartup(ctx context.Context, expected S
 	want, err := candidateTransitionBytes(binding, expected.DatabaseDigest)
 	if err != nil || !bytes.Equal(journal, want) {
 		return PromotionResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "recovery-candidate-binding", false)
+	}
+	if err := manager.Storage.VerifyCandidate(ctx, paths); err != nil {
+		if promotedErr := manager.Storage.VerifyPromoted(ctx, paths, expected); promotedErr != nil {
+			return PromotionResult{}, err
+		}
+		if verifyErr := manager.Authority.VerifyRecoveredAuthority(ctx, manager.DatabasePath, binding); verifyErr != nil {
+			return PromotionResult{}, verifyErr
+		}
+		return PromotionResult{FormerPreserved: true, InstanceID: binding.NewInstanceID, RecoveryEpoch: binding.NextRecoveryEpoch}, nil
 	}
 	if err := manager.Authority.VerifyRecoveredAuthority(ctx, paths.Candidate, binding); err != nil {
 		return PromotionResult{}, err

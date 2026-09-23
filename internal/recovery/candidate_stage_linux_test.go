@@ -110,6 +110,13 @@ func TestCandidateStageAndStartupPromotionBindMutatedSQLiteSemantically(t *testi
 	if result.InstanceID != binding.NewInstanceID || result.RecoveryEpoch != binding.NextRecoveryEpoch {
 		t.Fatalf("promotion=%#v", result)
 	}
+	// A crash can happen after the no-replace rename but before the caller sees
+	// success. Restart verifies the promoted authority and returns the same
+	// result; it never restores the former writer automatically.
+	result, err = manager.PromoteAtStartup(ctx, StartupExpectation{Binding: binding, DatabaseDigest: databaseDigest, JournalDigest: receipt.JournalDigest})
+	if err != nil || result.InstanceID != binding.NewInstanceID || result.RecoveryEpoch != binding.NextRecoveryEpoch {
+		t.Fatalf("promotion restart=%#v err=%v", result, err)
+	}
 	promoted, err := store.Open(ctx, config(databasePath, store.OpenExisting))
 	if err != nil {
 		t.Fatal(err)

@@ -23,6 +23,9 @@ func (s *candidateStorageStub) CreateCandidate(context.Context, CandidatePaths) 
 func (s *candidateStorageStub) VerifyCandidate(context.Context, CandidatePaths) error {
 	return nil
 }
+func (s *candidateStorageStub) VerifyPromoted(context.Context, CandidatePaths, StartupExpectation) error {
+	return nil
+}
 func (s *candidateStorageStub) WriteTransitionJournal(_ context.Context, _ CandidatePaths, b []byte) error {
 	s.journal = append([]byte(nil), b...)
 	return nil
