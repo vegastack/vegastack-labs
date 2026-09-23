@@ -732,6 +732,7 @@ type BackupVerificationAttempt struct {
 	VerifiedAt          *string `json:"verifiedAt"`
 	FullPayloadDueAt    *string `json:"fullPayloadDueAt"`
 	FunctionalTestDueAt *string `json:"functionalTestDueAt"`
+	ReasonCode          *string `json:"reasonCode"`
 	RecoveryEpoch       int64   `json:"recoveryEpoch"`
 }
 

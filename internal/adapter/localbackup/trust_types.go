@@ -15,10 +15,10 @@ type DependencyTrustRequest struct {
 }
 
 type DependencyTrustEvidence struct {
-	DependencyID, Kind, Digest, SourceKind, PointID, PolicyDigest string
-	SourceID, ArtifactID, BundleDigest                            string
-	TrustedRootReferenceID, TrustRootDigest, SignerIdentity       string
-	SourceRevision, StateRevision, RecoveryEpoch                  int64
+	DependencyID, Kind, Digest, SourceKind, PointID, PolicyDigest         string
+	SourceID, ArtifactID, BundleDigest                                    string
+	TrustedRootReferenceID, TrustRootDigest, SignerIdentity, SignerIssuer string
+	SourceRevision, StateRevision, RecoveryEpoch                          int64
 }
 
 type DependencyTrustVerifier interface {

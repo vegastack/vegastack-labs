@@ -121,6 +121,13 @@ func phase5BackupVerifyRequest(fields ...FieldDefinition) SchemaDefinition {
 	return schema
 }
 
+func phase5BackupVerificationSchema(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5BackupSchema(backupVerificationAttemptSchemaID, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
 func phase5ID(name, goName string) FieldDefinition {
 	return FieldDefinition{JSONName: name, GoName: goName, Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`}
 }
@@ -305,12 +312,12 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5NullableID("runId", "RunID"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5NullableDigest("verificationDigest", "VerificationDigest"),
 		),
-		phase5BackupSchema(backupVerificationAttemptSchemaID,
+		phase5BackupVerificationSchema(
 			phase5ID("verificationId", "VerificationID"), phase5ID("jobId", "JobID"), phase5ID("pointId", "PointID"),
 			phase5NullableID("runId", "RunID"), phase5Enum("status", "Status", "pending", "fixture-only", "local-verified", "full-payload-due", "functional-test-due", "uncertain", "failed"),
 			phase5Enum("proofClass", "ProofClass", "fixture", "live"), phase5NullableDigest("verificationDigest", "VerificationDigest"),
 			phase5NullableTimestamp("verifiedAt", "VerifiedAt"), phase5NullableTimestamp("fullPayloadDueAt", "FullPayloadDueAt"),
-			phase5NullableTimestamp("functionalTestDueAt", "FunctionalTestDueAt"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5NullableTimestamp("functionalTestDueAt", "FunctionalTestDueAt"), phase5NullableID("reasonCode", "ReasonCode"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5BackupSchema(backupLastGoodSchemaID,
 			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"), phase5ID("pointId", "PointID"),

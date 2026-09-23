@@ -50,3 +50,29 @@ CREATE TRIGGER backup_trust_source_drafts_no_update BEFORE UPDATE ON backup_trus
 CREATE TRIGGER backup_trust_source_drafts_no_delete BEFORE DELETE ON backup_trust_source_drafts BEGIN SELECT RAISE(ABORT, 'backup trust drafts are retained'); END;
 CREATE TRIGGER backup_trust_source_bindings_no_update BEFORE UPDATE ON backup_trust_source_bindings BEGIN SELECT RAISE(ABORT, 'backup trust bindings are append-only'); END;
 CREATE TRIGGER backup_trust_source_bindings_no_delete BEFORE DELETE ON backup_trust_source_bindings BEGIN SELECT RAISE(ABORT, 'backup trust bindings are retained'); END;
+
+-- Exact sanitized trust evidence is part of the immutable local verification
+-- proof. The artifact, signature bundle and trusted-root bytes are never stored.
+CREATE TABLE backup_dependency_trust_evidence (
+    verification_id TEXT NOT NULL REFERENCES backup_local_verifications(verification_id),
+    dependency_id TEXT NOT NULL CHECK (length(dependency_id) BETWEEN 1 AND 128),
+    dependency_kind TEXT NOT NULL CHECK (dependency_kind IN ('binary','schema','config','image','signature')),
+    dependency_digest TEXT NOT NULL CHECK (length(dependency_digest)=71 AND substr(dependency_digest,1,7)='sha256:'),
+    source_kind TEXT NOT NULL CHECK (source_kind IN ('protected-local-pin','registered-signed-artifact')),
+    point_id TEXT NOT NULL CHECK (length(point_id) BETWEEN 1 AND 128),
+    policy_digest TEXT NOT NULL CHECK (length(policy_digest)=71 AND substr(policy_digest,1,7)='sha256:'),
+    source_id TEXT NOT NULL CHECK (length(source_id) BETWEEN 1 AND 128),
+    artifact_id TEXT,
+    bundle_digest TEXT,
+    trusted_root_reference_id TEXT,
+    trust_root_digest TEXT,
+    signer_identity TEXT,
+    signer_issuer TEXT,
+    source_revision INTEGER NOT NULL CHECK (source_revision >= 0),
+    state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    PRIMARY KEY(verification_id, dependency_id)
+) STRICT;
+
+CREATE TRIGGER backup_dependency_trust_no_update BEFORE UPDATE ON backup_dependency_trust_evidence BEGIN SELECT RAISE(ABORT, 'backup dependency trust is append-only'); END;
+CREATE TRIGGER backup_dependency_trust_no_delete BEFORE DELETE ON backup_dependency_trust_evidence BEGIN SELECT RAISE(ABORT, 'backup dependency trust is retained'); END;

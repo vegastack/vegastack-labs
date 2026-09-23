@@ -322,7 +322,7 @@ export interface BackupStatusData {
 
 export interface BackupVerificationAttempt {
   readonly "schema": "vegastack-labs.dev/backup-verification-attempt";
-  readonly "schemaVersion": "1.1.0";
+  readonly "schemaVersion": "1.2.0";
   readonly "verificationId": string;
   readonly "jobId": string;
   readonly "pointId": string;
@@ -333,6 +333,7 @@ export interface BackupVerificationAttempt {
   readonly "verifiedAt": string | null;
   readonly "fullPayloadDueAt": string | null;
   readonly "functionalTestDueAt": string | null;
+  readonly "reasonCode": string | null;
   readonly "recoveryEpoch": number;
 }
 
@@ -2407,7 +2408,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.1.0"
+          "1.2.0"
         ]
       },
       {
@@ -2490,6 +2491,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": true,
         "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
+        "name": "reasonCode",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
       },
       {
         "name": "recoveryEpoch",

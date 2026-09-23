@@ -106,7 +106,7 @@ func (verifier *Verifier) verifySigned(ctx context.Context, request localbackup.
 		SourceKind: "registered-signed-artifact", PointID: request.PointID, PolicyDigest: request.PolicyDigest,
 		SourceID: source.SourceID, ArtifactID: source.ArtifactID, BundleDigest: source.BundleDigest,
 		TrustedRootReferenceID: source.TrustedRootReferenceID, TrustRootDigest: source.TrustRootDigest,
-		SignerIdentity: source.SignerIdentity, SourceRevision: source.Revision,
+		SignerIdentity: source.SignerIdentity, SignerIssuer: source.SignerIssuer, SourceRevision: source.Revision,
 		StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch,
 	}, nil
 }

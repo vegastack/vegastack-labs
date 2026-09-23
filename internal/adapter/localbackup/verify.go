@@ -138,7 +138,18 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 			Expected: manifest.ExpectedDependencies}
 		evidence, err := adapterImpl.config.Trust.VerifyCurrent(ctx, trustRequest)
 		if err != nil || !exactDependencyTrust(trustRequest.Expected, evidence, binding.StateRevision, binding.RecoveryEpoch) {
+			attempt.ReasonCode = string(generated.ErrorCodePrerequisiteBlocked)
 			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-dependency-trust")
+		}
+		attempt.DependencyTrust = make([]store.BackupDependencyTrustEvidence, 0, len(evidence))
+		for _, proof := range evidence {
+			attempt.DependencyTrust = append(attempt.DependencyTrust, store.BackupDependencyTrustEvidence{
+				DependencyID: proof.DependencyID, Kind: proof.Kind, Digest: proof.Digest, SourceKind: proof.SourceKind,
+				PointID: proof.PointID, PolicyDigest: proof.PolicyDigest, SourceID: proof.SourceID, ArtifactID: proof.ArtifactID,
+				BundleDigest: proof.BundleDigest, TrustedRootReferenceID: proof.TrustedRootReferenceID,
+				TrustRootDigest: proof.TrustRootDigest, SignerIdentity: proof.SignerIdentity, SignerIssuer: proof.SignerIssuer,
+				SourceRevision: proof.SourceRevision, StateRevision: proof.StateRevision, RecoveryEpoch: proof.RecoveryEpoch,
+			})
 		}
 		// The creation admission is historical. Recheck current filesystem
 		// headroom immediately before publishing a live proof or last-good CAS.

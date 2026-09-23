@@ -40,11 +40,17 @@ func verificationRequest(t *testing.T, point PendingRecoveryPoint, revision Revi
 	if err := json.Unmarshal(point.ManifestJSON, &manifest); err != nil {
 		t.Fatal(err)
 	}
+	trust := make([]BackupDependencyTrustEvidence, 0, len(manifest.ExpectedDependencies))
+	for _, dependency := range manifest.ExpectedDependencies {
+		trust = append(trust, BackupDependencyTrustEvidence{DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest,
+			SourceKind: "protected-local-pin", PointID: point.PointID, PolicyDigest: manifest.PolicyDigest, SourceID: "protected-local-pin",
+			StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch})
+	}
 	return LocalVerificationRequest{VerificationID: "verify-" + proofClass + "-" + result, RunID: "run-verify", PointID: point.PointID, ReadLeaseID: "reader-a",
 		ManifestDigest: point.ManifestDigest, InventoryDigest: point.InventoryDigest, ObservedDigest: point.InventoryDigest,
 		ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest,
 		KeyReferenceID: manifest.KeyReferenceID, SourceRevision: point.SourceRevision, Expected: revision,
-		ProofClass: proofClass, Result: result, ReasonCode: "fixture-check", FullReadAt: time.Now().Add(-2 * time.Minute), FunctionalRestoredAt: time.Now().Add(-time.Minute)}
+		ProofClass: proofClass, Result: result, ReasonCode: "fixture-check", FullReadAt: time.Now().Add(-2 * time.Minute), FunctionalRestoredAt: time.Now().Add(-time.Minute), DependencyTrust: trust}
 }
 
 func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
