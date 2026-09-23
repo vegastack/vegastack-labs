@@ -48,14 +48,7 @@ func (coordinator TwoStageFences) QualifyPlan(ctx context.Context, source Verifi
 }
 
 func (coordinator TwoStageFences) QualifyRun(ctx context.Context, source VerifiedSource, request generated.RestoreRequest, binding generated.RestoreBinding, stateRevision int64) (FenceResult, error) {
-	if coordinator.Profiles == nil {
-		return FenceResult{}, ErrWitnessUnavailable
-	}
-	profile, err := coordinator.Profiles.GetAppliedProfileScope(ctx)
-	if err != nil {
-		return FenceResult{}, ErrWitnessUnavailable
-	}
-	return coordinator.Execution.Verify(ctx, binding, stateRevision, profile, source)
+	return coordinator.Execution.Verify(ctx, binding, stateRevision, request.Fences)
 }
 
 func admissionExpectationFromRequest(request generated.RestoreRequest) SourceAdmissionExpectation {

@@ -110,6 +110,10 @@
           ],
           "type": "string"
         },
+        "evaluatorVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
         "evidenceDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
@@ -132,6 +136,30 @@
             "string",
             "null"
           ]
+        },
+        "policyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "policyVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "profileId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "profileVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "releaseBuildId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
         },
         "required": {
           "type": "boolean"
@@ -183,6 +211,13 @@
         "targetId",
         "adapterId",
         "formerIdentityId",
+        "profileId",
+        "profileVersion",
+        "policyId",
+        "policyVersion",
+        "releaseBuildId",
+        "evaluatorVersion",
+        "recoveryEpoch",
         "requiredEvidenceKinds",
         "required",
         "evidenceIds",

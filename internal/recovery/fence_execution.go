@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/generated"
-	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 type SourceAdmissionLoader func(SourceAdmissionExpectation) (SourceAdmission, error)
@@ -25,7 +24,7 @@ type ExactFenceWitnessVerifier struct {
 	EvaluatorVersion string
 }
 
-func (verifier ExactFenceWitnessVerifier) Verify(ctx context.Context, binding generated.RestoreBinding, stateRevision int64, profile store.GateAppliedProfile, source VerifiedSource) (FenceResult, error) {
+func (verifier ExactFenceWitnessVerifier) Verify(ctx context.Context, binding generated.RestoreBinding, stateRevision int64, planned []generated.RestoreFenceItem) (FenceResult, error) {
 	if ctx == nil || ctx.Err() != nil || verifier.Admissions == nil || verifier.Packages == nil || verifier.Qualifications == nil || verifier.Clock == nil || stateRevision < 0 {
 		return FenceResult{}, ErrWitnessUnavailable
 	}
@@ -34,9 +33,14 @@ func (verifier ExactFenceWitnessVerifier) Verify(ctx context.Context, binding ge
 	if err != nil {
 		return FenceResult{}, ErrWitnessUnavailable
 	}
-	requirements, err := AdmissionFenceRequirements(admission, profile, source, verifier.ReleaseBuildID, verifier.EvaluatorVersion)
-	if err != nil {
+	requirements, err := FenceRequirementsFromPlan(planned, binding)
+	if err != nil || !sameBoundaryRequirementSet(mustExpandFenceRequirements(requirements), admission.Requirements) {
 		return FenceResult{}, ErrWitnessUnavailable
+	}
+	for _, requirement := range requirements {
+		if requirement.ReleaseBuildID != verifier.ReleaseBuildID || requirement.EvaluatorVersion != verifier.EvaluatorVersion {
+			return FenceResult{}, ErrWitnessUnavailable
+		}
 	}
 	required, err := RequiredFenceSet(requirements, binding.SourceAdmissionDigest, binding.FenceQualificationDigest)
 	if err != nil || required.FenceSetDigest != binding.FenceSetDigest {
@@ -61,6 +65,32 @@ func (verifier ExactFenceWitnessVerifier) Verify(ctx context.Context, binding ge
 		return FenceResult{}, ErrWitnessUnavailable
 	}
 	return verified, nil
+}
+
+func FenceRequirementsFromPlan(items []generated.RestoreFenceItem, binding generated.RestoreBinding) ([]FenceRequirement, error) {
+	if len(items) == 0 || binding.PriorInstanceID == "" || binding.NewInstanceID == "" || binding.PriorInstanceID == binding.NewInstanceID {
+		return nil, ErrWitnessUnavailable
+	}
+	result := make([]FenceRequirement, 0, len(items))
+	for _, item := range items {
+		if item.Status != "required" || !item.Required || item.ObservedAt != nil || item.RecoveryEpoch != binding.PriorRecoveryEpoch || item.ReleaseBuildID == "" || item.EvaluatorVersion == "" {
+			return nil, ErrWitnessUnavailable
+		}
+		requirement := FenceRequirement{Boundary: item.Boundary, SubjectID: item.SubjectID, TargetID: item.TargetID, AdapterID: item.AdapterID, FormerIdentityID: item.FormerIdentityID, FormerInstanceID: binding.PriorInstanceID, ReplacementInstanceID: binding.NewInstanceID, ProfileID: item.ProfileID, ProfileVersion: item.ProfileVersion, PolicyID: item.PolicyID, PolicyVersion: item.PolicyVersion, ReleaseBuildID: item.ReleaseBuildID, EvaluatorVersion: item.EvaluatorVersion, RecoveryEpoch: item.RecoveryEpoch, RequiredEvidenceKinds: append([]string(nil), item.RequiredEvidenceKinds...)}
+		if !validFenceRequirement(requirement) {
+			return nil, ErrWitnessUnavailable
+		}
+		result = append(result, requirement)
+	}
+	return result, nil
+}
+
+func mustExpandFenceRequirements(requirements []FenceRequirement) []BoundaryRequirement {
+	expanded, err := expandFenceRequirements(requirements)
+	if err != nil {
+		return nil
+	}
+	return expanded
 }
 
 func SystemExactFenceWitnessVerifier(releaseBuildID, evaluatorVersion string) ExactFenceWitnessVerifier {

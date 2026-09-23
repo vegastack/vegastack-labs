@@ -26,11 +26,11 @@ func TestExactFenceWitnessBindsImmutablePlanAndExecution(t *testing.T) {
 	verifier := ExactFenceWitnessVerifier{Admissions: func(SourceAdmissionExpectation) (SourceAdmission, error) { return admission, nil }, Packages: func(context.Context, WitnessBinding) (InstalledPackage, error) { return installed, nil }, Qualifications: func(context.Context, []BoundaryRequirement, time.Time) (QualifiedAdapters, error) {
 		return qualified, nil
 	}, Clock: func() time.Time { return now }, ReleaseBuildID: "build-a", EvaluatorVersion: "1.0.0"}
-	if _, err := verifier.Verify(context.Background(), binding, witness.StateRevision, profile, source); err != nil {
+	if _, err := verifier.Verify(context.Background(), binding, witness.StateRevision, requiredSet.Items); err != nil {
 		t.Fatal(err)
 	}
 	binding.RecoveryLeaseID = "other-lease"
-	if _, err := verifier.Verify(context.Background(), binding, witness.StateRevision, profile, source); err == nil {
+	if _, err := verifier.Verify(context.Background(), binding, witness.StateRevision, requiredSet.Items); err == nil {
 		t.Fatal("witness for another exact lease accepted")
 	}
 }

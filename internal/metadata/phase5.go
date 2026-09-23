@@ -442,6 +442,8 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 		phase5RestoreSchema(restoreFenceItemSchemaID,
 			phase5Enum("boundary", "Boundary", "host-service", "mesh", "ssh", "secret-resolver", "provider-mutation", "backup-writer", "audit-writer"),
 			phase5ID("subjectId", "SubjectID"), phase5ID("targetId", "TargetID"), phase5ID("adapterId", "AdapterID"), phase5ID("formerIdentityId", "FormerIdentityID"),
+			phase5ID("profileId", "ProfileID"), phase5Version("profileVersion", "ProfileVersion"), phase5ID("policyId", "PolicyID"), phase5Version("policyVersion", "PolicyVersion"),
+			phase5ID("releaseBuildId", "ReleaseBuildID"), phase5Version("evaluatorVersion", "EvaluatorVersion"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			FieldDefinition{JSONName: "requiredEvidenceKinds", GoName: "RequiredEvidenceKinds", Kind: ValueArray, Required: true, ItemKind: ValueString, MinItems: intPointer(1), MaxItems: intPointer(16), UniqueItems: true}, phase5Bool("required", "Required"), phase5IDs("evidenceIds", "EvidenceIDs", 256),
 			phase5Digest("evidenceDigest", "EvidenceDigest"), phase5NullableTimestamp("observedAt", "ObservedAt"), phase5Enum("status", "Status", "required", "verified", "blocked", "not-applicable"),
 		),

@@ -1958,6 +1958,13 @@ type RestoreFenceItem struct {
 	TargetID              string   `json:"targetId"`
 	AdapterID             string   `json:"adapterId"`
 	FormerIdentityID      string   `json:"formerIdentityId"`
+	ProfileID             string   `json:"profileId"`
+	ProfileVersion        string   `json:"profileVersion"`
+	PolicyID              string   `json:"policyId"`
+	PolicyVersion         string   `json:"policyVersion"`
+	ReleaseBuildID        string   `json:"releaseBuildId"`
+	EvaluatorVersion      string   `json:"evaluatorVersion"`
+	RecoveryEpoch         int64    `json:"recoveryEpoch"`
 	RequiredEvidenceKinds []string `json:"requiredEvidenceKinds"`
 	Required              bool     `json:"required"`
 	EvidenceIDs           []string `json:"evidenceIds"`

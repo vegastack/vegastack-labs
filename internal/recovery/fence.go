@@ -182,7 +182,7 @@ func RequiredFenceSet(requirements []FenceRequirement, sourceAdmissionDigest, fe
 			return FenceResult{}, err
 		}
 		sum := sha256.Sum256(raw)
-		item := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, TargetID: requirement.TargetID, AdapterID: requirement.AdapterID, FormerIdentityID: requirement.FormerIdentityID, RequiredEvidenceKinds: append([]string(nil), requirement.RequiredEvidenceKinds...), Required: true, EvidenceIDs: []string{sourceAdmissionDigest, fenceQualificationDigest}, EvidenceDigest: "sha256:" + hex.EncodeToString(sum[:]), Status: "required"}
+		item := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, TargetID: requirement.TargetID, AdapterID: requirement.AdapterID, FormerIdentityID: requirement.FormerIdentityID, ProfileID: requirement.ProfileID, ProfileVersion: requirement.ProfileVersion, PolicyID: requirement.PolicyID, PolicyVersion: requirement.PolicyVersion, ReleaseBuildID: requirement.ReleaseBuildID, EvaluatorVersion: requirement.EvaluatorVersion, RecoveryEpoch: requirement.RecoveryEpoch, RequiredEvidenceKinds: append([]string(nil), requirement.RequiredEvidenceKinds...), Required: true, EvidenceIDs: []string{sourceAdmissionDigest, fenceQualificationDigest}, EvidenceDigest: "sha256:" + hex.EncodeToString(sum[:]), Status: "required"}
 		encoded, err := json.Marshal(item)
 		if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreFenceItem, encoded, generated.ContractExact) != nil {
 			return FenceResult{}, ErrWitnessUnavailable
@@ -227,7 +227,7 @@ func fenceRequirementKey(requirement FenceRequirement) string {
 }
 
 func verifyFenceProofs(requirement FenceRequirement, proofs []IndependentFenceProof, now time.Time) (generated.RestoreFenceItem, bool, error) {
-	item := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, TargetID: requirement.TargetID, AdapterID: requirement.AdapterID, FormerIdentityID: requirement.FormerIdentityID, RequiredEvidenceKinds: append([]string(nil), requirement.RequiredEvidenceKinds...), Required: true, Status: "verified"}
+	item := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, TargetID: requirement.TargetID, AdapterID: requirement.AdapterID, FormerIdentityID: requirement.FormerIdentityID, ProfileID: requirement.ProfileID, ProfileVersion: requirement.ProfileVersion, PolicyID: requirement.PolicyID, PolicyVersion: requirement.PolicyVersion, ReleaseBuildID: requirement.ReleaseBuildID, EvaluatorVersion: requirement.EvaluatorVersion, RecoveryEpoch: requirement.RecoveryEpoch, RequiredEvidenceKinds: append([]string(nil), requirement.RequiredEvidenceKinds...), Required: true, Status: "verified"}
 	if len(proofs) != len(requirement.RequiredEvidenceKinds) {
 		return item, false, ErrWitnessUnavailable
 	}
