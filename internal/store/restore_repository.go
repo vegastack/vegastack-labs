@@ -1,0 +1,250 @@
+package store
+
+import (
+	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"sort"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
+)
+
+type RestorePlanRequest struct {
+	Binding  generated.RestoreBinding
+	Expected RevisionToken
+}
+
+type RestoreTransitionRequest struct {
+	PlanID, From, To, PlanDigest, EvidenceDigest string
+	Expected                                     RevisionToken
+}
+
+type RecoveryCandidateRequest struct {
+	CandidateID, PlanID, CandidateDigest, PreservedAuthorityDigest string
+	FenceSetDigest, AuditDecisionDigest                            string
+	Expected                                                       RevisionToken
+}
+
+type RestoreSession struct {
+	Binding   generated.RestoreBinding
+	Status    string
+	CreatedAt string
+	Candidate *RecoveryCandidateRequest
+}
+
+type RestoreRepository struct{ store *Store }
+
+func NewRestoreRepository(store *Store) *RestoreRepository { return &RestoreRepository{store: store} }
+
+func (repository *RestoreRepository) CreatePlan(ctx context.Context, request RestorePlanRequest) (RestoreSession, error) {
+	if repository == nil || repository.store == nil || !validRestoreBinding(request.Binding) || request.Expected.StateRevision < 0 || request.Expected.RecoveryEpoch < 0 {
+		return RestoreSession{}, restoreStoreError(generated.ErrorCodeInputInvalid, "restore-plan")
+	}
+	raw, _ := json.Marshal(request.Binding)
+	dependencyDigest := restoreDependencyDigest(request.Binding.Source.DependencyDigests)
+	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	repository.store.mu.Lock()
+	defer repository.store.mu.Unlock()
+	transaction, err := repository.store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return RestoreSession{}, err
+	}
+	defer transaction.Rollback()
+	if err := compareRestoreState(ctx, transaction, request.Expected, request.Binding.PriorInstanceID); err != nil {
+		return RestoreSession{}, err
+	}
+	var planDigest, declarationID, acknowledgementID, acknowledgementStatus string
+	var declarationRevision int64
+	err = transaction.QueryRowContext(ctx, `SELECT p.plan_digest,p.declaration_id,p.declaration_revision,a.acknowledgement_id,a.status FROM immutable_plans p JOIN declaration_revisions d ON d.declaration_id=p.declaration_id AND d.declaration_revision=p.declaration_revision JOIN acknowledgement_requests a ON a.plan_id=p.plan_id WHERE p.plan_id=? AND p.state_revision=? AND p.recovery_epoch=? AND d.declaration_type='recovery.restore'`, request.Binding.PlanID, request.Expected.StateRevision, request.Expected.RecoveryEpoch).Scan(&planDigest, &declarationID, &declarationRevision, &acknowledgementID, &acknowledgementStatus)
+	if errors.Is(err, sql.ErrNoRows) {
+		return RestoreSession{}, restoreStoreError(generated.ErrorCodePrerequisiteBlocked, "restore-plan")
+	}
+	if err != nil {
+		return RestoreSession{}, err
+	}
+	if planDigest != request.Binding.PlanDigest || acknowledgementID != request.Binding.HumanAcknowledgementID || acknowledgementStatus != "approved" {
+		return RestoreSession{}, restoreStoreError(generated.ErrorCodeStateConflict, "restore-plan")
+	}
+	_, err = transaction.ExecContext(ctx, `INSERT INTO restore_sessions(plan_id,plan_digest,declaration_id,declaration_revision,human_acknowledgement_id,point_id,point_digest,dependency_digest,fence_set_digest,audit_decision_digest,target_digest,candidate_digest,prior_instance_id,new_instance_id,prior_recovery_epoch,next_recovery_epoch,state_revision,binding_bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+		request.Binding.PlanID, request.Binding.PlanDigest, declarationID, declarationRevision, request.Binding.HumanAcknowledgementID,
+		request.Binding.PointID, request.Binding.Source.PointDigest, dependencyDigest, request.Binding.FenceSetDigest,
+		request.Binding.AuditDecisionDigest, request.Binding.TargetDigest, request.Binding.CandidateDigest,
+		request.Binding.PriorInstanceID, request.Binding.NewInstanceID, request.Binding.PriorRecoveryEpoch,
+		request.Binding.NextRecoveryEpoch, request.Expected.StateRevision, raw, now)
+	if err != nil {
+		if existing, getErr := getRestoreSessionTx(ctx, transaction, request.Binding.PlanID); getErr == nil && equalRestoreBinding(existing.Binding, request.Binding) {
+			return existing, nil
+		}
+		return RestoreSession{}, restoreStoreError(generated.ErrorCodeStateConflict, "restore-plan")
+	}
+	if err := transaction.Commit(); err != nil {
+		return RestoreSession{}, err
+	}
+	return RestoreSession{Binding: request.Binding, Status: "planned", CreatedAt: now}, nil
+}
+
+func (repository *RestoreRepository) Get(ctx context.Context, planID string) (RestoreSession, error) {
+	if repository == nil || repository.store == nil || planID == "" {
+		return RestoreSession{}, restoreStoreError(generated.ErrorCodeInputInvalid, "restore-session")
+	}
+	var result RestoreSession
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		var err error
+		result, err = getRestoreSessionRead(ctx, tx, planID)
+		return err
+	})
+	return result, err
+}
+
+func (repository *RestoreRepository) AppendTransition(ctx context.Context, request RestoreTransitionRequest) error {
+	if repository == nil || repository.store == nil || request.PlanID == "" || !restoreDigest(request.PlanDigest) || !restoreDigest(request.EvidenceDigest) || !allowedRestoreTransition(request.From, request.To) {
+		return restoreStoreError(generated.ErrorCodeInputInvalid, "restore-transition")
+	}
+	repository.store.mu.Lock()
+	defer repository.store.mu.Unlock()
+	tx, err := repository.store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var priorInstance, storedDigest string
+	if err := tx.QueryRowContext(ctx, `SELECT prior_instance_id,plan_digest FROM restore_sessions WHERE plan_id=?`, request.PlanID).Scan(&priorInstance, &storedDigest); err != nil {
+		return restoreStoreError(generated.ErrorCodeResourceNotFound, "restore-session")
+	}
+	if err := compareRestoreState(ctx, tx, request.Expected, priorInstance); err != nil {
+		return err
+	}
+	if storedDigest != request.PlanDigest {
+		return restoreStoreError(generated.ErrorCodeStateConflict, "restore-transition")
+	}
+	var current string
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT to_status FROM restore_transitions WHERE plan_id=? ORDER BY transition_id DESC LIMIT 1),'planned')`, request.PlanID).Scan(&current); err != nil {
+		return err
+	}
+	if current != request.From {
+		return restoreStoreError(generated.ErrorCodeStateConflict, "restore-transition")
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO restore_transitions(plan_id,from_status,to_status,plan_digest,evidence_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?)`, request.PlanID, request.From, request.To, request.PlanDigest, request.EvidenceDigest, request.Expected.StateRevision, request.Expected.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
+	if err != nil {
+		return restoreStoreError(generated.ErrorCodeStateConflict, "restore-transition")
+	}
+	return tx.Commit()
+}
+
+func (repository *RestoreRepository) BindCandidate(ctx context.Context, request RecoveryCandidateRequest) error {
+	if repository == nil || repository.store == nil || request.CandidateID == "" || request.PlanID == "" || !restoreDigest(request.CandidateDigest) || !restoreDigest(request.PreservedAuthorityDigest) || !restoreDigest(request.FenceSetDigest) || !restoreDigest(request.AuditDecisionDigest) {
+		return restoreStoreError(generated.ErrorCodeInputInvalid, "recovery-candidate")
+	}
+	repository.store.mu.Lock()
+	defer repository.store.mu.Unlock()
+	tx, err := repository.store.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var priorInstance, candidate, fence, decision string
+	if err := tx.QueryRowContext(ctx, `SELECT prior_instance_id,candidate_digest,fence_set_digest,audit_decision_digest FROM restore_sessions WHERE plan_id=?`, request.PlanID).Scan(&priorInstance, &candidate, &fence, &decision); err != nil {
+		return restoreStoreError(generated.ErrorCodeResourceNotFound, "restore-session")
+	}
+	if err := compareRestoreState(ctx, tx, request.Expected, priorInstance); err != nil {
+		return err
+	}
+	if candidate != request.CandidateDigest || fence != request.FenceSetDigest || decision != request.AuditDecisionDigest {
+		return restoreStoreError(generated.ErrorCodeStateConflict, "recovery-candidate")
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO recovery_candidates(candidate_id,plan_id,candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?)`, request.CandidateID, request.PlanID, request.CandidateDigest, request.PreservedAuthorityDigest, request.FenceSetDigest, request.AuditDecisionDigest, request.Expected.StateRevision, request.Expected.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
+	if err != nil {
+		return restoreStoreError(generated.ErrorCodeStateConflict, "recovery-candidate")
+	}
+	return tx.Commit()
+}
+
+func compareRestoreState(ctx context.Context, tx *sql.Tx, expected RevisionToken, instance string) error {
+	var revision, epoch int64
+	var current, mode string
+	if err := tx.QueryRowContext(ctx, `SELECT state_revision,recovery_epoch,instance_id,authority_mode FROM system_meta WHERE id=1`).Scan(&revision, &epoch, &current, &mode); err != nil {
+		return err
+	}
+	if revision != expected.StateRevision || epoch != expected.RecoveryEpoch || current != instance || mode != "ready" {
+		return restoreStoreError(generated.ErrorCodeStateConflict, "restore-authority")
+	}
+	return nil
+}
+
+func getRestoreSessionTx(ctx context.Context, tx *sql.Tx, planID string) (RestoreSession, error) {
+	var raw []byte
+	var result RestoreSession
+	if err := tx.QueryRowContext(ctx, `SELECT binding_bytes,created_at FROM restore_sessions WHERE plan_id=?`, planID).Scan(&raw, &result.CreatedAt); err != nil {
+		return result, err
+	}
+	if json.Unmarshal(raw, &result.Binding) != nil || !validRestoreBinding(result.Binding) {
+		return RestoreSession{}, restoreStoreError(generated.ErrorCodeIntegrityFailure, "restore-session")
+	}
+	if err := tx.QueryRowContext(ctx, `SELECT COALESCE((SELECT to_status FROM restore_transitions WHERE plan_id=? ORDER BY transition_id DESC LIMIT 1),'planned')`, planID).Scan(&result.Status); err != nil {
+		return RestoreSession{}, err
+	}
+	return result, nil
+}
+
+func getRestoreSessionRead(ctx context.Context, tx ReadTx, planID string) (RestoreSession, error) {
+	var raw []byte
+	var result RestoreSession
+	err := tx.queryRow(ctx, `SELECT binding_bytes,created_at FROM restore_sessions WHERE plan_id=?`, planID).Scan(&raw, &result.CreatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return result, restoreStoreError(generated.ErrorCodeResourceNotFound, "restore-session")
+	}
+	if err != nil {
+		return result, err
+	}
+	if json.Unmarshal(raw, &result.Binding) != nil || !validRestoreBinding(result.Binding) {
+		return RestoreSession{}, restoreStoreError(generated.ErrorCodeIntegrityFailure, "restore-session")
+	}
+	if err := tx.queryRow(ctx, `SELECT COALESCE((SELECT to_status FROM restore_transitions WHERE plan_id=? ORDER BY transition_id DESC LIMIT 1),'planned')`, planID).Scan(&result.Status); err != nil {
+		return RestoreSession{}, err
+	}
+	var candidate RecoveryCandidateRequest
+	err = tx.queryRow(ctx, `SELECT candidate_id,plan_id,candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,state_revision,recovery_epoch FROM recovery_candidates WHERE plan_id=?`, planID).Scan(&candidate.CandidateID, &candidate.PlanID, &candidate.CandidateDigest, &candidate.PreservedAuthorityDigest, &candidate.FenceSetDigest, &candidate.AuditDecisionDigest, &candidate.Expected.StateRevision, &candidate.Expected.RecoveryEpoch)
+	if err == nil {
+		result.Candidate = &candidate
+	} else if !errors.Is(err, sql.ErrNoRows) {
+		return RestoreSession{}, err
+	}
+	return result, nil
+}
+
+func allowedRestoreTransition(from, to string) bool {
+	if to == "failed" || to == "uncertain" {
+		return from == "planned" || from == "fenced" || from == "restoring" || from == "verification-required"
+	}
+	return from == "planned" && to == "fenced" || from == "fenced" && to == "restoring" || from == "restoring" && to == "verification-required" || from == "verification-required" && to == "verified"
+}
+
+func validRestoreBinding(binding generated.RestoreBinding) bool {
+	raw, err := json.Marshal(binding)
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, raw, generated.ContractExact) == nil && binding.Status == "planned" && binding.PointID == binding.Source.PointID && binding.PriorRecoveryEpoch == binding.Source.RecoveryEpoch && binding.NextRecoveryEpoch == binding.PriorRecoveryEpoch+1 && binding.PriorInstanceID != binding.NewInstanceID
+}
+
+func equalRestoreBinding(left, right generated.RestoreBinding) bool {
+	a, _ := json.Marshal(left)
+	b, _ := json.Marshal(right)
+	return string(a) == string(b)
+}
+func restoreDependencyDigest(values []string) string {
+	values = append([]string(nil), values...)
+	sort.Strings(values)
+	raw, _ := json.Marshal(values)
+	sum := sha256.Sum256(raw)
+	return "sha256:" + hex.EncodeToString(sum[:])
+}
+func restoreDigest(value string) bool {
+	if len(value) != 71 || value[:7] != "sha256:" {
+		return false
+	}
+	_, err := hex.DecodeString(value[7:])
+	return err == nil
+}
+func restoreStoreError(code, resource string) error { return newStoreError(code, resource, false, nil) }

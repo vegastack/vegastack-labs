@@ -19,7 +19,7 @@ import (
 // 0009 to #74, 0010 to #69, 0011 to #104, 0012 to #123, 0013 to #124, and
 // 0014 to #107, 0015 to #125, 0016 to #133, 0017 to #106,
 // 0018 to #140, 0019 to #117, 0020 to #163, 0021 to #154, 0022 to #115,
-// and 0023 to #114.
+// 0023 to #114, and 0024 to #108.
 
 //go:embed migrations/*.sql
 var embeddedMigrations embed.FS
@@ -63,6 +63,7 @@ var embeddedMigrationManifest = []migrationManifestEntry{
 	{ID: 21, Name: "0021_backup_trust_sources", SHA256: mustSHA256("6eae197a770216dc8bca36b60fb25473f6676d5a341fcb320b5c3444abc9f5b7")},
 	{ID: 22, Name: "0022_local_retirements", SHA256: mustSHA256("b36d561f02055342c7166a51c25f41c1acf096023e0714ffab87e28ed8cb55e6")},
 	{ID: 23, Name: "0023_offsite_generations", SHA256: mustSHA256("0cfdfbcc3e36776c0fcb4ceae4eccda48e7af8b6b40c03823cdb80cb05b7cb25")},
+	{ID: 24, Name: "0024_recovery_authority", SHA256: mustSHA256("ee6223b32b85ffa745aba61ecb1f9165c2e5e6d629706c99feec0157d6926792")},
 }
 
 func Catalog() ([]Migration, error) {

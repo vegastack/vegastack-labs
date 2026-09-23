@@ -256,10 +256,11 @@ func (store *Store) applyFoundation(ctx context.Context) error {
 
 func (store *Store) readAndValidateState(ctx context.Context) error {
 	var schemaVersion, stateRevision, recoveryEpoch int64
-	if err := store.conn.QueryRowContext(ctx, "SELECT schema_version, state_revision, recovery_epoch FROM system_meta WHERE id = 1").Scan(&schemaVersion, &stateRevision, &recoveryEpoch); err != nil {
+	var instanceID, authorityMode string
+	if err := store.conn.QueryRowContext(ctx, "SELECT schema_version, state_revision, recovery_epoch, instance_id, authority_mode FROM system_meta WHERE id = 1").Scan(&schemaVersion, &stateRevision, &recoveryEpoch, &instanceID, &authorityMode); err != nil {
 		return databaseError("INTEGRITY_FAILURE", err)
 	}
-	if schemaVersion < 0 || stateRevision < 0 || recoveryEpoch < 0 {
+	if schemaVersion < 0 || stateRevision < 0 || recoveryEpoch < 0 || len(instanceID) < 10 || authorityMode != "ready" && authorityMode != "recovery-required" {
 		return databaseError("INTEGRITY_FAILURE", errors.New("negative store metadata"))
 	}
 	catalog, err := Catalog()
@@ -300,7 +301,19 @@ func (store *Store) readAndValidateState(ctx context.Context) error {
 	store.health.SchemaVersion = uint64(schemaVersion)
 	store.health.SQLiteVersion = sqliteVersion
 	store.health.Revision = RevisionToken{StateRevision: stateRevision, RecoveryEpoch: recoveryEpoch}
+	store.health.RecoveryPending = authorityMode == "recovery-required"
 	return nil
+}
+
+func (store *Store) CurrentAuthority(ctx context.Context) (AuthorityState, error) {
+	var state AuthorityState
+	if store == nil {
+		return state, newStoreError("INPUT_INVALID", "authority-state", false, nil)
+	}
+	err := store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT instance_id,recovery_epoch,authority_mode FROM system_meta WHERE id=1`).Scan(&state.InstanceID, &state.RecoveryEpoch, &state.Mode)
+	})
+	return state, err
 }
 
 func (store *Store) runIntegrityChecks(ctx context.Context) error {
