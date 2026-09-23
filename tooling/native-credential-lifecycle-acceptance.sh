@@ -19,7 +19,7 @@ test "$(hostname)" = lima-vsk141-disposable || fatal 'Unexpected host'
 test "$(ps -p 1 -o comm= | tr -d ' ')" = systemd || fatal 'PID1 systemd required'
 test -n "${VSK141_WORKSPACE:-}" && test -d "$VSK141_WORKSPACE/ansible/roles/native_credential_authority" || fatal 'Role workspace missing'
 test -f "${VSK141_APP_BINARY:-}" && test -f "${VSK141_TEST_BINARY:-}" && test -f "${VSK141_SERVER_TEST_BINARY:-}" || fatal 'Fixture binaries missing'
-for command in ansible-playbook systemd-creds systemctl pkcheck sudo nsenter runuser python3 visudo sha256sum; do
+for command in ansible-playbook systemd-creds systemctl pkcheck sudo nsenter runuser python3 visudo sha256sum setfacl; do
   command -v "$command" >/dev/null || fatal "Missing disposable prerequisite: $command"
 done
 for path in "$marker" "$policy" "$polkit_rule" "$sudo_rule" "$alpha_unit" "$beta_unit" "$app_binary" "$test_binary" "$server_test_binary" /etc/vsk-labs; do
@@ -40,7 +40,7 @@ umask 077
 install -d -o root -g root -m 0755 "$marker"
 cleanup() {
   systemctl stop vsk141-alpha.service vsk141-beta.service >/dev/null 2>&1 || true
-  rm -f -- "$policy" "$polkit_rule" "$sudo_rule" "$alpha_unit" "$beta_unit" "$app_binary" "$test_binary" "$server_test_binary"
+	rm -f -- "$policy" "$polkit_rule" "$sudo_rule" "$alpha_unit" "$beta_unit" "$app_binary" "$test_binary" "$server_test_binary"
   systemctl daemon-reload >/dev/null 2>&1 || true
   systemctl restart polkit.service >/dev/null 2>&1 || true
   rmdir /etc/vsk-labs >/dev/null 2>&1 || true
@@ -149,4 +149,44 @@ mv "$policy" "$marker/policy.saved"
 run_verifier 1 || fatal 'Missing root authority was accepted'
 mv "$marker/policy.saved" "$policy"
 run_verifier 0 || { cat "$marker/test.out" >&2; fatal 'Restored exact lifecycle proof failed'; }
+install -d -o root -g vsk-labs -m 0770 "$marker/capstone-coordinate"
+install -d -o vsk-labs -g vsk-labs -m 0700 "$marker/capstone-ciphertext"
+coordinate_capstone() {
+  local index request credential root
+  for index in 1 2; do
+    request="$marker/capstone-coordinate/request-$index"
+    for _ in $(seq 1 500); do test -f "$request" && break; sleep 0.02; done
+    test -f "$request" || fatal 'Capstone coordinator request timed out'
+    mapfile -t values <"$request"
+    test "${#values[@]}" = 2 || fatal 'Capstone coordinator request malformed'
+    credential="${values[0]}"; root="${values[1]}"
+    [[ "$credential" =~ ^credential-[0-9a-f]{32}$ ]] || fatal 'Capstone credential name invalid'
+    [[ "$root" =~ ^/var/tmp/vsk135-lifecycle-[A-Za-z0-9]+/credential-drafts$ ]] || fatal 'Capstone ciphertext root invalid'
+    test "$(stat -c '%U:%G:%a' "$root")" = root:root:700 || fatal 'Capstone import root metadata invalid'
+    install -o vsk-labs -g vsk-labs -m 0600 "$root/$credential" "$marker/capstone-ciphertext/$credential"
+    write_unit "$alpha_unit" vsk141-alpha "$credential" "$marker/capstone-ciphertext/$credential"
+    write_unit "$beta_unit" vsk141-beta "$credential" "$marker/capstone-ciphertext/$credential"
+    systemctl daemon-reload
+    python3 - "$marker/capstone-policy" "$machine" "$credential" <<'PY'
+import json,sys
+out,machine,name=sys.argv[1:]
+units=['vsk141-alpha.service','vsk141-beta.service']
+probes=[]
+for unit,positive in zip(units,[21142,21143]):
+    for uid in [positive,21144,21145]:
+        probes.append({'unit_name':unit,'credential_name':name,'uid':uid,'gid':uid})
+probes.sort(key=lambda x:(x['unit_name'],x['credential_name'],x['uid'],x['gid']))
+with open(out,'w') as file: json.dump({'version':1,'machine_id':machine,'units':units,'probes':probes},file)
+PY
+    install -o root -g vsk-labs -m 0640 "$marker/capstone-policy" "$policy"
+    touch "$marker/capstone-coordinate/ready-$index"
+    chown vsk-labs:vsk-labs "$marker/capstone-coordinate/ready-$index"
+  done
+}
+coordinate_capstone & coordinator_pid=$!
+VSK135_LIFECYCLE_ACCEPTANCE=1 VSK135_COORDINATOR="$marker/capstone-coordinate" VSK135_NATIVE_ROOT="$marker/capstone-ciphertext" "$server_test_binary" -test.run='^TestFullCredentialLifecycleAcceptance$' >"$marker/capstone.out" 2>&1 || { cat "$marker/capstone.out" >&2; cat "$marker/capstone-coordinate/debug" >&2 2>/dev/null || true; kill "$coordinator_pid" 2>/dev/null || true; fatal 'Integrated full lifecycle capstone failed'; }
+wait "$coordinator_pid"
+if grep -Fq 'synthetic-private-lifecycle-canary-135' "$marker/capstone.out" "$marker/capstone-coordinate/verify-request.json" "$marker/capstone-coordinate/verify-response.json"; then
+  fatal 'Lifecycle canary escaped captured process or test output'
+fi
 printf 'native encrypted credential lifecycle disposable matrix passed\n'

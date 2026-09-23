@@ -47,13 +47,6 @@ type CredentialStageRequest struct {
 	RequestDigest       string
 }
 
-type CredentialStatusRequest struct {
-	Stage               CredentialStageRequest
-	Status              string
-	VerifiedConsumerIDs []string
-	ActivatedAt         *string
-}
-
 func credentialStoreError(code, target string) error {
 	return newStoreError(code, target, false, nil)
 }
@@ -258,53 +251,6 @@ func (repository *CredentialRepository) GetReference(ctx context.Context, refere
 		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-reference")
 	}
 	return result, nil
-}
-
-func (repository *CredentialRepository) StageCredentialVersion(ctx context.Context, request CredentialStageRequest) (generated.CredentialReference, error) {
-	if request.Reference.Status != "staged" || request.Reference.ActivatedAt != nil || len(request.Reference.VerifiedConsumerIDs) != 0 {
-		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-stage")
-	}
-	if existing, err := repository.GetReference(ctx, request.Reference.ReferenceID); err == nil {
-		if existing.MaterialVersion == request.Reference.MaterialVersion || existing.Status == "staged" {
-			return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeStateConflict, "credential-version")
-		}
-	} else if Code(err) != generated.ErrorCodeResourceNotFound {
-		return generated.CredentialReference{}, err
-	}
-	return repository.applyCredentialVersion(ctx, request, "credential.stage", nil)
-}
-
-func (repository *CredentialRepository) AppendCredentialStatus(ctx context.Context, request CredentialStatusRequest) (generated.CredentialReference, error) {
-	if request.Status != "active" && request.Status != "unavailable" && request.Status != "revoked" {
-		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-status")
-	}
-	current, err := repository.GetReference(ctx, request.Stage.Reference.ReferenceID)
-	if Code(err) == generated.ErrorCodeResourceNotFound {
-		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-unregistered")
-	}
-	if err != nil {
-		return generated.CredentialReference{}, err
-	}
-	if current.RecoveryEpoch != request.Stage.Expected.RecoveryEpoch || current.Status == "revoked" || current.MaterialVersion != request.Stage.Reference.MaterialVersion || current.Fingerprint != request.Stage.Reference.Fingerprint || current.ResolverID != request.Stage.Reference.ResolverID || current.ConsumerID != request.Stage.Reference.ConsumerID || current.TargetID != request.Stage.Reference.TargetID || current.PurposeID != request.Stage.Reference.PurposeID {
-		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePlanStale, "credential-status")
-	}
-	if request.Status == "active" && (current.Status != "staged" && current.Status != "unavailable" || len(request.VerifiedConsumerIDs) == 0 || request.ActivatedAt == nil) {
-		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-consumer-verification")
-	}
-	if request.Status == "revoked" && current.Status != "active" && current.Status != "unavailable" {
-		return generated.CredentialReference{}, credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-revoke")
-	}
-	value := current
-	value.Status = request.Status
-	value.StateRevision = request.Stage.Expected.StateRevision + 1
-	value.VerifiedConsumerIDs = append([]string(nil), request.VerifiedConsumerIDs...)
-	value.ActivatedAt = request.ActivatedAt
-	if request.Status != "active" {
-		value.ActivatedAt = current.ActivatedAt
-		value.VerifiedConsumerIDs = current.VerifiedConsumerIDs
-	}
-	request.Stage.Reference = value
-	return repository.applyCredentialVersion(ctx, request.Stage, "credential."+request.Status, nil)
 }
 
 // applyCredentialVersion appends exactly one credential reference version inside

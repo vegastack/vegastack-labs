@@ -2,6 +2,7 @@ package recovery
 
 import (
 	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -15,15 +16,16 @@ const sourceHandoffDomain = "vegastack-labs.dev/recovery-source-handoff/v1\x00"
 // VerifiedSourceHandoff exposes only public digests and expiry. Private fields
 // retain one exact verified binding and opaque ciphertext until one use.
 type VerifiedSourceHandoff struct {
-	SourceDigest   string
-	ManifestDigest string
-	WitnessDigest  string
-	FenceDigest    string
-	EnvelopeDigest string
-	ExpiresAt      time.Time
-	binding        WitnessBinding
-	envelope       ProtectedEnvelope
-	used           *atomic.Bool
+	SourceDigest          string
+	ManifestDigest        string
+	WitnessDigest         string
+	FenceDigest           string
+	EnvelopeDigest        string
+	SourceAdmissionDigest string
+	ExpiresAt             time.Time
+	binding               WitnessBinding
+	envelope              ProtectedEnvelope
+	used                  *atomic.Bool
 }
 
 func validateProtectedEnvelope(envelope ProtectedEnvelope, pin PinnedWitness, binding WitnessBinding) error {
@@ -39,6 +41,34 @@ func cloneProtectedEnvelope(envelope ProtectedEnvelope) ProtectedEnvelope {
 	envelope.Nonce = append([]byte(nil), envelope.Nonce...)
 	envelope.Ciphertext = append([]byte(nil), envelope.Ciphertext...)
 	return envelope
+}
+
+type SourceHandoffDigests struct {
+	WitnessDigest, EnvelopeDigest, SourceDigest string
+}
+
+// SourceHandoffDigest is the single production derivation for the actual
+// post-plan witness, envelope and combined source identities. Qualification
+// and signature verification remain mandatory separate admission steps.
+func SourceHandoffDigest(installed InstalledPackage, qualificationDigest string) (SourceHandoffDigests, error) {
+	var unavailable SourceHandoffDigests
+	if !witnessDigest.MatchString(installed.Pin.ManifestDigest) || !witnessDigest.MatchString(qualificationDigest) || len(installed.Witness.Signature) != ed25519.SignatureSize {
+		return unavailable, ErrWitnessUnavailable
+	}
+	witnessBytes, err := CanonicalWitnessPayload(installed.Witness.Payload)
+	if err != nil {
+		return unavailable, ErrWitnessUnavailable
+	}
+	witnessHash := sha256.Sum256(append(append([]byte(nil), witnessBytes...), installed.Witness.Signature...))
+	witnessID := "sha256:" + hex.EncodeToString(witnessHash[:])
+	envelopeBytes, err := json.Marshal(installed.Envelope)
+	if err != nil {
+		return unavailable, ErrWitnessUnavailable
+	}
+	envelopeHash := sha256.Sum256(envelopeBytes)
+	envelopeID := "sha256:" + hex.EncodeToString(envelopeHash[:])
+	sourceHash := sha256.Sum256([]byte(sourceHandoffDomain + installed.Pin.ManifestDigest + "\x00" + witnessID + "\x00" + qualificationDigest + "\x00" + envelopeID))
+	return SourceHandoffDigests{WitnessDigest: witnessID, EnvelopeDigest: envelopeID, SourceDigest: "sha256:" + hex.EncodeToString(sourceHash[:])}, nil
 }
 
 // VerifyInstalledSource cannot qualify arbitrary caller registries: only an
@@ -57,19 +87,14 @@ func VerifyInstalledSource(ctx context.Context, expected WitnessBinding, require
 	if VerifyWitnessBundle(ctx, installed.Pin, expected, installed.Witness, required, qualified, now) != nil || validateProtectedEnvelope(installed.Envelope, installed.Pin, expected) != nil || ctx.Err() != nil {
 		return unavailable, ErrWitnessUnavailable
 	}
-	witnessBytes, err := CanonicalWitnessPayload(installed.Witness.Payload)
+	admissionDigest := SourceAdmissionDigest(SourceAdmission{FormerHostID: expected.FormerHostID, FormerInstanceID: expected.FormerInstanceID, ReplacementHostID: expected.ReplacementHostID, ReplacementInstanceID: expected.ReplacementInstanceID, DraftID: expected.DraftID, CiphertextFingerprint: expected.CiphertextFingerprint, PriorEpoch: expected.PriorEpoch, NewEpoch: expected.NewEpoch, WitnessKeyID: installed.Pin.KeyID, WitnessInstanceID: installed.Pin.WitnessInstanceID, RecipientKeyID: installed.Pin.RecipientKeyID, WitnessPublicKey: installed.Pin.PublicKey, RecipientPublicKey: installed.Pin.RecipientPublicKey, AdminRootDigest: installed.Pin.adminRootDigest, FenceQualificationDigest: qualified.qualificationDigest, Requirements: required})
+	if admissionDigest == "" || admissionDigest != expected.SourceAdmissionDigest || qualified.qualificationDigest != expected.FenceQualificationDigest {
+		return unavailable, ErrWitnessUnavailable
+	}
+	digests, err := SourceHandoffDigest(installed, qualified.qualificationDigest)
 	if err != nil {
 		return unavailable, ErrWitnessUnavailable
 	}
-	witnessHash := sha256.Sum256(append(append([]byte(nil), witnessBytes...), installed.Witness.Signature...))
-	witnessID := "sha256:" + hex.EncodeToString(witnessHash[:])
-	envelopeBytes, err := json.Marshal(installed.Envelope)
-	if err != nil {
-		return unavailable, ErrWitnessUnavailable
-	}
-	envelopeHash := sha256.Sum256(envelopeBytes)
-	envelopeID := "sha256:" + hex.EncodeToString(envelopeHash[:])
-	sourceHash := sha256.Sum256([]byte(sourceHandoffDomain + installed.Pin.ManifestDigest + "\x00" + witnessID + "\x00" + qualified.qualificationDigest + "\x00" + envelopeID))
 	expires := installed.Pin.ExpiresAt
 	for _, candidate := range []time.Time{installed.Witness.Payload.ExpiresAt, qualified.qualificationExpiry} {
 		if candidate.Before(expires) {
@@ -79,7 +104,7 @@ func VerifyInstalledSource(ctx context.Context, expected WitnessBinding, require
 	if !now.Before(expires) {
 		return unavailable, ErrWitnessUnavailable
 	}
-	return VerifiedSourceHandoff{SourceDigest: "sha256:" + hex.EncodeToString(sourceHash[:]), ManifestDigest: installed.Pin.ManifestDigest, WitnessDigest: witnessID, FenceDigest: qualified.qualificationDigest, EnvelopeDigest: envelopeID, ExpiresAt: expires, binding: expected, envelope: cloneProtectedEnvelope(installed.Envelope), used: new(atomic.Bool)}, nil
+	return VerifiedSourceHandoff{SourceDigest: digests.SourceDigest, ManifestDigest: installed.Pin.ManifestDigest, WitnessDigest: digests.WitnessDigest, FenceDigest: qualified.qualificationDigest, EnvelopeDigest: digests.EnvelopeDigest, SourceAdmissionDigest: admissionDigest, ExpiresAt: expires, binding: expected, envelope: cloneProtectedEnvelope(installed.Envelope), used: new(atomic.Bool)}, nil
 }
 
 // ConsumeCustody burns the handoff locally before opening the protected

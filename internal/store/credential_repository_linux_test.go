@@ -302,12 +302,49 @@ func TestDraftBindingCannotBecomeResolutionAuthority(t *testing.T) {
 
 func TestCredentialStatusCannotBypassHumanCentralPlanAndAppendOnlyLedger(t *testing.T) {
 	repository := openCredentialStore(t)
-	request := CredentialStageRequest{Reference: generated.CredentialReference{Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0", ReferenceID: "ref-a", ConsumerID: "adapter-a", PurposeID: "deploy-a", TargetID: "service-a", ResolverID: "native-a", MaterialVersion: "version-a", Fingerprint: testDigest, Status: "staged", StateRevision: 1, RecoveryEpoch: 0, VerifiedConsumerIDs: []string{}}, DeclarationID: "declaration-a", DeclarationRevision: 1, PlanID: "plan-a", PlanDigest: testDigest, RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", HumanID: "principal-test-1", Expected: RevisionToken{StateRevision: 0, RecoveryEpoch: 0}, Attribution: validDeclarationStoreRequest().Attribution, KeyDigest: testDigest, RequestDigest: testDigest}
-	if _, err := repository.StageCredentialVersion(context.Background(), request); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+	stage := seedCredentialLifecycleStep(t, repository, credentialref.ActionStage, stagedReference(2), 2, ackConsumed)
+	withoutPlan := stage
+	withoutPlan.PlanID = "plan-missing"
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: stageBinding(), Stage: withoutPlan}); Code(err) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatalf("staging bypassed exact plan: %v", err)
 	}
-	if _, err := repository.AppendCredentialStatus(context.Background(), CredentialStatusRequest{Stage: request, Status: "active"}); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+	if tableCount(t, repository, "credential_reference_versions") != 0 {
+		t.Fatal("failed stage appended a credential version")
+	}
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: stageBinding(), Stage: stage}); err != nil {
+		t.Fatalf("exact lifecycle stage fixture failed: %v", err)
+	}
+	releaseLease(t, repository, stage.LeaseID)
+
+	activatedAt := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	active := stagedReference(3)
+	active.Status = "active"
+	active.ActivatedAt = &activatedAt
+	active.VerifiedConsumerIDs = []string{"consumer-a"}
+	activate := seedCredentialLifecycleStep(t, repository, credentialref.ActionActivate, active, 3, ackConsumed)
+	binding := stageBinding()
+	binding.Action = credentialref.ActionActivate
+	binding.DraftID = nil
+	binding.ImportDraftStateRevision = nil
+	binding.ImportDraftConsumerID = nil
+	binding.ImportDraftPurposeID = nil
+	binding.StateRevision = 3
+	binding.RequiredDeniedConsumerIDs = []string{"consumer-denied"}
+	setNativeLifecycleReaders(&binding)
+	positive, err := credentialref.NewConsumerVerification(binding, "consumer-a", "profile-a", "role-a", testDigest, "loaded", "verified", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	denied, err := credentialref.NewConsumerVerification(binding, "consumer-denied", "profile-b", "role-b", testDigest, "reader-denied", "denied", false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	activate.PlanID = "plan-missing"
+	if _, err := repository.ApplyCredentialLifecycle(context.Background(), CredentialLifecycleApplyRequest{Binding: binding, Stage: activate, Verifications: []credentialref.ConsumerVerification{positive, denied}}); Code(err) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatalf("activation bypassed exact plan: %v", err)
+	}
+	if tableCount(t, repository, "credential_reference_versions") != 1 || tableCount(t, repository, "credential_consumer_verifications") != 0 {
+		t.Fatal("failed activation appended a credential version or verification")
 	}
 	for _, table := range []string{"credential_reference_versions", "credential_step_bindings", "credential_resolution_records"} {
 		var count int

@@ -77,7 +77,7 @@ func recoveryCustodyFixture(t *testing.T) (run.ExactStepBinding, credentialref.L
 	proof := &recoveryProofFixture{proof: RecoveryCustodyProof{DraftID: draftID, CiphertextName: draft.CiphertextName, CiphertextFingerprint: digest,
 		ReferenceID: lifecycle.ReferenceID, TargetID: lifecycle.TargetID, MaterialVersion: lifecycle.MaterialVersion,
 		PriorRecoveryEpoch: prior, RecoveryEpoch: lifecycle.RecoveryEpoch, CustodyProofDigest: custody, FormerControllerFenceDigest: fence,
-		ReplacementHostKeyDigest: digest, SourceEvidenceDigest: digest}}
+		WitnessDigest: digest, EnvelopeDigest: digest, ReplacementHostKeyDigest: digest, SourceEvidenceDigest: digest}}
 	return step, lifecycle, draft, proof
 }
 
