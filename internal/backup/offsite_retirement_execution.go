@@ -39,7 +39,8 @@ func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, oper
 		return "", errors.New("offsite retirement execution unavailable")
 	}
 	intent, err := execution.repository.GetOffsiteRetirementIntentByDigest(ctx, operation.ArtifactDigest)
-	if err != nil || intent.PlanID != binding.PlanID || intent.PlanDigest != binding.PlanDigest || intent.GenerationID != operation.TargetID || intent.StateRevision != binding.StateRevision || intent.RecoveryEpoch != binding.RecoveryEpoch || intent.CredentialBindingDigest != operation.InputDigest {
+	if err != nil || intent.PlanID != binding.PlanID || intent.PlanDigest != binding.PlanDigest || intent.GenerationID != operation.TargetID || intent.StateRevision != binding.StateRevision || intent.RecoveryEpoch != binding.RecoveryEpoch || intent.CredentialBindingDigest != operation.InputDigest ||
+		len(operation.SecretReferences) != 2 || operation.SecretReferences[0].Consumer != intent.LockAdminConsumerID || operation.SecretReferences[1].Consumer != intent.RetentionConsumerID || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID {
 		return "", errors.New("offsite retirement intent binding invalid")
 	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
