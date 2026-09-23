@@ -59,6 +59,12 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	if err != nil {
 		return proof, invalid
 	}
+	if base.ExecutionUID != 0 || base.ExecutionGID != 0 {
+		if os.Geteuid() != 0 || base.ExecutionUID == 0 || base.ExecutionGID == 0 ||
+			os.Chown(target, int(base.ExecutionUID), int(base.ExecutionGID)) != nil || os.Chmod(target, 0o700) != nil {
+			return proof, invalid
+		}
+	}
 	defer func() {
 		if cleanupErr := os.RemoveAll(target); cleanupErr != nil {
 			proof, outcomeErr = FunctionalRestoreProof{}, invalid
@@ -75,7 +81,11 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	}
 	relative := strings.TrimPrefix(paths[0], string(filepath.Separator))
 	restoredPath := filepath.Join(target, relative)
-	contentDigest, err := hashRestoredSQLite(restoredPath)
+	expectedUID := uint32(os.Geteuid())
+	if base.ExecutionUID != 0 {
+		expectedUID = base.ExecutionUID
+	}
+	contentDigest, err := hashRestoredSQLite(restoredPath, expectedUID)
 	if err != nil || contentDigest != manifest.ContentDigest {
 		return proof, invalid
 	}
@@ -87,7 +97,16 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	copy(catalog[:], catalogBytes)
 	expected := store.SnapshotExpectation{SchemaVersion: manifest.DatabaseSchemaVersion,
 		Revision: store.RevisionToken{StateRevision: manifest.SourceRevision, RecoveryEpoch: manifest.RecoveryEpoch}, CatalogSHA256: catalog}
-	inspection, err := inspector.InspectSnapshot(ctx, restoredPath, expected)
+	var inspection store.SnapshotInspection
+	if base.ExecutionUID != 0 {
+		ownerInspector, ok := inspector.(store.RestoredSQLiteOwnerInspector)
+		if !ok {
+			return proof, invalid
+		}
+		inspection, err = ownerInspector.InspectSnapshotOwned(ctx, restoredPath, expected, base.ExecutionUID)
+	} else {
+		inspection, err = inspector.InspectSnapshot(ctx, restoredPath, expected)
+	}
 	if err != nil || inspection.IntegrityStatus != store.IntegrityVerified || inspection.Revision != expected.Revision || inspection.SchemaVersion != expected.SchemaVersion {
 		return proof, invalid
 	}
@@ -105,7 +124,7 @@ func safeCapturedSnapshotPath(path, repositoryRoot string) bool {
 	return filepath.Dir(stage) == filepath.Dir(repositoryRoot) && strings.HasPrefix(filepath.Base(stage), ".vsk-backup-staging-")
 }
 
-func hashRestoredSQLite(path string) (string, error) {
+func hashRestoredSQLite(path string, expectedUID ...uint32) (string, error) {
 	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW, Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS})
 	if err != nil {
 		return "", err
@@ -117,7 +136,11 @@ func hashRestoredSQLite(path string) (string, error) {
 	}
 	defer file.Close()
 	var stat unix.Stat_t
-	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != uint32(os.Geteuid()) || !isLocalDescriptor(descriptor) {
+	owner := uint32(os.Geteuid())
+	if len(expectedUID) == 1 {
+		owner = expectedUID[0]
+	}
+	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != owner || !isLocalDescriptor(descriptor) {
 		return "", errors.New("unsafe restored file")
 	}
 	hasher := sha256.New()

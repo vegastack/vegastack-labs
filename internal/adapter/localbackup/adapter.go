@@ -3,7 +3,7 @@
 // Package localbackup composes the protected local recovery-point creation flow:
 // it resolves the exact bound policy, captures the registered source through the
 // store-owned online snapshot, runs the pinned restic child (with a sealed
-// password FD) against the same-process guarded REST object boundary, binds the
+// password FD) against the short-lived custody REST object boundary, binds the
 // canonical creation manifest and exact expected inventory, and durably records a
 // single PENDING point. It never sets verification evidence or local last-good
 // state, never prunes on capacity pressure, and preserves every prior point.
@@ -15,16 +15,11 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
-	"io"
-	"net"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
-
-	"golang.org/x/sys/unix"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/backup"
@@ -198,10 +193,34 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	return effect, nil
 }
 
-func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated.BackupPolicy, policyDigest, repositoryID, root string, lease backup.WriterLease, pointID string, binding adapter.ExactExecutionBinding, expectation store.SnapshotExpectation, password *credentialref.Value) (adapter.Effect, error) {
-	// Capacity admission: a full destination blocks a new backup without prune.
-	if err := admitCapacity(root, policy); err != nil {
-		return adapter.Effect{}, err
+func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated.BackupPolicy, policyDigest, repositoryID, root string, lease backup.WriterLease, pointID string, binding adapter.ExactExecutionBinding, expectation store.SnapshotExpectation, password *credentialref.Value) (effect adapter.Effect, outcomeErr error) {
+	custodyPolicy, err := backup.LoadCustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
+	if err != nil || custodyPolicy.ControllerUID != adapterImpl.config.ExpectedUID || custodyPolicy.StandardRoot != adapterImpl.config.LocalBackup.StandardRoot || custodyPolicy.CriticalRoot != adapterImpl.config.LocalBackup.CriticalRoot {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-custody-policy")
+	}
+	maximumBytes := policy.ExpectedBytes + policy.ExpectedGrowthBytes
+	if maximumBytes <= 0 {
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-custody-bounds")
+	}
+	session := backup.CustodySession{ProtocolVersion: backup.CustodyProtocolVersion, Role: "writer", PlanID: binding.PlanID, PlanDigest: binding.PlanDigest,
+		RunID: binding.RunID, StepID: binding.StepID, LeaseID: lease.LeaseID, RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
+		PointID: pointID, SourceID: policy.SourceID, SourceRevision: expectation.Revision.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: lease.MaximumExpiresAt,
+		MaximumObjects: 1_000_000, MaximumBytes: maximumBytes, WriterLease: &lease}
+	launcher := backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Writer: &leaseVerifier{backups: adapterImpl.config.Backups},
+		Journal: &custodyJournal{backups: adapterImpl.config.Backups}, Clock: adapterImpl.config.Clock}
+	custody, err := launcher.Start(ctx, session)
+	if err != nil {
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-custody")
+	}
+	defer func() {
+		if err := custody.Close(context.WithoutCancel(ctx)); err != nil {
+			effect = adapter.Effect{EffectObserved: true}
+			outcomeErr = backupError(generated.ErrorCodeRecoveryRequired, "local-backup-custody-close")
+		}
+	}()
+	free, err := custody.Capacity(ctx)
+	if err != nil || !capacityAdmitted(free, policy) {
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-capacity")
 	}
 
 	staging, err := os.MkdirTemp(filepath.Dir(root), ".vsk-backup-staging-")
@@ -219,46 +238,30 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	if err != nil {
 		return adapter.Effect{}, err
 	}
-
-	socketDir, err := os.MkdirTemp(filepath.Dir(root), ".vsk-backup-socket-")
-	if err != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-socket")
+	if os.Geteuid() != 0 || os.Chown(staging, int(custodyPolicy.ResticUID), int(custodyPolicy.ResticUID)) != nil ||
+		os.Chown(snapshotPath, int(custodyPolicy.ResticUID), int(custodyPolicy.ResticUID)) != nil {
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-restic-identity")
 	}
-	defer os.RemoveAll(socketDir)
-	socketPath := filepath.Join(socketDir, "rest.sock")
-	listener, err := net.Listen("unix", socketPath)
-	if err != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-socket")
-	}
-	defer listener.Close()
-
-	verifier := &leaseVerifier{backups: adapterImpl.config.Backups}
-	restServer, err := backup.NewRESTServer(root, adapterImpl.config.ExpectedUID, lease, verifier, adapterImpl.config.Clock)
-	if err != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-rest")
-	}
-	serveCtx, cancelServe := context.WithCancel(ctx)
-	defer cancelServe()
-	go func() { _ = restServer.Serve(serveCtx, listener) }()
-
-	repositoryURL := "http+unix://" + socketPath + ":/" + repositoryID + "/"
 	base := backup.ResticRequest{
 		BinaryPath: adapterImpl.config.LocalBackup.ResticBinaryPath, Architecture: runtime.GOARCH,
-		RepositoryURL: repositoryURL, RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
+		RepositoryURL: custody.RepositoryURL(), RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
 		RepositoryRoot: root, PolicyDigest: policyDigest, Lease: lease,
+		ExecutionUID: custodyPolicy.ResticUID, ExecutionGID: custodyPolicy.ResticUID,
 	}
 	// Initialize the repository only when it is provably absent (no retained
 	// config object). Re-running init against an existing repository-format-v2
 	// repository would fail because retained config is immutable, blocking every
 	// point after the first.
-	if _, statErr := os.Stat(filepath.Join(root, "config")); os.IsNotExist(statErr) {
+	before, inventoryErr := custody.Inventory(ctx)
+	if inventoryErr != nil {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-inventory")
+	}
+	if !inventoryHasConfig(before) {
 		initRequest := base
 		initRequest.Mode = "init"
 		if _, err := adapterImpl.config.Runner.Run(ctx, initRequest, password); err != nil {
 			return adapter.Effect{}, err
 		}
-	} else if statErr != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-repository")
 	}
 	// The pinned child decrypts the retained config through the guarded REST
 	// boundary. A non-v2 repository blocks before any backup write.
@@ -279,7 +282,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-format")
 	}
 
-	inventory, err := enumerateRepository(root, adapterImpl.config.ExpectedUID)
+	inventory, err := custody.Inventory(ctx)
 	if err != nil || len(inventory) == 0 {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-inventory")
 	}
@@ -442,117 +445,50 @@ func platformDigest() string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
-// admitCapacity forecasts retained bytes plus declared growth and headroom and
-// blocks creation when the destination filesystem cannot hold it. It never prunes.
-func admitCapacity(root string, policy generated.BackupPolicy) error {
+func capacityAdmitted(free uint64, policy generated.BackupPolicy) bool {
 	if policy.ExpectedBytes < 0 || policy.ExpectedGrowthBytes < 0 || policy.MinimumFreeBytes < 0 {
-		return backupError(generated.ErrorCodeInputInvalid, "local-backup-capacity")
+		return false
 	}
 	required := uint64(policy.ExpectedBytes)
 	for _, part := range []int64{policy.ExpectedGrowthBytes, policy.MinimumFreeBytes} {
 		if required > ^uint64(0)-uint64(part) {
-			return backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-capacity")
+			return false
 		}
 		required += uint64(part)
 	}
-	free, err := freeBytes(root)
-	if err != nil {
-		return backupError(generated.ErrorCodeIntegrityFailure, "local-backup-capacity")
+	return free >= required
+}
+
+func inventoryHasConfig(objects []backup.ExpectedObject) bool {
+	for _, object := range objects {
+		if object.Type == "config" && object.Name == "config" {
+			return true
+		}
 	}
-	if free < required {
-		return backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-capacity")
+	return false
+}
+
+// custodyJournal binds process start to the already-durable writer/read lease.
+// The enclosing creation/verification transaction owns the terminal outcome;
+// response loss is classified uncertain by those existing append-only paths.
+type custodyJournal struct {
+	backups *store.BackupRepository
+	read    *store.BackupReadLeaseRequest
+}
+
+func (journal *custodyJournal) BeginCustody(ctx context.Context, session backup.CustodySession) error {
+	if journal == nil || journal.backups == nil || (session.Role == "verifier" && journal.read == nil) {
+		return backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-custody-journal")
 	}
-	return nil
+	return journal.backups.BeginBackupCustody(ctx, store.BackupCustodyAttempt{
+		AttemptID: "custody-" + strings.TrimPrefix(session.NonceDigest, "sha256:"), Role: session.Role,
+		PlanID: session.PlanID, PlanDigest: session.PlanDigest, RunID: session.RunID, StepID: session.StepID,
+		LeaseID: session.LeaseID, RepositoryID: session.RepositoryID, RepositoryClass: session.RepositoryClass, PointID: session.PointID,
+		SourceID: session.SourceID, SourceRevision: session.SourceRevision, RecoveryEpoch: session.RecoveryEpoch, MaximumExpiresAt: session.MaximumExpiresAt, NonceDigest: session.NonceDigest,
+	})
+}
+func (journal *custodyJournal) FinishCustody(ctx context.Context, session backup.CustodySession, outcome string) error {
+	return journal.backups.FinishBackupCustody(ctx, "custody-"+strings.TrimPrefix(session.NonceDigest, "sha256:"), outcome)
 }
 
 func backupError(code, target string) error { return failure.New(code, target, false) }
-
-// enumerateRepository lists the retained restic objects under the repository root
-// (config plus keys/data/index/snapshots) and hashes each through FD-relative,
-// symlink-refusing access, producing the exact expected inventory. Locks are
-// mutable and excluded. Every object is confirmed a service-owned single-link
-// regular file, so a swapped symlink, hardlink, or wrong-owner file cannot enter
-// the durable inventory.
-func enumerateRepository(root string, expectedUID uint32) ([]backup.ExpectedObject, error) {
-	rootDescriptor, err := unix.Openat2(unix.AT_FDCWD, root, &unix.OpenHow{
-		Flags:   unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC,
-		Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS,
-	})
-	if err != nil {
-		return nil, err
-	}
-	defer unix.Close(rootDescriptor)
-
-	var inventory []backup.ExpectedObject
-	if object, err := hashObjectAt(rootDescriptor, "config", "config", expectedUID); err == nil {
-		inventory = append(inventory, object)
-	}
-	for _, objectType := range []string{"keys", "data", "index", "snapshots"} {
-		typeDescriptor, err := unix.Openat(rootDescriptor, objectType, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
-		if err != nil {
-			if errors.Is(err, unix.ENOENT) {
-				continue
-			}
-			return nil, err
-		}
-		directory := os.NewFile(uintptr(typeDescriptor), objectType)
-		if directory == nil {
-			_ = unix.Close(typeDescriptor)
-			return nil, errors.New("unsafe repository directory")
-		}
-		names, readErr := directory.Readdirnames(-1)
-		if readErr != nil {
-			_ = directory.Close()
-			return nil, readErr
-		}
-		for _, name := range names {
-			object, err := hashObjectAt(typeDescriptor, objectType, name, expectedUID)
-			if err != nil {
-				_ = directory.Close()
-				return nil, err
-			}
-			inventory = append(inventory, object)
-		}
-		if err := directory.Close(); err != nil {
-			return nil, err
-		}
-	}
-	return inventory, nil
-}
-
-// hashObjectAt opens one object by name relative to an already-validated
-// directory descriptor, refusing symlinks, and hashes the same descriptor after
-// confirming it is a service-owned single-link regular file on a local filesystem.
-func hashObjectAt(directoryDescriptor int, objectType, name string, expectedUID uint32) (backup.ExpectedObject, error) {
-	if name == "" || name == "." || name == ".." || strings.ContainsAny(name, "/\x00") {
-		return backup.ExpectedObject{}, errors.New("unsafe object name")
-	}
-	descriptor, err := unix.Openat(directoryDescriptor, name, unix.O_RDONLY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
-	if err != nil {
-		return backup.ExpectedObject{}, err
-	}
-	file := os.NewFile(uintptr(descriptor), name)
-	if file == nil {
-		_ = unix.Close(descriptor)
-		return backup.ExpectedObject{}, errors.New("unsafe repository object")
-	}
-	defer file.Close()
-	var stat unix.Stat_t
-	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != expectedUID {
-		return backup.ExpectedObject{}, errors.New("unsafe repository object")
-	}
-	hasher := sha256.New()
-	written, err := io.Copy(hasher, file)
-	if err != nil {
-		return backup.ExpectedObject{}, err
-	}
-	return backup.ExpectedObject{Type: objectType, Name: name, Bytes: written, Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil))}, nil
-}
-
-func freeBytes(root string) (uint64, error) {
-	var stat unix.Statfs_t
-	if err := unix.Statfs(root, &stat); err != nil {
-		return 0, err
-	}
-	return uint64(stat.Bavail) * uint64(stat.Bsize), nil
-}

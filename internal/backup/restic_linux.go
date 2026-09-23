@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
@@ -133,6 +134,12 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	// /proc/self/fd/4 binds exec to the exact verified inode.
 	command.ExtraFiles = []*os.File{passwordFile, binaryFile}
 	command.Path = "/proc/self/fd/4"
+	if request.ExecutionUID != 0 || request.ExecutionGID != 0 {
+		if os.Geteuid() != 0 || request.ExecutionUID == 0 || request.ExecutionGID == 0 {
+			return ResticResult{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "backup-restic-identity", false)
+		}
+		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: request.ExecutionUID, Gid: request.ExecutionGID}}
+	}
 	var stdout, stderr bytes.Buffer
 	stdoutWriter := &boundedWriter{limit: outputLimit, buffer: &stdout}
 	stderrWriter := &boundedWriter{limit: outputLimit, buffer: &stderr}
@@ -207,7 +214,11 @@ func safeRestoreTarget(request ResticRequest) bool {
 	if err != nil {
 		return false
 	}
-	if err := validateOwnedDirectoryDescriptor(descriptor, uint32(os.Geteuid())); err != nil {
+	expectedUID := uint32(os.Geteuid())
+	if request.ExecutionUID != 0 {
+		expectedUID = request.ExecutionUID
+	}
+	if err := validateOwnedDirectoryDescriptor(descriptor, expectedUID); err != nil {
 		_ = unix.Close(descriptor)
 		return false
 	}

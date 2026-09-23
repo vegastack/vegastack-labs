@@ -26,6 +26,10 @@ type ResticRequest struct {
 	PolicyDigest    string
 	Lease           WriterLease
 	OutputLimit     int64
+	// ExecutionUID/GID are fixed by the root-owned custody policy. Zero keeps
+	// the current identity for legacy isolated tests only.
+	ExecutionUID uint32
+	ExecutionGID uint32
 }
 
 // ResticResult is the secret-free description of a completed backup child.
