@@ -1185,13 +1185,13 @@ var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC
 // os/exec: the pinned restic runner and the exact systemd custody launcher.
 // Each file is byte-pinned so neither authority can silently expand.
 var reviewedBackupSubprocesses = map[string]string{
-	"restic_linux.go":          "31b9bdb45f88d903cd9c2c483b4832f400b34d7be6d4b572b37297334fbfdae9",
-	"custody_process_linux.go": "ff64cee65c3ad90e036d8cd69f48a575ec0dfa7dceca436c00e7cbd4852256e8",
-	"custody_systemd_linux.go": "d0e1448c6169ea2c4ef443752c9857fcfb1ff2f9cb7e2d1e473b3bcc0114d69b",
+	"restic_linux.go":          "5298187bff0aa47d207f304329a24defb6096d292c977ac7cd5b0be2064e1123",
+	"custody_process_linux.go": "97e5505bc6684ca6efc4a9221aca4726490d56b8c8464e9787261d732bc234c6",
+	"custody_systemd_linux.go": "f44ab3782392a85a190c037a058b53894adee8e3c7de0dca0ab01642a6faf9d5",
 }
 
 var reviewedLocalRetentionSources = map[string]string{
-	"adapter_linux.go":       "43b10e46a7545bdc89215eb727f746f0d5012625f6562c4a61b387569f3997bc",
+	"adapter_linux.go":       "e95424489fc4fe17e4d1bd0de9eeb132aaacc46c773759921c8252dec4aecbea",
 	"adapter_unsupported.go": "d3cf269cde1eee954a7253dccbea4acea06058b0c7322b185d527c742f81b126",
 }
 
