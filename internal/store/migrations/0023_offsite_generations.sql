@@ -1,0 +1,55 @@
+-- #114 stores only sanitized, append-only off-site generation receipts and
+-- proofs. Credentials, bearer tokens, repository passwords, and signing
+-- material never enter these tables.
+CREATE TABLE backup_offsite_generations (
+    generation_id TEXT PRIMARY KEY CHECK (length(generation_id) BETWEEN 1 AND 128),
+    source_point_id TEXT NOT NULL REFERENCES recovery_points(point_id),
+    repository_id TEXT NOT NULL CHECK (length(repository_id) BETWEEN 1 AND 128),
+    offsite_snapshot_id TEXT NOT NULL CHECK (length(offsite_snapshot_id)=64),
+    pending_json TEXT NOT NULL CHECK (length(pending_json) BETWEEN 2 AND 1048576),
+    source_revision INTEGER NOT NULL CHECK (source_revision >= 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    issuance_stopped_at TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(source_point_id,recovery_epoch)
+) STRICT;
+CREATE INDEX backup_offsite_generations_current_idx ON backup_offsite_generations(recovery_epoch,created_at DESC,generation_id DESC);
+CREATE TRIGGER backup_offsite_generations_no_update BEFORE UPDATE ON backup_offsite_generations BEGIN SELECT RAISE(ABORT,'offsite generations are append-only'); END;
+CREATE TRIGGER backup_offsite_generations_no_delete BEFORE DELETE ON backup_offsite_generations BEGIN SELECT RAISE(ABORT,'offsite generations are append-only'); END;
+
+CREATE TABLE backup_offsite_session_expiries (
+    generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id),
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    expires_at TEXT NOT NULL,
+    PRIMARY KEY(generation_id,sequence)
+) STRICT;
+CREATE TRIGGER backup_offsite_session_expiries_no_update BEFORE UPDATE ON backup_offsite_session_expiries BEGIN SELECT RAISE(ABORT,'offsite session expiries are append-only'); END;
+CREATE TRIGGER backup_offsite_session_expiries_no_delete BEFORE DELETE ON backup_offsite_session_expiries BEGIN SELECT RAISE(ABORT,'offsite session expiries are append-only'); END;
+
+CREATE TABLE backup_offsite_proofs (
+    proof_id TEXT PRIMARY KEY CHECK (length(proof_id) BETWEEN 1 AND 128),
+    proof_digest TEXT NOT NULL UNIQUE CHECK (length(proof_digest)=71 AND substr(proof_digest,1,7)='sha256:'),
+    generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id),
+    status TEXT NOT NULL CHECK (status IN ('fixture-only','offsite-verified','full-payload-due','site-loss-blocked','uncertain','failed')),
+    proof_class TEXT NOT NULL CHECK (proof_class IN ('fixture','qualified-provider')),
+    proof_json TEXT NOT NULL CHECK (length(proof_json) BETWEEN 2 AND 1048576),
+    full_read_at TEXT,
+    observed_at TEXT NOT NULL,
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    created_at TEXT NOT NULL
+) STRICT;
+CREATE INDEX backup_offsite_proofs_generation_idx ON backup_offsite_proofs(generation_id,created_at DESC,proof_id DESC);
+CREATE TRIGGER backup_offsite_proofs_no_update BEFORE UPDATE ON backup_offsite_proofs BEGIN SELECT RAISE(ABORT,'offsite proofs are append-only'); END;
+CREATE TRIGGER backup_offsite_proofs_no_delete BEFORE DELETE ON backup_offsite_proofs BEGIN SELECT RAISE(ABORT,'offsite proofs are append-only'); END;
+
+CREATE TABLE backup_offsite_last_good_history (
+    sequence INTEGER PRIMARY KEY AUTOINCREMENT,
+    proof_id TEXT NOT NULL UNIQUE REFERENCES backup_offsite_proofs(proof_id),
+    generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id),
+    source_revision INTEGER NOT NULL CHECK (source_revision >= 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    advanced_at TEXT NOT NULL
+) STRICT;
+CREATE INDEX backup_offsite_last_good_current_idx ON backup_offsite_last_good_history(recovery_epoch,sequence DESC);
+CREATE TRIGGER backup_offsite_last_good_history_no_update BEFORE UPDATE ON backup_offsite_last_good_history BEGIN SELECT RAISE(ABORT,'offsite last-good history is append-only'); END;
+CREATE TRIGGER backup_offsite_last_good_history_no_delete BEFORE DELETE ON backup_offsite_last_good_history BEGIN SELECT RAISE(ABORT,'offsite last-good history is append-only'); END;

@@ -14,6 +14,7 @@ const (
 	backupVerificationAttemptSchemaID     = "vegastack-labs.dev/backup-verification-attempt"
 	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
 	backupLocalRetirementStatusSchemaID   = "vegastack-labs.dev/backup-local-retirement-status"
+	backupOffsiteStatusSchemaID           = "vegastack-labs.dev/backup-offsite-status"
 	backupRetentionLockSchemaID           = "vegastack-labs.dev/backup-retention-lock"
 	backupRetentionLockCatalogSchemaID    = "vegastack-labs.dev/local-retention-lock-catalog"
 	backupRetentionLockDraftRequestID     = "vegastack-labs.dev/backup-retention-lock-draft-request"
@@ -116,8 +117,8 @@ func phase5BackupPolicySchema(fields ...FieldDefinition) SchemaDefinition {
 
 func phase5BackupStatusSchema(fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5BackupSchema(backupStatusDataSchemaID, fields...)
-	schema.Version = "1.2.0"
-	schema.Fields[1].Enum = []string{"1.2.0"}
+	schema.Version = "1.3.0"
+	schema.Fields[1].Enum = []string{"1.3.0"}
 	return schema
 }
 
@@ -349,6 +350,14 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Nonnegative("expectedReclaimBytes", "ExpectedReclaimBytes"),
 			phase5NullableDigest("journalDigest", "JournalDigest"), phase5NullableDigest("survivorVerificationDigest", "SurvivorVerificationDigest"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5BackupSchema(backupOffsiteStatusSchemaID,
+			phase5ID("generationId", "GenerationID"), phase5ID("sourcePointId", "SourcePointID"),
+			phase5ID("repositoryId", "RepositoryID"),
+			FieldDefinition{JSONName: "snapshotId", GoName: "SnapshotID", Kind: ValueString, Required: true, Pattern: `^[a-f0-9]{64}$`},
+			phase5Enum("status", "Status", "pending", "fixture-only", "offsite-verified", "full-payload-due", "site-loss-blocked", "uncertain", "failed"),
+			FieldDefinition{JSONName: "proofClass", GoName: "ProofClass", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"fixture", "qualified-provider"}},
+			phase5NullableID("lastGoodProofId", "LastGoodProofID"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(backupRetentionLockSchemaID,
 			phase5ID("pointId", "PointID"), phase5Digest("reasonDigest", "ReasonDigest"),
@@ -643,6 +652,7 @@ func phase5RequestSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "verifications", GoName: "Verifications", Kind: ValueArray, Required: true, ItemRef: backupVerificationAttemptSchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "lastGood", GoName: "LastGood", Kind: ValueArray, Required: true, ItemRef: backupLastGoodSchemaID, MaxItems: intPointer(16)},
 			FieldDefinition{JSONName: "retirements", GoName: "Retirements", Kind: ValueArray, Required: true, ItemRef: backupLocalRetirementStatusSchemaID, MaxItems: intPointer(256)},
+			FieldDefinition{JSONName: "offsite", GoName: "Offsite", Kind: ValueArray, Required: true, ItemRef: backupOffsiteStatusSchemaID, MaxItems: intPointer(256)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(auditCheckpointListDataSchemaID,

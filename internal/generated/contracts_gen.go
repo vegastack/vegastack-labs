@@ -50,6 +50,7 @@ const (
 	SchemaIDBackupJob                          = "vegastack-labs.dev/backup-job"
 	SchemaIDBackupLastGood                     = "vegastack-labs.dev/backup-last-good"
 	SchemaIDBackupLocalRetirementStatus        = "vegastack-labs.dev/backup-local-retirement-status"
+	SchemaIDBackupOffsiteStatus                = "vegastack-labs.dev/backup-offsite-status"
 	SchemaIDBackupPolicy                       = "vegastack-labs.dev/backup-policy"
 	SchemaIDBackupPolicyDraftRequest           = "vegastack-labs.dev/backup-policy-draft-request"
 	SchemaIDBackupPolicyDraftSubmission        = "vegastack-labs.dev/backup-policy-draft-submission"
@@ -658,6 +659,19 @@ type BackupLocalRetirementStatus struct {
 	RecoveryEpoch              int64    `json:"recoveryEpoch"`
 }
 
+type BackupOffsiteStatus struct {
+	Schema          string  `json:"schema"`
+	SchemaVersion   string  `json:"schemaVersion"`
+	GenerationID    string  `json:"generationId"`
+	SourcePointID   string  `json:"sourcePointId"`
+	RepositoryID    string  `json:"repositoryId"`
+	SnapshotID      string  `json:"snapshotId"`
+	Status          string  `json:"status"`
+	ProofClass      *string `json:"proofClass"`
+	LastGoodProofID *string `json:"lastGoodProofId"`
+	RecoveryEpoch   int64   `json:"recoveryEpoch"`
+}
+
 type BackupPolicy struct {
 	Schema                      string             `json:"schema"`
 	SchemaVersion               string             `json:"schemaVersion"`
@@ -784,6 +798,7 @@ type BackupStatusData struct {
 	Verifications []BackupVerificationAttempt   `json:"verifications"`
 	LastGood      []BackupLastGood              `json:"lastGood"`
 	Retirements   []BackupLocalRetirementStatus `json:"retirements"`
+	Offsite       []BackupOffsiteStatus         `json:"offsite"`
 	RecoveryEpoch int64                         `json:"recoveryEpoch"`
 }
 

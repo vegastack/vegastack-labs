@@ -304,6 +304,19 @@ export interface BackupLocalRetirementStatus {
   readonly "recoveryEpoch": number;
 }
 
+export interface BackupOffsiteStatus {
+  readonly "schema": "vegastack-labs.dev/backup-offsite-status";
+  readonly "schemaVersion": "1.1.0";
+  readonly "generationId": string;
+  readonly "sourcePointId": string;
+  readonly "repositoryId": string;
+  readonly "snapshotId": string;
+  readonly "status": "pending" | "fixture-only" | "offsite-verified" | "full-payload-due" | "site-loss-blocked" | "uncertain" | "failed";
+  readonly "proofClass": "fixture" | "qualified-provider" | null;
+  readonly "lastGoodProofId": string | null;
+  readonly "recoveryEpoch": number;
+}
+
 export interface BackupPolicy {
   readonly "schema": "vegastack-labs.dev/backup-policy";
   readonly "schemaVersion": "1.2.0";
@@ -332,12 +345,13 @@ export interface BackupPolicy {
 
 export interface BackupStatusData {
   readonly "schema": "vegastack-labs.dev/backup-status-data";
-  readonly "schemaVersion": "1.2.0";
+  readonly "schemaVersion": "1.3.0";
   readonly "policies": ReadonlyArray<BackupPolicy>;
   readonly "jobs": ReadonlyArray<BackupJob>;
   readonly "verifications": ReadonlyArray<BackupVerificationAttempt>;
   readonly "lastGood": ReadonlyArray<BackupLastGood>;
   readonly "retirements": ReadonlyArray<BackupLocalRetirementStatus>;
+  readonly "offsite": ReadonlyArray<BackupOffsiteStatus>;
   readonly "recoveryEpoch": number;
 }
 
@@ -2308,6 +2322,96 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/backup-offsite-status",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/backup-offsite-status"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "generationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourcePointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "repositoryId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "snapshotId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-f0-9]{64}$"
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "pending",
+          "fixture-only",
+          "offsite-verified",
+          "full-payload-due",
+          "site-loss-blocked",
+          "uncertain",
+          "failed"
+        ]
+      },
+      {
+        "name": "proofClass",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "enum": [
+          "fixture",
+          "qualified-provider"
+        ]
+      },
+      {
+        "name": "lastGoodProofId",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/backup-policy",
     "fields": [
       {
@@ -2508,7 +2612,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.2.0"
+          "1.3.0"
         ]
       },
       {
@@ -2549,6 +2653,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "itemRef": "vegastack-labs.dev/backup-local-retirement-status",
+        "maxItems": 256
+      },
+      {
+        "name": "offsite",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/backup-offsite-status",
         "maxItems": 256
       },
       {
@@ -5073,6 +5185,10 @@ function decodeBackupLastGood(value: unknown): BackupLastGood {
 
 function decodeBackupLocalRetirementStatus(value: unknown): BackupLocalRetirementStatus {
   return decodeSchema("vegastack-labs.dev/backup-local-retirement-status", value) as unknown as BackupLocalRetirementStatus;
+}
+
+function decodeBackupOffsiteStatus(value: unknown): BackupOffsiteStatus {
+  return decodeSchema("vegastack-labs.dev/backup-offsite-status", value) as unknown as BackupOffsiteStatus;
 }
 
 function decodeBackupPolicy(value: unknown): BackupPolicy {

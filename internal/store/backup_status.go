@@ -29,10 +29,10 @@ func (repository *BackupRepository) ReadLocalBackupStatusScoped(ctx context.Cont
 }
 
 func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, scope *authorization.ReadScope) (generated.BackupStatusData, error) {
-	status := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.2.0",
+	status := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0",
 		Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{},
 		Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{},
-		Retirements: []generated.BackupLocalRetirementStatus{}}
+		Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}}
 	if repository == nil || repository.store == nil {
 		return status, backupStoreError(generated.ErrorCodeInputInvalid, "backup-status")
 	}
@@ -234,6 +234,35 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 			return err
 		}
 		if len(status.Retirements) > 256 {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-status-limit")
+		}
+		offsiteRows, err := tx.query(ctx, `SELECT generation_id,source_point_id,repository_id,offsite_snapshot_id,recovery_epoch FROM backup_offsite_generations WHERE recovery_epoch=? ORDER BY created_at DESC,generation_id DESC LIMIT 257`, status.RecoveryEpoch)
+		if err != nil {
+			return err
+		}
+		defer offsiteRows.Close()
+		for offsiteRows.Next() {
+			item := generated.BackupOffsiteStatus{Schema: generated.SchemaIDBackupOffsiteStatus, SchemaVersion: "1.1.0", Status: "pending"}
+			if err := offsiteRows.Scan(&item.GenerationID, &item.SourcePointID, &item.RepositoryID, &item.SnapshotID, &item.RecoveryEpoch); err != nil {
+				return err
+			}
+			var proofClass, lastGood sql.NullString
+			proofErr := tx.queryRow(ctx, `SELECT status,proof_class FROM backup_offsite_proofs WHERE generation_id=? ORDER BY created_at DESC,proof_id DESC LIMIT 1`, item.GenerationID).Scan(&item.Status, &proofClass)
+			if proofErr != nil && !errors.Is(proofErr, sql.ErrNoRows) {
+				return proofErr
+			}
+			item.ProofClass = nullableString(proofClass)
+			lastErr := tx.queryRow(ctx, `SELECT proof_id FROM backup_offsite_last_good_history WHERE recovery_epoch=? ORDER BY sequence DESC LIMIT 1`, item.RecoveryEpoch).Scan(&lastGood)
+			if lastErr != nil && !errors.Is(lastErr, sql.ErrNoRows) {
+				return lastErr
+			}
+			item.LastGoodProofID = nullableString(lastGood)
+			status.Offsite = append(status.Offsite, item)
+		}
+		if err := offsiteRows.Err(); err != nil {
+			return err
+		}
+		if len(status.Offsite) > 256 {
 			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-status-limit")
 		}
 		return nil

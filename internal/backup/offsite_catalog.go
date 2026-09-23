@@ -109,6 +109,15 @@ func validPendingOffsiteGeneration(value PendingOffsiteGeneration) bool {
 	return true
 }
 
+// ValidatePendingOffsiteGeneration exposes the same strict receipt boundary to
+// persistence implementations without allowing them to reinterpret it.
+func ValidatePendingOffsiteGeneration(value PendingOffsiteGeneration) error {
+	if !validPendingOffsiteGeneration(value) {
+		return errors.New("invalid pending offsite generation")
+	}
+	return nil
+}
+
 func validWriterSeal(pending PendingOffsiteGeneration, seal WriterSealProof, observedAt time.Time) bool {
 	last := pending.SessionExpiries[0]
 	for _, expiry := range pending.SessionExpiries[1:] {
