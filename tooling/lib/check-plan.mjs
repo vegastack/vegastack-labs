@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { devNull } from "node:os";
 import { packageManagerInvocation, runCommand } from "./process.mjs";
 
 const DEFAULT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
@@ -13,6 +14,11 @@ const GO_BROWSER_TESTS = Object.freeze([
   "TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary",
   "TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS",
 ]);
+const GO_PACKAGE_TARGET_POLICY = Object.freeze({
+  "./internal/adapter/nativecredential": Object.freeze({
+    env: Object.freeze({ GOOS: "linux", GOARCH: "amd64" }),
+  }),
+});
 
 export function goUnitTestArgs(browser, packages = ["./..."]) {
   const args = ["test", ...packages];
@@ -261,6 +267,16 @@ export function goPackageTargets(plan) {
   return Object.freeze(packages.length ? packages : ["./..."]);
 }
 
+export function goPackageExecutionTargets(plan) {
+  return Object.freeze(goPackageTargets(plan).map((packageName) => {
+    const policy = GO_PACKAGE_TARGET_POLICY[packageName];
+    return Object.freeze({
+      package: packageName,
+      env: policy?.env ?? Object.freeze({}),
+    });
+  }));
+}
+
 export function validateCheckPlan(plan) {
   const expectedKeys = [
     "browser", "changedPaths", "failClosed", "groups", "mode", "reasons", "schemaVersion",
@@ -302,11 +318,44 @@ export function validateCheckPlan(plan) {
 export function checkStepsForPlan(plan) {
   const validated = validateCheckPlan(plan);
   const selected = new Set(validated.groups);
-  const goPackages = goPackageTargets(validated);
+  const goTargets = goPackageExecutionTargets(validated);
   return Object.freeze(steps.filter((step) => selected.has(step.group)).map((step) => {
-    if (step.name === "Go vet") return commandStep(step.name, step.group, "go", ["vet", ...goPackages]);
+    if (step.name === "Go vet") {
+      return checkStep(step.name, step.group, async (root, { capture = false } = {}) => {
+        const portable = goTargets.filter((target) => Object.keys(target.env).length === 0);
+        if (portable.length) {
+          await runCommand("go", ["vet", ...portable.map((target) => target.package)], { cwd: root, capture });
+        }
+        for (const target of goTargets.filter((candidate) => Object.keys(candidate.env).length > 0)) {
+          await runCommand("go", ["vet", target.package], {
+            cwd: root,
+            capture,
+            env: { ...process.env, ...target.env },
+          });
+        }
+      });
+    }
     if (step.name === "Go unit tests") {
-      return commandStep(step.name, step.group, "go", goUnitTestArgs(validated.browser, goPackages));
+      return checkStep(step.name, step.group, async (root, { capture = false } = {}) => {
+        const portable = goTargets.filter((target) => Object.keys(target.env).length === 0);
+        if (portable.length) {
+          await runCommand("go", goUnitTestArgs(validated.browser, portable.map((target) => target.package)), {
+            cwd: root,
+            capture,
+          });
+        }
+        for (const target of goTargets.filter((candidate) => Object.keys(candidate.env).length > 0)) {
+          const supportedHost = process.platform === target.env.GOOS;
+          const args = supportedHost
+            ? goUnitTestArgs(validated.browser, [target.package])
+            : ["test", "-c", "-o", devNull, target.package];
+          await runCommand("go", args, {
+            cwd: root,
+            capture,
+            env: { ...process.env, ...target.env },
+          });
+        }
+      });
     }
     return step;
   }));

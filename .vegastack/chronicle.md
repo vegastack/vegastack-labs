@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-09-2026 — Affected checks understand Linux-only Go packages ([#169](https://github.com/vegastack/vegastack-labs/issues/169))
+
+- **What:** Focused Go vet and test compilation now apply the supported Linux target when a changed package has no macOS-buildable files; Linux hosts run its tests normally.
+- **Why:** The first local affected check after the Phase 5 CI correction selected the right native-credential package but ran it under macOS, where every production file is excluded by build constraints.
+- **How it went:** A red package-selection regression reproduced the exact failure. The planner now carries an explicit target policy for the Linux-only package, preserves ordinary portable commands, cross-compiles its test binary on other hosts, and runs the real tests on Linux.
+- **Changed:** Target-aware affected Go vet · host-runnable target test proof · Linux-only fixture and regression test.
+- **Decisions:** none; unrecognized target-only topology still fails closed, and final native Linux acceptance remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/169-linux-go-target
+
 ## 23-09-2026 — Phase 5 stopped starting CI for every landing ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
 
 - **What:** Intermediate Phase 5 changes now prove their exact current-main diff locally and do not start GitHub CI when a pull request opens or merges. Public CI is manual-only for the final full acceptance and named native lanes.
