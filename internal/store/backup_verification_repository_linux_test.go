@@ -181,6 +181,13 @@ func TestLocalLastGoodCurrentLiveProofAdvancesOnce(t *testing.T) {
 	if err := repository.AdvanceLocalLastGood(ctx, receipt, revision, ""); err != nil {
 		t.Fatal(err)
 	}
+	source, err := repository.CurrentLocalRecoverySource(ctx, "standard")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if source.Verification.VerificationID != receipt.VerificationID || source.Point.PointID != point.PointID || source.SnapshotID == "" || source.DatabaseSchemaVersion == 0 || source.CreatedAt.IsZero() || source.VerifiedAt.IsZero() || len(source.Point.ExpectedObjects) == 0 || len(source.Verification.DependencyTrust) == 0 {
+		t.Fatalf("restore source=%#v", source)
+	}
 	status, err := repository.ReadLocalBackupStatus(ctx)
 	if err != nil || len(status.Policies) != 1 || len(status.Jobs) != 1 || len(status.Verifications) != 1 || len(status.LastGood) != 1 ||
 		status.Jobs[0].Status != "verified" || status.Verifications[0].Status != "local-verified" ||
@@ -188,6 +195,9 @@ func TestLocalLastGoodCurrentLiveProofAdvancesOnce(t *testing.T) {
 		t.Fatalf("live backup status=%#v err=%v", status, err)
 	}
 	repository.store.config.Clock = func() time.Time { return time.Now().Add(25 * time.Hour) }
+	if _, err := repository.CurrentLocalRecoverySource(ctx, "standard"); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+		t.Fatalf("overdue source remained selectable: %v", err)
+	}
 	overdue, err := repository.ReadLocalBackupStatus(ctx)
 	if err != nil || overdue.Verifications[0].Status != "full-payload-due" || overdue.Jobs[0].Status == "verified" || len(overdue.LastGood) != 1 {
 		t.Fatalf("overdue backup status=%#v err=%v", overdue, err)
