@@ -201,3 +201,21 @@ test("the server verifier rejects production registration of the test adapter", 
   const result = await verifyServer(root);
   assert.ok(result.codes.includes("SERVER_TEST_ADAPTER"));
 });
+
+test("the server verifier rejects a partial recovery authority composition", async (t) => {
+  const root = await fixtureRepo(t, {
+    "internal/server/operations.go": [
+      "package server",
+      'var productionDatabasePath = "/var/lib/vsk-labs/control.db"',
+      "func compose() {",
+      "  _ = CandidateManager{DatabasePath: productionDatabasePath}",
+      "  PromoteAtStartup()",
+      "  operations.openStore(productionDatabasePath)",
+      "  RegisterRestoreOperations()",
+      "  _ = AuthorityAdmission{}",
+      "}",
+      "",
+    ].join("\n"),
+  });
+  assert.deepEqual((await verifyServer(root)).codes, ["SERVER_RECOVERY_AUTHORITY"]);
+});

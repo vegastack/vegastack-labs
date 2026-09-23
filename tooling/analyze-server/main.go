@@ -87,6 +87,8 @@ func analyze(root string) (analysis, error) {
 		}
 		isServer := strings.HasPrefix(relative, "internal/server/")
 		isReviewedRemoteListener := relative == "internal/server/remote.go"
+		isReviewedRecoverySource := reviewedRecoveryUnixFile(relative, content)
+		isReviewedR2Loopback := reviewedR2LoopbackFile(relative, content)
 		importAliases := make(map[string]string)
 		if isServer {
 			serverSource.Write(content)
@@ -106,7 +108,7 @@ func analyze(root string) (analysis, error) {
 			if name != "_" && name != "." {
 				importAliases[name] = importPath
 			}
-			if importPath == "database/sql" && !strings.HasPrefix(relative, "internal/store/") {
+			if importPath == "database/sql" && !strings.HasPrefix(relative, "internal/store/") && !isReviewedRecoverySource {
 				result.SQLiteAccess = true
 			}
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
@@ -115,7 +117,7 @@ func analyze(root string) (analysis, error) {
 			// #106's guarded local adapter and #146's exact protected recovery
 			// files are separate reviewed Unix file-descriptor scopes.
 			approvedBackupAdapterFile := relative == "internal/adapter/localbackup/adapter.go"
-			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || reviewedRecoveryUnixFile(relative, content)) {
+			if importPath == "golang.org/x/sys/unix" && !(approvedClientFile || approvedLinuxFile || approvedBackupAdapterFile || isReviewedRecoverySource) {
 				result.XSysOutsideScope = true
 			}
 		}
@@ -141,7 +143,7 @@ func analyze(root string) (analysis, error) {
 			case importPath == "net/http" && (selector.Sel.Name == "ListenAndServe" || selector.Sel.Name == "ListenAndServeTLS"):
 				result.TCPListener = true
 			case importPath == "net" && selector.Sel.Name == "Listen":
-				if len(call.Args) == 0 || (stringLiteral(call.Args[0]) != "unix" && !approvedRemoteTCP[call.Pos()]) {
+				if len(call.Args) == 0 || (stringLiteral(call.Args[0]) != "unix" && !approvedRemoteTCP[call.Pos()] && !(isReviewedR2Loopback && len(call.Args) == 2 && stringLiteral(call.Args[0]) == "tcp" && stringLiteral(call.Args[1]) == "127.0.0.1:0")) {
 					result.TCPListener = true
 				}
 			case selector.Sel.Name == "Listen" && importPath == "":
@@ -195,7 +197,7 @@ func analyze(root string) (analysis, error) {
 // coordinator is reported by Task 7 acceptance rather than misclassified as a
 // partially safe implementation.
 func invalidRecoveryAuthorityClosure(source string) bool {
-	markers := []string{"RegisterRestoreOperations", "PromoteAtStartup", "NewCandidateManager", "AuthorityAdmission", "CanaryVerifier"}
+	markers := []string{"RegisterRestoreOperations", "PromoteAtStartup", "CandidateManager{", "AuthorityAdmission", "CanaryVerifier"}
 	present := 0
 	for _, marker := range markers {
 		if strings.Contains(source, marker) {
@@ -208,7 +210,7 @@ func invalidRecoveryAuthorityClosure(source string) bool {
 	if present != len(markers) || strings.Count(source, "productionDatabasePath") < 2 {
 		return true
 	}
-	for _, forbidden := range []string{"RestoreSnapshot(ctx, productionDatabasePath", "RestoreSnapshot(context.Background(), productionDatabasePath", "exec.Command(", "sql.Open("} {
+	for _, forbidden := range []string{"RestoreSnapshot(ctx, productionDatabasePath", "RestoreSnapshot(context.Background(), productionDatabasePath", "exec.Command(", "sql.Open(", "Canary: recovery.CanaryVerifier{}"} {
 		if strings.Contains(source, forbidden) {
 			return true
 		}
@@ -223,6 +225,10 @@ func invalidRecoveryAuthorityClosure(source string) bool {
 func reviewedRecoveryUnixFile(relative string, content []byte) bool {
 	var expected string
 	switch relative {
+	case "internal/adapter/localbackup/recovery_restore_linux.go":
+		expected = "b1c3c0d02898f8d69f9b75e9eb061e77d2e88b81cad5d947b1b9712dfe328b10"
+	case "internal/recovery/candidate_linux.go":
+		expected = "731018d77530933afb9706317b9814d3c71be772c6bbde35e991fe85957d518c"
 	case "internal/recovery/manifest_file_unix.go":
 		expected = "c037f299077084fb66ed6fa660e9a434732ecc006c5d986982b4bea538cdbebe"
 	case "internal/recovery/receipt_file_unix.go":
@@ -236,6 +242,17 @@ func reviewedRecoveryUnixFile(relative string, content []byte) bool {
 	}
 	sum := sha256.Sum256(content)
 	return fmt.Sprintf("%x", sum) == expected
+}
+
+// #114's local restic REST bridge listens only on an ephemeral IPv4 loopback
+// socket. Seal the complete reviewed implementation so another TCP listener,
+// address, or process cannot inherit this narrow exception.
+func reviewedR2LoopbackFile(relative string, content []byte) bool {
+	if relative != "internal/adapters/r2/runtime_linux.go" {
+		return false
+	}
+	sum := sha256.Sum256(content)
+	return fmt.Sprintf("%x", sum) == "0b0043524351900cecf26f85f976d0ca0fed446f68af05fe6f868769c03ce1e9"
 }
 
 func reviewedRemoteListener(file *ast.File, aliases map[string]string) (token.Pos, bool) {
