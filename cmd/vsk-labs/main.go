@@ -23,6 +23,9 @@ var (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == backup.CustodyPolicyCheckMode {
+		os.Exit(backup.RunCustodyPolicyCheck(context.Background(), os.Stdin))
+	}
 	if len(os.Args) == 3 && os.Args[1] == backup.CustodySystemdMode {
 		if backup.RunCustodySupervisor(os.Args[2]) != nil {
 			os.Exit(1)

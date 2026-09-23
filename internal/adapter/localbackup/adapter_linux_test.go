@@ -30,6 +30,9 @@ import (
 )
 
 func init() {
+	if len(os.Args) == 2 && os.Args[1] == backup.CustodyPolicyCheckMode {
+		os.Exit(backup.RunCustodyPolicyCheck(context.Background(), os.Stdin))
+	}
 	if os.Getenv("VSK_BACKUP_CUSTODY_SUPERVISOR") == "1" {
 		if len(os.Args) != 3 || os.Args[1] != backup.CustodySystemdMode {
 			os.Exit(1)

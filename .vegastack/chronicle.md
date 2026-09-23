@@ -32,6 +32,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-manual-only-ci
 
+## 23-09-2026 — Clean-host recovery can compare the exact staged draft ([#144](https://github.com/vegastack/vegastack-labs/issues/144))
+
+- **What:** A dormant server adapter can consume one exact protected recovery handoff, bind it to current replacement authority and the existing staged ciphertext, then decrypt and compare the opened inode through the native systemd credential path.
+- **Why:** The recovery contract previously accepted typed custody and fence digests without composing them with proof that a clean replacement opened the exact already-staged draft rather than freshly encrypting substitute material.
+- **How it went:** Red-first tests caught the missing state-revision binding. Disposable Linux acceptance then proved old-host ciphertext denial, exact existing-draft comparison, one-use custody, and rejection of changed draft, plan, lease, epoch, revision, fence and replay inputs. The adapter is deliberately not selected by production operations.
+- **Changed:** Exact current-authority seam · protected-source loader · state-revision binding · native existing-draft comparison · composed disposable acceptance · fail-closed Phase 2 source seal.
+- **Decisions:** none; #108 must supply current replacement authority, and a real independently enrolled source plus qualified denial adapters remain required before production selection or live `G-007`/`G-008` evidence.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/144-clean-host-recovery-proof
+
 ## 23-09-2026 — Phase 5 checks run at the scope that changed ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
 
 - **What:** Intermediate Phase 5 branches can prove an exact base and head with affected policy groups and changed Go package tests, while the final integration or acceptance candidate has one explicit complete lane.
@@ -51,6 +61,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none; #144 still needs an externally enrolled source and real endpoint qualification, while #108 owns current replacement authority. No live `G-007` or `G-008` evidence is claimed.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/159-recovery-source-admission
+
+## 22-09-2026 — Failed browser acceptance now names a safe diagnostic ([#161](https://github.com/vegastack/vegastack-labs/issues/161))
+
+- **What:** A failed Phase 3 browser run now reports the public test and assertion line when Playwright supplies a trusted location. It also reports the sanitizer's fixed failure code, including when both checks fail.
+- **Why:** The old runner deleted the browser report and returned only a generic sanitizer stage, so the first failed CI attempt could not be diagnosed.
+- **How it went:** A controlled browser and private-canary fixture reproduced that loss before the fix. The new report stays in a private temporary directory and is reduced to closed fields before deletion; malformed or absent reports fail closed.
+- **Changed:** Bounded browser and sanitizer diagnostics · private report cleanup · focused failure-path tests. No automatic retry or acceptance bypass was added.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/161-phase3-bounded-diagnostics
 
 ## 22-09-2026 — Local backup points can prove they are restorable ([#117](https://github.com/vegastack/vegastack-labs/issues/117))
 

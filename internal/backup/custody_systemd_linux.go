@@ -27,8 +27,10 @@ import (
 )
 
 const (
-	CustodyPolicyPath  = "/etc/vsk-labs/backup-custody.json"
-	CustodySystemdMode = "__backup-custody-supervisor"
+	CustodyPolicyPath       = "/etc/vsk-labs/backup-custody.json"
+	CustodySystemdMode      = "__backup-custody-supervisor"
+	CustodyPolicyCheckMode  = "__backup-custody-policy-check"
+	maxCustodyPolicyRequest = 512
 )
 
 var custodyInstancePattern = regexp.MustCompile(`^[a-f0-9]{32}$`)
@@ -163,7 +165,7 @@ func startCustodyUnit(ctx context.Context, policy CustodyPolicy, instance string
 	}
 	unit := strings.Replace(policy.UnitTemplate, "@.service", "@"+instance+".service", 1)
 	subject, err := currentCustodyPolicySubject(policy.ControllerUID)
-	if err != nil || !effectiveCustodyStartPolicy(ctx, unit, subject, runCustodyPolicyCommand) {
+	if err != nil || !effectiveCustodyStartPolicy(ctx, policy, unit, subject, runCustodyPolicyCommand, readCustodySudoAggregate, requestRootCustodyPolicyCheck) {
 		return errors.New("custody authority policy rejected")
 	}
 	file, err := openRootExecutable("/usr/bin/systemctl")
@@ -186,6 +188,13 @@ func startCustodyUnit(ctx context.Context, policy CustodyPolicy, instance string
 }
 
 type custodyPolicyRunner func(context.Context, string, []string) int
+type custodySudoReader func(context.Context) ([]byte, error)
+type custodyRootPolicyCheck func(context.Context, CustodyPolicy, string, string) bool
+
+type custodyPolicyCheckRequest struct {
+	UnitName string `json:"unit_name"`
+	Subject  string `json:"subject"`
+}
 
 func currentCustodyPolicySubject(expectedUID uint32) (string, error) {
 	uid := os.Getuid()
@@ -214,13 +223,160 @@ func currentCustodyPolicySubject(expectedUID uint32) (string, error) {
 // effectiveCustodyStartPolicy mirrors the #143 local-authority qualification:
 // the exact action must be allowed while adjacent verbs, units and broader
 // systemd administration remain denied for the live controller subject.
-func effectiveCustodyStartPolicy(ctx context.Context, unit, subject string, run custodyPolicyRunner) bool {
-	if ctx == nil || ctx.Err() != nil || run == nil || subject == "" ||
+func effectiveCustodyStartPolicy(ctx context.Context, policy CustodyPolicy, unit, subject string, run custodyPolicyRunner, aggregate custodySudoReader, rootCheck custodyRootPolicyCheck) bool {
+	if ctx == nil || ctx.Err() != nil || run == nil || aggregate == nil || rootCheck == nil || subject == "" ||
 		!regexp.MustCompile(`^vsk-labs-backup-custody@[a-f0-9]{32}\.service$`).MatchString(unit) {
 		return false
 	}
+	checks := []struct {
+		args []string
+		want int
+	}{
+		{[]string{"-n", "-l", "--", policy.ExecutablePath, CustodyPolicyCheckMode}, 0},
+		{[]string{"-n", "-l", "--", policy.ExecutablePath, CustodyPolicyCheckMode, "extra"}, 1},
+		{[]string{"-n", "-l", "--", policy.ExecutablePath, CustodySystemdMode, strings.Repeat("a", 32)}, 1},
+		{[]string{"-n", "-l", "--", "/usr/bin/systemctl", "--version"}, 1},
+		{[]string{"-n", "-l", "--", "/usr/bin/true"}, 1},
+	}
+	for _, check := range checks {
+		if run(ctx, "/usr/bin/sudo", check.args) != check.want {
+			return false
+		}
+	}
+	listing, err := aggregate(ctx)
+	return err == nil && exactCustodySudoAggregate(listing, policy.ExecutablePath) && rootCheck(ctx, policy, unit, subject)
+}
+
+func exactCustodySudoAggregate(data []byte, executable string) bool {
+	if len(data) == 0 || len(data) > 4096 || !bytes.HasSuffix(data, []byte("\n")) {
+		return false
+	}
+	listing := string(data)
+	const header = "\nUser vsk-controller may run the following commands on "
+	before, commands, found := strings.Cut(listing, header)
+	if !found || strings.Contains(before, "User vsk-controller may run") || strings.Count(commands, "\n") != 2 {
+		return false
+	}
+	line := commands[strings.IndexByte(commands, '\n')+1:]
+	return line == "    (root) NOPASSWD: "+executable+" "+CustodyPolicyCheckMode+"\n"
+}
+
+func readCustodySudoAggregate(ctx context.Context) ([]byte, error) {
+	trusted, err := openRootExecutable("/usr/bin/sudo")
+	if err != nil {
+		return nil, err
+	}
+	defer trusted.Close()
+	bounded, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	command := exec.CommandContext(bounded, "/proc/self/fd/3", "-n", "-l")
+	command.Args[0] = "/usr/bin/sudo"
+	command.ExtraFiles = []*os.File{trusted}
+	command.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
+	command.Stdin = strings.NewReader("")
+	var stdout, stderr bytes.Buffer
+	command.Stdout, command.Stderr = &stdout, &stderr
+	if command.Run() != nil || bounded.Err() != nil || stderr.Len() != 0 || stdout.Len() > 4096 {
+		return nil, errors.New("custody sudo policy rejected")
+	}
+	return stdout.Bytes(), nil
+}
+
+func requestRootCustodyPolicyCheck(ctx context.Context, policy CustodyPolicy, unit, subject string) bool {
+	payload, err := json.Marshal(custodyPolicyCheckRequest{UnitName: unit, Subject: subject})
+	if err != nil || len(payload) > maxCustodyPolicyRequest {
+		return false
+	}
+	trusted, err := openRootExecutable("/usr/bin/sudo")
+	if err != nil {
+		return false
+	}
+	defer trusted.Close()
+	bounded, cancel := context.WithTimeout(ctx, 3*time.Second)
+	defer cancel()
+	command := exec.CommandContext(bounded, "/proc/self/fd/3", "-n", "--", policy.ExecutablePath, CustodyPolicyCheckMode)
+	command.Args[0] = "/usr/bin/sudo"
+	command.ExtraFiles = []*os.File{trusted}
+	command.Env = []string{"LANG=C", "LC_ALL=C", "PATH=/usr/bin:/bin"}
+	command.Stdin = bytes.NewReader(payload)
+	var stdout, stderr bytes.Buffer
+	command.Stdout, command.Stderr = &stdout, &stderr
+	return command.Run() == nil && bounded.Err() == nil && stdout.Len() == 0 && stderr.Len() == 0
+}
+
+func exactLiveCustodyPolicySubject(subject, sudoUID string) bool {
+	parts := strings.Split(subject, ",")
+	if len(parts) != 3 || parts[2] != sudoUID {
+		return false
+	}
+	pid, err := strconv.Atoi(parts[0])
+	if err != nil || pid <= 1 {
+		return false
+	}
+	start, err := strconv.ParseUint(parts[1], 10, 64)
+	uid, uidErr := strconv.ParseUint(parts[2], 10, 32)
+	if err != nil || start == 0 || uidErr != nil || uid == 0 {
+		return false
+	}
+	stat, err := os.ReadFile("/proc/" + parts[0] + "/stat")
+	if err != nil {
+		return false
+	}
+	end := bytes.LastIndexByte(stat, ')')
+	fields := []string(nil)
+	if end >= 0 && end+2 < len(stat) {
+		fields = strings.Fields(string(stat[end+2:]))
+	}
+	if len(fields) <= 19 || fields[19] != parts[1] {
+		return false
+	}
+	status, err := os.ReadFile("/proc/" + parts[0] + "/status")
+	if err != nil {
+		return false
+	}
+	found := false
+	for _, line := range strings.Split(string(status), "\n") {
+		if strings.HasPrefix(line, "Uid:") {
+			ids := strings.Fields(strings.TrimPrefix(line, "Uid:"))
+			if len(ids) != 4 {
+				return false
+			}
+			for _, id := range ids {
+				if id != parts[2] {
+					return false
+				}
+			}
+			found = true
+		}
+	}
+	return found
+}
+
+// RunCustodyPolicyCheck is the exact-argv root helper admitted by sudoers. It
+// performs read-only polkit queries for one live controller process and never
+// starts a unit or accepts a caller-selected path.
+func RunCustodyPolicyCheck(ctx context.Context, input io.Reader) int {
+	if ctx == nil || ctx.Err() != nil || os.Getuid() != 0 || os.Geteuid() != 0 {
+		return 2
+	}
+	policy, err := LoadCustodyPolicy(CustodyPolicyPath)
+	if err != nil || os.Getenv("SUDO_UID") != strconv.FormatUint(uint64(policy.ControllerUID), 10) {
+		return 2
+	}
+	data, err := io.ReadAll(io.LimitReader(input, maxCustodyPolicyRequest+1))
+	if err != nil || len(data) == 0 || len(data) > maxCustodyPolicyRequest {
+		return 2
+	}
+	var request custodyPolicyCheckRequest
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if decoder.Decode(&request) != nil || decoder.Decode(new(any)) != io.EOF ||
+		!regexp.MustCompile(`^vsk-labs-backup-custody@[a-f0-9]{32}\.service$`).MatchString(request.UnitName) ||
+		!exactLiveCustodyPolicySubject(request.Subject, os.Getenv("SUDO_UID")) {
+		return 2
+	}
 	pk := func(action string, details ...string) []string {
-		args := []string{"--action-id", action, "--process", subject}
+		args := []string{"--action-id", action, "--process", request.Subject}
 		return append(args, details...)
 	}
 	manage := "org.freedesktop.systemd1.manage-units"
@@ -228,20 +384,23 @@ func effectiveCustodyStartPolicy(ctx context.Context, unit, subject string, run 
 		args []string
 		want int
 	}{
-		{pk(manage, "--detail", "verb", "start", "--detail", "unit", unit), 0},
-		{pk(manage, "--detail", "verb", "stop", "--detail", "unit", unit), 1},
-		{pk(manage, "--detail", "verb", "restart", "--detail", "unit", unit), 1},
+		{pk(manage, "--detail", "verb", "start", "--detail", "unit", request.UnitName), 0},
+		{pk(manage, "--detail", "verb", "stop", "--detail", "unit", request.UnitName), 1},
+		{pk(manage, "--detail", "verb", "restart", "--detail", "unit", request.UnitName), 1},
 		{pk(manage, "--detail", "verb", "start", "--detail", "unit", "vsk-authority-denied.service"), 1},
 		{pk(manage), 1},
 		{pk("org.freedesktop.systemd1.manage-unit-files"), 1},
 		{pk("org.freedesktop.systemd1.reload-daemon"), 1},
 	}
 	for _, check := range checks {
-		if run(ctx, "/usr/bin/pkcheck", check.args) != check.want {
-			return false
+		if runCustodyPolicyCommand(ctx, "/usr/bin/pkcheck", check.args) != check.want {
+			return 2
 		}
 	}
-	return true
+	if !exactLiveCustodyPolicySubject(request.Subject, os.Getenv("SUDO_UID")) {
+		return 2
+	}
+	return 0
 }
 
 func runCustodyPolicyCommand(ctx context.Context, path string, args []string) int {

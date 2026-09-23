@@ -13,24 +13,32 @@ import (
 func TestEffectiveCustodyStartPolicyRequiresExactNarrowGrant(t *testing.T) {
 	unit := "vsk-labs-backup-custody@0123456789abcdef0123456789abcdef.service"
 	subject := "123,456,21164"
+	policy := CustodyPolicy{ExecutablePath: "/usr/local/bin/vsk-labs"}
 	exact := func(_ context.Context, path string, args []string) int {
-		if path != "/usr/bin/pkcheck" {
+		if path != "/usr/bin/sudo" {
 			return -1
 		}
 		joined := strings.Join(args, " ")
-		if strings.Contains(joined, "--detail verb start --detail unit "+unit) {
+		if joined == "-n -l -- "+policy.ExecutablePath+" "+CustodyPolicyCheckMode {
 			return 0
 		}
 		return 1
 	}
-	if !effectiveCustodyStartPolicy(context.Background(), unit, subject, exact) {
+	aggregate := func(context.Context) ([]byte, error) {
+		return []byte("Matching Defaults entries for vsk-controller on host:\n    env_reset\n\nUser vsk-controller may run the following commands on host:\n    (root) NOPASSWD: " + policy.ExecutablePath + " " + CustodyPolicyCheckMode + "\n"), nil
+	}
+	rootCheck := func(context.Context, CustodyPolicy, string, string) bool { return true }
+	if !effectiveCustodyStartPolicy(context.Background(), policy, unit, subject, exact, aggregate, rootCheck) {
 		t.Fatal("exact custody authority rejected")
 	}
-	if effectiveCustodyStartPolicy(context.Background(), unit, subject, func(context.Context, string, []string) int { return 0 }) {
+	if effectiveCustodyStartPolicy(context.Background(), policy, unit, subject, func(context.Context, string, []string) int { return 0 }, aggregate, rootCheck) {
 		t.Fatal("broad custody authority accepted")
 	}
-	if effectiveCustodyStartPolicy(context.Background(), "other.service", subject, exact) {
+	if effectiveCustodyStartPolicy(context.Background(), policy, "other.service", subject, exact, aggregate, rootCheck) {
 		t.Fatal("foreign custody unit accepted")
+	}
+	if effectiveCustodyStartPolicy(context.Background(), policy, unit, subject, exact, aggregate, func(context.Context, CustodyPolicy, string, string) bool { return false }) {
+		t.Fatal("failed root policy qualification accepted")
 	}
 }
 

@@ -5,6 +5,7 @@ package backup
 import (
 	"context"
 	"errors"
+	"io"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
@@ -36,7 +37,11 @@ type CustodyClient interface {
 func (CustodyLauncher) Start(context.Context, CustodySession) (CustodyClient, error) {
 	return nil, errors.New("repository custody requires Linux")
 }
-func RunCustodyChild(string) error      { return errors.New("repository custody requires Linux") }
-func RunCustodySupervisor(string) error { return errors.New("repository custody requires Linux") }
+func RunCustodyChild(string) error                         { return errors.New("repository custody requires Linux") }
+func RunCustodySupervisor(string) error                    { return errors.New("repository custody requires Linux") }
+func RunCustodyPolicyCheck(context.Context, io.Reader) int { return 2 }
 
-const CustodySystemdMode = "__backup-custody-supervisor"
+const (
+	CustodySystemdMode     = "__backup-custody-supervisor"
+	CustodyPolicyCheckMode = "__backup-custody-policy-check"
+)

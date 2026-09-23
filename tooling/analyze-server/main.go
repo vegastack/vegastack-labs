@@ -109,7 +109,7 @@ func analyze(root string) (analysis, error) {
 				result.SQLiteAccess = true
 			}
 			approvedClientFile := relative == "internal/clientfile/read_unix.go"
-			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/lifecycle_verifier_linux.go" || relative == "internal/adapter/nativecredential/process_observer_linux.go" || relative == "internal/adapter/nativecredential/authority_linux.go" || relative == "internal/adapter/nativecredential/probe_linux.go" || relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go"
+			approvedNativeCredentialFile := relative == "internal/adapter/nativecredential/lifecycle_verifier_linux.go" || relative == "internal/adapter/nativecredential/process_observer_linux.go" || relative == "internal/adapter/nativecredential/authority_linux.go" || relative == "internal/adapter/nativecredential/probe_linux.go" || relative == "internal/adapter/nativecredential/encrypt_linux.go" || relative == "internal/adapter/nativecredential/inspect_linux.go" || relative == "internal/adapter/nativecredential/resolver_linux.go" || relative == "internal/adapter/nativecredential/verify_recovery_linux.go"
 			approvedLinuxFile := strings.HasSuffix(relative, "_linux.go") && (approvedNativeCredentialFile || strings.HasPrefix(relative, "internal/backup/") || strings.HasPrefix(relative, "internal/identity/") || strings.HasPrefix(relative, "internal/localapi/") || relative == "internal/server/credential_resolver_linux.go" || relative == "internal/server/remote_tls_linux.go" || relative == "internal/server/slack_acknowledgement_config_linux.go" || relative == "internal/server/systemd_credentials_linux.go" || strings.HasPrefix(relative, "internal/serverconfig/") || strings.HasPrefix(relative, "internal/store/"))
 			// #106's guarded local adapter and #146's exact protected recovery
 			// files are separate reviewed Unix file-descriptor scopes.
@@ -172,11 +172,16 @@ func analyze(root string) (analysis, error) {
 	source := serverSource.String()
 	result.PlatformScopeInvalid = !(strings.Contains(source, `"linux"`) && strings.Contains(source, `"amd64"`) && strings.Contains(source, `"debian"`) && (strings.Contains(source, "Major == 13") || strings.Contains(source, "major == 13") || strings.Contains(source, "major != 13")))
 	backupSource := localBackupSource.String()
-	for _, forbidden := range []string{"backup.NewRESTServer", "backup.NewVerifierRESTServer", "enumerateRepository(root", "os.ReadDir(root"} {
-		result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || strings.Contains(backupSource, forbidden)
-	}
-	for _, required := range []string{"backup.CustodyLauncher", "custody.Inventory", "custody.RunRestic", "CustodyPolicyPath"} {
-		result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || !strings.Contains(backupSource, required)
+	// Synthetic verifier fixtures omit the local-backup adapter entirely. Once
+	// either production adapter file is present, require the complete custody
+	// closure and reject every former direct repository path.
+	if backupSource != "" {
+		for _, forbidden := range []string{"backup.NewRESTServer", "backup.NewVerifierRESTServer", "enumerateRepository(root", "os.ReadDir(root"} {
+			result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || strings.Contains(backupSource, forbidden)
+		}
+		for _, required := range []string{"backup.CustodyLauncher", "custody.Inventory", "custody.RunRestic", "CustodyPolicyPath"} {
+			result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || !strings.Contains(backupSource, required)
+		}
 	}
 	return result, nil
 }

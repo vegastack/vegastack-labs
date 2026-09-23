@@ -493,8 +493,8 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 }
 
 const reviewedMainCompositionDigest = "f029c8f3e41b0f66ee2984d971d5d35735a456a60d36fcae6c07ca8ff64ef2d3"
-const reviewedMainNativeLinuxDigest = "d916127fc46a79e1a4c59c0e7934545f8947b7cd0abaa4425ce3a0d419a0676e"
-const reviewedMainNativeOtherDigest = "deefb3b9f732a3f6e27ae58fbf4f95edafba10a7aa54b93888271f7c49bb17c4"
+const reviewedMainNativeLinuxDigest = "9ea6fd43ed2658bd8d2c062221cbb3ec2fc7d551fcb55c1d331d2596aa7965aa"
+const reviewedMainNativeOtherDigest = "816adb135dd295b64d2935fa32e207e2ac6a95166d2aa87f9c303b95a1737d7d"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
 	approvedInternal := map[string]bool{
@@ -1181,7 +1181,7 @@ var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC
 var reviewedBackupSubprocesses = map[string]string{
 	"restic_linux.go":          "e76bbe0f63392dba83622c8cc4d2caf6466d556cf4d4e1416607c1d2878a5b37",
 	"custody_process_linux.go": "a964582435dba39b32e4848e951ad4da0f064f5fe4d0c04304714ae04329c7f1",
-	"custody_systemd_linux.go": "06f5696ae7c8df61cbd0bcfb1053a7244291bbf101498199f7c2f915c2f59f22",
+	"custody_systemd_linux.go": "a139065d4a32547171de6dcee2846f2d6fc22ae47b27833bc8133cafd5454717",
 }
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
@@ -1244,16 +1244,17 @@ func fileImportsOSExec(path string) (bool, error) {
 	return false, nil
 }
 
-// Exact Linux-only package seal includes #143's delegated OS probe and #141's
-// typed D-Bus lifecycle verifier. Any production edit must be reviewed and
-// resealed; no generic shell, provider, or server path allowance is added.
-const reviewedNativeCredentialDigest = "b1755e3590a11c4e2a2861fe3b12c1b6aad16de8e53ea1714839424b22dbf20d"
+// Exact Linux-only package seal includes #143's delegated OS probe, #141's
+// typed D-Bus lifecycle verifier, and #144's existing-draft recovery compare.
+// Any production edit must be reviewed and resealed; no generic shell,
+// provider, or server path allowance is added.
+const reviewedNativeCredentialDigest = "20872b9996adb7eed1e2b5fb907ee213377fe365943158065b31f58b4d533c26"
 
 func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCredentialImport, modulePath string) bool {
 	if candidate.listed.ImportPath != nativeCredentialImport || len(candidate.listed.CgoFiles) != 0 {
 		return false
 	}
-	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "lifecycle_verifier_linux.go", "policy_check_linux.go", "probe_linux.go", "process_observer_linux.go", "resolver_linux.go", "systemd_linux.go"}
+	expectedFiles := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "lifecycle_verifier_linux.go", "policy_check_linux.go", "probe_linux.go", "process_observer_linux.go", "resolver_linux.go", "systemd_linux.go", "verify_recovery_linux.go"}
 	if len(candidate.listed.GoFiles) != len(expectedFiles) {
 		return false
 	}
@@ -1263,7 +1264,7 @@ func reviewedNativeCredentialPackage(candidate checkedSourcePackage, nativeCrede
 		}
 	}
 	approvedImports := map[string]bool{
-		"bytes": true, "context": true, "crypto/sha256": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
+		"bytes": true, "context": true, "crypto/sha256": true, "crypto/subtle": true, "encoding/hex": true, "encoding/json": true, "errors": true, "fmt": true,
 		"io": true, "os": true, "os/exec": true, "os/user": true, "path/filepath": true, "reflect": true, "regexp": true,
 		"slices": true, "strconv": true, "strings": true, "syscall": true, "time": true, "golang.org/x/sys/unix": true,
 		"github.com/godbus/dbus/v5":            true,
