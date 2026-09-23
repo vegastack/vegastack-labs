@@ -3,11 +3,13 @@
 package backup
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +19,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -87,14 +90,16 @@ func TestPinnedResticOffsiteS3IAM(t *testing.T) {
 				t.Fatal(err)
 			}
 		}
-		command := exec.CommandContext(ctx, "/proc/self/fd/5", arguments...)
+		commandContext, commandCancel := context.WithTimeout(ctx, 15*time.Second)
+		defer commandCancel()
+		command := exec.CommandContext(commandContext, "/proc/self/fd/5", arguments...)
 		command.Args[0] = binary
 		command.ExtraFiles = []*os.File{passwordFile, bearerFile, binaryFile}
 		command.Env = environment
 		var stdout, stderr bytes.Buffer
 		command.Stdout, command.Stderr = &stdout, &stderr
 		if err := command.Run(); err != nil {
-			t.Fatalf("restic %v: %v stderr=%q", arguments, err, stderr.String())
+			t.Fatalf("restic %v: %v stderr=%q requests=%q", arguments, err, stderr.String(), storage.requestTrace())
 		}
 		if strings.Contains(stdout.String()+stderr.String(), string(bearer)) || strings.Contains(stdout.String()+stderr.String(), "fixture-parent-signing-material") {
 			t.Fatal("credential material escaped child output")
@@ -142,6 +147,7 @@ type hermeticS3 struct {
 	server                *httptest.Server
 	mu                    sync.Mutex
 	objects               map[string][]byte
+	requests              []string
 	iamAuthenticatedCalls int64
 }
 
@@ -152,12 +158,28 @@ func newHermeticS3(t *testing.T) *hermeticS3 {
 }
 
 func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.Request) {
+	fixture.mu.Lock()
+	requestLine := request.Method + " " + request.URL.RequestURI()
+	if byteRange := request.Header.Get("Range"); byteRange != "" {
+		requestLine += " range=" + byteRange
+	}
+	if encoding := request.Header.Get("Content-Encoding"); encoding != "" {
+		requestLine += " encoding=" + encoding
+	}
+	if decodedLength := request.Header.Get("X-Amz-Decoded-Content-Length"); decodedLength != "" {
+		requestLine += " decoded-length=" + decodedLength
+	}
+	if len(request.TransferEncoding) != 0 {
+		requestLine += " transfer=" + strings.Join(request.TransferEncoding, ",")
+	}
+	fixture.requests = append(fixture.requests, requestLine)
+	fixture.mu.Unlock()
 	if request.URL.Query().Has("location") {
 		writer.Header().Set("Content-Type", "application/xml")
 		_, _ = io.WriteString(writer, `<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></LocationConstraint>`)
 		return
 	}
-	if request.URL.Path == "/bucket" || request.URL.Path == "/bucket/" {
+	if (request.URL.Path == "/bucket" || request.URL.Path == "/bucket/") && request.Method == http.MethodHead {
 		writer.WriteHeader(http.StatusOK)
 		return
 	}
@@ -179,11 +201,12 @@ func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.R
 	defer fixture.mu.Unlock()
 	switch request.Method {
 	case http.MethodPut:
-		body, err := io.ReadAll(io.LimitReader(request.Body, 64<<20))
+		body, err := readS3PutBody(request)
 		if err != nil {
 			http.Error(writer, "read", http.StatusInternalServerError)
 			return
 		}
+		fixture.requests = append(fixture.requests, fmt.Sprintf("stored %s bytes=%d", key, len(body)))
 		fixture.objects[key] = append([]byte(nil), body...)
 		sum := md5.Sum(body)
 		writer.Header().Set("ETag", `"`+hex.EncodeToString(sum[:])+`"`)
@@ -194,7 +217,10 @@ func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.R
 			writeS3Missing(writer, key)
 			return
 		}
+		sum := md5.Sum(body)
 		writer.Header().Set("Content-Length", fmt.Sprint(len(body)))
+		writer.Header().Set("ETag", `"`+hex.EncodeToString(sum[:])+`"`)
+		writer.Header().Set("Last-Modified", time.Unix(1, 0).UTC().Format(http.TimeFormat))
 		writer.WriteHeader(http.StatusOK)
 	case http.MethodGet:
 		body, ok := fixture.objects[key]
@@ -209,6 +235,53 @@ func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.R
 	default:
 		http.Error(writer, "method", http.StatusMethodNotAllowed)
 	}
+}
+
+func readS3PutBody(request *http.Request) ([]byte, error) {
+	decodedLength := request.Header.Get("X-Amz-Decoded-Content-Length")
+	if decodedLength == "" {
+		return io.ReadAll(io.LimitReader(request.Body, 64<<20))
+	}
+	want, err := strconv.ParseInt(decodedLength, 10, 64)
+	if err != nil || want < 0 || want > 64<<20 {
+		return nil, fmt.Errorf("invalid decoded content length %q", decodedLength)
+	}
+	reader := bufio.NewReader(io.LimitReader(request.Body, 65<<20))
+	decoded := bytes.NewBuffer(make([]byte, 0, want))
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("read aws chunk header: %w", err)
+		}
+		fields := strings.SplitN(strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r"), ";", 2)
+		chunkLength, err := strconv.ParseInt(fields[0], 16, 64)
+		if err != nil || chunkLength < 0 {
+			return nil, fmt.Errorf("invalid aws chunk length %q", fields[0])
+		}
+		if chunkLength == 0 {
+			break
+		}
+		if decoded.Len()+int(chunkLength) > int(want) {
+			return nil, errors.New("aws chunk exceeds decoded content length")
+		}
+		if _, err := io.CopyN(decoded, reader, chunkLength); err != nil {
+			return nil, fmt.Errorf("read aws chunk: %w", err)
+		}
+		var terminator [2]byte
+		if _, err := io.ReadFull(reader, terminator[:]); err != nil || terminator != [2]byte{'\r', '\n'} {
+			return nil, errors.New("invalid aws chunk terminator")
+		}
+	}
+	if int64(decoded.Len()) != want {
+		return nil, fmt.Errorf("decoded content length %d does not match %d", decoded.Len(), want)
+	}
+	return decoded.Bytes(), nil
+}
+
+func (fixture *hermeticS3) requestTrace() []string {
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	return append([]string(nil), fixture.requests...)
 }
 
 func writeS3Missing(writer http.ResponseWriter, key string) {
