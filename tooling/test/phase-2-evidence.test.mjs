@@ -18,7 +18,7 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 20);
+  assert.equal(manifest.contract.reviewedWaves?.length, 22);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -105,12 +105,20 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.equal(manifest.contract.reviewedWaves[18].issue, 144);
   assert.deepEqual(manifest.contract.reviewedWaves[18].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[18].imports, []);
-  assert.equal(manifest.contract.reviewedWaves[19].id, "phase5-issue135-v1");
-  assert.equal(manifest.contract.reviewedWaves[19].issue, 135);
+  assert.equal(manifest.contract.reviewedWaves[19].id, "phase5-issue163-v1");
+  assert.equal(manifest.contract.reviewedWaves[19].issue, 163);
   assert.deepEqual(manifest.contract.reviewedWaves[19].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[19].imports, []);
-  assert.equal(manifest.contract.reviewedWaves[19].mutationBoundaryDigest, "sha256:7c73313c2c575c5c7903ebb7cf8422c903f8ae7327b57764ce418c541d35e405");
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[19].mutationBoundaryDigest);
+  assert.equal(manifest.contract.reviewedWaves[20].id, "phase5-issue154-v1");
+  assert.equal(manifest.contract.reviewedWaves[20].issue, 154);
+  assert.deepEqual(manifest.contract.reviewedWaves[20].commands, []);
+  assert.deepEqual(manifest.contract.reviewedWaves[20].imports, ["github.com/vegastack/vegastack-labs/internal/adapter/backuptrust"]);
+  assert.equal(manifest.contract.reviewedWaves[21].id, "phase5-issue135-v1");
+  assert.equal(manifest.contract.reviewedWaves[21].issue, 135);
+  assert.deepEqual(manifest.contract.reviewedWaves[21].commands, []);
+  assert.deepEqual(manifest.contract.reviewedWaves[21].imports, []);
+  assert.equal(manifest.contract.reviewedWaves[21].mutationBoundaryDigest, "sha256:5b8eb31e45ebc460a258c45d79fb170de3a8cbd14095f72dfb7522da3306e21a");
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[21].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
@@ -184,9 +192,9 @@ test("the #135 seal rejects lifecycle surface widening and older-wave drift", as
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   const cases = [
-    ["older fingerprint", (m) => { m.contract.reviewedWaves[18].mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; }, "PHASE2_TRACEABILITY_GAP"],
-    ["reordered final waves", (m) => { [m.contract.reviewedWaves[18], m.contract.reviewedWaves[19]] = [m.contract.reviewedWaves[19], m.contract.reviewedWaves[18]]; }, "PHASE2_TRACEABILITY_GAP"],
-    ["extra final-wave field", (m) => { m.contract.reviewedWaves[19].authority = "live"; }, "PHASE2_TRACEABILITY_GAP"],
+    ["older fingerprint", (m) => { m.contract.reviewedWaves[20].mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; }, "PHASE2_TRACEABILITY_GAP"],
+    ["reordered final waves", (m) => { [m.contract.reviewedWaves[20], m.contract.reviewedWaves[21]] = [m.contract.reviewedWaves[21], m.contract.reviewedWaves[20]]; }, "PHASE2_TRACEABILITY_GAP"],
+    ["extra final-wave field", (m) => { m.contract.reviewedWaves[21].authority = "live"; }, "PHASE2_TRACEABILITY_GAP"],
     ["credential reveal", (_m, f) => { f.availableCommands.push("credential reveal"); }, "PHASE2_MUTATION_AVAILABLE"],
     ["credential direct status", (_m, f) => { f.availableCommands.push("credential status direct"); }, "PHASE2_MUTATION_AVAILABLE"],
     ["credential scheduled mutation", (_m, f) => { f.availableCommands.push("credential schedule"); }, "PHASE2_MUTATION_AVAILABLE"],

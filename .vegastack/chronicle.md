@@ -11,6 +11,15 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none; `G-007` remains evidence-required, the optional 1Password resolver remains unregistered, and production recovery still requires independently enrolled sources, qualified live adapters and current replacement authority.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/135-f8-transition-api
+## 23-09-2026 — Local backup repositories have a separate short-lived custodian ([#163](https://github.com/vegastack/vegastack-labs/issues/163))
+
+- **What:** Backup creation and verification now request one bounded custody mode of the existing `vsk-labs` executable through an exact root-owned systemd template. The persistent controller, repository owner and pinned restic process run as three distinct UIDs and exchange only authenticated typed messages.
+- **Why:** The earlier same-process REST boundary constrained operations but still left the controller able to open repository paths directly, so writer and verifier separation did not establish independent repository custody.
+- **How it went:** A disposable Debian 13 ext4 fixture ran the actual controller as UID 21164, custody as UID 21163 and official restic 0.19.1 as UID 21165. It proved two writes and restoration of the older point while direct repository opens and forged unit, argument, path, identity and nonce requests failed. Integration with the merged native-authority work added a live effective-policy check before each exact unit start. Independent review then found that rejected or swapped exchange paths could still reach a root path-based ownership return; red regressions for `/`, `/etc` and deterministic symlink swaps led to retained `openat2`/`fstat`/`fchown` handles across the complete restic operation.
+- **Changed:** Root-owned custody profile and finite supervisor · authenticated lease/journal IPC · distinct-UID restic execution · brokered inventory/capacity/results · direct-path and forged-request denial · analyzer and reviewed-source seals · human failure procedure.
+- **Decisions:** none; the fixture installs no live account, unit, policy or storage, and does not close `G-008` or authorize pruning, retention changes or recovery cutover.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/163-local-repository-custody
 
 ## 23-09-2026 — Affected checks understand Linux-only Go packages ([#169](https://github.com/vegastack/vegastack-labs/issues/169))
 

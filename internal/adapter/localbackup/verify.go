@@ -6,9 +6,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	"net"
-	"os"
-	"path/filepath"
 	"runtime"
 	"time"
 
@@ -18,6 +15,12 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
+)
+
+const (
+	backupVerificationReasonIntegrityFailure = "integrity-failure"
+	backupVerificationReasonDependencyTrust  = "backup-dependency-trust"
+	backupVerificationReasonCapacity         = "backup-capacity"
 )
 
 // executeBoundVerify uses the same exact-plan credential boundary as creation.
@@ -78,24 +81,27 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	}()
 	readLease := backup.ReadLease{LeaseID: leaseID, PointID: point.PointID, RepositoryID: point.RepositoryID,
 		RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline}
-	server, err := backup.NewVerifierRESTServer(root, adapterImpl.config.ExpectedUID, readLease,
-		&readLeaseVerifier{backups: adapterImpl.config.Backups, request: leaseRequest}, adapterImpl.config.Clock)
-	if err != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-rest")
+	custodyPolicy, err := backup.LoadCustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
+	if err != nil || custodyPolicy.ControllerUID != adapterImpl.config.ExpectedUID || custodyPolicy.StandardRoot != adapterImpl.config.LocalBackup.StandardRoot || custodyPolicy.CriticalRoot != adapterImpl.config.LocalBackup.CriticalRoot {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-custody-policy")
 	}
-	socketDir, err := os.MkdirTemp(filepath.Dir(root), ".vsk-backup-verify-socket-")
+	readVerifier := &readLeaseVerifier{backups: adapterImpl.config.Backups, request: leaseRequest}
+	session := backup.CustodySession{ProtocolVersion: backup.CustodyProtocolVersion, Role: "verifier", PlanID: binding.PlanID, PlanDigest: binding.PlanDigest,
+		RunID: binding.RunID, StepID: binding.StepID, LeaseID: leaseID, RepositoryID: point.RepositoryID, RepositoryClass: point.RepositoryClass,
+		PointID: point.PointID, SourceID: policy.SourceID, SourceRevision: point.SourceRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline,
+		MaximumObjects: int64(len(manifest.ExpectedObjects)) + 100_000, MaximumBytes: manifest.ExpectedObjectBytes + policy.ExpectedGrowthBytes, ReadLease: &readLease}
+	launcher := backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Reader: readVerifier,
+		Journal: &custodyJournal{backups: adapterImpl.config.Backups, read: &leaseRequest}, Clock: adapterImpl.config.Clock}
+	custody, err := launcher.Start(ctx, session)
 	if err != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-socket")
+		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-custody")
 	}
-	defer os.RemoveAll(socketDir)
-	listener, err := net.Listen("unix", filepath.Join(socketDir, "rest.sock"))
-	if err != nil {
-		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-socket")
-	}
-	defer listener.Close()
-	serveCtx, cancelServe := context.WithCancel(ctx)
-	defer cancelServe()
-	go func() { _ = server.Serve(serveCtx, listener) }()
+	defer func() {
+		if err := custody.Close(context.WithoutCancel(ctx)); err != nil {
+			effect = adapter.Effect{EffectObserved: true}
+			effectErr = backupError(generated.ErrorCodeRecoveryRequired, "local-backup-verify-custody-close")
+		}
+	}()
 
 	proofClass := "fixture"
 	if adapterImpl.config.LiveProof {
@@ -106,7 +112,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		ObservedDigest: point.InventoryDigest, ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest,
 		DependencyDigest: manifest.DependencyInventoryDigest, KeyReferenceID: manifest.KeyReferenceID,
 		SourceRevision: point.SourceRevision, Expected: leaseRequest.Expected, ProofClass: proofClass,
-		Result: "failed", ReasonCode: "INTEGRITY_FAILURE"}
+		Result: "failed", ReasonCode: backupVerificationReasonIntegrityFailure}
 	defer func() {
 		// A failed verification still leaves an append-only attempt. If the epoch
 		// changed, the store rejects it; the run engine records the stale failure.
@@ -114,15 +120,19 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 			_, _ = adapterImpl.config.Backups.AppendLocalVerification(context.WithoutCancel(ctx), attempt)
 		}
 	}()
-	inventory, err := backup.VerifyLocalInventory(ctx, manifest, point.ManifestDigest, server)
+	observed, err := custody.InventoryExpected(ctx, manifest.ExpectedObjects)
+	if err != nil {
+		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-inventory")
+	}
+	inventory, err := backup.VerifyCustodyInventory(manifest, point.ManifestDigest, observed)
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-inventory")
 	}
 	base := backup.ResticRequest{BinaryPath: adapterImpl.config.LocalBackup.ResticBinaryPath, Architecture: runtime.GOARCH,
-		RepositoryURL: "http+unix://" + listener.Addr().String() + ":/" + point.RepositoryID + "/",
-		RepositoryID:  point.RepositoryID, RepositoryClass: point.RepositoryClass, RepositoryRoot: root,
-		PolicyDigest: policyDigest}
-	functional, err := backup.VerifyFunctionalRestore(ctx, inventory, manifest, adapterImpl.config.Runner, base, values[0], adapterImpl.config.Inspector)
+		RepositoryURL: custody.RepositoryURL(),
+		RepositoryID:  point.RepositoryID, RepositoryClass: point.RepositoryClass, RepositoryRoot: root, ExchangeRoot: custodyPolicy.ExchangeRoot,
+		PolicyDigest: policyDigest, ExecutionUID: custodyPolicy.ResticUID, ExecutionGID: custodyPolicy.ResticUID, ControllerUID: custodyPolicy.ControllerUID}
+	functional, err := backup.VerifyFunctionalRestore(ctx, inventory, manifest, custodyResticRunner{client: custody}, base, values[0], adapterImpl.config.Inspector)
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-functional")
 	}
@@ -138,15 +148,27 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 			Expected: manifest.ExpectedDependencies}
 		evidence, err := adapterImpl.config.Trust.VerifyCurrent(ctx, trustRequest)
 		if err != nil || !exactDependencyTrust(trustRequest.Expected, evidence, binding.StateRevision, binding.RecoveryEpoch) {
+			attempt.ReasonCode = backupVerificationReasonDependencyTrust
 			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-dependency-trust")
+		}
+		attempt.DependencyTrust = make([]store.BackupDependencyTrustEvidence, 0, len(evidence))
+		for _, proof := range evidence {
+			attempt.DependencyTrust = append(attempt.DependencyTrust, store.BackupDependencyTrustEvidence{
+				DependencyID: proof.DependencyID, Kind: proof.Kind, Digest: proof.Digest, SourceKind: proof.SourceKind,
+				PointID: proof.PointID, PolicyDigest: proof.PolicyDigest, SourceID: proof.SourceID, ArtifactID: proof.ArtifactID,
+				BundleDigest: proof.BundleDigest, TrustedRootReferenceID: proof.TrustedRootReferenceID,
+				TrustRootDigest: proof.TrustRootDigest, SignerIdentity: proof.SignerIdentity, SignerIssuer: proof.SignerIssuer,
+				SourceRevision: proof.SourceRevision, StateRevision: proof.StateRevision, RecoveryEpoch: proof.RecoveryEpoch,
+			})
 		}
 		// The creation admission is historical. Recheck current filesystem
 		// headroom immediately before publishing a live proof or last-good CAS.
 		// A smaller isolated restore may succeed after the policy's declared
 		// recovery/retention capacity has been consumed by another workload.
-		if err := admitCapacity(root, policy); err != nil {
-			attempt.ReasonCode = string(generated.ErrorCodePrerequisiteBlocked)
-			return adapter.Effect{}, err
+		free, capacityErr := custody.Capacity(ctx)
+		if capacityErr != nil || !capacityAdmitted(free, policy) {
+			attempt.ReasonCode = backupVerificationReasonCapacity
+			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-capacity")
 		}
 	}
 	if err := adapterImpl.config.Backups.VerifyActiveReadLease(ctx, leaseRequest, adapterImpl.config.Clock()); err != nil {
@@ -170,6 +192,16 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	}
 	return adapter.Effect{Status: "succeeded", ResultDigest: receipt.ProofDigest, PendingPointID: &point.PointID,
 		Changed: true, EffectObserved: true}, nil
+}
+
+type custodyResticRunner struct{ client backup.CustodyClient }
+
+func (runner custodyResticRunner) Run(ctx context.Context, request backup.ResticRequest, password *credentialref.Value) (backup.ResticResult, error) {
+	return runner.client.RunRestic(ctx, request, password)
+}
+
+func (runner custodyResticRunner) Observation() backup.ResticObservation {
+	return runner.client.ResticObservation()
 }
 
 func backupProfileMatches(profile *serverconfig.LocalBackup, policy generated.BackupPolicy) bool {

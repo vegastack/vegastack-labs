@@ -4,8 +4,11 @@ package localbackup
 
 import (
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -26,6 +29,29 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
+func init() {
+	if len(os.Args) == 2 && os.Args[1] == backup.CustodyPolicyCheckMode {
+		os.Exit(backup.RunCustodyPolicyCheck(context.Background(), os.Stdin))
+	}
+	if os.Getenv("VSK_BACKUP_CUSTODY_SUPERVISOR") == "1" {
+		if len(os.Args) != 3 || os.Args[1] != backup.CustodySystemdMode {
+			os.Exit(1)
+		}
+		if err := backup.RunCustodySupervisor(os.Args[2]); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	if os.Getenv("VSK_BACKUP_CUSTODY") == "1" {
+		if err := backup.RunCustodyChild(os.Getenv("VSK_BACKUP_CUSTODY_POLICY")); err != nil {
+			_, _ = fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+}
+
 type fixedPlanSource struct{ plan generated.Plan }
 
 func (source fixedPlanSource) GetPlan(_ context.Context, id string) (store.PlanCommitResult, error) {
@@ -44,15 +70,34 @@ func TestLocalBackupComposition(t *testing.T) {
 	if binary == "" {
 		t.Skip("official pinned restic 0.19.1 binary not provided")
 	}
+	systemdFixture := os.Getenv("VSK_CUSTODY_SYSTEMD_FIXTURE") == "1"
+	if !systemdFixture && os.Geteuid() != 0 {
+		t.Skip("distinct-UID custody acceptance requires disposable root")
+	}
+	if systemdFixture && os.Geteuid() != 21164 {
+		t.Fatalf("systemd fixture controller uid=%d want=21164", os.Geteuid())
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
-	root := t.TempDir()
-	if err := os.Chmod(root, 0o700); err != nil {
-		t.Fatal(err)
+	root := "/var/lib/vsk163-systemd"
+	var err error
+	if !systemdFixture {
+		root, err = os.MkdirTemp("/var/lib", "vsk-localbackup-custody-")
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = os.RemoveAll(root) })
+		if err := os.Chmod(root, 0o755); err != nil {
+			t.Fatal(err)
+		}
 	}
 	uid := uint32(os.Geteuid())
+	controlRoot := filepath.Join(root, "control")
+	if err := os.Mkdir(controlRoot, 0o700); err != nil && !systemdFixture {
+		t.Fatal(err)
+	}
 	authority, err := store.Open(ctx, store.Config{
-		DatabasePath: filepath.Join(root, "control.db"), Mode: store.InitializeNew,
+		DatabasePath: filepath.Join(controlRoot, "control.db"), Mode: store.InitializeNew,
 		ExpectedUID: uid, BusyTimeout: 5 * time.Second, ToolVersion: "test", BuildVersion: "test",
 	})
 	if err != nil {
@@ -68,7 +113,9 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	freeBefore, err := freeBytes(root)
+	var filesystem unix.Statfs_t
+	err = unix.Statfs(root, &filesystem)
+	freeBefore := uint64(filesystem.Bavail) * uint64(filesystem.Bsize)
 	if err != nil || freeBefore < 256<<20 || freeBefore > math.MaxInt64 {
 		t.Skip("disposable filesystem lacks bounded capacity-fixture headroom")
 	}
@@ -116,8 +163,32 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	standard := filepath.Join(root, "standard")
 	critical := filepath.Join(root, "critical")
-	for _, path := range []string{standard, critical} {
-		if err := os.Mkdir(path, 0o700); err != nil {
+	standardQ, criticalQ := filepath.Join(root, "standard-q"), filepath.Join(root, "critical-q")
+	const custodyUID, controllerUID, resticUID = uint32(21163), uint32(21164), uint32(21165)
+	if !systemdFixture {
+		for _, path := range []string{standard, critical, standardQ, criticalQ} {
+			if err := os.Mkdir(path, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.Chown(path, int(custodyUID), int(custodyUID)); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	custodyPath := backup.CustodyPolicyPath
+	if !systemdFixture {
+		executable, err := os.ReadFile("/proc/self/exe")
+		if err != nil {
+			t.Fatal(err)
+		}
+		executableSum := sha256.Sum256(executable)
+		custody := backup.CustodyPolicy{SchemaVersion: "1.0.0", StandardRoot: standard, CriticalRoot: critical, StandardQuarantine: standardQ, CriticalQuarantine: criticalQ,
+			OwnerUID: custodyUID, OwnerGID: custodyUID, ControllerUID: controllerUID, ResticUID: resticUID,
+			RequestRoot: filepath.Join(root, "requests"), ExchangeRoot: filepath.Join(root, "exchange"), UnitTemplate: "vsk-labs-backup-custody@.service",
+			ExecutablePath: "/proc/self/exe", ResticBinaryPath: binary, ExecutableDigest: "sha256:" + hex.EncodeToString(executableSum[:]), MaximumLifetime: 10 * time.Minute}
+		custodyBody, _ := json.Marshal(custody)
+		custodyPath = filepath.Join(root, "custody.json")
+		if err := os.WriteFile(custodyPath, custodyBody, 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -126,10 +197,10 @@ func TestLocalBackupComposition(t *testing.T) {
 		Binding:    generated.PlanBinding{RecoveryEpoch: 0, StateRevision: submission.StateRevision},
 		Extensions: []generated.ContractExtension{{Name: "x-backup-policy", ValueDigest: submission.PolicyDigest}}}
 	implementation, err := New(Config{
-		LocalBackup: &serverconfig.LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
+		LocalBackup: &serverconfig.LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary, CustodyPolicyPath: custodyPath,
 			SourceID: backupidentity.ControlDatabaseSource, StandardRepositoryID: backupidentity.StandardRepository,
 			CriticalRepositoryID: backupidentity.CriticalRepository},
-		ExpectedUID: uid, Backups: backups, Snapshots: snapshots, Inspector: inspector, Plans: fixedPlanSource{plan},
+		ExpectedUID: controllerUID, Backups: backups, Snapshots: snapshots, Inspector: inspector, Plans: fixedPlanSource{plan},
 		Hooks: backup.DefaultHookRegistry(), Runner: backup.NewResticRunner(), Clock: time.Now,
 	})
 	if err != nil {
@@ -206,7 +277,7 @@ func TestLocalBackupComposition(t *testing.T) {
 	verificationEffect, err := implementation.ExecuteBoundWithCredentials(ctx, verifyOperation, verifyBinding, []*credentialref.Value{verifyPassword})
 	verifyPassword.Close()
 	if err != nil || verificationEffect.Status != "succeeded" || verificationEffect.ResultDigest == "" {
-		t.Fatalf("fixture verification effect=%#v err=%v", verificationEffect, err)
+		t.Fatalf("fixture verification effect=%#v err=%v restic=%#v", verificationEffect, err, implementation.config.Runner.Observation())
 	}
 	verificationReceipt, err := backups.GetLocalVerificationByDigest(ctx, verificationEffect.ResultDigest)
 	if err != nil || verificationReceipt.Status != "fixture-only" || verificationReceipt.PointID != firstPoint {
@@ -243,7 +314,12 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err != nil || priorGood == "" {
 		t.Fatalf("first live proof did not establish last-good: %q %v", priorGood, err)
 	}
-	filler, err := os.Create(filepath.Join(root, "capacity-reservation"))
+	custodyPolicy, err := backup.LoadCustodyPolicy(custodyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fillerPath := filepath.Join(custodyPolicy.ExchangeRoot, "capacity-reservation")
+	filler, err := os.Create(fillerPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -257,7 +333,8 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err := filler.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if err := admitCapacity(standard, policy); err == nil {
+	var constrained unix.Statfs_t
+	if err := unix.Statfs(standard, &constrained); err != nil || capacityAdmitted(uint64(constrained.Bavail)*uint64(constrained.Bsize), policy) {
 		t.Fatal("capacity fixture did not cross policy headroom")
 	}
 	second, err := backups.GetPendingRecoveryPoint(ctx, secondPoint)
@@ -293,6 +370,15 @@ func TestLocalBackupComposition(t *testing.T) {
 	if !failedAttempt {
 		t.Fatalf("low capacity did not append failed attempt: %#v", status.Verifications)
 	}
+	if err := os.Remove(fillerPath); err != nil {
+		t.Fatal(err)
+	}
+	if systemdFixture {
+		if err := os.WriteFile(filepath.Join(standard, "config"), []byte("forged"), 0o600); !errors.Is(err, unix.EACCES) {
+			t.Fatalf("controller direct repository write err=%v want EACCES", err)
+		}
+		return
+	}
 	// A retained repository with an invalid format must fail before the next
 	// restic backup and leave both existing pending points intact.
 	if err := os.WriteFile(filepath.Join(standard, "config"), []byte(`{"version":1,"id":"old"}`), 0o600); err != nil {
@@ -318,7 +404,7 @@ func TestLocalBackupComposition(t *testing.T) {
 
 func TestCapacityAdmissionRejectsInt64ForecastOverflow(t *testing.T) {
 	policy := generated.BackupPolicy{ExpectedBytes: math.MaxInt64, ExpectedGrowthBytes: math.MaxInt64, MinimumFreeBytes: 2}
-	if err := admitCapacity(t.TempDir(), policy); err == nil {
+	if capacityAdmitted(^uint64(0), policy) {
 		t.Fatal("wrapped capacity forecast admitted")
 	}
 }

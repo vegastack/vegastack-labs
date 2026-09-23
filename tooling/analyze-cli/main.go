@@ -380,7 +380,10 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			continue
 		}
 		for _, imported := range candidate.Imports {
-			if imported == serverImport || strings.HasPrefix(imported, serverImport+"/") {
+			// The server and the exact reviewed backup-custody package are private
+			// executable modes, not portable CLI control capabilities. Both remain
+			// subject to their dedicated whole-package and subprocess guards.
+			if imported == serverImport || strings.HasPrefix(imported, serverImport+"/") || imported == backupImport {
 				continue
 			}
 			for importPath := range moduleDependencyClosure(inModule, imported) {
@@ -490,11 +493,12 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 }
 
 const reviewedMainCompositionDigest = "f029c8f3e41b0f66ee2984d971d5d35735a456a60d36fcae6c07ca8ff64ef2d3"
-const reviewedMainNativeLinuxDigest = "16116cb74720a2fb63ca0620d18de32562af85ac2bef14632ff099215f3298c5"
-const reviewedMainNativeOtherDigest = "85ceea51c9c743acc5f43deeda510390a9a2c14b03e0190e1de187059ed0df31"
+const reviewedMainNativeLinuxDigest = "9ea6fd43ed2658bd8d2c062221cbb3ec2fc7d551fcb55c1d331d2596aa7965aa"
+const reviewedMainNativeOtherDigest = "816adb135dd295b64d2935fa32e207e2ac6a95166d2aa87f9c303b95a1737d7d"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
 	approvedInternal := map[string]bool{
+		modulePath + "/internal/backup":                   true,
 		modulePath + "/internal/adapter/nativecredential": true,
 		cliImport:                       true,
 		clientFileImport:                true,
@@ -627,9 +631,9 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
 		}
 	case "serverconfig":
-		expected = "7e91eac4a55dd1d5b6b2d37a159165b952774cb85afb230b47409fdc58a46429"
+		expected = "904856d34fcaec02b23865e5abc87c5793afb93c5d7ec12d5706c25cbb6f3da0"
 		if containsString(names, "profile_linux.go") {
-			expected = "a6a599e60e960cdfa717903a4e197c04284ca3dcfabb9f8a26a47841935a1421"
+			expected = "dafef7193c4e88965d8e87cb1103174ffb3e876da80c23973b18a6540abb0e8e"
 		}
 	default:
 		return false
@@ -1171,17 +1175,14 @@ const reviewedSSHTransportDigest = "398d7cc24e246c024285ed0dc7aea0d178b64fe53f42
 // or a disabled repository lock.
 var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC_PASSWORD=", "--no-lock"}
 
-// reviewedBackupSubprocessFile is the single reviewed source file in the backup
-// package permitted to import os/exec: the pinned restic child runner. Its exact
-// bytes are pinned by reviewedBackupSubprocessDigest so the sealed-FD discipline
-// cannot be silently rewritten, and no other file in the package may take on a
-// subprocess dependency.
-const reviewedBackupSubprocessFile = "restic_linux.go"
-
-// reviewedBackupSubprocessDigest pins the exact reviewed bytes of the restic
-// child runner. Any edit to restic_linux.go must be re-reviewed and this digest
-// resealed; until then the os/exec allowance fails closed.
-const reviewedBackupSubprocessDigest = "75a2d621f8a2509d651d4573077c2097b79ea8e811498ee388ebdd8c4ca1189b"
+// reviewedBackupSubprocesses are the only backup files permitted to import
+// os/exec: the pinned restic runner and the exact systemd custody launcher.
+// Each file is byte-pinned so neither authority can silently expand.
+var reviewedBackupSubprocesses = map[string]string{
+	"restic_linux.go":          "e76bbe0f63392dba83622c8cc4d2caf6466d556cf4d4e1416607c1d2878a5b37",
+	"custody_process_linux.go": "a964582435dba39b32e4848e951ad4da0f064f5fe4d0c04304714ae04329c7f1",
+	"custody_systemd_linux.go": "687486882f2790caef88bf73b0bf01fe5ba99d5503d0607aac4799c10c82a43c",
+}
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
 // subprocess file (#106). It confirms the import path, that os/exec is confined
@@ -1192,7 +1193,7 @@ func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport s
 	if candidate.listed.ImportPath != backupImport {
 		return false
 	}
-	subprocessFilePresent := false
+	seen := make(map[string]bool, len(reviewedBackupSubprocesses))
 	for _, name := range candidate.listed.GoFiles {
 		path := filepath.Join(candidate.listed.Dir, name)
 		source, err := os.ReadFile(path)
@@ -1208,12 +1209,12 @@ func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport s
 		if err != nil {
 			return false
 		}
-		if name == reviewedBackupSubprocessFile {
-			subprocessFilePresent = true
+		if expected, reviewed := reviewedBackupSubprocesses[name]; reviewed {
+			seen[name] = true
 			if !usesExec || !strings.HasPrefix(string(source), "//go:build linux") {
 				return false
 			}
-			if digestSourceFiles(candidate.listed.Dir, []string{name}) != reviewedBackupSubprocessDigest {
+			if digestSourceFiles(candidate.listed.Dir, []string{name}) != expected {
 				return false
 			}
 			continue
@@ -1223,7 +1224,7 @@ func reviewedBackupProcessPackage(candidate checkedSourcePackage, backupImport s
 			return false
 		}
 	}
-	return subprocessFilePresent
+	return len(seen) == len(reviewedBackupSubprocesses)
 }
 
 // fileImportsOSExec reports whether one Go source file imports os/exec, parsing

@@ -20,12 +20,18 @@ type ResticRequest struct {
 	RepositoryID    string
 	RepositoryClass string
 	RepositoryRoot  string
+	ExchangeRoot    string
 	SnapshotPath    string
 	SnapshotID      string
 	RestoreTarget   string
 	PolicyDigest    string
 	Lease           WriterLease
 	OutputLimit     int64
+	// ExecutionUID/GID are fixed by the root-owned custody policy. Zero keeps
+	// the current identity for legacy isolated tests only.
+	ExecutionUID  uint32
+	ExecutionGID  uint32
+	ControllerUID uint32
 }
 
 // ResticResult is the secret-free description of a completed backup child.

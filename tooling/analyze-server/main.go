@@ -16,13 +16,14 @@ import (
 )
 
 type analysis struct {
-	ExecutableDirectories []string `json:"executableDirectories"`
-	TCPListener           bool     `json:"tcpListener"`
-	IdentityHeaderTrust   bool     `json:"identityHeaderTrust"`
-	ContextSetterOutside  bool     `json:"contextSetterOutside"`
-	SQLiteAccess          bool     `json:"sqliteAccess"`
-	XSysOutsideScope      bool     `json:"xSysOutsideScope"`
-	PlatformScopeInvalid  bool     `json:"platformScopeInvalid"`
+	ExecutableDirectories    []string `json:"executableDirectories"`
+	TCPListener              bool     `json:"tcpListener"`
+	IdentityHeaderTrust      bool     `json:"identityHeaderTrust"`
+	ContextSetterOutside     bool     `json:"contextSetterOutside"`
+	SQLiteAccess             bool     `json:"sqliteAccess"`
+	XSysOutsideScope         bool     `json:"xSysOutsideScope"`
+	PlatformScopeInvalid     bool     `json:"platformScopeInvalid"`
+	RepositoryCustodyInvalid bool     `json:"repositoryCustodyInvalid"`
 }
 
 func main() {
@@ -46,6 +47,7 @@ func analyze(root string) (analysis, error) {
 	var result analysis
 	mainDirectories := make(map[string]bool)
 	serverSource := strings.Builder{}
+	localBackupSource := strings.Builder{}
 	remoteListenerPresent := false
 	approvedRemoteTCP := make(map[token.Pos]bool)
 	err := filepath.WalkDir(root, func(filename string, entry os.DirEntry, walkErr error) error {
@@ -87,6 +89,9 @@ func analyze(root string) (analysis, error) {
 		importAliases := make(map[string]string)
 		if isServer {
 			serverSource.Write(content)
+		}
+		if relative == "internal/adapter/localbackup/adapter.go" || relative == "internal/adapter/localbackup/verify.go" {
+			localBackupSource.Write(content)
 		}
 		for _, imported := range file.Imports {
 			importPath, err := strconv.Unquote(imported.Path.Value)
@@ -166,6 +171,18 @@ func analyze(root string) (analysis, error) {
 	}
 	source := serverSource.String()
 	result.PlatformScopeInvalid = !(strings.Contains(source, `"linux"`) && strings.Contains(source, `"amd64"`) && strings.Contains(source, `"debian"`) && (strings.Contains(source, "Major == 13") || strings.Contains(source, "major == 13") || strings.Contains(source, "major != 13")))
+	backupSource := localBackupSource.String()
+	// Synthetic verifier fixtures omit the local-backup adapter entirely. Once
+	// either production adapter file is present, require the complete custody
+	// closure and reject every former direct repository path.
+	if backupSource != "" {
+		for _, forbidden := range []string{"backup.NewRESTServer", "backup.NewVerifierRESTServer", "enumerateRepository(root", "os.ReadDir(root"} {
+			result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || strings.Contains(backupSource, forbidden)
+		}
+		for _, required := range []string{"backup.CustodyLauncher", "custody.Inventory", "custody.RunRestic", "CustodyPolicyPath"} {
+			result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || !strings.Contains(backupSource, required)
+		}
+	}
 	return result, nil
 }
 
