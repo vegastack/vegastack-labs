@@ -54,13 +54,29 @@ func NewProductionRuntime(config RuntimeConfig) (*ProductionRuntime, error) {
 	return &ProductionRuntime{config: config}, nil
 }
 
+func (runtimeConfig *ProductionRuntime) OffsitePolicy(declaration backup.OffsiteRunDeclaration) (backup.OffsitePolicy, error) {
+	if runtimeConfig == nil || declaration.GenerationID == "" || declaration.ParentReferenceID != runtimeConfig.config.ParentReferenceID || declaration.ObserverReferenceID != runtimeConfig.config.ObserverReferenceID || declaration.RuleDigest != runtimeConfig.config.RuleDigest {
+		return backup.OffsitePolicy{}, errors.New("r2 offsite policy unavailable")
+	}
+	return backup.OffsitePolicy{PolicyID: "offsite-" + declaration.GenerationID, ProfileID: "vegastack-labs", GenerationID: declaration.GenerationID, Bucket: runtimeConfig.config.Bucket, Prefix: runtimeConfig.config.Prefix,
+		ParentReferenceID: runtimeConfig.config.ParentReferenceID, ParentFingerprint: runtimeConfig.config.ParentFingerprint, MaximumBytes: declaration.MaximumBytes, MaximumPUTs: declaration.MaximumPUTs, MaximumLISTs: declaration.MaximumLISTs,
+		MaximumRetainedGenerations: declaration.MaximumRetainedGenerations, RuleLimit: declaration.RuleLimit, RetentionWindow: time.Duration(declaration.RetentionSeconds) * time.Second, SessionTTL: time.Duration(declaration.SessionTTLSeconds) * time.Second, Clock: runtimeConfig.config.Clock}, nil
+}
+
 func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, declaration backup.OffsiteRunDeclaration, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (backup.OffsiteRunSpec, error) {
 	if runtimeConfig == nil || len(values) != 3 || values[0] == nil || values[1] == nil || values[2] == nil || declaration.ParentReferenceID != runtimeConfig.config.ParentReferenceID || declaration.ObserverReferenceID != runtimeConfig.config.ObserverReferenceID || declaration.RuleDigest != runtimeConfig.config.RuleDigest {
 		return backup.OffsiteRunSpec{}, errors.New("r2 run preparation denied")
 	}
+	policy, err := runtimeConfig.OffsitePolicy(declaration)
+	if err != nil {
+		return backup.OffsiteRunSpec{}, err
+	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
 	if err != nil || !runtimeConfig.config.Clock().Before(deadline) {
 		return backup.OffsiteRunSpec{}, errors.New("r2 run deadline invalid")
+	}
+	if err := runtimeConfig.reconcileCleanupObligations(ctx, values[0], binding.RecoveryEpoch); err != nil {
+		return backup.OffsiteRunSpec{}, err
 	}
 	retention, err := (RetentionClient{AccountID: runtimeConfig.config.AccountID, Bucket: runtimeConfig.config.Bucket, Client: runtimeConfig.config.HTTPClient, Clock: runtimeConfig.config.Clock,
 		AvailableBytes: runtimeConfig.config.AvailableBytes, AvailablePUTs: runtimeConfig.config.AvailablePUTs, AvailableLISTs: runtimeConfig.config.AvailableLISTs,
@@ -118,8 +134,11 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	if err != nil {
 		return backup.OffsiteRunSpec{}, err
 	}
-	probeDigest := sha256.Sum256([]byte(binding.RunID + "\x00" + binding.StepID + "\x00" + declaration.GenerationID))
-	cutoff = &qualifiedCutoff{s3: s3, clock: runtimeConfig.config.Clock, deadline: deadline, key: runtimeConfig.config.Prefix + "/" + declaration.GenerationID + "/locks/cutoff-" + hex.EncodeToString(probeDigest[:16]), cleanup: cleanupCredentials}
+	obligationID, probeKey := cutoffProbeBinding(runtimeConfig.config.Prefix, binding.RunID, binding.StepID, declaration.GenerationID)
+	cutoff = &qualifiedCutoff{s3: s3, clock: runtimeConfig.config.Clock, deadline: deadline, key: probeKey, cleanup: cleanupCredentials,
+		repository: store.NewOffsiteRepository(runtimeConfig.config.Authority), obligation: store.OffsiteCleanupObligation{ObligationID: obligationID, GenerationID: declaration.GenerationID,
+			CredentialReferenceID: declaration.ParentReferenceID, CredentialFingerprint: runtimeConfig.config.ParentFingerprint, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID,
+			SourceRevision: declaration.SourceRevision, StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch}}
 	bearer := make([]byte, 32)
 	if _, err := rand.Read(bearer); err != nil {
 		for index := range bearer {
@@ -159,14 +178,54 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	verifierSession.Role = "offsite-verifier"
 	observer.launcher, observer.session = launcher, verifierSession
 	spec := backup.OffsiteRunSpec{PointID: declaration.SourcePointID,
-		Policy: backup.OffsitePolicy{PolicyID: "offsite-" + declaration.GenerationID, ProfileID: "vegastack-labs", GenerationID: declaration.GenerationID, Bucket: runtimeConfig.config.Bucket, Prefix: runtimeConfig.config.Prefix,
-			ParentReferenceID: runtimeConfig.config.ParentReferenceID, ParentFingerprint: runtimeConfig.config.ParentFingerprint, MaximumBytes: declaration.MaximumBytes, MaximumPUTs: declaration.MaximumPUTs, MaximumLISTs: declaration.MaximumLISTs,
-			MaximumRetainedGenerations: declaration.MaximumRetainedGenerations, RuleLimit: declaration.RuleLimit, RetentionWindow: time.Duration(declaration.RetentionSeconds) * time.Second, SessionTTL: time.Duration(declaration.SessionTTLSeconds) * time.Second, Clock: runtimeConfig.config.Clock},
+		Policy:    policy,
 		Retention: retention, Copy: backup.CopyConfig{Custody: custody, Endpoint: endpoint, BinaryPath: runtimeConfig.config.ResticBinaryPath, Architecture: runtime.GOARCH, RepositoryURL: declaration.RepositoryURL, Bucket: runtimeConfig.config.Bucket, SnapshotPath: declaration.SnapshotPath,
 			PasswordFDPath: "/proc/self/fd/3", AuthorizationTokenFDPath: "/proc/self/fd/4", IAMURI: writerIAMURI, Password: values[1], Inventory: observer, Binding: writerRequest},
 		Verifier: backup.OffsiteVerifierConfig{Source: observer, ProofID: "proof-" + declaration.GenerationID, ProofClass: backup.OffsiteProofQualified, Clock: runtimeConfig.config.Clock, FullReadMaximumAge: 24 * time.Hour}, Cutoff: cutoff, WriterSealObservedAt: deadline}
 	prepared = true
 	return spec, nil
+}
+
+func (runtimeConfig *ProductionRuntime) reconcileCleanupObligations(ctx context.Context, parent *credentialref.Value, recoveryEpoch int64) error {
+	repository := store.NewOffsiteRepository(runtimeConfig.config.Authority)
+	pending, err := repository.PendingCleanupObligations(ctx, runtimeConfig.config.ParentReferenceID, runtimeConfig.config.ParentFingerprint, recoveryEpoch)
+	if err != nil {
+		return err
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+	credentials, err := parentS3Credentials(parent.Bytes())
+	if err != nil {
+		return err
+	}
+	defer zeroS3Credentials(&credentials)
+	client := S3Client{Endpoint: runtimeConfig.config.Endpoint, Bucket: runtimeConfig.config.Bucket, Client: runtimeConfig.config.HTTPClient, Clock: runtimeConfig.config.Clock}
+	for _, obligation := range pending {
+		obligationID, objectKey := cutoffProbeBinding(runtimeConfig.config.Prefix, obligation.RunID, obligation.StepID, obligation.GenerationID)
+		if obligation.ObligationID != obligationID || obligation.ObjectKey != objectKey {
+			return errors.New("r2 cleanup reconciliation binding invalid")
+		}
+		deleteCtx, cancelDelete := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		deleteErr := client.DeleteObject(deleteCtx, obligation.ObjectKey, credentials)
+		cancelDelete()
+		abortCtx, cancelAbort := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		abortErr := client.AbortMultipart(abortCtx, obligation.ObjectKey, obligation.UploadID, credentials)
+		cancelAbort()
+		if err := errors.Join(deleteErr, abortErr); err != nil {
+			return errors.New("r2 cleanup reconciliation failed")
+		}
+		if err := repository.ResolveCleanupObligation(ctx, obligation.ObligationID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func cutoffProbeBinding(prefix, runID, stepID, generationID string) (string, string) {
+	digest := sha256.Sum256([]byte(runID + "\x00" + stepID + "\x00" + generationID))
+	suffix := hex.EncodeToString(digest[:16])
+	return "cleanup-" + suffix, prefix + "/" + generationID + "/locks/cutoff-" + suffix
 }
 
 func serveOneRunEndpoint(issuer SessionIssuer, parent *credentialref.Value, request adapter.SessionRequest, bearer []byte, clock func() time.Time, onIssue func(adapter.ScopedS3Session), afterClose func()) (*backup.OneRunEndpoint, string, error) {
@@ -291,14 +350,22 @@ func (observer *runObserver) ObserveExpectedPoint(ctx context.Context, pending b
 }
 
 type qualifiedCutoff struct {
-	mu       sync.Mutex
-	s3       S3Client
-	clock    func() time.Time
-	deadline time.Time
-	key      string
-	uploadID string
-	issued   S3Credentials
-	cleanup  S3Credentials
+	mu         sync.Mutex
+	s3         S3Client
+	clock      func() time.Time
+	deadline   time.Time
+	key        string
+	uploadID   string
+	issued     S3Credentials
+	cleanup    S3Credentials
+	repository cleanupObligationRepository
+	obligation store.OffsiteCleanupObligation
+	persisted  bool
+}
+
+type cleanupObligationRepository interface {
+	AppendCleanupObligation(context.Context, store.OffsiteCleanupObligation) error
+	ResolveCleanupObligation(context.Context, string) error
 }
 
 func (probe *qualifiedCutoff) capture(session adapter.ScopedS3Session) {
@@ -362,6 +429,14 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 	}
 	probe.mu.Lock()
 	probe.uploadID = uploadID
+	probe.obligation.ObjectKey = probe.key
+	probe.obligation.UploadID = uploadID
+	probe.mu.Unlock()
+	if probe.repository == nil || probe.repository.AppendCleanupObligation(ctx, probe.obligation) != nil {
+		return time.Time{}, errors.New("writer cutoff cleanup obligation unavailable")
+	}
+	probe.mu.Lock()
+	probe.persisted = true
 	probe.mu.Unlock()
 	delay := last.Sub(probe.clock().UTC())
 	if delay > 0 {
@@ -412,10 +487,21 @@ func (probe *qualifiedCutoff) CleanupWriterProbes(ctx context.Context) error {
 	abortCtx, cancelAbort := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 	abortErr := probe.s3.AbortMultipart(abortCtx, probe.key, uploadID, cleanup)
 	cancelAbort()
-	// Retain the credential and upload identifier until both bounded cleanup
-	// attempts finish, then remove every in-memory copy even on provider error.
+	probe.mu.Lock()
+	persisted := probe.persisted
+	obligationID := probe.obligation.ObligationID
+	probe.mu.Unlock()
+	resolveErr := error(nil)
+	if deleteErr == nil && abortErr == nil && persisted {
+		resolveErr = probe.repository.ResolveCleanupObligation(context.WithoutCancel(ctx), obligationID)
+	}
+	// Provider attempts are complete and the secret-free obligation remains
+	// durable on every failure, so mutable credentials can now be wiped.
 	probe.zero()
-	return errors.Join(deleteErr, abortErr)
+	if deleteErr != nil || abortErr != nil || resolveErr != nil {
+		return errors.Join(deleteErr, abortErr, resolveErr)
+	}
+	return nil
 }
 
 var _ backup.QualifiedOffsiteRuntime = (*ProductionRuntime)(nil)

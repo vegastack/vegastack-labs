@@ -30,7 +30,10 @@ func (composedOffsiteSource) VerifiedCriticalPoint(context.Context, string) (bac
 
 type composedOffsiteSpecs struct{}
 
-func (composedOffsiteSpecs) ResolveOffsiteRun(context.Context, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (backup.OffsiteRunSpec, error) {
+func (composedOffsiteSpecs) ResolveOffsiteDeclaration(context.Context, adapter.Operation, adapter.ExactExecutionBinding) (backup.OffsiteRunDeclaration, backup.OffsitePolicy, error) {
+	return backup.OffsiteRunDeclaration{}, backup.OffsitePolicy{}, errors.New("not executed by composition test")
+}
+func (composedOffsiteSpecs) PrepareOffsiteRun(context.Context, backup.OffsiteRunDeclaration, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (backup.OffsiteRunSpec, error) {
 	return backup.OffsiteRunSpec{}, errors.New("not executed by composition test")
 }
 

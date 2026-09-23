@@ -11,7 +11,21 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/backup"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
+
+type cleanupRepositoryFixture struct {
+	appended, resolved int
+}
+
+func (repository *cleanupRepositoryFixture) AppendCleanupObligation(context.Context, store.OffsiteCleanupObligation) error {
+	repository.appended++
+	return nil
+}
+func (repository *cleanupRepositoryFixture) ResolveCleanupObligation(context.Context, string) error {
+	repository.resolved++
+	return nil
+}
 
 func TestQualifiedCutoffExecutesExpiredWriterProbesAndCleansArtifacts(t *testing.T) {
 	var cleanups atomic.Int64
@@ -33,8 +47,9 @@ func TestQualifiedCutoffExecutesExpiredWriterProbesAndCleansArtifacts(t *testing
 	}))
 	defer server.Close()
 	now := time.Now().UTC()
+	repository := &cleanupRepositoryFixture{}
 	probe := &qualifiedCutoff{s3: S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}, clock: time.Now, deadline: now.Add(time.Minute), key: "critical/gen-a/locks/cutoff-a",
-		issued: S3Credentials{AccessKeyID: []byte("expired-access"), SecretAccessKey: []byte("expired-secret"), SessionToken: []byte("expired-token")}, cleanup: S3Credentials{AccessKeyID: []byte("parent-access"), SecretAccessKey: []byte("parent-secret")}}
+		issued: S3Credentials{AccessKeyID: []byte("expired-access"), SecretAccessKey: []byte("expired-secret"), SessionToken: []byte("expired-token")}, cleanup: S3Credentials{AccessKeyID: []byte("parent-access"), SecretAccessKey: []byte("parent-secret")}, repository: repository}
 	pending := backup.PendingOffsiteGeneration{SessionExpiries: []time.Time{now.Add(-time.Second)}}
 	if _, err := probe.AwaitWriterCutoff(context.Background(), pending); err != nil {
 		t.Fatal(err)
@@ -50,6 +65,9 @@ func TestQualifiedCutoffExecutesExpiredWriterProbesAndCleansArtifacts(t *testing
 	}
 	if cleanups.Load() != 2 {
 		t.Fatalf("cleanup calls = %d", cleanups.Load())
+	}
+	if repository.appended != 1 || repository.resolved != 1 {
+		t.Fatalf("durable cleanup appended=%d resolved=%d", repository.appended, repository.resolved)
 	}
 }
 
@@ -72,8 +90,9 @@ func TestQualifiedCutoffCleanupAttemptsObjectAndMultipartAfterCancellationAndErr
 	}))
 	defer server.Close()
 	now := time.Now().UTC()
+	repository := &cleanupRepositoryFixture{}
 	probe := &qualifiedCutoff{s3: S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}, clock: time.Now, deadline: now.Add(time.Minute), key: "critical/gen-a/locks/cutoff-a",
-		issued: S3Credentials{AccessKeyID: []byte("writer"), SecretAccessKey: []byte("writer-secret"), SessionToken: []byte("writer-token")}, cleanup: S3Credentials{AccessKeyID: []byte("parent"), SecretAccessKey: []byte("parent-secret")}}
+		issued: S3Credentials{AccessKeyID: []byte("writer"), SecretAccessKey: []byte("writer-secret"), SessionToken: []byte("writer-token")}, cleanup: S3Credentials{AccessKeyID: []byte("parent"), SecretAccessKey: []byte("parent-secret")}, repository: repository}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	// Initiation needs a live context; cancel only after the provider accepted it.
@@ -90,6 +109,9 @@ func TestQualifiedCutoffCleanupAttemptsObjectAndMultipartAfterCancellationAndErr
 	}
 	if deleteObject.Load() != 1 || abortMultipart.Load() != 1 {
 		t.Fatalf("cleanup calls object=%d multipart=%d", deleteObject.Load(), abortMultipart.Load())
+	}
+	if repository.appended != 1 || repository.resolved != 0 {
+		t.Fatalf("durable cleanup appended=%d resolved=%d", repository.appended, repository.resolved)
 	}
 	_, cleanup, uploadID := probe.credentials()
 	if len(cleanup.AccessKeyID) != 0 || uploadID != "" {

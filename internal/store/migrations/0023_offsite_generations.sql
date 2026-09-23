@@ -72,6 +72,34 @@ CREATE TABLE backup_offsite_custody_outcomes (
 CREATE TRIGGER backup_offsite_custody_outcomes_no_update BEFORE UPDATE ON backup_offsite_custody_outcomes BEGIN SELECT RAISE(ABORT,'offsite custody outcomes are append-only'); END;
 CREATE TRIGGER backup_offsite_custody_outcomes_no_delete BEFORE DELETE ON backup_offsite_custody_outcomes BEGIN SELECT RAISE(ABORT,'offsite custody outcomes are append-only'); END;
 
+CREATE TABLE backup_offsite_cleanup_obligations (
+    obligation_id TEXT PRIMARY KEY CHECK (length(obligation_id) BETWEEN 1 AND 128),
+    generation_id TEXT NOT NULL REFERENCES backup_offsite_run_specs(generation_id),
+    object_key TEXT NOT NULL CHECK (length(object_key) BETWEEN 1 AND 1024),
+    upload_id TEXT NOT NULL CHECK (length(upload_id) BETWEEN 1 AND 1024),
+    credential_reference_id TEXT NOT NULL CHECK (length(credential_reference_id) BETWEEN 1 AND 128),
+    credential_fingerprint TEXT NOT NULL CHECK (length(credential_fingerprint)=71 AND substr(credential_fingerprint,1,7)='sha256:'),
+    plan_id TEXT NOT NULL,
+    plan_digest TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    lease_id TEXT NOT NULL,
+    source_revision INTEGER NOT NULL CHECK (source_revision >= 0),
+    state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    created_at TEXT NOT NULL
+) STRICT;
+CREATE TRIGGER backup_offsite_cleanup_obligations_no_update BEFORE UPDATE ON backup_offsite_cleanup_obligations BEGIN SELECT RAISE(ABORT,'offsite cleanup obligations are append-only'); END;
+CREATE TRIGGER backup_offsite_cleanup_obligations_no_delete BEFORE DELETE ON backup_offsite_cleanup_obligations BEGIN SELECT RAISE(ABORT,'offsite cleanup obligations are append-only'); END;
+
+CREATE TABLE backup_offsite_cleanup_outcomes (
+    obligation_id TEXT PRIMARY KEY REFERENCES backup_offsite_cleanup_obligations(obligation_id),
+    outcome TEXT NOT NULL CHECK (outcome='resolved'),
+    resolved_at TEXT NOT NULL
+) STRICT;
+CREATE TRIGGER backup_offsite_cleanup_outcomes_no_update BEFORE UPDATE ON backup_offsite_cleanup_outcomes BEGIN SELECT RAISE(ABORT,'offsite cleanup outcomes are append-only'); END;
+CREATE TRIGGER backup_offsite_cleanup_outcomes_no_delete BEFORE DELETE ON backup_offsite_cleanup_outcomes BEGIN SELECT RAISE(ABORT,'offsite cleanup outcomes are append-only'); END;
+
 CREATE TABLE backup_offsite_generations (
     generation_id TEXT PRIMARY KEY CHECK (length(generation_id) BETWEEN 1 AND 128),
     source_point_id TEXT NOT NULL REFERENCES recovery_points(point_id),

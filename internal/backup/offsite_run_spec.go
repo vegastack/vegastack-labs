@@ -27,6 +27,7 @@ type OffsiteRunDeclaration struct {
 }
 
 type QualifiedOffsiteRuntime interface {
+	OffsitePolicy(OffsiteRunDeclaration) (OffsitePolicy, error)
 	PrepareOffsiteRun(context.Context, OffsiteRunDeclaration, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (OffsiteRunSpec, error)
 }
 
@@ -49,17 +50,17 @@ func NewSQLRunSpecSource(authority *store.Store, runtime QualifiedOffsiteRuntime
 	return &SQLRunSpecSource{repository: store.NewOffsiteRepository(authority), runtime: runtime, endpoint: endpoint, bucket: bucket, prefix: prefix, parent: parent, observer: observer, rule: ruleDigest, evidence: evidenceDigest}, nil
 }
 
-func (source *SQLRunSpecSource) ResolveOffsiteRun(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (OffsiteRunSpec, error) {
-	if source == nil || source.repository == nil || source.runtime == nil || operation.TargetID == "" || len(operation.SecretReferences) != 3 || len(values) != 3 {
-		return OffsiteRunSpec{}, errors.New("offsite run spec unavailable")
+func (source *SQLRunSpecSource) ResolveOffsiteDeclaration(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding) (OffsiteRunDeclaration, OffsitePolicy, error) {
+	if source == nil || source.repository == nil || source.runtime == nil || operation.TargetID == "" || len(operation.SecretReferences) != 3 {
+		return OffsiteRunDeclaration{}, OffsitePolicy{}, errors.New("offsite run spec unavailable")
 	}
 	record, err := source.repository.RunSpec(ctx, operation.TargetID)
 	if err != nil {
-		return OffsiteRunSpec{}, err
+		return OffsiteRunDeclaration{}, OffsitePolicy{}, err
 	}
 	var declaration OffsiteRunDeclaration
 	if json.Unmarshal(record.CanonicalJSON, &declaration) != nil {
-		return OffsiteRunSpec{}, errors.New("offsite run spec invalid")
+		return OffsiteRunDeclaration{}, OffsitePolicy{}, errors.New("offsite run spec invalid")
 	}
 	canonical, err := json.Marshal(declaration)
 	if err != nil || !bytes.Equal(canonical, record.CanonicalJSON) || !sameOffsiteRunSpecRecord(declaration, record) ||
@@ -67,7 +68,18 @@ func (source *SQLRunSpecSource) ResolveOffsiteRun(ctx context.Context, operation
 		declaration.ParentReferenceID != source.parent || declaration.ObserverReferenceID != source.observer || declaration.RuleDigest != source.rule || declaration.G008EvidenceDigest != source.evidence ||
 		operation.SecretReferences[0].ID != declaration.ParentReferenceID || operation.SecretReferences[1].ID != declaration.RepositoryKeyReferenceID || operation.SecretReferences[2].ID != declaration.ObserverReferenceID ||
 		!exactOffsiteRepositoryBinding(declaration.RepositoryURL, source.endpoint, source.bucket, source.prefix, declaration.GenerationID) {
-		return OffsiteRunSpec{}, errors.New("offsite run spec binding mismatch")
+		return OffsiteRunDeclaration{}, OffsitePolicy{}, errors.New("offsite run spec binding mismatch")
+	}
+	policy, err := source.runtime.OffsitePolicy(declaration)
+	if err != nil {
+		return OffsiteRunDeclaration{}, OffsitePolicy{}, err
+	}
+	return declaration, policy, nil
+}
+
+func (source *SQLRunSpecSource) PrepareOffsiteRun(ctx context.Context, declaration OffsiteRunDeclaration, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (OffsiteRunSpec, error) {
+	if source == nil || source.runtime == nil || len(values) != 3 {
+		return OffsiteRunSpec{}, errors.New("offsite run spec unavailable")
 	}
 	return source.runtime.PrepareOffsiteRun(ctx, declaration, operation, binding, values)
 }

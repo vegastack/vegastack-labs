@@ -83,6 +83,38 @@ func TestOffsiteRunSpecIsAppendedByDeclarationPlanCommit(t *testing.T) {
 	if err := NewOffsiteRepository(backups.store).VerifyCustodyLease(ctx, binding, created); err == nil {
 		t.Fatal("custody lease accepted mismatched source revision")
 	}
+	binding.SourceRevision = stored.SourceRevision
+	cleanup := OffsiteCleanupObligation{ObligationID: "cleanup-generation-plan-a", GenerationID: stored.GenerationID, ObjectKey: "critical/generation-plan-a/locks/cutoff-a", UploadID: "upload-a",
+		CredentialReferenceID: stored.ParentReferenceID, CredentialFingerprint: digest, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID,
+		SourceRevision: binding.SourceRevision, StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch}
+	if err := NewOffsiteRepository(backups.store).AppendCleanupObligation(ctx, cleanup); err != nil {
+		t.Fatal(err)
+	}
+	pending, err := NewOffsiteRepository(backups.store).PendingCleanupObligations(ctx, cleanup.CredentialReferenceID, cleanup.CredentialFingerprint, cleanup.RecoveryEpoch)
+	if err != nil || len(pending) != 1 || pending[0].UploadID != cleanup.UploadID {
+		t.Fatalf("pending cleanup before restart = %#v, %v", pending, err)
+	}
+	config := backups.store.config
+	if err := backups.store.Close(); err != nil {
+		t.Fatal(err)
+	}
+	config.Mode = OpenExisting
+	reopened, err := Open(ctx, config)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = reopened.Close() })
+	restarted := NewOffsiteRepository(reopened)
+	pending, err = restarted.PendingCleanupObligations(ctx, cleanup.CredentialReferenceID, cleanup.CredentialFingerprint, cleanup.RecoveryEpoch)
+	if err != nil || len(pending) != 1 || pending[0].ObjectKey != cleanup.ObjectKey {
+		t.Fatalf("pending cleanup after restart = %#v, %v", pending, err)
+	}
+	if err := restarted.ResolveCleanupObligation(ctx, cleanup.ObligationID); err != nil {
+		t.Fatal(err)
+	}
+	if pending, err = restarted.PendingCleanupObligations(ctx, cleanup.CredentialReferenceID, cleanup.CredentialFingerprint, cleanup.RecoveryEpoch); err != nil || len(pending) != 0 {
+		t.Fatalf("resolved cleanup remained pending = %#v, %v", pending, err)
+	}
 }
 
 func TestOffsiteRepositoryPersistsAppendOnlyReceiptsAndCASLastGood(t *testing.T) {

@@ -24,7 +24,8 @@ type OffsiteRunSpec struct {
 }
 
 type OffsiteRunSpecSource interface {
-	ResolveOffsiteRun(context.Context, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (OffsiteRunSpec, error)
+	ResolveOffsiteDeclaration(context.Context, adapter.Operation, adapter.ExactExecutionBinding) (OffsiteRunDeclaration, OffsitePolicy, error)
+	PrepareOffsiteRun(context.Context, OffsiteRunDeclaration, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (OffsiteRunSpec, error)
 }
 
 // OffsiteWorkflowRunner is the production orchestration of the already
@@ -48,7 +49,18 @@ func (runner *OffsiteWorkflowRunner) CopyAndVerify(ctx context.Context, operatio
 	if runner == nil || runner.source == nil || runner.specs == nil || runner.catalog == nil || len(values) != 3 || values[0] == nil || values[1] == nil || values[2] == nil || len(values[0].Bytes()) == 0 || len(values[1].Bytes()) == 0 || len(values[2].Bytes()) == 0 {
 		return OffsiteProof{}, errors.New("offsite workflow unavailable")
 	}
-	spec, err := runner.specs.ResolveOffsiteRun(ctx, operation, binding, values)
+	declaration, policy, err := runner.specs.ResolveOffsiteDeclaration(ctx, operation, binding)
+	if err != nil {
+		return OffsiteProof{}, err
+	}
+	point, err := AdmitOffsitePoint(ctx, runner.source, policy, declaration.SourcePointID, binding.RecoveryEpoch)
+	if err != nil {
+		return OffsiteProof{}, err
+	}
+	if declaration.SourceRevision != point.SourceRevision || point.StateRevision != binding.StateRevision {
+		return OffsiteProof{}, errors.New("offsite source revision is stale")
+	}
+	spec, err := runner.specs.PrepareOffsiteRun(ctx, declaration, operation, binding, values)
 	if err != nil {
 		return OffsiteProof{}, err
 	}
@@ -58,13 +70,6 @@ func (runner *OffsiteWorkflowRunner) CopyAndVerify(ctx context.Context, operatio
 		return OffsiteProof{}, errors.New("offsite workflow binding mismatch")
 	}
 	defer spec.Copy.Endpoint.Close()
-	point, err := AdmitOffsitePoint(ctx, runner.source, spec.Policy, spec.PointID, binding.RecoveryEpoch)
-	if err != nil {
-		return OffsiteProof{}, err
-	}
-	if point.StateRevision != binding.StateRevision {
-		return OffsiteProof{}, errors.New("offsite source revision is stale")
-	}
 	admission, err := ForecastGeneration(spec.Policy, point, spec.Retention)
 	if err != nil {
 		return OffsiteProof{}, err
