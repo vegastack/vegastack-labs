@@ -152,6 +152,15 @@ func TestLocalRetirementStageIsInertExactAndAppendOnly(t *testing.T) {
 	if replay, err := repository.StageLocalRetirement(context.Background(), request); err != nil || replay.IntentID != intent.IntentID {
 		t.Fatalf("idempotent replay: %#v %v", replay, err)
 	}
+	status, err := NewBackupRepository(authority).ReadLocalBackupStatus(context.Background())
+	if err != nil || len(status.Retirements) != 1 || status.Retirements[0].IntentID != intent.IntentID ||
+		status.Retirements[0].Status != "planned" || len(status.Retirements[0].TargetPointIDs) != 1 || len(status.Retirements[0].SurvivorPointIDs) != 1 {
+		t.Fatalf("sanitized retirement status=%#v err=%v", status.Retirements, err)
+	}
+	rawStatus, err := json.Marshal(status)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDBackupStatusData, rawStatus, generated.ContractExact) != nil {
+		t.Fatalf("retirement status violates generated contract: %v", err)
+	}
 	otherActor := request
 	otherActor.Attribution.AuthenticatedPrincipalID = "other-human"
 	if _, err := repository.StageLocalRetirement(context.Background(), otherActor); err == nil {

@@ -115,6 +115,10 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if err != nil || !sameIDs(pre.SnapshotIDs, allSnapshotIDs(intent)) {
 		return adapter.Effect{}, retentionError(generated.ErrorCodePlanStale, "local-retention-inventory")
 	}
+	preObjects, err := custody.Inventory(ctx)
+	if err != nil || backup.ExpectedInventoryDigest(preObjects) != intent.Request.ExpectedInventoryDigest {
+		return adapter.Effect{}, retentionError(generated.ErrorCodePlanStale, "local-retention-object-inventory")
+	}
 	dry := withMode(base, "forget-dry-run")
 	dry.SnapshotIDs = planned
 	if _, err = custody.RunRestic(ctx, dry, values[0]); err != nil {
@@ -137,6 +141,11 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	objects, err := custody.Inventory(ctx)
 	if err != nil {
 		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-object-inventory")
+	}
+	preBytes, preBytesOK := inventoryBytes(preObjects)
+	postBytes, postBytesOK := inventoryBytes(objects)
+	if !preBytesOK || !postBytesOK || postBytes > preBytes {
+		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-reclaim")
 	}
 	if _, err = custody.RunRestic(ctx, withMode(base, "check-full"), values[0]); err != nil {
 		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-full-read")
@@ -174,11 +183,12 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		return adapter.Effect{EffectObserved: true}, err
 	}
 	proofDigest := digest("retirement-survivors", proofParts...)
-	if err := custody.Close(ctx); err != nil {
+	closeErr := custody.Close(ctx)
+	closed = true
+	if closeErr != nil {
 		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-custody-close")
 	}
-	closed = true
-	generation, err := a.config.Retirements.CommitLocalRetirementSuccess(ctx, store.LocalRetirementSettlement{IntentID: intent.IntentID, LeaseID: lease.LeaseID, SuccessorInventoryDigest: inventoryDigest, JournalDigest: journalDigest, SurvivorProofDigest: proofDigest, SurvivorPointIDs: survivorIDs, MeasuredReclaimBytes: intent.Request.ExpectedReclaimBytes, RecoveryEpoch: lease.RecoveryEpoch})
+	generation, err := a.config.Retirements.CommitLocalRetirementSuccess(ctx, store.LocalRetirementSettlement{IntentID: intent.IntentID, LeaseID: lease.LeaseID, SuccessorInventoryDigest: inventoryDigest, JournalDigest: journalDigest, SurvivorProofDigest: proofDigest, SurvivorPointIDs: survivorIDs, MeasuredReclaimBytes: preBytes - postBytes, RecoveryEpoch: lease.RecoveryEpoch})
 	if err != nil {
 		return adapter.Effect{EffectObserved: true}, err
 	}
@@ -225,6 +235,16 @@ func sameIDs(a, b []string) bool {
 		}
 	}
 	return true
+}
+func inventoryBytes(objects []backup.ExpectedObject) (int64, bool) {
+	var total int64
+	for _, object := range objects {
+		if object.Bytes < 0 || object.Bytes > int64(^uint64(0)>>1)-total {
+			return 0, false
+		}
+		total += object.Bytes
+	}
+	return total, true
 }
 func digest(domain string, parts ...string) string {
 	h := sha256.New()

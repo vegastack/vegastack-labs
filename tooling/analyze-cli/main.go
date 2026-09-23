@@ -1189,7 +1189,7 @@ var reviewedBackupSubprocesses = map[string]string{
 }
 
 var reviewedLocalRetentionSources = map[string]string{
-	"adapter_linux.go":       "983e2a251ce4853f0cecd5244020c66b5995890ed948169eb560fe721d2b6ec3",
+	"adapter_linux.go":       "09586696f68672f7d8f6c304f9e25931204047d95d2d040901ea1c3078e1e763",
 	"adapter_unsupported.go": "d3cf269cde1eee954a7253dccbea4acea06058b0c7322b185d527c742f81b126",
 }
 
