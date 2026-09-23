@@ -3,12 +3,14 @@ package serverconfig
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"io/fs"
 	"net/netip"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -19,6 +21,9 @@ import (
 )
 
 const maxProfileBytes = 64 * 1024
+
+var offsiteProfileToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
+var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
 
 type Profile struct {
 	SocketPath                       string
@@ -32,6 +37,7 @@ type Profile struct {
 	RemoteRead                       RemoteRead
 	AcknowledgementAdapterConfigPath string
 	LocalBackup                      *LocalBackup
+	OffsiteBackup                    *OffsiteBackup
 }
 
 // LocalBackup names the protected server-owned local recovery roots and the
@@ -46,6 +52,15 @@ type LocalBackup struct {
 	SourceID             string
 	StandardRepositoryID string
 	CriticalRepositoryID string
+}
+
+// OffsiteBackup contains only non-secret destination identity and evidence
+// bindings. It is complete-or-absent; parent credential material is resolved
+// just in time through its logical reference.
+type OffsiteBackup struct {
+	Endpoint, Bucket, Prefix             string
+	ParentReferenceID, ParentFingerprint string
+	RuleDigest, G008EvidenceDigest       string
 }
 
 // ConstrainedSSH is a client-only transport. Arguments are produced by the
@@ -96,7 +111,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	invalid := func() (Profile, error) {
 		return Profile{}, failure.New("INPUT_INVALID", "server-config", false)
 	}
-	if input.Schema != generated.SchemaIDServerProfile || input.SchemaVersion != "1.2.0" ||
+	if input.Schema != generated.SchemaIDServerProfile || input.SchemaVersion != "1.3.0" ||
 		input.SocketOwnerUID < 0 || input.SocketOwnerUID > int64(^uint32(0)) || uint32(input.SocketOwnerUID) != expectedOwnerUID ||
 		input.ShutdownGraceSeconds != 5 || len(input.SocketPath) > 107 || strings.ContainsRune(input.SocketPath, 0) ||
 		!filepath.IsAbs(input.SocketPath) || filepath.Clean(input.SocketPath) != input.SocketPath ||
@@ -152,6 +167,10 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	offsiteBackup, err := convertOffsiteBackup(input, localBackup)
+	if err != nil {
+		return invalid()
+	}
 	return Profile{
 		SocketPath:                       input.SocketPath,
 		InventoryExportRoot:              input.InventoryExportRoot,
@@ -163,7 +182,43 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		RemoteRead:                       remoteRead,
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 		LocalBackup:                      localBackup,
+		OffsiteBackup:                    offsiteBackup,
 	}, nil
+}
+
+func convertOffsiteBackup(input generated.ServerProfile, local *LocalBackup) (*OffsiteBackup, error) {
+	values := []*string{input.OffsiteEndpoint, input.OffsiteBucket, input.OffsitePrefix, input.OffsiteParentReferenceID,
+		input.OffsiteParentFingerprint, input.OffsiteRuleDigest, input.OffsiteG008EvidenceDigest}
+	present := 0
+	for _, value := range values {
+		if value != nil {
+			present++
+		}
+	}
+	if present == 0 {
+		return nil, nil
+	}
+	if present != len(values) || local == nil {
+		return nil, failure.New("INPUT_INVALID", "server-config", false)
+	}
+	endpoint, err := url.Parse(*input.OffsiteEndpoint)
+	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" ||
+		endpoint.Path != "" || endpoint.Host != endpoint.Hostname() || !strings.HasSuffix(strings.ToLower(endpoint.Hostname()), ".r2.cloudflarestorage.com") ||
+		!offsiteBucketName.MatchString(*input.OffsiteBucket) || !offsiteProfileToken.MatchString(*input.OffsiteParentReferenceID) ||
+		*input.OffsitePrefix == "" || strings.HasPrefix(*input.OffsitePrefix, "/") || strings.Contains(*input.OffsitePrefix, "..") || filepath.Clean(*input.OffsitePrefix) != *input.OffsitePrefix {
+		return nil, failure.New("INPUT_INVALID", "server-config", false)
+	}
+	for _, digest := range []string{*input.OffsiteParentFingerprint, *input.OffsiteRuleDigest, *input.OffsiteG008EvidenceDigest} {
+		if len(digest) != 71 || !strings.HasPrefix(digest, "sha256:") {
+			return nil, failure.New("INPUT_INVALID", "server-config", false)
+		}
+		if _, err := hex.DecodeString(strings.TrimPrefix(digest, "sha256:")); err != nil {
+			return nil, failure.New("INPUT_INVALID", "server-config", false)
+		}
+	}
+	return &OffsiteBackup{Endpoint: *input.OffsiteEndpoint, Bucket: *input.OffsiteBucket, Prefix: *input.OffsitePrefix,
+		ParentReferenceID: *input.OffsiteParentReferenceID, ParentFingerprint: *input.OffsiteParentFingerprint,
+		RuleDigest: *input.OffsiteRuleDigest, G008EvidenceDigest: *input.OffsiteG008EvidenceDigest}, nil
 }
 
 // convertLocalBackup enforces the all-or-none backup profile triplet. Absent

@@ -809,11 +809,11 @@ func currentSchemas() []SchemaDefinition {
 		},
 		{
 			ID:           serverProfileSchemaID,
-			Version:      "1.2.0",
+			Version:      "1.3.0",
 			ArtifactPath: "schemas/v1/server-profile.schema.json",
 			Fields: []FieldDefinition{
 				{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{serverProfileSchemaID}},
-				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.2.0"}},
+				{JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.3.0"}},
 				{JSONName: "socketPath", GoName: "SocketPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(107)},
 				{JSONName: "socketOwnerUid", GoName: "SocketOwnerUID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
 				{JSONName: "socketGroupGid", GoName: "SocketGroupGID", Kind: ValueInteger, Required: true, Nullable: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
@@ -827,6 +827,13 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "criticalBackupRoot", GoName: "CriticalBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "resticBinaryPath", GoName: "ResticBinaryPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "custodyPolicyPath", GoName: "CustodyPolicyPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
+				{JSONName: "offsiteEndpoint", GoName: "OffsiteEndpoint", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(12), MaxLength: intPointer(2048)},
+				{JSONName: "offsiteBucket", GoName: "OffsiteBucket", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z0-9][a-z0-9.-]{1,62}$`},
+				{JSONName: "offsitePrefix", GoName: "OffsitePrefix", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z][a-z0-9._/-]{0,511}$`},
+				{JSONName: "offsiteParentReferenceId", GoName: "OffsiteParentReferenceID", Kind: ValueString, Required: false, Nullable: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "offsiteParentFingerprint", GoName: "OffsiteParentFingerprint", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},
+				{JSONName: "offsiteRuleDigest", GoName: "OffsiteRuleDigest", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},
+				{JSONName: "offsiteG008EvidenceDigest", GoName: "OffsiteG008EvidenceDigest", Kind: ValueString, Required: false, Nullable: true, Pattern: `^sha256:[a-f0-9]{64}$`},
 			},
 		},
 		{

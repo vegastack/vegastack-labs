@@ -1970,6 +1970,13 @@ type ServerProfile struct {
 	CriticalBackupRoot               *string                 `json:"criticalBackupRoot"`
 	ResticBinaryPath                 *string                 `json:"resticBinaryPath"`
 	CustodyPolicyPath                *string                 `json:"custodyPolicyPath"`
+	OffsiteEndpoint                  *string                 `json:"offsiteEndpoint"`
+	OffsiteBucket                    *string                 `json:"offsiteBucket"`
+	OffsitePrefix                    *string                 `json:"offsitePrefix"`
+	OffsiteParentReferenceID         *string                 `json:"offsiteParentReferenceId"`
+	OffsiteParentFingerprint         *string                 `json:"offsiteParentFingerprint"`
+	OffsiteRuleDigest                *string                 `json:"offsiteRuleDigest"`
+	OffsiteG008EvidenceDigest        *string                 `json:"offsiteG008EvidenceDigest"`
 }
 
 type ServerStatusData struct {

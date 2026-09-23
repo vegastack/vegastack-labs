@@ -10,7 +10,7 @@ import (
 func validGeneratedProfile() generated.ServerProfile {
 	return generated.ServerProfile{
 		Schema:               generated.SchemaIDServerProfile,
-		SchemaVersion:        "1.2.0",
+		SchemaVersion:        "1.3.0",
 		SocketPath:           "/tmp/vsk-labs/control.sock",
 		InventoryExportRoot:  "/tmp/vsk-labs/exports",
 		SocketOwnerUID:       1001,
@@ -141,6 +141,35 @@ func TestConvertGeneratedProfileRequiresCompleteLocalBackup(t *testing.T) {
 	}
 }
 
+func TestConvertGeneratedProfileRequiresCompleteOffsiteBackupAndLocalCustody(t *testing.T) {
+	base := validGeneratedProfile()
+	endpoint, bucket, prefix := "https://account.r2.cloudflarestorage.com", "labs-backup", "critical"
+	base.OffsiteEndpoint = &endpoint
+	if _, err := convertGeneratedProfile(base, uint32(base.SocketOwnerUID)); err == nil {
+		t.Fatal("partial offsite profile accepted")
+	}
+	digest := "sha256:" + strings.Repeat("a", 64)
+	reference := "reference-r2-parent"
+	base.OffsiteBucket = &bucket
+	base.OffsitePrefix = &prefix
+	base.OffsiteParentReferenceID = &reference
+	base.OffsiteParentFingerprint = &digest
+	base.OffsiteRuleDigest = &digest
+	base.OffsiteG008EvidenceDigest = &digest
+	if _, err := convertGeneratedProfile(base, uint32(base.SocketOwnerUID)); err == nil {
+		t.Fatal("offsite profile without local custody accepted")
+	}
+	standard, critical, binary, custody := "/srv/standard", "/srv/critical", "/opt/vsk/restic", "/etc/vsk/custody.json"
+	base.StandardBackupRoot = &standard
+	base.CriticalBackupRoot = &critical
+	base.ResticBinaryPath = &binary
+	base.CustodyPolicyPath = &custody
+	profile, err := convertGeneratedProfile(base, uint32(base.SocketOwnerUID))
+	if err != nil || profile.OffsiteBackup == nil || profile.OffsiteBackup.ParentReferenceID != reference {
+		t.Fatalf("complete profile = %#v, %v", profile.OffsiteBackup, err)
+	}
+}
+
 func TestAcknowledgementAdapterConfigPathIsOptionalAndAbsolute(t *testing.T) {
 	profile := validGeneratedProfile()
 	profile.AcknowledgementAdapterConfigPath = "/etc/vsk-labs/slack-acknowledgement.json"
@@ -195,7 +224,7 @@ func TestConvertGeneratedProfileRejectsInvalidContracts(t *testing.T) {
 }
 
 func TestDecodeGeneratedProfileIsStrictAndBounded(t *testing.T) {
-	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.2.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}],"inventoryExportRoot":"/tmp/vsk-labs/exports","remoteRead":{"enabled":false,"bindAddress":null,"publicOrigin":null,"tlsCertificatePath":null,"tlsPrivateKeyPath":null,"identityAdapter":null,"identityConfigPath":null}}`
+	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.3.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}],"inventoryExportRoot":"/tmp/vsk-labs/exports","remoteRead":{"enabled":false,"bindAddress":null,"publicOrigin":null,"tlsCertificatePath":null,"tlsPrivateKeyPath":null,"identityAdapter":null,"identityConfigPath":null}}`
 	for name, content := range map[string]string{
 		"empty":          "",
 		"unknown":        strings.Replace(valid, `"schema":`, `"unknown":true,"schema":`, 1),
