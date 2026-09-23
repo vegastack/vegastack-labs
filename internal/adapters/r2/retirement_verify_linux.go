@@ -123,7 +123,7 @@ func VerifyRetirementSurvivor(ctx context.Context, config RetirementSurvivorVeri
 		return backup.OffsiteSurvivorProof{}, errors.New("retirement survivor restic verification failed")
 	}
 	defer os.RemoveAll(result.RestoreTarget)
-	restoreDigest, err := backup.VerifyOffsiteRestoredSnapshot(ctx, result.RestoreTarget, spec.SnapshotPath, source.ManifestJSON, source.ManifestDigest, config.Inspector, uint32(os.Geteuid()))
+	restoreDigest, err := backup.VerifyOffsiteRestoredSnapshot(ctx, result.RestoreTarget, spec.SnapshotPath, source.ManifestJSON, source.ManifestDigest, result.RestoredAt, config.Inspector, uint32(os.Geteuid()))
 	if err != nil {
 		return backup.OffsiteSurvivorProof{}, err
 	}

@@ -120,9 +120,14 @@ func (verifier *labsR2SurvivorVerifier) Close() error {
 		zeroCredential(verifier.credentials.SecretAccessKey)
 		zeroCredential(verifier.credentials.SessionToken)
 		verifier.credentials = r2.S3Credentials{}
-		verifier.parent.Close()
+		if verifier.parent != nil {
+			verifier.parent.Close()
+			verifier.parent = nil
+		}
 		for id, value := range verifier.repositoryKeys {
-			value.Close()
+			if value != nil {
+				value.Close()
+			}
 			delete(verifier.repositoryKeys, id)
 		}
 	}

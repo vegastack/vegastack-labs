@@ -10,6 +10,7 @@ import (
 	"errors"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
@@ -17,8 +18,8 @@ import (
 // VerifyOffsiteRestoredSnapshot inspects a fresh custody-produced restore and
 // binds it to the exact durable #114 source manifest. The restored tree is
 // never used as authority and contains no credential material.
-func VerifyOffsiteRestoredSnapshot(ctx context.Context, target, capturedPath string, manifestBytes []byte, manifestDigest string, inspector store.RestoredSQLiteInspector, ownerUID uint32) (string, error) {
-	if target == "" || !filepath.IsAbs(target) || filepath.Clean(target) != target || !filepath.IsAbs(capturedPath) || inspector == nil {
+func VerifyOffsiteRestoredSnapshot(ctx context.Context, target, capturedPath string, manifestBytes []byte, manifestDigest string, restoredAt time.Time, inspector store.RestoredSQLiteInspector, ownerUID uint32) (string, error) {
+	if target == "" || !filepath.IsAbs(target) || filepath.Clean(target) != target || !filepath.IsAbs(capturedPath) || restoredAt.IsZero() || inspector == nil {
 		return "", errors.New("offsite restored snapshot invalid")
 	}
 	var manifest CreationManifest
@@ -49,7 +50,10 @@ func VerifyOffsiteRestoredSnapshot(ctx context.Context, target, capturedPath str
 	if err != nil || inspection.IntegrityStatus != store.IntegrityVerified || inspection.Revision != expectation.Revision || inspection.SchemaVersion != expectation.SchemaVersion {
 		return "", errors.New("offsite restored sqlite inspection failed")
 	}
-	proofBody, _ := json.Marshal(struct{ ManifestDigest, ContentDigest, CatalogDigest, DependencyDigest string }{manifestDigest, contentDigest, manifest.CatalogDigest, manifest.DependencyInventoryDigest})
+	proofBody, _ := json.Marshal(struct {
+		ManifestDigest, ContentDigest, CatalogDigest, DependencyDigest string
+		RestoredAt                                                     time.Time
+	}{manifestDigest, contentDigest, manifest.CatalogDigest, manifest.DependencyInventoryDigest, restoredAt.UTC()})
 	sum := sha256.Sum256(append([]byte("offsite-isolated-restore-v1\x00"), proofBody...))
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }

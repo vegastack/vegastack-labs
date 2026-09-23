@@ -32,6 +32,27 @@ func (v survivorVerifierFixture) VerifyOffsiteSurvivor(_ context.Context, id str
 	return OffsiteSurvivorProof{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: "sha256:" + strings.Repeat("b", 64), RestoreDigest: "sha256:" + strings.Repeat("c", 64), FullReadAt: v.now, RestoredAt: v.now, ObservedAt: v.now, RecoveryEpoch: 2}, nil
 }
 
+func TestOffsiteRetirementVerifiesEverySurvivorAfterEffect(t *testing.T) {
+	now := time.Date(2026, 9, 24, 1, 0, 0, 0, time.UTC)
+	d := "sha256:" + strings.Repeat("a", 64)
+	objects := []store.OffsiteRetirementObject{{Key: "data/a", Digest: d, Bytes: 8}}
+	intent := store.OffsiteRetirementIntent{IntentID: "intent-a", GenerationID: "target-generation", SurvivorRuleDigest: d, Objects: objects, SurvivorPointIDs: []string{"point-other", "point-good"}, RecoveryEpoch: 2, MaxWorkObjects: 1, MaxMutationBytes: 8}
+	effect := r2retention.EffectJournal{Status: "effects-observed", PostRuleDigest: d, ObjectInventoryDigest: r2retention.DigestObjects([]r2retention.Object{{Key: "data/a", Digest: d, Bytes: 8}}), DeletedKeys: []string{"data/a"}, ReclaimedBytes: 8}
+	fixture := survivorVerifierFixture{now: now}
+	proof, err := VerifyOffsiteRetirement(context.Background(), intent, effect, fixture, fixture, now)
+	if err != nil || len(proof.Survivors) != 2 || proof.Survivors[0].PointID != "point-good" || proof.Survivors[1].PointID != "point-other" {
+		t.Fatalf("multi-survivor proof=%+v err=%v", proof, err)
+	}
+	failed := survivorVerifierFixture{fail: "point-other", now: now}
+	if _, err := VerifyOffsiteRetirement(context.Background(), intent, effect, failed, failed, now); err == nil {
+		t.Fatal("one failed isolated restore did not block settlement")
+	}
+	stale := survivorVerifierFixture{now: now.Add(-time.Nanosecond)}
+	if _, err := VerifyOffsiteRetirement(context.Background(), intent, effect, stale, stale, now); err == nil {
+		t.Fatal("pre-effect survivor proof accepted")
+	}
+}
+
 func TestOffsiteRetirementCannotSettleAfterPartialDeleteOrFailedSurvivor(t *testing.T) {
 	now := time.Date(2026, 9, 24, 1, 0, 0, 0, time.UTC)
 	d := "sha256:" + strings.Repeat("a", 64)
