@@ -109,7 +109,8 @@ func TestPinnedResticOffsiteS3IAM(t *testing.T) {
 	common := []string{"-r", repositoryURL, "--json", "--no-cache", "--password-file", "/proc/self/fd/3"}
 	run(append(append([]string{}, common...), "init", "--repository-version", "2")...)
 	snapshot := filepath.Join(t.TempDir(), "snapshot.sqlite")
-	if err := os.WriteFile(snapshot, []byte(strings.Repeat("captured-sqlite-page", 4096)), 0o600); err != nil {
+	payload := []byte(strings.Repeat("captured-sqlite-page", 4096))
+	if err := os.WriteFile(snapshot, payload, 0o600); err != nil {
 		t.Fatal(err)
 	}
 	backupOutput := run(append(append([]string{}, common...), "backup", snapshot, "--host", "vsk-labs")...)
@@ -128,6 +129,10 @@ func TestPinnedResticOffsiteS3IAM(t *testing.T) {
 		t.Fatal(err)
 	}
 	run(append(append([]string{}, common...), "restore", summary.SnapshotID, "--target", restore)...)
+	restoredPayload, err := os.ReadFile(filepath.Join(restore, strings.TrimPrefix(snapshot, "/")))
+	if err != nil || !bytes.Equal(restoredPayload, payload) {
+		t.Fatalf("restored payload mismatch: bytes=%d err=%v", len(restoredPayload), err)
+	}
 	if atomic.LoadInt64(&storage.iamAuthenticatedCalls) == 0 || endpoint.SessionExpiries() == nil {
 		t.Fatal("restic never used one-run IAM credentials")
 	}
