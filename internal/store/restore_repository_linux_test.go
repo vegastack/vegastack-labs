@@ -47,6 +47,8 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	planRequest.Plan.PlanDigest = "sha256:" + hex.EncodeToString(planSum[:])
 	planRequest.Plan.PlanID = "plan-" + hex.EncodeToString(planSum[:16])
 	planRequest.CanonicalBytes, _ = json.Marshal(planRequest.Plan)
+	plannedBinding := testRestoreBinding(planRequest.Plan, before.InstanceID, "pending-human-acknowledgement")
+	planRequest.RestoreQualification = &RestorePlanQualification{Request: testRestoreRequest(plannedBinding), Binding: plannedBinding}
 	committed, err := NewPlanRepository(authority).CommitDeclarationAndPlan(context.Background(), planRequest)
 	if err != nil {
 		t.Fatal(err)
@@ -57,6 +59,10 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	}
 	binding := testRestoreBinding(committed.Plan, before.InstanceID, ackID)
 	repository := NewRestoreRepository(authority)
+	qualification, err := repository.Qualification(context.Background(), binding.PlanID)
+	if err != nil || qualification.Binding.HumanAcknowledgementID != "pending-human-acknowledgement" || qualification.Request.CandidateDigest != binding.CandidateDigest {
+		t.Fatalf("qualification=%#v err=%v", qualification, err)
+	}
 	session, err := repository.CreatePlan(context.Background(), RestorePlanRequest{Binding: binding, Expected: RevisionToken{StateRevision: committed.Plan.Binding.StateRevision, RecoveryEpoch: 0}})
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +108,12 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	if err != nil || verification.Status != "degraded" || verification.ReasonCode != "no-independent-anchor" {
 		t.Fatalf("post-transition audit verification=%#v err=%v", verification, err)
 	}
+}
+
+func testRestoreRequest(binding generated.RestoreBinding) generated.RestoreRequest {
+	fence := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: "host-service", SubjectID: "former-control", Required: true, EvidenceIDs: []string{"evidence-a"}, EvidenceDigest: binding.FenceSetDigest, ObservedAt: binding.Source.VerifiedAt, Status: "verified"}
+	decision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", LocalLastEventID: 0, IndependentLastEventID: 0, IndependentCheckpointDigest: binding.AuditDecisionDigest, Strategy: "matched", DecisionDigest: binding.AuditDecisionDigest}
+	return generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: binding.PriorRecoveryEpoch, RecoveryEpoch: binding.PriorRecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-plan-test", Source: binding.Source, Fences: []generated.RestoreFenceItem{fence}, AuditDecision: decision, PointID: binding.PointID, DependencyIDs: binding.DependencyIDs, TargetIDs: binding.TargetIDs, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest}
 }
 
 func testRestoreBinding(plan generated.Plan, instance, acknowledgement string) generated.RestoreBinding {

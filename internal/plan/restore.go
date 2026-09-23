@@ -32,7 +32,7 @@ func BuildRestorePlan(ctx context.Context, declaration generated.DeclarationRevi
 	targets := append([]string(nil), request.TargetIDs...)
 	sort.Strings(targets)
 	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID,
-		Binding:    generated.PlanBinding{RecoveryEpoch: declaration.RecoveryEpoch, PriorStateRevision: request.ExpectedStateRevision, StateRevision: declaration.StateRevision, DeclarationRevision: declaration.Revision + 1, ObservationFingerprint: source.VerificationDigest, TargetDigest: request.TargetDigest, ReasonDigest: request.AuditDecisionDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"},
+		Binding:    generated.PlanBinding{RecoveryEpoch: declaration.RecoveryEpoch, PriorStateRevision: declaration.StateRevision, StateRevision: declaration.StateRevision + 1, DeclarationRevision: declaration.Revision + 1, ObservationFingerprint: source.VerificationDigest, TargetDigest: request.TargetDigest, ReasonDigest: request.AuditDecisionDigest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"},
 		Operations: []generated.PlanOperation{{Sequence: 1, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, ExecutorID: "executor-central", TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: false}}, Status: "planned", Risk: "control-plane", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: created.UTC().Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).UTC().Format(time.RFC3339), Extensions: declaration.Extensions}
 	readable := readablePlan(plan)
 	plan.ReadableDigest = sha([]byte(readable))
@@ -51,4 +51,13 @@ func BuildRestorePlan(ctx context.Context, declaration generated.DeclarationRevi
 		return generated.Plan{}, generated.RestoreBinding{}, planError(generated.ErrorCodeInputInvalid)
 	}
 	return plan, binding, nil
+}
+
+func RestorePlanArtifacts(value generated.Plan) ([]byte, string, error) {
+	readable := readablePlan(value)
+	canonical, err := json.Marshal(value)
+	if err != nil || value.ReadableDigest != sha([]byte(readable)) {
+		return nil, "", planError(generated.ErrorCodeIntegrityFailure)
+	}
+	return canonical, readable, nil
 }

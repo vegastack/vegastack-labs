@@ -42,6 +42,59 @@ type PendingRecoveryCandidate struct {
 	JournalDigest  string
 }
 
+func (repository *RestoreRepository) Qualification(ctx context.Context, planID string) (RestorePlanQualification, error) {
+	if repository == nil || repository.store == nil || planID == "" {
+		return RestorePlanQualification{}, restoreStoreError(generated.ErrorCodeInputInvalid, "restore-plan-qualification")
+	}
+	var result RestorePlanQualification
+	var requestBytes, bindingBytes []byte
+	var planDigest, sourceDigest, fenceDigest, auditDigest string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT plan_digest,request_bytes,binding_bytes,source_digest,fence_set_digest,audit_decision_digest FROM restore_plan_qualifications WHERE plan_id=?`, planID).Scan(&planDigest, &requestBytes, &bindingBytes, &sourceDigest, &fenceDigest, &auditDigest)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return result, restoreStoreError(generated.ErrorCodeResourceNotFound, "restore-plan-qualification")
+	}
+	if err != nil {
+		return result, err
+	}
+	if json.Unmarshal(requestBytes, &result.Request) != nil || json.Unmarshal(bindingBytes, &result.Binding) != nil || !validRestorePlanQualification(result, generated.Plan{PlanID: planID, PlanDigest: planDigest}) || sourceDigest != result.Request.Source.VerificationDigest || fenceDigest != result.Request.FenceSetDigest || auditDigest != result.Request.AuditDecisionDigest {
+		return RestorePlanQualification{}, restoreStoreError(generated.ErrorCodeIntegrityFailure, "restore-plan-qualification")
+	}
+	return result, nil
+}
+
+func validRestorePlanQualification(qualification RestorePlanQualification, plan generated.Plan) bool {
+	request, binding := qualification.Request, qualification.Binding
+	requestRaw, requestErr := json.Marshal(request)
+	bindingRaw, bindingErr := json.Marshal(binding)
+	if requestErr != nil || bindingErr != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreRequest, requestRaw, generated.ContractExact) != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, bindingRaw, generated.ContractExact) != nil || !validRestoreBinding(binding) || binding.PlanID != plan.PlanID || binding.PlanDigest != plan.PlanDigest || binding.HumanAcknowledgementID != "pending-human-acknowledgement" {
+		return false
+	}
+	return equalRestoreSource(request.Source, binding.Source) && request.PointID == binding.PointID && request.TargetDigest == binding.TargetDigest && request.FenceSetDigest == binding.FenceSetDigest && request.AuditDecisionDigest == binding.AuditDecisionDigest && request.CandidateDigest == binding.CandidateDigest && request.PriorInstanceID == binding.PriorInstanceID && request.NewInstanceID == binding.NewInstanceID && request.PriorRecoveryEpoch == binding.PriorRecoveryEpoch && request.NextRecoveryEpoch == binding.NextRecoveryEpoch && equalSortedStrings(request.DependencyIDs, binding.DependencyIDs) && equalSortedStrings(request.TargetIDs, binding.TargetIDs)
+}
+
+func equalRestoreSource(left, right generated.RestoreSourceBinding) bool {
+	a, _ := json.Marshal(left)
+	b, _ := json.Marshal(right)
+	return string(a) == string(b)
+}
+
+func equalSortedStrings(left, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	a, b := append([]string(nil), left...), append([]string(nil), right...)
+	sort.Strings(a)
+	sort.Strings(b)
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
 type RestoreRepository struct{ store *Store }
 
 func NewRestoreRepository(store *Store) *RestoreRepository { return &RestoreRepository{store: store} }

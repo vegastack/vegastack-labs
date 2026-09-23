@@ -133,6 +133,18 @@ CREATE TABLE restore_sessions (
     FOREIGN KEY(human_acknowledgement_id) REFERENCES acknowledgement_requests(acknowledgement_id) ON DELETE RESTRICT
 ) STRICT;
 
+CREATE TABLE restore_plan_qualifications (
+    plan_id TEXT PRIMARY KEY,
+    plan_digest TEXT NOT NULL UNIQUE CHECK (plan_digest GLOB 'sha256:[0-9a-f]*' AND length(plan_digest) = 71),
+    request_bytes BLOB NOT NULL CHECK (length(request_bytes) > 0),
+    binding_bytes BLOB NOT NULL CHECK (length(binding_bytes) > 0),
+    source_digest TEXT NOT NULL CHECK (source_digest GLOB 'sha256:[0-9a-f]*' AND length(source_digest) = 71),
+    fence_set_digest TEXT NOT NULL CHECK (fence_set_digest GLOB 'sha256:[0-9a-f]*' AND length(fence_set_digest) = 71),
+    audit_decision_digest TEXT NOT NULL CHECK (audit_decision_digest GLOB 'sha256:[0-9a-f]*' AND length(audit_decision_digest) = 71),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(plan_id) REFERENCES immutable_plans(plan_id) ON DELETE RESTRICT
+) STRICT;
+
 CREATE TABLE restore_transitions (
     transition_id INTEGER PRIMARY KEY AUTOINCREMENT,
     plan_id TEXT NOT NULL,
@@ -183,6 +195,8 @@ CREATE INDEX restore_transitions_plan_sequence ON restore_transitions(plan_id, t
 
 CREATE TRIGGER restore_sessions_no_update BEFORE UPDATE ON restore_sessions BEGIN SELECT RAISE(ABORT, 'restore sessions are immutable'); END;
 CREATE TRIGGER restore_sessions_no_delete BEFORE DELETE ON restore_sessions BEGIN SELECT RAISE(ABORT, 'restore sessions are append-only'); END;
+CREATE TRIGGER restore_plan_qualifications_no_update BEFORE UPDATE ON restore_plan_qualifications BEGIN SELECT RAISE(ABORT, 'restore plan qualifications are immutable'); END;
+CREATE TRIGGER restore_plan_qualifications_no_delete BEFORE DELETE ON restore_plan_qualifications BEGIN SELECT RAISE(ABORT, 'restore plan qualifications are append-only'); END;
 CREATE TRIGGER restore_transitions_no_update BEFORE UPDATE ON restore_transitions BEGIN SELECT RAISE(ABORT, 'restore transitions are immutable'); END;
 CREATE TRIGGER restore_transitions_no_delete BEFORE DELETE ON restore_transitions BEGIN SELECT RAISE(ABORT, 'restore transitions are append-only'); END;
 CREATE TRIGGER recovery_candidates_no_update BEFORE UPDATE ON recovery_candidates BEGIN SELECT RAISE(ABORT, 'recovery candidates are immutable'); END;
