@@ -124,10 +124,10 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 				FROM recovery_points p JOIN backup_local_verifications v ON v.point_id=p.point_id
 				JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch
 				WHERE p.point_id=? AND p.snapshot_id=? AND p.repository_id=? AND p.repository_class=? AND p.manifest_digest=? AND p.inventory_digest=?
-				AND p.source_revision=? AND p.recovery_epoch=? AND v.proof_digest=? AND v.status='local-verified' AND v.proof_class='live'
-				AND v.manifest_digest=? AND v.inventory_digest=? AND v.dependency_digest=? AND v.state_revision=? AND v.recovery_epoch=?
+				AND p.recovery_epoch=? AND v.proof_digest=? AND v.status='local-verified' AND v.proof_class='live'
+				AND v.manifest_digest=? AND v.inventory_digest=? AND v.dependency_digest=? AND v.state_revision<=? AND v.recovery_epoch=?
 				AND v.full_read_at IS NOT NULL AND v.functional_restored_at IS NOT NULL`, survivor.PointID, survivor.SnapshotID, repo, class,
-				survivor.ManifestDigest, survivor.InventoryDigest, sourceRevision, epoch, survivor.ProofDigest, survivor.ManifestDigest,
+				survivor.ManifestDigest, survivor.InventoryDigest, epoch, survivor.ProofDigest, survivor.ManifestDigest,
 				survivor.InventoryDigest, survivor.DependencyDigest, stateRevision, epoch).Scan(&fullText, &restoredText, &policyJSON); err != nil {
 				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-survivor-proof", false, err)
 			}
@@ -144,8 +144,8 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 		}
 		for _, target := range staged.Selection.Targets {
 			var exact int
-			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM recovery_points WHERE point_id=? AND snapshot_id=? AND repository_id=? AND repository_class=? AND manifest_digest=? AND inventory_digest=? AND source_revision=? AND recovery_epoch=?`,
-				target.PointID, target.SnapshotID, repo, class, target.ManifestDigest, target.InventoryDigest, sourceRevision, epoch).Scan(&exact); err != nil || exact != 1 {
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM recovery_points WHERE point_id=? AND snapshot_id=? AND repository_id=? AND repository_class=? AND manifest_digest=? AND inventory_digest=? AND recovery_epoch=?`,
+				target.PointID, target.SnapshotID, repo, class, target.ManifestDigest, target.InventoryDigest, epoch).Scan(&exact); err != nil || exact != 1 {
 				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-target", false, err)
 			}
 		}

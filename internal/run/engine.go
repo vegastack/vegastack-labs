@@ -737,6 +737,19 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		}
 		return adapter.Effect{}, err
 	}
+	bindings, err := engine.credentialStep.Bindings.GetStepBindings(ctx, plan, operation.OperationID)
+	if err != nil || len(bindings) != len(values) || operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID) {
+		closeCredentialValues(values)
+		return adapter.Effect{}, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-references")
+	}
+	operation.SecretReferences = make([]adapter.SecretReference, len(bindings))
+	for index, binding := range bindings {
+		if !credentialref.ValidBinding(binding) || binding.OperationID != operation.OperationID || binding.AdapterID != operation.AdapterID || binding.TargetID != operation.TargetID {
+			closeCredentialValues(values)
+			return adapter.Effect{}, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-references")
+		}
+		operation.SecretReferences[index] = adapter.SecretReference{ID: binding.ReferenceID, Consumer: binding.ConsumerID}
+	}
 	// The exact binding is derived only from the current plan, run, step and lease
 	// the engine has already verified; no adapter may widen or choose it.
 	binding := adapter.ExactExecutionBinding{

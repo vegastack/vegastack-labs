@@ -152,15 +152,23 @@ func (service *retirementDraftService) CreateDraft(ctx context.Context, input ge
 	if expectedInventory == "" || bytes < 1 {
 		return zero, apiFailure(generated.ErrorCodePrerequisiteBlocked, "retirement-inventory")
 	}
-	if bytes > math.MaxInt64/2 {
+	commandCount := int64(6) + int64(len(selection.Survivors))*3
+	if int64(len(objects)) > (math.MaxInt64-commandCount*2)/2 {
+		return zero, apiFailure(generated.ErrorCodeInputInvalid, "retirement-work-budget")
+	}
+	maxWorkObjects := int64(len(objects))*2 + commandCount*2
+	const maximumResticLockBytes int64 = 64 << 10
+	lockMutationBytes := commandCount * 2 * maximumResticLockBytes
+	if bytes > (math.MaxInt64-lockMutationBytes)/2 {
 		return zero, apiFailure(generated.ErrorCodeInputInvalid, "retirement-mutation-budget")
 	}
+	maxMutationBytes := bytes*2 + lockMutationBytes
 	capacity := backup.CapacitySnapshot{TotalBytes: sources.CapacityTotalBytes, AvailableBytes: sources.CapacityAvailableBytes, RetainedBytes: bytes, QuarantinedBytes: sources.CapacityQuarantinedBytes, ExpectedGrowthBytes: sources.ExpectedGrowthBytes, RepackScratchBytes: bytes}
 	capacityDecision, err := backup.ForecastLocalRetirement(selection, capacity)
 	if err != nil || (input.RepositoryClass == "standard" && !capacityDecision.AdmitNewStandard) || (input.RepositoryClass == "critical" && !capacityDecision.AdmitCritical) {
 		return zero, apiFailure(generated.ErrorCodePrerequisiteBlocked, "retirement-capacity")
 	}
-	stage := store.LocalRetirementStageRequest{RepositoryID: repositoryID, RepositoryClass: input.RepositoryClass, CatalogDigest: selection.ExpectedInventoryDigest, ExpectedInventoryDigest: expectedInventory, LockCatalogDigest: selection.LockCatalogDigest, SourceCoverageDigest: selection.SourceCoverageDigest, LockCatalogSequence: selection.LockCatalogSequence, SourceRevision: 2, StateRevision: input.ExpectedStateRevision + 4, RecoveryEpoch: input.RecoveryEpoch, MaxWorkObjects: int64(len(objects)) * 2, MaxMutationBytes: bytes * 2, MaxRepackBytes: bytes, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method}}
+	stage := store.LocalRetirementStageRequest{RepositoryID: repositoryID, RepositoryClass: input.RepositoryClass, CatalogDigest: selection.ExpectedInventoryDigest, ExpectedInventoryDigest: expectedInventory, LockCatalogDigest: selection.LockCatalogDigest, SourceCoverageDigest: selection.SourceCoverageDigest, LockCatalogSequence: selection.LockCatalogSequence, SourceRevision: 2, StateRevision: input.ExpectedStateRevision + 4, RecoveryEpoch: input.RecoveryEpoch, MaxWorkObjects: maxWorkObjects, MaxMutationBytes: maxMutationBytes, MaxRepackBytes: bytes, Attribution: audit.Attribution{AuthenticatedPrincipalID: principal.ID, AuthenticatedPrincipalMethod: principal.Method}}
 	stage.CapacityTotalBytes, stage.CapacityAvailableBytes, stage.CapacityRetainedBytes = capacity.TotalBytes, capacity.AvailableBytes, capacity.RetainedBytes
 	stage.CapacityQuarantinedBytes, stage.CapacityExpectedGrowthBytes = capacity.QuarantinedBytes, capacity.ExpectedGrowthBytes
 	for _, p := range selection.Targets {

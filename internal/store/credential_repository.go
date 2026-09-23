@@ -78,7 +78,16 @@ func (repository *CredentialRepository) StageStepBindings(ctx context.Context, r
 	if err != nil {
 		return "", err
 	}
-	if draft.Status != "draft" || draft.StateRevision != request.Expected.StateRevision || draft.RecoveryEpoch != request.Expected.RecoveryEpoch || draftCredentialDigest(draft.Extensions) != digest {
+	boundState := draft.StateRevision == request.Expected.StateRevision
+	if !boundState && draft.DeclarationType == "backup.retirement" && draft.StateRevision+1 == request.Expected.StateRevision {
+		var selectionCount int
+		readErr := repository.store.Read(ctx, func(tx ReadTx) error {
+			return tx.queryRow(ctx, `SELECT COUNT(1) FROM backup_retirement_drafts WHERE declaration_id=? AND declaration_revision=? AND state_revision=? AND recovery_epoch=?`,
+				request.DeclarationID, request.DeclarationRevision, request.Expected.StateRevision, request.Expected.RecoveryEpoch).Scan(&selectionCount)
+		})
+		boundState = readErr == nil && selectionCount == 1
+	}
+	if draft.Status != "draft" || !boundState || draft.RecoveryEpoch != request.Expected.RecoveryEpoch || draftCredentialDigest(draft.Extensions) != digest {
 		return "", credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-draft-unbound")
 	}
 	operations := map[string]generated.DeclarationOperation{}

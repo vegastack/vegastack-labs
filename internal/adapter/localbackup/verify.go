@@ -40,7 +40,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	}
 	if point.PolicyID != policy.PolicyID || point.PolicyDigest != policyDigest || point.RepositoryClass != policy.RepositoryClass ||
 		policy.RepositoryID == nil || point.RepositoryID != *policy.RepositoryID || point.RecoveryEpoch != binding.RecoveryEpoch ||
-		point.SourceRevision != binding.StateRevision || operation.InputDigest != point.ManifestDigest ||
+		operation.InputDigest != point.ManifestDigest ||
 		operation.ArtifactDigest != point.InventoryDigest || policy.EncryptionKeyReferenceID == nil ||
 		len(operation.SecretReferences) != 1 || operation.SecretReferences[0].ID != *policy.EncryptionKeyReferenceID {
 		return adapter.Effect{}, backupError(generated.ErrorCodePlanStale, "local-backup-verify-binding")

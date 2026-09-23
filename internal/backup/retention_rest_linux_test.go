@@ -50,6 +50,50 @@ func TestRetainedMutationIDBindsLeaseAndSequence(t *testing.T) {
 	}
 }
 
+func TestRetentionQuarantineParentRejectsWritableOrForeignDirectory(t *testing.T) {
+	open := func(t *testing.T, path string) int {
+		t.Helper()
+		fd, err := unix.Open(path, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { _ = unix.Close(fd) })
+		return fd
+	}
+
+	owner := uint32(os.Geteuid())
+	secure := t.TempDir()
+	if err := os.Chmod(secure, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateTrustedParentDirectoryDescriptor(open(t, secure), owner); err != nil {
+		t.Fatalf("secure owner-only parent rejected: %v", err)
+	}
+
+	writable := t.TempDir()
+	if err := os.Chmod(writable, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateTrustedParentDirectoryDescriptor(open(t, writable), owner); err == nil {
+		t.Fatal("world-writable quarantine parent accepted")
+	}
+
+	foreign := t.TempDir()
+	if err := os.Chmod(foreign, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	expected := owner + 1
+	if owner == 0 {
+		if err := os.Chown(foreign, 12345, -1); err != nil {
+			t.Fatal(err)
+		}
+		expected = 54321
+	}
+	if err := validateTrustedParentDirectoryDescriptor(open(t, foreign), expected); err == nil {
+		t.Fatal("foreign-owned quarantine parent accepted")
+	}
+}
+
 func TestRetentionDeleteQuarantinesExactInodeAcrossJournalCrashes(t *testing.T) {
 	var fs unix.Statfs_t
 	if err := unix.Statfs(t.TempDir(), &fs); err != nil || fs.Type != unix.EXT4_SUPER_MAGIC {

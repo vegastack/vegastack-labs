@@ -433,28 +433,40 @@ func TestClaimLocalRetirementRechecksCapacityAndAdmitsQuarantinedSharedPack(t *t
 		}
 	}
 	sharedName := strings.Repeat("c", 64)
+	pointSourceRevision := request.SourceRevision + 41 // backup source revision is not the declaration revision
 	for index, point := range []struct{ id, snapshot, manifest, inventory string }{{request.Targets[0].PointID, request.Targets[0].SnapshotID, request.Targets[0].ManifestDigest, request.Targets[0].InventoryDigest}, {request.Survivors[0].PointID, request.Survivors[0].SnapshotID, request.Survivors[0].ManifestDigest, request.Survivors[0].InventoryDigest}} {
 		job := "job-claim-" + point.id
 		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,'policy-a',?,?,?,'run-source',?,'local','fixture','pending',0,?,?)`, job, testDigest, request.RepositoryID, request.RepositoryClass, point.id, stamp, stamp); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,created_at) VALUES(?,?,'policy-a',?,?,?,'local','fixture',?,1,1,100,?,?,'{}',?,?,0,'pending',?)`, point.id, job, testDigest, request.RepositoryID, request.RepositoryClass, point.snapshot, testDigest, point.manifest, point.inventory, request.SourceRevision, stamp); err != nil {
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,created_at) VALUES(?,?,'policy-a',?,?,?,'local','fixture',?,1,1,100,?,?,'{}',?,?,0,'pending',?)`, point.id, job, testDigest, request.RepositoryID, request.RepositoryClass, point.snapshot, testDigest, point.manifest, point.inventory, pointSourceRevision, stamp); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_expected_objects(point_id,object_type,object_name,object_bytes,object_digest) VALUES(?,'data',?,100,?)`, point.id, sharedName, testDigest); err != nil {
 			t.Fatal(err)
 		}
 		if index == 1 {
-			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_read_leases(lease_id,point_id,repository_id,repository_class,source_revision,state_revision,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES('read-claim',?,?,?,?,?,0,'2026-09-12T18:29:00Z',?,'2026-09-12T18:29:30Z')`, point.id, request.RepositoryID, request.RepositoryClass, request.SourceRevision, request.StateRevision, stamp); err != nil {
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_read_leases(lease_id,point_id,repository_id,repository_class,source_revision,state_revision,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES('read-claim',?,?,?,?,?,0,'2026-09-12T18:29:00Z',?,'2026-09-12T18:29:30Z')`, point.id, request.RepositoryID, request.RepositoryClass, pointSourceRevision, request.StateRevision, stamp); err != nil {
 				t.Fatal(err)
 			}
-			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES('verify-claim',?,?,'run-source','read-claim','local-verified','live',?,?,?,?,?,?,'key-a',?,?,0,?,?, '',?)`, request.Survivors[0].ProofDigest, point.id, point.manifest, point.inventory, point.inventory, testDigest, testDigest, request.Survivors[0].DependencyDigest, request.SourceRevision, request.StateRevision, stamp, stamp, stamp); err != nil {
+			// The exact proof predates the inert declaration, selection, binding,
+			// and plan revisions while remaining bound to the selected survivor.
+			proofRevision := request.StateRevision - 1
+			wrongProof := "sha256:" + strings.Repeat("1", 64)
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES('verify-claim-wrong',?,?,'run-source','read-claim','local-verified','live',?,?,?,?,?,?,'key-a',?,?,0,?,?, '',?)`, wrongProof, point.id, point.manifest, point.inventory, point.inventory, testDigest, testDigest, request.Survivors[0].DependencyDigest, pointSourceRevision, proofRevision, stamp, stamp, stamp); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_repository_capacity_observations(observation_id,verification_id,repository_id,repository_class,total_bytes,available_bytes,quarantined_bytes,recovery_epoch,observed_at) VALUES('capacity-claim','verify-claim-wrong',?,?,?, ?,?,0,?)`, request.RepositoryID, request.RepositoryClass, request.CapacityTotalBytes, request.CapacityAvailableBytes, request.CapacityQuarantinedBytes, stamp); err != nil {
+				t.Fatal(err)
+			}
+			wrongClaim := LocalRetirementClaimRequest{IntentID: intent.IntentID, LeaseID: "retention-claim-wrong", PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: "run-claim", StepID: "step-claim", ExecutorLeaseID: "exec-claim", RetentionConsumerID: "backup-retention", RecoveryEpoch: 0, MaximumExpiresAt: time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC), Attribution: request.Attribution}
+			if _, err := retirement.ClaimLocalRetirement(ctx, wrongClaim); Code(err) != generated.ErrorCodePlanStale || !strings.Contains(err.Error(), "local-retirement-survivor-proof") {
+				t.Fatalf("mismatched survivor proof admitted: %v", err)
+			}
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES('verify-claim',?,?,'run-source','read-claim','local-verified','live',?,?,?,?,?,?,'key-a',?,?,0,?,?, '',?)`, request.Survivors[0].ProofDigest, point.id, point.manifest, point.inventory, point.inventory, testDigest, testDigest, request.Survivors[0].DependencyDigest, pointSourceRevision, proofRevision, stamp, stamp, stamp); err != nil {
 				t.Fatal(err)
 			}
 			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_local_last_good(repository_class,point_id,verification_id,state_revision,recovery_epoch,advanced_at) VALUES(?,?,'verify-claim',?,0,?)`, request.RepositoryClass, point.id, request.StateRevision, stamp); err != nil {
-				t.Fatal(err)
-			}
-			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_repository_capacity_observations(observation_id,verification_id,repository_id,repository_class,total_bytes,available_bytes,quarantined_bytes,recovery_epoch,observed_at) VALUES('capacity-claim','verify-claim',?,?,?, ?,?,0,?)`, request.RepositoryID, request.RepositoryClass, request.CapacityTotalBytes, request.CapacityAvailableBytes, request.CapacityQuarantinedBytes, stamp); err != nil {
 				t.Fatal(err)
 			}
 		}

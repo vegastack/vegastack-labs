@@ -264,6 +264,65 @@ func TestCredentialBindingStageRequiresMatchingDraftAndStoredPlan(t *testing.T) 
 	}
 }
 
+func TestCredentialBindingStageAllowsOnlyExactRetirementDraftGap(t *testing.T) {
+	newStage := func(t *testing.T, declarationType string) (*CredentialRepository, DeclarationRevisionRequest, CredentialBindingStageRequest) {
+		t.Helper()
+		repository := openCredentialStore(t)
+		binding := credentialBindingFixture()
+		binding.StateRevision = 4 // declaration + retirement selection + binding + plan
+		draft := validDeclarationStoreRequest()
+		draft.Document.DeclarationID = "declaration-retirement"
+		draft.Document.DeclarationType = declarationType
+		draft.Document.Operations[0].OperationID = binding.OperationID
+		draft.Document.Operations[0].AdapterID = binding.AdapterID
+		draft.Document.Operations[0].TargetID = binding.TargetID
+		draft.Document.Operations[0].InputDigest = credentialref.OperationManifestDigest([]credentialref.StepBinding{binding}, binding.OperationID)
+		draft.Document.Extensions = []generated.ContractExtension{{Name: "x-credential-bindings", ValueDigest: credentialref.ManifestDigest([]credentialref.StepBinding{binding})}}
+		draft.Document.ContentDigest = declarationContentDigest(draft.Document, draft.ReasonDigest)
+		if _, err := NewDeclarationRepository(repository.store).CreateRevision(context.Background(), draft); err != nil {
+			t.Fatal(err)
+		}
+		stage := CredentialBindingStageRequest{DeclarationID: draft.Document.DeclarationID, DeclarationRevision: draft.Document.Revision, Bindings: []credentialref.StepBinding{binding}, Expected: RevisionToken{StateRevision: 2, RecoveryEpoch: 0}, Attribution: draft.Attribution, KeyDigest: testDigest, RequestDigest: testDigest}
+		return repository, draft, stage
+	}
+
+	t.Run("exact retirement selection", func(t *testing.T) {
+		repository, draft, stage := newStage(t, "backup.retirement")
+		if _, err := repository.store.conn.ExecContext(context.Background(), `INSERT INTO backup_retirement_drafts(draft_id,selection_digest,declaration_id,declaration_revision,canonical_json,idempotency_key_digest,state_revision,recovery_epoch,created_by,created_at) VALUES('retirement-draft-test',?,?,?,'{}',?,2,0,'principal-test-1','2026-09-12T18:30:00Z')`, testDigest, draft.Document.DeclarationID, draft.Document.Revision, gateDigest([]byte("retirement-key"))); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE system_meta SET state_revision=2 WHERE id=1 AND state_revision=1`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repository.StageStepBindings(context.Background(), stage); err != nil {
+			t.Fatalf("exact retirement draft gap rejected: %v", err)
+		}
+	})
+
+	t.Run("missing retirement selection", func(t *testing.T) {
+		repository, _, stage := newStage(t, "backup.retirement")
+		if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE system_meta SET state_revision=2 WHERE id=1 AND state_revision=1`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repository.StageStepBindings(context.Background(), stage); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+			t.Fatalf("missing retirement draft accepted: %v", err)
+		}
+	})
+
+	t.Run("other declaration type", func(t *testing.T) {
+		repository, draft, stage := newStage(t, "node.configuration")
+		if _, err := repository.store.conn.ExecContext(context.Background(), `INSERT INTO backup_retirement_drafts(draft_id,selection_digest,declaration_id,declaration_revision,canonical_json,idempotency_key_digest,state_revision,recovery_epoch,created_by,created_at) VALUES('retirement-draft-test',?,?,?,'{}',?,2,0,'principal-test-1','2026-09-12T18:30:00Z')`, testDigest, draft.Document.DeclarationID, draft.Document.Revision, gateDigest([]byte("retirement-key"))); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repository.store.conn.ExecContext(context.Background(), `UPDATE system_meta SET state_revision=2 WHERE id=1 AND state_revision=1`); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := repository.StageStepBindings(context.Background(), stage); Code(err) != generated.ErrorCodePrerequisiteBlocked {
+			t.Fatalf("non-retirement gap accepted: %v", err)
+		}
+	})
+}
+
 func openCredentialStore(t *testing.T) *CredentialRepository {
 	t.Helper()
 	authority, err := Open(context.Background(), testConfig(t))
