@@ -24,9 +24,10 @@ func testOffsitePolicy(now time.Time) OffsitePolicy {
 		MaximumRetainedGenerations: 10, RuleLimit: 1000, RetentionWindow: 14 * 24 * time.Hour, SessionTTL: 5 * time.Minute, Clock: func() time.Time { return now }}
 }
 func testVerifiedCriticalPoint(now time.Time) VerifiedCriticalPoint {
-	objects := []ExpectedObject{{Type: "config", Name: "config", Bytes: 1, Digest: offsiteDigest("1")}, {Type: "keys", Name: "key-a", Bytes: 2, Digest: offsiteDigest("2")}, {Type: "snapshots", Name: "snapshot-a", Bytes: 3, Digest: offsiteDigest("3")}}
+	snapshotID := strings.Repeat("8", 64)
+	objects := []ExpectedObject{{Type: "config", Name: "config", Bytes: 1, Digest: offsiteDigest("1")}, {Type: "keys", Name: "key-a", Bytes: 2, Digest: offsiteDigest("2")}, {Type: "snapshots", Name: snapshotID, Bytes: 3, Digest: offsiteDigest("3")}}
 	return VerifiedCriticalPoint{PointID: "point-a", PolicyID: "policy-a", PolicyDigest: offsiteDigest("b"), RepositoryID: "critical-local", RepositoryClass: "critical",
-		ManifestDigest: offsiteDigest("c"), SnapshotID: "snapshot-a", InventoryDigest: ExpectedInventoryDigest(objects), ContentDigest: offsiteDigest("d"),
+		ManifestDigest: offsiteDigest("c"), SnapshotID: snapshotID, InventoryDigest: ExpectedInventoryDigest(objects), ContentDigest: offsiteDigest("d"),
 		KeyReferenceID: "key-reference-a", ResticDigest: offsiteDigest("e"), DependencyDigest: ExpectedDependencyInventoryDigest([]ExpectedDependency{}),
 		ProofStatus: "local-verified", ProofClass: "live", VerificationID: "verification-a", SourceRevision: 2, StateRevision: 2, RecoveryEpoch: 7,
 		ObjectCount: int64(len(objects)), ObjectBytes: 6, ExpectedObjects: objects, ExpectedDependencies: []ExpectedDependency{}, FullReadValidUntil: now.Add(time.Hour), FunctionalValidUntil: now.Add(time.Hour)}

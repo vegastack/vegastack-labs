@@ -46,9 +46,12 @@ func CopyOffsitePoint(ctx context.Context, config CopyConfig, point VerifiedCrit
 		return PendingOffsiteGeneration{}, invalid
 	}
 	return PendingOffsiteGeneration{SourcePointID: point.PointID, SourceSnapshotID: point.SnapshotID, SourceManifestDigest: point.ManifestDigest,
-		SourceInventoryDigest: point.InventoryDigest, GenerationID: admission.GenerationID, RepositoryID: result.RepositoryID,
+		SourceInventoryDigest: point.InventoryDigest, SourceContentDigest: point.ContentDigest, SourceDependencyDigest: point.DependencyDigest,
+		SourceResticDigest: point.ResticDigest, KeyReferenceID: point.KeyReferenceID, SourceRevision: point.SourceRevision, RecoveryEpoch: point.RecoveryEpoch,
+		GenerationID: admission.GenerationID, RepositoryID: result.RepositoryID,
 		OffsiteSnapshotID: result.SnapshotID, OffsiteInventoryDigest: observed.InventoryDigest,
-		RuleDigest: admission.RuleDigest, SessionExpiries: expiries, ObjectCount: observed.ObjectCount, ObjectBytes: observed.ObjectBytes}, nil
+		RuleDigest: admission.RuleDigest, SessionExpiries: expiries, ObjectCount: observed.ObjectCount, ObjectBytes: observed.ObjectBytes,
+		IssuanceStoppedAt: config.Endpoint.ChildExitedAt()}, nil
 }
 
 func validLoopbackIAMURI(raw, expectedPath string) bool {

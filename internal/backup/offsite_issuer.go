@@ -30,6 +30,7 @@ type OneRunEndpoint struct {
 	mu                  sync.Mutex
 	config              OneRunConfig
 	closed, childExited bool
+	childExitedAt       time.Time
 	expiries            []time.Time
 }
 
@@ -100,7 +101,19 @@ func (endpoint *OneRunEndpoint) MarkChildExited() {
 	}
 	endpoint.mu.Lock()
 	endpoint.childExited = true
+	if endpoint.childExitedAt.IsZero() {
+		endpoint.childExitedAt = endpoint.config.Clock().UTC()
+	}
 	endpoint.mu.Unlock()
+}
+
+func (endpoint *OneRunEndpoint) ChildExitedAt() time.Time {
+	if endpoint == nil {
+		return time.Time{}
+	}
+	endpoint.mu.Lock()
+	defer endpoint.mu.Unlock()
+	return endpoint.childExitedAt
 }
 
 func (endpoint *OneRunEndpoint) SessionExpiries() []time.Time {
