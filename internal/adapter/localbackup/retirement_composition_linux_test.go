@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -155,6 +156,7 @@ func TestLocalRetirementPublicComposition(t *testing.T) {
 	fixture.agePoint(fixture.survivorPoint, fixture.nextPoint)
 	fixture.runPublicRetirement("retirement-second", fixture.survivorPoint, fixture.nextPoint, false)
 	fixture.verifySuccessorThroughLocalBackup(fixture.nextPoint, "second")
+	fixture.assertThirdDraftUsesFinalSuccessor()
 }
 
 func newRetirementCompositionFixture(t *testing.T) *retirementCompositionFixture {
@@ -633,6 +635,43 @@ func (fixture *retirementCompositionFixture) assertSecondDraftUsesSuccessorSourc
 	}
 	if !foundOld || !foundNew || newInventory != fixture.nextPoint.InventoryDigest || backup.ExpectedInventoryDigest(objects) != fixture.nextPoint.InventoryDigest {
 		t.Fatalf("second retirement active points=%#v", sources.Points)
+	}
+}
+
+func (fixture *retirementCompositionFixture) assertThirdDraftUsesFinalSuccessor() {
+	t := fixture.t
+	successor, err := fixture.backups.GetLocalRetirementSuccessorForPoint(fixture.ctx, fixture.nextPoint.PointID)
+	if err != nil || successor.GenerationSequence != 2 {
+		t.Fatalf("final successor=%#v err=%v", successor, err)
+	}
+	sources, err := fixture.retirements.LoadLocalRetirementDraftSources(fixture.ctx, "standard", 0)
+	if err != nil || len(sources.Points) != 1 || sources.Points[0].PointID != fixture.nextPoint.PointID || len(sources.Objects) != len(successor.Objects) {
+		t.Fatalf("third retirement source=%#v successor=%#v err=%v", sources, successor, err)
+	}
+	objects := make([]backup.ExpectedObject, len(sources.Objects))
+	for index, object := range sources.Objects {
+		objects[index] = backup.ExpectedObject{Type: object.Type, Name: object.Name, Bytes: object.Bytes, Digest: object.Digest}
+	}
+	if backup.ExpectedInventoryDigest(objects) != successor.SuccessorInventoryDigest {
+		t.Fatalf("third retirement inventory=%s want=%s", backup.ExpectedInventoryDigest(objects), successor.SuccessorInventoryDigest)
+	}
+	current, err := store.NewPlanRepository(fixture.authority).CurrentRevision(fixture.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	targetDigest, err := store.LocalRepositoryPlanTargetDigest(backupidentity.StandardRepository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service, err := api.NewRetirementDraftService(fixture.retirements, store.NewCredentialRepository(fixture.authority), store.NewPlanRepository(fixture.authority), fixture.declarations(), retirementCompositionAuthorizer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.CreateDraft(fixture.ctx, generated.BackupRetirementDraftRequest{Schema: generated.SchemaIDBackupRetirementDraftRequest, SchemaVersion: "1.1.0",
+		ExpectedStateRevision: current.StateRevision, RecoveryEpoch: 0, TargetDigest: targetDigest, IdempotencyKey: "retirement-composition-third", RepositoryClass: "standard",
+		ReferenceID: "reference-retirement-composition", ResolverID: "native-systemd", MaterialVersion: "version-retirement-composition"}, fixture.principal)
+	if err == nil || !strings.Contains(err.Error(), "retirement-empty-selection") {
+		t.Fatalf("third public draft reused retired history: %v", err)
 	}
 }
 

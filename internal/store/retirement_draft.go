@@ -98,7 +98,7 @@ func loadLocalRetirementCurrentPointIDs(ctx context.Context, tx ReadTx, class st
 }
 
 func loadLocalRetirementCurrentSuccessor(ctx context.Context, tx ReadTx, class string, epoch int64) (*localRetirementCurrentSuccessor, error) {
-	rows, err := tx.query(ctx, `SELECT g.intent_id,g.generation_sequence,g.parent_generation_digest,g.generation_digest,g.predecessor_inventory_digest,g.successor_inventory_digest,g.journal_digest,g.survivor_proof_digest,g.survivor_count,g.canonical_json,g.state_revision,g.recorded_at,i.canonical_json
+	rows, err := tx.query(ctx, `SELECT g.intent_id,g.generation_sequence,g.parent_generation_digest,g.generation_digest,g.predecessor_inventory_digest,g.successor_inventory_digest,g.journal_digest,g.survivor_proof_digest,g.survivor_count,g.canonical_json,g.state_revision,g.recorded_at,i.expected_inventory_digest,i.canonical_json
 		FROM backup_retirement_successor_generations g JOIN backup_retirement_intents i ON i.intent_id=g.intent_id
 		WHERE g.repository_class=? AND g.recovery_epoch=? AND EXISTS (
 			SELECT 1 FROM backup_retirement_receipts r
@@ -111,18 +111,18 @@ func loadLocalRetirementCurrentSuccessor(ctx context.Context, tx ReadTx, class s
 	}
 	defer rows.Close()
 	var latest *localRetirementCurrentSuccessor
-	var priorDigest, priorInventory string
+	var priorDigest string
 	var count, sequence int64
 	retiredPointIDs := map[string]bool{}
 	for rows.Next() {
-		var intentID, digest, predecessor, inventory, journal, proof, canonical, recorded, intentCanonical string
+		var intentID, digest, predecessor, inventory, journal, proof, canonical, recorded, intentInventory, intentCanonical string
 		var parent sql.NullString
 		var survivorCount, state int64
-		if err := rows.Scan(&intentID, &sequence, &parent, &digest, &predecessor, &inventory, &journal, &proof, &survivorCount, &canonical, &state, &recorded, &intentCanonical); err != nil {
+		if err := rows.Scan(&intentID, &sequence, &parent, &digest, &predecessor, &inventory, &journal, &proof, &survivorCount, &canonical, &state, &recorded, &intentInventory, &intentCanonical); err != nil {
 			return nil, err
 		}
 		count++
-		if sequence != count || (count == 1 && parent.Valid) || (count > 1 && (!parent.Valid || parent.String != priorDigest || predecessor != priorInventory)) {
+		if sequence != count || (count == 1 && parent.Valid) || (count > 1 && (!parent.Valid || parent.String != priorDigest)) {
 			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
 		}
 		var payload localRetirementSuccessorPayload
@@ -130,7 +130,7 @@ func loadLocalRetirementCurrentSuccessor(ctx context.Context, tx ReadTx, class s
 			Selection retirementSelectionPayload `json:"selection"`
 		}
 		sum := sha256.Sum256([]byte(canonical))
-		if json.Unmarshal([]byte(canonical), &payload) != nil || json.Unmarshal([]byte(intentCanonical), &intent) != nil || payload.IntentID != intentID || payload.InventoryDigest != inventory || payload.JournalDigest != journal || payload.ProofDigest != proof || payload.Epoch != epoch ||
+		if json.Unmarshal([]byte(canonical), &payload) != nil || json.Unmarshal([]byte(intentCanonical), &intent) != nil || predecessor != intentInventory || predecessor != intent.Selection.ExpectedInventoryDigest || payload.IntentID != intentID || payload.InventoryDigest != inventory || payload.JournalDigest != journal || payload.ProofDigest != proof || payload.Epoch != epoch ||
 			"sha256:"+hex.EncodeToString(sum[:]) != digest || int64(len(payload.Survivors)) != survivorCount || pendingInventoryDigest(payload.Objects) != inventory {
 			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
 		}
@@ -160,7 +160,7 @@ func loadLocalRetirementCurrentSuccessor(ctx context.Context, tx ReadTx, class s
 		}
 		latest = &localRetirementCurrentSuccessor{Digest: digest, InventoryDigest: inventory, StateRevision: state, RecordedAt: recordedAt,
 			Survivors: append([]LocalRetirementSurvivor(nil), payload.Survivors...), Objects: append([]ExpectedObjectRow(nil), payload.Objects...), RetiredPointIDs: retiredPointIDs}
-		priorDigest, priorInventory = digest, inventory
+		priorDigest = digest
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
