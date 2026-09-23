@@ -19,12 +19,13 @@ var protectedGenerationParts = []string{"config", "keys", "data", "index", "snap
 
 func ForecastGeneration(policy OffsitePolicy, point VerifiedCriticalPoint, observed adapter.RetentionObservation) (GenerationAdmission, error) {
 	invalid := errors.New("offsite generation admission blocked")
+	now := nowForOffsitePolicy(policy)
 	if !validOffsitePolicy(policy) || observed.GenerationID != policy.GenerationID || observed.RuleLimit != policy.RuleLimit ||
 		observed.RuleLimit > 1000 || observed.RuleCount < 0 || observed.RuleCount+len(protectedGenerationParts) > observed.RuleLimit ||
 		observed.RetainedGenerations < 0 || observed.RetainedGenerations >= policy.MaximumRetainedGenerations ||
 		observed.AvailableBytes < policy.MaximumBytes || observed.AvailablePUTs < policy.MaximumPUTs || observed.AvailableLISTs < policy.MaximumLISTs ||
-		point.ObjectBytes > policy.MaximumBytes || observed.ObservedAt.IsZero() || observed.ObservedAt.After(nowForOffsitePolicy(policy)) ||
-		nowForOffsitePolicy(policy).Sub(observed.ObservedAt) > 5*time.Minute || !observed.IndefiniteProtection ||
+		point.ObjectBytes > policy.MaximumBytes || observed.ObservedAt.IsZero() || observed.ObservedAt.After(now) ||
+		now.Sub(observed.ObservedAt) > 5*time.Minute || !observed.IndefiniteProtection ||
 		!validBackupManifestDigest(observed.RuleDigest) || observed.RuleDigest != DigestRetentionObservation(observed) {
 		return GenerationAdmission{}, invalid
 	}
@@ -55,9 +56,10 @@ func validOffsitePrefix(value string) bool {
 }
 
 func DigestRetentionObservation(value adapter.RetentionObservation) string {
-	parts := append([]string(nil), value.ProtectedPrefixes...)
-	parts = append(parts, value.MutablePrefixes...)
-	slices.Sort(parts)
+	protected := append([]string(nil), value.ProtectedPrefixes...)
+	mutable := append([]string(nil), value.MutablePrefixes...)
+	slices.Sort(protected)
+	slices.Sort(mutable)
 	hasher := sha256.New()
 	hasher.Write([]byte("offsite-retention-observation-v1"))
 	for _, item := range []string{value.GenerationID, strconv.Itoa(value.RuleCount), strconv.Itoa(value.RuleLimit), strconv.Itoa(value.RetainedGenerations),
@@ -66,7 +68,13 @@ func DigestRetentionObservation(value adapter.RetentionObservation) string {
 		hasher.Write([]byte{0})
 		hasher.Write([]byte(item))
 	}
-	for _, item := range parts {
+	for _, item := range protected {
+		hasher.Write([]byte("\x00protected"))
+		hasher.Write([]byte{0})
+		hasher.Write([]byte(item))
+	}
+	for _, item := range mutable {
+		hasher.Write([]byte("\x00mutable"))
 		hasher.Write([]byte{0})
 		hasher.Write([]byte(item))
 	}

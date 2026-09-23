@@ -27,3 +27,16 @@ func TestForecastGenerationRejectsExhaustedRulesAndUnprotectedPayload(t *testing
 		t.Fatalf("forecast = %#v, %v", admission, err)
 	}
 }
+
+func TestRetentionDigestSeparatesProtectedAndMutablePrefixes(t *testing.T) {
+	now := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
+	protected := "critical/generation-a/config"
+	mutable := "critical/generation-a/locks/"
+	base := adapter.RetentionObservation{GenerationID: "generation-a", ProtectedPrefixes: []string{protected}, MutablePrefixes: []string{mutable}, ObservedAt: now}
+	swapped := base
+	swapped.ProtectedPrefixes = []string{mutable}
+	swapped.MutablePrefixes = []string{protected}
+	if DigestRetentionObservation(base) == DigestRetentionObservation(swapped) {
+		t.Fatal("retention digest did not bind prefix authority")
+	}
+}
