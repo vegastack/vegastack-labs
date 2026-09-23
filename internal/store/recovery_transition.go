@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"time"
@@ -8,6 +9,47 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
+
+// VerifyRecoveredAuthority proves that the post-mutation candidate still
+// carries the exact planned transition. File-byte hashes cannot serve this
+// purpose because preparing authority necessarily mutates the SQLite file.
+func (store *Store) VerifyRecoveredAuthority(ctx context.Context, binding generated.RestoreBinding) error {
+	if store == nil || !validRestoreBinding(binding) {
+		return newStoreError(generated.ErrorCodeInputInvalid, "recovery-authority-binding", false, nil)
+	}
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	if err := store.readyForRead(ctx); err != nil {
+		return err
+	}
+	var instance, mode string
+	var epoch int64
+	if err := store.conn.QueryRowContext(ctx, `SELECT instance_id,recovery_epoch,authority_mode FROM system_meta WHERE id=1`).Scan(&instance, &epoch, &mode); err != nil {
+		return store.transactionError(ctx, err)
+	}
+	if instance != binding.NewInstanceID || epoch != binding.NextRecoveryEpoch || mode != "recovery-required" {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "recovery-authority-binding", false, nil)
+	}
+	var planDigest, candidateDigest, fenceDigest, decisionDigest, journalInstance, evidenceDigest string
+	var journalEpoch int64
+	var bindingBytes []byte
+	err := store.conn.QueryRowContext(ctx, `SELECT plan_digest,candidate_digest,fence_set_digest,audit_decision_digest,instance_id,recovery_epoch,evidence_digest,binding_bytes FROM recovery_authority_journal WHERE plan_id=? AND transition='promoted'`, binding.PlanID).Scan(&planDigest, &candidateDigest, &fenceDigest, &decisionDigest, &journalInstance, &journalEpoch, &evidenceDigest, &bindingBytes)
+	if err != nil {
+		return store.transactionError(ctx, err)
+	}
+	wantBinding, err := json.Marshal(binding)
+	if err != nil || !bytes.Equal(bindingBytes, wantBinding) || planDigest != binding.PlanDigest || candidateDigest != binding.CandidateDigest || fenceDigest != binding.FenceSetDigest || decisionDigest != binding.AuditDecisionDigest || journalInstance != binding.NewInstanceID || journalEpoch != binding.NextRecoveryEpoch || evidenceDigest != binding.CandidateDigest {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "recovery-authority-binding", false, nil)
+	}
+	var genesisInstance, recoveryDecision string
+	if err := store.conn.QueryRowContext(ctx, `SELECT instance_id,recovery_decision_digest FROM audit_epoch_genesis WHERE recovery_epoch=?`, binding.NextRecoveryEpoch).Scan(&genesisInstance, &recoveryDecision); err != nil {
+		return store.transactionError(ctx, err)
+	}
+	if genesisInstance != binding.NewInstanceID || recoveryDecision != binding.AuditDecisionDigest {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "recovery-authority-binding", false, nil)
+	}
+	return nil
+}
 
 // PrepareRecoveredAuthority performs the one permitted identity/epoch change
 // inside an isolated candidate. The candidate remains recovery-required and

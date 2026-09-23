@@ -1,6 +1,7 @@
 package recovery
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -26,8 +27,9 @@ type CandidateReceipt struct {
 }
 
 type StartupExpectation struct {
-	PlanID, CandidateDigest, JournalDigest, NewInstanceID string
-	NextRecoveryEpoch                                     int64
+	Binding        generated.RestoreBinding
+	DatabaseDigest string
+	JournalDigest  string
 }
 
 type PromotionResult struct {
@@ -38,8 +40,9 @@ type PromotionResult struct {
 
 type CandidateStorage interface {
 	CreateCandidate(context.Context, CandidatePaths) error
-	VerifyCandidate(context.Context, CandidatePaths, string) error
+	VerifyCandidate(context.Context, CandidatePaths) error
 	WriteTransitionJournal(context.Context, CandidatePaths, []byte) error
+	ReadTransitionJournal(context.Context, CandidatePaths, string) ([]byte, error)
 	AcquireAuthorityLock(context.Context, CandidatePaths) (io.Closer, error)
 	PromoteNoReplace(context.Context, CandidatePaths, StartupExpectation) error
 }
@@ -50,6 +53,7 @@ type CandidateRecorder interface {
 
 type CandidateAuthority interface {
 	PrepareRecoveredAuthority(context.Context, string, generated.RestoreBinding, AuditContinuity) error
+	VerifyRecoveredAuthority(context.Context, string, generated.RestoreBinding) error
 }
 
 type CandidateManager struct {
@@ -96,15 +100,13 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	if err := manager.Authority.PrepareRecoveredAuthority(ctx, paths.Candidate, binding, source.Audit); err != nil {
 		return CandidateReceipt{}, err
 	}
-	if err := manager.Storage.VerifyCandidate(ctx, paths, binding.CandidateDigest); err != nil {
+	if err := manager.Storage.VerifyCandidate(ctx, paths); err != nil {
 		return CandidateReceipt{}, err
 	}
-	journal := struct {
-		Domain                         string
-		Binding                        generated.RestoreBinding
-		FenceSetDigest, DatabaseDigest string
-	}{"vegastack-labs.dev/recovery-transition/v1", binding, fence.FenceSetDigest, source.DatabaseDigest}
-	raw, err := json.Marshal(journal)
+	if err := manager.Authority.VerifyRecoveredAuthority(ctx, paths.Candidate, binding); err != nil {
+		return CandidateReceipt{}, err
+	}
+	raw, err := candidateTransitionBytes(binding, source.DatabaseDigest)
 	if err != nil {
 		return blocked("recovery-candidate-journal")
 	}
@@ -121,10 +123,11 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 }
 
 func (manager CandidateManager) PromoteAtStartup(ctx context.Context, expected StartupExpectation) (PromotionResult, error) {
-	if ctx == nil || ctx.Err() != nil || manager.Storage == nil || !candidatePlanID.MatchString(expected.PlanID) || !restoreDigest.MatchString(expected.CandidateDigest) || !restoreDigest.MatchString(expected.JournalDigest) || expected.NewInstanceID == "" || expected.NextRecoveryEpoch < 1 {
+	binding := expected.Binding
+	if ctx == nil || ctx.Err() != nil || manager.Storage == nil || manager.Authority == nil || !validCandidateBinding(binding) || !restoreDigest.MatchString(expected.DatabaseDigest) || !restoreDigest.MatchString(expected.JournalDigest) {
 		return PromotionResult{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-promotion", false)
 	}
-	paths, err := DeriveCandidatePaths(manager.DatabasePath, expected.PlanID)
+	paths, err := DeriveCandidatePaths(manager.DatabasePath, binding.PlanID)
 	if err != nil {
 		return PromotionResult{}, err
 	}
@@ -133,17 +136,58 @@ func (manager CandidateManager) PromoteAtStartup(ctx context.Context, expected S
 		return PromotionResult{}, err
 	}
 	defer lock.Close()
-	if err := manager.Storage.VerifyCandidate(ctx, paths, expected.CandidateDigest); err != nil {
+	if err := manager.Storage.VerifyCandidate(ctx, paths); err != nil {
+		return PromotionResult{}, err
+	}
+	journal, err := manager.Storage.ReadTransitionJournal(ctx, paths, expected.JournalDigest)
+	if err != nil {
+		return PromotionResult{}, err
+	}
+	want, err := candidateTransitionBytes(binding, expected.DatabaseDigest)
+	if err != nil || !bytes.Equal(journal, want) {
+		return PromotionResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "recovery-candidate-binding", false)
+	}
+	if err := manager.Authority.VerifyRecoveredAuthority(ctx, paths.Candidate, binding); err != nil {
 		return PromotionResult{}, err
 	}
 	if err := manager.Storage.PromoteNoReplace(ctx, paths, expected); err != nil {
 		return PromotionResult{}, err
 	}
-	return PromotionResult{FormerPreserved: true, InstanceID: expected.NewInstanceID, RecoveryEpoch: expected.NextRecoveryEpoch}, nil
+	return PromotionResult{FormerPreserved: true, InstanceID: binding.NewInstanceID, RecoveryEpoch: binding.NextRecoveryEpoch}, nil
+}
+
+type candidateTransition struct {
+	Domain         string                   `json:"domain"`
+	Binding        generated.RestoreBinding `json:"binding"`
+	DatabaseDigest string                   `json:"databaseDigest"`
+}
+
+// candidateTransitionBytes is the deterministic semantic identity of a staged
+// candidate. CandidateDigest remains the plan-declared artifact identity; the
+// transition digest binds it to the exact plan, source, fences, audit decision,
+// and replacement authority without pretending mutable SQLite bytes are stable.
+func candidateTransitionBytes(binding generated.RestoreBinding, databaseDigest string) ([]byte, error) {
+	if !validCandidateBinding(binding) || !restoreDigest.MatchString(databaseDigest) {
+		return nil, failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-candidate-binding", false)
+	}
+	return json.Marshal(candidateTransition{Domain: "vegastack-labs.dev/recovery-transition/v1", Binding: binding, DatabaseDigest: databaseDigest})
+}
+
+func validCandidateBinding(binding generated.RestoreBinding) bool {
+	raw, err := json.Marshal(binding)
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, raw, generated.ContractExact) == nil &&
+		candidatePlanID.MatchString(binding.PlanID) && restoreDigest.MatchString(binding.PlanDigest) && restoreDigest.MatchString(binding.CandidateDigest) &&
+		restoreDigest.MatchString(binding.FenceSetDigest) && restoreDigest.MatchString(binding.AuditDecisionDigest) && binding.PointID == binding.Source.PointID &&
+		binding.PriorInstanceID != "" && binding.NewInstanceID != "" && binding.PriorInstanceID != binding.NewInstanceID && binding.NextRecoveryEpoch == binding.PriorRecoveryEpoch+1 && binding.Status == "planned"
 }
 
 func sameRestoreSource(left, right generated.RestoreSourceBinding) bool {
 	a, _ := json.Marshal(left)
 	b, _ := json.Marshal(right)
 	return string(a) == string(b)
+}
+
+func digestBytes(body []byte) string {
+	sum := sha256.Sum256(body)
+	return "sha256:" + hex.EncodeToString(sum[:])
 }

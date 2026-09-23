@@ -15,8 +15,11 @@ type LocalCandidateStorage struct{ ExpectedUID uint32 }
 func (LocalCandidateStorage) CreateCandidate(context.Context, CandidatePaths) error {
 	return failure.New(generated.ErrorCodeUnsupportedPlatform, "recovery-candidate", false)
 }
-func (LocalCandidateStorage) VerifyCandidate(context.Context, CandidatePaths, string) error {
+func (LocalCandidateStorage) VerifyCandidate(context.Context, CandidatePaths) error {
 	return failure.New(generated.ErrorCodeUnsupportedPlatform, "recovery-candidate", false)
+}
+func (LocalCandidateStorage) ReadTransitionJournal(context.Context, CandidatePaths, string) ([]byte, error) {
+	return nil, failure.New(generated.ErrorCodeUnsupportedPlatform, "recovery-candidate", false)
 }
 func (LocalCandidateStorage) WriteTransitionJournal(context.Context, CandidatePaths, []byte) error {
 	return failure.New(generated.ErrorCodeUnsupportedPlatform, "recovery-candidate", false)

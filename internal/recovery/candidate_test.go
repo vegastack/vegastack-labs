@@ -6,6 +6,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 type candidateStorageStub struct {
@@ -18,18 +20,34 @@ func (s *candidateStorageStub) CreateCandidate(context.Context, CandidatePaths) 
 	s.created = true
 	return nil
 }
-func (s *candidateStorageStub) VerifyCandidate(context.Context, CandidatePaths, string) error {
+func (s *candidateStorageStub) VerifyCandidate(context.Context, CandidatePaths) error {
 	return nil
 }
 func (s *candidateStorageStub) WriteTransitionJournal(_ context.Context, _ CandidatePaths, b []byte) error {
 	s.journal = append([]byte(nil), b...)
 	return nil
 }
+func (s *candidateStorageStub) ReadTransitionJournal(_ context.Context, _ CandidatePaths, expected string) ([]byte, error) {
+	if digestBytes(s.journal) != expected {
+		return nil, errors.New("journal digest mismatch")
+	}
+	return append([]byte(nil), s.journal...), nil
+}
 func (s *candidateStorageStub) AcquireAuthorityLock(context.Context, CandidatePaths) (io.Closer, error) {
 	if s.live {
 		return nil, errors.New("writer live")
 	}
 	return io.NopCloser(strings.NewReader("")), nil
+}
+
+type candidateAuthorityStub struct{ verified bool }
+
+func (*candidateAuthorityStub) PrepareRecoveredAuthority(context.Context, string, generated.RestoreBinding, AuditContinuity) error {
+	return nil
+}
+func (stub *candidateAuthorityStub) VerifyRecoveredAuthority(context.Context, string, generated.RestoreBinding) error {
+	stub.verified = true
+	return nil
 }
 func (s *candidateStorageStub) PromoteNoReplace(context.Context, CandidatePaths, StartupExpectation) error {
 	s.promoted = true
@@ -38,8 +56,15 @@ func (s *candidateStorageStub) PromoteNoReplace(context.Context, CandidatePaths,
 
 func TestCandidatePromotionPreservesAuthorityAndNeverCreatesTwoLocalWriters(t *testing.T) {
 	storage := &candidateStorageStub{live: true}
-	manager := CandidateManager{DatabasePath: "/var/lib/vsk-labs/control.db", Storage: storage}
-	expected := StartupExpectation{PlanID: "plan-a", CandidateDigest: "sha256:" + strings.Repeat("a", 64), JournalDigest: "sha256:" + strings.Repeat("b", 64), NewInstanceID: "instance-new", NextRecoveryEpoch: 8}
+	authority := &candidateAuthorityStub{}
+	manager := CandidateManager{DatabasePath: "/var/lib/vsk-labs/control.db", Storage: storage, Authority: authority}
+	binding := candidateTestBinding()
+	journal, err := candidateTransitionBytes(binding, testCandidateDigest("6"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage.journal = journal
+	expected := StartupExpectation{Binding: binding, DatabaseDigest: testCandidateDigest("6"), JournalDigest: digestBytes(journal)}
 	if _, err := manager.PromoteAtStartup(context.Background(), expected); err == nil {
 		t.Fatal("live writer accepted")
 	}
@@ -51,8 +76,27 @@ func TestCandidatePromotionPreservesAuthorityAndNeverCreatesTwoLocalWriters(t *t
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !result.FormerPreserved || result.InstanceID != "instance-new" || result.RecoveryEpoch != 8 || !storage.promoted {
+	if !result.FormerPreserved || result.InstanceID != binding.NewInstanceID || result.RecoveryEpoch != binding.NextRecoveryEpoch || !storage.promoted || !authority.verified {
 		t.Fatalf("result=%#v", result)
+	}
+}
+
+func TestCandidatePromotionRejectsAnySemanticBindingChange(t *testing.T) {
+	binding := candidateTestBinding()
+	databaseDigest := testCandidateDigest("6")
+	journal, err := candidateTransitionBytes(binding, databaseDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage := &candidateStorageStub{journal: journal}
+	manager := CandidateManager{DatabasePath: "/var/lib/vsk-labs/control.db", Storage: storage, Authority: &candidateAuthorityStub{}}
+	expected := StartupExpectation{Binding: binding, DatabaseDigest: databaseDigest, JournalDigest: digestBytes(journal)}
+	expected.Binding.FenceSetDigest = testCandidateDigest("7")
+	if _, err := manager.PromoteAtStartup(context.Background(), expected); err == nil {
+		t.Fatal("changed semantic binding accepted")
+	}
+	if storage.promoted {
+		t.Fatal("candidate promoted after binding change")
 	}
 }
 
@@ -68,3 +112,10 @@ func TestCandidatePathsAreFixedSiblings(t *testing.T) {
 		t.Fatal("relative path accepted")
 	}
 }
+
+func candidateTestBinding() generated.RestoreBinding {
+	source := generated.RestoreSourceBinding{Schema: generated.SchemaIDRestoreSourceBinding, SchemaVersion: "1.1.0", PointID: "point-a", PointDigest: testCandidateDigest("1"), ManifestDigest: testCandidateDigest("2"), VerificationDigest: testCandidateDigest("3"), SourceClass: "local", RepositoryGenerationID: "generation-a", DeclaredRPOSeconds: 3600, CreatedAt: "2026-09-24T05:00:00Z", VerifiedAt: "2026-09-24T05:30:00Z", RecoveryEpoch: 7, DependencyDigests: []string{testCandidateDigest("4")}}
+	return generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: source, PointID: source.PointID, DependencyIDs: []string{"dependency-a"}, TargetIDs: []string{"control-a"}, TargetDigest: testCandidateDigest("5"), PlanID: "plan-a", PlanDigest: testCandidateDigest("a"), HumanAcknowledgementID: "ack-a", FenceSetDigest: testCandidateDigest("b"), AuditDecisionDigest: testCandidateDigest("c"), CandidateDigest: testCandidateDigest("d"), PriorInstanceID: "instance-old", NewInstanceID: "instance-new", PriorRecoveryEpoch: 7, NextRecoveryEpoch: 8, Status: "planned"}
+}
+
+func testCandidateDigest(letter string) string { return "sha256:" + strings.Repeat(letter, 64) }

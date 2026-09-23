@@ -23,3 +23,15 @@ func (authority StoreCandidateAuthority) PrepareRecoveredAuthority(ctx context.C
 	defer candidate.Close()
 	return candidate.PrepareRecoveredAuthority(ctx, binding, audit.Fingerprint(continuity.IndependentCheckpointDigest))
 }
+
+func (authority StoreCandidateAuthority) VerifyRecoveredAuthority(ctx context.Context, path string, binding generated.RestoreBinding) error {
+	if authority.Open == nil || path == "" || !validCandidateBinding(binding) {
+		return failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-candidate-authority", false)
+	}
+	candidate, err := authority.Open(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer candidate.Close()
+	return candidate.VerifyRecoveredAuthority(ctx, binding)
+}

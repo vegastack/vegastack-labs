@@ -37,11 +37,11 @@ func (storage LocalCandidateStorage) CreateCandidate(ctx context.Context, paths 
 	return nil
 }
 
-func (storage LocalCandidateStorage) VerifyCandidate(ctx context.Context, paths CandidatePaths, expected string) error {
+func (storage LocalCandidateStorage) VerifyCandidate(ctx context.Context, paths CandidatePaths) error {
 	if err := ctx.Err(); err != nil {
 		return failure.New(generated.ErrorCodeInterrupted, "recovery-candidate", false)
 	}
-	return verifyRecoveryFile(paths.Candidate, storage.ExpectedUID, expected, false)
+	return verifyRecoveryFile(paths.Candidate, storage.ExpectedUID, "", false)
 }
 
 func (storage LocalCandidateStorage) WriteTransitionJournal(ctx context.Context, paths CandidatePaths, body []byte) error {
@@ -62,6 +62,20 @@ func (storage LocalCandidateStorage) WriteTransitionJournal(ctx context.Context,
 		return err
 	}
 	return syncRecoveryDirectory(filepath.Dir(paths.TransitionJournal))
+}
+
+func (storage LocalCandidateStorage) ReadTransitionJournal(ctx context.Context, paths CandidatePaths, expected string) ([]byte, error) {
+	if err := ctx.Err(); err != nil || !restoreDigest.MatchString(expected) {
+		return nil, failure.New(generated.ErrorCodeInterrupted, "recovery-journal", false)
+	}
+	if err := verifyRecoveryFile(paths.TransitionJournal, storage.ExpectedUID, expected, false); err != nil {
+		return nil, err
+	}
+	body, err := os.ReadFile(paths.TransitionJournal)
+	if err != nil {
+		return nil, failure.New(generated.ErrorCodeIntegrityFailure, "recovery-journal", false)
+	}
+	return body, nil
 }
 
 func (storage LocalCandidateStorage) AcquireAuthorityLock(ctx context.Context, paths CandidatePaths) (io.Closer, error) {
@@ -93,14 +107,14 @@ func (storage LocalCandidateStorage) PromoteNoReplace(ctx context.Context, paths
 	if err := ctx.Err(); err != nil {
 		return failure.New(generated.ErrorCodeInterrupted, "recovery-promotion", false)
 	}
-	if err := verifyRecoveryFile(paths.Candidate, storage.ExpectedUID, expected.CandidateDigest, false); err != nil {
+	if err := verifyRecoveryFile(paths.Candidate, storage.ExpectedUID, "", false); err != nil {
 		return err
 	}
 	if err := verifyRecoveryFile(paths.TransitionJournal, storage.ExpectedUID, expected.JournalDigest, false); err != nil {
 		return err
 	}
 	directory := filepath.Dir(paths.Candidate)
-	active := filepath.Join(directory, stringsTrimCandidateBase(filepath.Base(paths.Candidate), expected.PlanID))
+	active := filepath.Join(directory, stringsTrimCandidateBase(filepath.Base(paths.Candidate), expected.Binding.PlanID))
 	if _, err := os.Lstat(paths.PreservedAuthority); errors.Is(err, fs.ErrNotExist) {
 		if err := verifyRecoveryFile(active, storage.ExpectedUID, "", true); err != nil {
 			return err
@@ -159,10 +173,6 @@ func verifyRecoveryFile(path string, uid uint32, expected string, allowEmpty boo
 		}
 	}
 	return nil
-}
-func digestBytes(body []byte) string {
-	sum := sha256.Sum256(body)
-	return "sha256:" + hex.EncodeToString(sum[:])
 }
 func syncRecoveryDirectory(path string) error {
 	file, err := os.Open(path)
