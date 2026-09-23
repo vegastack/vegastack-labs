@@ -5,7 +5,9 @@ package backup
 import (
 	"context"
 	"os"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 )
@@ -90,10 +92,149 @@ func TestBrokeredResticRejectsCallerSelectedAuthority(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			forged := base
 			mutate(&forged)
-			if err := prepareBrokeredRestic(policy, session, "http+unix:///run/custody.sock:/repository-a/", &forged); err == nil {
+			if transfer, err := prepareBrokeredRestic(policy, session, "http+unix:///run/custody.sock:/repository-a/", &forged); err == nil || transfer != nil {
 				t.Fatal("forged restic authority accepted")
 			}
 		})
+	}
+}
+
+func TestRejectedBrokeredExchangeNeverTouchesRootOrEtc(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("ownership sentinel regression requires disposable root")
+	}
+	rootBefore, err := os.Stat("/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	etcBefore, err := os.Stat("/etc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	policy := CustodyPolicy{StandardRoot: "/var/lib/vsk/standard", ExchangeRoot: "/var/lib/vsk/exchange", ResticBinaryPath: "/opt/restic", ControllerUID: 21164, ResticUID: 21165}
+	session := CustodySession{RepositoryID: "repository-a", RepositoryClass: "standard"}
+	base := ResticRequest{BinaryPath: policy.ResticBinaryPath, RepositoryID: session.RepositoryID, RepositoryClass: session.RepositoryClass,
+		RepositoryRoot: policy.StandardRoot, ExchangeRoot: policy.ExchangeRoot, ExecutionUID: policy.ResticUID, ExecutionGID: policy.ResticUID, ControllerUID: policy.ControllerUID}
+	for name, mutate := range map[string]func(*ResticRequest){
+		"root restore": func(request *ResticRequest) { request.Mode, request.RestoreTarget = "restore", "/" },
+		"etc backup":   func(request *ResticRequest) { request.Mode, request.SnapshotPath = "backup", "/etc/database.sqlite" },
+	} {
+		t.Run(name, func(t *testing.T) {
+			request := base
+			mutate(&request)
+			run := false
+			_, err := runBrokeredRestic(policy, session, "http+unix:///run/custody.sock:/repository-a/", &request, func() (ResticResult, error) {
+				run = true
+				return ResticResult{}, nil
+			})
+			if err == nil || run {
+				t.Fatalf("forged exchange reached runner: run=%v err=%v", run, err)
+			}
+		})
+	}
+	rootAfter, _ := os.Stat("/")
+	etcAfter, _ := os.Stat("/etc")
+	if ownerUID(rootAfter) != ownerUID(rootBefore) || ownerUID(etcAfter) != ownerUID(etcBefore) {
+		t.Fatal("forged exchange changed root or /etc ownership")
+	}
+}
+
+func TestExchangeTransferRetainsValidatedDescriptorsAcrossSwap(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("descriptor ownership regression requires disposable root")
+	}
+	base, err := os.MkdirTemp("/var/lib", "vsk-custody-swap-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(base)
+	exchange, sentinel := filepath.Join(base, "exchange"), filepath.Join(base, "sentinel")
+	staging, moved := filepath.Join(exchange, ".vsk-backup-staging-swap"), filepath.Join(exchange, "moved")
+	for _, path := range []string{exchange, sentinel, staging} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(exchange, 0o711); err != nil || os.Chown(exchange, 21164, 21164) != nil || os.Chown(staging, 21164, 21164) != nil {
+		t.Fatal("fixture ownership failed")
+	}
+	snapshot := filepath.Join(staging, "database.sqlite")
+	if err := os.WriteFile(snapshot, []byte("snapshot"), 0o600); err != nil || os.Chown(snapshot, 21164, 21164) != nil {
+		t.Fatal("snapshot fixture failed")
+	}
+	policy := CustodyPolicy{ExchangeRoot: exchange, ControllerUID: 21164, ResticUID: 21165}
+	transfer, err := prepareBackupExchangeWithHook(policy, snapshot, func() error {
+		if err := os.Rename(staging, moved); err != nil {
+			return err
+		}
+		return os.Symlink(sentinel, staging)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer transfer.Close()
+	if err := transfer.ReturnOwnership(); err != nil {
+		t.Fatal(err)
+	}
+	for _, path := range []string{moved, filepath.Join(moved, "database.sqlite")} {
+		info, err := os.Stat(path)
+		if err != nil || ownerUID(info) != 21164 {
+			t.Fatalf("retained object owner path=%s uid=%d err=%v", path, ownerUIDOrInvalid(info), err)
+		}
+	}
+	sentinelInfo, err := os.Stat(sentinel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stat := sentinelInfo.Sys().(*syscall.Stat_t)
+	if stat.Uid != 0 {
+		t.Fatalf("swap sentinel owner=%d want=0", stat.Uid)
+	}
+}
+
+func TestRestoreTransferRetainsValidatedDirectoryAcrossSwap(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("descriptor ownership regression requires disposable root")
+	}
+	base, err := os.MkdirTemp("/var/lib", "vsk-custody-restore-swap-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(base)
+	exchange, sentinel := filepath.Join(base, "exchange"), filepath.Join(base, "sentinel")
+	target, moved := filepath.Join(exchange, ".vsk-backup-verify-swap"), filepath.Join(exchange, "moved")
+	for _, path := range []string{exchange, sentinel, target} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.Chmod(exchange, 0o711); err != nil || os.Chown(exchange, 21164, 21164) != nil || os.Chown(target, 21164, 21164) != nil {
+		t.Fatal("fixture ownership failed")
+	}
+	policy := CustodyPolicy{ExchangeRoot: exchange, ControllerUID: 21164, ResticUID: 21165}
+	transfer, err := prepareRestoreExchangeWithHook(policy, target, func() error {
+		if err := os.Rename(target, moved); err != nil {
+			return err
+		}
+		return os.Symlink(sentinel, target)
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer transfer.Close()
+	if err := transfer.ReturnOwnership(); err != nil {
+		t.Fatal(err)
+	}
+	movedInfo, err := os.Stat(moved)
+	if err != nil || ownerUID(movedInfo) != 21164 {
+		t.Fatalf("retained restore owner=%d err=%v", ownerUIDOrInvalid(movedInfo), err)
+	}
+	sentinelInfo, err := os.Stat(sentinel)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sentinelInfo.Sys().(*syscall.Stat_t).Uid != 0 {
+		t.Fatalf("restore swap sentinel owner=%d want=0", ownerUID(sentinelInfo))
 	}
 }
 

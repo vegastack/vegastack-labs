@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -765,22 +766,15 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 			if descriptorErr != nil {
 				return descriptorErr
 			}
+			var result ResticResult
 			var request ResticRequest
 			decodeErr := strictUnmarshal(frame.Payload, &request)
 			if decodeErr == nil {
-				decodeErr = prepareBrokeredRestic(policy, launch.Session, inner.RepositoryURL(), &request)
-			}
-			var result ResticResult
-			if decodeErr == nil {
-				result, decodeErr = runner.runSealed(leaseContext, request, passwordFile)
+				result, decodeErr = runBrokeredRestic(policy, launch.Session, inner.RepositoryURL(), &request, func() (ResticResult, error) {
+					return runner.runSealed(leaseContext, request, passwordFile)
+				})
 			}
 			_ = passwordFile.Close()
-			if request.Mode == "backup" {
-				decodeErr = errors.Join(decodeErr, returnExchangeOwnership(filepath.Dir(request.SnapshotPath), policy.ControllerUID, policy.ControllerUID))
-			}
-			if request.Mode == "restore" {
-				decodeErr = errors.Join(decodeErr, returnExchangeOwnership(request.RestoreTarget, policy.ControllerUID, policy.ControllerUID))
-			}
 			if decodeErr != nil {
 				response.OK, response.Code = false, "restic-"+request.Mode+"-failed"
 			} else {
@@ -802,7 +796,58 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 	}
 }
 
-func prepareBrokeredRestic(policy CustodyPolicy, session CustodySession, repositoryURL string, request *ResticRequest) error {
+type exchangeTransfer struct {
+	directory *os.File
+	snapshot  *os.File
+	uid       uint32
+	gid       uint32
+}
+
+func (transfer *exchangeTransfer) Close() error {
+	if transfer == nil {
+		return nil
+	}
+	var errs []error
+	if transfer.snapshot != nil {
+		errs = append(errs, transfer.snapshot.Close())
+		transfer.snapshot = nil
+	}
+	if transfer.directory != nil {
+		errs = append(errs, transfer.directory.Close())
+		transfer.directory = nil
+	}
+	return errors.Join(errs...)
+}
+
+func (transfer *exchangeTransfer) ReturnOwnership() error {
+	if transfer == nil || transfer.directory == nil {
+		return nil
+	}
+	if transfer.snapshot != nil {
+		return errors.Join(
+			unix.Fchown(int(transfer.snapshot.Fd()), int(transfer.uid), int(transfer.gid)),
+			unix.Fchown(int(transfer.directory.Fd()), int(transfer.uid), int(transfer.gid)),
+		)
+	}
+	return chownDescriptorTree(int(transfer.directory.Fd()), transfer.uid, transfer.gid)
+}
+
+func runBrokeredRestic(policy CustodyPolicy, session CustodySession, repositoryURL string, request *ResticRequest, run func() (ResticResult, error)) (ResticResult, error) {
+	if run == nil {
+		return ResticResult{}, errors.New("restic runner unavailable")
+	}
+	transfer, err := prepareBrokeredRestic(policy, session, repositoryURL, request)
+	if err != nil {
+		return ResticResult{}, err
+	}
+	if transfer != nil {
+		defer transfer.Close()
+	}
+	result, runErr := run()
+	return result, errors.Join(runErr, transfer.ReturnOwnership())
+}
+
+func prepareBrokeredRestic(policy CustodyPolicy, session CustodySession, repositoryURL string, request *ResticRequest) (*exchangeTransfer, error) {
 	root := policy.StandardRoot
 	if session.RepositoryClass == "critical" {
 		root = policy.CriticalRoot
@@ -810,7 +855,7 @@ func prepareBrokeredRestic(policy CustodyPolicy, session CustodySession, reposit
 	if request == nil || request.BinaryPath != policy.ResticBinaryPath || request.RepositoryURL != "" || request.RepositoryID != session.RepositoryID ||
 		request.RepositoryClass != session.RepositoryClass || request.RepositoryRoot != root || request.ExchangeRoot != policy.ExchangeRoot ||
 		request.ExecutionUID != policy.ResticUID || request.ExecutionGID != policy.ResticUID || request.ControllerUID != policy.ControllerUID {
-		return errors.New("restic request outside custody policy")
+		return nil, errors.New("restic request outside custody policy")
 	}
 	request.RepositoryURL = repositoryURL
 	switch request.Mode {
@@ -820,50 +865,202 @@ func prepareBrokeredRestic(policy CustodyPolicy, session CustodySession, reposit
 		return prepareRestoreExchange(policy, request.RestoreTarget)
 	case "init", "config", "snapshots", "check-full":
 		if request.SnapshotPath != "" || request.RestoreTarget != "" {
-			return errors.New("unexpected exchange path")
+			return nil, errors.New("unexpected exchange path")
 		}
-		return nil
+		return nil, nil
 	default:
-		return errors.New("restic mode outside custody policy")
+		return nil, errors.New("restic mode outside custody policy")
 	}
 }
 
-func prepareBackupExchange(policy CustodyPolicy, snapshotPath string) error {
+func prepareBackupExchange(policy CustodyPolicy, snapshotPath string) (*exchangeTransfer, error) {
+	return prepareBackupExchangeWithHook(policy, snapshotPath, nil)
+}
+
+func prepareBackupExchangeWithHook(policy CustodyPolicy, snapshotPath string, afterValidation func() error) (*exchangeTransfer, error) {
 	parent := filepath.Dir(snapshotPath)
-	if filepath.Dir(parent) != policy.ExchangeRoot || !strings.HasPrefix(filepath.Base(parent), ".vsk-backup-staging-") || filepath.Base(snapshotPath) != "database.sqlite" {
-		return errors.New("backup exchange outside custody policy")
+	if !exactExchangeChild(policy.ExchangeRoot, parent, ".vsk-backup-staging-") || snapshotPath != filepath.Join(parent, "database.sqlite") {
+		return nil, errors.New("backup exchange outside custody policy")
 	}
-	parentInfo, err := os.Lstat(parent)
-	if err != nil || !parentInfo.IsDir() || parentInfo.Mode().Perm() != 0o700 || ownerUID(parentInfo) != policy.ControllerUID {
-		return fmt.Errorf("backup exchange rejected: err=%v mode=%v uid=%d", err, modeOf(parentInfo), ownerUIDOrInvalid(parentInfo))
+	parentFile, err := openExchangeChild(policy, filepath.Base(parent), true)
+	if err != nil {
+		return nil, errors.New("backup exchange rejected")
 	}
-	fileInfo, err := os.Lstat(snapshotPath)
-	if err != nil || !fileInfo.Mode().IsRegular() || fileInfo.Mode().Perm()&0o077 != 0 || ownerUID(fileInfo) != policy.ControllerUID {
-		return fmt.Errorf("backup snapshot rejected: err=%v mode=%v uid=%d", err, modeOf(fileInfo), ownerUIDOrInvalid(fileInfo))
+	transfer := &exchangeTransfer{directory: parentFile, uid: policy.ControllerUID, gid: policy.ControllerUID}
+	fail := func(err error) (*exchangeTransfer, error) {
+		_ = transfer.Close()
+		return nil, err
 	}
-	stat, ok := fileInfo.Sys().(*syscall.Stat_t)
-	if !ok || stat.Nlink != 1 {
-		return errors.New("backup snapshot link rejected")
+	if err := validateExchangeDescriptor(int(parentFile.Fd()), true, policy.ControllerUID, 0o700); err != nil {
+		return fail(errors.New("backup exchange rejected"))
 	}
-	if err := os.Chown(snapshotPath, int(policy.ResticUID), int(policy.ResticUID)); err != nil {
+	names, err := descriptorNames(int(parentFile.Fd()))
+	if err != nil || len(names) != 1 || names[0] != "database.sqlite" {
+		return fail(errors.New("backup exchange contents rejected"))
+	}
+	snapshotFile, err := openBeneath(int(parentFile.Fd()), "database.sqlite", false)
+	if err != nil {
+		return fail(errors.New("backup snapshot rejected"))
+	}
+	transfer.snapshot = snapshotFile
+	if err := validateExchangeDescriptor(int(snapshotFile.Fd()), false, policy.ControllerUID, 0o600); err != nil {
+		return fail(errors.New("backup snapshot rejected"))
+	}
+	if afterValidation != nil {
+		if err := afterValidation(); err != nil {
+			return fail(err)
+		}
+	}
+	if err := unix.Fchown(int(snapshotFile.Fd()), int(policy.ResticUID), int(policy.ResticUID)); err != nil {
+		return fail(err)
+	}
+	if err := unix.Fchown(int(parentFile.Fd()), int(policy.ResticUID), int(policy.ResticUID)); err != nil {
+		_ = unix.Fchown(int(snapshotFile.Fd()), int(policy.ControllerUID), int(policy.ControllerUID))
+		return fail(err)
+	}
+	return transfer, nil
+}
+
+func prepareRestoreExchange(policy CustodyPolicy, target string) (*exchangeTransfer, error) {
+	return prepareRestoreExchangeWithHook(policy, target, nil)
+}
+
+func prepareRestoreExchangeWithHook(policy CustodyPolicy, target string, afterValidation func() error) (*exchangeTransfer, error) {
+	if !exactExchangeChild(policy.ExchangeRoot, target, ".vsk-backup-verify-") {
+		return nil, errors.New("restore exchange outside custody policy")
+	}
+	targetFile, err := openExchangeChild(policy, filepath.Base(target), true)
+	if err != nil {
+		return nil, errors.New("restore exchange rejected")
+	}
+	transfer := &exchangeTransfer{directory: targetFile, uid: policy.ControllerUID, gid: policy.ControllerUID}
+	if err := validateExchangeDescriptor(int(targetFile.Fd()), true, policy.ControllerUID, 0o700); err != nil {
+		_ = transfer.Close()
+		return nil, errors.New("restore exchange rejected")
+	}
+	names, err := descriptorNames(int(targetFile.Fd()))
+	if err != nil || len(names) != 0 {
+		_ = transfer.Close()
+		return nil, errors.New("restore exchange is not empty")
+	}
+	if afterValidation != nil {
+		if err := afterValidation(); err != nil {
+			_ = transfer.Close()
+			return nil, err
+		}
+	}
+	if err := unix.Fchown(int(targetFile.Fd()), int(policy.ResticUID), int(policy.ResticUID)); err != nil {
+		_ = transfer.Close()
+		return nil, err
+	}
+	return transfer, nil
+}
+
+func exactExchangeChild(root, path, prefix string) bool {
+	return filepath.IsAbs(root) && filepath.IsAbs(path) && filepath.Clean(root) == root && filepath.Clean(path) == path &&
+		filepath.Dir(path) == root && strings.HasPrefix(filepath.Base(path), prefix) && filepath.Base(path) != prefix
+}
+
+func openExchangeChild(policy CustodyPolicy, name string, directory bool) (*os.File, error) {
+	rootFD, err := openCustodyPath(policy.ExchangeRoot, true, policy.ControllerUID)
+	if err != nil {
+		return nil, err
+	}
+	defer unix.Close(rootFD)
+	return openBeneath(rootFD, name, directory)
+}
+
+func openBeneath(rootFD int, name string, directory bool) (*os.File, error) {
+	if name == "" || name == "." || name == ".." || strings.ContainsRune(name, '/') || strings.ContainsRune(name, 0) {
+		return nil, unix.EINVAL
+	}
+	flags := uint64(unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW | unix.O_NONBLOCK)
+	if directory {
+		flags |= unix.O_DIRECTORY
+	}
+	fd, err := unix.Openat2(rootFD, name, &unix.OpenHow{Flags: flags,
+		Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS | unix.RESOLVE_NO_XDEV})
+	if err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(fd), "custody-exchange")
+	if file == nil {
+		_ = unix.Close(fd)
+		return nil, unix.EBADF
+	}
+	return file, nil
+}
+
+func validateExchangeDescriptor(fd int, directory bool, uid uint32, mode uint32) error {
+	var stat unix.Stat_t
+	if err := unix.Fstat(fd, &stat); err != nil || stat.Uid != uid || stat.Mode&0o7777 != mode {
+		return unix.EPERM
+	}
+	want := uint32(unix.S_IFREG)
+	if directory {
+		want = unix.S_IFDIR
+	}
+	if stat.Mode&unix.S_IFMT != want || (!directory && stat.Nlink != 1) {
+		return unix.EPERM
+	}
+	return nil
+}
+
+func descriptorNames(fd int) ([]string, error) {
+	if _, err := unix.Seek(fd, 0, 0); err != nil {
+		return nil, err
+	}
+	duplicate, err := unix.Dup(fd)
+	if err != nil {
+		return nil, err
+	}
+	file := os.NewFile(uintptr(duplicate), "custody-exchange-list")
+	if file == nil {
+		_ = unix.Close(duplicate)
+		return nil, unix.EBADF
+	}
+	defer file.Close()
+	names, err := file.Readdirnames(-1)
+	if err != nil {
+		return nil, err
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+func chownDescriptorTree(fd int, uid, gid uint32) error {
+	names, err := descriptorNames(fd)
+	if err != nil {
 		return err
 	}
-	return os.Chown(parent, int(policy.ResticUID), int(policy.ResticUID))
-}
-
-func prepareRestoreExchange(policy CustodyPolicy, target string) error {
-	if filepath.Dir(target) != policy.ExchangeRoot || !strings.HasPrefix(filepath.Base(target), ".vsk-backup-verify-") {
-		return errors.New("restore exchange outside custody policy")
+	for _, name := range names {
+		child, err := openBeneath(fd, name, false)
+		if err != nil {
+			return err
+		}
+		var stat unix.Stat_t
+		statErr := unix.Fstat(int(child.Fd()), &stat)
+		if statErr == nil {
+			switch stat.Mode & unix.S_IFMT {
+			case unix.S_IFDIR:
+				statErr = chownDescriptorTree(int(child.Fd()), uid, gid)
+			case unix.S_IFREG:
+				if stat.Nlink != 1 {
+					statErr = unix.EPERM
+				}
+			default:
+				statErr = unix.EPERM
+			}
+		}
+		if statErr == nil {
+			statErr = unix.Fchown(int(child.Fd()), int(uid), int(gid))
+		}
+		closeErr := child.Close()
+		if err := errors.Join(statErr, closeErr); err != nil {
+			return err
+		}
 	}
-	info, err := os.Lstat(target)
-	if err != nil || !info.IsDir() || info.Mode().Perm() != 0o700 || ownerUID(info) != policy.ControllerUID {
-		return errors.New("restore exchange rejected")
-	}
-	entries, err := os.ReadDir(target)
-	if err != nil || len(entries) != 0 {
-		return errors.New("restore exchange is not empty")
-	}
-	return os.Chown(target, int(policy.ResticUID), int(policy.ResticUID))
+	return unix.Fchown(fd, int(uid), int(gid))
 }
 
 func ownerUID(info os.FileInfo) uint32 {
@@ -898,19 +1095,4 @@ func strictUnmarshal(data []byte, target any) error {
 		return errors.New("trailing custody data")
 	}
 	return nil
-}
-
-func returnExchangeOwnership(path string, uid, gid uint32) error {
-	if path == "" {
-		return nil
-	}
-	return filepath.Walk(path, func(current string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.Mode()&os.ModeSymlink != 0 {
-			return errors.New("unsafe exchange symlink")
-		}
-		return os.Chown(current, int(uid), int(gid))
-	})
 }

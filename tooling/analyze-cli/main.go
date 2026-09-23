@@ -1181,7 +1181,7 @@ var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC
 var reviewedBackupSubprocesses = map[string]string{
 	"restic_linux.go":          "e76bbe0f63392dba83622c8cc4d2caf6466d556cf4d4e1416607c1d2878a5b37",
 	"custody_process_linux.go": "a964582435dba39b32e4848e951ad4da0f064f5fe4d0c04304714ae04329c7f1",
-	"custody_systemd_linux.go": "a139065d4a32547171de6dcee2846f2d6fc22ae47b27833bc8133cafd5454717",
+	"custody_systemd_linux.go": "687486882f2790caef88bf73b0bf01fe5ba99d5503d0607aac4799c10c82a43c",
 }
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
