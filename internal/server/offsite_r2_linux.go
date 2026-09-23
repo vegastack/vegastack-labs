@@ -18,6 +18,7 @@ func NewLabsR2Runner(_ context.Context, profile serverconfig.Profile, authority 
 	offsite := profile.OffsiteBackup
 	runtime, err := r2.NewProductionRuntime(r2.RuntimeConfig{Authority: authority, Endpoint: offsite.Endpoint, Bucket: offsite.Bucket, Prefix: offsite.Prefix, AccountID: offsite.AccountID,
 		ParentReferenceID: offsite.ParentReferenceID, ParentFingerprint: offsite.ParentFingerprint, ObserverReferenceID: offsite.ObserverReferenceID, RuleDigest: offsite.RuleDigest,
+		QualificationDigest: offsite.QualificationDigest, PutCutoffDigest: offsite.PutCutoffDigest, MultipartCutoffDigest: offsite.MultipartCutoffDigest,
 		CustodyPolicyPath: profile.LocalBackup.CustodyPolicyPath, ResticBinaryPath: profile.LocalBackup.ResticBinaryPath,
 		AvailableBytes: offsite.AvailableBytes, AvailablePUTs: offsite.AvailablePUTs, AvailableLISTs: offsite.AvailableLISTs, RuleCount: offsite.RuleCount, RuleLimit: 1000, RetainedGenerations: offsite.RetainedGenerations,
 		Evidence: evidence, Clock: time.Now})

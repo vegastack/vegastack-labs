@@ -23,6 +23,8 @@ type RuntimeConfig struct {
 	Endpoint, Bucket, Prefix, AccountID           string
 	ParentReferenceID, ParentFingerprint          string
 	ObserverReferenceID, RuleDigest               string
+	QualificationDigest                           string
+	PutCutoffDigest, MultipartCutoffDigest        string
 	CustodyPolicyPath, ResticBinaryPath           string
 	AvailableBytes, AvailablePUTs, AvailableLISTs int64
 	RuleCount, RuleLimit, RetainedGenerations     int
@@ -39,6 +41,12 @@ func NewProductionRuntime(config RuntimeConfig) (*ProductionRuntime, error) {
 	}
 	if config.Clock == nil {
 		config.Clock = time.Now
+	}
+	qualification := Qualification{AccountID: config.AccountID, Bucket: config.Bucket, Prefix: config.Prefix, ObserverReferenceID: config.ObserverReferenceID, RuleDigest: config.RuleDigest,
+		AvailableBytes: config.AvailableBytes, AvailablePUTs: config.AvailablePUTs, AvailableLISTs: config.AvailableLISTs, RuleCount: config.RuleCount, RetainedGenerations: config.RetainedGenerations,
+		PutCutoffCheckID: "r2-expired-put-denied", PutCutoffDigest: config.PutCutoffDigest, MultipartCutoffCheckID: "r2-expired-multipart-completion-denied", MultipartCutoffDigest: config.MultipartCutoffDigest}
+	if DigestQualification(qualification) != config.QualificationDigest {
+		return nil, errors.New("r2 qualification binding invalid")
 	}
 	return &ProductionRuntime{config: config}, nil
 }
@@ -78,18 +86,27 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	if _, err := rand.Read(bearer); err != nil {
 		return backup.OffsiteRunSpec{}, err
 	}
-	endpoint, err := backup.NewOneRunEndpoint(backup.OneRunConfig{Issuer: issuer, Parent: values[0], Request: writerRequest, Bearer: bearer, Path: backup.OneRunIAMPath(writerRequest), Clock: runtimeConfig.config.Clock})
+	var server *http.Server
+	var listener net.Listener
+	endpoint, err := backup.NewOneRunEndpoint(backup.OneRunConfig{Issuer: issuer, Parent: values[0], Request: writerRequest, Bearer: bearer, Path: backup.OneRunIAMPath(writerRequest), Clock: runtimeConfig.config.Clock, OnClose: func() {
+		observer.zero()
+		if server != nil {
+			_ = server.Shutdown(context.Background())
+		}
+		if listener != nil {
+			_ = listener.Close()
+		}
+	}})
 	if err != nil {
 		return backup.OffsiteRunSpec{}, err
 	}
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	listener, err = net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		_ = endpoint.Close()
 		return backup.OffsiteRunSpec{}, err
 	}
-	server := &http.Server{Handler: endpoint, ReadHeaderTimeout: 5 * time.Second}
+	server = &http.Server{Handler: endpoint, ReadHeaderTimeout: 5 * time.Second}
 	go func() { _ = server.Serve(listener) }()
-	observer.close = func() { _ = server.Shutdown(context.Background()); _ = listener.Close() }
 
 	maximum, _ := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
 	lease := backup.WriterLease{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID, RepositoryID: declaration.GenerationID, RepositoryClass: "critical-offsite", PointID: declaration.SourcePointID, TargetID: declaration.GenerationID, SourceRevision: declaration.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: maximum}
@@ -153,8 +170,13 @@ type runObserver struct {
 	maximumObjects, maximumBytes int64
 	fullReadAt                   time.Time
 	clock                        func() time.Time
-	close                        func()
 	last                         backup.OffsiteInventoryObservation
+}
+
+func (observer *runObserver) zero() {
+	observer.credentials.AccessKeyID = ""
+	observer.credentials.SecretAccessKey = ""
+	observer.credentials.SessionToken = ""
 }
 
 func (observer *runObserver) ObserveOffsiteGeneration(ctx context.Context, _, _, _ string) (backup.OffsiteInventoryObservation, error) {
@@ -190,7 +212,7 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 	if !last.Before(probe.deadline) && !last.Equal(probe.deadline) {
 		return time.Time{}, errors.New("writer expiry exceeds plan deadline")
 	}
-	delay := time.Until(last)
+	delay := last.Sub(probe.clock().UTC())
 	if delay > 0 {
 		timer := time.NewTimer(delay)
 		defer timer.Stop()

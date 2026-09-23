@@ -21,6 +21,7 @@ type OneRunConfig struct {
 	Bearer  []byte
 	Path    string
 	Clock   func() time.Time
+	OnClose func()
 }
 
 // OneRunEndpoint is a loopback-only Minio IAM credential endpoint. It issues
@@ -130,12 +131,21 @@ func (endpoint *OneRunEndpoint) Close() error {
 		return nil
 	}
 	endpoint.mu.Lock()
-	defer endpoint.mu.Unlock()
+	if endpoint.closed {
+		endpoint.mu.Unlock()
+		return nil
+	}
 	endpoint.closed = true
 	for index := range endpoint.config.Bearer {
 		endpoint.config.Bearer[index] = 0
 	}
 	endpoint.config.Bearer = nil
+	hook := endpoint.config.OnClose
+	endpoint.config.OnClose = nil
+	endpoint.mu.Unlock()
+	if hook != nil {
+		hook()
+	}
 	return nil
 }
 

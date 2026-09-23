@@ -61,9 +61,17 @@ func (client S3Client) Inventory(ctx context.Context, prefix string, credentials
 		if response.StatusCode != http.StatusOK || xml.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&listing) != nil || response.Body.Close() != nil {
 			return backup.OffsiteInventoryObservation{}, errors.New("r2 inventory listing failed")
 		}
+		generationPrefix := strings.TrimSuffix(prefix, "/") + "/"
 		for _, listed := range listing.Contents {
 			if int64(len(objects)) >= maximumObjects || listed.Size < 0 || bytesRead > maximumBytes-listed.Size {
 				return backup.OffsiteInventoryObservation{}, errors.New("r2 inventory exceeds bounds")
+			}
+			if !strings.HasPrefix(listed.Key, generationPrefix) {
+				return backup.OffsiteInventoryObservation{}, errors.New("r2 inventory returned object outside generation")
+			}
+			relative := strings.TrimPrefix(listed.Key, generationPrefix)
+			if relative == "" || strings.HasPrefix(relative, "/") || path.Clean(relative) != relative || strings.Contains(relative, "\\") {
+				return backup.OffsiteInventoryObservation{}, errors.New("r2 inventory object key invalid")
 			}
 			objectResponse, getErr := client.do(ctx, http.MethodGet, "/"+client.Bucket+"/"+escapeS3Key(listed.Key), nil, nil, credentials)
 			if getErr != nil || objectResponse.StatusCode != http.StatusOK {
@@ -78,7 +86,6 @@ func (client S3Client) Inventory(ctx context.Context, prefix string, credentials
 			if copyErr != nil && !errors.Is(copyErr, io.EOF) || closeErr != nil || read != listed.Size {
 				return backup.OffsiteInventoryObservation{}, errors.New("r2 inventory object size mismatch")
 			}
-			relative := strings.TrimPrefix(listed.Key, strings.TrimSuffix(prefix, "/")+"/")
 			objects = append(objects, backup.OffsiteObject{Key: relative, Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil)), Bytes: listed.Size})
 			bytesRead += listed.Size
 		}
@@ -91,6 +98,11 @@ func (client S3Client) Inventory(ctx context.Context, prefix string, credentials
 		continuation = listing.NextContinuationToken
 	}
 	sort.Slice(objects, func(i, j int) bool { return objects[i].Key < objects[j].Key })
+	for index := 1; index < len(objects); index++ {
+		if objects[index-1].Key == objects[index].Key {
+			return backup.OffsiteInventoryObservation{}, errors.New("r2 inventory contains duplicate object")
+		}
+	}
 	return backup.OffsiteInventoryObservation{InventoryDigest: backup.DigestOffsiteInventory(objects), ObjectCount: int64(len(objects)), ObjectBytes: bytesRead, Objects: objects}, nil
 }
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"sort"
@@ -32,7 +33,8 @@ func (client RetentionClient) Observe(ctx context.Context, generationID, prefix 
 		base = "https://api.cloudflare.com/client/v4"
 	}
 	parsed, err := url.Parse(base)
-	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || client.AccountID == "" || client.Bucket == "" || len(bearer) == 0 {
+	loopbackTest := err == nil && parsed != nil && parsed.Scheme == "http" && client.Client != nil && net.ParseIP(parsed.Hostname()) != nil && net.ParseIP(parsed.Hostname()).IsLoopback()
+	if err != nil || parsed == nil || (parsed.Scheme != "https" && !loopbackTest) || parsed.Host == "" || client.AccountID == "" || client.Bucket == "" || len(bearer) == 0 {
 		return adapter.RetentionObservation{}, errors.New("r2 retention observer unavailable")
 	}
 	parsed.Path += "/accounts/" + url.PathEscape(client.AccountID) + "/r2/buckets/" + url.PathEscape(client.Bucket) + "/lock"
@@ -64,7 +66,6 @@ func (client RetentionClient) Observe(ctx context.Context, generationID, prefix 
 		} `json:"result"`
 	}
 	decoder := json.NewDecoder(io.LimitReader(response.Body, 1<<20))
-	decoder.DisallowUnknownFields()
 	if response.StatusCode != http.StatusOK || decoder.Decode(&payload) != nil || !payload.Success {
 		return adapter.RetentionObservation{}, errors.New("r2 retention observation failed")
 	}
@@ -73,6 +74,9 @@ func (client RetentionClient) Observe(ctx context.Context, generationID, prefix 
 		if rule.Enabled && rule.Condition.Type == "Indefinite" {
 			protected = append(protected, adapter.RetentionRule{RuleID: rule.ID, Prefix: rule.Prefix})
 		}
+	}
+	if len(payload.Result.Rules) != client.RuleCount {
+		return adapter.RetentionObservation{}, errors.New("r2 retention rule count mismatch")
 	}
 	sort.Slice(protected, func(i, j int) bool {
 		if protected[i].Prefix == protected[j].Prefix {
