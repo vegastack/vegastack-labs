@@ -126,6 +126,45 @@ func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
 	}
 }
 
+func TestFailedVerificationReasonCodeMatchesGeneratedContract(t *testing.T) {
+	ctx := context.Background()
+	repository, point, revision := seededVerificationPoint(t)
+	lease := BackupReadLeaseRequest{LeaseID: "reader-a", PointID: point.PointID, RepositoryID: backupidentity.StandardRepository,
+		RepositoryClass: "standard", SourceRevision: point.SourceRevision, Expected: revision, MaximumExpiresAt: time.Now().Add(time.Hour)}
+	if err := repository.AcquireBackupReadLease(ctx, lease); err != nil {
+		t.Fatal(err)
+	}
+	request := verificationRequest(t, point, revision, "live", "failed")
+	request.FullReadAt, request.FunctionalRestoredAt = time.Time{}, time.Time{}
+	request.ReasonCode = "backup-dependency-trust"
+	if _, err := repository.AppendLocalVerification(ctx, request); err != nil {
+		t.Fatal(err)
+	}
+	status, err := repository.ReadLocalBackupStatus(ctx)
+	if err != nil || len(status.Verifications) != 1 {
+		t.Fatalf("status=%#v err=%v", status, err)
+	}
+	attempt := status.Verifications[0]
+	if attempt.ReasonCode == nil || *attempt.ReasonCode != "backup-dependency-trust" {
+		t.Fatalf("reason code=%v", attempt.ReasonCode)
+	}
+	raw, err := json.Marshal(attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := generated.ValidateContractJSON(generated.SchemaIDBackupVerificationAttempt, raw, generated.ContractExact); err != nil {
+		t.Fatalf("stored failure violates exact generated contract: %v", err)
+	}
+
+	forged := verificationRequest(t, point, revision, "live", "failed")
+	forged.VerificationID = "verify-live-forged"
+	forged.FullReadAt, forged.FunctionalRestoredAt = time.Time{}, time.Time{}
+	forged.ReasonCode = string(generated.ErrorCodePrerequisiteBlocked)
+	if _, err := repository.AppendLocalVerification(ctx, forged); Code(err) != generated.ErrorCodeInputInvalid {
+		t.Fatalf("uppercase engine code admitted as public reason: %v", err)
+	}
+}
+
 func TestLocalLastGoodCurrentLiveProofAdvancesOnce(t *testing.T) {
 	ctx := context.Background()
 	repository, point, revision := seededVerificationPoint(t)

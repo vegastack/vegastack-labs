@@ -141,7 +141,8 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 	if repository == nil || repository.store == nil || request.VerificationID == "" || request.RunID == "" || request.PointID == "" || request.ReadLeaseID == "" ||
 		(request.ProofClass != "fixture" && request.ProofClass != "live") ||
 		(request.Result != "passed" && request.Result != "failed" && request.Result != "uncertain") ||
-		request.Expected.StateRevision < 0 || request.Expected.RecoveryEpoch < 0 || request.SourceRevision < 0 {
+		(request.ReasonCode != "" && !validRunToken(request.ReasonCode)) || request.Expected.StateRevision < 0 ||
+		request.Expected.RecoveryEpoch < 0 || request.SourceRevision < 0 {
 		return receipt, backupStoreError(generated.ErrorCodeInputInvalid, "backup-local-verification")
 	}
 	for _, digest := range []string{request.ManifestDigest, request.InventoryDigest, request.ObservedDigest, request.ContentDigest, request.CatalogDigest, request.DependencyDigest} {

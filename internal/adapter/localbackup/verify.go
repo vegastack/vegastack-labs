@@ -17,6 +17,12 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
+const (
+	backupVerificationReasonIntegrityFailure = "integrity-failure"
+	backupVerificationReasonDependencyTrust  = "backup-dependency-trust"
+	backupVerificationReasonCapacity         = "backup-capacity"
+)
+
 // executeBoundVerify uses the same exact-plan credential boundary as creation.
 // The point remains immutable; a separate attempt records each verification.
 func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (effect adapter.Effect, effectErr error) {
@@ -106,7 +112,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		ObservedDigest: point.InventoryDigest, ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest,
 		DependencyDigest: manifest.DependencyInventoryDigest, KeyReferenceID: manifest.KeyReferenceID,
 		SourceRevision: point.SourceRevision, Expected: leaseRequest.Expected, ProofClass: proofClass,
-		Result: "failed", ReasonCode: "INTEGRITY_FAILURE"}
+		Result: "failed", ReasonCode: backupVerificationReasonIntegrityFailure}
 	defer func() {
 		// A failed verification still leaves an append-only attempt. If the epoch
 		// changed, the store rejects it; the run engine records the stale failure.
@@ -142,7 +148,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 			Expected: manifest.ExpectedDependencies}
 		evidence, err := adapterImpl.config.Trust.VerifyCurrent(ctx, trustRequest)
 		if err != nil || !exactDependencyTrust(trustRequest.Expected, evidence, binding.StateRevision, binding.RecoveryEpoch) {
-			attempt.ReasonCode = string(generated.ErrorCodePrerequisiteBlocked)
+			attempt.ReasonCode = backupVerificationReasonDependencyTrust
 			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-dependency-trust")
 		}
 		attempt.DependencyTrust = make([]store.BackupDependencyTrustEvidence, 0, len(evidence))
@@ -161,7 +167,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		// recovery/retention capacity has been consumed by another workload.
 		free, capacityErr := custody.Capacity(ctx)
 		if capacityErr != nil || !capacityAdmitted(free, policy) {
-			attempt.ReasonCode = string(generated.ErrorCodePrerequisiteBlocked)
+			attempt.ReasonCode = backupVerificationReasonCapacity
 			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-capacity")
 		}
 	}

@@ -246,7 +246,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/adapter/backuptrust"
         ],
-        "mutationBoundaryDigest": "sha256:d6658e5027c85a9804cef4ceeedc5fb1dd59dfd5cb25d57ef46995b0dce53b6e"
+        "mutationBoundaryDigest": "sha256:65d3d772f3a936442d7cf22977379b854520f886508f7cc4caa3f80524c4e957"
       }
     ]
   },

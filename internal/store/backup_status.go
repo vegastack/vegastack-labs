@@ -123,6 +123,10 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 			attempt.RunID = nullableString(runID)
 			attempt.VerificationDigest = &digest
 			attempt.ReasonCode = nullableString(reasonCode)
+			if attempt.ReasonCode != nil && !validRunToken(*attempt.ReasonCode) {
+				verifyRows.Close()
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-status-reason-code")
+			}
 			if attempt.Status == "local-verified" {
 				policy, ok := policies[policyDigest]
 				if !ok || !fullAt.Valid || !restoredAt.Valid {
