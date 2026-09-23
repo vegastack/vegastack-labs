@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 import {
   checkStepsForPlan,
   classifyChangedPaths,
   fullCheckPlan,
+  goPackageExecutionTargets,
   goPackageTargets,
   goUnitTestArgs,
 } from "../lib/check-plan.mjs";
@@ -18,6 +20,7 @@ import {
 const scenarios = JSON.parse(
   await readFile(new URL("../testdata/check-plan/scenarios.json", import.meta.url), "utf8"),
 );
+const ROOT = fileURLToPath(new URL("../..", import.meta.url));
 
 const expectedCurrentStageNames = [
   "repository safety and tool pins",
@@ -113,6 +116,26 @@ test("deleted or renamed Go packages fail closed", () => {
     assert.equal(plan.failClosed, true);
     assert.deepEqual(goPackageTargets(plan), ["./..."]);
   }
+});
+
+test("Linux-only changed packages use their supported target", () => {
+  const plan = classifyChangedPaths([
+    { status: "M", path: "internal/adapter/nativecredential/authority_linux.go" },
+  ]);
+  assert.deepEqual(goPackageExecutionTargets(plan), [{
+    package: "./internal/adapter/nativecredential",
+    env: { GOOS: "linux" },
+  }]);
+});
+
+test("Linux-only affected vet and tests are host-runnable", async () => {
+  const plan = classifyChangedPaths([
+    { status: "M", path: "internal/adapter/nativecredential/authority_linux.go" },
+  ]);
+  const goSteps = checkStepsForPlan(plan).filter((step) =>
+    step.name === "Go vet" || step.name === "Go unit tests");
+  assert.equal(goSteps.length, 2);
+  for (const step of goSteps) await step.run(ROOT, { capture: true });
 });
 
 for (const scenario of scenarios) {
