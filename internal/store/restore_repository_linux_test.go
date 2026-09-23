@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -77,6 +78,13 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	stored, err := repository.Get(context.Background(), binding.PlanID)
 	if err != nil || stored.Status != "fenced" || stored.Binding.PlanDigest != session.Binding.PlanDigest {
 		t.Fatalf("stored=%#v err=%v", stored, err)
+	}
+	if err := authority.PrepareRecoveredAuthority(context.Background(), binding, audit.Fingerprint(testDigest)); err != nil {
+		t.Fatal(err)
+	}
+	verification, err := authority.VerifyAuditHistory(context.Background(), nil)
+	if err != nil || verification.Status != "degraded" || verification.ReasonCode != "no-independent-anchor" {
+		t.Fatalf("post-transition audit verification=%#v err=%v", verification, err)
 	}
 }
 
