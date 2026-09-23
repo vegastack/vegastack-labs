@@ -32,7 +32,8 @@ func (protectedLocalDependencyTrust) VerifyCurrent(ctx context.Context, request 
 			return nil, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-dependency-trust")
 		}
 		evidence = append(evidence, DependencyTrustEvidence{DependencyID: dependency.DependencyID, Kind: dependency.Kind,
-			Digest: dependency.Digest, SourceKind: "protected-local-pin", StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch})
+			Digest: dependency.Digest, SourceKind: "protected-local-pin", PointID: request.PointID, PolicyDigest: request.PolicyDigest,
+			SourceID: "protected-local-pin", StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch})
 	}
 	return evidence, nil
 }
