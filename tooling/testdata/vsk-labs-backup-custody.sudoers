@@ -1,0 +1,1 @@
+vsk-controller ALL=(root) NOPASSWD: /usr/local/bin/vsk-labs __backup-custody-policy-check

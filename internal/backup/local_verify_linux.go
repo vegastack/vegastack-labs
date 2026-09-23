@@ -41,7 +41,18 @@ func VerifyLocalInventory(ctx context.Context, manifest CreationManifest, manife
 		return LocalInventoryProof{}, invalid
 	}
 	observed, err := hashPointObjects(ctx, server, manifest.ExpectedObjects)
-	if err != nil || len(observed) != len(manifest.ExpectedObjects) || ExpectedInventoryDigest(observed) != manifest.InventoryDigest {
+	if err != nil {
+		return LocalInventoryProof{}, invalid
+	}
+	return VerifyCustodyInventory(manifest, manifestDigest, observed)
+}
+
+// VerifyCustodyInventory validates the authenticated typed inventory returned
+// by the custody child. The controller never opens a repository object.
+func VerifyCustodyInventory(manifest CreationManifest, manifestDigest string, observed []ExpectedObject) (LocalInventoryProof, error) {
+	invalid := errors.New("local backup inventory mismatch")
+	_, canonicalDigest, err := CanonicalCreationManifest(manifest)
+	if err != nil || manifestDigest != canonicalDigest || len(observed) != len(manifest.ExpectedObjects) || ExpectedInventoryDigest(observed) != manifest.InventoryDigest {
 		return LocalInventoryProof{}, invalid
 	}
 	// The digest is canonical, but compare each record too, preventing any
@@ -54,9 +65,6 @@ func VerifyLocalInventory(ctx context.Context, manifest CreationManifest, manife
 		if byKey[expected.Type+"/"+expected.Name] != expected {
 			return LocalInventoryProof{}, invalid
 		}
-	}
-	if err := server.readVerifier.VerifyReadLease(server.readLease, server.clock()); err != nil || !server.clock().Before(server.readLease.MaximumExpiresAt) {
-		return LocalInventoryProof{}, invalid
 	}
 	return LocalInventoryProof{PointID: manifest.PointID, SnapshotID: manifest.SnapshotID, ManifestDigest: manifestDigest,
 		InventoryDigest: manifest.InventoryDigest, ObservedDigest: ExpectedInventoryDigest(observed), RecoveryEpoch: manifest.RecoveryEpoch}, nil

@@ -99,3 +99,10 @@ type OnlineSnapshotSource interface {
 type RestoredSQLiteInspector interface {
 	InspectSnapshot(context.Context, string, SnapshotExpectation) (SnapshotInspection, error)
 }
+
+// RestoredSQLiteOwnerInspector applies the same read-only inspection to a
+// restored copy owned by the exact execution identity that produced it. This
+// does not grant that identity access to the authoritative control database.
+type RestoredSQLiteOwnerInspector interface {
+	InspectSnapshotOwned(context.Context, string, SnapshotExpectation, uint32) (SnapshotInspection, error)
+}

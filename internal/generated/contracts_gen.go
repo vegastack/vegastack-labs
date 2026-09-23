@@ -132,6 +132,7 @@ const (
 	SchemaIDPlanPresentation                = "vegastack-labs.dev/plan-presentation"
 	SchemaIDPlanReferenceRequest            = "vegastack-labs.dev/plan-reference-request"
 	SchemaIDRecoveryPoint                   = "vegastack-labs.dev/recovery-point"
+	SchemaIDRecoveryWitnessCollectionData   = "vegastack-labs.dev/recovery-witness-collection-data"
 	SchemaIDReleaseAsset                    = "vegastack-labs.dev/release-asset"
 	SchemaIDReleaseAssetVerification        = "vegastack-labs.dev/release-asset-verification"
 	SchemaIDReleaseInspectData              = "vegastack-labs.dev/release-inspect-data"
@@ -218,6 +219,9 @@ const (
 	CommandNamePlan                         = "plan"
 	FlagDeclarationID                       = "--declaration-id"
 	FlagRevision                            = "--revision"
+	CommandNameRecoveryWitnessCollect       = "recovery witness collect"
+	FlagMaterialFd                          = "--material-fd"
+	FlagSigningKeyFd                        = "--signing-key-fd"
 	CommandNameReleaseInspect               = "release inspect"
 	FlagManifest                            = "--manifest"
 	CommandNameReleaseVerify                = "release verify"
@@ -1625,6 +1629,15 @@ type RecoveryPoint struct {
 	Dependencies       []string `json:"dependencies"`
 }
 
+type RecoveryWitnessCollectionData struct {
+	Schema                  string `json:"schema"`
+	SchemaVersion           string `json:"schemaVersion"`
+	ManifestDigest          string `json:"manifestDigest"`
+	ExpiresAt               string `json:"expiresAt"`
+	SignedArtifactBase64    string `json:"signedArtifactBase64"`
+	ProtectedEnvelopeBase64 string `json:"protectedEnvelopeBase64"`
+}
+
 type ReleaseAsset struct {
 	ID             string  `json:"id"`
 	Kind           string  `json:"kind"`
@@ -1935,6 +1948,7 @@ type ServerProfile struct {
 	StandardBackupRoot               *string                 `json:"standardBackupRoot"`
 	CriticalBackupRoot               *string                 `json:"criticalBackupRoot"`
 	ResticBinaryPath                 *string                 `json:"resticBinaryPath"`
+	CustodyPolicyPath                *string                 `json:"custodyPolicyPath"`
 }
 
 type ServerStatusData struct {
@@ -2133,6 +2147,7 @@ var Commands = []Command{
 	{Path: []string{"node", "quarantine"}, Summary: "Create an inert node-quarantine change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"node", "replace"}, Summary: "Create an inert node-replacement change.", Availability: "planned", OwnerPhase: "6", Risk: "unassigned"},
 	{Path: []string{"plan"}, Summary: "Create an immutable plan from one exact inert declaration revision.", Availability: "available", OwnerPhase: "4", Risk: "read-only", Flags: []Flag{{Name: "--config", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the protected server profile at this explicit path.", Enum: []string(nil)}, {Name: "--declaration-id", Kind: "value", ValueName: "id", Required: true, Repeatable: false, Summary: "Select one exact inert declaration.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--revision", Kind: "value", ValueName: "revision", Required: true, Repeatable: false, Summary: "Select the exact positive declaration revision.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, RequestSchema: "vegastack-labs.dev/plan-create-request", ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/plan", Examples: []Example{{Summary: "Create an immutable plan from one exact inert declaration revision.", Arguments: []string{"plan", "--config", "fixture/server-profile.json", "--declaration-id", "change-1", "--revision", "2", "--output", "json"}}}},
+	{Path: []string{"recovery", "witness", "collect"}, Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Availability: "available", OwnerPhase: "5", Risk: "mutation", Flags: []Flag{{Name: "--file", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read one exact public recovery binding and required-boundary document (64 KiB max).", Enum: []string(nil)}, {Name: "--material-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the independently held protected material from an inherited descriptor.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}, {Name: "--signing-key-fd", Kind: "value", ValueName: "fd", Required: true, Repeatable: false, Summary: "Read the protected witness signing seed from an inherited descriptor.", Enum: []string(nil)}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/recovery-witness-collection-data", Examples: []Example{{Summary: "Collect one bounded independent recovery witness on a separately administered custodian.", Arguments: []string{"recovery", "witness", "collect", "--file", "fixture/recovery-witness-input.json", "--signing-key-fd", "3", "--material-fd", "4", "--output", "json"}}}},
 	{Path: []string{"release", "inspect"}, Summary: "Inspect a local release manifest and compatibility without claiming cryptographic verification.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-inspect-data", Examples: []Example{{Summary: "Inspect a local manifest as versioned JSON.", Arguments: []string{"release", "inspect", "--manifest", "release/manifest.json", "--output", "json"}}}},
 	{Path: []string{"release", "verify"}, Summary: "Verify a signed local manifest and explicitly selected assets against a supplied offline policy.", Availability: "available", OwnerPhase: "1", Risk: "read-only", Flags: []Flag{{Name: "--all", Kind: "switch", ValueName: "", Required: false, Repeatable: false, Summary: "Explicitly verify every asset in the manifest.", Enum: []string(nil)}, {Name: "--asset", Kind: "value", ValueName: "id", Required: false, Repeatable: true, Summary: "Verify one named asset; repeat for additional assets.", Enum: []string(nil)}, {Name: "--manifest", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the local release manifest at this path.", Enum: []string(nil)}, {Name: "--output", Kind: "value", ValueName: "format", Required: false, Repeatable: false, Summary: "Select human or versioned JSON output.", Enum: []string{"human", "json"}}, {Name: "--policy", Kind: "value", ValueName: "path", Required: true, Repeatable: false, Summary: "Read the supplied local trust policy at this path.", Enum: []string(nil)}, {Name: "--schema-version", Kind: "value", ValueName: "major", Required: false, Repeatable: false, Summary: "Select the machine-contract schema major.", Enum: []string{"1"}}}, ResultSchema: "vegastack-labs.dev/run-result", DataSchema: "vegastack-labs.dev/release-verify-data", Examples: []Example{{Summary: "Explicitly verify every local asset.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--all"}}, {Summary: "Verify one local asset against a supplied policy.", Arguments: []string{"release", "verify", "--manifest", "release/manifest.json", "--policy", "release/policy.json", "--asset", "linux-amd64", "--output", "json"}}}},
 	{Path: []string{"restore", "plan"}, Summary: "Create an immutable restore plan.", Availability: "planned", OwnerPhase: "5", Risk: "unassigned", RequestSchema: "vegastack-labs.dev/restore-request", DataSchema: "vegastack-labs.dev/restore-binding"},

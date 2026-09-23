@@ -208,6 +208,7 @@ func Current() Registry {
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		credentialImportCommand(),
 		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
+		recoveryWitnessCollectCommand(),
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
@@ -355,6 +356,16 @@ func gateProfileDraftCommand() CommandDefinition {
 	return phase5GateCommand([]string{"gate", "profile", "draft"}, "Submit a bounded profile/policy candidate as an inert change; application still needs an exact human-approved plan.", gateProfileDraftRequestSchemaID, gateProfileDraftSubmissionSchemaID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed profile-draft JSON file (4 KiB max)."}},
 		[]string{"gate", "profile", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/gate-profile-draft.json", "--output", "json"})
+}
+
+func recoveryWitnessCollectCommand() CommandDefinition {
+	return phase5GateCommand([]string{"recovery", "witness", "collect"}, "Collect one bounded independent recovery witness on a separately administered custodian.", "", recoveryWitnessCollectionDataSchemaID, RiskMutation,
+		[]FlagDefinition{
+			{Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact public recovery binding and required-boundary document (64 KiB max)."},
+			{Name: "--signing-key-fd", Kind: FlagValue, ValueName: "fd", Required: true, Summary: "Read the protected witness signing seed from an inherited descriptor."},
+			{Name: "--material-fd", Kind: FlagValue, ValueName: "fd", Required: true, Summary: "Read the independently held protected material from an inherited descriptor."},
+		},
+		[]string{"recovery", "witness", "collect", "--file", "fixture/recovery-witness-input.json", "--signing-key-fd", "3", "--material-fd", "4", "--output", "json"})
 }
 
 func backupPolicyDraftCommand() CommandDefinition {
@@ -815,6 +826,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "standardBackupRoot", GoName: "StandardBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "criticalBackupRoot", GoName: "CriticalBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "resticBinaryPath", GoName: "ResticBinaryPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
+				{JSONName: "custodyPolicyPath", GoName: "CustodyPolicyPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 			},
 		},
 		{

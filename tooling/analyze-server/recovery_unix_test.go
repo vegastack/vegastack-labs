@@ -10,6 +10,7 @@ func TestReviewedRecoveryUnixFileRequiresExactSource(t *testing.T) {
 	for _, path := range []string{
 		"internal/recovery/manifest_file_unix.go",
 		"internal/recovery/receipt_file_unix.go",
+		"internal/recovery/package_file_unix.go",
 		"internal/server/recovery_recipient_linux.go",
 	} {
 		content, err := os.ReadFile(filepath.Join("..", "..", path))

@@ -91,7 +91,7 @@ func TestConvertGeneratedProfile(t *testing.T) {
 }
 
 func TestConvertGeneratedProfileRequiresCompleteLocalBackup(t *testing.T) {
-	// Absent triplet disables local backup.
+	// Absent custody group disables local backup.
 	got, err := convertGeneratedProfile(validGeneratedProfile(), 1001)
 	if err != nil || got.LocalBackup != nil {
 		t.Fatalf("absent local backup = %#v, %v", got.LocalBackup, err)
@@ -104,16 +104,18 @@ func TestConvertGeneratedProfileRequiresCompleteLocalBackup(t *testing.T) {
 		t.Fatal("partial local backup accepted")
 	}
 
-	// Complete triplet with distinct clean absolute paths converts.
+	// Complete custody group with distinct clean absolute paths converts.
 	complete := validGeneratedProfile()
 	complete.StandardBackupRoot = stringPointer("/srv/vsk-backup-standard")
 	complete.CriticalBackupRoot = stringPointer("/srv/vsk-backup-critical")
 	complete.ResticBinaryPath = stringPointer("/opt/vsk/bin/restic-0.19.1")
+	complete.CustodyPolicyPath = stringPointer("/etc/vsk-labs/backup-custody.json")
 	got, err = convertGeneratedProfile(complete, 1001)
 	if err != nil || got.LocalBackup == nil ||
 		got.LocalBackup.StandardRoot != "/srv/vsk-backup-standard" ||
 		got.LocalBackup.CriticalRoot != "/srv/vsk-backup-critical" ||
 		got.LocalBackup.ResticBinaryPath != "/opt/vsk/bin/restic-0.19.1" ||
+		got.LocalBackup.CustodyPolicyPath != "/etc/vsk-labs/backup-custody.json" ||
 		got.LocalBackup.StandardRoot == got.LocalBackup.CriticalRoot {
 		t.Fatalf("complete local backup = %#v, %v", got.LocalBackup, err)
 	}
@@ -130,6 +132,7 @@ func TestConvertGeneratedProfileRequiresCompleteLocalBackup(t *testing.T) {
 			profile.StandardBackupRoot = stringPointer("/srv/vsk-backup-standard")
 			profile.CriticalBackupRoot = stringPointer("/srv/vsk-backup-critical")
 			profile.ResticBinaryPath = stringPointer("/opt/vsk/bin/restic-0.19.1")
+			profile.CustodyPolicyPath = stringPointer("/etc/vsk-labs/backup-custody.json")
 			mutate(&profile)
 			if _, err := convertGeneratedProfile(profile, 1001); err == nil {
 				t.Fatal("invalid local backup accepted")

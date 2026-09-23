@@ -136,6 +136,12 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --revision <revision>  Select the exact positive declaration revision.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  recovery witness collect Collect one bounded independent recovery witness on a separately administered custodian.
+    --file <path>          Read one exact public recovery binding and required-boundary document (64 KiB max).
+    --material-fd <fd>     Read the independently held protected material from an inherited descriptor.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --signing-key-fd <fd>  Read the protected witness signing seed from an inherited descriptor.
   release inspect          Inspect a local release manifest and compatibility without claiming cryptographic verification.
     --manifest <path>      Read the local release manifest at this path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

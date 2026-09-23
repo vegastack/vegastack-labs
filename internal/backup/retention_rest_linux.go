@@ -3,7 +3,6 @@
 package backup
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -17,48 +16,19 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// RetentionLease is a bounded, separately authorized session. It cannot be
-// converted from the routine backup writer or point-bound verifier lease.
-type RetentionLease struct {
-	LeaseID, RepositoryID          string
-	RecoveryEpoch                  int64
-	MaximumExpiresAt               time.Time
-	MaxMutations, MaxMutationBytes int64
-	PlannedSnapshotIDs             []string
-}
-
-type RetentionLeaseVerifier interface {
-	VerifyRetentionLease(RetentionLease, time.Time) error
-}
-
-// RetainedMutationAttempt is written durably before any retained object is
-// removed from restic's visible namespace. Sequence is lease-scoped; a durable
-// journal must reject reuse after a crash, including byte-identical replay.
-// It contains no secret material.
-type RetainedMutationAttempt struct {
-	MutationID, LeaseID, RepositoryID, MutationKind, ObjectType, ObjectName, Digest string
-	Sequence, Bytes, RecoveryEpoch                                                  int64
-}
-
-type RetainedMutationOutcome struct {
-	MutationID, LeaseID, ObjectType, ObjectName, QuarantineName string
-	Status                                                      string
-}
-
 func retainedMutationID(leaseID string, sequence int64) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("retained-mutation-v1\x00%s\x00%d", leaseID, sequence)))
 	return "mutation-" + hex.EncodeToString(sum[:16])
-}
-
-type RetainedMutationJournal interface {
-	BeginRetainedMutation(context.Context, RetainedMutationAttempt) error
-	FinishRetainedMutation(context.Context, RetainedMutationOutcome) error
 }
 
 // NewRetentionRESTServer adds a distinct role that can hide retained objects
 // only by journaling and renaming their exact inode into a same-filesystem,
 // owner-only quarantine. No physical deletion path is exposed here.
 func NewRetentionRESTServer(root, quarantine string, expectedUID uint32, lease RetentionLease, verifier RetentionLeaseVerifier, journal RetainedMutationJournal, clock func() time.Time) (*RESTServer, error) {
+	return newRetentionRESTServer(root, quarantine, expectedUID, expectedUID, lease, verifier, journal, clock)
+}
+
+func newRetentionRESTServer(root, quarantine string, ownerUID, peerUID uint32, lease RetentionLease, verifier RetentionLeaseVerifier, journal RetainedMutationJournal, clock func() time.Time) (*RESTServer, error) {
 	if root == "" || quarantine == "" || filepath.Dir(root) != filepath.Dir(quarantine) ||
 		lease.LeaseID == "" || lease.RepositoryID == "" || lease.RecoveryEpoch < 0 || lease.MaximumExpiresAt.IsZero() ||
 		lease.MaxMutations < 1 || lease.MaxMutationBytes < 1 || verifier == nil || journal == nil {
@@ -67,7 +37,7 @@ func NewRetentionRESTServer(root, quarantine string, expectedUID uint32, lease R
 	if clock == nil {
 		clock = time.Now
 	}
-	server := &RESTServer{root: root, repositoryID: lease.RepositoryID, expectedUID: expectedUID,
+	server := &RESTServer{root: root, repositoryID: lease.RepositoryID, ownerUID: ownerUID, peerUID: peerUID,
 		retentionLease: &lease, retentionVerifier: verifier, retentionJournal: journal, quarantineRoot: quarantine,
 		clock: clock, ownLocks: map[string]struct{}{}}
 	rootFD, err := server.openRepositoryRoot()
@@ -80,7 +50,7 @@ func NewRetentionRESTServer(root, quarantine string, expectedUID uint32, lease R
 		return nil, err
 	}
 	defer unix.Close(parentFD)
-	if err := validateOwnedDirectoryDescriptor(parentFD, expectedUID); err != nil {
+	if err := validateOwnedDirectoryDescriptor(parentFD, ownerUID); err != nil {
 		return nil, fmt.Errorf("quarantine parent: %w", err)
 	}
 	if err := unix.Mkdirat(parentFD, filepath.Base(quarantine), 0o700); err != nil {
@@ -106,7 +76,7 @@ func (server *RESTServer) openQuarantineRoot() (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	if err := validateOwnedDirectoryDescriptor(fd, server.expectedUID); err != nil {
+	if err := validateOwnedDirectoryDescriptor(fd, server.ownerUID); err != nil {
 		unix.Close(fd)
 		return -1, err
 	}
@@ -132,7 +102,7 @@ func (server *RESTServer) openQuarantineTypeDir(objectType string) (int, error) 
 	if err != nil {
 		return -1, err
 	}
-	if err := validateOwnedDirectoryDescriptor(fd, server.expectedUID); err != nil {
+	if err := validateOwnedDirectoryDescriptor(fd, server.ownerUID); err != nil {
 		unix.Close(fd)
 		return -1, err
 	}
@@ -156,7 +126,7 @@ func (server *RESTServer) openStagingTypeDir(objectType string) (int, error) {
 		return -1, err
 	}
 	defer unix.Close(stagingFD)
-	if err := validateOwnedDirectoryDescriptor(stagingFD, server.expectedUID); err != nil {
+	if err := validateOwnedDirectoryDescriptor(stagingFD, server.ownerUID); err != nil {
 		return -1, err
 	}
 	if err := unix.Mkdirat(stagingFD, objectType, 0o700); err != nil && !errors.Is(err, unix.EEXIST) {
@@ -169,7 +139,7 @@ func (server *RESTServer) openStagingTypeDir(objectType string) (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	if err := validateOwnedDirectoryDescriptor(typeFD, server.expectedUID); err != nil {
+	if err := validateOwnedDirectoryDescriptor(typeFD, server.ownerUID); err != nil {
 		unix.Close(typeFD)
 		return -1, err
 	}

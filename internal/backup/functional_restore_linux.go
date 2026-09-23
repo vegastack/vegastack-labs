@@ -44,8 +44,12 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	if err != nil || snapshots.RepositoryFormat != 2 {
 		return proof, invalid
 	}
+	exchangeRoot := base.ExchangeRoot
+	if exchangeRoot == "" {
+		exchangeRoot = filepath.Dir(base.RepositoryRoot)
+	}
 	paths, exists := snapshots.SnapshotPaths[manifest.SnapshotID]
-	if !exists || len(paths) != 1 || !safeCapturedSnapshotPath(paths[0], base.RepositoryRoot) {
+	if !exists || len(paths) != 1 || !safeCapturedSnapshotPath(paths[0], exchangeRoot) {
 		return proof, invalid
 	}
 	checkRequest := base
@@ -55,7 +59,7 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	if err != nil || check.RepositoryFormat != 2 {
 		return proof, invalid
 	}
-	target, err := os.MkdirTemp(filepath.Dir(base.RepositoryRoot), ".vsk-backup-verify-")
+	target, err := os.MkdirTemp(exchangeRoot, ".vsk-backup-verify-")
 	if err != nil {
 		return proof, invalid
 	}
@@ -75,7 +79,11 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	}
 	relative := strings.TrimPrefix(paths[0], string(filepath.Separator))
 	restoredPath := filepath.Join(target, relative)
-	contentDigest, err := hashRestoredSQLite(restoredPath)
+	expectedUID := uint32(os.Geteuid())
+	if base.ControllerUID != 0 {
+		expectedUID = base.ControllerUID
+	}
+	contentDigest, err := hashRestoredSQLite(restoredPath, expectedUID)
 	if err != nil || contentDigest != manifest.ContentDigest {
 		return proof, invalid
 	}
@@ -87,7 +95,16 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 	copy(catalog[:], catalogBytes)
 	expected := store.SnapshotExpectation{SchemaVersion: manifest.DatabaseSchemaVersion,
 		Revision: store.RevisionToken{StateRevision: manifest.SourceRevision, RecoveryEpoch: manifest.RecoveryEpoch}, CatalogSHA256: catalog}
-	inspection, err := inspector.InspectSnapshot(ctx, restoredPath, expected)
+	var inspection store.SnapshotInspection
+	if base.ControllerUID != 0 {
+		ownerInspector, ok := inspector.(store.RestoredSQLiteOwnerInspector)
+		if !ok {
+			return proof, invalid
+		}
+		inspection, err = ownerInspector.InspectSnapshotOwned(ctx, restoredPath, expected, base.ControllerUID)
+	} else {
+		inspection, err = inspector.InspectSnapshot(ctx, restoredPath, expected)
+	}
 	if err != nil || inspection.IntegrityStatus != store.IntegrityVerified || inspection.Revision != expected.Revision || inspection.SchemaVersion != expected.SchemaVersion {
 		return proof, invalid
 	}
@@ -97,15 +114,15 @@ func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof,
 		FullReadAt: check.CompletedAt, FunctionalRestoredAt: restored.CompletedAt}, nil
 }
 
-func safeCapturedSnapshotPath(path, repositoryRoot string) bool {
+func safeCapturedSnapshotPath(path, exchangeRoot string) bool {
 	if !filepath.IsAbs(path) || filepath.Clean(path) != path || filepath.Base(path) != "database.sqlite" {
 		return false
 	}
 	stage := filepath.Dir(path)
-	return filepath.Dir(stage) == filepath.Dir(repositoryRoot) && strings.HasPrefix(filepath.Base(stage), ".vsk-backup-staging-")
+	return filepath.Dir(stage) == exchangeRoot && strings.HasPrefix(filepath.Base(stage), ".vsk-backup-staging-")
 }
 
-func hashRestoredSQLite(path string) (string, error) {
+func hashRestoredSQLite(path string, expectedUID ...uint32) (string, error) {
 	descriptor, err := unix.Openat2(unix.AT_FDCWD, path, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NOFOLLOW, Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS})
 	if err != nil {
 		return "", err
@@ -117,7 +134,11 @@ func hashRestoredSQLite(path string) (string, error) {
 	}
 	defer file.Close()
 	var stat unix.Stat_t
-	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != uint32(os.Geteuid()) || !isLocalDescriptor(descriptor) {
+	owner := uint32(os.Geteuid())
+	if len(expectedUID) == 1 {
+		owner = expectedUID[0]
+	}
+	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != owner || !isLocalDescriptor(descriptor) {
 		return "", errors.New("unsafe restored file")
 	}
 	hasher := sha256.New()
