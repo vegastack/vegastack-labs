@@ -130,6 +130,64 @@ func (client S3Client) InitiateMultipart(ctx context.Context, key string, creden
 	return result.UploadID, nil
 }
 
+// ListMultipartUploads returns every active upload for one exact object key.
+// Prefix-neighbor uploads are ignored and pagination is bounded so cleanup
+// reconciliation cannot widen into bucket-wide administration.
+func (client S3Client) ListMultipartUploads(ctx context.Context, key string, credentials S3Credentials) ([]string, error) {
+	if key == "" {
+		return nil, errors.New("r2 multipart cleanup key invalid")
+	}
+	keyMarker, uploadMarker := "", ""
+	result := []string{}
+	seen := map[string]bool{}
+	for page := 0; page < 64; page++ {
+		query := url.Values{"uploads": {""}, "prefix": {key}}
+		if keyMarker != "" {
+			query.Set("key-marker", keyMarker)
+		}
+		if uploadMarker != "" {
+			query.Set("upload-id-marker", uploadMarker)
+		}
+		response, err := client.do(ctx, http.MethodGet, "/"+client.Bucket, query, nil, credentials)
+		if err != nil {
+			return nil, err
+		}
+		var listing struct {
+			IsTruncated        bool   `xml:"IsTruncated"`
+			NextKeyMarker      string `xml:"NextKeyMarker"`
+			NextUploadIDMarker string `xml:"NextUploadIdMarker"`
+			Uploads            []struct {
+				Key      string `xml:"Key"`
+				UploadID string `xml:"UploadId"`
+			} `xml:"Upload"`
+		}
+		decodeErr := xml.NewDecoder(io.LimitReader(response.Body, 4<<20)).Decode(&listing)
+		closeErr := response.Body.Close()
+		if response.StatusCode != http.StatusOK || decodeErr != nil || closeErr != nil {
+			return nil, errors.New("r2 multipart cleanup listing failed")
+		}
+		for _, upload := range listing.Uploads {
+			if upload.Key != key {
+				continue
+			}
+			if upload.UploadID == "" || seen[upload.UploadID] || len(result) >= 1024 {
+				return nil, errors.New("r2 multipart cleanup listing ambiguous")
+			}
+			seen[upload.UploadID] = true
+			result = append(result, upload.UploadID)
+		}
+		if !listing.IsTruncated {
+			sort.Strings(result)
+			return result, nil
+		}
+		if listing.NextKeyMarker == "" || listing.NextUploadIDMarker == "" || (listing.NextKeyMarker == keyMarker && listing.NextUploadIDMarker == uploadMarker) {
+			return nil, errors.New("r2 multipart cleanup pagination invalid")
+		}
+		keyMarker, uploadMarker = listing.NextKeyMarker, listing.NextUploadIDMarker
+	}
+	return nil, errors.New("r2 multipart cleanup pagination exceeds bounds")
+}
+
 func (client S3Client) ProbeMultipartCompletionDenied(ctx context.Context, key, uploadID string, credentials S3Credentials) (bool, error) {
 	body := []byte(`<CompleteMultipartUpload><Part><PartNumber>1</PartNumber><ETag>"cutoff"</ETag></Part></CompleteMultipartUpload>`)
 	response, err := client.do(ctx, http.MethodPost, "/"+client.Bucket+"/"+escapeS3Key(key), url.Values{"uploadId": {uploadID}}, body, credentials)

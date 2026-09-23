@@ -60,3 +60,37 @@ func TestS3InventoryRejectsProviderObjectOutsideRequestedGeneration(t *testing.T
 		t.Fatal("cross-generation object accepted")
 	}
 }
+
+func TestS3ListMultipartUploadsPaginatesAndReturnsOnlyExactKey(t *testing.T) {
+	key := "critical/gen-a/locks/cutoff-a"
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodGet || !request.URL.Query().Has("uploads") || request.URL.Query().Get("prefix") != key {
+			http.Error(writer, "unexpected", http.StatusBadRequest)
+			return
+		}
+		writer.Header().Set("Content-Type", "application/xml")
+		if request.URL.Query().Get("key-marker") == "" {
+			_, _ = fmt.Fprintf(writer, `<ListMultipartUploadsResult><IsTruncated>true</IsTruncated><NextKeyMarker>%s</NextKeyMarker><NextUploadIdMarker>marker-a</NextUploadIdMarker><Upload><Key>%s</Key><UploadId>upload-b</UploadId></Upload><Upload><Key>%s-neighbor</Key><UploadId>do-not-abort</UploadId></Upload></ListMultipartUploadsResult>`, key, key, key)
+			return
+		}
+		_, _ = fmt.Fprintf(writer, `<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><Upload><Key>%s</Key><UploadId>upload-a</UploadId></Upload></ListMultipartUploadsResult>`, key)
+	}))
+	defer server.Close()
+	client := S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}
+	uploads, err := client.ListMultipartUploads(context.Background(), key, S3Credentials{AccessKeyID: []byte("access"), SecretAccessKey: []byte("secret")})
+	if err != nil || strings.Join(uploads, ",") != "upload-a,upload-b" {
+		t.Fatalf("exact uploads = %v, %v", uploads, err)
+	}
+}
+
+func TestS3ListMultipartUploadsRejectsDuplicateExactCandidate(t *testing.T) {
+	key := "critical/gen-a/locks/cutoff-a"
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		_, _ = fmt.Fprintf(writer, `<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><Upload><Key>%s</Key><UploadId>duplicate</UploadId></Upload><Upload><Key>%s</Key><UploadId>duplicate</UploadId></Upload></ListMultipartUploadsResult>`, key, key)
+	}))
+	defer server.Close()
+	_, err := (S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}).ListMultipartUploads(context.Background(), key, S3Credentials{AccessKeyID: []byte("access"), SecretAccessKey: []byte("secret")})
+	if err == nil {
+		t.Fatal("ambiguous duplicate upload accepted")
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -15,11 +16,15 @@ import (
 )
 
 type cleanupRepositoryFixture struct {
-	appended, resolved int
+	appended, received, resolved int
 }
 
 func (repository *cleanupRepositoryFixture) AppendCleanupObligation(context.Context, store.OffsiteCleanupObligation) error {
 	repository.appended++
+	return nil
+}
+func (repository *cleanupRepositoryFixture) AppendCleanupUploadReceipt(context.Context, string, string) error {
+	repository.received++
 	return nil
 }
 func (repository *cleanupRepositoryFixture) ResolveCleanupObligation(context.Context, string) error {
@@ -29,9 +34,13 @@ func (repository *cleanupRepositoryFixture) ResolveCleanupObligation(context.Con
 
 func TestQualifiedCutoffExecutesExpiredWriterProbesAndCleansArtifacts(t *testing.T) {
 	var cleanups atomic.Int64
+	repository := &cleanupRepositoryFixture{}
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		switch {
 		case request.Method == http.MethodPost && request.URL.Query().Has("uploads"):
+			if repository.appended != 1 || repository.received != 0 {
+				t.Fatalf("cleanup intent was not durable before initiation: %#v", repository)
+			}
 			writer.Header().Set("Content-Type", "application/xml")
 			_, _ = writer.Write([]byte(`<InitiateMultipartUploadResult><UploadId>upload-a</UploadId></InitiateMultipartUploadResult>`))
 		case request.Method == http.MethodPut:
@@ -47,7 +56,6 @@ func TestQualifiedCutoffExecutesExpiredWriterProbesAndCleansArtifacts(t *testing
 	}))
 	defer server.Close()
 	now := time.Now().UTC()
-	repository := &cleanupRepositoryFixture{}
 	probe := &qualifiedCutoff{s3: S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}, clock: time.Now, deadline: now.Add(time.Minute), key: "critical/gen-a/locks/cutoff-a",
 		issued: S3Credentials{AccessKeyID: []byte("expired-access"), SecretAccessKey: []byte("expired-secret"), SessionToken: []byte("expired-token")}, cleanup: S3Credentials{AccessKeyID: []byte("parent-access"), SecretAccessKey: []byte("parent-secret")}, repository: repository}
 	pending := backup.PendingOffsiteGeneration{SessionExpiries: []time.Time{now.Add(-time.Second)}}
@@ -66,8 +74,32 @@ func TestQualifiedCutoffExecutesExpiredWriterProbesAndCleansArtifacts(t *testing
 	if cleanups.Load() != 2 {
 		t.Fatalf("cleanup calls = %d", cleanups.Load())
 	}
-	if repository.appended != 1 || repository.resolved != 1 {
-		t.Fatalf("durable cleanup appended=%d resolved=%d", repository.appended, repository.resolved)
+	if repository.appended != 1 || repository.received != 1 || repository.resolved != 1 {
+		t.Fatalf("durable cleanup appended=%d received=%d resolved=%d", repository.appended, repository.received, repository.resolved)
+	}
+}
+
+func TestQualifiedCutoffPersistsIntentWhenMultipartInitiationIsAmbiguous(t *testing.T) {
+	repository := &cleanupRepositoryFixture{}
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.Method == http.MethodPost && request.URL.Query().Has("uploads") {
+			if repository.appended != 1 {
+				t.Fatal("provider called before cleanup intent commit")
+			}
+			http.Error(writer, "ambiguous provider failure", http.StatusInternalServerError)
+			return
+		}
+		http.Error(writer, "unexpected", http.StatusBadRequest)
+	}))
+	defer server.Close()
+	now := time.Now().UTC()
+	probe := &qualifiedCutoff{s3: S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}, clock: time.Now, deadline: now.Add(time.Minute), key: "critical/gen-a/locks/cutoff-a",
+		issued: S3Credentials{AccessKeyID: []byte("writer"), SecretAccessKey: []byte("writer-secret"), SessionToken: []byte("writer-token")}, cleanup: S3Credentials{AccessKeyID: []byte("parent"), SecretAccessKey: []byte("parent-secret")}, repository: repository}
+	if _, err := probe.AwaitWriterCutoff(context.Background(), backup.PendingOffsiteGeneration{SessionExpiries: []time.Time{now}}); err == nil {
+		t.Fatal("ambiguous initiation accepted")
+	}
+	if repository.appended != 1 || repository.received != 0 || repository.resolved != 0 {
+		t.Fatalf("intent-only obligation appended=%d received=%d resolved=%d", repository.appended, repository.received, repository.resolved)
 	}
 }
 
@@ -110,8 +142,8 @@ func TestQualifiedCutoffCleanupAttemptsObjectAndMultipartAfterCancellationAndErr
 	if deleteObject.Load() != 1 || abortMultipart.Load() != 1 {
 		t.Fatalf("cleanup calls object=%d multipart=%d", deleteObject.Load(), abortMultipart.Load())
 	}
-	if repository.appended != 1 || repository.resolved != 0 {
-		t.Fatalf("durable cleanup appended=%d resolved=%d", repository.appended, repository.resolved)
+	if repository.appended != 1 || repository.received != 1 || repository.resolved != 0 {
+		t.Fatalf("durable cleanup appended=%d received=%d resolved=%d", repository.appended, repository.received, repository.resolved)
 	}
 	_, cleanup, uploadID := probe.credentials()
 	if len(cleanup.AccessKeyID) != 0 || uploadID != "" {
@@ -136,5 +168,47 @@ func TestQualifiedCutoffRejectsAcceptedExpiredPUT(t *testing.T) {
 		issued: S3Credentials{AccessKeyID: []byte("expired-access"), SecretAccessKey: []byte("expired-secret"), SessionToken: []byte("expired-token")}, cleanup: S3Credentials{AccessKeyID: []byte("parent-access"), SecretAccessKey: []byte("parent-secret")}}
 	if denied, err := probe.DenyNewPUT(context.Background(), "gen-a"); err != nil || denied {
 		t.Fatalf("accepted expired PUT treated as denied: %v, %v", denied, err)
+	}
+}
+
+func TestCleanupReconciliationHandlesIntentOnlyDiscoveryAndReceiptPaths(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		receipts   []string
+		wantList   int
+		wantAborts string
+	}{
+		{name: "intent-only-discovers-all-exact-key-uploads", wantList: 1, wantAborts: "upload-a,upload-b"},
+		{name: "receipt-uses-recorded-upload", receipts: []string{"upload-recorded"}, wantAborts: "upload-recorded"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			key := "critical/gen-a/locks/cutoff-a"
+			listCalls := 0
+			aborts := []string{}
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				switch {
+				case request.Method == http.MethodGet && request.URL.Query().Has("uploads"):
+					listCalls++
+					_, _ = writer.Write([]byte(`<ListMultipartUploadsResult><IsTruncated>false</IsTruncated><Upload><Key>` + key + `</Key><UploadId>upload-b</UploadId></Upload><Upload><Key>` + key + `-neighbor</Key><UploadId>ignore</UploadId></Upload><Upload><Key>` + key + `</Key><UploadId>upload-a</UploadId></Upload></ListMultipartUploadsResult>`))
+				case request.Method == http.MethodDelete && request.URL.Query().Get("uploadId") != "":
+					aborts = append(aborts, request.URL.Query().Get("uploadId"))
+					writer.WriteHeader(http.StatusNoContent)
+				case request.Method == http.MethodDelete:
+					writer.WriteHeader(http.StatusNoContent)
+				default:
+					http.Error(writer, "unexpected", http.StatusBadRequest)
+				}
+			}))
+			defer server.Close()
+			client := S3Client{Endpoint: server.URL, Bucket: "bucket-a", Client: server.Client()}
+			obligation := store.OffsiteCleanupObligation{ObjectKey: key, UploadIDs: test.receipts}
+			credentials := S3Credentials{AccessKeyID: []byte("parent"), SecretAccessKey: []byte("secret")}
+			if err := cleanupProviderArtifacts(context.Background(), client, credentials, obligation); err != nil {
+				t.Fatal(err)
+			}
+			if listCalls != test.wantList || strings.Join(aborts, ",") != test.wantAborts {
+				t.Fatalf("list calls=%d aborts=%v", listCalls, aborts)
+			}
+		})
 	}
 }

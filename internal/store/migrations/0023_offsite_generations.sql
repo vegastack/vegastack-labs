@@ -76,7 +76,6 @@ CREATE TABLE backup_offsite_cleanup_obligations (
     obligation_id TEXT PRIMARY KEY CHECK (length(obligation_id) BETWEEN 1 AND 128),
     generation_id TEXT NOT NULL REFERENCES backup_offsite_run_specs(generation_id),
     object_key TEXT NOT NULL CHECK (length(object_key) BETWEEN 1 AND 1024),
-    upload_id TEXT NOT NULL CHECK (length(upload_id) BETWEEN 1 AND 1024),
     credential_reference_id TEXT NOT NULL CHECK (length(credential_reference_id) BETWEEN 1 AND 128),
     credential_fingerprint TEXT NOT NULL CHECK (length(credential_fingerprint)=71 AND substr(credential_fingerprint,1,7)='sha256:'),
     plan_id TEXT NOT NULL,
@@ -91,6 +90,15 @@ CREATE TABLE backup_offsite_cleanup_obligations (
 ) STRICT;
 CREATE TRIGGER backup_offsite_cleanup_obligations_no_update BEFORE UPDATE ON backup_offsite_cleanup_obligations BEGIN SELECT RAISE(ABORT,'offsite cleanup obligations are append-only'); END;
 CREATE TRIGGER backup_offsite_cleanup_obligations_no_delete BEFORE DELETE ON backup_offsite_cleanup_obligations BEGIN SELECT RAISE(ABORT,'offsite cleanup obligations are append-only'); END;
+
+CREATE TABLE backup_offsite_cleanup_upload_receipts (
+    obligation_id TEXT NOT NULL REFERENCES backup_offsite_cleanup_obligations(obligation_id),
+    upload_id TEXT NOT NULL CHECK (length(upload_id) BETWEEN 1 AND 1024),
+    received_at TEXT NOT NULL,
+    PRIMARY KEY(obligation_id,upload_id)
+) STRICT;
+CREATE TRIGGER backup_offsite_cleanup_upload_receipts_no_update BEFORE UPDATE ON backup_offsite_cleanup_upload_receipts BEGIN SELECT RAISE(ABORT,'offsite cleanup upload receipts are append-only'); END;
+CREATE TRIGGER backup_offsite_cleanup_upload_receipts_no_delete BEFORE DELETE ON backup_offsite_cleanup_upload_receipts BEGIN SELECT RAISE(ABORT,'offsite cleanup upload receipts are append-only'); END;
 
 CREATE TABLE backup_offsite_cleanup_outcomes (
     obligation_id TEXT PRIMARY KEY REFERENCES backup_offsite_cleanup_obligations(obligation_id),

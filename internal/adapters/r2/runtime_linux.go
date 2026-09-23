@@ -136,7 +136,7 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	}
 	obligationID, probeKey := cutoffProbeBinding(runtimeConfig.config.Prefix, binding.RunID, binding.StepID, declaration.GenerationID)
 	cutoff = &qualifiedCutoff{s3: s3, clock: runtimeConfig.config.Clock, deadline: deadline, key: probeKey, cleanup: cleanupCredentials,
-		repository: store.NewOffsiteRepository(runtimeConfig.config.Authority), obligation: store.OffsiteCleanupObligation{ObligationID: obligationID, GenerationID: declaration.GenerationID,
+		repository: store.NewOffsiteRepository(runtimeConfig.config.Authority), obligation: store.OffsiteCleanupObligation{ObligationID: obligationID, GenerationID: declaration.GenerationID, ObjectKey: probeKey,
 			CredentialReferenceID: declaration.ParentReferenceID, CredentialFingerprint: runtimeConfig.config.ParentFingerprint, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: binding.LeaseID,
 			SourceRevision: declaration.SourceRevision, StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch}}
 	bearer := make([]byte, 32)
@@ -206,13 +206,7 @@ func (runtimeConfig *ProductionRuntime) reconcileCleanupObligations(ctx context.
 		if obligation.ObligationID != obligationID || obligation.ObjectKey != objectKey {
 			return errors.New("r2 cleanup reconciliation binding invalid")
 		}
-		deleteCtx, cancelDelete := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		deleteErr := client.DeleteObject(deleteCtx, obligation.ObjectKey, credentials)
-		cancelDelete()
-		abortCtx, cancelAbort := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		abortErr := client.AbortMultipart(abortCtx, obligation.ObjectKey, obligation.UploadID, credentials)
-		cancelAbort()
-		if err := errors.Join(deleteErr, abortErr); err != nil {
+		if err := cleanupProviderArtifacts(ctx, client, credentials, obligation); err != nil {
 			return errors.New("r2 cleanup reconciliation failed")
 		}
 		if err := repository.ResolveCleanupObligation(ctx, obligation.ObligationID); err != nil {
@@ -220,6 +214,30 @@ func (runtimeConfig *ProductionRuntime) reconcileCleanupObligations(ctx context.
 		}
 	}
 	return nil
+}
+
+func cleanupProviderArtifacts(ctx context.Context, client S3Client, credentials S3Credentials, obligation store.OffsiteCleanupObligation) error {
+	deleteCtx, cancelDelete := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+	deleteErr := client.DeleteObject(deleteCtx, obligation.ObjectKey, credentials)
+	cancelDelete()
+	uploadIDs := append([]string(nil), obligation.UploadIDs...)
+	if len(uploadIDs) == 0 {
+		listCtx, cancelList := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		var err error
+		uploadIDs, err = client.ListMultipartUploads(listCtx, obligation.ObjectKey, credentials)
+		cancelList()
+		if err != nil {
+			return errors.Join(deleteErr, errors.New("r2 cleanup reconciliation discovery failed"))
+		}
+	}
+	var abortErr error
+	for _, uploadID := range uploadIDs {
+		abortCtx, cancelAbort := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
+		oneAbortErr := client.AbortMultipart(abortCtx, obligation.ObjectKey, uploadID, credentials)
+		cancelAbort()
+		abortErr = errors.Join(abortErr, oneAbortErr)
+	}
+	return errors.Join(deleteErr, abortErr)
 }
 
 func cutoffProbeBinding(prefix, runID, stepID, generationID string) (string, string) {
@@ -365,6 +383,7 @@ type qualifiedCutoff struct {
 
 type cleanupObligationRepository interface {
 	AppendCleanupObligation(context.Context, store.OffsiteCleanupObligation) error
+	AppendCleanupUploadReceipt(context.Context, string, string) error
 	ResolveCleanupObligation(context.Context, string) error
 }
 
@@ -418,6 +437,12 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 	if len(issued.AccessKeyID) == 0 || len(issued.SecretAccessKey) == 0 || len(issued.SessionToken) == 0 {
 		return time.Time{}, errors.New("writer cutoff probe session unavailable")
 	}
+	if probe.repository == nil || probe.repository.AppendCleanupObligation(ctx, probe.obligation) != nil {
+		return time.Time{}, errors.New("writer cutoff cleanup intent unavailable")
+	}
+	probe.mu.Lock()
+	probe.persisted = true
+	probe.mu.Unlock()
 	probeCtx, cancel, err := probe.bounded(ctx)
 	if err != nil {
 		return time.Time{}, err
@@ -429,15 +454,10 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 	}
 	probe.mu.Lock()
 	probe.uploadID = uploadID
-	probe.obligation.ObjectKey = probe.key
-	probe.obligation.UploadID = uploadID
 	probe.mu.Unlock()
-	if probe.repository == nil || probe.repository.AppendCleanupObligation(ctx, probe.obligation) != nil {
-		return time.Time{}, errors.New("writer cutoff cleanup obligation unavailable")
+	if probe.repository.AppendCleanupUploadReceipt(ctx, probe.obligation.ObligationID, uploadID) != nil {
+		return time.Time{}, errors.New("writer cutoff upload receipt unavailable")
 	}
-	probe.mu.Lock()
-	probe.persisted = true
-	probe.mu.Unlock()
 	delay := last.Sub(probe.clock().UTC())
 	if delay > 0 {
 		timer := time.NewTimer(delay)
@@ -479,6 +499,7 @@ func (probe *qualifiedCutoff) DenyMultipartCompletion(ctx context.Context, _ str
 func (probe *qualifiedCutoff) CleanupWriterProbes(ctx context.Context) error {
 	_, cleanup, uploadID := probe.credentials()
 	if uploadID == "" {
+		probe.zero()
 		return nil
 	}
 	deleteCtx, cancelDelete := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)

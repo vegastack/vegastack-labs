@@ -13,15 +13,16 @@ import (
 // exact provider cleanup after a process restart. It never stores credential
 // material; the reference and fingerprint must be borrowed again.
 type OffsiteCleanupObligation struct {
-	ObligationID, GenerationID, ObjectKey, UploadID string
-	CredentialReferenceID, CredentialFingerprint    string
-	PlanID, PlanDigest, RunID, StepID, LeaseID      string
-	SourceRevision, StateRevision, RecoveryEpoch    int64
-	CreatedAt                                       time.Time
+	ObligationID, GenerationID, ObjectKey        string
+	CredentialReferenceID, CredentialFingerprint string
+	PlanID, PlanDigest, RunID, StepID, LeaseID   string
+	SourceRevision, StateRevision, RecoveryEpoch int64
+	CreatedAt                                    time.Time
+	UploadIDs                                    []string
 }
 
 func (repository *OffsiteRepository) AppendCleanupObligation(ctx context.Context, record OffsiteCleanupObligation) error {
-	if repository == nil || repository.backup == nil || repository.backup.store == nil || record.ObligationID == "" || record.GenerationID == "" || record.ObjectKey == "" || record.UploadID == "" || record.CredentialReferenceID == "" || len(record.CredentialFingerprint) != 71 || !strings.HasPrefix(record.CredentialFingerprint, "sha256:") || record.PlanID == "" || record.PlanDigest == "" || record.RunID == "" || record.StepID == "" || record.LeaseID == "" || record.SourceRevision < 0 || record.StateRevision < 0 || record.RecoveryEpoch < 0 {
+	if repository == nil || repository.backup == nil || repository.backup.store == nil || record.ObligationID == "" || record.GenerationID == "" || record.ObjectKey == "" || record.CredentialReferenceID == "" || len(record.CredentialFingerprint) != 71 || !strings.HasPrefix(record.CredentialFingerprint, "sha256:") || record.PlanID == "" || record.PlanDigest == "" || record.RunID == "" || record.StepID == "" || record.LeaseID == "" || record.SourceRevision < 0 || record.StateRevision < 0 || record.RecoveryEpoch < 0 {
 		return newStoreError(generated.ErrorCodeInputInvalid, "offsite-cleanup-obligation", false, nil)
 	}
 	record.CreatedAt = repository.backup.store.config.Clock().UTC().Truncate(time.Second)
@@ -34,8 +35,18 @@ func (repository *OffsiteRepository) AppendCleanupObligation(ctx context.Context
 		if count != 1 {
 			return newStoreError(generated.ErrorCodePlanStale, "offsite-cleanup-obligation", false, nil)
 		}
-		_, err := transaction.ExecContext(ctx, `INSERT INTO backup_offsite_cleanup_obligations(obligation_id,generation_id,object_key,upload_id,credential_reference_id,credential_fingerprint,plan_id,plan_digest,run_id,step_id,lease_id,source_revision,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			record.ObligationID, record.GenerationID, record.ObjectKey, record.UploadID, record.CredentialReferenceID, record.CredentialFingerprint, record.PlanID, record.PlanDigest, record.RunID, record.StepID, record.LeaseID, record.SourceRevision, record.StateRevision, record.RecoveryEpoch, record.CreatedAt.Format(time.RFC3339))
+		_, err := transaction.ExecContext(ctx, `INSERT INTO backup_offsite_cleanup_obligations(obligation_id,generation_id,object_key,credential_reference_id,credential_fingerprint,plan_id,plan_digest,run_id,step_id,lease_id,source_revision,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			record.ObligationID, record.GenerationID, record.ObjectKey, record.CredentialReferenceID, record.CredentialFingerprint, record.PlanID, record.PlanDigest, record.RunID, record.StepID, record.LeaseID, record.SourceRevision, record.StateRevision, record.RecoveryEpoch, record.CreatedAt.Format(time.RFC3339))
+		return backupWriteError(err)
+	})
+}
+
+func (repository *OffsiteRepository) AppendCleanupUploadReceipt(ctx context.Context, obligationID, uploadID string) error {
+	if repository == nil || repository.backup == nil || repository.backup.store == nil || obligationID == "" || uploadID == "" || len(uploadID) > 1024 {
+		return newStoreError(generated.ErrorCodeInputInvalid, "offsite-cleanup-upload", false, nil)
+	}
+	return repository.inCustodyTx(ctx, func(ctx context.Context, transaction *sql.Tx) error {
+		_, err := transaction.ExecContext(ctx, `INSERT INTO backup_offsite_cleanup_upload_receipts(obligation_id,upload_id,received_at) VALUES(?,?,?)`, obligationID, uploadID, repository.backup.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
 		return backupWriteError(err)
 	})
 }
@@ -46,24 +57,45 @@ func (repository *OffsiteRepository) PendingCleanupObligations(ctx context.Conte
 	}
 	result := []OffsiteCleanupObligation{}
 	err := repository.backup.store.Read(ctx, func(tx ReadTx) error {
-		rows, err := tx.query(ctx, `SELECT o.obligation_id,o.generation_id,o.object_key,o.upload_id,o.credential_reference_id,o.credential_fingerprint,o.plan_id,o.plan_digest,o.run_id,o.step_id,o.lease_id,o.source_revision,o.state_revision,o.recovery_epoch,o.created_at FROM backup_offsite_cleanup_obligations o LEFT JOIN backup_offsite_cleanup_outcomes x ON x.obligation_id=o.obligation_id WHERE x.obligation_id IS NULL AND o.credential_reference_id=? AND o.credential_fingerprint=? AND o.recovery_epoch=? ORDER BY o.created_at,o.obligation_id`, referenceID, fingerprint, recoveryEpoch)
+		rows, err := tx.query(ctx, `SELECT o.obligation_id,o.generation_id,o.object_key,o.credential_reference_id,o.credential_fingerprint,o.plan_id,o.plan_digest,o.run_id,o.step_id,o.lease_id,o.source_revision,o.state_revision,o.recovery_epoch,o.created_at FROM backup_offsite_cleanup_obligations o LEFT JOIN backup_offsite_cleanup_outcomes x ON x.obligation_id=o.obligation_id WHERE x.obligation_id IS NULL AND o.credential_reference_id=? AND o.credential_fingerprint=? AND o.recovery_epoch=? ORDER BY o.created_at,o.obligation_id`, referenceID, fingerprint, recoveryEpoch)
 		if err != nil {
 			return err
 		}
-		defer rows.Close()
 		for rows.Next() {
 			var record OffsiteCleanupObligation
 			var created string
-			if err := rows.Scan(&record.ObligationID, &record.GenerationID, &record.ObjectKey, &record.UploadID, &record.CredentialReferenceID, &record.CredentialFingerprint, &record.PlanID, &record.PlanDigest, &record.RunID, &record.StepID, &record.LeaseID, &record.SourceRevision, &record.StateRevision, &record.RecoveryEpoch, &created); err != nil {
+			if err := rows.Scan(&record.ObligationID, &record.GenerationID, &record.ObjectKey, &record.CredentialReferenceID, &record.CredentialFingerprint, &record.PlanID, &record.PlanDigest, &record.RunID, &record.StepID, &record.LeaseID, &record.SourceRevision, &record.StateRevision, &record.RecoveryEpoch, &created); err != nil {
+				_ = rows.Close()
 				return err
 			}
 			record.CreatedAt, err = time.Parse(time.RFC3339, created)
 			if err != nil {
+				_ = rows.Close()
 				return err
 			}
 			result = append(result, record)
 		}
-		return rows.Err()
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		for index := range result {
+			receipts, err := tx.query(ctx, `SELECT upload_id FROM backup_offsite_cleanup_upload_receipts WHERE obligation_id=? ORDER BY upload_id`, result[index].ObligationID)
+			if err != nil {
+				return err
+			}
+			for receipts.Next() {
+				var uploadID string
+				if err := receipts.Scan(&uploadID); err != nil {
+					_ = receipts.Close()
+					return err
+				}
+				result[index].UploadIDs = append(result[index].UploadIDs, uploadID)
+			}
+			if err := receipts.Close(); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	return result, err
 }
