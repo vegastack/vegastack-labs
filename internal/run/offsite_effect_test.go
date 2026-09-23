@@ -14,11 +14,11 @@ import (
 
 type offsiteExecutionFixture struct{ calls int }
 
-func (fixture *offsiteExecutionFixture) CopyAndVerify(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, parent *credentialref.Value) (backup.OffsiteProof, error) {
-	return fixture.ExecuteOffsite(ctx, operation, binding, parent)
+func (fixture *offsiteExecutionFixture) CopyAndVerify(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (backup.OffsiteProof, error) {
+	return fixture.ExecuteOffsite(ctx, operation, binding, values)
 }
 
-func (fixture *offsiteExecutionFixture) ExecuteOffsite(_ context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, _ *credentialref.Value) (backup.OffsiteProof, error) {
+func (fixture *offsiteExecutionFixture) ExecuteOffsite(_ context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, _ []*credentialref.Value) (backup.OffsiteProof, error) {
 	fixture.calls++
 	return backup.OffsiteProof{ProofID: "proof-a", ProofDigest: operation.ArtifactDigest, Status: backup.OffsiteStatusVerified, ProofClass: backup.OffsiteProofQualified, GenerationID: operation.TargetID, RecoveryEpoch: binding.RecoveryEpoch}, nil
 }
@@ -36,12 +36,18 @@ func TestOffsiteEffectRequiresEnabledExecutionAndExactBoundApprovalInputs(t *tes
 		t.Fatal(err)
 	}
 	digest := "sha256:" + strings.Repeat("a", 64)
-	operation := adapter.Operation{OperationID: "offsite-copy-a", OperationType: "backup.offsite.copy", AdapterID: OffsiteAdapterID, ExecutorID: "executor-central", TargetID: "generation-a", InputDigest: digest, ArtifactDigest: digest, SecretReferences: []adapter.SecretReference{{ID: "parent-a", Consumer: OffsiteAdapterID}}}
+	operation := adapter.Operation{OperationID: "offsite-copy-a", OperationType: "backup.offsite.copy", AdapterID: OffsiteAdapterID, ExecutorID: "executor-central", TargetID: "generation-a", InputDigest: digest, ArtifactDigest: digest, SecretReferences: []adapter.SecretReference{{ID: "parent-a", Consumer: OffsiteAdapterID}, {ID: "password-a", Consumer: OffsiteAdapterID}}}
 	value, err := credentialref.NewValue([]byte("borrowed-parent-material"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer value.Close()
+	password, err := credentialref.NewValue([]byte("borrowed-repository-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer password.Close()
+	values := []*credentialref.Value{value, password}
 	binding := adapter.ExactExecutionBinding{PlanID: "plan-a", PlanDigest: digest, RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", StateRevision: 7, RecoveryEpoch: 3, MaximumExpiresAt: time.Now().Add(time.Minute).UTC().Format(time.RFC3339), ContractExtensions: []generated.ContractExtension{{Name: "x-offsite-generation", ValueDigest: digest}, {Name: "x-credential-bindings", ValueDigest: digest}}}
 	for name, mutate := range map[string]func(*adapter.ExactExecutionBinding){
 		"missing-plan": func(value *adapter.ExactExecutionBinding) { value.PlanID = "" },
@@ -56,12 +62,12 @@ func TestOffsiteEffectRequiresEnabledExecutionAndExactBoundApprovalInputs(t *tes
 			candidate := binding
 			candidate.ContractExtensions = append([]generated.ContractExtension(nil), binding.ContractExtensions...)
 			mutate(&candidate)
-			if _, err := effect.ExecuteBoundWithCredentials(context.Background(), operation, candidate, []*credentialref.Value{value}); err == nil {
+			if _, err := effect.ExecuteBoundWithCredentials(context.Background(), operation, candidate, values); err == nil {
 				t.Fatal("inexact offsite effect executed")
 			}
 		})
 	}
-	result, err := effect.ExecuteBoundWithCredentials(context.Background(), operation, binding, []*credentialref.Value{value})
+	result, err := effect.ExecuteBoundWithCredentials(context.Background(), operation, binding, values)
 	if err != nil || fixture.calls != 1 || !result.Changed || result.PendingPointID == nil || *result.PendingPointID != operation.TargetID {
 		t.Fatalf("result=%#v calls=%d err=%v", result, fixture.calls, err)
 	}

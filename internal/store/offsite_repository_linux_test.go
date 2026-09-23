@@ -14,6 +14,18 @@ func TestOffsiteRepositoryPersistsAppendOnlyReceiptsAndCASLastGood(t *testing.T)
 	backupRepository, point, revision := seededVerificationPoint(t)
 	repository := NewOffsiteRepository(backupRepository.store)
 	now := time.Now().UTC().Truncate(time.Second)
+	runSpec := OffsiteRunSpecRecord{GenerationID: "generation-a", SourcePointID: point.PointID, SnapshotPath: "/var/lib/vsk-labs/offsite/source-a", RepositoryURL: "s3:https://account.r2.cloudflarestorage.com/bucket-a/critical/generation-a", ParentReferenceID: "parent-a", PasswordReferenceID: "password-a",
+		RuleDigest: "sha256:" + strings.Repeat("c", 64), G008EvidenceDigest: "sha256:" + strings.Repeat("d", 64), CanonicalJSON: []byte(`{"generationId":"generation-a","sourcePointId":"point-a"}`), MaximumBytes: 4096, MaximumPUTs: 100, MaximumLISTs: 20, MaximumRetainedGenerations: 100, RuleLimit: 1000, RetentionSeconds: 86400, SessionTTLSeconds: 60, StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}
+	if err := repository.AppendRunSpec(ctx, runSpec); err != nil {
+		t.Fatal(err)
+	}
+	storedRunSpec, err := repository.RunSpec(ctx, runSpec.GenerationID)
+	if err != nil || storedRunSpec.SourcePointID != runSpec.SourcePointID || storedRunSpec.PasswordReferenceID != runSpec.PasswordReferenceID || string(storedRunSpec.CanonicalJSON) != string(runSpec.CanonicalJSON) {
+		t.Fatalf("run spec round trip=%#v err=%v", storedRunSpec, err)
+	}
+	if _, err := backupRepository.store.conn.ExecContext(ctx, `UPDATE backup_offsite_run_specs SET source_point_id='wrong' WHERE generation_id=?`, runSpec.GenerationID); err == nil {
+		t.Fatal("offsite run spec was mutable")
+	}
 	record := OffsiteGenerationRecord{GenerationID: "generation-a", SourcePointID: point.PointID, RepositoryID: strings.Repeat("7", 64), SnapshotID: strings.Repeat("8", 64),
 		CanonicalJSON: []byte(`{"GenerationID":"generation-a"}`), Rules: []OffsiteRuleRecord{{"rule-1", "critical/generation-a/config"}, {"rule-2", "critical/generation-a/keys/"}, {"rule-3", "critical/generation-a/data/"}, {"rule-4", "critical/generation-a/index/"}, {"rule-5", "critical/generation-a/snapshots/"}},
 		Objects: []OffsiteObjectRecord{{"config", "sha256:" + strings.Repeat("b", 64), 10}}, SessionExpiries: []time.Time{now.Add(time.Minute)}, SourceRevision: 44, StateRevision: revision.StateRevision,

@@ -54,7 +54,9 @@ func main() {
 		ReleaseBuildID: releaseBuildID,
 		SourceRevision: revision,
 	}
-	operations := server.NewOperations(build, newRequestID)
+	offsiteRunners := server.NewProfileOffsiteRunnerSource()
+	operations := server.NewOperations(build, newRequestID,
+		server.WithOffsiteEffectFactory(server.NewProductionOffsiteEffectFactory(offsiteRunners)))
 	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,
 		cli.WithInput(os.Stdin),
 		cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})),

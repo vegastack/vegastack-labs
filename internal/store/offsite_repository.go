@@ -22,6 +22,15 @@ type OffsiteGenerationRecord struct {
 	IssuanceStoppedAt                                     time.Time
 }
 
+type OffsiteRunSpecRecord struct {
+	GenerationID, SourcePointID, SnapshotPath, RepositoryURL               string
+	ParentReferenceID, PasswordReferenceID, RuleDigest, G008EvidenceDigest string
+	CanonicalJSON                                                          []byte
+	MaximumBytes, MaximumPUTs, MaximumLISTs                                int64
+	MaximumRetainedGenerations, RuleLimit                                  int
+	RetentionSeconds, SessionTTLSeconds, StateRevision, RecoveryEpoch      int64
+}
+
 type OffsiteRuleRecord struct{ RuleID, Prefix string }
 type OffsiteObjectRecord struct {
 	Key, Digest string
@@ -47,6 +56,47 @@ type OffsiteRepository struct{ backup *BackupRepository }
 
 func NewOffsiteRepository(authority *Store) *OffsiteRepository {
 	return &OffsiteRepository{backup: NewBackupRepository(authority)}
+}
+
+func (repository *OffsiteRepository) AppendRunSpec(ctx context.Context, record OffsiteRunSpecRecord) error {
+	if repository == nil || repository.backup == nil || repository.backup.store == nil || record.GenerationID == "" || record.SourcePointID == "" || record.SnapshotPath == "" || record.RepositoryURL == "" ||
+		record.ParentReferenceID == "" || record.PasswordReferenceID == "" || record.ParentReferenceID == record.PasswordReferenceID || record.RuleDigest == "" || record.G008EvidenceDigest == "" || len(record.CanonicalJSON) < 2 ||
+		record.MaximumBytes <= 0 || record.MaximumPUTs <= 0 || record.MaximumLISTs <= 0 || record.MaximumRetainedGenerations <= 0 || record.RuleLimit <= 0 || record.RetentionSeconds <= 0 || record.SessionTTLSeconds <= 0 || record.SessionTTLSeconds > 900 || record.StateRevision < 0 || record.RecoveryEpoch < 0 {
+		return backupStoreError(generated.ErrorCodeInputInvalid, "offsite-run-spec")
+	}
+	createdAt := repository.backup.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
+	return repository.backup.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var stateRevision, recoveryEpoch int64
+		if err := tx.QueryRowContext(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&stateRevision, &recoveryEpoch); err != nil {
+			return backupWriteError(err)
+		}
+		if stateRevision != record.StateRevision || recoveryEpoch != record.RecoveryEpoch {
+			return backupStoreError(generated.ErrorCodePlanStale, "offsite-run-spec")
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_run_specs(generation_id,source_point_id,snapshot_path,repository_url,parent_reference_id,password_reference_id,rule_digest,g008_evidence_digest,maximum_bytes,maximum_puts,maximum_lists,maximum_retained_generations,rule_limit,retention_seconds,session_ttl_seconds,canonical_json,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			record.GenerationID, record.SourcePointID, record.SnapshotPath, record.RepositoryURL, record.ParentReferenceID, record.PasswordReferenceID, record.RuleDigest, record.G008EvidenceDigest, record.MaximumBytes, record.MaximumPUTs, record.MaximumLISTs, record.MaximumRetainedGenerations, record.RuleLimit, record.RetentionSeconds, record.SessionTTLSeconds, string(record.CanonicalJSON), record.StateRevision, record.RecoveryEpoch, createdAt)
+		return backupWriteError(err)
+	})
+}
+
+func (repository *OffsiteRepository) RunSpec(ctx context.Context, generationID string) (OffsiteRunSpecRecord, error) {
+	var record OffsiteRunSpecRecord
+	var canonical string
+	if repository == nil || repository.backup == nil || repository.backup.store == nil || generationID == "" {
+		return record, backupStoreError(generated.ErrorCodeInputInvalid, "offsite-run-spec")
+	}
+	err := repository.backup.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT generation_id,source_point_id,snapshot_path,repository_url,parent_reference_id,password_reference_id,rule_digest,g008_evidence_digest,maximum_bytes,maximum_puts,maximum_lists,maximum_retained_generations,rule_limit,retention_seconds,session_ttl_seconds,canonical_json,state_revision,recovery_epoch FROM backup_offsite_run_specs WHERE generation_id=?`, generationID).
+			Scan(&record.GenerationID, &record.SourcePointID, &record.SnapshotPath, &record.RepositoryURL, &record.ParentReferenceID, &record.PasswordReferenceID, &record.RuleDigest, &record.G008EvidenceDigest, &record.MaximumBytes, &record.MaximumPUTs, &record.MaximumLISTs, &record.MaximumRetainedGenerations, &record.RuleLimit, &record.RetentionSeconds, &record.SessionTTLSeconds, &canonical, &record.StateRevision, &record.RecoveryEpoch)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return record, backupStoreError(generated.ErrorCodeResourceNotFound, "offsite-run-spec")
+	}
+	if err != nil {
+		return record, backupWriteError(err)
+	}
+	record.CanonicalJSON = []byte(canonical)
+	return record, nil
 }
 
 func (repository *OffsiteRepository) AppendGeneration(ctx context.Context, record OffsiteGenerationRecord) error {

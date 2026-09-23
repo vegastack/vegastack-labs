@@ -16,12 +16,12 @@ const OffsiteAdapterID = "labs.r2-offsite"
 // boundary. Production supplies it only after G-008 has qualified the actual
 // rule, signer, read path, custody host, and recovery key.
 type OffsiteExecution interface {
-	ExecuteOffsite(context.Context, adapter.Operation, adapter.ExactExecutionBinding, *credentialref.Value) (backup.OffsiteProof, error)
+	ExecuteOffsite(context.Context, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (backup.OffsiteProof, error)
 	ProofExists(context.Context, string, string) (bool, error)
 }
 
 type OffsiteCopyRunner interface {
-	CopyAndVerify(context.Context, adapter.Operation, adapter.ExactExecutionBinding, *credentialref.Value) (backup.OffsiteProof, error)
+	CopyAndVerify(context.Context, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (backup.OffsiteProof, error)
 }
 
 type OffsiteProofCatalog interface {
@@ -43,8 +43,8 @@ func NewCatalogOffsiteExecution(runner OffsiteCopyRunner, catalog OffsiteProofCa
 	return &CatalogOffsiteExecution{runner: runner, catalog: catalog}, nil
 }
 
-func (execution *CatalogOffsiteExecution) ExecuteOffsite(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, parent *credentialref.Value) (backup.OffsiteProof, error) {
-	return execution.runner.CopyAndVerify(ctx, operation, binding, parent)
+func (execution *CatalogOffsiteExecution) ExecuteOffsite(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (backup.OffsiteProof, error) {
+	return execution.runner.CopyAndVerify(ctx, operation, binding, values)
 }
 
 func (execution *CatalogOffsiteExecution) ProofExists(ctx context.Context, generationID, proofDigest string) (bool, error) {
@@ -70,7 +70,8 @@ func (*OffsiteEffect) Execute(context.Context, adapter.Operation) (adapter.Effec
 
 func (effect *OffsiteEffect) ExecuteBoundWithCredentials(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (adapter.Effect, error) {
 	if effect == nil || effect.execution == nil || adapter.ValidateOperation(operation) != nil || operation.AdapterID != OffsiteAdapterID || operation.OperationType != "backup.offsite.copy" || operation.Idempotent ||
-		len(operation.SecretReferences) != 1 || len(values) != 1 || values[0] == nil || len(values[0].Bytes()) == 0 ||
+		len(operation.SecretReferences) != 2 || len(values) != 2 || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID ||
+		values[0] == nil || len(values[0].Bytes()) == 0 || values[1] == nil || len(values[1].Bytes()) == 0 ||
 		binding.PlanID == "" || binding.PlanDigest == "" || binding.RunID == "" || binding.StepID == "" || binding.LeaseID == "" || binding.StateRevision < 0 || binding.RecoveryEpoch < 0 {
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "offsite-exact-binding")
 	}
@@ -78,7 +79,7 @@ func (effect *OffsiteEffect) ExecuteBoundWithCredentials(ctx context.Context, op
 	if err != nil || !time.Now().UTC().Before(deadline) || !hasExactOffsiteExtensions(binding.ContractExtensions, operation.ArtifactDigest) {
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "offsite-exact-binding")
 	}
-	proof, err := effect.execution.ExecuteOffsite(ctx, operation, binding, values[0])
+	proof, err := effect.execution.ExecuteOffsite(ctx, operation, binding, values)
 	if err != nil {
 		return adapter.Effect{}, err
 	}

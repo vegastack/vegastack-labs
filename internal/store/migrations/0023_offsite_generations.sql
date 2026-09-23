@@ -1,6 +1,31 @@
 -- #114 stores only sanitized, append-only off-site generation receipts and
 -- proofs. Credentials, bearer tokens, repository passwords, and signing
 -- material never enter these tables.
+CREATE TABLE backup_offsite_run_specs (
+    generation_id TEXT PRIMARY KEY CHECK (length(generation_id) BETWEEN 1 AND 128),
+    source_point_id TEXT NOT NULL REFERENCES recovery_points(point_id),
+    snapshot_path TEXT NOT NULL CHECK (length(snapshot_path) BETWEEN 2 AND 4096),
+    repository_url TEXT NOT NULL CHECK (length(repository_url) BETWEEN 12 AND 4096),
+    parent_reference_id TEXT NOT NULL CHECK (length(parent_reference_id) BETWEEN 1 AND 128),
+    password_reference_id TEXT NOT NULL CHECK (length(password_reference_id) BETWEEN 1 AND 128),
+    rule_digest TEXT NOT NULL CHECK (length(rule_digest)=71 AND substr(rule_digest,1,7)='sha256:'),
+    g008_evidence_digest TEXT NOT NULL CHECK (length(g008_evidence_digest)=71 AND substr(g008_evidence_digest,1,7)='sha256:'),
+    maximum_bytes INTEGER NOT NULL CHECK (maximum_bytes > 0),
+    maximum_puts INTEGER NOT NULL CHECK (maximum_puts > 0),
+    maximum_lists INTEGER NOT NULL CHECK (maximum_lists > 0),
+    maximum_retained_generations INTEGER NOT NULL CHECK (maximum_retained_generations > 0),
+    rule_limit INTEGER NOT NULL CHECK (rule_limit > 0),
+    retention_seconds INTEGER NOT NULL CHECK (retention_seconds > 0),
+    session_ttl_seconds INTEGER NOT NULL CHECK (session_ttl_seconds BETWEEN 1 AND 900),
+    canonical_json TEXT NOT NULL CHECK (length(canonical_json) BETWEEN 2 AND 1048576),
+    state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    created_at TEXT NOT NULL,
+    CHECK (parent_reference_id <> password_reference_id)
+) STRICT;
+CREATE TRIGGER backup_offsite_run_specs_no_update BEFORE UPDATE ON backup_offsite_run_specs BEGIN SELECT RAISE(ABORT,'offsite run specs are append-only'); END;
+CREATE TRIGGER backup_offsite_run_specs_no_delete BEFORE DELETE ON backup_offsite_run_specs BEGIN SELECT RAISE(ABORT,'offsite run specs are append-only'); END;
+
 CREATE TABLE backup_offsite_generations (
     generation_id TEXT PRIMARY KEY CHECK (length(generation_id) BETWEEN 1 AND 128),
     source_point_id TEXT NOT NULL REFERENCES recovery_points(point_id),
