@@ -59,14 +59,17 @@ func (reader SQLOffsiteSourceReader) CurrentOffsiteRecoverySource(ctx context.Co
 		return blocked("restore-offsite-source-binding")
 	}
 	dependencies := make([]string, len(manifest.ExpectedDependencies))
+	requiredDependencies := make([]generated.RestoreDependencyBinding, len(manifest.ExpectedDependencies))
 	for index, dependency := range manifest.ExpectedDependencies {
 		dependencies[index] = dependency.Digest
+		requiredDependencies[index] = generated.RestoreDependencyBinding{DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest}
 	}
+	sortRestoreDependencies(requiredDependencies)
 	return OffsiteRecoverySource{PointID: pointID, GenerationID: generation.GenerationID, RepositoryID: generation.RepositoryID, SnapshotID: generation.OffsiteSnapshotID,
 		ManifestDigest: local.ManifestDigest, InventoryDigest: generation.OffsiteInventoryDigest, ContentDigest: local.ContentDigest, VerificationDigest: proof.ProofDigest,
 		CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest, KeyReferenceID: generation.KeyReferenceID,
 		Status: proof.Status, ProofClass: proof.ProofClass, SourceRevision: generation.SourceRevision, StateRevision: lastGood.StateRevision, RecoveryEpoch: generation.RecoveryEpoch,
 		CurrentStateRevision: lastGood.CurrentStateRevision, CurrentRecoveryEpoch: lastGood.CurrentRecoveryEpoch, DatabaseSchemaVersion: int64(manifest.DatabaseSchemaVersion),
 		CreatedAt: local.CreatedAt, VerifiedAt: proof.ObservedAt, FullReadValidUntil: local.FullReadValidUntil, FunctionalValidUntil: local.FunctionalValidUntil,
-		DependencyDigests: dependencies}, nil
+		DependencyDigests: dependencies, RequiredDependencies: requiredDependencies}, nil
 }

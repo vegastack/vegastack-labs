@@ -20,7 +20,11 @@ type fileSnapshotReader struct {
 	path, pointID, digest string
 }
 
-func (reader fileSnapshotReader) Restore(_ context.Context, target CandidateTarget) (SnapshotReceipt, error) {
+func (reader fileSnapshotReader) InspectAudit(context.Context) (AuditContinuity, error) {
+	return AuditContinuity{}, nil
+}
+
+func (reader fileSnapshotReader) Restore(_ context.Context, target CandidateTarget, _ generated.RestoreBinding) (SnapshotReceipt, error) {
 	destination, ok := CandidateTargetPath(target)
 	if !ok {
 		return SnapshotReceipt{}, os.ErrInvalid

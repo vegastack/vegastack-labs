@@ -38,7 +38,8 @@ type SnapshotReceipt struct {
 }
 
 type SnapshotReader interface {
-	Restore(context.Context, CandidateTarget) (SnapshotReceipt, error)
+	InspectAudit(context.Context) (AuditContinuity, error)
+	Restore(context.Context, CandidateTarget, generated.RestoreBinding) (SnapshotReceipt, error)
 }
 
 type LocalSourceReader interface {
@@ -61,6 +62,7 @@ type OffsiteRecoverySource struct {
 	CurrentRecoveryEpoch, DatabaseSchemaVersion                        int64
 	CreatedAt, VerifiedAt, FullReadValidUntil, FunctionalValidUntil    time.Time
 	DependencyDigests                                                  []string
+	RequiredDependencies                                               []generated.RestoreDependencyBinding
 }
 
 type OffsiteSourceReader interface {
@@ -149,13 +151,16 @@ func (verifier SourceVerifier) Verify(ctx context.Context, selection SourceSelec
 		return blocked("restore-source-audit")
 	}
 	dependencyDigests := make([]string, 0, len(record.Verification.DependencyTrust))
+	requiredDependencies := make([]generated.RestoreDependencyBinding, 0, len(record.Verification.DependencyTrust))
 	for _, proof := range record.Verification.DependencyTrust {
-		if !restoreDigest.MatchString(proof.Digest) {
+		if !validWitnessToken(proof.DependencyID) || !restoreDigest.MatchString(proof.Digest) {
 			return blocked("restore-source-dependencies")
 		}
 		dependencyDigests = append(dependencyDigests, proof.Digest)
+		requiredDependencies = append(requiredDependencies, generated.RestoreDependencyBinding{DependencyID: proof.DependencyID, Kind: proof.Kind, Digest: proof.Digest})
 	}
 	sort.Strings(dependencyDigests)
+	sortRestoreDependencies(requiredDependencies)
 	pointDigest, err := localPointDigest(record)
 	if err != nil {
 		return blocked("restore-source")
@@ -165,7 +170,8 @@ func (verifier SourceVerifier) Verify(ctx context.Context, selection SourceSelec
 		PointDigest: pointDigest, ManifestDigest: record.Point.ManifestDigest, VerificationDigest: record.Verification.ProofDigest,
 		SourceClass: "local", RepositoryGenerationID: record.Point.RepositoryID, KeyReferenceID: record.KeyReferenceID, DeclaredRPOSeconds: selection.DeclaredRPOSeconds,
 		CreatedAt: record.CreatedAt.UTC().Format(time.RFC3339), VerifiedAt: record.VerifiedAt.UTC().Format(time.RFC3339),
-		RecoveryEpoch: record.Point.RecoveryEpoch, DependencyDigests: dependencyDigests,
+		RecoveryEpoch: record.Point.RecoveryEpoch, DependencyDigests: dependencyDigests, RequiredDependencies: requiredDependencies,
+		TargetReleaseBuildID: selection.TargetReleaseBuildID, TargetToolVersion: selection.TargetToolVersion, TargetSchemaVersion: selection.TargetSchemaVersion,
 	}
 	raw, err := json.Marshal(binding)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreSourceBinding, raw, generated.ContractExact) != nil {
@@ -205,6 +211,11 @@ func (verifier SourceVerifier) verifyOffsite(ctx context.Context, selection Sour
 		}
 	}
 	sort.Strings(dependencies)
+	requiredDependencies := append([]generated.RestoreDependencyBinding(nil), record.RequiredDependencies...)
+	if len(requiredDependencies) == 0 {
+		return blocked("restore-offsite-source-dependencies")
+	}
+	sortRestoreDependencies(requiredDependencies)
 	if err := verifier.OffsiteCompatibility.VerifyOffsiteRestoreCompatibility(ctx, selection, record); err != nil {
 		return VerifiedSource{}, err
 	}
@@ -224,12 +235,25 @@ func (verifier SourceVerifier) verifyOffsite(ctx context.Context, selection Sour
 		PointDigest: pointDigest, ManifestDigest: record.ManifestDigest, VerificationDigest: record.VerificationDigest,
 		SourceClass: "off-site", RepositoryGenerationID: record.GenerationID, KeyReferenceID: record.KeyReferenceID, DeclaredRPOSeconds: selection.DeclaredRPOSeconds,
 		CreatedAt: record.CreatedAt.UTC().Format(time.RFC3339), VerifiedAt: record.VerifiedAt.UTC().Format(time.RFC3339),
-		RecoveryEpoch: record.RecoveryEpoch, DependencyDigests: dependencies}
+		RecoveryEpoch: record.RecoveryEpoch, DependencyDigests: dependencies, RequiredDependencies: requiredDependencies,
+		TargetReleaseBuildID: selection.TargetReleaseBuildID, TargetToolVersion: selection.TargetToolVersion, TargetSchemaVersion: selection.TargetSchemaVersion}
 	raw, err := json.Marshal(binding)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreSourceBinding, raw, generated.ContractExact) != nil {
 		return blocked("restore-offsite-source-binding")
 	}
 	return VerifiedSource{Binding: binding, Snapshot: reader, DatabaseDigest: record.ContentDigest, Audit: auditPosition}, nil
+}
+
+func sortRestoreDependencies(dependencies []generated.RestoreDependencyBinding) {
+	sort.Slice(dependencies, func(i, j int) bool {
+		if dependencies[i].Kind != dependencies[j].Kind {
+			return dependencies[i].Kind < dependencies[j].Kind
+		}
+		if dependencies[i].DependencyID != dependencies[j].DependencyID {
+			return dependencies[i].DependencyID < dependencies[j].DependencyID
+		}
+		return dependencies[i].Digest < dependencies[j].Digest
+	})
 }
 
 func offsitePointDigest(record OffsiteRecoverySource, dependencies []string) (string, error) {

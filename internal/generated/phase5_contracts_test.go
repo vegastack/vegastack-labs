@@ -269,7 +269,9 @@ func validRestoreSourceV11() map[string]any {
 		"pointDigest": phase5DigestFixture(), "manifestDigest": phase5DigestFixture(), "verificationDigest": phase5DigestFixture(),
 		"sourceClass": "local", "repositoryGenerationId": "generation-a", "keyReferenceId": "key-a", "declaredRpoSeconds": 3600,
 		"createdAt": "2026-09-15T07:00:00Z", "verifiedAt": "2026-09-15T08:00:00Z", "recoveryEpoch": 2,
-		"dependencyDigests": []string{phase5DigestFixture()},
+		"dependencyDigests":    []string{phase5DigestFixture()},
+		"requiredDependencies": []any{map[string]any{"dependencyId": "restic-binary", "kind": "binary", "digest": phase5DigestFixture()}},
+		"targetReleaseBuildId": "build-a", "targetToolVersion": "1.0.0", "targetSchemaVersion": "24",
 	}
 }
 

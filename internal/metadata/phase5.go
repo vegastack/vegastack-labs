@@ -27,6 +27,7 @@ const (
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
 	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
 	restoreSourceBindingSchemaID          = "vegastack-labs.dev/restore-source-binding"
+	restoreDependencyBindingSchemaID      = "vegastack-labs.dev/restore-dependency-binding"
 	restoreFenceItemSchemaID              = "vegastack-labs.dev/restore-fence-item"
 	restoreAuditDecisionSchemaID          = "vegastack-labs.dev/restore-audit-decision"
 	restoreCanaryResultSchemaID           = "vegastack-labs.dev/restore-canary-result"
@@ -431,6 +432,9 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Enum("verificationStatus", "VerificationStatus", "pending", "verified", "failed"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		{ID: restoreDependencyBindingSchemaID, Version: "1.1.0", ArtifactPath: schemaPath(restoreDependencyBindingSchemaID), Fields: []FieldDefinition{
+			phase5ID("dependencyId", "DependencyID"), phase5Enum("kind", "Kind", "binary", "schema", "config", "image", "signature"), phase5Digest("digest", "Digest"),
+		}},
 		phase5RestoreSchema(restoreSourceBindingSchemaID,
 			phase5ID("pointId", "PointID"), phase5Digest("pointDigest", "PointDigest"),
 			phase5Digest("manifestDigest", "ManifestDigest"), phase5Digest("verificationDigest", "VerificationDigest"),
@@ -438,6 +442,9 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Positive("declaredRpoSeconds", "DeclaredRPOSeconds"), phase5Timestamp("createdAt", "CreatedAt"),
 			phase5Timestamp("verifiedAt", "VerifiedAt"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			FieldDefinition{JSONName: "dependencyDigests", GoName: "DependencyDigests", Kind: ValueArray, Required: true, ItemKind: ValueString, MaxItems: intPointer(256), UniqueItems: true},
+			FieldDefinition{JSONName: "requiredDependencies", GoName: "RequiredDependencies", Kind: ValueArray, Required: true, ItemRef: restoreDependencyBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(64), UniqueItems: true},
+			phase5ID("targetReleaseBuildId", "TargetReleaseBuildID"), phase5Version("targetToolVersion", "TargetToolVersion"),
+			FieldDefinition{JSONName: "targetSchemaVersion", GoName: "TargetSchemaVersion", Kind: ValueString, Required: true, Pattern: `^[1-9][0-9]*$`, MaxLength: intPointer(20)},
 		),
 		phase5RestoreSchema(restoreFenceItemSchemaID,
 			phase5Enum("boundary", "Boundary", "host-service", "mesh", "ssh", "secret-resolver", "provider-mutation", "backup-writer", "audit-writer"),

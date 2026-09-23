@@ -4045,6 +4045,11 @@
       "artifactPath": "schemas/v1/restore-canary-result.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/restore-dependency-binding",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/restore-dependency-binding.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/restore-fence-item",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/restore-fence-item.schema.json"

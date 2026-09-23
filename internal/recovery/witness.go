@@ -8,6 +8,8 @@ import (
 	"errors"
 	"regexp"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 const witnessDomain = "vegastack-labs.dev/recovery-witness/v1\x00"
@@ -21,23 +23,27 @@ var witnessDigest = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 // come from server-owned state; accepting it from the signed artifact alone
 // would let a witness choose the authority being proved.
 type WitnessBinding struct {
-	FormerHostID             string `json:"formerHostId"`
-	FormerInstanceID         string `json:"formerInstanceId"`
-	ReplacementHostID        string `json:"replacementHostId"`
-	ReplacementInstanceID    string `json:"replacementInstanceId"`
-	DraftID                  string `json:"draftId"`
-	CiphertextFingerprint    string `json:"ciphertextFingerprint"`
-	PlanDigest               string `json:"planDigest"`
-	RunID                    string `json:"runId"`
-	StepID                   string `json:"stepId"`
-	LeaseID                  string `json:"leaseId"`
-	ChallengeID              string `json:"challengeId"`
-	ReceiptID                string `json:"receiptId"`
-	SourceAdmissionDigest    string `json:"sourceAdmissionDigest"`
-	FenceQualificationDigest string `json:"fenceQualificationDigest"`
-	PriorEpoch               int64  `json:"priorEpoch"`
-	NewEpoch                 int64  `json:"newEpoch"`
-	StateRevision            int64  `json:"stateRevision"`
+	FormerHostID             string                               `json:"formerHostId"`
+	FormerInstanceID         string                               `json:"formerInstanceId"`
+	ReplacementHostID        string                               `json:"replacementHostId"`
+	ReplacementInstanceID    string                               `json:"replacementInstanceId"`
+	DraftID                  string                               `json:"draftId"`
+	CiphertextFingerprint    string                               `json:"ciphertextFingerprint"`
+	PlanDigest               string                               `json:"planDigest"`
+	RunID                    string                               `json:"runId"`
+	StepID                   string                               `json:"stepId"`
+	LeaseID                  string                               `json:"leaseId"`
+	ChallengeID              string                               `json:"challengeId"`
+	ReceiptID                string                               `json:"receiptId"`
+	SourceAdmissionDigest    string                               `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string                               `json:"fenceQualificationDigest"`
+	TargetReleaseBuildID     string                               `json:"targetReleaseBuildId"`
+	TargetToolVersion        string                               `json:"targetToolVersion"`
+	TargetSchemaVersion      string                               `json:"targetSchemaVersion"`
+	RequiredDependencies     []generated.RestoreDependencyBinding `json:"requiredDependencies"`
+	PriorEpoch               int64                                `json:"priorEpoch"`
+	NewEpoch                 int64                                `json:"newEpoch"`
+	StateRevision            int64                                `json:"stateRevision"`
 }
 
 // PinnedWitness is supplied only by a protected manifest authenticated by an
@@ -72,7 +78,13 @@ func (pin PinnedWitness) seal() [32]byte {
 }
 
 func (pin PinnedWitness) matchesBinding(expected WitnessBinding) bool {
-	return pin.AuthenticatedExternally && pin.manifestAuthenticated && pin.pinSeal == pin.seal() && !pin.Revoked && validBinding(expected) && len(pin.RecipientPublicKey) == 32 && validWitnessToken(pin.RecipientKeyID) && witnessDigest.MatchString(pin.ManifestDigest) && pin.manifestBinding == expected
+	return pin.AuthenticatedExternally && pin.manifestAuthenticated && pin.pinSeal == pin.seal() && !pin.Revoked && validBinding(expected) && len(pin.RecipientPublicKey) == 32 && validWitnessToken(pin.RecipientKeyID) && witnessDigest.MatchString(pin.ManifestDigest) && sameWitnessBinding(pin.manifestBinding, expected)
+}
+
+func sameWitnessBinding(left, right WitnessBinding) bool {
+	a, _ := json.Marshal(left)
+	b, _ := json.Marshal(right)
+	return string(a) == string(b)
 }
 
 type WitnessPayload struct {
@@ -117,7 +129,7 @@ func VerifySignedWitness(ctx context.Context, pin PinnedWitness, expected Witnes
 		return ErrWitnessUnavailable
 	}
 	payload := signed.Payload
-	if payload.Binding != expected || payload.KeyID != pin.KeyID || payload.WitnessInstanceID != pin.WitnessInstanceID || len(signed.Signature) != ed25519.SignatureSize {
+	if !sameWitnessBinding(payload.Binding, expected) || payload.KeyID != pin.KeyID || payload.WitnessInstanceID != pin.WitnessInstanceID || len(signed.Signature) != ed25519.SignatureSize {
 		return ErrWitnessUnavailable
 	}
 	now = now.UTC()
@@ -140,7 +152,7 @@ func validBinding(b WitnessBinding) bool {
 			return false
 		}
 	}
-	return witnessDigest.MatchString(b.CiphertextFingerprint) && witnessDigest.MatchString(b.PlanDigest) && witnessDigest.MatchString(b.SourceAdmissionDigest) && witnessDigest.MatchString(b.FenceQualificationDigest) && b.PriorEpoch >= 0 && b.NewEpoch == b.PriorEpoch+1 && b.StateRevision > 0
+	return witnessDigest.MatchString(b.CiphertextFingerprint) && witnessDigest.MatchString(b.PlanDigest) && witnessDigest.MatchString(b.SourceAdmissionDigest) && witnessDigest.MatchString(b.FenceQualificationDigest) && validWitnessToken(b.TargetReleaseBuildID) && versionToken.MatchString(b.TargetToolVersion) && schemaVersionToken.MatchString(b.TargetSchemaVersion) && validRestoreDependencies(b.RequiredDependencies) && b.PriorEpoch >= 0 && b.NewEpoch == b.PriorEpoch+1 && b.StateRevision > 0
 }
 
 func validWitnessToken(value string) bool { return witnessToken.MatchString(value) }

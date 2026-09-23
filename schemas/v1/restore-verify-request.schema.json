@@ -1,5 +1,34 @@
 {
   "$defs": {
+    "restore-dependency-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencyId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "binary",
+            "schema",
+            "config",
+            "image",
+            "signature"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "dependencyId",
+        "kind",
+        "digest"
+      ],
+      "type": "object"
+    },
     "restore-source-binding": {
       "additionalProperties": false,
       "properties": {
@@ -43,6 +72,15 @@
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
+        "requiredDependencies": {
+          "items": {
+            "$ref": "#/$defs/restore-dependency-binding"
+          },
+          "maxItems": 64,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
+        },
         "schema": {
           "enum": [
             "vegastack-labs.dev/restore-source-binding"
@@ -60,6 +98,19 @@
             "local",
             "off-site"
           ],
+          "type": "string"
+        },
+        "targetReleaseBuildId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "targetSchemaVersion": {
+          "maxLength": 20,
+          "pattern": "^[1-9][0-9]*$",
+          "type": "string"
+        },
+        "targetToolVersion": {
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
           "type": "string"
         },
         "verificationDigest": {
@@ -85,7 +136,11 @@
         "createdAt",
         "verifiedAt",
         "recoveryEpoch",
-        "dependencyDigests"
+        "dependencyDigests",
+        "requiredDependencies",
+        "targetReleaseBuildId",
+        "targetToolVersion",
+        "targetSchemaVersion"
       ],
       "type": "object"
     }

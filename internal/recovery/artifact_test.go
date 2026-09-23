@@ -12,7 +12,7 @@ func TestSignedWitnessArtifactRequiresExactCanonicalBytes(t *testing.T) {
 		t.Fatal(err)
 	}
 	decoded, err := DecodeSignedWitness(encoded)
-	if err != nil || decoded.Payload.Binding != signed.Payload.Binding {
+	if err != nil || !sameWitnessBinding(decoded.Payload.Binding, signed.Payload.Binding) {
 		t.Fatal("canonical witness artifact did not decode")
 	}
 	for name, raw := range map[string][]byte{

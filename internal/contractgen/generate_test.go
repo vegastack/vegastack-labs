@@ -264,6 +264,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/restore-audit-decision.schema.json",
 		"schemas/v1/restore-binding.schema.json",
 		"schemas/v1/restore-canary-result.schema.json",
+		"schemas/v1/restore-dependency-binding.schema.json",
 		"schemas/v1/restore-fence-item.schema.json",
 		"schemas/v1/restore-request.schema.json",
 		"schemas/v1/restore-run-request.schema.json",

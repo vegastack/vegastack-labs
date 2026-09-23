@@ -52,7 +52,7 @@ func (coordinator TwoStageFences) QualifyRun(ctx context.Context, source Verifie
 }
 
 func admissionExpectationFromRequest(request generated.RestoreRequest) SourceAdmissionExpectation {
-	return SourceAdmissionExpectation{FormerHostID: request.FormerHostID, FormerInstanceID: request.PriorInstanceID, ReplacementHostID: request.ReplacementHostID, ReplacementInstanceID: request.NewInstanceID, DraftID: request.RecoveryDraftID, CiphertextFingerprint: request.CiphertextFingerprint, SourceAdmissionDigest: request.SourceAdmissionDigest, FenceQualificationDigest: request.FenceQualificationDigest, PriorEpoch: request.PriorRecoveryEpoch, NewEpoch: request.NextRecoveryEpoch}
+	return SourceAdmissionExpectation{FormerHostID: request.FormerHostID, FormerInstanceID: request.PriorInstanceID, ReplacementHostID: request.ReplacementHostID, ReplacementInstanceID: request.NewInstanceID, DraftID: request.RecoveryDraftID, CiphertextFingerprint: request.CiphertextFingerprint, SourceAdmissionDigest: request.SourceAdmissionDigest, FenceQualificationDigest: request.FenceQualificationDigest, TargetReleaseBuildID: request.Source.TargetReleaseBuildID, TargetToolVersion: request.Source.TargetToolVersion, TargetSchemaVersion: request.Source.TargetSchemaVersion, RequiredDependencies: append([]generated.RestoreDependencyBinding(nil), request.Source.RequiredDependencies...), PriorEpoch: request.PriorRecoveryEpoch, NewEpoch: request.NextRecoveryEpoch}
 }
 
 // FenceEvaluator remains a useful isolated/test coordinator. Its Scopes and

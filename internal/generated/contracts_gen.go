@@ -154,6 +154,7 @@ const (
 	SchemaIDRestoreAuditDecision               = "vegastack-labs.dev/restore-audit-decision"
 	SchemaIDRestoreBinding                     = "vegastack-labs.dev/restore-binding"
 	SchemaIDRestoreCanaryResult                = "vegastack-labs.dev/restore-canary-result"
+	SchemaIDRestoreDependencyBinding           = "vegastack-labs.dev/restore-dependency-binding"
 	SchemaIDRestoreFenceItem                   = "vegastack-labs.dev/restore-fence-item"
 	SchemaIDRestoreRequest                     = "vegastack-labs.dev/restore-request"
 	SchemaIDRestoreRunRequest                  = "vegastack-labs.dev/restore-run-request"
@@ -1950,6 +1951,12 @@ type RestoreCanaryResult struct {
 	VerifiedAt         *string `json:"verifiedAt"`
 }
 
+type RestoreDependencyBinding struct {
+	DependencyID string `json:"dependencyId"`
+	Kind         string `json:"kind"`
+	Digest       string `json:"digest"`
+}
+
 type RestoreFenceItem struct {
 	Schema                string   `json:"schema"`
 	SchemaVersion         string   `json:"schemaVersion"`
@@ -2033,20 +2040,24 @@ type RestoreRunRequest struct {
 }
 
 type RestoreSourceBinding struct {
-	Schema                 string   `json:"schema"`
-	SchemaVersion          string   `json:"schemaVersion"`
-	PointID                string   `json:"pointId"`
-	PointDigest            string   `json:"pointDigest"`
-	ManifestDigest         string   `json:"manifestDigest"`
-	VerificationDigest     string   `json:"verificationDigest"`
-	SourceClass            string   `json:"sourceClass"`
-	RepositoryGenerationID string   `json:"repositoryGenerationId"`
-	KeyReferenceID         string   `json:"keyReferenceId"`
-	DeclaredRPOSeconds     int64    `json:"declaredRpoSeconds"`
-	CreatedAt              string   `json:"createdAt"`
-	VerifiedAt             string   `json:"verifiedAt"`
-	RecoveryEpoch          int64    `json:"recoveryEpoch"`
-	DependencyDigests      []string `json:"dependencyDigests"`
+	Schema                 string                     `json:"schema"`
+	SchemaVersion          string                     `json:"schemaVersion"`
+	PointID                string                     `json:"pointId"`
+	PointDigest            string                     `json:"pointDigest"`
+	ManifestDigest         string                     `json:"manifestDigest"`
+	VerificationDigest     string                     `json:"verificationDigest"`
+	SourceClass            string                     `json:"sourceClass"`
+	RepositoryGenerationID string                     `json:"repositoryGenerationId"`
+	KeyReferenceID         string                     `json:"keyReferenceId"`
+	DeclaredRPOSeconds     int64                      `json:"declaredRpoSeconds"`
+	CreatedAt              string                     `json:"createdAt"`
+	VerifiedAt             string                     `json:"verifiedAt"`
+	RecoveryEpoch          int64                      `json:"recoveryEpoch"`
+	DependencyDigests      []string                   `json:"dependencyDigests"`
+	RequiredDependencies   []RestoreDependencyBinding `json:"requiredDependencies"`
+	TargetReleaseBuildID   string                     `json:"targetReleaseBuildId"`
+	TargetToolVersion      string                     `json:"targetToolVersion"`
+	TargetSchemaVersion    string                     `json:"targetSchemaVersion"`
 }
 
 type RestoreVerification struct {

@@ -7,33 +7,45 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"regexp"
 	"sort"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
 const sourceAdmissionDomain = "vegastack-labs.dev/recovery-source-admission/v1\x00"
+
+var (
+	versionToken       = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$`)
+	schemaVersionToken = regexp.MustCompile(`^[1-9][0-9]*$`)
+)
 
 // SourceAdmission is the independently installed, pre-plan identity of one
 // recovery source. It deliberately excludes plan/run/step/lease identifiers;
 // the later WitnessBinding adds those exact execution identifiers while also
 // carrying this digest.
 type SourceAdmission struct {
-	FormerHostID             string                `json:"formerHostId"`
-	FormerInstanceID         string                `json:"formerInstanceId"`
-	ReplacementHostID        string                `json:"replacementHostId"`
-	ReplacementInstanceID    string                `json:"replacementInstanceId"`
-	DraftID                  string                `json:"draftId"`
-	CiphertextFingerprint    string                `json:"ciphertextFingerprint"`
-	PriorEpoch               int64                 `json:"priorEpoch"`
-	NewEpoch                 int64                 `json:"newEpoch"`
-	WitnessKeyID             string                `json:"witnessKeyId"`
-	WitnessInstanceID        string                `json:"witnessInstanceId"`
-	RecipientKeyID           string                `json:"recipientKeyId"`
-	WitnessPublicKey         []byte                `json:"witnessPublicKey"`
-	RecipientPublicKey       []byte                `json:"recipientPublicKey"`
-	AdminRootDigest          string                `json:"adminRootDigest"`
-	FenceQualificationDigest string                `json:"fenceQualificationDigest"`
-	Requirements             []BoundaryRequirement `json:"requirements"`
+	FormerHostID             string                               `json:"formerHostId"`
+	FormerInstanceID         string                               `json:"formerInstanceId"`
+	ReplacementHostID        string                               `json:"replacementHostId"`
+	ReplacementInstanceID    string                               `json:"replacementInstanceId"`
+	DraftID                  string                               `json:"draftId"`
+	CiphertextFingerprint    string                               `json:"ciphertextFingerprint"`
+	PriorEpoch               int64                                `json:"priorEpoch"`
+	NewEpoch                 int64                                `json:"newEpoch"`
+	WitnessKeyID             string                               `json:"witnessKeyId"`
+	WitnessInstanceID        string                               `json:"witnessInstanceId"`
+	RecipientKeyID           string                               `json:"recipientKeyId"`
+	WitnessPublicKey         []byte                               `json:"witnessPublicKey"`
+	RecipientPublicKey       []byte                               `json:"recipientPublicKey"`
+	AdminRootDigest          string                               `json:"adminRootDigest"`
+	FenceQualificationDigest string                               `json:"fenceQualificationDigest"`
+	TargetReleaseBuildID     string                               `json:"targetReleaseBuildId"`
+	TargetToolVersion        string                               `json:"targetToolVersion"`
+	TargetSchemaVersion      string                               `json:"targetSchemaVersion"`
+	RequiredDependencies     []generated.RestoreDependencyBinding `json:"requiredDependencies"`
+	Requirements             []BoundaryRequirement                `json:"requirements"`
 }
 
 type SignedSourceAdmission struct {
@@ -47,6 +59,8 @@ type SourceAdmissionExpectation struct {
 	FormerHostID, FormerInstanceID, ReplacementHostID, ReplacementInstanceID string
 	DraftID, CiphertextFingerprint, SourceAdmissionDigest                    string
 	FenceQualificationDigest                                                 string
+	TargetReleaseBuildID, TargetToolVersion, TargetSchemaVersion             string
+	RequiredDependencies                                                     []generated.RestoreDependencyBinding
 	PriorEpoch, NewEpoch                                                     int64
 }
 
@@ -56,12 +70,22 @@ func canonicalSourceAdmission(admission SourceAdmission) ([]byte, error) {
 			return nil, ErrWitnessUnavailable
 		}
 	}
-	if !witnessDigest.MatchString(admission.CiphertextFingerprint) || !witnessDigest.MatchString(admission.AdminRootDigest) || !witnessDigest.MatchString(admission.FenceQualificationDigest) || admission.PriorEpoch < 0 || admission.NewEpoch != admission.PriorEpoch+1 || len(admission.WitnessPublicKey) != 32 || !validX25519PublicKey(admission.RecipientPublicKey) || !validCompleteRequirements(admission.Requirements) {
+	if !witnessDigest.MatchString(admission.CiphertextFingerprint) || !witnessDigest.MatchString(admission.AdminRootDigest) || !witnessDigest.MatchString(admission.FenceQualificationDigest) || !validRestoreDependencies(admission.RequiredDependencies) || !validWitnessToken(admission.TargetReleaseBuildID) || !versionToken.MatchString(admission.TargetToolVersion) || !schemaVersionToken.MatchString(admission.TargetSchemaVersion) || admission.PriorEpoch < 0 || admission.NewEpoch != admission.PriorEpoch+1 || len(admission.WitnessPublicKey) != 32 || !validX25519PublicKey(admission.RecipientPublicKey) || !validCompleteRequirements(admission.Requirements) {
 		return nil, ErrWitnessUnavailable
 	}
 	admission.WitnessPublicKey = append([]byte(nil), admission.WitnessPublicKey...)
 	admission.RecipientPublicKey = append([]byte(nil), admission.RecipientPublicKey...)
 	admission.Requirements = append([]BoundaryRequirement(nil), admission.Requirements...)
+	admission.RequiredDependencies = append([]generated.RestoreDependencyBinding(nil), admission.RequiredDependencies...)
+	sort.Slice(admission.RequiredDependencies, func(i, j int) bool {
+		if admission.RequiredDependencies[i].Kind != admission.RequiredDependencies[j].Kind {
+			return admission.RequiredDependencies[i].Kind < admission.RequiredDependencies[j].Kind
+		}
+		if admission.RequiredDependencies[i].DependencyID != admission.RequiredDependencies[j].DependencyID {
+			return admission.RequiredDependencies[i].DependencyID < admission.RequiredDependencies[j].DependencyID
+		}
+		return admission.RequiredDependencies[i].Digest < admission.RequiredDependencies[j].Digest
+	})
 	sort.Slice(admission.Requirements, func(i, j int) bool {
 		left, right := admission.Requirements[i], admission.Requirements[j]
 		if left.Kind != right.Kind {
@@ -126,6 +150,7 @@ func ParseSignedSourceAdmission(raw []byte, adminPublic ed25519.PublicKey, expec
 		admission.ReplacementHostID != expected.ReplacementHostID || admission.ReplacementInstanceID != expected.ReplacementInstanceID ||
 		admission.DraftID != expected.DraftID || admission.CiphertextFingerprint != expected.CiphertextFingerprint ||
 		admission.FenceQualificationDigest != expected.FenceQualificationDigest || admission.PriorEpoch != expected.PriorEpoch ||
+		admission.TargetReleaseBuildID != expected.TargetReleaseBuildID || admission.TargetToolVersion != expected.TargetToolVersion || admission.TargetSchemaVersion != expected.TargetSchemaVersion || !sameRestoreDependencies(admission.RequiredDependencies, expected.RequiredDependencies) ||
 		admission.NewEpoch != expected.NewEpoch || SourceAdmissionDigest(admission) != expected.SourceAdmissionDigest ||
 		admission.AdminRootDigest != recoveryAdminRootDigest(adminPublic) || signed.ValidFrom.After(now.UTC()) || !now.UTC().Before(signed.ExpiresAt) {
 		return SourceAdmission{}, ErrWitnessUnavailable
@@ -141,7 +166,46 @@ func validSourceAdmissionExpectation(expected SourceAdmissionExpectation) bool {
 	}
 	return expected.FormerHostID != expected.ReplacementHostID && expected.FormerInstanceID != expected.ReplacementInstanceID &&
 		witnessDigest.MatchString(expected.CiphertextFingerprint) && witnessDigest.MatchString(expected.SourceAdmissionDigest) &&
-		witnessDigest.MatchString(expected.FenceQualificationDigest) && expected.PriorEpoch >= 0 && expected.NewEpoch == expected.PriorEpoch+1
+		witnessDigest.MatchString(expected.FenceQualificationDigest) && validWitnessToken(expected.TargetReleaseBuildID) && versionToken.MatchString(expected.TargetToolVersion) && schemaVersionToken.MatchString(expected.TargetSchemaVersion) && validRestoreDependencies(expected.RequiredDependencies) && expected.PriorEpoch >= 0 && expected.NewEpoch == expected.PriorEpoch+1
+}
+
+func validRestoreDependencies(dependencies []generated.RestoreDependencyBinding) bool {
+	if len(dependencies) == 0 || len(dependencies) > 64 {
+		return false
+	}
+	seen := make(map[string]bool, len(dependencies))
+	for _, dependency := range dependencies {
+		key := dependency.DependencyID
+		if !validWitnessToken(dependency.DependencyID) || !map[string]bool{"binary": true, "schema": true, "config": true, "image": true, "signature": true}[dependency.Kind] || !witnessDigest.MatchString(dependency.Digest) || seen[key] {
+			return false
+		}
+		seen[key] = true
+	}
+	return true
+}
+
+func sameRestoreDependencies(left, right []generated.RestoreDependencyBinding) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	left = append([]generated.RestoreDependencyBinding(nil), left...)
+	right = append([]generated.RestoreDependencyBinding(nil), right...)
+	sortDependencies := func(values []generated.RestoreDependencyBinding) {
+		sort.Slice(values, func(i, j int) bool {
+			if values[i].Kind != values[j].Kind {
+				return values[i].Kind < values[j].Kind
+			}
+			if values[i].DependencyID != values[j].DependencyID {
+				return values[i].DependencyID < values[j].DependencyID
+			}
+			return values[i].Digest < values[j].Digest
+		})
+	}
+	sortDependencies(left)
+	sortDependencies(right)
+	a, _ := json.Marshal(left)
+	b, _ := json.Marshal(right)
+	return bytes.Equal(a, b)
 }
 
 func validX25519PublicKey(raw []byte) bool {

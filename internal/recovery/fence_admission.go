@@ -12,7 +12,9 @@ import (
 // from the exact plan/run-bound witness package during execution.
 func AdmissionFenceRequirements(admission SourceAdmission, profile store.GateAppliedProfile, source VerifiedSource, releaseBuildID, evaluatorVersion string) ([]FenceRequirement, error) {
 	if SourceAdmissionDigest(admission) == "" || profile.ProfileID == "" || profile.ProfileVersion == "" || profile.PolicyID == "" || profile.PolicyVersion == "" ||
-		profile.RecoveryEpoch != admission.PriorEpoch || source.Binding.RecoveryEpoch != admission.PriorEpoch || releaseBuildID == "" || evaluatorVersion == "" {
+		profile.RecoveryEpoch != admission.PriorEpoch || source.Binding.RecoveryEpoch != admission.PriorEpoch || releaseBuildID != admission.TargetReleaseBuildID ||
+		source.Binding.TargetReleaseBuildID != admission.TargetReleaseBuildID || source.Binding.TargetToolVersion != admission.TargetToolVersion || source.Binding.TargetSchemaVersion != admission.TargetSchemaVersion ||
+		!sameRestoreDependencies(source.Binding.RequiredDependencies, admission.RequiredDependencies) || evaluatorVersion == "" {
 		return nil, ErrWitnessUnavailable
 	}
 	type groupKey struct {

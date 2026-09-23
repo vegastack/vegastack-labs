@@ -101,7 +101,7 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	if err := manager.Storage.CreateCandidate(ctx, paths); err != nil {
 		return CandidateReceipt{}, err
 	}
-	snapshot, err := source.Snapshot.Restore(ctx, candidateTarget{path: paths.Candidate})
+	snapshot, err := source.Snapshot.Restore(ctx, candidateTarget{path: paths.Candidate}, binding)
 	if err != nil || snapshot.PointID != binding.PointID || snapshot.ContentDigest != source.DatabaseDigest {
 		return blocked("recovery-candidate-restore")
 	}

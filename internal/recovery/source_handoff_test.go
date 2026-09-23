@@ -63,7 +63,7 @@ func installedSourceFixture(t *testing.T) (InstalledPackage, []BoundaryRequireme
 		PriorEpoch: binding.PriorEpoch, NewEpoch: binding.NewEpoch,
 		WitnessKeyID: pin.KeyID, WitnessInstanceID: pin.WitnessInstanceID, RecipientKeyID: pin.RecipientKeyID,
 		WitnessPublicKey: pin.PublicKey, RecipientPublicKey: pin.RecipientPublicKey,
-		AdminRootDigest: pin.adminRootDigest, FenceQualificationDigest: qualified.qualificationDigest, Requirements: required,
+		AdminRootDigest: pin.adminRootDigest, FenceQualificationDigest: qualified.qualificationDigest, TargetReleaseBuildID: binding.TargetReleaseBuildID, TargetToolVersion: binding.TargetToolVersion, TargetSchemaVersion: binding.TargetSchemaVersion, RequiredDependencies: binding.RequiredDependencies, Requirements: required,
 	})
 	pin.manifestBinding = binding
 	pin.pinSeal = pin.seal()

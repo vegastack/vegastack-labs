@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
@@ -20,7 +21,11 @@ func (stub sourceReaderStub) CurrentLocalRecoverySource(context.Context, string)
 
 type snapshotStub struct{}
 
-func (snapshotStub) Restore(context.Context, CandidateTarget) (SnapshotReceipt, error) {
+func (snapshotStub) InspectAudit(context.Context) (AuditContinuity, error) {
+	return AuditContinuity{}, nil
+}
+
+func (snapshotStub) Restore(context.Context, CandidateTarget, generated.RestoreBinding) (SnapshotReceipt, error) {
 	return SnapshotReceipt{}, nil
 }
 
@@ -86,7 +91,7 @@ func TestSourceVerifierRejectsUnqualifiedAndStaleLocalPoints(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verified.Binding.PointID != selection.PointID || verified.Binding.SourceClass != "local" || verified.Binding.VerificationDigest != record.Verification.ProofDigest || verified.DatabaseDigest != record.Point.ContentDigest || verified.Snapshot == nil {
+	if verified.Binding.PointID != selection.PointID || verified.Binding.SourceClass != "local" || verified.Binding.VerificationDigest != record.Verification.ProofDigest || verified.DatabaseDigest != record.Point.ContentDigest || verified.Snapshot == nil || verified.Binding.TargetReleaseBuildID != selection.TargetReleaseBuildID || len(verified.Binding.RequiredDependencies) != 1 || verified.Binding.RequiredDependencies[0].DependencyID != "binary-a" {
 		t.Fatalf("verified=%#v", verified)
 	}
 	for name, mutate := range map[string]func(*store.LocalRecoverySource, *SourceSelection){
@@ -138,7 +143,7 @@ func TestSourceVerifierAcceptsOnlyExactCurrentQualifiedOffsiteGeneration(t *test
 		CatalogDigest: digest("e"), DependencyDigest: digest("f"), KeyReferenceID: "key-a", Status: "offsite-verified", ProofClass: "qualified-provider",
 		SourceRevision: 14, StateRevision: 22, RecoveryEpoch: 5, CurrentStateRevision: 22, CurrentRecoveryEpoch: 5, DatabaseSchemaVersion: 24,
 		CreatedAt: now.Add(-time.Minute), VerifiedAt: now.Add(-30 * time.Second), FullReadValidUntil: now.Add(time.Hour), FunctionalValidUntil: now.Add(time.Hour),
-		DependencyDigests: []string{digest("2"), digest("1")},
+		DependencyDigests: []string{digest("2"), digest("1")}, RequiredDependencies: []generated.RestoreDependencyBinding{{DependencyID: "binary-a", Kind: "binary", Digest: digest("1")}, {DependencyID: "schema-a", Kind: "schema", Digest: digest("2")}},
 	}
 	selection := SourceSelection{PointID: record.PointID, SourceClass: "off-site", RepositoryClass: "critical", DeclaredRPOSeconds: 3600, TargetReleaseBuildID: "build-a", TargetToolVersion: "1.0.0", TargetSchemaVersion: "24"}
 	makeVerifier := func(value OffsiteRecoverySource) SourceVerifier {
@@ -148,7 +153,7 @@ func TestSourceVerifierAcceptsOnlyExactCurrentQualifiedOffsiteGeneration(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if verified.Binding.SourceClass != "off-site" || verified.Binding.RepositoryGenerationID != record.GenerationID || verified.Binding.VerificationDigest != record.VerificationDigest || verified.DatabaseDigest != record.ContentDigest || verified.Snapshot == nil || verified.Binding.DependencyDigests[0] != digest("1") {
+	if verified.Binding.SourceClass != "off-site" || verified.Binding.RepositoryGenerationID != record.GenerationID || verified.Binding.VerificationDigest != record.VerificationDigest || verified.DatabaseDigest != record.ContentDigest || verified.Snapshot == nil || verified.Binding.DependencyDigests[0] != digest("1") || verified.Binding.TargetReleaseBuildID != selection.TargetReleaseBuildID || len(verified.Binding.RequiredDependencies) != 2 {
 		t.Fatalf("verified=%#v", verified)
 	}
 	for name, mutate := range map[string]func(*OffsiteRecoverySource, *SourceSelection){
@@ -166,10 +171,14 @@ func TestSourceVerifierAcceptsOnlyExactCurrentQualifiedOffsiteGeneration(t *test
 		"invalid dependency": func(value *OffsiteRecoverySource, _ *SourceSelection) {
 			value.DependencyDigests[0] = "invalid"
 		},
+		"missing typed dependency": func(value *OffsiteRecoverySource, _ *SourceSelection) {
+			value.RequiredDependencies = nil
+		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			value, choice := record, selection
 			value.DependencyDigests = append([]string(nil), record.DependencyDigests...)
+			value.RequiredDependencies = append([]generated.RestoreDependencyBinding(nil), record.RequiredDependencies...)
 			mutate(&value, &choice)
 			if _, err := makeVerifier(value).Verify(context.Background(), choice); err == nil {
 				t.Fatal("unsafe offsite source accepted")
