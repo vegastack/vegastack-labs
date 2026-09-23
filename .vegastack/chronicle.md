@@ -52,6 +52,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/159-recovery-source-admission
 
+## 22-09-2026 — Failed browser acceptance now names a safe diagnostic ([#161](https://github.com/vegastack/vegastack-labs/issues/161))
+
+- **What:** A failed Phase 3 browser run now reports the public test and assertion line when Playwright supplies a trusted location. It also reports the sanitizer's fixed failure code, including when both checks fail.
+- **Why:** The old runner deleted the browser report and returned only a generic sanitizer stage, so the first failed CI attempt could not be diagnosed.
+- **How it went:** A controlled browser and private-canary fixture reproduced that loss before the fix. The new report stays in a private temporary directory and is reduced to closed fields before deletion; malformed or absent reports fail closed.
+- **Changed:** Bounded browser and sanitizer diagnostics · private report cleanup · focused failure-path tests. No automatic retry or acceptance bypass was added.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/161-phase3-bounded-diagnostics
+
 ## 22-09-2026 — Local backup points can prove they are restorable ([#117](https://github.com/vegastack/vegastack-labs/issues/117))
 
 - **What:** A pending encrypted local point can now be checked against its exact retained objects, read fully by pinned restic, and restored into an isolated SQLite inspection before it becomes current local last-good. The backup status and exact human-approved run and verify commands expose the result without giving the CLI a separate mutation path.
