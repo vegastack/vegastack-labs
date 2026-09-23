@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 24-09-2026 — One fenced control history can become the sole recovered authority ([#108](https://github.com/vegastack/vegastack-labs/issues/108))
+
+- **What:** An infrastructure administrator can now bind one current verified recovery point to an exact human-approved restore, stage it into an isolated candidate, reconcile its audit history, prove every former-controller boundary denied, and promote it under a new instance and adjacent recovery epoch. Normal mutation stays blocked until an exact no-op, independent checkpoint, current-epoch backup and renewed former-writer denial all pass.
+- **Why:** Restoring SQLite alone could revive stale plans, credentials or a second writer; disaster recovery needed one fail-closed route that preserves the former database and proves the replacement is the only authority.
+- **How it went:** Integration with the completed backup, audit and independent-witness contracts exposed a circular pre-plan fence requirement, so qualification was split into stable source admission before planning and an exact plan-bound denial witness during execution. The final implementation needed separate qualified checkpoint and backup capabilities for the canary; no live source or infrastructure operation was used.
+- **Changed:** Exact restore plan, run, verify and status contracts · local last-good and optional off-site source admission · audit suffix recovery or named accepted loss · isolated candidate and crash-safe startup promotion · former-controller fencing · one-time epoch and instance transition · qualified canary and recovery-required fail-closed state · human recovery procedures.
+- **Decisions:** none; a live restore still requires independently enrolled fence, custody, checkpoint and backup capabilities, and this work does not close `G-008` by itself.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/108-fenced-authority-restore-final
+
 ## 23-09-2026 — The native credential lifecycle has one complete software path ([#135](https://github.com/vegastack/vegastack-labs/issues/135))
 
 - **What:** One exact plan/run path now composes inert import, staging, real native consumer verification, bounded-overlap rotation, named revocation and independently evidenced clean-host recovery without exposing credential material.
