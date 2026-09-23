@@ -4,6 +4,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"testing"
 )
 
@@ -41,6 +42,15 @@ func TestRecoveryRequiredReopenRemainsReadOnlyAndRetainsDistinctInstances(t *tes
 	}
 	if _, err := reopened.WriteIntent(context.Background(), nil, func(IntentTx) error { return nil }); Code(err) != "PREREQUISITE_BLOCKED" {
 		t.Fatalf("write code=%s", Code(err))
+	}
+	prior := RevisionToken{StateRevision: health.Revision.StateRevision, RecoveryEpoch: 0}
+	if _, err := reopened.WriteIntent(context.Background(), &prior, func(IntentTx) error { return nil }); Code(err) != "RECOVERY_EPOCH_MISMATCH" {
+		t.Fatalf("old epoch write code=%s", Code(err))
+	}
+	request := publicIntentRequest(t, "9", nil)
+	request.Expected = &prior
+	if _, err := reopened.writeIntent(context.Background(), request, func(context.Context, *sql.Tx) error { return nil }); Code(err) != "RECOVERY_EPOCH_MISMATCH" {
+		t.Fatalf("old epoch audited write code=%s", Code(err))
 	}
 	var count int
 	if err := reopened.conn.QueryRowContext(context.Background(), `SELECT COUNT(1) FROM audit_instances WHERE instance_id IN (?,?)`, former, "instance-replacement-a").Scan(&count); err != nil || count != 2 {

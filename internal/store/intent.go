@@ -49,6 +49,9 @@ func (store *Store) WriteIntent(ctx context.Context, expected *RevisionToken, ca
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
+	if expected != nil && expected.RecoveryEpoch != store.health.Revision.RecoveryEpoch {
+		return Commit{}, newStoreError("RECOVERY_EPOCH_MISMATCH", "database-revision", false, nil)
+	}
 	if err := store.readyForTransaction(ctx); err != nil {
 		return Commit{}, err
 	}
