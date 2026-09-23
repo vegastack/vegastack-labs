@@ -104,7 +104,7 @@ func TestCopyOffsitePointUsesCustodyAndOneRunIAM(t *testing.T) {
 	config.Custody = custodyFixture{endpoint: endpoint, bearer: bearer, t: t, point: point}
 	config.Inventory = inventoryFixture{}
 	pending, err := CopyOffsitePoint(context.Background(), config, point, admission)
-	if err != nil || pending.SourcePointID != point.PointID || pending.SourceSnapshotID == pending.OffsiteSnapshotID || len(pending.SessionExpiries) != 1 {
+	if err != nil || pending.SourcePointID != point.PointID || pending.SourceSnapshotID == pending.OffsiteSnapshotID || len(pending.SessionExpiries) != 1 || pending.IssuanceStoppedAt.IsZero() {
 		t.Fatalf("copy = %#v, %v", pending, err)
 	}
 }
