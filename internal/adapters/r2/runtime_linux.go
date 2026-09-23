@@ -5,10 +5,13 @@ package r2
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"net"
 	"net/http"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
@@ -59,11 +62,7 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	if err != nil || !runtimeConfig.config.Clock().Before(deadline) {
 		return backup.OffsiteRunSpec{}, errors.New("r2 run deadline invalid")
 	}
-	retentionClock, err := time.Parse(time.RFC3339, runtimeConfig.config.Evidence.ObservedAt)
-	if err != nil {
-		return backup.OffsiteRunSpec{}, errors.New("r2 qualification time invalid")
-	}
-	retention, err := (RetentionClient{AccountID: runtimeConfig.config.AccountID, Bucket: runtimeConfig.config.Bucket, Client: runtimeConfig.config.HTTPClient, Clock: func() time.Time { return retentionClock },
+	retention, err := (RetentionClient{AccountID: runtimeConfig.config.AccountID, Bucket: runtimeConfig.config.Bucket, Client: runtimeConfig.config.HTTPClient, Clock: runtimeConfig.config.Clock,
 		AvailableBytes: runtimeConfig.config.AvailableBytes, AvailablePUTs: runtimeConfig.config.AvailablePUTs, AvailableLISTs: runtimeConfig.config.AvailableLISTs,
 		RuleCount: runtimeConfig.config.RuleCount, RuleLimit: runtimeConfig.config.RuleLimit, RetainedGenerations: runtimeConfig.config.RetainedGenerations}).Observe(ctx, declaration.GenerationID, runtimeConfig.config.Prefix+"/"+declaration.GenerationID, values[2].Bytes())
 	if err != nil || retention.RuleDigest != declaration.RuleDigest {
@@ -78,30 +77,70 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	if err != nil {
 		return backup.OffsiteRunSpec{}, err
 	}
+	defer zeroSession(&readSession)
 	readBearer := make([]byte, 32)
 	if _, err := rand.Read(readBearer); err != nil {
+		for index := range readBearer {
+			readBearer[index] = 0
+		}
 		return backup.OffsiteRunSpec{}, err
 	}
-	readEndpoint, readIAMURI, err := serveOneRunEndpoint(issuer, values[0], readRequest, readBearer, runtimeConfig.config.Clock, nil)
+	readEndpoint, readIAMURI, err := serveOneRunEndpoint(issuer, values[0], readRequest, readBearer, runtimeConfig.config.Clock, nil, nil)
 	if err != nil {
+		for index := range readBearer {
+			readBearer[index] = 0
+		}
 		return backup.OffsiteRunSpec{}, err
 	}
-	observer := &runObserver{s3: S3Client{Endpoint: runtimeConfig.config.Endpoint, Bucket: runtimeConfig.config.Bucket, Client: runtimeConfig.config.HTTPClient, Clock: runtimeConfig.config.Clock}, credentials: sessionCredentials(readSession), prefix: readRequest.Prefix, maximumObjects: declaration.MaximumPUTs, maximumBytes: declaration.MaximumBytes, clock: runtimeConfig.config.Clock,
+	s3 := S3Client{Endpoint: runtimeConfig.config.Endpoint, Bucket: runtimeConfig.config.Bucket, Client: runtimeConfig.config.HTTPClient, Clock: runtimeConfig.config.Clock}
+	observer := &runObserver{s3: s3, credentials: sessionCredentials(readSession), prefix: readRequest.Prefix, maximumObjects: declaration.MaximumPUTs, maximumBytes: declaration.MaximumBytes, clock: runtimeConfig.config.Clock,
 		readEndpoint: readEndpoint, readIAMURI: readIAMURI, readBearer: readBearer, password: values[1], binaryPath: runtimeConfig.config.ResticBinaryPath, repositoryURL: declaration.RepositoryURL, snapshotPath: declaration.SnapshotPath}
+	zeroSession(&readSession)
+	prepared := false
+	var cutoff *qualifiedCutoff
+	defer func() {
+		if !prepared {
+			observer.zero()
+			if cutoff != nil {
+				cutoff.zero()
+			}
+			_ = readEndpoint.Close()
+		}
+	}()
 
 	writerRequest := readRequest
 	writerRequest.Actions = append([]string(nil), allowedWriterActions...)
-	bearer := make([]byte, 32)
-	if _, err := rand.Read(bearer); err != nil {
+	writerRequest.Deadline = deadline.Add(-30 * time.Second)
+	if !runtimeConfig.config.Clock().Add(writerRequest.TTL).Before(writerRequest.Deadline) {
+		return backup.OffsiteRunSpec{}, errors.New("r2 writer cutoff window unavailable")
+	}
+	cleanupCredentials, err := parentS3Credentials(values[0].Bytes())
+	if err != nil {
 		return backup.OffsiteRunSpec{}, err
 	}
-	endpoint, writerIAMURI, err := serveOneRunEndpoint(issuer, values[0], writerRequest, bearer, runtimeConfig.config.Clock, func() {
+	probeDigest := sha256.Sum256([]byte(binding.RunID + "\x00" + binding.StepID + "\x00" + declaration.GenerationID))
+	cutoff = &qualifiedCutoff{s3: s3, clock: runtimeConfig.config.Clock, deadline: deadline, key: runtimeConfig.config.Prefix + "/" + declaration.GenerationID + "/locks/cutoff-" + hex.EncodeToString(probeDigest[:16]), cleanup: cleanupCredentials}
+	bearer := make([]byte, 32)
+	if _, err := rand.Read(bearer); err != nil {
+		for index := range bearer {
+			bearer[index] = 0
+		}
+		return backup.OffsiteRunSpec{}, err
+	}
+	endpoint, writerIAMURI, err := serveOneRunEndpoint(issuer, values[0], writerRequest, bearer, runtimeConfig.config.Clock, cutoff.capture, func() {
 		observer.zero()
+		cutoff.zero()
 		_ = readEndpoint.Close()
 	})
 	if err != nil {
+		for index := range bearer {
+			bearer[index] = 0
+		}
 		_ = readEndpoint.Close()
 		return backup.OffsiteRunSpec{}, err
+	}
+	for index := range bearer {
+		bearer[index] = 0
 	}
 
 	maximum, _ := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
@@ -119,20 +158,21 @@ func (runtimeConfig *ProductionRuntime) PrepareOffsiteRun(ctx context.Context, d
 	verifierSession := session
 	verifierSession.Role = "offsite-verifier"
 	observer.launcher, observer.session = launcher, verifierSession
-	cutoff := &qualifiedCutoff{clock: runtimeConfig.config.Clock, deadline: deadline}
-	return backup.OffsiteRunSpec{PointID: declaration.SourcePointID,
+	spec := backup.OffsiteRunSpec{PointID: declaration.SourcePointID,
 		Policy: backup.OffsitePolicy{PolicyID: "offsite-" + declaration.GenerationID, ProfileID: "vegastack-labs", GenerationID: declaration.GenerationID, Bucket: runtimeConfig.config.Bucket, Prefix: runtimeConfig.config.Prefix,
 			ParentReferenceID: runtimeConfig.config.ParentReferenceID, ParentFingerprint: runtimeConfig.config.ParentFingerprint, MaximumBytes: declaration.MaximumBytes, MaximumPUTs: declaration.MaximumPUTs, MaximumLISTs: declaration.MaximumLISTs,
 			MaximumRetainedGenerations: declaration.MaximumRetainedGenerations, RuleLimit: declaration.RuleLimit, RetentionWindow: time.Duration(declaration.RetentionSeconds) * time.Second, SessionTTL: time.Duration(declaration.SessionTTLSeconds) * time.Second, Clock: runtimeConfig.config.Clock},
 		Retention: retention, Copy: backup.CopyConfig{Custody: custody, Endpoint: endpoint, BinaryPath: runtimeConfig.config.ResticBinaryPath, Architecture: runtime.GOARCH, RepositoryURL: declaration.RepositoryURL, Bucket: runtimeConfig.config.Bucket, SnapshotPath: declaration.SnapshotPath,
 			PasswordFDPath: "/proc/self/fd/3", AuthorizationTokenFDPath: "/proc/self/fd/4", IAMURI: writerIAMURI, Password: values[1], Inventory: observer, Binding: writerRequest},
-		Verifier: backup.OffsiteVerifierConfig{Source: observer, ProofID: "proof-" + declaration.GenerationID, ProofClass: backup.OffsiteProofQualified, Clock: runtimeConfig.config.Clock, FullReadMaximumAge: 24 * time.Hour}, Cutoff: cutoff, WriterSealObservedAt: deadline}, nil
+		Verifier: backup.OffsiteVerifierConfig{Source: observer, ProofID: "proof-" + declaration.GenerationID, ProofClass: backup.OffsiteProofQualified, Clock: runtimeConfig.config.Clock, FullReadMaximumAge: 24 * time.Hour}, Cutoff: cutoff, WriterSealObservedAt: deadline}
+	prepared = true
+	return spec, nil
 }
 
-func serveOneRunEndpoint(issuer SessionIssuer, parent *credentialref.Value, request adapter.SessionRequest, bearer []byte, clock func() time.Time, afterClose func()) (*backup.OneRunEndpoint, string, error) {
+func serveOneRunEndpoint(issuer SessionIssuer, parent *credentialref.Value, request adapter.SessionRequest, bearer []byte, clock func() time.Time, onIssue func(adapter.ScopedS3Session), afterClose func()) (*backup.OneRunEndpoint, string, error) {
 	var server *http.Server
 	var listener net.Listener
-	endpoint, err := backup.NewOneRunEndpoint(backup.OneRunConfig{Issuer: issuer, Parent: parent, Request: request, Bearer: bearer, Path: backup.OneRunIAMPath(request), Clock: clock, OnClose: func() {
+	endpoint, err := backup.NewOneRunEndpoint(backup.OneRunConfig{Issuer: issuer, Parent: parent, Request: request, Bearer: bearer, Path: backup.OneRunIAMPath(request), Clock: clock, OnIssue: onIssue, OnClose: func() {
 		if server != nil {
 			_ = server.Shutdown(context.Background())
 		}
@@ -241,20 +281,60 @@ func (observer *runObserver) ObserveExpectedPoint(ctx context.Context, pending b
 	result, verifyErr := client.RunOffsiteRestic(ctx, request, observer.password, observer.readBearer)
 	closeErr := client.Close(context.WithoutCancel(ctx))
 	observer.readEndpoint.MarkChildExited()
-	if verifyErr != nil || closeErr != nil || !result.ChildExited || result.FullReadAt.IsZero() {
+	if verifyErr != nil || closeErr != nil || !result.ChildExited || result.FullReadAt.IsZero() || len(result.SnapshotIDs) != 1 || result.SnapshotIDs[0] != pending.OffsiteSnapshotID {
 		return backup.OffsiteGenerationObservation{}, errors.New("r2 full read unavailable")
 	}
 	observer.fullReadAt = result.FullReadAt
 	now := observer.clock().UTC()
 	return backup.OffsiteGenerationObservation{GenerationID: pending.GenerationID, RepositoryID: pending.RepositoryID, InventoryDigest: observer.last.InventoryDigest, RuleDigest: pending.RuleDigest,
 		SourcePointID: pending.SourcePointID, SourceSnapshotID: pending.SourceSnapshotID, SourceManifestDigest: pending.SourceManifestDigest, SourceInventoryDigest: pending.SourceInventoryDigest, SourceContentDigest: pending.SourceContentDigest,
-		SourceDependencyDigest: pending.SourceDependencyDigest, SourceResticDigest: pending.SourceResticDigest, KeyReferenceID: pending.KeyReferenceID, SnapshotIDs: []string{pending.OffsiteSnapshotID}, ProtectedRules: pending.ProtectedRules, Objects: observer.last.Objects,
+		SourceDependencyDigest: pending.SourceDependencyDigest, SourceResticDigest: pending.SourceResticDigest, KeyReferenceID: pending.KeyReferenceID, SnapshotIDs: append([]string(nil), result.SnapshotIDs...), ProtectedRules: pending.ProtectedRules, Objects: observer.last.Objects,
 		ObjectCount: observer.last.ObjectCount, ObjectBytes: observer.last.ObjectBytes, MetadataValid: true, FullReadSucceeded: true, FullReadAt: observer.fullReadAt, ObservedAt: now}, nil
 }
 
 type qualifiedCutoff struct {
+	mu       sync.Mutex
+	s3       S3Client
 	clock    func() time.Time
 	deadline time.Time
+	key      string
+	uploadID string
+	issued   S3Credentials
+	cleanup  S3Credentials
+}
+
+func (probe *qualifiedCutoff) capture(session adapter.ScopedS3Session) {
+	probe.mu.Lock()
+	defer probe.mu.Unlock()
+	probe.issued = sessionCredentials(session)
+	zeroSession(&session)
+}
+
+func (probe *qualifiedCutoff) zero() {
+	probe.mu.Lock()
+	defer probe.mu.Unlock()
+	probe.issued = S3Credentials{}
+	probe.cleanup = S3Credentials{}
+	probe.uploadID = ""
+}
+
+func (probe *qualifiedCutoff) credentials() (S3Credentials, S3Credentials, string) {
+	probe.mu.Lock()
+	defer probe.mu.Unlock()
+	return probe.issued, probe.cleanup, probe.uploadID
+}
+
+func (probe *qualifiedCutoff) bounded(ctx context.Context) (context.Context, context.CancelFunc, error) {
+	now := time.Now()
+	deadline := now.Add(5 * time.Second)
+	if probe.deadline.Before(deadline) {
+		deadline = probe.deadline
+	}
+	if !now.Before(deadline) {
+		return nil, nil, errors.New("r2 cutoff probe deadline exceeded")
+	}
+	bounded, cancel := context.WithDeadline(ctx, deadline)
+	return bounded, cancel, nil
 }
 
 func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending backup.PendingOffsiteGeneration) (time.Time, error) {
@@ -267,6 +347,22 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 	if !last.Before(probe.deadline) && !last.Equal(probe.deadline) {
 		return time.Time{}, errors.New("writer expiry exceeds plan deadline")
 	}
+	issued, _, _ := probe.credentials()
+	if issued.AccessKeyID == "" || issued.SecretAccessKey == "" || issued.SessionToken == "" {
+		return time.Time{}, errors.New("writer cutoff probe session unavailable")
+	}
+	probeCtx, cancel, err := probe.bounded(ctx)
+	if err != nil {
+		return time.Time{}, err
+	}
+	uploadID, err := probe.s3.InitiateMultipart(probeCtx, probe.key, issued)
+	cancel()
+	if err != nil {
+		return time.Time{}, errors.New("writer cutoff multipart setup failed")
+	}
+	probe.mu.Lock()
+	probe.uploadID = uploadID
+	probe.mu.Unlock()
 	delay := last.Sub(probe.clock().UTC())
 	if delay > 0 {
 		timer := time.NewTimer(delay)
@@ -279,9 +375,49 @@ func (probe *qualifiedCutoff) AwaitWriterCutoff(ctx context.Context, pending bac
 	}
 	return probe.clock().UTC(), nil
 }
-func (*qualifiedCutoff) DenyNewPUT(context.Context, string) (bool, error) { return true, nil }
-func (*qualifiedCutoff) DenyMultipartCompletion(context.Context, string) (bool, error) {
-	return true, nil
+
+func (probe *qualifiedCutoff) DenyNewPUT(ctx context.Context, _ string) (bool, error) {
+	issued, cleanup, _ := probe.credentials()
+	probeCtx, cancel, err := probe.bounded(ctx)
+	if err != nil {
+		return false, err
+	}
+	denied, probeErr := probe.s3.ProbePutDenied(probeCtx, probe.key, issued)
+	cancel()
+	cleanupCtx, cleanupCancel, boundErr := probe.bounded(context.WithoutCancel(ctx))
+	if boundErr != nil {
+		return false, boundErr
+	}
+	cleanupErr := probe.s3.DeleteObject(cleanupCtx, probe.key, cleanup)
+	cleanupCancel()
+	if probeErr != nil || cleanupErr != nil {
+		return false, errors.Join(probeErr, cleanupErr)
+	}
+	return denied, nil
+}
+
+func (probe *qualifiedCutoff) DenyMultipartCompletion(ctx context.Context, _ string) (bool, error) {
+	issued, cleanup, uploadID := probe.credentials()
+	if uploadID == "" {
+		return false, errors.New("writer cutoff multipart setup unavailable")
+	}
+	probeCtx, cancel, err := probe.bounded(ctx)
+	if err != nil {
+		return false, err
+	}
+	denied, probeErr := probe.s3.ProbeMultipartCompletionDenied(probeCtx, probe.key, uploadID, issued)
+	cancel()
+	cleanupCtx, cleanupCancel, boundErr := probe.bounded(context.WithoutCancel(ctx))
+	if boundErr != nil {
+		return false, boundErr
+	}
+	cleanupErr := probe.s3.AbortMultipart(cleanupCtx, probe.key, uploadID, cleanup)
+	cleanupCancel()
+	probe.zero()
+	if probeErr != nil || cleanupErr != nil {
+		return false, errors.Join(probeErr, cleanupErr)
+	}
+	return denied, nil
 }
 
 var _ backup.QualifiedOffsiteRuntime = (*ProductionRuntime)(nil)

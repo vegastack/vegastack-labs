@@ -140,6 +140,30 @@ func (client S3Client) ProbeMultipartCompletionDenied(ctx context.Context, key, 
 	return response.StatusCode == http.StatusForbidden, nil
 }
 
+func (client S3Client) DeleteObject(ctx context.Context, key string, credentials S3Credentials) error {
+	response, err := client.do(ctx, http.MethodDelete, "/"+client.Bucket+"/"+escapeS3Key(key), nil, nil, credentials)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusOK && response.StatusCode != http.StatusNotFound {
+		return errors.New("r2 cutoff object cleanup failed")
+	}
+	return nil
+}
+
+func (client S3Client) AbortMultipart(ctx context.Context, key, uploadID string, credentials S3Credentials) error {
+	response, err := client.do(ctx, http.MethodDelete, "/"+client.Bucket+"/"+escapeS3Key(key), url.Values{"uploadId": {uploadID}}, nil, credentials)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+	if response.StatusCode != http.StatusNoContent && response.StatusCode != http.StatusOK && response.StatusCode != http.StatusNotFound {
+		return errors.New("r2 cutoff multipart cleanup failed")
+	}
+	return nil
+}
+
 func (client S3Client) do(ctx context.Context, method, objectPath string, query url.Values, body []byte, credentials S3Credentials) (*http.Response, error) {
 	base, err := url.Parse(client.Endpoint)
 	if err != nil || base.Host == "" || base.Path != "" || credentials.AccessKeyID == "" || credentials.SecretAccessKey == "" {

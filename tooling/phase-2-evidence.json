@@ -274,7 +274,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/adapters/r2"
         ],
-        "mutationBoundaryDigest": "sha256:3db27e95be787d2f477407c5cc6a8641a7c1942c79e9eea623e077fc9e8cedb5"
+        "mutationBoundaryDigest": "sha256:622a9b601b4135c785e67a33f4e914bf7056bc7c97ef84d3d948a490d7405ba3"
       }
     ]
   },

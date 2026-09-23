@@ -90,6 +90,7 @@ type OffsiteResticRequest struct {
 
 type OffsiteResticResult struct {
 	RepositoryID, SnapshotID string
+	SnapshotIDs              []string
 	ObjectCount, ObjectBytes int64
 	ChildExited              bool
 	FullReadAt               time.Time

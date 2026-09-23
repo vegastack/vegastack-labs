@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
@@ -69,9 +70,13 @@ func (client RetentionClient) Observe(ctx context.Context, generationID, prefix 
 	if response.StatusCode != http.StatusOK || decoder.Decode(&payload) != nil || !payload.Success {
 		return adapter.RetentionObservation{}, errors.New("r2 retention observation failed")
 	}
+	wantPrefixes := map[string]bool{}
+	for _, suffix := range []string{"config", "keys/", "data/", "index/", "snapshots/"} {
+		wantPrefixes[strings.TrimSuffix(prefix, "/")+"/"+suffix] = true
+	}
 	protected := make([]adapter.RetentionRule, 0, 5)
 	for _, rule := range payload.Result.Rules {
-		if rule.Enabled && rule.Condition.Type == "Indefinite" {
+		if wantPrefixes[rule.Prefix] && rule.Enabled && rule.Condition.Type == "Indefinite" {
 			protected = append(protected, adapter.RetentionRule{RuleID: rule.ID, Prefix: rule.Prefix})
 		}
 	}
@@ -88,7 +93,7 @@ func (client RetentionClient) Observe(ctx context.Context, generationID, prefix 
 	if client.Clock != nil {
 		now = client.Clock().UTC()
 	}
-	observation := adapter.RetentionObservation{GenerationID: generationID, ProtectedRules: protected, MutablePrefixes: []string{prefix + "/locks/"}, RuleCount: client.RuleCount, RuleLimit: client.RuleLimit,
+	observation := adapter.RetentionObservation{GenerationID: generationID, ProtectedRules: protected, MutablePrefixes: []string{strings.TrimSuffix(prefix, "/") + "/locks/"}, RuleCount: len(payload.Result.Rules), RuleLimit: client.RuleLimit,
 		RetainedGenerations: client.RetainedGenerations, AvailableBytes: client.AvailableBytes, AvailablePUTs: client.AvailablePUTs, AvailableLISTs: client.AvailableLISTs,
 		ObservedAt: now, IndefiniteProtection: len(protected) == 5, ProofClass: "qualified-provider"}
 	observation.RuleDigest = backup.DigestRetentionObservation(observation)

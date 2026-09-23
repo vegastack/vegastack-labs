@@ -22,6 +22,7 @@ type OneRunConfig struct {
 	Path    string
 	Clock   func() time.Time
 	OnClose func()
+	OnIssue func(adapter.ScopedS3Session)
 }
 
 // OneRunEndpoint is a loopback-only Minio IAM credential endpoint. It issues
@@ -73,6 +74,9 @@ func (endpoint *OneRunEndpoint) ServeHTTP(writer http.ResponseWriter, request *h
 	}
 	defer zeroScopedSession(&session)
 	endpoint.expiries = append(endpoint.expiries, session.ExpiresAt.UTC())
+	if endpoint.config.OnIssue != nil {
+		endpoint.config.OnIssue(adapter.ScopedS3Session{AccessKeyID: append([]byte(nil), session.AccessKeyID...), SecretAccessKey: append([]byte(nil), session.SecretAccessKey...), SessionToken: append([]byte(nil), session.SessionToken...), ExpiresAt: session.ExpiresAt})
+	}
 	payload := struct {
 		Code            string `json:"Code"`
 		AccessKeyID     string `json:"AccessKeyId"`
@@ -142,6 +146,7 @@ func (endpoint *OneRunEndpoint) Close() error {
 	endpoint.config.Bearer = nil
 	hook := endpoint.config.OnClose
 	endpoint.config.OnClose = nil
+	endpoint.config.OnIssue = nil
 	endpoint.mu.Unlock()
 	if hook != nil {
 		hook()

@@ -40,14 +40,30 @@ func (signer LocalSigner) SignScopedSession(ctx context.Context, parent []byte, 
 	if err != nil || parsed.Scheme != "https" || parsed.Host == "" || signer.Bucket == "" || request.Prefix == "" || request.TTL <= 0 {
 		return adapter.ScopedS3Session{}, errors.New("r2 local signing denied")
 	}
+	credential, err := decodeParentCredential(parent)
+	if err != nil {
+		return adapter.ScopedS3Session{}, errors.New("r2 parent credential invalid")
+	}
+	return signer.sign(credential, parsed.Host, request)
+}
+
+func decodeParentCredential(parent []byte) (parentCredential, error) {
 	decoder := json.NewDecoder(bytes.NewReader(parent))
 	decoder.DisallowUnknownFields()
 	var credential parentCredential
 	var trailing any
 	if decoder.Decode(&credential) != nil || !errors.Is(decoder.Decode(&trailing), io.EOF) || credential.AccountID == "" || credential.AccessKeyID == "" || credential.SecretAccessKey == "" {
-		return adapter.ScopedS3Session{}, errors.New("r2 parent credential invalid")
+		return parentCredential{}, errors.New("r2 parent credential invalid")
 	}
-	return signer.sign(credential, parsed.Host, request)
+	return credential, nil
+}
+
+func parentS3Credentials(parent []byte) (S3Credentials, error) {
+	credential, err := decodeParentCredential(parent)
+	if err != nil {
+		return S3Credentials{}, err
+	}
+	return S3Credentials{AccessKeyID: credential.AccessKeyID, SecretAccessKey: credential.SecretAccessKey}, nil
 }
 
 func (signer LocalSigner) sign(credential parentCredential, audience string, request adapter.SessionRequest) (adapter.ScopedS3Session, error) {

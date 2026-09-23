@@ -118,7 +118,7 @@ func DigestRetentionObservation(value adapter.RetentionObservation) string {
 	hasher.Write([]byte("offsite-retention-observation-v1"))
 	for _, item := range []string{value.GenerationID, strconv.Itoa(value.RuleCount), strconv.Itoa(value.RuleLimit), strconv.Itoa(value.RetainedGenerations),
 		strconv.FormatInt(value.AvailableBytes, 10), strconv.FormatInt(value.AvailablePUTs, 10), strconv.FormatInt(value.AvailableLISTs, 10),
-		strconv.FormatBool(value.IndefiniteProtection), value.ProofClass, value.ObservedAt.UTC().Format(time.RFC3339)} {
+		strconv.FormatBool(value.IndefiniteProtection), value.ProofClass} {
 		hasher.Write([]byte{0})
 		hasher.Write([]byte(item))
 	}

@@ -54,25 +54,44 @@ func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session
 			return OffsiteResticResult{}, err
 		}
 		defer binaryFile.Close()
-		if err := verifier.VerifyWriterLease(*session.WriterLease, nowOr(nil)); err != nil {
-			return OffsiteResticResult{}, errors.New("offsite verifier lease expired")
-		}
-		for _, file := range []*os.File{passwordFile, bearerFile, binaryFile} {
-			if _, err := file.Seek(0, io.SeekStart); err != nil {
-				return OffsiteResticResult{}, err
+		runReadOnly := func(arguments []string, capture bool) ([]byte, error) {
+			if err := verifier.VerifyWriterLease(*session.WriterLease, nowOr(nil)); err != nil {
+				return nil, errors.New("offsite verifier lease expired")
 			}
+			for _, file := range []*os.File{passwordFile, bearerFile, binaryFile} {
+				if _, err := file.Seek(0, io.SeekStart); err != nil {
+					return nil, err
+				}
+			}
+			command := exec.CommandContext(ctx, "/proc/self/fd/5", arguments[1:]...)
+			command.Args[0] = request.BinaryPath
+			command.ExtraFiles = []*os.File{passwordFile, bearerFile, binaryFile}
+			command.Env = wantEnv
+			command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: policy.ResticUID, Gid: policy.ResticUID}}
+			var stdout, stderr bytes.Buffer
+			stdoutWriter, stderrWriter := &boundedWriter{limit: defaultResticOutputLimit, buffer: &stdout}, &boundedWriter{limit: defaultResticOutputLimit, buffer: &stderr}
+			command.Stdout, command.Stderr = stdoutWriter, stderrWriter
+			if err := command.Run(); err != nil || stdoutWriter.exceeded || stderrWriter.exceeded {
+				return nil, errors.New("offsite restic verification failed")
+			}
+			if capture {
+				return stdout.Bytes(), nil
+			}
+			return nil, nil
 		}
-		command := exec.CommandContext(ctx, "/proc/self/fd/5", wantArgs[1:]...)
-		command.Args[0] = request.BinaryPath
-		command.ExtraFiles = []*os.File{passwordFile, bearerFile, binaryFile}
-		command.Env = wantEnv
-		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: policy.ResticUID, Gid: policy.ResticUID}}
-		var stdout, stderr bytes.Buffer
-		command.Stdout, command.Stderr = &boundedWriter{limit: defaultResticOutputLimit, buffer: &stdout}, &boundedWriter{limit: defaultResticOutputLimit, buffer: &stderr}
-		if err := command.Run(); err != nil {
-			return OffsiteResticResult{}, errors.New("offsite restic verification failed")
+		if _, err := runReadOnly(wantArgs, false); err != nil {
+			return OffsiteResticResult{}, err
 		}
-		return OffsiteResticResult{ChildExited: true, FullReadAt: time.Now().UTC()}, nil
+		common := []string{request.BinaryPath, "-r", request.RepositoryURL, "--json", "--no-cache", "--password-file", offsitePasswordPath}
+		snapshotOutput, err := runReadOnly(append(common, "snapshots"), true)
+		if err != nil {
+			return OffsiteResticResult{}, err
+		}
+		snapshotIDs, err := parseResticSnapshots(snapshotOutput)
+		if err != nil || len(snapshotIDs) == 0 {
+			return OffsiteResticResult{}, errors.New("offsite snapshot observation failed")
+		}
+		return OffsiteResticResult{ChildExited: true, FullReadAt: time.Now().UTC(), SnapshotIDs: snapshotIDs}, nil
 	}
 	transfer, err := prepareBackupExchange(policy, request.SnapshotPath)
 	if err != nil {

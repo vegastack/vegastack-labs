@@ -40,6 +40,11 @@ func TestRetentionDigestSeparatesProtectedAndMutablePrefixes(t *testing.T) {
 	if DigestRetentionObservation(base) == DigestRetentionObservation(swapped) {
 		t.Fatal("retention digest did not bind prefix authority")
 	}
+	later := base
+	later.ObservedAt = now.Add(time.Minute)
+	if DigestRetentionObservation(base) != DigestRetentionObservation(later) {
+		t.Fatal("live observation time changed the stable rule/budget digest")
+	}
 }
 
 func TestGenerationAdmissionRequiresExactRuleBoundary(t *testing.T) {
