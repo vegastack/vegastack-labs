@@ -520,6 +520,7 @@ The compiled Apache-2.0 modules with upstream NOTICE files are `github.com/go-op
 | `github.com/go-openapi/validate` | `v0.26.1` | `Apache-2.0` | [source](https://github.com/go-openapi/validate) |
 | `github.com/go-viper/mapstructure/v2` | `v2.5.0` | `MIT` | [source](https://github.com/go-viper/mapstructure) |
 | `github.com/gobwas/glob` | `v0.2.3` | `MIT` | [source](https://github.com/gobwas/glob) |
+| `github.com/godbus/dbus/v5` | `v5.1.0` | `BSD-2-Clause` | [source](https://github.com/godbus/dbus) |
 | `github.com/google/certificate-transparency-go` | `v1.3.3` | `Apache-2.0` | [source](https://github.com/google/certificate-transparency-go) |
 | `github.com/google/go-containerregistry` | `v0.21.7` | `Apache-2.0` | [source](https://github.com/google/go-containerregistry) |
 | `github.com/google/uuid` | `v1.6.0` | `BSD-3-Clause` | [source](https://github.com/google/uuid) |

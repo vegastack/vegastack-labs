@@ -9,11 +9,11 @@ import (
 
 func TestReviewedNativeCredentialPackageIsExact(t *testing.T) {
 	imports := []string{
-		"bytes", "context", "crypto/sha256", "encoding/hex", "errors",
+		"bytes", "context", "crypto/sha256", "encoding/hex", "encoding/json", "errors", "fmt", "github.com/godbus/dbus/v5",
 		"example.test/internal/credentialref", "example.test/internal/failure", "example.test/internal/generated",
-		"golang.org/x/sys/unix", "io", "os", "os/exec", "path/filepath", "slices", "syscall", "time",
+		"golang.org/x/sys/unix", "io", "os", "os/exec", "os/user", "path/filepath", "reflect", "regexp", "slices", "strconv", "strings", "syscall", "time",
 	}
-	files := []string{"encrypt_linux.go", "inspect_linux.go", "resolver_linux.go"}
+	files := []string{"authority_linux.go", "effective_policy_linux.go", "encrypt_linux.go", "inspect_linux.go", "lifecycle_verifier_linux.go", "policy_check_linux.go", "probe_linux.go", "process_observer_linux.go", "resolver_linux.go", "systemd_linux.go"}
 	sourceRoot := filepath.Join("..", "..", "internal", "adapter", "nativecredential")
 	canonical := make(map[string][]byte, len(files))
 	for _, name := range files {

@@ -332,6 +332,20 @@ Owner phase: `4` · risk: `read-only` · availability: `available`
 
 - Create an immutable plan from one exact inert declaration revision.: `vsk-labs plan --config fixture/server-profile.json --declaration-id change-1 --revision 2 --output json`
 
+### `vsk-labs recovery witness collect`
+
+Collect one bounded independent recovery witness on a separately administered custodian.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--file <path>` — Read one exact public recovery binding and required-boundary document (64 KiB max).
+- `--material-fd <fd>` — Read the independently held protected material from an inherited descriptor.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+- `--signing-key-fd <fd>` — Read the protected witness signing seed from an inherited descriptor.
+
+- Collect one bounded independent recovery witness on a separately administered custodian.: `vsk-labs recovery witness collect --file fixture/recovery-witness-input.json --signing-key-fd 3 --material-fd 4 --output json`
+
 ### `vsk-labs release inspect`
 
 Inspect a local release manifest and compatibility without claiming cryptographic verification.

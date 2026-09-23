@@ -105,6 +105,7 @@ func TestWitnessAcceptanceActuallyProbesIsolatedOldIdentity(t *testing.T) {
 		t.Fatal(err)
 	}
 	pin.PublicKey = public
+	pin.ExpiresAt = now.Add(time.Hour)
 	pin.pinSeal = pin.seal()
 	payload.Binding = binding
 	payload.KeyID = pin.KeyID
