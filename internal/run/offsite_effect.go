@@ -54,6 +54,13 @@ func (effect *OffsiteEffect) ExecuteBoundWithCredentials(ctx context.Context, op
 	if proof.Status != backup.OffsiteStatusVerified || proof.ProofClass != backup.OffsiteProofQualified || proof.ProofDigest == "" || proof.GenerationID != operation.TargetID || proof.RecoveryEpoch != binding.RecoveryEpoch {
 		return adapter.Effect{EffectObserved: true}, runError(generated.ErrorCodeIntegrityFailure, "offsite-proof")
 	}
+	exists, err := effect.execution.ProofExists(ctx, proof.GenerationID, proof.ProofDigest)
+	if err != nil {
+		return adapter.Effect{EffectObserved: true}, err
+	}
+	if !exists {
+		return adapter.Effect{EffectObserved: true}, runError(generated.ErrorCodeIntegrityFailure, "offsite-proof")
+	}
 	generationID := proof.GenerationID
 	return adapter.Effect{Status: "succeeded", ResultDigest: proof.ProofDigest, PendingPointID: &generationID, Changed: true, EffectObserved: true}, nil
 }
