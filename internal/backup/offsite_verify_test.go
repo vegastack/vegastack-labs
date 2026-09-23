@@ -49,7 +49,7 @@ func TestOffsiteVerifierRejectsMissingListedSnapshotDespiteGreenCheck(t *testing
 	pending := testPendingOffsite(now)
 	observation := expectedObservation(pending, now)
 	observation.SnapshotIDs = nil
-	config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
+	config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofID: "proof-a", ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
 	if _, err := VerifyOffsitePoint(context.Background(), config, pending, WriterSealProof{}); err == nil {
 		t.Fatal("missing expected snapshot verified")
 	}
@@ -73,7 +73,7 @@ func TestOffsiteVerifierRejectsMismatchedManifestDependenciesAndFullRead(t *test
 		t.Run(name, func(t *testing.T) {
 			observation := expectedObservation(pending, now)
 			mutate(&observation)
-			config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
+			config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofID: "proof-a", ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
 			if _, err := VerifyOffsitePoint(context.Background(), config, pending, WriterSealProof{}); err == nil {
 				t.Fatal("mismatched observation verified")
 			}
@@ -102,7 +102,7 @@ func TestOffsiteLastGoodRejectsPendingFixtureAndStaleProof(t *testing.T) {
 	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
 	pending := testPendingOffsite(now)
 	observation := expectedObservation(pending, now)
-	fixture, err := VerifyOffsitePoint(context.Background(), OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}, pending, WriterSealProof{})
+	fixture, err := VerifyOffsitePoint(context.Background(), OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofID: "proof-fixture", ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}, pending, WriterSealProof{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func TestOffsiteLastGoodRejectsPendingFixtureAndStaleProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	live, err := VerifyOffsitePoint(context.Background(), OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofClass: OffsiteProofQualified, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}, pending, seal)
+	live, err := VerifyOffsitePoint(context.Background(), OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofID: "proof-live", ProofClass: OffsiteProofQualified, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}, pending, seal)
 	if err != nil {
 		t.Fatal(err)
 	}

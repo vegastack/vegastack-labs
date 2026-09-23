@@ -23,6 +23,7 @@ type OffsiteExpectedPointSource interface {
 
 type OffsiteVerifierConfig struct {
 	Source             OffsiteExpectedPointSource
+	ProofID            string
 	ProofClass         string
 	Clock              func() time.Time
 	FullReadMaximumAge time.Duration
@@ -34,7 +35,7 @@ type OffsiteCutoffProbe interface {
 }
 
 func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pending PendingOffsiteGeneration, seal WriterSealProof) (OffsiteProof, error) {
-	if config.Source == nil || (config.ProofClass != OffsiteProofFixture && config.ProofClass != OffsiteProofQualified) || !validPendingOffsiteGeneration(pending) ||
+	if config.Source == nil || config.ProofID == "" || (config.ProofClass != OffsiteProofFixture && config.ProofClass != OffsiteProofQualified) || !validPendingOffsiteGeneration(pending) ||
 		config.FullReadMaximumAge <= 0 || config.FullReadMaximumAge > 31*24*time.Hour {
 		return OffsiteProof{}, errors.New("offsite verification blocked")
 	}
@@ -67,7 +68,7 @@ func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pendi
 		}
 		status = OffsiteStatusVerified
 	}
-	proof := OffsiteProof{ProofID: "proof-" + pending.GenerationID, Status: status, ProofClass: config.ProofClass,
+	proof := OffsiteProof{ProofID: config.ProofID, Status: status, ProofClass: config.ProofClass,
 		SourcePointID: pending.SourcePointID, SourceSnapshotID: pending.SourceSnapshotID, SourceManifestDigest: pending.SourceManifestDigest,
 		SourceInventoryDigest: pending.SourceInventoryDigest, SourceContentDigest: pending.SourceContentDigest, SourceDependencyDigest: pending.SourceDependencyDigest,
 		SourceResticDigest: pending.SourceResticDigest, KeyReferenceID: pending.KeyReferenceID, GenerationID: pending.GenerationID, RepositoryID: pending.RepositoryID,
