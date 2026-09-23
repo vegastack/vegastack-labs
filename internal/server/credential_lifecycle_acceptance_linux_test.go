@@ -173,6 +173,8 @@ type lifecycleAcceptanceEnv struct {
 	recovery     runengine.CredentialRecoveryVerifier
 	plans        []generated.Plan
 	runs         []generated.Run
+	imports      []generated.CredentialImportSubmission
+	requests     []generated.CredentialLifecycleRequest
 	coordinates  int
 }
 
@@ -302,11 +304,11 @@ func (env *lifecycleAcceptanceEnv) importDraft(version, suffix string, private [
 	}
 	input := generated.CredentialImportRequest{Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: "1.1.0", ReferenceID: "reference-135", ConsumerID: "consumer-a", PurposeID: "purpose-135", TargetID: "target-135", ResolverID: "native-systemd", MaterialVersion: version, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "import-" + suffix}
 	input.TargetDigest = credentialref.ImportTargetDigest(input)
-	input.TargetDigest = credentialref.ImportTargetDigest(input)
 	value, err := newProductionCredentialImporter(env.references, env.revisions, env.path, 0).Import(context.Background(), input, append([]byte(nil), private...), env.principal)
 	if err != nil {
 		env.t.Fatal(err)
 	}
+	env.imports = append(env.imports, value)
 	return value
 }
 
@@ -385,6 +387,7 @@ func (env *lifecycleAcceptanceEnv) apply(input generated.CredentialLifecycleRequ
 	if input.TargetDigest == "" {
 		env.t.Fatalf("invalid lifecycle request: %+v", input)
 	}
+	env.requests = append(env.requests, input)
 	submission, err := env.lifecycle.CreateDraft(context.Background(), input, env.principal)
 	if err != nil {
 		env.t.Fatalf("create %s draft: %v", input.Action, err)
@@ -628,14 +631,34 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	}
 
 	public, err := json.Marshal(struct {
-		Plans []generated.Plan
-		Runs  []generated.Run
-	}{env.plans, env.runs})
+		Imports  []generated.CredentialImportSubmission
+		Requests []generated.CredentialLifecycleRequest
+		Plans    []generated.Plan
+		Runs     []generated.Run
+		Args     []string
+	}{env.imports, env.requests, env.plans, env.runs, os.Args})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if bytes.Contains(public, []byte(lifecycleAcceptanceCanary)) {
 		t.Fatal("secret escaped public envelopes")
+	}
+	rows, err := db.Query(`SELECT canonical_payload FROM audit_events UNION ALL SELECT payload_bytes FROM outbox`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var payload []byte
+		if err := rows.Scan(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if bytes.Contains(payload, []byte(lifecycleAcceptanceCanary)) {
+			t.Fatal("secret escaped audit or outbox surface")
+		}
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
 	}
 	for _, suffix := range []string{"", "-wal", "-shm"} {
 		raw, readErr := os.ReadFile(env.path + suffix)

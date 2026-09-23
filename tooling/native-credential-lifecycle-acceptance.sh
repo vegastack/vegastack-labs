@@ -186,4 +186,7 @@ PY
 coordinate_capstone & coordinator_pid=$!
 VSK135_LIFECYCLE_ACCEPTANCE=1 VSK135_COORDINATOR="$marker/capstone-coordinate" VSK135_NATIVE_ROOT="$marker/capstone-ciphertext" "$server_test_binary" -test.run='^TestFullCredentialLifecycleAcceptance$' >"$marker/capstone.out" 2>&1 || { cat "$marker/capstone.out" >&2; cat "$marker/capstone-coordinate/debug" >&2 2>/dev/null || true; kill "$coordinator_pid" 2>/dev/null || true; fatal 'Integrated full lifecycle capstone failed'; }
 wait "$coordinator_pid"
+if grep -Fq 'synthetic-private-lifecycle-canary-135' "$marker/capstone.out" "$marker/capstone-coordinate/verify-request.json" "$marker/capstone-coordinate/verify-response.json"; then
+  fatal 'Lifecycle canary escaped captured process or test output'
+fi
 printf 'native encrypted credential lifecycle disposable matrix passed\n'
