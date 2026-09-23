@@ -83,32 +83,32 @@ func RetireExact(ctx context.Context, intent store.OffsiteRetirementIntent, leas
 	}
 	if err = rules.PutRules(ctx, intent.BucketID, remaining); err != nil {
 		journal.UncertainReason = "rule-put-response"
-		_ = recorder.AppendAttempt(ctx, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", ""))
-		return journal, errors.New("offsite rule put uncertain")
+		return journal, recordUncertain(ctx, recorder, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", ""), "offsite rule put uncertain")
 	}
 	post, err := rules.ReadRules(ctx, intent.BucketID)
 	if err != nil {
 		journal.UncertainReason = "rule-post-read"
-		return journal, errors.New("offsite rule post-read uncertain")
+		return journal, recordUncertain(ctx, recorder, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", ""), "offsite rule post-read uncertain")
 	}
 	journal.PostRuleDigest = DigestRuleSet(post)
 	if journal.PostRuleDigest != intent.SurvivorRuleDigest {
 		journal.UncertainReason = "rule-race"
-		_ = recorder.AppendAttempt(ctx, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.PostRuleDigest))
-		return journal, errors.New("offsite rule race detected")
+		return journal, recordUncertain(ctx, recorder, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.PostRuleDigest), "offsite rule race detected")
 	}
 	for _, v := range post.Rules {
 		if target[v.RuleID] {
 			journal.UncertainReason = "target-rule-remains"
-			return journal, errors.New("target rule remains")
+			return journal, recordUncertain(ctx, recorder, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.PostRuleDigest), "target rule remains")
 		}
 	}
 	if err = recorder.AppendAttempt(ctx, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "observed", journal.PostRuleDigest)); err != nil {
-		return journal, err
+		journal.UncertainReason = "rule-observation-journal"
+		return journal, recordUncertain(ctx, recorder, attempt(lease, 3, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.PostRuleDigest), "offsite rule observation journal failed")
 	}
 	observed, err := objects.ListExact(ctx, intent.GenerationID)
 	if err != nil {
-		return journal, err
+		journal.UncertainReason = "object-inventory-read"
+		return journal, recordUncertain(ctx, recorder, attempt(lease, 3, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.PostRuleDigest), "offsite object inventory uncertain")
 	}
 	journal.ObjectInventoryDigest = DigestObjects(observed)
 	expected := make([]Object, len(intent.Objects))
@@ -116,7 +116,8 @@ func RetireExact(ctx context.Context, intent store.OffsiteRetirementIntent, leas
 		expected[i] = Object{v.Key, v.Digest, v.Bytes}
 	}
 	if journal.ObjectInventoryDigest != DigestObjects(expected) {
-		return journal, errors.New("offsite object inventory drift")
+		journal.UncertainReason = "object-inventory-drift"
+		return journal, recordUncertain(ctx, recorder, attempt(lease, 3, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.ObjectInventoryDigest), "offsite object inventory drift")
 	}
 	var sequence int64 = 2
 	for _, v := range canonicalObjects(expected) {
@@ -128,23 +129,34 @@ func RetireExact(ctx context.Context, intent store.OffsiteRetirementIntent, leas
 		if err = objects.DeleteExact(ctx, v.Key); err != nil {
 			journal.UncertainReason = "object-delete-response"
 			sequence++
-			_ = recorder.AppendAttempt(ctx, attempt(lease, sequence, "object-delete", v.Key, req, "uncertain", ""))
-			return journal, errors.New("offsite object delete uncertain")
+			return journal, recordUncertain(ctx, recorder, attempt(lease, sequence, "object-delete", v.Key, req, "uncertain", ""), "offsite object delete uncertain")
 		}
 		journal.DeletedKeys = append(journal.DeletedKeys, v.Key)
 		journal.ReclaimedBytes += v.Bytes
 		sequence++
 		if err = recorder.AppendAttempt(ctx, attempt(lease, sequence, "object-delete", v.Key, req, "observed", v.Digest)); err != nil {
-			return journal, err
+			journal.UncertainReason = "object-observation-journal"
+			sequence++
+			return journal, recordUncertain(ctx, recorder, attempt(lease, sequence, "object-delete", v.Key, req, "uncertain", v.Digest), "offsite object observation journal failed")
 		}
 	}
 	left, err := objects.ListExact(ctx, intent.GenerationID)
 	if err != nil || len(left) != 0 {
 		journal.UncertainReason = "object-post-read"
-		return journal, errors.New("offsite target objects remain")
+		sequence++
+		return journal, recordUncertain(ctx, recorder, attempt(lease, sequence, "object-delete", intent.GenerationID, digestParts("post-read", intent.GenerationID), "uncertain", ""), "offsite target objects remain")
 	}
 	journal.Status = "effects-observed"
 	return journal, nil
+}
+
+func recordUncertain(ctx context.Context, recorder Recorder, value store.OffsiteRetirementAttempt, message string) error {
+	// Provider effects must remain journalable after caller cancellation.
+	persist := context.WithoutCancel(ctx)
+	if err := recorder.AppendAttempt(persist, value); err != nil {
+		return fmt.Errorf("%s; uncertainty journal failed: %w", message, err)
+	}
+	return errors.New(message)
 }
 
 func attempt(l store.OffsiteRetirementLease, sequence int64, kind, target, request, status, response string) store.OffsiteRetirementAttempt {

@@ -21,6 +21,17 @@ type OffsiteSurvivorProof struct {
 type OffsiteSurvivorVerifier interface {
 	VerifyOffsiteSurvivor(context.Context, string) (OffsiteSurvivorProof, error)
 }
+type OffsiteSurvivorExpectation struct {
+	PointID, GenerationID, RuleDigest, InventoryDigest, FullReadDigest, RestoreDigest string
+	RecoveryEpoch                                                                     int64
+}
+
+// OffsiteRetirementSettlementCatalog is a durable #114 catalog view. The
+// verifier cannot settle against caller-authored digest-shaped values.
+type OffsiteRetirementSettlementCatalog interface {
+	ExpectedOffsiteSurvivor(context.Context, string) (OffsiteSurvivorExpectation, error)
+	CurrentOffsiteLastGood(context.Context, int64) (string, error)
+}
 type OffsiteRetirementProof struct {
 	IntentID, GenerationID, EffectDigest, SurvivorProofDigest string
 	Survivors                                                 []OffsiteSurvivorProof
@@ -28,8 +39,8 @@ type OffsiteRetirementProof struct {
 	VerifiedAt                                                time.Time
 }
 
-func VerifyOffsiteRetirement(ctx context.Context, intent store.OffsiteRetirementIntent, effect r2retention.EffectJournal, verifier OffsiteSurvivorVerifier, now time.Time) (OffsiteRetirementProof, error) {
-	if verifier == nil || now.IsZero() || effect.Status != "effects-observed" || effect.PostRuleDigest != intent.SurvivorRuleDigest || effect.ObjectInventoryDigest != digestStoreObjects(intent.Objects) || int64(len(effect.DeletedKeys)) != intent.MaxWorkObjects || effect.ReclaimedBytes < 0 || effect.ReclaimedBytes > intent.MaxMutationBytes || len(intent.SurvivorPointIDs) == 0 {
+func VerifyOffsiteRetirement(ctx context.Context, intent store.OffsiteRetirementIntent, effect r2retention.EffectJournal, catalog OffsiteRetirementSettlementCatalog, verifier OffsiteSurvivorVerifier, now time.Time) (OffsiteRetirementProof, error) {
+	if catalog == nil || verifier == nil || now.IsZero() || effect.Status != "effects-observed" || effect.PostRuleDigest != intent.SurvivorRuleDigest || effect.ObjectInventoryDigest != digestStoreObjects(intent.Objects) || int64(len(effect.DeletedKeys)) != intent.MaxWorkObjects || effect.ReclaimedBytes != intent.MaxMutationBytes || len(intent.SurvivorPointIDs) == 0 {
 		return OffsiteRetirementProof{}, errors.New("offsite retirement effect is not settled")
 	}
 	expectedKeys := make([]string, len(intent.Objects))
@@ -44,16 +55,28 @@ func VerifyOffsiteRetirement(ctx context.Context, intent store.OffsiteRetirement
 	}
 	proofs := make([]OffsiteSurvivorProof, 0, len(intent.SurvivorPointIDs))
 	seen := map[string]bool{}
+	lastGood, err := catalog.CurrentOffsiteLastGood(ctx, intent.RecoveryEpoch)
+	if err != nil || lastGood == "" {
+		return OffsiteRetirementProof{}, errors.New("offsite last-good catalog unavailable")
+	}
 	for _, id := range intent.SurvivorPointIDs {
 		if seen[id] {
 			return OffsiteRetirementProof{}, errors.New("duplicate survivor")
 		}
 		seen[id] = true
+		expected, err := catalog.ExpectedOffsiteSurvivor(ctx, id)
+		if err != nil {
+			return OffsiteRetirementProof{}, errors.New("offsite survivor catalog failed")
+		}
 		p, err := verifier.VerifyOffsiteSurvivor(ctx, id)
-		if err != nil || p.PointID != id || p.GenerationID == intent.GenerationID || p.RecoveryEpoch != intent.RecoveryEpoch || p.FullReadAt.IsZero() || p.RestoredAt.IsZero() || p.ObservedAt.IsZero() || p.FullReadAt.After(p.ObservedAt) || p.RestoredAt.After(p.ObservedAt) || !validBackupManifestDigest(p.RuleDigest) || !validBackupManifestDigest(p.InventoryDigest) || !validBackupManifestDigest(p.FullReadDigest) || !validBackupManifestDigest(p.RestoreDigest) {
+		if err != nil || p.PointID != id || p.GenerationID == intent.GenerationID || p.RecoveryEpoch != intent.RecoveryEpoch || p.FullReadAt.IsZero() || p.RestoredAt.IsZero() || p.ObservedAt.IsZero() || p.FullReadAt.After(p.ObservedAt) || p.RestoredAt.After(p.ObservedAt) ||
+			expected.PointID != id || expected.GenerationID != p.GenerationID || expected.RecoveryEpoch != p.RecoveryEpoch || expected.RuleDigest != p.RuleDigest || expected.InventoryDigest != p.InventoryDigest || expected.FullReadDigest != p.FullReadDigest || expected.RestoreDigest != p.RestoreDigest {
 			return OffsiteRetirementProof{}, errors.New("offsite survivor proof failed")
 		}
 		proofs = append(proofs, p)
+	}
+	if !seen[lastGood] {
+		return OffsiteRetirementProof{}, errors.New("current offsite last-good is not a survivor")
 	}
 	slices.SortFunc(proofs, func(a, b OffsiteSurvivorProof) int {
 		if a.PointID < b.PointID {

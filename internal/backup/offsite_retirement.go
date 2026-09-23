@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -15,7 +16,12 @@ const OffsiteRetentionWindow = 14 * 24 * time.Hour
 // an inert exact retirement proposal. Mutation authority is deliberately not
 // part of this type.
 type OffsiteRetirementCatalog struct {
-	Generations                                     []PendingOffsiteGeneration
+	Generations []PendingOffsiteGeneration
+	// GenerationCreatedAt is the durable #114 catalog timestamp for every
+	// generation. CurrentRules is the complete provider-observed bucket rule
+	// set; selection subtracts the target's five rules from this exact set.
+	GenerationCreatedAt                             map[string]time.Time
+	CurrentRules                                    []RetentionRuleRef
 	VerifiedPointIDs                                []string
 	LastGoodPointIDs                                []string
 	DependencyPointIDs                              []string
@@ -35,6 +41,7 @@ type OffsiteRetirementCandidate struct {
 	RecoveryEpoch, SourceRevision                                                 int64
 	ExpectedRetainedBytes, ExpectedReclaimBytes, MaxWorkObjects, MaxMutationBytes int64
 	CapacityWarning                                                               bool
+	PreRuleCount, SurvivorRuleCount                                               int
 }
 
 type RetentionRuleRef struct{ RuleID, Prefix string }
@@ -56,25 +63,39 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 	lastGood := stringSet(catalog.LastGoodPointIDs)
 	dependencies := stringSet(catalog.DependencyPointIDs)
 	promises := stringSet(catalog.ActivePromisePointIDs)
-	if len(lastGood) == 0 || len(catalog.Generations) < 2 {
+	if len(lastGood) == 0 || len(catalog.Generations) < 2 || len(catalog.CurrentRules) != catalog.RuleCount {
 		return fail()
 	}
 	targets := stringSet(nil)
 	for _, target := range local.Targets {
 		targets[target.PointID] = true
 	}
-	var chosen *PendingOffsiteGeneration
+	generations := append([]PendingOffsiteGeneration(nil), catalog.Generations...)
+	slices.SortFunc(generations, func(a, b PendingOffsiteGeneration) int { return strings.Compare(a.GenerationID, b.GenerationID) })
+	var newestVerified time.Time
+	for _, generation := range generations {
+		created := catalog.GenerationCreatedAt[generation.GenerationID]
+		if created.IsZero() || created.After(catalog.ObservedAt) {
+			return fail()
+		}
+		if verified[generation.SourcePointID] && created.After(newestVerified) {
+			newestVerified = created
+		}
+	}
+	if newestVerified.IsZero() {
+		return fail()
+	}
+	var eligible []PendingOffsiteGeneration
 	survivors := make([]string, 0, len(catalog.Generations)-1)
 	var retained int64
-	for i := range catalog.Generations {
-		generation := catalog.Generations[i]
+	for i := range generations {
+		generation := generations[i]
 		if ValidatePendingOffsiteGeneration(generation) != nil || generation.RecoveryEpoch != local.RecoveryEpoch || !verified[generation.SourcePointID] {
 			return fail()
 		}
-		eligible := targets[generation.SourcePointID] && !lastGood[generation.SourcePointID] && !dependencies[generation.SourcePointID] && !promises[generation.SourcePointID]
-		if eligible && chosen == nil {
-			copy := generation
-			chosen = &copy
+		isEligible := targets[generation.SourcePointID] && !lastGood[generation.SourcePointID] && !dependencies[generation.SourcePointID] && !promises[generation.SourcePointID] && !catalog.GenerationCreatedAt[generation.GenerationID].After(newestVerified.Add(-OffsiteRetentionWindow))
+		if isEligible {
+			eligible = append(eligible, generation)
 			continue
 		}
 		survivors = append(survivors, generation.SourcePointID)
@@ -83,7 +104,28 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 		}
 		retained += generation.ObjectBytes
 	}
-	if chosen == nil || len(survivors) == 0 || len(chosen.ProtectedRules) != 5 || chosen.IssuanceStoppedAt.After(now) {
+	if len(eligible) == 0 {
+		return fail()
+	}
+	// Oldest qualified generation wins, then generation ID. This result does
+	// not depend on the caller's slice order.
+	slices.SortFunc(eligible, func(a, b PendingOffsiteGeneration) int {
+		at, bt := catalog.GenerationCreatedAt[a.GenerationID], catalog.GenerationCreatedAt[b.GenerationID]
+		if c := at.Compare(bt); c != 0 {
+			return c
+		}
+		return strings.Compare(a.GenerationID, b.GenerationID)
+	})
+	chosen := &eligible[0]
+	// Rebuild survivors because all other eligible generations remain.
+	survivors, retained = survivors[:0], 0
+	for _, generation := range generations {
+		if generation.GenerationID != chosen.GenerationID {
+			survivors = append(survivors, generation.SourcePointID)
+			retained += generation.ObjectBytes
+		}
+	}
+	if len(survivors) == 0 || len(chosen.ProtectedRules) != 5 || chosen.IssuanceStoppedAt.After(now) {
 		return fail()
 	}
 	for _, expiry := range chosen.SessionExpiries {
@@ -122,7 +164,28 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 		return 0
 	})
 	slices.Sort(survivors)
-	survivorBody, _ := json.Marshal(allSurvivorRules(catalog.Generations, chosen.GenerationID))
+	targetRuleIDs := map[string]bool{}
+	for _, rule := range rules {
+		targetRuleIDs[rule.RuleID] = true
+	}
+	survivorRules := make([]RetentionRuleRef, 0, len(catalog.CurrentRules)-len(rules))
+	seenRules := map[string]bool{}
+	for _, rule := range catalog.CurrentRules {
+		if rule.RuleID == "" || rule.Prefix == "" || seenRules[rule.RuleID] {
+			return fail()
+		}
+		seenRules[rule.RuleID] = true
+		if !targetRuleIDs[rule.RuleID] {
+			survivorRules = append(survivorRules, rule)
+		}
+	}
+	for id := range targetRuleIDs {
+		if !seenRules[id] {
+			return fail()
+		}
+	}
+	slices.SortFunc(survivorRules, func(a, b RetentionRuleRef) int { return strings.Compare(a.RuleID, b.RuleID) })
+	survivorBody, _ := json.Marshal(survivorRules)
 	hash := sha256.New()
 	_, _ = hash.Write([]byte("rules"))
 	_, _ = hash.Write([]byte{0})
@@ -136,6 +199,7 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 		Rules: rules, Objects: objects, SurvivorPointIDs: survivors, RecoveryEpoch: chosen.RecoveryEpoch, SourceRevision: chosen.SourceRevision,
 		ExpectedRetainedBytes: retained, ExpectedReclaimBytes: chosen.ObjectBytes, MaxWorkObjects: int64(len(objects)), MaxMutationBytes: chosen.ObjectBytes,
 		CapacityWarning: catalog.TotalBytes-catalog.AvailableBytes >= catalog.TotalBytes*7/10,
+		PreRuleCount:    catalog.RuleCount, SurvivorRuleCount: len(survivorRules),
 	}, nil
 }
 

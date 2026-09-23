@@ -16,6 +16,14 @@ type survivorVerifierFixture struct {
 	now  time.Time
 }
 
+func (v survivorVerifierFixture) ExpectedOffsiteSurvivor(_ context.Context, id string) (OffsiteSurvivorExpectation, error) {
+	d := "sha256:" + strings.Repeat("a", 64)
+	return OffsiteSurvivorExpectation{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: d, RestoreDigest: d, RecoveryEpoch: 2}, nil
+}
+func (v survivorVerifierFixture) CurrentOffsiteLastGood(context.Context, int64) (string, error) {
+	return "point-good", nil
+}
+
 func (v survivorVerifierFixture) VerifyOffsiteSurvivor(_ context.Context, id string) (OffsiteSurvivorProof, error) {
 	if id == v.fail {
 		return OffsiteSurvivorProof{}, errors.New("restore failed")
@@ -30,14 +38,16 @@ func TestOffsiteRetirementCannotSettleAfterPartialDeleteOrFailedSurvivor(t *test
 	objects := []store.OffsiteRetirementObject{{Key: "data/a", Digest: d, Bytes: 8}}
 	intent := store.OffsiteRetirementIntent{IntentID: "intent-a", GenerationID: "target-generation", InventoryDigest: d, SurvivorRuleDigest: d, Objects: objects, SurvivorPointIDs: []string{"point-good"}, RecoveryEpoch: 2, MaxWorkObjects: 1, MaxMutationBytes: 8}
 	effect := r2retention.EffectJournal{Status: "uncertain", PostRuleDigest: d, ObjectInventoryDigest: r2retention.DigestObjects([]r2retention.Object{{Key: "data/a", Digest: d, Bytes: 8}}), DeletedKeys: []string{"data/a"}, ReclaimedBytes: 8}
-	if _, err := VerifyOffsiteRetirement(context.Background(), intent, effect, survivorVerifierFixture{now: now}, now); err == nil {
+	fixture := survivorVerifierFixture{now: now}
+	if _, err := VerifyOffsiteRetirement(context.Background(), intent, effect, fixture, fixture, now); err == nil {
 		t.Fatal("partial effect settled")
 	}
 	effect.Status = "effects-observed"
-	if _, err := VerifyOffsiteRetirement(context.Background(), intent, effect, survivorVerifierFixture{fail: "point-good", now: now}, now); err == nil {
+	failed := survivorVerifierFixture{fail: "point-good", now: now}
+	if _, err := VerifyOffsiteRetirement(context.Background(), intent, effect, failed, failed, now); err == nil {
 		t.Fatal("failed survivor settled")
 	}
-	proof, err := VerifyOffsiteRetirement(context.Background(), intent, effect, survivorVerifierFixture{now: now}, now)
+	proof, err := VerifyOffsiteRetirement(context.Background(), intent, effect, fixture, fixture, now)
 	if err != nil || proof.ReclaimedBytes != 8 || len(proof.Survivors) != 1 {
 		t.Fatalf("verified proof=%+v err=%v", proof, err)
 	}

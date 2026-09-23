@@ -21,11 +21,13 @@ func TestOffsiteSelectionPreservesSoleLastGoodAndExactFiveRules(t *testing.T) {
 	old := retirementGeneration("generation-old", "point-old", now)
 	good := retirementGeneration("generation-good", "point-good", now)
 	local := RetirementSelection{Targets: []RetirementCandidate{{PointID: "point-old"}}, Survivors: []RetirementCandidate{{PointID: "point-good"}}, RecoveryEpoch: 3}
-	catalog := OffsiteRetirementCatalog{Generations: []PendingOffsiteGeneration{old}, VerifiedPointIDs: []string{"point-old"}, LastGoodPointIDs: []string{"point-old"}, BucketID: "bucket-a", RuleSetDigest: "sha256:" + strings.Repeat("d", 64), CatalogDigest: "sha256:" + strings.Repeat("e", 64), RuleCount: 5, RuleLimit: 1000, TotalBytes: 1000, AvailableBytes: 900, ObservedAt: now}
+	catalog := OffsiteRetirementCatalog{Generations: []PendingOffsiteGeneration{old}, GenerationCreatedAt: map[string]time.Time{"generation-old": now.Add(-30 * 24 * time.Hour)}, CurrentRules: ruleRefs(old), VerifiedPointIDs: []string{"point-old"}, LastGoodPointIDs: []string{"point-old"}, BucketID: "bucket-a", RuleSetDigest: "sha256:" + strings.Repeat("d", 64), CatalogDigest: "sha256:" + strings.Repeat("e", 64), RuleCount: 5, RuleLimit: 1000, TotalBytes: 1000, AvailableBytes: 900, ObservedAt: now}
 	if _, err := SelectOffsiteRetirement(catalog, local, now); err == nil {
 		t.Fatal("sole last good selected")
 	}
 	catalog.Generations = []PendingOffsiteGeneration{old, good}
+	catalog.GenerationCreatedAt["generation-good"] = now.Add(-time.Hour)
+	catalog.CurrentRules = append(ruleRefs(old), ruleRefs(good)...)
 	catalog.VerifiedPointIDs = []string{"point-old", "point-good"}
 	catalog.LastGoodPointIDs = []string{"point-good"}
 	catalog.RuleCount = 10
@@ -42,4 +44,14 @@ func TestOffsiteSelectionPreservesSoleLastGoodAndExactFiveRules(t *testing.T) {
 	if candidate.GenerationID != "generation-old" || len(candidate.Rules) != 5 || len(candidate.Objects) != 1 || len(candidate.SurvivorPointIDs) != 1 {
 		t.Fatalf("candidate not exact: %+v", candidate)
 	}
+}
+
+func ruleRefs(values ...PendingOffsiteGeneration) []RetentionRuleRef {
+	var out []RetentionRuleRef
+	for _, value := range values {
+		for _, rule := range value.ProtectedRules {
+			out = append(out, RetentionRuleRef{RuleID: rule.RuleID, Prefix: rule.Prefix})
+		}
+	}
+	return out
 }

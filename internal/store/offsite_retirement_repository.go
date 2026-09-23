@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ type OffsiteRetirementIntent struct {
 	Objects                                                                           []OffsiteRetirementObject
 	SurvivorPointIDs                                                                  []string
 	SourceRevision, StateRevision, RecoveryEpoch, MaxWorkObjects, MaxMutationBytes    int64
+	PreRuleCount, SurvivorRuleCount                                                   int
 }
 type OffsiteRetirementClaim struct {
 	IntentID, LeaseID, RunID, StepID, ExecutorLeaseID string
@@ -54,7 +56,7 @@ func NewOffsiteRetirementRepository(authority *Store) *OffsiteRetirementReposito
 func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context, intent OffsiteRetirementIntent) (string, error) {
 	if r == nil || r.store == nil || intent.IntentID == "" || intent.PlanID == "" || !validBackupDigest(intent.PlanDigest) || intent.GenerationID == "" || intent.PointID == "" || intent.BucketID == "" ||
 		!validBackupDigest(intent.RuleSetDigest) || !validBackupDigest(intent.SurvivorRuleDigest) || !validBackupDigest(intent.ManifestDigest) || !validBackupDigest(intent.CatalogDigest) || !validBackupDigest(intent.InventoryDigest) ||
-		intent.OneOwnerProofID == "" || intent.LockAdminConsumerID == "" || intent.RetentionConsumerID == "" || intent.LockAdminConsumerID == intent.RetentionConsumerID || len(intent.Rules) != 5 || len(intent.Objects) == 0 || len(intent.SurvivorPointIDs) == 0 || intent.MaxWorkObjects != int64(len(intent.Objects)) || intent.MaxMutationBytes < 0 {
+		intent.OneOwnerProofID == "" || intent.LockAdminConsumerID == "" || intent.RetentionConsumerID == "" || intent.LockAdminConsumerID == intent.RetentionConsumerID || len(intent.Rules) != 5 || len(intent.Objects) == 0 || len(intent.SurvivorPointIDs) == 0 || intent.MaxWorkObjects != int64(len(intent.Objects)) || intent.MaxMutationBytes < 0 || intent.PreRuleCount < 5 || intent.SurvivorRuleCount != intent.PreRuleCount-5 {
 		return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-intent", false, nil)
 	}
 	ruleIDs, prefixes := map[string]bool{}, map[string]bool{}
@@ -96,10 +98,13 @@ func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context
 			return newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-intent", false, nil)
 		}
 		var exact int
-		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_generations WHERE generation_id=? AND source_point_id=? AND source_revision=? AND state_revision<=? AND recovery_epoch=?`, intent.GenerationID, intent.PointID, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch).Scan(&exact); e != nil || exact != 1 {
+		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_generations g WHERE g.generation_id=? AND g.source_point_id=? AND g.source_revision=? AND g.state_revision<=? AND g.recovery_epoch=? AND json_extract(g.pending_json,'$.SourceManifestDigest')=? AND json_extract(g.pending_json,'$.OffsiteInventoryDigest')=? AND EXISTS(SELECT 1 FROM immutable_plans p WHERE p.plan_id=? AND p.plan_digest=? AND p.state_revision=? AND p.recovery_epoch=? AND p.expires_at>?)`, intent.GenerationID, intent.PointID, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.ManifestDigest, intent.InventoryDigest, intent.PlanID, intent.PlanDigest, intent.StateRevision, intent.RecoveryEpoch, now).Scan(&exact); e != nil || exact != 1 {
 			return newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-generation", false, e)
 		}
-		if _, e := tx.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_intents(intent_id,plan_id,plan_digest,generation_id,point_id,bucket_id,rule_set_digest,survivor_rule_digest,manifest_digest,catalog_digest,inventory_digest,one_owner_proof_id,lock_admin_consumer_id,retention_consumer_id,canonical_json,source_revision,state_revision,recovery_epoch,max_work_objects,max_mutation_bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, intent.IntentID, intent.PlanID, intent.PlanDigest, intent.GenerationID, intent.PointID, intent.BucketID, intent.RuleSetDigest, intent.SurvivorRuleDigest, intent.ManifestDigest, intent.CatalogDigest, intent.InventoryDigest, intent.OneOwnerProofID, intent.LockAdminConsumerID, intent.RetentionConsumerID, string(body), intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.MaxWorkObjects, intent.MaxMutationBytes, now); e != nil {
+		if e := exactRetirementCatalogRows(ctx, tx, intent); e != nil {
+			return e
+		}
+		if _, e := tx.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_intents(intent_id,plan_id,plan_digest,generation_id,point_id,bucket_id,rule_set_digest,survivor_rule_digest,manifest_digest,catalog_digest,inventory_digest,one_owner_proof_id,lock_admin_consumer_id,retention_consumer_id,canonical_json,source_revision,state_revision,recovery_epoch,max_work_objects,max_mutation_bytes,pre_rule_count,survivor_rule_count,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, intent.IntentID, intent.PlanID, intent.PlanDigest, intent.GenerationID, intent.PointID, intent.BucketID, intent.RuleSetDigest, intent.SurvivorRuleDigest, intent.ManifestDigest, intent.CatalogDigest, intent.InventoryDigest, intent.OneOwnerProofID, intent.LockAdminConsumerID, intent.RetentionConsumerID, string(body), intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.MaxWorkObjects, intent.MaxMutationBytes, intent.PreRuleCount, intent.SurvivorRuleCount, now); e != nil {
 			return e
 		}
 		for i, v := range intent.Rules {
@@ -131,7 +136,18 @@ func (r *OffsiteRetirementRepository) ClaimOffsiteRetirement(ctx context.Context
 	if !now.Before(claim.MaximumExpiresAt) {
 		return result, newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-claim", false, nil)
 	}
-	err := r.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+	// Resolve the intent's exact proof through the canonical current live G-008
+	// path before entering the write transaction. Append-only evidence plus the
+	// in-transaction revision/epoch check fences any concurrent replacement.
+	var proofID, proofBucket string
+	if err := r.store.conn.QueryRowContext(ctx, `SELECT one_owner_proof_id,bucket_id FROM backup_offsite_retirement_intents WHERE intent_id=?`, claim.IntentID).Scan(&proofID, &proofBucket); err != nil {
+		return result, err
+	}
+	qualifiedEvidence, err := NewGateRepository(r.store).ResolveCurrentExclusiveAdminEvidence(ctx, proofID, proofBucket, now)
+	if err != nil {
+		return result, newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-one-owner", false, err)
+	}
+	err = r.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var planID, planDigest, generation, bucket, oneOwnerProof, lockAdmin, retention string
 		var revision, epoch, maxWork, maxBytes int64
 		if e := tx.QueryRowContext(ctx, `SELECT plan_id,plan_digest,generation_id,bucket_id,one_owner_proof_id,lock_admin_consumer_id,retention_consumer_id,state_revision,recovery_epoch,max_work_objects,max_mutation_bytes FROM backup_offsite_retirement_intents WHERE intent_id=?`, claim.IntentID).Scan(&planID, &planDigest, &generation, &bucket, &oneOwnerProof, &lockAdmin, &retention, &revision, &epoch, &maxWork, &maxBytes); e != nil {
@@ -155,9 +171,8 @@ func (r *OffsiteRetirementRepository) ClaimOffsiteRetirement(ctx context.Context
 		if currentRevision != revision || currentEpoch != epoch {
 			return newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-claim", false, nil)
 		}
-		var qualified int
-		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM gate_applied_evidence e WHERE e.evidence_id=? AND e.gate_id='G-008' AND e.subject_id=? AND e.status='applied' AND e.source_kind<>'fixture' AND e.proof_class='live' AND e.recovery_epoch=? AND e.state_revision<=? AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)`, oneOwnerProof, bucket, epoch, currentRevision).Scan(&qualified); e != nil || qualified != 1 {
-			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-one-owner", false, e)
+		if qualifiedEvidence.EvidenceID != oneOwnerProof || qualifiedEvidence.SubjectID != bucket || qualifiedEvidence.RecoveryEpoch != epoch || qualifiedEvidence.StateRevision > currentRevision {
+			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-one-owner", false, nil)
 		}
 		if _, e := tx.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,recovery_epoch,maximum_expires_at,acquired_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, claim.LeaseID, claim.IntentID, claim.RunID, claim.StepID, claim.ExecutorLeaseID, ack, human, epoch, claim.MaximumExpiresAt.Format(time.RFC3339), now.Format(time.RFC3339)); e != nil {
 			return e
@@ -179,8 +194,62 @@ func (r *OffsiteRetirementRepository) AppendReceipt(ctx context.Context, v Offsi
 	if r == nil || r.store == nil || v.ReceiptID == "" || v.IntentID == "" || v.LeaseID == "" || (v.Status != "uncertain" && v.Status != "failed" && v.Status != "verified") || !validBackupDigest(v.EffectDigest) || v.ReclaimedBytes < 0 || len(v.CanonicalJSON) < 2 || (v.Status == "verified" && !validBackupDigest(v.SurvivorProofDigest)) {
 		return newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-receipt", false, nil)
 	}
-	_, err := r.store.conn.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_receipts(receipt_id,intent_id,lease_id,status,effect_digest,survivor_proof_digest,reclaimed_bytes,canonical_json,recorded_at) VALUES(?,?,?,?,?,?,?,?,?)`, v.ReceiptID, v.IntentID, v.LeaseID, v.Status, v.EffectDigest, nilIfEmpty(v.SurvivorProofDigest), v.ReclaimedBytes, string(v.CanonicalJSON), r.store.config.Clock().UTC().Format(time.RFC3339))
-	return err
+	return r.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		var matches, observed, uncertain int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_retirement_leases WHERE lease_id=? AND intent_id=?`, v.LeaseID, v.IntentID).Scan(&matches); err != nil || matches != 1 {
+			return newStoreError(generated.ErrorCodeAuthorizationDenied, "offsite-retirement-receipt-lease", false, err)
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_retirement_attempts WHERE lease_id=? AND status='observed'`, v.LeaseID).Scan(&observed); err != nil {
+			return err
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_retirement_attempts WHERE lease_id=? AND status='uncertain'`, v.LeaseID).Scan(&uncertain); err != nil {
+			return err
+		}
+		if v.Status == "verified" && (uncertain != 0 || observed < 2) {
+			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-receipt-proof", false, nil)
+		}
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_receipts(receipt_id,intent_id,lease_id,status,effect_digest,survivor_proof_digest,reclaimed_bytes,canonical_json,recorded_at) VALUES(?,?,?,?,?,?,?,?,?)`, v.ReceiptID, v.IntentID, v.LeaseID, v.Status, v.EffectDigest, nilIfEmpty(v.SurvivorProofDigest), v.ReclaimedBytes, string(v.CanonicalJSON), r.store.config.Clock().UTC().Format(time.RFC3339))
+		return err
+	})
+}
+
+func exactRetirementCatalogRows(ctx context.Context, tx *sql.Tx, intent OffsiteRetirementIntent) error {
+	rows, err := tx.QueryContext(ctx, `SELECT rule_id,protected_prefix FROM backup_offsite_retention_rules WHERE generation_id=? ORDER BY sequence`, intent.GenerationID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	var rules []OffsiteRetirementRule
+	for rows.Next() {
+		var v OffsiteRetirementRule
+		if err := rows.Scan(&v.RuleID, &v.Prefix); err != nil {
+			return err
+		}
+		rules = append(rules, v)
+	}
+	if err := rows.Err(); err != nil {
+		return err
+	}
+	objectsRows, err := tx.QueryContext(ctx, `SELECT object_key,object_digest,object_bytes FROM backup_offsite_objects WHERE generation_id=? ORDER BY sequence`, intent.GenerationID)
+	if err != nil {
+		return err
+	}
+	defer objectsRows.Close()
+	var objects []OffsiteRetirementObject
+	for objectsRows.Next() {
+		var v OffsiteRetirementObject
+		if err := objectsRows.Scan(&v.Key, &v.Digest, &v.Bytes); err != nil {
+			return err
+		}
+		objects = append(objects, v)
+	}
+	if err := objectsRows.Err(); err != nil {
+		return err
+	}
+	if !slices.Equal(rules, intent.Rules) || !slices.Equal(objects, intent.Objects) {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-catalog", false, nil)
+	}
+	return nil
 }
 func nilIfEmpty(v string) any {
 	if v == "" {
