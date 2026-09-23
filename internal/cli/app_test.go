@@ -42,7 +42,7 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			controlOperations := successfulControlOperations(t)
 			credentialOperations := successfulCredentialOperations(t)
 			files := &stubFileReader{content: []byte("synthetic fixture")}
-			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft || commandName(command.Path) == generated.CommandNameBackupRetentionLocksDraft || commandName(command.Path) == generated.CommandNameBackupRun || commandName(command.Path) == generated.CommandNameBackupVerify {
+			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft || commandName(command.Path) == generated.CommandNameBackupRetentionLocksDraft || commandName(command.Path) == generated.CommandNameBackupRetirementDraft || commandName(command.Path) == generated.CommandNameBackupRun || commandName(command.Path) == generated.CommandNameBackupVerify {
 				files.content = syntheticGateRequest(t, commandName(command.Path))
 			}
 			if strings.HasPrefix(commandName(command.Path), "credential ") && commandName(command.Path) != generated.CommandNameCredentialImport {

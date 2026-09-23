@@ -206,6 +206,7 @@ func Current() Registry {
 		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
 		backupPolicyDraftCommand(),
 		backupRetentionLockDraftCommand(),
+		backupRetirementDraftCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		credentialImportCommand(),
 		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
@@ -385,6 +386,12 @@ func backupRetentionLockDraftCommand() CommandDefinition {
 			{Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-retention-lock-draft-request JSON file (64 KiB max)."},
 		},
 		[]string{"backup", "retention-locks", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-retention-lock-draft-request.json", "--output", "json"})
+}
+
+func backupRetirementDraftCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "retirement", "draft"}, "Derive and store one exact inert local retirement selection with its credential binding.", backupRetirementDraftRequestID, backupRetirementDraftSubmissionID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-retirement-draft-request JSON file (64 KiB max)."}},
+		[]string{"backup", "retirement", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-retirement-draft-request.json", "--output", "json"})
 }
 
 func backupStatusCommand() CommandDefinition {

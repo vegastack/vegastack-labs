@@ -28,6 +28,7 @@ type BackupStatusService interface {
 type BackupOperations struct {
 	Drafts         BackupPolicyDraftService
 	RetentionLocks RetentionLockDraftService
+	Retirements    RetirementDraftService
 	Status         BackupStatusService
 	Runs           RunOperationConfig
 	Results        *result.Factory
@@ -39,6 +40,10 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 	}
 	app.routes = append(app.routes, route{id: "api.v1.backup-policy-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/policies/drafts", capability: "backup.policy.author", kind: "backup-policy", action: authorization.ActionAuthor, handler: app.backupPolicyDraft(config)})
 	added := 1
+	if config.Retirements != nil {
+		app.routes = append(app.routes, route{id: "api.v1.backup-retirement-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/retirements/drafts", deferredAuthorization: true, handler: app.backupRetirementDraft(config)})
+		added++
+	}
 	if config.RetentionLocks != nil {
 		app.routes = append(app.routes, route{id: "api.v1.backup-retention-lock-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/retention-locks/drafts", deferredAuthorization: true, handler: app.backupRetentionLockDraft(config)})
 		added++

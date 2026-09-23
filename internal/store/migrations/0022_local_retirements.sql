@@ -50,6 +50,25 @@ CREATE INDEX backup_retention_lock_catalog_current_idx ON backup_retention_lock_
 CREATE TRIGGER backup_retention_lock_catalog_activations_no_update BEFORE UPDATE ON backup_retention_lock_catalog_activations BEGIN SELECT RAISE(ABORT,'retention lock catalog activations are append-only'); END;
 CREATE TRIGGER backup_retention_lock_catalog_activations_no_delete BEFORE DELETE ON backup_retention_lock_catalog_activations BEGIN SELECT RAISE(ABORT,'retention lock catalog activations are append-only'); END;
 
+-- An exact server-derived selection is stored before its credential binding.
+-- It remains inert until a later immutable human plan is created and run.
+CREATE TABLE backup_retirement_drafts (
+    draft_id TEXT PRIMARY KEY CHECK (length(draft_id) BETWEEN 1 AND 128),
+    selection_digest TEXT NOT NULL UNIQUE CHECK (length(selection_digest)=71 AND substr(selection_digest,1,7)='sha256:'),
+    declaration_id TEXT NOT NULL,
+    declaration_revision INTEGER NOT NULL CHECK (declaration_revision > 0),
+    canonical_json TEXT NOT NULL CHECK (length(canonical_json) BETWEEN 2 AND 1048576),
+    idempotency_key_digest TEXT NOT NULL CHECK (length(idempotency_key_digest)=71 AND substr(idempotency_key_digest,1,7)='sha256:'),
+    state_revision INTEGER NOT NULL CHECK (state_revision > 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    created_by TEXT NOT NULL CHECK (length(created_by) BETWEEN 1 AND 128),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (declaration_id,declaration_revision) REFERENCES declaration_revisions(declaration_id,declaration_revision),
+    UNIQUE(recovery_epoch,idempotency_key_digest)
+) STRICT;
+CREATE TRIGGER backup_retirement_drafts_no_update BEFORE UPDATE ON backup_retirement_drafts BEGIN SELECT RAISE(ABORT,'retirement drafts are immutable'); END;
+CREATE TRIGGER backup_retirement_drafts_no_delete BEFORE DELETE ON backup_retirement_drafts BEGIN SELECT RAISE(ABORT,'retirement drafts are immutable'); END;
+
 CREATE TABLE backup_retirement_intents (
     intent_id TEXT PRIMARY KEY CHECK (length(intent_id) BETWEEN 1 AND 128),
     plan_id TEXT NOT NULL REFERENCES immutable_plans(plan_id),

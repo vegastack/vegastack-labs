@@ -69,6 +69,19 @@
       ]
     },
     {
+      "id": "api.v1.backup-retirement-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/backups/retirements/drafts",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-retirement-draft-request",
+      "dataSchema": "vegastack-labs.dev/backup-retirement-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.backups.run",
       "method": "POST",
       "path": "/api/v1/backups/run",

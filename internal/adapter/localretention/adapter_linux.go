@@ -67,6 +67,17 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		return effect, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-declaration")
 	}
 	intent, err := a.config.Retirements.GetLocalRetirementIntentBySelection(ctx, selectionDigest)
+	if store.Code(err) == generated.ErrorCodeResourceNotFound {
+		draft, draftErr := a.config.Retirements.GetLocalRetirementDraftBySelection(ctx, selectionDigest, binding.RecoveryEpoch)
+		if draftErr != nil {
+			return effect, draftErr
+		}
+		stage := draft.Selection
+		stage.PlanID, stage.PlanDigest = binding.PlanID, binding.PlanDigest
+		stage.StateRevision = binding.StateRevision
+		stage.Attribution = draft.Attribution
+		intent, err = a.config.Retirements.StageLocalRetirement(ctx, stage)
+	}
 	if err != nil {
 		return effect, err
 	}

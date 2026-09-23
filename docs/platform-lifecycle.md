@@ -47,6 +47,8 @@ The local backup path is similarly scoped to inert input plus pending-only creat
 
 Local retirement reuses that custody process under a separate retention role. A complete applied retention-lock catalog turns rollback and recovery promises into authoritative point locks; caller flags cannot clear them. A keep-within selection is relative to the latest verified point, and the sole last-good always survives. The immutable intent binds targets, survivors, their manifest/inventory/dependency/proof digests, the full repository inventory, the lock catalog and source coverage, the current revision/epoch and bounded mutation/repack bytes. A new point or catalog activation makes the plan stale. Restic may repack survivor data, so the retention REST role journals every created object and moves every removed object to same-filesystem quarantine. It publishes a new readable repository generation only after the complete post-inventory, mutation journal, full payload read and isolated restore of every survivor agree. A crash, response loss or partial publication preserves the predecessor authority and quarantine for explicit reconciliation under a fresh plan.
 
+The public retirement draft surface never accepts point or object targets. It derives them from current verified recovery points, last-good state, expected objects and the applied lock catalog, then durably stages its one exact credential step binding. Plan creation remains a later action and fails closed if that binding or either named digest extension is absent.
+
 ### Inert local credential import
 
 The human procedure and the CLI have the same boundary:

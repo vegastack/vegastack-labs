@@ -285,7 +285,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Status: backupRepository,
+	retirementDrafts, err := api.NewRetirementDraftService(store.NewLocalRetirementRepository(authority), credentialRepository, planRepository, declarations, effectiveConfig.Authorizer)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, Status: backupRepository,
 		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
 		Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
@@ -495,6 +500,14 @@ func (operations *Operations) SubmitBackupRetentionLockDraft(ctx context.Context
 		return localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]{}, err
 	}
 	return client.SubmitBackupRetentionLockDraft(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitBackupRetirementDraft(ctx context.Context, configPath string, input generated.BackupRetirementDraftRequest) (localapi.TypedResponse[generated.BackupRetirementDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupRetirementDraftSubmission]{}, err
+	}
+	return client.SubmitBackupRetirementDraft(ctx, profile, input)
 }
 
 func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {

@@ -34,6 +34,17 @@ func (client *client) SubmitBackupRetentionLockDraft(ctx context.Context, profil
 	})
 }
 
+func (client *client) SubmitBackupRetirementDraft(ctx context.Context, profile serverconfig.Profile, input generated.BackupRetirementDraftRequest) (TypedResponse[generated.BackupRetirementDraftSubmission], error) {
+	var zero TypedResponse[generated.BackupRetirementDraftSubmission]
+	raw, err := json.Marshal(input)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDBackupRetirementDraftRequest, raw, generated.ContractExact) != nil {
+		return zero, failure.New(generated.ErrorCodeInputInvalid, "backup-retirement-draft", false)
+	}
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/backups/retirements/drafts", "api.v1.backup-retirement-drafts.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.BackupRetirementDraftSubmission, result generated.RunResult) bool {
+		return data.Schema == generated.SchemaIDBackupRetirementDraftSubmission && data.SelectionDigest != "" && data.CredentialManifestDigest != "" && len(data.TargetPointIDs) > 0 && len(data.SurvivorPointIDs) > 0 && data.Status == "draft" && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
+	})
+}
+
 func (client *client) BackupStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error) {
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/backups/status", "api.v1.backups.status", maxOperationResponseBodyBytes, statusTimeout, false}, nil, func(data generated.BackupStatusData, result generated.RunResult) bool {
 		raw, err := json.Marshal(data)

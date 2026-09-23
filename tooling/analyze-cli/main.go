@@ -913,8 +913,8 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 const (
 	// #115 adds the typed, local-only inert retention-lock catalog draft. It
 	// carries public point IDs and digests only and reaches no provider path.
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "4485a4c27d573c55a4434affe910c3e7b38be9793309125c04014a7ce10cbd17"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "9e9e08938df81222a547ca45bdef9715dea353d0a21b5daf9f5f6d01d3c8c36a"
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "baaed3f48daf3bd806246ca3f6473e2d9674e8af14c613d1970e8e246578d49c"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "7c102d030fa2ca86e3d5c6d9fb5018d30fd1da61cbeb0b43c6fa8239725e2d66"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )
@@ -1191,7 +1191,7 @@ var reviewedBackupSubprocesses = map[string]string{
 }
 
 var reviewedLocalRetentionSources = map[string]string{
-	"adapter_linux.go":       "39123b87f4aedc20193c1b3dbf15f5992c4a991437027aff41e27ae441e1f2e3",
+	"adapter_linux.go":       "43b10e46a7545bdc89215eb727f746f0d5012625f6562c4a61b387569f3997bc",
 	"adapter_unsupported.go": "d3cf269cde1eee954a7253dccbea4acea06058b0c7322b185d527c742f81b126",
 }
 

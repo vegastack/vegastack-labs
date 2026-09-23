@@ -73,6 +73,14 @@ func localRepositoryPlanTargetDigest(repositoryID string) (string, error) {
 	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
+func LocalRepositoryPlanTargetDigest(repositoryID string) (string, error) {
+	return localRepositoryPlanTargetDigest(repositoryID)
+}
+
+func CanonicalLocalRetirementSelection(request LocalRetirementStageRequest) ([]byte, string, error) {
+	return canonicalRetirementSelection(request)
+}
+
 func validRetirementID(value string) bool {
 	if len(value) < 1 || len(value) > 128 || value[0] < 'a' || value[0] > 'z' {
 		return false

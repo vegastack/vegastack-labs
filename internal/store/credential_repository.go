@@ -129,6 +129,27 @@ func credentialBindingID(declarationID string, revision int64, digest string) st
 	return "binding-" + hex.EncodeToString(sum[:12])
 }
 
+func (repository *CredentialRepository) HasExactStepBinding(ctx context.Context, declarationID string, declarationRevision int64, binding credentialref.StepBinding) (bool, error) {
+	if repository == nil || repository.store == nil || declarationRevision < 1 || !credentialref.ValidBinding(binding) {
+		return false, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-binding")
+	}
+	var raw []byte
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT binding_bytes FROM credential_step_bindings WHERE declaration_id=? AND declaration_revision=? AND operation_id=? AND binding_digest=?`, declarationID, declarationRevision, binding.OperationID, binding.Digest()).Scan(&raw)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var stored credentialref.StepBinding
+	if json.Unmarshal(raw, &stored) != nil || stored != binding {
+		return false, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-binding")
+	}
+	return true, nil
+}
+
 func credentialExtensionDigest(plan generated.Plan) string {
 	return draftCredentialDigest(plan.Extensions)
 }

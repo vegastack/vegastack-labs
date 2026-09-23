@@ -23,6 +23,7 @@ type stubControlOperations struct {
 	gateProfileResponse   localapi.TypedResponse[generated.GateProfileDraftSubmission]
 	backupPolicyResponse  localapi.TypedResponse[generated.BackupPolicyDraftSubmission]
 	retentionLockResponse localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]
+	retirementResponse    localapi.TypedResponse[generated.BackupRetirementDraftSubmission]
 	backupStatusResponse  localapi.TypedResponse[generated.BackupStatusData]
 	backupJobResponse     localapi.TypedResponse[generated.BackupJob]
 	summaryResponse       localapi.TypedResponse[generated.ApiSummaryData]
@@ -62,6 +63,9 @@ func (stub *stubControlOperations) SubmitBackupPolicyDraft(_ context.Context, _ 
 }
 func (stub *stubControlOperations) SubmitBackupRetentionLockDraft(_ context.Context, _ string, _ generated.BackupRetentionLockDraftRequest) (localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission], error) {
 	return stub.retentionLockResponse, stub.err
+}
+func (stub *stubControlOperations) SubmitBackupRetirementDraft(_ context.Context, _ string, _ generated.BackupRetirementDraftRequest) (localapi.TypedResponse[generated.BackupRetirementDraftSubmission], error) {
+	return stub.retirementResponse, stub.err
 }
 func (stub *stubControlOperations) BackupStatus(_ context.Context, _ string) (localapi.TypedResponse[generated.BackupStatusData], error) {
 	return stub.backupStatusResponse, stub.err
@@ -174,6 +178,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	profile := generated.GateProfileDraftSubmission{Schema: generated.SchemaIDGateProfileDraftSubmission, SchemaVersion: "1.1.0", DraftID: "binding-test", ChangeID: "gate-profile-binding-test", BindingID: "binding-test", Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	backup := generated.BackupPolicyDraftSubmission{Schema: generated.SchemaIDBackupPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: "backup-draft-test", PolicyID: "policy-a", PolicyDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	retentionLock := generated.BackupRetentionLockDraftSubmission{Schema: generated.SchemaIDBackupRetentionLockDraftSubmission, SchemaVersion: "1.1.0", DraftID: "lock-draft-test", ChangeID: "retention-lock-change-test", OperationID: "retention-lock-operation-test", CatalogDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 9, RecoveryEpoch: 2}
+	retirement := generated.BackupRetirementDraftSubmission{Schema: generated.SchemaIDBackupRetirementDraftSubmission, SchemaVersion: "1.1.0", DraftID: "retirement-draft-test", ChangeID: "retirement-change-test", OperationID: "retirement-operation-test", SelectionDigest: "sha256:" + strings.Repeat("b", 64), CredentialManifestDigest: "sha256:" + strings.Repeat("c", 64), TargetPointIDs: []string{"point-old"}, SurvivorPointIDs: []string{"point-good"}, Status: "draft", StateRevision: 10, RecoveryEpoch: 2}
 	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.2.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, RecoveryEpoch: 2}
 	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
 	return &stubControlOperations{
@@ -184,6 +189,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		gateProfileResponse:   operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
 		backupPolicyResponse:  operationResponse(t, "api.v1.backup-policy-drafts.create", true, 2, 8, backup),
 		retentionLockResponse: operationResponse(t, "api.v1.backup-retention-lock-drafts.create", true, 2, 9, retentionLock),
+		retirementResponse:    operationResponse(t, "api.v1.backup-retirement-drafts.create", true, 2, 10, retirement),
 		backupStatusResponse:  operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
 		backupJobResponse:     operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
 		summaryResponse:       operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),

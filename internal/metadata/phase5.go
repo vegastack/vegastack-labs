@@ -18,6 +18,8 @@ const (
 	backupRetentionLockCatalogSchemaID    = "vegastack-labs.dev/local-retention-lock-catalog"
 	backupRetentionLockDraftRequestID     = "vegastack-labs.dev/backup-retention-lock-draft-request"
 	backupRetentionLockDraftSubmissionID  = "vegastack-labs.dev/backup-retention-lock-draft-submission"
+	backupRetirementDraftRequestID        = "vegastack-labs.dev/backup-retirement-draft-request"
+	backupRetirementDraftSubmissionID     = "vegastack-labs.dev/backup-retirement-draft-submission"
 	backupTrustSourceDraftRequestSchemaID = "vegastack-labs.dev/backup-trust-source-draft-request"
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
@@ -572,6 +574,17 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Digest("catalogDigest", "CatalogDigest"), phase5Enum("status", "Status", "draft"),
 			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5BackupRequest(backupRetirementDraftRequestID,
+			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"),
+			phase5ID("referenceId", "ReferenceID"), phase5Enum("resolverId", "ResolverID", "native-systemd"),
+			phase5ID("materialVersion", "MaterialVersion"),
+		),
+		phase5BackupSchema(backupRetirementDraftSubmissionID,
+			phase5ID("draftId", "DraftID"), phase5ID("changeId", "ChangeID"), phase5ID("operationId", "OperationID"),
+			phase5Digest("selectionDigest", "SelectionDigest"), phase5Digest("credentialManifestDigest", "CredentialManifestDigest"),
+			phase5IDs("targetPointIds", "TargetPointIDs", 256), phase5IDs("survivorPointIds", "SurvivorPointIDs", 256),
+			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5BackupSchema(backupPolicyDraftSubmissionSchemaID,
 			phase5ID("draftId", "DraftID"), phase5ID("policyId", "PolicyID"),
 			phase5Digest("policyDigest", "PolicyDigest"),
@@ -695,6 +708,7 @@ func phase5Endpoints() []EndpointDefinition {
 		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialImportRequestSchemaID, DataSchema: credentialImportSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
 		{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", RequestSchema: backupPolicyDraftRequestSchemaID, DataSchema: backupPolicyDraftSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		{ID: "api.v1.backup-retention-lock-drafts.create", Method: "POST", Path: "/api/v1/backups/retention-locks/drafts", RequestSchema: backupRetentionLockDraftRequestID, DataSchema: backupRetentionLockDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.backup-retirement-drafts.create", Method: "POST", Path: "/api/v1/backups/retirements/drafts", RequestSchema: backupRetirementDraftRequestID, DataSchema: backupRetirementDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		phase5AvailableGateEndpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
@@ -731,6 +745,8 @@ func phase5CommandSchemas(path string) (request string, data string) {
 		return "", backupStatusDataSchemaID
 	case "backup retention-locks draft":
 		return backupRetentionLockDraftRequestID, backupRetentionLockDraftSubmissionID
+	case "backup retirement draft":
+		return backupRetirementDraftRequestID, backupRetirementDraftSubmissionID
 	case "recovery witness collect":
 		return "", recoveryWitnessCollectionDataSchemaID
 	case "backup run", "database backup":

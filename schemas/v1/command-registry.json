@@ -349,6 +349,79 @@
     {
       "path": [
         "backup",
+        "retirement",
+        "draft"
+      ],
+      "summary": "Derive and store one exact inert local retirement selection with its credential binding.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed backup-retirement-draft-request JSON file (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/backup-retirement-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-retirement-draft-submission",
+      "examples": [
+        {
+          "summary": "Derive and store one exact inert local retirement selection with its credential binding.",
+          "arguments": [
+            "backup",
+            "retirement",
+            "draft",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/backup-retirement-draft-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "backup",
         "run"
       ],
       "summary": "Execute one exact approved backup-creation plan; the point remains pending.",
@@ -3329,6 +3402,16 @@
       "id": "vegastack-labs.dev/backup-retention-lock-draft-submission",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/backup-retention-lock-draft-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-retirement-draft-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-retirement-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-retirement-draft-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-retirement-draft-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/backup-run-request",
