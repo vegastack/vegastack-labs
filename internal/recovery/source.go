@@ -49,6 +49,36 @@ type SnapshotResolver interface {
 	ResolveLocal(context.Context, store.LocalRecoverySource) (SnapshotReader, error)
 }
 
+// OffsiteRecoverySource is the secret-free, exact generation selected by the
+// durable off-site last-good record. Repository credentials remain behind the
+// resolver boundary.
+type OffsiteRecoverySource struct {
+	PointID, GenerationID, RepositoryID, SnapshotID                    string
+	ManifestDigest, InventoryDigest, ContentDigest, VerificationDigest string
+	CatalogDigest, DependencyDigest, KeyReferenceID                    string
+	Status, ProofClass                                                 string
+	SourceRevision, StateRevision, RecoveryEpoch, CurrentStateRevision int64
+	CurrentRecoveryEpoch, DatabaseSchemaVersion                        int64
+	CreatedAt, VerifiedAt, FullReadValidUntil, FunctionalValidUntil    time.Time
+	DependencyDigests                                                  []string
+}
+
+type OffsiteSourceReader interface {
+	CurrentOffsiteRecoverySource(context.Context, string) (OffsiteRecoverySource, error)
+}
+
+type OffsiteSnapshotResolver interface {
+	ResolveOffsite(context.Context, OffsiteRecoverySource) (SnapshotReader, error)
+}
+
+type OffsiteCompatibilityVerifier interface {
+	VerifyOffsiteRestoreCompatibility(context.Context, SourceSelection, OffsiteRecoverySource) error
+}
+
+type OffsiteAuditPositionVerifier interface {
+	VerifyOffsiteRestoreAuditPosition(context.Context, OffsiteRecoverySource, SnapshotReader) (AuditContinuity, error)
+}
+
 type CompatibilityVerifier interface {
 	VerifyRestoreCompatibility(context.Context, SourceSelection, store.LocalRecoverySource) error
 }
@@ -65,20 +95,30 @@ type VerifiedSource struct {
 }
 
 type SourceVerifier struct {
-	Local         LocalSourceReader
-	Snapshots     SnapshotResolver
-	Compatibility CompatibilityVerifier
-	Audit         AuditPositionVerifier
-	Clock         func() time.Time
+	Local                LocalSourceReader
+	Snapshots            SnapshotResolver
+	Compatibility        CompatibilityVerifier
+	Audit                AuditPositionVerifier
+	Offsite              OffsiteSourceReader
+	OffsiteSnapshots     OffsiteSnapshotResolver
+	OffsiteCompatibility OffsiteCompatibilityVerifier
+	OffsiteAudit         OffsiteAuditPositionVerifier
+	Clock                func() time.Time
 }
 
 func (verifier SourceVerifier) Verify(ctx context.Context, selection SourceSelection) (VerifiedSource, error) {
 	blocked := func(target string) (VerifiedSource, error) {
 		return VerifiedSource{}, failure.New(generated.ErrorCodePrerequisiteBlocked, target, false)
 	}
-	if ctx == nil || ctx.Err() != nil || verifier.Local == nil || verifier.Snapshots == nil || verifier.Compatibility == nil || verifier.Audit == nil || verifier.Clock == nil ||
-		selection.PointID == "" || selection.SourceClass != "local" || (selection.RepositoryClass != "standard" && selection.RepositoryClass != "critical") ||
+	if ctx == nil || ctx.Err() != nil || verifier.Clock == nil || selection.PointID == "" ||
+		(selection.SourceClass != "local" && selection.SourceClass != "off-site") || (selection.RepositoryClass != "standard" && selection.RepositoryClass != "critical") ||
 		selection.DeclaredRPOSeconds <= 0 || selection.TargetReleaseBuildID == "" || selection.TargetToolVersion == "" || selection.TargetSchemaVersion == "" {
+		return blocked("restore-source")
+	}
+	if selection.SourceClass == "off-site" {
+		return verifier.verifyOffsite(ctx, selection)
+	}
+	if verifier.Local == nil || verifier.Snapshots == nil || verifier.Compatibility == nil || verifier.Audit == nil {
 		return blocked("restore-source")
 	}
 	record, err := verifier.Local.CurrentLocalRecoverySource(ctx, selection.RepositoryClass)
@@ -132,6 +172,78 @@ func (verifier SourceVerifier) Verify(ctx context.Context, selection SourceSelec
 		return blocked("restore-source-binding")
 	}
 	return VerifiedSource{Binding: binding, Snapshot: reader, DatabaseDigest: record.Point.ContentDigest, Audit: auditPosition}, nil
+}
+
+func (verifier SourceVerifier) verifyOffsite(ctx context.Context, selection SourceSelection) (VerifiedSource, error) {
+	blocked := func(target string) (VerifiedSource, error) {
+		return VerifiedSource{}, failure.New(generated.ErrorCodePrerequisiteBlocked, target, false)
+	}
+	if selection.RepositoryClass != "critical" || verifier.Offsite == nil || verifier.OffsiteSnapshots == nil || verifier.OffsiteCompatibility == nil || verifier.OffsiteAudit == nil {
+		return blocked("restore-offsite-source")
+	}
+	record, err := verifier.Offsite.CurrentOffsiteRecoverySource(ctx, selection.PointID)
+	if err != nil {
+		return VerifiedSource{}, err
+	}
+	now := verifier.Clock().UTC()
+	if now.IsZero() || record.PointID != selection.PointID || record.GenerationID == "" || record.RepositoryID == "" || record.SnapshotID == "" ||
+		record.Status != "offsite-verified" || record.ProofClass != "qualified-provider" || record.StateRevision != record.CurrentStateRevision ||
+		record.RecoveryEpoch != record.CurrentRecoveryEpoch || record.CreatedAt.After(now) || record.VerifiedAt.Before(record.CreatedAt) || record.VerifiedAt.After(now) ||
+		!now.Before(record.FullReadValidUntil) || !now.Before(record.FunctionalValidUntil) || now.Sub(record.CreatedAt) > time.Duration(selection.DeclaredRPOSeconds)*time.Second ||
+		strconv.FormatInt(record.DatabaseSchemaVersion, 10) != selection.TargetSchemaVersion {
+		return blocked("restore-offsite-source")
+	}
+	for _, value := range []string{record.ManifestDigest, record.InventoryDigest, record.ContentDigest, record.VerificationDigest, record.CatalogDigest, record.DependencyDigest} {
+		if !restoreDigest.MatchString(value) {
+			return blocked("restore-offsite-source")
+		}
+	}
+	dependencies := append([]string(nil), record.DependencyDigests...)
+	for _, value := range dependencies {
+		if !restoreDigest.MatchString(value) {
+			return blocked("restore-offsite-source-dependencies")
+		}
+	}
+	sort.Strings(dependencies)
+	if err := verifier.OffsiteCompatibility.VerifyOffsiteRestoreCompatibility(ctx, selection, record); err != nil {
+		return VerifiedSource{}, err
+	}
+	reader, err := verifier.OffsiteSnapshots.ResolveOffsite(ctx, record)
+	if err != nil || reader == nil {
+		return blocked("restore-offsite-source-snapshot")
+	}
+	auditPosition, err := verifier.OffsiteAudit.VerifyOffsiteRestoreAuditPosition(ctx, record, reader)
+	if err != nil || auditPosition.LocalLastEventID < 0 || auditPosition.IndependentLastEventID < auditPosition.LocalLastEventID || !restoreDigest.MatchString(auditPosition.IndependentCheckpointDigest) {
+		return blocked("restore-offsite-source-audit")
+	}
+	pointDigest, err := offsitePointDigest(record, dependencies)
+	if err != nil {
+		return blocked("restore-offsite-source")
+	}
+	binding := generated.RestoreSourceBinding{Schema: generated.SchemaIDRestoreSourceBinding, SchemaVersion: "1.1.0", PointID: record.PointID,
+		PointDigest: pointDigest, ManifestDigest: record.ManifestDigest, VerificationDigest: record.VerificationDigest,
+		SourceClass: "off-site", RepositoryGenerationID: record.GenerationID, DeclaredRPOSeconds: selection.DeclaredRPOSeconds,
+		CreatedAt: record.CreatedAt.UTC().Format(time.RFC3339), VerifiedAt: record.VerifiedAt.UTC().Format(time.RFC3339),
+		RecoveryEpoch: record.RecoveryEpoch, DependencyDigests: dependencies}
+	raw, err := json.Marshal(binding)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreSourceBinding, raw, generated.ContractExact) != nil {
+		return blocked("restore-offsite-source-binding")
+	}
+	return VerifiedSource{Binding: binding, Snapshot: reader, DatabaseDigest: record.ContentDigest, Audit: auditPosition}, nil
+}
+
+func offsitePointDigest(record OffsiteRecoverySource, dependencies []string) (string, error) {
+	value := struct {
+		Domain, PointID, GenerationID, RepositoryID, SnapshotID, ManifestDigest, InventoryDigest, ContentDigest, VerificationDigest, CatalogDigest, DependencyDigest string
+		SourceRevision, StateRevision, RecoveryEpoch, DatabaseSchemaVersion                                                                                          int64
+		DependencyDigests                                                                                                                                            []string
+	}{"vegastack-labs.dev/restore-offsite-point/v1", record.PointID, record.GenerationID, record.RepositoryID, record.SnapshotID, record.ManifestDigest, record.InventoryDigest, record.ContentDigest, record.VerificationDigest, record.CatalogDigest, record.DependencyDigest, record.SourceRevision, record.StateRevision, record.RecoveryEpoch, record.DatabaseSchemaVersion, dependencies}
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(raw)
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
 func localPointDigest(record store.LocalRecoverySource) (string, error) {
