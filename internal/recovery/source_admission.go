@@ -109,15 +109,15 @@ func ParseSignedSourceAdmission(raw []byte, adminPublic ed25519.PublicKey, expec
 	if err != nil || !bytes.Equal(encoded, raw) {
 		return SourceAdmission{}, ErrWitnessUnavailable
 	}
-	payload, err := canonicalSourceAdmission(signed.Payload)
+	_, err = canonicalSourceAdmission(signed.Payload)
 	if err != nil || signed.ValidFrom.IsZero() || signed.ExpiresAt.IsZero() || !signed.ValidFrom.Before(signed.ExpiresAt) || signed.ExpiresAt.Sub(signed.ValidFrom) > 24*time.Hour {
 		return SourceAdmission{}, ErrWitnessUnavailable
 	}
 	timed, err := json.Marshal(struct {
-		Payload   json.RawMessage `json:"payload"`
+		Payload   SourceAdmission `json:"payload"`
 		ValidFrom time.Time       `json:"validFrom"`
 		ExpiresAt time.Time       `json:"expiresAt"`
-	}{payload, signed.ValidFrom.UTC(), signed.ExpiresAt.UTC()})
+	}{signed.Payload, signed.ValidFrom.UTC(), signed.ExpiresAt.UTC()})
 	if err != nil || !ed25519.Verify(adminPublic, append([]byte(sourceAdmissionDomain+"signed\x00"), timed...), signed.Signature) {
 		return SourceAdmission{}, ErrWitnessUnavailable
 	}

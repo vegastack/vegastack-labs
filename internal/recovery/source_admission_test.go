@@ -68,15 +68,15 @@ func TestSignedSourceAdmissionIsPrePlanAndExact(t *testing.T) {
 		},
 	}
 	validFrom, expiresAt := time.Date(2026, 9, 24, 5, 0, 0, 0, time.UTC), time.Date(2026, 9, 24, 6, 0, 0, 0, time.UTC)
-	canonical, err := canonicalSourceAdmission(admission)
+	_, err = canonicalSourceAdmission(admission)
 	if err != nil {
 		t.Fatal(err)
 	}
 	timed, _ := json.Marshal(struct {
-		Payload   json.RawMessage `json:"payload"`
+		Payload   SourceAdmission `json:"payload"`
 		ValidFrom time.Time       `json:"validFrom"`
 		ExpiresAt time.Time       `json:"expiresAt"`
-	}{canonical, validFrom, expiresAt})
+	}{admission, validFrom, expiresAt})
 	raw, _ := json.Marshal(SignedSourceAdmission{Payload: admission, ValidFrom: validFrom, ExpiresAt: expiresAt, Signature: ed25519.Sign(adminPrivate, append([]byte(sourceAdmissionDomain+"signed\x00"), timed...))})
 	expected := SourceAdmissionExpectation{FormerHostID: admission.FormerHostID, FormerInstanceID: admission.FormerInstanceID, ReplacementHostID: admission.ReplacementHostID, ReplacementInstanceID: admission.ReplacementInstanceID, DraftID: admission.DraftID, CiphertextFingerprint: admission.CiphertextFingerprint, SourceAdmissionDigest: SourceAdmissionDigest(admission), FenceQualificationDigest: admission.FenceQualificationDigest, PriorEpoch: admission.PriorEpoch, NewEpoch: admission.NewEpoch}
 	if _, err := ParseSignedSourceAdmission(raw, adminPublic, expected, validFrom.Add(time.Minute)); err != nil {
