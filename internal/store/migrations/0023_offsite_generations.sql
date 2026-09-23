@@ -8,6 +8,7 @@ CREATE TABLE backup_offsite_generations (
     offsite_snapshot_id TEXT NOT NULL CHECK (length(offsite_snapshot_id)=64),
     pending_json TEXT NOT NULL CHECK (length(pending_json) BETWEEN 2 AND 1048576),
     source_revision INTEGER NOT NULL CHECK (source_revision >= 0),
+    state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     issuance_stopped_at TEXT NOT NULL,
     created_at TEXT NOT NULL,
@@ -16,6 +17,30 @@ CREATE TABLE backup_offsite_generations (
 CREATE INDEX backup_offsite_generations_current_idx ON backup_offsite_generations(recovery_epoch,created_at DESC,generation_id DESC);
 CREATE TRIGGER backup_offsite_generations_no_update BEFORE UPDATE ON backup_offsite_generations BEGIN SELECT RAISE(ABORT,'offsite generations are append-only'); END;
 CREATE TRIGGER backup_offsite_generations_no_delete BEFORE DELETE ON backup_offsite_generations BEGIN SELECT RAISE(ABORT,'offsite generations are append-only'); END;
+
+CREATE TABLE backup_offsite_retention_rules (
+    generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id),
+    sequence INTEGER NOT NULL CHECK (sequence BETWEEN 1 AND 5),
+    rule_id TEXT NOT NULL CHECK (length(rule_id) BETWEEN 1 AND 128),
+    protected_prefix TEXT NOT NULL CHECK (length(protected_prefix) BETWEEN 1 AND 512),
+    PRIMARY KEY(generation_id,sequence),
+    UNIQUE(generation_id,rule_id),
+    UNIQUE(generation_id,protected_prefix)
+) STRICT;
+CREATE TRIGGER backup_offsite_retention_rules_no_update BEFORE UPDATE ON backup_offsite_retention_rules BEGIN SELECT RAISE(ABORT,'offsite retention rules are append-only'); END;
+CREATE TRIGGER backup_offsite_retention_rules_no_delete BEFORE DELETE ON backup_offsite_retention_rules BEGIN SELECT RAISE(ABORT,'offsite retention rules are append-only'); END;
+
+CREATE TABLE backup_offsite_objects (
+    generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id),
+    sequence INTEGER NOT NULL CHECK (sequence > 0),
+    object_key TEXT NOT NULL CHECK (length(object_key) BETWEEN 1 AND 1024),
+    object_digest TEXT NOT NULL CHECK (length(object_digest)=71 AND substr(object_digest,1,7)='sha256:'),
+    object_bytes INTEGER NOT NULL CHECK (object_bytes >= 0),
+    PRIMARY KEY(generation_id,sequence),
+    UNIQUE(generation_id,object_key)
+) STRICT;
+CREATE TRIGGER backup_offsite_objects_no_update BEFORE UPDATE ON backup_offsite_objects BEGIN SELECT RAISE(ABORT,'offsite objects are append-only'); END;
+CREATE TRIGGER backup_offsite_objects_no_delete BEFORE DELETE ON backup_offsite_objects BEGIN SELECT RAISE(ABORT,'offsite objects are append-only'); END;
 
 CREATE TABLE backup_offsite_session_expiries (
     generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id),
@@ -47,6 +72,7 @@ CREATE TABLE backup_offsite_last_good_history (
     proof_id TEXT NOT NULL UNIQUE REFERENCES backup_offsite_proofs(proof_id),
     generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id),
     source_revision INTEGER NOT NULL CHECK (source_revision >= 0),
+    state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     advanced_at TEXT NOT NULL
 ) STRICT;

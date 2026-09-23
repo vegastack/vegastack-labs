@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter"
 )
 
 type expectedPointFixture struct{ observation OffsiteGenerationObservation }
@@ -24,15 +26,17 @@ func expectedObservation(pending PendingOffsiteGeneration, now time.Time) Offsit
 		SourceSnapshotID: pending.SourceSnapshotID, SourceManifestDigest: pending.SourceManifestDigest, SourceInventoryDigest: pending.SourceInventoryDigest,
 		SourceContentDigest: pending.SourceContentDigest, SourceDependencyDigest: pending.SourceDependencyDigest, SourceResticDigest: pending.SourceResticDigest,
 		KeyReferenceID: pending.KeyReferenceID, SnapshotIDs: []string{pending.OffsiteSnapshotID}, InventoryDigest: pending.OffsiteInventoryDigest,
-		RuleDigest: pending.RuleDigest, ObjectCount: pending.ObjectCount, ObjectBytes: pending.ObjectBytes, MetadataValid: true, FullReadSucceeded: true,
+		RuleDigest: pending.RuleDigest, ProtectedRules: append([]adapter.RetentionRule(nil), pending.ProtectedRules...), Objects: append([]OffsiteObject(nil), pending.Objects...),
+		ObjectCount: pending.ObjectCount, ObjectBytes: pending.ObjectBytes, MetadataValid: true, FullReadSucceeded: true,
 		FullReadAt: now.Add(-time.Minute), ObservedAt: now}
 }
 
 func testPendingOffsite(now time.Time) PendingOffsiteGeneration {
+	objects := testOffsiteObjects(4096)
 	return PendingOffsiteGeneration{SourcePointID: "point-a", SourceSnapshotID: offsiteHex("1"), SourceManifestDigest: offsiteDigest("2"), SourceInventoryDigest: offsiteDigest("3"),
 		SourceContentDigest: offsiteDigest("4"), SourceDependencyDigest: offsiteDigest("5"), SourceResticDigest: offsiteDigest("6"), KeyReferenceID: "key-a",
-		GenerationID: "generation-a", RepositoryID: offsiteHex("7"), OffsiteSnapshotID: offsiteHex("8"), OffsiteInventoryDigest: offsiteDigest("9"), RuleDigest: offsiteDigest("a"),
-		SessionExpiries: []time.Time{now.Add(-time.Minute)}, SourceRevision: 4, RecoveryEpoch: 2, ObjectCount: 9, ObjectBytes: 4096, IssuanceStoppedAt: now.Add(-2 * time.Minute)}
+		GenerationID: "generation-a", RepositoryID: offsiteHex("7"), OffsiteSnapshotID: offsiteHex("8"), OffsiteInventoryDigest: DigestOffsiteInventory(objects), RuleDigest: offsiteDigest("a"),
+		ProtectedRules: testProtectedRules(), Objects: objects, SessionExpiries: []time.Time{now.Add(-time.Minute)}, SourceRevision: 4, StateRevision: 7, RecoveryEpoch: 2, ObjectCount: int64(len(objects)), ObjectBytes: 4096, IssuanceStoppedAt: now.Add(-2 * time.Minute)}
 }
 
 func offsiteHex(value string) string { return string(makeRepeated(value[0], 64)) }
@@ -61,6 +65,31 @@ func TestOffsiteVerifierRejectsMissingListedSnapshotDespiteGreenCheck(t *testing
 	}
 }
 
+func TestPendingOffsiteGenerationBindsExactRulesObjectsAndRevisionDomains(t *testing.T) {
+	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
+	pending := testPendingOffsite(now)
+	if err := ValidatePendingOffsiteGeneration(pending); err != nil {
+		t.Fatal(err)
+	}
+	for name, mutate := range map[string]func(*PendingOffsiteGeneration){
+		"duplicate-rule-id": func(value *PendingOffsiteGeneration) { value.ProtectedRules[1].RuleID = value.ProtectedRules[0].RuleID },
+		"wrong-rule-prefix": func(value *PendingOffsiteGeneration) { value.ProtectedRules[0].Prefix = "critical/generation-b/config" },
+		"object-digest":     func(value *PendingOffsiteGeneration) { value.Objects[0].Digest = offsiteDigest("f") },
+		"object-bytes":      func(value *PendingOffsiteGeneration) { value.Objects[0].Bytes++ },
+		"state-revision":    func(value *PendingOffsiteGeneration) { value.StateRevision = -1 },
+	} {
+		t.Run(name, func(t *testing.T) {
+			altered := pending
+			altered.ProtectedRules = append([]adapter.RetentionRule(nil), pending.ProtectedRules...)
+			altered.Objects = append([]OffsiteObject(nil), pending.Objects...)
+			mutate(&altered)
+			if ValidatePendingOffsiteGeneration(altered) == nil {
+				t.Fatal("tampered catalog admitted")
+			}
+		})
+	}
+}
+
 func TestOffsiteVerifierRejectsMismatchedManifestDependenciesAndFullRead(t *testing.T) {
 	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
 	pending := testPendingOffsite(now)
@@ -68,10 +97,14 @@ func TestOffsiteVerifierRejectsMismatchedManifestDependenciesAndFullRead(t *test
 		"manifest":     func(value *OffsiteGenerationObservation) { value.SourceManifestDigest = offsiteDigest("f") },
 		"dependency":   func(value *OffsiteGenerationObservation) { value.SourceDependencyDigest = offsiteDigest("f") },
 		"key":          func(value *OffsiteGenerationObservation) { value.KeyReferenceID = "wrong-key" },
+		"rule":         func(value *OffsiteGenerationObservation) { value.ProtectedRules[0].RuleID = "wrong-rule" },
+		"object":       func(value *OffsiteGenerationObservation) { value.Objects[0].Digest = offsiteDigest("f") },
 		"corrupt-pack": func(value *OffsiteGenerationObservation) { value.FullReadSucceeded = false },
 	} {
 		t.Run(name, func(t *testing.T) {
 			observation := expectedObservation(pending, now)
+			observation.ProtectedRules = append([]adapter.RetentionRule(nil), observation.ProtectedRules...)
+			observation.Objects = append([]OffsiteObject(nil), observation.Objects...)
 			mutate(&observation)
 			config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofID: "proof-a", ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
 			if _, err := VerifyOffsitePoint(context.Background(), config, pending, WriterSealProof{}); err == nil {
@@ -126,7 +159,7 @@ func TestOffsiteLastGoodRejectsPendingFixtureAndStaleProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if CanAdvanceOffsiteLastGood(pending, fixture, pending.SourceRevision, pending.RecoveryEpoch) == nil {
+	if CanAdvanceOffsiteLastGood(pending, fixture, pending.StateRevision, pending.RecoveryEpoch) == nil {
 		t.Fatal("fixture advanced offsite last-good")
 	}
 	seal, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, cutoffFixture{true, true})
@@ -137,10 +170,10 @@ func TestOffsiteLastGoodRejectsPendingFixtureAndStaleProof(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if CanAdvanceOffsiteLastGood(pending, live, pending.SourceRevision+1, pending.RecoveryEpoch) == nil {
+	if CanAdvanceOffsiteLastGood(pending, live, pending.StateRevision+1, pending.RecoveryEpoch) == nil {
 		t.Fatal("stale proof advanced offsite last-good")
 	}
-	if err := CanAdvanceOffsiteLastGood(pending, live, pending.SourceRevision, pending.RecoveryEpoch); err != nil {
+	if err := CanAdvanceOffsiteLastGood(pending, live, pending.StateRevision, pending.RecoveryEpoch); err != nil {
 		t.Fatal(err)
 	}
 }

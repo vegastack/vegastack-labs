@@ -252,7 +252,7 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 				return proofErr
 			}
 			item.ProofClass = nullableString(proofClass)
-			lastErr := tx.queryRow(ctx, `SELECT proof_id FROM backup_offsite_last_good_history WHERE recovery_epoch=? ORDER BY sequence DESC LIMIT 1`, item.RecoveryEpoch).Scan(&lastGood)
+			lastErr := tx.queryRow(ctx, `SELECT proof_id FROM backup_offsite_last_good_history WHERE generation_id=? AND recovery_epoch=? ORDER BY sequence DESC LIMIT 1`, item.GenerationID, item.RecoveryEpoch).Scan(&lastGood)
 			if lastErr != nil && !errors.Is(lastErr, sql.ErrNoRows) {
 				return lastErr
 			}

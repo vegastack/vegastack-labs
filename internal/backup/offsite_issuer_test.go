@@ -89,7 +89,8 @@ func (fixture custodyFixture) RunOffsiteRestic(_ context.Context, request Offsit
 type inventoryFixture struct{}
 
 func (inventoryFixture) ObserveOffsiteGeneration(context.Context, string, string, string) (OffsiteInventoryObservation, error) {
-	return OffsiteInventoryObservation{InventoryDigest: offsiteDigest("9"), ObjectCount: 8, ObjectBytes: 512}, nil
+	objects := testOffsiteObjects(512)
+	return OffsiteInventoryObservation{InventoryDigest: DigestOffsiteInventory(objects), ObjectCount: int64(len(objects)), ObjectBytes: 512, Objects: objects}, nil
 }
 
 func TestCopyOffsitePointUsesCustodyAndOneRunIAM(t *testing.T) {
@@ -97,7 +98,7 @@ func TestCopyOffsitePointUsesCustodyAndOneRunIAM(t *testing.T) {
 	now := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
 	point := testVerifiedCriticalPoint(now)
 	admission := GenerationAdmission{GenerationID: "generation-a", Prefix: "critical/generation-a/", RuleDigest: offsiteDigest("f"), MaximumBytes: 1024, MaximumPUTs: 100, MaximumLISTs: 20,
-		ProtectedPrefixes: []string{"critical/generation-a/config", "critical/generation-a/keys/", "critical/generation-a/data/", "critical/generation-a/index/", "critical/generation-a/snapshots/"}, MutablePrefixes: []string{"critical/generation-a/locks/"}}
+		ProtectedRules: testProtectedRules(), MutablePrefixes: []string{"critical/generation-a/locks/"}}
 	config := CopyConfig{Endpoint: endpoint, BinaryPath: "/opt/vsk/bin/restic-0.19.1", Architecture: "arm64", RepositoryURL: "s3:https://example.invalid/bucket/critical/generation-a", Bucket: "bucket", SnapshotPath: "/srv/vsk-exchange/point-a", PasswordFDPath: "/proc/self/fd/3", AuthorizationTokenFDPath: "/proc/self/fd/4", IAMURI: "http://127.0.0.1:54321" + OneRunIAMPath(binding), Binding: binding}
 	password, _ := credentialref.NewValue([]byte("repository-password"))
 	defer password.Close()

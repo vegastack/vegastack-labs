@@ -7,9 +7,15 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
 
+type RetentionRule struct {
+	RuleID string
+	Prefix string
+}
+
 type RetentionObservation struct {
 	GenerationID, RuleDigest                      string
-	ProtectedPrefixes, MutablePrefixes            []string
+	ProtectedRules                                []RetentionRule
+	MutablePrefixes                               []string
 	RuleCount, RuleLimit, RetainedGenerations     int
 	AvailableBytes, AvailablePUTs, AvailableLISTs int64
 	ObservedAt                                    time.Time

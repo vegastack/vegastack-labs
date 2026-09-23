@@ -47,7 +47,16 @@ type OffsitePolicy struct {
 type GenerationAdmission struct {
 	GenerationID, Prefix, RuleDigest        string
 	MaximumBytes, MaximumPUTs, MaximumLISTs int64
-	ProtectedPrefixes, MutablePrefixes      []string
+	ProtectedRules                          []adapter.RetentionRule
+	MutablePrefixes                         []string
+}
+
+// OffsiteObject is one exact provider-observed object. Key is relative to the
+// generation prefix and Digest binds the stored bytes, never provider prose.
+type OffsiteObject struct {
+	Key    string
+	Digest string
+	Bytes  int64
 }
 
 type PendingOffsiteGeneration struct {
@@ -55,8 +64,10 @@ type PendingOffsiteGeneration struct {
 	SourceContentDigest, SourceDependencyDigest, SourceResticDigest, KeyReferenceID string
 	GenerationID, RepositoryID, OffsiteSnapshotID, OffsiteInventoryDigest           string
 	RuleDigest                                                                      string
+	ProtectedRules                                                                  []adapter.RetentionRule
+	Objects                                                                         []OffsiteObject
 	SessionExpiries                                                                 []time.Time
-	SourceRevision, RecoveryEpoch, ObjectCount, ObjectBytes                         int64
+	SourceRevision, StateRevision, RecoveryEpoch, ObjectCount, ObjectBytes          int64
 	IssuanceStoppedAt                                                               time.Time
 }
 
@@ -85,6 +96,7 @@ type OffsiteResticResult struct {
 type OffsiteInventoryObservation struct {
 	InventoryDigest          string
 	ObjectCount, ObjectBytes int64
+	Objects                  []OffsiteObject
 }
 
 // OffsiteInventoryObserver reads the destination after the child exits. The

@@ -4,7 +4,10 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter"
 )
 
 type OffsiteGenerationObservation struct {
@@ -12,6 +15,8 @@ type OffsiteGenerationObservation struct {
 	SourcePointID, SourceSnapshotID, SourceManifestDigest, SourceInventoryDigest    string
 	SourceContentDigest, SourceDependencyDigest, SourceResticDigest, KeyReferenceID string
 	SnapshotIDs                                                                     []string
+	ProtectedRules                                                                  []adapter.RetentionRule
+	Objects                                                                         []OffsiteObject
 	ObjectCount, ObjectBytes                                                        int64
 	MetadataValid, FullReadSucceeded                                                bool
 	FullReadAt, ObservedAt                                                          time.Time
@@ -49,6 +54,14 @@ func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pendi
 	}
 	snapshotIDs := append([]string(nil), observed.SnapshotIDs...)
 	slices.Sort(snapshotIDs)
+	observedRules := append([]adapter.RetentionRule(nil), observed.ProtectedRules...)
+	pendingRules := append([]adapter.RetentionRule(nil), pending.ProtectedRules...)
+	slices.SortFunc(observedRules, compareRetentionRule)
+	slices.SortFunc(pendingRules, compareRetentionRule)
+	observedObjects := append([]OffsiteObject(nil), observed.Objects...)
+	pendingObjects := append([]OffsiteObject(nil), pending.Objects...)
+	slices.SortFunc(observedObjects, compareOffsiteObject)
+	slices.SortFunc(pendingObjects, compareOffsiteObject)
 	if observed.GenerationID != pending.GenerationID || observed.RepositoryID != pending.RepositoryID ||
 		observed.SourcePointID != pending.SourcePointID || observed.SourceSnapshotID != pending.SourceSnapshotID ||
 		observed.SourceManifestDigest != pending.SourceManifestDigest || observed.SourceInventoryDigest != pending.SourceInventoryDigest ||
@@ -56,6 +69,8 @@ func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pendi
 		observed.SourceResticDigest != pending.SourceResticDigest || observed.KeyReferenceID != pending.KeyReferenceID ||
 		len(snapshotIDs) != 1 || snapshotIDs[0] != pending.OffsiteSnapshotID || observed.InventoryDigest != pending.OffsiteInventoryDigest ||
 		observed.RuleDigest != pending.RuleDigest || observed.ObjectCount != pending.ObjectCount || observed.ObjectBytes != pending.ObjectBytes ||
+		!slices.Equal(observedRules, pendingRules) || !slices.Equal(observedObjects, pendingObjects) ||
+		DigestOffsiteInventory(observedObjects) != observed.InventoryDigest ||
 		!observed.MetadataValid || !observed.FullReadSucceeded || observed.FullReadAt.IsZero() ||
 		observed.ObservedAt.IsZero() || observed.ObservedAt.After(now) || observed.FullReadAt.After(observed.ObservedAt) ||
 		observed.FullReadAt.Before(pending.IssuanceStoppedAt) || observed.ObservedAt.Before(pending.IssuanceStoppedAt) ||
@@ -74,13 +89,24 @@ func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pendi
 		SourceInventoryDigest: pending.SourceInventoryDigest, SourceContentDigest: pending.SourceContentDigest, SourceDependencyDigest: pending.SourceDependencyDigest,
 		SourceResticDigest: pending.SourceResticDigest, KeyReferenceID: pending.KeyReferenceID, GenerationID: pending.GenerationID, RepositoryID: pending.RepositoryID,
 		OffsiteSnapshotID: pending.OffsiteSnapshotID, OffsiteInventoryDigest: pending.OffsiteInventoryDigest, RuleDigest: pending.RuleDigest,
-		SourceRevision: pending.SourceRevision, RecoveryEpoch: pending.RecoveryEpoch, ObjectCount: pending.ObjectCount, ObjectBytes: pending.ObjectBytes,
+		SourceRevision: pending.SourceRevision, StateRevision: pending.StateRevision, RecoveryEpoch: pending.RecoveryEpoch, ObjectCount: pending.ObjectCount, ObjectBytes: pending.ObjectBytes,
 		FullReadAt: observed.FullReadAt, ObservedAt: observed.ObservedAt, Seal: seal}
 	proof.ProofDigest = DigestOffsiteProof(proof)
 	if err := ValidateOffsiteProof(pending, proof); err != nil {
 		return OffsiteProof{}, err
 	}
 	return proof, nil
+}
+
+func compareRetentionRule(left, right adapter.RetentionRule) int {
+	if left.Prefix == right.Prefix {
+		return strings.Compare(left.RuleID, right.RuleID)
+	}
+	return strings.Compare(left.Prefix, right.Prefix)
+}
+
+func compareOffsiteObject(left, right OffsiteObject) int {
+	return strings.Compare(left.Key, right.Key)
 }
 
 func SealWriter(ctx context.Context, pending PendingOffsiteGeneration, proofClass string, now time.Time, probe OffsiteCutoffProbe) (WriterSealProof, error) {

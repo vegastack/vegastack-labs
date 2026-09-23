@@ -5,13 +5,33 @@ import (
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 type offsiteAdapterFixture struct{}
 
 func (offsiteAdapterFixture) Execute(context.Context, adapter.Operation) (adapter.Effect, error) {
 	return adapter.Effect{}, nil
+}
+
+func TestOffsiteCompositionFactoryCanSupplyQualifiedEffect(t *testing.T) {
+	want := offsiteAdapterFixture{}
+	operations := NewOperations(result.BuildInfo{}, nil, WithOffsiteEffectFactory(func(context.Context, *serverconfig.OffsiteBackup, *store.Store) (adapter.Adapter, error) {
+		return want, nil
+	}))
+	effect, err := operations.offsiteEffect(context.Background(), &serverconfig.OffsiteBackup{}, nil)
+	if err != nil || effect == nil {
+		t.Fatalf("qualified effect unavailable: %v", err)
+	}
+	registry := adapter.NewRegistry()
+	if err := registerOffsiteEffect(registry, &serverconfig.OffsiteBackup{}, effect); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := registry.Resolve("labs.r2-offsite"); err != nil {
+		t.Fatal(err)
+	}
 }
 func (offsiteAdapterFixture) Verify(context.Context, adapter.Operation, adapter.Effect) (adapter.Verification, error) {
 	return adapter.Verification{}, nil

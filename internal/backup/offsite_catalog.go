@@ -6,7 +6,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"path"
+	"slices"
+	"strings"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter"
 )
 
 const (
@@ -32,7 +37,7 @@ type OffsiteProof struct {
 	SourcePointID, SourceSnapshotID, SourceManifestDigest, SourceInventoryDigest      string
 	SourceContentDigest, SourceDependencyDigest, SourceResticDigest, KeyReferenceID   string
 	GenerationID, RepositoryID, OffsiteSnapshotID, OffsiteInventoryDigest, RuleDigest string
-	SourceRevision, RecoveryEpoch, ObjectCount, ObjectBytes                           int64
+	SourceRevision, StateRevision, RecoveryEpoch, ObjectCount, ObjectBytes            int64
 	FullReadAt, ObservedAt                                                            time.Time
 	Seal                                                                              WriterSealProof
 }
@@ -48,7 +53,9 @@ type OffsiteStatus struct {
 // migration number; no caller receives a direct status setter.
 type OffsiteCatalog interface {
 	AppendPending(context.Context, PendingOffsiteGeneration) error
+	GetGeneration(context.Context, string) (PendingOffsiteGeneration, error)
 	AppendProof(context.Context, OffsiteProof) error
+	ProofExists(context.Context, string, string) (bool, error)
 	AdvanceLastGood(context.Context, OffsiteProof, int64) error
 	Status(context.Context, string) (OffsiteStatus, error)
 }
@@ -63,7 +70,7 @@ func ValidateOffsiteProof(pending PendingOffsiteGeneration, proof OffsiteProof) 
 		proof.SourceResticDigest != pending.SourceResticDigest || proof.KeyReferenceID != pending.KeyReferenceID ||
 		proof.GenerationID != pending.GenerationID || proof.RepositoryID != pending.RepositoryID ||
 		proof.OffsiteSnapshotID != pending.OffsiteSnapshotID || proof.OffsiteInventoryDigest != pending.OffsiteInventoryDigest ||
-		proof.RuleDigest != pending.RuleDigest || proof.SourceRevision != pending.SourceRevision || proof.RecoveryEpoch != pending.RecoveryEpoch ||
+		proof.RuleDigest != pending.RuleDigest || proof.SourceRevision != pending.SourceRevision || proof.StateRevision != pending.StateRevision || proof.RecoveryEpoch != pending.RecoveryEpoch ||
 		proof.ObjectCount != pending.ObjectCount || proof.ObjectBytes != pending.ObjectBytes || proof.ObservedAt.IsZero() {
 		return errors.New("offsite proof does not bind pending generation")
 	}
@@ -85,7 +92,7 @@ func DigestOffsiteProof(proof OffsiteProof) string {
 
 func CanAdvanceOffsiteLastGood(pending PendingOffsiteGeneration, proof OffsiteProof, currentRevision, currentEpoch int64) error {
 	if ValidateOffsiteProof(pending, proof) != nil || proof.Status != OffsiteStatusVerified || proof.ProofClass != OffsiteProofQualified ||
-		pending.SourceRevision != currentRevision || pending.RecoveryEpoch != currentEpoch || proof.FullReadAt.After(proof.ObservedAt) {
+		pending.StateRevision != currentRevision || pending.RecoveryEpoch != currentEpoch || proof.FullReadAt.After(proof.ObservedAt) {
 		return errors.New("offsite last-good advancement blocked")
 	}
 	return nil
@@ -97,8 +104,24 @@ func validPendingOffsiteGeneration(value PendingOffsiteGeneration) bool {
 		!validBackupManifestDigest(value.SourceDependencyDigest) || !validBackupManifestDigest(value.SourceResticDigest) || value.KeyReferenceID == "" ||
 		!validOffsiteToken(value.GenerationID) || !validObjectName(value.RepositoryID) || !validObjectName(value.OffsiteSnapshotID) ||
 		!validBackupManifestDigest(value.OffsiteInventoryDigest) || !validBackupManifestDigest(value.RuleDigest) ||
-		value.SourceRevision < 0 || value.RecoveryEpoch < 0 || value.ObjectCount <= 0 || value.ObjectBytes <= 0 ||
-		value.IssuanceStoppedAt.IsZero() || len(value.SessionExpiries) == 0 {
+		value.SourceRevision < 0 || value.StateRevision < 0 || value.RecoveryEpoch < 0 || value.ObjectCount <= 0 || value.ObjectBytes <= 0 ||
+		value.IssuanceStoppedAt.IsZero() || len(value.SessionExpiries) == 0 || len(value.ProtectedRules) != len(protectedGenerationParts) ||
+		int64(len(value.Objects)) != value.ObjectCount || DigestOffsiteInventory(value.Objects) != value.OffsiteInventoryDigest {
+		return false
+	}
+	if !validProtectedRules(value.GenerationID, value.ProtectedRules) {
+		return false
+	}
+	var objectBytes int64
+	seenObjects := map[string]bool{}
+	for _, object := range value.Objects {
+		if !validOffsiteObject(object) || seenObjects[object.Key] || object.Bytes > value.ObjectBytes-objectBytes {
+			return false
+		}
+		seenObjects[object.Key] = true
+		objectBytes += object.Bytes
+	}
+	if objectBytes != value.ObjectBytes {
 		return false
 	}
 	for _, expiry := range value.SessionExpiries {
@@ -107,6 +130,37 @@ func validPendingOffsiteGeneration(value PendingOffsiteGeneration) bool {
 		}
 	}
 	return true
+}
+
+func validProtectedRules(generationID string, rules []adapter.RetentionRule) bool {
+	if len(rules) != len(protectedGenerationParts) {
+		return false
+	}
+	seenIDs, prefixes := map[string]bool{}, make([]string, 0, len(rules))
+	for _, rule := range rules {
+		if !validOffsiteToken(rule.RuleID) || seenIDs[rule.RuleID] || !validOffsitePrefix(strings.TrimSuffix(rule.Prefix, "/")) {
+			return false
+		}
+		seenIDs[rule.RuleID] = true
+		prefixes = append(prefixes, rule.Prefix)
+	}
+	var base string
+	for _, prefix := range prefixes {
+		if strings.HasSuffix(prefix, "/config") {
+			base = strings.TrimSuffix(prefix, "/config")
+			break
+		}
+	}
+	if base == "" || !strings.HasSuffix(base, "/"+generationID) {
+		return false
+	}
+	want := make([]string, 0, len(protectedGenerationParts))
+	for _, part := range protectedGenerationParts {
+		want = append(want, path.Join(base, part)+map[bool]string{true: "/", false: ""}[part != "config"])
+	}
+	slices.Sort(prefixes)
+	slices.Sort(want)
+	return slices.Equal(prefixes, want)
 }
 
 // ValidatePendingOffsiteGeneration exposes the same strict receipt boundary to

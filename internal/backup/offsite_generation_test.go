@@ -1,6 +1,7 @@
 package backup
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,11 +13,11 @@ func TestForecastGenerationRejectsExhaustedRulesAndUnprotectedPayload(t *testing
 	policy := testOffsitePolicy(now)
 	point := testVerifiedCriticalPoint(now)
 	base := adapter.RetentionObservation{GenerationID: "generation-a", RuleLimit: 1000, AvailableBytes: 2048, AvailablePUTs: 1000, AvailableLISTs: 100, ObservedAt: now, IndefiniteProtection: true, ProofClass: "fixture",
-		ProtectedPrefixes: []string{"critical/generation-a/config", "critical/generation-a/keys/", "critical/generation-a/data/", "critical/generation-a/index/", "critical/generation-a/snapshots/"}, MutablePrefixes: []string{"critical/generation-a/locks/"}}
+		ProtectedRules: testProtectedRules(), MutablePrefixes: []string{"critical/generation-a/locks/"}}
 	base.RuleDigest = DigestRetentionObservation(base)
-	for _, mutate := range []func(*adapter.RetentionObservation){func(v *adapter.RetentionObservation) { v.RuleCount = 996 }, func(v *adapter.RetentionObservation) { v.ProtectedPrefixes = v.ProtectedPrefixes[:2] }, func(v *adapter.RetentionObservation) { v.GenerationID = "generation-b" }} {
+	for _, mutate := range []func(*adapter.RetentionObservation){func(v *adapter.RetentionObservation) { v.RuleCount = 996 }, func(v *adapter.RetentionObservation) { v.ProtectedRules = v.ProtectedRules[:2] }, func(v *adapter.RetentionObservation) { v.GenerationID = "generation-b" }} {
 		observed := base
-		observed.ProtectedPrefixes = append([]string(nil), base.ProtectedPrefixes...)
+		observed.ProtectedRules = append([]adapter.RetentionRule(nil), base.ProtectedRules...)
 		mutate(&observed)
 		if _, err := ForecastGeneration(policy, point, observed); err == nil {
 			t.Fatal("unsafe generation admitted")
@@ -32,9 +33,9 @@ func TestRetentionDigestSeparatesProtectedAndMutablePrefixes(t *testing.T) {
 	now := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
 	protected := "critical/generation-a/config"
 	mutable := "critical/generation-a/locks/"
-	base := adapter.RetentionObservation{GenerationID: "generation-a", ProtectedPrefixes: []string{protected}, MutablePrefixes: []string{mutable}, ObservedAt: now}
+	base := adapter.RetentionObservation{GenerationID: "generation-a", ProtectedRules: []adapter.RetentionRule{{RuleID: "rule-a", Prefix: protected}}, MutablePrefixes: []string{mutable}, ObservedAt: now}
 	swapped := base
-	swapped.ProtectedPrefixes = []string{mutable}
+	swapped.ProtectedRules = []adapter.RetentionRule{{RuleID: "rule-a", Prefix: mutable}}
 	swapped.MutablePrefixes = []string{protected}
 	if DigestRetentionObservation(base) == DigestRetentionObservation(swapped) {
 		t.Fatal("retention digest did not bind prefix authority")
@@ -43,7 +44,7 @@ func TestRetentionDigestSeparatesProtectedAndMutablePrefixes(t *testing.T) {
 
 func TestGenerationAdmissionRequiresExactRuleBoundary(t *testing.T) {
 	admission := GenerationAdmission{GenerationID: "generation-a", Prefix: "critical/generation-a/", RuleDigest: offsiteDigest("a"), MaximumBytes: 1024, MaximumPUTs: 100, MaximumLISTs: 20,
-		ProtectedPrefixes: []string{"critical/generation-a/config", "critical/generation-a/keys/", "critical/generation-a/data/", "critical/generation-a/index/", "critical/generation-a/snapshots/"}, MutablePrefixes: []string{"critical/generation-a/locks/"}}
+		ProtectedRules: testProtectedRules(), MutablePrefixes: []string{"critical/generation-a/locks/"}}
 	if !validGenerationAdmission(admission) {
 		t.Fatal("exact generation admission rejected")
 	}
@@ -56,7 +57,7 @@ func TestGenerationAdmissionRequiresExactRuleBoundary(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			altered := admission
-			altered.ProtectedPrefixes = append([]string(nil), admission.ProtectedPrefixes...)
+			altered.ProtectedRules = append([]adapter.RetentionRule(nil), admission.ProtectedRules...)
 			altered.MutablePrefixes = append([]string(nil), admission.MutablePrefixes...)
 			mutate(&altered)
 			if validGenerationAdmission(altered) {
@@ -64,4 +65,17 @@ func TestGenerationAdmissionRequiresExactRuleBoundary(t *testing.T) {
 			}
 		})
 	}
+}
+
+func testProtectedRules() []adapter.RetentionRule {
+	prefixes := []string{"critical/generation-a/config", "critical/generation-a/keys/", "critical/generation-a/data/", "critical/generation-a/index/", "critical/generation-a/snapshots/"}
+	rules := make([]adapter.RetentionRule, len(prefixes))
+	for index, prefix := range prefixes {
+		rules[index] = adapter.RetentionRule{RuleID: fmt.Sprintf("rule-%d", index+1), Prefix: prefix}
+	}
+	return rules
+}
+
+func testOffsiteObjects(total int64) []OffsiteObject {
+	return []OffsiteObject{{Key: "config", Digest: offsiteDigest("b"), Bytes: 1}, {Key: "data/pack-a", Digest: offsiteDigest("c"), Bytes: total - 1}}
 }

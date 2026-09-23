@@ -14,6 +14,10 @@ import (
 
 type offsiteExecutionFixture struct{ calls int }
 
+func (fixture *offsiteExecutionFixture) CopyAndVerify(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, parent *credentialref.Value) (backup.OffsiteProof, error) {
+	return fixture.ExecuteOffsite(ctx, operation, binding, parent)
+}
+
 func (fixture *offsiteExecutionFixture) ExecuteOffsite(_ context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, _ *credentialref.Value) (backup.OffsiteProof, error) {
 	fixture.calls++
 	return backup.OffsiteProof{ProofID: "proof-a", ProofDigest: operation.ArtifactDigest, Status: backup.OffsiteStatusVerified, ProofClass: backup.OffsiteProofQualified, GenerationID: operation.TargetID, RecoveryEpoch: binding.RecoveryEpoch}, nil
@@ -60,5 +64,22 @@ func TestOffsiteEffectRequiresEnabledExecutionAndExactBoundApprovalInputs(t *tes
 	result, err := effect.ExecuteBoundWithCredentials(context.Background(), operation, binding, []*credentialref.Value{value})
 	if err != nil || fixture.calls != 1 || !result.Changed || result.PendingPointID == nil || *result.PendingPointID != operation.TargetID {
 		t.Fatalf("result=%#v calls=%d err=%v", result, fixture.calls, err)
+	}
+}
+
+func TestCatalogOffsiteExecutionRequiresRunnerAndDurableCatalog(t *testing.T) {
+	fixture := &offsiteExecutionFixture{}
+	if _, err := NewCatalogOffsiteExecution(nil, fixture); err == nil {
+		t.Fatal("missing runner admitted")
+	}
+	if _, err := NewCatalogOffsiteExecution(fixture, nil); err == nil {
+		t.Fatal("missing catalog admitted")
+	}
+	execution, err := NewCatalogOffsiteExecution(fixture, fixture)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := NewOffsiteEffect(execution); err != nil {
+		t.Fatalf("qualified concrete execution not registrable: %v", err)
 	}
 }

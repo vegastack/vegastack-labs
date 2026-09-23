@@ -15,9 +15,17 @@ import (
 type OffsiteGenerationRecord struct {
 	GenerationID, SourcePointID, RepositoryID, SnapshotID string
 	CanonicalJSON                                         []byte
+	Rules                                                 []OffsiteRuleRecord
+	Objects                                               []OffsiteObjectRecord
 	SessionExpiries                                       []time.Time
-	SourceRevision, RecoveryEpoch                         int64
+	SourceRevision, StateRevision, RecoveryEpoch          int64
 	IssuanceStoppedAt                                     time.Time
+}
+
+type OffsiteRuleRecord struct{ RuleID, Prefix string }
+type OffsiteObjectRecord struct {
+	Key, Digest string
+	Bytes       int64
 }
 
 type OffsiteProofRecord struct {
@@ -42,7 +50,7 @@ func NewOffsiteRepository(authority *Store) *OffsiteRepository {
 }
 
 func (repository *OffsiteRepository) AppendGeneration(ctx context.Context, record OffsiteGenerationRecord) error {
-	if repository == nil || repository.backup == nil || repository.backup.store == nil || record.GenerationID == "" || record.SourcePointID == "" || record.RepositoryID == "" || record.SnapshotID == "" || len(record.CanonicalJSON) < 2 || len(record.SessionExpiries) == 0 || record.IssuanceStoppedAt.IsZero() {
+	if repository == nil || repository.backup == nil || repository.backup.store == nil || record.GenerationID == "" || record.SourcePointID == "" || record.RepositoryID == "" || record.SnapshotID == "" || len(record.CanonicalJSON) < 2 || len(record.Rules) != 5 || len(record.Objects) == 0 || len(record.SessionExpiries) == 0 || record.IssuanceStoppedAt.IsZero() {
 		return backupStoreError(generated.ErrorCodeInputInvalid, "offsite-generation")
 	}
 	createdAt := repository.backup.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
@@ -54,9 +62,19 @@ func (repository *OffsiteRepository) AppendGeneration(ctx context.Context, recor
 		if currentEpoch != record.RecoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "offsite-generation")
 		}
-		if _, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_generations(generation_id,source_point_id,repository_id,offsite_snapshot_id,pending_json,source_revision,recovery_epoch,issuance_stopped_at,created_at) VALUES(?,?,?,?,?,?,?,?,?)`,
-			record.GenerationID, record.SourcePointID, record.RepositoryID, record.SnapshotID, string(record.CanonicalJSON), record.SourceRevision, record.RecoveryEpoch, record.IssuanceStoppedAt.UTC().Format(time.RFC3339Nano), createdAt); err != nil {
+		if _, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_generations(generation_id,source_point_id,repository_id,offsite_snapshot_id,pending_json,source_revision,state_revision,recovery_epoch,issuance_stopped_at,created_at) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+			record.GenerationID, record.SourcePointID, record.RepositoryID, record.SnapshotID, string(record.CanonicalJSON), record.SourceRevision, record.StateRevision, record.RecoveryEpoch, record.IssuanceStoppedAt.UTC().Format(time.RFC3339Nano), createdAt); err != nil {
 			return backupWriteError(err)
+		}
+		for index, rule := range record.Rules {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_retention_rules(generation_id,sequence,rule_id,protected_prefix) VALUES(?,?,?,?)`, record.GenerationID, index+1, rule.RuleID, rule.Prefix); err != nil {
+				return backupWriteError(err)
+			}
+		}
+		for index, object := range record.Objects {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_objects(generation_id,sequence,object_key,object_digest,object_bytes) VALUES(?,?,?,?,?)`, record.GenerationID, index+1, object.Key, object.Digest, object.Bytes); err != nil {
+				return backupWriteError(err)
+			}
 		}
 		for index, expiry := range record.SessionExpiries {
 			if expiry.IsZero() {
@@ -93,17 +111,17 @@ func (repository *OffsiteRepository) AppendProof(ctx context.Context, record Off
 	})
 }
 
-func (repository *OffsiteRepository) AppendLastGood(ctx context.Context, proofID, proofDigest, generationID string, sourceRevision, expectedStateRevision, recoveryEpoch int64) error {
+func (repository *OffsiteRepository) AppendLastGood(ctx context.Context, proofID, proofDigest, generationID string, sourceRevision, stateRevision, recoveryEpoch int64) error {
 	if repository == nil || repository.backup == nil || repository.backup.store == nil {
 		return backupStoreError(generated.ErrorCodeInputInvalid, "offsite-last-good")
 	}
 	return repository.backup.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
-		var stateRevision, currentEpoch int64
+		var currentStateRevision, currentEpoch int64
 		var storedDigest string
-		if err := tx.QueryRowContext(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&stateRevision, &currentEpoch); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&currentStateRevision, &currentEpoch); err != nil {
 			return backupWriteError(err)
 		}
-		if stateRevision != expectedStateRevision || currentEpoch != recoveryEpoch {
+		if currentStateRevision != stateRevision || currentEpoch != recoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "offsite-last-good")
 		}
 		if err := tx.QueryRowContext(ctx, `SELECT proof_digest FROM backup_offsite_proofs WHERE proof_id=? AND generation_id=?`, proofID, generationID).Scan(&storedDigest); err != nil {
@@ -115,27 +133,103 @@ func (repository *OffsiteRepository) AppendLastGood(ctx context.Context, proofID
 		if storedDigest != proofDigest {
 			return backupStoreError(generated.ErrorCodeIntegrityFailure, "offsite-last-good")
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_last_good_history(proof_id,generation_id,source_revision,recovery_epoch,advanced_at) VALUES(?,?,?,?,?)`,
-			proofID, generationID, sourceRevision, recoveryEpoch, repository.backup.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_last_good_history(proof_id,generation_id,source_revision,state_revision,recovery_epoch,advanced_at) VALUES(?,?,?,?,?,?)`,
+			proofID, generationID, sourceRevision, stateRevision, recoveryEpoch, repository.backup.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
 		return backupWriteError(err)
 	})
 }
 
-func (repository *OffsiteRepository) GenerationJSON(ctx context.Context, generationID string) ([]byte, error) {
-	var body string
+func (repository *OffsiteRepository) ProofExists(ctx context.Context, generationID, proofDigest string) (bool, error) {
+	if repository == nil || repository.backup == nil || repository.backup.store == nil || generationID == "" || proofDigest == "" {
+		return false, backupStoreError(generated.ErrorCodeInputInvalid, "offsite-proof")
+	}
+	var count int
+	err := repository.backup.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT COUNT(*) FROM backup_offsite_proofs WHERE generation_id=? AND proof_digest=?`, generationID, proofDigest).Scan(&count)
+	})
+	return count == 1, err
+}
+
+func (repository *OffsiteRepository) Generation(ctx context.Context, generationID string) (OffsiteGenerationRecord, error) {
+	var result OffsiteGenerationRecord
+	var body, stopped string
 	if repository == nil || repository.backup == nil || repository.backup.store == nil || generationID == "" {
-		return nil, backupStoreError(generated.ErrorCodeInputInvalid, "offsite-generation")
+		return result, backupStoreError(generated.ErrorCodeInputInvalid, "offsite-generation")
 	}
 	err := repository.backup.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT pending_json FROM backup_offsite_generations WHERE generation_id=?`, generationID).Scan(&body)
+		if err := tx.queryRow(ctx, `SELECT generation_id,source_point_id,repository_id,offsite_snapshot_id,pending_json,source_revision,state_revision,recovery_epoch,issuance_stopped_at FROM backup_offsite_generations WHERE generation_id=?`, generationID).
+			Scan(&result.GenerationID, &result.SourcePointID, &result.RepositoryID, &result.SnapshotID, &body, &result.SourceRevision, &result.StateRevision, &result.RecoveryEpoch, &stopped); err != nil {
+			return err
+		}
+		parsed, err := time.Parse(time.RFC3339Nano, stopped)
+		if err != nil {
+			return err
+		}
+		result.IssuanceStoppedAt, result.CanonicalJSON = parsed, []byte(body)
+		rules, err := tx.query(ctx, `SELECT rule_id,protected_prefix FROM backup_offsite_retention_rules WHERE generation_id=? ORDER BY sequence`, generationID)
+		if err != nil {
+			return err
+		}
+		for rules.Next() {
+			var item OffsiteRuleRecord
+			if err := rules.Scan(&item.RuleID, &item.Prefix); err != nil {
+				rules.Close()
+				return err
+			}
+			result.Rules = append(result.Rules, item)
+		}
+		if err := rules.Err(); err != nil {
+			rules.Close()
+			return err
+		}
+		rules.Close()
+		objects, err := tx.query(ctx, `SELECT object_key,object_digest,object_bytes FROM backup_offsite_objects WHERE generation_id=? ORDER BY sequence`, generationID)
+		if err != nil {
+			return err
+		}
+		for objects.Next() {
+			var item OffsiteObjectRecord
+			if err := objects.Scan(&item.Key, &item.Digest, &item.Bytes); err != nil {
+				objects.Close()
+				return err
+			}
+			result.Objects = append(result.Objects, item)
+		}
+		if err := objects.Err(); err != nil {
+			objects.Close()
+			return err
+		}
+		objects.Close()
+		expiries, err := tx.query(ctx, `SELECT expires_at FROM backup_offsite_session_expiries WHERE generation_id=? ORDER BY sequence`, generationID)
+		if err != nil {
+			return err
+		}
+		for expiries.Next() {
+			var raw string
+			if err := expiries.Scan(&raw); err != nil {
+				expiries.Close()
+				return err
+			}
+			parsed, err := time.Parse(time.RFC3339Nano, raw)
+			if err != nil {
+				expiries.Close()
+				return err
+			}
+			result.SessionExpiries = append(result.SessionExpiries, parsed)
+		}
+		if err := expiries.Err(); err != nil {
+			expiries.Close()
+			return err
+		}
+		return expiries.Close()
 	})
 	if errors.Is(err, sql.ErrNoRows) {
-		return nil, backupStoreError(generated.ErrorCodeResourceNotFound, "offsite-generation")
+		return result, backupStoreError(generated.ErrorCodeResourceNotFound, "offsite-generation")
 	}
 	if err != nil {
-		return nil, backupWriteError(err)
+		return result, backupWriteError(err)
 	}
-	return []byte(body), nil
+	return result, nil
 }
 
 func (repository *OffsiteRepository) Status(ctx context.Context, generationID string) (OffsiteStatusRecord, error) {
@@ -153,7 +247,7 @@ func (repository *OffsiteRepository) Status(ctx context.Context, generationID st
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
-		err = tx.queryRow(ctx, `SELECT proof_id FROM backup_offsite_last_good_history WHERE recovery_epoch=? ORDER BY sequence DESC LIMIT 1`, result.RecoveryEpoch).Scan(&result.LastGoodProofID)
+		err = tx.queryRow(ctx, `SELECT proof_id FROM backup_offsite_last_good_history WHERE generation_id=? AND recovery_epoch=? ORDER BY sequence DESC LIMIT 1`, result.GenerationID, result.RecoveryEpoch).Scan(&result.LastGoodProofID)
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil
 		}

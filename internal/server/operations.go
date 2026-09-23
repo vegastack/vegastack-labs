@@ -44,14 +44,37 @@ type Operations struct {
 	databasePath       string
 	platformProbe      PlatformProbe
 	identityHTTPClient *http.Client
+	offsiteEffect      OffsiteEffectFactory
 }
 
-func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource) *Operations {
-	return &Operations{
+type OffsiteEffectFactory func(context.Context, *serverconfig.OffsiteBackup, *store.Store) (adapter.Adapter, error)
+type OperationsOption func(*Operations)
+
+// WithOffsiteEffectFactory supplies the qualified site composition. The
+// production command intentionally omits this option until G-008 is closed.
+func WithOffsiteEffectFactory(factory OffsiteEffectFactory) OperationsOption {
+	return func(operations *Operations) {
+		if factory != nil {
+			operations.offsiteEffect = factory
+		}
+	}
+}
+
+func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, options ...OperationsOption) *Operations {
+	operations := &Operations{
 		build: build, requestIDs: requestIDs, openStore: store.Open,
 		databasePath: productionDatabasePath, platformProbe: NewRuntimePlatformProbe(),
 		identityHTTPClient: &http.Client{Timeout: 10 * time.Second},
+		offsiteEffect: func(context.Context, *serverconfig.OffsiteBackup, *store.Store) (adapter.Adapter, error) {
+			return nil, nil
+		},
 	}
+	for _, option := range options {
+		if option != nil {
+			option(operations)
+		}
+	}
+	return operations
 }
 
 func (operations *Operations) Run(ctx context.Context, configPath string) error {
@@ -179,9 +202,15 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
 	adapters := productionAdapterRegistry()
-	// A live off-site execution remains unavailable until G-008 qualifies the
-	// actual R2 signer, rules, custody host, read path, and recovery key.
-	if err := registerOffsiteEffect(adapters, profile.OffsiteBackup, nil); err != nil {
+	// The default factory returns nil. A qualified site composition may supply
+	// the concrete runner/catalog execution, but profile presence alone never
+	// turns fixture evidence into a live adapter.
+	offsiteEffect, err := operations.offsiteEffect(ctx, profile.OffsiteBackup, authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := registerOffsiteEffect(adapters, profile.OffsiteBackup, offsiteEffect); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}

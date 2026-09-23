@@ -20,6 +20,37 @@ type OffsiteExecution interface {
 	ProofExists(context.Context, string, string) (bool, error)
 }
 
+type OffsiteCopyRunner interface {
+	CopyAndVerify(context.Context, adapter.Operation, adapter.ExactExecutionBinding, *credentialref.Value) (backup.OffsiteProof, error)
+}
+
+type OffsiteProofCatalog interface {
+	ProofExists(context.Context, string, string) (bool, error)
+}
+
+// CatalogOffsiteExecution is the concrete composition seam: a qualified site
+// supplies the real copy/verify runner, while durable proof lookup is always
+// the server-owned catalog. With either side absent the adapter cannot exist.
+type CatalogOffsiteExecution struct {
+	runner  OffsiteCopyRunner
+	catalog OffsiteProofCatalog
+}
+
+func NewCatalogOffsiteExecution(runner OffsiteCopyRunner, catalog OffsiteProofCatalog) (*CatalogOffsiteExecution, error) {
+	if runner == nil || catalog == nil {
+		return nil, runError(generated.ErrorCodePrerequisiteBlocked, "offsite-execution")
+	}
+	return &CatalogOffsiteExecution{runner: runner, catalog: catalog}, nil
+}
+
+func (execution *CatalogOffsiteExecution) ExecuteOffsite(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, parent *credentialref.Value) (backup.OffsiteProof, error) {
+	return execution.runner.CopyAndVerify(ctx, operation, binding, parent)
+}
+
+func (execution *CatalogOffsiteExecution) ProofExists(ctx context.Context, generationID, proofDigest string) (bool, error) {
+	return execution.catalog.ProofExists(ctx, generationID, proofDigest)
+}
+
 type OffsiteEffect struct {
 	execution OffsiteExecution
 }

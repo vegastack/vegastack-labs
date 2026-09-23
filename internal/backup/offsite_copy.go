@@ -5,7 +5,10 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"slices"
 	"strings"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter"
 )
 
 // CopyOffsitePoint delegates the pinned S3 child to the custody broker. It
@@ -42,15 +45,19 @@ func CopyOffsitePoint(ctx context.Context, config CopyConfig, point VerifiedCrit
 	}
 	observed, err := config.Inventory.ObserveOffsiteGeneration(ctx, admission.GenerationID, result.RepositoryID, result.SnapshotID)
 	if err != nil || !validBackupManifestDigest(observed.InventoryDigest) || observed.ObjectCount < 1 || observed.ObjectBytes < 1 ||
+		int64(len(observed.Objects)) != observed.ObjectCount || DigestOffsiteInventory(observed.Objects) != observed.InventoryDigest ||
 		observed.ObjectBytes > admission.MaximumBytes || observed.ObjectCount > admission.MaximumPUTs {
 		return PendingOffsiteGeneration{}, invalid
 	}
+	objects := append([]OffsiteObject(nil), observed.Objects...)
+	slices.SortFunc(objects, func(left, right OffsiteObject) int { return strings.Compare(left.Key, right.Key) })
 	return PendingOffsiteGeneration{SourcePointID: point.PointID, SourceSnapshotID: point.SnapshotID, SourceManifestDigest: point.ManifestDigest,
 		SourceInventoryDigest: point.InventoryDigest, SourceContentDigest: point.ContentDigest, SourceDependencyDigest: point.DependencyDigest,
-		SourceResticDigest: point.ResticDigest, KeyReferenceID: point.KeyReferenceID, SourceRevision: point.SourceRevision, RecoveryEpoch: point.RecoveryEpoch,
+		SourceResticDigest: point.ResticDigest, KeyReferenceID: point.KeyReferenceID, SourceRevision: point.SourceRevision, StateRevision: point.StateRevision, RecoveryEpoch: point.RecoveryEpoch,
 		GenerationID: admission.GenerationID, RepositoryID: result.RepositoryID,
 		OffsiteSnapshotID: result.SnapshotID, OffsiteInventoryDigest: observed.InventoryDigest,
-		RuleDigest: admission.RuleDigest, SessionExpiries: expiries, ObjectCount: observed.ObjectCount, ObjectBytes: observed.ObjectBytes,
+		RuleDigest: admission.RuleDigest, ProtectedRules: append([]adapter.RetentionRule(nil), admission.ProtectedRules...), Objects: objects,
+		SessionExpiries: expiries, ObjectCount: observed.ObjectCount, ObjectBytes: observed.ObjectBytes,
 		IssuanceStoppedAt: config.Endpoint.ChildExitedAt()}, nil
 }
 

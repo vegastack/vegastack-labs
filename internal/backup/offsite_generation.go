@@ -35,7 +35,16 @@ func ForecastGeneration(policy OffsitePolicy, point VerifiedCriticalPoint, obser
 		protected = append(protected, path.Join(base, part)+map[bool]string{true: "/", false: ""}[part != "config"])
 	}
 	mutable := []string{path.Join(base, "locks") + "/"}
-	gotProtected, gotMutable := append([]string(nil), observed.ProtectedPrefixes...), append([]string(nil), observed.MutablePrefixes...)
+	gotProtected := make([]string, 0, len(observed.ProtectedRules))
+	seenRuleIDs := map[string]bool{}
+	for _, rule := range observed.ProtectedRules {
+		if !validOffsiteToken(rule.RuleID) || seenRuleIDs[rule.RuleID] {
+			return GenerationAdmission{}, invalid
+		}
+		seenRuleIDs[rule.RuleID] = true
+		gotProtected = append(gotProtected, rule.Prefix)
+	}
+	gotMutable := append([]string(nil), observed.MutablePrefixes...)
 	slices.Sort(protected)
 	slices.Sort(gotProtected)
 	slices.Sort(mutable)
@@ -43,9 +52,16 @@ func ForecastGeneration(policy OffsitePolicy, point VerifiedCriticalPoint, obser
 	if !slices.Equal(protected, gotProtected) || !slices.Equal(mutable, gotMutable) {
 		return GenerationAdmission{}, invalid
 	}
+	rules := append([]adapter.RetentionRule(nil), observed.ProtectedRules...)
+	slices.SortFunc(rules, func(left, right adapter.RetentionRule) int {
+		if left.Prefix == right.Prefix {
+			return strings.Compare(left.RuleID, right.RuleID)
+		}
+		return strings.Compare(left.Prefix, right.Prefix)
+	})
 	admission := GenerationAdmission{GenerationID: policy.GenerationID, Prefix: base + "/", RuleDigest: observed.RuleDigest,
 		MaximumBytes: policy.MaximumBytes, MaximumPUTs: policy.MaximumPUTs, MaximumLISTs: policy.MaximumLISTs,
-		ProtectedPrefixes: protected, MutablePrefixes: mutable}
+		ProtectedRules: rules, MutablePrefixes: mutable}
 	if !validGenerationAdmission(admission) {
 		return GenerationAdmission{}, invalid
 	}
@@ -64,7 +80,15 @@ func validGenerationAdmission(admission GenerationAdmission) bool {
 		protected = append(protected, path.Join(base, part)+map[bool]string{true: "/", false: ""}[part != "config"])
 	}
 	mutable := []string{path.Join(base, "locks") + "/"}
-	gotProtected := append([]string(nil), admission.ProtectedPrefixes...)
+	gotProtected := make([]string, 0, len(admission.ProtectedRules))
+	seenRuleIDs := map[string]bool{}
+	for _, rule := range admission.ProtectedRules {
+		if !validOffsiteToken(rule.RuleID) || seenRuleIDs[rule.RuleID] {
+			return false
+		}
+		seenRuleIDs[rule.RuleID] = true
+		gotProtected = append(gotProtected, rule.Prefix)
+	}
 	gotMutable := append([]string(nil), admission.MutablePrefixes...)
 	slices.Sort(protected)
 	slices.Sort(mutable)
@@ -81,9 +105,14 @@ func validOffsitePrefix(value string) bool {
 }
 
 func DigestRetentionObservation(value adapter.RetentionObservation) string {
-	protected := append([]string(nil), value.ProtectedPrefixes...)
+	protected := append([]adapter.RetentionRule(nil), value.ProtectedRules...)
 	mutable := append([]string(nil), value.MutablePrefixes...)
-	slices.Sort(protected)
+	slices.SortFunc(protected, func(left, right adapter.RetentionRule) int {
+		if left.Prefix == right.Prefix {
+			return strings.Compare(left.RuleID, right.RuleID)
+		}
+		return strings.Compare(left.Prefix, right.Prefix)
+	})
 	slices.Sort(mutable)
 	hasher := sha256.New()
 	hasher.Write([]byte("offsite-retention-observation-v1"))
@@ -96,7 +125,9 @@ func DigestRetentionObservation(value adapter.RetentionObservation) string {
 	for _, item := range protected {
 		hasher.Write([]byte("\x00protected"))
 		hasher.Write([]byte{0})
-		hasher.Write([]byte(item))
+		hasher.Write([]byte(item.RuleID))
+		hasher.Write([]byte{0})
+		hasher.Write([]byte(item.Prefix))
 	}
 	for _, item := range mutable {
 		hasher.Write([]byte("\x00mutable"))
@@ -104,6 +135,28 @@ func DigestRetentionObservation(value adapter.RetentionObservation) string {
 		hasher.Write([]byte(item))
 	}
 	return "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+}
+
+func DigestOffsiteInventory(objects []OffsiteObject) string {
+	ordered := append([]OffsiteObject(nil), objects...)
+	slices.SortFunc(ordered, func(left, right OffsiteObject) int { return strings.Compare(left.Key, right.Key) })
+	hasher := sha256.New()
+	hasher.Write([]byte("offsite-object-inventory-v1"))
+	for _, object := range ordered {
+		hasher.Write([]byte{0})
+		hasher.Write([]byte(object.Key))
+		hasher.Write([]byte{0})
+		hasher.Write([]byte(object.Digest))
+		hasher.Write([]byte{0})
+		hasher.Write([]byte(strconv.FormatInt(object.Bytes, 10)))
+	}
+	return "sha256:" + hex.EncodeToString(hasher.Sum(nil))
+}
+
+func validOffsiteObject(object OffsiteObject) bool {
+	return object.Key != "" && len(object.Key) <= 1024 && !strings.HasPrefix(object.Key, "/") && !strings.Contains(object.Key, "\\") &&
+		path.Clean(object.Key) == object.Key && object.Key != "." && !strings.Contains(object.Key, "../") && object.Bytes >= 0 &&
+		validBackupManifestDigest(object.Digest)
 }
 
 func nowForOffsitePolicy(policy OffsitePolicy) time.Time {

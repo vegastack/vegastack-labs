@@ -285,7 +285,7 @@ These implementation choices satisfy user constraints but were synthesized by th
 | [D-106](#d-106) | hash-chain plus signed off-site audit checkpoints | Retained as tamper evidence; limitations are explicit. |
 | [D-107](#d-107) | intentionally narrow initial OS/architecture combinations | Retained; “Go can compile it” is not support evidence. |
 | [D-108](#d-108) | typed implementation-gate/evidence lifecycle | Added to make design completion and real-world activation impossible to conflate. |
-| [D-109](#d-109) | restic repository topology, retention authority and verification cadence | Conditional candidate under D-120; G-008 writer/coordination/retained-dependency compatibility is design-open, followed by actual activation evidence. |
+| [D-109](#d-109) | restic repository topology, retention authority and verification cadence | Independent-generation software topology selected under D-120; real R2 rule/action/cutoff, capacity, key and clean-host recovery qualification remains activation evidence under G-008. |
 | [D-110](#d-110) | exact purpose-separated 1Password layout | Logical purposes retained; mixed-reader physical vault layout superseded by provider permission evidence. G-007 requires reviewed reader-set partitions and direct-provider denial tests. |
 | [D-111](#d-111) | built-in ephemeral runner controller, labels and external log preservation | Controller placement/lifecycle selected; actual-job admission guard remains design-open under G-006. No Kubernetes or second controller. |
 | [D-112](#d-112) | direct typed provider adapters rather than Terraform/OpenTofu state | Selected to preserve SQLite authority and avoid a second state engine. |
@@ -392,7 +392,7 @@ The pre-edit adversarial matrix classified 34 decisions as complete, 47 as parti
 | [D-106](#d-106) | [Operations](security-and-operations.md#observability-and-audit) | Complete: tamper-evidence boundary explicit |
 | [D-107](#d-107) | [Automation](automation-and-agents.md#os-and-architecture-support-matrix) | Complete: unsupported combinations explicit; some lanes input-gated |
 | [D-108](#d-108) | [Implementation gates](implementation-gates.md#gate-semantics) | Complete: design and activation states are distinct |
-| [D-109](#d-109) | [Implementation gates](implementation-gates.md#backup-engine-and-repository-topology--g-008) | Conditional candidate: G-008 compatibility qualification plus real storage/recovery evidence |
+| [D-109](#d-109) | [Implementation gates](implementation-gates.md#backup-engine-and-repository-topology--g-008) | Software design closed on independent generations; G-008 still requires real R2 compatibility and storage/recovery activation evidence |
 | [D-110](#d-110) | [Implementation gates](implementation-gates.md#1password-layout--g-007) | Logical purposes retained: reviewed physical reader-set layout and provider denial proof required |
 | [D-111](#d-111) | [Implementation gates](implementation-gates.md#ci-controller-runners-and-logs--g-006-g-020) | Controller lifecycle retained: actual assigned-job guard and real isolation proof required |
 | [D-112](#d-112) | [Implementation gates](implementation-gates.md#provider-ownership--g-012-through-g-016-g-019) | Adapter ownership retained: G-012 credential boundary approval plus scoped provider evidence required |
