@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
@@ -44,6 +45,13 @@ func (store *Store) PrepareRecoveredAuthority(ctx context.Context, binding gener
 	if _, err := tx.ExecContext(ctx, `INSERT INTO audit_epoch_genesis(recovery_epoch,instance_id,prior_checkpoint_digest,recovery_decision_digest,genesis_digest) VALUES(?,?,?,?,?)`, binding.NextRecoveryEpoch, binding.NewInstanceID, genesis.PriorCheckpoint, genesis.RecoveryDecision, genesis.LinkDigest); err != nil {
 		return store.transactionError(ctx, err)
 	}
+	bindingBytes, err := json.Marshal(binding)
+	if err != nil {
+		return newStoreError(generated.ErrorCodeIntegrityFailure, "recovery-authority", false, err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO recovery_authority_journal(plan_id,transition,plan_digest,candidate_digest,fence_set_digest,audit_decision_digest,instance_id,recovery_epoch,evidence_digest,binding_bytes,created_at) VALUES(?,'promoted',?,?,?,?,?,?,?,?,?)`, binding.PlanID, binding.PlanDigest, binding.CandidateDigest, binding.FenceSetDigest, binding.AuditDecisionDigest, binding.NewInstanceID, binding.NextRecoveryEpoch, binding.CandidateDigest, bindingBytes, stamp); err != nil {
+		return store.transactionError(ctx, err)
+	}
 	result, err := tx.ExecContext(ctx, `UPDATE system_meta SET instance_id=?,recovery_epoch=?,state_revision=state_revision+1,authority_mode='recovery-required' WHERE id=1 AND instance_id=? AND recovery_epoch=? AND state_revision=? AND authority_mode='ready'`, binding.NewInstanceID, binding.NextRecoveryEpoch, binding.PriorInstanceID, binding.PriorRecoveryEpoch, revision)
 	if err != nil {
 		return store.transactionError(ctx, err)
@@ -82,9 +90,15 @@ func (store *Store) EnableRecoveredAuthority(ctx context.Context, instanceID str
 	if changed != 1 {
 		return newStoreError(generated.ErrorCodeRecoveryRequired, "recovery-enable", false, nil)
 	}
-	// A canary digest is retained append-only as the final verified transition.
-	if _, err := tx.ExecContext(ctx, `INSERT INTO restore_transitions(plan_id,from_status,to_status,plan_digest,evidence_digest,state_revision,recovery_epoch,created_at) SELECT plan_id,'verification-required','verified',plan_digest,?,?,?,? FROM restore_sessions WHERE new_instance_id=? AND next_recovery_epoch=? ORDER BY created_at DESC LIMIT 1`, canaryDigest, revision+1, epoch, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339), instanceID, epoch); err != nil {
+	// The canary is appended beside the promoted binding. This deliberately
+	// does not depend on plan rows that may be newer than the restored point.
+	result, err = tx.ExecContext(ctx, `INSERT INTO recovery_authority_journal(plan_id,transition,plan_digest,candidate_digest,fence_set_digest,audit_decision_digest,instance_id,recovery_epoch,evidence_digest,binding_bytes,created_at) SELECT plan_id,'verified',plan_digest,candidate_digest,fence_set_digest,audit_decision_digest,instance_id,recovery_epoch,?,binding_bytes,? FROM recovery_authority_journal WHERE transition='promoted' AND instance_id=? AND recovery_epoch=?`, canaryDigest, store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339), instanceID, epoch)
+	if err != nil {
 		return store.transactionError(ctx, err)
+	}
+	changed, _ = result.RowsAffected()
+	if changed != 1 {
+		return newStoreError(generated.ErrorCodeRecoveryRequired, "recovery-enable", false, nil)
 	}
 	if err := tx.Commit(); err != nil {
 		return store.transactionError(ctx, err)

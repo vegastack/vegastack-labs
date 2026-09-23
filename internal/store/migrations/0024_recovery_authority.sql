@@ -160,6 +160,23 @@ CREATE TABLE recovery_candidates (
     FOREIGN KEY(plan_id) REFERENCES restore_sessions(plan_id) ON DELETE RESTRICT
 ) STRICT;
 
+-- The chosen point can predate the plan that authorized its recovery, so the
+-- promoted candidate keeps a self-contained append-only authority journal.
+CREATE TABLE recovery_authority_journal (
+    plan_id TEXT NOT NULL,
+    transition TEXT NOT NULL CHECK (transition IN ('promoted','verified')),
+    plan_digest TEXT NOT NULL CHECK (plan_digest GLOB 'sha256:[0-9a-f]*' AND length(plan_digest)=71),
+    candidate_digest TEXT NOT NULL CHECK (candidate_digest GLOB 'sha256:[0-9a-f]*' AND length(candidate_digest)=71),
+    fence_set_digest TEXT NOT NULL CHECK (fence_set_digest GLOB 'sha256:[0-9a-f]*' AND length(fence_set_digest)=71),
+    audit_decision_digest TEXT NOT NULL CHECK (audit_decision_digest GLOB 'sha256:[0-9a-f]*' AND length(audit_decision_digest)=71),
+    instance_id TEXT NOT NULL REFERENCES audit_instances(instance_id) ON DELETE RESTRICT,
+    recovery_epoch INTEGER NOT NULL REFERENCES audit_epoch_genesis(recovery_epoch) ON DELETE RESTRICT,
+    evidence_digest TEXT NOT NULL CHECK (evidence_digest GLOB 'sha256:[0-9a-f]*' AND length(evidence_digest)=71),
+    binding_bytes BLOB NOT NULL CHECK (length(binding_bytes)>0),
+    created_at TEXT NOT NULL,
+    PRIMARY KEY(plan_id,transition)
+) STRICT;
+
 CREATE INDEX restore_transitions_plan_sequence ON restore_transitions(plan_id, transition_id);
 
 CREATE TRIGGER restore_sessions_no_update BEFORE UPDATE ON restore_sessions BEGIN SELECT RAISE(ABORT, 'restore sessions are immutable'); END;
@@ -168,3 +185,5 @@ CREATE TRIGGER restore_transitions_no_update BEFORE UPDATE ON restore_transition
 CREATE TRIGGER restore_transitions_no_delete BEFORE DELETE ON restore_transitions BEGIN SELECT RAISE(ABORT, 'restore transitions are append-only'); END;
 CREATE TRIGGER recovery_candidates_no_update BEFORE UPDATE ON recovery_candidates BEGIN SELECT RAISE(ABORT, 'recovery candidates are immutable'); END;
 CREATE TRIGGER recovery_candidates_no_delete BEFORE DELETE ON recovery_candidates BEGIN SELECT RAISE(ABORT, 'recovery candidates are append-only'); END;
+CREATE TRIGGER recovery_authority_journal_no_update BEFORE UPDATE ON recovery_authority_journal BEGIN SELECT RAISE(ABORT,'recovery authority journal is immutable'); END;
+CREATE TRIGGER recovery_authority_journal_no_delete BEFORE DELETE ON recovery_authority_journal BEGIN SELECT RAISE(ABORT,'recovery authority journal is append-only'); END;
