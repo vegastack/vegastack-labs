@@ -12,13 +12,13 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while Phase 5 waves through #144 have exact reviewed closures", async () => {
+test("the original Phase 2 baseline stays immutable while Phase 5 waves through #135 have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 19);
+  assert.equal(manifest.contract.reviewedWaves?.length, 20);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -105,7 +105,12 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.equal(manifest.contract.reviewedWaves[18].issue, 144);
   assert.deepEqual(manifest.contract.reviewedWaves[18].commands, []);
   assert.deepEqual(manifest.contract.reviewedWaves[18].imports, []);
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[18].mutationBoundaryDigest);
+  assert.equal(manifest.contract.reviewedWaves[19].id, "phase5-issue135-v1");
+  assert.equal(manifest.contract.reviewedWaves[19].issue, 135);
+  assert.deepEqual(manifest.contract.reviewedWaves[19].commands, []);
+  assert.deepEqual(manifest.contract.reviewedWaves[19].imports, []);
+  assert.equal(manifest.contract.reviewedWaves[19].mutationBoundaryDigest, "sha256:7c73313c2c575c5c7903ebb7cf8422c903f8ae7327b57764ce418c541d35e405");
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[19].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
@@ -164,6 +169,30 @@ test("the #124 wave rejects import activation outside the local inert boundary",
     ["foundation migration drift", (m, f) => { f.migrations.find(({ file }) => file === "0012_credential_refs.sql").sha256 = `sha256:${"0".repeat(64)}`; }, "PHASE2_MUTATION_AVAILABLE"],
     ["import migration drift", (m, f) => { f.migrations.find(({ file }) => file === "0013_credential_import_drafts.sql").sha256 = `sha256:${"0".repeat(64)}`; }, "PHASE2_MUTATION_AVAILABLE"],
     ["source fingerprint drift", (m, f) => { f.postPhase2MutationBoundaryDigest = `sha256:${"0".repeat(64)}`; }, "PHASE2_MUTATION_AVAILABLE"],
+  ];
+  for (const [name, mutate, code] of cases) {
+    const changedManifest = structuredClone(manifest);
+    const changedFacts = structuredClone(facts);
+    mutate(changedManifest, changedFacts);
+    const result = validateEvidence(changedManifest, changedFacts);
+    assert.equal(result.status, "fail", `${name}: ${JSON.stringify(result)}`);
+    assert.ok(result.codes.includes(code), `${name}: ${JSON.stringify(result)}`);
+  }
+});
+
+test("the #135 seal rejects lifecycle surface widening and older-wave drift", async () => {
+  const manifest = await loadManifest();
+  const facts = await collectIntegratedFacts(ROOT);
+  const cases = [
+    ["older fingerprint", (m) => { m.contract.reviewedWaves[18].mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; }, "PHASE2_TRACEABILITY_GAP"],
+    ["reordered final waves", (m) => { [m.contract.reviewedWaves[18], m.contract.reviewedWaves[19]] = [m.contract.reviewedWaves[19], m.contract.reviewedWaves[18]]; }, "PHASE2_TRACEABILITY_GAP"],
+    ["extra final-wave field", (m) => { m.contract.reviewedWaves[19].authority = "live"; }, "PHASE2_TRACEABILITY_GAP"],
+    ["credential reveal", (_m, f) => { f.availableCommands.push("credential reveal"); }, "PHASE2_MUTATION_AVAILABLE"],
+    ["credential direct status", (_m, f) => { f.availableCommands.push("credential status direct"); }, "PHASE2_MUTATION_AVAILABLE"],
+    ["credential scheduled mutation", (_m, f) => { f.availableCommands.push("credential schedule"); }, "PHASE2_MUTATION_AVAILABLE"],
+    ["browser or remote import", (_m, f) => { f.credentialImportRemoteAllowed = true; }, "PHASE2_PRODUCTION_BYPASS"],
+    ["production fixture import", (_m, f) => { f.productionImports.push("github.com/vegastack/vegastack-labs/internal/phase2fixture"); }, "PHASE2_PRODUCTION_BYPASS"],
+    ["private fixture admitted", (_m, f) => { f.privateFixture = true; }, "PHASE2_PRIVATE_FIXTURE"],
   ];
   for (const [name, mutate, code] of cases) {
     const changedManifest = structuredClone(manifest);
@@ -315,6 +344,21 @@ test("the mutation boundary detects changed and added production source files", 
     changed = structuredClone(facts);
     changed.postPhase2MutationBoundaryDigest = await postPhase2MutationBoundaryDigest(temporary, facts.productionImports);
     assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"));
+
+    const lifecycleSchema = path.join(temporary, "schemas/v1/credential-lifecycle-request.schema.json");
+    const schema = JSON.parse(await readFile(lifecycleSchema, "utf8"));
+    schema.properties.providerId = { type: "string" };
+    await writeFile(lifecycleSchema, `${JSON.stringify(schema, null, 2)}\n`);
+    changed = structuredClone(facts);
+    changed.postPhase2MutationBoundaryDigest = await postPhase2MutationBoundaryDigest(temporary, facts.productionImports);
+    assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"), "provider field in core credential schema");
+
+    await cp(path.join(ROOT, "schemas/v1/credential-lifecycle-request.schema.json"), lifecycleSchema);
+    const auditSource = path.join(temporary, "internal/audit/canonical.go");
+    await writeFile(auditSource, `${await readFile(auditSource, "utf8")}\n// weakened redaction seam\n`);
+    changed = structuredClone(facts);
+    changed.postPhase2MutationBoundaryDigest = await postPhase2MutationBoundaryDigest(temporary, facts.productionImports);
+    assert.ok(validateEvidence(manifest, changed).codes.includes("PHASE2_MUTATION_AVAILABLE"), "audit redaction source drift");
   } finally {
     await rm(temporary, { recursive: true, force: true });
   }
