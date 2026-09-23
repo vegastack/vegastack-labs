@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 22-09-2026 — Local backup points can prove they are restorable ([#117](https://github.com/vegastack/vegastack-labs/issues/117))
+
+- **What:** A pending encrypted local point can now be checked against its exact retained objects, read fully by pinned restic, and restored into an isolated SQLite inspection before it becomes current local last-good. The backup status and exact human-approved run and verify commands expose the result without giving the CLI a separate mutation path.
+- **Why:** Creating a point was not enough to know it could recover the control database or preserve a trustworthy earlier point when verification failed.
+- **How it went:** Native restic tests exposed immutable-pack and restore details; independent review found that capacity had been checked at creation but not again before live qualification. A red-first low-capacity test caught a false promotion, and the final verifier now preserves prior last-good with a sanitized failed attempt. Signature, config and image dependency trust remains unavailable until an independently pinned source is built.
+- **Changed:** Revisioned full-read and functional cadence · point-bound read lease · exact manifest and dependency evidence · isolated restore · append-only verification attempts and last-good compare-and-swap · sanitized status and generated client commands.
+- **Decisions:** none; [#115](https://github.com/vegastack/vegastack-labs/issues/115) still owns safe retirement and successor-pack lineage, [#154](https://github.com/vegastack/vegastack-labs/issues/154) owns the missing trusted dependency sources, and no off-site or live recovery gate is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/117-integration-140
+
 ## 22-09-2026 — A durable run keeps its SSE cursor across same-run reads ([#156](https://github.com/vegastack/vegastack-labs/issues/156))
 
 - **What:** The Console keeps `Last-Event-ID` while the same run's GET response changes, resets it for a new run ID, and Phase 4 CI reports a bounded test title, failing assertion location, status and descriptor.

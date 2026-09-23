@@ -60,6 +60,16 @@
       "minimum": 0,
       "type": "integer"
     },
+    "fullPayloadIntervalHours": {
+      "maximum": 8760,
+      "minimum": 0,
+      "type": "integer"
+    },
+    "functionalTestIntervalHours": {
+      "maximum": 8760,
+      "minimum": 0,
+      "type": "integer"
+    },
     "functionalTestRequired": {
       "type": "boolean"
     },
@@ -130,7 +140,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.1.0"
+        "1.2.0"
       ],
       "type": "string"
     },
@@ -167,6 +177,8 @@
     "restoreTargetId",
     "dependencies",
     "functionalTestRequired",
+    "fullPayloadIntervalHours",
+    "functionalTestIntervalHours",
     "recoveryEpoch",
     "revision"
   ],

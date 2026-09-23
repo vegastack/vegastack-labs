@@ -13,6 +13,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/backup"
@@ -62,17 +64,25 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	inspector, err := store.NewRestoredSQLiteInspector(authority)
+	if err != nil {
+		t.Fatal(err)
+	}
+	freeBefore, err := freeBytes(root)
+	if err != nil || freeBefore < 256<<20 || freeBefore > math.MaxInt64 {
+		t.Skip("disposable filesystem lacks bounded capacity-fixture headroom")
+	}
 	keyID, recoveryID, repositoryID := "enc-a", "recovery-a", backupidentity.StandardRepository
 	policy := generated.BackupPolicy{
-		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
+		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0",
 		PolicyID: "policy-real", OwnerID: "owner-real", SourceID: backupidentity.ControlDatabaseSource,
 		SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: backup.SQLiteOnlineHookID,
 		RepositoryID: &repositoryID, RepositoryClass: "standard", ScheduleIntent: "manual",
-		ExpectedBytes: 4 << 20, ExpectedGrowthBytes: 4 << 20, MinimumFreeBytes: 4 << 20,
+		ExpectedBytes: 4 << 20, ExpectedGrowthBytes: 4 << 20, MinimumFreeBytes: int64(freeBefore) - (72 << 20),
 		EncryptionKeyReferenceID: &keyID, RecoveryKeyReferenceID: &recoveryID,
 		RetentionDays: 7, RestoreTargetID: "isolated-test",
-		Dependencies:           []generated.BackupDependency{{DependencyID: "binary-restic", Kind: "binary", Digest: "sha256:" + strings.Repeat("a", 64)}},
-		FunctionalTestRequired: true, RecoveryEpoch: 0, Revision: 1,
+		Dependencies:           []generated.BackupDependency{{DependencyID: "binary-restic", Kind: "binary", Digest: pinnedResticDigest()}},
+		FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 168, RecoveryEpoch: 0, Revision: 1,
 	}
 	for name, mutate := range map[string]func(*generated.BackupPolicy){
 		"foreign source":     func(p *generated.BackupPolicy) { p.SourceID = "source-foreign" },
@@ -119,7 +129,7 @@ func TestLocalBackupComposition(t *testing.T) {
 		LocalBackup: &serverconfig.LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
 			SourceID: backupidentity.ControlDatabaseSource, StandardRepositoryID: backupidentity.StandardRepository,
 			CriticalRepositoryID: backupidentity.CriticalRepository},
-		ExpectedUID: uid, Backups: backups, Snapshots: snapshots, Plans: fixedPlanSource{plan},
+		ExpectedUID: uid, Backups: backups, Snapshots: snapshots, Inspector: inspector, Plans: fixedPlanSource{plan},
 		Hooks: backup.DefaultHookRegistry(), Runner: backup.NewResticRunner(), Clock: time.Now,
 	})
 	if err != nil {
@@ -145,7 +155,7 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err == nil {
 		t.Fatal("unregistered protected profile reached a backup lease")
 	}
-	var firstPoint string
+	var firstPoint, secondPoint string
 	for attempt := 1; attempt <= 2; attempt++ {
 		password, err := credentialref.NewValue([]byte("isolated-composition-password"))
 		if err != nil {
@@ -172,10 +182,116 @@ func TestLocalBackupComposition(t *testing.T) {
 			firstPoint = point.PointID
 		} else if point.PointID == firstPoint {
 			t.Fatal("second point reused the first point ID")
+		} else {
+			secondPoint = point.PointID
 		}
 	}
 	if _, err := backups.GetPendingRecoveryPoint(ctx, firstPoint); err != nil {
 		t.Fatalf("second point lost first pending point: %v", err)
+	}
+	first, err := backups.GetPendingRecoveryPoint(ctx, firstPoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	verifyOperation := adapter.Operation{OperationType: VerifyOperationType, AdapterID: AdapterID,
+		TargetID: firstPoint, InputDigest: first.ManifestDigest, ArtifactDigest: first.InventoryDigest,
+		SecretReferences: []adapter.SecretReference{{ID: keyID, Consumer: AdapterID}}}
+	verifyBinding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: planDigest,
+		RunID: "run-verify", StepID: "step-verify", StateRevision: submission.StateRevision,
+		RecoveryEpoch: 0, MaximumExpiresAt: time.Now().Add(5 * time.Minute).UTC().Format(time.RFC3339)}
+	verifyPassword, err := credentialref.NewValue([]byte("isolated-composition-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	verificationEffect, err := implementation.ExecuteBoundWithCredentials(ctx, verifyOperation, verifyBinding, []*credentialref.Value{verifyPassword})
+	verifyPassword.Close()
+	if err != nil || verificationEffect.Status != "succeeded" || verificationEffect.ResultDigest == "" {
+		t.Fatalf("fixture verification effect=%#v err=%v", verificationEffect, err)
+	}
+	verificationReceipt, err := backups.GetLocalVerificationByDigest(ctx, verificationEffect.ResultDigest)
+	if err != nil || verificationReceipt.Status != "fixture-only" || verificationReceipt.PointID != firstPoint {
+		t.Fatalf("fixture verification receipt=%#v err=%v", verificationReceipt, err)
+	}
+	if verification, err := implementation.Verify(ctx, verifyOperation, verificationEffect); err != nil || !verification.Verified {
+		t.Fatalf("exact fixture proof readback=%#v err=%v", verification, err)
+	}
+	if previous, err := backups.CurrentLocalLastGood(ctx, "standard"); err != nil || previous != "" {
+		t.Fatalf("fixture advanced last-good=%q err=%v", previous, err)
+	}
+	// Current capacity is part of live qualification, not merely point creation.
+	// The same sealed policy and points remain unchanged while a bounded file
+	// lowers available space below the declared headroom after the first proof.
+	liveConfig := implementation.config
+	liveConfig.LiveProof = true
+	liveConfig.Trust = NewProtectedLocalDependencyTrust()
+	live, err := New(liveConfig)
+	if err != nil {
+		t.Fatal(err)
+	}
+	livePassword, err := credentialref.NewValue([]byte("isolated-composition-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	liveBinding := verifyBinding
+	liveBinding.RunID, liveBinding.StepID = "run-live-first", "step-live-first"
+	firstLive, err := live.ExecuteBoundWithCredentials(ctx, verifyOperation, liveBinding, []*credentialref.Value{livePassword})
+	livePassword.Close()
+	if err != nil || firstLive.Status != "succeeded" {
+		t.Fatalf("first live proof rejected while capacity current: effect=%#v err=%v", firstLive, err)
+	}
+	priorGood, err := backups.CurrentLocalLastGood(ctx, "standard")
+	if err != nil || priorGood == "" {
+		t.Fatalf("first live proof did not establish last-good: %q %v", priorGood, err)
+	}
+	filler, err := os.Create(filepath.Join(root, "capacity-reservation"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := unix.Fallocate(int(filler.Fd()), 0, 0, 128<<20); err != nil {
+		filler.Close()
+		t.Fatalf("reserve disposable capacity: %v", err)
+	}
+	if err := filler.Sync(); err != nil {
+		t.Fatal(err)
+	}
+	if err := filler.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := admitCapacity(standard, policy); err == nil {
+		t.Fatal("capacity fixture did not cross policy headroom")
+	}
+	second, err := backups.GetPendingRecoveryPoint(ctx, secondPoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondOperation := verifyOperation
+	secondOperation.TargetID, secondOperation.InputDigest, secondOperation.ArtifactDigest = second.PointID, second.ManifestDigest, second.InventoryDigest
+	secondBinding := verifyBinding
+	secondBinding.RunID, secondBinding.StepID = "run-live-low-capacity", "step-live-low-capacity"
+	lowPassword, err := credentialref.NewValue([]byte("isolated-composition-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lowEffect, lowErr := live.ExecuteBoundWithCredentials(ctx, secondOperation, secondBinding, []*credentialref.Value{lowPassword})
+	lowPassword.Close()
+	if lowErr == nil || lowEffect.Status == "succeeded" {
+		t.Fatalf("low capacity advanced live proof: effect=%#v err=%v", lowEffect, lowErr)
+	}
+	if currentGood, err := backups.CurrentLocalLastGood(ctx, "standard"); err != nil || currentGood != priorGood {
+		t.Fatalf("low capacity changed prior last-good: before=%q after=%q err=%v", priorGood, currentGood, err)
+	}
+	status, err := backups.ReadLocalBackupStatus(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failedAttempt := false
+	for _, attempt := range status.Verifications {
+		if attempt.RunID != nil && *attempt.RunID == secondBinding.RunID && attempt.PointID == secondPoint && attempt.Status == "failed" {
+			failedAttempt = true
+		}
+	}
+	if !failedAttempt {
+		t.Fatalf("low capacity did not append failed attempt: %#v", status.Verifications)
 	}
 	// A retained repository with an invalid format must fail before the next
 	// restic backup and leave both existing pending points intact.

@@ -11,6 +11,8 @@ const (
 	backupPolicyDraftRequestSchemaID      = "vegastack-labs.dev/backup-policy-draft-request"
 	backupPolicyDraftSubmissionSchemaID   = "vegastack-labs.dev/backup-policy-draft-submission"
 	backupJobSchemaID                     = "vegastack-labs.dev/backup-job"
+	backupVerificationAttemptSchemaID     = "vegastack-labs.dev/backup-verification-attempt"
+	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
 	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
@@ -97,8 +99,22 @@ func phase5BackupSchema(identifier string, fields ...FieldDefinition) SchemaDefi
 	return schema
 }
 
+func phase5BackupPolicySchema(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5BackupSchema(backupPolicySchemaID, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
 func phase5BackupRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Request(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
+func phase5BackupVerifyRequest(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(backupVerifyRequestSchemaID, fields...)
 	schema.Version = "1.1.0"
 	schema.Fields[1].Enum = []string{"1.1.0"}
 	return schema
@@ -250,7 +266,7 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Enum("kind", "Kind", "binary", "schema", "config", "image", "signature"),
 			phase5Digest("digest", "Digest"),
 		}},
-		phase5BackupSchema(backupPolicySchemaID,
+		phase5BackupPolicySchema(
 			phase5ID("policyId", "PolicyID"), phase5ID("ownerId", "OwnerID"), phase5ID("sourceId", "SourceID"),
 			phase5IDs("sourceSelectors", "SourceSelectors", 64),
 			phase5ID("consistencyHookId", "ConsistencyHookID"),
@@ -264,6 +280,8 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Nonnegative("retentionDays", "RetentionDays"), phase5ID("restoreTargetId", "RestoreTargetID"),
 			FieldDefinition{JSONName: "dependencies", GoName: "Dependencies", Kind: ValueArray, Required: true, ItemRef: backupDependencySchemaID, MaxItems: intPointer(64)},
 			phase5Bool("functionalTestRequired", "FunctionalTestRequired"),
+			FieldDefinition{JSONName: "fullPayloadIntervalHours", GoName: "FullPayloadIntervalHours", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(8760)},
+			FieldDefinition{JSONName: "functionalTestIntervalHours", GoName: "FunctionalTestIntervalHours", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(8760)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"), phase5Positive("revision", "Revision"),
 		),
 		phase5BackupSchema(backupJobSchemaID,
@@ -274,6 +292,18 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Enum("status", "Status", "queued", "running", "pending", "failed", "verified", "uncertain"),
 			phase5NullableID("runId", "RunID"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5NullableDigest("verificationDigest", "VerificationDigest"),
+		),
+		phase5BackupSchema(backupVerificationAttemptSchemaID,
+			phase5ID("verificationId", "VerificationID"), phase5ID("jobId", "JobID"), phase5ID("pointId", "PointID"),
+			phase5NullableID("runId", "RunID"), phase5Enum("status", "Status", "pending", "fixture-only", "local-verified", "full-payload-due", "functional-test-due", "uncertain", "failed"),
+			phase5Enum("proofClass", "ProofClass", "fixture", "live"), phase5NullableDigest("verificationDigest", "VerificationDigest"),
+			phase5NullableTimestamp("verifiedAt", "VerifiedAt"), phase5NullableTimestamp("fullPayloadDueAt", "FullPayloadDueAt"),
+			phase5NullableTimestamp("functionalTestDueAt", "FunctionalTestDueAt"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5BackupSchema(backupLastGoodSchemaID,
+			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"), phase5ID("pointId", "PointID"),
+			phase5ID("verificationId", "VerificationID"), phase5Digest("manifestDigest", "ManifestDigest"),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5BackupSchema(recoveryPointSchemaID,
 			phase5ID("pointId", "PointID"),
@@ -436,8 +466,10 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
 			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
 		),
-		phase5Request(backupVerifyRequestSchemaID,
+		phase5BackupVerifyRequest(
 			phase5ID("jobId", "JobID"), phase5ID("pointId", "PointID"),
+			phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
+			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
 		),
 		phase5Request(restoreRequestSchemaID,
 			phase5ID("pointId", "PointID"), phase5IDs("dependencyIds", "DependencyIDs", 256),
@@ -532,9 +564,11 @@ func phase5RequestSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "gates", GoName: "Gates", Kind: ValueArray, Required: true, ItemRef: gateViewSchemaID, MaxItems: intPointer(256)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
-		phase5Schema(backupStatusDataSchemaID,
+		phase5BackupSchema(backupStatusDataSchemaID,
 			FieldDefinition{JSONName: "policies", GoName: "Policies", Kind: ValueArray, Required: true, ItemRef: backupPolicySchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "jobs", GoName: "Jobs", Kind: ValueArray, Required: true, ItemRef: backupJobSchemaID, MaxItems: intPointer(256)},
+			FieldDefinition{JSONName: "verifications", GoName: "Verifications", Kind: ValueArray, Required: true, ItemRef: backupVerificationAttemptSchemaID, MaxItems: intPointer(256)},
+			FieldDefinition{JSONName: "lastGood", GoName: "LastGood", Kind: ValueArray, Required: true, ItemRef: backupLastGoodSchemaID, MaxItems: intPointer(16)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(auditCheckpointListDataSchemaID,
@@ -599,9 +633,9 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
 		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialImportRequestSchemaID, DataSchema: credentialImportSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
 		{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", RequestSchema: backupPolicyDraftRequestSchemaID, DataSchema: backupPolicyDraftSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
-		phase5Endpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
-		phase5Endpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
-		phase5Endpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
+		phase5AvailableGateEndpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
 		phase5Endpoint("api.v1.recovery-points.get", "GET", "/api/v1/recovery-points/{pointId}", "", recoveryPointSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.audit-checkpoints.list", "GET", "/api/v1/audit-checkpoints", "", auditCheckpointListDataSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.audit-checkpoints.create", "POST", "/api/v1/audit-checkpoints", auditCheckpointRequestSchemaID, auditCheckpointSchemaID, false),

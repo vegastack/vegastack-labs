@@ -18,7 +18,7 @@ func validateBackupPtr(value string) *string { return &value }
 
 func validBackupPolicy() generated.BackupPolicy {
 	return generated.BackupPolicy{
-		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.1.0",
+		Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0",
 		PolicyID: "policy-a", OwnerID: "owner-a", SourceID: backupidentity.ControlDatabaseSource,
 		SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: "sqlite-online",
 		RepositoryID: validateBackupPtr(backupidentity.StandardRepository), RepositoryClass: "standard", ScheduleIntent: "daily",
@@ -27,7 +27,7 @@ func validBackupPolicy() generated.BackupPolicy {
 		RetentionDays: 7, RestoreTargetID: "restore-a",
 		Dependencies: []generated.BackupDependency{{DependencyID: "dep-a", Kind: "binary",
 			Digest: "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}},
-		FunctionalTestRequired: true, RecoveryEpoch: 0, Revision: 1,
+		FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 168, RecoveryEpoch: 0, Revision: 1,
 	}
 }
 
@@ -51,6 +51,7 @@ func TestValidateBackupPolicyClassRules(t *testing.T) {
 
 	none := validBackupPolicy()
 	none.RepositoryClass, none.RepositoryID, none.EncryptionKeyReferenceID, none.RecoveryKeyReferenceID, none.RetentionDays = "none", nil, nil, nil, 0
+	none.FullPayloadIntervalHours, none.FunctionalTestIntervalHours = 0, 0
 	if err := validateBackupPolicy(none, 0); err != nil {
 		t.Fatalf("valid none policy rejected: %v", err)
 	}

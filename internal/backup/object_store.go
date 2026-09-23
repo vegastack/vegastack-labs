@@ -31,6 +31,20 @@ type LeaseVerifier interface {
 	VerifyWriterLease(lease WriterLease, now time.Time) error
 }
 
+// ReadLease fences one verification session to a point, repository and epoch.
+// It grants only object reads and lock files created by this exact REST server.
+type ReadLease struct {
+	LeaseID          string
+	PointID          string
+	RepositoryID     string
+	RecoveryEpoch    int64
+	MaximumExpiresAt time.Time
+}
+
+type ReadLeaseVerifier interface {
+	VerifyReadLease(lease ReadLease, now time.Time) error
+}
+
 // retainedObjectTypes are the restic repository-format-v2 object classes that are
 // immutable once created. The routine writer may never overwrite or delete them.
 var retainedObjectTypes = map[string]struct{}{

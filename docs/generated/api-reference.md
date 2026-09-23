@@ -9,9 +9,9 @@ Contract schema: `1.20.0`
 | `api.v1.audit-checkpoints.list` | `GET` | `/api/v1/audit-checkpoints` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/audit-checkpoint-list-data` |
 | `api.v1.audit-history.verification` | `GET` | `/api/v1/audit-history/verification` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/audit-verification-data` |
 | `api.v1.backup-policy-drafts.create` | `POST` | `/api/v1/backups/policies/drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-policy-draft-request` | `vegastack-labs.dev/backup-policy-draft-submission` |
-| `api.v1.backups.run` | `POST` | `/api/v1/backups/run` | `planned` | `operator` | `finite` | `vegastack-labs.dev/backup-run-request` | `vegastack-labs.dev/backup-job` |
-| `api.v1.backups.status` | `GET` | `/api/v1/backups/status` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/backup-status-data` |
-| `api.v1.backups.verify` | `POST` | `/api/v1/backups/{jobId}/verify` | `planned` | `operator` | `finite` | `vegastack-labs.dev/backup-verify-request` | `vegastack-labs.dev/backup-job` |
+| `api.v1.backups.run` | `POST` | `/api/v1/backups/run` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-run-request` | `vegastack-labs.dev/backup-job` |
+| `api.v1.backups.status` | `GET` | `/api/v1/backups/status` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/backup-status-data` |
+| `api.v1.backups.verify` | `POST` | `/api/v1/backups/{jobId}/verify` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-verify-request` | `vegastack-labs.dev/backup-job` |
 | `api.v1.credential-lifecycle-drafts.create` | `POST` | `/api/v1/credential-lifecycle-drafts` | `available` | `operator` | `finite` | `vegastack-labs.dev/credential-lifecycle-request` | `vegastack-labs.dev/credential-lifecycle-submission` |
 | `api.v1.credential-references.get` | `GET` | `/api/v1/credential-references/{referenceId}` | `planned` | `operator` | `finite` | `` | `vegastack-labs.dev/credential-reference` |
 | `api.v1.credential-references.import-stream` | `POST` | `/api/v1/credential-references/{referenceId}/import-stream` | `available` | `operator` | `finite` | `vegastack-labs.dev/credential-import-request` | `vegastack-labs.dev/credential-import-submission` |
