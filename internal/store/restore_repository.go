@@ -59,7 +59,7 @@ func (repository *RestoreRepository) CreatePlan(ctx context.Context, request Res
 	}
 	var planDigest, declarationID, acknowledgementID, acknowledgementStatus string
 	var declarationRevision int64
-	err = transaction.QueryRowContext(ctx, `SELECT p.plan_digest,p.declaration_id,p.declaration_revision,a.acknowledgement_id,a.status FROM immutable_plans p JOIN declaration_revisions d ON d.declaration_id=p.declaration_id AND d.declaration_revision=p.declaration_revision JOIN acknowledgement_requests a ON a.plan_id=p.plan_id WHERE p.plan_id=? AND p.state_revision=? AND p.recovery_epoch=? AND d.declaration_type='recovery.restore'`, request.Binding.PlanID, request.Expected.StateRevision, request.Expected.RecoveryEpoch).Scan(&planDigest, &declarationID, &declarationRevision, &acknowledgementID, &acknowledgementStatus)
+	err = transaction.QueryRowContext(ctx, `SELECT p.plan_digest,p.declaration_id,p.declaration_revision,a.acknowledgement_id,a.status FROM immutable_plans p JOIN declaration_revisions d ON d.declaration_id=p.declaration_id AND d.declaration_revision=p.declaration_revision JOIN acknowledgement_requests a ON a.plan_id=p.plan_id AND a.acknowledgement_id=? WHERE p.plan_id=? AND p.recovery_epoch=? AND d.declaration_type='recovery.restore'`, request.Binding.HumanAcknowledgementID, request.Binding.PlanID, request.Expected.RecoveryEpoch).Scan(&planDigest, &declarationID, &declarationRevision, &acknowledgementID, &acknowledgementStatus)
 	if errors.Is(err, sql.ErrNoRows) {
 		return RestoreSession{}, restoreStoreError(generated.ErrorCodePrerequisiteBlocked, "restore-plan")
 	}
