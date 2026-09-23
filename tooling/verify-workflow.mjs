@@ -27,7 +27,7 @@ export function verifyWorkflowDocument(workflow, source = "") {
       inputs.backup_acceptance?.type !== "boolean") {
     throw new Error("manual CI must expose only explicit final-full and named native acceptance selections");
   }
-  if (/${{s*secrets./.test(source)) throw new Error("public workflow must not reference secrets");
+  if (/\$\{\{\s*secrets\./.test(source)) throw new Error("public workflow must not reference secrets");
 
   const jobs = workflow.jobs ?? {};
   if (Object.keys(jobs).sort().join(",") !== "plan,verify_trusted") {

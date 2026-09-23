@@ -48,6 +48,12 @@ test("the guard rejects an automatic trigger or broad non-final execution", asyn
   const second = await fixture();
   second.workflow.jobs.verify_trusted.steps.find(({ name }) => name === "Run affected public checks").if = undefined;
   assert.throws(() => verifyWorkflowDocument(second.workflow, second.source), /only for explicit final full_check/);
+
+  const secret = await fixture();
+  assert.throws(
+    () => verifyWorkflowDocument(secret.workflow, `${secret.source}\ntoken: \${{ secrets.CI_TOKEN }}\n`),
+    /must not reference secrets/,
+  );
 });
 
 test("the trusted manual runner stays bounded and checks its host before checkout", async () => {
