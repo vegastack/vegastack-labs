@@ -156,16 +156,34 @@ const REVIEWED_NATIVE_READER_MAP_WAVE = Object.freeze({
   commands: Object.freeze([]), imports: Object.freeze([]),
   mutationBoundaryDigest: "sha256:1e0ddd40124fbd35a86ab13b26525e0765c7b0c13e2d108b72ae6f44d010f347",
 });
+// Issue #141 composes #140's consumer map with #143's qualified local OS
+// authority and an exact native lifecycle verifier. Production G-007 remains
+// unavailable. Recompute this digest from the final integrated source closure.
+const REVIEWED_NATIVE_LIFECYCLE_WAVE = Object.freeze({
+  id: "phase5-issue141-v1", issue: 141,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:1c1c655f661db1efe1586da0e731dfb2d7471d76d742c4e0ba774a90c114f0a1",
+});
+
+
+// Issue #143 adds only the exact local delegated native authority and private
+// probe. It registers no additional public command or external adapter.
+const REVIEWED_NATIVE_AUTHORITY_WAVE = Object.freeze({
+  id: "phase5-issue143-v1", issue: 143,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:8f475ee6b254aef31714c2990053fe43964775d6521caf3f90acf0a41550f81a",
+});
+
 // #153 exposes a finite, default-blocked custodian collection command and
 // typed direct-denial interface. No qualified production adapter is wired.
 const REVIEWED_WITNESS_COLLECTION_WAVE = Object.freeze({
   id: "phase5-issue153-v1", issue: 153,
   commands: Object.freeze(["recovery witness collect"]),
   imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"]),
-  mutationBoundaryDigest: "sha256:76bfcd32bfaf8d362b2e4f439459a73123df1a33e3f2e3ae17cb8331e9711a25",
+  mutationBoundaryDigest: "sha256:d14608fe7b00ce92fe57cc4bed03beb44c8ac43d9e49bb5c18343da29a61da97",
 });
 
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });

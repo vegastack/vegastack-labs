@@ -216,7 +216,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	}
 	credentialRepository := store.NewCredentialRepository(authority)
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
-	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, runengine.UnavailableCredentialLifecycleVerifier{}, runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
+	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
