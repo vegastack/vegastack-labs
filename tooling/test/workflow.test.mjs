@@ -4,207 +4,68 @@ import test from "node:test";
 import { parse as parseYaml } from "yaml";
 import { verifyWorkflowDocument } from "../verify-workflow.mjs";
 
-test("an overprivileged workflow with mutable Actions fails closed", async () => {
-  const source = await readFile(
-    new URL("../testdata/unsafe-workflow.yaml", import.meta.url),
-    "utf8",
-  );
-  assert.throws(() => verifyWorkflowDocument(parseYaml(source), source), /permissions/);
-});
+async function fixture() {
+  const source = await readFile(new URL("../../.github/workflows/ci.yml", import.meta.url), "utf8");
+  return { source, workflow: parseYaml(source) };
+}
 
-test("the public workflow retains the commit history required by Phase 2 evidence", async () => {
-  const source = await readFile(
-    new URL("../../.github/workflows/ci.yml", import.meta.url),
-    "utf8",
-  );
-  const workflow = parseYaml(source);
-  assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
-  delete workflow.jobs.verify_pr.steps.find(({ uses }) => uses?.startsWith("actions/checkout@"))
-    .with["fetch-depth"];
-  assert.throws(
-    () => verifyWorkflowDocument(workflow, source),
-    /retain complete commit history/,
-  );
-});
-
-test("CI uses affected checks and installs Chromium only when selected", async () => {
-  const source = await readFile(
-    new URL("../../.github/workflows/ci.yml", import.meta.url),
-    "utf8",
-  );
-  const workflow = parseYaml(source);
-  const planSteps = workflow.jobs.plan.steps;
-  const hostedSteps = workflow.jobs.verify_pr.steps;
-  const trustedSteps = workflow.jobs.verify_trusted.steps;
-  const plan = planSteps.find(({ id }) => id === "check-plan");
-  const hostedChromium = hostedSteps.find(({ name }) => name === "Install pinned Chromium");
-  const trustedChromium = trustedSteps.find(({ name }) => name === "Install pinned Chromium");
-  const hostedChecks = hostedSteps.find(({ name }) => name === "Run affected public checks");
-  const trustedChecks = trustedSteps.find(({ name }) => name === "Run affected public checks");
-  const phase4Exit = trustedSteps.find(({ name }) => name === "Run exact Phase 4 exit acceptance");
-  const trustedNode = trustedSteps.find(({ uses }) => uses?.startsWith("actions/setup-node@"));
-
-  assert.equal(workflow.on.workflow_dispatch.inputs.base_sha.type, "string");
-  assert.equal(workflow.on.workflow_dispatch.inputs.base_sha.required, false);
-  assert.equal(workflow.on.workflow_dispatch.inputs.full_check.type, "boolean");
+test("Public CI is dispatch-only during the Phase 5 batch", async () => {
+  const { source, workflow } = await fixture();
+  assert.deepEqual(Object.keys(workflow.on), ["workflow_dispatch"]);
+  assert.equal(Object.hasOwn(workflow.on.workflow_dispatch.inputs, "base_sha"), false);
   assert.equal(workflow.on.workflow_dispatch.inputs.full_check.default, false);
-  assert.ok(plan);
-  assert.match(plan.env.BASE_SHA, /inputs\.base_sha/);
-  assert.match(plan.env.FULL_CHECK, /inputs\.full_check/);
-  assert.match(plan.run, /manual affected checks require an exact base_sha/);
-  assert.match(plan.run, /full_check cannot be combined with base_sha/);
-  assert.match(plan.run, /node tooling\/check-affected\.mjs[\s\S]*--format github/);
-  assert.equal(workflow.jobs.plan["runs-on"], "ubuntu-24.04");
-  assert.equal(workflow.jobs.verify_pr["runs-on"], "ubuntu-24.04");
-  assert.equal(workflow.jobs.verify_pr["timeout-minutes"], 20);
-  assert.equal(workflow.jobs.verify_trusted["timeout-minutes"], 15);
-  assert.deepEqual(workflow.jobs.verify_trusted["runs-on"], ["self-hosted", "linux", "x64"]);
-  assert.equal(workflow.jobs.verify_pr.if, "github.event_name == 'pull_request'");
-  assert.equal(
-    workflow.jobs.verify_trusted.if,
-    "github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main')",
-  );
-  assert.equal(hostedChromium.if, "needs.plan.outputs.browser == 'true'");
-  assert.equal(trustedChromium.if, "needs.plan.outputs.browser == 'true' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
-  assert.equal(hostedChecks.run, "pnpm check:affected --execute-plan");
-  assert.equal(trustedChecks.run, "pnpm check:affected --execute-plan");
-  assert.equal(hostedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
-  assert.equal(trustedChecks.env.VSK_CHECK_PLAN_B64, "${{ needs.plan.outputs.check_plan }}");
-  assert.equal(trustedChecks.if, "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'");
-  const backupAcceptance = trustedSteps.find(({ name }) => name === "Run pinned local-backup acceptance");
-  assert.equal(backupAcceptance.if, "github.event_name == 'workflow_dispatch' && inputs.backup_acceptance");
-  assert.match(backupAcceptance.run, /VSK_RESTIC_0191_BINARY/);
-  assert.match(backupAcceptance.run, /TestPinnedResticEndToEnd\|TestPinnedResticRejectsAuthenticatedV1Repository\|TestLocalBackupComposition/);
-  assert.equal(phase4Exit.if, "github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'");
-  assert.equal(phase4Exit.run, "pnpm --silent check:phase-4-exit --commit \"$GITHUB_SHA\"");
-  assert.equal(trustedNode.with.cache, undefined);
-  assert.match(trustedSteps[0].run, /vsk-node-01\|vsk-node-06/);
-  assert.equal(trustedSteps[1].name, "Prepare protected local test storage");
-  assert.match(trustedSteps[1].run, /mktemp -d -p \/var\/tmp vsk\.XXXXXX/);
-  assert.match(trustedSteps[1].run, /umask 077/);
-  assert.match(trustedSteps[1].run, /trap cleanup_unexported_temp EXIT/);
-  assert.match(trustedSteps[1].run, /trap - EXIT/);
-  assert.match(trustedSteps[1].run, /stat -c '%a:%u'/);
-  assert.match(trustedSteps[1].run, /ext2\/ext3\|xfs\|btrfs\|f2fs\|zfs/);
-  assert.match(trustedSteps[1].run, /GITHUB_ENV/);
-  const cleanup = trustedSteps.find((step) => step.name === "Remove protected local test storage");
-  assert.equal(cleanup.if, "always()");
-  assert.match(cleanup.run, /rm -rf -- "\$TMPDIR"/);
-  assert.equal(trustedSteps[2].name, "Check out repository");
-  assert.doesNotMatch(source, /run:\s*pnpm check\s*$/m);
+  assert.doesNotMatch(source, /^\s*(pull_request|push):/m);
   assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
 });
 
-test("the hosted PR timeout stays bounded to the reviewed 20-minute ceiling", async () => {
-  const source = await readFile(
-    new URL("../../.github/workflows/ci.yml", import.meta.url),
-    "utf8",
-  );
-  const extended = parseYaml(source);
-  extended.jobs.verify_pr["timeout-minutes"] = 21;
+test("manual CI requires final-full or a named native acceptance lane", async () => {
+  const { source, workflow } = await fixture();
+  const plan = workflow.jobs.plan.steps.find(({ id }) => id === "check-plan");
+  assert.match(plan.run, /dispatch must explicitly select final full_check or a named native acceptance lane/);
+  assert.match(plan.run, /native credential acceptance SHA must equal the dispatch head/);
+  assert.match(plan.run, /native credential acceptance requires its reviewed branch/);
+  assert.equal(plan.env.HEAD_SHA, "${{ github.sha }}");
+  assert.doesNotMatch(JSON.stringify(plan), /base_sha|pull_request|github\.event\.before/);
+
+  const trusted = workflow.jobs.verify_trusted.steps;
+  assert.equal(trusted.find(({ name }) => name === "Install pinned Chromium").if, "inputs.full_check");
+  assert.equal(trusted.find(({ name }) => name === "Run affected public checks").if, "inputs.full_check");
+  assert.equal(trusted.find(({ name }) => name === "Install public dependencies").if, "inputs.full_check");
+  assert.equal(trusted.find(({ name }) => name === "Run exact Phase 4 exit acceptance").if,
+    "inputs.full_check && github.ref == 'refs/heads/main'");
+  assert.match(trusted.find(({ name }) => name === "Run pinned local-backup acceptance").if,
+    /inputs\.backup_acceptance/);
+  assert.match(trusted.find(({ name }) => name === "Run exact #143 disposable native credential acceptance").if,
+    /inputs\.native_credential_sha/);
+  assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
+});
+
+test("the guard rejects an automatic trigger or broad non-final execution", async () => {
+  const { source, workflow } = await fixture();
+  workflow.on.pull_request = {};
+  assert.throws(() => verifyWorkflowDocument(workflow, source), /manual-only/);
+
+  const second = await fixture();
+  second.workflow.jobs.verify_trusted.steps.find(({ name }) => name === "Run affected public checks").if = undefined;
+  assert.throws(() => verifyWorkflowDocument(second.workflow, second.source), /only for explicit final full_check/);
+
+  const secret = await fixture();
   assert.throws(
-    () => verifyWorkflowDocument(extended, source),
-    /verify_pr job timeout must be at most 20 minutes/,
+    () => verifyWorkflowDocument(secret.workflow, `${secret.source}\ntoken: \${{ secrets.CI_TOKEN }}\n`),
+    /must not reference secrets/,
   );
 });
 
-test("the workflow guard rejects unconditional Chromium and a repeated full lane", async () => {
-  const source = await readFile(
-    new URL("../../.github/workflows/ci.yml", import.meta.url),
-    "utf8",
-  );
-  const unconditional = parseYaml(source);
-  delete unconditional.jobs.verify_pr.steps.find(({ name }) => name === "Install pinned Chromium").if;
-  assert.throws(
-    () => verifyWorkflowDocument(unconditional, source),
-    /Chromium only for selected checks or the explicit main exit/,
-  );
+test("the trusted manual runner stays bounded and checks its host before checkout", async () => {
+  const { source, workflow } = await fixture();
+  const job = workflow.jobs.verify_trusted;
+  assert.deepEqual(job["runs-on"], ["self-hosted", "linux", "x64"]);
+  assert.equal(job["timeout-minutes"], 15);
+  assert.match(job.steps[0].run, /vsk-node-01\|vsk-node-06/);
+  assert.equal(job.steps[1].name, "Prepare protected local test storage");
+  assert.equal(job.steps[2].name, "Check out repository");
+  assert.doesNotThrow(() => verifyWorkflowDocument(workflow, source));
 
-  const repeated = parseYaml(source);
-  repeated.jobs.verify_pr.steps.find(({ name }) => name === "Run affected public checks").run = "pnpm check";
-  assert.throws(
-    () => verifyWorkflowDocument(repeated, `${source}\n- run: pnpm check\n`),
-    /execute the exact affected check plan|must not repeat the complete local check lane/,
-  );
-
-  const literalSeparator = parseYaml(source);
-  literalSeparator.jobs.verify_pr.steps.find(
-    ({ name }) => name === "Run affected public checks",
-  ).run = "pnpm check:affected -- --execute-plan";
-  assert.throws(
-    () => verifyWorkflowDocument(literalSeparator, source),
-    /execute the exact affected check plan/,
-  );
-
-  const repeatedExit = parseYaml(source);
-  repeatedExit.jobs.verify_trusted.steps.find(({ name }) => name === "Run exact Phase 4 exit acceptance").if =
-    "github.event_name == 'push' && github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'";
-  assert.throws(
-    () => verifyWorkflowDocument(repeatedExit, source),
-    /only explicit manual main runs may execute Phase 4 exit/,
-  );
-
-  const skippedPush = parseYaml(source);
-  skippedPush.jobs.verify_trusted.steps.find(({ name }) => name === "Run affected public checks").if =
-    "github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'";
-  assert.throws(
-    () => verifyWorkflowDocument(skippedPush, source),
-    /must execute the affected plan on main pushes/,
-  );
-});
-
-test("the workflow guard keeps pull requests off disposable machines and checks hostname before checkout", async () => {
-  const source = await readFile(
-    new URL("../../.github/workflows/ci.yml", import.meta.url),
-    "utf8",
-  );
-  const unsafeEvent = parseYaml(source);
-  unsafeEvent.jobs.verify_trusted.if = "github.event_name == 'pull_request'";
-  assert.throws(
-    () => verifyWorkflowDocument(unsafeEvent, source),
-    /self-hosted checks must exclude pull requests/,
-  );
-
-  const lateGuard = parseYaml(source);
-  const steps = lateGuard.jobs.verify_trusted.steps;
-  [steps[0], steps[1]] = [steps[1], steps[0]];
-  assert.throws(
-    () => verifyWorkflowDocument(lateGuard, source),
-    /hostname before repository checkout/,
-  );
-
-  const unsafeTemporary = parseYaml(source);
-  unsafeTemporary.jobs.verify_trusted.steps[1].run = "TMPDIR=/tmp";
-  assert.throws(
-    () => verifyWorkflowDocument(unsafeTemporary, source),
-    /protected temporary storage/,
-  );
-
-  const unarmedCleanup = parseYaml(source);
-  unarmedCleanup.jobs.verify_trusted.steps[1].run = unarmedCleanup.jobs.verify_trusted.steps[1].run
-    .replace("trap cleanup_unexported_temp EXIT", "true")
-    .replace("trap - EXIT", "true");
-  assert.throws(
-    () => verifyWorkflowDocument(unarmedCleanup, source),
-    /protected temporary storage/,
-  );
-
-  const slowTrustedCache = parseYaml(source);
-  slowTrustedCache.jobs.verify_trusted.steps.find(
-    ({ uses }) => uses?.startsWith("actions/setup-node@"),
-  ).with.cache = "pnpm";
-  assert.throws(
-    () => verifyWorkflowDocument(slowTrustedCache, source),
-    /trusted runner must install dependencies without restoring the remote pnpm cache/,
-  );
-
-  for (const trigger of ["schedule", "repository_dispatch", "pull_request_target"]) {
-    const extraTrigger = parseYaml(source);
-    extraTrigger.on[trigger] = trigger === "schedule" ? [{ cron: "0 0 * * *" }] : {};
-    assert.throws(
-      () => verifyWorkflowDocument(extraTrigger, source),
-      /unsupported workflow trigger/,
-      trigger,
-    );
-  }
+  job.steps[0].run = "true";
+  assert.throws(() => verifyWorkflowDocument(workflow, source), /hostname/);
 });

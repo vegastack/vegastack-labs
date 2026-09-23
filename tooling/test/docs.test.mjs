@@ -28,24 +28,24 @@ test("valid links, fragments, and JSON pass", async () => {
   assert.deepEqual(result, { markdownFiles: 2, jsonFiles: 1 });
 });
 
-test("future-session mandates require exact affected batch proof and one final complete lane", async () => {
+test("future-session mandates require local affected proof and manual-only Phase 5 CI", async () => {
   const files = ["AGENTS.md", "docs/development/operating-mandate.md", ".vegastack/dev.md"];
   for (const file of files) {
     const text = await readFile(new URL(`../../${file}`, import.meta.url), "utf8");
-    assert.match(text, /one successful.*exact(?:-base| base).*exact(?:-head| head).*affected public check/is, file);
-    assert.match(text, /browser.*only.*browser-(?:facing|impacting)/is, file);
-    assert.match(text, /fail(?:s|ed)? closed.*full/is, file);
-    assert.match(text, /pull request.*GitHub-hosted.*Ubuntu 24\.04/is, file);
+    assert.match(text, /local `pnpm check:affected`/i, file);
+    assert.match(text, /exact.*remote.*main.*exact.*(?:branch )?head/is, file);
+    assert.match(text, /(?:no `pull_request` or `push` trigger|pull requests and `main` pushes.*(?:no CI|do not trigger Public CI)|no automatic pull-request)/is, file);
+    assert.match(text, /(?:workflow_dispatch.*(?:final Phase 5|complete final Phase 5)|(?:final Phase 5|complete final Phase 5).*workflow_dispatch)/is, file);
     assert.match(text, /vsk-node-01.*vsk-node-06/is, file);
     assert.match(text, /disposable/is, file);
   }
   for (const file of files.slice(0, 2)) {
     const text = await readFile(new URL(`../../${file}`, import.meta.url), "utf8");
-    assert.match(text, /complete public suite.*final Phase 5 integration or acceptance/is, file);
+    assert.match(text, /complete final Phase 5 integration\/acceptance lane|complete final Phase 5 integration or acceptance lane/is, file);
   }
   const profile = await readFile(new URL("../../.vegastack/dev.md", import.meta.url), "utf8");
-  assert.match(profile, /^ship-check: ci-batch-exact-head\b/m);
-  assert.match(profile, /exact current `main` SHA as `base_sha`/i);
-  assert.match(profile, /affected (?:public check|plan)/i);
-  assert.match(profile, /final Phase 5 integration\/acceptance candidate.*full_check/is);
+  assert.match(profile, /^ship-check: local-affected-exact-head\b/m);
+  assert.match(profile, /configured local affected command once/i);
+  assert.match(profile, /Public CI has only a manual `workflow_dispatch` trigger/i);
+  assert.match(profile, /final Phase 5 integration\/acceptance candidate alone.*full_check/is);
 });

@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-09-2026 — Phase 5 stopped starting CI for every landing ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
+
+- **What:** Intermediate Phase 5 changes now prove their exact current-main diff locally and do not start GitHub CI when a pull request opens or merges. Public CI is manual-only for the final full acceptance and named native lanes.
+- **Why:** Even an affected automatic lane repeated setup and check work at branch, pull-request, and post-merge stages; the operator required one focused proof per intermediate change and one broad proof at the end.
+- **How it went:** A follow-up correction removed the automatic triggers and hosted PR job, strengthened the workflow guard, and taught the local ship gate to bind the affected command to the clean pushed head and current remote base before and after it runs.
+- **Changed:** Dispatch-only Public CI · exact local affected ship proof · future-session policy and deterministic guards.
+- **Decisions:** none; unsafe affected classifications still fail closed locally, and named native acceptance remains explicit.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-manual-only-ci
+
 ## 23-09-2026 — Clean-host recovery can compare the exact staged draft ([#144](https://github.com/vegastack/vegastack-labs/issues/144))
 
 - **What:** A dormant server adapter can consume one exact protected recovery handoff, bind it to current replacement authority and the existing staged ciphertext, then decrypt and compare the opened inode through the native systemd credential path.
