@@ -279,11 +279,13 @@
       {
         "id": "phase5-issue118-v1",
         "issue": 118,
-        "commands": [],
+        "commands": [
+          "backup offsite-retirement stage"
+        ],
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
         ],
-        "mutationBoundaryDigest": "sha256:00131492028c68b44e6fa1164dd1aec464eedf5b493ccb9c7215b6d77c66ed5a"
+        "mutationBoundaryDigest": "sha256:d83a3391c53a7b7ebd1afeccbc0b004398f30fc13fb452c18b9d539208dc8c20"
       }
     ]
   },

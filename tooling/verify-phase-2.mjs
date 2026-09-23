@@ -263,13 +263,13 @@ const REVIEWED_OFFSITE_GENERATION_WAVE = Object.freeze({
   mutationBoundaryDigest: "sha256:6c6a3ab5f366603d73c1bd07d91097d0062f49a48231aca42a4c1f500af0455d",
 });
 
-// #118 adds the closed destructive off-site retirement contract. It exposes no
-// direct CLI command and production registration remains unavailable until
-// actual G-008 one-owner, credential, and recovery evidence qualifies the site.
+// #118 adds the closed destructive off-site retirement contract and a typed
+// staging command. Production mutation remains unavailable until actual G-008
+// one-owner, credential, and recovery evidence qualifies the site.
 const REVIEWED_OFFSITE_RETIREMENT_WAVE = Object.freeze({
   id: "phase5-issue118-v1", issue: 118,
-  commands: Object.freeze([]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]),
-  mutationBoundaryDigest: "sha256:00131492028c68b44e6fa1164dd1aec464eedf5b493ccb9c7215b6d77c66ed5a",
+  commands: Object.freeze(["backup offsite-retirement stage"]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]),
+  mutationBoundaryDigest: "sha256:d83a3391c53a7b7ebd1afeccbc0b004398f30fc13fb452c18b9d539208dc8c20",
 });
 
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_BROWSER_RECONNECT_WAVE, REVIEWED_BACKUP_VERIFY_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE, REVIEWED_REPOSITORY_CUSTODY_WAVE, REVIEWED_BACKUP_DEPENDENCY_TRUST_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_ACCEPTANCE_WAVE, REVIEWED_LOCAL_RETIREMENT_WAVE, REVIEWED_OFFSITE_GENERATION_WAVE, REVIEWED_OFFSITE_RETIREMENT_WAVE]);
