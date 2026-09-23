@@ -186,6 +186,7 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/backup-job.schema.json",
 		"schemas/v1/backup-last-good.schema.json",
 		"schemas/v1/backup-local-retirement-status.schema.json",
+		"schemas/v1/backup-offsite-status.schema.json",
 		"schemas/v1/backup-policy-draft-request.schema.json",
 		"schemas/v1/backup-policy-draft-submission.schema.json",
 		"schemas/v1/backup-policy.schema.json",

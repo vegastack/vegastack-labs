@@ -36,6 +36,16 @@
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
         },
+        "offsiteRunSpec": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/offsite-run-spec"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
         "operationId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
@@ -62,6 +72,103 @@
         "inputDigest",
         "artifactDigest",
         "idempotent"
+      ],
+      "type": "object"
+    },
+    "offsite-run-spec": {
+      "additionalProperties": false,
+      "properties": {
+        "g008EvidenceDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "generationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "maximumBytes": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maximumLists": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maximumPuts": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "maximumRetainedGenerations": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "observerReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "parentReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "repositoryKeyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "repositoryUrl": {
+          "maxLength": 4096,
+          "minLength": 12,
+          "type": "string"
+        },
+        "retentionSeconds": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "ruleDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "ruleLimit": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "sessionTtlSeconds": {
+          "maximum": 900,
+          "minimum": 1,
+          "type": "integer"
+        },
+        "snapshotPath": {
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^/[^\\x00]*$",
+          "type": "string"
+        },
+        "sourcePointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "sourceRevision": {
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "generationId",
+        "sourcePointId",
+        "sourceRevision",
+        "snapshotPath",
+        "repositoryUrl",
+        "parentReferenceId",
+        "repositoryKeyReferenceId",
+        "observerReferenceId",
+        "ruleDigest",
+        "g008EvidenceDigest",
+        "maximumBytes",
+        "maximumPuts",
+        "maximumLists",
+        "maximumRetainedGenerations",
+        "ruleLimit",
+        "retentionSeconds",
+        "sessionTtlSeconds"
       ],
       "type": "object"
     }

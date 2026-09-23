@@ -119,6 +119,127 @@
       "pattern": "^/[^\\x00]*$",
       "type": "string"
     },
+    "offsiteAccountId": {
+      "pattern": "^[a-f0-9]{32}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteAvailableBytes": {
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "offsiteAvailableLists": {
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "offsiteAvailablePuts": {
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "offsiteBucket": {
+      "pattern": "^[a-z0-9][a-z0-9.-]{1,62}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteEndpoint": {
+      "maxLength": 2048,
+      "minLength": 12,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteG008EvidenceDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteMultipartCutoffDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteObserverReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteParentFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteParentReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsitePrefix": {
+      "pattern": "^[a-z][a-z0-9._/-]{0,511}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsitePutCutoffDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteQualificationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteRetainedGenerations": {
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "offsiteRuleCount": {
+      "maximum": 1000,
+      "minimum": 0,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "offsiteRuleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "principalBindings": {
       "items": {
         "$ref": "#/$defs/local-principal-binding"
@@ -148,7 +269,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.2.0"
+        "1.3.0"
       ],
       "type": "string"
     },

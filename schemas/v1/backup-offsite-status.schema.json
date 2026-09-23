@@ -1,0 +1,84 @@
+{
+  "$id": "vegastack-labs.dev/backup-offsite-status",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "generationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "lastGoodProofId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "proofClass": {
+      "enum": [
+        null,
+        "fixture",
+        "qualified-provider"
+      ],
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "repositoryId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-offsite-status"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "snapshotId": {
+      "pattern": "^[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "sourcePointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "fixture-only",
+        "offsite-verified",
+        "full-payload-due",
+        "site-loss-blocked",
+        "uncertain",
+        "failed"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "generationId",
+    "sourcePointId",
+    "repositoryId",
+    "snapshotId",
+    "status",
+    "proofClass",
+    "lastGoodProofId",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs backup offsite status",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

@@ -33,6 +33,7 @@ type CustodyClient interface {
 	Capacity(context.Context) (uint64, error)
 	CapacitySnapshot(context.Context) (RepositoryCapacity, error)
 	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
+	RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error)
 	ResticObservation() ResticObservation
 	Close(context.Context) error
 }

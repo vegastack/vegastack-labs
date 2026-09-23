@@ -25,6 +25,7 @@ var operationRisk = map[string]RiskClass{
 	"audit.checkpoint":                   RiskRoutine,
 	"backup.snapshot":                    RiskRoutine,
 	"backup.verify":                      RiskRoutine,
+	"backup.offsite.copy":                RiskInfrastructure,
 	"drift.scan":                         RiskRoutine,
 	"health.check":                       RiskRoutine,
 	"node.add":                           RiskInfrastructure,
