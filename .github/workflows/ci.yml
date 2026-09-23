@@ -171,8 +171,8 @@ jobs:
           bzip2 -dc "$TMPDIR/restic-acceptance/restic.bz2" > "$TMPDIR/restic-acceptance/restic"
           chmod 700 "$TMPDIR/restic-acceptance/restic"
           printf '%s  %s\n' "$binary_sha" "$TMPDIR/restic-acceptance/restic" | sha256sum --check --status
-          VSK_RESTIC_0191_BINARY="$TMPDIR/restic-acceptance/restic" \
-            go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestPinnedResticRejectsAuthenticatedV1Repository|TestLocalBackupComposition' -count=1 -timeout 45s -v
+	          VSK_RESTIC_0191_BINARY="$TMPDIR/restic-acceptance/restic" \
+	            go test ./internal/backup ./internal/adapter/localbackup -run 'TestPinnedResticEndToEnd|TestPinnedResticRejectsAuthenticatedV1Repository|TestPinnedResticOffsiteS3IAM|TestLocalBackupComposition' -count=1 -timeout 45s -v
 
       - name: Run exact Phase 4 exit acceptance
         if: inputs.full_check && github.ref == 'refs/heads/main'
