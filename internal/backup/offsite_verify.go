@@ -39,6 +39,10 @@ type OffsiteCutoffProbe interface {
 	DenyMultipartCompletion(context.Context, string) (bool, error)
 }
 
+type OffsiteCutoffWaiter interface {
+	AwaitWriterCutoff(context.Context, PendingOffsiteGeneration) (time.Time, error)
+}
+
 func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pending PendingOffsiteGeneration, seal WriterSealProof) (OffsiteProof, error) {
 	if config.Source == nil || config.ProofID == "" || (config.ProofClass != OffsiteProofFixture && config.ProofClass != OffsiteProofQualified) || !validPendingOffsiteGeneration(pending) ||
 		config.FullReadMaximumAge <= 0 || config.FullReadMaximumAge > 31*24*time.Hour {
@@ -118,6 +122,13 @@ func SealWriter(ctx context.Context, pending PendingOffsiteGeneration, proofClas
 		if expiry.After(last) {
 			last = expiry
 		}
+	}
+	if waiter, ok := probe.(OffsiteCutoffWaiter); ok {
+		observedAt, err := waiter.AwaitWriterCutoff(ctx, pending)
+		if err != nil {
+			return WriterSealProof{}, errors.New("offsite writer cutoff wait failed")
+		}
+		now = observedAt.UTC()
 	}
 	if now.Before(last) || now.Before(pending.IssuanceStoppedAt) {
 		return WriterSealProof{}, errors.New("offsite writer session remains live")

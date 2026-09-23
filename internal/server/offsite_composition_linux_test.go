@@ -33,6 +33,18 @@ func (composedOffsiteSpecs) ResolveOffsiteRun(context.Context, adapter.Operation
 	return backup.OffsiteRunSpec{}, errors.New("not executed by composition test")
 }
 
+type composedOffsiteRunnerSource struct {
+	qualified bool
+}
+
+func (source composedOffsiteRunnerSource) Runner(_ context.Context, _ serverconfig.Profile, authority *store.Store) (runengine.OffsiteCopyRunner, bool, error) {
+	if !source.qualified {
+		return nil, false, nil
+	}
+	runner, err := backup.NewOffsiteWorkflowRunner(composedOffsiteSource{}, composedOffsiteSpecs{}, backup.NewSQLCatalog(authority))
+	return runner, err == nil, err
+}
+
 func TestOperationsRunComposesOnlyQualifiedOffsiteRuntime(t *testing.T) {
 	for _, qualified := range []bool{false, true} {
 		t.Run(map[bool]string{false: "unqualified", true: "qualified"}[qualified], func(t *testing.T) {
@@ -48,31 +60,31 @@ func TestOperationsRunComposesOnlyQualifiedOffsiteRuntime(t *testing.T) {
 			directory := filepath.Dir(configPath)
 			standard, critical := filepath.Join(directory, "standard"), filepath.Join(directory, "critical")
 			binary, custody := filepath.Join(directory, "restic"), filepath.Join(directory, "custody.json")
-			endpoint, bucket, prefix, parent := "https://account.r2.cloudflarestorage.com", "bucket-a", "critical", "parent-a"
+			endpoint, bucket, prefix, parent := "https://0123456789abcdef0123456789abcdef.r2.cloudflarestorage.com", "bucket-a", "critical", "parent-a"
 			digest := "sha256:" + strings.Repeat("a", 64)
 			generatedProfile.StandardBackupRoot, generatedProfile.CriticalBackupRoot = &standard, &critical
 			generatedProfile.ResticBinaryPath, generatedProfile.CustodyPolicyPath = &binary, &custody
 			generatedProfile.OffsiteEndpoint, generatedProfile.OffsiteBucket, generatedProfile.OffsitePrefix = &endpoint, &bucket, &prefix
 			generatedProfile.OffsiteParentReferenceID, generatedProfile.OffsiteParentFingerprint = &parent, &digest
+			observer := "observer-a"
+			generatedProfile.OffsiteObserverReferenceID = &observer
 			generatedProfile.OffsiteRuleDigest, generatedProfile.OffsiteG008EvidenceDigest = &digest, &digest
+			account := "0123456789abcdef0123456789abcdef"
+			availableBytes, availablePUTs, availableLISTs := int64(1), int64(1), int64(1)
+			ruleCount, retainedGenerations := int64(1), int64(1)
+			generatedProfile.OffsiteAccountID = &account
+			generatedProfile.OffsiteQualificationDigest = &digest
+			generatedProfile.OffsitePutCutoffDigest = &digest
+			generatedProfile.OffsiteMultipartCutoffDigest = &digest
+			generatedProfile.OffsiteAvailableBytes = &availableBytes
+			generatedProfile.OffsiteAvailablePUTs = &availablePUTs
+			generatedProfile.OffsiteAvailableLISTs = &availableLISTs
+			generatedProfile.OffsiteRuleCount = &ruleCount
+			generatedProfile.OffsiteRetainedGenerations = &retainedGenerations
 			writeProtectedJSON(t, configPath, generatedProfile)
 
-			runners := NewProfileOffsiteRunnerSource()
-			if err := runners.Register(QualifiedOffsiteRunnerRegistration{EvidenceDigest: digest, ProofClass: backup.OffsiteProofFixture, Factory: func(context.Context, *serverconfig.OffsiteBackup, *store.Store) (runengine.OffsiteCopyRunner, error) {
-				return nil, nil
-			}}); err == nil {
-				t.Fatal("fixture runtime registered")
-			}
-			if qualified {
-				err := runners.Register(QualifiedOffsiteRunnerRegistration{EvidenceDigest: digest, ProofClass: backup.OffsiteProofQualified, Factory: func(_ context.Context, _ *serverconfig.OffsiteBackup, authority *store.Store) (runengine.OffsiteCopyRunner, error) {
-					return backup.NewOffsiteWorkflowRunner(composedOffsiteSource{}, composedOffsiteSpecs{}, backup.NewSQLCatalog(authority))
-				}})
-				if err != nil {
-					t.Fatal(err)
-				}
-			}
 			registry := adapter.NewRegistry()
-			operations.offsiteEffect = NewProductionOffsiteEffectFactory(runners)
+			operations.offsiteEffect = NewProductionOffsiteEffectFactory(composedOffsiteRunnerSource{qualified: qualified})
 			operations.newAdapterRegistry = func() *adapter.Registry { return registry }
 			ctx, cancel := context.WithCancel(context.Background())
 			done := make(chan error, 1)

@@ -7,7 +7,8 @@ CREATE TABLE backup_offsite_run_specs (
     snapshot_path TEXT NOT NULL CHECK (length(snapshot_path) BETWEEN 2 AND 4096),
     repository_url TEXT NOT NULL CHECK (length(repository_url) BETWEEN 12 AND 4096),
     parent_reference_id TEXT NOT NULL CHECK (length(parent_reference_id) BETWEEN 1 AND 128),
-    password_reference_id TEXT NOT NULL CHECK (length(password_reference_id) BETWEEN 1 AND 128),
+    repository_key_reference_id TEXT NOT NULL CHECK (length(repository_key_reference_id) BETWEEN 1 AND 128),
+    observer_reference_id TEXT NOT NULL CHECK (length(observer_reference_id) BETWEEN 1 AND 128),
     rule_digest TEXT NOT NULL CHECK (length(rule_digest)=71 AND substr(rule_digest,1,7)='sha256:'),
     g008_evidence_digest TEXT NOT NULL CHECK (length(g008_evidence_digest)=71 AND substr(g008_evidence_digest,1,7)='sha256:'),
     maximum_bytes INTEGER NOT NULL CHECK (maximum_bytes > 0),
@@ -21,10 +22,35 @@ CREATE TABLE backup_offsite_run_specs (
     state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     created_at TEXT NOT NULL,
-    CHECK (parent_reference_id <> password_reference_id)
+    CHECK (parent_reference_id <> repository_key_reference_id AND parent_reference_id <> observer_reference_id AND repository_key_reference_id <> observer_reference_id)
 ) STRICT;
 CREATE TRIGGER backup_offsite_run_specs_no_update BEFORE UPDATE ON backup_offsite_run_specs BEGIN SELECT RAISE(ABORT,'offsite run specs are append-only'); END;
 CREATE TRIGGER backup_offsite_run_specs_no_delete BEFORE DELETE ON backup_offsite_run_specs BEGIN SELECT RAISE(ABORT,'offsite run specs are append-only'); END;
+
+CREATE TABLE backup_offsite_custody_attempts (
+    attempt_id TEXT PRIMARY KEY,
+    plan_id TEXT NOT NULL,
+    plan_digest TEXT NOT NULL,
+    run_id TEXT NOT NULL,
+    step_id TEXT NOT NULL,
+    lease_id TEXT NOT NULL,
+    generation_id TEXT NOT NULL REFERENCES backup_offsite_run_specs(generation_id),
+    source_point_id TEXT NOT NULL REFERENCES recovery_points(point_id),
+    state_revision INTEGER NOT NULL,
+    recovery_epoch INTEGER NOT NULL,
+    maximum_expires_at TEXT NOT NULL,
+    nonce_digest TEXT NOT NULL,
+    created_at TEXT NOT NULL
+) STRICT;
+CREATE TRIGGER backup_offsite_custody_attempts_no_update BEFORE UPDATE ON backup_offsite_custody_attempts BEGIN SELECT RAISE(ABORT,'offsite custody attempts are append-only'); END;
+CREATE TRIGGER backup_offsite_custody_attempts_no_delete BEFORE DELETE ON backup_offsite_custody_attempts BEGIN SELECT RAISE(ABORT,'offsite custody attempts are append-only'); END;
+CREATE TABLE backup_offsite_custody_outcomes (
+    attempt_id TEXT PRIMARY KEY REFERENCES backup_offsite_custody_attempts(attempt_id),
+    outcome TEXT NOT NULL CHECK(outcome IN ('succeeded','failed','uncertain')),
+    created_at TEXT NOT NULL
+) STRICT;
+CREATE TRIGGER backup_offsite_custody_outcomes_no_update BEFORE UPDATE ON backup_offsite_custody_outcomes BEGIN SELECT RAISE(ABORT,'offsite custody outcomes are append-only'); END;
+CREATE TRIGGER backup_offsite_custody_outcomes_no_delete BEFORE DELETE ON backup_offsite_custody_outcomes BEGIN SELECT RAISE(ABORT,'offsite custody outcomes are append-only'); END;
 
 CREATE TABLE backup_offsite_generations (
     generation_id TEXT PRIMARY KEY CHECK (length(generation_id) BETWEEN 1 AND 128),

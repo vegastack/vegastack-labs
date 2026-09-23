@@ -3449,6 +3449,10 @@
       "artifactPath": "schemas/v1/browser-audit-event.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/browser-declaration-operation",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/browser-declaration-revision",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-declaration-revision.schema.json"
@@ -3763,6 +3767,10 @@
       "id": "vegastack-labs.dev/local-retention-lock-catalog",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/local-retention-lock-catalog.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/offsite-run-spec",
+      "version": "1.0.0"
     },
     {
       "id": "vegastack-labs.dev/outbox-record-data",

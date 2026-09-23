@@ -143,19 +143,29 @@ func TestConvertGeneratedProfileRequiresCompleteLocalBackup(t *testing.T) {
 
 func TestConvertGeneratedProfileRequiresCompleteOffsiteBackupAndLocalCustody(t *testing.T) {
 	base := validGeneratedProfile()
-	endpoint, bucket, prefix := "https://account.r2.cloudflarestorage.com", "labs-backup", "critical"
+	account, bucket, prefix := strings.Repeat("a", 32), "labs-backup", "critical"
+	endpoint := "https://" + account + ".r2.cloudflarestorage.com"
 	base.OffsiteEndpoint = &endpoint
 	if _, err := convertGeneratedProfile(base, uint32(base.SocketOwnerUID)); err == nil {
 		t.Fatal("partial offsite profile accepted")
 	}
 	digest := "sha256:" + strings.Repeat("a", 64)
 	reference := "reference-r2-parent"
+	observer := "reference-r2-observer"
 	base.OffsiteBucket = &bucket
 	base.OffsitePrefix = &prefix
 	base.OffsiteParentReferenceID = &reference
+	base.OffsiteObserverReferenceID = &observer
 	base.OffsiteParentFingerprint = &digest
 	base.OffsiteRuleDigest = &digest
 	base.OffsiteG008EvidenceDigest = &digest
+	base.OffsiteAccountID = &account
+	base.OffsiteQualificationDigest = &digest
+	base.OffsitePutCutoffDigest = &digest
+	base.OffsiteMultipartCutoffDigest = &digest
+	availableBytes, availablePUTs, availableLISTs, ruleCount, retained := int64(1<<30), int64(1000), int64(100), int64(5), int64(1)
+	base.OffsiteAvailableBytes, base.OffsiteAvailablePUTs, base.OffsiteAvailableLISTs = &availableBytes, &availablePUTs, &availableLISTs
+	base.OffsiteRuleCount, base.OffsiteRetainedGenerations = &ruleCount, &retained
 	if _, err := convertGeneratedProfile(base, uint32(base.SocketOwnerUID)); err == nil {
 		t.Fatal("offsite profile without local custody accepted")
 	}

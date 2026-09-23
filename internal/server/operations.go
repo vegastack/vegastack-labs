@@ -48,7 +48,7 @@ type Operations struct {
 	newAdapterRegistry func() *adapter.Registry
 }
 
-type OffsiteEffectFactory func(context.Context, *serverconfig.OffsiteBackup, *store.Store) (adapter.Adapter, error)
+type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
 type OperationsOption func(*Operations)
 
 // WithOffsiteEffectFactory supplies the qualified site composition. The
@@ -66,7 +66,7 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		build: build, requestIDs: requestIDs, openStore: store.Open,
 		databasePath: productionDatabasePath, platformProbe: NewRuntimePlatformProbe(),
 		identityHTTPClient: &http.Client{Timeout: 10 * time.Second},
-		offsiteEffect: func(context.Context, *serverconfig.OffsiteBackup, *store.Store) (adapter.Adapter, error) {
+		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
 		},
 		newAdapterRegistry: productionAdapterRegistry,
@@ -207,7 +207,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	// The default factory returns nil. A qualified site composition may supply
 	// the concrete runner/catalog execution, but profile presence alone never
 	// turns fixture evidence into a live adapter.
-	offsiteEffect, err := operations.offsiteEffect(ctx, profile.OffsiteBackup, authority)
+	offsiteEffect, err := operations.offsiteEffect(ctx, profile, authority)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

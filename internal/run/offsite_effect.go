@@ -70,8 +70,8 @@ func (*OffsiteEffect) Execute(context.Context, adapter.Operation) (adapter.Effec
 
 func (effect *OffsiteEffect) ExecuteBoundWithCredentials(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (adapter.Effect, error) {
 	if effect == nil || effect.execution == nil || adapter.ValidateOperation(operation) != nil || operation.AdapterID != OffsiteAdapterID || operation.OperationType != "backup.offsite.copy" || operation.Idempotent ||
-		len(operation.SecretReferences) != 2 || len(values) != 2 || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID ||
-		values[0] == nil || len(values[0].Bytes()) == 0 || values[1] == nil || len(values[1].Bytes()) == 0 ||
+		len(operation.SecretReferences) != 3 || len(values) != 3 || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID || operation.SecretReferences[0].ID == operation.SecretReferences[2].ID || operation.SecretReferences[1].ID == operation.SecretReferences[2].ID ||
+		values[0] == nil || len(values[0].Bytes()) == 0 || values[1] == nil || len(values[1].Bytes()) == 0 || values[2] == nil || len(values[2].Bytes()) == 0 ||
 		binding.PlanID == "" || binding.PlanDigest == "" || binding.RunID == "" || binding.StepID == "" || binding.LeaseID == "" || binding.StateRevision < 0 || binding.RecoveryEpoch < 0 {
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "offsite-exact-binding")
 	}

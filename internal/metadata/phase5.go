@@ -15,6 +15,7 @@ const (
 	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
 	backupLocalRetirementStatusSchemaID   = "vegastack-labs.dev/backup-local-retirement-status"
 	backupOffsiteStatusSchemaID           = "vegastack-labs.dev/backup-offsite-status"
+	offsiteRunSpecSchemaID                = "vegastack-labs.dev/offsite-run-spec"
 	backupRetentionLockSchemaID           = "vegastack-labs.dev/backup-retention-lock"
 	backupRetentionLockCatalogSchemaID    = "vegastack-labs.dev/local-retention-lock-catalog"
 	backupRetentionLockDraftRequestID     = "vegastack-labs.dev/backup-retention-lock-draft-request"
@@ -209,6 +210,17 @@ func phase5NullableTimestamp(name, goName string) FieldDefinition {
 
 func phase5GateCredentialSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		{ID: offsiteRunSpecSchemaID, Version: "1.0.0", Fields: []FieldDefinition{
+			phase5ID("generationId", "GenerationID"), phase5ID("sourcePointId", "SourcePointID"),
+			{JSONName: "snapshotPath", GoName: "SnapshotPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+			{JSONName: "repositoryUrl", GoName: "RepositoryURL", Kind: ValueString, Required: true, MinLength: intPointer(12), MaxLength: intPointer(4096)},
+			phase5ID("parentReferenceId", "ParentReferenceID"), phase5ID("repositoryKeyReferenceId", "RepositoryKeyReferenceID"), phase5ID("observerReferenceId", "ObserverReferenceID"),
+			phase5Digest("ruleDigest", "RuleDigest"), phase5Digest("g008EvidenceDigest", "G008EvidenceDigest"),
+			phase5Positive("maximumBytes", "MaximumBytes"), phase5Positive("maximumPuts", "MaximumPUTs"), phase5Positive("maximumLists", "MaximumLISTs"),
+			phase5Positive("maximumRetainedGenerations", "MaximumRetainedGenerations"), phase5Positive("ruleLimit", "RuleLimit"),
+			phase5Positive("retentionSeconds", "RetentionSeconds"),
+			{JSONName: "sessionTtlSeconds", GoName: "SessionTTLSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1), Maximum: int64Pointer(900)},
+		}},
 		phase5Schema(recoveryWitnessCollectionDataSchemaID,
 			phase5Digest("manifestDigest", "ManifestDigest"), phase5Timestamp("expiresAt", "ExpiresAt"),
 			FieldDefinition{JSONName: "signedArtifactBase64", GoName: "SignedArtifactBase64", Kind: ValueString, Required: true, Pattern: `^[A-Za-z0-9_-]+$`, MaxLength: intPointer(350000)},

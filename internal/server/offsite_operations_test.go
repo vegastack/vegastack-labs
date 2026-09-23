@@ -18,10 +18,11 @@ func (offsiteAdapterFixture) Execute(context.Context, adapter.Operation) (adapte
 
 func TestOffsiteCompositionFactoryCanSupplyQualifiedEffect(t *testing.T) {
 	want := offsiteAdapterFixture{}
-	operations := NewOperations(result.BuildInfo{}, nil, WithOffsiteEffectFactory(func(context.Context, *serverconfig.OffsiteBackup, *store.Store) (adapter.Adapter, error) {
+	operations := NewOperations(result.BuildInfo{}, nil, WithOffsiteEffectFactory(func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 		return want, nil
 	}))
-	effect, err := operations.offsiteEffect(context.Background(), &serverconfig.OffsiteBackup{}, nil)
+	profile := serverconfig.Profile{OffsiteBackup: &serverconfig.OffsiteBackup{}}
+	effect, err := operations.offsiteEffect(context.Background(), profile, nil)
 	if err != nil || effect == nil {
 		t.Fatalf("qualified effect unavailable: %v", err)
 	}

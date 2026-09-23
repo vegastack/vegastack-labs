@@ -38,7 +38,7 @@ func (repository *DeclarationRepository) CreateRevision(ctx context.Context, req
 		return DeclarationRevisionResult{}, newStoreError(generated.ErrorCodeInputInvalid, "declaration-revision", false, nil)
 	}
 	canonical, err := json.Marshal(request.Document)
-	if err != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, canonical, generated.ContractExact) != nil {
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDDeclarationRevision, canonical, generated.ContractExact) != nil || !validOffsiteDeclarationShape(request.Document) {
 		return DeclarationRevisionResult{}, newStoreError(generated.ErrorCodeInputInvalid, "declaration-revision", false, err)
 	}
 	key := audit.IntentKey{Scope: "declaration-revision", KeyDigest: audit.Fingerprint(request.KeyDigest), RequestDigest: audit.Fingerprint(request.RequestDigest)}
@@ -126,7 +126,24 @@ func decodeStoredDeclaration(raw []byte, reasonDigest string, document *generate
 }
 
 func validDeclarationContent(document generated.DeclarationRevision, reasonDigest string) bool {
-	return document.ContentDigest == declarationContentDigest(document, reasonDigest)
+	return validOffsiteDeclarationShape(document) && document.ContentDigest == declarationContentDigest(document, reasonDigest)
+}
+
+func validOffsiteDeclarationShape(document generated.DeclarationRevision) bool {
+	if document.DeclarationType != "backup.offsite" {
+		for _, operation := range document.Operations {
+			if operation.OffsiteRunSpec != nil {
+				return false
+			}
+		}
+		return true
+	}
+	if len(document.Operations) != 1 {
+		return false
+	}
+	operation, spec := document.Operations[0], document.Operations[0].OffsiteRunSpec
+	return spec != nil && operation.OperationType == "backup.offsite.copy" && operation.AdapterID == "labs.r2-offsite" && !operation.Idempotent &&
+		operation.TargetID == spec.GenerationID && spec.ParentReferenceID != spec.RepositoryKeyReferenceID && spec.ParentReferenceID != spec.ObserverReferenceID && spec.RepositoryKeyReferenceID != spec.ObserverReferenceID
 }
 
 func declarationContentDigest(document generated.DeclarationRevision, reasonDigest string) string {

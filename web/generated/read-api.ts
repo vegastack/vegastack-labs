@@ -381,6 +381,17 @@ export interface BrowserAuditEvent {
   readonly "target": AuditTarget;
 }
 
+export interface BrowserDeclarationOperation {
+  readonly "sequence": number;
+  readonly "operationId": string;
+  readonly "operationType": string;
+  readonly "adapterId": string;
+  readonly "targetId": string;
+  readonly "inputDigest": string;
+  readonly "artifactDigest": string;
+  readonly "idempotent": boolean;
+}
+
 export interface BrowserDeclarationRevision {
   readonly "schema": "vegastack-labs.dev/browser-declaration-revision";
   readonly "schemaVersion": "1.0.0";
@@ -391,7 +402,7 @@ export interface BrowserDeclarationRevision {
   readonly "recoveryEpoch": number;
   readonly "contentDigest": string;
   readonly "status": "committed" | "draft" | "superseded";
-  readonly "operations": ReadonlyArray<DeclarationOperation>;
+  readonly "operations": ReadonlyArray<BrowserDeclarationOperation>;
   readonly "createdAt": string;
   readonly "extensions": ReadonlyArray<ContractExtension>;
 }
@@ -481,6 +492,7 @@ export interface DeclarationOperation {
   readonly "inputDigest": string;
   readonly "artifactDigest": string;
   readonly "idempotent": boolean;
+  readonly "offsiteRunSpec"?: OffsiteRunSpec | null;
 }
 
 export interface DeclarationRevisionRequest {
@@ -566,6 +578,25 @@ export interface InventoryDraftCounts {
   readonly "hardwareFacts": number;
   readonly "provenance": number;
   readonly "findings": number;
+}
+
+export interface OffsiteRunSpec {
+  readonly "generationId": string;
+  readonly "sourcePointId": string;
+  readonly "snapshotPath": string;
+  readonly "repositoryUrl": string;
+  readonly "parentReferenceId": string;
+  readonly "repositoryKeyReferenceId": string;
+  readonly "observerReferenceId": string;
+  readonly "ruleDigest": string;
+  readonly "g008EvidenceDigest": string;
+  readonly "maximumBytes": number;
+  readonly "maximumPuts": number;
+  readonly "maximumLists": number;
+  readonly "maximumRetainedGenerations": number;
+  readonly "ruleLimit": number;
+  readonly "retentionSeconds": number;
+  readonly "sessionTtlSeconds": number;
 }
 
 export interface Plan {
@@ -2838,6 +2869,66 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/browser-declaration-operation",
+    "fields": [
+      {
+        "name": "sequence",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "operationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "operationType",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "adapterId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "inputDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "artifactDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "idempotent",
+        "kind": "boolean",
+        "required": true,
+        "nullable": false
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/browser-declaration-revision",
     "fields": [
       {
@@ -2916,7 +3007,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "array",
         "required": true,
         "nullable": false,
-        "itemRef": "vegastack-labs.dev/declaration-operation",
+        "itemRef": "vegastack-labs.dev/browser-declaration-operation",
         "minItems": 1,
         "maxItems": 256
       },
@@ -3489,6 +3580,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "kind": "boolean",
         "required": true,
         "nullable": false
+      },
+      {
+        "name": "offsiteRunSpec",
+        "kind": "object",
+        "required": false,
+        "nullable": true,
+        "ref": "vegastack-labs.dev/offsite-run-spec"
       }
     ]
   },
@@ -4026,6 +4124,127 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "minimum": 0
+      }
+    ]
+  },
+  {
+    "id": "vegastack-labs.dev/offsite-run-spec",
+    "fields": [
+      {
+        "name": "generationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "sourcePointId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "snapshotPath",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^/[^\\x00]*$",
+        "minLength": 2,
+        "maxLength": 4096
+      },
+      {
+        "name": "repositoryUrl",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "minLength": 12,
+        "maxLength": 4096
+      },
+      {
+        "name": "parentReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "repositoryKeyReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "observerReferenceId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "ruleDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "g008EvidenceDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "maximumBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "maximumPuts",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "maximumLists",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "maximumRetainedGenerations",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "ruleLimit",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "retentionSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "sessionTtlSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1,
+        "maximum": 900
       }
     ]
   },
@@ -5207,6 +5426,10 @@ function decodeBrowserAuditEvent(value: unknown): BrowserAuditEvent {
   return decodeSchema("vegastack-labs.dev/browser-audit-event", value) as unknown as BrowserAuditEvent;
 }
 
+function decodeBrowserDeclarationOperation(value: unknown): BrowserDeclarationOperation {
+  return decodeSchema("vegastack-labs.dev/browser-declaration-operation", value) as unknown as BrowserDeclarationOperation;
+}
+
 function decodeBrowserDeclarationRevision(value: unknown): BrowserDeclarationRevision {
   return decodeSchema("vegastack-labs.dev/browser-declaration-revision", value) as unknown as BrowserDeclarationRevision;
 }
@@ -5265,6 +5488,10 @@ function decodeGateView(value: unknown): GateView {
 
 function decodeInventoryDraftCounts(value: unknown): InventoryDraftCounts {
   return decodeSchema("vegastack-labs.dev/inventory-draft-counts", value) as unknown as InventoryDraftCounts;
+}
+
+function decodeOffsiteRunSpec(value: unknown): OffsiteRunSpec {
+  return decodeSchema("vegastack-labs.dev/offsite-run-spec", value) as unknown as OffsiteRunSpec;
 }
 
 function decodePlan(value: unknown): Plan {

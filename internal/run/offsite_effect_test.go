@@ -36,7 +36,7 @@ func TestOffsiteEffectRequiresEnabledExecutionAndExactBoundApprovalInputs(t *tes
 		t.Fatal(err)
 	}
 	digest := "sha256:" + strings.Repeat("a", 64)
-	operation := adapter.Operation{OperationID: "offsite-copy-a", OperationType: "backup.offsite.copy", AdapterID: OffsiteAdapterID, ExecutorID: "executor-central", TargetID: "generation-a", InputDigest: digest, ArtifactDigest: digest, SecretReferences: []adapter.SecretReference{{ID: "parent-a", Consumer: OffsiteAdapterID}, {ID: "password-a", Consumer: OffsiteAdapterID}}}
+	operation := adapter.Operation{OperationID: "offsite-copy-a", OperationType: "backup.offsite.copy", AdapterID: OffsiteAdapterID, ExecutorID: "executor-central", TargetID: "generation-a", InputDigest: digest, ArtifactDigest: digest, SecretReferences: []adapter.SecretReference{{ID: "parent-a", Consumer: OffsiteAdapterID}, {ID: "password-a", Consumer: OffsiteAdapterID}, {ID: "observer-a", Consumer: OffsiteAdapterID}}}
 	value, err := credentialref.NewValue([]byte("borrowed-parent-material"))
 	if err != nil {
 		t.Fatal(err)
@@ -47,7 +47,12 @@ func TestOffsiteEffectRequiresEnabledExecutionAndExactBoundApprovalInputs(t *tes
 		t.Fatal(err)
 	}
 	defer password.Close()
-	values := []*credentialref.Value{value, password}
+	observer, err := credentialref.NewValue([]byte("borrowed-read-only-observer"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer observer.Close()
+	values := []*credentialref.Value{value, password, observer}
 	binding := adapter.ExactExecutionBinding{PlanID: "plan-a", PlanDigest: digest, RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", StateRevision: 7, RecoveryEpoch: 3, MaximumExpiresAt: time.Now().Add(time.Minute).UTC().Format(time.RFC3339), ContractExtensions: []generated.ContractExtension{{Name: "x-offsite-generation", ValueDigest: digest}, {Name: "x-credential-bindings", ValueDigest: digest}}}
 	for name, mutate := range map[string]func(*adapter.ExactExecutionBinding){
 		"missing-plan": func(value *adapter.ExactExecutionBinding) { value.PlanID = "" },

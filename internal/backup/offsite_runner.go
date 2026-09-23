@@ -45,7 +45,7 @@ func NewOffsiteWorkflowRunner(source OffsiteSource, specs OffsiteRunSpecSource, 
 }
 
 func (runner *OffsiteWorkflowRunner) CopyAndVerify(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (OffsiteProof, error) {
-	if runner == nil || runner.source == nil || runner.specs == nil || runner.catalog == nil || len(values) != 2 || values[0] == nil || values[1] == nil || len(values[0].Bytes()) == 0 || len(values[1].Bytes()) == 0 {
+	if runner == nil || runner.source == nil || runner.specs == nil || runner.catalog == nil || len(values) != 3 || values[0] == nil || values[1] == nil || values[2] == nil || len(values[0].Bytes()) == 0 || len(values[1].Bytes()) == 0 || len(values[2].Bytes()) == 0 {
 		return OffsiteProof{}, errors.New("offsite workflow unavailable")
 	}
 	spec, err := runner.specs.ResolveOffsiteRun(ctx, operation, binding, values)

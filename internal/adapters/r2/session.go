@@ -17,7 +17,7 @@ import (
 // Pinned restic reads repository metadata and payload, creates new immutable
 // objects, and removes its mutable locks. Retention rules, not session scope,
 // deny overwrite/delete of the generation's protected prefixes.
-var allowedWriterActions = []string{"DeleteObject", "GetObject", "ListBucket", "PutObject"}
+var allowedWriterActions = []string{"AbortMultipartUpload", "CompleteMultipartUpload", "CreateMultipartUpload", "DeleteObject", "GetBucketLocation", "GetObject", "HeadObject", "ListMultipartUploads", "ListObjectsV2", "ListParts", "PutObject", "UploadPart"}
 
 // TemporaryCredentialSigner is the narrow local-signing seam. The parent is a
 // borrowed value and may not be retained by an implementation.

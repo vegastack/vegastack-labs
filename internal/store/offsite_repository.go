@@ -23,12 +23,13 @@ type OffsiteGenerationRecord struct {
 }
 
 type OffsiteRunSpecRecord struct {
-	GenerationID, SourcePointID, SnapshotPath, RepositoryURL               string
-	ParentReferenceID, PasswordReferenceID, RuleDigest, G008EvidenceDigest string
-	CanonicalJSON                                                          []byte
-	MaximumBytes, MaximumPUTs, MaximumLISTs                                int64
-	MaximumRetainedGenerations, RuleLimit                                  int
-	RetentionSeconds, SessionTTLSeconds, StateRevision, RecoveryEpoch      int64
+	GenerationID, SourcePointID, SnapshotPath, RepositoryURL          string
+	ParentReferenceID, RepositoryKeyReferenceID, ObserverReferenceID  string
+	RuleDigest, G008EvidenceDigest                                    string
+	CanonicalJSON                                                     []byte
+	MaximumBytes, MaximumPUTs, MaximumLISTs                           int64
+	MaximumRetainedGenerations, RuleLimit                             int
+	RetentionSeconds, SessionTTLSeconds, StateRevision, RecoveryEpoch int64
 }
 
 type OffsiteRuleRecord struct{ RuleID, Prefix string }
@@ -60,7 +61,7 @@ func NewOffsiteRepository(authority *Store) *OffsiteRepository {
 
 func (repository *OffsiteRepository) AppendRunSpec(ctx context.Context, record OffsiteRunSpecRecord) error {
 	if repository == nil || repository.backup == nil || repository.backup.store == nil || record.GenerationID == "" || record.SourcePointID == "" || record.SnapshotPath == "" || record.RepositoryURL == "" ||
-		record.ParentReferenceID == "" || record.PasswordReferenceID == "" || record.ParentReferenceID == record.PasswordReferenceID || record.RuleDigest == "" || record.G008EvidenceDigest == "" || len(record.CanonicalJSON) < 2 ||
+		record.ParentReferenceID == "" || record.RepositoryKeyReferenceID == "" || record.ObserverReferenceID == "" || record.ParentReferenceID == record.RepositoryKeyReferenceID || record.ParentReferenceID == record.ObserverReferenceID || record.RepositoryKeyReferenceID == record.ObserverReferenceID || record.RuleDigest == "" || record.G008EvidenceDigest == "" || len(record.CanonicalJSON) < 2 ||
 		record.MaximumBytes <= 0 || record.MaximumPUTs <= 0 || record.MaximumLISTs <= 0 || record.MaximumRetainedGenerations <= 0 || record.RuleLimit <= 0 || record.RetentionSeconds <= 0 || record.SessionTTLSeconds <= 0 || record.SessionTTLSeconds > 900 || record.StateRevision < 0 || record.RecoveryEpoch < 0 {
 		return backupStoreError(generated.ErrorCodeInputInvalid, "offsite-run-spec")
 	}
@@ -73,8 +74,8 @@ func (repository *OffsiteRepository) AppendRunSpec(ctx context.Context, record O
 		if stateRevision != record.StateRevision || recoveryEpoch != record.RecoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "offsite-run-spec")
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_run_specs(generation_id,source_point_id,snapshot_path,repository_url,parent_reference_id,password_reference_id,rule_digest,g008_evidence_digest,maximum_bytes,maximum_puts,maximum_lists,maximum_retained_generations,rule_limit,retention_seconds,session_ttl_seconds,canonical_json,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			record.GenerationID, record.SourcePointID, record.SnapshotPath, record.RepositoryURL, record.ParentReferenceID, record.PasswordReferenceID, record.RuleDigest, record.G008EvidenceDigest, record.MaximumBytes, record.MaximumPUTs, record.MaximumLISTs, record.MaximumRetainedGenerations, record.RuleLimit, record.RetentionSeconds, record.SessionTTLSeconds, string(record.CanonicalJSON), record.StateRevision, record.RecoveryEpoch, createdAt)
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_run_specs(generation_id,source_point_id,snapshot_path,repository_url,parent_reference_id,repository_key_reference_id,observer_reference_id,rule_digest,g008_evidence_digest,maximum_bytes,maximum_puts,maximum_lists,maximum_retained_generations,rule_limit,retention_seconds,session_ttl_seconds,canonical_json,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			record.GenerationID, record.SourcePointID, record.SnapshotPath, record.RepositoryURL, record.ParentReferenceID, record.RepositoryKeyReferenceID, record.ObserverReferenceID, record.RuleDigest, record.G008EvidenceDigest, record.MaximumBytes, record.MaximumPUTs, record.MaximumLISTs, record.MaximumRetainedGenerations, record.RuleLimit, record.RetentionSeconds, record.SessionTTLSeconds, string(record.CanonicalJSON), record.StateRevision, record.RecoveryEpoch, createdAt)
 		return backupWriteError(err)
 	})
 }
@@ -86,8 +87,8 @@ func (repository *OffsiteRepository) RunSpec(ctx context.Context, generationID s
 		return record, backupStoreError(generated.ErrorCodeInputInvalid, "offsite-run-spec")
 	}
 	err := repository.backup.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT generation_id,source_point_id,snapshot_path,repository_url,parent_reference_id,password_reference_id,rule_digest,g008_evidence_digest,maximum_bytes,maximum_puts,maximum_lists,maximum_retained_generations,rule_limit,retention_seconds,session_ttl_seconds,canonical_json,state_revision,recovery_epoch FROM backup_offsite_run_specs WHERE generation_id=?`, generationID).
-			Scan(&record.GenerationID, &record.SourcePointID, &record.SnapshotPath, &record.RepositoryURL, &record.ParentReferenceID, &record.PasswordReferenceID, &record.RuleDigest, &record.G008EvidenceDigest, &record.MaximumBytes, &record.MaximumPUTs, &record.MaximumLISTs, &record.MaximumRetainedGenerations, &record.RuleLimit, &record.RetentionSeconds, &record.SessionTTLSeconds, &canonical, &record.StateRevision, &record.RecoveryEpoch)
+		return tx.queryRow(ctx, `SELECT generation_id,source_point_id,snapshot_path,repository_url,parent_reference_id,repository_key_reference_id,observer_reference_id,rule_digest,g008_evidence_digest,maximum_bytes,maximum_puts,maximum_lists,maximum_retained_generations,rule_limit,retention_seconds,session_ttl_seconds,canonical_json,state_revision,recovery_epoch FROM backup_offsite_run_specs WHERE generation_id=?`, generationID).
+			Scan(&record.GenerationID, &record.SourcePointID, &record.SnapshotPath, &record.RepositoryURL, &record.ParentReferenceID, &record.RepositoryKeyReferenceID, &record.ObserverReferenceID, &record.RuleDigest, &record.G008EvidenceDigest, &record.MaximumBytes, &record.MaximumPUTs, &record.MaximumLISTs, &record.MaximumRetainedGenerations, &record.RuleLimit, &record.RetentionSeconds, &record.SessionTTLSeconds, &canonical, &record.StateRevision, &record.RecoveryEpoch)
 	})
 	if errors.Is(err, sql.ErrNoRows) {
 		return record, backupStoreError(generated.ErrorCodeResourceNotFound, "offsite-run-spec")

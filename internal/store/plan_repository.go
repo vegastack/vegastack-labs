@@ -101,6 +101,22 @@ func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, 
 		if _, err := transaction.ExecContext(ctx, `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, request.DesiredDeclaration.DeclarationID, request.DesiredDeclaration.Revision, request.DesiredDeclaration.DeclarationType, request.DesiredDeclaration.StateRevision, request.DesiredDeclaration.RecoveryEpoch, request.DesiredDeclaration.ContentDigest, request.ReasonDigest, request.DesiredDeclaration.Status, desiredCanonical, request.DesiredDeclaration.CreatedAt, request.DesiredDeclaration.CreatedBy, request.DesiredDeclaration.AgentSessionID); err != nil {
 			return err
 		}
+		if request.DesiredDeclaration.DeclarationType == "backup.offsite" {
+			operation := request.DesiredDeclaration.Operations[0]
+			spec := operation.OffsiteRunSpec
+			canonicalSpec, marshalErr := json.Marshal(struct {
+				*generated.OffsiteRunSpec
+				StateRevision int64 `json:"stateRevision"`
+				RecoveryEpoch int64 `json:"recoveryEpoch"`
+			}{spec, request.Plan.Binding.StateRevision, request.Plan.Binding.RecoveryEpoch})
+			if marshalErr != nil {
+				return newStoreError(generated.ErrorCodeInputInvalid, "offsite-run-spec", false, marshalErr)
+			}
+			if _, insertErr := transaction.ExecContext(ctx, `INSERT INTO backup_offsite_run_specs(generation_id,source_point_id,snapshot_path,repository_url,parent_reference_id,repository_key_reference_id,observer_reference_id,rule_digest,g008_evidence_digest,maximum_bytes,maximum_puts,maximum_lists,maximum_retained_generations,rule_limit,retention_seconds,session_ttl_seconds,canonical_json,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				spec.GenerationID, spec.SourcePointID, spec.SnapshotPath, spec.RepositoryURL, spec.ParentReferenceID, spec.RepositoryKeyReferenceID, spec.ObserverReferenceID, spec.RuleDigest, spec.G008EvidenceDigest, spec.MaximumBytes, spec.MaximumPUTs, spec.MaximumLISTs, spec.MaximumRetainedGenerations, spec.RuleLimit, spec.RetentionSeconds, spec.SessionTTLSeconds, string(canonicalSpec), request.Plan.Binding.StateRevision, request.Plan.Binding.RecoveryEpoch, request.DesiredDeclaration.CreatedAt); insertErr != nil {
+				return backupWriteError(insertErr)
+			}
+		}
 		if repository.testFailBeforePlanInsert != nil {
 			if err := repository.testFailBeforePlanInsert(); err != nil {
 				return err

@@ -4,23 +4,71 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/generated"
 )
+
+func TestOffsiteRunSpecIsAppendedByDeclarationPlanCommit(t *testing.T) {
+	ctx := context.Background()
+	backups, point, revision := seededVerificationPoint(t)
+	digest := "sha256:" + strings.Repeat("a", 64)
+	draftRequest := validDeclarationStoreRequest()
+	draftRequest.Document.DeclarationID = "declaration-offsite-a"
+	draftRequest.Document.DeclarationType = "backup.offsite"
+	draftRequest.Document.StateRevision = revision.StateRevision + 1
+	draftRequest.Document.RecoveryEpoch = revision.RecoveryEpoch
+	draftRequest.Document.Operations = []generated.DeclarationOperation{{Sequence: 1, OperationID: "operation-offsite-a", OperationType: "backup.offsite.copy", AdapterID: "labs.r2-offsite", TargetID: "generation-plan-a", InputDigest: digest, ArtifactDigest: digest, Idempotent: false,
+		OffsiteRunSpec: &generated.OffsiteRunSpec{GenerationID: "generation-plan-a", SourcePointID: point.PointID, SnapshotPath: "/var/lib/vsk-labs/offsite/source-a", RepositoryURL: "s3:https://account.r2.cloudflarestorage.com/bucket-a/critical/generation-plan-a", ParentReferenceID: "parent-a", RepositoryKeyReferenceID: "password-a", ObserverReferenceID: "observer-a", RuleDigest: digest, G008EvidenceDigest: digest, MaximumBytes: 4096, MaximumPUTs: 100, MaximumLISTs: 20, MaximumRetainedGenerations: 100, RuleLimit: 1000, RetentionSeconds: 86400, SessionTTLSeconds: 60}}}
+	draftRequest.Expected = revision
+	draftRequest.KeyDigest, draftRequest.RequestDigest = "sha256:"+strings.Repeat("b", 64), "sha256:"+strings.Repeat("b", 64)
+	draftRequest.Document.ContentDigest = declarationContentDigest(draftRequest.Document, draftRequest.ReasonDigest)
+	draft, err := NewDeclarationRepository(backups.store).CreateRevision(ctx, draftRequest)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	planRequest := validPlanStoreRequest(draft.Document)
+	planRequest.DesiredDeclaration.StateRevision = draft.Document.StateRevision + 1
+	planRequest.Plan.Binding.PriorStateRevision = draft.Document.StateRevision
+	planRequest.Plan.Binding.StateRevision = draft.Document.StateRevision + 1
+	planRequest.Plan.Binding.RecoveryEpoch = revision.RecoveryEpoch
+	planRequest.Plan.Binding.DeclarationRevision = planRequest.DesiredDeclaration.Revision
+	planRequest.Plan.Operations = []generated.PlanOperation{{Sequence: 1, OperationID: "operation-offsite-a", OperationType: "backup.offsite.copy", AdapterID: "labs.r2-offsite", ExecutorID: "executor-central", TargetID: "generation-plan-a", InputDigest: digest, ArtifactDigest: digest, Idempotent: false}}
+	planRequest.Expected = RevisionToken{StateRevision: draft.Document.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}
+	planRequest.KeyDigest, planRequest.RequestDigest = "sha256:"+strings.Repeat("c", 64), "sha256:"+strings.Repeat("c", 64)
+	planRequest.Plan.PlanID, planRequest.Plan.PlanDigest = "", ""
+	preimage, _ := json.Marshal(planRequest.Plan)
+	planSum := sha256.Sum256(preimage)
+	planRequest.Plan.PlanDigest = "sha256:" + hex.EncodeToString(planSum[:])
+	planRequest.Plan.PlanID = "plan-" + hex.EncodeToString(planSum[:16])
+	planRequest.CanonicalBytes, _ = json.Marshal(planRequest.Plan)
+	if _, err := NewPlanRepository(backups.store).CommitDeclarationAndPlan(ctx, planRequest); err != nil {
+		t.Fatal(err)
+	}
+	stored, err := NewOffsiteRepository(backups.store).RunSpec(ctx, "generation-plan-a")
+	if err != nil || stored.SourcePointID != point.PointID || stored.RepositoryKeyReferenceID != "password-a" || stored.StateRevision != planRequest.Plan.Binding.StateRevision {
+		t.Fatalf("production run spec = %#v, %v", stored, err)
+	}
+}
 
 func TestOffsiteRepositoryPersistsAppendOnlyReceiptsAndCASLastGood(t *testing.T) {
 	ctx := context.Background()
 	backupRepository, point, revision := seededVerificationPoint(t)
 	repository := NewOffsiteRepository(backupRepository.store)
 	now := time.Now().UTC().Truncate(time.Second)
-	runSpec := OffsiteRunSpecRecord{GenerationID: "generation-a", SourcePointID: point.PointID, SnapshotPath: "/var/lib/vsk-labs/offsite/source-a", RepositoryURL: "s3:https://account.r2.cloudflarestorage.com/bucket-a/critical/generation-a", ParentReferenceID: "parent-a", PasswordReferenceID: "password-a",
+	runSpec := OffsiteRunSpecRecord{GenerationID: "generation-a", SourcePointID: point.PointID, SnapshotPath: "/var/lib/vsk-labs/offsite/source-a", RepositoryURL: "s3:https://account.r2.cloudflarestorage.com/bucket-a/critical/generation-a", ParentReferenceID: "parent-a", RepositoryKeyReferenceID: "password-a",
 		RuleDigest: "sha256:" + strings.Repeat("c", 64), G008EvidenceDigest: "sha256:" + strings.Repeat("d", 64), CanonicalJSON: []byte(`{"generationId":"generation-a","sourcePointId":"point-a"}`), MaximumBytes: 4096, MaximumPUTs: 100, MaximumLISTs: 20, MaximumRetainedGenerations: 100, RuleLimit: 1000, RetentionSeconds: 86400, SessionTTLSeconds: 60, StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}
 	if err := repository.AppendRunSpec(ctx, runSpec); err != nil {
 		t.Fatal(err)
 	}
 	storedRunSpec, err := repository.RunSpec(ctx, runSpec.GenerationID)
-	if err != nil || storedRunSpec.SourcePointID != runSpec.SourcePointID || storedRunSpec.PasswordReferenceID != runSpec.PasswordReferenceID || string(storedRunSpec.CanonicalJSON) != string(runSpec.CanonicalJSON) {
+	if err != nil || storedRunSpec.SourcePointID != runSpec.SourcePointID || storedRunSpec.RepositoryKeyReferenceID != runSpec.RepositoryKeyReferenceID || string(storedRunSpec.CanonicalJSON) != string(runSpec.CanonicalJSON) {
 		t.Fatalf("run spec round trip=%#v err=%v", storedRunSpec, err)
 	}
 	if _, err := backupRepository.store.conn.ExecContext(ctx, `UPDATE backup_offsite_run_specs SET source_point_id='wrong' WHERE generation_id=?`, runSpec.GenerationID); err == nil {

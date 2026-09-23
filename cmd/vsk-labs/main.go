@@ -54,7 +54,7 @@ func main() {
 		ReleaseBuildID: releaseBuildID,
 		SourceRevision: revision,
 	}
-	offsiteRunners := server.NewProfileOffsiteRunnerSource()
+	offsiteRunners := server.NewProfileOffsiteRunnerSource(server.NewLabsR2Runner)
 	operations := server.NewOperations(build, newRequestID,
 		server.WithOffsiteEffectFactory(server.NewProductionOffsiteEffectFactory(offsiteRunners)))
 	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,

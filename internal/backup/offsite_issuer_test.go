@@ -23,7 +23,7 @@ func testOneRunEndpoint(t *testing.T) (*OneRunEndpoint, adapter.SessionRequest, 
 	now := time.Date(2026, 9, 23, 0, 0, 0, 0, time.UTC)
 	parent, _ := credentialref.NewValue([]byte("parent-secret"))
 	t.Cleanup(parent.Close)
-	request := adapter.SessionRequest{RunID: "run-a", StepID: "step-a", PointID: "point-a", GenerationID: "generation-a", RecoveryEpoch: 7, Deadline: now.Add(5 * time.Minute), TTL: time.Minute, Prefix: "critical/generation-a/", Actions: []string{"DeleteObject", "GetObject", "ListBucket", "PutObject"}}
+	request := adapter.SessionRequest{RunID: "run-a", StepID: "step-a", PointID: "point-a", GenerationID: "generation-a", RecoveryEpoch: 7, Deadline: now.Add(5 * time.Minute), TTL: time.Minute, Prefix: "critical/generation-a/", Actions: []string{"DeleteObject", "GetObject", "ListObjectsV2", "PutObject"}}
 	bearer := []byte("0123456789abcdef0123456789abcdef")
 	endpoint, err := NewOneRunEndpoint(OneRunConfig{Issuer: issuerFixture{now}, Parent: parent, Request: request, Bearer: bearer, Path: OneRunIAMPath(request), Clock: func() time.Time { return now }})
 	if err != nil {

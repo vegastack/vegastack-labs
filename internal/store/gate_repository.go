@@ -184,6 +184,79 @@ func (repository *GateRepository) ListAppliedGateEvidence(ctx context.Context, g
 	return result, err
 }
 
+// ResolveCurrentLiveGateEvidence returns the one unreplaced live proof bound to
+// the exact bundle digest and current applied profile. It is the production
+// activation boundary for optional adapters: a profile string alone can never
+// turn a fixture, stale, revoked, or cross-epoch record into runtime authority.
+func (repository *GateRepository) ResolveCurrentLiveGateEvidence(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest string, at time.Time) (generated.GateEvidence, error) {
+	if repository == nil || repository.store == nil || gateID == "" || len(bundleDigest) != 71 || bundleDigest[:7] != "sha256:" || at.IsZero() {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
+	}
+	scope, err := repository.GetAppliedProfileScope(ctx)
+	if err != nil {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, err)
+	}
+	current, err := NewPlanRepository(repository.store).CurrentRevision(ctx)
+	if err != nil {
+		return generated.GateEvidence{}, err
+	}
+	var raw, bundleRaw []byte
+	err = repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT e.canonical_bytes,d.bundle_bytes FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id
+			WHERE e.gate_id=? AND e.bundle_digest=? AND e.status='applied' AND e.source_kind<>'fixture' AND e.proof_class='live'
+			AND e.recovery_epoch=? AND e.state_revision<=?
+			AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)
+			ORDER BY e.state_revision DESC,e.evidence_id DESC LIMIT 1`, gateID, bundleDigest, current.RecoveryEpoch, current.StateRevision).Scan(&raw, &bundleRaw)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
+	}
+	if err != nil {
+		return generated.GateEvidence{}, err
+	}
+	var evidence generated.GateEvidence
+	var bundle generated.GateEvidenceBundle
+	if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || json.Unmarshal(bundleRaw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || gateDigest(bundleRaw) != bundleDigest || !exactOffsiteQualificationEvidence(bundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest) {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeIntegrityFailure, "gate-live-evidence", false, nil)
+	}
+	expires, expiresErr := time.Parse(time.RFC3339, evidence.ExpiresAt)
+	observed, observedErr := time.Parse(time.RFC3339, evidence.ObservedAt)
+	if expiresErr != nil || observedErr != nil || !expires.After(at.UTC()) || observed.After(at.UTC()) || at.UTC().Sub(observed) > 24*time.Hour ||
+		evidence.GateID != gateID || evidence.BundleDigest != bundleDigest || evidence.RecoveryEpoch != current.RecoveryEpoch || evidence.StateRevision > current.StateRevision ||
+		evidence.ProfileID != scope.ProfileID || evidence.ProfileVersion != scope.ProfileVersion || evidence.PolicyID != scope.PolicyID || evidence.PolicyVersion != scope.PolicyVersion ||
+		evidence.ReleaseBuildID != repository.store.config.BuildVersion || evidence.ToolVersion != repository.store.config.ToolVersion || evidence.HumanID == "" || evidence.CollectorID == "" {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
+	}
+	return evidence, nil
+}
+
+func exactOffsiteQualificationEvidence(bundle generated.GateEvidenceBundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest string) bool {
+	factSeen, putSeen, multipartSeen := false, false, false
+	for _, fact := range bundle.Facts {
+		if fact.FactID == "r2-offsite-qualification" {
+			if factSeen || fact.ValueDigest != qualificationDigest {
+				return false
+			}
+			factSeen = true
+		}
+	}
+	for _, check := range bundle.Checks {
+		switch check.CheckID {
+		case "r2-expired-put-denied":
+			if putSeen || check.Result != "passed" || check.ResultDigest != putCutoffDigest {
+				return false
+			}
+			putSeen = true
+		case "r2-expired-multipart-completion-denied":
+			if multipartSeen || check.Result != "passed" || check.ResultDigest != multipartCutoffDigest {
+				return false
+			}
+			multipartSeen = true
+		}
+	}
+	return factSeen && putSeen && multipartSeen
+}
+
 func (repository *GateRepository) ApplyGateEvidence(ctx context.Context, request GateApplyRequest) (generated.GateEvidence, error) {
 	if repository == nil || repository.store == nil {
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeInputInvalid, "gate-evidence", false, nil)

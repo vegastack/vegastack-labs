@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"runtime"
 	"syscall"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"golang.org/x/sys/unix"
@@ -99,7 +100,14 @@ func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session
 		return OffsiteResticResult{}, errors.Join(err, transfer.ReturnOwnership())
 	}
 	repositoryID, err := parseOffsiteRepositoryID(configOutput)
-	return OffsiteResticResult{RepositoryID: repositoryID, SnapshotID: summary.SnapshotID, ObjectCount: summary.TotalFilesProcessed, ObjectBytes: summary.TotalBytesProcessed, ChildExited: err == nil}, errors.Join(err, transfer.ReturnOwnership())
+	if err == nil {
+		_, err = run(append(append([]string{}, common...), "check", "--read-data"), false)
+	}
+	fullReadAt := time.Time{}
+	if err == nil {
+		fullReadAt = time.Now().UTC()
+	}
+	return OffsiteResticResult{RepositoryID: repositoryID, SnapshotID: summary.SnapshotID, ObjectCount: summary.TotalFilesProcessed, ObjectBytes: summary.TotalBytesProcessed, ChildExited: err == nil, FullReadAt: fullReadAt}, errors.Join(err, transfer.ReturnOwnership())
 }
 
 func adapterSessionFromCustody(session CustodySession) adapter.SessionRequest {

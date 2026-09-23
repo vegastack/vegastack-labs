@@ -91,6 +91,7 @@ type OffsiteResticResult struct {
 	RepositoryID, SnapshotID string
 	ObjectCount, ObjectBytes int64
 	ChildExited              bool
+	FullReadAt               time.Time
 }
 
 type OffsiteInventoryObservation struct {
