@@ -38,14 +38,15 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build              result.BuildInfo
-	requestIDs         result.RequestIDSource
-	openStore          func(context.Context, store.Config) (*store.Store, error)
-	databasePath       string
-	platformProbe      PlatformProbe
-	identityHTTPClient *http.Client
-	offsiteEffect      OffsiteEffectFactory
-	newAdapterRegistry func() *adapter.Registry
+	build                   result.BuildInfo
+	requestIDs              result.RequestIDSource
+	openStore               func(context.Context, store.Config) (*store.Store, error)
+	databasePath            string
+	platformProbe           PlatformProbe
+	identityHTTPClient      *http.Client
+	offsiteEffect           OffsiteEffectFactory
+	offsiteRetirementEffect OffsiteRetirementEffectFactory
+	newAdapterRegistry      func() *adapter.Registry
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
@@ -60,6 +61,13 @@ func WithOffsiteEffectFactory(factory OffsiteEffectFactory) OperationsOption {
 		}
 	}
 }
+func WithOffsiteRetirementEffectFactory(factory OffsiteRetirementEffectFactory) OperationsOption {
+	return func(operations *Operations) {
+		if factory != nil {
+			operations.offsiteRetirementEffect = factory
+		}
+	}
+}
 
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, options ...OperationsOption) *Operations {
 	operations := &Operations{
@@ -69,7 +77,8 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
 		},
-		newAdapterRegistry: productionAdapterRegistry,
+		offsiteRetirementEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) { return nil, nil },
+		newAdapterRegistry:      productionAdapterRegistry,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -213,6 +222,15 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	if err := registerOffsiteEffect(adapters, profile.OffsiteBackup, offsiteEffect); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	retirementEffect, err := operations.offsiteRetirementEffect(ctx, profile, authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := registerOffsiteRetirementEffect(adapters, profile.OffsiteBackup, retirementEffect); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -701,4 +719,14 @@ func registerOffsiteEffect(registry *adapter.Registry, profile *serverconfig.Off
 		return nil
 	}
 	return registry.Register(runengine.OffsiteAdapterID, effect)
+}
+
+func registerOffsiteRetirementEffect(registry *adapter.Registry, profile *serverconfig.OffsiteBackup, effect adapter.Adapter) error {
+	if registry == nil {
+		return failure.New(generated.ErrorCodeInputInvalid, "offsite-retirement-adapter", false)
+	}
+	if profile == nil || effect == nil {
+		return nil
+	}
+	return registry.Register(runengine.OffsiteRetirementAdapterID, effect)
 }
