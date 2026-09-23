@@ -131,6 +131,30 @@ func TestResticRejectsBinaryDigestMismatch(t *testing.T) {
 	}
 }
 
+func TestResticRetentionRejectsAccessDeniedEvenWhenChildExitsZero(t *testing.T) {
+	binary := filepath.Join(t.TempDir(), "restic-exit-zero-denial")
+	if err := os.WriteFile(binary, []byte("#!/bin/sh\necho 'AccessDenied: HTTP status 403' >&2\nexit 0\n"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	body, err := os.ReadFile(binary)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(body)
+	value, err := credentialref.NewValue([]byte("retention-denial-canary"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer value.Close()
+	runner := NewResticRunnerForTest(hex.EncodeToString(sum[:]), time.Now)
+	request := ResticRequest{BinaryPath: binary, Architecture: runtime.GOARCH,
+		RepositoryURL: "http+unix://%2Ftmp%2Frest.sock:/repo-a/", RepositoryID: "repo-a", RepositoryClass: "standard",
+		Mode: "prune", MaxRepackBytes: 1024}
+	if _, err := runner.Run(context.Background(), request, value); err == nil {
+		t.Fatal("mixed access-denied/exit-zero retirement was treated as success")
+	}
+}
+
 func TestResticExecutesVerifiedInodeAfterAtomicPathSwap(t *testing.T) {
 	binary, digest := buildFakeRestic(t)
 	marker := filepath.Join(t.TempDir(), "replacement-executed")

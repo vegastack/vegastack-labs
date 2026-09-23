@@ -248,3 +248,30 @@ func custodyProcessPolicy(t *testing.T) (string, CustodyPolicy) {
 	}
 	return path, policy
 }
+
+func TestCustodySessionBindsExactRetentionLease(t *testing.T) {
+	now := time.Now().UTC()
+	lease := RetentionLease{LeaseID: "retention-a", RepositoryID: "repository-a", RecoveryEpoch: 4,
+		MaximumExpiresAt: now.Add(time.Minute), MaxMutations: 9, MaxMutationBytes: 4096,
+		PlannedSnapshotIDs: []string{strings.Repeat("a", 64)}}
+	session := CustodySession{ProtocolVersion: CustodyProtocolVersion, Role: "retention", PlanID: "plan-a", PlanDigest: "sha256:" + strings.Repeat("b", 64),
+		RunID: "run-a", StepID: "step-a", LeaseID: lease.LeaseID, RepositoryID: lease.RepositoryID, RepositoryClass: "standard",
+		PointID: "retirement-a", SourceID: "retirement-a", SourceRevision: 7, RecoveryEpoch: lease.RecoveryEpoch,
+		MaximumExpiresAt: lease.MaximumExpiresAt, MaximumObjects: lease.MaxMutations, MaximumBytes: lease.MaxMutationBytes,
+		NonceDigest: custodyNonceDigest([]byte("nonce")), RetentionLease: &lease}
+	if !session.valid(now, time.Hour) {
+		t.Fatal("exact retention session rejected")
+	}
+	changed := session
+	copyLease := lease
+	copyLease.MaxMutationBytes++
+	changed.RetentionLease = &copyLease
+	if changed.valid(now, time.Hour) {
+		t.Fatal("changed retention bound admitted")
+	}
+	changed = session
+	changed.WriterLease = &WriterLease{}
+	if changed.valid(now, time.Hour) {
+		t.Fatal("mixed custody roles admitted")
+	}
+}

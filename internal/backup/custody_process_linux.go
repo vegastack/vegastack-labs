@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -42,6 +43,8 @@ type CustodyLauncher struct {
 	PolicyPath string
 	Writer     LeaseVerifier
 	Reader     ReadLeaseVerifier
+	Retention  RetentionLeaseVerifier
+	Mutations  RetainedMutationJournal
 	Journal    CustodyJournal
 	Clock      func() time.Time
 	// command is test-only; production always executes this same vsk-labs
@@ -54,21 +57,29 @@ type CustodyClient interface {
 	Inventory(context.Context) ([]ExpectedObject, error)
 	InventoryExpected(context.Context, []ExpectedObject) ([]ExpectedObject, error)
 	Capacity(context.Context) (uint64, error)
+	CapacitySnapshot(context.Context) (RepositoryCapacity, error)
 	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
 	ResticObservation() ResticObservation
 	Close(context.Context) error
 }
 
+type RepositoryCapacity struct {
+	TotalBytes       uint64 `json:"totalBytes"`
+	AvailableBytes   uint64 `json:"availableBytes"`
+	QuarantinedBytes uint64 `json:"quarantinedBytes"`
+}
+
 type processCustodyClient struct {
-	session CustodySession
-	nonce   string
-	socket  string
-	command *os.File
-	verify  *os.File
-	cmd     *exec.Cmd
-	journal CustodyJournal
-	mu      sync.Mutex
-	done    chan error
+	session  CustodySession
+	nonce    string
+	socket   string
+	command  *os.File
+	verify   *os.File
+	cmd      *exec.Cmd
+	journal  CustodyJournal
+	mu       sync.Mutex
+	done     chan error
+	poisoned atomic.Bool
 }
 
 type custodyLaunch struct {
@@ -93,7 +104,7 @@ func (launcher CustodyLauncher) Start(ctx context.Context, session CustodySessio
 func (launcher CustodyLauncher) startDirect(ctx context.Context, session CustodySession) (CustodyClient, error) {
 	policy, err := LoadCustodyPolicy(launcher.PolicyPath)
 	if err != nil ||
-		(session.Role == "writer" && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || launcher.Journal == nil {
+		(session.Role == "writer" && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || (session.Role == "retention" && (launcher.Retention == nil || launcher.Mutations == nil)) || launcher.Journal == nil {
 		return nil, errors.New("custody launch rejected")
 	}
 	if err := VerifyCustodyPaths(policy, session.Role); err != nil {
@@ -202,7 +213,7 @@ func (launcher CustodyLauncher) startDirect(ctx context.Context, session Custody
 	_ = sessionWrite.Close()
 	client := &processCustodyClient{session: session, nonce: session.NonceDigest, socket: socketPath,
 		command: commandParent, verify: verifyParent, cmd: cmd, journal: launcher.Journal, done: make(chan error, 1)}
-	go client.serveVerification(launcher.Writer, launcher.Reader)
+	go client.serveVerification(launcher.Writer, launcher.Reader, launcher.Retention, launcher.Mutations)
 	go func() { client.done <- cmd.Wait(); close(client.done) }()
 	readyCtx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -272,17 +283,23 @@ func (client *processCustodyClient) InventoryExpected(ctx context.Context, expec
 }
 
 func (client *processCustodyClient) Capacity(ctx context.Context) (uint64, error) {
+	snapshot, err := client.CapacitySnapshot(ctx)
+	return snapshot.AvailableBytes, err
+}
+
+func (client *processCustodyClient) CapacitySnapshot(ctx context.Context) (RepositoryCapacity, error) {
 	frame, err := client.request(ctx, "capacity", nil)
 	if err != nil {
-		return 0, err
+		return RepositoryCapacity{}, err
 	}
-	var result struct {
-		Free uint64 `json:"free"`
-	}
+	var result RepositoryCapacity
 	if json.Unmarshal(frame.Payload, &result) != nil {
-		return 0, errors.New("invalid custody capacity")
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
 	}
-	return result.Free, nil
+	if result.TotalBytes == 0 || result.AvailableBytes > result.TotalBytes || result.QuarantinedBytes > result.TotalBytes-result.AvailableBytes {
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
+	}
+	return result, nil
 }
 
 func (*processCustodyClient) RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error) {
@@ -292,6 +309,10 @@ func (*processCustodyClient) ResticObservation() ResticObservation { return Rest
 
 func (client *processCustodyClient) Close(ctx context.Context) error {
 	_, requestErr := client.request(ctx, "close", nil)
+	var poisonErr error
+	if client.poisoned.Load() {
+		poisonErr = errors.New("retention journal uncertain")
+	}
 	_ = client.command.Close()
 	_ = client.verify.Close()
 	var waitErr error
@@ -302,12 +323,12 @@ func (client *processCustodyClient) Close(ctx context.Context) error {
 		_ = client.cmd.Process.Kill()
 	}
 	outcome := "succeeded"
-	if requestErr != nil || waitErr != nil {
+	if requestErr != nil || waitErr != nil || poisonErr != nil {
 		outcome = "uncertain"
 	}
 	journalErr := client.journal.FinishCustody(context.WithoutCancel(ctx), client.session, outcome)
 	_ = os.RemoveAll(filepath.Dir(client.socket))
-	return errors.Join(requestErr, waitErr, journalErr)
+	return errors.Join(requestErr, waitErr, poisonErr, journalErr)
 }
 
 func (client *processCustodyClient) request(ctx context.Context, kind string, payload any) (custodyFrame, error) {
@@ -327,20 +348,46 @@ func (client *processCustodyClient) request(ctx context.Context, kind string, pa
 	return frame, nil
 }
 
-func (client *processCustodyClient) serveVerification(writer LeaseVerifier, reader ReadLeaseVerifier) {
+func (client *processCustodyClient) serveVerification(writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal) {
+	serveCustodyAuthority(client.verify, client.nonce, client.session, writer, reader, retention, mutations, func() { client.poisoned.Store(true) })
+}
+
+func serveCustodyAuthority(file *os.File, nonce string, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal, poison func()) {
 	for {
-		frame, err := readCustodyFrame(client.verify)
+		frame, err := readCustodyFrame(file)
 		if err != nil {
 			return
 		}
-		ok := exactNonce(frame.NonceDigest, client.nonce) && frame.Type == "verify"
-		if ok && client.session.Role == "writer" {
-			ok = writer.VerifyWriterLease(*client.session.WriterLease, time.Now()) == nil
+		response := custodyFrame{Type: frame.Type + "-result", NonceDigest: nonce}
+		if !exactNonce(frame.NonceDigest, nonce) {
+			_ = writeCustodyFrame(file, response)
+			continue
 		}
-		if ok && client.session.Role == "verifier" {
-			ok = reader.VerifyReadLease(*client.session.ReadLease, time.Now()) == nil
+		switch frame.Type {
+		case "verify":
+			if session.Role == "writer" && writer != nil {
+				response.OK = writer.VerifyWriterLease(*session.WriterLease, time.Now()) == nil
+			}
+			if session.Role == "verifier" && reader != nil {
+				response.OK = reader.VerifyReadLease(*session.ReadLease, time.Now()) == nil
+			}
+			if session.Role == "retention" && retention != nil {
+				response.OK = retention.VerifyRetentionLease(*session.RetentionLease, time.Now()) == nil
+			}
+		case "mutation-begin":
+			var request RetainedMutationAttempt
+			response.OK = session.Role == "retention" && mutations != nil && strictUnmarshal(frame.Payload, &request) == nil && mutations.BeginRetainedMutation(context.Background(), request) == nil
+			if !response.OK && poison != nil {
+				poison()
+			}
+		case "mutation-finish":
+			var request RetainedMutationOutcome
+			response.OK = session.Role == "retention" && mutations != nil && strictUnmarshal(frame.Payload, &request) == nil && mutations.FinishRetainedMutation(context.Background(), request) == nil
+			if !response.OK && poison != nil {
+				poison()
+			}
 		}
-		_ = writeCustodyFrame(client.verify, custodyFrame{Type: "verify-result", NonceDigest: client.nonce, OK: ok})
+		_ = writeCustodyFrame(file, response)
 	}
 }
 
@@ -350,20 +397,34 @@ type remoteLeaseVerifier struct {
 	mu    sync.Mutex
 }
 
-func (v *remoteLeaseVerifier) verify() error {
+func (v *remoteLeaseVerifier) request(kind string, payload any) error {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	if err := writeCustodyFrame(v.file, custodyFrame{Type: "verify", NonceDigest: v.nonce}); err != nil {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return err
+	}
+	if err := writeCustodyFrame(v.file, custodyFrame{Type: kind, NonceDigest: v.nonce, Payload: raw}); err != nil {
 		return err
 	}
 	frame, err := readCustodyFrame(v.file)
-	if err != nil || frame.Type != "verify-result" || !frame.OK || !exactNonce(frame.NonceDigest, v.nonce) {
-		return errors.New("custody lease rejected")
+	if err != nil || frame.Type != kind+"-result" || !frame.OK || !exactNonce(frame.NonceDigest, v.nonce) {
+		return errors.New("custody authority rejected")
 	}
 	return nil
 }
+func (v *remoteLeaseVerifier) verify() error                                  { return v.request("verify", nil) }
 func (v *remoteLeaseVerifier) VerifyWriterLease(WriterLease, time.Time) error { return v.verify() }
 func (v *remoteLeaseVerifier) VerifyReadLease(ReadLease, time.Time) error     { return v.verify() }
+func (v *remoteLeaseVerifier) VerifyRetentionLease(RetentionLease, time.Time) error {
+	return v.verify()
+}
+func (v *remoteLeaseVerifier) BeginRetainedMutation(_ context.Context, request RetainedMutationAttempt) error {
+	return v.request("mutation-begin", request)
+}
+func (v *remoteLeaseVerifier) FinishRetainedMutation(_ context.Context, request RetainedMutationOutcome) error {
+	return v.request("mutation-finish", request)
+}
 
 // RunCustodyChild is called only by the hidden same-binary mode before normal
 // CLI construction. Its inherited descriptors are the complete authority.
@@ -387,8 +448,10 @@ func RunCustodyChild(policyPath string) error {
 		return err
 	}
 	root := policy.StandardRoot
+	quarantine := policy.StandardQuarantine
 	if launch.Session.RepositoryClass == "critical" {
 		root = policy.CriticalRoot
+		quarantine = policy.CriticalQuarantine
 	} else if launch.Session.RepositoryClass != "standard" {
 		return errors.New("custody class rejected")
 	}
@@ -411,7 +474,7 @@ func RunCustodyChild(policyPath string) error {
 		return err
 	}
 	remote := &remoteLeaseVerifier{file: verify, nonce: launch.Session.NonceDigest}
-	rest, err := newCustodyRESTServer(root, policy.OwnerUID, policy.ResticUID, launch.Session, remote, remote, time.Now)
+	rest, err := newCustodyRESTServer(root, quarantine, policy.OwnerUID, policy.ResticUID, launch.Session, remote, remote, remote, remote, time.Now)
 	if err != nil {
 		return err
 	}
@@ -474,19 +537,22 @@ func RunCustodyChild(policyPath string) error {
 				response.Payload, _ = json.Marshal(object)
 			}
 		case "capacity":
-			free, capacityErr := custodyFreeBytes(root)
+			capacity, capacityErr := custodyFilesystemCapacity(root, quarantine)
 			if capacityErr != nil {
 				response.OK = false
 				response.Code = "capacity-unavailable"
 			} else {
-				response.Payload, _ = json.Marshal(struct {
-					Free uint64 `json:"free"`
-				}{free})
+				response.Payload, _ = json.Marshal(capacity)
 			}
 		case "close":
+			poisoned := rest.retentionSessionPoisoned()
 			cancel()
 			_ = writeCustodyFrame(command, response)
-			return <-serveDone
+			serveErr := <-serveDone
+			if poisoned {
+				return errors.Join(errors.New("retention journal uncertain"), serveErr)
+			}
+			return serveErr
 		default:
 			response.OK = false
 		}
@@ -515,12 +581,36 @@ func nowOr(clock func() time.Time) time.Time {
 	return time.Now()
 }
 
-func custodyFreeBytes(root string) (uint64, error) {
+func custodyFilesystemCapacity(root, quarantine string) (RepositoryCapacity, error) {
 	var stat unix.Statfs_t
 	if err := unix.Statfs(root, &stat); err != nil {
-		return 0, err
+		return RepositoryCapacity{}, err
 	}
-	return stat.Bavail * uint64(stat.Bsize), nil
+	var quarantined uint64
+	err := filepath.WalkDir(quarantine, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return errors.New("quarantine symlink rejected")
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() || info.Size() < 0 {
+			return errors.New("invalid quarantine object")
+		}
+		if uint64(info.Size()) > ^uint64(0)-quarantined {
+			return errors.New("quarantine capacity overflow")
+		}
+		quarantined += uint64(info.Size())
+		return nil
+	})
+	if err != nil {
+		return RepositoryCapacity{}, err
+	}
+	return RepositoryCapacity{TotalBytes: stat.Blocks * uint64(stat.Bsize), AvailableBytes: stat.Bavail * uint64(stat.Bsize), QuarantinedBytes: quarantined}, nil
 }
 
 func custodyInventory(root string, owner uint32, maxObjects, maxBytes int64) ([]ExpectedObject, error) {

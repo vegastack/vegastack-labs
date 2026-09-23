@@ -11,6 +11,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/adapter/backuptrust"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
+	"github.com/vegastack/vegastack-labs/internal/adapter/localretention"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/backup"
@@ -214,6 +215,16 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 				return registerErr
 			}
 		}
+		retirementAdapter, retirementErr := localretention.New(localretention.Config{
+			LocalBackup: profile.LocalBackup, ExpectedUID: profile.SocketOwnerUID, Backups: store.NewBackupRepository(authority),
+			Retirements: store.NewLocalRetirementRepository(authority), Inspector: inspector, Clock: time.Now,
+		})
+		if retirementErr == nil {
+			if registerErr := adapters.Register(localretention.AdapterID, retirementAdapter); registerErr != nil {
+				_ = application.Shutdown(ctx)
+				return registerErr
+			}
+		}
 	}
 	gateRepository := store.NewGateRepository(authority)
 	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
@@ -232,7 +243,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	retentionCore, err := runengine.NewCoreRetentionLockEffect(store.NewLocalRetirementRepository(authority), store.NewAcknowledgementRepository(authority))
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -264,7 +280,17 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, Status: backupRepository,
+	retentionLockDrafts, err := api.NewRetentionLockDraftService(store.NewLocalRetirementRepository(authority), planRepository, declarations, effectiveConfig.Authorizer)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	retirementDrafts, err := api.NewRetirementDraftService(store.NewLocalRetirementRepository(authority), credentialRepository, planRepository, declarations, effectiveConfig.Authorizer)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, Status: backupRepository,
 		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
 		Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
@@ -466,6 +492,22 @@ func (operations *Operations) SubmitBackupPolicyDraft(ctx context.Context, confi
 		return localapi.TypedResponse[generated.BackupPolicyDraftSubmission]{}, err
 	}
 	return client.SubmitBackupPolicyDraft(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitBackupRetentionLockDraft(ctx context.Context, configPath string, input generated.BackupRetentionLockDraftRequest) (localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]{}, err
+	}
+	return client.SubmitBackupRetentionLockDraft(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitBackupRetirementDraft(ctx context.Context, configPath string, input generated.BackupRetirementDraftRequest) (localapi.TypedResponse[generated.BackupRetirementDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupRetirementDraftSubmission]{}, err
+	}
+	return client.SubmitBackupRetirementDraft(ctx, profile, input)
 }
 
 func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {

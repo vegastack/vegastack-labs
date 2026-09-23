@@ -181,6 +181,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 		risk = string(authorization.RiskControlPlane)
 	}
+	if localRetentionPlanCandidate(declaration, operations) {
+		if !sealedSingleLocalRetention(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskDestructive)
+	}
 	targets, err := targetDigest(operations)
 	if err != nil {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
@@ -242,6 +248,47 @@ func sealedSingleCredentialLifecycle(declaration generated.DeclarationRevision, 
 	return declaration.Extensions[0].Name == "x-credential-lifecycle" && declaration.Extensions[0].ValueDigest != ""
 }
 
+func localRetentionPlanCandidate(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if declaration.DeclarationType == "backup.retention-locks" || declaration.DeclarationType == "backup.retirement" {
+		return true
+	}
+	for _, operation := range operations {
+		if operation.OperationType == "backup.retention-locks.activate" || operation.OperationType == "backup.local.retire" ||
+			operation.AdapterID == "core.retention-locks" || operation.AdapterID == "local.retention" {
+			return true
+		}
+	}
+	return false
+}
+
+func sealedSingleLocalRetention(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if len(operations) != 1 || operations[0].Idempotent {
+		return false
+	}
+	switch declaration.DeclarationType {
+	case "backup.retention-locks":
+		return len(declaration.Extensions) == 1 && declaration.Extensions[0].ValueDigest != "" && operations[0].OperationType == "backup.retention-locks.activate" && operations[0].AdapterID == "core.retention-locks" && declaration.Extensions[0].Name == "x-backup-retention-lock-catalog" && operations[0].InputDigest == declaration.Extensions[0].ValueDigest
+	case "backup.retirement":
+		if len(declaration.Extensions) != 2 || operations[0].OperationType != "backup.local.retire" || operations[0].AdapterID != "local.retention" {
+			return false
+		}
+		var credentialDigest, selectionDigest string
+		for _, extension := range declaration.Extensions {
+			switch extension.Name {
+			case "x-credential-bindings":
+				credentialDigest = extension.ValueDigest
+			case "x-backup-local-retirement":
+				selectionDigest = extension.ValueDigest
+			default:
+				return false
+			}
+		}
+		return credentialDigest != "" && selectionDigest != "" && operations[0].InputDigest == credentialDigest
+	default:
+		return false
+	}
+}
+
 func (service *Service) ValidateCurrent(ctx context.Context, candidate generated.Plan) error {
 	if generated.ValidatePlanTiming(candidate) != nil || !service.config.Clock().UTC().Before(parseTime(candidate.ExpiresAt)) {
 		return planError(generated.ErrorCodeStateConflict)
@@ -275,7 +322,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 // the secret-resolution binding manifest and the lifecycle binding are declared
 // facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy"} {
+	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

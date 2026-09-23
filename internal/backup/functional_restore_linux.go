@@ -31,9 +31,11 @@ type FunctionalRestoreProof struct {
 func VerifyFunctionalRestore(ctx context.Context, inventory LocalInventoryProof, manifest CreationManifest,
 	runner ResticRunner, base ResticRequest, password *credentialref.Value, inspector store.RestoredSQLiteInspector) (proof FunctionalRestoreProof, outcomeErr error) {
 	invalid := errors.New("local functional restore failed")
+	originalInventory := inventory.InventoryDigest == manifest.InventoryDigest && inventory.OriginalInventoryDigest == ""
+	successorInventory := inventory.OriginalInventoryDigest == manifest.InventoryDigest && inventory.InventoryDigest != manifest.InventoryDigest
 	if runner == nil || password == nil || inspector == nil || inventory.PointID != manifest.PointID ||
-		inventory.SnapshotID != manifest.SnapshotID || inventory.InventoryDigest != manifest.InventoryDigest ||
-		inventory.ObservedDigest != manifest.InventoryDigest || inventory.RecoveryEpoch != manifest.RecoveryEpoch ||
+		inventory.SnapshotID != manifest.SnapshotID || (!originalInventory && !successorInventory) ||
+		inventory.ObservedDigest != inventory.InventoryDigest || inventory.RecoveryEpoch != manifest.RecoveryEpoch ||
 		base.RepositoryID != manifest.RepositoryID || base.RepositoryClass != manifest.RepositoryClass || !filepath.IsAbs(base.RepositoryRoot) {
 		return proof, invalid
 	}

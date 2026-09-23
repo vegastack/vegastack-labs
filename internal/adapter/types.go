@@ -94,6 +94,10 @@ type ExactExecutionBinding struct {
 	StateRevision    int64
 	RecoveryEpoch    int64
 	MaximumExpiresAt string
+	// ContractExtensions is a defensive copy of the exact current plan's
+	// public digest-only extensions. Bound adapters use named declarations
+	// without overloading the credential manifest in Operation.InputDigest.
+	ContractExtensions []generated.ContractExtension
 }
 
 // BoundCredentialExecutor is an optional, stricter in-process effect boundary. A

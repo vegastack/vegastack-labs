@@ -20,25 +20,26 @@ const (
 // process. The nonce is one-use and bound to all fields; it is not persisted by
 // the child and conveys no database or credential authority.
 type CustodySession struct {
-	ProtocolVersion  string       `json:"protocolVersion"`
-	Role             string       `json:"role"`
-	PlanID           string       `json:"planId"`
-	PlanDigest       string       `json:"planDigest"`
-	RunID            string       `json:"runId"`
-	StepID           string       `json:"stepId"`
-	LeaseID          string       `json:"leaseId"`
-	RepositoryID     string       `json:"repositoryId"`
-	RepositoryClass  string       `json:"repositoryClass"`
-	PointID          string       `json:"pointId"`
-	SourceID         string       `json:"sourceId"`
-	SourceRevision   int64        `json:"sourceRevision"`
-	RecoveryEpoch    int64        `json:"recoveryEpoch"`
-	MaximumExpiresAt time.Time    `json:"maximumExpiresAt"`
-	MaximumObjects   int64        `json:"maximumObjects"`
-	MaximumBytes     int64        `json:"maximumBytes"`
-	NonceDigest      string       `json:"nonceDigest"`
-	WriterLease      *WriterLease `json:"writerLease,omitempty"`
-	ReadLease        *ReadLease   `json:"readLease,omitempty"`
+	ProtocolVersion  string          `json:"protocolVersion"`
+	Role             string          `json:"role"`
+	PlanID           string          `json:"planId"`
+	PlanDigest       string          `json:"planDigest"`
+	RunID            string          `json:"runId"`
+	StepID           string          `json:"stepId"`
+	LeaseID          string          `json:"leaseId"`
+	RepositoryID     string          `json:"repositoryId"`
+	RepositoryClass  string          `json:"repositoryClass"`
+	PointID          string          `json:"pointId"`
+	SourceID         string          `json:"sourceId"`
+	SourceRevision   int64           `json:"sourceRevision"`
+	RecoveryEpoch    int64           `json:"recoveryEpoch"`
+	MaximumExpiresAt time.Time       `json:"maximumExpiresAt"`
+	MaximumObjects   int64           `json:"maximumObjects"`
+	MaximumBytes     int64           `json:"maximumBytes"`
+	NonceDigest      string          `json:"nonceDigest"`
+	WriterLease      *WriterLease    `json:"writerLease,omitempty"`
+	ReadLease        *ReadLease      `json:"readLease,omitempty"`
+	RetentionLease   *RetentionLease `json:"retentionLease,omitempty"`
 }
 
 func (session CustodySession) valid(now time.Time, maximumLifetime time.Duration) bool {
@@ -54,13 +55,11 @@ func (session CustodySession) valid(now time.Time, maximumLifetime time.Duration
 	}
 	switch session.Role {
 	case "writer":
-		return session.WriterLease != nil && session.ReadLease == nil && exactWriterSession(session, *session.WriterLease)
+		return session.WriterLease != nil && session.ReadLease == nil && session.RetentionLease == nil && exactWriterSession(session, *session.WriterLease)
 	case "verifier":
-		return session.ReadLease != nil && session.WriterLease == nil && exactReadSession(session, *session.ReadLease)
+		return session.ReadLease != nil && session.WriterLease == nil && session.RetentionLease == nil && exactReadSession(session, *session.ReadLease)
 	case "retention":
-		// The transport reserves the role but #115 must supply and register its
-		// own gated lease before production can start it.
-		return false
+		return session.RetentionLease != nil && session.WriterLease == nil && session.ReadLease == nil && exactRetentionSession(session, *session.RetentionLease)
 	default:
 		return false
 	}
@@ -76,6 +75,12 @@ func exactWriterSession(session CustodySession, lease WriterLease) bool {
 func exactReadSession(session CustodySession, lease ReadLease) bool {
 	return lease.LeaseID == session.LeaseID && lease.RepositoryID == session.RepositoryID && lease.PointID == session.PointID &&
 		lease.RecoveryEpoch == session.RecoveryEpoch && lease.MaximumExpiresAt.Equal(session.MaximumExpiresAt)
+}
+
+func exactRetentionSession(session CustodySession, lease RetentionLease) bool {
+	return lease.LeaseID == session.LeaseID && lease.RepositoryID == session.RepositoryID &&
+		lease.RecoveryEpoch == session.RecoveryEpoch && lease.MaximumExpiresAt.Equal(session.MaximumExpiresAt) &&
+		lease.MaxMutations == session.MaximumObjects && lease.MaxMutationBytes == session.MaximumBytes && len(lease.PlannedSnapshotIDs) > 0
 }
 
 type custodyFrame struct {

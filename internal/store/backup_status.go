@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/authorization"
@@ -28,9 +29,10 @@ func (repository *BackupRepository) ReadLocalBackupStatusScoped(ctx context.Cont
 }
 
 func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, scope *authorization.ReadScope) (generated.BackupStatusData, error) {
-	status := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.1.0",
+	status := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.2.0",
 		Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{},
-		Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}}
+		Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{},
+		Retirements: []generated.BackupLocalRetirementStatus{}}
 	if repository == nil || repository.store == nil {
 		return status, backupStoreError(generated.ErrorCodeInputInvalid, "backup-status")
 	}
@@ -183,7 +185,58 @@ func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, s
 		}
 		err = lastRows.Err()
 		lastRows.Close()
-		return err
+		if err != nil {
+			return err
+		}
+		retirementRows, err := tx.query(ctx, `SELECT intent_id,repository_id,repository_class,selection_digest,lock_catalog_digest,lock_catalog_sequence,source_coverage_digest,expected_inventory_digest,canonical_json,expected_reclaim_bytes,recovery_epoch FROM backup_retirement_intents WHERE recovery_epoch=? ORDER BY created_at DESC,intent_id DESC LIMIT 257`, status.RecoveryEpoch)
+		if err != nil {
+			return err
+		}
+		defer retirementRows.Close()
+		for retirementRows.Next() {
+			item := generated.BackupLocalRetirementStatus{Schema: generated.SchemaIDBackupLocalRetirementStatus, SchemaVersion: "1.1.0", Status: "planned", TargetPointIDs: []string{}, SurvivorPointIDs: []string{}}
+			var canonical string
+			if err := retirementRows.Scan(&item.IntentID, &item.RepositoryID, &item.RepositoryClass, &item.SelectionDigest, &item.LockCatalogDigest,
+				&item.LockCatalogSequence, &item.SourceCoverageDigest, &item.ExpectedInventoryDigest, &canonical, &item.ExpectedReclaimBytes, &item.RecoveryEpoch); err != nil {
+				return err
+			}
+			var staged struct {
+				Selection retirementSelectionPayload
+			}
+			if json.Unmarshal([]byte(canonical), &staged) != nil {
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-status-retirement")
+			}
+			for _, target := range staged.Selection.Targets {
+				item.TargetPointIDs = append(item.TargetPointIDs, target.PointID)
+			}
+			for _, survivor := range staged.Selection.Survivors {
+				item.SurvivorPointIDs = append(item.SurvivorPointIDs, survivor.PointID)
+			}
+			var journal, proof sql.NullString
+			receiptErr := tx.queryRow(ctx, `SELECT status,journal_digest,proof_digest FROM backup_retirement_receipts WHERE intent_id=? ORDER BY recorded_at DESC,receipt_id DESC LIMIT 1`, item.IntentID).
+				Scan(&item.Status, &journal, &proof)
+			if receiptErr != nil && !errors.Is(receiptErr, sql.ErrNoRows) {
+				return receiptErr
+			}
+			if errors.Is(receiptErr, sql.ErrNoRows) {
+				var active int
+				if err := tx.queryRow(ctx, `SELECT COUNT(*) FROM backup_retirement_leases WHERE intent_id=? AND released_at IS NULL`, item.IntentID).Scan(&active); err != nil {
+					return err
+				}
+				if active != 0 {
+					item.Status = "in-progress"
+				}
+			}
+			item.JournalDigest, item.SurvivorVerificationDigest = nullableString(journal), nullableString(proof)
+			status.Retirements = append(status.Retirements, item)
+		}
+		if err := retirementRows.Err(); err != nil {
+			return err
+		}
+		if len(status.Retirements) > 256 {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-status-limit")
+		}
+		return nil
 	})
 	return status, err
 }

@@ -346,6 +346,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	localTransportImport := modulePath + "/internal/localtransport"
 	sshTransportImport := modulePath + "/internal/sshtransport"
 	nativeCredentialImport := modulePath + "/internal/adapter/nativecredential"
+	localRetentionImport := modulePath + "/internal/adapter/localretention"
 	backupImport := modulePath + "/internal/backup"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
@@ -400,6 +401,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		if candidate.ImportPath == localRetentionImport && !reviewedLocalRetentionPackage(parsed, localRetentionImport) {
+			result.ControlProviderAccess = true
+		}
 		if candidate.ImportPath == mainImport && !reviewedMainComposition(parsed, modulePath, cliImport, clientFileImport, releaseImport, serverImport) {
 			result.ControlProviderAccess = true
 		}
@@ -907,8 +911,10 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 }
 
 const (
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "c66cc57da456a68902352a088f660317d2c214d6216b77a17dc7f42505373ae4"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "4113633f07149494998d9e7de22ae4c79a229df0a328de3bf3bb1011e2f05a37"
+	// #115 adds the typed, local-only inert retention-lock catalog draft. It
+	// carries public point IDs and digests only and reaches no provider path.
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "baaed3f48daf3bd806246ca3f6473e2d9674e8af14c613d1970e8e246578d49c"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "7c102d030fa2ca86e3d5c6d9fb5018d30fd1da61cbeb0b43c6fa8239725e2d66"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )
@@ -1179,9 +1185,35 @@ var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC
 // os/exec: the pinned restic runner and the exact systemd custody launcher.
 // Each file is byte-pinned so neither authority can silently expand.
 var reviewedBackupSubprocesses = map[string]string{
-	"restic_linux.go":          "e76bbe0f63392dba83622c8cc4d2caf6466d556cf4d4e1416607c1d2878a5b37",
-	"custody_process_linux.go": "a964582435dba39b32e4848e951ad4da0f064f5fe4d0c04304714ae04329c7f1",
-	"custody_systemd_linux.go": "687486882f2790caef88bf73b0bf01fe5ba99d5503d0607aac4799c10c82a43c",
+	"restic_linux.go":          "5298187bff0aa47d207f304329a24defb6096d292c977ac7cd5b0be2064e1123",
+	"custody_process_linux.go": "97e5505bc6684ca6efc4a9221aca4726490d56b8c8464e9787261d732bc234c6",
+	"custody_systemd_linux.go": "f44ab3782392a85a190c037a058b53894adee8e3c7de0dca0ab01642a6faf9d5",
+}
+
+var reviewedLocalRetentionSources = map[string]string{
+	"adapter_linux.go":       "e95424489fc4fe17e4d1bd0de9eeb132aaacc46c773759921c8252dec4aecbea",
+	"adapter_unsupported.go": "d3cf269cde1eee954a7253dccbea4acea06058b0c7322b185d527c742f81b126",
+}
+
+func reviewedLocalRetentionPackage(candidate checkedSourcePackage, importPath string) bool {
+	if candidate.listed.ImportPath != importPath || len(candidate.listed.GoFiles) != 1 {
+		return false
+	}
+	name := candidate.listed.GoFiles[0]
+	expected, ok := reviewedLocalRetentionSources[name]
+	if !ok || digestSourceFiles(candidate.listed.Dir, []string{name}) != expected {
+		return false
+	}
+	source, err := os.ReadFile(filepath.Join(candidate.listed.Dir, name))
+	if err != nil {
+		return false
+	}
+	for _, forbidden := range []string{"BranchPreauthorized", "--no-lock", "unsafe-recover-no-free-space"} {
+		if strings.Contains(string(source), forbidden) {
+			return false
+		}
+	}
+	return true
 }
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup
