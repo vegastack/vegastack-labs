@@ -128,7 +128,7 @@ func VerifyCustodyPaths(policy CustodyPolicy, role string) error {
 }
 
 func verifyRepositoryCustodyPaths(policy CustodyPolicy, role string) error {
-	if !validCustodyPolicy(policy) || (role != "writer" && role != "verifier" && role != "retention") {
+	if !validCustodyPolicy(policy) || (role != "writer" && role != "verifier" && role != "retention" && role != "offsite-writer") {
 		return unix.EINVAL
 	}
 	var devices [4]uint64

@@ -13,8 +13,8 @@ import (
 // separate operations.
 func CopyOffsitePoint(ctx context.Context, config CopyConfig, point VerifiedCriticalPoint, admission GenerationAdmission) (PendingOffsiteGeneration, error) {
 	invalid := errors.New("offsite copy blocked")
-	if config.Custody == nil || config.Endpoint == nil || config.BinaryPath == "" || config.Architecture == "" ||
-		!strings.HasPrefix(config.RepositoryURL, "s3:") || config.SnapshotPath == "" || config.PasswordFDPath == "" ||
+	if config.Custody == nil || config.Inventory == nil || config.Endpoint == nil || config.Password == nil || len(config.Password.Bytes()) == 0 || config.BinaryPath == "" || config.Architecture == "" ||
+		!validOffsiteRepositoryURL(config.RepositoryURL) || config.SnapshotPath == "" || config.PasswordFDPath == "" ||
 		config.AuthorizationTokenFDPath == "" || !validLoopbackIAMURI(config.IAMURI, config.Endpoint.config.Path) || point.PointID == "" || point.SnapshotID == "" ||
 		admission.GenerationID != config.Binding.GenerationID || admission.GenerationID == "" ||
 		config.Binding.PointID != point.PointID || config.Binding.RecoveryEpoch != point.RecoveryEpoch ||
@@ -28,24 +28,27 @@ func CopyOffsitePoint(ctx context.Context, config CopyConfig, point VerifiedCrit
 	request.Arguments = []string{config.BinaryPath, "-r", config.RepositoryURL, "--json", "--no-cache", "--password-file", config.PasswordFDPath, "backup", config.SnapshotPath, "--host", "vsk-labs"}
 	request.Environment = []string{"HOME=/nonexistent", "RESTIC_PASSWORD_FILE=" + config.PasswordFDPath,
 		"AWS_CONTAINER_CREDENTIALS_FULL_URI=" + config.IAMURI, "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE=" + config.AuthorizationTokenFDPath}
-	result, err := config.Custody.RunOffsiteRestic(ctx, request)
+	result, err := config.Custody.RunOffsiteRestic(ctx, request, config.Password, config.Endpoint.config.Bearer)
 	config.Endpoint.MarkChildExited()
 	if err != nil {
 		return PendingOffsiteGeneration{}, err
 	}
-	if !result.IAMCalled || !result.ChildExited || !validObjectName(result.RepositoryID) || !validObjectName(result.SnapshotID) ||
-		!validBackupManifestDigest(result.InventoryDigest) || result.ObjectCount < 1 || result.ObjectBytes < 1 ||
-		result.ObjectBytes > admission.MaximumBytes || result.ObjectCount > admission.MaximumPUTs {
+	if !result.ChildExited || !validObjectName(result.RepositoryID) || !validObjectName(result.SnapshotID) || result.ObjectCount < 1 || result.ObjectBytes < 1 {
 		return PendingOffsiteGeneration{}, invalid
 	}
 	expiries := config.Endpoint.SessionExpiries()
 	if len(expiries) == 0 {
 		return PendingOffsiteGeneration{}, invalid
 	}
+	observed, err := config.Inventory.ObserveOffsiteGeneration(ctx, admission.GenerationID, result.RepositoryID, result.SnapshotID)
+	if err != nil || !validBackupManifestDigest(observed.InventoryDigest) || observed.ObjectCount < 1 || observed.ObjectBytes < 1 ||
+		observed.ObjectBytes > admission.MaximumBytes || observed.ObjectCount > admission.MaximumPUTs {
+		return PendingOffsiteGeneration{}, invalid
+	}
 	return PendingOffsiteGeneration{SourcePointID: point.PointID, SourceSnapshotID: point.SnapshotID, SourceManifestDigest: point.ManifestDigest,
 		SourceInventoryDigest: point.InventoryDigest, GenerationID: admission.GenerationID, RepositoryID: result.RepositoryID,
-		OffsiteSnapshotID: result.SnapshotID, OffsiteInventoryDigest: result.InventoryDigest,
-		RuleDigest: admission.RuleDigest, SessionExpiries: expiries, ObjectCount: result.ObjectCount, ObjectBytes: result.ObjectBytes}, nil
+		OffsiteSnapshotID: result.SnapshotID, OffsiteInventoryDigest: observed.InventoryDigest,
+		RuleDigest: admission.RuleDigest, SessionExpiries: expiries, ObjectCount: observed.ObjectCount, ObjectBytes: observed.ObjectBytes}, nil
 }
 
 func validLoopbackIAMURI(raw, expectedPath string) bool {
@@ -59,4 +62,12 @@ func validLoopbackIAMURI(raw, expectedPath string) bool {
 	}
 	ip := net.ParseIP(host)
 	return ip != nil && ip.IsLoopback()
+}
+
+func validOffsiteRepositoryURL(raw string) bool {
+	if !strings.HasPrefix(raw, "s3:") {
+		return false
+	}
+	parsed, err := url.Parse(strings.TrimPrefix(raw, "s3:"))
+	return err == nil && parsed.Scheme == "https" && parsed.Host != "" && parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == ""
 }

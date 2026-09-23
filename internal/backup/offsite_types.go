@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
 
 const (
@@ -61,7 +62,7 @@ type PendingOffsiteGeneration struct {
 // the exact pinned executable under the dedicated custody identity and return
 // only sanitized observations.
 type OffsiteCustody interface {
-	RunOffsiteRestic(context.Context, OffsiteResticRequest) (OffsiteResticResult, error)
+	RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error)
 }
 
 type OffsiteResticRequest struct {
@@ -74,10 +75,21 @@ type OffsiteResticRequest struct {
 }
 
 type OffsiteResticResult struct {
-	RepositoryID, SnapshotID, InventoryDigest string
-	ObjectCount, ObjectBytes                  int64
-	IAMCalled, ChildExited                    bool
-	SessionExpiries                           []time.Time
+	RepositoryID, SnapshotID string
+	ObjectCount, ObjectBytes int64
+	ChildExited              bool
+}
+
+type OffsiteInventoryObservation struct {
+	InventoryDigest          string
+	ObjectCount, ObjectBytes int64
+}
+
+// OffsiteInventoryObserver reads the destination after the child exits. The
+// custody child cannot infer an S3 object inventory from restic's backup
+// summary, so the adapter must return the provider-observed generation state.
+type OffsiteInventoryObserver interface {
+	ObserveOffsiteGeneration(context.Context, string, string, string) (OffsiteInventoryObservation, error)
 }
 
 type CopyConfig struct {
@@ -86,5 +98,7 @@ type CopyConfig struct {
 	BinaryPath, Architecture, RepositoryURL, SnapshotPath string
 	PasswordFDPath, AuthorizationTokenFDPath              string
 	IAMURI                                                string
+	Password                                              *credentialref.Value
+	Inventory                                             OffsiteInventoryObserver
 	Binding                                               adapter.SessionRequest
 }

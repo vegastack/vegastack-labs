@@ -62,7 +62,10 @@ type custodyFixture struct {
 	point    VerifiedCriticalPoint
 }
 
-func (fixture custodyFixture) RunOffsiteRestic(_ context.Context, request OffsiteResticRequest) (OffsiteResticResult, error) {
+func (fixture custodyFixture) RunOffsiteRestic(_ context.Context, request OffsiteResticRequest, password *credentialref.Value, bearer []byte) (OffsiteResticResult, error) {
+	if password == nil || string(password.Bytes()) != "repository-password" || string(bearer) != string(fixture.bearer) {
+		fixture.t.Fatal("borrowed custody values mismatch")
+	}
 	joined := strings.Join(append(append([]string{}, request.Arguments...), request.Environment...), "\n")
 	for _, secret := range []string{"parent-secret", "session-secret", "session-token", string(fixture.bearer)} {
 		if strings.Contains(joined, secret) {
@@ -80,7 +83,13 @@ func (fixture custodyFixture) RunOffsiteRestic(_ context.Context, request Offsit
 	if rr.Code != http.StatusOK {
 		fixture.t.Fatalf("iam status %d", rr.Code)
 	}
-	return OffsiteResticResult{RepositoryID: strings.Repeat("a", 64), SnapshotID: strings.Repeat("b", 64), InventoryDigest: offsiteDigest("9"), ObjectCount: 8, ObjectBytes: 512, IAMCalled: true, ChildExited: true}, nil
+	return OffsiteResticResult{RepositoryID: strings.Repeat("a", 64), SnapshotID: strings.Repeat("b", 64), ObjectCount: 8, ObjectBytes: 512, ChildExited: true}, nil
+}
+
+type inventoryFixture struct{}
+
+func (inventoryFixture) ObserveOffsiteGeneration(context.Context, string, string, string) (OffsiteInventoryObservation, error) {
+	return OffsiteInventoryObservation{InventoryDigest: offsiteDigest("9"), ObjectCount: 8, ObjectBytes: 512}, nil
 }
 
 func TestCopyOffsitePointUsesCustodyAndOneRunIAM(t *testing.T) {
@@ -89,7 +98,11 @@ func TestCopyOffsitePointUsesCustodyAndOneRunIAM(t *testing.T) {
 	point := testVerifiedCriticalPoint(now)
 	admission := GenerationAdmission{GenerationID: "generation-a", Prefix: "critical/generation-a/", RuleDigest: offsiteDigest("f"), MaximumBytes: 1024, MaximumPUTs: 100, MaximumLISTs: 20}
 	config := CopyConfig{Endpoint: endpoint, BinaryPath: "/opt/vsk/bin/restic-0.19.1", Architecture: "arm64", RepositoryURL: "s3:https://example.invalid/bucket/critical/generation-a", SnapshotPath: "/srv/vsk-exchange/point-a", PasswordFDPath: "/proc/self/fd/3", AuthorizationTokenFDPath: "/proc/self/fd/4", IAMURI: "http://127.0.0.1:54321" + OneRunIAMPath(binding), Binding: binding}
+	password, _ := credentialref.NewValue([]byte("repository-password"))
+	defer password.Close()
+	config.Password = password
 	config.Custody = custodyFixture{endpoint: endpoint, bearer: bearer, t: t, point: point}
+	config.Inventory = inventoryFixture{}
 	pending, err := CopyOffsitePoint(context.Background(), config, point, admission)
 	if err != nil || pending.SourcePointID != point.PointID || pending.SourceSnapshotID == pending.OffsiteSnapshotID || len(pending.SessionExpiries) != 1 {
 		t.Fatalf("copy = %#v, %v", pending, err)

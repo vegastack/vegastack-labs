@@ -30,6 +30,7 @@ type CustodyClient interface {
 	InventoryExpected(context.Context, []ExpectedObject) ([]ExpectedObject, error)
 	Capacity(context.Context) (uint64, error)
 	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
+	RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error)
 	ResticObservation() ResticObservation
 	Close(context.Context) error
 }

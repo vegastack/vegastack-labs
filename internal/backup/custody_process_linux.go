@@ -55,6 +55,7 @@ type CustodyClient interface {
 	InventoryExpected(context.Context, []ExpectedObject) ([]ExpectedObject, error)
 	Capacity(context.Context) (uint64, error)
 	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
+	RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error)
 	ResticObservation() ResticObservation
 	Close(context.Context) error
 }
@@ -91,6 +92,9 @@ func (launcher CustodyLauncher) Start(ctx context.Context, session CustodySessio
 }
 
 func (launcher CustodyLauncher) startDirect(ctx context.Context, session CustodySession) (CustodyClient, error) {
+	if session.Role == "offsite-writer" {
+		return nil, errors.New("offsite custody requires systemd broker")
+	}
 	policy, err := LoadCustodyPolicy(launcher.PolicyPath)
 	if err != nil ||
 		(session.Role == "writer" && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || launcher.Journal == nil {
@@ -288,6 +292,9 @@ func (client *processCustodyClient) Capacity(ctx context.Context) (uint64, error
 func (*processCustodyClient) RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error) {
 	return ResticResult{}, errors.New("direct custody client cannot broker restic")
 }
+func (*processCustodyClient) RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error) {
+	return OffsiteResticResult{}, errors.New("direct custody client cannot broker offsite restic")
+}
 func (*processCustodyClient) ResticObservation() ResticObservation { return ResticObservation{} }
 
 func (client *processCustodyClient) Close(ctx context.Context) error {
@@ -334,7 +341,7 @@ func (client *processCustodyClient) serveVerification(writer LeaseVerifier, read
 			return
 		}
 		ok := exactNonce(frame.NonceDigest, client.nonce) && frame.Type == "verify"
-		if ok && client.session.Role == "writer" {
+		if ok && (client.session.Role == "writer" || client.session.Role == "offsite-writer") {
 			ok = writer.VerifyWriterLease(*client.session.WriterLease, time.Now()) == nil
 		}
 		if ok && client.session.Role == "verifier" {

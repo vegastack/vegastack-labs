@@ -52,9 +52,13 @@ type resticCustodyResponse struct {
 	Observation ResticObservation `json:"observation"`
 }
 
+type offsiteResticCustodyResponse struct {
+	Result OffsiteResticResult `json:"result"`
+}
+
 func (launcher CustodyLauncher) startSystemd(ctx context.Context, policy CustodyPolicy, session CustodySession) (CustodyClient, error) {
 	if launcher.PolicyPath != CustodyPolicyPath || launcher.Journal == nil ||
-		(session.Role == "writer" && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) {
+		((session.Role == "writer" || session.Role == "offsite-writer") && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) {
 		return nil, errors.New("custody launch rejected")
 	}
 	nonce := make([]byte, 32)
@@ -566,6 +570,49 @@ func (client *systemdCustodyClient) RunRestic(ctx context.Context, request Resti
 	return response.Result, nil
 }
 
+func (client *systemdCustodyClient) RunOffsiteRestic(ctx context.Context, request OffsiteResticRequest, password *credentialref.Value, bearer []byte) (OffsiteResticResult, error) {
+	if password == nil || len(password.Bytes()) == 0 || len(bearer) < 32 {
+		return OffsiteResticResult{}, errors.New("offsite restic credentials unavailable")
+	}
+	passwordFile, err := sealedPasswordFile(password.Bytes())
+	if err != nil {
+		return OffsiteResticResult{}, err
+	}
+	defer passwordFile.Close()
+	bearerFile, err := SealedBearerFile(bearer)
+	if err != nil {
+		return OffsiteResticResult{}, err
+	}
+	defer bearerFile.Close()
+	client.mu.Lock()
+	defer client.mu.Unlock()
+	raw, err := json.Marshal(request)
+	if err != nil {
+		return OffsiteResticResult{}, err
+	}
+	if deadline, ok := ctx.Deadline(); ok {
+		_ = client.command.SetDeadline(deadline)
+	}
+	if err := writeCustodyFrame(client.command, custodyFrame{Type: "run-offsite-restic", NonceDigest: client.nonce, Payload: raw}); err != nil {
+		return OffsiteResticResult{}, err
+	}
+	if err := sendFile(client.command, passwordFile); err != nil {
+		return OffsiteResticResult{}, err
+	}
+	if err := sendFile(client.command, bearerFile); err != nil {
+		return OffsiteResticResult{}, err
+	}
+	frame, err := readCustodyFrame(client.command)
+	if err != nil || !frame.OK || !exactNonce(frame.NonceDigest, client.nonce) {
+		return OffsiteResticResult{}, fmt.Errorf("custody offsite restic response uncertain: %s", frame.Code)
+	}
+	var response offsiteResticCustodyResponse
+	if json.Unmarshal(frame.Payload, &response) != nil {
+		return OffsiteResticResult{}, errors.New("invalid custody offsite restic response")
+	}
+	return response.Result, nil
+}
+
 func (client *systemdCustodyClient) ResticObservation() ResticObservation { return client.observation }
 
 func (client *systemdCustodyClient) request(ctx context.Context, kind string, payload any) (custodyFrame, error) {
@@ -606,7 +653,7 @@ func serveSystemdVerification(client *systemdCustodyClient, writer LeaseVerifier
 			return
 		}
 		ok := exactNonce(frame.NonceDigest, client.nonce) && frame.Type == "verify"
-		if ok && client.session.Role == "writer" {
+		if ok && (client.session.Role == "writer" || client.session.Role == "offsite-writer") {
 			ok = writer.VerifyWriterLease(*client.session.WriterLease, time.Now()) == nil
 		}
 		if ok && client.session.Role == "verifier" {
@@ -691,16 +738,19 @@ func RunCustodySupervisor(instance string) error {
 		return fmt.Errorf("custody supervisor paths rejected: %w", err)
 	}
 	remote := &remoteLeaseVerifier{file: verifyFile, nonce: launch.Session.NonceDigest}
-	innerLauncher := CustodyLauncher{PolicyPath: CustodyPolicyPath, Writer: remote, Reader: remote, Journal: noOpCustodyJournal{}}
-	inner, err := innerLauncher.startDirect(context.Background(), launch.Session)
-	if err != nil {
-		return fmt.Errorf("custody inner launch rejected: %w", err)
+	var inner CustodyClient
+	if launch.Session.Role != "offsite-writer" {
+		innerLauncher := CustodyLauncher{PolicyPath: CustodyPolicyPath, Writer: remote, Reader: remote, Journal: noOpCustodyJournal{}}
+		inner, err = innerLauncher.startDirect(context.Background(), launch.Session)
+		if err != nil {
+			return fmt.Errorf("custody inner launch rejected: %w", err)
+		}
+		defer inner.Close(context.Background())
 	}
-	defer inner.Close(context.Background())
-	return serveCustodySupervisor(commandFile, launch, policy, inner)
+	return serveCustodySupervisor(commandFile, launch, policy, inner, remote)
 }
 
-func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy CustodyPolicy, inner CustodyClient) error {
+func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy CustodyPolicy, inner CustodyClient, leaseVerifier LeaseVerifier) error {
 	runner := NewResticRunner().(*resticRunner)
 	leaseContext, cancel := context.WithDeadline(context.Background(), launch.Session.MaximumExpiresAt)
 	defer cancel()
@@ -716,6 +766,10 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 		switch frame.Type {
 		case "ready":
 		case "inventory":
+			if inner == nil {
+				response.OK, response.Code = false, "command-invalid"
+				break
+			}
 			var request struct {
 				Cursor int `json:"cursor"`
 			}
@@ -738,6 +792,10 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 				Done    bool             `json:"done"`
 			}{objects[request.Cursor:end], end, end == len(objects)})
 		case "inventory-object":
+			if inner == nil {
+				response.OK, response.Code = false, "command-invalid"
+				break
+			}
 			var request struct {
 				Type string `json:"type"`
 				Name string `json:"name"`
@@ -753,6 +811,10 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 				response.Payload, _ = json.Marshal(objects[0])
 			}
 		case "capacity":
+			if inner == nil {
+				response.OK, response.Code = false, "command-invalid"
+				break
+			}
 			free, callErr := inner.Capacity(leaseContext)
 			if callErr != nil {
 				response.OK, response.Code = false, "capacity-unavailable"
@@ -762,6 +824,10 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 				}{free})
 			}
 		case "run-restic":
+			if inner == nil {
+				response.OK, response.Code = false, "command-invalid"
+				break
+			}
 			passwordFile, descriptorErr := receiveFile(command)
 			if descriptorErr != nil {
 				return descriptorErr
@@ -780,8 +846,34 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 			} else {
 				response.Payload, _ = json.Marshal(resticCustodyResponse{Result: result, Observation: runner.Observation()})
 			}
+		case "run-offsite-restic":
+			passwordFile, passwordErr := receiveFile(command)
+			if passwordErr != nil {
+				return passwordErr
+			}
+			bearerFile, bearerErr := receiveFile(command)
+			if bearerErr != nil {
+				_ = passwordFile.Close()
+				return bearerErr
+			}
+			var request OffsiteResticRequest
+			decodeErr := strictUnmarshal(frame.Payload, &request)
+			var result OffsiteResticResult
+			if decodeErr == nil {
+				result, decodeErr = runBrokeredOffsiteRestic(leaseContext, policy, launch.Session, leaseVerifier, request, passwordFile, bearerFile)
+			}
+			_ = passwordFile.Close()
+			_ = bearerFile.Close()
+			if decodeErr != nil {
+				response.OK, response.Code = false, "offsite-restic-failed"
+			} else {
+				response.Payload, _ = json.Marshal(offsiteResticCustodyResponse{Result: result})
+			}
 		case "close":
-			closeErr := inner.Close(context.Background())
+			var closeErr error
+			if inner != nil {
+				closeErr = inner.Close(context.Background())
+			}
 			if closeErr != nil {
 				response.OK, response.Code = false, "close-uncertain"
 			}
