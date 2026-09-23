@@ -93,6 +93,10 @@ func TestInstalledSourceRejectsPartialFenceAndBurnsFailedCustody(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	digests, err := SourceHandoffDigest(installed, qualified.qualificationDigest)
+	if err != nil || handoff.WitnessDigest != digests.WitnessDigest || handoff.EnvelopeDigest != digests.EnvelopeDigest || handoff.SourceDigest != digests.SourceDigest {
+		t.Fatalf("verified handoff diverged from production digest derivation: handoff=%+v digests=%+v err=%v", handoff, digests, err)
+	}
 	if handoff.ManifestDigest != installed.Pin.ManifestDigest || handoff.SourceDigest == "" || handoff.FenceDigest != qualified.qualificationDigest {
 		t.Fatal("public handoff digests missing")
 	}

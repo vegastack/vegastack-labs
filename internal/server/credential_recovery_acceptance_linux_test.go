@@ -163,16 +163,13 @@ func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, 
 	}
 	witnessCandidate := recoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: signed, Required: required, Qualified: qualified,
 		Envelope: envelope, Recipient: recovery.NewProtectedRecipient(pin, &isolatedRecipientKeySource{key: enrollment.recipientKey.Bytes()}), Receipts: &isolatedReceipts{}}
-	witnessDigest := acceptanceDigest(append(append([]byte(nil), canonical...), signed.Signature...))
-	envelopeBytes, err := json.Marshal(envelope)
+	handoffDigests, err := recovery.SourceHandoffDigest(recovery.InstalledPackage{Pin: pin, Witness: signed, Envelope: envelope}, enrollment.fenceQualificationDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
-	envelopeDigest := acceptanceDigest(envelopeBytes)
-	sourceDigest := acceptanceDigest([]byte(pin.ManifestDigest + "\x00" + witnessDigest + "\x00" + enrollment.fenceQualificationDigest + "\x00" + envelopeDigest))
 	public := installedRecoveryCandidate{
-		sourceDigest:   sourceDigest,
-		manifestDigest: pin.ManifestDigest, witnessDigest: witnessDigest, fenceDigest: enrollment.fenceQualificationDigest, envelopeDigest: envelopeDigest, sourceAdmissionDigest: enrollment.sourceAdmissionDigest,
+		sourceDigest:   handoffDigests.SourceDigest,
+		manifestDigest: pin.ManifestDigest, witnessDigest: handoffDigests.WitnessDigest, fenceDigest: enrollment.fenceQualificationDigest, envelopeDigest: handoffDigests.EnvelopeDigest, sourceAdmissionDigest: enrollment.sourceAdmissionDigest,
 		consume: func(ctx context.Context, compare func(io.ReadCloser) error) error {
 			return witnessCandidate.verify(ctx, compare)
 		},

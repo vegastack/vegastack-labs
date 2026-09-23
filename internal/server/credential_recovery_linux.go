@@ -100,7 +100,7 @@ func (source *installedRecoverySource) VerifyRecovery(ctx context.Context, reque
 		return unavailable, recovery.ErrWitnessUnavailable
 	}
 	candidate, err := source.loader.LoadVerified(ctx, authority.Binding, append([]recovery.BoundaryRequirement(nil), authority.Required...), source.clock().UTC())
-	if err != nil || ctx.Err() != nil || !validInstalledCandidate(candidate) {
+	if err != nil || ctx.Err() != nil || !validInstalledCandidate(candidate) || candidate.sourceAdmissionDigest != request.SourceAdmissionDigest || candidate.fenceDigest != request.FenceQualificationDigest {
 		return unavailable, recovery.ErrWitnessUnavailable
 	}
 	var verified nativecredential.VerifiedDraft

@@ -1002,11 +1002,11 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	var expected string
 	switch strings.Join(names, ",") {
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "4117b7fddc76bc9b5dde7eff8618bb3c91f2933dfaad39a4cd4e510e2303ba79"
+		expected = "26aa0c194f1df8c74c57efaeb0b626c1402a14e5c6ed420262bb6c7e7cdfe433"
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "a3e83d8d91491cbab989ca6a6ed4cc0a024d78428ce9b766fbd4e936771ced2b"
+		expected = "1138578166ca5084503c7df66d832fdf2d8d3341ee2d7172fa493d43a4687bd3"
 	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "d6a1672df5f1a9e8ce7e305a547ec8f674312224a29871b1780c42b4199498db"
+		expected = "5e5f8477602adba1c602ad405802c189f89e7c14b71c08cc008dad7e6e1dc91f"
 	default:
 		return false
 	}

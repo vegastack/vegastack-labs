@@ -79,6 +79,25 @@ func TestInstalledRecoverySourceBindsExactDraftAndConsumesVerifiedHandoff(t *tes
 		proof.FormerControllerFenceDigest != qualification || proof.WitnessDigest != loader.candidate.witnessDigest || proof.EnvelopeDigest != loader.candidate.envelopeDigest || proof.SourceEvidenceDigest != loader.candidate.sourceDigest || proof.ReplacementHostKeyDigest != acceptanceDigest([]byte("host-key")) {
 		t.Fatalf("wrong public proof: %#v", proof)
 	}
+	for name, mutate := range map[string]func(*installedRecoveryCandidate){
+		"loaded source admission": func(value *installedRecoveryCandidate) {
+			value.sourceAdmissionDigest = acceptanceDigest([]byte("other-source-admission"))
+		},
+		"loaded fence qualification": func(value *installedRecoveryCandidate) {
+			value.fenceDigest = acceptanceDigest([]byte("other-qualification"))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			changedCandidate := loader.candidate
+			mutate(&changedCandidate)
+			changedLoader := &installedLoaderFixture{want: binding, required: required, candidate: changedCandidate}
+			changedSource := *source
+			changedSource.loader = changedLoader
+			if _, err := changedSource.VerifyRecovery(context.Background(), request); err == nil || changedLoader.calls != 1 {
+				t.Fatalf("mismatched %s admitted: calls=%d err=%v", name, changedLoader.calls, err)
+			}
+		})
+	}
 
 	for name, change := range map[string]func(*RecoveryCustodyRequest){
 		"draft":    func(value *RecoveryCustodyRequest) { value.Draft.DraftID = "other-draft" },
