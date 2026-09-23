@@ -18,12 +18,38 @@ import (
 // Metadata and a restic full-read must be checked separately before this is a
 // recovery qualification; this proof alone never advances last-good.
 type LocalInventoryProof struct {
-	PointID         string
-	SnapshotID      string
-	ManifestDigest  string
-	InventoryDigest string
-	ObservedDigest  string
-	RecoveryEpoch   int64
+	PointID                 string
+	SnapshotID              string
+	ManifestDigest          string
+	InventoryDigest         string
+	OriginalInventoryDigest string
+	ObservedDigest          string
+	RecoveryEpoch           int64
+}
+
+// VerifySuccessorCustodyInventory binds an immutable original point to the
+// complete object inventory of a verified retirement successor generation.
+// The original creation manifest remains unchanged; the successor digest and
+// every current object must match exactly before the snapshot may be restored.
+func VerifySuccessorCustodyInventory(manifest CreationManifest, manifestDigest, originalInventoryDigest, successorInventoryDigest string, expected, observed []ExpectedObject) (LocalInventoryProof, error) {
+	invalid := errors.New("local backup successor inventory mismatch")
+	_, canonicalDigest, err := CanonicalCreationManifest(manifest)
+	if err != nil || canonicalDigest != manifestDigest || manifest.InventoryDigest != originalInventoryDigest ||
+		len(expected) == 0 || len(observed) != len(expected) || ExpectedInventoryDigest(expected) != successorInventoryDigest || ExpectedInventoryDigest(observed) != successorInventoryDigest {
+		return LocalInventoryProof{}, invalid
+	}
+	byKey := make(map[string]ExpectedObject, len(observed))
+	for _, object := range observed {
+		byKey[object.Type+"/"+object.Name] = object
+	}
+	for _, object := range expected {
+		if byKey[object.Type+"/"+object.Name] != object {
+			return LocalInventoryProof{}, invalid
+		}
+	}
+	return LocalInventoryProof{PointID: manifest.PointID, SnapshotID: manifest.SnapshotID, ManifestDigest: manifestDigest,
+		InventoryDigest: successorInventoryDigest, OriginalInventoryDigest: originalInventoryDigest,
+		ObservedDigest: successorInventoryDigest, RecoveryEpoch: manifest.RecoveryEpoch}, nil
 }
 
 func VerifyLocalInventory(ctx context.Context, manifest CreationManifest, manifestDigest string, server *RESTServer) (LocalInventoryProof, error) {

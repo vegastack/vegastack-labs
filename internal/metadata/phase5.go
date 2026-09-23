@@ -13,6 +13,13 @@ const (
 	backupJobSchemaID                     = "vegastack-labs.dev/backup-job"
 	backupVerificationAttemptSchemaID     = "vegastack-labs.dev/backup-verification-attempt"
 	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
+	backupLocalRetirementStatusSchemaID   = "vegastack-labs.dev/backup-local-retirement-status"
+	backupRetentionLockSchemaID           = "vegastack-labs.dev/backup-retention-lock"
+	backupRetentionLockCatalogSchemaID    = "vegastack-labs.dev/local-retention-lock-catalog"
+	backupRetentionLockDraftRequestID     = "vegastack-labs.dev/backup-retention-lock-draft-request"
+	backupRetentionLockDraftSubmissionID  = "vegastack-labs.dev/backup-retention-lock-draft-submission"
+	backupRetirementDraftRequestID        = "vegastack-labs.dev/backup-retirement-draft-request"
+	backupRetirementDraftSubmissionID     = "vegastack-labs.dev/backup-retirement-draft-submission"
 	backupTrustSourceDraftRequestSchemaID = "vegastack-labs.dev/backup-trust-source-draft-request"
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
@@ -102,6 +109,13 @@ func phase5BackupSchema(identifier string, fields ...FieldDefinition) SchemaDefi
 
 func phase5BackupPolicySchema(fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5BackupSchema(backupPolicySchemaID, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
+func phase5BackupStatusSchema(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5BackupSchema(backupStatusDataSchemaID, fields...)
 	schema.Version = "1.2.0"
 	schema.Fields[1].Enum = []string{"1.2.0"}
 	return schema
@@ -324,6 +338,27 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5ID("verificationId", "VerificationID"), phase5Digest("manifestDigest", "ManifestDigest"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5BackupSchema(backupLocalRetirementStatusSchemaID,
+			phase5ID("intentId", "IntentID"), phase5ID("repositoryId", "RepositoryID"),
+			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"),
+			phase5Enum("status", "Status", "planned", "in-progress", "uncertain", "verified", "failed"),
+			phase5Digest("selectionDigest", "SelectionDigest"), phase5Digest("lockCatalogDigest", "LockCatalogDigest"),
+			phase5Positive("lockCatalogSequence", "LockCatalogSequence"), phase5Digest("sourceCoverageDigest", "SourceCoverageDigest"),
+			phase5Digest("expectedInventoryDigest", "ExpectedInventoryDigest"),
+			phase5IDs("targetPointIds", "TargetPointIDs", 256), phase5IDs("survivorPointIds", "SurvivorPointIDs", 256),
+			phase5Nonnegative("expectedReclaimBytes", "ExpectedReclaimBytes"),
+			phase5NullableDigest("journalDigest", "JournalDigest"), phase5NullableDigest("survivorVerificationDigest", "SurvivorVerificationDigest"),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5Schema(backupRetentionLockSchemaID,
+			phase5ID("pointId", "PointID"), phase5Digest("reasonDigest", "ReasonDigest"),
+		),
+		phase5Schema(backupRetentionLockCatalogSchemaID,
+			phase5ID("repositoryId", "RepositoryID"), phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"),
+			phase5Digest("sourceCoverageDigest", "SourceCoverageDigest"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Positive("revision", "Revision"), phase5Bool("complete", "Complete"),
+			FieldDefinition{JSONName: "locks", GoName: "Locks", Kind: ValueArray, Required: true, ItemRef: backupRetentionLockSchemaID, MaxItems: intPointer(256), UniqueItems: true},
+		),
 		phase5BackupSchema(recoveryPointSchemaID,
 			phase5ID("pointId", "PointID"),
 			phase5Enum("sourceKind", "SourceKind", "fixture", "local", "independent"),
@@ -531,6 +566,25 @@ func phase5RequestSchemas() []SchemaDefinition {
 		phase5BackupRequest(backupPolicyDraftRequestSchemaID,
 			FieldDefinition{JSONName: "policy", GoName: "Policy", Kind: ValueObject, Required: true, Ref: backupPolicySchemaID},
 		),
+		phase5BackupRequest(backupRetentionLockDraftRequestID,
+			FieldDefinition{JSONName: "catalog", GoName: "Catalog", Kind: ValueObject, Required: true, Ref: backupRetentionLockCatalogSchemaID},
+		),
+		phase5BackupSchema(backupRetentionLockDraftSubmissionID,
+			phase5ID("draftId", "DraftID"), phase5ID("changeId", "ChangeID"), phase5ID("operationId", "OperationID"),
+			phase5Digest("catalogDigest", "CatalogDigest"), phase5Enum("status", "Status", "draft"),
+			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5BackupRequest(backupRetirementDraftRequestID,
+			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"),
+			phase5ID("referenceId", "ReferenceID"), phase5Enum("resolverId", "ResolverID", "native-systemd"),
+			phase5ID("materialVersion", "MaterialVersion"),
+		),
+		phase5BackupSchema(backupRetirementDraftSubmissionID,
+			phase5ID("draftId", "DraftID"), phase5ID("changeId", "ChangeID"), phase5ID("operationId", "OperationID"),
+			phase5Digest("selectionDigest", "SelectionDigest"), phase5Digest("credentialManifestDigest", "CredentialManifestDigest"),
+			phase5IDs("targetPointIds", "TargetPointIDs", 256), phase5IDs("survivorPointIds", "SurvivorPointIDs", 256),
+			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5BackupSchema(backupPolicyDraftSubmissionSchemaID,
 			phase5ID("draftId", "DraftID"), phase5ID("policyId", "PolicyID"),
 			phase5Digest("policyDigest", "PolicyDigest"),
@@ -583,11 +637,12 @@ func phase5RequestSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "gates", GoName: "Gates", Kind: ValueArray, Required: true, ItemRef: gateViewSchemaID, MaxItems: intPointer(256)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
-		phase5BackupSchema(backupStatusDataSchemaID,
+		phase5BackupStatusSchema(
 			FieldDefinition{JSONName: "policies", GoName: "Policies", Kind: ValueArray, Required: true, ItemRef: backupPolicySchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "jobs", GoName: "Jobs", Kind: ValueArray, Required: true, ItemRef: backupJobSchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "verifications", GoName: "Verifications", Kind: ValueArray, Required: true, ItemRef: backupVerificationAttemptSchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "lastGood", GoName: "LastGood", Kind: ValueArray, Required: true, ItemRef: backupLastGoodSchemaID, MaxItems: intPointer(16)},
+			FieldDefinition{JSONName: "retirements", GoName: "Retirements", Kind: ValueArray, Required: true, ItemRef: backupLocalRetirementStatusSchemaID, MaxItems: intPointer(256)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(auditCheckpointListDataSchemaID,
@@ -652,6 +707,8 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5Endpoint("api.v1.credential-resolution-records.get", "GET", "/api/v1/credential-resolution-records/{recordId}", "", credentialResolutionRecordSchemaID, false),
 		{ID: "api.v1.credential-references.import-stream", Method: "POST", Path: "/api/v1/credential-references/{referenceId}/import-stream", RequestSchema: credentialImportRequestSchemaID, DataSchema: credentialImportSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, RequestEncoding: "binary", TransportScope: "local", MaxRequestBytes: 4096},
 		{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", RequestSchema: backupPolicyDraftRequestSchemaID, DataSchema: backupPolicyDraftSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.backup-retention-lock-drafts.create", Method: "POST", Path: "/api/v1/backups/retention-locks/drafts", RequestSchema: backupRetentionLockDraftRequestID, DataSchema: backupRetentionLockDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.backup-retirement-drafts.create", Method: "POST", Path: "/api/v1/backups/retirements/drafts", RequestSchema: backupRetirementDraftRequestID, DataSchema: backupRetirementDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		phase5AvailableGateEndpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
@@ -686,6 +743,10 @@ func phase5CommandSchemas(path string) (request string, data string) {
 		return gateProfileDraftRequestSchemaID, gateProfileDraftSubmissionSchemaID
 	case "backup status":
 		return "", backupStatusDataSchemaID
+	case "backup retention-locks draft":
+		return backupRetentionLockDraftRequestID, backupRetentionLockDraftSubmissionID
+	case "backup retirement draft":
+		return backupRetirementDraftRequestID, backupRetirementDraftSubmissionID
 	case "recovery witness collect":
 		return "", recoveryWitnessCollectionDataSchemaID
 	case "backup run", "database backup":

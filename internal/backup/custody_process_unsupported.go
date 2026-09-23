@@ -20,6 +20,8 @@ type CustodyLauncher struct {
 	PolicyPath string
 	Writer     LeaseVerifier
 	Reader     ReadLeaseVerifier
+	Retention  RetentionLeaseVerifier
+	Mutations  RetainedMutationJournal
 	Journal    CustodyJournal
 	Clock      func() time.Time
 }
@@ -29,10 +31,17 @@ type CustodyClient interface {
 	Inventory(context.Context) ([]ExpectedObject, error)
 	InventoryExpected(context.Context, []ExpectedObject) ([]ExpectedObject, error)
 	Capacity(context.Context) (uint64, error)
+	CapacitySnapshot(context.Context) (RepositoryCapacity, error)
 	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
 	RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error)
 	ResticObservation() ResticObservation
 	Close(context.Context) error
+}
+
+type RepositoryCapacity struct {
+	TotalBytes       uint64 `json:"totalBytes"`
+	AvailableBytes   uint64 `json:"availableBytes"`
+	QuarantinedBytes uint64 `json:"quarantinedBytes"`
 }
 
 func (CustodyLauncher) Start(context.Context, CustodySession) (CustodyClient, error) {

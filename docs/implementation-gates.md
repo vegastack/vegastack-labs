@@ -165,6 +165,8 @@ V1 selects restic repository format v2. The first implementation must pin restic
 
 The local software path isolates repository custody under a dedicated UID through one short-lived mode of the existing `vsk-labs` executable. Its disposable Debian/ext4 proof does not enroll the required real accounts, install the root-owned policy/systemd/polkit profile, qualify actual backup media, or close `G-008`. Those remain infrastructure-admin evidence for the selected host and storage.
 
+The local retirement software path adds human-only exact selection, a complete applied recovery-promise lock catalog, a distinct custody retention role, write-ahead quarantine journal and full-read plus isolated-restore proof for every survivor before atomic successor publication. Disposable ext4 and restic `0.19.1` fixtures prove only those code boundaries. They do not prove the selected SSD, capacity measurements, installed identities/policy, independent key recovery, R2 retention layout or a clean-host recovery, so they cannot close or weaken `G-008`. An absent or stale lock catalog, unknown inventory object, uncertain response or fixture-only survivor blocks retirement.
+
 - `standard`: one encrypted restic repository on the central 512 GB SSD; daily snapshots; `--keep-within 7d`.
 - `critical-local`: a separate encrypted SSD repository; every 6 hours; `--keep-within 14d`.
 - `critical-offsite`: a separate encrypted R2 S3-compatible repository; daily; `--keep-within 14d`; bucket/prefix lock covers at least the retention window.

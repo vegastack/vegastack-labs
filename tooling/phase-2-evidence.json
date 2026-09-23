@@ -254,6 +254,18 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:0baef2613b97b94b88439b2098f508d24dbe34777dd818e117fa0d1ccd8b8a8a"
+      },
+      {
+        "id": "phase5-issue115-v1",
+        "issue": 115,
+        "commands": [
+          "backup retention-locks draft",
+          "backup retirement draft"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/localretention"
+        ],
+        "mutationBoundaryDigest": "sha256:f012f10bb2cb917423afac31aea31a2021ce1de488f3fbc1cdb47ef1f0c3d38d"
       }
     ]
   },

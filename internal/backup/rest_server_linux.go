@@ -37,6 +37,13 @@ type RESTServer struct {
 	readLease              ReadLease
 	readVerifier           ReadLeaseVerifier
 	readOnly               bool
+	retentionLease         *RetentionLease
+	retentionVerifier      RetentionLeaseVerifier
+	retentionJournal       RetainedMutationJournal
+	quarantineRoot         string
+	retentionMutations     int64
+	retentionBytes         int64
+	retentionPoisoned      bool
 	clock                  func() time.Time
 	mu                     sync.Mutex
 	ownLocks               map[string]struct{}
@@ -66,13 +73,15 @@ func NewRESTServer(root string, expectedUID uint32, lease WriterLease, verifier 
 
 // newCustodyRESTServer separates object ownership from the only admitted restic
 // peer. It is used solely by the distinct-UID custody child.
-func newCustodyRESTServer(root string, ownerUID, peerUID uint32, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, clock func() time.Time) (*RESTServer, error) {
+func newCustodyRESTServer(root, quarantine string, ownerUID, peerUID uint32, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal, clock func() time.Time) (*RESTServer, error) {
 	var server *RESTServer
 	var err error
 	if session.Role == "writer" && session.WriterLease != nil {
 		server, err = newRESTServer(root, ownerUID, peerUID, *session.WriterLease, writer, clock)
 	} else if session.Role == "verifier" && session.ReadLease != nil {
 		server, err = newVerifierRESTServer(root, ownerUID, peerUID, *session.ReadLease, reader, clock)
+	} else if session.Role == "retention" && session.RetentionLease != nil {
+		server, err = newRetentionRESTServer(root, quarantine, ownerUID, peerUID, *session.RetentionLease, retention, mutations, clock)
 	} else {
 		return nil, errors.New("backup custody rest server misconfigured")
 	}
@@ -132,6 +141,10 @@ func (server *RESTServer) Serve(ctx context.Context, listener net.Listener) erro
 }
 
 func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if server.retentionSessionPoisoned() {
+		http.Error(w, "journal unavailable", http.StatusServiceUnavailable)
+		return
+	}
 	// The only query restic sends is ?create=true on repository initialization.
 	create := false
 	if r.URL.RawQuery != "" {
@@ -145,19 +158,20 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// no writer lease and cannot fall through to writer authority.
 	now := server.clock()
 	if (server.readOnly && (server.readVerifier.VerifyReadLease(server.readLease, now) != nil || !now.Before(server.readLease.MaximumExpiresAt))) ||
-		(!server.readOnly && (server.verifier.VerifyWriterLease(server.lease, now) != nil || !now.Before(server.lease.MaximumExpiresAt))) {
+		(server.retentionLease != nil && (server.retentionVerifier.VerifyRetentionLease(*server.retentionLease, now) != nil || !now.Before(server.retentionLease.MaximumExpiresAt))) ||
+		(!server.readOnly && server.retentionLease == nil && (server.verifier.VerifyWriterLease(server.lease, now) != nil || !now.Before(server.lease.MaximumExpiresAt))) {
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	// Repository-level requests (create the layout, or list a type directory)
 	// are classified before single-object parsing.
 	if repositoryRequest, ok := parseRepositoryRequest(r.URL.Path, server.repositoryID); ok {
-		if server.readOnly && create {
+		if (server.readOnly || server.retentionLease != nil) && create {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 		switch {
-		case !server.readOnly && repositoryRequest.isRepositoryRoot && create && r.Method == http.MethodPost:
+		case !server.readOnly && server.retentionLease == nil && repositoryRequest.isRepositoryRoot && create && r.Method == http.MethodPost:
 			server.handleRepositoryCreate(w)
 		case repositoryRequest.isList && !create && r.Method == http.MethodGet:
 			server.handleList(w, repositoryRequest)
@@ -181,12 +195,26 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodHead:
 		server.handleHead(w, request)
 	case http.MethodPost, http.MethodPut:
-		server.handleCreate(w, r, request)
+		if server.retentionLease != nil {
+			server.handleRetainedCreate(w, r, request)
+		} else {
+			server.handleCreate(w, r, request)
+		}
 	case http.MethodDelete:
-		server.handleDelete(w, request)
+		if server.retentionLease != nil {
+			server.handleRetainedDelete(w, r, request)
+		} else {
+			server.handleDelete(w, request)
+		}
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (server *RESTServer) retentionSessionPoisoned() bool {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	return server.retentionPoisoned
 }
 
 // handleRepositoryCreate creates the repository-format-v2 object-type directories

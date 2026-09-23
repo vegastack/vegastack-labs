@@ -78,7 +78,16 @@ func (repository *CredentialRepository) StageStepBindings(ctx context.Context, r
 	if err != nil {
 		return "", err
 	}
-	if draft.Status != "draft" || draft.StateRevision != request.Expected.StateRevision || draft.RecoveryEpoch != request.Expected.RecoveryEpoch || draftCredentialDigest(draft.Extensions) != digest {
+	boundState := draft.StateRevision == request.Expected.StateRevision
+	if !boundState && draft.DeclarationType == "backup.retirement" && draft.StateRevision+1 == request.Expected.StateRevision {
+		var selectionCount int
+		readErr := repository.store.Read(ctx, func(tx ReadTx) error {
+			return tx.queryRow(ctx, `SELECT COUNT(1) FROM backup_retirement_drafts WHERE declaration_id=? AND declaration_revision=? AND state_revision=? AND recovery_epoch=?`,
+				request.DeclarationID, request.DeclarationRevision, request.Expected.StateRevision, request.Expected.RecoveryEpoch).Scan(&selectionCount)
+		})
+		boundState = readErr == nil && selectionCount == 1
+	}
+	if draft.Status != "draft" || !boundState || draft.RecoveryEpoch != request.Expected.RecoveryEpoch || draftCredentialDigest(draft.Extensions) != digest {
 		return "", credentialStoreError(generated.ErrorCodePrerequisiteBlocked, "credential-draft-unbound")
 	}
 	operations := map[string]generated.DeclarationOperation{}
@@ -120,6 +129,27 @@ func (repository *CredentialRepository) StageStepBindings(ctx context.Context, r
 func credentialBindingID(declarationID string, revision int64, digest string) string {
 	sum := sha256.Sum256([]byte(declarationID + "\x00" + fmt.Sprint(revision) + "\x00" + digest))
 	return "binding-" + hex.EncodeToString(sum[:12])
+}
+
+func (repository *CredentialRepository) HasExactStepBinding(ctx context.Context, declarationID string, declarationRevision int64, binding credentialref.StepBinding) (bool, error) {
+	if repository == nil || repository.store == nil || declarationRevision < 1 || !credentialref.ValidBinding(binding) {
+		return false, credentialStoreError(generated.ErrorCodeInputInvalid, "credential-binding")
+	}
+	var raw []byte
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT binding_bytes FROM credential_step_bindings WHERE declaration_id=? AND declaration_revision=? AND operation_id=? AND binding_digest=?`, declarationID, declarationRevision, binding.OperationID, binding.Digest()).Scan(&raw)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	var stored credentialref.StepBinding
+	if json.Unmarshal(raw, &stored) != nil || stored != binding {
+		return false, credentialStoreError(generated.ErrorCodeIntegrityFailure, "credential-binding")
+	}
+	return true, nil
 }
 
 func credentialExtensionDigest(plan generated.Plan) string {

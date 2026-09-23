@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -45,6 +46,7 @@ type systemdCustodyClient struct {
 	socketPaths []string
 	mu          sync.Mutex
 	observation ResticObservation
+	poisoned    atomic.Bool
 }
 
 type resticCustodyResponse struct {
@@ -58,7 +60,7 @@ type offsiteResticCustodyResponse struct {
 
 func (launcher CustodyLauncher) startSystemd(ctx context.Context, policy CustodyPolicy, session CustodySession) (CustodyClient, error) {
 	if launcher.PolicyPath != CustodyPolicyPath || launcher.Journal == nil ||
-		((session.Role == "writer" || session.Role == "offsite-writer") && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) {
+		((session.Role == "writer" || session.Role == "offsite-writer") && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || (session.Role == "retention" && (launcher.Retention == nil || launcher.Mutations == nil)) {
 		return nil, errors.New("custody launch rejected")
 	}
 	nonce := make([]byte, 32)
@@ -137,7 +139,7 @@ func (launcher CustodyLauncher) startSystemd(ctx context.Context, policy Custody
 	}
 	client := &systemdCustodyClient{session: session, nonce: session.NonceDigest, command: commandFile, verify: verifyFile,
 		journal: launcher.Journal, socketPaths: []string{commandPath, verifyPath}}
-	go serveSystemdVerification(client, launcher.Writer, launcher.Reader)
+	go serveSystemdVerification(client, launcher.Writer, launcher.Reader, launcher.Retention, launcher.Mutations)
 	readyCtx, readyCancel := context.WithTimeout(ctx, 30*time.Second)
 	defer readyCancel()
 	if _, err := client.request(readyCtx, "ready", nil); err != nil {
@@ -521,20 +523,29 @@ func (client *systemdCustodyClient) InventoryExpected(ctx context.Context, expec
 }
 
 func (client *systemdCustodyClient) Capacity(ctx context.Context) (uint64, error) {
+	snapshot, err := client.CapacitySnapshot(ctx)
+	return snapshot.AvailableBytes, err
+}
+
+func (client *systemdCustodyClient) CapacitySnapshot(ctx context.Context) (RepositoryCapacity, error) {
 	frame, err := client.request(ctx, "capacity", nil)
 	if err != nil {
-		return 0, err
+		return RepositoryCapacity{}, err
 	}
-	var result struct {
-		Free uint64 `json:"free"`
-	}
+	var result RepositoryCapacity
 	if json.Unmarshal(frame.Payload, &result) != nil {
-		return 0, errors.New("invalid custody capacity")
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
 	}
-	return result.Free, nil
+	if result.TotalBytes == 0 || result.AvailableBytes > result.TotalBytes || result.QuarantinedBytes > result.TotalBytes-result.AvailableBytes {
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
+	}
+	return result, nil
 }
 
 func (client *systemdCustodyClient) RunRestic(ctx context.Context, request ResticRequest, password *credentialref.Value) (ResticResult, error) {
+	if client.poisoned.Load() {
+		return ResticResult{}, errors.New("retention journal uncertain")
+	}
 	if password == nil || len(password.Bytes()) == 0 {
 		return ResticResult{}, errors.New("restic credential unavailable")
 	}
@@ -559,6 +570,9 @@ func (client *systemdCustodyClient) RunRestic(ctx context.Context, request Resti
 		return ResticResult{}, err
 	}
 	frame, err := readCustodyFrame(client.command)
+	if client.poisoned.Load() {
+		return ResticResult{}, errors.New("retention journal uncertain")
+	}
 	if err != nil || !frame.OK || !exactNonce(frame.NonceDigest, client.nonce) {
 		return ResticResult{}, fmt.Errorf("custody restic response uncertain: %s", frame.Code)
 	}
@@ -638,33 +652,24 @@ func (client *systemdCustodyClient) request(ctx context.Context, kind string, pa
 
 func (client *systemdCustodyClient) Close(ctx context.Context) error {
 	_, requestErr := client.request(ctx, "close", nil)
+	var poisonErr error
+	if client.poisoned.Load() {
+		poisonErr = errors.New("retention journal uncertain")
+	}
 	_ = client.command.Close()
 	_ = client.verify.Close()
 	for _, path := range client.socketPaths {
 		_ = os.Remove(path)
 	}
 	outcome := "succeeded"
-	if requestErr != nil {
+	if requestErr != nil || poisonErr != nil {
 		outcome = "uncertain"
 	}
-	return errors.Join(requestErr, client.journal.FinishCustody(context.WithoutCancel(ctx), client.session, outcome))
+	return errors.Join(requestErr, poisonErr, client.journal.FinishCustody(context.WithoutCancel(ctx), client.session, outcome))
 }
 
-func serveSystemdVerification(client *systemdCustodyClient, writer LeaseVerifier, reader ReadLeaseVerifier) {
-	for {
-		frame, err := readCustodyFrame(client.verify)
-		if err != nil {
-			return
-		}
-		ok := exactNonce(frame.NonceDigest, client.nonce) && frame.Type == "verify"
-		if ok && (client.session.Role == "writer" || client.session.Role == "offsite-writer") {
-			ok = writer.VerifyWriterLease(*client.session.WriterLease, time.Now()) == nil
-		}
-		if ok && client.session.Role == "verifier" {
-			ok = reader.VerifyReadLease(*client.session.ReadLease, time.Now()) == nil
-		}
-		_ = writeCustodyFrame(client.verify, custodyFrame{Type: "verify-result", NonceDigest: client.nonce, OK: ok})
-	}
+func serveSystemdVerification(client *systemdCustodyClient, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal) {
+	serveCustodyAuthority(client.verify, client.nonce, client.session, writer, reader, retention, mutations, func() { client.poisoned.Store(true) })
 }
 
 func sendFile(socket, file *os.File) error {
@@ -744,7 +749,7 @@ func RunCustodySupervisor(instance string) error {
 	remote := &remoteLeaseVerifier{file: verifyFile, nonce: launch.Session.NonceDigest}
 	var inner CustodyClient
 	if launch.Session.Role != "offsite-writer" {
-		innerLauncher := CustodyLauncher{PolicyPath: CustodyPolicyPath, Writer: remote, Reader: remote, Journal: noOpCustodyJournal{}}
+		innerLauncher := CustodyLauncher{PolicyPath: CustodyPolicyPath, Writer: remote, Reader: remote, Retention: remote, Mutations: remote, Journal: noOpCustodyJournal{}}
 		inner, err = innerLauncher.startDirect(context.Background(), launch.Session)
 		if err != nil {
 			return fmt.Errorf("custody inner launch rejected: %w", err)
@@ -819,13 +824,11 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 				response.OK, response.Code = false, "command-invalid"
 				break
 			}
-			free, callErr := inner.Capacity(leaseContext)
+			capacity, callErr := inner.CapacitySnapshot(leaseContext)
 			if callErr != nil {
 				response.OK, response.Code = false, "capacity-unavailable"
 			} else {
-				response.Payload, _ = json.Marshal(struct {
-					Free uint64 `json:"free"`
-				}{free})
+				response.Payload, _ = json.Marshal(capacity)
 			}
 		case "run-restic":
 			if inner == nil {
@@ -953,16 +956,32 @@ func prepareBrokeredRestic(policy CustodyPolicy, session CustodySession, reposit
 		request.ExecutionUID != policy.ResticUID || request.ExecutionGID != policy.ResticUID || request.ControllerUID != policy.ControllerUID {
 		return nil, errors.New("restic request outside custody policy")
 	}
-	request.RepositoryURL = repositoryURL
 	switch request.Mode {
 	case "backup":
-		return prepareBackupExchange(policy, request.SnapshotPath)
+		transfer, err := prepareBackupExchange(policy, request.SnapshotPath)
+		if err != nil {
+			return nil, err
+		}
+		request.RepositoryURL = repositoryURL
+		return transfer, nil
 	case "restore":
-		return prepareRestoreExchange(policy, request.RestoreTarget)
+		transfer, err := prepareRestoreExchange(policy, request.RestoreTarget)
+		if err != nil {
+			return nil, err
+		}
+		request.RepositoryURL = repositoryURL
+		return transfer, nil
 	case "init", "config", "snapshots", "check-full":
 		if request.SnapshotPath != "" || request.RestoreTarget != "" {
 			return nil, errors.New("unexpected exchange path")
 		}
+		request.RepositoryURL = repositoryURL
+		return nil, nil
+	case "forget-dry-run", "forget", "prune":
+		if session.Role != "retention" || request.SnapshotPath != "" || request.RestoreTarget != "" {
+			return nil, errors.New("retention restic outside custody policy")
+		}
+		request.RepositoryURL = repositoryURL
 		return nil, nil
 	default:
 		return nil, errors.New("restic mode outside custody policy")

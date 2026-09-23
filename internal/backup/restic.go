@@ -11,7 +11,7 @@ import (
 // only logical references and paths; the repository password is passed
 // separately as a borrowed credential value and never appears here.
 type ResticRequest struct {
-	// Mode is init, config, backup, snapshots, check-full or restore.
+	// Mode is init, config, backup, snapshots, check-full, restore, forget-dry-run, forget or prune.
 	// It defaults to backup. Verification modes use a point-bound read lease.
 	Mode            string
 	BinaryPath      string
@@ -23,6 +23,8 @@ type ResticRequest struct {
 	ExchangeRoot    string
 	SnapshotPath    string
 	SnapshotID      string
+	SnapshotIDs     []string
+	MaxRepackBytes  int64
 	RestoreTarget   string
 	PolicyDigest    string
 	Lease           WriterLease

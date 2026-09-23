@@ -51,10 +51,12 @@ const REVIEWED_AUDIT_ENDPOINTS = [
   "api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list",
   "api.v1.audit-history.verification",
 ];
-// #106 adds the inert policy-draft route; #117 adds exact status/run/verify
-// routes. Keep the reviewed set closed against direct delete or status edits.
+// #106 adds the inert policy-draft route; #115 adds inert retention-lock and
+// local-retirement draft routes; #117 adds exact status/run/verify routes.
+// Keep the reviewed set closed against direct delete or status edits.
 const REVIEWED_BACKUP_ENDPOINTS = [
-  "api.v1.backup-policy-drafts.create", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
+  "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create",
+  "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
 ];
 
 async function filesBelow(root, relative) {

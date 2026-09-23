@@ -351,6 +351,18 @@ func validateOwnedDirectoryDescriptor(descriptor int, expectedUID uint32) error 
 	return nil
 }
 
+func validateTrustedParentDirectoryDescriptor(descriptor int, expectedUID uint32) error {
+	var stat unix.Stat_t
+	if err := unix.Fstat(descriptor, &stat); err != nil || stat.Mode&unix.S_IFMT != unix.S_IFDIR || stat.Nlink < 1 || !isLocalDescriptor(descriptor) {
+		return errors.New("unsafe directory")
+	}
+	permissions := stat.Mode & 0o777
+	if (stat.Uid == expectedUID && permissions == 0o700) || (stat.Uid == 0 && permissions&0o022 == 0) {
+		return nil
+	}
+	return errors.New("unsafe directory")
+}
+
 func (layout *linuxArtifactLayout) validateOwnedDirectory(path string) error {
 	info, err := os.Lstat(path)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o700 {
