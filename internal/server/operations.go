@@ -179,6 +179,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
 	adapters := productionAdapterRegistry()
+	// A live off-site execution remains unavailable until G-008 qualifies the
+	// actual R2 signer, rules, custody host, read path, and recovery key.
+	if err := registerOffsiteEffect(adapters, profile.OffsiteBackup, nil); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	backupRepository := store.NewBackupRepository(authority)
 	// The protected local backup adapter is registered only when the complete
 	// standard/critical/restic profile triplet is present. It fails closed
@@ -650,4 +656,18 @@ type unavailableAcknowledgementPublisher struct{}
 
 func (unavailableAcknowledgementPublisher) Publish(context.Context, acknowledgement.RequestCard) error {
 	return failure.New(generated.ErrorCodeDependencyUnavailable, "slack-acknowledgement", true)
+}
+
+// registerOffsiteEffect keeps the optional off-site capability out of the
+// production registry unless both a complete profile and a separately
+// qualified execution implementation exist. An absent implementation leaves
+// local backup operation available and off-site copy unavailable.
+func registerOffsiteEffect(registry *adapter.Registry, profile *serverconfig.OffsiteBackup, effect adapter.Adapter) error {
+	if registry == nil {
+		return failure.New(generated.ErrorCodeInputInvalid, "offsite-adapter", false)
+	}
+	if profile == nil || effect == nil {
+		return nil
+	}
+	return registry.Register(runengine.OffsiteAdapterID, effect)
 }
