@@ -63,7 +63,11 @@ func TestPinnedResticOffsiteS3IAM(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer passwordFile.Close()
-	bearerFile, err := SealedBearerFile(bearer)
+	authorization := append([]byte("Bearer "), bearer...)
+	bearerFile, err := SealedBearerFile(authorization)
+	for index := range authorization {
+		authorization[index] = 0
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
