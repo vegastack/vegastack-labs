@@ -212,7 +212,7 @@ test("the server verifier rejects a partial recovery authority composition", asy
       "  PromoteAtStartup()",
       "  operations.openStore(productionDatabasePath)",
       "  RegisterRestoreOperations()",
-      "  _ = AuthorityAdmission{}",
+      "  _ = StoreRecoveryCanary{}",
       "}",
       "",
     ].join("\n"),

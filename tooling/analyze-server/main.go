@@ -197,7 +197,7 @@ func analyze(root string) (analysis, error) {
 // coordinator is reported by Task 7 acceptance rather than misclassified as a
 // partially safe implementation.
 func invalidRecoveryAuthorityClosure(source string) bool {
-	markers := []string{"RegisterRestoreOperations", "PromoteAtStartup", "CandidateManager{", "AuthorityAdmission", "CanaryVerifier"}
+	markers := []string{"RegisterRestoreOperations", "PromoteAtStartup", "CandidateManager{", "StoreRecoveryCanary", "CanaryVerifier"}
 	present := 0
 	for _, marker := range markers {
 		if strings.Contains(source, marker) {
@@ -210,7 +210,7 @@ func invalidRecoveryAuthorityClosure(source string) bool {
 	if present != len(markers) || strings.Count(source, "productionDatabasePath") < 2 {
 		return true
 	}
-	for _, forbidden := range []string{"RestoreSnapshot(ctx, productionDatabasePath", "RestoreSnapshot(context.Background(), productionDatabasePath", "exec.Command(", "sql.Open(", "Canary: recovery.CanaryVerifier{}"} {
+	for _, forbidden := range []string{"RestoreSnapshot(ctx, productionDatabasePath", "RestoreSnapshot(context.Background(), productionDatabasePath", "exec.Command(", "sql.Open(", "Canary: recovery.CanaryVerifier{}", "UnavailableCanary"} {
 		if strings.Contains(source, forbidden) {
 			return true
 		}
