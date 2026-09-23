@@ -129,12 +129,14 @@ func TestPinnedResticRetentionQuarantinesSharedPackUntilSuccessorProof(t *testin
 	go func() { _ = retention.Serve(ctx, retentionListener) }()
 	retentionURL := "http+unix://" + retentionSocket + ":/repo-retirement-fixture/"
 	for _, mode := range []string{"forget-dry-run", "forget", "prune"} {
-		child := RetentionResticRequest{BinaryPath: binary, RepositoryURL: retentionURL, Mode: mode,
-			SnapshotIDs: []string{first.SnapshotID}, MaxRepackBytes: 64 << 20}
+		child := request
+		child.RepositoryURL, child.Mode = retentionURL, mode
+		child.SnapshotPath = ""
+		child.SnapshotIDs, child.MaxRepackBytes = []string{first.SnapshotID}, 64<<20
 		if mode == "prune" {
 			child.SnapshotIDs = nil
 		}
-		if _, err := RunRetentionRestic(ctx, child, password); err != nil {
+		if _, err := runner.Run(ctx, child, password); err != nil {
 			t.Fatalf("%s: %v", mode, err)
 		}
 	}
