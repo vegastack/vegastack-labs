@@ -162,7 +162,7 @@ func TestRecoveryWitnessCollectBuiltProcessDisposable(t *testing.T) {
 	witnessPublic, witnessPrivate, _ := ed25519.GenerateKey(rand.Reader)
 	formerHostKey, _ := ecdh.X25519().GenerateKey(rand.Reader)
 	replacementHostKey, _ := ecdh.X25519().GenerateKey(rand.Reader)
-	binding := recovery.WitnessBinding{FormerHostID: "old-host", FormerInstanceID: "old-instance", ReplacementHostID: "new-host", ReplacementInstanceID: "new-instance", DraftID: "draft-1", CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64), PlanDigest: "sha256:" + strings.Repeat("b", 64), RunID: "run-1", StepID: "step-1", LeaseID: "lease-1", ChallengeID: "challenge-1", ReceiptID: "receipt-1", PriorEpoch: 3, NewEpoch: 4, StateRevision: 9}
+	binding := recovery.WitnessBinding{FormerHostID: "old-host", FormerInstanceID: "old-instance", ReplacementHostID: "new-host", ReplacementInstanceID: "new-instance", DraftID: "draft-1", CiphertextFingerprint: "sha256:" + strings.Repeat("a", 64), PlanDigest: "sha256:" + strings.Repeat("b", 64), RunID: "run-1", StepID: "step-1", LeaseID: "lease-1", ChallengeID: "challenge-1", ReceiptID: "receipt-1", SourceAdmissionDigest: "sha256:" + strings.Repeat("c", 64), FenceQualificationDigest: "sha256:" + strings.Repeat("d", 64), PriorEpoch: 3, NewEpoch: 4, StateRevision: 9}
 	kinds := []struct {
 		kind   string
 		probes []string

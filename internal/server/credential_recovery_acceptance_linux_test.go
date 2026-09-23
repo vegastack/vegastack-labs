@@ -36,6 +36,18 @@ func acceptanceDigest(value []byte) string {
 type acceptanceRecoverySource struct {
 	*installedRecoverySource
 	custody, fence string
+	enrollment     *acceptanceRecoveryEnrollment
+}
+
+type acceptanceRecoveryEnrollment struct {
+	witnessPublic            ed25519.PublicKey
+	witnessPrivate           ed25519.PrivateKey
+	adminPublic              ed25519.PublicKey
+	adminPrivate             ed25519.PrivateKey
+	recipientKey             *ecdh.PrivateKey
+	required                 []recovery.BoundaryRequirement
+	sourceAdmissionDigest    string
+	fenceQualificationDigest string
 }
 
 type acceptanceInstalledAuthority struct {
@@ -44,7 +56,7 @@ type acceptanceInstalledAuthority struct {
 }
 
 func (authority acceptanceInstalledAuthority) CurrentInstalledRecovery(context.Context, RecoveryCustodyRequest) (installedRecoveryAuthority, error) {
-	return installedRecoveryAuthority{Binding: authority.binding, Required: append([]recovery.BoundaryRequirement(nil), authority.required...)}, nil
+	return installedRecoveryAuthority{Binding: authority.binding, Required: append([]recovery.BoundaryRequirement(nil), authority.required...), SourceAdmissionDigest: authority.binding.SourceAdmissionDigest, FenceQualificationDigest: authority.binding.FenceQualificationDigest}, nil
 }
 
 type acceptanceInstalledLoader struct {
@@ -66,9 +78,8 @@ func (loader acceptanceInstalledLoader) LoadVerified(_ context.Context, binding 
 	return loader.public, nil
 }
 
-func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, draft store.CredentialImportDraft, native nativecredential.VerifyRecoveryRequest, material []byte) *acceptanceRecoverySource {
+func newAcceptanceRecoveryEnrollment(t *testing.T, binding recovery.WitnessBinding) *acceptanceRecoveryEnrollment {
 	t.Helper()
-	now := time.Now().UTC()
 	witnessPublic, witnessPrivate, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -81,27 +92,54 @@ func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, 
 	if err != nil {
 		t.Fatal(err)
 	}
+	required := []recovery.BoundaryRequirement{
+		{Kind: "host-service", SubjectID: "former-service", TargetID: "former-host", AdapterID: "synthetic-adapter", FormerIdentityID: "former-identity", ProbeID: "service-denied"},
+		{Kind: "host-service", SubjectID: "former-service", TargetID: "former-host", AdapterID: "synthetic-adapter", FormerIdentityID: "former-identity", ProbeID: "alternate-process-denied"},
+	}
+	fenceQualificationDigest := acceptanceDigest([]byte("fixture-qualification"))
+	sourceAdmissionDigest := recovery.SourceAdmissionDigest(recovery.SourceAdmission{
+		FormerHostID: binding.FormerHostID, FormerInstanceID: binding.FormerInstanceID,
+		ReplacementHostID: binding.ReplacementHostID, ReplacementInstanceID: binding.ReplacementInstanceID,
+		DraftID: binding.DraftID, CiphertextFingerprint: binding.CiphertextFingerprint,
+		PriorEpoch: binding.PriorEpoch, NewEpoch: binding.NewEpoch,
+		WitnessKeyID: "witness-key", WitnessInstanceID: "outside-instance", RecipientKeyID: "recipient-key",
+		WitnessPublicKey: witnessPublic, RecipientPublicKey: recipientKey.PublicKey().Bytes(),
+		AdminRootDigest: acceptanceDigest(adminPublic), FenceQualificationDigest: fenceQualificationDigest,
+		Requirements: required,
+	})
+	if sourceAdmissionDigest == "" {
+		t.Fatal("invalid pre-plan recovery source admission")
+	}
+	return &acceptanceRecoveryEnrollment{witnessPublic: witnessPublic, witnessPrivate: witnessPrivate, adminPublic: adminPublic, adminPrivate: adminPrivate,
+		recipientKey: recipientKey, required: required, sourceAdmissionDigest: sourceAdmissionDigest, fenceQualificationDigest: fenceQualificationDigest}
+}
+
+func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, draft store.CredentialImportDraft, native nativecredential.VerifyRecoveryRequest, material []byte, enrollment *acceptanceRecoveryEnrollment) *acceptanceRecoverySource {
+	t.Helper()
+	now := time.Now().UTC()
+	if enrollment == nil {
+		enrollment = newAcceptanceRecoveryEnrollment(t, binding)
+	}
+	binding.SourceAdmissionDigest = enrollment.sourceAdmissionDigest
+	binding.FenceQualificationDigest = enrollment.fenceQualificationDigest
 	manifest := recovery.RecoveryManifest{
 		ManifestID: "manifest-acceptance", WitnessKeyID: "witness-key", WitnessInstanceID: "outside-instance",
-		WitnessPublicKey: witnessPublic, RecipientKeyID: "recipient-key", RecipientPublicKey: recipientKey.PublicKey().Bytes(),
+		WitnessPublicKey: enrollment.witnessPublic, RecipientKeyID: "recipient-key", RecipientPublicKey: enrollment.recipientKey.PublicKey().Bytes(),
 		Binding: binding, ValidFrom: now.Add(-time.Minute), ExpiresAt: now.Add(time.Minute),
 	}
 	manifestBytes, err := recovery.CanonicalRecoveryManifest(manifest)
 	if err != nil {
 		t.Fatal(err)
 	}
-	signedManifest, err := json.Marshal(recovery.SignedRecoveryManifest{Payload: manifest, Signature: ed25519.Sign(adminPrivate, manifestBytes)})
+	signedManifest, err := json.Marshal(recovery.SignedRecoveryManifest{Payload: manifest, Signature: ed25519.Sign(enrollment.adminPrivate, manifestBytes)})
 	if err != nil {
 		t.Fatal(err)
 	}
-	pin, err := recovery.ParseSignedRecoveryManifest(signedManifest, adminPublic, binding, now)
+	pin, err := recovery.ParseSignedRecoveryManifest(signedManifest, enrollment.adminPublic, binding, now)
 	if err != nil {
 		t.Fatal(err)
 	}
-	required := []recovery.BoundaryRequirement{
-		{Kind: "host-service", SubjectID: "former-service", TargetID: "former-host", AdapterID: "synthetic-adapter", FormerIdentityID: "former-identity", ProbeID: "service-denied"},
-		{Kind: "host-service", SubjectID: "former-service", TargetID: "former-host", AdapterID: "synthetic-adapter", FormerIdentityID: "former-identity", ProbeID: "alternate-process-denied"},
-	}
+	required := enrollment.required
 	transcripts := make([]recovery.DirectDenialTranscript, 0, len(required))
 	for _, item := range required {
 		transcripts = append(transcripts, recovery.DirectDenialTranscript{
@@ -116,7 +154,7 @@ func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	signed := recovery.SignedWitness{Payload: payload, Signature: ed25519.Sign(witnessPrivate, canonical)}
+	signed := recovery.SignedWitness{Payload: payload, Signature: ed25519.Sign(enrollment.witnessPrivate, canonical)}
 	qualified := recovery.NewQualifiedAdapters()
 	qualified.Register("synthetic-adapter", isolatedWitnessAdapter{})
 	envelope, err := recovery.SealProtectedEnvelope(context.Background(), pin, binding, io.NopCloser(bytes.NewReader(material)))
@@ -124,12 +162,17 @@ func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, 
 		t.Fatal(err)
 	}
 	witnessCandidate := recoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: signed, Required: required, Qualified: qualified,
-		Envelope: envelope, Recipient: recovery.NewProtectedRecipient(pin, &isolatedRecipientKeySource{key: recipientKey.Bytes()}), Receipts: &isolatedReceipts{}}
-	custody := acceptanceDigest(envelope.Ciphertext)
-	fence := acceptanceDigest(signed.Signature)
+		Envelope: envelope, Recipient: recovery.NewProtectedRecipient(pin, &isolatedRecipientKeySource{key: enrollment.recipientKey.Bytes()}), Receipts: &isolatedReceipts{}}
+	witnessDigest := acceptanceDigest(append(append([]byte(nil), canonical...), signed.Signature...))
+	envelopeBytes, err := json.Marshal(envelope)
+	if err != nil {
+		t.Fatal(err)
+	}
+	envelopeDigest := acceptanceDigest(envelopeBytes)
+	sourceDigest := acceptanceDigest([]byte(pin.ManifestDigest + "\x00" + witnessDigest + "\x00" + enrollment.fenceQualificationDigest + "\x00" + envelopeDigest))
 	public := installedRecoveryCandidate{
-		sourceDigest:   acceptanceDigest(append(append([]byte(nil), signed.Signature...), envelope.Ciphertext...)),
-		manifestDigest: pin.ManifestDigest, witnessDigest: fence, fenceDigest: acceptanceDigest([]byte("fixture-qualification")), envelopeDigest: custody,
+		sourceDigest:   sourceDigest,
+		manifestDigest: pin.ManifestDigest, witnessDigest: witnessDigest, fenceDigest: enrollment.fenceQualificationDigest, envelopeDigest: envelopeDigest, sourceAdmissionDigest: enrollment.sourceAdmissionDigest,
 		consume: func(ctx context.Context, compare func(io.ReadCloser) error) error {
 			return witnessCandidate.verify(ctx, compare)
 		},
@@ -138,7 +181,7 @@ func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, 
 	return &acceptanceRecoverySource{installedRecoverySource: &installedRecoverySource{
 		authority: acceptanceInstalledAuthority{binding: binding, required: required}, loader: loader,
 		ciphertextRoot: native.CiphertextDirectory, ownerUID: native.ExpectedUID, clock: time.Now, compare: nativecredential.VerifyRecoveredDraft,
-	}, custody: custody, fence: fence}
+	}, custody: enrollment.sourceAdmissionDigest, fence: enrollment.fenceQualificationDigest, enrollment: enrollment}
 }
 
 func TestCredentialRecoveryAcceptanceNativeWitnessAndDraft(t *testing.T) {
@@ -204,7 +247,8 @@ func TestCredentialRecoveryAcceptanceNativeWitnessAndDraft(t *testing.T) {
 		RunID: step.Run.RunID, StepID: step.Step.StepID, LeaseID: step.Lease.LeaseID,
 		ChallengeID: "challenge-acceptance", ReceiptID: "receipt-acceptance",
 		PriorEpoch: *lifecycle.PriorRecoveryEpoch, NewEpoch: lifecycle.RecoveryEpoch, StateRevision: lifecycle.StateRevision}
-	source := newAcceptanceRecoverySource(t, binding, draft, native, material)
+	source := newAcceptanceRecoverySource(t, binding, draft, native, material, nil)
+	binding = source.installedRecoverySource.authority.(acceptanceInstalledAuthority).binding
 	lifecycle.CustodyProofDigest, lifecycle.FormerControllerFenceDigest = &source.custody, &source.fence
 	revision := recoveryRevisionFixture{token: store.RevisionToken{StateRevision: lifecycle.StateRevision, RecoveryEpoch: lifecycle.RecoveryEpoch}}
 	verifier, err := NewRecoveryCustodyVerifier(recoveryDraftFixture{draft: draft}, revision, source)
@@ -243,7 +287,7 @@ func TestCredentialRecoveryAcceptanceNativeWitnessAndDraft(t *testing.T) {
 	wrong := acceptanceDigest([]byte("wrong-fence"))
 	wrongLifecycle := lifecycle
 	wrongLifecycle.FormerControllerFenceDigest = &wrong
-	second := newAcceptanceRecoverySource(t, binding, draft, native, material)
+	second := newAcceptanceRecoverySource(t, binding, draft, native, material, source.enrollment)
 	secondVerifier, err := NewRecoveryCustodyVerifier(recoveryDraftFixture{draft: draft}, revision, second)
 	if err != nil {
 		t.Fatal(err)

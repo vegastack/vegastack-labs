@@ -127,13 +127,14 @@ type lifecycleAcceptanceInstalledSource struct {
 	native         nativecredential.VerifyRecoveryRequest
 	material       []byte
 	custody, fence string
+	enrollment     *acceptanceRecoveryEnrollment
 	delegate       *acceptanceRecoverySource
 	authority      installedRecoveryAuthority
 }
 
 func (source *lifecycleAcceptanceInstalledSource) CurrentInstalledRecovery(_ context.Context, request RecoveryCustodyRequest) (installedRecoveryAuthority, error) {
-	binding := recovery.WitnessBinding{FormerHostID: "former-host", FormerInstanceID: "former-instance", ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance", DraftID: request.Draft.DraftID, CiphertextFingerprint: request.Draft.CiphertextFingerprint, PlanDigest: request.PlanDigest, RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, ChallengeID: "challenge-135", ReceiptID: "receipt-135", PriorEpoch: request.PriorRecoveryEpoch, NewEpoch: request.RecoveryEpoch, StateRevision: request.StateRevision}
-	source.delegate = newAcceptanceRecoverySource(source.t, binding, source.draft, source.native, source.material)
+	binding := recovery.WitnessBinding{FormerHostID: "former-host", FormerInstanceID: "former-instance", ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance", DraftID: request.Draft.DraftID, CiphertextFingerprint: request.Draft.CiphertextFingerprint, PlanDigest: request.PlanDigest, RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, ChallengeID: "challenge-135", ReceiptID: "receipt-135", SourceAdmissionDigest: source.custody, FenceQualificationDigest: source.fence, PriorEpoch: request.PriorRecoveryEpoch, NewEpoch: request.RecoveryEpoch, StateRevision: request.StateRevision}
+	source.delegate = newAcceptanceRecoverySource(source.t, binding, source.draft, source.native, source.material, source.enrollment)
 	value, err := source.delegate.installedRecoverySource.authority.CurrentInstalledRecovery(context.Background(), request)
 	if err == nil {
 		source.authority = value
@@ -145,13 +146,7 @@ func (source *lifecycleAcceptanceInstalledSource) LoadVerified(ctx context.Conte
 	if source.delegate == nil {
 		return installedRecoveryCandidate{}, recovery.ErrWitnessUnavailable
 	}
-	value, err := source.delegate.installedRecoverySource.loader.LoadVerified(ctx, binding, required, now)
-	if err == nil {
-		// Custody and fence are controlled public seams in this capstone because
-		// the immutable recovery plan necessarily precedes fixture construction.
-		value.envelopeDigest, value.witnessDigest = source.custody, source.fence
-	}
-	return value, err
+	return source.delegate.installedRecoverySource.loader.LoadVerified(ctx, binding, required, now)
 }
 
 type lifecycleAcceptanceEnv struct {
@@ -259,7 +254,10 @@ func newLifecycleAcceptanceEnv(t *testing.T) *lifecycleAcceptanceEnv {
 	if err := os.Mkdir(filepath.Join(directory, "credential-drafts"), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	now := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
+	// The engine converts its logical lease expiry into a real context deadline.
+	// Anchor the disposable process test at invocation time so the fixture does
+	// not start with an already-expired lease after its original authoring date.
+	now := time.Now().UTC().Truncate(time.Second)
 	clock := func() time.Time { return now }
 	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "lifecycle-acceptance", BuildVersion: "lifecycle-acceptance", Clock: clock})
 	if err != nil {
@@ -531,12 +529,14 @@ func (env *lifecycleAcceptanceEnv) enterReplacementHost() {
 	})
 }
 
-func (env *lifecycleAcceptanceEnv) installRecoveryVerifier(draftID string, material []byte, custody, fence string) *lifecycleAcceptanceInstalledSource {
+func (env *lifecycleAcceptanceEnv) installRecoveryVerifier(draftID string, material []byte) *lifecycleAcceptanceInstalledSource {
 	draft, err := env.references.GetImportDraftByID(context.Background(), draftID)
 	if err != nil {
 		env.t.Fatal(err)
 	}
-	dynamic := &lifecycleAcceptanceInstalledSource{t: env.t, draft: draft, native: nativecredential.VerifyRecoveryRequest{Name: draft.CiphertextName, CiphertextDirectory: filepath.Join(filepath.Dir(env.path), "credential-drafts"), ExpectedUID: 0, ExpectedFingerprint: draft.CiphertextFingerprint}, material: material, custody: custody, fence: fence}
+	stable := recovery.WitnessBinding{FormerHostID: "former-host", FormerInstanceID: "former-instance", ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance", DraftID: draft.DraftID, CiphertextFingerprint: draft.CiphertextFingerprint, PriorEpoch: draft.RecoveryEpoch - 1, NewEpoch: draft.RecoveryEpoch}
+	enrollment := newAcceptanceRecoveryEnrollment(env.t, stable)
+	dynamic := &lifecycleAcceptanceInstalledSource{t: env.t, draft: draft, native: nativecredential.VerifyRecoveryRequest{Name: draft.CiphertextName, CiphertextDirectory: filepath.Join(filepath.Dir(env.path), "credential-drafts"), ExpectedUID: 0, ExpectedFingerprint: draft.CiphertextFingerprint}, material: material, custody: enrollment.sourceAdmissionDigest, fence: enrollment.fenceQualificationDigest, enrollment: enrollment}
 	source := &installedRecoverySource{authority: dynamic, loader: dynamic, ciphertextRoot: filepath.Join(filepath.Dir(env.path), "credential-drafts"), ownerUID: uint32(os.Geteuid()), clock: time.Now, compare: nativecredential.VerifyRecoveredDraft}
 	verifier, err := NewRecoveryCustodyVerifier(env.references, env.revisions, source)
 	if err != nil {
@@ -635,8 +635,8 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	env.enterReplacementHost()
 	recoveryDraft := env.importDraft("version-2", "recovery-v2", material)
 	priorEpoch := int64(0)
-	custody, fence := lifecycleAcceptanceDigest("custody"), lifecycleAcceptanceDigest("fence")
-	source := env.installRecoveryVerifier(recoveryDraft.DraftID, material, custody, fence)
+	source := env.installRecoveryVerifier(recoveryDraft.DraftID, material)
+	custody, fence := source.custody, source.fence
 	recover := env.request("credential.recover", "version-2", "recover-v2")
 	recover.DraftID, recover.ConsumerIDs = &recoveryDraft.DraftID, []string{"consumer-a"}
 	recover.PriorRecoveryEpoch, recover.CustodyProofDigest, recover.FormerControllerFenceDigest = &priorEpoch, &custody, &fence

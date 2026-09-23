@@ -15,15 +15,16 @@ const sourceHandoffDomain = "vegastack-labs.dev/recovery-source-handoff/v1\x00"
 // VerifiedSourceHandoff exposes only public digests and expiry. Private fields
 // retain one exact verified binding and opaque ciphertext until one use.
 type VerifiedSourceHandoff struct {
-	SourceDigest   string
-	ManifestDigest string
-	WitnessDigest  string
-	FenceDigest    string
-	EnvelopeDigest string
-	ExpiresAt      time.Time
-	binding        WitnessBinding
-	envelope       ProtectedEnvelope
-	used           *atomic.Bool
+	SourceDigest          string
+	ManifestDigest        string
+	WitnessDigest         string
+	FenceDigest           string
+	EnvelopeDigest        string
+	SourceAdmissionDigest string
+	ExpiresAt             time.Time
+	binding               WitnessBinding
+	envelope              ProtectedEnvelope
+	used                  *atomic.Bool
 }
 
 func validateProtectedEnvelope(envelope ProtectedEnvelope, pin PinnedWitness, binding WitnessBinding) error {
@@ -57,6 +58,10 @@ func VerifyInstalledSource(ctx context.Context, expected WitnessBinding, require
 	if VerifyWitnessBundle(ctx, installed.Pin, expected, installed.Witness, required, qualified, now) != nil || validateProtectedEnvelope(installed.Envelope, installed.Pin, expected) != nil || ctx.Err() != nil {
 		return unavailable, ErrWitnessUnavailable
 	}
+	admissionDigest := SourceAdmissionDigest(SourceAdmission{FormerHostID: expected.FormerHostID, FormerInstanceID: expected.FormerInstanceID, ReplacementHostID: expected.ReplacementHostID, ReplacementInstanceID: expected.ReplacementInstanceID, DraftID: expected.DraftID, CiphertextFingerprint: expected.CiphertextFingerprint, PriorEpoch: expected.PriorEpoch, NewEpoch: expected.NewEpoch, WitnessKeyID: installed.Pin.KeyID, WitnessInstanceID: installed.Pin.WitnessInstanceID, RecipientKeyID: installed.Pin.RecipientKeyID, WitnessPublicKey: installed.Pin.PublicKey, RecipientPublicKey: installed.Pin.RecipientPublicKey, AdminRootDigest: installed.Pin.adminRootDigest, FenceQualificationDigest: qualified.qualificationDigest, Requirements: required})
+	if admissionDigest == "" || admissionDigest != expected.SourceAdmissionDigest || qualified.qualificationDigest != expected.FenceQualificationDigest {
+		return unavailable, ErrWitnessUnavailable
+	}
 	witnessBytes, err := CanonicalWitnessPayload(installed.Witness.Payload)
 	if err != nil {
 		return unavailable, ErrWitnessUnavailable
@@ -79,7 +84,7 @@ func VerifyInstalledSource(ctx context.Context, expected WitnessBinding, require
 	if !now.Before(expires) {
 		return unavailable, ErrWitnessUnavailable
 	}
-	return VerifiedSourceHandoff{SourceDigest: "sha256:" + hex.EncodeToString(sourceHash[:]), ManifestDigest: installed.Pin.ManifestDigest, WitnessDigest: witnessID, FenceDigest: qualified.qualificationDigest, EnvelopeDigest: envelopeID, ExpiresAt: expires, binding: expected, envelope: cloneProtectedEnvelope(installed.Envelope), used: new(atomic.Bool)}, nil
+	return VerifiedSourceHandoff{SourceDigest: "sha256:" + hex.EncodeToString(sourceHash[:]), ManifestDigest: installed.Pin.ManifestDigest, WitnessDigest: witnessID, FenceDigest: qualified.qualificationDigest, EnvelopeDigest: envelopeID, SourceAdmissionDigest: admissionDigest, ExpiresAt: expires, binding: expected, envelope: cloneProtectedEnvelope(installed.Envelope), used: new(atomic.Bool)}, nil
 }
 
 // ConsumeCustody burns the handoff locally before opening the protected
