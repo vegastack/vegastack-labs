@@ -31,7 +31,7 @@ func (stub *fenceRefresherStub) Verify(_ context.Context, _ generated.RestoreBin
 
 func TestFreshFormerWriterCanaryReprobesExactRecoveredFence(t *testing.T) {
 	digest := "sha256:" + strings.Repeat("a", 64)
-	request := CanaryRequest{PlanID: "plan-a", PlanDigest: digest, NewInstanceID: "instance-new", FenceSetDigest: "sha256:" + strings.Repeat("b", 64), RecoveryEpoch: 8, ExpectedStateRevision: 19}
+	request := CanaryRequest{PlanID: "plan-a", PlanDigest: digest, NewInstanceID: "instance-new", FenceSetDigest: "sha256:" + strings.Repeat("b", 64), RecoveryEpoch: 8, ExpectedStateRevision: 19, ResponsibleHumanID: "human-a", PrincipalMethod: "local-os-peer"}
 	items := []generated.RestoreFenceItem{{Boundary: "host-service"}}
 	bundle := store.RecoveredAuthorityBundle{Status: "verification-required", Binding: generated.RestoreBinding{PlanID: request.PlanID, PlanDigest: request.PlanDigest, NewInstanceID: request.NewInstanceID, NextRecoveryEpoch: request.RecoveryEpoch, FenceSetDigest: request.FenceSetDigest}, Request: generated.RestoreRequest{Fences: items}}
 	fences := &fenceRefresherStub{digest: request.FenceSetDigest}

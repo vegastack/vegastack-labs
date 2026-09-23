@@ -44,6 +44,7 @@ func (admission AuthorityAdmission) Require(ctx context.Context, expected Author
 type CanaryRequest struct {
 	PlanID, PlanDigest, NewInstanceID, FenceSetDigest string
 	RecoveryEpoch, ExpectedStateRevision              int64
+	ResponsibleHumanID, PrincipalMethod               string
 }
 
 type CanaryReadVerifier interface {
@@ -83,7 +84,7 @@ func (verifier CanaryVerifier) Verify(ctx context.Context, request CanaryRequest
 	blocked := func() (generated.RestoreCanaryResult, error) {
 		return generated.RestoreCanaryResult{}, failure.New(generated.ErrorCodeRecoveryRequired, "recovery-canary", false)
 	}
-	if ctx == nil || ctx.Err() != nil || verifier.Read == nil || verifier.OldEpoch == nil || verifier.Noop == nil || verifier.Audit == nil || verifier.Backup == nil || verifier.FormerWriter == nil || verifier.Enable == nil || verifier.Clock == nil || request.PlanID == "" || request.NewInstanceID == "" || request.RecoveryEpoch < 1 || request.ExpectedStateRevision < 0 || !restoreDigest.MatchString(request.PlanDigest) || !restoreDigest.MatchString(request.FenceSetDigest) {
+	if ctx == nil || ctx.Err() != nil || verifier.Read == nil || verifier.OldEpoch == nil || verifier.Noop == nil || verifier.Audit == nil || verifier.Backup == nil || verifier.FormerWriter == nil || verifier.Enable == nil || verifier.Clock == nil || request.PlanID == "" || request.NewInstanceID == "" || request.ResponsibleHumanID == "" || request.PrincipalMethod == "" || request.RecoveryEpoch < 1 || request.ExpectedStateRevision < 0 || !restoreDigest.MatchString(request.PlanDigest) || !restoreDigest.MatchString(request.FenceSetDigest) {
 		return blocked()
 	}
 	if err := verifier.Read.VerifyRecoveryRead(ctx, request); err != nil {

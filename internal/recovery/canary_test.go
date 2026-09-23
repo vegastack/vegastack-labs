@@ -58,7 +58,7 @@ func (f *canaryFixture) EnableAuthority(_ context.Context, _ CanaryRequest, dige
 }
 
 func TestAuthorityEnablesOnlyAfterCompleteCanary(t *testing.T) {
-	request := CanaryRequest{PlanID: "plan-a", PlanDigest: "sha256:" + strings.Repeat("a", 64), NewInstanceID: "instance-new", FenceSetDigest: "sha256:" + strings.Repeat("b", 64), RecoveryEpoch: 8, ExpectedStateRevision: 19}
+	request := CanaryRequest{PlanID: "plan-a", PlanDigest: "sha256:" + strings.Repeat("a", 64), NewInstanceID: "instance-new", FenceSetDigest: "sha256:" + strings.Repeat("b", 64), RecoveryEpoch: 8, ExpectedStateRevision: 19, ResponsibleHumanID: "human-a", PrincipalMethod: "local-os-peer"}
 	for _, failureAt := range []string{"read", "old-epoch", "noop", "audit", "backup", "former-writer", "enable"} {
 		t.Run(failureAt, func(t *testing.T) {
 			f := &canaryFixture{fail: failureAt}

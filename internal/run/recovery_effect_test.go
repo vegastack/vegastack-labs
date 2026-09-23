@@ -25,7 +25,7 @@ func (fixture recoveryAuthorityFixture) Health(context.Context) (store.Health, e
 func recoveryCanaryBindingFixture() ExactStepBinding {
 	digest := "sha256:" + strings.Repeat("a", 64)
 	acknowledgement := "acknowledgement-a"
-	plan := generated.Plan{PlanID: "plan-a", PlanDigest: digest, AuthorizationBranch: "human", ExecutorMode: "central", Binding: generated.PlanBinding{StateRevision: 19, RecoveryEpoch: 8}}
+	plan := generated.Plan{PlanID: "plan-a", PlanDigest: digest, AuthorizationBranch: "human", ExecutorMode: "central", Binding: generated.PlanBinding{StateRevision: 18, RecoveryEpoch: 7}}
 	run := generated.Run{RunID: "run-a", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, AcknowledgementID: &acknowledgement, ExecutorMode: "central", StateRevision: 19, RecoveryEpoch: 8}
 	step := generated.RunStep{StepID: "step-a", OperationType: "recovery.canary.noop", AdapterID: "core.recovery", TargetID: "instance-new", InputDigest: digest, ArtifactDigest: digest, EffectState: "intent-recorded"}
 	lease := generated.ExecutorLease{LeaseID: "lease-a", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: run.RunID, StepID: step.StepID, ArtifactDigest: digest, RecoveryEpoch: 8, Status: "active"}

@@ -22,7 +22,8 @@ type RestoreDraftFacts struct {
 // BuildRestoreChange constructs only an inert draft. It performs no store,
 // filesystem, adapter, or authority mutation.
 func BuildRestoreChange(ctx context.Context, request generated.RestoreRequest, source generated.RestoreSourceBinding, fences []generated.RestoreFenceItem, decision generated.RestoreAuditDecision) (generated.DeclarationRevision, error) {
-	if ctx == nil || ctx.Err() != nil || !exactRestoreValue(generated.SchemaIDRestoreRequest, request) || !exactRestoreValue(generated.SchemaIDRestoreSourceBinding, source) || !exactRestoreValue(generated.SchemaIDRestoreAuditDecision, decision) || !sameJSON(request.Source, source) || !sameJSON(request.AuditDecision, decision) || request.PointID != source.PointID || request.PriorRecoveryEpoch != source.RecoveryEpoch || request.NextRecoveryEpoch != request.PriorRecoveryEpoch+1 || request.PriorInstanceID == request.NewInstanceID || request.FormerHostID == request.ReplacementHostID || len(fences) == 0 || len(fences) != len(request.Fences) {
+	canaryDigest, canaryErr := RestoreCanaryBindingDigest(request)
+	if ctx == nil || ctx.Err() != nil || canaryErr != nil || canaryDigest != request.CanaryBindingDigest || !exactRestoreValue(generated.SchemaIDRestoreRequest, request) || !exactRestoreValue(generated.SchemaIDRestoreSourceBinding, source) || !exactRestoreValue(generated.SchemaIDRestoreAuditDecision, decision) || !sameJSON(request.Source, source) || !sameJSON(request.AuditDecision, decision) || request.PointID != source.PointID || request.PriorRecoveryEpoch != source.RecoveryEpoch || request.NextRecoveryEpoch != request.PriorRecoveryEpoch+1 || request.PriorInstanceID == request.NewInstanceID || request.FormerHostID == request.ReplacementHostID || len(fences) == 0 || len(fences) != len(request.Fences) {
 		return generated.DeclarationRevision{}, inputError()
 	}
 	ordered := append([]generated.RestoreFenceItem(nil), fences...)
@@ -47,6 +48,7 @@ func BuildRestoreChange(ctx context.Context, request generated.RestoreRequest, s
 		return generated.DeclarationRevision{}, inputError()
 	}
 	operation := generated.DeclarationOperation{Sequence: 1, OperationID: "restore-cutover", OperationType: "recovery.restore.cutover", AdapterID: "core.recovery", TargetID: targetID, InputDigest: bindingDigest, ArtifactDigest: request.CandidateDigest, Idempotent: false}
+	canary := generated.DeclarationOperation{Sequence: 2, OperationID: request.CanaryStepID, OperationType: "recovery.canary.noop", AdapterID: "core.recovery", TargetID: request.NewInstanceID, InputDigest: request.CanaryBindingDigest, ArtifactDigest: request.CanaryBindingDigest, Idempotent: true}
 	extensions := []generated.ContractExtension{{Name: "x-restore-binding", ValueDigest: bindingDigest}}
 	semantic := struct {
 		DeclarationID, DeclarationType string
@@ -54,7 +56,7 @@ func BuildRestoreChange(ctx context.Context, request generated.RestoreRequest, s
 		ReasonDigest                   string
 		Extensions                     []generated.ContractExtension
 	}{
-		"restore-" + strings.TrimPrefix(bindingDigest, "sha256:")[:32], "recovery.restore", []generated.DeclarationOperation{operation}, request.AuditDecisionDigest, extensions,
+		"restore-" + strings.TrimPrefix(bindingDigest, "sha256:")[:32], "recovery.restore", []generated.DeclarationOperation{operation, canary}, request.AuditDecisionDigest, extensions,
 	}
 	_, content, err := stateexport.CanonicalJSON(semantic)
 	if err != nil {
@@ -66,6 +68,23 @@ func BuildRestoreChange(ctx context.Context, request generated.RestoreRequest, s
 		return generated.DeclarationRevision{}, inputError()
 	}
 	return document, nil
+}
+
+// RestoreCanaryBindingDigest seals the exact subordinate no-op identifiers
+// and authority target before the enclosing restore plan is acknowledged.
+func RestoreCanaryBindingDigest(request generated.RestoreRequest) (string, error) {
+	value := struct {
+		Domain                                        string
+		CanaryRunID, CanaryStepID, CanaryLeaseID      string
+		NewInstanceID                                 string
+		NextRecoveryEpoch                             int64
+		TargetDigest, FenceSetDigest, CandidateDigest string
+	}{"vegastack-labs.dev/recovery-subordinate-canary/v1", request.CanaryRunID, request.CanaryStepID, request.CanaryLeaseID, request.NewInstanceID, request.NextRecoveryEpoch, request.TargetDigest, request.FenceSetDigest, request.CandidateDigest}
+	_, sum, err := stateexport.CanonicalJSON(value)
+	if err != nil {
+		return "", err
+	}
+	return "sha256:" + hex.EncodeToString(sum[:]), nil
 }
 
 func RestoreBindingDigest(request generated.RestoreRequest, source generated.RestoreSourceBinding, fences []generated.RestoreFenceItem, decision generated.RestoreAuditDecision) (string, error) {

@@ -1931,6 +1931,10 @@ type RestoreBinding struct {
 	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
 	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
 	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
+	CanaryRunID              string               `json:"canaryRunId"`
+	CanaryStepID             string               `json:"canaryStepId"`
+	CanaryLeaseID            string               `json:"canaryLeaseId"`
+	CanaryBindingDigest      string               `json:"canaryBindingDigest"`
 	PriorInstanceID          string               `json:"priorInstanceId"`
 	NewInstanceID            string               `json:"newInstanceId"`
 	PriorRecoveryEpoch       int64                `json:"priorRecoveryEpoch"`
@@ -2011,6 +2015,10 @@ type RestoreRequest struct {
 	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
 	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
 	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
+	CanaryRunID              string               `json:"canaryRunId"`
+	CanaryStepID             string               `json:"canaryStepId"`
+	CanaryLeaseID            string               `json:"canaryLeaseId"`
+	CanaryBindingDigest      string               `json:"canaryBindingDigest"`
 }
 
 type RestoreRunRequest struct {
@@ -2037,6 +2045,10 @@ type RestoreRunRequest struct {
 	RecoveryLeaseID        string               `json:"recoveryLeaseId"`
 	RecoveryChallengeID    string               `json:"recoveryChallengeId"`
 	RecoveryReceiptID      string               `json:"recoveryReceiptId"`
+	CanaryRunID            string               `json:"canaryRunId"`
+	CanaryStepID           string               `json:"canaryStepId"`
+	CanaryLeaseID          string               `json:"canaryLeaseId"`
+	CanaryBindingDigest    string               `json:"canaryBindingDigest"`
 }
 
 type RestoreSourceBinding struct {

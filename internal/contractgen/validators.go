@@ -225,7 +225,7 @@ func auditCheckpointV10OmittedField(name string) bool {
 }
 
 func restoreV10OmittedField(schemaID, name string) bool {
-	if schemaID == SchemaIDRestoreBinding { switch name { case "source", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "formerHostId", "replacementHostId", "recoveryDraftId", "ciphertextFingerprint", "sourceAdmissionDigest", "fenceQualificationDigest", "recoveryRunId", "recoveryStepId", "recoveryLeaseId", "recoveryChallengeId", "recoveryReceiptId": return true } }
+	if schemaID == SchemaIDRestoreBinding { switch name { case "source", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "formerHostId", "replacementHostId", "recoveryDraftId", "ciphertextFingerprint", "sourceAdmissionDigest", "fenceQualificationDigest", "recoveryRunId", "recoveryStepId", "recoveryLeaseId", "recoveryChallengeId", "recoveryReceiptId", "canaryRunId", "canaryStepId", "canaryLeaseId", "canaryBindingDigest": return true } }
 	if schemaID == SchemaIDRestoreVerification { switch name { case "source", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "canary": return true } }
 	return false
 }

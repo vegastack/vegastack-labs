@@ -74,7 +74,7 @@ func exactRecoveryCanaryBinding(binding ExactStepBinding) bool {
 		binding.Step.InputDigest == binding.Step.ArtifactDigest && binding.Step.EffectState == "intent-recorded" && binding.Lease.Status == "active" &&
 		binding.Lease.PlanID == binding.Plan.PlanID && binding.Lease.PlanDigest == binding.Plan.PlanDigest && binding.Lease.RunID == binding.Run.RunID &&
 		binding.Lease.StepID == binding.Step.StepID && binding.Lease.ArtifactDigest == binding.Step.ArtifactDigest &&
-		binding.Plan.Binding.StateRevision == binding.Run.StateRevision && binding.Plan.Binding.RecoveryEpoch == binding.Run.RecoveryEpoch &&
+		binding.Plan.Binding.StateRevision <= binding.Run.StateRevision && binding.Plan.Binding.RecoveryEpoch+1 == binding.Run.RecoveryEpoch &&
 		binding.Lease.RecoveryEpoch == binding.Run.RecoveryEpoch
 }
 

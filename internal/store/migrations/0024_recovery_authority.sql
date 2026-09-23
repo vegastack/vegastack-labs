@@ -204,6 +204,24 @@ CREATE TABLE recovery_authority_bundles (
     created_at TEXT NOT NULL
 ) STRICT;
 
+-- The acknowledged restore request precommits the only run/step/lease IDs
+-- permitted while normal mutation is disabled. This journal is deliberately
+-- separate from the normal run tables, whose mutation guard remains closed in
+-- recovery-required mode.
+CREATE TABLE recovery_canary_runs (
+    plan_id TEXT PRIMARY KEY,
+    plan_digest TEXT NOT NULL CHECK (plan_digest GLOB 'sha256:[0-9a-f]*' AND length(plan_digest)=71),
+    run_id TEXT NOT NULL UNIQUE,
+    step_id TEXT NOT NULL UNIQUE,
+    lease_id TEXT NOT NULL UNIQUE,
+    instance_id TEXT NOT NULL REFERENCES audit_instances(instance_id) ON DELETE RESTRICT,
+    recovery_epoch INTEGER NOT NULL REFERENCES audit_epoch_genesis(recovery_epoch) ON DELETE RESTRICT,
+    state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
+    result_digest TEXT NOT NULL CHECK (result_digest GLOB 'sha256:[0-9a-f]*' AND length(result_digest)=71),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(plan_id) REFERENCES recovery_authority_bundles(plan_id) ON DELETE RESTRICT
+) STRICT;
+
 CREATE INDEX restore_transitions_plan_sequence ON restore_transitions(plan_id, transition_id);
 
 CREATE TRIGGER restore_sessions_no_update BEFORE UPDATE ON restore_sessions BEGIN SELECT RAISE(ABORT, 'restore sessions are immutable'); END;
@@ -218,3 +236,5 @@ CREATE TRIGGER recovery_authority_journal_no_update BEFORE UPDATE ON recovery_au
 CREATE TRIGGER recovery_authority_journal_no_delete BEFORE DELETE ON recovery_authority_journal BEGIN SELECT RAISE(ABORT,'recovery authority journal is append-only'); END;
 CREATE TRIGGER recovery_authority_bundles_no_update BEFORE UPDATE ON recovery_authority_bundles BEGIN SELECT RAISE(ABORT,'recovery authority bundles are immutable'); END;
 CREATE TRIGGER recovery_authority_bundles_no_delete BEFORE DELETE ON recovery_authority_bundles BEGIN SELECT RAISE(ABORT,'recovery authority bundles are append-only'); END;
+CREATE TRIGGER recovery_canary_runs_no_update BEFORE UPDATE ON recovery_canary_runs BEGIN SELECT RAISE(ABORT,'recovery canary runs are immutable'); END;
+CREATE TRIGGER recovery_canary_runs_no_delete BEFORE DELETE ON recovery_canary_runs BEGIN SELECT RAISE(ABORT,'recovery canary runs are append-only'); END;

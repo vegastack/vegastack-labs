@@ -383,6 +383,22 @@
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
+    "canaryBindingDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "canaryLeaseId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "canaryRunId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "canaryStepId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "candidateDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
@@ -543,7 +559,11 @@
     "recoveryStepId",
     "recoveryLeaseId",
     "recoveryChallengeId",
-    "recoveryReceiptId"
+    "recoveryReceiptId",
+    "canaryRunId",
+    "canaryStepId",
+    "canaryLeaseId",
+    "canaryBindingDigest"
   ],
   "title": "VegaStack Labs restore request",
   "type": "object",

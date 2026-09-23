@@ -16,6 +16,8 @@ func TestRestorePlanPreservesExactFenceAuditAndAuthorityBinding(t *testing.T) {
 	decision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", LocalLastEventID: 4, IndependentLastEventID: 4, IndependentCheckpointDigest: digest, Strategy: "matched", DecisionDigest: digest}
 	request := generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 8, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "restore-a", Source: source, Fences: fences, AuditDecision: decision, PointID: source.PointID, DependencyIDs: []string{"dependency-a"}, TargetIDs: []string{"control-a"}, PriorInstanceID: "instance-old", NewInstanceID: "instance-new", PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, FenceSetDigest: digest, AuditDecisionDigest: digest, CandidateDigest: digest,
 		FormerHostID: "former-host", ReplacementHostID: "replacement-host", RecoveryDraftID: "draft-a", CiphertextFingerprint: digest, SourceAdmissionDigest: digest, FenceQualificationDigest: digest, RecoveryRunID: "run-a", RecoveryStepID: "step-a", RecoveryLeaseID: "lease-a", RecoveryChallengeID: "challenge-a", RecoveryReceiptID: "receipt-a"}
+	request.CanaryRunID, request.CanaryStepID, request.CanaryLeaseID = "canary-run-a", "canary-step-a", "canary-lease-a"
+	request.CanaryBindingDigest, _ = change.RestoreCanaryBindingDigest(request)
 	declaration, err := change.BuildRestoreChange(context.Background(), request, source, fences, decision)
 	if err != nil {
 		t.Fatal(err)
@@ -24,7 +26,7 @@ func TestRestorePlanPreservesExactFenceAuditAndAuthorityBinding(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.Status != "planned" || result.AuthorizationBranch != "human" || result.ExecutorMode != "central" || result.Risk != "control-plane" || len(result.Operations) != 1 || binding.PlanID != result.PlanID || binding.PlanDigest != result.PlanDigest || binding.FenceSetDigest != request.FenceSetDigest || binding.AuditDecisionDigest != request.AuditDecisionDigest || binding.PriorInstanceID != request.PriorInstanceID || binding.NewInstanceID != request.NewInstanceID || binding.NextRecoveryEpoch != binding.PriorRecoveryEpoch+1 || binding.FormerHostID != request.FormerHostID || binding.RecoveryRunID != request.RecoveryRunID || binding.SourceAdmissionDigest != request.SourceAdmissionDigest {
+	if result.Status != "planned" || result.AuthorizationBranch != "human" || result.ExecutorMode != "central" || result.Risk != "control-plane" || len(result.Operations) != 2 || result.Operations[1].OperationType != "recovery.canary.noop" || result.Operations[1].OperationID != request.CanaryStepID || result.Operations[1].InputDigest != request.CanaryBindingDigest || binding.PlanID != result.PlanID || binding.PlanDigest != result.PlanDigest || binding.FenceSetDigest != request.FenceSetDigest || binding.AuditDecisionDigest != request.AuditDecisionDigest || binding.PriorInstanceID != request.PriorInstanceID || binding.NewInstanceID != request.NewInstanceID || binding.NextRecoveryEpoch != binding.PriorRecoveryEpoch+1 || binding.FormerHostID != request.FormerHostID || binding.RecoveryRunID != request.RecoveryRunID || binding.CanaryRunID != request.CanaryRunID || binding.SourceAdmissionDigest != request.SourceAdmissionDigest {
 		t.Fatalf("plan=%#v binding=%#v", result, binding)
 	}
 }

@@ -14,7 +14,7 @@ func TestRestoreChangeIsOneInertSealedCutover(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if document.DeclarationType != "recovery.restore" || document.Status != "draft" || len(document.Operations) != 1 || document.Operations[0].OperationType != "recovery.restore.cutover" || document.Operations[0].AdapterID != "core.recovery" || document.Operations[0].Idempotent || len(document.Extensions) != 1 || document.Extensions[0].Name != "x-restore-binding" || document.Operations[0].InputDigest != document.Extensions[0].ValueDigest {
+	if document.DeclarationType != "recovery.restore" || document.Status != "draft" || len(document.Operations) != 2 || document.Operations[0].OperationType != "recovery.restore.cutover" || document.Operations[0].AdapterID != "core.recovery" || document.Operations[0].Idempotent || document.Operations[1].OperationType != "recovery.canary.noop" || document.Operations[1].OperationID != request.CanaryStepID || document.Operations[1].InputDigest != request.CanaryBindingDigest || !document.Operations[1].Idempotent || len(document.Extensions) != 1 || document.Extensions[0].Name != "x-restore-binding" || document.Operations[0].InputDigest != document.Extensions[0].ValueDigest {
 		t.Fatalf("restore declaration = %#v", document)
 	}
 	request.NextRecoveryEpoch++
@@ -30,5 +30,7 @@ func validRestoreDraftInput() (generated.RestoreRequest, generated.RestoreSource
 	decision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", LocalLastEventID: 4, IndependentLastEventID: 4, IndependentCheckpointDigest: digest, Strategy: "matched", DecisionDigest: digest}
 	request := generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 8, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "restore-a", Source: source, Fences: fences, AuditDecision: decision, PointID: source.PointID, DependencyIDs: []string{"dependency-a"}, TargetIDs: []string{"control-a"}, PriorInstanceID: "instance-old", NewInstanceID: "instance-new", PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, FenceSetDigest: digest, AuditDecisionDigest: digest, CandidateDigest: digest,
 		FormerHostID: "former-host", ReplacementHostID: "replacement-host", RecoveryDraftID: "draft-a", CiphertextFingerprint: digest, SourceAdmissionDigest: digest, FenceQualificationDigest: digest, RecoveryRunID: "run-a", RecoveryStepID: "step-a", RecoveryLeaseID: "lease-a", RecoveryChallengeID: "challenge-a", RecoveryReceiptID: "receipt-a"}
+	request.CanaryRunID, request.CanaryStepID, request.CanaryLeaseID = "canary-run-a", "canary-step-a", "canary-lease-a"
+	request.CanaryBindingDigest, _ = RestoreCanaryBindingDigest(request)
 	return request, source, fences, decision
 }

@@ -165,6 +165,7 @@ func TestPhase5RestoreBindingRejectsAmbiguousEpochAndController(t *testing.T) {
 		"fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(), "priorInstanceId": "instance-old", "newInstanceId": "instance-new",
 		"formerHostId": "former-host", "replacementHostId": "replacement-host", "recoveryDraftId": "draft-a", "ciphertextFingerprint": phase5DigestFixture(), "sourceAdmissionDigest": phase5DigestFixture(), "fenceQualificationDigest": phase5DigestFixture(),
 		"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
+		"canaryRunId": "canary-run-a", "canaryStepId": "canary-step-a", "canaryLeaseId": "canary-lease-a", "canaryBindingDigest": phase5DigestFixture(),
 		"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3, "status": "planned",
 	}
 	if err := ValidateContractJSON(SchemaIDRestoreBinding, phase5Document(t, binding), ContractExact); err != nil {
@@ -283,6 +284,7 @@ func TestRestoreV11BindsFenceAuditCandidateAndAdjacentEpoch(t *testing.T) {
 		"humanAcknowledgementId": "ack-a", "fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(),
 		"priorInstanceId": "instance-old", "newInstanceId": "instance-new", "priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3,
 		"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
+		"canaryRunId": "canary-run-a", "canaryStepId": "canary-step-a", "canaryLeaseId": "canary-lease-a", "canaryBindingDigest": phase5DigestFixture(),
 	}
 	if err := ValidateContractJSON(SchemaIDRestoreRunRequest, phase5Document(t, request), ContractExact); err != nil {
 		t.Fatal(err)

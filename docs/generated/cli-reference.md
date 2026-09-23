@@ -1021,6 +1021,10 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `recoveryLeaseId`
 - `recoveryChallengeId`
 - `recoveryReceiptId`
+- `canaryRunId`
+- `canaryStepId`
+- `canaryLeaseId`
+- `canaryBindingDigest`
 
 ### `vegastack-labs.dev/run`
 

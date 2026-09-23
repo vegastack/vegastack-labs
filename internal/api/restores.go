@@ -62,7 +62,7 @@ func (app *Application) restorePlan(config RestoreConfig) func(http.ResponseWrit
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.restores.plan"
 		var input generated.RestoreRequest
-		if err := decodeOperationRequest(r, config.MaxBodyBytes, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "source", "fences", "auditDecision", "pointId", "dependencyIds", "targetIds", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "formerHostId", "replacementHostId", "recoveryDraftId", "ciphertextFingerprint", "sourceAdmissionDigest", "fenceQualificationDigest", "recoveryRunId", "recoveryStepId", "recoveryLeaseId", "recoveryChallengeId", "recoveryReceiptId"}, &input); err != nil {
+		if err := decodeOperationRequest(r, config.MaxBodyBytes, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "source", "fences", "auditDecision", "pointId", "dependencyIds", "targetIds", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "formerHostId", "replacementHostId", "recoveryDraftId", "ciphertextFingerprint", "sourceAdmissionDigest", "fenceQualificationDigest", "recoveryRunId", "recoveryStepId", "recoveryLeaseId", "recoveryChallengeId", "recoveryReceiptId", "canaryRunId", "canaryStepId", "canaryLeaseId", "canaryBindingDigest"}, &input); err != nil {
 			app.failure(w, op, err)
 			return
 		}
@@ -97,7 +97,7 @@ func (app *Application) restoreRun(config RestoreConfig) func(http.ResponseWrite
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "path"))
 			return
 		}
-		if err := decodeOperationRequest(r, config.MaxBodyBytes, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "source", "pointId", "planId", "planDigest", "humanAcknowledgementId", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch", "recoveryRunId", "recoveryStepId", "recoveryLeaseId", "recoveryChallengeId", "recoveryReceiptId"}, &input); err != nil {
+		if err := decodeOperationRequest(r, config.MaxBodyBytes, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "source", "pointId", "planId", "planDigest", "humanAcknowledgementId", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch", "recoveryRunId", "recoveryStepId", "recoveryLeaseId", "recoveryChallengeId", "recoveryReceiptId", "canaryRunId", "canaryStepId", "canaryLeaseId", "canaryBindingDigest"}, &input); err != nil {
 			app.failure(w, op, err)
 			return
 		}
@@ -111,7 +111,7 @@ func (app *Application) restoreRun(config RestoreConfig) func(http.ResponseWrite
 			return
 		}
 		plan, err := config.Operations.AuthorizationPlan(r.Context(), input.PlanID)
-		if err != nil || plan.PlanID != input.PlanID || plan.PlanDigest != input.PlanDigest || len(plan.Operations) != 1 {
+		if err != nil || plan.PlanID != input.PlanID || plan.PlanDigest != input.PlanDigest || len(plan.Operations) != 2 {
 			app.failure(w, op, apiFailure(generated.ErrorCodePlanStale, "restore-plan"))
 			return
 		}
@@ -156,7 +156,7 @@ func (app *Application) restoreVerify(config RestoreConfig) func(http.ResponseWr
 			return
 		}
 		plan, err := config.Operations.AuthorizationPlan(r.Context(), input.PlanID)
-		if err != nil || plan.PlanID != input.PlanID || plan.PlanDigest != input.PlanDigest || len(plan.Operations) != 1 {
+		if err != nil || plan.PlanID != input.PlanID || plan.PlanDigest != input.PlanDigest || len(plan.Operations) != 2 {
 			app.failure(w, op, apiFailure(generated.ErrorCodePlanStale, "restore-plan"))
 			return
 		}
