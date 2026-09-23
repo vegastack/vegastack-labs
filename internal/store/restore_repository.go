@@ -117,7 +117,11 @@ func (repository *RestoreRepository) PendingPromotion(ctx context.Context) (Pend
 	var raw []byte
 	found := false
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		rows, err := tx.query(ctx, `SELECT s.binding_bytes,c.database_digest,c.journal_digest FROM recovery_candidates c JOIN restore_sessions s ON s.plan_id=c.plan_id ORDER BY c.created_at,c.candidate_id LIMIT 2`)
+		rows, err := tx.query(ctx, `SELECT s.binding_bytes,c.database_digest,c.journal_digest
+			FROM recovery_candidates c
+			JOIN restore_sessions s ON s.plan_id=c.plan_id
+			WHERE (SELECT t.to_status FROM restore_transitions t WHERE t.plan_id=c.plan_id ORDER BY t.transition_id DESC LIMIT 1)='verification-required'
+			ORDER BY c.created_at,c.candidate_id LIMIT 2`)
 		if err != nil {
 			return err
 		}

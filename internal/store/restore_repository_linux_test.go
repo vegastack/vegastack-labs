@@ -78,12 +78,21 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	if err := repository.BindCandidate(context.Background(), RecoveryCandidateRequest{CandidateID: "candidate-a", PlanID: binding.PlanID, CandidateDigest: binding.CandidateDigest, PreservedAuthorityDigest: testDigest, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, DatabaseDigest: testDigest, JournalDigest: testDigest, Expected: expected}); err != nil {
 		t.Fatal(err)
 	}
+	if _, found, err := repository.PendingPromotion(context.Background()); err != nil || found {
+		t.Fatalf("fenced candidate was startup-promotable: found=%v err=%v", found, err)
+	}
+	if err := repository.AppendTransition(context.Background(), RestoreTransitionRequest{PlanID: binding.PlanID, From: "fenced", To: "restoring", PlanDigest: binding.PlanDigest, EvidenceDigest: testDigest, Expected: expected}); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.AppendTransition(context.Background(), RestoreTransitionRequest{PlanID: binding.PlanID, From: "restoring", To: "verification-required", PlanDigest: binding.PlanDigest, EvidenceDigest: testDigest, Expected: expected}); err != nil {
+		t.Fatal(err)
+	}
 	pending, found, err := repository.PendingPromotion(context.Background())
 	if err != nil || !found || pending.Binding.PlanID != binding.PlanID || pending.DatabaseDigest != testDigest || pending.JournalDigest != testDigest {
 		t.Fatalf("pending=%#v found=%v err=%v", pending, found, err)
 	}
 	stored, err := repository.Get(context.Background(), binding.PlanID)
-	if err != nil || stored.Status != "fenced" || stored.Binding.PlanDigest != session.Binding.PlanDigest {
+	if err != nil || stored.Status != "verification-required" || stored.Binding.PlanDigest != session.Binding.PlanDigest {
 		t.Fatalf("stored=%#v err=%v", stored, err)
 	}
 	if err := authority.PrepareRecoveredAuthority(context.Background(), binding, audit.Fingerprint(testDigest)); err != nil {
