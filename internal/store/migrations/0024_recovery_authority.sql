@@ -8,6 +8,107 @@ UPDATE system_meta
 SET instance_id = (SELECT instance_id FROM audit_instances WHERE id = 1)
 WHERE id = 1;
 
+-- Recovery introduces a new immutable controller identity for each epoch. The
+-- original one-row instance catalog cannot represent that without rewriting
+-- history, so rebuild the audit tables while preserving every row and digest.
+DROP TRIGGER audit_epoch_genesis_no_update;
+DROP TRIGGER audit_epoch_genesis_no_delete;
+DROP TRIGGER audit_chain_links_no_update;
+DROP TRIGGER audit_chain_links_no_delete;
+DROP INDEX audit_chain_epoch_sequence;
+ALTER TABLE audit_checkpoint_outbox RENAME TO audit_checkpoint_outbox_before_recovery;
+ALTER TABLE audit_checkpoints RENAME TO audit_checkpoints_before_recovery;
+ALTER TABLE audit_chain_links RENAME TO audit_chain_links_before_recovery;
+ALTER TABLE audit_epoch_genesis RENAME TO audit_epoch_genesis_before_recovery;
+ALTER TABLE audit_instances RENAME TO audit_instances_before_recovery;
+
+CREATE TABLE audit_instances (
+    instance_id TEXT PRIMARY KEY CHECK (length(instance_id) BETWEEN 10 AND 128),
+    created_at TEXT NOT NULL
+) STRICT;
+INSERT INTO audit_instances(instance_id,created_at)
+SELECT instance_id,created_at FROM audit_instances_before_recovery;
+
+CREATE TABLE audit_epoch_genesis (
+    recovery_epoch INTEGER PRIMARY KEY CHECK (recovery_epoch >= 0),
+    instance_id TEXT NOT NULL,
+    prior_checkpoint_digest TEXT NOT NULL CHECK (prior_checkpoint_digest GLOB 'sha256:[0-9a-f]*' AND length(prior_checkpoint_digest) = 71),
+    recovery_decision_digest TEXT NOT NULL CHECK (recovery_decision_digest GLOB 'sha256:[0-9a-f]*' AND length(recovery_decision_digest) = 71),
+    genesis_digest TEXT NOT NULL UNIQUE CHECK (genesis_digest GLOB 'sha256:[0-9a-f]*' AND length(genesis_digest) = 71),
+    FOREIGN KEY(instance_id) REFERENCES audit_instances(instance_id) ON DELETE RESTRICT
+) STRICT;
+INSERT INTO audit_epoch_genesis SELECT recovery_epoch,instance_id,prior_checkpoint_digest,recovery_decision_digest,genesis_digest FROM audit_epoch_genesis_before_recovery;
+
+CREATE TABLE audit_chain_links (
+    event_id INTEGER PRIMARY KEY,
+    instance_id TEXT NOT NULL,
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    segment_sequence INTEGER NOT NULL CHECK (segment_sequence > 0),
+    previous_digest TEXT NOT NULL CHECK (previous_digest GLOB 'sha256:[0-9a-f]*' AND length(previous_digest) = 71),
+    payload_digest TEXT NOT NULL CHECK (payload_digest GLOB 'sha256:[0-9a-f]*' AND length(payload_digest) = 71),
+    context_bytes BLOB NOT NULL CHECK (length(context_bytes) <= 512),
+    context_digest TEXT NOT NULL CHECK (context_digest GLOB 'sha256:[0-9a-f]*' AND length(context_digest) = 71),
+    link_digest TEXT NOT NULL UNIQUE CHECK (link_digest GLOB 'sha256:[0-9a-f]*' AND length(link_digest) = 71),
+    pre_anchor INTEGER NOT NULL CHECK (pre_anchor IN (0,1)),
+    UNIQUE(instance_id,recovery_epoch,segment_sequence),
+    FOREIGN KEY(event_id) REFERENCES audit_events(event_id) ON DELETE RESTRICT,
+    FOREIGN KEY(recovery_epoch) REFERENCES audit_epoch_genesis(recovery_epoch) ON DELETE RESTRICT
+) STRICT;
+INSERT INTO audit_chain_links SELECT event_id,instance_id,recovery_epoch,segment_sequence,previous_digest,payload_digest,context_bytes,context_digest,link_digest,pre_anchor FROM audit_chain_links_before_recovery;
+
+CREATE TABLE audit_checkpoints (
+    checkpoint_id TEXT PRIMARY KEY,
+    schema_version TEXT NOT NULL,
+    instance_id TEXT NOT NULL,
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    first_event_id INTEGER NOT NULL CHECK (first_event_id > 0),
+    last_event_id INTEGER NOT NULL CHECK (last_event_id >= first_event_id),
+    first_segment_sequence INTEGER NOT NULL CHECK (first_segment_sequence > 0),
+    last_segment_sequence INTEGER NOT NULL CHECK (last_segment_sequence >= first_segment_sequence),
+    chain_digest TEXT NOT NULL CHECK (chain_digest GLOB 'sha256:[0-9a-f]*' AND length(chain_digest) = 71),
+    signer_reference_id TEXT NOT NULL,
+    signer_material_version TEXT NOT NULL,
+    signature_digest TEXT,
+    public_key_id TEXT,
+    export_namespace TEXT NOT NULL,
+    export_receipt_digest TEXT,
+    independent_read_digest TEXT,
+    status TEXT NOT NULL CHECK (status IN ('pending','signed','export-pending','anchored','degraded','incident')),
+    reason_code TEXT NOT NULL,
+    pre_anchor INTEGER NOT NULL CHECK (pre_anchor IN (0,1)),
+    canonical_bytes BLOB NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(instance_id) REFERENCES audit_instances(instance_id) ON DELETE RESTRICT
+) STRICT;
+INSERT INTO audit_checkpoints SELECT checkpoint_id,schema_version,instance_id,recovery_epoch,first_event_id,last_event_id,first_segment_sequence,last_segment_sequence,chain_digest,signer_reference_id,signer_material_version,signature_digest,public_key_id,export_namespace,export_receipt_digest,independent_read_digest,status,reason_code,pre_anchor,canonical_bytes,created_at,updated_at FROM audit_checkpoints_before_recovery;
+
+CREATE TABLE audit_checkpoint_outbox (
+    checkpoint_id TEXT PRIMARY KEY,
+    exact_path TEXT NOT NULL UNIQUE,
+    encrypted_payload BLOB NOT NULL,
+    payload_digest TEXT NOT NULL CHECK (payload_digest GLOB 'sha256:[0-9a-f]*' AND length(payload_digest) = 71),
+    status TEXT NOT NULL CHECK (status IN ('pending','retry-wait','written','confirmed','failed')),
+    attempt_count INTEGER NOT NULL DEFAULT 0 CHECK (attempt_count >= 0),
+    last_error_code TEXT,
+    next_attempt_at TEXT,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(checkpoint_id) REFERENCES audit_checkpoints(checkpoint_id) ON DELETE RESTRICT
+) STRICT;
+INSERT INTO audit_checkpoint_outbox SELECT checkpoint_id,exact_path,encrypted_payload,payload_digest,status,attempt_count,last_error_code,next_attempt_at,updated_at FROM audit_checkpoint_outbox_before_recovery;
+
+DROP TABLE audit_checkpoint_outbox_before_recovery;
+DROP TABLE audit_checkpoints_before_recovery;
+DROP TABLE audit_chain_links_before_recovery;
+DROP TABLE audit_epoch_genesis_before_recovery;
+DROP TABLE audit_instances_before_recovery;
+
+CREATE INDEX audit_chain_epoch_sequence ON audit_chain_links(recovery_epoch,segment_sequence);
+CREATE TRIGGER audit_epoch_genesis_no_update BEFORE UPDATE ON audit_epoch_genesis BEGIN SELECT RAISE(ABORT,'audit epoch genesis is immutable'); END;
+CREATE TRIGGER audit_epoch_genesis_no_delete BEFORE DELETE ON audit_epoch_genesis BEGIN SELECT RAISE(ABORT,'audit epoch genesis is append-only'); END;
+CREATE TRIGGER audit_chain_links_no_update BEFORE UPDATE ON audit_chain_links BEGIN SELECT RAISE(ABORT,'audit chain links are immutable'); END;
+CREATE TRIGGER audit_chain_links_no_delete BEFORE DELETE ON audit_chain_links BEGIN SELECT RAISE(ABORT,'audit chain links are append-only'); END;
+
 CREATE TABLE restore_sessions (
     plan_id TEXT PRIMARY KEY,
     plan_digest TEXT NOT NULL UNIQUE CHECK (plan_digest GLOB 'sha256:[0-9a-f]*' AND length(plan_digest) = 71),

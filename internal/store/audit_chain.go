@@ -19,7 +19,7 @@ type BackfillResult struct {
 
 func (store *Store) appendAuditLink(ctx context.Context, tx *sql.Tx, event audit.Event, ids audit.ContextIDs) (audit.ChainLink, error) {
 	var instanceID string
-	if err := tx.QueryRowContext(ctx, `SELECT instance_id FROM audit_instances WHERE id=1`).Scan(&instanceID); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT instance_id FROM system_meta WHERE id=1`).Scan(&instanceID); err != nil {
 		return audit.ChainLink{}, store.transactionError(ctx, err)
 	}
 	previous, sequence, err := ensureAuditGenesis(ctx, tx, instanceID, event.RecoveryEpoch, false)
@@ -98,7 +98,7 @@ func (store *Store) backfillPreAnchor(ctx context.Context) (BackfillResult, erro
 		return BackfillResult{}, store.transactionError(ctx, err)
 	}
 	var instanceID string
-	if err := tx.QueryRowContext(ctx, `SELECT instance_id FROM audit_instances WHERE id=1`).Scan(&instanceID); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT instance_id FROM system_meta WHERE id=1`).Scan(&instanceID); err != nil {
 		return BackfillResult{}, store.transactionError(ctx, err)
 	}
 	result := BackfillResult{}
@@ -163,7 +163,7 @@ func (store *Store) PrepareRecoveryAuditEpoch(ctx context.Context, epoch int64, 
 	defer func() { _ = tx.Rollback() }()
 	var instanceID string
 	var currentEpoch int64
-	if err := tx.QueryRowContext(ctx, `SELECT instance_id FROM audit_instances WHERE id=1`).Scan(&instanceID); err != nil {
+	if err := tx.QueryRowContext(ctx, `SELECT instance_id FROM system_meta WHERE id=1`).Scan(&instanceID); err != nil {
 		return store.transactionError(ctx, err)
 	}
 	if err := tx.QueryRowContext(ctx, `SELECT recovery_epoch FROM system_meta WHERE id=1`).Scan(&currentEpoch); err != nil {

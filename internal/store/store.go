@@ -149,8 +149,12 @@ func Open(ctx context.Context, config Config) (*Store, error) {
 		return nil, err
 	}
 	store.health.Mode = DatabaseReady
-	store.health.MutationEnabled = true
-	store.health.SafeModeReason = ""
+	store.health.MutationEnabled = !store.health.RecoveryPending
+	if store.health.RecoveryPending {
+		store.health.SafeModeReason = "recovery-required"
+	} else {
+		store.health.SafeModeReason = ""
+	}
 
 	cleanupLock = false
 	cleanupDatabase = false

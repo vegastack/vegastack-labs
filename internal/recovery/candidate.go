@@ -48,10 +48,15 @@ type CandidateRecorder interface {
 	BindRecoveryCandidate(context.Context, generated.RestoreBinding, CandidateReceipt) error
 }
 
+type CandidateAuthority interface {
+	PrepareRecoveredAuthority(context.Context, string, generated.RestoreBinding, AuditContinuity) error
+}
+
 type CandidateManager struct {
 	DatabasePath string
 	Storage      CandidateStorage
 	Records      CandidateRecorder
+	Authority    CandidateAuthority
 }
 
 func DeriveCandidatePaths(databasePath, planID string) (CandidatePaths, error) {
@@ -74,7 +79,7 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	blocked := func(target string) (CandidateReceipt, error) {
 		return CandidateReceipt{}, failure.New(generated.ErrorCodePrerequisiteBlocked, target, false)
 	}
-	if ctx == nil || ctx.Err() != nil || manager.Storage == nil || manager.Records == nil || source.Snapshot == nil || binding.SchemaVersion != "1.1.0" || binding.Status != "inert" || binding.PlanID == "" || binding.PointID != source.Binding.PointID || !sameRestoreSource(binding.Source, source.Binding) || binding.FenceSetDigest != fence.FenceSetDigest || binding.PriorRecoveryEpoch != source.Binding.RecoveryEpoch || binding.NextRecoveryEpoch != binding.PriorRecoveryEpoch+1 || binding.PriorInstanceID == "" || binding.NewInstanceID == "" || binding.PriorInstanceID == binding.NewInstanceID || !restoreDigest.MatchString(binding.CandidateDigest) || !restoreDigest.MatchString(binding.AuditDecisionDigest) {
+	if ctx == nil || ctx.Err() != nil || manager.Storage == nil || manager.Records == nil || manager.Authority == nil || source.Snapshot == nil || binding.SchemaVersion != "1.1.0" || binding.Status != "planned" || binding.PlanID == "" || binding.PointID != source.Binding.PointID || !sameRestoreSource(binding.Source, source.Binding) || binding.FenceSetDigest != fence.FenceSetDigest || binding.PriorRecoveryEpoch != source.Binding.RecoveryEpoch || binding.NextRecoveryEpoch != binding.PriorRecoveryEpoch+1 || binding.PriorInstanceID == "" || binding.NewInstanceID == "" || binding.PriorInstanceID == binding.NewInstanceID || !restoreDigest.MatchString(binding.CandidateDigest) || !restoreDigest.MatchString(binding.AuditDecisionDigest) {
 		return blocked("recovery-candidate")
 	}
 	paths, err := DeriveCandidatePaths(manager.DatabasePath, binding.PlanID)
@@ -87,6 +92,9 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	snapshot, err := source.Snapshot.Restore(ctx, candidateTarget{path: paths.Candidate})
 	if err != nil || snapshot.PointID != binding.PointID || snapshot.ContentDigest != source.DatabaseDigest {
 		return blocked("recovery-candidate-restore")
+	}
+	if err := manager.Authority.PrepareRecoveredAuthority(ctx, paths.Candidate, binding, source.Audit); err != nil {
+		return CandidateReceipt{}, err
 	}
 	if err := manager.Storage.VerifyCandidate(ctx, paths, binding.CandidateDigest); err != nil {
 		return CandidateReceipt{}, err
