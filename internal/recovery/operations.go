@@ -39,7 +39,7 @@ type RestoreCanaryRunner interface {
 type OperationsConfig struct {
 	Sources              SourceVerifier
 	Continuity           ContinuityResolver
-	Fences               FenceEvaluator
+	Fences               RestoreFenceCoordinator
 	Plans                RestorePlanner
 	Sessions             RestoreSessionCoordinator
 	Candidates           RestoreCandidateStager
@@ -52,7 +52,7 @@ type OperationsConfig struct {
 type OperationsService struct{ config OperationsConfig }
 
 func NewOperationsService(config OperationsConfig) (*OperationsService, error) {
-	if config.Sources.Clock == nil || config.Fences.Clock == nil || config.Plans == nil || config.Sessions == nil || config.Candidates == nil || config.Canary == nil || config.TargetReleaseBuildID == "" || config.TargetToolVersion == "" || config.TargetSchemaVersion == "" {
+	if config.Sources.Clock == nil || config.Fences == nil || config.Plans == nil || config.Sessions == nil || config.Candidates == nil || config.Canary == nil || config.TargetReleaseBuildID == "" || config.TargetToolVersion == "" || config.TargetSchemaVersion == "" {
 		return nil, failure.New(generated.ErrorCodeInputInvalid, "restore-operations", false)
 	}
 	return &OperationsService{config: config}, nil
@@ -79,7 +79,7 @@ func (service *OperationsService) Run(ctx context.Context, request generated.Res
 	}
 	executionBinding := qualification.Binding
 	executionBinding.HumanAcknowledgementID = request.HumanAcknowledgementID
-	source, fences, continuity, err := service.qualifyRun(ctx, qualification.Request)
+	source, fences, continuity, err := service.qualifyRun(ctx, qualification.Request, executionBinding, request.ExpectedStateRevision)
 	if err != nil {
 		return generated.RestoreBinding{}, err
 	}
@@ -151,27 +151,27 @@ func (service *OperationsService) AuthorizationPlan(ctx context.Context, planID 
 }
 
 func (service *OperationsService) qualifyPlan(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, FenceResult, AuditContinuity, error) {
-	source, requirements, continuity, err := service.qualifyBase(ctx, request)
+	source, continuity, err := service.qualifyBase(ctx, request)
 	if err != nil {
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
 	}
-	fences, err := RequiredFenceSet(requirements, request.SourceAdmissionDigest, request.FenceQualificationDigest)
+	fences, err := service.config.Fences.QualifyPlan(ctx, source, request)
 	if err != nil || !sameJSONValue(fences.Items, request.Fences) || fences.FenceSetDigest != request.FenceSetDigest {
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
 	}
 	return source, fences, continuity, nil
 }
 
-func (service *OperationsService) qualifyRun(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, FenceResult, AuditContinuity, error) {
-	source, requirements, continuity, err := service.qualifyBase(ctx, request)
+func (service *OperationsService) qualifyRun(ctx context.Context, request generated.RestoreRequest, binding generated.RestoreBinding, stateRevision int64) (VerifiedSource, FenceResult, AuditContinuity, error) {
+	source, continuity, err := service.qualifyBase(ctx, request)
 	if err != nil {
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
 	}
-	planned, err := RequiredFenceSet(requirements, request.SourceAdmissionDigest, request.FenceQualificationDigest)
+	planned, err := service.config.Fences.QualifyPlan(ctx, source, request)
 	if err != nil || !sameJSONValue(planned.Items, request.Fences) || planned.FenceSetDigest != request.FenceSetDigest {
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
 	}
-	verified, err := service.config.Fences.Verify(ctx, requirements)
+	verified, err := service.config.Fences.QualifyRun(ctx, source, request, binding, stateRevision)
 	if err != nil {
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
 	}
@@ -181,7 +181,7 @@ func (service *OperationsService) qualifyRun(ctx context.Context, request genera
 	return source, verified, continuity, nil
 }
 
-func (service *OperationsService) qualifyBase(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, []FenceRequirement, AuditContinuity, error) {
+func (service *OperationsService) qualifyBase(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, AuditContinuity, error) {
 	classes := []string{"critical"}
 	if request.Source.SourceClass == "local" {
 		classes = []string{"standard", "critical"}
@@ -196,20 +196,16 @@ func (service *OperationsService) qualifyBase(ctx context.Context, request gener
 		}
 	}
 	if err != nil {
-		return VerifiedSource{}, nil, AuditContinuity{}, err
+		return VerifiedSource{}, AuditContinuity{}, err
 	}
 	continuity, err := service.config.Continuity.Resolve(ctx, source, &request.AuditDecision)
 	if err != nil {
-		return VerifiedSource{}, nil, AuditContinuity{}, err
-	}
-	requirements, err := service.config.Fences.Requirements(ctx, source, request.PriorInstanceID)
-	if err != nil {
-		return VerifiedSource{}, nil, AuditContinuity{}, err
+		return VerifiedSource{}, AuditContinuity{}, err
 	}
 	if !sameJSONValue(source.Binding, request.Source) || continuity.DecisionDigest != request.AuditDecisionDigest {
-		return VerifiedSource{}, nil, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
+		return VerifiedSource{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
 	}
-	return source, requirements, continuity, nil
+	return source, continuity, nil
 }
 
 func sameJSONValue(left, right any) bool {
