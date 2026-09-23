@@ -112,6 +112,10 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 		if json.Unmarshal([]byte(canonical), &staged) != nil || int64(len(staged.Selection.Targets)) != targetCount || int64(len(staged.Selection.Survivors)) != survivorCount {
 			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-selection", false, nil)
 		}
+		var capacityTotal, capacityAvailable, capacityQuarantined int64
+		if err := tx.QueryRowContext(ctx, `SELECT total_bytes,available_bytes,quarantined_bytes FROM backup_repository_capacity_observations WHERE repository_class=? AND recovery_epoch=? ORDER BY observed_at DESC,observation_id DESC LIMIT 1`, class, epoch).Scan(&capacityTotal, &capacityAvailable, &capacityQuarantined); err != nil || capacityTotal != staged.Selection.CapacityTotalBytes || capacityAvailable != staged.Selection.CapacityAvailableBytes || capacityQuarantined != staged.Selection.CapacityQuarantinedBytes {
+			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-capacity", false, err)
+		}
 		survivors := make(map[string]bool, len(staged.Selection.Survivors))
 		for _, survivor := range staged.Selection.Survivors {
 			survivors[survivor.PointID] = true

@@ -26,14 +26,11 @@ type LocalRetirementMutationAttempt struct {
 // crash requires reconciliation; even byte-identical replay is rejected.
 func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Context, request LocalRetirementMutationAttempt) error {
 	if repository == nil || repository.store == nil || !validRetirementID(request.MutationID) || !validRetirementID(request.LeaseID) ||
-		request.Sequence < 1 || request.RecoveryEpoch < 0 || request.ObjectBytes < 1 || !validRetirementSnapshotID(request.ObjectName) ||
+		request.Sequence < 1 || request.RecoveryEpoch < 0 || request.ObjectBytes < 0 || !validRetirementMutationName(request.ObjectType, request.ObjectName) ||
 		!validBackupDigest(request.ObjectDigest) || (request.MutationKind != "put" && request.MutationKind != "delete") ||
-		(request.ObjectType != "data" && request.ObjectType != "index" && request.ObjectType != "snapshots" && request.ObjectType != "locks") ||
+		(request.ObjectType != "config" && request.ObjectType != "keys" && request.ObjectType != "data" && request.ObjectType != "index" && request.ObjectType != "snapshots" && request.ObjectType != "locks") ||
 		request.Attribution.AuthenticatedPrincipalID == "" || request.Attribution.AuthenticatedPrincipalMethod == "" {
 		return newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-mutation", false, nil)
-	}
-	if request.MutationKind == "put" && request.ObjectType == "snapshots" {
-		return newStoreError(generated.ErrorCodeAuthorizationDenied, "local-retirement-mutation", false, nil)
 	}
 	key := audit.IntentKey{Scope: "local-retirement-mutation", KeyDigest: audit.Fingerprint(digestParts("retirement-mutation", request.MutationID)),
 		RequestDigest: audit.Fingerprint(digestParts("retirement-mutation-request", request.LeaseID, strconv.FormatInt(request.Sequence, 10), request.MutationKind,
@@ -46,6 +43,7 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 	}
 	nowTime := repository.store.config.Clock().UTC()
 	now := nowTime.Truncate(time.Second).Format(time.RFC3339)
+	denied := false
 	result, err := repository.store.executeAuditIntent(ctx, intentRequest{Idempotency: key, Event: event}, false, func(ctx context.Context, tx *sql.Tx) error {
 		var intentID, repositoryID, class, maxExpiry, planExpiry, executorExpiry, lockDigest, sourceCoverage string
 		var stateRevision, epoch, maxWork, maxMutationBytes, maxRepackBytes, lockSequence int64
@@ -89,6 +87,16 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 		if json.Unmarshal([]byte(canonical), &staged) != nil {
 			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-intent", false, nil)
 		}
+		recordDenied := func() error {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO backup_retirement_mutation_attempts(mutation_id,lease_id,sequence,mutation_kind,object_type,object_name,object_digest,object_bytes,recovery_epoch,begun_at) VALUES(?,?,?,?,?,?,?,?,?,?)`, request.MutationID, request.LeaseID, request.Sequence, request.MutationKind, request.ObjectType, request.ObjectName, request.ObjectDigest, request.ObjectBytes, request.RecoveryEpoch, now); err != nil {
+				return err
+			}
+			if _, err := tx.ExecContext(ctx, `INSERT INTO backup_retirement_mutation_outcomes(mutation_id,status,quarantine_name,observed_digest,recorded_at) VALUES(?,'denied',NULL,NULL,?)`, request.MutationID, now); err != nil {
+				return err
+			}
+			denied = true
+			return nil
+		}
 		var count, totalBytes, repackBytes, unresolved, adverse int64
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*),COALESCE(SUM(object_bytes),0),COALESCE(SUM(CASE WHEN mutation_kind='put' AND object_type IN ('data','index') THEN object_bytes ELSE 0 END),0),
 			COALESCE(SUM(CASE WHEN o.mutation_id IS NULL THEN 1 ELSE 0 END),0),COALESCE(SUM(CASE WHEN o.status IN ('denied','uncertain') THEN 1 ELSE 0 END),0)
@@ -98,7 +106,10 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 		}
 		if unresolved != 0 || adverse != 0 || request.Sequence != count+1 || count >= maxWork || request.ObjectBytes > maxMutationBytes-totalBytes ||
 			(request.MutationKind == "put" && (request.ObjectType == "data" || request.ObjectType == "index") && request.ObjectBytes > maxRepackBytes-repackBytes) {
-			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-mutation-bound", false, nil)
+			return recordDenied()
+		}
+		if request.ObjectType == "config" || request.ObjectType == "keys" || (request.MutationKind == "put" && request.ObjectType == "snapshots") {
+			return recordDenied()
 		}
 		if request.MutationKind == "delete" && request.ObjectType != "locks" {
 			var listed, createdEarlier int
@@ -114,19 +125,12 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 				return err
 			}
 			if listed == 0 && createdEarlier == 0 {
-				return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-unlisted-object", false, nil)
+				return recordDenied()
 			}
-			for _, survivor := range staged.Selection.Survivors {
-				var dependency int
-				if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_expected_objects
-					WHERE point_id=? AND object_type=? AND object_name=? AND object_digest=? AND object_bytes=?`, survivor.PointID,
-					request.ObjectType, request.ObjectName, request.ObjectDigest, request.ObjectBytes).Scan(&dependency); err != nil {
-					return err
-				}
-				if dependency != 0 {
-					return newStoreError(generated.ErrorCodeAuthorizationDenied, "local-retirement-survivor-dependency", false, nil)
-				}
-			}
+			// A data/index pack may contain both retired and surviving chunks.
+			// Quarantine is reversible, so restic may replace that shared pack
+			// within the exact repack budget. Settlement remains blocked until the
+			// complete successor inventory and every original survivor restore pass.
 		}
 		if request.ObjectType == "snapshots" {
 			listed := false
@@ -142,7 +146,7 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 				listed = exact == 1
 			}
 			if !listed {
-				return newStoreError(generated.ErrorCodeAuthorizationDenied, "local-retirement-snapshot", false, nil)
+				return recordDenied()
 			}
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO backup_retirement_mutation_attempts(mutation_id,lease_id,sequence,mutation_kind,object_type,object_name,object_digest,object_bytes,recovery_epoch,begun_at)
@@ -156,7 +160,14 @@ func (repository *LocalRetirementRepository) BeginLocalMutation(ctx context.Cont
 	if !result.Created {
 		return newStoreError(generated.ErrorCodeRecoveryRequired, "local-retirement-mutation-replay", false, nil)
 	}
+	if denied {
+		return newStoreError(generated.ErrorCodeAuthorizationDenied, "local-retirement-mutation-denied", false, nil)
+	}
 	return nil
+}
+
+func validRetirementMutationName(objectType, name string) bool {
+	return (objectType == "config" && name == "config") || (objectType != "config" && validRetirementSnapshotID(name))
 }
 
 type LocalRetirementMutationOutcome struct {

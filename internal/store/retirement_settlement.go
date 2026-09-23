@@ -43,26 +43,47 @@ func (repository *LocalRetirementRepository) FinishRetirementCustody(ctx context
 type LocalRetirementSettlement struct {
 	IntentID, LeaseID, SuccessorInventoryDigest, JournalDigest, SurvivorProofDigest string
 	SurvivorPointIDs                                                                []string
+	SuccessorObjects                                                                []ExpectedObjectRow
 	MeasuredReclaimBytes                                                            int64
 	RecoveryEpoch                                                                   int64
 }
 
+type LocalRetirementSuccessor struct {
+	GenerationID, IntentID, RepositoryID, RepositoryClass                  string
+	GenerationDigest, PredecessorInventoryDigest, SuccessorInventoryDigest string
+	JournalDigest, SurvivorProofDigest                                     string
+	Survivors                                                              []LocalRetirementSurvivor
+	Objects                                                                []ExpectedObjectRow
+	RecoveryEpoch, GenerationSequence, StateRevision                       int64
+}
+
+type localRetirementSuccessorPayload struct {
+	IntentID, InventoryDigest, JournalDigest, ProofDigest string
+	Survivors                                             []LocalRetirementSurvivor
+	Objects                                               []ExpectedObjectRow
+	Reclaimed, Epoch                                      int64
+}
+
 func (repository *LocalRetirementRepository) CommitLocalRetirementSuccess(ctx context.Context, request LocalRetirementSettlement) (string, error) {
-	if repository == nil || repository.store == nil || !validRetirementID(request.IntentID) || !validRetirementID(request.LeaseID) || !validBackupDigest(request.SuccessorInventoryDigest) || !validBackupDigest(request.JournalDigest) || !validBackupDigest(request.SurvivorProofDigest) || len(request.SurvivorPointIDs) == 0 || request.MeasuredReclaimBytes < 0 {
+	if repository == nil || repository.store == nil || !validRetirementID(request.IntentID) || !validRetirementID(request.LeaseID) || !validBackupDigest(request.SuccessorInventoryDigest) || !validBackupDigest(request.JournalDigest) || !validBackupDigest(request.SurvivorProofDigest) || len(request.SurvivorPointIDs) == 0 || len(request.SuccessorObjects) == 0 || request.MeasuredReclaimBytes < 0 || pendingInventoryDigest(request.SuccessorObjects) != request.SuccessorInventoryDigest {
 		return "", newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-settlement", false, nil)
 	}
 	ids := append([]string(nil), request.SurvivorPointIDs...)
 	sort.Strings(ids)
-	canonical, _ := json.Marshal(struct {
-		IntentID, InventoryDigest, JournalDigest, ProofDigest string
-		Survivors                                             []string
-		Reclaimed                                             int64
-		Epoch                                                 int64
-	}{request.IntentID, request.SuccessorInventoryDigest, request.JournalDigest, request.SurvivorProofDigest, ids, request.MeasuredReclaimBytes, request.RecoveryEpoch})
-	sum := sha256.Sum256(canonical)
-	digest := "sha256:" + hex.EncodeToString(sum[:])
-	generationID := "retirement-generation-" + hex.EncodeToString(sum[:16])
-	receiptID := "retirement-receipt-" + hex.EncodeToString(sum[:16])
+	objects := append([]ExpectedObjectRow(nil), request.SuccessorObjects...)
+	sort.Slice(objects, func(i, j int) bool {
+		if objects[i].Type == objects[j].Type {
+			return objects[i].Name < objects[j].Name
+		}
+		return objects[i].Type < objects[j].Type
+	})
+	for index, object := range objects {
+		if !validPendingObject(object) || (index > 0 && objects[index-1].Type == object.Type && objects[index-1].Name == object.Name) {
+			return "", newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-successor-inventory", false, nil)
+		}
+	}
+	var successorSurvivors []LocalRetirementSurvivor
+	var digest, generationID, receiptID string
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
 	err := repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var repo, class, pred, intentCanonical string
@@ -92,6 +113,8 @@ func (repository *LocalRetirementRepository) CommitLocalRetirementSuccess(ctx co
 				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-survivors", false, nil)
 			}
 		}
+		successorSurvivors = append([]LocalRetirementSurvivor(nil), staged.Selection.Survivors...)
+		sort.Slice(successorSurvivors, func(i, j int) bool { return successorSurvivors[i].PointID < successorSurvivors[j].PointID })
 		var bad int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_retirement_mutation_attempts a LEFT JOIN backup_retirement_mutation_outcomes o ON o.mutation_id=a.mutation_id WHERE a.lease_id=? AND (o.mutation_id IS NULL OR o.status IN ('denied','uncertain'))`, request.LeaseID).Scan(&bad); err != nil || bad != 0 {
 			return newStoreError(generated.ErrorCodeRecoveryRequired, "local-retirement-settlement", false, err)
@@ -102,6 +125,14 @@ func (repository *LocalRetirementRepository) CommitLocalRetirementSuccess(ctx co
 			Scan(&custodyAttempts, &custodySucceeded); err != nil || custodyAttempts != 1 || custodySucceeded != 1 {
 			return newStoreError(generated.ErrorCodeRecoveryRequired, "local-retirement-custody", false, err)
 		}
+		canonical, marshalErr := json.Marshal(localRetirementSuccessorPayload{IntentID: request.IntentID, InventoryDigest: request.SuccessorInventoryDigest, JournalDigest: request.JournalDigest, ProofDigest: request.SurvivorProofDigest, Survivors: successorSurvivors, Objects: objects, Reclaimed: request.MeasuredReclaimBytes, Epoch: request.RecoveryEpoch})
+		if marshalErr != nil {
+			return marshalErr
+		}
+		sum := sha256.Sum256(canonical)
+		digest = "sha256:" + hex.EncodeToString(sum[:])
+		generationID = "retirement-generation-" + hex.EncodeToString(sum[:16])
+		receiptID = "retirement-receipt-" + hex.EncodeToString(sum[:16])
 		var prior *string
 		var seq int64
 		var raw sql.NullString
@@ -140,6 +171,64 @@ func (repository *LocalRetirementRepository) LocalRetirementVerified(ctx context
 		return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-verification", false, nil)
 	}
 	return err
+}
+
+// GetLocalRetirementSuccessorForPoint returns the newest immutable successor
+// generation that explicitly binds the original point. The generation carries
+// the complete post-retirement repository inventory; it never rewrites the
+// point's creation manifest or historical verification.
+func (repository *BackupRepository) GetLocalRetirementSuccessorForPoint(ctx context.Context, pointID string) (LocalRetirementSuccessor, error) {
+	var out LocalRetirementSuccessor
+	if repository == nil || repository.store == nil || !validRetirementID(pointID) {
+		return out, newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-successor", false, nil)
+	}
+	var canonical string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, err := tx.query(ctx, `SELECT g.generation_id,g.intent_id,g.repository_id,g.repository_class,g.recovery_epoch,g.generation_sequence,g.generation_digest,g.predecessor_inventory_digest,g.successor_inventory_digest,g.journal_digest,g.survivor_proof_digest,g.canonical_json,g.state_revision
+			FROM backup_retirement_successor_generations g JOIN recovery_points p ON p.repository_id=g.repository_id AND p.repository_class=g.repository_class AND p.recovery_epoch=g.recovery_epoch
+			WHERE p.point_id=? ORDER BY g.generation_sequence DESC`, pointID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var candidate LocalRetirementSuccessor
+			var body string
+			if err := rows.Scan(&candidate.GenerationID, &candidate.IntentID, &candidate.RepositoryID, &candidate.RepositoryClass, &candidate.RecoveryEpoch, &candidate.GenerationSequence, &candidate.GenerationDigest, &candidate.PredecessorInventoryDigest, &candidate.SuccessorInventoryDigest, &candidate.JournalDigest, &candidate.SurvivorProofDigest, &body, &candidate.StateRevision); err != nil {
+				return err
+			}
+			var payload localRetirementSuccessorPayload
+			if json.Unmarshal([]byte(body), &payload) != nil {
+				return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor", false, nil)
+			}
+			for _, survivor := range payload.Survivors {
+				if survivor.PointID == pointID {
+					out, canonical = candidate, body
+					out.Survivors, out.Objects = payload.Survivors, payload.Objects
+					return nil
+				}
+			}
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		return sql.ErrNoRows
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return out, newStoreError(generated.ErrorCodeResourceNotFound, "local-retirement-successor", false, nil)
+	}
+	if err != nil {
+		return out, err
+	}
+	var payload localRetirementSuccessorPayload
+	if json.Unmarshal([]byte(canonical), &payload) != nil || payload.IntentID != out.IntentID || payload.InventoryDigest != out.SuccessorInventoryDigest || payload.JournalDigest != out.JournalDigest || payload.ProofDigest != out.SurvivorProofDigest || payload.Epoch != out.RecoveryEpoch || pendingInventoryDigest(payload.Objects) != out.SuccessorInventoryDigest {
+		return LocalRetirementSuccessor{}, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor", false, nil)
+	}
+	sum := sha256.Sum256([]byte(canonical))
+	if "sha256:"+hex.EncodeToString(sum[:]) != out.GenerationDigest {
+		return LocalRetirementSuccessor{}, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor", false, nil)
+	}
+	return out, nil
 }
 
 func (repository *LocalRetirementRepository) LocalRetirementJournalDigest(ctx context.Context, leaseID string) (string, error) {

@@ -72,7 +72,7 @@ func NewRESTServer(root string, expectedUID uint32, lease WriterLease, verifier 
 
 // newCustodyRESTServer separates object ownership from the only admitted restic
 // peer. It is used solely by the distinct-UID custody child.
-func newCustodyRESTServer(root string, ownerUID, peerUID uint32, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal, clock func() time.Time) (*RESTServer, error) {
+func newCustodyRESTServer(root, quarantine string, ownerUID, peerUID uint32, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal, clock func() time.Time) (*RESTServer, error) {
 	var server *RESTServer
 	var err error
 	if session.Role == "writer" && session.WriterLease != nil {
@@ -80,7 +80,7 @@ func newCustodyRESTServer(root string, ownerUID, peerUID uint32, session Custody
 	} else if session.Role == "verifier" && session.ReadLease != nil {
 		server, err = newVerifierRESTServer(root, ownerUID, peerUID, *session.ReadLease, reader, clock)
 	} else if session.Role == "retention" && session.RetentionLease != nil {
-		server, err = newRetentionRESTServer(root, root+".retirement-quarantine", ownerUID, peerUID, *session.RetentionLease, retention, mutations, clock)
+		server, err = newRetentionRESTServer(root, quarantine, ownerUID, peerUID, *session.RetentionLease, retention, mutations, clock)
 	} else {
 		return nil, errors.New("backup custody rest server misconfigured")
 	}

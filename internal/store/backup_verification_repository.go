@@ -115,16 +115,18 @@ func (repository *BackupRepository) ReleaseBackupReadLease(ctx context.Context, 
 }
 
 type LocalVerificationRequest struct {
-	VerificationID, RunID, PointID, ReadLeaseID                    string
-	ManifestDigest, InventoryDigest, ObservedDigest                string
-	ContentDigest, CatalogDigest, DependencyDigest, KeyReferenceID string
-	SourceRevision                                                 int64
-	Expected                                                       RevisionToken
-	ProofClass                                                     string // fixture or live; fixture can never advance last-good
-	Result                                                         string // passed, failed or uncertain
-	ReasonCode                                                     string
-	FullReadAt, FunctionalRestoredAt                               time.Time
-	DependencyTrust                                                []BackupDependencyTrustEvidence
+	VerificationID, RunID, PointID, ReadLeaseID                          string
+	ManifestDigest, InventoryDigest, ObservedDigest                      string
+	SuccessorGenerationDigest                                            string
+	ContentDigest, CatalogDigest, DependencyDigest, KeyReferenceID       string
+	SourceRevision                                                       int64
+	CapacityTotalBytes, CapacityAvailableBytes, CapacityQuarantinedBytes int64
+	Expected                                                             RevisionToken
+	ProofClass                                                           string // fixture or live; fixture can never advance last-good
+	Result                                                               string // passed, failed or uncertain
+	ReasonCode                                                           string
+	FullReadAt, FunctionalRestoredAt                                     time.Time
+	DependencyTrust                                                      []BackupDependencyTrustEvidence
 }
 
 type BackupDependencyTrustEvidence struct {
@@ -163,13 +165,17 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 	}
 	status := request.Result
 	if status == "passed" {
-		if request.ObservedDigest != request.InventoryDigest || request.FullReadAt.IsZero() || request.FunctionalRestoredAt.IsZero() ||
+		if (request.ObservedDigest != request.InventoryDigest && !validBackupDigest(request.SuccessorGenerationDigest)) ||
+			(request.ObservedDigest == request.InventoryDigest && request.SuccessorGenerationDigest != "") || request.FullReadAt.IsZero() || request.FunctionalRestoredAt.IsZero() ||
 			request.FullReadAt.After(request.FunctionalRestoredAt) {
 			return receipt, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-local-verification")
 		}
 		if request.ProofClass == "fixture" {
 			status = "fixture-only"
 		} else {
+			if request.CapacityTotalBytes < 1 || request.CapacityAvailableBytes < 0 || request.CapacityAvailableBytes > request.CapacityTotalBytes || request.CapacityQuarantinedBytes < 0 || request.CapacityQuarantinedBytes > request.CapacityTotalBytes-request.CapacityAvailableBytes {
+				return receipt, backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-local-verification-capacity")
+			}
 			status = "local-verified"
 		}
 	} else if request.ReasonCode == "" {
@@ -208,6 +214,26 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 			stateRevision != request.Expected.StateRevision || currentEpoch != request.Expected.RecoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-local-verification")
 		}
+		if request.SuccessorGenerationDigest != "" {
+			var successorInventory, canonical string
+			if err := tx.QueryRowContext(ctx, `SELECT successor_inventory_digest,canonical_json FROM backup_retirement_successor_generations WHERE generation_digest=? AND repository_class=? AND recovery_epoch=?`, request.SuccessorGenerationDigest, class, currentEpoch).Scan(&successorInventory, &canonical); err != nil || successorInventory != request.ObservedDigest {
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-local-verification-successor")
+			}
+			var successor localRetirementSuccessorPayload
+			if json.Unmarshal([]byte(canonical), &successor) != nil {
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-local-verification-successor")
+			}
+			bound := false
+			for _, survivor := range successor.Survivors {
+				if survivor.PointID == request.PointID && survivor.ManifestDigest == request.ManifestDigest && survivor.InventoryDigest == request.InventoryDigest && survivor.DependencyDigest == request.DependencyDigest {
+					bound = true
+					break
+				}
+			}
+			if !bound || pendingInventoryDigest(successor.Objects) != successorInventory {
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-local-verification-successor")
+			}
+		}
 		if status == "local-verified" && !exactStoredDependencyTrust(manifest.ExpectedDependencies, request.DependencyTrust, request.PointID, policyDigest, stateRevision, currentEpoch) {
 			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-local-verification-dependency-trust")
 		}
@@ -235,10 +261,16 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 		if leaseCount != 1 {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-local-verification")
 		}
-		_, err := tx.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-			request.VerificationID, proofDigest, request.PointID, request.RunID, request.ReadLeaseID, status, request.ProofClass, request.ManifestDigest, request.InventoryDigest, request.ObservedDigest, request.ContentDigest, request.CatalogDigest, request.DependencyDigest, request.KeyReferenceID, request.SourceRevision, stateRevision, currentEpoch, formatOptional(request.FullReadAt), formatOptional(request.FunctionalRestoredAt), request.ReasonCode, created.Format(time.RFC3339))
+		_, err := tx.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at,successor_generation_digest) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			request.VerificationID, proofDigest, request.PointID, request.RunID, request.ReadLeaseID, status, request.ProofClass, request.ManifestDigest, request.InventoryDigest, request.ObservedDigest, request.ContentDigest, request.CatalogDigest, request.DependencyDigest, request.KeyReferenceID, request.SourceRevision, stateRevision, currentEpoch, formatOptional(request.FullReadAt), formatOptional(request.FunctionalRestoredAt), request.ReasonCode, created.Format(time.RFC3339), nullableTrustValue(request.SuccessorGenerationDigest))
 		if err != nil {
 			return backupWriteError(err)
+		}
+		if status == "local-verified" {
+			observationID := "backup-capacity-" + request.VerificationID
+			if _, err := tx.ExecContext(ctx, `INSERT INTO backup_repository_capacity_observations(observation_id,verification_id,repository_id,repository_class,total_bytes,available_bytes,quarantined_bytes,recovery_epoch,observed_at) VALUES(?,?,?,?,?,?,?,?,?)`, observationID, request.VerificationID, manifest.RepositoryID, class, request.CapacityTotalBytes, request.CapacityAvailableBytes, request.CapacityQuarantinedBytes, currentEpoch, created.Format(time.RFC3339)); err != nil {
+				return backupWriteError(err)
+			}
 		}
 		for _, proof := range request.DependencyTrust {
 			_, err = tx.ExecContext(ctx, `INSERT INTO backup_dependency_trust_evidence(verification_id,dependency_id,dependency_kind,dependency_digest,source_kind,point_id,policy_digest,source_id,artifact_id,bundle_digest,trusted_root_reference_id,trust_root_digest,signer_identity,signer_issuer,source_revision,state_revision,recovery_epoch) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,

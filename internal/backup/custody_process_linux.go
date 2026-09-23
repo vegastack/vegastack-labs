@@ -56,9 +56,16 @@ type CustodyClient interface {
 	Inventory(context.Context) ([]ExpectedObject, error)
 	InventoryExpected(context.Context, []ExpectedObject) ([]ExpectedObject, error)
 	Capacity(context.Context) (uint64, error)
+	CapacitySnapshot(context.Context) (RepositoryCapacity, error)
 	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
 	ResticObservation() ResticObservation
 	Close(context.Context) error
+}
+
+type RepositoryCapacity struct {
+	TotalBytes       uint64 `json:"totalBytes"`
+	AvailableBytes   uint64 `json:"availableBytes"`
+	QuarantinedBytes uint64 `json:"quarantinedBytes"`
 }
 
 type processCustodyClient struct {
@@ -274,17 +281,23 @@ func (client *processCustodyClient) InventoryExpected(ctx context.Context, expec
 }
 
 func (client *processCustodyClient) Capacity(ctx context.Context) (uint64, error) {
+	snapshot, err := client.CapacitySnapshot(ctx)
+	return snapshot.AvailableBytes, err
+}
+
+func (client *processCustodyClient) CapacitySnapshot(ctx context.Context) (RepositoryCapacity, error) {
 	frame, err := client.request(ctx, "capacity", nil)
 	if err != nil {
-		return 0, err
+		return RepositoryCapacity{}, err
 	}
-	var result struct {
-		Free uint64 `json:"free"`
-	}
+	var result RepositoryCapacity
 	if json.Unmarshal(frame.Payload, &result) != nil {
-		return 0, errors.New("invalid custody capacity")
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
 	}
-	return result.Free, nil
+	if result.TotalBytes == 0 || result.AvailableBytes > result.TotalBytes || result.QuarantinedBytes > result.TotalBytes-result.AvailableBytes {
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
+	}
+	return result, nil
 }
 
 func (*processCustodyClient) RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error) {
@@ -423,8 +436,10 @@ func RunCustodyChild(policyPath string) error {
 		return err
 	}
 	root := policy.StandardRoot
+	quarantine := policy.StandardQuarantine
 	if launch.Session.RepositoryClass == "critical" {
 		root = policy.CriticalRoot
+		quarantine = policy.CriticalQuarantine
 	} else if launch.Session.RepositoryClass != "standard" {
 		return errors.New("custody class rejected")
 	}
@@ -447,7 +462,7 @@ func RunCustodyChild(policyPath string) error {
 		return err
 	}
 	remote := &remoteLeaseVerifier{file: verify, nonce: launch.Session.NonceDigest}
-	rest, err := newCustodyRESTServer(root, policy.OwnerUID, policy.ResticUID, launch.Session, remote, remote, remote, remote, time.Now)
+	rest, err := newCustodyRESTServer(root, quarantine, policy.OwnerUID, policy.ResticUID, launch.Session, remote, remote, remote, remote, time.Now)
 	if err != nil {
 		return err
 	}
@@ -510,14 +525,12 @@ func RunCustodyChild(policyPath string) error {
 				response.Payload, _ = json.Marshal(object)
 			}
 		case "capacity":
-			free, capacityErr := custodyFreeBytes(root)
+			capacity, capacityErr := custodyFilesystemCapacity(root, quarantine)
 			if capacityErr != nil {
 				response.OK = false
 				response.Code = "capacity-unavailable"
 			} else {
-				response.Payload, _ = json.Marshal(struct {
-					Free uint64 `json:"free"`
-				}{free})
+				response.Payload, _ = json.Marshal(capacity)
 			}
 		case "close":
 			cancel()
@@ -551,12 +564,36 @@ func nowOr(clock func() time.Time) time.Time {
 	return time.Now()
 }
 
-func custodyFreeBytes(root string) (uint64, error) {
+func custodyFilesystemCapacity(root, quarantine string) (RepositoryCapacity, error) {
 	var stat unix.Statfs_t
 	if err := unix.Statfs(root, &stat); err != nil {
-		return 0, err
+		return RepositoryCapacity{}, err
 	}
-	return stat.Bavail * uint64(stat.Bsize), nil
+	var quarantined uint64
+	err := filepath.WalkDir(quarantine, func(path string, entry os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.Type()&os.ModeSymlink != 0 {
+			return errors.New("quarantine symlink rejected")
+		}
+		if entry.IsDir() {
+			return nil
+		}
+		info, err := entry.Info()
+		if err != nil || !info.Mode().IsRegular() || info.Size() < 0 {
+			return errors.New("invalid quarantine object")
+		}
+		if uint64(info.Size()) > ^uint64(0)-quarantined {
+			return errors.New("quarantine capacity overflow")
+		}
+		quarantined += uint64(info.Size())
+		return nil
+	})
+	if err != nil {
+		return RepositoryCapacity{}, err
+	}
+	return RepositoryCapacity{TotalBytes: stat.Blocks * uint64(stat.Bsize), AvailableBytes: stat.Bavail * uint64(stat.Bsize), QuarantinedBytes: quarantined}, nil
 }
 
 func custodyInventory(root string, owner uint32, maxObjects, maxBytes int64) ([]ExpectedObject, error) {

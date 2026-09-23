@@ -41,6 +41,8 @@ type LocalRetirementStageRequest struct {
 	Survivors                                                              []LocalRetirementSurvivor
 	SourceRevision, StateRevision, RecoveryEpoch                           int64
 	ExpectedReclaimBytes, MaxWorkObjects, MaxMutationBytes, MaxRepackBytes int64
+	CapacityTotalBytes, CapacityAvailableBytes, CapacityRetainedBytes      int64
+	CapacityQuarantinedBytes, CapacityExpectedGrowthBytes                  int64
 	Attribution                                                            audit.Attribution
 }
 
@@ -58,6 +60,8 @@ type retirementSelectionPayload struct {
 	Survivors                                                              []LocalRetirementSurvivor
 	SourceRevision, StateRevision, RecoveryEpoch                           int64
 	ExpectedReclaimBytes, MaxWorkObjects, MaxMutationBytes, MaxRepackBytes int64
+	CapacityTotalBytes, CapacityAvailableBytes, CapacityRetainedBytes      int64
+	CapacityQuarantinedBytes, CapacityExpectedGrowthBytes                  int64
 }
 
 func retirementDeadlineCurrent(raw string, now time.Time) bool {
@@ -116,6 +120,8 @@ func canonicalRetirementSelection(request LocalRetirementStageRequest) ([]byte, 
 		!validBackupDigest(request.LockCatalogDigest) || !validBackupDigest(request.SourceCoverageDigest) || request.LockCatalogSequence < 1 ||
 		request.SourceRevision < 1 || request.StateRevision < 1 || request.RecoveryEpoch < 0 || request.ExpectedReclaimBytes < 0 ||
 		request.MaxWorkObjects < 1 || request.MaxMutationBytes < 1 || request.MaxRepackBytes < 1 ||
+		request.CapacityTotalBytes < 1 || request.CapacityAvailableBytes < 0 || request.CapacityAvailableBytes > request.CapacityTotalBytes ||
+		request.CapacityRetainedBytes < 1 || request.CapacityQuarantinedBytes < 0 || request.CapacityExpectedGrowthBytes < 0 ||
 		len(request.Targets) < 1 || len(request.Survivors) < 1 || len(request.Targets)+len(request.Survivors) > 256 {
 		return invalid()
 	}
@@ -144,7 +150,10 @@ func canonicalRetirementSelection(request LocalRetirementStageRequest) ([]byte, 
 		LockCatalogDigest: request.LockCatalogDigest, SourceCoverageDigest: request.SourceCoverageDigest, LockCatalogSequence: request.LockCatalogSequence,
 		Targets: targets, Survivors: survivors, SourceRevision: request.SourceRevision, StateRevision: request.StateRevision,
 		RecoveryEpoch: request.RecoveryEpoch, ExpectedReclaimBytes: request.ExpectedReclaimBytes, MaxWorkObjects: request.MaxWorkObjects,
-		MaxMutationBytes: request.MaxMutationBytes, MaxRepackBytes: request.MaxRepackBytes}
+		MaxMutationBytes: request.MaxMutationBytes, MaxRepackBytes: request.MaxRepackBytes,
+		CapacityTotalBytes: request.CapacityTotalBytes, CapacityAvailableBytes: request.CapacityAvailableBytes,
+		CapacityRetainedBytes: request.CapacityRetainedBytes, CapacityQuarantinedBytes: request.CapacityQuarantinedBytes,
+		CapacityExpectedGrowthBytes: request.CapacityExpectedGrowthBytes}
 	canonical, err := json.Marshal(payload)
 	if err != nil || len(canonical) > 1048576 {
 		return invalid()
@@ -268,5 +277,8 @@ func (repository *LocalRetirementRepository) GetLocalRetirementIntentBySelection
 	}
 	result.Request.Targets = stored.Selection.Targets
 	result.Request.Survivors = stored.Selection.Survivors
+	result.Request.CapacityTotalBytes, result.Request.CapacityAvailableBytes = stored.Selection.CapacityTotalBytes, stored.Selection.CapacityAvailableBytes
+	result.Request.CapacityRetainedBytes, result.Request.CapacityQuarantinedBytes = stored.Selection.CapacityRetainedBytes, stored.Selection.CapacityQuarantinedBytes
+	result.Request.CapacityExpectedGrowthBytes = stored.Selection.CapacityExpectedGrowthBytes
 	return result, nil
 }

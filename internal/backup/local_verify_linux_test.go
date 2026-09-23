@@ -60,3 +60,32 @@ func TestLocalVerifierRejectsMissingExpectedSnapshotDespiteGreenMetadata(t *test
 		t.Fatalf("verifier deleted retained object: %d", code)
 	}
 }
+
+func TestSuccessorInventoryBindsOriginalPointAndExactReplacement(t *testing.T) {
+	manifest := validCreationManifest(t)
+	_, manifestDigest, err := CanonicalCreationManifest(manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacement := append([]ExpectedObject(nil), manifest.ExpectedObjects...)
+	for index := range replacement {
+		if replacement[index].Type == "data" {
+			replacement[index].Name = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+			replacement[index].Digest = "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+			break
+		}
+	}
+	successorDigest := ExpectedInventoryDigest(replacement)
+	proof, err := VerifySuccessorCustodyInventory(manifest, manifestDigest, manifest.InventoryDigest, successorDigest, replacement, replacement)
+	if err != nil || proof.OriginalInventoryDigest != manifest.InventoryDigest || proof.InventoryDigest != successorDigest {
+		t.Fatalf("proof=%+v err=%v", proof, err)
+	}
+	if _, err := VerifySuccessorCustodyInventory(manifest, manifestDigest, successorDigest, successorDigest, replacement, replacement); err == nil {
+		t.Fatal("swapped original inventory admitted")
+	}
+	tampered := append([]ExpectedObject(nil), replacement...)
+	tampered[0].Bytes++
+	if _, err := VerifySuccessorCustodyInventory(manifest, manifestDigest, manifest.InventoryDigest, successorDigest, replacement, tampered); err == nil {
+		t.Fatal("changed successor object admitted")
+	}
+}

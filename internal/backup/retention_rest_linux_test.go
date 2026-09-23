@@ -222,7 +222,7 @@ func TestRetentionDeleteRejectsObjectSwappedAfterHash(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(quarantine, "data", name)); !errors.Is(err, os.ErrNotExist) {
 		t.Fatalf("swapped object entered quarantine: %v", err)
 	}
-	if len(j.attempts) != 1 || len(j.outcomes) != 0 {
+	if len(j.attempts) != 1 || len(j.outcomes) != 1 || j.outcomes[0].Status != "uncertain" {
 		t.Fatalf("swapped effect was reported complete: attempts=%d outcomes=%d", len(j.attempts), len(j.outcomes))
 	}
 }
@@ -286,6 +286,63 @@ func TestRetentionPostStatRenameHasNoInodeCompareAndSwap(t *testing.T) {
 	contents, err := os.ReadFile(filepath.Join(held, name))
 	if err != nil || string(contents) != "replacement!!" {
 		t.Fatalf("unexpected renamed bytes %q: %v", contents, err)
+	}
+}
+
+func TestCustodyRetentionUsesExactPolicyQuarantine(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	root, quarantine := filepath.Join(base, "repository"), filepath.Join(base, "fixed-quarantine")
+	for _, path := range []string{root, quarantine} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	now := time.Now().UTC()
+	lease := RetentionLease{LeaseID: "retention-policy-q", RepositoryID: "repository-a", RecoveryEpoch: 1, MaximumExpiresAt: now.Add(time.Minute), MaxMutations: 10, MaxMutationBytes: 1 << 20, PlannedSnapshotIDs: []string{strings.Repeat("a", 64)}}
+	session := CustodySession{Role: "retention", RetentionLease: &lease}
+	server, err := newCustodyRESTServer(root, quarantine, uint32(os.Geteuid()), uint32(os.Geteuid()), session, nil, nil, allowingRetentionLeaseVerifier{}, &retentionJournalFixture{}, func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if server.quarantineRoot != quarantine {
+		t.Fatalf("quarantine=%q want policy path %q", server.quarantineRoot, quarantine)
+	}
+	if _, err := os.Stat(root + ".retirement-quarantine"); !os.IsNotExist(err) {
+		t.Fatalf("synthesized quarantine exists: %v", err)
+	}
+}
+
+func TestRetentionEarlyDenialIsJournaled(t *testing.T) {
+	base := t.TempDir()
+	if err := os.Chmod(base, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	root, quarantine := filepath.Join(base, "repository"), filepath.Join(base, "quarantine")
+	for _, path := range []string{root, quarantine} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	journal := &retentionJournalFixture{}
+	lease := RetentionLease{LeaseID: "retention-denial", RepositoryID: "repository-a", RecoveryEpoch: 2, MaximumExpiresAt: time.Now().Add(time.Minute), MaxMutations: 4, MaxMutationBytes: 1024, PlannedSnapshotIDs: []string{strings.Repeat("a", 64)}}
+	server, err := NewRetentionRESTServer(root, quarantine, uint32(os.Geteuid()), lease, allowingRetentionLeaseVerifier{}, journal, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := httptest.NewRequest(http.MethodDelete, "/repository-a/config", nil)
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden {
+		t.Fatalf("status=%d", response.Code)
+	}
+	if len(journal.attempts) != 1 || journal.attempts[0].ObjectType != "config" || journal.attempts[0].MutationKind != "delete" {
+		t.Fatalf("attempts=%+v", journal.attempts)
+	}
+	if len(journal.outcomes) != 1 || journal.outcomes[0].Status != "denied" {
+		t.Fatalf("outcomes=%+v", journal.outcomes)
 	}
 }
 

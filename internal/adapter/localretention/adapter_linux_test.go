@@ -5,12 +5,14 @@ package localretention
 import (
 	"context"
 	"math"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
 func TestLocalRetentionHasNoUnboundExecutionPath(t *testing.T) {
@@ -23,6 +25,33 @@ func TestLocalRetentionHasNoUnboundExecutionPath(t *testing.T) {
 	}
 	if _, err := instance.ExecuteBoundWithCredentials(context.Background(), adapter.Operation{}, adapter.ExactExecutionBinding{}, nil); err == nil {
 		t.Fatal("malformed exact binding admitted destructive local retention")
+	}
+}
+
+func TestCustodyPolicyMustMatchServerProfileBeforeClaim(t *testing.T) {
+	base := filepath.Join(string(filepath.Separator), "srv", "vsk-backup")
+	profile := &serverconfig.LocalBackup{StandardRoot: filepath.Join(base, "standard"), CriticalRoot: filepath.Join(base, "critical"), ResticBinaryPath: "/usr/local/bin/restic"}
+	policy := backup.CustodyPolicy{ControllerUID: 1000, StandardRoot: profile.StandardRoot, CriticalRoot: profile.CriticalRoot,
+		StandardQuarantine: filepath.Join(base, "standard-quarantine"), CriticalQuarantine: filepath.Join(base, "critical-quarantine"), ResticBinaryPath: profile.ResticBinaryPath}
+	if !custodyPolicyMatchesProfile(policy, profile, 1000, "standard") || !custodyPolicyMatchesProfile(policy, profile, 1000, "critical") {
+		t.Fatal("exact custody policy/profile binding rejected")
+	}
+	for name, mutate := range map[string]func(*backup.CustodyPolicy){
+		"controller":    func(value *backup.CustodyPolicy) { value.ControllerUID++ },
+		"standard-root": func(value *backup.CustodyPolicy) { value.StandardRoot = filepath.Join(base, "other") },
+		"critical-root": func(value *backup.CustodyPolicy) { value.CriticalRoot = filepath.Join(base, "other") },
+		"restic":        func(value *backup.CustodyPolicy) { value.ResticBinaryPath = "/usr/bin/restic" },
+		"quarantine": func(value *backup.CustodyPolicy) {
+			value.StandardQuarantine = filepath.Join(string(filepath.Separator), "other", "quarantine")
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			changed := policy
+			mutate(&changed)
+			if custodyPolicyMatchesProfile(changed, profile, 1000, "standard") {
+				t.Fatal("mismatched custody policy admitted")
+			}
+		})
 	}
 }
 

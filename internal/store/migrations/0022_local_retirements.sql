@@ -4,6 +4,24 @@
 -- An absent activation is unknown, not an empty promise set. One row is the
 -- complete applied point-bound lock catalog for its generation. A later row
 -- supersedes it only through another exact human plan; no in-place release.
+ALTER TABLE backup_local_verifications ADD COLUMN successor_generation_digest TEXT
+    CHECK (successor_generation_digest IS NULL OR (length(successor_generation_digest)=71 AND substr(successor_generation_digest,1,7)='sha256:'));
+
+CREATE TABLE backup_repository_capacity_observations (
+    observation_id TEXT PRIMARY KEY,
+    verification_id TEXT NOT NULL UNIQUE REFERENCES backup_local_verifications(verification_id),
+    repository_id TEXT NOT NULL,
+    repository_class TEXT NOT NULL CHECK (repository_class IN ('standard','critical')),
+    total_bytes INTEGER NOT NULL CHECK (total_bytes > 0),
+    available_bytes INTEGER NOT NULL CHECK (available_bytes >= 0 AND available_bytes <= total_bytes),
+    quarantined_bytes INTEGER NOT NULL CHECK (quarantined_bytes >= 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    observed_at TEXT NOT NULL
+) STRICT;
+CREATE INDEX backup_repository_capacity_current_idx ON backup_repository_capacity_observations(repository_class,recovery_epoch,observed_at DESC);
+CREATE TRIGGER backup_repository_capacity_observations_no_update BEFORE UPDATE ON backup_repository_capacity_observations BEGIN SELECT RAISE(ABORT,'backup capacity observations are append-only'); END;
+CREATE TRIGGER backup_repository_capacity_observations_no_delete BEFORE DELETE ON backup_repository_capacity_observations BEGIN SELECT RAISE(ABORT,'backup capacity observations are append-only'); END;
+
 CREATE TABLE backup_retention_lock_catalog_drafts (
     draft_id TEXT PRIMARY KEY CHECK (length(draft_id) BETWEEN 1 AND 128),
     catalog_digest TEXT NOT NULL UNIQUE CHECK (length(catalog_digest)=71 AND substr(catalog_digest,1,7)='sha256:'),
@@ -133,7 +151,7 @@ CREATE TABLE backup_retirement_mutation_attempts (
     lease_id TEXT NOT NULL REFERENCES backup_retirement_leases(lease_id),
     sequence INTEGER NOT NULL CHECK (sequence > 0),
     mutation_kind TEXT NOT NULL CHECK (mutation_kind IN ('put','delete')),
-    object_type TEXT NOT NULL CHECK (object_type IN ('data','index','snapshots','locks')),
+    object_type TEXT NOT NULL CHECK (object_type IN ('config','keys','data','index','snapshots','locks')),
     object_name TEXT NOT NULL CHECK (length(object_name) BETWEEN 1 AND 128),
     object_digest TEXT NOT NULL CHECK (length(object_digest)=71 AND substr(object_digest,1,7)='sha256:'),
     object_bytes INTEGER NOT NULL CHECK (object_bytes >= 0),

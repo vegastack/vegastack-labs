@@ -148,29 +148,34 @@ func (server *RESTServer) openStagingTypeDir(objectType string) (int, error) {
 
 func (server *RESTServer) handleRetainedCreate(w http.ResponseWriter, r *http.Request, object objectRequest) {
 	if (r.Method != http.MethodPost && r.Method != http.MethodPut) || (object.objectType != "data" && object.objectType != "index" && object.objectType != "locks") || r.Body == nil {
+		server.journalRetainedDenial(r, "put", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	server.mu.Lock()
 	defer server.mu.Unlock()
 	if server.retentionMutations >= server.retentionLease.MaxMutations || server.retentionBytes >= server.retentionLease.MaxMutationBytes {
+		server.journalRetainedDenialLocked(r, "put", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	stagingFD, err := server.openStagingTypeDir(object.objectType)
 	if err != nil {
+		server.journalRetainedDenialLocked(r, "put", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	defer unix.Close(stagingFD)
 	fd, err := unix.Openat(stagingFD, object.name, unix.O_WRONLY|unix.O_CREAT|unix.O_EXCL|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0o600)
 	if err != nil {
+		server.journalRetainedDenialLocked(r, "put", object, "", 0)
 		http.Error(w, "conflict", http.StatusConflict)
 		return
 	}
 	file := os.NewFile(uintptr(fd), object.name)
 	if file == nil {
 		unix.Close(fd)
+		server.journalRetainedDenialLocked(r, "put", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -182,6 +187,7 @@ func (server *RESTServer) handleRetainedCreate(w http.ResponseWriter, r *http.Re
 	bytes, copyErr := io.Copy(io.MultiWriter(file, hasher), io.LimitReader(r.Body, limit+1))
 	syncErr, closeErr := file.Sync(), file.Close()
 	if copyErr != nil || syncErr != nil || closeErr != nil || bytes < 1 || bytes > limit || unix.Fsync(stagingFD) != nil {
+		server.journalRetainedDenialLocked(r, "put", object, "sha256:"+hex.EncodeToString(hasher.Sum(nil)), bytes)
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
@@ -198,15 +204,18 @@ func (server *RESTServer) handleRetainedCreate(w http.ResponseWriter, r *http.Re
 	server.retentionBytes += bytes
 	destFD, err := server.openTypeDir(object.objectType, false)
 	if err != nil {
+		server.finishRetainedUncertainLocked(r, attempt)
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
 	defer unix.Close(destFD)
 	if err := unix.Renameat2(stagingFD, object.name, destFD, object.name, unix.RENAME_NOREPLACE); err != nil {
+		server.finishRetainedUncertainLocked(r, attempt)
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
 	if unix.Fsync(stagingFD) != nil || unix.Fsync(destFD) != nil {
+		server.finishRetainedUncertainLocked(r, attempt)
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
@@ -225,23 +234,27 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 	// Config and keys are never retirement targets. Snapshot IDs are always
 	// prelisted; pack and index IDs are dynamically journaled by restic prune.
 	if object.isConfig || object.objectType == "keys" || (object.objectType == "snapshots" && !server.plannedSnapshot(object.name)) {
+		server.journalRetainedDenial(r, "delete", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	fileFD, err := server.openObject(object, false)
 	if err != nil {
+		server.journalRetainedDenial(r, "delete", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	var before unix.Stat_t
 	if err := unix.Fstat(fileFD, &before); err != nil || before.Mode&unix.S_IFMT != unix.S_IFREG || before.Nlink != 1 {
 		unix.Close(fileFD)
+		server.journalRetainedDenial(r, "delete", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
 	file := os.NewFile(uintptr(fileFD), object.name)
 	if file == nil {
 		unix.Close(fileFD)
+		server.journalRetainedDenial(r, "delete", object, "", 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -251,6 +264,7 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 	statErr := unix.Fstat(fileFD, &afterHash)
 	closeErr := file.Close()
 	if hashErr != nil || statErr != nil || closeErr != nil || bytes < 0 || bytes != before.Size || !sameRetainedObject(before, afterHash) {
+		server.journalRetainedDenial(r, "delete", object, "sha256:"+hex.EncodeToString(hasher.Sum(nil)), bytes)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -258,11 +272,13 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 	defer server.mu.Unlock()
 	if object.isLock {
 		if _, own := server.ownLocks[object.name]; !own {
+			server.journalRetainedDenialLocked(r, "delete", object, "sha256:"+hex.EncodeToString(hasher.Sum(nil)), bytes)
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
 	}
 	if server.retentionMutations >= server.retentionLease.MaxMutations || bytes > server.retentionLease.MaxMutationBytes-server.retentionBytes {
+		server.journalRetainedDenialLocked(r, "delete", object, "sha256:"+hex.EncodeToString(hasher.Sum(nil)), bytes)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
 	}
@@ -279,26 +295,31 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 	server.retentionBytes += bytes
 	sourceFD, err := server.openTypeDir(object.objectType, false)
 	if err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		server.finishRetainedUncertainLocked(r, attempt)
+		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
 	defer unix.Close(sourceFD)
 	var beforeRename unix.Stat_t
 	if err := unix.Fstatat(sourceFD, object.name, &beforeRename, unix.AT_SYMLINK_NOFOLLOW); err != nil || !sameRetainedObject(before, beforeRename) {
+		server.finishRetainedUncertainLocked(r, attempt)
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
 	holdFD, err := server.openQuarantineTypeDir(object.objectType)
 	if err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		server.finishRetainedUncertainLocked(r, attempt)
+		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
 	defer unix.Close(holdFD)
 	if err := unix.Renameat2(sourceFD, object.name, holdFD, object.name, unix.RENAME_NOREPLACE); err != nil {
-		http.Error(w, "forbidden", http.StatusForbidden)
+		server.finishRetainedUncertainLocked(r, attempt)
+		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
 	if unix.Fsync(sourceFD) != nil || unix.Fsync(holdFD) != nil {
+		server.finishRetainedUncertainLocked(r, attempt)
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
@@ -312,6 +333,41 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 		delete(server.ownLocks, object.name)
 	}
 	w.WriteHeader(http.StatusOK)
+}
+
+func (server *RESTServer) finishRetainedUncertainLocked(r *http.Request, attempt RetainedMutationAttempt) {
+	_ = server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{
+		MutationID: attempt.MutationID, LeaseID: attempt.LeaseID, ObjectType: attempt.ObjectType,
+		ObjectName: attempt.ObjectName, Status: "uncertain",
+	})
+}
+
+func (server *RESTServer) journalRetainedDenial(r *http.Request, kind string, object objectRequest, digest string, bytes int64) {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	server.journalRetainedDenialLocked(r, kind, object, digest, bytes)
+}
+
+func (server *RESTServer) journalRetainedDenialLocked(r *http.Request, kind string, object objectRequest, digest string, bytes int64) {
+	if server.retentionJournal == nil || server.retentionLease == nil || object.objectType == "" || object.name == "" {
+		return
+	}
+	if digest == "" {
+		empty := sha256.Sum256(nil)
+		digest = "sha256:" + hex.EncodeToString(empty[:])
+	}
+	sequence := server.retentionMutations + 1
+	attempt := RetainedMutationAttempt{MutationID: retainedMutationID(server.retentionLease.LeaseID, sequence), Sequence: sequence,
+		LeaseID: server.retentionLease.LeaseID, RepositoryID: server.repositoryID, MutationKind: kind, ObjectType: object.objectType,
+		ObjectName: object.name, Digest: digest, Bytes: bytes, RecoveryEpoch: server.retentionLease.RecoveryEpoch}
+	beginErr := server.retentionJournal.BeginRetainedMutation(r.Context(), attempt)
+	server.retentionMutations++
+	if bytes > 0 && bytes <= server.retentionLease.MaxMutationBytes-server.retentionBytes {
+		server.retentionBytes += bytes
+	}
+	if beginErr == nil {
+		_ = server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{MutationID: attempt.MutationID, LeaseID: attempt.LeaseID, ObjectType: object.objectType, ObjectName: object.name, Status: "denied"})
+	}
 }
 
 func sameRetainedObject(left, right unix.Stat_t) bool {

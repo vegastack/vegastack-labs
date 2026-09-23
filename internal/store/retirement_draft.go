@@ -22,11 +22,13 @@ type LocalRetirementDraftInput struct {
 }
 
 type LocalRetirementDraftSources struct {
-	Points                       []LocalRetirementDraftInput
-	LastGoodIDs                  []string
-	Objects                      []ExpectedObjectRow
-	Locks                        AppliedLocalRetentionLocks
-	StateRevision, RecoveryEpoch int64
+	Points                                                               []LocalRetirementDraftInput
+	LastGoodIDs                                                          []string
+	Objects                                                              []ExpectedObjectRow
+	Locks                                                                AppliedLocalRetentionLocks
+	StateRevision, RecoveryEpoch                                         int64
+	CapacityTotalBytes, CapacityAvailableBytes, CapacityQuarantinedBytes int64
+	ExpectedGrowthBytes                                                  int64
 }
 
 // LoadLocalRetirementDraftSources reads only current authoritative rows. Every
@@ -134,6 +136,12 @@ func (repository *LocalRetirementRepository) LoadLocalRetirementDraftSources(ctx
 		if len(result.Objects) == 0 {
 			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-inventory", false, nil)
 		}
+		if err := tx.queryRow(ctx, `SELECT total_bytes,available_bytes,quarantined_bytes FROM backup_repository_capacity_observations WHERE repository_class=? AND recovery_epoch=? ORDER BY observed_at DESC,observation_id DESC LIMIT 1`, class, epoch).Scan(&result.CapacityTotalBytes, &result.CapacityAvailableBytes, &result.CapacityQuarantinedBytes); err != nil {
+			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-capacity-observation", false, err)
+		}
+		if err := tx.queryRow(ctx, `SELECT COALESCE(MAX(CAST(json_extract(d.canonical_json,'$.expectedGrowthBytes') AS INTEGER)),0) FROM recovery_points p JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch WHERE p.repository_class=? AND p.recovery_epoch=?`, class, epoch).Scan(&result.ExpectedGrowthBytes); err != nil || result.ExpectedGrowthBytes < 0 {
+			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-capacity-growth", false, err)
+		}
 		return nil
 	})
 	if err != nil {
@@ -232,7 +240,7 @@ func (repository *LocalRetirementRepository) scanLocalRetirementDraft(ctx contex
 	if json.Unmarshal([]byte(canonical), &payload) != nil {
 		return LocalRetirementDraft{}, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-draft", false, nil)
 	}
-	out.Selection = LocalRetirementStageRequest{RepositoryID: payload.Selection.RepositoryID, RepositoryClass: payload.Selection.RepositoryClass, CatalogDigest: payload.Selection.CatalogDigest, ExpectedInventoryDigest: payload.Selection.ExpectedInventoryDigest, SelectionDigest: out.SelectionDigest, LockCatalogDigest: payload.Selection.LockCatalogDigest, SourceCoverageDigest: payload.Selection.SourceCoverageDigest, LockCatalogSequence: payload.Selection.LockCatalogSequence, Targets: payload.Selection.Targets, Survivors: payload.Selection.Survivors, SourceRevision: payload.Selection.SourceRevision, StateRevision: payload.Selection.StateRevision, RecoveryEpoch: payload.Selection.RecoveryEpoch, ExpectedReclaimBytes: payload.Selection.ExpectedReclaimBytes, MaxWorkObjects: payload.Selection.MaxWorkObjects, MaxMutationBytes: payload.Selection.MaxMutationBytes, MaxRepackBytes: payload.Selection.MaxRepackBytes}
+	out.Selection = LocalRetirementStageRequest{RepositoryID: payload.Selection.RepositoryID, RepositoryClass: payload.Selection.RepositoryClass, CatalogDigest: payload.Selection.CatalogDigest, ExpectedInventoryDigest: payload.Selection.ExpectedInventoryDigest, SelectionDigest: out.SelectionDigest, LockCatalogDigest: payload.Selection.LockCatalogDigest, SourceCoverageDigest: payload.Selection.SourceCoverageDigest, LockCatalogSequence: payload.Selection.LockCatalogSequence, Targets: payload.Selection.Targets, Survivors: payload.Selection.Survivors, SourceRevision: payload.Selection.SourceRevision, StateRevision: payload.Selection.StateRevision, RecoveryEpoch: payload.Selection.RecoveryEpoch, ExpectedReclaimBytes: payload.Selection.ExpectedReclaimBytes, MaxWorkObjects: payload.Selection.MaxWorkObjects, MaxMutationBytes: payload.Selection.MaxMutationBytes, MaxRepackBytes: payload.Selection.MaxRepackBytes, CapacityTotalBytes: payload.Selection.CapacityTotalBytes, CapacityAvailableBytes: payload.Selection.CapacityAvailableBytes, CapacityRetainedBytes: payload.Selection.CapacityRetainedBytes, CapacityQuarantinedBytes: payload.Selection.CapacityQuarantinedBytes, CapacityExpectedGrowthBytes: payload.Selection.CapacityExpectedGrowthBytes}
 	out.Attribution = payload.Attribution
 	_, digest, e := canonicalRetirementSelection(out.Selection)
 	if e != nil || digest != out.SelectionDigest {

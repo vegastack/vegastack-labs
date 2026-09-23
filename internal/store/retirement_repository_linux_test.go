@@ -30,6 +30,7 @@ func retirementStageFixture(t *testing.T, authority *Store, risk, branch string)
 		Targets:        []LocalRetirementTarget{{PointID: "old-point", SnapshotID: strings.Repeat("a", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest}},
 		Survivors:      []LocalRetirementSurvivor{{PointID: "good-point", SnapshotID: strings.Repeat("b", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest, ProofDigest: testDigest}},
 		SourceRevision: 2, StateRevision: 2, RecoveryEpoch: 0, MaxWorkObjects: 10, MaxMutationBytes: 1024, MaxRepackBytes: 1024,
+		CapacityTotalBytes: 10000, CapacityAvailableBytes: 5000, CapacityRetainedBytes: 1000, CapacityQuarantinedBytes: 0, CapacityExpectedGrowthBytes: 100,
 		Attribution: validDeclarationStoreRequest().Attribution}
 	_, digest, err := canonicalRetirementSelection(request)
 	if err != nil {
@@ -186,6 +187,26 @@ func TestLocalRetirementStageIsInertExactAndAppendOnly(t *testing.T) {
 	}
 }
 
+func TestLocalRetirementSelectionBindsCapacityEvidence(t *testing.T) {
+	authority := openRetirementTestStore(t)
+	request := retirementStageFixture(t, authority, "destructive", "human")
+	_, original, err := canonicalRetirementSelection(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed := request
+	changed.CapacityAvailableBytes--
+	_, changedDigest, err := canonicalRetirementSelection(changed)
+	if err != nil || changedDigest == original {
+		t.Fatalf("capacity not bound: digest=%q err=%v", changedDigest, err)
+	}
+	invalid := request
+	invalid.CapacityTotalBytes = 0
+	if _, _, err := canonicalRetirementSelection(invalid); err == nil {
+		t.Fatal("missing capacity evidence admitted")
+	}
+}
+
 func TestLocalRetirementStageRejectsStaleOrNonHumanPlan(t *testing.T) {
 	for _, test := range []struct{ name, risk, branch string }{
 		{"routine", "routine", "human"},
@@ -286,26 +307,11 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 		MutationKind: "put", ObjectType: "data", ObjectName: strings.Repeat("f", 64), ObjectDigest: testDigest,
 		ObjectBytes: 100, RecoveryEpoch: request.RecoveryEpoch, Attribution: request.Attribution}
 	retirement := NewLocalRetirementRepository(authority)
-	unlisted := mutation
-	unlisted.MutationKind = "delete"
-	if err := retirement.BeginLocalMutation(ctx, unlisted); err == nil {
-		t.Fatal("unlisted pack deletion was journal-authorized")
-	}
-	overbudget := mutation
-	overbudget.ObjectBytes = request.MaxRepackBytes + 1
-	if err := retirement.BeginLocalMutation(ctx, overbudget); err == nil {
-		t.Fatal("repack budget exceeded before any retained-object effect")
-	}
 	if err := retirement.BeginLocalMutation(ctx, mutation); err != nil {
 		t.Fatalf("active exact lease could not journal attempt: %v", err)
 	}
 	if err := retirement.BeginLocalMutation(ctx, mutation); err == nil {
 		t.Fatal("byte-identical attempt replay was silently reauthorized")
-	}
-	unresolved := mutation
-	unresolved.MutationID, unresolved.Sequence = "mutation-two", 2
-	if err := retirement.BeginLocalMutation(ctx, unresolved); err == nil {
-		t.Fatal("unresolved mutation allowed another retained-object operation")
 	}
 	if err := retirement.FinishLocalMutation(ctx, LocalRetirementMutationOutcome{MutationID: mutation.MutationID, LeaseID: mutation.LeaseID,
 		Status: "quarantined", QuarantineName: "data/" + mutation.ObjectName, Attribution: request.Attribution}); err == nil {
@@ -318,6 +324,7 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 	if err := retirement.FinishLocalMutation(ctx, created); err == nil {
 		t.Fatal("duplicate mutation outcome silently rewritten")
 	}
+	unresolved := mutation
 	createdDelete := mutation
 	createdDelete.MutationID, createdDelete.Sequence, createdDelete.MutationKind = "mutation-two", 2, "delete"
 	if err := retirement.BeginLocalMutation(ctx, createdDelete); err != nil {
@@ -327,18 +334,21 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 		Status: "quarantined", QuarantineName: "data/" + createdDelete.ObjectName, Attribution: request.Attribution}); err != nil {
 		t.Fatalf("same-lease prune quarantine not durable: %v", err)
 	}
-	unresolved.MutationID, unresolved.Sequence, unresolved.ObjectName = "mutation-three", 3, strings.Repeat("e", 64)
-	if err := retirement.BeginLocalMutation(ctx, unresolved); err != nil {
-		t.Fatalf("settled prior attempt did not admit next bounded attempt: %v", err)
+	unresolved.MutationID, unresolved.Sequence, unresolved.ObjectName, unresolved.MutationKind = "mutation-three", 3, strings.Repeat("e", 64), "delete"
+	if err := retirement.BeginLocalMutation(ctx, unresolved); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("unlisted mutation was not durably denied: %v", err)
 	}
-	if err := retirement.FinishLocalMutation(ctx, LocalRetirementMutationOutcome{MutationID: unresolved.MutationID, LeaseID: unresolved.LeaseID,
-		Status: "uncertain", Attribution: request.Attribution}); err != nil {
-		t.Fatalf("uncertain outcome was not durable: %v", err)
+	var denied int
+	if err := authority.conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_retirement_mutation_attempts a JOIN backup_retirement_mutation_outcomes o ON o.mutation_id=a.mutation_id WHERE a.mutation_id=? AND o.status='denied'`, unresolved.MutationID).Scan(&denied); err != nil || denied != 1 {
+		t.Fatalf("denied mutation absent from journal: count=%d err=%v", denied, err)
+	}
+	if _, err := retirement.LocalRetirementJournalDigest(ctx, mutation.LeaseID); Code(err) != generated.ErrorCodeRecoveryRequired {
+		t.Fatalf("mixed denial remained settleable: %v", err)
 	}
 	third := unresolved
 	third.MutationID, third.Sequence, third.ObjectName = "mutation-four", 4, strings.Repeat("d", 64)
-	if err := retirement.BeginLocalMutation(ctx, third); Code(err) != generated.ErrorCodePrerequisiteBlocked {
-		t.Fatalf("uncertain outcome admitted another mutation: %v", err)
+	if err := retirement.BeginLocalMutation(ctx, third); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("denied outcome admitted another mutation: %v", err)
 	}
 	authority.config.Clock = func() time.Time { return time.Date(2026, 9, 12, 18, 30, 2, 0, time.UTC) }
 	if err := retirement.BeginLocalMutation(ctx, third); Code(err) != generated.ErrorCodeRecoveryRequired {
@@ -386,5 +396,113 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 		RepositoryClass: request.RepositoryClass, TargetID: request.RepositoryID, SourceRevision: request.SourceRevision, RecoveryEpoch: request.RecoveryEpoch,
 		MaximumExpiresAt: authority.config.Clock().Add(time.Hour)}); err != nil {
 		t.Fatalf("writer blocked after explicit retention release and read release: %v", err)
+	}
+}
+
+func TestClaimLocalRetirementRechecksCapacityAndAdmitsQuarantinedSharedPack(t *testing.T) {
+	ctx := context.Background()
+	authority := openRetirementTestStore(t)
+	request := retirementStageFixture(t, authority, "destructive", "human")
+	retirement := NewLocalRetirementRepository(authority)
+	intent, err := retirement.StageLocalRetirement(ctx, request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	stamp := authority.config.Clock().UTC().Format(time.RFC3339)
+	policyBytes, _ := json.Marshal(validBackupPolicy())
+	planTarget, _ := localRepositoryPlanTargetDigest(request.RepositoryID)
+	var credentialDigest string
+	if err := authority.conn.QueryRowContext(ctx, `SELECT json_extract(canonical_bytes,'$.operations[0].inputDigest') FROM immutable_plans WHERE plan_id=?`, request.PlanID).Scan(&credentialDigest); err != nil {
+		t.Fatal(err)
+	}
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO backup_policy_drafts(draft_id,policy_id,owner_id,repository_class,revision,recovery_epoch,canonical_json,policy_digest,idempotency_key_digest,state_revision,created_by,created_at) VALUES('draft-policy','policy-a','owner-a','standard',1,0,?,?,?,1,'human-a',?)`, []any{string(policyBytes), testDigest, "sha256:" + strings.Repeat("9", 64), stamp}},
+		{`INSERT INTO acknowledgement_requests(acknowledgement_id,plan_id,plan_digest,target_digest,reason_digest,human_id,authority_id,nonce_digest,state_revision,recovery_epoch,expires_at,status,request_bytes,pending_bytes,created_at,decided_at,consumed_at) VALUES('ack-claim',?,?,?,?, 'human-a','infra-admin',?, ?,?,'2026-09-13T00:00:00Z','approved',X'01',X'01',?,?,?)`, []any{request.PlanID, request.PlanDigest, planTarget, testDigest, "sha256:" + strings.Repeat("8", 64), request.StateRevision, request.RecoveryEpoch, stamp, stamp, stamp}},
+		{`INSERT INTO acknowledgement_proofs(acknowledgement_id,proof_digest,status,canonical_bytes,received_at) VALUES('ack-claim',?,'approved',X'01',?)`, []any{"sha256:" + strings.Repeat("7", 64), stamp}},
+		{`INSERT INTO plan_runs(run_id,plan_id,plan_digest,authorization_decision_id,acknowledgement_id,policy_version,executor_mode,executor_id,executor_binding_digest,status,cancellation_requested,rollback_status,verification_status,changed,state_revision,recovery_epoch,submit_key_digest,request_digest,canonical_bytes,created_at,updated_at) VALUES('run-claim',?,?,'decision-claim','ack-claim','1.0.0','central','central',?,'running',0,'not-requested','pending',0,?,?,?, ?,X'01',?,?)`, []any{request.PlanID, request.PlanDigest, testDigest, request.StateRevision, request.RecoveryEpoch, "sha256:" + strings.Repeat("6", 64), "sha256:" + strings.Repeat("5", 64), stamp, stamp}},
+		{`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,started_at) VALUES('step-claim','run-claim',1,'operation-a','backup.local.retire','local.retention','central',?,?,?,0,'running','intent-recorded','exec-claim',?)`, []any{request.RepositoryID, credentialDigest, request.ExpectedInventoryDigest, stamp}},
+		{`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES('exec-claim','run-claim','step-claim',?,?,?, ?,?,?,?,?, 'active',X'01')`, []any{request.RepositoryID, testDigest, "sha256:" + strings.Repeat("4", 64), request.RecoveryEpoch, stamp, stamp, "2026-09-12T19:00:00Z", "2026-09-12T19:00:00Z"}},
+		{`INSERT INTO backup_retention_lock_catalog_activations(activation_id,repository_id,repository_class,catalog_digest,source_coverage_digest,canonical_json,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,acknowledgement_id,human_id,state_revision,recovery_epoch,activated_at) SELECT 'lock-claim',?,?,?, ?,?,p.declaration_id,p.declaration_revision,p.plan_id,p.plan_digest,'run-claim','step-claim','ack-claim','human-a',?,?,? FROM immutable_plans p WHERE p.plan_id=?`, []any{request.RepositoryID, request.RepositoryClass, request.LockCatalogDigest, request.SourceCoverageDigest, retirementLockCatalogJSON(t), request.StateRevision, request.RecoveryEpoch, stamp, request.PlanID}},
+	}
+	for _, statement := range statements {
+		if _, err := authority.conn.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatalf("seed claim: %v", err)
+		}
+	}
+	sharedName := strings.Repeat("c", 64)
+	for index, point := range []struct{ id, snapshot, manifest, inventory string }{{request.Targets[0].PointID, request.Targets[0].SnapshotID, request.Targets[0].ManifestDigest, request.Targets[0].InventoryDigest}, {request.Survivors[0].PointID, request.Survivors[0].SnapshotID, request.Survivors[0].ManifestDigest, request.Survivors[0].InventoryDigest}} {
+		job := "job-claim-" + point.id
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,'policy-a',?,?,?,'run-source',?,'local','fixture','pending',0,?,?)`, job, testDigest, request.RepositoryID, request.RepositoryClass, point.id, stamp, stamp); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,created_at) VALUES(?,?,'policy-a',?,?,?,'local','fixture',?,1,1,100,?,?,'{}',?,?,0,'pending',?)`, point.id, job, testDigest, request.RepositoryID, request.RepositoryClass, point.snapshot, testDigest, point.manifest, point.inventory, request.SourceRevision, stamp); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_expected_objects(point_id,object_type,object_name,object_bytes,object_digest) VALUES(?,'data',?,100,?)`, point.id, sharedName, testDigest); err != nil {
+			t.Fatal(err)
+		}
+		if index == 1 {
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_read_leases(lease_id,point_id,repository_id,repository_class,source_revision,state_revision,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES('read-claim',?,?,?,?,?,0,'2026-09-12T18:29:00Z',?,'2026-09-12T18:29:30Z')`, point.id, request.RepositoryID, request.RepositoryClass, request.SourceRevision, request.StateRevision, stamp); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES('verify-claim',?,?,'run-source','read-claim','local-verified','live',?,?,?,?,?,?,'key-a',?,?,0,?,?, '',?)`, request.Survivors[0].ProofDigest, point.id, point.manifest, point.inventory, point.inventory, testDigest, testDigest, request.Survivors[0].DependencyDigest, request.SourceRevision, request.StateRevision, stamp, stamp, stamp); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_local_last_good(repository_class,point_id,verification_id,state_revision,recovery_epoch,advanced_at) VALUES(?,?,'verify-claim',?,0,?)`, request.RepositoryClass, point.id, request.StateRevision, stamp); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_repository_capacity_observations(observation_id,verification_id,repository_id,repository_class,total_bytes,available_bytes,quarantined_bytes,recovery_epoch,observed_at) VALUES('capacity-claim','verify-claim',?,?,?, ?,?,0,?)`, request.RepositoryID, request.RepositoryClass, request.CapacityTotalBytes, request.CapacityAvailableBytes, request.CapacityQuarantinedBytes, stamp); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	claimRequest := LocalRetirementClaimRequest{IntentID: intent.IntentID, LeaseID: "retention-claim", PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: "run-claim", StepID: "step-claim", ExecutorLeaseID: "exec-claim", RetentionConsumerID: "backup-retention", RecoveryEpoch: 0, MaximumExpiresAt: time.Date(2026, 9, 12, 19, 0, 0, 0, time.UTC), Attribution: request.Attribution}
+	lease, err := retirement.ClaimLocalRetirement(ctx, claimRequest)
+	if err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	nonceDigest := "sha256:" + strings.Repeat("3", 64)
+	if err := retirement.BeginRetirementCustody(ctx, lease.LeaseID, nonceDigest); err != nil {
+		t.Fatal(err)
+	}
+	replacementName := strings.Repeat("d", 64)
+	replacement := LocalRetirementMutationAttempt{MutationID: "mutation-replacement-pack", LeaseID: lease.LeaseID, MutationKind: "put", ObjectType: "data", ObjectName: replacementName, ObjectDigest: testDigest, Sequence: 1, ObjectBytes: 50, RecoveryEpoch: 0, Attribution: request.Attribution}
+	if err := retirement.BeginLocalMutation(ctx, replacement); err != nil {
+		t.Fatalf("successor replacement was not admitted: %v", err)
+	}
+	if err := retirement.FinishLocalMutation(ctx, LocalRetirementMutationOutcome{MutationID: replacement.MutationID, LeaseID: lease.LeaseID, Status: "created", Attribution: request.Attribution}); err != nil {
+		t.Fatal(err)
+	}
+	mutation := LocalRetirementMutationAttempt{MutationID: "mutation-shared-pack", LeaseID: lease.LeaseID, MutationKind: "delete", ObjectType: "data", ObjectName: sharedName, ObjectDigest: testDigest, Sequence: 2, ObjectBytes: 100, RecoveryEpoch: 0, Attribution: request.Attribution}
+	if err := retirement.BeginLocalMutation(ctx, mutation); err != nil {
+		t.Fatalf("shared survivor pack was not admitted to reversible quarantine: %v", err)
+	}
+	if err := retirement.FinishLocalMutation(ctx, LocalRetirementMutationOutcome{MutationID: mutation.MutationID, LeaseID: lease.LeaseID, Status: "quarantined", QuarantineName: "data/" + sharedName, Attribution: request.Attribution}); err != nil {
+		t.Fatal(err)
+	}
+	if err := retirement.FinishRetirementCustody(ctx, nonceDigest, "succeeded"); err != nil {
+		t.Fatal(err)
+	}
+	authority.config.Clock = func() time.Time { return time.Date(2026, 9, 12, 18, 30, 1, 0, time.UTC) }
+	journalDigest, err := retirement.LocalRetirementJournalDigest(ctx, lease.LeaseID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	successorObjects := []ExpectedObjectRow{{Type: "data", Name: replacementName, Bytes: 50, Digest: testDigest}}
+	successorDigest := pendingInventoryDigest(successorObjects)
+	generationDigest, err := retirement.CommitLocalRetirementSuccess(ctx, LocalRetirementSettlement{
+		IntentID: intent.IntentID, LeaseID: lease.LeaseID, SuccessorInventoryDigest: successorDigest,
+		JournalDigest: journalDigest, SurvivorProofDigest: testDigest, SurvivorPointIDs: []string{request.Survivors[0].PointID},
+		SuccessorObjects: successorObjects, MeasuredReclaimBytes: 150, RecoveryEpoch: 0,
+	})
+	if err != nil {
+		t.Fatalf("settle successor generation: %v", err)
+	}
+	successor, err := NewBackupRepository(authority).GetLocalRetirementSuccessorForPoint(ctx, request.Survivors[0].PointID)
+	if err != nil || successor.GenerationDigest != generationDigest || successor.PredecessorInventoryDigest != request.ExpectedInventoryDigest || successor.SuccessorInventoryDigest != successorDigest || len(successor.Survivors) != 1 || successor.Survivors[0] != request.Survivors[0] || len(successor.Objects) != 1 || successor.Objects[0] != successorObjects[0] {
+		t.Fatalf("successor not consumable by original survivor binding: successor=%#v err=%v", successor, err)
 	}
 }

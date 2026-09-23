@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"path/filepath"
 	"runtime"
 	"sort"
 	"time"
@@ -32,7 +33,10 @@ type Config struct {
 	Inspector   store.RestoredSQLiteInspector
 	Clock       func() time.Time
 }
-type Adapter struct{ config Config }
+type Adapter struct {
+	config       Config
+	startCustody func(context.Context, backup.CustodyLauncher, backup.CustodySession) (backup.CustodyClient, error)
+}
 
 func New(config Config) (*Adapter, error) {
 	if config.LocalBackup == nil || config.Backups == nil || config.Retirements == nil || config.Inspector == nil {
@@ -41,7 +45,9 @@ func New(config Config) (*Adapter, error) {
 	if config.Clock == nil {
 		config.Clock = time.Now
 	}
-	return &Adapter{config}, nil
+	return &Adapter{config: config, startCustody: func(ctx context.Context, launcher backup.CustodyLauncher, session backup.CustodySession) (backup.CustodyClient, error) {
+		return launcher.Start(ctx, session)
+	}}, nil
 }
 func (*Adapter) Execute(context.Context, adapter.Operation) (adapter.Effect, error) {
 	return adapter.Effect{}, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-credential-required")
@@ -89,7 +95,7 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		return effect, retentionError(generated.ErrorCodePlanStale, "local-retention-deadline")
 	}
 	policy, err := backup.LoadCustodyPolicy(a.config.LocalBackup.CustodyPolicyPath)
-	if err != nil {
+	if err != nil || !custodyPolicyMatchesProfile(policy, a.config.LocalBackup, a.config.ExpectedUID, intent.Request.RepositoryClass) {
 		return effect, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-custody-policy")
 	}
 	attribution := audit.Attribution{AuthenticatedPrincipalID: "local-retention-custodian", AuthenticatedPrincipalMethod: "internal"}
@@ -110,7 +116,7 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	authority := &retentionAuthority{repository: a.config.Retirements, lease: retentionLease, attribution: attribution}
 	session := backup.CustodySession{ProtocolVersion: backup.CustodyProtocolVersion, Role: "retention", PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.RunID, StepID: binding.StepID, LeaseID: lease.LeaseID, RepositoryID: lease.RepositoryID, RepositoryClass: lease.RepositoryClass, PointID: intent.IntentID, SourceID: intent.IntentID, SourceRevision: lease.SourceRevision, RecoveryEpoch: lease.RecoveryEpoch, MaximumExpiresAt: lease.MaximumExpiresAt, MaximumObjects: lease.MaxWorkObjects, MaximumBytes: lease.MaxMutationBytes, RetentionLease: &retentionLease}
 	launcher := backup.CustodyLauncher{PolicyPath: a.config.LocalBackup.CustodyPolicyPath, Retention: authority, Mutations: authority, Journal: authority, Clock: a.config.Clock}
-	custody, err := launcher.Start(ctx, session)
+	custody, err := a.startCustody(ctx, launcher, session)
 	if err != nil {
 		return effect, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-custody")
 	}
@@ -133,6 +139,16 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	preObjects, err := custody.Inventory(ctx)
 	if err != nil || backup.ExpectedInventoryDigest(preObjects) != intent.Request.ExpectedInventoryDigest {
 		return adapter.Effect{}, retentionError(generated.ErrorCodePlanStale, "local-retention-object-inventory")
+	}
+	preBytes, preBytesOK := inventoryBytes(preObjects)
+	capacity, capacityErr := custody.CapacitySnapshot(ctx)
+	if !preBytesOK || capacityErr != nil || capacity.TotalBytes > uint64(^uint64(0)>>1) || capacity.AvailableBytes > uint64(^uint64(0)>>1) || capacity.QuarantinedBytes > uint64(^uint64(0)>>1) {
+		return adapter.Effect{}, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-capacity")
+	}
+	selection := backup.RetirementSelection{ExpectedInventoryDigest: intent.Request.ExpectedInventoryDigest, Targets: make([]backup.RetirementCandidate, len(intent.Request.Targets))}
+	decision, err := backup.ForecastLocalRetirement(selection, backup.CapacitySnapshot{TotalBytes: int64(capacity.TotalBytes), AvailableBytes: int64(capacity.AvailableBytes), RetainedBytes: preBytes, QuarantinedBytes: int64(capacity.QuarantinedBytes), ExpectedGrowthBytes: intent.Request.CapacityExpectedGrowthBytes, RepackScratchBytes: intent.Request.MaxRepackBytes})
+	if err != nil || (intent.Request.RepositoryClass == "standard" && !decision.AdmitNewStandard) || (intent.Request.RepositoryClass == "critical" && !decision.AdmitCritical) {
+		return adapter.Effect{}, retentionError(generated.ErrorCodePrerequisiteBlocked, "local-retention-capacity")
 	}
 	dry := withMode(base, "forget-dry-run")
 	dry.SnapshotIDs = planned
@@ -157,7 +173,6 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 	if err != nil {
 		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-object-inventory")
 	}
-	preBytes, preBytesOK := inventoryBytes(preObjects)
 	postBytes, postBytesOK := inventoryBytes(objects)
 	if !preBytesOK || !postBytesOK || postBytes > preBytes {
 		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-reclaim")
@@ -166,6 +181,7 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-full-read")
 	}
 	runner := custodyRunner{custody}
+	inventoryDigest := backup.ExpectedInventoryDigest(objects)
 	proofParts := []string{}
 	survivorIDs := []string{}
 	for _, survivor := range intent.Request.Survivors {
@@ -177,11 +193,7 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		if json.Unmarshal(point.ManifestJSON, &manifest) != nil {
 			return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeIntegrityFailure, "local-retention-manifest")
 		}
-		observed, e := custody.InventoryExpected(ctx, manifest.ExpectedObjects)
-		if e != nil {
-			return adapter.Effect{EffectObserved: true}, e
-		}
-		inventory, e := backup.VerifyCustodyInventory(manifest, point.ManifestDigest, observed)
+		inventory, e := backup.VerifySuccessorCustodyInventory(manifest, point.ManifestDigest, survivor.InventoryDigest, inventoryDigest, objects, objects)
 		if e != nil {
 			return adapter.Effect{EffectObserved: true}, e
 		}
@@ -189,26 +201,43 @@ func (a *Adapter) ExecuteBoundWithCredentials(ctx context.Context, op adapter.Op
 		if e != nil {
 			return adapter.Effect{EffectObserved: true}, e
 		}
-		proofParts = append(proofParts, proof.ManifestDigest, proof.InventoryDigest, proof.ContentDigest)
+		proofParts = append(proofParts, survivor.PointID, survivor.ManifestDigest, survivor.InventoryDigest, survivor.DependencyDigest, survivor.ProofDigest, proof.ManifestDigest, proof.InventoryDigest, proof.ContentDigest)
 		survivorIDs = append(survivorIDs, survivor.PointID)
 	}
-	inventoryDigest := backup.ExpectedInventoryDigest(objects)
 	journalDigest, err := a.config.Retirements.LocalRetirementJournalDigest(ctx, lease.LeaseID)
 	if err != nil {
 		return adapter.Effect{EffectObserved: true}, err
 	}
 	proofDigest := digest("retirement-survivors", proofParts...)
+	successorObjects := make([]store.ExpectedObjectRow, len(objects))
+	for index, object := range objects {
+		successorObjects[index] = store.ExpectedObjectRow{Type: object.Type, Name: object.Name, Bytes: object.Bytes, Digest: object.Digest}
+	}
 	closeErr := custody.Close(ctx)
 	closed = true
 	if closeErr != nil {
 		return adapter.Effect{EffectObserved: true}, retentionError(generated.ErrorCodeRecoveryRequired, "local-retention-custody-close")
 	}
-	generation, err := a.config.Retirements.CommitLocalRetirementSuccess(ctx, store.LocalRetirementSettlement{IntentID: intent.IntentID, LeaseID: lease.LeaseID, SuccessorInventoryDigest: inventoryDigest, JournalDigest: journalDigest, SurvivorProofDigest: proofDigest, SurvivorPointIDs: survivorIDs, MeasuredReclaimBytes: preBytes - postBytes, RecoveryEpoch: lease.RecoveryEpoch})
+	generation, err := a.config.Retirements.CommitLocalRetirementSuccess(ctx, store.LocalRetirementSettlement{IntentID: intent.IntentID, LeaseID: lease.LeaseID, SuccessorInventoryDigest: inventoryDigest, JournalDigest: journalDigest, SurvivorProofDigest: proofDigest, SurvivorPointIDs: survivorIDs, SuccessorObjects: successorObjects, MeasuredReclaimBytes: preBytes - postBytes, RecoveryEpoch: lease.RecoveryEpoch})
 	if err != nil {
 		return adapter.Effect{EffectObserved: true}, err
 	}
 	id := intent.IntentID
 	return adapter.Effect{Status: "succeeded", ResultDigest: generation, PendingPointID: &id, Changed: true, EffectObserved: true}, nil
+}
+
+func custodyPolicyMatchesProfile(policy backup.CustodyPolicy, profile *serverconfig.LocalBackup, controllerUID uint32, class string) bool {
+	if profile == nil || policy.ControllerUID != controllerUID || policy.StandardRoot != profile.StandardRoot ||
+		policy.CriticalRoot != profile.CriticalRoot || policy.ResticBinaryPath != profile.ResticBinaryPath {
+		return false
+	}
+	root, quarantine := policy.StandardRoot, policy.StandardQuarantine
+	if class == "critical" {
+		root, quarantine = policy.CriticalRoot, policy.CriticalQuarantine
+	} else if class != "standard" {
+		return false
+	}
+	return root != "" && quarantine != "" && filepath.Dir(root) == filepath.Dir(quarantine)
 }
 
 func boundSelectionDigest(extensions []generated.ContractExtension, credentialManifestDigest string) (string, bool) {

@@ -184,6 +184,13 @@ func (runner *resticRunner) runSealed(ctx context.Context, request ResticRequest
 	if stdoutWriter.exceeded || stderrWriter.exceeded {
 		return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-output", false)
 	}
+	// A REST backend denial may be emitted as a warning while restic still exits
+	// zero after completing other work. Destructive retention cannot treat that
+	// mixed outcome as success because the denied mutation remains journaled and
+	// the repository generation is not the exact planned successor.
+	if (mode == "forget" || mode == "prune") && resticMutationDenied(stderr.String()) {
+		return ResticResult{}, failure.New(generated.ErrorCodeRecoveryRequired, "backup-restic-retention-denied", false)
+	}
 
 	if mode == "init" {
 		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
@@ -218,6 +225,13 @@ func (runner *resticRunner) runSealed(ctx context.Context, request ResticRequest
 		StartedAt:        started,
 		CompletedAt:      completed,
 	}, nil
+}
+
+func resticMutationDenied(stderr string) bool {
+	message := strings.ToLower(stderr)
+	return strings.Contains(message, "access denied") || strings.Contains(message, "accessdenied") ||
+		strings.Contains(message, "status code 403") || strings.Contains(message, "http status 403") ||
+		strings.Contains(message, "forbidden")
 }
 
 // A restore target is a fresh, empty, owner-only sibling of the repository

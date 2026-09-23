@@ -517,17 +517,23 @@ func (client *systemdCustodyClient) InventoryExpected(ctx context.Context, expec
 }
 
 func (client *systemdCustodyClient) Capacity(ctx context.Context) (uint64, error) {
+	snapshot, err := client.CapacitySnapshot(ctx)
+	return snapshot.AvailableBytes, err
+}
+
+func (client *systemdCustodyClient) CapacitySnapshot(ctx context.Context) (RepositoryCapacity, error) {
 	frame, err := client.request(ctx, "capacity", nil)
 	if err != nil {
-		return 0, err
+		return RepositoryCapacity{}, err
 	}
-	var result struct {
-		Free uint64 `json:"free"`
-	}
+	var result RepositoryCapacity
 	if json.Unmarshal(frame.Payload, &result) != nil {
-		return 0, errors.New("invalid custody capacity")
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
 	}
-	return result.Free, nil
+	if result.TotalBytes == 0 || result.AvailableBytes > result.TotalBytes || result.QuarantinedBytes > result.TotalBytes-result.AvailableBytes {
+		return RepositoryCapacity{}, errors.New("invalid custody capacity")
+	}
+	return result, nil
 }
 
 func (client *systemdCustodyClient) RunRestic(ctx context.Context, request ResticRequest, password *credentialref.Value) (ResticResult, error) {
@@ -740,13 +746,11 @@ func serveCustodySupervisor(command *os.File, launch custodyLaunch, policy Custo
 				response.Payload, _ = json.Marshal(objects[0])
 			}
 		case "capacity":
-			free, callErr := inner.Capacity(leaseContext)
+			capacity, callErr := inner.CapacitySnapshot(leaseContext)
 			if callErr != nil {
 				response.OK, response.Code = false, "capacity-unavailable"
 			} else {
-				response.Payload, _ = json.Marshal(struct {
-					Free uint64 `json:"free"`
-				}{free})
+				response.Payload, _ = json.Marshal(capacity)
 			}
 		case "run-restic":
 			passwordFile, descriptorErr := receiveFile(command)

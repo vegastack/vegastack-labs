@@ -62,6 +62,28 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		len(manifest.ExpectedDependencies) != len(policy.Dependencies) {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-manifest")
 	}
+	effectiveObjects := append([]backup.ExpectedObject(nil), manifest.ExpectedObjects...)
+	effectiveInventoryDigest := manifest.InventoryDigest
+	successor, successorErr := adapterImpl.config.Backups.GetLocalRetirementSuccessorForPoint(ctx, point.PointID)
+	if successorErr == nil {
+		bound := false
+		for _, survivor := range successor.Survivors {
+			if survivor.PointID == point.PointID && survivor.SnapshotID == manifest.SnapshotID && survivor.ManifestDigest == point.ManifestDigest && survivor.InventoryDigest == point.InventoryDigest && survivor.DependencyDigest == manifest.DependencyInventoryDigest {
+				bound = true
+				break
+			}
+		}
+		if !bound || successor.RepositoryID != point.RepositoryID || successor.RepositoryClass != point.RepositoryClass || successor.RecoveryEpoch != point.RecoveryEpoch {
+			return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-successor-binding")
+		}
+		effectiveObjects = make([]backup.ExpectedObject, len(successor.Objects))
+		for index, object := range successor.Objects {
+			effectiveObjects[index] = backup.ExpectedObject{Type: object.Type, Name: object.Name, Bytes: object.Bytes, Digest: object.Digest}
+		}
+		effectiveInventoryDigest = successor.SuccessorInventoryDigest
+	} else if store.Code(successorErr) != generated.ErrorCodeResourceNotFound {
+		return adapter.Effect{}, successorErr
+	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
 	if err != nil || !adapterImpl.config.Clock().Before(deadline) {
 		return adapter.Effect{}, backupError(generated.ErrorCodePlanStale, "local-backup-verify-deadline")
@@ -89,7 +111,7 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 	session := backup.CustodySession{ProtocolVersion: backup.CustodyProtocolVersion, Role: "verifier", PlanID: binding.PlanID, PlanDigest: binding.PlanDigest,
 		RunID: binding.RunID, StepID: binding.StepID, LeaseID: leaseID, RepositoryID: point.RepositoryID, RepositoryClass: point.RepositoryClass,
 		PointID: point.PointID, SourceID: policy.SourceID, SourceRevision: point.SourceRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: deadline,
-		MaximumObjects: int64(len(manifest.ExpectedObjects)) + 100_000, MaximumBytes: manifest.ExpectedObjectBytes + policy.ExpectedGrowthBytes, ReadLease: &readLease}
+		MaximumObjects: int64(len(effectiveObjects)) + 100_000, MaximumBytes: totalBytes(effectiveObjects) + policy.ExpectedGrowthBytes, ReadLease: &readLease}
 	launcher := backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Reader: readVerifier,
 		Journal: &custodyJournal{backups: adapterImpl.config.Backups, read: &leaseRequest}, Clock: adapterImpl.config.Clock}
 	custody, err := launcher.Start(ctx, session)
@@ -113,6 +135,9 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		DependencyDigest: manifest.DependencyInventoryDigest, KeyReferenceID: manifest.KeyReferenceID,
 		SourceRevision: point.SourceRevision, Expected: leaseRequest.Expected, ProofClass: proofClass,
 		Result: "failed", ReasonCode: backupVerificationReasonIntegrityFailure}
+	if successorErr == nil {
+		attempt.SuccessorGenerationDigest = successor.GenerationDigest
+	}
 	defer func() {
 		// A failed verification still leaves an append-only attempt. If the epoch
 		// changed, the store rejects it; the run engine records the stale failure.
@@ -120,11 +145,16 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 			_, _ = adapterImpl.config.Backups.AppendLocalVerification(context.WithoutCancel(ctx), attempt)
 		}
 	}()
-	observed, err := custody.InventoryExpected(ctx, manifest.ExpectedObjects)
+	observed, err := custody.InventoryExpected(ctx, effectiveObjects)
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-inventory")
 	}
-	inventory, err := backup.VerifyCustodyInventory(manifest, point.ManifestDigest, observed)
+	var inventory backup.LocalInventoryProof
+	if successorErr == nil {
+		inventory, err = backup.VerifySuccessorCustodyInventory(manifest, point.ManifestDigest, point.InventoryDigest, effectiveInventoryDigest, effectiveObjects, observed)
+	} else {
+		inventory, err = backup.VerifyCustodyInventory(manifest, point.ManifestDigest, observed)
+	}
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-verify-inventory")
 	}
@@ -165,11 +195,12 @@ func (adapterImpl *Adapter) executeBoundVerify(ctx context.Context, operation ad
 		// headroom immediately before publishing a live proof or last-good CAS.
 		// A smaller isolated restore may succeed after the policy's declared
 		// recovery/retention capacity has been consumed by another workload.
-		free, capacityErr := custody.Capacity(ctx)
-		if capacityErr != nil || !capacityAdmitted(free, policy) {
+		capacity, capacityErr := custody.CapacitySnapshot(ctx)
+		if capacityErr != nil || !capacityAdmitted(capacity.AvailableBytes, policy) || capacity.TotalBytes > uint64(^uint64(0)>>1) || capacity.AvailableBytes > uint64(^uint64(0)>>1) || capacity.QuarantinedBytes > uint64(^uint64(0)>>1) {
 			attempt.ReasonCode = backupVerificationReasonCapacity
 			return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-verify-capacity")
 		}
+		attempt.CapacityTotalBytes, attempt.CapacityAvailableBytes, attempt.CapacityQuarantinedBytes = int64(capacity.TotalBytes), int64(capacity.AvailableBytes), int64(capacity.QuarantinedBytes)
 	}
 	if err := adapterImpl.config.Backups.VerifyActiveReadLease(ctx, leaseRequest, adapterImpl.config.Clock()); err != nil {
 		return adapter.Effect{}, err
