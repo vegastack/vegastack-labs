@@ -31,6 +31,150 @@ type LocalRetirementDraftSources struct {
 	ExpectedGrowthBytes                                                  int64
 }
 
+type localRetirementCurrentSuccessor struct {
+	Digest, InventoryDigest string
+	StateRevision           int64
+	RecordedAt              time.Time
+	Survivors               []LocalRetirementSurvivor
+	Objects                 []ExpectedObjectRow
+	RetiredPointIDs         map[string]bool
+}
+
+func isPostSuccessorRecoveryPoint(successor *localRetirementCurrentSuccessor, pointID, verificationSuccessorDigest string, verificationState int64, pointCreatedAt time.Time) bool {
+	return successor != nil && !successor.RetiredPointIDs[pointID] && verificationSuccessorDigest == "" &&
+		(verificationState > successor.StateRevision || verificationState == successor.StateRevision && pointCreatedAt.After(successor.RecordedAt))
+}
+
+func loadLocalRetirementCurrentPointIDs(ctx context.Context, tx ReadTx, class string, epoch int64) (map[string]bool, error) {
+	successor, err := loadLocalRetirementCurrentSuccessor(ctx, tx, class, epoch)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := tx.query(ctx, `SELECT p.point_id,p.snapshot_id,p.manifest_digest,p.inventory_digest,p.manifest_json,p.created_at,COALESCE(v.successor_generation_digest,''),v.state_revision
+		FROM recovery_points p JOIN backup_local_verifications v ON v.verification_id=(SELECT verification_id FROM backup_local_verifications WHERE point_id=p.point_id AND status='local-verified' AND proof_class='live' ORDER BY state_revision DESC,created_at DESC,verification_id DESC LIMIT 1)
+		WHERE p.repository_class=? AND p.recovery_epoch=?`, class, epoch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[string]bool{}
+	survivors := map[string]LocalRetirementSurvivor{}
+	if successor != nil {
+		for _, survivor := range successor.Survivors {
+			survivors[survivor.PointID] = survivor
+		}
+	}
+	for rows.Next() {
+		var pointID, snapshotID, manifestDigest, inventoryDigest, manifestJSON, created, successorDigest string
+		var verificationState int64
+		if err := rows.Scan(&pointID, &snapshotID, &manifestDigest, &inventoryDigest, &manifestJSON, &created, &successorDigest, &verificationState); err != nil {
+			return nil, err
+		}
+		if successor == nil {
+			result[pointID] = true
+			continue
+		}
+		createdAt, parseErr := time.Parse(time.RFC3339, created)
+		var manifest pendingCreationManifest
+		if parseErr != nil || json.Unmarshal([]byte(manifestJSON), &manifest) != nil {
+			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-current-points", false, parseErr)
+		}
+		if expected, ok := survivors[pointID]; ok {
+			if successorDigest != successor.Digest || snapshotID != expected.SnapshotID || manifestDigest != expected.ManifestDigest || inventoryDigest != expected.InventoryDigest || manifest.DependencyInventoryDigest != expected.DependencyDigest {
+				return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-source", false, nil)
+			}
+			result[pointID] = true
+		} else if isPostSuccessorRecoveryPoint(successor, pointID, successorDigest, verificationState, createdAt) {
+			result[pointID] = true
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if successor != nil && len(result) < len(successor.Survivors) {
+		return nil, newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-successor-source", false, nil)
+	}
+	return result, nil
+}
+
+func loadLocalRetirementCurrentSuccessor(ctx context.Context, tx ReadTx, class string, epoch int64) (*localRetirementCurrentSuccessor, error) {
+	rows, err := tx.query(ctx, `SELECT g.intent_id,g.generation_sequence,g.parent_generation_digest,g.generation_digest,g.predecessor_inventory_digest,g.successor_inventory_digest,g.journal_digest,g.survivor_proof_digest,g.survivor_count,g.canonical_json,g.state_revision,g.recorded_at,i.canonical_json
+		FROM backup_retirement_successor_generations g JOIN backup_retirement_intents i ON i.intent_id=g.intent_id
+		WHERE g.repository_class=? AND g.recovery_epoch=? AND EXISTS (
+			SELECT 1 FROM backup_retirement_receipts r
+			WHERE r.intent_id=g.intent_id AND r.status='verified'
+			AND r.journal_digest=g.journal_digest AND r.proof_digest=g.survivor_proof_digest
+		)
+		ORDER BY g.generation_sequence`, class, epoch)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var latest *localRetirementCurrentSuccessor
+	var priorDigest, priorInventory string
+	var count, sequence int64
+	retiredPointIDs := map[string]bool{}
+	for rows.Next() {
+		var intentID, digest, predecessor, inventory, journal, proof, canonical, recorded, intentCanonical string
+		var parent sql.NullString
+		var survivorCount, state int64
+		if err := rows.Scan(&intentID, &sequence, &parent, &digest, &predecessor, &inventory, &journal, &proof, &survivorCount, &canonical, &state, &recorded, &intentCanonical); err != nil {
+			return nil, err
+		}
+		count++
+		if sequence != count || (count == 1 && parent.Valid) || (count > 1 && (!parent.Valid || parent.String != priorDigest || predecessor != priorInventory)) {
+			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
+		}
+		var payload localRetirementSuccessorPayload
+		var intent struct {
+			Selection retirementSelectionPayload `json:"selection"`
+		}
+		sum := sha256.Sum256([]byte(canonical))
+		if json.Unmarshal([]byte(canonical), &payload) != nil || json.Unmarshal([]byte(intentCanonical), &intent) != nil || payload.IntentID != intentID || payload.InventoryDigest != inventory || payload.JournalDigest != journal || payload.ProofDigest != proof || payload.Epoch != epoch ||
+			"sha256:"+hex.EncodeToString(sum[:]) != digest || int64(len(payload.Survivors)) != survivorCount || pendingInventoryDigest(payload.Objects) != inventory {
+			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
+		}
+		for _, target := range intent.Selection.Targets {
+			if !validRetirementID(target.PointID) || retiredPointIDs[target.PointID] {
+				return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
+			}
+			retiredPointIDs[target.PointID] = true
+		}
+		seenPoints, seenObjects := map[string]bool{}, map[string]bool{}
+		for _, survivor := range payload.Survivors {
+			if !validRetirementID(survivor.PointID) || !validRetirementSnapshotID(survivor.SnapshotID) || !validBackupDigest(survivor.ManifestDigest) || !validBackupDigest(survivor.InventoryDigest) || !validBackupDigest(survivor.DependencyDigest) || !validBackupDigest(survivor.ProofDigest) || seenPoints[survivor.PointID] {
+				return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
+			}
+			seenPoints[survivor.PointID] = true
+		}
+		for _, object := range payload.Objects {
+			key := object.Type + "\x00" + object.Name
+			if !validPendingObject(object) || seenObjects[key] {
+				return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
+			}
+			seenObjects[key] = true
+		}
+		recordedAt, parseErr := time.Parse(time.RFC3339, recorded)
+		if parseErr != nil {
+			return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, parseErr)
+		}
+		latest = &localRetirementCurrentSuccessor{Digest: digest, InventoryDigest: inventory, StateRevision: state, RecordedAt: recordedAt,
+			Survivors: append([]LocalRetirementSurvivor(nil), payload.Survivors...), Objects: append([]ExpectedObjectRow(nil), payload.Objects...), RetiredPointIDs: retiredPointIDs}
+		priorDigest, priorInventory = digest, inventory
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	var total int64
+	if err := tx.queryRow(ctx, `SELECT COUNT(*) FROM backup_retirement_successor_generations WHERE repository_class=? AND recovery_epoch=?`, class, epoch).Scan(&total); err != nil {
+		return nil, err
+	}
+	if total != count {
+		return nil, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-chain", false, nil)
+	}
+	return latest, nil
+}
+
 // LoadLocalRetirementDraftSources reads only current authoritative rows. Every
 // point must have a live complete verification; an unverified survivor cannot
 // be hidden by caller input because callers never supply the point list.
@@ -50,17 +194,30 @@ func (repository *LocalRetirementRepository) LoadLocalRetirementDraftSources(ctx
 		if result.RecoveryEpoch != epoch {
 			return newStoreError(generated.ErrorCodeRecoveryEpochMismatch, "local-retirement-draft-sources", false, nil)
 		}
-		rows, err := tx.query(ctx, `SELECT p.point_id,p.snapshot_id,p.repository_id,p.manifest_digest,p.inventory_digest,p.object_bytes,p.source_revision,p.recovery_epoch,p.created_at,p.manifest_json,v.proof_digest
-			FROM recovery_points p JOIN backup_local_verifications v ON v.verification_id=(SELECT verification_id FROM backup_local_verifications WHERE point_id=p.point_id AND status='local-verified' AND proof_class='live' ORDER BY created_at DESC,verification_id DESC LIMIT 1)
+		successor, err := loadLocalRetirementCurrentSuccessor(ctx, tx, class, epoch)
+		if err != nil {
+			return err
+		}
+		survivors := map[string]LocalRetirementSurvivor{}
+		if successor != nil {
+			for _, survivor := range successor.Survivors {
+				survivors[survivor.PointID] = survivor
+			}
+		}
+		rows, err := tx.query(ctx, `SELECT p.point_id,p.snapshot_id,p.repository_id,p.manifest_digest,p.inventory_digest,p.object_bytes,p.source_revision,p.recovery_epoch,p.created_at,p.manifest_json,v.proof_digest,COALESCE(v.successor_generation_digest,''),v.state_revision
+			FROM recovery_points p JOIN backup_local_verifications v ON v.verification_id=(SELECT verification_id FROM backup_local_verifications WHERE point_id=p.point_id AND status='local-verified' AND proof_class='live' ORDER BY state_revision DESC,created_at DESC,verification_id DESC LIMIT 1)
 			WHERE p.repository_class=? AND p.recovery_epoch=? ORDER BY p.point_id`, class, epoch)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
+		newestPointID := ""
+		var newestPointVerificationRevision int64
 		for rows.Next() {
 			var point LocalRetirementDraftInput
-			var created, manifestJSON string
-			if err := rows.Scan(&point.PointID, &point.SnapshotID, &point.RepositoryID, &point.ManifestDigest, &point.InventoryDigest, &point.Bytes, &point.SourceRevision, &point.RecoveryEpoch, &created, &manifestJSON, &point.ProofDigest); err != nil {
+			var created, manifestJSON, successorDigest string
+			var verificationState int64
+			if err := rows.Scan(&point.PointID, &point.SnapshotID, &point.RepositoryID, &point.ManifestDigest, &point.InventoryDigest, &point.Bytes, &point.SourceRevision, &point.RecoveryEpoch, &created, &manifestJSON, &point.ProofDigest, &successorDigest, &verificationState); err != nil {
 				return err
 			}
 			var manifest pendingCreationManifest
@@ -72,17 +229,34 @@ func (repository *LocalRetirementRepository) LoadLocalRetirementDraftSources(ctx
 			if err != nil {
 				return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-draft-created", false, err)
 			}
+			if successor != nil {
+				expected, current := survivors[point.PointID]
+				if !current {
+					if !isPostSuccessorRecoveryPoint(successor, point.PointID, successorDigest, verificationState, point.CreatedAt) {
+						continue
+					}
+					if verificationState > newestPointVerificationRevision || (verificationState == newestPointVerificationRevision && point.PointID > newestPointID) {
+						newestPointID, newestPointVerificationRevision = point.PointID, verificationState
+					}
+				} else if successorDigest != successor.Digest || point.SnapshotID != expected.SnapshotID || point.ManifestDigest != expected.ManifestDigest || point.InventoryDigest != expected.InventoryDigest || point.DependencyDigest != expected.DependencyDigest {
+					return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-source", false, nil)
+				}
+			}
 			result.Points = append(result.Points, point)
 		}
 		if err := rows.Err(); err != nil {
 			return err
 		}
-		var total int
-		if err := tx.queryRow(ctx, `SELECT COUNT(*) FROM recovery_points WHERE repository_class=? AND recovery_epoch=?`, class, epoch).Scan(&total); err != nil {
-			return err
-		}
-		if total == 0 || total != len(result.Points) {
-			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-unverified-point", false, nil)
+		if successor == nil {
+			var total int
+			if err := tx.queryRow(ctx, `SELECT COUNT(*) FROM recovery_points WHERE repository_class=? AND recovery_epoch=?`, class, epoch).Scan(&total); err != nil {
+				return err
+			}
+			if total == 0 || total != len(result.Points) {
+				return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-unverified-point", false, nil)
+			}
+		} else if len(result.Points) < len(successor.Survivors) {
+			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-successor-source", false, nil)
 		}
 		last, err := tx.query(ctx, `SELECT point_id FROM backup_local_last_good WHERE repository_class=? AND recovery_epoch=?`, class, epoch)
 		if err != nil {
@@ -101,31 +275,56 @@ func (repository *LocalRetirementRepository) LoadLocalRetirementDraftSources(ctx
 			return err
 		}
 		last.Close()
-		objects, err := tx.query(ctx, `SELECT o.object_type,o.object_name,o.object_bytes,o.object_digest FROM backup_expected_objects o JOIN recovery_points p ON p.point_id=o.point_id WHERE p.repository_class=? AND p.recovery_epoch=? ORDER BY o.object_type,o.object_name,p.point_id`, class, epoch)
-		if err != nil {
-			return err
-		}
-		seen := map[string]ExpectedObjectRow{}
-		for objects.Next() {
-			var object ExpectedObjectRow
-			if err := objects.Scan(&object.Type, &object.Name, &object.Bytes, &object.Digest); err != nil {
+		if successor != nil && newestPointID == "" {
+			result.Objects = append([]ExpectedObjectRow(nil), successor.Objects...)
+			if pendingInventoryDigest(result.Objects) != successor.InventoryDigest {
+				return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-successor-inventory", false, nil)
+			}
+		} else {
+			query := `SELECT o.object_type,o.object_name,o.object_bytes,o.object_digest FROM backup_expected_objects o JOIN recovery_points p ON p.point_id=o.point_id WHERE p.repository_class=? AND p.recovery_epoch=? ORDER BY o.object_type,o.object_name,p.point_id`
+			args := []any{class, epoch}
+			if newestPointID != "" {
+				query = `SELECT object_type,object_name,object_bytes,object_digest FROM backup_expected_objects WHERE point_id=? ORDER BY object_type,object_name`
+				args = []any{newestPointID}
+			}
+			objects, err := tx.query(ctx, query, args...)
+			if err != nil {
+				return err
+			}
+			seen := map[string]ExpectedObjectRow{}
+			for objects.Next() {
+				var object ExpectedObjectRow
+				if err := objects.Scan(&object.Type, &object.Name, &object.Bytes, &object.Digest); err != nil {
+					objects.Close()
+					return err
+				}
+				key := object.Type + "\x00" + object.Name
+				if prior, ok := seen[key]; ok && prior != object {
+					objects.Close()
+					return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-object-conflict", false, nil)
+				}
+				seen[key] = object
+			}
+			if err := objects.Err(); err != nil {
 				objects.Close()
 				return err
 			}
-			key := object.Type + "\x00" + object.Name
-			if prior, ok := seen[key]; ok && prior != object {
-				objects.Close()
-				return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-object-conflict", false, nil)
-			}
-			seen[key] = object
-		}
-		if err := objects.Err(); err != nil {
 			objects.Close()
-			return err
-		}
-		objects.Close()
-		for _, object := range seen {
-			result.Objects = append(result.Objects, object)
+			for _, object := range seen {
+				result.Objects = append(result.Objects, object)
+			}
+			if newestPointID != "" {
+				var expected string
+				for _, point := range result.Points {
+					if point.PointID == newestPointID {
+						expected = point.InventoryDigest
+						break
+					}
+				}
+				if pendingInventoryDigest(result.Objects) != expected {
+					return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-current-inventory", false, nil)
+				}
+			}
 		}
 		sort.Slice(result.Objects, func(i, j int) bool {
 			if result.Objects[i].Type == result.Objects[j].Type {

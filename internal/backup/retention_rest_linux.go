@@ -197,6 +197,7 @@ func (server *RESTServer) handleRetainedCreate(w http.ResponseWriter, r *http.Re
 		MutationKind: "put", ObjectType: object.objectType, ObjectName: object.name, Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil)),
 		Bytes: bytes, RecoveryEpoch: server.retentionLease.RecoveryEpoch}
 	if err := server.retentionJournal.BeginRetainedMutation(r.Context(), attempt); err != nil {
+		server.retentionPoisoned = true
 		http.Error(w, "journal unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -221,6 +222,7 @@ func (server *RESTServer) handleRetainedCreate(w http.ResponseWriter, r *http.Re
 	}
 	if err := server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{MutationID: attempt.MutationID, LeaseID: server.retentionLease.LeaseID,
 		ObjectType: object.objectType, ObjectName: object.name, Status: "created"}); err != nil {
+		server.retentionPoisoned = true
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
@@ -288,6 +290,7 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 		MutationKind: "delete", ObjectType: object.objectType, ObjectName: object.name, Digest: "sha256:" + hex.EncodeToString(hasher.Sum(nil)), Bytes: bytes,
 		RecoveryEpoch: server.retentionLease.RecoveryEpoch}
 	if err := server.retentionJournal.BeginRetainedMutation(r.Context(), attempt); err != nil {
+		server.retentionPoisoned = true
 		http.Error(w, "journal unavailable", http.StatusServiceUnavailable)
 		return
 	}
@@ -326,6 +329,7 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 	outcome := RetainedMutationOutcome{MutationID: attempt.MutationID, LeaseID: server.retentionLease.LeaseID, ObjectType: object.objectType,
 		ObjectName: object.name, QuarantineName: object.objectType + "/" + object.name, Status: "quarantined"}
 	if err := server.retentionJournal.FinishRetainedMutation(r.Context(), outcome); err != nil {
+		server.retentionPoisoned = true
 		http.Error(w, "uncertain", http.StatusServiceUnavailable)
 		return
 	}
@@ -336,10 +340,12 @@ func (server *RESTServer) handleRetainedDelete(w http.ResponseWriter, r *http.Re
 }
 
 func (server *RESTServer) finishRetainedUncertainLocked(r *http.Request, attempt RetainedMutationAttempt) {
-	_ = server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{
+	if err := server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{
 		MutationID: attempt.MutationID, LeaseID: attempt.LeaseID, ObjectType: attempt.ObjectType,
 		ObjectName: attempt.ObjectName, Status: "uncertain",
-	})
+	}); err != nil {
+		server.retentionPoisoned = true
+	}
 }
 
 func (server *RESTServer) journalRetainedDenial(r *http.Request, kind string, object objectRequest, digest string, bytes int64) {
@@ -361,12 +367,17 @@ func (server *RESTServer) journalRetainedDenialLocked(r *http.Request, kind stri
 		LeaseID: server.retentionLease.LeaseID, RepositoryID: server.repositoryID, MutationKind: kind, ObjectType: object.objectType,
 		ObjectName: object.name, Digest: digest, Bytes: bytes, RecoveryEpoch: server.retentionLease.RecoveryEpoch}
 	beginErr := server.retentionJournal.BeginRetainedMutation(r.Context(), attempt)
+	if beginErr != nil {
+		server.retentionPoisoned = true
+	}
 	server.retentionMutations++
 	if bytes > 0 && bytes <= server.retentionLease.MaxMutationBytes-server.retentionBytes {
 		server.retentionBytes += bytes
 	}
 	if beginErr == nil {
-		_ = server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{MutationID: attempt.MutationID, LeaseID: attempt.LeaseID, ObjectType: object.objectType, ObjectName: object.name, Status: "denied"})
+		if err := server.retentionJournal.FinishRetainedMutation(r.Context(), RetainedMutationOutcome{MutationID: attempt.MutationID, LeaseID: attempt.LeaseID, ObjectType: object.objectType, ObjectName: object.name, Status: "denied"}); err != nil {
+			server.retentionPoisoned = true
+		}
 	}
 }
 

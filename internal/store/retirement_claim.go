@@ -102,15 +102,25 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 		if err := tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM backup_writer_leases WHERE repository_class=? AND released_at IS NULL)+(SELECT COUNT(*) FROM backup_read_leases WHERE repository_class=? AND released_at IS NULL)+(SELECT COUNT(*) FROM backup_retirement_leases WHERE repository_class=? AND released_at IS NULL)`, class, class, class).Scan(&competing); err != nil || competing != 0 {
 			return newStoreError(generated.ErrorCodeStateConflict, "local-retirement-exclusive-lease", false, err)
 		}
-		var points int
-		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM recovery_points WHERE repository_id=? AND repository_class=? AND recovery_epoch=?`, repo, class, epoch).Scan(&points); err != nil || int64(points) != targetCount+survivorCount {
-			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-point-set", false, err)
-		}
 		var staged struct {
 			Selection retirementSelectionPayload
 		}
 		if json.Unmarshal([]byte(canonical), &staged) != nil || int64(len(staged.Selection.Targets)) != targetCount || int64(len(staged.Selection.Survivors)) != survivorCount {
 			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-selection", false, nil)
+		}
+		currentPoints, pointErr := loadLocalRetirementCurrentPointIDs(ctx, ReadTx{handle: tx}, class, epoch)
+		if pointErr != nil || int64(len(currentPoints)) != targetCount+survivorCount {
+			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-point-set", false, pointErr)
+		}
+		for _, target := range staged.Selection.Targets {
+			if !currentPoints[target.PointID] {
+				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-point-set", false, nil)
+			}
+		}
+		for _, survivor := range staged.Selection.Survivors {
+			if !currentPoints[survivor.PointID] {
+				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-point-set", false, nil)
+			}
 		}
 		var capacityTotal, capacityAvailable, capacityQuarantined int64
 		if err := tx.QueryRowContext(ctx, `SELECT total_bytes,available_bytes,quarantined_bytes FROM backup_repository_capacity_observations WHERE repository_class=? AND recovery_epoch=? ORDER BY observed_at DESC,observation_id DESC LIMIT 1`, class, epoch).Scan(&capacityTotal, &capacityAvailable, &capacityQuarantined); err != nil || capacityTotal != staged.Selection.CapacityTotalBytes || capacityAvailable != staged.Selection.CapacityAvailableBytes || capacityQuarantined != staged.Selection.CapacityQuarantinedBytes {

@@ -70,6 +70,14 @@ func TestCustodyLaunchFrameDoesNotConsumeFollowingCommand(t *testing.T) {
 	}
 }
 
+func TestSystemdCustodyPoisonRejectsResticIndependentOfChildExit(t *testing.T) {
+	client := &systemdCustodyClient{}
+	client.poisoned.Store(true)
+	if _, err := client.RunRestic(context.Background(), ResticRequest{Mode: "forget"}, nil); err == nil || !strings.Contains(err.Error(), "journal uncertain") {
+		t.Fatalf("poisoned custody admitted restic result: %v", err)
+	}
+}
+
 func TestBrokeredResticRejectsCallerSelectedAuthority(t *testing.T) {
 	policy := CustodyPolicy{
 		StandardRoot: "/var/lib/vsk/standard", CriticalRoot: "/var/lib/vsk/critical",

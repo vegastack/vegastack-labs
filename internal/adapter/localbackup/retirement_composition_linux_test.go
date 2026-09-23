@@ -127,6 +127,7 @@ type retirementCompositionFixture struct {
 	principal        identity.Principal
 	firstPoint       store.PendingRecoveryPoint
 	survivorPoint    store.PendingRecoveryPoint
+	nextPoint        store.PendingRecoveryPoint
 	policySubmission generated.BackupPolicyDraftSubmission
 }
 
@@ -147,8 +148,13 @@ func TestLocalRetirementPublicComposition(t *testing.T) {
 	fixture.createAndVerifyPoints()
 	fixture.ageFirstPoint()
 	fixture.activatePublicRetentionLocks()
-	fixture.runPublicRetirement()
-	fixture.verifySuccessorThroughLocalBackup()
+	fixture.runPublicRetirement("retirement", fixture.firstPoint, fixture.survivorPoint, true)
+	fixture.verifySuccessorThroughLocalBackup(fixture.survivorPoint, "first")
+	fixture.nextPoint = fixture.createAndVerifyPostSuccessorPoint()
+	fixture.assertSecondDraftUsesSuccessorSource()
+	fixture.agePoint(fixture.survivorPoint, fixture.nextPoint)
+	fixture.runPublicRetirement("retirement-second", fixture.survivorPoint, fixture.nextPoint, false)
+	fixture.verifySuccessorThroughLocalBackup(fixture.nextPoint, "second")
 }
 
 func newRetirementCompositionFixture(t *testing.T) *retirementCompositionFixture {
@@ -158,17 +164,17 @@ func newRetirementCompositionFixture(t *testing.T) *retirementCompositionFixture
 	clock := func() time.Time { return time.Now().UTC() }
 	directory := t.TempDir()
 	if err := os.Chmod(directory, 0o700); err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture temp permissions: %v", err)
 	}
 	databasePath := filepath.Join(directory, "control.db")
 	authority, err := store.Open(ctx, store.Config{DatabasePath: databasePath, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), BusyTimeout: 5 * time.Second, ToolVersion: "retirement-composition", BuildVersion: "retirement-composition", Clock: clock})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture store: %v", err)
 	}
 	t.Cleanup(func() { _ = authority.Close() })
 	policy, err := backup.LoadCustodyPolicy(backup.CustodyPolicyPath)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture custody policy: %v", err)
 	}
 	binary := os.Getenv("VSK_RESTIC_0191_BINARY")
 	profile := &serverconfig.LocalBackup{StandardRoot: policy.StandardRoot, CriticalRoot: policy.CriticalRoot, ResticBinaryPath: binary, CustodyPolicyPath: backup.CustodyPolicyPath,
@@ -176,15 +182,15 @@ func newRetirementCompositionFixture(t *testing.T) *retirementCompositionFixture
 	backups := store.NewBackupRepository(authority)
 	snapshots, err := store.NewOnlineSnapshotSource(authority)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture snapshot source: %v", err)
 	}
 	inspector, err := store.NewRestoredSQLiteInspector(authority)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture inspector: %v", err)
 	}
 	var filesystem unix.Statfs_t
 	if err := unix.Statfs(policy.StandardRoot, &filesystem); err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture repository capacity: %v", err)
 	}
 	free := uint64(filesystem.Bavail) * uint64(filesystem.Bsize)
 	if free < 256<<20 || free > uint64(^uint64(0)>>1) {
@@ -199,12 +205,12 @@ func newRetirementCompositionFixture(t *testing.T) *retirementCompositionFixture
 		FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 168, RecoveryEpoch: 0, Revision: 1}
 	_, sum, err := stateexport.CanonicalJSON(backupPolicy)
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture policy digest: %v", err)
 	}
 	submission, err := backups.CreateBackupPolicyDraft(ctx, generated.BackupPolicyDraftRequest{Schema: generated.SchemaIDBackupPolicyDraftRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 0, RecoveryEpoch: 0,
 		TargetDigest: "sha256:" + hex.EncodeToString(sum[:]), IdempotencyKey: "retirement-composition-policy", Policy: backupPolicy}, audit.Attribution{AuthenticatedPrincipalID: "operator-retirement-composition", AuthenticatedPrincipalMethod: identity.LocalOSPeerMethod})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture policy draft: %v", err)
 	}
 	planDigest := compositionDigest("backup-plan")
 	plan := generated.Plan{PlanID: "plan-retirement-backup", PlanDigest: planDigest, Binding: generated.PlanBinding{StateRevision: submission.StateRevision, RecoveryEpoch: 0},
@@ -212,7 +218,7 @@ func newRetirementCompositionFixture(t *testing.T) *retirementCompositionFixture
 	implementation, err := New(Config{LocalBackup: profile, ExpectedUID: policy.ControllerUID, Backups: backups, Snapshots: snapshots, Inspector: inspector,
 		Trust: NewProtectedLocalDependencyTrust(), LiveProof: true, Plans: fixedPlanSource{plan}, Hooks: backup.DefaultHookRegistry(), Runner: backup.NewResticRunner(), Clock: clock})
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("fixture backup adapter: %v", err)
 	}
 	fixture := &retirementCompositionFixture{t: t, ctx: ctx, authority: authority, databasePath: databasePath, clock: clock, profile: profile, backups: backups,
 		retirements: store.NewLocalRetirementRepository(authority), inspector: inspector, backupAdapter: implementation, backupPlan: plan,
@@ -260,6 +266,10 @@ func (fixture *retirementCompositionFixture) createAndVerifyPoints() {
 }
 
 func (fixture *retirementCompositionFixture) ageFirstPoint() {
+	fixture.agePoint(fixture.firstPoint, fixture.survivorPoint)
+}
+
+func (fixture *retirementCompositionFixture) agePoint(point, newer store.PendingRecoveryPoint) {
 	fixture.t.Helper()
 	db, err := sql.Open("sqlite3", "file:"+fixture.databasePath+"?_busy_timeout=5000")
 	if err != nil {
@@ -277,7 +287,7 @@ func (fixture *retirementCompositionFixture) ageFirstPoint() {
 		fixture.t.Fatal(err)
 	}
 	aged := fixture.clock().Add(-8 * 24 * time.Hour).Format(time.RFC3339)
-	result, err := tx.ExecContext(fixture.ctx, `UPDATE recovery_points SET created_at=? WHERE point_id=?`, aged, fixture.firstPoint.PointID)
+	result, err := tx.ExecContext(fixture.ctx, `UPDATE recovery_points SET created_at=? WHERE point_id=?`, aged, point.PointID)
 	if err != nil {
 		fixture.t.Fatal(err)
 	}
@@ -291,10 +301,10 @@ func (fixture *retirementCompositionFixture) ageFirstPoint() {
 		fixture.t.Fatal(err)
 	}
 	var firstRaw, survivorRaw string
-	if err := db.QueryRowContext(fixture.ctx, `SELECT created_at FROM recovery_points WHERE point_id=?`, fixture.firstPoint.PointID).Scan(&firstRaw); err != nil {
+	if err := db.QueryRowContext(fixture.ctx, `SELECT created_at FROM recovery_points WHERE point_id=?`, point.PointID).Scan(&firstRaw); err != nil {
 		fixture.t.Fatal(err)
 	}
-	if err := db.QueryRowContext(fixture.ctx, `SELECT created_at FROM recovery_points WHERE point_id=?`, fixture.survivorPoint.PointID).Scan(&survivorRaw); err != nil {
+	if err := db.QueryRowContext(fixture.ctx, `SELECT created_at FROM recovery_points WHERE point_id=?`, newer.PointID).Scan(&survivorRaw); err != nil {
 		fixture.t.Fatal(err)
 	}
 	first, firstErr := time.Parse(time.RFC3339, firstRaw)
@@ -349,7 +359,7 @@ func (fixture *retirementCompositionFixture) activatePublicRetentionLocks() {
 	}
 }
 
-func (fixture *retirementCompositionFixture) runPublicRetirement() {
+func (fixture *retirementCompositionFixture) runPublicRetirement(key string, target, survivor store.PendingRecoveryPoint, seedCredential bool) {
 	t := fixture.t
 	revisions := store.NewPlanRepository(fixture.authority)
 	current, err := revisions.CurrentRevision(fixture.ctx)
@@ -366,15 +376,17 @@ func (fixture *retirementCompositionFixture) runPublicRetirement() {
 		t.Fatal(err)
 	}
 	submission, err := service.CreateDraft(fixture.ctx, generated.BackupRetirementDraftRequest{Schema: generated.SchemaIDBackupRetirementDraftRequest, SchemaVersion: "1.1.0",
-		ExpectedStateRevision: current.StateRevision, RecoveryEpoch: 0, TargetDigest: targetDigest, IdempotencyKey: "retirement-composition-retire", RepositoryClass: "standard",
+		ExpectedStateRevision: current.StateRevision, RecoveryEpoch: 0, TargetDigest: targetDigest, IdempotencyKey: "retirement-composition-" + key, RepositoryClass: "standard",
 		ReferenceID: "reference-retirement-composition", ResolverID: "native-systemd", MaterialVersion: "version-retirement-composition"}, fixture.principal)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(submission.TargetPointIDs) != 1 || submission.TargetPointIDs[0] != fixture.firstPoint.PointID || len(submission.SurvivorPointIDs) != 1 || submission.SurvivorPointIDs[0] != fixture.survivorPoint.PointID {
+	if len(submission.TargetPointIDs) != 1 || submission.TargetPointIDs[0] != target.PointID || len(submission.SurvivorPointIDs) != 1 || submission.SurvivorPointIDs[0] != survivor.PointID {
 		t.Fatalf("server-derived selection=%#v", submission)
 	}
-	fixture.seedActiveRetirementReference(submission.StateRevision)
+	if seedCredential {
+		fixture.seedActiveRetirementReference(submission.StateRevision)
+	}
 	policy, err := backup.LoadCustodyPolicy(fixture.profile.CustodyPolicyPath)
 	if err != nil {
 		t.Fatal(err)
@@ -392,10 +404,10 @@ func (fixture *retirementCompositionFixture) runPublicRetirement() {
 		ProfileID: "profile-retirement-composition", CapabilityID: "credential.native.read", Enabled: true}, retirementCompositionResolver{password: fixture.password}); err != nil {
 		t.Fatal(err)
 	}
-	fixture.applyChange(submission.ChangeID, submission.OperationID, "retirement", registry, nil,
+	fixture.applyChange(submission.ChangeID, submission.OperationID, key, registry, nil,
 		&runengine.CredentialStep{Bindings: credentials, Resolvers: registry, Profiles: retirementCompositionProfiles{revision: 1}})
-	successor, err := fixture.backups.GetLocalRetirementSuccessorForPoint(fixture.ctx, fixture.survivorPoint.PointID)
-	if err != nil || successor.GenerationDigest == "" || successor.SuccessorInventoryDigest == fixture.survivorPoint.InventoryDigest || len(successor.Objects) == 0 {
+	successor, err := fixture.backups.GetLocalRetirementSuccessorForPoint(fixture.ctx, survivor.PointID)
+	if err != nil || successor.GenerationDigest == "" || successor.SuccessorInventoryDigest == survivor.InventoryDigest || len(successor.Objects) == 0 {
 		t.Fatalf("successor=%#v err=%v", successor, err)
 	}
 }
@@ -507,15 +519,14 @@ func (fixture *retirementCompositionFixture) applyChange(changeID, operationID, 
 	return result
 }
 
-func (fixture *retirementCompositionFixture) verifySuccessorThroughLocalBackup() {
+func (fixture *retirementCompositionFixture) verifySuccessorThroughLocalBackup(point store.PendingRecoveryPoint, cycle string) {
 	t := fixture.t
-	point := fixture.survivorPoint
 	current, err := store.NewPlanRepository(fixture.authority).CurrentRevision(fixture.ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
 	plan := fixture.backupPlan
-	plan.PlanID = "plan-retirement-successor-verify"
+	plan.PlanID = "plan-retirement-successor-verify-" + cycle
 	plan.PlanDigest = compositionDigest(plan.PlanID)
 	plan.Binding.StateRevision = current.StateRevision
 	plan.Binding.RecoveryEpoch = current.RecoveryEpoch
@@ -534,12 +545,94 @@ func (fixture *retirementCompositionFixture) verifySuccessorThroughLocalBackup()
 	if err != nil {
 		t.Fatal(err)
 	}
-	binding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: "run-retirement-successor-verify", StepID: "step-retirement-successor-verify",
-		LeaseID: "lease-retirement-successor-verify", StateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, MaximumExpiresAt: fixture.clock().Add(5 * time.Minute).Format(time.RFC3339)}
+	binding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: "run-retirement-successor-verify-" + cycle, StepID: "step-retirement-successor-verify-" + cycle,
+		LeaseID: "lease-retirement-successor-verify-" + cycle, StateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, MaximumExpiresAt: fixture.clock().Add(5 * time.Minute).Format(time.RFC3339)}
 	effect, verifyErr := verificationAdapter.ExecuteBoundWithCredentials(fixture.ctx, operation, binding, []*credentialref.Value{password})
 	password.Close()
 	if verifyErr != nil || effect.Status != "succeeded" {
 		t.Fatalf("#117 successor reverify: effect=%#v err=%v", effect, verifyErr)
+	}
+}
+
+func (fixture *retirementCompositionFixture) createAndVerifyPostSuccessorPoint() store.PendingRecoveryPoint {
+	t := fixture.t
+	current, err := store.NewPlanRepository(fixture.authority).CurrentRevision(fixture.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := fixture.backupPlan
+	plan.PlanID = "plan-retirement-backup-after-successor"
+	plan.PlanDigest = compositionDigest(plan.PlanID)
+	plan.Binding.StateRevision = current.StateRevision
+	plan.Binding.RecoveryEpoch = current.RecoveryEpoch
+	snapshots, err := store.NewOnlineSnapshotSource(fixture.authority)
+	if err != nil {
+		t.Fatal(err)
+	}
+	implementation, err := New(Config{LocalBackup: fixture.profile, ExpectedUID: uint32(os.Geteuid()), Backups: fixture.backups, Snapshots: snapshots,
+		Inspector: fixture.inspector, Trust: NewProtectedLocalDependencyTrust(), LiveProof: true, Plans: fixedPlanSource{plan}, Hooks: backup.DefaultHookRegistry(), Runner: backup.NewResticRunner(), Clock: fixture.clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: "run-retirement-backup-after-successor", StepID: "step-retirement-backup-after-successor",
+		LeaseID: "lease-retirement-backup-after-successor", StateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, MaximumExpiresAt: fixture.clock().Add(5 * time.Minute).Format(time.RFC3339)}
+	password, err := credentialref.NewValue(fixture.password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	operation := adapter.Operation{OperationType: OperationType, AdapterID: AdapterID, TargetID: "control-retirement-composition", SecretReferences: []adapter.SecretReference{{ID: "retirement-key", Consumer: AdapterID}}}
+	effect, runErr := implementation.ExecuteBoundWithCredentials(fixture.ctx, operation, binding, []*credentialref.Value{password})
+	password.Close()
+	if runErr != nil || effect.PendingPointID == nil {
+		t.Fatalf("create post-successor point: effect=%#v err=%v", effect, runErr)
+	}
+	point, err := fixture.backups.GetPendingRecoveryPoint(fixture.ctx, *effect.PendingPointID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	password, err = credentialref.NewValue(fixture.password)
+	if err != nil {
+		t.Fatal(err)
+	}
+	binding.RunID, binding.StepID, binding.LeaseID = "run-retirement-verify-after-successor", "step-retirement-verify-after-successor", "lease-retirement-verify-after-successor"
+	verify := adapter.Operation{OperationType: VerifyOperationType, AdapterID: AdapterID, TargetID: point.PointID, InputDigest: point.ManifestDigest, ArtifactDigest: point.InventoryDigest,
+		SecretReferences: []adapter.SecretReference{{ID: "retirement-key", Consumer: AdapterID}}}
+	verified, verifyErr := implementation.ExecuteBoundWithCredentials(fixture.ctx, verify, binding, []*credentialref.Value{password})
+	password.Close()
+	if verifyErr != nil || verified.Status != "succeeded" {
+		t.Fatalf("verify post-successor point: effect=%#v err=%v", verified, verifyErr)
+	}
+	return point
+}
+
+func (fixture *retirementCompositionFixture) assertSecondDraftUsesSuccessorSource() {
+	t := fixture.t
+	successor, err := fixture.backups.GetLocalRetirementSuccessorForPoint(fixture.ctx, fixture.survivorPoint.PointID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sources, err := fixture.retirements.LoadLocalRetirementDraftSources(fixture.ctx, "standard", 0)
+	if err != nil || len(sources.Points) != 2 || len(sources.Objects) == 0 {
+		t.Fatalf("second retirement source=%#v successor=%#v err=%v", sources, successor, err)
+	}
+	foundOld, foundNew := false, false
+	newInventory := ""
+	for _, point := range sources.Points {
+		foundOld = foundOld || point.PointID == fixture.survivorPoint.PointID
+		if point.PointID == fixture.nextPoint.PointID {
+			foundNew = true
+			newInventory = point.InventoryDigest
+		}
+		if point.PointID == fixture.firstPoint.PointID {
+			t.Fatal("retired first-cycle target returned to second-cycle source")
+		}
+	}
+	objects := make([]backup.ExpectedObject, len(sources.Objects))
+	for index, object := range sources.Objects {
+		objects[index] = backup.ExpectedObject{Type: object.Type, Name: object.Name, Bytes: object.Bytes, Digest: object.Digest}
+	}
+	if !foundOld || !foundNew || newInventory != fixture.nextPoint.InventoryDigest || backup.ExpectedInventoryDigest(objects) != fixture.nextPoint.InventoryDigest {
+		t.Fatalf("second retirement active points=%#v", sources.Points)
 	}
 }
 

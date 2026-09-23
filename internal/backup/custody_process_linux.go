@@ -19,6 +19,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -69,15 +70,16 @@ type RepositoryCapacity struct {
 }
 
 type processCustodyClient struct {
-	session CustodySession
-	nonce   string
-	socket  string
-	command *os.File
-	verify  *os.File
-	cmd     *exec.Cmd
-	journal CustodyJournal
-	mu      sync.Mutex
-	done    chan error
+	session  CustodySession
+	nonce    string
+	socket   string
+	command  *os.File
+	verify   *os.File
+	cmd      *exec.Cmd
+	journal  CustodyJournal
+	mu       sync.Mutex
+	done     chan error
+	poisoned atomic.Bool
 }
 
 type custodyLaunch struct {
@@ -307,6 +309,10 @@ func (*processCustodyClient) ResticObservation() ResticObservation { return Rest
 
 func (client *processCustodyClient) Close(ctx context.Context) error {
 	_, requestErr := client.request(ctx, "close", nil)
+	var poisonErr error
+	if client.poisoned.Load() {
+		poisonErr = errors.New("retention journal uncertain")
+	}
 	_ = client.command.Close()
 	_ = client.verify.Close()
 	var waitErr error
@@ -317,12 +323,12 @@ func (client *processCustodyClient) Close(ctx context.Context) error {
 		_ = client.cmd.Process.Kill()
 	}
 	outcome := "succeeded"
-	if requestErr != nil || waitErr != nil {
+	if requestErr != nil || waitErr != nil || poisonErr != nil {
 		outcome = "uncertain"
 	}
 	journalErr := client.journal.FinishCustody(context.WithoutCancel(ctx), client.session, outcome)
 	_ = os.RemoveAll(filepath.Dir(client.socket))
-	return errors.Join(requestErr, waitErr, journalErr)
+	return errors.Join(requestErr, waitErr, poisonErr, journalErr)
 }
 
 func (client *processCustodyClient) request(ctx context.Context, kind string, payload any) (custodyFrame, error) {
@@ -343,10 +349,10 @@ func (client *processCustodyClient) request(ctx context.Context, kind string, pa
 }
 
 func (client *processCustodyClient) serveVerification(writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal) {
-	serveCustodyAuthority(client.verify, client.nonce, client.session, writer, reader, retention, mutations)
+	serveCustodyAuthority(client.verify, client.nonce, client.session, writer, reader, retention, mutations, func() { client.poisoned.Store(true) })
 }
 
-func serveCustodyAuthority(file *os.File, nonce string, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal) {
+func serveCustodyAuthority(file *os.File, nonce string, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal, poison func()) {
 	for {
 		frame, err := readCustodyFrame(file)
 		if err != nil {
@@ -371,9 +377,15 @@ func serveCustodyAuthority(file *os.File, nonce string, session CustodySession, 
 		case "mutation-begin":
 			var request RetainedMutationAttempt
 			response.OK = session.Role == "retention" && mutations != nil && strictUnmarshal(frame.Payload, &request) == nil && mutations.BeginRetainedMutation(context.Background(), request) == nil
+			if !response.OK && poison != nil {
+				poison()
+			}
 		case "mutation-finish":
 			var request RetainedMutationOutcome
 			response.OK = session.Role == "retention" && mutations != nil && strictUnmarshal(frame.Payload, &request) == nil && mutations.FinishRetainedMutation(context.Background(), request) == nil
+			if !response.OK && poison != nil {
+				poison()
+			}
 		}
 		_ = writeCustodyFrame(file, response)
 	}
@@ -533,9 +545,14 @@ func RunCustodyChild(policyPath string) error {
 				response.Payload, _ = json.Marshal(capacity)
 			}
 		case "close":
+			poisoned := rest.retentionSessionPoisoned()
 			cancel()
 			_ = writeCustodyFrame(command, response)
-			return <-serveDone
+			serveErr := <-serveDone
+			if poisoned {
+				return errors.Join(errors.New("retention journal uncertain"), serveErr)
+			}
+			return serveErr
 		default:
 			response.OK = false
 		}

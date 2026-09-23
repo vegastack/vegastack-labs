@@ -435,11 +435,12 @@ func TestClaimLocalRetirementRechecksCapacityAndAdmitsQuarantinedSharedPack(t *t
 	sharedName := strings.Repeat("c", 64)
 	pointSourceRevision := request.SourceRevision + 41 // backup source revision is not the declaration revision
 	for index, point := range []struct{ id, snapshot, manifest, inventory string }{{request.Targets[0].PointID, request.Targets[0].SnapshotID, request.Targets[0].ManifestDigest, request.Targets[0].InventoryDigest}, {request.Survivors[0].PointID, request.Survivors[0].SnapshotID, request.Survivors[0].ManifestDigest, request.Survivors[0].InventoryDigest}} {
+		manifestJSON, _ := json.Marshal(pendingCreationManifest{PointID: point.id, DependencyInventoryDigest: request.Survivors[0].DependencyDigest})
 		job := "job-claim-" + point.id
 		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,'policy-a',?,?,?,'run-source',?,'local','fixture','pending',0,?,?)`, job, testDigest, request.RepositoryID, request.RepositoryClass, point.id, stamp, stamp); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,created_at) VALUES(?,?,'policy-a',?,?,?,'local','fixture',?,1,1,100,?,?,'{}',?,?,0,'pending',?)`, point.id, job, testDigest, request.RepositoryID, request.RepositoryClass, point.snapshot, testDigest, point.manifest, point.inventory, pointSourceRevision, stamp); err != nil {
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,created_at) VALUES(?,?,'policy-a',?,?,?,'local','fixture',?,1,1,100,?,?,?,?,?,0,'pending',?)`, point.id, job, testDigest, request.RepositoryID, request.RepositoryClass, point.snapshot, testDigest, point.manifest, string(manifestJSON), point.inventory, pointSourceRevision, stamp); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_expected_objects(point_id,object_type,object_name,object_bytes,object_digest) VALUES(?,'data',?,100,?)`, point.id, sharedName, testDigest); err != nil {
@@ -517,4 +518,25 @@ func TestClaimLocalRetirementRechecksCapacityAndAdmitsQuarantinedSharedPack(t *t
 	if err != nil || successor.GenerationDigest != generationDigest || successor.PredecessorInventoryDigest != request.ExpectedInventoryDigest || successor.SuccessorInventoryDigest != successorDigest || len(successor.Survivors) != 1 || successor.Survivors[0] != request.Survivors[0] || len(successor.Objects) != 1 || successor.Objects[0] != successorObjects[0] {
 		t.Fatalf("successor not consumable by original survivor binding: successor=%#v err=%v", successor, err)
 	}
+	var currentSuccessor *localRetirementCurrentSuccessor
+	if err := authority.Read(ctx, func(tx ReadTx) error {
+		var loadErr error
+		currentSuccessor, loadErr = loadLocalRetirementCurrentSuccessor(ctx, tx, request.RepositoryClass, 0)
+		return loadErr
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if currentSuccessor == nil || currentSuccessor.Digest != generationDigest || !currentSuccessor.RetiredPointIDs[request.Targets[0].PointID] || currentSuccessor.RetiredPointIDs[request.Survivors[0].PointID] {
+		t.Fatalf("successor retirement history=%#v", currentSuccessor)
+	}
+	if isPostSuccessorRecoveryPoint(currentSuccessor, request.Targets[0].PointID, "", currentSuccessor.StateRevision+1, currentSuccessor.RecordedAt.Add(time.Second)) {
+		t.Fatal("later verification resurrected an immutable retired target")
+	}
+	if !isPostSuccessorRecoveryPoint(currentSuccessor, "point-after-successor", "", currentSuccessor.StateRevision, currentSuccessor.RecordedAt.Add(time.Second)) {
+		t.Fatal("new verified point after successor was excluded")
+	}
+	if isPostSuccessorRecoveryPoint(currentSuccessor, "point-after-successor", generationDigest, currentSuccessor.StateRevision+1, currentSuccessor.RecordedAt.Add(time.Second)) || isPostSuccessorRecoveryPoint(currentSuccessor, "point-after-successor", "", currentSuccessor.StateRevision, currentSuccessor.RecordedAt) {
+		t.Fatal("stale or generation-bound point was admitted as a new recovery point")
+	}
+
 }

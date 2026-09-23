@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -45,6 +46,7 @@ type systemdCustodyClient struct {
 	socketPaths []string
 	mu          sync.Mutex
 	observation ResticObservation
+	poisoned    atomic.Bool
 }
 
 type resticCustodyResponse struct {
@@ -537,6 +539,9 @@ func (client *systemdCustodyClient) CapacitySnapshot(ctx context.Context) (Repos
 }
 
 func (client *systemdCustodyClient) RunRestic(ctx context.Context, request ResticRequest, password *credentialref.Value) (ResticResult, error) {
+	if client.poisoned.Load() {
+		return ResticResult{}, errors.New("retention journal uncertain")
+	}
 	if password == nil || len(password.Bytes()) == 0 {
 		return ResticResult{}, errors.New("restic credential unavailable")
 	}
@@ -561,6 +566,9 @@ func (client *systemdCustodyClient) RunRestic(ctx context.Context, request Resti
 		return ResticResult{}, err
 	}
 	frame, err := readCustodyFrame(client.command)
+	if client.poisoned.Load() {
+		return ResticResult{}, errors.New("retention journal uncertain")
+	}
 	if err != nil || !frame.OK || !exactNonce(frame.NonceDigest, client.nonce) {
 		return ResticResult{}, fmt.Errorf("custody restic response uncertain: %s", frame.Code)
 	}
@@ -593,20 +601,24 @@ func (client *systemdCustodyClient) request(ctx context.Context, kind string, pa
 
 func (client *systemdCustodyClient) Close(ctx context.Context) error {
 	_, requestErr := client.request(ctx, "close", nil)
+	var poisonErr error
+	if client.poisoned.Load() {
+		poisonErr = errors.New("retention journal uncertain")
+	}
 	_ = client.command.Close()
 	_ = client.verify.Close()
 	for _, path := range client.socketPaths {
 		_ = os.Remove(path)
 	}
 	outcome := "succeeded"
-	if requestErr != nil {
+	if requestErr != nil || poisonErr != nil {
 		outcome = "uncertain"
 	}
-	return errors.Join(requestErr, client.journal.FinishCustody(context.WithoutCancel(ctx), client.session, outcome))
+	return errors.Join(requestErr, poisonErr, client.journal.FinishCustody(context.WithoutCancel(ctx), client.session, outcome))
 }
 
 func serveSystemdVerification(client *systemdCustodyClient, writer LeaseVerifier, reader ReadLeaseVerifier, retention RetentionLeaseVerifier, mutations RetainedMutationJournal) {
-	serveCustodyAuthority(client.verify, client.nonce, client.session, writer, reader, retention, mutations)
+	serveCustodyAuthority(client.verify, client.nonce, client.session, writer, reader, retention, mutations, func() { client.poisoned.Store(true) })
 }
 
 func sendFile(socket, file *os.File) error {

@@ -390,6 +390,49 @@ func TestRetentionEarlyDenialIsJournaled(t *testing.T) {
 	}
 }
 
+func TestRetentionDenialJournalFailurePoisonsSession(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		beginErr  error
+		finishErr error
+	}{
+		{name: "admission-503", beginErr: errors.New("journal admission unavailable")},
+		{name: "outcome-503", finishErr: errors.New("journal outcome unavailable")},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			base := t.TempDir()
+			if err := os.Chmod(base, 0o700); err != nil {
+				t.Fatal(err)
+			}
+			root, quarantine := filepath.Join(base, "repository"), filepath.Join(base, "quarantine")
+			for _, path := range []string{root, quarantine} {
+				if err := os.Mkdir(path, 0o700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			journal := &retentionJournalFixture{beginErr: test.beginErr, finishErr: test.finishErr}
+			lease := RetentionLease{LeaseID: "retention-poison", RepositoryID: "repository-a", RecoveryEpoch: 2, MaximumExpiresAt: time.Now().Add(time.Minute), MaxMutations: 4, MaxMutationBytes: 1024}
+			server, err := NewRetentionRESTServer(root, quarantine, uint32(os.Geteuid()), lease, allowingRetentionLeaseVerifier{}, journal, time.Now)
+			if err != nil {
+				t.Fatal(err)
+			}
+			denied := httptest.NewRecorder()
+			server.ServeHTTP(denied, httptest.NewRequest(http.MethodDelete, "/repository-a/config", nil))
+			if !server.retentionSessionPoisoned() {
+				t.Fatal("journal failure did not poison retention session")
+			}
+			// The next request models a child that ignores the first 503 and exits
+			// zero after continuing. The poisoned session independently forces a
+			// 503, so the custody run/close path cannot settle it as successful.
+			after := httptest.NewRecorder()
+			server.ServeHTTP(after, httptest.NewRequest(http.MethodGet, "/repository-a/config", nil))
+			if after.Code != http.StatusServiceUnavailable {
+				t.Fatalf("poisoned session status=%d", after.Code)
+			}
+		})
+	}
+}
+
 type allowingRetentionLeaseVerifier struct{}
 
 func (allowingRetentionLeaseVerifier) VerifyRetentionLease(RetentionLease, time.Time) error {

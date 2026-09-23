@@ -43,6 +43,7 @@ type RESTServer struct {
 	quarantineRoot         string
 	retentionMutations     int64
 	retentionBytes         int64
+	retentionPoisoned      bool
 	clock                  func() time.Time
 	mu                     sync.Mutex
 	ownLocks               map[string]struct{}
@@ -140,6 +141,10 @@ func (server *RESTServer) Serve(ctx context.Context, listener net.Listener) erro
 }
 
 func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if server.retentionSessionPoisoned() {
+		http.Error(w, "journal unavailable", http.StatusServiceUnavailable)
+		return
+	}
 	// The only query restic sends is ?create=true on repository initialization.
 	create := false
 	if r.URL.RawQuery != "" {
@@ -204,6 +209,12 @@ func (server *RESTServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (server *RESTServer) retentionSessionPoisoned() bool {
+	server.mu.Lock()
+	defer server.mu.Unlock()
+	return server.retentionPoisoned
 }
 
 // handleRepositoryCreate creates the repository-format-v2 object-type directories
