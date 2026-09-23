@@ -47,10 +47,13 @@ func NewProductionOffsiteEffectFactory(source QualifiedOffsiteRunnerSource) Offs
 type ProfileOffsiteRunnerSource struct {
 	factory func(context.Context, serverconfig.Profile, *store.Store, generated.GateEvidence) (runengine.OffsiteCopyRunner, error)
 	clock   func() time.Time
+	resolve func(context.Context, *store.Store, *serverconfig.OffsiteBackup, time.Time) (generated.GateEvidence, error)
 }
 
 func NewProfileOffsiteRunnerSource(factory func(context.Context, serverconfig.Profile, *store.Store, generated.GateEvidence) (runengine.OffsiteCopyRunner, error)) *ProfileOffsiteRunnerSource {
-	return &ProfileOffsiteRunnerSource{factory: factory, clock: time.Now}
+	return &ProfileOffsiteRunnerSource{factory: factory, clock: time.Now, resolve: func(ctx context.Context, authority *store.Store, profile *serverconfig.OffsiteBackup, at time.Time) (generated.GateEvidence, error) {
+		return store.NewGateRepository(authority).ResolveCurrentLiveGateEvidence(ctx, "G-008", profile.G008EvidenceDigest, profile.QualificationDigest, profile.PutCutoffDigest, profile.MultipartCutoffDigest, at)
+	}}
 }
 
 func (source *ProfileOffsiteRunnerSource) Runner(ctx context.Context, complete serverconfig.Profile, authority *store.Store) (runengine.OffsiteCopyRunner, bool, error) {
@@ -65,7 +68,10 @@ func (source *ProfileOffsiteRunnerSource) Runner(ctx context.Context, complete s
 	if clock == nil {
 		clock = time.Now
 	}
-	evidence, err := store.NewGateRepository(authority).ResolveCurrentLiveGateEvidence(ctx, "G-008", profile.G008EvidenceDigest, profile.QualificationDigest, profile.PutCutoffDigest, profile.MultipartCutoffDigest, clock())
+	if source.resolve == nil {
+		return nil, false, nil
+	}
+	evidence, err := source.resolve(ctx, authority, profile, clock())
 	if err != nil {
 		return nil, false, nil
 	}

@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/backup"
@@ -31,18 +32,6 @@ type composedOffsiteSpecs struct{}
 
 func (composedOffsiteSpecs) ResolveOffsiteRun(context.Context, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (backup.OffsiteRunSpec, error) {
 	return backup.OffsiteRunSpec{}, errors.New("not executed by composition test")
-}
-
-type composedOffsiteRunnerSource struct {
-	qualified bool
-}
-
-func (source composedOffsiteRunnerSource) Runner(_ context.Context, _ serverconfig.Profile, authority *store.Store) (runengine.OffsiteCopyRunner, bool, error) {
-	if !source.qualified {
-		return nil, false, nil
-	}
-	runner, err := backup.NewOffsiteWorkflowRunner(composedOffsiteSource{}, composedOffsiteSpecs{}, backup.NewSQLCatalog(authority))
-	return runner, err == nil, err
 }
 
 func TestOperationsRunComposesOnlyQualifiedOffsiteRuntime(t *testing.T) {
@@ -83,8 +72,20 @@ func TestOperationsRunComposesOnlyQualifiedOffsiteRuntime(t *testing.T) {
 			generatedProfile.OffsiteRetainedGenerations = &retainedGenerations
 			writeProtectedJSON(t, configPath, generatedProfile)
 
+			runners := NewProfileOffsiteRunnerSource(func(_ context.Context, _ serverconfig.Profile, authority *store.Store, evidence generated.GateEvidence) (runengine.OffsiteCopyRunner, error) {
+				if evidence.ProofClass != "live" {
+					return nil, errors.New("non-live evidence")
+				}
+				return backup.NewOffsiteWorkflowRunner(composedOffsiteSource{}, composedOffsiteSpecs{}, backup.NewSQLCatalog(authority))
+			})
+			runners.resolve = func(context.Context, *store.Store, *serverconfig.OffsiteBackup, time.Time) (generated.GateEvidence, error) {
+				if !qualified {
+					return generated.GateEvidence{}, errors.New("G-008 unavailable")
+				}
+				return generated.GateEvidence{ProofClass: "live"}, nil
+			}
 			registry := adapter.NewRegistry()
-			operations.offsiteEffect = NewProductionOffsiteEffectFactory(composedOffsiteRunnerSource{qualified: qualified})
+			operations.offsiteEffect = NewProductionOffsiteEffectFactory(runners)
 			operations.newAdapterRegistry = func() *adapter.Registry { return registry }
 			ctx, cancel := context.WithCancel(context.Background())
 			done := make(chan error, 1)
