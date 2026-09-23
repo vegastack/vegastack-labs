@@ -88,13 +88,33 @@ func TestSealWriterRequiresExpiryAndBothQualifiedDenials(t *testing.T) {
 	if _, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, cutoffFixture{true, true}); err == nil {
 		t.Fatal("live session sealed")
 	}
+	pending.SessionExpiries = []time.Time{{}}
+	if _, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, cutoffFixture{true, true}); err == nil {
+		t.Fatal("zero session expiry sealed")
+	}
 	pending.SessionExpiries = []time.Time{now.Add(-time.Minute)}
+	pending.IssuanceStoppedAt = now.Add(time.Minute)
+	if _, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, cutoffFixture{true, true}); err == nil {
+		t.Fatal("future issuance cutoff sealed")
+	}
+	pending.IssuanceStoppedAt = now.Add(-2 * time.Minute)
 	if _, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, cutoffFixture{true, false}); err == nil {
 		t.Fatal("multipart completion without denial sealed")
 	}
 	seal, err := SealWriter(context.Background(), pending, OffsiteProofQualified, now, cutoffFixture{true, true})
 	if err != nil || !seal.NewPUTDenied || !seal.MultipartCompletionDenied {
 		t.Fatalf("seal = %#v, %v", seal, err)
+	}
+}
+
+func TestOffsiteVerifierRejectsObservationBeforeIssuanceCutoff(t *testing.T) {
+	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
+	pending := testPendingOffsite(now)
+	observation := expectedObservation(pending, now)
+	observation.FullReadAt = pending.IssuanceStoppedAt.Add(-time.Second)
+	config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofID: "proof-before-cutoff", ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
+	if _, err := VerifyOffsitePoint(context.Background(), config, pending, WriterSealProof{}); err == nil {
+		t.Fatal("pre-cutoff full read verified")
 	}
 }
 

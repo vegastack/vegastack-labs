@@ -58,6 +58,7 @@ func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pendi
 		observed.RuleDigest != pending.RuleDigest || observed.ObjectCount != pending.ObjectCount || observed.ObjectBytes != pending.ObjectBytes ||
 		!observed.MetadataValid || !observed.FullReadSucceeded || observed.FullReadAt.IsZero() ||
 		observed.ObservedAt.IsZero() || observed.ObservedAt.After(now) || observed.FullReadAt.After(observed.ObservedAt) ||
+		observed.FullReadAt.Before(pending.IssuanceStoppedAt) || observed.ObservedAt.Before(pending.IssuanceStoppedAt) ||
 		observed.ObservedAt.Sub(observed.FullReadAt) > config.FullReadMaximumAge {
 		return OffsiteProof{}, errors.New("offsite expected point verification failed")
 	}
@@ -92,7 +93,7 @@ func SealWriter(ctx context.Context, pending PendingOffsiteGeneration, proofClas
 			last = expiry
 		}
 	}
-	if now.Before(last) {
+	if now.Before(last) || now.Before(pending.IssuanceStoppedAt) {
 		return WriterSealProof{}, errors.New("offsite writer session remains live")
 	}
 	putDenied, putErr := probe.DenyNewPUT(ctx, pending.GenerationID)

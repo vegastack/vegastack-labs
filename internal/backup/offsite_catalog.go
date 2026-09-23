@@ -92,13 +92,21 @@ func CanAdvanceOffsiteLastGood(pending PendingOffsiteGeneration, proof OffsitePr
 }
 
 func validPendingOffsiteGeneration(value PendingOffsiteGeneration) bool {
-	return value.SourcePointID != "" && validObjectName(value.SourceSnapshotID) && validBackupManifestDigest(value.SourceManifestDigest) &&
-		validBackupManifestDigest(value.SourceInventoryDigest) && validBackupManifestDigest(value.SourceContentDigest) &&
-		validBackupManifestDigest(value.SourceDependencyDigest) && validBackupManifestDigest(value.SourceResticDigest) && value.KeyReferenceID != "" &&
-		validOffsiteToken(value.GenerationID) && validObjectName(value.RepositoryID) && validObjectName(value.OffsiteSnapshotID) &&
-		validBackupManifestDigest(value.OffsiteInventoryDigest) && validBackupManifestDigest(value.RuleDigest) &&
-		value.SourceRevision >= 0 && value.RecoveryEpoch >= 0 && value.ObjectCount > 0 && value.ObjectBytes > 0 &&
-		!value.IssuanceStoppedAt.IsZero() && len(value.SessionExpiries) > 0
+	if value.SourcePointID == "" || !validObjectName(value.SourceSnapshotID) || !validBackupManifestDigest(value.SourceManifestDigest) ||
+		!validBackupManifestDigest(value.SourceInventoryDigest) || !validBackupManifestDigest(value.SourceContentDigest) ||
+		!validBackupManifestDigest(value.SourceDependencyDigest) || !validBackupManifestDigest(value.SourceResticDigest) || value.KeyReferenceID == "" ||
+		!validOffsiteToken(value.GenerationID) || !validObjectName(value.RepositoryID) || !validObjectName(value.OffsiteSnapshotID) ||
+		!validBackupManifestDigest(value.OffsiteInventoryDigest) || !validBackupManifestDigest(value.RuleDigest) ||
+		value.SourceRevision < 0 || value.RecoveryEpoch < 0 || value.ObjectCount <= 0 || value.ObjectBytes <= 0 ||
+		value.IssuanceStoppedAt.IsZero() || len(value.SessionExpiries) == 0 {
+		return false
+	}
+	for _, expiry := range value.SessionExpiries {
+		if expiry.IsZero() {
+			return false
+		}
+	}
+	return true
 }
 
 func validWriterSeal(pending PendingOffsiteGeneration, seal WriterSealProof, observedAt time.Time) bool {
@@ -110,5 +118,6 @@ func validWriterSeal(pending PendingOffsiteGeneration, seal WriterSealProof, obs
 	}
 	return seal.GenerationID == pending.GenerationID && seal.ProofClass == OffsiteProofQualified && seal.ChildExited && seal.IssuanceStopped &&
 		seal.NewPUTDenied && seal.MultipartCompletionDenied && seal.IssuanceStoppedAt.Equal(pending.IssuanceStoppedAt) &&
-		seal.LastSessionExpiresAt.Equal(last) && !seal.ObservedAt.Before(last) && !observedAt.Before(seal.ObservedAt)
+		seal.LastSessionExpiresAt.Equal(last) && !seal.ObservedAt.Before(last) && !seal.ObservedAt.Before(pending.IssuanceStoppedAt) &&
+		!observedAt.Before(seal.ObservedAt)
 }
