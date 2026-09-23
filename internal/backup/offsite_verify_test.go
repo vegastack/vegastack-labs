@@ -19,6 +19,15 @@ func (value cutoffFixture) DenyMultipartCompletion(context.Context, string) (boo
 	return value.multipart, nil
 }
 
+func expectedObservation(pending PendingOffsiteGeneration, now time.Time) OffsiteGenerationObservation {
+	return OffsiteGenerationObservation{GenerationID: pending.GenerationID, RepositoryID: pending.RepositoryID, SourcePointID: pending.SourcePointID,
+		SourceSnapshotID: pending.SourceSnapshotID, SourceManifestDigest: pending.SourceManifestDigest, SourceInventoryDigest: pending.SourceInventoryDigest,
+		SourceContentDigest: pending.SourceContentDigest, SourceDependencyDigest: pending.SourceDependencyDigest, SourceResticDigest: pending.SourceResticDigest,
+		KeyReferenceID: pending.KeyReferenceID, SnapshotIDs: []string{pending.OffsiteSnapshotID}, InventoryDigest: pending.OffsiteInventoryDigest,
+		RuleDigest: pending.RuleDigest, ObjectCount: pending.ObjectCount, ObjectBytes: pending.ObjectBytes, MetadataValid: true, FullReadSucceeded: true,
+		FullReadAt: now.Add(-time.Minute), ObservedAt: now}
+}
+
 func testPendingOffsite(now time.Time) PendingOffsiteGeneration {
 	return PendingOffsiteGeneration{SourcePointID: "point-a", SourceSnapshotID: offsiteHex("1"), SourceManifestDigest: offsiteDigest("2"), SourceInventoryDigest: offsiteDigest("3"),
 		SourceContentDigest: offsiteDigest("4"), SourceDependencyDigest: offsiteDigest("5"), SourceResticDigest: offsiteDigest("6"), KeyReferenceID: "key-a",
@@ -38,9 +47,8 @@ func makeRepeated(value byte, count int) []byte {
 func TestOffsiteVerifierRejectsMissingListedSnapshotDespiteGreenCheck(t *testing.T) {
 	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
 	pending := testPendingOffsite(now)
-	observation := OffsiteGenerationObservation{GenerationID: pending.GenerationID, RepositoryID: pending.RepositoryID, SnapshotIDs: nil,
-		InventoryDigest: pending.OffsiteInventoryDigest, RuleDigest: pending.RuleDigest, ObjectCount: pending.ObjectCount, ObjectBytes: pending.ObjectBytes,
-		MetadataValid: true, ManifestConsistent: true, DependencyTrusted: true, FullReadAt: now.Add(-time.Minute), ObservedAt: now}
+	observation := expectedObservation(pending, now)
+	observation.SnapshotIDs = nil
 	config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
 	if _, err := VerifyOffsitePoint(context.Background(), config, pending, WriterSealProof{}); err == nil {
 		t.Fatal("missing expected snapshot verified")
@@ -50,6 +58,26 @@ func TestOffsiteVerifierRejectsMissingListedSnapshotDespiteGreenCheck(t *testing
 	proof, err := VerifyOffsitePoint(context.Background(), config, pending, WriterSealProof{})
 	if err != nil || proof.Status != OffsiteStatusFixtureOnly {
 		t.Fatalf("fixture proof = %#v, %v", proof, err)
+	}
+}
+
+func TestOffsiteVerifierRejectsMismatchedManifestDependenciesAndFullRead(t *testing.T) {
+	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
+	pending := testPendingOffsite(now)
+	for name, mutate := range map[string]func(*OffsiteGenerationObservation){
+		"manifest":     func(value *OffsiteGenerationObservation) { value.SourceManifestDigest = offsiteDigest("f") },
+		"dependency":   func(value *OffsiteGenerationObservation) { value.SourceDependencyDigest = offsiteDigest("f") },
+		"key":          func(value *OffsiteGenerationObservation) { value.KeyReferenceID = "wrong-key" },
+		"corrupt-pack": func(value *OffsiteGenerationObservation) { value.FullReadSucceeded = false },
+	} {
+		t.Run(name, func(t *testing.T) {
+			observation := expectedObservation(pending, now)
+			mutate(&observation)
+			config := OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}
+			if _, err := VerifyOffsitePoint(context.Background(), config, pending, WriterSealProof{}); err == nil {
+				t.Fatal("mismatched observation verified")
+			}
+		})
 	}
 }
 
@@ -73,7 +101,7 @@ func TestSealWriterRequiresExpiryAndBothQualifiedDenials(t *testing.T) {
 func TestOffsiteLastGoodRejectsPendingFixtureAndStaleProof(t *testing.T) {
 	now := time.Date(2026, 9, 23, 5, 0, 0, 0, time.UTC)
 	pending := testPendingOffsite(now)
-	observation := OffsiteGenerationObservation{GenerationID: pending.GenerationID, RepositoryID: pending.RepositoryID, SnapshotIDs: []string{pending.OffsiteSnapshotID}, InventoryDigest: pending.OffsiteInventoryDigest, RuleDigest: pending.RuleDigest, ObjectCount: pending.ObjectCount, ObjectBytes: pending.ObjectBytes, MetadataValid: true, ManifestConsistent: true, DependencyTrusted: true, FullReadAt: now.Add(-time.Minute), ObservedAt: now}
+	observation := expectedObservation(pending, now)
 	fixture, err := VerifyOffsitePoint(context.Background(), OffsiteVerifierConfig{Source: expectedPointFixture{observation}, ProofClass: OffsiteProofFixture, Clock: func() time.Time { return now }, FullReadMaximumAge: time.Hour}, pending, WriterSealProof{})
 	if err != nil {
 		t.Fatal(err)

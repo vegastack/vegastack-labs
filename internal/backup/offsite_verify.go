@@ -8,11 +8,13 @@ import (
 )
 
 type OffsiteGenerationObservation struct {
-	GenerationID, RepositoryID, InventoryDigest, RuleDigest string
-	SnapshotIDs                                             []string
-	ObjectCount, ObjectBytes                                int64
-	MetadataValid, ManifestConsistent, DependencyTrusted    bool
-	FullReadAt, ObservedAt                                  time.Time
+	GenerationID, RepositoryID, InventoryDigest, RuleDigest                         string
+	SourcePointID, SourceSnapshotID, SourceManifestDigest, SourceInventoryDigest    string
+	SourceContentDigest, SourceDependencyDigest, SourceResticDigest, KeyReferenceID string
+	SnapshotIDs                                                                     []string
+	ObjectCount, ObjectBytes                                                        int64
+	MetadataValid, FullReadSucceeded                                                bool
+	FullReadAt, ObservedAt                                                          time.Time
 }
 
 type OffsiteExpectedPointSource interface {
@@ -47,9 +49,13 @@ func VerifyOffsitePoint(ctx context.Context, config OffsiteVerifierConfig, pendi
 	snapshotIDs := append([]string(nil), observed.SnapshotIDs...)
 	slices.Sort(snapshotIDs)
 	if observed.GenerationID != pending.GenerationID || observed.RepositoryID != pending.RepositoryID ||
+		observed.SourcePointID != pending.SourcePointID || observed.SourceSnapshotID != pending.SourceSnapshotID ||
+		observed.SourceManifestDigest != pending.SourceManifestDigest || observed.SourceInventoryDigest != pending.SourceInventoryDigest ||
+		observed.SourceContentDigest != pending.SourceContentDigest || observed.SourceDependencyDigest != pending.SourceDependencyDigest ||
+		observed.SourceResticDigest != pending.SourceResticDigest || observed.KeyReferenceID != pending.KeyReferenceID ||
 		len(snapshotIDs) != 1 || snapshotIDs[0] != pending.OffsiteSnapshotID || observed.InventoryDigest != pending.OffsiteInventoryDigest ||
 		observed.RuleDigest != pending.RuleDigest || observed.ObjectCount != pending.ObjectCount || observed.ObjectBytes != pending.ObjectBytes ||
-		!observed.MetadataValid || !observed.ManifestConsistent || !observed.DependencyTrusted || observed.FullReadAt.IsZero() ||
+		!observed.MetadataValid || !observed.FullReadSucceeded || observed.FullReadAt.IsZero() ||
 		observed.ObservedAt.IsZero() || observed.ObservedAt.After(now) || observed.FullReadAt.After(observed.ObservedAt) ||
 		observed.ObservedAt.Sub(observed.FullReadAt) > config.FullReadMaximumAge {
 		return OffsiteProof{}, errors.New("offsite expected point verification failed")
