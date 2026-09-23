@@ -443,7 +443,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"plan": false, "apply": false, "run inspect": false, "run cancel": false, "run resume": false,
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
 		"backup policy draft": false, "backup retention-locks draft": false, "backup retirement draft": false, "backup status": false, "backup run": false, "backup verify": false, "credential import": false, "credential stage": false, "credential activate": false, "credential rotate": false, "credential revoke": false, "credential recover": false,
-		"audit checkpoints": false, "audit verify": false,
+		"audit checkpoints": false, "audit verify": false, "restore plan": false, "restore run": false, "restore verify": false,
 		"recovery witness collect": false,
 	}
 	wantPlanned := map[string]string{
@@ -452,7 +452,6 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"user onboard": "7", "user offboard": "7", "user suspend": "7", "user resume": "7",
 		"device request": "7", "device approve": "7", "device revoke": "7",
 		"service plan": "8", "service deploy": "8", "service rollback": "8",
-		"restore plan": "5", "restore run": "5", "restore verify": "5",
 		"maintenance plan": "10", "maintenance run": "10", "connect": "7",
 		"control-plane plan": "6", "control-plane verify": "6", "control-plane recover": "6",
 		"database backup": "5", "database verify": "5", "database restore": "5", "database export": "5",

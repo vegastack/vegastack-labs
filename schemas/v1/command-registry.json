@@ -2467,36 +2467,213 @@
         "restore",
         "plan"
       ],
-      "summary": "Create an immutable restore plan.",
-      "availability": "planned",
+      "summary": "Create one immutable fenced restore plan.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact material-free restore request JSON file (256 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/restore-request",
-      "dataSchema": "vegastack-labs.dev/restore-binding"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/restore-binding",
+      "examples": [
+        {
+          "summary": "Create one immutable fenced restore plan.",
+          "arguments": [
+            "restore",
+            "plan",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/restore-plan-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "restore",
         "run"
       ],
-      "summary": "Run one authorized restore plan.",
-      "availability": "planned",
+      "summary": "Stage one exact authorized restore candidate.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact material-free restore request JSON file (256 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/restore-run-request",
-      "dataSchema": "vegastack-labs.dev/restore-binding"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/restore-binding",
+      "examples": [
+        {
+          "summary": "Stage one exact authorized restore candidate.",
+          "arguments": [
+            "restore",
+            "run",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/restore-run-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "restore",
         "verify"
       ],
-      "summary": "Verify a completed restore.",
-      "availability": "planned",
+      "summary": "Verify the recovered authority and complete its canary.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact material-free restore request JSON file (256 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/restore-verify-request",
-      "dataSchema": "vegastack-labs.dev/restore-verification"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/restore-verification",
+      "examples": [
+        {
+          "summary": "Verify the recovered authority and complete its canary.",
+          "arguments": [
+            "restore",
+            "verify",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/restore-verify-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [

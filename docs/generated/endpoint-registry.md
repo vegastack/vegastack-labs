@@ -54,10 +54,10 @@ Contract schema: `1.21.0`
 | `api.v1.plans.get` | `GET` | `/api/v1/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-presentation` |
 | `api.v1.plans.run-resolution.get` | `GET` | `/api/v1/plans/{planId}/runs/{idempotencyKey}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.recovery-points.get` | `GET` | `/api/v1/recovery-points/{pointId}` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/recovery-point` |
-| `api.v1.restores.get` | `GET` | `/api/v1/restores/plans/{planId}` | `planned` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-restore-status` |
-| `api.v1.restores.plan` | `POST` | `/api/v1/restores/plans` | `planned` | `operator` | `finite` | `vegastack-labs.dev/restore-request` | `vegastack-labs.dev/restore-binding` |
-| `api.v1.restores.run` | `POST` | `/api/v1/restores/plans/{planId}/run` | `planned` | `operator` | `finite` | `vegastack-labs.dev/restore-run-request` | `vegastack-labs.dev/restore-binding` |
-| `api.v1.restores.verify` | `POST` | `/api/v1/restores/plans/{planId}/verify` | `planned` | `operator` | `finite` | `vegastack-labs.dev/restore-verify-request` | `vegastack-labs.dev/restore-verification` |
+| `api.v1.restores.get` | `GET` | `/api/v1/restores/plans/{planId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-restore-status` |
+| `api.v1.restores.plan` | `POST` | `/api/v1/restores/plans` | `available` | `operator` | `finite` | `vegastack-labs.dev/restore-request` | `vegastack-labs.dev/restore-binding` |
+| `api.v1.restores.run` | `POST` | `/api/v1/restores/plans/{planId}/run` | `available` | `operator` | `finite` | `vegastack-labs.dev/restore-run-request` | `vegastack-labs.dev/restore-binding` |
+| `api.v1.restores.verify` | `POST` | `/api/v1/restores/plans/{planId}/verify` | `available` | `operator` | `finite` | `vegastack-labs.dev/restore-verify-request` | `vegastack-labs.dev/restore-verification` |
 | `api.v1.runs.cancel` | `POST` | `/api/v1/runs/{runId}/cancel` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.runs.get` | `GET` | `/api/v1/runs/{runId}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/run-presentation` |
 | `api.v1.runs.resume` | `POST` | `/api/v1/runs/{runId}/resume` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/run-reference-request` | `vegastack-labs.dev/run-presentation` |

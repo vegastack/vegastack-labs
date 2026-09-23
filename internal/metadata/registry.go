@@ -208,13 +208,16 @@ func Current() Registry {
 		backupRetentionLockDraftCommand(),
 		backupRetirementDraftCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
+		restoreCommand("plan", restoreRequestSchemaID, restoreBindingSchemaID, "Create one immutable fenced restore plan."),
+		restoreCommand("run", restoreRunRequestSchemaID, restoreBindingSchemaID, "Stage one exact authorized restore candidate."),
+		restoreCommand("verify", restoreVerifyRequestSchemaID, restoreVerificationSchemaID, "Verify the recovered authority and complete its canary."),
 		credentialImportCommand(),
 		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
 		recoveryWitnessCollectCommand(),
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -410,6 +413,12 @@ func backupVerifyCommand() CommandDefinition {
 	return phase5GateCommand([]string{"backup", "verify"}, "Execute one exact approved local-backup verification plan.", backupVerifyRequestSchemaID, backupJobSchemaID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-verify-request JSON file (4 KiB max)."}},
 		[]string{"backup", "verify", "--config", "fixture/server-profile.json", "--file", "fixture/backup-verify-request.json", "--output", "json"})
+}
+
+func restoreCommand(action, requestSchema, dataSchema, summary string) CommandDefinition {
+	return phase5GateCommand([]string{"restore", action}, summary, requestSchema, dataSchema, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact material-free restore request JSON file (256 KiB max)."}},
+		[]string{"restore", action, "--config", "fixture/server-profile.json", "--file", "fixture/restore-" + action + "-request.json", "--output", "json"})
 }
 
 func credentialImportCommand() CommandDefinition {

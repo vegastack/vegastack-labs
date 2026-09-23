@@ -571,6 +571,30 @@ func (operations *Operations) VerifyBackup(ctx context.Context, configPath strin
 	return client.VerifyBackup(ctx, profile, input)
 }
 
+func (operations *Operations) PlanRestore(ctx context.Context, configPath string, input generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.RestoreBinding]{}, err
+	}
+	return client.PlanRestore(ctx, profile, input)
+}
+
+func (operations *Operations) RunRestore(ctx context.Context, configPath string, input generated.RestoreRunRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.RestoreBinding]{}, err
+	}
+	return client.RunRestore(ctx, profile, input)
+}
+
+func (operations *Operations) VerifyRestore(ctx context.Context, configPath string, input generated.RestoreVerifyRequest) (localapi.TypedResponse[generated.RestoreVerification], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.RestoreVerification]{}, err
+	}
+	return client.VerifyRestore(ctx, profile, input)
+}
+
 func (operations *Operations) ImportInventory(ctx context.Context, configPath string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
