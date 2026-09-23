@@ -352,8 +352,13 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	restorePlanner := recovery.StoreRestorePlanner{Declarations: declarationRepository, Plans: planRepository, Restores: restoreRepository, Clock: time.Now}
 	restoreSessions := recovery.StoreRestoreSessions{Repository: restoreRepository}
 	restoreCandidates := recovery.StoreCandidateStager{Repository: restoreRepository, Plans: planRepository, Manager: recovery.CandidateManager{DatabasePath: operations.databasePath, Storage: recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID}, Authority: recovery.StoreCandidateAuthority{Open: candidateOpener}, Bundles: recovery.StoreRecoveryBundleStore{Open: candidateOpener}}}
+	restoreFences := recovery.TwoStageFences{
+		Admissions: recovery.LoadSystemSourceAdmission, Profiles: gateRepository,
+		Execution:      recovery.SystemExactFenceWitnessVerifier(operations.build.ReleaseBuildID, "1.0.0"),
+		ReleaseBuildID: operations.build.ReleaseBuildID, EvaluatorVersion: "1.0.0",
+	}
 	restoreService, err := recovery.NewOperationsService(recovery.OperationsConfig{
-		Sources: recovery.SourceVerifier{Local: backupRepository, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: recovery.FenceEvaluator{Clock: time.Now},
+		Sources: recovery.SourceVerifier{Local: backupRepository, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
 		Plans: restorePlanner, Sessions: restoreSessions, Candidates: restoreCandidates, Canary: recovery.CanaryVerifier{},
 		TargetReleaseBuildID: operations.build.ReleaseBuildID, TargetToolVersion: operations.build.ToolVersion, TargetSchemaVersion: strconv.FormatUint(health.SchemaVersion, 10),
 	})
