@@ -266,6 +266,15 @@
           "github.com/vegastack/vegastack-labs/internal/adapter/localretention"
         ],
         "mutationBoundaryDigest": "sha256:f012f10bb2cb917423afac31aea31a2021ce1de488f3fbc1cdb47ef1f0c3d38d"
+      },
+      {
+        "id": "phase5-issue114-v1",
+        "issue": 114,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapters/r2"
+        ],
+        "mutationBoundaryDigest": "sha256:6c6a3ab5f366603d73c1bd07d91097d0062f49a48231aca42a4c1f500af0455d"
       }
     ]
   },

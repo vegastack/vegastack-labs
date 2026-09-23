@@ -59,6 +59,7 @@ type CustodyClient interface {
 	Capacity(context.Context) (uint64, error)
 	CapacitySnapshot(context.Context) (RepositoryCapacity, error)
 	RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error)
+	RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error)
 	ResticObservation() ResticObservation
 	Close(context.Context) error
 }
@@ -102,6 +103,9 @@ func (launcher CustodyLauncher) Start(ctx context.Context, session CustodySessio
 }
 
 func (launcher CustodyLauncher) startDirect(ctx context.Context, session CustodySession) (CustodyClient, error) {
+	if session.Role == "offsite-writer" || session.Role == "offsite-verifier" {
+		return nil, errors.New("offsite custody requires systemd broker")
+	}
 	policy, err := LoadCustodyPolicy(launcher.PolicyPath)
 	if err != nil ||
 		(session.Role == "writer" && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || (session.Role == "retention" && (launcher.Retention == nil || launcher.Mutations == nil)) || launcher.Journal == nil {
@@ -305,6 +309,9 @@ func (client *processCustodyClient) CapacitySnapshot(ctx context.Context) (Repos
 func (*processCustodyClient) RunRestic(context.Context, ResticRequest, *credentialref.Value) (ResticResult, error) {
 	return ResticResult{}, errors.New("direct custody client cannot broker restic")
 }
+func (*processCustodyClient) RunOffsiteRestic(context.Context, OffsiteResticRequest, *credentialref.Value, []byte) (OffsiteResticResult, error) {
+	return OffsiteResticResult{}, errors.New("direct custody client cannot broker offsite restic")
+}
 func (*processCustodyClient) ResticObservation() ResticObservation { return ResticObservation{} }
 
 func (client *processCustodyClient) Close(ctx context.Context) error {
@@ -365,7 +372,7 @@ func serveCustodyAuthority(file *os.File, nonce string, session CustodySession, 
 		}
 		switch frame.Type {
 		case "verify":
-			if session.Role == "writer" && writer != nil {
+			if (session.Role == "writer" || session.Role == "offsite-writer" || session.Role == "offsite-verifier") && writer != nil {
 				response.OK = writer.VerifyWriterLease(*session.WriterLease, time.Now()) == nil
 			}
 			if session.Role == "verifier" && reader != nil {

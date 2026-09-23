@@ -4,6 +4,7 @@ const (
 	contractExtensionSchemaID       = "vegastack-labs.dev/contract-extension"
 	browserRunResultSchemaID        = "vegastack-labs.dev/browser-run-result"
 	declarationOperationSchemaID    = "vegastack-labs.dev/declaration-operation"
+	browserDeclarationOperationID   = "vegastack-labs.dev/browser-declaration-operation"
 	declarationRevisionRequestID    = "vegastack-labs.dev/declaration-revision-request"
 	browserDeclarationRevisionID    = "vegastack-labs.dev/browser-declaration-revision"
 	planBindingSchemaID             = "vegastack-labs.dev/plan-binding"
@@ -94,12 +95,16 @@ func phase4Schemas() []SchemaDefinition {
 	contract := func(schema string, fields ...FieldDefinition) []FieldDefinition {
 		return append([]FieldDefinition{{JSONName: "schema", GoName: "Schema", Kind: ValueString, Required: true, Enum: []string{schema}}, {JSONName: "schemaVersion", GoName: "SchemaVersion", Kind: ValueString, Required: true, Enum: []string{"1.0.0"}}}, fields...)
 	}
-	operationFields := func(withExecutor bool) []FieldDefinition {
+	operationFields := func(withExecutor, withOffsite bool) []FieldDefinition {
 		fields := []FieldDefinition{positive("sequence", "Sequence"), id("operationId", "OperationID"), id("operationType", "OperationType"), id("adapterId", "AdapterID")}
 		if withExecutor {
 			fields = append(fields, id("executorId", "ExecutorID"))
 		}
-		return append(fields, id("targetId", "TargetID"), digest("inputDigest", "InputDigest"), digest("artifactDigest", "ArtifactDigest"), FieldDefinition{JSONName: "idempotent", GoName: "Idempotent", Kind: ValueBoolean, Required: true})
+		fields = append(fields, id("targetId", "TargetID"), digest("inputDigest", "InputDigest"), digest("artifactDigest", "ArtifactDigest"), FieldDefinition{JSONName: "idempotent", GoName: "Idempotent", Kind: ValueBoolean, Required: true})
+		if withOffsite {
+			fields = append(fields, FieldDefinition{JSONName: "offsiteRunSpec", GoName: "OffsiteRunSpec", Kind: ValueObject, Required: false, Nullable: true, Ref: offsiteRunSpecSchemaID})
+		}
+		return fields
 	}
 	ackRequestFields := append(acknowledgementFields(id, digest, nonnegative, timestamp), extensions)
 	ackFields := append(acknowledgementFields(id, digest, nonnegative, timestamp), id("acknowledgementId", "AcknowledgementID"), digest("proofDigest", "ProofDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"approved", "expired", "pending", "rejected"}}, timestamp("receivedAt", "ReceivedAt"), extensions)
@@ -122,12 +127,13 @@ func phase4Schemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "data", GoName: "Data", Kind: ValueObject, Required: true, AdditionalProperties: true},
 		)},
 		{ID: contractExtensionSchemaID, Version: "1.0.0", Fields: []FieldDefinition{{JSONName: "name", GoName: "Name", Kind: ValueString, Required: true, Pattern: `^x-[a-z][a-z0-9.-]{0,62}$`}, digest("valueDigest", "ValueDigest")}},
-		{ID: declarationOperationSchemaID, Version: "1.0.0", Fields: operationFields(false)},
+		{ID: declarationOperationSchemaID, Version: "1.0.0", Fields: operationFields(false, true)},
+		{ID: browserDeclarationOperationID, Version: "1.0.0", Fields: operationFields(false, false)},
 		{ID: declarationRevisionRequestID, Version: "1.0.0", ArtifactPath: schemaPath(declarationRevisionRequestID), Fields: contract(declarationRevisionRequestID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("expectedRevision", "ExpectedRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, digest("reasonDigest", "ReasonDigest"), extensions)},
 		{ID: declarationRevisionSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(declarationRevisionSchemaID), Fields: contract(declarationRevisionSchemaID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("revision", "Revision"), nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("contentDigest", "ContentDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"committed", "draft", "superseded"}}, FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, timestamp("createdAt", "CreatedAt"), id("createdBy", "CreatedBy"), id("agentSessionId", "AgentSessionID"), extensions)},
-		{ID: browserDeclarationRevisionID, Version: "1.0.0", ArtifactPath: schemaPath(browserDeclarationRevisionID), Fields: contract(browserDeclarationRevisionID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("revision", "Revision"), nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("contentDigest", "ContentDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"committed", "draft", "superseded"}}, FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: declarationOperationSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256)}, timestamp("createdAt", "CreatedAt"), extensions)},
+		{ID: browserDeclarationRevisionID, Version: "1.0.0", ArtifactPath: schemaPath(browserDeclarationRevisionID), Fields: contract(browserDeclarationRevisionID, id("declarationId", "DeclarationID"), id("declarationType", "DeclarationType"), positive("revision", "Revision"), nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("contentDigest", "ContentDigest"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: []string{"committed", "draft", "superseded"}}, FieldDefinition{JSONName: "operations", GoName: "Operations", Kind: ValueArray, Required: true, ItemRef: browserDeclarationOperationID, MinItems: intPointer(1), MaxItems: intPointer(256)}, timestamp("createdAt", "CreatedAt"), extensions)},
 		{ID: planBindingSchemaID, Version: "1.0.0", Fields: []FieldDefinition{nonnegative("recoveryEpoch", "RecoveryEpoch"), nonnegative("priorStateRevision", "PriorStateRevision"), positive("stateRevision", "StateRevision"), positive("declarationRevision", "DeclarationRevision"), digest("observationFingerprint", "ObservationFingerprint"), digest("targetDigest", "TargetDigest"), digest("reasonDigest", "ReasonDigest"), version("policyVersion", "PolicyVersion"), toolVersion, version("contractVersion", "ContractVersion")}},
-		{ID: planOperationSchemaID, Version: "1.0.0", Fields: operationFields(true)},
+		{ID: planOperationSchemaID, Version: "1.0.0", Fields: operationFields(true, false)},
 		{ID: planCreateRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planCreateRequestSchemaID), Fields: contract(planCreateRequestSchemaID, id("declarationId", "DeclarationID"), positive("declarationRevision", "DeclarationRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("observationFingerprint", "ObservationFingerprint"), id("idempotencyKey", "IdempotencyKey"), extensions)},
 		{ID: planPreparationSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planPreparationSchemaID), Fields: contract(planPreparationSchemaID, id("declarationId", "DeclarationID"), positive("declarationRevision", "DeclarationRevision"), nonnegative("expectedStateRevision", "ExpectedStateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"), digest("observationFingerprint", "ObservationFingerprint"))},
 		{ID: planReferenceRequestSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(planReferenceRequestSchemaID), Fields: contract(planReferenceRequestSchemaID, id("planId", "PlanID"), digest("planDigest", "PlanDigest"), nonnegative("recoveryEpoch", "RecoveryEpoch"), id("idempotencyKey", "IdempotencyKey"), extensions)},
@@ -146,7 +152,7 @@ func phase4Schemas() []SchemaDefinition {
 			nonnegative("stateRevision", "StateRevision"), nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			timestamp("expiresAt", "ExpiresAt"), timestamp("observedAt", "ObservedAt"),
 		)},
-		{ID: runStepSchemaID, Version: "1.0.0", Fields: append(operationFields(true), id("stepId", "StepID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "effectState", GoName: "EffectState", Kind: ValueString, Required: true, Enum: []string{"effect-unknown", "intent-recorded", "not-started", "receipt-recorded", "verified"}})},
+		{ID: runStepSchemaID, Version: "1.0.0", Fields: append(operationFields(true, false), id("stepId", "StepID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "effectState", GoName: "EffectState", Kind: ValueString, Required: true, Enum: []string{"effect-unknown", "intent-recorded", "not-started", "receipt-recorded", "verified"}})},
 		{ID: browserRunStepSchemaID, Version: "1.0.0", Fields: []FieldDefinition{positive("sequence", "Sequence"), id("operationId", "OperationID"), id("operationType", "OperationType"), id("targetId", "TargetID"), id("stepId", "StepID"), FieldDefinition{JSONName: "status", GoName: "Status", Kind: ValueString, Required: true, Enum: phase4RunStates}, FieldDefinition{JSONName: "progressState", GoName: "ProgressState", Kind: ValueString, Required: true, Enum: []string{"not-started", "started", "unverified", "verified", "unknown"}}}},
 		{ID: runPresentationSchemaID, Version: "1.0.0", ArtifactPath: schemaPath(runPresentationSchemaID), Fields: []FieldDefinition{
 			{JSONName: "run", GoName: "Run", Kind: ValueObject, Required: true, Ref: browserRunSchemaID},

@@ -44,14 +44,39 @@ type Operations struct {
 	databasePath       string
 	platformProbe      PlatformProbe
 	identityHTTPClient *http.Client
+	offsiteEffect      OffsiteEffectFactory
+	newAdapterRegistry func() *adapter.Registry
 }
 
-func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource) *Operations {
-	return &Operations{
+type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
+type OperationsOption func(*Operations)
+
+// WithOffsiteEffectFactory supplies the qualified site composition. The
+// production command intentionally omits this option until G-008 is closed.
+func WithOffsiteEffectFactory(factory OffsiteEffectFactory) OperationsOption {
+	return func(operations *Operations) {
+		if factory != nil {
+			operations.offsiteEffect = factory
+		}
+	}
+}
+
+func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, options ...OperationsOption) *Operations {
+	operations := &Operations{
 		build: build, requestIDs: requestIDs, openStore: store.Open,
 		databasePath: productionDatabasePath, platformProbe: NewRuntimePlatformProbe(),
 		identityHTTPClient: &http.Client{Timeout: 10 * time.Second},
+		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
+			return nil, nil
+		},
+		newAdapterRegistry: productionAdapterRegistry,
 	}
+	for _, option := range options {
+		if option != nil {
+			option(operations)
+		}
+	}
+	return operations
 }
 
 func (operations *Operations) Run(ctx context.Context, configPath string) error {
@@ -178,7 +203,19 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	runRepository := store.NewRunRepository(authority)
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
-	adapters := productionAdapterRegistry()
+	adapters := operations.newAdapterRegistry()
+	// The default factory returns nil. A qualified site composition may supply
+	// the concrete runner/catalog execution, but profile presence alone never
+	// turns fixture evidence into a live adapter.
+	offsiteEffect, err := operations.offsiteEffect(ctx, profile, authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := registerOffsiteEffect(adapters, profile.OffsiteBackup, offsiteEffect); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	backupRepository := store.NewBackupRepository(authority)
 	// The protected local backup adapter is registered only when the complete
 	// standard/critical/restic profile triplet is present. It fails closed
@@ -650,4 +687,18 @@ type unavailableAcknowledgementPublisher struct{}
 
 func (unavailableAcknowledgementPublisher) Publish(context.Context, acknowledgement.RequestCard) error {
 	return failure.New(generated.ErrorCodeDependencyUnavailable, "slack-acknowledgement", true)
+}
+
+// registerOffsiteEffect keeps the optional off-site capability out of the
+// production registry unless both a complete profile and a separately
+// qualified execution implementation exist. An absent implementation leaves
+// local backup operation available and off-site copy unavailable.
+func registerOffsiteEffect(registry *adapter.Registry, profile *serverconfig.OffsiteBackup, effect adapter.Adapter) error {
+	if registry == nil {
+		return failure.New(generated.ErrorCodeInputInvalid, "offsite-adapter", false)
+	}
+	if profile == nil || effect == nil {
+		return nil
+	}
+	return registry.Register(runengine.OffsiteAdapterID, effect)
 }

@@ -36,7 +36,12 @@ func gateDraftFixture(t *testing.T) GateDraftRequest {
 		EvidenceID: "evidence-a", GateID: "G-008", SubjectID: "site-a",
 		DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ArtifactDigest: digest,
 		SourceKind: "local", ProofClass: "live",
-		Bundle:    generated.GateEvidenceBundle{Schema: generated.SchemaIDGateEvidenceBundle, SchemaVersion: "1.1.0", Facts: []generated.GateEvidenceFact{}, Checks: []generated.GateEvidenceCheck{}, Attachments: []generated.GateEvidenceAttachment{}, CollectorID: "collector-a", ObservedAt: "2026-09-15T08:00:00Z"},
+		Bundle: generated.GateEvidenceBundle{Schema: generated.SchemaIDGateEvidenceBundle, SchemaVersion: "1.1.0",
+			Facts: []generated.GateEvidenceFact{{Schema: generated.SchemaIDGateEvidenceFact, SchemaVersion: "1.1.0", FactID: "r2-offsite-qualification", ValueDigest: digest}},
+			Checks: []generated.GateEvidenceCheck{
+				{Schema: generated.SchemaIDGateEvidenceCheck, SchemaVersion: "1.1.0", CheckID: "r2-expired-put-denied", VerifierVersion: "1.0.0", Result: "passed", ResultDigest: digest},
+				{Schema: generated.SchemaIDGateEvidenceCheck, SchemaVersion: "1.1.0", CheckID: "r2-expired-multipart-completion-denied", VerifierVersion: "1.0.0", Result: "passed", ResultDigest: digest},
+			}, Attachments: []generated.GateEvidenceAttachment{}, CollectorID: "collector-a", ObservedAt: "2026-09-15T08:00:00Z"},
 		Expected:  RevisionToken{StateRevision: 0, RecoveryEpoch: 0},
 		KeyDigest: digest, RequestDigest: digest,
 		Attribution: audit.Attribution{AuthenticatedPrincipalID: "human-a", AuthenticatedPrincipalMethod: "local"},
@@ -182,7 +187,7 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	apply := gateApplyFixture(draft)
 	apply.Expected.StateRevision = appliedScope.StateRevision
 	apply.PlanDigest = "sha256:" + strings.Repeat("d", 64)
-	apply.ReleaseBuildID, apply.ToolVersion, apply.ExpiresAt = "release-a", "1.0.0", "2026-09-15T09:00:00Z"
+	apply.ReleaseBuildID, apply.ToolVersion, apply.ExpiresAt = "test-build", "test-tool", "2026-09-15T09:00:00Z"
 	apply.SourceKind, apply.ProofClass = "local", "live"
 	seedGateExactStep(t, repository, apply.PlanID, apply.PlanDigest, apply.RunID, apply.StepID, apply.LeaseID, apply.DeclarationID, apply.SubjectID, draft.BundleDigest, "gate.evidence.apply", apply.Expected.StateRevision)
 	evidence, err := repository.ApplyGateEvidence(context.Background(), apply)
@@ -200,6 +205,14 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	}
 	if evidence.Status != "applied" || evidence.ProfileID != "vegastack-labs" || evidence.StateRevision != 4 {
 		t.Fatalf("evidence %#v", evidence)
+	}
+	digest := "sha256:" + strings.Repeat("a", 64)
+	resolved, err := repository.ResolveCurrentLiveGateEvidence(context.Background(), "G-008", evidence.BundleDigest, digest, digest, digest, time.Date(2026, 9, 15, 8, 30, 0, 0, time.UTC))
+	if err != nil || resolved.EvidenceID != evidence.EvidenceID {
+		t.Fatalf("current live G-008 evidence unresolved: %#v %v", resolved, err)
+	}
+	if _, err := repository.ResolveCurrentLiveGateEvidence(context.Background(), "G-008", evidence.BundleDigest, "sha256:"+strings.Repeat("f", 64), digest, digest, time.Date(2026, 9, 15, 8, 30, 0, 0, time.UTC)); Code(err) != generated.ErrorCodeIntegrityFailure {
+		t.Fatalf("mismatched qualification fact accepted: %v", err)
 	}
 	rows, err := repository.ListAppliedGateEvidence(context.Background(), draft.GateID, draft.SubjectID)
 	if err != nil || len(rows) != 1 {

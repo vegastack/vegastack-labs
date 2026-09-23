@@ -399,7 +399,7 @@ The control database is `critical` data. Use SQLite's online backup API through 
 - alert on failed integrity, snapshot age, off-site age, outbox backlog or insufficient disk;
 - quarterly, restore onto an isolated clean control node and prove login, inventory, plan generation, provider refresh and CLI/manual recovery.
 
-The backup adapter pins restic `0.19.1` or a separately reviewed later patch by binary digest, obtains its password through a narrow `RESTIC_PASSWORD_COMMAND`, keeps backup-write and retention/prune authority separate, and follows the check/restore cadence in [Implementation gates](implementation-gates.md#backup-engine-and-repository-topology--g-008). [D-109](decisions-and-sources.md#d-109)
+The backup adapter pins restic `0.19.1` or a separately reviewed later patch by binary digest, obtains its password through an inherited sealed anonymous file descriptor, keeps backup-write and retention/prune authority separate, and follows the check/restore cadence in [Implementation gates](implementation-gates.md#backup-engine-and-repository-topology--g-008). [D-109](decisions-and-sources.md#d-109)
 
 Issue #37 implements only the inert draft-snapshot part of that future export path. It serializes one immutable `valid` or `blocked` inventory draft as a deterministic self-contained `inventory-draft-snapshot`, signs the payload digest for `vsk-labs:inventory-draft-export:v1`, independently verifies it through a separate provider-neutral port, writes immutable digest-addressed bytes, and atomically advances a protected `current.json`. It contains no raw input, secret, approval, plan, run, database page, provider response, local path, session, or authority transition; `kind=draft` remains explicit.
 

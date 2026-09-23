@@ -3374,6 +3374,11 @@
       "artifactPath": "schemas/v1/backup-local-retirement-status.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/backup-offsite-status",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-offsite-status.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/backup-policy",
       "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-policy.schema.json"
@@ -3420,7 +3425,7 @@
     },
     {
       "id": "vegastack-labs.dev/backup-status-data",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "artifactPath": "schemas/v1/backup-status-data.schema.json"
     },
     {
@@ -3442,6 +3447,10 @@
       "id": "vegastack-labs.dev/browser-audit-event",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-audit-event.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-declaration-operation",
+      "version": "1.0.0"
     },
     {
       "id": "vegastack-labs.dev/browser-declaration-revision",
@@ -3760,6 +3769,10 @@
       "artifactPath": "schemas/v1/local-retention-lock-catalog.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/offsite-run-spec",
+      "version": "1.0.0"
+    },
+    {
       "id": "vegastack-labs.dev/outbox-record-data",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/outbox-record-data.schema.json"
@@ -3938,7 +3951,7 @@
     },
     {
       "id": "vegastack-labs.dev/server-profile",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "artifactPath": "schemas/v1/server-profile.schema.json"
     },
     {

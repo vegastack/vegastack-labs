@@ -1,0 +1,346 @@
+//go:build linux
+
+package backup
+
+import (
+	"bufio"
+	"bytes"
+	"context"
+	"crypto/md5"
+	"encoding/hex"
+	"encoding/xml"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
+)
+
+// TestPinnedResticOffsiteS3IAM is the Linux acceptance lane for Task 4. It
+// uses the official digest-pinned binary against an in-memory S3-compatible
+// endpoint and the real one-run IAM handler. The fixture proves restic reaches
+// IAM without static credentials, creates one independent v2 repository,
+// lists the exact snapshot, reads all payload, and restores it.
+func TestPinnedResticOffsiteS3IAM(t *testing.T) {
+	binary := os.Getenv("VSK_RESTIC_0191_BINARY")
+	if binary == "" {
+		t.Skip("official pinned restic 0.19.1 binary not provided")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	storage := newHermeticS3(t)
+	defer storage.server.Close()
+
+	now := time.Now().UTC()
+	parent, err := credentialref.NewValue([]byte("fixture-parent-signing-material"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer parent.Close()
+	binding := adapter.SessionRequest{RunID: "run-offsite-real", StepID: "step-offsite-real", PointID: "point-offsite-real", GenerationID: "generation-offsite-real", RecoveryEpoch: 1, Prefix: "generation-offsite-real/", Actions: []string{"ListBucket", "PutObject", "GetObject", "DeleteObject"}, Deadline: now.Add(5 * time.Minute), TTL: 2 * time.Minute}
+	bearer := []byte("0123456789abcdef0123456789abcdef")
+	endpoint, err := NewOneRunEndpoint(OneRunConfig{Issuer: issuerFixture{now: now}, Parent: parent, Request: binding, Bearer: bearer, Path: OneRunIAMPath(binding), Clock: time.Now})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer endpoint.Close()
+	iam := httptest.NewServer(endpoint)
+	defer iam.Close()
+
+	passwordFile, err := sealedPasswordFile([]byte("offsite-real-fixture-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer passwordFile.Close()
+	authorization := append([]byte("Bearer "), bearer...)
+	bearerFile, err := SealedBearerFile(authorization)
+	for index := range authorization {
+		authorization[index] = 0
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer bearerFile.Close()
+	runner := &resticRunner{clock: time.Now}
+	binaryFile, err := runner.verifyBinary(ResticRequest{BinaryPath: binary, Architecture: runtime.GOARCH})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer binaryFile.Close()
+	repositoryURL := "s3:" + storage.server.URL + "/bucket/generation-offsite-real"
+	environment := []string{"HOME=/nonexistent", "RESTIC_PASSWORD_FILE=/proc/self/fd/3", "AWS_CONTAINER_CREDENTIALS_FULL_URI=" + iam.URL + OneRunIAMPath(binding), "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE=/proc/self/fd/4"}
+	run := func(arguments ...string) []byte {
+		t.Helper()
+		for _, file := range []*os.File{passwordFile, bearerFile, binaryFile} {
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				t.Fatal(err)
+			}
+		}
+		commandContext, commandCancel := context.WithTimeout(ctx, 15*time.Second)
+		defer commandCancel()
+		command := exec.CommandContext(commandContext, "/proc/self/fd/5", arguments...)
+		command.Args[0] = binary
+		command.ExtraFiles = []*os.File{passwordFile, bearerFile, binaryFile}
+		command.Env = environment
+		var stdout, stderr bytes.Buffer
+		command.Stdout, command.Stderr = &stdout, &stderr
+		if err := command.Run(); err != nil {
+			t.Fatalf("restic %v: %v stderr=%q requests=%q", arguments, err, stderr.String(), storage.requestTrace())
+		}
+		if strings.Contains(stdout.String()+stderr.String(), string(bearer)) || strings.Contains(stdout.String()+stderr.String(), "fixture-parent-signing-material") {
+			t.Fatal("credential material escaped child output")
+		}
+		return stdout.Bytes()
+	}
+	common := []string{"-r", repositoryURL, "--json", "--no-cache", "--password-file", "/proc/self/fd/3"}
+	run(append(append([]string{}, common...), "init", "--repository-version", "2")...)
+	snapshot := filepath.Join(t.TempDir(), "snapshot.sqlite")
+	payload := []byte(strings.Repeat("captured-sqlite-page", 4096))
+	if err := os.WriteFile(snapshot, payload, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	backupOutput := run(append(append([]string{}, common...), "backup", snapshot, "--host", "vsk-labs")...)
+	summary, err := parseResticSummary(backupOutput)
+	if err != nil || !validObjectName(summary.SnapshotID) {
+		t.Fatalf("backup summary: %#v %v", summary, err)
+	}
+	snapshotsOutput := run(append(append([]string{}, common...), "snapshots")...)
+	snapshotIDs, err := parseResticSnapshots(snapshotsOutput)
+	if err != nil || len(snapshotIDs) != 1 || snapshotIDs[0] != summary.SnapshotID {
+		t.Fatalf("snapshots = %#v, %v", snapshotIDs, err)
+	}
+	run(append(append([]string{}, common...), "check", "--read-data")...)
+	restore := filepath.Join(t.TempDir(), "restore")
+	if err := os.Mkdir(restore, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	run(append(append([]string{}, common...), "restore", summary.SnapshotID, "--target", restore)...)
+	restoredPayload, err := os.ReadFile(filepath.Join(restore, strings.TrimPrefix(snapshot, "/")))
+	if err != nil || !bytes.Equal(restoredPayload, payload) {
+		t.Fatalf("restored payload mismatch: bytes=%d err=%v", len(restoredPayload), err)
+	}
+	if atomic.LoadInt64(&storage.iamAuthenticatedCalls) == 0 || endpoint.SessionExpiries() == nil {
+		t.Fatal("restic never used one-run IAM credentials")
+	}
+	objects := storage.inventory()
+	if len(objects) < 5 {
+		t.Fatalf("incomplete repository inventory: %#v", objects)
+	}
+	for _, prefix := range []string{"generation-offsite-real/config", "generation-offsite-real/keys/", "generation-offsite-real/data/", "generation-offsite-real/index/", "generation-offsite-real/snapshots/"} {
+		if !containsObjectPrefix(objects, prefix) {
+			t.Fatalf("missing protected prefix %q in %#v", prefix, objects)
+		}
+	}
+}
+
+type hermeticS3 struct {
+	t                     *testing.T
+	server                *httptest.Server
+	mu                    sync.Mutex
+	objects               map[string][]byte
+	requests              []string
+	iamAuthenticatedCalls int64
+}
+
+func newHermeticS3(t *testing.T) *hermeticS3 {
+	fixture := &hermeticS3{t: t, objects: map[string][]byte{}}
+	fixture.server = httptest.NewServer(http.HandlerFunc(fixture.serveHTTP))
+	return fixture
+}
+
+func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.Request) {
+	fixture.mu.Lock()
+	requestLine := request.Method + " " + request.URL.RequestURI()
+	if byteRange := request.Header.Get("Range"); byteRange != "" {
+		requestLine += " range=" + byteRange
+	}
+	if encoding := request.Header.Get("Content-Encoding"); encoding != "" {
+		requestLine += " encoding=" + encoding
+	}
+	if decodedLength := request.Header.Get("X-Amz-Decoded-Content-Length"); decodedLength != "" {
+		requestLine += " decoded-length=" + decodedLength
+	}
+	if len(request.TransferEncoding) != 0 {
+		requestLine += " transfer=" + strings.Join(request.TransferEncoding, ",")
+	}
+	fixture.requests = append(fixture.requests, requestLine)
+	fixture.mu.Unlock()
+	if request.URL.Query().Has("location") {
+		writer.Header().Set("Content-Type", "application/xml")
+		_, _ = io.WriteString(writer, `<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></LocationConstraint>`)
+		return
+	}
+	if (request.URL.Path == "/bucket" || request.URL.Path == "/bucket/") && request.Method == http.MethodHead {
+		writer.WriteHeader(http.StatusOK)
+		return
+	}
+	if !strings.HasPrefix(request.URL.Path, "/bucket/") {
+		http.NotFound(writer, request)
+		return
+	}
+	if request.Header.Get("Authorization") == "" || request.Header.Get("X-Amz-Security-Token") == "" {
+		http.Error(writer, "forbidden", http.StatusForbidden)
+		return
+	}
+	atomic.AddInt64(&fixture.iamAuthenticatedCalls, 1)
+	if request.URL.Query().Get("list-type") == "2" {
+		fixture.list(writer, request.URL.Query().Get("prefix"))
+		return
+	}
+	key := strings.TrimPrefix(request.URL.Path, "/bucket/")
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	switch request.Method {
+	case http.MethodPut:
+		body, err := readS3PutBody(request)
+		if err != nil {
+			http.Error(writer, "read", http.StatusInternalServerError)
+			return
+		}
+		fixture.requests = append(fixture.requests, fmt.Sprintf("stored %s bytes=%d", key, len(body)))
+		fixture.objects[key] = append([]byte(nil), body...)
+		sum := md5.Sum(body)
+		writer.Header().Set("ETag", `"`+hex.EncodeToString(sum[:])+`"`)
+		writer.WriteHeader(http.StatusOK)
+	case http.MethodHead:
+		body, ok := fixture.objects[key]
+		if !ok {
+			writeS3Missing(writer, key)
+			return
+		}
+		sum := md5.Sum(body)
+		writer.Header().Set("Content-Length", fmt.Sprint(len(body)))
+		writer.Header().Set("ETag", `"`+hex.EncodeToString(sum[:])+`"`)
+		writer.Header().Set("Last-Modified", time.Unix(1, 0).UTC().Format(http.TimeFormat))
+		writer.WriteHeader(http.StatusOK)
+	case http.MethodGet:
+		body, ok := fixture.objects[key]
+		if !ok {
+			writeS3Missing(writer, key)
+			return
+		}
+		http.ServeContent(writer, request, key, time.Unix(1, 0), bytes.NewReader(body))
+	case http.MethodDelete:
+		delete(fixture.objects, key)
+		writer.WriteHeader(http.StatusNoContent)
+	default:
+		http.Error(writer, "method", http.StatusMethodNotAllowed)
+	}
+}
+
+func readS3PutBody(request *http.Request) ([]byte, error) {
+	decodedLength := request.Header.Get("X-Amz-Decoded-Content-Length")
+	if decodedLength == "" {
+		return io.ReadAll(io.LimitReader(request.Body, 64<<20))
+	}
+	want, err := strconv.ParseInt(decodedLength, 10, 64)
+	if err != nil || want < 0 || want > 64<<20 {
+		return nil, fmt.Errorf("invalid decoded content length %q", decodedLength)
+	}
+	reader := bufio.NewReader(io.LimitReader(request.Body, 65<<20))
+	decoded := bytes.NewBuffer(make([]byte, 0, want))
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, fmt.Errorf("read aws chunk header: %w", err)
+		}
+		fields := strings.SplitN(strings.TrimSuffix(strings.TrimSuffix(line, "\n"), "\r"), ";", 2)
+		chunkLength, err := strconv.ParseInt(fields[0], 16, 64)
+		if err != nil || chunkLength < 0 {
+			return nil, fmt.Errorf("invalid aws chunk length %q", fields[0])
+		}
+		if chunkLength == 0 {
+			break
+		}
+		if decoded.Len()+int(chunkLength) > int(want) {
+			return nil, errors.New("aws chunk exceeds decoded content length")
+		}
+		if _, err := io.CopyN(decoded, reader, chunkLength); err != nil {
+			return nil, fmt.Errorf("read aws chunk: %w", err)
+		}
+		var terminator [2]byte
+		if _, err := io.ReadFull(reader, terminator[:]); err != nil || terminator != [2]byte{'\r', '\n'} {
+			return nil, errors.New("invalid aws chunk terminator")
+		}
+	}
+	if int64(decoded.Len()) != want {
+		return nil, fmt.Errorf("decoded content length %d does not match %d", decoded.Len(), want)
+	}
+	return decoded.Bytes(), nil
+}
+
+func (fixture *hermeticS3) requestTrace() []string {
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	return append([]string(nil), fixture.requests...)
+}
+
+func writeS3Missing(writer http.ResponseWriter, key string) {
+	writer.Header().Set("Content-Type", "application/xml")
+	writer.WriteHeader(http.StatusNotFound)
+	_, _ = fmt.Fprintf(writer, `<Error><Code>NoSuchKey</Code><Message>missing</Message><BucketName>bucket</BucketName><Key>%s</Key><RequestId>fixture</RequestId><HostId>fixture</HostId></Error>`, key)
+}
+
+func (fixture *hermeticS3) list(writer http.ResponseWriter, prefix string) {
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	type content struct {
+		Key          string `xml:"Key"`
+		LastModified string `xml:"LastModified"`
+		ETag         string `xml:"ETag"`
+		Size         int    `xml:"Size"`
+		StorageClass string `xml:"StorageClass"`
+	}
+	result := struct {
+		XMLName                         xml.Name `xml:"ListBucketResult"`
+		Xmlns                           string   `xml:"xmlns,attr"`
+		Name, Prefix, KeyCount, MaxKeys string
+		IsTruncated                     bool
+		Contents                        []content `xml:"Contents"`
+	}{Xmlns: "http://s3.amazonaws.com/doc/2006-03-01/", Name: "bucket", Prefix: prefix, MaxKeys: "1000"}
+	for key, body := range fixture.objects {
+		if !strings.HasPrefix(key, prefix) {
+			continue
+		}
+		sum := md5.Sum(body)
+		result.Contents = append(result.Contents, content{Key: key, LastModified: time.Unix(1, 0).UTC().Format(time.RFC3339), ETag: `"` + hex.EncodeToString(sum[:]) + `"`, Size: len(body), StorageClass: "STANDARD"})
+	}
+	sort.Slice(result.Contents, func(i, j int) bool { return result.Contents[i].Key < result.Contents[j].Key })
+	result.KeyCount = fmt.Sprint(len(result.Contents))
+	writer.Header().Set("Content-Type", "application/xml")
+	_ = xml.NewEncoder(writer).Encode(result)
+}
+
+func (fixture *hermeticS3) inventory() []string {
+	fixture.mu.Lock()
+	defer fixture.mu.Unlock()
+	result := make([]string, 0, len(fixture.objects))
+	for key := range fixture.objects {
+		result = append(result, key)
+	}
+	sort.Strings(result)
+	return result
+}
+
+func containsObjectPrefix(objects []string, prefix string) bool {
+	for _, object := range objects {
+		if object == prefix || strings.HasPrefix(object, prefix) {
+			return true
+		}
+	}
+	return false
+}

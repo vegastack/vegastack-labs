@@ -8061,8 +8061,8 @@
     },
     {
       "id": "D-109",
-      "decision": "The VegaStack Labs deployment profile selects restic repository format v2: separate encrypted standard/critical SSD repositories and an encrypted critical R2 S3 repository, with distinct data-writer/retention authority, `keep-within` retention, integrity schedules and functional restores.",
-      "evidence": "direct user instruction 2026-08-25; assistant-derived mechanism; SRC-BKP-01..SRC-BKP-03; SRC-R2-02",
+      "decision": "The VegaStack Labs deployment profile selects restic repository format v2 with separate encrypted local standard and critical repositories. Each verified critical local recovery point uses one independent encrypted off-site R2 generation. Indefinite rules protect that generation’s config, keys, data, index and snapshots prefixes; locks remains mutable; a short-lived generation-scoped writer cannot administer rules; and only a separate human-approved exact retirement plan may remove a whole generation. No forget or prune runs inside a retained off-site generation.",
+      "evidence": "direct user instruction 2026-08-25; operator-delegated D-109 correction recorded on issue #114 on 2026-09-22; #103 compatibility evidence; SRC-BKP-01..SRC-BKP-03; SRC-R2-02",
       "coverage": {
         "destination": "[Implementation gates](implementation-gates.md#backup-engine-and-repository-topology-g-008)",
         "status": "Complete: activation evidence required"

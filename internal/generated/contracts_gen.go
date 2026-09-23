@@ -50,6 +50,7 @@ const (
 	SchemaIDBackupJob                          = "vegastack-labs.dev/backup-job"
 	SchemaIDBackupLastGood                     = "vegastack-labs.dev/backup-last-good"
 	SchemaIDBackupLocalRetirementStatus        = "vegastack-labs.dev/backup-local-retirement-status"
+	SchemaIDBackupOffsiteStatus                = "vegastack-labs.dev/backup-offsite-status"
 	SchemaIDBackupPolicy                       = "vegastack-labs.dev/backup-policy"
 	SchemaIDBackupPolicyDraftRequest           = "vegastack-labs.dev/backup-policy-draft-request"
 	SchemaIDBackupPolicyDraftSubmission        = "vegastack-labs.dev/backup-policy-draft-submission"
@@ -64,6 +65,7 @@ const (
 	SchemaIDBackupVerificationAttempt          = "vegastack-labs.dev/backup-verification-attempt"
 	SchemaIDBackupVerifyRequest                = "vegastack-labs.dev/backup-verify-request"
 	SchemaIDBrowserAuditEvent                  = "vegastack-labs.dev/browser-audit-event"
+	SchemaIDBrowserDeclarationOperation        = "vegastack-labs.dev/browser-declaration-operation"
 	SchemaIDBrowserDeclarationRevision         = "vegastack-labs.dev/browser-declaration-revision"
 	SchemaIDBrowserRestoreStatus               = "vegastack-labs.dev/browser-restore-status"
 	SchemaIDBrowserRun                         = "vegastack-labs.dev/browser-run"
@@ -131,6 +133,7 @@ const (
 	SchemaIDInventoryImportRequest             = "vegastack-labs.dev/inventory-import-request"
 	SchemaIDLocalPrincipalBinding              = "vegastack-labs.dev/local-principal-binding"
 	SchemaIDLocalRetentionLockCatalog          = "vegastack-labs.dev/local-retention-lock-catalog"
+	SchemaIDOffsiteRunSpec                     = "vegastack-labs.dev/offsite-run-spec"
 	SchemaIDOutboxRecordData                   = "vegastack-labs.dev/outbox-record-data"
 	SchemaIDPlan                               = "vegastack-labs.dev/plan"
 	SchemaIDPlanBinding                        = "vegastack-labs.dev/plan-binding"
@@ -662,6 +665,19 @@ type BackupLocalRetirementStatus struct {
 	RecoveryEpoch              int64    `json:"recoveryEpoch"`
 }
 
+type BackupOffsiteStatus struct {
+	Schema          string  `json:"schema"`
+	SchemaVersion   string  `json:"schemaVersion"`
+	GenerationID    string  `json:"generationId"`
+	SourcePointID   string  `json:"sourcePointId"`
+	RepositoryID    string  `json:"repositoryId"`
+	SnapshotID      string  `json:"snapshotId"`
+	Status          string  `json:"status"`
+	ProofClass      *string `json:"proofClass"`
+	LastGoodProofID *string `json:"lastGoodProofId"`
+	RecoveryEpoch   int64   `json:"recoveryEpoch"`
+}
+
 type BackupPolicy struct {
 	Schema                      string             `json:"schema"`
 	SchemaVersion               string             `json:"schemaVersion"`
@@ -788,6 +804,7 @@ type BackupStatusData struct {
 	Verifications []BackupVerificationAttempt   `json:"verifications"`
 	LastGood      []BackupLastGood              `json:"lastGood"`
 	Retirements   []BackupLocalRetirementStatus `json:"retirements"`
+	Offsite       []BackupOffsiteStatus         `json:"offsite"`
 	RecoveryEpoch int64                         `json:"recoveryEpoch"`
 }
 
@@ -850,19 +867,30 @@ type BrowserAuditEvent struct {
 	Target        AuditTarget `json:"target"`
 }
 
+type BrowserDeclarationOperation struct {
+	Sequence       int64  `json:"sequence"`
+	OperationID    string `json:"operationId"`
+	OperationType  string `json:"operationType"`
+	AdapterID      string `json:"adapterId"`
+	TargetID       string `json:"targetId"`
+	InputDigest    string `json:"inputDigest"`
+	ArtifactDigest string `json:"artifactDigest"`
+	Idempotent     bool   `json:"idempotent"`
+}
+
 type BrowserDeclarationRevision struct {
-	Schema          string                 `json:"schema"`
-	SchemaVersion   string                 `json:"schemaVersion"`
-	DeclarationID   string                 `json:"declarationId"`
-	DeclarationType string                 `json:"declarationType"`
-	Revision        int64                  `json:"revision"`
-	StateRevision   int64                  `json:"stateRevision"`
-	RecoveryEpoch   int64                  `json:"recoveryEpoch"`
-	ContentDigest   string                 `json:"contentDigest"`
-	Status          string                 `json:"status"`
-	Operations      []DeclarationOperation `json:"operations"`
-	CreatedAt       string                 `json:"createdAt"`
-	Extensions      []ContractExtension    `json:"extensions"`
+	Schema          string                        `json:"schema"`
+	SchemaVersion   string                        `json:"schemaVersion"`
+	DeclarationID   string                        `json:"declarationId"`
+	DeclarationType string                        `json:"declarationType"`
+	Revision        int64                         `json:"revision"`
+	StateRevision   int64                         `json:"stateRevision"`
+	RecoveryEpoch   int64                         `json:"recoveryEpoch"`
+	ContentDigest   string                        `json:"contentDigest"`
+	Status          string                        `json:"status"`
+	Operations      []BrowserDeclarationOperation `json:"operations"`
+	CreatedAt       string                        `json:"createdAt"`
+	Extensions      []ContractExtension           `json:"extensions"`
 }
 
 type BrowserRestoreStatus struct {
@@ -1103,14 +1131,15 @@ type DatabaseStatusData struct {
 }
 
 type DeclarationOperation struct {
-	Sequence       int64  `json:"sequence"`
-	OperationID    string `json:"operationId"`
-	OperationType  string `json:"operationType"`
-	AdapterID      string `json:"adapterId"`
-	TargetID       string `json:"targetId"`
-	InputDigest    string `json:"inputDigest"`
-	ArtifactDigest string `json:"artifactDigest"`
-	Idempotent     bool   `json:"idempotent"`
+	Sequence       int64           `json:"sequence"`
+	OperationID    string          `json:"operationId"`
+	OperationType  string          `json:"operationType"`
+	AdapterID      string          `json:"adapterId"`
+	TargetID       string          `json:"targetId"`
+	InputDigest    string          `json:"inputDigest"`
+	ArtifactDigest string          `json:"artifactDigest"`
+	Idempotent     bool            `json:"idempotent"`
+	OffsiteRunSpec *OffsiteRunSpec `json:"offsiteRunSpec"`
 }
 
 type DeclarationRevision struct {
@@ -1638,6 +1667,26 @@ type LocalRetentionLockCatalog struct {
 	Locks                []BackupRetentionLock `json:"locks"`
 }
 
+type OffsiteRunSpec struct {
+	GenerationID               string `json:"generationId"`
+	SourcePointID              string `json:"sourcePointId"`
+	SourceRevision             int64  `json:"sourceRevision"`
+	SnapshotPath               string `json:"snapshotPath"`
+	RepositoryURL              string `json:"repositoryUrl"`
+	ParentReferenceID          string `json:"parentReferenceId"`
+	RepositoryKeyReferenceID   string `json:"repositoryKeyReferenceId"`
+	ObserverReferenceID        string `json:"observerReferenceId"`
+	RuleDigest                 string `json:"ruleDigest"`
+	G008EvidenceDigest         string `json:"g008EvidenceDigest"`
+	MaximumBytes               int64  `json:"maximumBytes"`
+	MaximumPUTs                int64  `json:"maximumPuts"`
+	MaximumLISTs               int64  `json:"maximumLists"`
+	MaximumRetainedGenerations int64  `json:"maximumRetainedGenerations"`
+	RuleLimit                  int64  `json:"ruleLimit"`
+	RetentionSeconds           int64  `json:"retentionSeconds"`
+	SessionTTLSeconds          int64  `json:"sessionTtlSeconds"`
+}
+
 type OutboxRecordData struct {
 	OutboxID       int64   `json:"outboxId"`
 	EventID        int64   `json:"eventId"`
@@ -2157,6 +2206,23 @@ type ServerProfile struct {
 	CriticalBackupRoot               *string                 `json:"criticalBackupRoot"`
 	ResticBinaryPath                 *string                 `json:"resticBinaryPath"`
 	CustodyPolicyPath                *string                 `json:"custodyPolicyPath"`
+	OffsiteEndpoint                  *string                 `json:"offsiteEndpoint"`
+	OffsiteBucket                    *string                 `json:"offsiteBucket"`
+	OffsitePrefix                    *string                 `json:"offsitePrefix"`
+	OffsiteParentReferenceID         *string                 `json:"offsiteParentReferenceId"`
+	OffsiteObserverReferenceID       *string                 `json:"offsiteObserverReferenceId"`
+	OffsiteParentFingerprint         *string                 `json:"offsiteParentFingerprint"`
+	OffsiteRuleDigest                *string                 `json:"offsiteRuleDigest"`
+	OffsiteG008EvidenceDigest        *string                 `json:"offsiteG008EvidenceDigest"`
+	OffsiteAccountID                 *string                 `json:"offsiteAccountId"`
+	OffsiteQualificationDigest       *string                 `json:"offsiteQualificationDigest"`
+	OffsitePutCutoffDigest           *string                 `json:"offsitePutCutoffDigest"`
+	OffsiteMultipartCutoffDigest     *string                 `json:"offsiteMultipartCutoffDigest"`
+	OffsiteAvailableBytes            *int64                  `json:"offsiteAvailableBytes"`
+	OffsiteAvailablePUTs             *int64                  `json:"offsiteAvailablePuts"`
+	OffsiteAvailableLISTs            *int64                  `json:"offsiteAvailableLists"`
+	OffsiteRuleCount                 *int64                  `json:"offsiteRuleCount"`
+	OffsiteRetainedGenerations       *int64                  `json:"offsiteRetainedGenerations"`
 }
 
 type ServerStatusData struct {

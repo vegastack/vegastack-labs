@@ -262,7 +262,7 @@ func TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS(t *
 	go func() { done <- service.Run(ctx) }()
 	cliConfigPath := filepath.Join(directory, "cli-server-profile.json")
 	writeProtectedJSON(t, cliConfigPath, generated.ServerProfile{
-		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.2.0", SocketPath: socketPath,
+		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.3.0", SocketPath: socketPath,
 		SocketOwnerUID: int64(os.Getuid()), SocketMode: "0600", ShutdownGraceSeconds: 5,
 		InventoryExportRoot: directory, PrincipalBindings: []generated.LocalPrincipalBinding{{UID: int64(os.Getuid()), PrincipalID: "principal.local"}},
 		RemoteRead: generated.RemoteReadProfile{Enabled: false},

@@ -187,6 +187,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 		risk = string(authorization.RiskDestructive)
 	}
+	if offsitePlanCandidate(declaration, operations) {
+		if !sealedSingleOffsiteCopy(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskInfrastructure)
+	}
 	targets, err := targetDigest(operations)
 	if err != nil {
 		return store.PlanCommitResult{}, planError(generated.ErrorCodeInputInvalid)
@@ -289,6 +295,37 @@ func sealedSingleLocalRetention(declaration generated.DeclarationRevision, opera
 	}
 }
 
+func offsitePlanCandidate(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if declaration.DeclarationType == "backup.offsite" {
+		return true
+	}
+	for _, operation := range operations {
+		if operation.OperationType == "backup.offsite.copy" || operation.AdapterID == "labs.r2-offsite" {
+			return true
+		}
+	}
+	return false
+}
+
+func sealedSingleOffsiteCopy(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if declaration.DeclarationType != "backup.offsite" || len(operations) != 1 || operations[0].Idempotent ||
+		operations[0].OperationType != "backup.offsite.copy" || operations[0].AdapterID != "labs.r2-offsite" || len(declaration.Extensions) != 2 {
+		return false
+	}
+	var credentials, generation string
+	for _, extension := range declaration.Extensions {
+		switch extension.Name {
+		case "x-credential-bindings":
+			credentials = extension.ValueDigest
+		case "x-offsite-generation":
+			generation = extension.ValueDigest
+		default:
+			return false
+		}
+	}
+	return credentials != "" && generation != "" && operations[0].ArtifactDigest == generation
+}
+
 func (service *Service) ValidateCurrent(ctx context.Context, candidate generated.Plan) error {
 	if generated.ValidatePlanTiming(candidate) != nil || !service.config.Clock().UTC().Before(parseTime(candidate.ExpiresAt)) {
 		return planError(generated.ErrorCodeStateConflict)
@@ -322,7 +359,7 @@ func (service *Service) ValidateCurrent(ctx context.Context, candidate generated
 // the secret-resolution binding manifest and the lifecycle binding are declared
 // facts a plan cannot invent, omit, or replace.
 func credentialBindingExtensionsEqual(left, right []generated.ContractExtension) bool {
-	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement"} {
+	for _, name := range []string{"x-credential-bindings", "x-credential-lifecycle", "x-audit-checkpoint", "x-backup-policy", "x-backup-retention-lock-catalog", "x-backup-local-retirement", "x-offsite-generation"} {
 		var leftDigest, rightDigest string
 		for _, item := range left {
 			if item.Name == name {

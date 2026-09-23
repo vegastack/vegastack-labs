@@ -69,5 +69,9 @@ func (app *Application) getDeclaration(config DeclarationPlanConfig) func(http.R
 }
 
 func presentDeclaration(value generated.DeclarationRevision) generated.BrowserDeclarationRevision {
-	return generated.BrowserDeclarationRevision{Schema: generated.SchemaIDBrowserDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: value.DeclarationID, DeclarationType: value.DeclarationType, Revision: value.Revision, StateRevision: value.StateRevision, RecoveryEpoch: value.RecoveryEpoch, ContentDigest: value.ContentDigest, Status: value.Status, Operations: append([]generated.DeclarationOperation{}, value.Operations...), CreatedAt: value.CreatedAt, Extensions: append([]generated.ContractExtension{}, value.Extensions...)}
+	operations := make([]generated.BrowserDeclarationOperation, len(value.Operations))
+	for index, operation := range value.Operations {
+		operations[index] = generated.BrowserDeclarationOperation{Sequence: operation.Sequence, OperationID: operation.OperationID, OperationType: operation.OperationType, AdapterID: operation.AdapterID, TargetID: operation.TargetID, InputDigest: operation.InputDigest, ArtifactDigest: operation.ArtifactDigest, Idempotent: operation.Idempotent}
+	}
+	return generated.BrowserDeclarationRevision{Schema: generated.SchemaIDBrowserDeclarationRevision, SchemaVersion: "1.0.0", DeclarationID: value.DeclarationID, DeclarationType: value.DeclarationType, Revision: value.Revision, StateRevision: value.StateRevision, RecoveryEpoch: value.RecoveryEpoch, ContentDigest: value.ContentDigest, Status: value.Status, Operations: operations, CreatedAt: value.CreatedAt, Extensions: append([]generated.ContractExtension{}, value.Extensions...)}
 }
