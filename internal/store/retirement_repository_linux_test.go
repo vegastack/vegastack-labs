@@ -17,8 +17,15 @@ import (
 
 func retirementStageFixture(t *testing.T, authority *Store, risk, branch string) LocalRetirementStageRequest {
 	t.Helper()
+	lockCatalog := LocalRetentionLockCatalog{Schema: "vegastack-labs.dev/local-retention-lock-catalog", SchemaVersion: "1.0.0",
+		RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", SourceCoverageDigest: LocalPromiseSourceCoverageDigest(),
+		RecoveryEpoch: 0, Revision: 1, Complete: true, Locks: []LocalRetentionLock{}}
+	_, lockDigest, err := CanonicalLocalRetentionLockCatalog(lockCatalog)
+	if err != nil {
+		t.Fatal(err)
+	}
 	request := LocalRetirementStageRequest{RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard",
-		CatalogDigest: testDigest, ExpectedInventoryDigest: testDigest, LockCatalogDigest: testDigest, SourceCoverageDigest: testDigest, LockCatalogSequence: 1,
+		CatalogDigest: testDigest, ExpectedInventoryDigest: testDigest, LockCatalogDigest: lockDigest, SourceCoverageDigest: lockCatalog.SourceCoverageDigest, LockCatalogSequence: 1,
 		Targets:        []LocalRetirementTarget{{PointID: "old-point", SnapshotID: strings.Repeat("a", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest}},
 		Survivors:      []LocalRetirementSurvivor{{PointID: "good-point", SnapshotID: strings.Repeat("b", 64), ManifestDigest: testDigest, InventoryDigest: testDigest, DependencyDigest: testDigest, ProofDigest: testDigest}},
 		SourceRevision: 2, StateRevision: 2, RecoveryEpoch: 0, MaxWorkObjects: 10, MaxMutationBytes: 1024, MaxRepackBytes: 1024,
@@ -80,6 +87,18 @@ func openRetirementTestStore(t *testing.T) *Store {
 	}
 	t.Cleanup(func() { _ = authority.Close() })
 	return authority
+}
+
+func retirementLockCatalogJSON(t *testing.T) string {
+	t.Helper()
+	value := LocalRetentionLockCatalog{Schema: "vegastack-labs.dev/local-retention-lock-catalog", SchemaVersion: "1.0.0",
+		RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", SourceCoverageDigest: LocalPromiseSourceCoverageDigest(),
+		RecoveryEpoch: 0, Revision: 1, Complete: true, Locks: []LocalRetentionLock{}}
+	canonical, _, err := CanonicalLocalRetentionLockCatalog(value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return string(canonical)
 }
 
 func TestRetirementDeadlineParsesOffsetBeforeAdmission(t *testing.T) {
@@ -239,6 +258,8 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 		{`INSERT INTO plan_runs(run_id,plan_id,plan_digest,authorization_decision_id,acknowledgement_id,policy_version,executor_mode,executor_id,executor_binding_digest,status,cancellation_requested,rollback_status,verification_status,changed,state_revision,recovery_epoch,submit_key_digest,request_digest,canonical_bytes,created_at,updated_at) VALUES('run-retire',?,?,'decision-retire','ack-retire','1.0.0','central','central',?,'running',0,'not-requested','pending',0,?,?,?, ?,X'01',?,?)`, []any{request.PlanID, request.PlanDigest, testDigest, request.StateRevision, request.RecoveryEpoch, "sha256:" + strings.Repeat("c", 64), "sha256:" + strings.Repeat("b", 64), stamp, stamp}},
 		{`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,started_at) VALUES('step-retire','run-retire',1,'op-retire','backup.local.retire','local.retention','central',?,?,?,0,'running','intent-recorded','exec-retire',?)`, []any{request.RepositoryID, request.SelectionDigest, request.ExpectedInventoryDigest, stamp}},
 		{`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES('exec-retire','run-retire','step-retire',?,?,?, ?,?,?,?,?, 'active',X'01')`, []any{request.RepositoryID, testDigest, "sha256:" + strings.Repeat("a", 64), request.RecoveryEpoch, stamp, stamp, "2026-09-12T18:30:10Z", "2026-09-12T18:30:10Z"}},
+		{`INSERT INTO backup_retention_lock_catalog_activations(activation_id,repository_id,repository_class,catalog_digest,source_coverage_digest,canonical_json,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,acknowledgement_id,human_id,state_revision,recovery_epoch,activated_at)
+			SELECT 'lock-catalog-test',?,?,?, ?,?,p.declaration_id,p.declaration_revision,p.plan_id,p.plan_digest,'run-retire','step-retire','ack-retire','human-a',?,?,? FROM immutable_plans p WHERE p.plan_id=?`, []any{request.RepositoryID, request.RepositoryClass, request.LockCatalogDigest, request.SourceCoverageDigest, retirementLockCatalogJSON(t), request.StateRevision, request.RecoveryEpoch, stamp, request.PlanID}},
 		{`INSERT INTO backup_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,retention_consumer_id,repository_class,recovery_epoch,maximum_expires_at,acquired_at) VALUES('retention-a',?,'run-retire','step-retire','exec-retire','ack-retire','human-a','retention-only',?,?,?,?)`, []any{intent.IntentID, request.RepositoryClass, request.RecoveryEpoch, "2026-09-12T18:30:01Z", stamp}},
 	}
 	for _, statement := range statements {
