@@ -47,6 +47,30 @@ func TestOffsiteSelectionPreservesSoleLastGoodAndExactFiveRules(t *testing.T) {
 	if candidate.GenerationID != "generation-old" || len(candidate.Rules) != 5 || len(candidate.Objects) != 1 || len(candidate.SurvivorPointIDs) != 1 {
 		t.Fatalf("candidate not exact: %+v", candidate)
 	}
+	reordered := catalog
+	reordered.Generations = []PendingOffsiteGeneration{good, old}
+	again, err := SelectOffsiteRetirement(reordered, local, now)
+	if err != nil || again.GenerationID != candidate.GenerationID || again.SurvivorRuleDigest != candidate.SurvivorRuleDigest {
+		t.Fatalf("input order changed selection: %+v err=%v", again, err)
+	}
+	tooNew := catalog
+	tooNew.GenerationCreatedAt = map[string]time.Time{"generation-old": now.Add(-OffsiteRetentionWindow + time.Second), "generation-good": now}
+	if _, err := SelectOffsiteRetirement(tooNew, local, now); err == nil {
+		t.Fatal("generation inside exact 14-day window selected")
+	}
+	exact := catalog
+	exact.GenerationCreatedAt = map[string]time.Time{"generation-old": now.Add(-OffsiteRetentionWindow), "generation-good": now}
+	if _, err := SelectOffsiteRetirement(exact, local, now); err != nil {
+		t.Fatalf("exact 14-day boundary rejected: %v", err)
+	}
+	unrelated := RetentionRuleRef{RuleID: "unrelated-rule", Prefix: "other/prefix/"}
+	catalog.CurrentRules = append(catalog.CurrentRules, unrelated)
+	catalog.RuleCount++
+	catalog.RuleSetDigest = retirementRuleDigest(catalog.CurrentRules)
+	withUnrelated, err := SelectOffsiteRetirement(catalog, local, now)
+	if err != nil || withUnrelated.PreRuleCount != 11 || withUnrelated.SurvivorRuleCount != 6 {
+		t.Fatalf("complete bucket rule set not retained: %+v err=%v", withUnrelated, err)
+	}
 }
 
 func retirementRuleDigest(rules []RetentionRuleRef) string {
