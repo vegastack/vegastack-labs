@@ -1,7 +1,9 @@
 package recovery
 
 import (
+	"bytes"
 	"crypto/ecdh"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -33,14 +35,26 @@ type SourceAdmission struct {
 	Requirements             []BoundaryRequirement `json:"requirements"`
 }
 
-func SourceAdmissionDigest(admission SourceAdmission) string {
+type SignedSourceAdmission struct {
+	Payload   SourceAdmission `json:"payload"`
+	Signature []byte          `json:"signature"`
+}
+
+type SourceAdmissionExpectation struct {
+	FormerHostID, FormerInstanceID, ReplacementHostID, ReplacementInstanceID string
+	DraftID, CiphertextFingerprint, SourceAdmissionDigest                    string
+	FenceQualificationDigest                                                 string
+	PriorEpoch, NewEpoch                                                     int64
+}
+
+func canonicalSourceAdmission(admission SourceAdmission) ([]byte, error) {
 	for _, value := range []string{admission.FormerHostID, admission.FormerInstanceID, admission.ReplacementHostID, admission.ReplacementInstanceID, admission.DraftID, admission.WitnessKeyID, admission.WitnessInstanceID, admission.RecipientKeyID} {
 		if !validWitnessToken(value) {
-			return ""
+			return nil, ErrWitnessUnavailable
 		}
 	}
 	if !witnessDigest.MatchString(admission.CiphertextFingerprint) || !witnessDigest.MatchString(admission.AdminRootDigest) || !witnessDigest.MatchString(admission.FenceQualificationDigest) || admission.PriorEpoch < 0 || admission.NewEpoch != admission.PriorEpoch+1 || len(admission.WitnessPublicKey) != 32 || !validX25519PublicKey(admission.RecipientPublicKey) || !validCompleteRequirements(admission.Requirements) {
-		return ""
+		return nil, ErrWitnessUnavailable
 	}
 	admission.WitnessPublicKey = append([]byte(nil), admission.WitnessPublicKey...)
 	admission.RecipientPublicKey = append([]byte(nil), admission.RecipientPublicKey...)
@@ -66,10 +80,57 @@ func SourceAdmissionDigest(admission SourceAdmission) string {
 	})
 	body, err := json.Marshal(admission)
 	if err != nil {
+		return nil, ErrWitnessUnavailable
+	}
+	return append([]byte(sourceAdmissionDomain), body...), nil
+}
+
+func SourceAdmissionDigest(admission SourceAdmission) string {
+	canonical, err := canonicalSourceAdmission(admission)
+	if err != nil {
 		return ""
 	}
-	sum := sha256.Sum256(append([]byte(sourceAdmissionDomain), body...))
+	sum := sha256.Sum256(canonical)
 	return "sha256:" + hex.EncodeToString(sum[:])
+}
+
+func ParseSignedSourceAdmission(raw []byte, adminPublic ed25519.PublicKey, expected SourceAdmissionExpectation) (SourceAdmission, error) {
+	if len(raw) == 0 || len(raw) > 65536 || len(adminPublic) != ed25519.PublicKeySize || !validSourceAdmissionExpectation(expected) {
+		return SourceAdmission{}, ErrWitnessUnavailable
+	}
+	var signed SignedSourceAdmission
+	if json.Unmarshal(raw, &signed) != nil || len(signed.Signature) != ed25519.SignatureSize {
+		return SourceAdmission{}, ErrWitnessUnavailable
+	}
+	encoded, err := json.Marshal(signed)
+	if err != nil || !bytes.Equal(encoded, raw) {
+		return SourceAdmission{}, ErrWitnessUnavailable
+	}
+	canonical, err := canonicalSourceAdmission(signed.Payload)
+	if err != nil || !ed25519.Verify(adminPublic, canonical, signed.Signature) {
+		return SourceAdmission{}, ErrWitnessUnavailable
+	}
+	admission := signed.Payload
+	if admission.FormerHostID != expected.FormerHostID || admission.FormerInstanceID != expected.FormerInstanceID ||
+		admission.ReplacementHostID != expected.ReplacementHostID || admission.ReplacementInstanceID != expected.ReplacementInstanceID ||
+		admission.DraftID != expected.DraftID || admission.CiphertextFingerprint != expected.CiphertextFingerprint ||
+		admission.FenceQualificationDigest != expected.FenceQualificationDigest || admission.PriorEpoch != expected.PriorEpoch ||
+		admission.NewEpoch != expected.NewEpoch || SourceAdmissionDigest(admission) != expected.SourceAdmissionDigest ||
+		admission.AdminRootDigest != recoveryAdminRootDigest(adminPublic) {
+		return SourceAdmission{}, ErrWitnessUnavailable
+	}
+	return admission, nil
+}
+
+func validSourceAdmissionExpectation(expected SourceAdmissionExpectation) bool {
+	for _, value := range []string{expected.FormerHostID, expected.FormerInstanceID, expected.ReplacementHostID, expected.ReplacementInstanceID, expected.DraftID} {
+		if !validWitnessToken(value) {
+			return false
+		}
+	}
+	return expected.FormerHostID != expected.ReplacementHostID && expected.FormerInstanceID != expected.ReplacementInstanceID &&
+		witnessDigest.MatchString(expected.CiphertextFingerprint) && witnessDigest.MatchString(expected.SourceAdmissionDigest) &&
+		witnessDigest.MatchString(expected.FenceQualificationDigest) && expected.PriorEpoch >= 0 && expected.NewEpoch == expected.PriorEpoch+1
 }
 
 func validX25519PublicKey(raw []byte) bool {
