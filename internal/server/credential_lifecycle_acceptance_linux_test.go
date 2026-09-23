@@ -12,7 +12,9 @@ import (
 	"errors"
 	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -167,20 +169,95 @@ type lifecycleAcceptanceEnv struct {
 	now          *time.Time
 	machineID    string
 	gate         *lifecycleAcceptanceGate
-	verifier     *lifecycleAcceptanceVerifier
+	verifier     runengine.CredentialLifecycleVerifier
 	recovery     runengine.CredentialRecoveryVerifier
 	plans        []generated.Plan
 	runs         []generated.Run
+	coordinates  int
+}
+
+type lifecycleAcceptanceNativeRequest struct {
+	Step    runengine.ExactStepBinding     `json:"step"`
+	Binding credentialref.LifecycleBinding `json:"binding"`
+	Root    string                         `json:"root"`
+}
+
+type lifecycleAcceptanceNativeResponse struct {
+	Results []credentialref.ConsumerVerification `json:"results,omitempty"`
+	Error   string                               `json:"error,omitempty"`
+}
+
+type lifecycleAcceptanceNativeProcessVerifier struct{ coordinate, root string }
+
+func (verifier lifecycleAcceptanceNativeProcessVerifier) Verify(_ context.Context, step runengine.ExactStepBinding, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
+	requestPath, responsePath := filepath.Join(verifier.coordinate, "verify-request.json"), filepath.Join(verifier.coordinate, "verify-response.json")
+	request, err := json.Marshal(lifecycleAcceptanceNativeRequest{Step: step, Binding: binding, Root: verifier.root})
+	if err != nil || os.WriteFile(requestPath, request, 0o644) != nil || os.Chmod(requestPath, 0o644) != nil {
+		return nil, errors.New("native verifier request unavailable")
+	}
+	_ = os.Remove(responsePath)
+	executable, err := os.Executable()
+	if err != nil {
+		return nil, errors.New("native verifier executable unavailable")
+	}
+	command := exec.Command("/usr/sbin/runuser", "-u", "vsk-labs", "--", executable, "-test.run=^TestLifecycleAcceptanceNativeVerifierHelper$")
+	command.Env = append(os.Environ(), "VSK135_NATIVE_HELPER=1", "VSK135_NATIVE_REQUEST="+requestPath, "VSK135_NATIVE_RESPONSE="+responsePath)
+	var diagnostics bytes.Buffer
+	command.Stdout, command.Stderr = &diagnostics, &diagnostics
+	if command.Run() != nil {
+		_ = os.WriteFile(filepath.Join(verifier.coordinate, "debug"), append([]byte("helper-process\n"), diagnostics.Bytes()...), 0o600)
+		return nil, errors.New("native verifier process failed")
+	}
+	raw, err := os.ReadFile(responsePath)
+	var response lifecycleAcceptanceNativeResponse
+	if err != nil || json.Unmarshal(raw, &response) != nil || response.Error != "" {
+		_ = os.WriteFile(filepath.Join(verifier.coordinate, "debug"), []byte(response.Error+"\n"), 0o600)
+		return nil, errors.New("native verifier rejected lifecycle")
+	}
+	return response.Results, nil
+}
+
+func TestLifecycleAcceptanceNativeVerifierHelper(t *testing.T) {
+	if os.Getenv("VSK135_NATIVE_HELPER") != "1" {
+		t.Skip("internal disposable lifecycle verifier helper")
+	}
+	raw, err := os.ReadFile(os.Getenv("VSK135_NATIVE_REQUEST"))
+	var request lifecycleAcceptanceNativeRequest
+	decodeErr := json.Unmarshal(raw, &request)
+	if err != nil || decodeErr != nil || filepath.Clean(request.Root) != request.Root {
+		t.Fatalf("invalid native verifier helper request: read=%v decode=%v root=%q", err, decodeErr, request.Root)
+	}
+	native, err := nativecredential.NewInstalledNativeLifecycleVerifier(context.Background(), request.Root, 21141)
+	response := lifecycleAcceptanceNativeResponse{}
+	if err != nil {
+		response.Error = "constructor"
+	} else {
+		response.Results, err = native.VerifyNative(context.Background(), nativecredential.NativeVerificationStep{OperationID: request.Step.Step.OperationID, OperationType: request.Step.Step.OperationType, TargetID: request.Step.Step.TargetID, ArtifactDigest: request.Step.Step.ArtifactDigest, PlanDigest: request.Step.Plan.PlanDigest, RunID: request.Step.Run.RunID, StepID: request.Step.Step.StepID}, request.Binding)
+		if err != nil {
+			response.Error = "verification"
+		}
+	}
+	body, marshalErr := json.Marshal(response)
+	if marshalErr != nil || os.WriteFile(os.Getenv("VSK135_NATIVE_RESPONSE"), body, 0o600) != nil {
+		t.Fatal("native verifier helper response unavailable")
+	}
 }
 
 func newLifecycleAcceptanceEnv(t *testing.T) *lifecycleAcceptanceEnv {
 	t.Helper()
 	ctx := context.Background()
-	directory := t.TempDir()
+	directory, err := os.MkdirTemp("/var/tmp", "vsk135-lifecycle-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
 	if err := os.Chmod(directory, 0o700); err != nil {
 		t.Fatal(err)
 	}
 	path := filepath.Join(directory, "control.db")
+	if err := os.Mkdir(filepath.Join(directory, "credential-drafts"), 0o700); err != nil {
+		t.Fatal(err)
+	}
 	now := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
 	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "lifecycle-acceptance", BuildVersion: "lifecycle-acceptance", Clock: clock})
@@ -209,7 +286,31 @@ func newLifecycleAcceptanceEnv(t *testing.T) *lifecycleAcceptanceEnv {
 		recovery: runengine.UnavailableCredentialRecoveryVerifier{}}
 }
 
-func (env *lifecycleAcceptanceEnv) importDraft(version, suffix string) generated.CredentialImportSubmission {
+func (env *lifecycleAcceptanceEnv) importDraft(version, suffix string, private []byte) generated.CredentialImportSubmission {
+	env.t.Helper()
+	directory := filepath.Dir(env.path)
+	root := filepath.Join(directory, "credential-drafts")
+	if err := os.Chown(directory, 0, 0); err != nil {
+		env.t.Fatal(err)
+	}
+	if err := os.Chown(root, 0, 0); err != nil {
+		env.t.Fatal(err)
+	}
+	current, err := env.revisions.CurrentRevision(context.Background())
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	input := generated.CredentialImportRequest{Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: "1.1.0", ReferenceID: "reference-135", ConsumerID: "consumer-a", PurposeID: "purpose-135", TargetID: "target-135", ResolverID: "native-systemd", MaterialVersion: version, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "import-" + suffix}
+	input.TargetDigest = credentialref.ImportTargetDigest(input)
+	input.TargetDigest = credentialref.ImportTargetDigest(input)
+	value, err := newProductionCredentialImporter(env.references, env.revisions, env.path, 0).Import(context.Background(), input, append([]byte(nil), private...), env.principal)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	return value
+}
+
+func (env *lifecycleAcceptanceEnv) importRecoveryFixtureDraft(version, suffix string) generated.CredentialImportSubmission {
 	env.t.Helper()
 	current, err := env.revisions.CurrentRevision(context.Background())
 	if err != nil {
@@ -217,20 +318,48 @@ func (env *lifecycleAcceptanceEnv) importDraft(version, suffix string) generated
 	}
 	input := generated.CredentialImportRequest{Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: "1.1.0", ReferenceID: "reference-135", ConsumerID: "consumer-a", PurposeID: "purpose-135", TargetID: "target-135", ResolverID: "native-systemd", MaterialVersion: version, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "import-" + suffix}
 	input.TargetDigest = credentialref.ImportTargetDigest(input)
-	value, err := env.references.PutImportDraft(context.Background(), store.CredentialImportDraftRequest{Input: input, DraftID: "draft-" + suffix, CiphertextName: "ciphertext-" + suffix,
-		CiphertextFingerprint: lifecycleAcceptanceDigest("ciphertext", suffix), Expected: current,
-		Attribution: audit.Attribution{AuthenticatedPrincipalID: env.principal.ID, AuthenticatedPrincipalMethod: env.principal.Method},
-		KeyDigest:   lifecycleAcceptanceDigest("import-key", suffix), RequestDigest: lifecycleAcceptanceDigest("import-request", suffix)})
+	value, err := env.references.PutImportDraft(context.Background(), store.CredentialImportDraftRequest{Input: input, DraftID: "draft-" + suffix, CiphertextName: "ciphertext-" + suffix, CiphertextFingerprint: lifecycleAcceptanceDigest("ciphertext", suffix), Expected: current, Attribution: audit.Attribution{AuthenticatedPrincipalID: env.principal.ID, AuthenticatedPrincipalMethod: env.principal.Method}, KeyDigest: lifecycleAcceptanceDigest("import-key", suffix), RequestDigest: lifecycleAcceptanceDigest("import-request", suffix)})
 	if err != nil {
 		env.t.Fatal(err)
 	}
 	return value
 }
 
+func (env *lifecycleAcceptanceEnv) configureNative(version string) {
+	env.t.Helper()
+	name := credentialref.LoadedNameForVersion("consumer-a", "reference-135", version)
+	root := filepath.Join(filepath.Dir(env.path), "credential-drafts")
+	env.coordinates++
+	coordinate := os.Getenv("VSK135_COORDINATOR")
+	if coordinate == "" || filepath.Clean(coordinate) != coordinate {
+		env.t.Fatal("native root coordinator unavailable")
+	}
+	request := filepath.Join(coordinate, "request-"+strconv.Itoa(env.coordinates))
+	if err := os.WriteFile(request, []byte(name+"\n"+root+"\n"), 0o600); err != nil {
+		env.t.Fatal(err)
+	}
+	ready := filepath.Join(coordinate, "ready-"+strconv.Itoa(env.coordinates))
+	deadline := time.Now().Add(10 * time.Second)
+	for {
+		if _, err := os.Stat(ready); err == nil {
+			break
+		}
+		if time.Now().After(deadline) {
+			env.t.Fatal("native root coordinator timed out")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	nativeRoot := os.Getenv("VSK135_NATIVE_ROOT")
+	if nativeRoot == "" || filepath.Clean(nativeRoot) != nativeRoot {
+		env.t.Fatal("native verifier root unavailable")
+	}
+	env.verifier = lifecycleAcceptanceNativeProcessVerifier{coordinate: coordinate, root: nativeRoot}
+}
+
 func (env *lifecycleAcceptanceEnv) nativeReaders() (*[]generated.CredentialNativeConsumer, *[]generated.CredentialNativeDeniedReader) {
 	positives := []generated.CredentialNativeConsumer{
-		{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-135", HostMachineID: env.machineID, UnitName: "capstone-alpha.service", ServiceUID: 21142, ServiceGID: 21142, ProfileID: "profile-native", RoleID: "role-alpha"},
-		{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-b", TargetID: "target-135", HostMachineID: env.machineID, UnitName: "capstone-beta.service", ServiceUID: 21143, ServiceGID: 21143, ProfileID: "profile-native", RoleID: "role-beta"},
+		{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-135", HostMachineID: env.machineID, UnitName: "vsk141-alpha.service", ServiceUID: 21142, ServiceGID: 21142, ProfileID: "profile-native", RoleID: "role-alpha"},
+		{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-b", TargetID: "target-135", HostMachineID: env.machineID, UnitName: "vsk141-beta.service", ServiceUID: 21143, ServiceGID: 21143, ProfileID: "profile-native", RoleID: "role-beta"},
 	}
 	denied := []generated.CredentialNativeDeniedReader{
 		{Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "denied-a", TargetID: "target-135", HostMachineID: env.machineID, ReaderUID: 21144, ReaderGID: 21144, ProfileID: "profile-native", RoleID: "role-denied-a"},
@@ -364,7 +493,19 @@ func (env *lifecycleAcceptanceEnv) installRecoveryVerifier(material []byte) *lif
 }
 
 func TestFullCredentialLifecycleAcceptance(t *testing.T) {
+	if os.Getenv("VSK135_LIFECYCLE_ACCEPTANCE") != "1" {
+		t.Skip("requires disposable root systemd lifecycle fixture")
+	}
+	if os.Geteuid() != 0 {
+		t.Fatal("disposable lifecycle capstone coordinator must run as root")
+	}
 	env := newLifecycleAcceptanceEnv(t)
+	material := []byte(lifecycleAcceptanceCanary)
+	t.Cleanup(func() {
+		for index := range material {
+			material[index] = 0
+		}
+	})
 	if _, err := productionAdapterRegistry().ResolveCredentialResolver("onepassword-a", "consumer-provider", "profile-provider"); err == nil {
 		t.Fatal("optional provider unexpectedly registered")
 	}
@@ -372,7 +513,7 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 		t.Fatal("production live gate unexpectedly available")
 	}
 
-	v1 := env.importDraft("version-1", "v1")
+	v1 := env.importDraft("version-1", "v1", material)
 	provider := env.request("credential.stage", "version-1", "provider-stage-v1")
 	provider.DraftID, provider.ConsumerIDs, provider.ResolverID = &v1.DraftID, []string{"consumer-provider"}, "onepassword-a"
 	provider.TargetDigest = credentialref.LifecycleTargetDigest(provider)
@@ -399,9 +540,10 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	activate := env.request("credential.activate", "version-1", "activate-v1")
 	activate.ConsumerIDs, activate.RequiredDeniedConsumerIDs = []string{"consumer-a", "consumer-b"}, []string{"denied-a", "denied-b"}
 	activate.NativeConsumers, activate.NativeDeniedReaders = env.nativeReaders()
+	env.configureNative("version-1")
 	env.apply(activate)
 
-	v2 := env.importDraft("version-2", "v2")
+	v2 := env.importDraft("version-2", "v2", material)
 	stageV2 := env.request("credential.stage", "version-2", "stage-v2")
 	stageV2.DraftID, stageV2.ConsumerIDs = &v2.DraftID, []string{"consumer-a", "consumer-b"}
 	env.apply(stageV2)
@@ -410,6 +552,7 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	rotate.DraftID, rotate.PriorMaterialVersion, rotate.OverlapSeconds = &v2.DraftID, &prior, 900
 	rotate.ConsumerIDs, rotate.RequiredDeniedConsumerIDs = []string{"consumer-a", "consumer-b"}, []string{"denied-a", "denied-b"}
 	rotate.NativeConsumers, rotate.NativeDeniedReaders = env.nativeReaders()
+	env.configureNative("version-2")
 	env.apply(rotate)
 	oldDuringOverlap, err := env.references.GetCredentialVersion(context.Background(), "reference-135", "version-1")
 	if err != nil || oldDuringOverlap.Status != "active" {
@@ -434,13 +577,7 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	}
 
 	env.enterRecoveryEpoch()
-	recoveryDraft := env.importDraft("version-2", "recovery-v2")
-	material := []byte(lifecycleAcceptanceCanary)
-	t.Cleanup(func() {
-		for index := range material {
-			material[index] = 0
-		}
-	})
+	recoveryDraft := env.importRecoveryFixtureDraft("version-2", "recovery-v2")
 	loader := env.installRecoveryVerifier(material)
 	priorEpoch := int64(0)
 	custody, fence := lifecycleAcceptanceDigest("custody"), lifecycleAcceptanceDigest("fence")
@@ -465,8 +602,8 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 		t.Fatalf("recovery cut over instead of staging: %+v err=%v", newEpoch, err)
 	}
 
-	if len(env.verifier.actions) != 2 || env.verifier.actions[0] != credentialref.ActionActivate || env.verifier.actions[1] != credentialref.ActionRotate || env.gate.calls != 3 {
-		t.Fatalf("wrong verifier/gate calls: actions=%v gates=%d", env.verifier.actions, env.gate.calls)
+	if env.gate.calls != 3 {
+		t.Fatalf("wrong gate calls: %d", env.gate.calls)
 	}
 	db, err := sql.Open("sqlite3", env.path)
 	if err != nil {
