@@ -364,7 +364,7 @@ func (env *lifecycleAcceptanceEnv) installRecoveryVerifier(material []byte) *lif
 
 func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	env := newLifecycleAcceptanceEnv(t)
-	if _, err := productionAdapterRegistry().Resolve("onepassword"); err == nil {
+	if _, err := productionAdapterRegistry().ResolveCredentialResolver("onepassword-a", "consumer-provider", "profile-provider"); err == nil {
 		t.Fatal("optional provider unexpectedly registered")
 	}
 	if err := (runengine.UnavailableGateVerifier{}).VerifySecretStep(context.Background(), generated.Plan{}, generated.PlanOperation{}); err == nil {
@@ -429,6 +429,18 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	current, err := env.revisions.CurrentRevision(context.Background())
 	if err != nil || current.RecoveryEpoch != 1 || loader.uses != 1 {
 		t.Fatalf("recovery changed epoch or custody use: %+v uses=%d err=%v", current, loader.uses, err)
+	}
+	oldEpoch, err := env.references.ListCredentialVersions(context.Background(), "reference-135", 0)
+	latestStatus := map[string]string{}
+	for _, version := range oldEpoch {
+		latestStatus[version.MaterialVersion] = version.Status
+	}
+	if err != nil || len(oldEpoch) != 5 || latestStatus["version-1"] != "revoked" || latestStatus["version-2"] != "active" {
+		t.Fatalf("recovery changed prior epoch statuses: %+v err=%v", oldEpoch, err)
+	}
+	newEpoch, err := env.references.ListCredentialVersions(context.Background(), "reference-135", 1)
+	if err != nil || len(newEpoch) != 1 || newEpoch[0].MaterialVersion != "version-2" || newEpoch[0].Status != "staged" || newEpoch[0].ActivatedAt != nil {
+		t.Fatalf("recovery cut over instead of staging: %+v err=%v", newEpoch, err)
 	}
 
 	if len(env.verifier.actions) != 2 || env.verifier.actions[0] != credentialref.ActionActivate || env.verifier.actions[1] != credentialref.ActionRotate || env.gate.calls != 3 {
