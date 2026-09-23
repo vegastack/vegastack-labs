@@ -51,6 +51,10 @@ func TestSessionIssuerBindsParentAndExactScope(t *testing.T) {
 	if _, err := issuer.Issue(context.Background(), request, parent); err != nil || !signer.parentSeen {
 		t.Fatalf("issue = %v parent=%v", err, signer.parentSeen)
 	}
+	request.Actions = append([]string(nil), allowedVerifierActions...)
+	if _, err := issuer.Issue(context.Background(), request, parent); err != nil {
+		t.Fatalf("read-only verifier session denied: %v", err)
+	}
 	request.Actions = []string{"PutObject", "ListObjectsV2", "GetObject"}
 	if _, err := issuer.Issue(context.Background(), request, parent); err == nil {
 		t.Fatal("session without lock cleanup authority accepted")

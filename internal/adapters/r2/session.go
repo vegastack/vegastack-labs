@@ -18,6 +18,7 @@ import (
 // objects, and removes its mutable locks. Retention rules, not session scope,
 // deny overwrite/delete of the generation's protected prefixes.
 var allowedWriterActions = []string{"AbortMultipartUpload", "CompleteMultipartUpload", "CreateMultipartUpload", "DeleteObject", "GetBucketLocation", "GetObject", "HeadObject", "ListMultipartUploads", "ListObjectsV2", "ListParts", "PutObject", "UploadPart"}
+var allowedVerifierActions = []string{"GetObject", "HeadObject", "ListObjectsV2"}
 
 // TemporaryCredentialSigner is the narrow local-signing seam. The parent is a
 // borrowed value and may not be retained by an implementation.
@@ -44,7 +45,7 @@ func (issuer SessionIssuer) Issue(ctx context.Context, request adapter.SessionRe
 		request.ParentReferenceID != issuer.ParentReferenceID || request.ParentFingerprint != issuer.ParentFingerprint ||
 		request.RunID == "" || request.StepID == "" || request.PointID == "" || request.GenerationID == "" || path.Clean(cleanPrefix) != cleanPrefix ||
 		!strings.HasSuffix(cleanPrefix, "/"+request.GenerationID) || strings.Contains(cleanPrefix, "..") ||
-		request.RecoveryEpoch < 0 || request.Prefix == "" || !slices.Equal(actions, allowedWriterActions) ||
+		request.RecoveryEpoch < 0 || request.Prefix == "" || (!slices.Equal(actions, allowedWriterActions) && !slices.Equal(actions, allowedVerifierActions)) ||
 		request.TTL <= 0 || request.TTL > 15*time.Minute || !clock().Before(request.Deadline) || clock().Add(request.TTL).After(request.Deadline) {
 		return adapter.ScopedS3Session{}, invalid
 	}

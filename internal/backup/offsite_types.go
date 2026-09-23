@@ -84,6 +84,7 @@ type OffsiteResticRequest struct {
 	PasswordFDPath, IAMURI, AuthorizationTokenFDPath string
 	RunID, StepID, PointID, GenerationID             string
 	RecoveryEpoch                                    int64
+	VerificationOnly                                 bool
 	Arguments, Environment                           []string
 }
 

@@ -103,7 +103,7 @@ func (launcher CustodyLauncher) Start(ctx context.Context, session CustodySessio
 }
 
 func (launcher CustodyLauncher) startDirect(ctx context.Context, session CustodySession) (CustodyClient, error) {
-	if session.Role == "offsite-writer" {
+	if session.Role == "offsite-writer" || session.Role == "offsite-verifier" {
 		return nil, errors.New("offsite custody requires systemd broker")
 	}
 	policy, err := LoadCustodyPolicy(launcher.PolicyPath)
@@ -372,7 +372,7 @@ func serveCustodyAuthority(file *os.File, nonce string, session CustodySession, 
 		}
 		switch frame.Type {
 		case "verify":
-			if (session.Role == "writer" || session.Role == "offsite-writer") && writer != nil {
+			if (session.Role == "writer" || session.Role == "offsite-writer" || session.Role == "offsite-verifier") && writer != nil {
 				response.OK = writer.VerifyWriterLease(*session.WriterLease, time.Now()) == nil
 			}
 			if session.Role == "verifier" && reader != nil {

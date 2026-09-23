@@ -15,6 +15,11 @@ func TestOffsiteCustodySessionBindsGenerationAndRepository(t *testing.T) {
 	if !session.valid(now, 5*time.Minute) {
 		t.Fatal("exact offsite custody session rejected")
 	}
+	verifier := session
+	verifier.Role = "offsite-verifier"
+	if !verifier.valid(now, 5*time.Minute) {
+		t.Fatal("exact read-only offsite verifier custody session rejected")
+	}
 	for name, mutate := range map[string]func(*CustodySession){
 		"repository": func(value *CustodySession) { value.OffsiteRepositoryURL = "s3:https://fixture.invalid/bucket/other" },
 		"generation": func(value *CustodySession) { value.GenerationID = "" },

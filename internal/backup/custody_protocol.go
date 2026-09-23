@@ -63,6 +63,9 @@ func (session CustodySession) valid(now time.Time, maximumLifetime time.Duration
 	case "offsite-writer":
 		return session.WriterLease != nil && session.ReadLease == nil && session.RetentionLease == nil && session.RepositoryClass == "critical-offsite" &&
 			validOffsiteToken(session.GenerationID) && validOffsiteRepositoryURL(session.OffsiteRepositoryURL) && exactWriterSession(session, *session.WriterLease)
+	case "offsite-verifier":
+		return session.WriterLease != nil && session.ReadLease == nil && session.RetentionLease == nil && session.RepositoryClass == "critical-offsite" &&
+			validOffsiteToken(session.GenerationID) && validOffsiteRepositoryURL(session.OffsiteRepositoryURL) && exactWriterSession(session, *session.WriterLease)
 	case "retention":
 		return session.RetentionLease != nil && session.WriterLease == nil && session.ReadLease == nil && exactRetentionSession(session, *session.RetentionLease)
 	default:

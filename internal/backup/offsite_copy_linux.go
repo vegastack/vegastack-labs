@@ -29,7 +29,7 @@ const (
 // child, executes the already verified inode, and gives the child only two
 // sealed secret descriptors.
 func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session CustodySession, verifier LeaseVerifier, request OffsiteResticRequest, passwordFile, bearerFile *os.File) (OffsiteResticResult, error) {
-	if verifier == nil || session.Role != "offsite-writer" || session.WriterLease == nil ||
+	if verifier == nil || (session.Role != "offsite-writer" && session.Role != "offsite-verifier") || session.WriterLease == nil ||
 		request.BinaryPath != policy.ResticBinaryPath || request.Architecture != runtime.GOARCH ||
 		request.RepositoryURL != session.OffsiteRepositoryURL || !validOffsiteRepositoryURL(request.RepositoryURL) ||
 		request.RunID != session.RunID || request.StepID != session.StepID || request.PointID != session.PointID ||
@@ -40,9 +40,39 @@ func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session
 		return OffsiteResticResult{}, errors.New("offsite restic request outside custody policy")
 	}
 	wantArgs := []string{request.BinaryPath, "-r", request.RepositoryURL, "--json", "--no-cache", "--password-file", offsitePasswordPath, "backup", request.SnapshotPath, "--host", "vsk-labs"}
+	if request.VerificationOnly {
+		wantArgs = []string{request.BinaryPath, "-r", request.RepositoryURL, "--json", "--no-cache", "--password-file", offsitePasswordPath, "check", "--read-data"}
+	}
 	wantEnv := []string{"HOME=/nonexistent", "RESTIC_PASSWORD_FILE=" + offsitePasswordPath, "AWS_CONTAINER_CREDENTIALS_FULL_URI=" + request.IAMURI, "AWS_CONTAINER_AUTHORIZATION_TOKEN_FILE=" + offsiteBearerPath}
-	if !equalStrings(request.Arguments, wantArgs) || !equalStrings(request.Environment, wantEnv) {
+	if !equalStrings(request.Arguments, wantArgs) || !equalStrings(request.Environment, wantEnv) || (session.Role == "offsite-verifier") != request.VerificationOnly {
 		return OffsiteResticResult{}, errors.New("offsite restic process contract changed")
+	}
+	if request.VerificationOnly {
+		runner := &resticRunner{}
+		binaryFile, err := runner.verifyBinary(ResticRequest{BinaryPath: request.BinaryPath, Architecture: request.Architecture})
+		if err != nil {
+			return OffsiteResticResult{}, err
+		}
+		defer binaryFile.Close()
+		if err := verifier.VerifyWriterLease(*session.WriterLease, nowOr(nil)); err != nil {
+			return OffsiteResticResult{}, errors.New("offsite verifier lease expired")
+		}
+		for _, file := range []*os.File{passwordFile, bearerFile, binaryFile} {
+			if _, err := file.Seek(0, io.SeekStart); err != nil {
+				return OffsiteResticResult{}, err
+			}
+		}
+		command := exec.CommandContext(ctx, "/proc/self/fd/5", wantArgs[1:]...)
+		command.Args[0] = request.BinaryPath
+		command.ExtraFiles = []*os.File{passwordFile, bearerFile, binaryFile}
+		command.Env = wantEnv
+		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: policy.ResticUID, Gid: policy.ResticUID}}
+		var stdout, stderr bytes.Buffer
+		command.Stdout, command.Stderr = &boundedWriter{limit: defaultResticOutputLimit, buffer: &stdout}, &boundedWriter{limit: defaultResticOutputLimit, buffer: &stderr}
+		if err := command.Run(); err != nil {
+			return OffsiteResticResult{}, errors.New("offsite restic verification failed")
+		}
+		return OffsiteResticResult{ChildExited: true, FullReadAt: time.Now().UTC()}, nil
 	}
 	transfer, err := prepareBackupExchange(policy, request.SnapshotPath)
 	if err != nil {
@@ -100,14 +130,7 @@ func runBrokeredOffsiteRestic(ctx context.Context, policy CustodyPolicy, session
 		return OffsiteResticResult{}, errors.Join(err, transfer.ReturnOwnership())
 	}
 	repositoryID, err := parseOffsiteRepositoryID(configOutput)
-	if err == nil {
-		_, err = run(append(append([]string{}, common...), "check", "--read-data"), false)
-	}
-	fullReadAt := time.Time{}
-	if err == nil {
-		fullReadAt = time.Now().UTC()
-	}
-	return OffsiteResticResult{RepositoryID: repositoryID, SnapshotID: summary.SnapshotID, ObjectCount: summary.TotalFilesProcessed, ObjectBytes: summary.TotalBytesProcessed, ChildExited: err == nil, FullReadAt: fullReadAt}, errors.Join(err, transfer.ReturnOwnership())
+	return OffsiteResticResult{RepositoryID: repositoryID, SnapshotID: summary.SnapshotID, ObjectCount: summary.TotalFilesProcessed, ObjectBytes: summary.TotalBytesProcessed, ChildExited: err == nil}, errors.Join(err, transfer.ReturnOwnership())
 }
 
 func adapterSessionFromCustody(session CustodySession) adapter.SessionRequest {

@@ -60,7 +60,7 @@ type offsiteResticCustodyResponse struct {
 
 func (launcher CustodyLauncher) startSystemd(ctx context.Context, policy CustodyPolicy, session CustodySession) (CustodyClient, error) {
 	if launcher.PolicyPath != CustodyPolicyPath || launcher.Journal == nil ||
-		((session.Role == "writer" || session.Role == "offsite-writer") && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || (session.Role == "retention" && (launcher.Retention == nil || launcher.Mutations == nil)) {
+		((session.Role == "writer" || session.Role == "offsite-writer" || session.Role == "offsite-verifier") && launcher.Writer == nil) || (session.Role == "verifier" && launcher.Reader == nil) || (session.Role == "retention" && (launcher.Retention == nil || launcher.Mutations == nil)) {
 		return nil, errors.New("custody launch rejected")
 	}
 	nonce := make([]byte, 32)
@@ -748,7 +748,7 @@ func RunCustodySupervisor(instance string) error {
 	}
 	remote := &remoteLeaseVerifier{file: verifyFile, nonce: launch.Session.NonceDigest}
 	var inner CustodyClient
-	if launch.Session.Role != "offsite-writer" {
+	if launch.Session.Role != "offsite-writer" && launch.Session.Role != "offsite-verifier" {
 		innerLauncher := CustodyLauncher{PolicyPath: CustodyPolicyPath, Writer: remote, Reader: remote, Retention: remote, Mutations: remote, Journal: noOpCustodyJournal{}}
 		inner, err = innerLauncher.startDirect(context.Background(), launch.Session)
 		if err != nil {
