@@ -20,7 +20,7 @@ import (
 // maxObjectBytes bounds any single object body the routine writer may create.
 const maxObjectBytes = 2 << 30 // 2 GiB
 
-// RESTServer is the same-process, lease-bound restic REST object boundary. It
+// RESTServer is the lease-bound restic REST object boundary. In production it
 // serves exactly one repository for exactly one exact writer lease over a Unix
 // socket. Its routine writer may create new payload objects and create/remove
 // mutable locks only; it can never overwrite or delete retained config, keys,
@@ -28,17 +28,22 @@ const maxObjectBytes = 2 << 30 // 2 GiB
 // non-regular file, or accept a peer other than the service owner. A lock-free
 // mode is never offered: locking is always enforced by the client, never disabled.
 type RESTServer struct {
-	root         string
-	repositoryID string
-	expectedUID  uint32
-	lease        WriterLease
-	verifier     LeaseVerifier
-	readLease    ReadLease
-	readVerifier ReadLeaseVerifier
-	readOnly     bool
-	clock        func() time.Time
-	mu           sync.Mutex
-	ownLocks     map[string]struct{}
+	root                   string
+	repositoryID           string
+	ownerUID               uint32
+	peerUID                uint32
+	lease                  WriterLease
+	verifier               LeaseVerifier
+	readLease              ReadLease
+	readVerifier           ReadLeaseVerifier
+	readOnly               bool
+	clock                  func() time.Time
+	mu                     sync.Mutex
+	ownLocks               map[string]struct{}
+	maximumMutationObjects int64
+	maximumMutationBytes   int64
+	mutationObjects        int64
+	mutationBytes          int64
 }
 
 // NewVerifierRESTServer creates a point-bound read role. The read role may
@@ -50,12 +55,45 @@ func NewVerifierRESTServer(root string, expectedUID uint32, lease ReadLease, ver
 	if clock == nil {
 		clock = time.Now
 	}
-	return &RESTServer{root: root, repositoryID: lease.RepositoryID, expectedUID: expectedUID, readLease: lease, readVerifier: verifier, readOnly: true, clock: clock, ownLocks: map[string]struct{}{}}, nil
+	return newVerifierRESTServer(root, expectedUID, expectedUID, lease, verifier, clock)
 }
 
 // NewRESTServer builds a REST boundary bound to one resolved repository root and
 // one exact writer lease.
 func NewRESTServer(root string, expectedUID uint32, lease WriterLease, verifier LeaseVerifier, clock func() time.Time) (*RESTServer, error) {
+	return newRESTServer(root, expectedUID, expectedUID, lease, verifier, clock)
+}
+
+// newCustodyRESTServer separates object ownership from the only admitted restic
+// peer. It is used solely by the distinct-UID custody child.
+func newCustodyRESTServer(root string, ownerUID, peerUID uint32, session CustodySession, writer LeaseVerifier, reader ReadLeaseVerifier, clock func() time.Time) (*RESTServer, error) {
+	var server *RESTServer
+	var err error
+	if session.Role == "writer" && session.WriterLease != nil {
+		server, err = newRESTServer(root, ownerUID, peerUID, *session.WriterLease, writer, clock)
+	} else if session.Role == "verifier" && session.ReadLease != nil {
+		server, err = newVerifierRESTServer(root, ownerUID, peerUID, *session.ReadLease, reader, clock)
+	} else {
+		return nil, errors.New("backup custody rest server misconfigured")
+	}
+	if err != nil {
+		return nil, err
+	}
+	server.maximumMutationObjects, server.maximumMutationBytes = session.MaximumObjects, session.MaximumBytes
+	return server, nil
+}
+
+func newVerifierRESTServer(root string, ownerUID, peerUID uint32, lease ReadLease, verifier ReadLeaseVerifier, clock func() time.Time) (*RESTServer, error) {
+	if root == "" || lease.LeaseID == "" || lease.PointID == "" || lease.RepositoryID == "" || lease.RecoveryEpoch < 0 || lease.MaximumExpiresAt.IsZero() || verifier == nil {
+		return nil, errors.New("backup verifier rest server misconfigured")
+	}
+	if clock == nil {
+		clock = time.Now
+	}
+	return &RESTServer{root: root, repositoryID: lease.RepositoryID, ownerUID: ownerUID, peerUID: peerUID, readLease: lease, readVerifier: verifier, readOnly: true, clock: clock, ownLocks: map[string]struct{}{}}, nil
+}
+
+func newRESTServer(root string, ownerUID, peerUID uint32, lease WriterLease, verifier LeaseVerifier, clock func() time.Time) (*RESTServer, error) {
 	if root == "" || lease.RepositoryID == "" || verifier == nil {
 		return nil, errors.New("backup rest server misconfigured")
 	}
@@ -65,7 +103,8 @@ func NewRESTServer(root string, expectedUID uint32, lease WriterLease, verifier 
 	return &RESTServer{
 		root:         root,
 		repositoryID: lease.RepositoryID,
-		expectedUID:  expectedUID,
+		ownerUID:     ownerUID,
+		peerUID:      peerUID,
 		lease:        lease,
 		verifier:     verifier,
 		clock:        clock,
@@ -76,7 +115,7 @@ func NewRESTServer(root string, expectedUID uint32, lease WriterLease, verifier 
 // Serve accepts only service-owner peers on the listener and serves the guarded
 // object boundary until ctx is cancelled.
 func (server *RESTServer) Serve(ctx context.Context, listener net.Listener) error {
-	guarded := &peerCheckedListener{Listener: listener, expectedUID: server.expectedUID}
+	guarded := &peerCheckedListener{Listener: listener, expectedUID: server.peerUID}
 	httpServer := &http.Server{
 		Handler:           server,
 		ReadHeaderTimeout: 30 * time.Second,
@@ -211,7 +250,7 @@ func (server *RESTServer) handleList(w http.ResponseWriter, request objectReques
 			continue
 		}
 		var stat unix.Stat_t
-		if unix.Fstat(descriptor, &stat) == nil && stat.Mode&unix.S_IFMT == unix.S_IFREG && stat.Nlink == 1 && stat.Uid == server.expectedUID && isLocalDescriptor(descriptor) {
+		if unix.Fstat(descriptor, &stat) == nil && stat.Mode&unix.S_IFMT == unix.S_IFREG && stat.Nlink == 1 && stat.Uid == server.ownerUID && isLocalDescriptor(descriptor) {
 			entries = append(entries, entry{Name: name, Size: stat.Size})
 		}
 		_ = unix.Close(descriptor)
@@ -286,9 +325,17 @@ func (server *RESTServer) handleCreate(w http.ResponseWriter, r *http.Request, r
 		return
 	}
 	written, copyErr := io.Copy(file, io.LimitReader(r.Body, maxObjectBytes+1))
+	server.mu.Lock()
+	withinSessionBounds := server.maximumMutationObjects == 0 ||
+		(server.mutationObjects < server.maximumMutationObjects && written <= server.maximumMutationBytes-server.mutationBytes)
+	if withinSessionBounds && server.maximumMutationObjects != 0 {
+		server.mutationObjects++
+		server.mutationBytes += written
+	}
+	server.mu.Unlock()
 	syncErr := file.Sync()
 	closeErr := file.Close()
-	if copyErr != nil || written > maxObjectBytes || syncErr != nil || closeErr != nil {
+	if copyErr != nil || written > maxObjectBytes || !withinSessionBounds || syncErr != nil || closeErr != nil {
 		_ = unix.Unlinkat(typeDescriptor, request.name, 0)
 		http.Error(w, "forbidden", http.StatusForbidden)
 		return
@@ -362,7 +409,7 @@ func (server *RESTServer) openObject(request objectRequest, _ bool) (int, error)
 		return -1, err
 	}
 	var stat unix.Stat_t
-	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != server.expectedUID || !isLocalDescriptor(descriptor) {
+	if unix.Fstat(descriptor, &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Nlink != 1 || stat.Uid != server.ownerUID || !isLocalDescriptor(descriptor) {
 		_ = unix.Close(descriptor)
 		return -1, errors.New("unsafe object")
 	}
@@ -383,7 +430,7 @@ func (server *RESTServer) openTypeDir(objectType string, create bool) (int, erro
 	defer unix.Close(rootDescriptor)
 	descriptor, err := unix.Openat(rootDescriptor, objectType, unix.O_RDONLY|unix.O_DIRECTORY|unix.O_CLOEXEC|unix.O_NOFOLLOW, 0)
 	if err == nil {
-		if err := validateOwnedDirectoryDescriptor(descriptor, server.expectedUID); err != nil {
+		if err := validateOwnedDirectoryDescriptor(descriptor, server.ownerUID); err != nil {
 			_ = unix.Close(descriptor)
 			return -1, err
 		}
@@ -402,7 +449,7 @@ func (server *RESTServer) openTypeDir(objectType string, create bool) (int, erro
 	if err != nil {
 		return -1, err
 	}
-	if err := validateOwnedDirectoryDescriptor(descriptor, server.expectedUID); err != nil {
+	if err := validateOwnedDirectoryDescriptor(descriptor, server.ownerUID); err != nil {
 		_ = unix.Close(descriptor)
 		return -1, err
 	}
@@ -417,7 +464,7 @@ func (server *RESTServer) openRepositoryRoot() (int, error) {
 	if err != nil {
 		return -1, err
 	}
-	if err := validateOwnedDirectoryDescriptor(descriptor, server.expectedUID); err != nil {
+	if err := validateOwnedDirectoryDescriptor(descriptor, server.ownerUID); err != nil {
 		_ = unix.Close(descriptor)
 		return -1, err
 	}

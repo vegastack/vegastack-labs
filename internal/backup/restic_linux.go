@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
@@ -66,9 +67,21 @@ type resticSummary struct {
 	TotalBytesProcessed int64  `json:"total_bytes_processed"`
 }
 
-func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, password *credentialref.Value) (result ResticResult, outcomeErr error) {
+func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, password *credentialref.Value) (ResticResult, error) {
+	if password == nil || len(password.Bytes()) == 0 {
+		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
+	}
+	passwordFile, err := sealedPasswordFile(password.Bytes())
+	if err != nil {
+		return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-password", false)
+	}
+	defer passwordFile.Close()
+	return runner.runSealed(ctx, request, passwordFile)
+}
+
+func (runner *resticRunner) runSealed(ctx context.Context, request ResticRequest, passwordFile *os.File) (result ResticResult, outcomeErr error) {
 	runner.observation = ResticObservation{PasswordFileMode: "sealed-memfd"}
-	if password == nil || len(password.Bytes()) == 0 || request.BinaryPath == "" || request.RepositoryURL == "" {
+	if request.BinaryPath == "" || request.RepositoryURL == "" || !exactSealedPasswordFile(passwordFile) {
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 	outputLimit := request.OutputLimit
@@ -100,14 +113,6 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 
-	passwordFile, err := sealedPasswordFile(password.Bytes())
-	if err != nil {
-		return ResticResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "backup-restic-password", false)
-	}
-	// The sealed memfd is closed on every exit path; the kernel frees the only
-	// copy of the password material with it.
-	defer passwordFile.Close()
-
 	argv := []string{
 		request.BinaryPath,
 		"-r", "rest:" + request.RepositoryURL,
@@ -133,6 +138,12 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 	// /proc/self/fd/4 binds exec to the exact verified inode.
 	command.ExtraFiles = []*os.File{passwordFile, binaryFile}
 	command.Path = "/proc/self/fd/4"
+	if request.ExecutionUID != 0 || request.ExecutionGID != 0 {
+		if os.Geteuid() != 0 || request.ExecutionUID == 0 || request.ExecutionGID == 0 {
+			return ResticResult{}, failure.New(generated.ErrorCodePrerequisiteBlocked, "backup-restic-identity", false)
+		}
+		command.SysProcAttr = &syscall.SysProcAttr{Credential: &syscall.Credential{Uid: request.ExecutionUID, Gid: request.ExecutionGID}}
+	}
 	var stdout, stderr bytes.Buffer
 	stdoutWriter := &boundedWriter{limit: outputLimit, buffer: &stdout}
 	stderrWriter := &boundedWriter{limit: outputLimit, buffer: &stderr}
@@ -198,16 +209,23 @@ func (runner *resticRunner) Run(ctx context.Context, request ResticRequest, pass
 // root. The exact target is created by the server and is never supplied by an
 // API caller. In particular restic cannot be pointed at authoritative SQLite.
 func safeRestoreTarget(request ResticRequest) bool {
-	target, root := request.RestoreTarget, request.RepositoryRoot
-	if !filepath.IsAbs(target) || !filepath.IsAbs(root) || filepath.Clean(target) != target ||
-		filepath.Dir(target) != filepath.Dir(root) || !strings.HasPrefix(filepath.Base(target), ".vsk-backup-verify-") {
+	target, exchange := request.RestoreTarget, request.ExchangeRoot
+	if exchange == "" {
+		exchange = filepath.Dir(request.RepositoryRoot)
+	}
+	if !filepath.IsAbs(target) || !filepath.IsAbs(exchange) || filepath.Clean(target) != target ||
+		filepath.Dir(target) != exchange || !strings.HasPrefix(filepath.Base(target), ".vsk-backup-verify-") {
 		return false
 	}
 	descriptor, err := unix.Openat2(unix.AT_FDCWD, target, &unix.OpenHow{Flags: unix.O_RDONLY | unix.O_DIRECTORY | unix.O_CLOEXEC, Resolve: unix.RESOLVE_NO_SYMLINKS | unix.RESOLVE_NO_MAGICLINKS})
 	if err != nil {
 		return false
 	}
-	if err := validateOwnedDirectoryDescriptor(descriptor, uint32(os.Geteuid())); err != nil {
+	expectedUID := uint32(os.Geteuid())
+	if request.ExecutionUID != 0 {
+		expectedUID = request.ExecutionUID
+	}
+	if err := validateOwnedDirectoryDescriptor(descriptor, expectedUID); err != nil {
 		_ = unix.Close(descriptor)
 		return false
 	}
@@ -326,6 +344,20 @@ func sealedPasswordFile(password []byte) (*os.File, error) {
 		return nil, err
 	}
 	return file, nil
+}
+
+func exactSealedPasswordFile(file *os.File) bool {
+	if file == nil {
+		return false
+	}
+	var stat unix.Stat_t
+	seals, err := unix.FcntlInt(file.Fd(), unix.F_GET_SEALS, 0)
+	want := unix.F_SEAL_WRITE | unix.F_SEAL_SHRINK | unix.F_SEAL_GROW | unix.F_SEAL_SEAL
+	if err != nil || seals != want || unix.Fstat(int(file.Fd()), &stat) != nil || stat.Mode&unix.S_IFMT != unix.S_IFREG || stat.Size <= 0 || stat.Size > 1<<20 {
+		return false
+	}
+	_, err = file.Seek(0, io.SeekStart)
+	return err == nil
 }
 
 func parseResticSummary(output []byte) (resticSummary, error) {

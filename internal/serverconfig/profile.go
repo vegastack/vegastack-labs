@@ -42,6 +42,7 @@ type LocalBackup struct {
 	StandardRoot         string
 	CriticalRoot         string
 	ResticBinaryPath     string
+	CustodyPolicyPath    string
 	SourceID             string
 	StandardRepositoryID string
 	CriticalRepositoryID string
@@ -172,7 +173,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 // effect by the platform-specific preflight; these are the structural checks.
 func convertLocalBackup(input generated.ServerProfile) (*LocalBackup, error) {
 	present := 0
-	for _, value := range []*string{input.StandardBackupRoot, input.CriticalBackupRoot, input.ResticBinaryPath} {
+	for _, value := range []*string{input.StandardBackupRoot, input.CriticalBackupRoot, input.ResticBinaryPath, input.CustodyPolicyPath} {
 		if value != nil {
 			present++
 		}
@@ -180,20 +181,20 @@ func convertLocalBackup(input generated.ServerProfile) (*LocalBackup, error) {
 	if present == 0 {
 		return nil, nil
 	}
-	if present != 3 {
+	if present != 4 {
 		return nil, failure.New("INPUT_INVALID", "server-config", false)
 	}
-	standard, critical, binary := *input.StandardBackupRoot, *input.CriticalBackupRoot, *input.ResticBinaryPath
-	for _, candidate := range []string{standard, critical, binary} {
+	standard, critical, binary, custody := *input.StandardBackupRoot, *input.CriticalBackupRoot, *input.ResticBinaryPath, *input.CustodyPolicyPath
+	for _, candidate := range []string{standard, critical, binary, custody} {
 		if len(candidate) < 2 || len(candidate) > 4096 || strings.ContainsRune(candidate, 0) ||
 			!filepath.IsAbs(candidate) || filepath.Clean(candidate) != candidate || candidate == string(filepath.Separator) {
 			return nil, failure.New("INPUT_INVALID", "server-config", false)
 		}
 	}
-	if standard == critical || standard == binary || critical == binary {
+	if standard == critical || standard == binary || critical == binary || custody == standard || custody == critical || custody == binary {
 		return nil, failure.New("INPUT_INVALID", "server-config", false)
 	}
-	return &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
+	return &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary, CustodyPolicyPath: custody,
 		SourceID: backupidentity.ControlDatabaseSource, StandardRepositoryID: backupidentity.StandardRepository,
 		CriticalRepositoryID: backupidentity.CriticalRepository}, nil
 }

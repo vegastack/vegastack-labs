@@ -24,18 +24,14 @@ const maxResticExecutableBytes = 128 * 1024 * 1024
 // the exact pinned 0.19.1 digest for this architecture. It never executes the
 // binary. It fails closed on any deviation and leaks no path in its error.
 func VerifyLocalBackup(backup *LocalBackup, expectedUID uint32) error {
+	_ = expectedUID // OS ownership is verified from the root-owned custody policy at launch.
 	if backup == nil {
 		return failure.New("PREREQUISITE_BLOCKED", "backup-profile", false)
 	}
 	if backup.SourceID != backupidentity.ControlDatabaseSource || backup.StandardRepositoryID != backupidentity.StandardRepository || backup.CriticalRepositoryID != backupidentity.CriticalRepository {
 		return failure.New("INTEGRITY_FAILURE", "backup-profile", false)
 	}
-	for _, root := range []string{backup.StandardRoot, backup.CriticalRoot} {
-		if err := validateInventoryExportRoot(root, expectedUID); err != nil {
-			return failure.New("INTEGRITY_FAILURE", "backup-profile", false)
-		}
-	}
-	if err := verifyResticExecutable(backup.ResticBinaryPath, expectedUID); err != nil {
+	if err := verifyResticExecutable(backup.ResticBinaryPath, 0); err != nil {
 		return failure.New("INTEGRITY_FAILURE", "backup-profile", false)
 	}
 	return nil

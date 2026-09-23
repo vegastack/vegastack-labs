@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/cli"
 	"github.com/vegastack/vegastack-labs/internal/clientfile"
 	"github.com/vegastack/vegastack-labs/internal/release"
@@ -22,6 +23,21 @@ var (
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == backup.CustodyPolicyCheckMode {
+		os.Exit(backup.RunCustodyPolicyCheck(context.Background(), os.Stdin))
+	}
+	if len(os.Args) == 3 && os.Args[1] == backup.CustodySystemdMode {
+		if backup.RunCustodySupervisor(os.Args[2]) != nil {
+			os.Exit(1)
+		}
+		return
+	}
+	if os.Getenv("VSK_BACKUP_CUSTODY") == "1" {
+		if len(os.Args) != 4 || os.Args[1] != "backup-custody" || os.Args[2] != "--policy" || backup.RunCustodyChild(os.Args[3]) != nil {
+			os.Exit(1)
+		}
+		return
+	}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	if handled, code := runPrivateNativeProbe(ctx, os.Args[1:]); handled {
