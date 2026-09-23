@@ -51,6 +51,12 @@ const REVIEWED_AUDIT_ENDPOINTS = [
   "api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list",
   "api.v1.audit-history.verification",
 ];
+// #106 adds one inert operator-only backup-policy-draft write route. Keep it as a
+// separate reviewed wave so no other allowance can absorb an unrelated backup
+// status/run/verify route (those remain planned for #117).
+const REVIEWED_BACKUP_ENDPOINTS = [
+  "api.v1.backup-policy-drafts.create",
+];
 
 async function filesBelow(root, relative) {
   const start = path.join(root, relative); const files = [];
@@ -86,12 +92,14 @@ export async function verifyReadAPI(root = ROOT) {
       const gateIDs = ids.filter((id) => id.startsWith("api.v1.gate-") || id.startsWith("api.v1.gates."));
       const credentialImportIDs = ids.filter((id) => id.startsWith("api.v1.credential-references."));
       const auditIDs = ids.filter((id) => id.startsWith("api.v1.audit-"));
+      const backupIDs = ids.filter((id) => id.startsWith("api.v1.backup"));
       const lifecycleIDs = ids.filter((id) => id.startsWith("api.v1.credential-lifecycle-"));
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id));
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id));
       if (JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
           JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
           JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS) ||
-          JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
+          JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) ||
+          JSON.stringify(backupIDs) !== JSON.stringify(REVIEWED_BACKUP_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
     } catch { codes.add("READ_API_ENDPOINT_DRIFT"); }
   }
 

@@ -34,7 +34,7 @@ func TestConsumerVerificationBindsPositiveAndDeniedEvidence(t *testing.T) {
 	if err != nil || !ValidConsumerVerification(binding, positive) {
 		t.Fatalf("positive evidence rejected: %v", err)
 	}
-	denied, err := NewConsumerVerification(binding, "consumer-denied", "profile-a", "role-a", digest, "reader-denied", "denied", false)
+	denied, err := NewConsumerVerification(binding, "consumer-denied", "profile-a", "role-denied", digest, "reader-denied", "denied", false)
 	if err != nil || !ValidConsumerVerification(binding, denied) {
 		t.Fatalf("denied evidence rejected: %v", err)
 	}
@@ -47,6 +47,7 @@ func TestConsumerVerificationBindsPositiveAndDeniedEvidence(t *testing.T) {
 		"foreign fingerprint": func(v *ConsumerVerification) { v.CiphertextFingerprint = "sha256:" + strings.Repeat("e", 64) },
 		"invalid profile":     func(v *ConsumerVerification) { v.ProfileID = "Bad ID" },
 		"invalid role":        func(v *ConsumerVerification) { v.RoleID = "Bad ID" },
+		"other mapped role":   func(v *ConsumerVerification) { v.RoleID = "role-other" },
 		"invalid digest":      func(v *ConsumerVerification) { v.EvidenceDigest = "sha256:" + strings.Repeat("z", 64) },
 		"invalid reason":      func(v *ConsumerVerification) { v.ReasonCode = "Bad Reason" },
 		"positive in denial":  func(v *ConsumerVerification) { v.ConsumerID = "consumer-a" },

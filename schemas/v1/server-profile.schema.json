@@ -95,6 +95,15 @@
       "pattern": "^/[^\\x00]*$",
       "type": "string"
     },
+    "criticalBackupRoot": {
+      "maxLength": 4096,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "inventoryExportRoot": {
       "maxLength": 4096,
       "minLength": 2,
@@ -113,6 +122,15 @@
     "remoteRead": {
       "$ref": "#/$defs/remote-read-profile"
     },
+    "resticBinaryPath": {
+      "maxLength": 4096,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "schema": {
       "enum": [
         "vegastack-labs.dev/server-profile"
@@ -121,7 +139,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.1.0"
+        "1.2.0"
       ],
       "type": "string"
     },
@@ -155,6 +173,15 @@
       "minLength": 2,
       "pattern": "^/[^\\x00]*$",
       "type": "string"
+    },
+    "standardBackupRoot": {
+      "maxLength": 4096,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": [
+        "string",
+        "null"
+      ]
     }
   },
   "required": [

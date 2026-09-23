@@ -387,7 +387,7 @@ test("five operator commands preserve protected API bytes in the built process",
   const profilePath = path.join(temporary, "profile.json");
   await writeFile(profilePath, `${JSON.stringify({
     schema: "vegastack-labs.dev/server-profile",
-    schemaVersion: "1.1.0",
+    schemaVersion: "1.2.0",
     socketPath,
     socketOwnerUid: process.getuid(),
     socketGroupGid: null,
@@ -502,7 +502,7 @@ test("Phase 4 commands preserve server facts, request bytes, exits, and disconne
   await writeFile(requestLog, "");
   await writeFile(profilePath, `${JSON.stringify({
     schema: "vegastack-labs.dev/server-profile",
-    schemaVersion: "1.1.0",
+    schemaVersion: "1.2.0",
     socketPath,
     socketOwnerUid: process.getuid(),
     socketGroupGid: null,
@@ -988,7 +988,7 @@ func main(){ listener,err:=net.Listen("unix",os.Args[1]); if err!=nil { panic(er
     assert.equal(built.status, 0, built.stderr);
   }
   await writeFile(profilePath, `${JSON.stringify({
-    schema: "vegastack-labs.dev/server-profile", schemaVersion: "1.1.0",
+    schema: "vegastack-labs.dev/server-profile", schemaVersion: "1.2.0",
     socketPath, socketOwnerUid: process.getuid(), socketGroupGid: null, socketMode: "0600", shutdownGraceSeconds: 5,
     principalBindings: [{ uid: process.getuid(), principalId: "principal.operator" }], inventoryExportRoot: exportRoot,
     remoteRead: { enabled: false, bindAddress: null, publicOrigin: null, tlsCertificatePath: null, tlsPrivateKeyPath: null, identityAdapter: null, identityConfigPath: null },

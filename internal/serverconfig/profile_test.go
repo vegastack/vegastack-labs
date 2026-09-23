@@ -10,7 +10,7 @@ import (
 func validGeneratedProfile() generated.ServerProfile {
 	return generated.ServerProfile{
 		Schema:               generated.SchemaIDServerProfile,
-		SchemaVersion:        "1.1.0",
+		SchemaVersion:        "1.2.0",
 		SocketPath:           "/tmp/vsk-labs/control.sock",
 		InventoryExportRoot:  "/tmp/vsk-labs/exports",
 		SocketOwnerUID:       1001,
@@ -90,6 +90,54 @@ func TestConvertGeneratedProfile(t *testing.T) {
 	}
 }
 
+func TestConvertGeneratedProfileRequiresCompleteLocalBackup(t *testing.T) {
+	// Absent triplet disables local backup.
+	got, err := convertGeneratedProfile(validGeneratedProfile(), 1001)
+	if err != nil || got.LocalBackup != nil {
+		t.Fatalf("absent local backup = %#v, %v", got.LocalBackup, err)
+	}
+
+	// Partial configuration fails closed.
+	partial := validGeneratedProfile()
+	partial.StandardBackupRoot = stringPointer("/srv/vsk-backup-standard")
+	if _, err := convertGeneratedProfile(partial, 1001); err == nil {
+		t.Fatal("partial local backup accepted")
+	}
+
+	// Complete triplet with distinct clean absolute paths converts.
+	complete := validGeneratedProfile()
+	complete.StandardBackupRoot = stringPointer("/srv/vsk-backup-standard")
+	complete.CriticalBackupRoot = stringPointer("/srv/vsk-backup-critical")
+	complete.ResticBinaryPath = stringPointer("/opt/vsk/bin/restic-0.19.1")
+	got, err = convertGeneratedProfile(complete, 1001)
+	if err != nil || got.LocalBackup == nil ||
+		got.LocalBackup.StandardRoot != "/srv/vsk-backup-standard" ||
+		got.LocalBackup.CriticalRoot != "/srv/vsk-backup-critical" ||
+		got.LocalBackup.ResticBinaryPath != "/opt/vsk/bin/restic-0.19.1" ||
+		got.LocalBackup.StandardRoot == got.LocalBackup.CriticalRoot {
+		t.Fatalf("complete local backup = %#v, %v", got.LocalBackup, err)
+	}
+
+	// Structural rejections: relative, unclean, root, and duplicate roots.
+	for name, mutate := range map[string]func(*generated.ServerProfile){
+		"relative root":  func(p *generated.ServerProfile) { p.StandardBackupRoot = stringPointer("relative/backup") },
+		"unclean root":   func(p *generated.ServerProfile) { p.CriticalBackupRoot = stringPointer("/srv/../critical") },
+		"root path":      func(p *generated.ServerProfile) { p.ResticBinaryPath = stringPointer("/") },
+		"duplicate root": func(p *generated.ServerProfile) { p.CriticalBackupRoot = stringPointer("/srv/vsk-backup-standard") },
+	} {
+		t.Run(name, func(t *testing.T) {
+			profile := validGeneratedProfile()
+			profile.StandardBackupRoot = stringPointer("/srv/vsk-backup-standard")
+			profile.CriticalBackupRoot = stringPointer("/srv/vsk-backup-critical")
+			profile.ResticBinaryPath = stringPointer("/opt/vsk/bin/restic-0.19.1")
+			mutate(&profile)
+			if _, err := convertGeneratedProfile(profile, 1001); err == nil {
+				t.Fatal("invalid local backup accepted")
+			}
+		})
+	}
+}
+
 func TestAcknowledgementAdapterConfigPathIsOptionalAndAbsolute(t *testing.T) {
 	profile := validGeneratedProfile()
 	profile.AcknowledgementAdapterConfigPath = "/etc/vsk-labs/slack-acknowledgement.json"
@@ -144,7 +192,7 @@ func TestConvertGeneratedProfileRejectsInvalidContracts(t *testing.T) {
 }
 
 func TestDecodeGeneratedProfileIsStrictAndBounded(t *testing.T) {
-	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.1.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}],"inventoryExportRoot":"/tmp/vsk-labs/exports","remoteRead":{"enabled":false,"bindAddress":null,"publicOrigin":null,"tlsCertificatePath":null,"tlsPrivateKeyPath":null,"identityAdapter":null,"identityConfigPath":null}}`
+	valid := `{"schema":"vegastack-labs.dev/server-profile","schemaVersion":"1.2.0","socketPath":"/tmp/vsk-labs/control.sock","socketOwnerUid":1001,"socketGroupGid":null,"socketMode":"0600","shutdownGraceSeconds":5,"principalBindings":[{"uid":1001,"principalId":"principal.operator"}],"inventoryExportRoot":"/tmp/vsk-labs/exports","remoteRead":{"enabled":false,"bindAddress":null,"publicOrigin":null,"tlsCertificatePath":null,"tlsPrivateKeyPath":null,"identityAdapter":null,"identityConfigPath":null}}`
 	for name, content := range map[string]string{
 		"empty":          "",
 		"unknown":        strings.Replace(valid, `"schema":`, `"unknown":true,"schema":`, 1),

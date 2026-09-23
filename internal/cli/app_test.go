@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -41,13 +42,23 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			controlOperations := successfulControlOperations(t)
 			credentialOperations := successfulCredentialOperations(t)
 			files := &stubFileReader{content: []byte("synthetic fixture")}
-			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft {
+			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft {
 				files.content = syntheticGateRequest(t, commandName(command.Path))
 			}
 			if strings.HasPrefix(commandName(command.Path), "credential ") && commandName(command.Path) != generated.CommandNameCredentialImport {
 				files.content = syntheticLifecycleRequest(t, commandName(command.Path))
 			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
+			if commandName(command.Path) == generated.CommandNameRecoveryWitnessCollect {
+				wantCode, wantError := 6, `"code":"PREREQUISITE_BLOCKED"`
+				if runtime.GOOS == "linux" {
+					wantCode, wantError = 2, `"code":"INPUT_INVALID"`
+				}
+				if code != wantCode || !strings.Contains(stdout, wantError) || stderr != "" {
+					t.Fatalf("unqualified witness command: code=%d stdout=%q stderr=%q", code, stdout, stderr)
+				}
+				return
+			}
 			if command.Availability == generated.AvailabilityPlanned {
 				if code != 6 || stdout != "" || stderr != "vsk-labs: PREREQUISITE_BLOCKED (command)\n" {
 					t.Fatalf("planned command %v: code=%d stdout=%q stderr=%q", command.Path, code, stdout, stderr)

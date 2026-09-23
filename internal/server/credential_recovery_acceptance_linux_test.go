@@ -30,41 +30,40 @@ func acceptanceDigest(value []byte) string {
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
 
-// This fixture composes the real software seams. It is never registered in
-// production: #108 has not established current recovery-required authority or
-// server-derived direct-denial requirements, and no live adapter is qualified.
+// This fixture composes the real native comparator with the #159 source-loader
+// adapter seam. It is never registered in production: #108 has not established
+// current recovery-required authority and no live denial adapter is qualified.
 type acceptanceRecoverySource struct {
-	candidate      recoveryWitnessCandidate
-	native         nativecredential.VerifyRecoveryRequest
-	draft          store.CredentialImportDraft
-	binding        recovery.WitnessBinding
+	*installedRecoverySource
 	custody, fence string
 }
 
-func (source *acceptanceRecoverySource) VerifyRecovery(ctx context.Context, request RecoveryCustodyRequest) (RecoveryCustodyProof, error) {
-	if source == nil || request.Draft != source.draft || request.PlanDigest != source.binding.PlanDigest ||
-		request.RunID != source.binding.RunID || request.StepID != source.binding.StepID || request.LeaseID != source.binding.LeaseID ||
-		request.PriorRecoveryEpoch != source.binding.PriorEpoch || request.RecoveryEpoch != source.binding.NewEpoch {
-		return RecoveryCustodyProof{}, recovery.ErrWitnessUnavailable
+type acceptanceInstalledAuthority struct {
+	binding  recovery.WitnessBinding
+	required []recovery.BoundaryRequirement
+}
+
+func (authority acceptanceInstalledAuthority) CurrentInstalledRecovery(context.Context, RecoveryCustodyRequest) (installedRecoveryAuthority, error) {
+	return installedRecoveryAuthority{Binding: authority.binding, Required: append([]recovery.BoundaryRequirement(nil), authority.required...)}, nil
+}
+
+type acceptanceInstalledLoader struct {
+	binding   recovery.WitnessBinding
+	required  []recovery.BoundaryRequirement
+	candidate recoveryWitnessCandidate
+	public    installedRecoveryCandidate
+}
+
+func (loader acceptanceInstalledLoader) LoadVerified(_ context.Context, binding recovery.WitnessBinding, required []recovery.BoundaryRequirement, _ time.Time) (installedRecoveryCandidate, error) {
+	if binding != loader.binding || len(required) != len(loader.required) {
+		return installedRecoveryCandidate{}, recovery.ErrWitnessUnavailable
 	}
-	var verified nativecredential.VerifiedDraft
-	err := source.candidate.verify(ctx, func(reader io.ReadCloser) error {
-		var verifyErr error
-		verified, verifyErr = nativecredential.VerifyRecoveredDraft(ctx, source.native, reader)
-		return verifyErr
-	})
-	if err != nil || verified.CiphertextFingerprint != request.Draft.CiphertextFingerprint {
-		return RecoveryCustodyProof{}, recovery.ErrWitnessUnavailable
+	for index := range required {
+		if required[index] != loader.required[index] {
+			return installedRecoveryCandidate{}, recovery.ErrWitnessUnavailable
+		}
 	}
-	return RecoveryCustodyProof{
-		DraftID: request.Draft.DraftID, CiphertextName: request.Draft.CiphertextName,
-		CiphertextFingerprint: verified.CiphertextFingerprint, ReferenceID: request.Draft.ReferenceID,
-		TargetID: request.Draft.TargetID, MaterialVersion: request.Draft.MaterialVersion,
-		PriorRecoveryEpoch: request.PriorRecoveryEpoch, RecoveryEpoch: request.RecoveryEpoch,
-		CustodyProofDigest: source.custody, FormerControllerFenceDigest: source.fence,
-		ReplacementHostKeyDigest: verified.HostKeyDigest,
-		SourceEvidenceDigest:     acceptanceDigest(source.candidate.Signed.Signature),
-	}, nil
+	return loader.public, nil
 }
 
 func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, draft store.CredentialImportDraft, native nativecredential.VerifyRecoveryRequest, material []byte) *acceptanceRecoverySource {
@@ -124,10 +123,22 @@ func newAcceptanceRecoverySource(t *testing.T, binding recovery.WitnessBinding, 
 	if err != nil {
 		t.Fatal(err)
 	}
-	candidate := recoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: signed, Required: required, Qualified: qualified,
+	witnessCandidate := recoveryWitnessCandidate{Pin: pin, Expected: binding, Signed: signed, Required: required, Qualified: qualified,
 		Envelope: envelope, Recipient: recovery.NewProtectedRecipient(pin, &isolatedRecipientKeySource{key: recipientKey.Bytes()}), Receipts: &isolatedReceipts{}}
-	return &acceptanceRecoverySource{candidate: candidate, native: native, draft: draft, binding: binding,
-		custody: acceptanceDigest(envelope.Ciphertext), fence: acceptanceDigest(signed.Signature)}
+	custody := acceptanceDigest(envelope.Ciphertext)
+	fence := acceptanceDigest(signed.Signature)
+	public := installedRecoveryCandidate{
+		sourceDigest:   acceptanceDigest(append(append([]byte(nil), signed.Signature...), envelope.Ciphertext...)),
+		manifestDigest: pin.ManifestDigest, witnessDigest: fence, fenceDigest: acceptanceDigest([]byte("fixture-qualification")), envelopeDigest: custody,
+		consume: func(ctx context.Context, compare func(io.ReadCloser) error) error {
+			return witnessCandidate.verify(ctx, compare)
+		},
+	}
+	loader := acceptanceInstalledLoader{binding: binding, required: required, candidate: witnessCandidate, public: public}
+	return &acceptanceRecoverySource{installedRecoverySource: &installedRecoverySource{
+		authority: acceptanceInstalledAuthority{binding: binding, required: required}, loader: loader,
+		ciphertextRoot: native.CiphertextDirectory, ownerUID: native.ExpectedUID, clock: time.Now, compare: nativecredential.VerifyRecoveredDraft,
+	}, custody: custody, fence: fence}
 }
 
 func TestCredentialRecoveryAcceptanceNativeWitnessAndDraft(t *testing.T) {

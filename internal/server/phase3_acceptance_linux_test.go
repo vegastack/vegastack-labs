@@ -136,7 +136,7 @@ func newPhase3ExecutableFixture(t *testing.T) *phase3ExecutableFixture {
 		IdentityAdapter: testStringPointer("cloudflare-access"), IdentityConfigPath: testStringPointer(identityPath),
 	}
 	generatedProfile := generated.ServerProfile{
-		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.1.0", SocketPath: filepath.Join(runtimeRoot, "control.sock"),
+		Schema: generated.SchemaIDServerProfile, SchemaVersion: "1.2.0", SocketPath: filepath.Join(runtimeRoot, "control.sock"),
 		SocketOwnerUID: int64(uid), SocketMode: "0600", ShutdownGraceSeconds: 5, InventoryExportRoot: exportRoot,
 		PrincipalBindings: []generated.LocalPrincipalBinding{{UID: int64(uid), PrincipalID: "principal.local"}}, RemoteRead: remote,
 	}

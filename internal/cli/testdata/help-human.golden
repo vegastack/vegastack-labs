@@ -14,6 +14,11 @@ Available commands:
     --config <path>        Read one protected server profile.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  backup policy draft      Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact typed backup-policy-draft-request JSON file (64 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   credential activate      Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.
     --config <path>        Read one protected server profile.
     --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
@@ -117,6 +122,12 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --revision <revision>  Select the exact positive declaration revision.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  recovery witness collect Collect one bounded independent recovery witness on a separately administered custodian.
+    --file <path>          Read one exact public recovery binding and required-boundary document (64 KiB max).
+    --material-fd <fd>     Read the independently held protected material from an inherited descriptor.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+    --signing-key-fd <fd>  Read the protected witness signing seed from an inherited descriptor.
   release inspect          Inspect a local release manifest and compatibility without claiming cryptographic verification.
     --manifest <path>      Read the local release manifest at this path.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.

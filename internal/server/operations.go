@@ -9,8 +9,10 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/clientprofile"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
@@ -175,6 +177,33 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
 	adapters := productionAdapterRegistry()
+	// The protected local backup adapter is registered only when the complete
+	// standard/critical/restic profile triplet is present. It fails closed
+	// off-Linux and its effect always runs through the exact bound credential
+	// path; a partial or absent profile leaves it unregistered.
+	if profile.LocalBackup != nil {
+		snapshots, snapshotErr := store.NewOnlineSnapshotSource(authority)
+		if snapshotErr != nil {
+			_ = application.Shutdown(ctx)
+			return snapshotErr
+		}
+		localAdapter, adapterErr := localbackup.New(localbackup.Config{
+			LocalBackup: profile.LocalBackup,
+			ExpectedUID: profile.SocketOwnerUID,
+			Backups:     store.NewBackupRepository(authority),
+			Snapshots:   snapshots,
+			Plans:       plans,
+			Hooks:       backup.DefaultHookRegistry(),
+			Runner:      backup.NewResticRunner(),
+			Clock:       time.Now,
+		})
+		if adapterErr == nil {
+			if registerErr := adapters.Register(localbackup.AdapterID, localAdapter); registerErr != nil {
+				_ = application.Shutdown(ctx)
+				return registerErr
+			}
+		}
+	}
 	gateRepository := store.NewGateRepository(authority)
 	if err := api.RegisterGateOperations(application, api.GateOperations{Gates: gateRepository, Revisions: planRepository, Declarations: declarations, Results: factory, Build: operations.build, Clock: time.Now}); err != nil {
 		_ = application.Shutdown(ctx)
@@ -187,7 +216,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	}
 	credentialRepository := store.NewCredentialRepository(authority)
 	credentialStep := &runengine.CredentialStep{Bindings: credentialRepository, Resolvers: adapters, Profiles: gateRepository, Plans: plans, Clock: time.Now}
-	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, runengine.UnavailableCredentialLifecycleVerifier{}, runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
+	credentialCore, err := runengine.NewCoreCredentialEffect(credentialRepository, store.NewAcknowledgementRepository(authority), runengine.UnavailableGateVerifier{}, composeNativeCredentialLifecycleVerifier(ctx, operations.databasePath, profile.SocketOwnerUID), runengine.UnavailableCredentialRecoveryVerifier{}, time.Now)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -221,6 +250,10 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	if err := api.RegisterCredentialImportOperation(application, api.CredentialImportOperations{Imports: credentialImports, Results: factory}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: store.NewBackupRepository(authority), Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -412,6 +445,14 @@ func (operations *Operations) SubmitProfileDraft(ctx context.Context, configPath
 		return localapi.TypedResponse[generated.GateProfileDraftSubmission]{}, err
 	}
 	return client.SubmitProfileDraft(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitBackupPolicyDraft(ctx context.Context, configPath string, input generated.BackupPolicyDraftRequest) (localapi.TypedResponse[generated.BackupPolicyDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupPolicyDraftSubmission]{}, err
+	}
+	return client.SubmitBackupPolicyDraft(ctx, profile, input)
 }
 
 func (operations *Operations) ImportInventory(ctx context.Context, configPath string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {

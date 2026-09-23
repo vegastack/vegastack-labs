@@ -30,7 +30,7 @@ func TestLifecycleEndpointRejectsBrowserPrivateAndFingerprintFields(t *testing.T
 		t.Fatal(err)
 	}
 	draft := "draft-a"
-	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.2.0", Action: "credential.stage", DraftID: &draft, ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", ExpectedStateRevision: 1, RecoveryEpoch: 0, IdempotencyKey: "key-a"}
+	input := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: "credential.stage", DraftID: &draft, ReferenceID: "reference-a", ConsumerIDs: []string{"consumer-a"}, RequiredDeniedConsumerIDs: []string{}, MaterialVersion: "version-a", ResolverID: "native-systemd", TargetID: "target-a", ExpectedStateRevision: 1, RecoveryEpoch: 0, IdempotencyKey: "key-a"}
 	input.TargetDigest = credentialref.LifecycleTargetDigest(input)
 	encoded, err := json.Marshal(input)
 	if err != nil {

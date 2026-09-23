@@ -72,6 +72,7 @@ type Client interface {
 	CheckGate(context.Context, serverconfig.Profile, string, string) (TypedResponse[generated.GateEvaluation], error)
 	SubmitGateEvidence(context.Context, serverconfig.Profile, generated.GateEvidenceRequest) (TypedResponse[generated.GateEvidenceSubmission], error)
 	SubmitProfileDraft(context.Context, serverconfig.Profile, generated.GateProfileDraftRequest) (TypedResponse[generated.GateProfileDraftSubmission], error)
+	SubmitBackupPolicyDraft(context.Context, serverconfig.Profile, generated.BackupPolicyDraftRequest) (TypedResponse[generated.BackupPolicyDraftSubmission], error)
 	Status(context.Context, serverconfig.Profile) (Response, error)
 	Summary(context.Context, serverconfig.Profile) (TypedResponse[generated.ApiSummaryData], error)
 	DatabaseStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.DatabaseStatusData], error)

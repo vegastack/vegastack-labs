@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.19.0",
+  "schemaVersion": "1.20.0",
   "commands": [
     {
       "path": [
@@ -194,6 +194,79 @@
             "verify",
             "--config",
             "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "backup",
+        "policy",
+        "draft"
+      ],
+      "summary": "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed backup-policy-draft-request JSON file (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/backup-policy-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-policy-draft-submission",
+      "examples": [
+        {
+          "summary": "Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.",
+          "arguments": [
+            "backup",
+            "policy",
+            "draft",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/backup-policy-draft-request.json",
             "--output",
             "json"
           ]
@@ -1835,6 +1908,89 @@
     },
     {
       "path": [
+        "recovery",
+        "witness",
+        "collect"
+      ],
+      "summary": "Collect one bounded independent recovery witness on a separately administered custodian.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact public recovery binding and required-boundary document (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--material-fd",
+          "kind": "value",
+          "valueName": "fd",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the independently held protected material from an inherited descriptor.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        },
+        {
+          "name": "--signing-key-fd",
+          "kind": "value",
+          "valueName": "fd",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read the protected witness signing seed from an inherited descriptor.",
+          "enum": null
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/recovery-witness-collection-data",
+      "examples": [
+        {
+          "summary": "Collect one bounded independent recovery witness on a separately administered custodian.",
+          "arguments": [
+            "recovery",
+            "witness",
+            "collect",
+            "--file",
+            "fixture/recovery-witness-input.json",
+            "--signing-key-fd",
+            "3",
+            "--material-fd",
+            "4",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
         "release",
         "inspect"
       ],
@@ -2886,14 +3042,29 @@
       "artifactPath": "schemas/v1/authorization-decision.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/backup-dependency",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-dependency.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/backup-job",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/backup-job.schema.json"
     },
     {
       "id": "vegastack-labs.dev/backup-policy",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/backup-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-policy-draft-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-policy-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-policy-draft-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-policy-draft-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/backup-run-request",
@@ -2960,13 +3131,23 @@
     },
     {
       "id": "vegastack-labs.dev/credential-lifecycle-request",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "artifactPath": "schemas/v1/credential-lifecycle-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-lifecycle-submission",
       "version": "1.2.0",
       "artifactPath": "schemas/v1/credential-lifecycle-submission.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-native-consumer",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/credential-native-consumer.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/credential-native-denied-reader",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/credential-native-denied-reader.schema.json"
     },
     {
       "id": "vegastack-labs.dev/credential-reference",
@@ -3256,8 +3437,13 @@
     },
     {
       "id": "vegastack-labs.dev/recovery-point",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/recovery-point.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/recovery-witness-collection-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/recovery-witness-collection-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/release-asset",
@@ -3370,7 +3556,7 @@
     },
     {
       "id": "vegastack-labs.dev/server-profile",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "artifactPath": "schemas/v1/server-profile.schema.json"
     },
     {
@@ -3454,6 +3640,14 @@
     ],
     "backupJobTransitions": [
       {
+        "from": "pending",
+        "to": "failed"
+      },
+      {
+        "from": "pending",
+        "to": "verified"
+      },
+      {
         "from": "queued",
         "to": "failed"
       },
@@ -3467,11 +3661,11 @@
       },
       {
         "from": "running",
-        "to": "uncertain"
+        "to": "pending"
       },
       {
         "from": "running",
-        "to": "verified"
+        "to": "uncertain"
       }
     ],
     "restoreTransitions": [

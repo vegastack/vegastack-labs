@@ -2,6 +2,55 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-09-2026 — Clean-host recovery can compare the exact staged draft ([#144](https://github.com/vegastack/vegastack-labs/issues/144))
+
+- **What:** A dormant server adapter can consume one exact protected recovery handoff, bind it to current replacement authority and the existing staged ciphertext, then decrypt and compare the opened inode through the native systemd credential path.
+- **Why:** The recovery contract previously accepted typed custody and fence digests without composing them with proof that a clean replacement opened the exact already-staged draft rather than freshly encrypting substitute material.
+- **How it went:** Red-first tests caught the missing state-revision binding. Disposable Linux acceptance then proved old-host ciphertext denial, exact existing-draft comparison, one-use custody, and rejection of changed draft, plan, lease, epoch, revision, fence and replay inputs. The adapter is deliberately not selected by production operations.
+- **Changed:** Exact current-authority seam · protected-source loader · state-revision binding · native existing-draft comparison · composed disposable acceptance · fail-closed Phase 2 source seal.
+- **Decisions:** none; #159 must land and be integrated once, #108 must supply current replacement authority, and a real independently enrolled source plus qualified denial adapters remain required before production selection or live `G-007`/`G-008` evidence.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/144-clean-host-recovery-proof
+
+## 22-09-2026 — A clean replacement can inspect a protected recovery handoff ([#159](https://github.com/vegastack/vegastack-labs/issues/159))
+
+- **What:** The software can read one administrator-installed public witness and encrypted envelope from protected files, match them to a signed manifest and a closed direct-denial verifier registration, and offer a one-use digest-only handoff to a later exact-inode comparator.
+- **Why:** The prior witness and collector fixtures proved protocol shape but offered no protected production source reader or qualified adapter registration seam for a clean replacement.
+- **How it went:** Red-first file tests caught both replaced inodes and same-size in-place rewrites. The ordinary production verifier registry remains empty; disposable endpoint and process tests prove software behavior only, not independent site enrollment.
+- **Changed:** Protected package reader · signed exact-boundary registration · fresh direct-denial recheck · one-use custody handoff · human failure procedure.
+- **Decisions:** none; #144 still needs an externally enrolled source and real endpoint qualification, while #108 owns current replacement authority. No live `G-007` or `G-008` evidence is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/159-recovery-source-admission
+
+## 22-09-2026 — A custodian can collect a bounded recovery witness on disposable endpoints ([#153](https://github.com/vegastack/vegastack-labs/issues/153))
+
+- **What:** The single `vsk-labs` executable has a finite custodian-side command that reads a protected admin pin and two private descriptors, probes every declared former-controller boundary, signs one exact attempt, and encrypts the held material to the replacement recipient.
+- **Why:** The verification protocol alone could check a witness artifact but did not collect it from an independently held source; a status bit or a copied controller secret cannot prove former-controller denial.
+- **How it went:** Red-first result-binding and collector tests preceded a typed CLI route. An independent review found the ordinary request could omit a whole boundary kind and that only in-process tests could reach an adapter. The collector now takes its exact set from the administrator-signed manifest; a disposable-only binary runs the finite command as a separate Linux custodian identity and a replacement process rechecks the signed bundle and encrypted handoff. The production registry remains empty. The CLI analyzer pins the exact custodian source; changed source bytes fail closed.
+- **Changed:** Typed challenge/result binding · finite collection and re-probe · bounded descriptor custody · generated JSON command/data contract · exact-source CLI analyzer guard · disposable endpoint acceptance and manual handback.
+- **Decisions:** none; the production adapter registry is empty, no custodian or key was enrolled, and #144/#108 still require real clean-host composition and current-authority proof before any recovery gate can move.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/153-custodian-witness-collection
+## 22-09-2026 — Native credential delivery can be proven on a disposable host ([#141](https://github.com/vegastack/vegastack-labs/issues/141))
+
+- **What:** The local Linux verifier can compare a planned encrypted credential with the exact systemd unit, running process, loaded credential file and denied reader set. It returns one complete typed proof only after every positive and denied probe agrees; server composition still leaves the production gate unavailable.
+- **Why:** The earlier lifecycle engine had no trustworthy evidence that the intended service actually received the host-key credential or that other local identities could not read it.
+- **How it went:** The first real Debian VM run exposed a root-owned credential file and mount-namespace observation that the synthetic tests had missed. The verifier was corrected to prove access under the service identity and use a root-owned namespace receipt, then a two-unit, two-denied-identity matrix passed with negative mutations and cleanup.
+- **Changed:** Typed systemd D-Bus observation · exact process and inode binding · direct denied-reader probes · qualified local server composition · disposable Linux acceptance fixture · sealed CLI and Phase 2 source checks. No production authority or live G-007 proof was registered.
+- **Decisions:** none; the separately reviewed [#140](https://github.com/vegastack/vegastack-labs/issues/140) reader map and [#143](https://github.com/vegastack/vegastack-labs/issues/143) OS authority must land before this composition is integrated.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/141-native-credential-lifecycle
+
+## 22-09-2026 — Local credential checks can use narrowly delegated host authority ([#143](https://github.com/vegastack/vegastack-labs/issues/143))
+
+- **What:** The unprivileged server can request an exact enrolled service restart and a metadata-only credential access probe through a root-owned policy. The policy checks the current unit, process identity and allowed arguments; a broader host grant or changed identity blocks the result.
+- **Why:** Native credential verification needed a real way to restart the intended service and test the actual reader identities without making the server root or trusting a simulated observer.
+- **How it went:** The disposable self-hosted runner lacked required tools and its positive probe refused, so a fresh mount-free Debian VM supplied the full systemd, polkit and sudo allow/deny test. The VM passed and was deleted. Hosted CI also caught a Linux witness test fixture whose fixed expiry passed during development but expired at 06:30 AM IST; its acceptance test now pins expiry relative to the test clock.
+- **Changed:** Exact restart and probe policy · Ansible role · local authority adapter · synthetic acceptance fixture · fail-closed analyzer and Phase 2 guards · human test route.
+- **Decisions:** none; [#141](https://github.com/vegastack/vegastack-labs/issues/141) still owns native lifecycle composition, and live G-007 evidence remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/143-native-credential-authority
+
 ## 22-09-2026 — Independent recovery evidence has a bounded software handback ([#146](https://github.com/vegastack/vegastack-labs/issues/146))
 
 - **What:** A separately pinned witness can sign one exact recovery attempt, carry typed old-identity denial results, encrypt protected material to an authenticated replacement recipient, and consume a durable one-use receipt outside restored SQLite.
@@ -11,6 +60,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none; #144 still owns exact opened-ciphertext-inode comparison, #108 owns current authority and boundary derivation, and production recovery remains unavailable.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/146-witness-recovery-contract
+
+## 22-09-2026 — Local backups can create pending encrypted recovery points ([#106](https://github.com/vegastack/vegastack-labs/issues/106))
+
+- **What:** The server can accept an inert backup-policy draft, bind it to an exact approved run, capture a consistent local source, and create an encrypted restic point in a protected standard or critical repository. It records a pending point with an immutable creation manifest, expected object and dependency inventory, and a typed receipt; the point is not yet recovery-qualified.
+- **Why:** The later local verification and off-site flows need a trustworthy, policy-bound point whose source, repository, retained objects and execution authority can be checked without treating creation as proof of recoverability.
+- **How it went:** Earlier review exposed false provenance from unregistered IDs, a repository-format assumption and capacity overflow; those were closed before native acceptance. Real restic revealed that its retained config is encrypted, so the preflight now authenticates and decrypts it through the pinned child. Linux acceptance proved two sequential points and a valid version-1 repository denial. A stale exact-source analyzer digest briefly blocked CI and was resealed without widening subprocess authority.
+- **Changed:** Inert policy draft and exact run binding · registered source and repository identities · guarded local REST object writer and pinned restic child · consistent capture and append-only pending manifest/receipt · protected storage and bounded output · real Linux composition and denial checks.
+- **Decisions:** none; [#117](https://github.com/vegastack/vegastack-labs/issues/117) owns isolated restore, integrity cadence and local last-good qualification. Pending creation alone does not satisfy a recovery or live gate.
+
+— approved by (omkarmohanta09) · built by Claude and Codex · branch feat/106-pending-local-recovery-points
 
 ## 22-09-2026 — Recovery evidence can be checked without claiming a recovered host ([#134](https://github.com/vegastack/vegastack-labs/issues/134))
 

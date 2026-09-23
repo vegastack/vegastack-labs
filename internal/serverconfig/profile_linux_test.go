@@ -87,3 +87,53 @@ func TestLoaderKeepsValidLocalProfileWhenRemoteBlockIsInvalid(t *testing.T) {
 		t.Fatalf("invalid remote block disabled local profile: %#v, %v", loaded, err)
 	}
 }
+
+func TestVerifyLocalBackupRejectsUnsafeRootsAndBinary(t *testing.T) {
+	uid := uint32(os.Geteuid())
+	// Nil backup fails closed.
+	if err := VerifyLocalBackup(nil, uid); err == nil {
+		t.Fatal("nil local backup accepted")
+	}
+	directory := t.TempDir()
+	standard := filepath.Join(directory, "standard")
+	critical := filepath.Join(directory, "critical")
+	for _, root := range []string{standard, critical} {
+		if err := os.Mkdir(root, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// A file that is not the pinned restic executable must be rejected by digest.
+	binary := filepath.Join(directory, "restic")
+	if err := os.WriteFile(binary, []byte("not-real-restic"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	backup := &LocalBackup{StandardRoot: standard, CriticalRoot: critical, ResticBinaryPath: binary,
+		SourceID: "control-database", StandardRepositoryID: "local-standard", CriticalRepositoryID: "local-critical"}
+	if err := VerifyLocalBackup(backup, uid); err == nil {
+		t.Fatal("non-pinned restic binary accepted")
+	} else if strings.Contains(err.Error(), binary) || strings.Contains(err.Error(), standard) {
+		t.Fatalf("error leaked a protected path: %v", err)
+	}
+	// A world-writable directory root is rejected before the binary is read.
+	if err := os.Chmod(standard, 0o777); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyLocalBackup(backup, uid); err == nil {
+		t.Fatal("world-writable backup root accepted")
+	}
+	if err := os.Chmod(standard, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	// A group/other-writable restic binary is rejected on mode alone.
+	if err := os.Chmod(binary, 0o757); err != nil {
+		t.Fatal(err)
+	}
+	if err := VerifyLocalBackup(backup, uid); err == nil {
+		t.Fatal("writable restic binary accepted")
+	}
+	// A missing binary path is rejected.
+	backup.ResticBinaryPath = filepath.Join(directory, "absent")
+	if err := VerifyLocalBackup(backup, uid); err == nil {
+		t.Fatal("absent restic binary accepted")
+	}
+}

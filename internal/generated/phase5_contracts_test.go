@@ -145,7 +145,7 @@ func TestPhase5GateEvidenceRejectsFixturePromotionAndInvalidFreshness(t *testing
 
 func TestPhase5NestedBackupStatusRejectsFixturePromotion(t *testing.T) {
 	job := map[string]any{
-		"schema": SchemaIDBackupJob, "schemaVersion": "1.0.0", "jobId": "job-a", "policyId": "policy-a",
+		"schema": SchemaIDBackupJob, "schemaVersion": "1.1.0", "jobId": "job-a", "policyId": "policy-a",
 		"sourceKind": "fixture", "proofClass": "live", "pointId": nil, "status": "queued", "runId": nil,
 		"recoveryEpoch": 2, "verificationDigest": nil,
 	}
@@ -315,11 +315,11 @@ func TestCredentialLifecycleContractHasOnlyExactMetadata(t *testing.T) {
 			t.Fatalf("private or caller-derived field %q present in lifecycle request", forbidden)
 		}
 	}
-	raw := []byte(`{"schema":"vegastack-labs.dev/credential-lifecycle-request","schemaVersion":"1.2.0","action":"credential.activate","draftId":null,"referenceId":"reference-a","consumerIds":["consumer-a"],"requiredDeniedConsumerIds":["consumer-b"],"materialVersion":"version-a","priorMaterialVersion":null,"resolverId":"native-systemd","targetId":"target-a","overlapSeconds":0,"expectedStateRevision":12,"recoveryEpoch":3,"priorRecoveryEpoch":null,"custodyProofDigest":null,"formerControllerFenceDigest":null,"targetDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","idempotencyKey":"request-a"}`)
+	raw := []byte(`{"schema":"vegastack-labs.dev/credential-lifecycle-request","schemaVersion":"1.3.0","action":"credential.stage","draftId":"draft-a","referenceId":"reference-a","consumerIds":["consumer-a"],"requiredDeniedConsumerIds":[],"materialVersion":"version-a","priorMaterialVersion":null,"resolverId":"native-systemd","targetId":"target-a","overlapSeconds":0,"expectedStateRevision":12,"recoveryEpoch":3,"priorRecoveryEpoch":null,"custodyProofDigest":null,"formerControllerFenceDigest":null,"targetDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","idempotencyKey":"request-a"}`)
 	if err := ValidateContractJSON(SchemaIDCredentialLifecycleRequest, raw, ContractExact); err != nil {
 		t.Fatalf("valid lifecycle request rejected: %v", err)
 	}
-	forged := []byte(`{"schema":"vegastack-labs.dev/credential-lifecycle-request","schemaVersion":"1.2.0","action":"credential.activate","draftId":null,"referenceId":"reference-a","consumerIds":["consumer-a"],"requiredDeniedConsumerIds":["consumer-b"],"materialVersion":"version-a","priorMaterialVersion":null,"resolverId":"native-systemd","targetId":"target-a","overlapSeconds":0,"expectedStateRevision":12,"recoveryEpoch":3,"priorRecoveryEpoch":null,"custodyProofDigest":null,"formerControllerFenceDigest":null,"targetDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","idempotencyKey":"request-a","ciphertextFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`)
+	forged := []byte(`{"schema":"vegastack-labs.dev/credential-lifecycle-request","schemaVersion":"1.3.0","action":"credential.stage","draftId":"draft-a","referenceId":"reference-a","consumerIds":["consumer-a"],"requiredDeniedConsumerIds":[],"materialVersion":"version-a","priorMaterialVersion":null,"resolverId":"native-systemd","targetId":"target-a","overlapSeconds":0,"expectedStateRevision":12,"recoveryEpoch":3,"priorRecoveryEpoch":null,"custodyProofDigest":null,"formerControllerFenceDigest":null,"targetDigest":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","idempotencyKey":"request-a","ciphertextFingerprint":"sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}`)
 	if err := ValidateContractJSON(SchemaIDCredentialLifecycleRequest, forged, ContractExact); err == nil {
 		t.Fatal("lifecycle request accepted a caller-authored ciphertext fingerprint")
 	}
