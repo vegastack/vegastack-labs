@@ -911,8 +911,10 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 }
 
 const (
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "c66cc57da456a68902352a088f660317d2c214d6216b77a17dc7f42505373ae4"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "4113633f07149494998d9e7de22ae4c79a229df0a328de3bf3bb1011e2f05a37"
+	// #115 adds the typed, local-only inert retention-lock catalog draft. It
+	// carries public point IDs and digests only and reaches no provider path.
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "4485a4c27d573c55a4434affe910c3e7b38be9793309125c04014a7ce10cbd17"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "9e9e08938df81222a547ca45bdef9715dea353d0a21b5daf9f5f6d01d3c8c36a"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )

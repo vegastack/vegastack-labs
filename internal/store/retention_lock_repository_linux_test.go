@@ -103,6 +103,43 @@ func catalogDigestForTest(t *testing.T, catalog LocalRetentionLockCatalog) strin
 	return digest
 }
 
+func TestLocalRetentionLockCatalogDraftIsImmutableAndPlanBound(t *testing.T) {
+	ctx := context.Background()
+	authority := openRetirementTestStore(t)
+	repository := NewLocalRetirementRepository(authority)
+	catalog := LocalRetentionLockCatalog{Schema: "vegastack-labs.dev/local-retention-lock-catalog", SchemaVersion: "1.0.0", RepositoryID: backupidentity.StandardRepository, RepositoryClass: "standard", SourceCoverageDigest: LocalPromiseSourceCoverageDigest(), RecoveryEpoch: 0, Revision: 2, Complete: true, Locks: []LocalRetentionLock{}}
+	_, catalogDigest, err := CanonicalLocalRetentionLockCatalog(catalog)
+	if err != nil {
+		t.Fatal(err)
+	}
+	declaration := validDeclarationStoreRequest()
+	declaration.Document.DeclarationID = "retention-lock-change-a"
+	declaration.Document.DeclarationType = "backup.retention-locks"
+	declaration.Document.Operations[0] = generated.DeclarationOperation{Sequence: 1, OperationID: "retention-lock-operation-a", OperationType: "backup.retention-locks.activate", AdapterID: "core.retention-locks", TargetID: catalog.RepositoryID, InputDigest: catalogDigest, ArtifactDigest: catalog.SourceCoverageDigest, Idempotent: false}
+	declaration.Document.Extensions = []generated.ContractExtension{{Name: "x-backup-retention-lock-catalog", ValueDigest: catalogDigest}}
+	declaration.Document.ContentDigest = declarationContentDigest(declaration.Document, declaration.ReasonDigest)
+	created, err := NewDeclarationRepository(authority).CreateRevision(ctx, declaration)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := LocalRetentionLockCatalogDraftRequest{Catalog: catalog, DeclarationID: created.Document.DeclarationID, DeclarationRevision: created.Document.Revision, Expected: RevisionToken{StateRevision: created.Document.StateRevision, RecoveryEpoch: 0}, IdempotencyKey: "retention-lock-draft-a", RequestDigest: testDigest, Attribution: declaration.Attribution}
+	draft, err := repository.PutLocalRetentionLockCatalogDraft(ctx, request)
+	if err != nil || draft.CatalogDigest != catalogDigest || draft.StateRevision != 2 {
+		t.Fatalf("draft = %#v, %v", draft, err)
+	}
+	replay, err := repository.PutLocalRetentionLockCatalogDraft(ctx, request)
+	if err != nil || replay.DraftID != draft.DraftID {
+		t.Fatalf("replay = %#v, %v", replay, err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `UPDATE backup_retention_lock_catalog_drafts SET repository_class='critical' WHERE draft_id=?`, draft.DraftID); err == nil {
+		t.Fatal("mutable catalog draft")
+	}
+	loaded, err := repository.GetLocalRetentionLockCatalogDraft(ctx, catalogDigest, 0)
+	if err != nil || loaded.DeclarationID != created.Document.DeclarationID || !loaded.Catalog.Complete {
+		t.Fatalf("loaded = %#v, %v", loaded, err)
+	}
+}
+
 func TestLocalRetentionLockActivationRequiresExactHumanRunAndCompletedProof(t *testing.T) {
 	ctx := context.Background()
 	authority := openRetirementTestStore(t)

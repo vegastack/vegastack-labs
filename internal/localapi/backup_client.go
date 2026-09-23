@@ -23,6 +23,17 @@ func (client *client) SubmitBackupPolicyDraft(ctx context.Context, profile serve
 	})
 }
 
+func (client *client) SubmitBackupRetentionLockDraft(ctx context.Context, profile serverconfig.Profile, input generated.BackupRetentionLockDraftRequest) (TypedResponse[generated.BackupRetentionLockDraftSubmission], error) {
+	var zero TypedResponse[generated.BackupRetentionLockDraftSubmission]
+	raw, err := json.Marshal(input)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDBackupRetentionLockDraftRequest, raw, generated.ContractExact) != nil {
+		return zero, failure.New(generated.ErrorCodeInputInvalid, "backup-retention-lock-draft", false)
+	}
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/backups/retention-locks/drafts", "api.v1.backup-retention-lock-drafts.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.BackupRetentionLockDraftSubmission, result generated.RunResult) bool {
+		return data.Schema == generated.SchemaIDBackupRetentionLockDraftSubmission && data.CatalogDigest == input.TargetDigest && data.Status == "draft" && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
+	})
+}
+
 func (client *client) BackupStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error) {
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/backups/status", "api.v1.backups.status", maxOperationResponseBodyBytes, statusTimeout, false}, nil, func(data generated.BackupStatusData, result generated.RunResult) bool {
 		raw, err := json.Marshal(data)

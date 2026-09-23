@@ -243,7 +243,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	retentionCore, err := runengine.NewCoreRetentionLockEffect(store.NewLocalRetirementRepository(authority), store.NewAcknowledgementRepository(authority))
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreGate, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -275,7 +280,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, Status: backupRepository,
+	retentionLockDrafts, err := api.NewRetentionLockDraftService(store.NewLocalRetirementRepository(authority), planRepository, declarations, effectiveConfig.Authorizer)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Status: backupRepository,
 		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
 		Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
@@ -477,6 +487,14 @@ func (operations *Operations) SubmitBackupPolicyDraft(ctx context.Context, confi
 		return localapi.TypedResponse[generated.BackupPolicyDraftSubmission]{}, err
 	}
 	return client.SubmitBackupPolicyDraft(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitBackupRetentionLockDraft(ctx context.Context, configPath string, input generated.BackupRetentionLockDraftRequest) (localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]{}, err
+	}
+	return client.SubmitBackupRetentionLockDraft(ctx, profile, input)
 }
 
 func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {

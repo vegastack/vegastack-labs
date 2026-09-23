@@ -19,6 +19,11 @@ Available commands:
     --file <path>          Read one exact typed backup-policy-draft-request JSON file (64 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  backup retention-locks draft Store one complete inert local retention-lock catalog and its exact human-plan declaration.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact typed backup-retention-lock-draft-request JSON file (64 KiB max).
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   backup run               Execute one exact approved backup-creation plan; the point remains pending.
     --config <path>        Read one protected server profile.
     --file <path>          Read one exact typed backup-run-request JSON file (4 KiB max).

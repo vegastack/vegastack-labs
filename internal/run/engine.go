@@ -86,6 +86,7 @@ type Config struct {
 	Adapters         AdapterRegistry
 	Core             CoreEffect
 	CredentialCore   CoreEffect
+	RetentionCore    CoreEffect
 	SecretGate       GateVerifier
 	CredentialStep   *CredentialStep
 	Clock            func() time.Time
@@ -108,6 +109,7 @@ type Engine struct {
 	adapters          AdapterRegistry
 	core              CoreEffect
 	credentialCore    CoreEffect
+	retentionCore     CoreEffect
 	secretGate        GateVerifier
 	credentialStep    *CredentialStep
 	clock             func() time.Time
@@ -165,7 +167,7 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.SecretGate == nil {
 		config.SecretGate = UnavailableGateVerifier{}
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, credentialCore: config.CredentialCore, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, credentialCore: config.CredentialCore, retentionCore: config.RetentionCore, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -537,6 +539,10 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			if engine.core == nil || operation.InputDigest != operation.ArtifactDigest || plan.ExecutorMode != "central" {
 				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-effect-unavailable")
 			}
+		} else if isRetentionLockOperation(operation.AdapterID, operation.OperationType) {
+			if engine.retentionCore == nil || plan.ExecutorMode != "central" {
+				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-retention-locks-unavailable")
+			}
 		} else if operation.AdapterID == "core.credential" {
 			if engine.credentialCore == nil || !isCredentialLifecycleOperation(operation.OperationType) || plan.ExecutorMode != "central" {
 				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-credential-unavailable")
@@ -595,6 +601,8 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		var executeErr error
 		if isCoreOperation(operation.AdapterID, operation.OperationType) {
 			effect, executeErr = engine.core.Execute(leaseContext, binding)
+		} else if isRetentionLockOperation(operation.AdapterID, operation.OperationType) {
+			effect, executeErr = engine.retentionCore.Execute(leaseContext, binding)
 		} else if operation.AdapterID == "core.credential" {
 			effect, executeErr = engine.credentialCore.Execute(leaseContext, binding)
 		} else if credentialPlanDigest(plan) != "" {
@@ -639,6 +647,8 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		var verifyErr error
 		if isCoreOperation(operation.AdapterID, operation.OperationType) {
 			verification, verifyErr = engine.core.Verify(leaseContext, binding, effect)
+		} else if isRetentionLockOperation(operation.AdapterID, operation.OperationType) {
+			verification, verifyErr = engine.retentionCore.Verify(leaseContext, binding, effect)
 		} else if operation.AdapterID == "core.credential" {
 			verification, verifyErr = engine.credentialCore.Verify(leaseContext, binding, effect)
 		} else {

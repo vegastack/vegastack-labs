@@ -4,6 +4,26 @@
 -- An absent activation is unknown, not an empty promise set. One row is the
 -- complete applied point-bound lock catalog for its generation. A later row
 -- supersedes it only through another exact human plan; no in-place release.
+CREATE TABLE backup_retention_lock_catalog_drafts (
+    draft_id TEXT PRIMARY KEY CHECK (length(draft_id) BETWEEN 1 AND 128),
+    catalog_digest TEXT NOT NULL UNIQUE CHECK (length(catalog_digest)=71 AND substr(catalog_digest,1,7)='sha256:'),
+    repository_id TEXT NOT NULL CHECK (length(repository_id) BETWEEN 1 AND 128),
+    repository_class TEXT NOT NULL CHECK (repository_class IN ('standard','critical')),
+    declaration_id TEXT NOT NULL,
+    declaration_revision INTEGER NOT NULL CHECK (declaration_revision > 0),
+    canonical_json TEXT NOT NULL CHECK (length(canonical_json) BETWEEN 2 AND 1048576),
+    idempotency_key_digest TEXT NOT NULL CHECK (length(idempotency_key_digest)=71 AND substr(idempotency_key_digest,1,7)='sha256:'),
+    state_revision INTEGER NOT NULL CHECK (state_revision > 0),
+    recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
+    created_by TEXT NOT NULL CHECK (length(created_by) BETWEEN 1 AND 128),
+    created_at TEXT NOT NULL,
+    FOREIGN KEY (declaration_id,declaration_revision) REFERENCES declaration_revisions(declaration_id,declaration_revision),
+    UNIQUE(repository_class,recovery_epoch,declaration_id,declaration_revision)
+) STRICT;
+CREATE INDEX backup_retention_lock_catalog_drafts_key_idx ON backup_retention_lock_catalog_drafts(idempotency_key_digest,recovery_epoch);
+CREATE TRIGGER backup_retention_lock_catalog_drafts_no_update BEFORE UPDATE ON backup_retention_lock_catalog_drafts BEGIN SELECT RAISE(ABORT,'retention lock catalog drafts are immutable'); END;
+CREATE TRIGGER backup_retention_lock_catalog_drafts_no_delete BEFORE DELETE ON backup_retention_lock_catalog_drafts BEGIN SELECT RAISE(ABORT,'retention lock catalog drafts are immutable'); END;
+
 CREATE TABLE backup_retention_lock_catalog_activations (
     activation_sequence INTEGER PRIMARY KEY AUTOINCREMENT,
     activation_id TEXT NOT NULL UNIQUE CHECK (length(activation_id) BETWEEN 1 AND 128),

@@ -276,6 +276,79 @@
     {
       "path": [
         "backup",
+        "retention-locks",
+        "draft"
+      ],
+      "summary": "Store one complete inert local retention-lock catalog and its exact human-plan declaration.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact typed backup-retention-lock-draft-request JSON file (64 KiB max).",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "requestSchema": "vegastack-labs.dev/backup-retention-lock-draft-request",
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-retention-lock-draft-submission",
+      "examples": [
+        {
+          "summary": "Store one complete inert local retention-lock catalog and its exact human-plan declaration.",
+          "arguments": [
+            "backup",
+            "retention-locks",
+            "draft",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/backup-retention-lock-draft-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "backup",
         "run"
       ],
       "summary": "Execute one exact approved backup-creation plan; the point remains pending.",
@@ -3243,6 +3316,21 @@
       "artifactPath": "schemas/v1/backup-policy-draft-submission.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/backup-retention-lock",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-retention-lock.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-retention-lock-draft-request",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-retention-lock-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/backup-retention-lock-draft-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-retention-lock-draft-submission.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/backup-run-request",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/backup-run-request.schema.json"
@@ -3582,6 +3670,11 @@
     {
       "id": "vegastack-labs.dev/local-principal-binding",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/local-retention-lock-catalog",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/local-retention-lock-catalog.schema.json"
     },
     {
       "id": "vegastack-labs.dev/outbox-record-data",

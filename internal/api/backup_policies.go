@@ -26,10 +26,11 @@ type BackupStatusService interface {
 // BackupOperations exposes the backup catalog and submits exact backup plans
 // through the same run executor used by the generic plan route.
 type BackupOperations struct {
-	Drafts  BackupPolicyDraftService
-	Status  BackupStatusService
-	Runs    RunOperationConfig
-	Results *result.Factory
+	Drafts         BackupPolicyDraftService
+	RetentionLocks RetentionLockDraftService
+	Status         BackupStatusService
+	Runs           RunOperationConfig
+	Results        *result.Factory
 }
 
 func RegisterBackupOperations(app *Application, config BackupOperations) error {
@@ -38,6 +39,10 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 	}
 	app.routes = append(app.routes, route{id: "api.v1.backup-policy-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/policies/drafts", capability: "backup.policy.author", kind: "backup-policy", action: authorization.ActionAuthor, handler: app.backupPolicyDraft(config)})
 	added := 1
+	if config.RetentionLocks != nil {
+		app.routes = append(app.routes, route{id: "api.v1.backup-retention-lock-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/retention-locks/drafts", deferredAuthorization: true, handler: app.backupRetentionLockDraft(config)})
+		added++
+	}
 	if config.Status != nil && config.Runs.Runs != nil && config.Runs.Plans != nil && config.Runs.Acknowledgements != nil && config.Runs.Results == config.Results {
 		app.routes = append(app.routes,
 			route{id: "api.v1.backups.status", method: http.MethodGet, pattern: "/api/v1/backups/status", capability: "backup.read", kind: "backup", handler: app.backupStatus(config)},

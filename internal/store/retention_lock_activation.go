@@ -126,3 +126,14 @@ func (repository *LocalRetirementRepository) ActivateLocalRetentionLockCatalog(c
 	}
 	return activationID, nil
 }
+
+func (repository *LocalRetirementRepository) LocalRetentionLockCatalogActivationExists(ctx context.Context, activationID, catalogDigest, runID, stepID string) (bool, error) {
+	if repository == nil || repository.store == nil || !validRetirementID(activationID) || !validBackupDigest(catalogDigest) || !validRetirementID(runID) || !validRetirementID(stepID) {
+		return false, newStoreError(generated.ErrorCodeInputInvalid, "local-retention-lock-activation", false, nil)
+	}
+	var count int
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT COUNT(*) FROM backup_retention_lock_catalog_activations WHERE activation_id=? AND catalog_digest=? AND run_id=? AND step_id=?`, activationID, catalogDigest, runID, stepID).Scan(&count)
+	})
+	return count == 1, err
+}
