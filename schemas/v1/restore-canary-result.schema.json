@@ -1,0 +1,70 @@
+{
+  "$id": "vegastack-labs.dev/restore-canary-result",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "auditCheckpointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "backupPointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "formerWriterDenied": {
+      "type": "boolean"
+    },
+    "noopRunId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "oldEpochDenied": {
+      "type": "boolean"
+    },
+    "readVerified": {
+      "type": "boolean"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/restore-canary-result"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "pending",
+        "verified",
+        "failed"
+      ],
+      "type": "string"
+    },
+    "verifiedAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "readVerified",
+    "oldEpochDenied",
+    "noopRunId",
+    "auditCheckpointId",
+    "backupPointId",
+    "formerWriterDenied",
+    "status",
+    "verifiedAt"
+  ],
+  "title": "VegaStack Labs restore canary result",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

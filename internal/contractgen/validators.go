@@ -159,13 +159,31 @@ func validatePhase5Relations(schemaID string, value any) error {
 	case SchemaIDRestoreBinding:
 		if contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("recovery epoch must increment once") }
 		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restored controller must have a new instance") }
+		if source, ok := object["source"].(map[string]any); ok && (source["pointId"] != object["pointId"] || contractInt(source, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch")) { return errors.New("restore binding source mismatch") }
+	case SchemaIDRestoreRequest:
+		if contractInt(object, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") || contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("restore plan request epoch mismatch") }
+		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restore plan request reuses controller instance") }
+		if source, ok := object["source"].(map[string]any); !ok || source["pointId"] != object["pointId"] || contractInt(source, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") { return errors.New("restore plan source mismatch") }
 	case SchemaIDRestoreRunRequest:
 		if contractInt(object, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") || contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("restore request epoch mismatch") }
 		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restore request reuses controller instance") }
+		if source, ok := object["source"].(map[string]any); !ok || source["pointId"] != object["pointId"] || contractInt(source, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") { return errors.New("restore run source mismatch") }
 	case SchemaIDRestoreVerifyRequest:
-		if contractInt(object, "recoveryEpoch") != contractInt(object, "nextRecoveryEpoch") { return errors.New("restore verification epoch mismatch") }
+		if contractInt(object, "recoveryEpoch") != contractInt(object, "nextRecoveryEpoch") || contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("restore verification epoch mismatch") }
+		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restore verification reuses controller instance") }
+		if source, ok := object["source"].(map[string]any); !ok || source["pointId"] != object["pointId"] || contractInt(source, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") { return errors.New("restore verification source mismatch") }
 	case SchemaIDRestoreVerification:
 		if object["status"] == "verified" && (object["fenceVerified"] != true || object["databaseVerified"] != true || object["auditVerified"] != true || object["verifiedAt"] == nil) { return errors.New("restore verification is incomplete") }
+		if object["schemaVersion"] == "1.1.0" && (contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 || object["newInstanceId"] == object["priorInstanceId"]) { return errors.New("restore verification authority mismatch") }
+	case SchemaIDRestoreAuditDecision:
+		lost := object["lostFromEventId"] != nil || object["lostThroughEventId"] != nil || object["lostFromTime"] != nil || object["lostThroughTime"] != nil || object["humanAcknowledgementId"] != nil
+		if object["strategy"] == "accepted-loss" {
+			if object["lostFromEventId"] == nil || object["lostThroughEventId"] == nil || object["lostFromTime"] == nil || object["lostThroughTime"] == nil || object["humanAcknowledgementId"] == nil || contractInt(object, "lostThroughEventId") < contractInt(object, "lostFromEventId") { return errors.New("accepted audit loss lacks exact acknowledged interval") }
+		} else if lost { return errors.New("loss interval supplied for non-loss audit strategy") }
+	case SchemaIDRestoreSourceBinding:
+		for _, value := range object["dependencyDigests"].([]any) { if text, ok := value.(string); !ok || !regexp.MustCompile("^sha256:[a-f0-9]{64}$").MatchString(text) { return errors.New("invalid restore dependency digest") } }
+	case SchemaIDRestoreCanaryResult:
+		if object["status"] == "verified" && (object["readVerified"] != true || object["oldEpochDenied"] != true || object["formerWriterDenied"] != true || object["verifiedAt"] == nil) { return errors.New("restore canary is incomplete") }
 	}
 	return nil
 }
@@ -175,6 +193,7 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 	object, ok := value.(map[string]any); if !ok { return fmt.Errorf("expected object at %s", path) }
 	credentialV10 := root && mode == ContractCompatibleRead && schemaID == SchemaIDCredentialReference && object["schemaVersion"] == "1.0.0"
 	auditCheckpointV10 := root && mode == ContractCompatibleRead && schemaID == SchemaIDAuditCheckpoint && object["schemaVersion"] == "1.0.0"
+	restoreV10 := root && mode == ContractCompatibleRead && (schemaID == SchemaIDRestoreBinding || schemaID == SchemaIDRestoreVerification) && object["schemaVersion"] == "1.0.0"
 	if credentialV10 && object["status"] == "staged" { return fmt.Errorf("unknown state or value at %s.status", path) }
 	fields := make(map[string]contractFieldRule, len(rule.Fields)); for _, field := range rule.Fields { fields[field.Name] = field }
 	for name := range object {
@@ -183,7 +202,7 @@ func validateContractValue(schemaID string, value any, path string, mode Contrac
 	}
 	for _, field := range rule.Fields {
 		fieldValue, present := object[field.Name]
-		if !present { if field.Required && !(credentialV10 && credentialReferenceV10OmittedField(field.Name)) && !(auditCheckpointV10 && auditCheckpointV10OmittedField(field.Name)) { return fmt.Errorf("required property at %s.%s", path, field.Name) }; continue }
+		if !present { if field.Required && !(credentialV10 && credentialReferenceV10OmittedField(field.Name)) && !(auditCheckpointV10 && auditCheckpointV10OmittedField(field.Name)) && !(restoreV10 && restoreV10OmittedField(schemaID, field.Name)) { return fmt.Errorf("required property at %s.%s", path, field.Name) }; continue }
 		if fieldValue == nil { if field.Nullable { continue }; return fmt.Errorf("null at %s.%s", path, field.Name) }
 		if err := validateContractField(field, fieldValue, path+"."+field.Name, mode); err != nil { return err }
 	}
@@ -196,6 +215,12 @@ func credentialReferenceV10OmittedField(name string) bool {
 
 func auditCheckpointV10OmittedField(name string) bool {
 	switch name { case "instanceId", "firstSegmentSequence", "lastSegmentSequence", "signerReferenceId", "signerMaterialVersion", "signatureDigest", "publicKeyId", "exportReceiptDigest", "independentReadDigest", "status", "reasonCode", "preAnchor": return true; default: return false }
+}
+
+func restoreV10OmittedField(schemaID, name string) bool {
+	if schemaID == SchemaIDRestoreBinding { switch name { case "source", "fenceSetDigest", "auditDecisionDigest", "candidateDigest": return true } }
+	if schemaID == SchemaIDRestoreVerification { switch name { case "source", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "canary": return true } }
+	return false
 }
 
 func validateContractField(rule contractFieldRule, value any, path string, mode ContractValidationMode) error {

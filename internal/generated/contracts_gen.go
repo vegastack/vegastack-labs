@@ -6,7 +6,7 @@ import "encoding/json"
 
 const (
 	SchemaMajor                             = 1
-	RegistrySchemaVersion                   = "1.20.0"
+	RegistrySchemaVersion                   = "1.21.0"
 	AvailabilityAvailable                   = "available"
 	AvailabilityPlanned                     = "planned"
 	FlagKindValue                           = "value"
@@ -141,9 +141,13 @@ const (
 	SchemaIDReleaseTrustPolicy              = "vegastack-labs.dev/release-trust-policy"
 	SchemaIDReleaseVerifyData               = "vegastack-labs.dev/release-verify-data"
 	SchemaIDRemoteReadProfile               = "vegastack-labs.dev/remote-read-profile"
+	SchemaIDRestoreAuditDecision            = "vegastack-labs.dev/restore-audit-decision"
 	SchemaIDRestoreBinding                  = "vegastack-labs.dev/restore-binding"
+	SchemaIDRestoreCanaryResult             = "vegastack-labs.dev/restore-canary-result"
+	SchemaIDRestoreFenceItem                = "vegastack-labs.dev/restore-fence-item"
 	SchemaIDRestoreRequest                  = "vegastack-labs.dev/restore-request"
 	SchemaIDRestoreRunRequest               = "vegastack-labs.dev/restore-run-request"
+	SchemaIDRestoreSourceBinding            = "vegastack-labs.dev/restore-source-binding"
 	SchemaIDRestoreVerification             = "vegastack-labs.dev/restore-verification"
 	SchemaIDRestoreVerifyRequest            = "vegastack-labs.dev/restore-verify-request"
 	SchemaIDResultError                     = "vegastack-labs.dev/result-error"
@@ -1735,83 +1739,167 @@ type RemoteReadProfile struct {
 	IdentityConfigPath *string `json:"identityConfigPath"`
 }
 
+type RestoreAuditDecision struct {
+	Schema                      string  `json:"schema"`
+	SchemaVersion               string  `json:"schemaVersion"`
+	LocalLastEventID            int64   `json:"localLastEventId"`
+	IndependentLastEventID      int64   `json:"independentLastEventId"`
+	IndependentCheckpointDigest string  `json:"independentCheckpointDigest"`
+	Strategy                    string  `json:"strategy"`
+	LostFromEventID             *int64  `json:"lostFromEventId"`
+	LostThroughEventID          *int64  `json:"lostThroughEventId"`
+	LostFromTime                *string `json:"lostFromTime"`
+	LostThroughTime             *string `json:"lostThroughTime"`
+	HumanAcknowledgementID      *string `json:"humanAcknowledgementId"`
+	DecisionDigest              string  `json:"decisionDigest"`
+}
+
 type RestoreBinding struct {
-	Schema                      string   `json:"schema"`
-	SchemaVersion               string   `json:"schemaVersion"`
-	PointID                     string   `json:"pointId"`
-	DependencyIDs               []string `json:"dependencyIds"`
-	TargetIDs                   []string `json:"targetIds"`
-	TargetDigest                string   `json:"targetDigest"`
-	PlanID                      string   `json:"planId"`
-	PlanDigest                  string   `json:"planDigest"`
-	HumanAcknowledgementID      string   `json:"humanAcknowledgementId"`
-	FormerControllerFenceDigest string   `json:"formerControllerFenceDigest"`
-	PriorInstanceID             string   `json:"priorInstanceId"`
-	NewInstanceID               string   `json:"newInstanceId"`
-	PriorRecoveryEpoch          int64    `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch           int64    `json:"nextRecoveryEpoch"`
-	Status                      string   `json:"status"`
+	Schema                 string               `json:"schema"`
+	SchemaVersion          string               `json:"schemaVersion"`
+	Source                 RestoreSourceBinding `json:"source"`
+	PointID                string               `json:"pointId"`
+	DependencyIDs          []string             `json:"dependencyIds"`
+	TargetIDs              []string             `json:"targetIds"`
+	TargetDigest           string               `json:"targetDigest"`
+	PlanID                 string               `json:"planId"`
+	PlanDigest             string               `json:"planDigest"`
+	HumanAcknowledgementID string               `json:"humanAcknowledgementId"`
+	FenceSetDigest         string               `json:"fenceSetDigest"`
+	AuditDecisionDigest    string               `json:"auditDecisionDigest"`
+	CandidateDigest        string               `json:"candidateDigest"`
+	PriorInstanceID        string               `json:"priorInstanceId"`
+	NewInstanceID          string               `json:"newInstanceId"`
+	PriorRecoveryEpoch     int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch      int64                `json:"nextRecoveryEpoch"`
+	Status                 string               `json:"status"`
+}
+
+type RestoreCanaryResult struct {
+	Schema             string  `json:"schema"`
+	SchemaVersion      string  `json:"schemaVersion"`
+	ReadVerified       bool    `json:"readVerified"`
+	OldEpochDenied     bool    `json:"oldEpochDenied"`
+	NoopRunID          string  `json:"noopRunId"`
+	AuditCheckpointID  string  `json:"auditCheckpointId"`
+	BackupPointID      string  `json:"backupPointId"`
+	FormerWriterDenied bool    `json:"formerWriterDenied"`
+	Status             string  `json:"status"`
+	VerifiedAt         *string `json:"verifiedAt"`
+}
+
+type RestoreFenceItem struct {
+	Schema         string   `json:"schema"`
+	SchemaVersion  string   `json:"schemaVersion"`
+	Boundary       string   `json:"boundary"`
+	SubjectID      string   `json:"subjectId"`
+	Required       bool     `json:"required"`
+	EvidenceIDs    []string `json:"evidenceIds"`
+	EvidenceDigest string   `json:"evidenceDigest"`
+	ObservedAt     string   `json:"observedAt"`
+	Status         string   `json:"status"`
 }
 
 type RestoreRequest struct {
-	Schema                string   `json:"schema"`
-	SchemaVersion         string   `json:"schemaVersion"`
-	ExpectedStateRevision int64    `json:"expectedStateRevision"`
-	RecoveryEpoch         int64    `json:"recoveryEpoch"`
-	TargetDigest          string   `json:"targetDigest"`
-	IdempotencyKey        string   `json:"idempotencyKey"`
-	PointID               string   `json:"pointId"`
-	DependencyIDs         []string `json:"dependencyIds"`
-	TargetIDs             []string `json:"targetIds"`
-	PriorInstanceID       string   `json:"priorInstanceId"`
-	NewInstanceID         string   `json:"newInstanceId"`
-	PriorRecoveryEpoch    int64    `json:"priorRecoveryEpoch"`
+	Schema                string               `json:"schema"`
+	SchemaVersion         string               `json:"schemaVersion"`
+	ExpectedStateRevision int64                `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                `json:"recoveryEpoch"`
+	TargetDigest          string               `json:"targetDigest"`
+	IdempotencyKey        string               `json:"idempotencyKey"`
+	Source                RestoreSourceBinding `json:"source"`
+	Fences                []RestoreFenceItem   `json:"fences"`
+	AuditDecision         RestoreAuditDecision `json:"auditDecision"`
+	PointID               string               `json:"pointId"`
+	DependencyIDs         []string             `json:"dependencyIds"`
+	TargetIDs             []string             `json:"targetIds"`
+	PriorInstanceID       string               `json:"priorInstanceId"`
+	NewInstanceID         string               `json:"newInstanceId"`
+	PriorRecoveryEpoch    int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch     int64                `json:"nextRecoveryEpoch"`
+	FenceSetDigest        string               `json:"fenceSetDigest"`
+	AuditDecisionDigest   string               `json:"auditDecisionDigest"`
+	CandidateDigest       string               `json:"candidateDigest"`
 }
 
 type RestoreRunRequest struct {
-	Schema                      string `json:"schema"`
-	SchemaVersion               string `json:"schemaVersion"`
-	ExpectedStateRevision       int64  `json:"expectedStateRevision"`
-	RecoveryEpoch               int64  `json:"recoveryEpoch"`
-	TargetDigest                string `json:"targetDigest"`
-	IdempotencyKey              string `json:"idempotencyKey"`
-	PointID                     string `json:"pointId"`
-	PlanID                      string `json:"planId"`
-	PlanDigest                  string `json:"planDigest"`
-	HumanAcknowledgementID      string `json:"humanAcknowledgementId"`
-	FormerControllerFenceDigest string `json:"formerControllerFenceDigest"`
-	PriorInstanceID             string `json:"priorInstanceId"`
-	NewInstanceID               string `json:"newInstanceId"`
-	PriorRecoveryEpoch          int64  `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch           int64  `json:"nextRecoveryEpoch"`
+	Schema                 string               `json:"schema"`
+	SchemaVersion          string               `json:"schemaVersion"`
+	ExpectedStateRevision  int64                `json:"expectedStateRevision"`
+	RecoveryEpoch          int64                `json:"recoveryEpoch"`
+	TargetDigest           string               `json:"targetDigest"`
+	IdempotencyKey         string               `json:"idempotencyKey"`
+	Source                 RestoreSourceBinding `json:"source"`
+	PointID                string               `json:"pointId"`
+	PlanID                 string               `json:"planId"`
+	PlanDigest             string               `json:"planDigest"`
+	HumanAcknowledgementID string               `json:"humanAcknowledgementId"`
+	FenceSetDigest         string               `json:"fenceSetDigest"`
+	AuditDecisionDigest    string               `json:"auditDecisionDigest"`
+	CandidateDigest        string               `json:"candidateDigest"`
+	PriorInstanceID        string               `json:"priorInstanceId"`
+	NewInstanceID          string               `json:"newInstanceId"`
+	PriorRecoveryEpoch     int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch      int64                `json:"nextRecoveryEpoch"`
+}
+
+type RestoreSourceBinding struct {
+	Schema                 string   `json:"schema"`
+	SchemaVersion          string   `json:"schemaVersion"`
+	PointID                string   `json:"pointId"`
+	PointDigest            string   `json:"pointDigest"`
+	ManifestDigest         string   `json:"manifestDigest"`
+	VerificationDigest     string   `json:"verificationDigest"`
+	SourceClass            string   `json:"sourceClass"`
+	RepositoryGenerationID string   `json:"repositoryGenerationId"`
+	DeclaredRPOSeconds     int64    `json:"declaredRpoSeconds"`
+	CreatedAt              string   `json:"createdAt"`
+	VerifiedAt             string   `json:"verifiedAt"`
+	RecoveryEpoch          int64    `json:"recoveryEpoch"`
+	DependencyDigests      []string `json:"dependencyDigests"`
 }
 
 type RestoreVerification struct {
-	Schema            string  `json:"schema"`
-	SchemaVersion     string  `json:"schemaVersion"`
-	PlanID            string  `json:"planId"`
-	PlanDigest        string  `json:"planDigest"`
-	PointID           string  `json:"pointId"`
-	TargetDigest      string  `json:"targetDigest"`
-	FenceVerified     bool    `json:"fenceVerified"`
-	DatabaseVerified  bool    `json:"databaseVerified"`
-	AuditVerified     bool    `json:"auditVerified"`
-	VerifiedAt        *string `json:"verifiedAt"`
-	NextRecoveryEpoch int64   `json:"nextRecoveryEpoch"`
-	Status            string  `json:"status"`
+	Schema              string               `json:"schema"`
+	SchemaVersion       string               `json:"schemaVersion"`
+	Source              RestoreSourceBinding `json:"source"`
+	PlanID              string               `json:"planId"`
+	PlanDigest          string               `json:"planDigest"`
+	PointID             string               `json:"pointId"`
+	TargetDigest        string               `json:"targetDigest"`
+	FenceVerified       bool                 `json:"fenceVerified"`
+	DatabaseVerified    bool                 `json:"databaseVerified"`
+	AuditVerified       bool                 `json:"auditVerified"`
+	VerifiedAt          *string              `json:"verifiedAt"`
+	PriorInstanceID     string               `json:"priorInstanceId"`
+	NewInstanceID       string               `json:"newInstanceId"`
+	PriorRecoveryEpoch  int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch   int64                `json:"nextRecoveryEpoch"`
+	FenceSetDigest      string               `json:"fenceSetDigest"`
+	AuditDecisionDigest string               `json:"auditDecisionDigest"`
+	CandidateDigest     string               `json:"candidateDigest"`
+	Canary              RestoreCanaryResult  `json:"canary"`
+	Status              string               `json:"status"`
 }
 
 type RestoreVerifyRequest struct {
-	Schema                string `json:"schema"`
-	SchemaVersion         string `json:"schemaVersion"`
-	ExpectedStateRevision int64  `json:"expectedStateRevision"`
-	RecoveryEpoch         int64  `json:"recoveryEpoch"`
-	TargetDigest          string `json:"targetDigest"`
-	IdempotencyKey        string `json:"idempotencyKey"`
-	PointID               string `json:"pointId"`
-	PlanID                string `json:"planId"`
-	PlanDigest            string `json:"planDigest"`
-	NextRecoveryEpoch     int64  `json:"nextRecoveryEpoch"`
+	Schema                string               `json:"schema"`
+	SchemaVersion         string               `json:"schemaVersion"`
+	ExpectedStateRevision int64                `json:"expectedStateRevision"`
+	RecoveryEpoch         int64                `json:"recoveryEpoch"`
+	TargetDigest          string               `json:"targetDigest"`
+	IdempotencyKey        string               `json:"idempotencyKey"`
+	Source                RestoreSourceBinding `json:"source"`
+	PointID               string               `json:"pointId"`
+	PlanID                string               `json:"planId"`
+	PlanDigest            string               `json:"planDigest"`
+	PriorInstanceID       string               `json:"priorInstanceId"`
+	NewInstanceID         string               `json:"newInstanceId"`
+	PriorRecoveryEpoch    int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch     int64                `json:"nextRecoveryEpoch"`
+	FenceSetDigest        string               `json:"fenceSetDigest"`
+	AuditDecisionDigest   string               `json:"auditDecisionDigest"`
+	CandidateDigest       string               `json:"candidateDigest"`
 }
 
 type ResultError struct {

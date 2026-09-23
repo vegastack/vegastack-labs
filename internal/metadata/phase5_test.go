@@ -49,9 +49,9 @@ func TestCredentialV11SourceIsScopedAndImportDescriptorIsLocalBinary(t *testing.
 	if versions[auditCheckpointSchemaID] != "1.1.0" || versions[auditVerificationDataSchemaID] != "1.1.0" {
 		t.Errorf("audit schemas were not versioned together")
 	}
-	for _, id := range []string{restoreBindingSchemaID} {
-		if versions[id] != "1.0.0" {
-			t.Errorf("unowned schema %s version = %s", id, versions[id])
+	for _, id := range []string{restoreBindingSchemaID, restoreVerificationSchemaID, restoreRequestSchemaID, restoreRunRequestSchemaID, restoreVerifyRequestSchemaID, restoreSourceBindingSchemaID, restoreFenceItemSchemaID, restoreAuditDecisionSchemaID, restoreCanaryResultSchemaID} {
+		if versions[id] != "1.1.0" {
+			t.Errorf("restore schema %s version = %s", id, versions[id])
 		}
 	}
 	found := false
@@ -177,7 +177,7 @@ func TestPhase5RecoveryJobSchemas(t *testing.T) {
 			}
 		}
 		if schema.ID == "vegastack-labs.dev/restore-binding" {
-			for _, name := range []string{"pointId", "dependencyIds", "targetIds", "targetDigest", "planId", "planDigest", "humanAcknowledgementId", "formerControllerFenceDigest", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch"} {
+			for _, name := range []string{"source", "pointId", "dependencyIds", "targetIds", "targetDigest", "planId", "planDigest", "humanAcknowledgementId", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "nextRecoveryEpoch"} {
 				if !fields[name] {
 					t.Errorf("missing restore binding %s", name)
 				}

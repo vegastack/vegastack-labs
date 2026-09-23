@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.20.0",
+  "schemaVersion": "1.21.0",
   "commands": [
     {
       "path": [
@@ -3659,28 +3659,48 @@
       "version": "1.0.0"
     },
     {
+      "id": "vegastack-labs.dev/restore-audit-decision",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/restore-audit-decision.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/restore-binding",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/restore-binding.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/restore-canary-result",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/restore-canary-result.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/restore-fence-item",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/restore-fence-item.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/restore-request",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/restore-request.schema.json"
     },
     {
       "id": "vegastack-labs.dev/restore-run-request",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/restore-run-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/restore-source-binding",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/restore-source-binding.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/restore-verification",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/restore-verification.schema.json"
     },
     {
       "id": "vegastack-labs.dev/restore-verify-request",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "artifactPath": "schemas/v1/restore-verify-request.schema.json"
     },
     {

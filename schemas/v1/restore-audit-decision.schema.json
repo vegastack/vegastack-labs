@@ -1,0 +1,95 @@
+{
+  "$id": "vegastack-labs.dev/restore-audit-decision",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "decisionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "humanAcknowledgementId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "independentCheckpointDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "independentLastEventId": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "localLastEventId": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "lostFromEventId": {
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "lostFromTime": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "lostThroughEventId": {
+      "minimum": 1,
+      "type": [
+        "integer",
+        "null"
+      ]
+    },
+    "lostThroughTime": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/restore-audit-decision"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "strategy": {
+      "enum": [
+        "matched",
+        "recovered-suffix",
+        "accepted-loss"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "localLastEventId",
+    "independentLastEventId",
+    "independentCheckpointDigest",
+    "strategy",
+    "lostFromEventId",
+    "lostThroughEventId",
+    "lostFromTime",
+    "lostThroughTime",
+    "humanAcknowledgementId",
+    "decisionDigest"
+  ],
+  "title": "VegaStack Labs restore audit decision",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

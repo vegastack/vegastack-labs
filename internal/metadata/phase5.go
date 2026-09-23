@@ -17,6 +17,10 @@ const (
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
 	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
+	restoreSourceBindingSchemaID          = "vegastack-labs.dev/restore-source-binding"
+	restoreFenceItemSchemaID              = "vegastack-labs.dev/restore-fence-item"
+	restoreAuditDecisionSchemaID          = "vegastack-labs.dev/restore-audit-decision"
+	restoreCanaryResultSchemaID           = "vegastack-labs.dev/restore-canary-result"
 	restoreVerificationSchemaID           = "vegastack-labs.dev/restore-verification"
 	scheduledJobPolicySchemaID            = "vegastack-labs.dev/scheduled-job-policy"
 	scheduledJobSchemaID                  = "vegastack-labs.dev/scheduled-job"
@@ -85,6 +89,20 @@ func phase5CredentialSchema(identifier string, fields ...FieldDefinition) Schema
 
 func phase5AuditSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
+func phase5RestoreSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
+func phase5RestoreRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(identifier, fields...)
 	schema.Version = "1.1.0"
 	schema.Fields[1].Enum = []string{"1.1.0"}
 	return schema
@@ -188,6 +206,12 @@ func phase5NullableDigest(name, goName string) FieldDefinition {
 
 func phase5NullableTimestamp(name, goName string) FieldDefinition {
 	field := phase5Timestamp(name, goName)
+	field.Nullable = true
+	return field
+}
+
+func phase5NullablePositive(name, goName string) FieldDefinition {
+	field := phase5Positive(name, goName)
 	field.Nullable = true
 	return field
 }
@@ -350,21 +374,51 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Enum("verificationStatus", "VerificationStatus", "pending", "verified", "failed"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
-		phase5Schema(restoreBindingSchemaID,
+		phase5RestoreSchema(restoreSourceBindingSchemaID,
+			phase5ID("pointId", "PointID"), phase5Digest("pointDigest", "PointDigest"),
+			phase5Digest("manifestDigest", "ManifestDigest"), phase5Digest("verificationDigest", "VerificationDigest"),
+			phase5Enum("sourceClass", "SourceClass", "local", "off-site"), phase5ID("repositoryGenerationId", "RepositoryGenerationID"),
+			phase5Positive("declaredRpoSeconds", "DeclaredRPOSeconds"), phase5Timestamp("createdAt", "CreatedAt"),
+			phase5Timestamp("verifiedAt", "VerifiedAt"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			FieldDefinition{JSONName: "dependencyDigests", GoName: "DependencyDigests", Kind: ValueArray, Required: true, ItemKind: ValueString, MaxItems: intPointer(256), UniqueItems: true},
+		),
+		phase5RestoreSchema(restoreFenceItemSchemaID,
+			phase5Enum("boundary", "Boundary", "host-service", "mesh", "ssh", "secret-resolver", "provider-mutation", "backup-writer", "audit-writer"),
+			phase5ID("subjectId", "SubjectID"), phase5Bool("required", "Required"), phase5IDs("evidenceIds", "EvidenceIDs", 256),
+			phase5Digest("evidenceDigest", "EvidenceDigest"), phase5Timestamp("observedAt", "ObservedAt"), phase5Enum("status", "Status", "verified", "blocked", "not-applicable"),
+		),
+		phase5RestoreSchema(restoreAuditDecisionSchemaID,
+			phase5Nonnegative("localLastEventId", "LocalLastEventID"), phase5Nonnegative("independentLastEventId", "IndependentLastEventID"),
+			phase5Digest("independentCheckpointDigest", "IndependentCheckpointDigest"), phase5Enum("strategy", "Strategy", "matched", "recovered-suffix", "accepted-loss"),
+			phase5NullablePositive("lostFromEventId", "LostFromEventID"), phase5NullablePositive("lostThroughEventId", "LostThroughEventID"),
+			phase5NullableTimestamp("lostFromTime", "LostFromTime"), phase5NullableTimestamp("lostThroughTime", "LostThroughTime"),
+			phase5NullableID("humanAcknowledgementId", "HumanAcknowledgementID"), phase5Digest("decisionDigest", "DecisionDigest"),
+		),
+		phase5RestoreSchema(restoreCanaryResultSchemaID,
+			phase5Bool("readVerified", "ReadVerified"), phase5Bool("oldEpochDenied", "OldEpochDenied"), phase5ID("noopRunId", "NoopRunID"),
+			phase5ID("auditCheckpointId", "AuditCheckpointID"), phase5ID("backupPointId", "BackupPointID"), phase5Bool("formerWriterDenied", "FormerWriterDenied"),
+			phase5Enum("status", "Status", "pending", "verified", "failed"), phase5NullableTimestamp("verifiedAt", "VerifiedAt"),
+		),
+		phase5RestoreSchema(restoreBindingSchemaID,
+			FieldDefinition{JSONName: "source", GoName: "Source", Kind: ValueObject, Required: true, Ref: restoreSourceBindingSchemaID},
 			phase5ID("pointId", "PointID"), phase5IDs("dependencyIds", "DependencyIDs", 256),
 			FieldDefinition{JSONName: "targetIds", GoName: "TargetIDs", Kind: ValueArray, Required: true, ItemKind: ValueString, MinItems: intPointer(1), MaxItems: intPointer(64), UniqueItems: true},
 			phase5Digest("targetDigest", "TargetDigest"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
 			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
-			phase5Digest("formerControllerFenceDigest", "FormerControllerFenceDigest"),
+			phase5Digest("fenceSetDigest", "FenceSetDigest"), phase5Digest("auditDecisionDigest", "AuditDecisionDigest"), phase5Digest("candidateDigest", "CandidateDigest"),
 			phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"),
 			phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
 			phase5Enum("status", "Status", "planned", "fenced", "restoring", "verification-required", "verified", "failed", "uncertain"),
 		),
-		phase5Schema(restoreVerificationSchemaID,
+		phase5RestoreSchema(restoreVerificationSchemaID,
+			FieldDefinition{JSONName: "source", GoName: "Source", Kind: ValueObject, Required: true, Ref: restoreSourceBindingSchemaID},
 			phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"), phase5ID("pointId", "PointID"),
 			phase5Digest("targetDigest", "TargetDigest"), phase5Bool("fenceVerified", "FenceVerified"),
 			phase5Bool("databaseVerified", "DatabaseVerified"), phase5Bool("auditVerified", "AuditVerified"),
-			phase5NullableTimestamp("verifiedAt", "VerifiedAt"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
+			phase5NullableTimestamp("verifiedAt", "VerifiedAt"), phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"),
+			phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
+			phase5Digest("fenceSetDigest", "FenceSetDigest"), phase5Digest("auditDecisionDigest", "AuditDecisionDigest"), phase5Digest("candidateDigest", "CandidateDigest"),
+			FieldDefinition{JSONName: "canary", GoName: "Canary", Kind: ValueObject, Required: true, Ref: restoreCanaryResultSchemaID},
 			phase5Enum("status", "Status", "failed", "incomplete", "verified"),
 		),
 		phase5Schema(scheduledJobPolicySchemaID,
@@ -490,22 +544,29 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
 			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
 		),
-		phase5Request(restoreRequestSchemaID,
+		phase5RestoreRequest(restoreRequestSchemaID,
+			FieldDefinition{JSONName: "source", GoName: "Source", Kind: ValueObject, Required: true, Ref: restoreSourceBindingSchemaID},
+			FieldDefinition{JSONName: "fences", GoName: "Fences", Kind: ValueArray, Required: true, ItemRef: restoreFenceItemSchemaID, MinItems: intPointer(1), MaxItems: intPointer(7), UniqueItems: true},
+			FieldDefinition{JSONName: "auditDecision", GoName: "AuditDecision", Kind: ValueObject, Required: true, Ref: restoreAuditDecisionSchemaID},
 			phase5ID("pointId", "PointID"), phase5IDs("dependencyIds", "DependencyIDs", 256),
 			FieldDefinition{JSONName: "targetIds", GoName: "TargetIDs", Kind: ValueArray, Required: true, ItemKind: ValueString, MinItems: intPointer(1), MaxItems: intPointer(64), UniqueItems: true},
 			phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"),
-			phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"),
+			phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
+			phase5Digest("fenceSetDigest", "FenceSetDigest"), phase5Digest("auditDecisionDigest", "AuditDecisionDigest"), phase5Digest("candidateDigest", "CandidateDigest"),
 		),
-		phase5Request(restoreRunRequestSchemaID,
+		phase5RestoreRequest(restoreRunRequestSchemaID,
+			FieldDefinition{JSONName: "source", GoName: "Source", Kind: ValueObject, Required: true, Ref: restoreSourceBindingSchemaID},
 			phase5ID("pointId", "PointID"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
 			phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
-			phase5Digest("formerControllerFenceDigest", "FormerControllerFenceDigest"),
+			phase5Digest("fenceSetDigest", "FenceSetDigest"), phase5Digest("auditDecisionDigest", "AuditDecisionDigest"), phase5Digest("candidateDigest", "CandidateDigest"),
 			phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"),
 			phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
 		),
-		phase5Request(restoreVerifyRequestSchemaID,
+		phase5RestoreRequest(restoreVerifyRequestSchemaID,
+			FieldDefinition{JSONName: "source", GoName: "Source", Kind: ValueObject, Required: true, Ref: restoreSourceBindingSchemaID},
 			phase5ID("pointId", "PointID"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
-			phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
+			phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"), phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
+			phase5Digest("fenceSetDigest", "FenceSetDigest"), phase5Digest("auditDecisionDigest", "AuditDecisionDigest"), phase5Digest("candidateDigest", "CandidateDigest"),
 		),
 		phase5Request(scheduledJobRequestSchemaID,
 			phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
