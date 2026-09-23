@@ -14,7 +14,10 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 )
 
-var allowedWriterActions = []string{"ListBucket", "PutObject"}
+// Pinned restic reads repository metadata and payload, creates new immutable
+// objects, and removes its mutable locks. Retention rules, not session scope,
+// deny overwrite/delete of the generation's protected prefixes.
+var allowedWriterActions = []string{"DeleteObject", "GetObject", "ListBucket", "PutObject"}
 
 // TemporaryCredentialSigner is the narrow local-signing seam. The parent is a
 // borrowed value and may not be retained by an implementation.
