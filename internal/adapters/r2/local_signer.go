@@ -66,6 +66,12 @@ func parentS3Credentials(parent []byte) (S3Credentials, error) {
 	return S3Credentials{AccessKeyID: []byte(credential.AccessKeyID), SecretAccessKey: []byte(credential.SecretAccessKey)}, nil
 }
 
+// ParseParentS3Credentials validates the server-resolved R2 credential for a
+// narrow provider composition. Callers must zero the returned byte slices.
+func ParseParentS3Credentials(parent []byte) (S3Credentials, error) {
+	return parentS3Credentials(parent)
+}
+
 func (signer LocalSigner) sign(credential parentCredential, audience string, request adapter.SessionRequest) (adapter.ScopedS3Session, error) {
 	now := time.Now().UTC()
 	if signer.Clock != nil {

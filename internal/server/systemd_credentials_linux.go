@@ -31,7 +31,8 @@ func newSystemdCredentialResolver(ownerUID uint32) (*systemdCredentialResolver, 
 }
 
 func (resolver *systemdCredentialResolver) Resolve(ctx context.Context, reference credentialref.Reference) ([]byte, error) {
-	if resolver == nil || resolver.directory == nil || ctx == nil || reference.Consumer != "slack-acknowledgement" || reference.ID == "" || filepath.Base(reference.ID) != reference.ID {
+	allowedConsumer := reference.Consumer == "slack-acknowledgement" || reference.Consumer == "r2.retention.lock-admin"
+	if resolver == nil || resolver.directory == nil || ctx == nil || !allowedConsumer || reference.ID == "" || filepath.Base(reference.ID) != reference.ID {
 		return nil, failure.New(generated.ErrorCodeAuthorizationDenied, "native-credential-reference", false)
 	}
 	if err := ctx.Err(); err != nil {

@@ -22,28 +22,30 @@ type OffsiteRetirementCatalog struct {
 	// GenerationCreatedAt is the durable #114 catalog timestamp for every
 	// generation. CurrentRules is the complete provider-observed bucket rule
 	// set; selection subtracts the target's five rules from this exact set.
-	GenerationCreatedAt                             map[string]time.Time
-	CurrentRules                                    []RetentionRuleRef
-	VerifiedPointIDs                                []string
-	LastGoodPointIDs                                []string
-	DependencyPointIDs                              []string
-	ActivePromisePointIDs                           []string
-	BucketID, RuleSetDigest, CatalogDigest          string
-	RuleCount, RuleLimit                            int
-	TotalBytes, AvailableBytes, ExpectedGrowthBytes int64
-	ObservedAt                                      time.Time
+	GenerationCreatedAt                                                                                 map[string]time.Time
+	CurrentRules                                                                                        []RetentionRuleRef
+	VerifiedPointIDs                                                                                    []string
+	LastGoodPointIDs                                                                                    []string
+	DependencyPointIDs                                                                                  []string
+	ActivePromisePointIDs                                                                               []string
+	BucketID, RuleSetDigest, CatalogDigest                                                              string
+	G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest, ExclusiveAdminDigest string
+	RuleCount, RuleLimit                                                                                int
+	TotalBytes, AvailableBytes, ExpectedGrowthBytes                                                     int64
+	ObservedAt                                                                                          time.Time
 }
 
 type OffsiteRetirementCandidate struct {
-	GenerationID, PointID, BucketID, RuleSetDigest, SurvivorRuleDigest            string
-	ManifestDigest, CatalogDigest, InventoryDigest                                string
-	Rules                                                                         []RetentionRuleRef
-	Objects                                                                       []OffsiteObject
-	SurvivorPointIDs                                                              []string
-	RecoveryEpoch, SourceRevision                                                 int64
-	ExpectedRetainedBytes, ExpectedReclaimBytes, MaxWorkObjects, MaxMutationBytes int64
-	CapacityWarning                                                               bool
-	PreRuleCount, SurvivorRuleCount                                               int
+	GenerationID, PointID, BucketID, RuleSetDigest, SurvivorRuleDigest                                  string
+	G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest, ExclusiveAdminDigest string
+	ManifestDigest, CatalogDigest, InventoryDigest                                                      string
+	Rules                                                                                               []RetentionRuleRef
+	Objects                                                                                             []OffsiteObject
+	SurvivorPointIDs                                                                                    []string
+	RecoveryEpoch, SourceRevision                                                                       int64
+	ExpectedRetainedBytes, ExpectedReclaimBytes, MaxWorkObjects, MaxMutationBytes                       int64
+	CapacityWarning                                                                                     bool
+	PreRuleCount, SurvivorRuleCount                                                                     int
 }
 
 type RetentionRuleRef struct{ RuleID, Prefix string }
@@ -57,6 +59,7 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 	}
 	if now.IsZero() || catalog.ObservedAt.IsZero() || catalog.ObservedAt.After(now) || catalog.BucketID == "" ||
 		!validBackupManifestDigest(catalog.RuleSetDigest) || !validBackupManifestDigest(catalog.CatalogDigest) ||
+		!validBackupManifestDigest(catalog.G008BundleDigest) || !validBackupManifestDigest(catalog.QualificationDigest) || !validBackupManifestDigest(catalog.PutCutoffDigest) || !validBackupManifestDigest(catalog.MultipartCutoffDigest) || !validBackupManifestDigest(catalog.ExclusiveAdminDigest) ||
 		catalog.RuleLimit <= 0 || catalog.RuleLimit > 1000 || catalog.RuleCount < 0 || catalog.RuleCount > catalog.RuleLimit ||
 		catalog.TotalBytes <= 0 || catalog.AvailableBytes < 0 || catalog.AvailableBytes > catalog.TotalBytes || local.RecoveryEpoch < 0 {
 		return fail()
@@ -173,9 +176,9 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 		return 0
 	})
 	slices.Sort(survivors)
-	targetRuleIDs := map[string]bool{}
+	targetRuleIDs := map[string]string{}
 	for _, rule := range rules {
-		targetRuleIDs[rule.RuleID] = true
+		targetRuleIDs[rule.RuleID] = rule.Prefix
 	}
 	survivorRules := make([]RetentionRuleRef, 0, len(catalog.CurrentRules)-len(rules))
 	seenRules := map[string]bool{}
@@ -184,7 +187,11 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 			return fail()
 		}
 		seenRules[rule.RuleID] = true
-		if !targetRuleIDs[rule.RuleID] {
+		targetPrefix, target := targetRuleIDs[rule.RuleID]
+		if target && targetPrefix != rule.Prefix {
+			return fail()
+		}
+		if !target {
 			survivorRules = append(survivorRules, rule)
 		}
 	}
@@ -203,6 +210,7 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 	digest := hash.Sum(nil)
 	return OffsiteRetirementCandidate{
 		GenerationID: chosen.GenerationID, PointID: chosen.SourcePointID, BucketID: catalog.BucketID,
+		G008BundleDigest: catalog.G008BundleDigest, QualificationDigest: catalog.QualificationDigest, PutCutoffDigest: catalog.PutCutoffDigest, MultipartCutoffDigest: catalog.MultipartCutoffDigest, ExclusiveAdminDigest: catalog.ExclusiveAdminDigest,
 		RuleSetDigest: catalog.RuleSetDigest, SurvivorRuleDigest: "sha256:" + hex.EncodeToString(digest),
 		ManifestDigest: chosen.SourceManifestDigest, CatalogDigest: catalog.CatalogDigest, InventoryDigest: chosen.OffsiteInventoryDigest,
 		Rules: rules, Objects: objects, SurvivorPointIDs: survivors, RecoveryEpoch: chosen.RecoveryEpoch, SourceRevision: chosen.SourceRevision,

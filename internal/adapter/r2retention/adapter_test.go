@@ -50,12 +50,32 @@ func (f *fakeObjects) DeleteExact(_ context.Context, key string) error {
 }
 
 type memoryRecorder struct {
-	attempts []store.OffsiteRetirementAttempt
+	attempts            []store.OffsiteRetirementAttempt
+	failAttemptedTarget string
+	failed              bool
 }
 
 func (m *memoryRecorder) AppendAttempt(_ context.Context, a store.OffsiteRetirementAttempt) error {
+	if !m.failed && a.Status == "attempted" && a.Target == m.failAttemptedTarget {
+		m.failed = true
+		return errors.New("journal unavailable")
+	}
 	m.attempts = append(m.attempts, a)
 	return nil
+}
+
+func TestOffsiteJournalFailureAfterRuleEffectRecordsUncertain(t *testing.T) {
+	pre := RuleSet{Rules: []Rule{{"t1", "g/config"}, {"t2", "g/keys/"}, {"t3", "g/data/"}, {"t4", "g/index/"}, {"t5", "g/snapshots/"}, {"s1", "s/config"}}}
+	survivor := RuleSet{Rules: []Rule{{"s1", "s/config"}}}
+	objects := []Object{{"g/data/a", "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 7}, {"g/data/b", "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", 8}}
+	intent := store.OffsiteRetirementIntent{IntentID: "i", GenerationID: "g", BucketID: "b", RuleSetDigest: DigestRuleSet(pre), SurvivorRuleDigest: DigestRuleSet(survivor), RecoveryEpoch: 1, MaxWorkObjects: 2, MaxMutationBytes: 15, Rules: []store.OffsiteRetirementRule{{"t1", "g/config"}, {"t2", "g/keys/"}, {"t3", "g/data/"}, {"t4", "g/index/"}, {"t5", "g/snapshots/"}}, Objects: []store.OffsiteRetirementObject{{objects[0].Key, objects[0].Digest, 7}, {objects[1].Key, objects[1].Digest, 8}}}
+	lease := store.OffsiteRetirementLease{LeaseID: "l", IntentID: "i", GenerationID: "g", BucketID: "b", LockAdminConsumerID: "a", RetentionConsumerID: "r", RecoveryEpoch: 1, MaxWorkObjects: 2, MaxMutationBytes: 15, MaximumExpiresAt: time.Now().Add(time.Hour)}
+	recorder := &memoryRecorder{failAttemptedTarget: "g/data/b"}
+	providerObjects := &fakeObjects{values: append([]Object(nil), objects...)}
+	j, err := RetireExact(context.Background(), intent, lease, &fakeRules{current: pre}, providerObjects, recorder)
+	if err == nil || j.UncertainReason != "object-write-ahead-journal" || providerObjects.deletes != 1 || len(recorder.attempts) == 0 || recorder.attempts[len(recorder.attempts)-1].Status != "uncertain" {
+		t.Fatalf("journal failure escaped: journal=%+v attempts=%+v deletes=%d err=%v", j, recorder.attempts, providerObjects.deletes, err)
+	}
 }
 
 func TestOffsiteRuleRaceNeverReachesObjectDelete(t *testing.T) {

@@ -8,6 +8,9 @@ CREATE TABLE backup_offsite_retirement_intents (
  catalog_digest TEXT NOT NULL, inventory_digest TEXT NOT NULL,
  one_owner_proof_id TEXT NOT NULL, lock_admin_consumer_id TEXT NOT NULL,
  retention_consumer_id TEXT NOT NULL, canonical_json TEXT NOT NULL,
+ g008_bundle_digest TEXT NOT NULL, qualification_digest TEXT NOT NULL, put_cutoff_digest TEXT NOT NULL,
+ multipart_cutoff_digest TEXT NOT NULL, exclusive_admin_digest TEXT NOT NULL,
+ intent_digest TEXT NOT NULL, credential_binding_digest TEXT NOT NULL,
  source_revision INTEGER NOT NULL CHECK(source_revision>=0), state_revision INTEGER NOT NULL CHECK(state_revision>=0),
  recovery_epoch INTEGER NOT NULL CHECK(recovery_epoch>=0), max_work_objects INTEGER NOT NULL CHECK(max_work_objects>0),
  max_mutation_bytes INTEGER NOT NULL CHECK(max_mutation_bytes>=0), pre_rule_count INTEGER NOT NULL CHECK(pre_rule_count>=5),
@@ -58,3 +61,11 @@ CREATE TABLE backup_offsite_retirement_receipts (
 ) STRICT;
 CREATE TRIGGER backup_offsite_retirement_receipts_no_update BEFORE UPDATE ON backup_offsite_retirement_receipts BEGIN SELECT RAISE(ABORT,'offsite retirement receipts are append-only'); END;
 CREATE TRIGGER backup_offsite_retirement_receipts_no_delete BEFORE DELETE ON backup_offsite_retirement_receipts BEGIN SELECT RAISE(ABORT,'offsite retirement receipts are append-only'); END;
+CREATE TABLE backup_offsite_retirement_survivor_proofs (
+ receipt_id TEXT NOT NULL REFERENCES backup_offsite_retirement_receipts(receipt_id), point_id TEXT NOT NULL,
+ generation_id TEXT NOT NULL REFERENCES backup_offsite_generations(generation_id), rule_digest TEXT NOT NULL,
+ inventory_digest TEXT NOT NULL, full_read_digest TEXT NOT NULL, restore_digest TEXT NOT NULL,
+ recovery_epoch INTEGER NOT NULL, observed_at TEXT NOT NULL, PRIMARY KEY(receipt_id,point_id)
+) STRICT;
+CREATE TRIGGER backup_offsite_retirement_survivor_proofs_no_update BEFORE UPDATE ON backup_offsite_retirement_survivor_proofs BEGIN SELECT RAISE(ABORT,'offsite retirement survivor proofs are append-only'); END;
+CREATE TRIGGER backup_offsite_retirement_survivor_proofs_no_delete BEFORE DELETE ON backup_offsite_retirement_survivor_proofs BEGIN SELECT RAISE(ABORT,'offsite retirement survivor proofs are append-only'); END;

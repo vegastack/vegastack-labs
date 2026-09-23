@@ -22,7 +22,12 @@ func TestOffsiteRetirementSchemaRejectsDuplicateLeaseAndCrossIntentReceipt(t *te
 	d := "sha256:" + strings.Repeat("a", 64)
 	insertIntent := func(id, g string) {
 		t.Helper()
-		_, err := db.Exec(`INSERT INTO backup_offsite_retirement_intents VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, id, "plan", d, g, "point-"+g, "bucket", d, d, d, d, d, "proof", "lock", "retention", "{}", 1, 1, 1, 1, 1, 5, 0, "now")
+		_, err := db.Exec(`INSERT INTO backup_offsite_retirement_intents(
+			intent_id,plan_id,plan_digest,generation_id,point_id,bucket_id,rule_set_digest,survivor_rule_digest,manifest_digest,catalog_digest,inventory_digest,
+			one_owner_proof_id,lock_admin_consumer_id,retention_consumer_id,canonical_json,g008_bundle_digest,qualification_digest,put_cutoff_digest,multipart_cutoff_digest,
+			exclusive_admin_digest,intent_digest,credential_binding_digest,source_revision,state_revision,recovery_epoch,max_work_objects,max_mutation_bytes,pre_rule_count,survivor_rule_count,created_at)
+			VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+			id, "plan", d, g, "point-"+g, "bucket", d, d, d, d, d, "proof", "lock", "retention", "{}", d, d, d, d, d, d, d, 1, 1, 1, 1, 1, 5, 0, "now")
 		if err != nil {
 			t.Fatal(err)
 		}

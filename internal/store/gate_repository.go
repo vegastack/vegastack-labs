@@ -189,6 +189,44 @@ func (repository *GateRepository) ListAppliedGateEvidence(ctx context.Context, g
 // activation boundary for optional adapters: a profile string alone can never
 // turn a fixture, stale, revoked, or cross-epoch record into runtime authority.
 func (repository *GateRepository) ResolveCurrentLiveGateEvidence(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest string, at time.Time) (generated.GateEvidence, error) {
+	return repository.resolveCurrentLiveGateEvidence(ctx, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, "", at)
+}
+
+func (repository *GateRepository) ResolveCurrentLiveGateEvidenceWithExclusiveAdmin(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, exclusiveAdminDigest string, at time.Time) (generated.GateEvidence, error) {
+	if !validBackupDigest(exclusiveAdminDigest) {
+		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
+	}
+	return repository.resolveCurrentLiveGateEvidence(ctx, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, exclusiveAdminDigest, at)
+}
+
+func (repository *GateRepository) CurrentLiveExclusiveAdminDigest(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest string, at time.Time) (string, error) {
+	if _, err := repository.ResolveCurrentLiveGateEvidence(ctx, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, at); err != nil {
+		return "", err
+	}
+	var raw []byte
+	if err := repository.store.conn.QueryRowContext(ctx, `SELECT bundle_bytes FROM gate_evidence_drafts WHERE bundle_digest=?`, bundleDigest).Scan(&raw); err != nil {
+		return "", err
+	}
+	var bundle generated.GateEvidenceBundle
+	if json.Unmarshal(raw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, raw, generated.ContractExact) != nil || gateDigest(raw) != bundleDigest {
+		return "", newStoreError(generated.ErrorCodeIntegrityFailure, "gate-live-evidence", false, nil)
+	}
+	var digest string
+	for _, fact := range bundle.Facts {
+		if fact.FactID == "r2-exclusive-retention-admin" {
+			if digest != "" || !validBackupDigest(fact.ValueDigest) {
+				return "", newStoreError(generated.ErrorCodeIntegrityFailure, "gate-live-evidence", false, nil)
+			}
+			digest = fact.ValueDigest
+		}
+	}
+	if digest == "" {
+		return "", newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
+	}
+	return digest, nil
+}
+
+func (repository *GateRepository) resolveCurrentLiveGateEvidence(ctx context.Context, gateID, bundleDigest, qualificationDigest, putCutoffDigest, multipartCutoffDigest, exclusiveAdminDigest string, at time.Time) (generated.GateEvidence, error) {
 	if repository == nil || repository.store == nil || gateID == "" || len(bundleDigest) != 71 || bundleDigest[:7] != "sha256:" || at.IsZero() {
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-live-evidence", false, nil)
 	}
@@ -216,7 +254,7 @@ func (repository *GateRepository) ResolveCurrentLiveGateEvidence(ctx context.Con
 	}
 	var evidence generated.GateEvidence
 	var bundle generated.GateEvidenceBundle
-	if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || json.Unmarshal(bundleRaw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || gateDigest(bundleRaw) != bundleDigest || !exactOffsiteQualificationEvidence(bundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest) {
+	if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || json.Unmarshal(bundleRaw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || gateDigest(bundleRaw) != bundleDigest || !exactOffsiteQualificationEvidence(bundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest) || !exactExclusiveAdminEvidence(bundle, exclusiveAdminDigest) {
 		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeIntegrityFailure, "gate-live-evidence", false, nil)
 	}
 	expires, expiresErr := time.Parse(time.RFC3339, evidence.ExpiresAt)
@@ -230,49 +268,20 @@ func (repository *GateRepository) ResolveCurrentLiveGateEvidence(ctx context.Con
 	return evidence, nil
 }
 
-// ResolveCurrentExclusiveAdminEvidence resolves the exact currently applied
-// G-008 proof named by a destructive retirement intent. It repeats the same
-// canonical/current/profile/build/freshness checks as adapter activation and
-// additionally requires the explicit exclusive retention-admin fact.
-func (repository *GateRepository) ResolveCurrentExclusiveAdminEvidence(ctx context.Context, evidenceID, subjectID string, at time.Time) (generated.GateEvidence, error) {
-	if repository == nil || repository.store == nil || evidenceID == "" || subjectID == "" || at.IsZero() {
-		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-exclusive-admin", false, nil)
+func exactExclusiveAdminEvidence(bundle generated.GateEvidenceBundle, digest string) bool {
+	if digest == "" {
+		return true
 	}
-	scope, err := repository.GetAppliedProfileScope(ctx)
-	if err != nil {
-		return generated.GateEvidence{}, err
-	}
-	current, err := NewPlanRepository(repository.store).CurrentRevision(ctx)
-	if err != nil {
-		return generated.GateEvidence{}, err
-	}
-	var raw, bundleRaw []byte
-	err = repository.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT e.canonical_bytes,d.bundle_bytes FROM gate_applied_evidence e JOIN gate_evidence_drafts d ON d.draft_id=e.draft_id WHERE e.evidence_id=? AND e.gate_id='G-008' AND e.subject_id=? AND e.status='applied' AND e.source_kind<>'fixture' AND e.proof_class='live' AND e.recovery_epoch=? AND e.state_revision<=? AND NOT EXISTS(SELECT 1 FROM gate_applied_evidence later WHERE later.supersedes_evidence_id=e.evidence_id OR later.revokes_evidence_id=e.evidence_id)`, evidenceID, subjectID, current.RecoveryEpoch, current.StateRevision).Scan(&raw, &bundleRaw)
-	})
-	if err != nil {
-		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-exclusive-admin", false, err)
-	}
-	var evidence generated.GateEvidence
-	var bundle generated.GateEvidenceBundle
-	if json.Unmarshal(raw, &evidence) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, raw, generated.ContractExact) != nil || json.Unmarshal(bundleRaw, &bundle) != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidenceBundle, bundleRaw, generated.ContractExact) != nil || gateDigest(bundleRaw) != evidence.BundleDigest {
-		return generated.GateEvidence{}, newStoreError(generated.ErrorCodeIntegrityFailure, "gate-exclusive-admin", false, nil)
-	}
-	exclusive := false
+	seen := false
 	for _, fact := range bundle.Facts {
-		if fact.FactID == "r2-exclusive-retention-admin" && validBackupDigest(fact.ValueDigest) {
-			if exclusive {
-				return generated.GateEvidence{}, newStoreError(generated.ErrorCodeIntegrityFailure, "gate-exclusive-admin", false, nil)
+		if fact.FactID == "r2-exclusive-retention-admin" {
+			if seen || fact.ValueDigest != digest {
+				return false
 			}
-			exclusive = true
+			seen = true
 		}
 	}
-	expires, ee := time.Parse(time.RFC3339, evidence.ExpiresAt)
-	observed, oe := time.Parse(time.RFC3339, evidence.ObservedAt)
-	if !exclusive || ee != nil || oe != nil || !expires.After(at.UTC()) || observed.After(at.UTC()) || at.UTC().Sub(observed) > 24*time.Hour || evidence.EvidenceID != evidenceID || evidence.SubjectID != subjectID || evidence.RecoveryEpoch != current.RecoveryEpoch || evidence.StateRevision > current.StateRevision || evidence.ProfileID != scope.ProfileID || evidence.ProfileVersion != scope.ProfileVersion || evidence.PolicyID != scope.PolicyID || evidence.PolicyVersion != scope.PolicyVersion || evidence.ReleaseBuildID != repository.store.config.BuildVersion || evidence.ToolVersion != repository.store.config.ToolVersion {
-		return generated.GateEvidence{}, newStoreError(generated.ErrorCodePrerequisiteBlocked, "gate-exclusive-admin", false, nil)
-	}
-	return evidence, nil
+	return seen
 }
 
 func exactOffsiteQualificationEvidence(bundle generated.GateEvidenceBundle, qualificationDigest, putCutoffDigest, multipartCutoffDigest string) bool {

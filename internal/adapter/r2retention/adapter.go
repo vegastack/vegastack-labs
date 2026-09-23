@@ -61,14 +61,14 @@ func RetireExact(ctx context.Context, intent store.OffsiteRetirementIntent, leas
 	if journal.PreRuleDigest != intent.RuleSetDigest {
 		return journal, errors.New("offsite rule set drift")
 	}
-	target := map[string]bool{}
+	target := map[string]string{}
 	for _, v := range intent.Rules {
-		target[v.RuleID] = true
+		target[v.RuleID] = v.Prefix
 	}
 	remaining := RuleSet{Rules: make([]Rule, 0, len(pre.Rules)-len(target))}
 	found := map[string]bool{}
 	for _, v := range pre.Rules {
-		if target[v.RuleID] {
+		if prefix, ok := target[v.RuleID]; ok && prefix == v.Prefix {
 			found[v.RuleID] = true
 			continue
 		}
@@ -96,7 +96,7 @@ func RetireExact(ctx context.Context, intent store.OffsiteRetirementIntent, leas
 		return journal, recordUncertain(ctx, recorder, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.PostRuleDigest), "offsite rule race detected")
 	}
 	for _, v := range post.Rules {
-		if target[v.RuleID] {
+		if prefix, ok := target[v.RuleID]; ok && prefix == v.Prefix {
 			journal.UncertainReason = "target-rule-remains"
 			return journal, recordUncertain(ctx, recorder, attempt(lease, 2, "rule-put", intent.BucketID, requestDigest, "uncertain", journal.PostRuleDigest), "target rule remains")
 		}
@@ -124,7 +124,8 @@ func RetireExact(ctx context.Context, intent store.OffsiteRetirementIntent, leas
 		sequence++
 		req := digestParts("delete", v.Key, v.Digest, fmt.Sprint(v.Bytes))
 		if err = recorder.AppendAttempt(ctx, attempt(lease, sequence, "object-delete", v.Key, req, "attempted", "")); err != nil {
-			return journal, err
+			journal.UncertainReason = "object-write-ahead-journal"
+			return journal, recordUncertain(ctx, recorder, attempt(lease, sequence, "object-delete", v.Key, req, "uncertain", ""), "offsite object write-ahead journal failed")
 		}
 		if err = objects.DeleteExact(ctx, v.Key); err != nil {
 			journal.UncertainReason = "object-delete-response"

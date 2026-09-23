@@ -46,11 +46,12 @@ type Operations struct {
 	identityHTTPClient       *http.Client
 	offsiteEffect            OffsiteEffectFactory
 	offsiteRetirementEffect  OffsiteRetirementEffectFactory
-	offsiteRetirementCatalog api.OffsiteRetirementCatalogSource
+	offsiteRetirementCatalog OffsiteRetirementCatalogFactory
 	newAdapterRegistry       func() *adapter.Registry
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
+type OffsiteRetirementCatalogFactory func(context.Context, serverconfig.Profile, *store.Store) (api.OffsiteRetirementCatalogSource, error)
 type OperationsOption func(*Operations)
 
 // WithOffsiteEffectFactory supplies the qualified site composition. The
@@ -69,12 +70,17 @@ func WithOffsiteRetirementEffectFactory(factory OffsiteRetirementEffectFactory) 
 		}
 	}
 }
-func WithOffsiteRetirementCatalogSource(source api.OffsiteRetirementCatalogSource) OperationsOption {
+func WithOffsiteRetirementCatalogFactory(source OffsiteRetirementCatalogFactory) OperationsOption {
 	return func(operations *Operations) {
 		if source != nil {
 			operations.offsiteRetirementCatalog = source
 		}
 	}
+}
+func WithOffsiteRetirementCatalogSource(source api.OffsiteRetirementCatalogSource) OperationsOption {
+	return WithOffsiteRetirementCatalogFactory(func(context.Context, serverconfig.Profile, *store.Store) (api.OffsiteRetirementCatalogSource, error) {
+		return source, nil
+	})
 }
 
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, options ...OperationsOption) *Operations {
@@ -85,9 +91,11 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
 		},
-		offsiteRetirementEffect:  func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) { return nil, nil },
-		offsiteRetirementCatalog: api.UnavailableOffsiteRetirementCatalogSource{},
-		newAdapterRegistry:       productionAdapterRegistry,
+		offsiteRetirementEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) { return nil, nil },
+		offsiteRetirementCatalog: func(context.Context, serverconfig.Profile, *store.Store) (api.OffsiteRetirementCatalogSource, error) {
+			return api.UnavailableOffsiteRetirementCatalogSource{}, nil
+		},
+		newAdapterRegistry: productionAdapterRegistry,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -354,7 +362,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	offsiteRetirementStages, err := api.NewOffsiteRetirementStageService(store.NewLocalRetirementRepository(authority), store.NewOffsiteRetirementRepository(authority), operations.offsiteRetirementCatalog)
+	offsiteRetirementCatalog, err := operations.offsiteRetirementCatalog(ctx, profile, authority)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	offsiteRetirementStages, err := api.NewOffsiteRetirementStageService(store.NewLocalRetirementRepository(authority), store.NewOffsiteRetirementRepository(authority), offsiteRetirementCatalog)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err

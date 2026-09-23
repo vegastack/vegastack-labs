@@ -55,8 +55,11 @@ func main() {
 		SourceRevision: revision,
 	}
 	offsiteRunners := server.NewProfileOffsiteRunnerSource(server.NewLabsR2Runner)
+	offsiteRetirements := server.NewProfileOffsiteRetirementSource(server.NewLabsR2RetirementExecution)
 	operations := server.NewOperations(build, newRequestID,
-		server.WithOffsiteEffectFactory(server.NewProductionOffsiteEffectFactory(offsiteRunners)))
+		server.WithOffsiteEffectFactory(server.NewProductionOffsiteEffectFactory(offsiteRunners)),
+		server.WithOffsiteRetirementEffectFactory(server.NewProductionOffsiteRetirementEffectFactory(offsiteRetirements)),
+		server.WithOffsiteRetirementCatalogFactory(server.NewProductionOffsiteRetirementCatalogFactory()))
 	app := cli.New(os.Stdout, os.Stderr, build, newRequestID,
 		cli.WithInput(os.Stdin),
 		cli.WithReleaseOperations(release.NewService(release.SigstoreBundleVerifier{})),

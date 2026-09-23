@@ -65,15 +65,20 @@ func (s *offsiteRetirementStageService) Stage(ctx context.Context, input generat
 	if err != nil {
 		return zero, apiFailure(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-dry-run")
 	}
-	if input.TargetDigest != candidate.CatalogDigest {
-		return zero, apiFailure(generated.ErrorCodePlanStale, "offsite-retirement-catalog")
-	}
 	intent := store.OffsiteRetirementIntent{IntentID: "offsite-retirement-" + input.IdempotencyKey, PlanID: input.PlanID, PlanDigest: input.PlanDigest, GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, OneOwnerProofID: input.OneOwnerProofID, LockAdminConsumerID: input.LockAdminConsumerID, RetentionConsumerID: input.RetentionConsumerID, SurvivorPointIDs: append([]string(nil), candidate.SurvivorPointIDs...), SourceRevision: candidate.SourceRevision, StateRevision: input.ExpectedStateRevision, RecoveryEpoch: input.RecoveryEpoch, MaxWorkObjects: candidate.MaxWorkObjects, MaxMutationBytes: candidate.MaxMutationBytes, PreRuleCount: candidate.PreRuleCount, SurvivorRuleCount: candidate.SurvivorRuleCount}
+	intent.G008BundleDigest, intent.QualificationDigest, intent.PutCutoffDigest, intent.MultipartCutoffDigest, intent.ExclusiveAdminDigest = candidate.G008BundleDigest, candidate.QualificationDigest, candidate.PutCutoffDigest, candidate.MultipartCutoffDigest, candidate.ExclusiveAdminDigest
 	for _, v := range candidate.Rules {
 		intent.Rules = append(intent.Rules, store.OffsiteRetirementRule{RuleID: v.RuleID, Prefix: v.Prefix})
 	}
 	for _, v := range candidate.Objects {
 		intent.Objects = append(intent.Objects, store.OffsiteRetirementObject{Key: v.Key, Digest: v.Digest, Bytes: v.Bytes})
+	}
+	intent.IntentDigest, intent.CredentialBindingDigest, err = store.OffsiteRetirementIntentDigests(intent)
+	if err != nil {
+		return zero, err
+	}
+	if input.TargetDigest != intent.IntentDigest {
+		return zero, apiFailure(generated.ErrorCodePlanStale, "offsite-retirement-intent")
 	}
 	id, err := s.retirements.StageOffsiteRetirement(ctx, intent)
 	if err != nil {

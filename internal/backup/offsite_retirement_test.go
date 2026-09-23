@@ -23,6 +23,11 @@ func TestOffsiteSelectionPreservesSoleLastGoodAndExactFiveRules(t *testing.T) {
 	good := retirementGeneration("generation-good", "point-good", now)
 	local := RetirementSelection{Targets: []RetirementCandidate{{PointID: "point-old"}}, Survivors: []RetirementCandidate{{PointID: "point-good"}}, RecoveryEpoch: 3}
 	catalog := OffsiteRetirementCatalog{Generations: []PendingOffsiteGeneration{old}, GenerationCreatedAt: map[string]time.Time{"generation-old": now.Add(-30 * 24 * time.Hour)}, CurrentRules: ruleRefs(old), VerifiedPointIDs: []string{"point-old"}, LastGoodPointIDs: []string{"point-old"}, BucketID: "bucket-a", CatalogDigest: "sha256:" + strings.Repeat("e", 64), RuleCount: 5, RuleLimit: 1000, TotalBytes: 1000, AvailableBytes: 900, ObservedAt: now}
+	catalog.G008BundleDigest = "sha256:" + strings.Repeat("1", 64)
+	catalog.QualificationDigest = "sha256:" + strings.Repeat("2", 64)
+	catalog.PutCutoffDigest = "sha256:" + strings.Repeat("3", 64)
+	catalog.MultipartCutoffDigest = "sha256:" + strings.Repeat("4", 64)
+	catalog.ExclusiveAdminDigest = "sha256:" + strings.Repeat("5", 64)
 	catalog.RuleSetDigest = retirementRuleDigest(catalog.CurrentRules)
 	if _, err := SelectOffsiteRetirement(catalog, local, now); err == nil {
 		t.Fatal("sole last good selected")
