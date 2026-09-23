@@ -27,6 +27,12 @@ export function verifyWorkflowDocument(workflow, source = "") {
   if (JSON.stringify(workflow.on.push?.branches) !== JSON.stringify(["main"])) {
     throw new Error("workflow push trigger must be limited to main");
   }
+  const dispatchInputs = workflow.on.workflow_dispatch?.inputs ?? {};
+  if (dispatchInputs.base_sha?.type !== "string" || dispatchInputs.base_sha?.required !== false ||
+      dispatchInputs.full_check?.type !== "boolean" || dispatchInputs.full_check?.required !== false ||
+      dispatchInputs.full_check?.default !== false) {
+    throw new Error("manual checks must select an exact affected base or explicit full mode");
+  }
   if (/\$\{\{\s*secrets\./.test(source)) {
     throw new Error("public workflow must not reference secrets");
   }
@@ -82,8 +88,14 @@ export function verifyWorkflowDocument(workflow, source = "") {
   if (!plan || !/node tooling\/check-affected\.mjs[\s\S]*--format github/.test(plan.run ?? "") ||
       !/github\.event\.pull_request\.base\.sha/.test(plan.env?.BASE_SHA ?? "") ||
       !/github\.event\.before/.test(plan.env?.BASE_SHA ?? "") ||
+      !/inputs\.base_sha/.test(plan.env?.BASE_SHA ?? "") ||
+      !/inputs\.full_check/.test(plan.env?.FULL_CHECK ?? "") ||
       !/github\.event\.pull_request\.head\.sha/.test(plan.env?.HEAD_SHA ?? "")) {
     throw new Error("workflow must calculate an affected check plan from explicit event base/head SHAs");
+  }
+  if (!/manual affected checks require an exact base_sha/.test(plan.run ?? "") ||
+      !/full_check cannot be combined with base_sha/.test(plan.run ?? "")) {
+    throw new Error("manual check mode must fail closed unless affected base or full mode is explicit");
   }
   if (jobs.verify_pr.needs !== "plan" || jobs.verify_pr.if !== "github.event_name == 'pull_request'") {
     throw new Error("hosted checks must run only for pull requests");

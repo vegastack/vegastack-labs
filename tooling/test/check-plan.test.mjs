@@ -5,6 +5,7 @@ import {
   checkStepsForPlan,
   classifyChangedPaths,
   fullCheckPlan,
+  goPackageTargets,
   goUnitTestArgs,
 } from "../lib/check-plan.mjs";
 import {
@@ -79,6 +80,18 @@ test("Go-only changes omit only the four Chromium-backed Go acceptance tests", (
     "^(TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary|TestPhase4AcceptanceBuiltExecutableKeepsIntentInertAndPrivate|TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary|TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS)$",
   ]);
   assert.deepEqual(goUnitTestArgs(true), ["test", "./..."]);
+  assert.deepEqual(goPackageTargets(goOnly), ["./internal/store"]);
+  assert.deepEqual(goUnitTestArgs(false, goPackageTargets(goOnly)), [
+    "test", "./internal/store", "-skip",
+    "^(TestPhase3AcceptanceChromiumUsesRealTLSAndSessionBoundary|TestPhase4AcceptanceBuiltExecutableKeepsIntentInertAndPrivate|TestPhase4ConsoleChangesUseRealTLSAndServerOwnedApprovalBoundary|TestPhase4ConsoleChangesCompleteApprovedResumeAndCancelLoopsOverRealTLS)$",
+  ]);
+  const twoPackages = classifyChangedPaths([
+    { status: "M", path: "internal/server/server.go" },
+    { status: "A", path: "internal/store/new_test.go" },
+  ]);
+  assert.deepEqual(goPackageTargets(twoPackages), ["./internal/server", "./internal/store"]);
+  const schema = classifyChangedPaths([{ status: "M", path: "schemas/v1/server-profile.schema.json" }]);
+  assert.deepEqual(goPackageTargets(schema), ["./..."], "non-Go inputs selecting Go must retain the full package set");
   assert.equal(fullCheckPlan().browser, true);
   for (const file of [
     "internal/server/phase3_acceptance_linux_test.go",
@@ -87,6 +100,18 @@ test("Go-only changes omit only the four Chromium-backed Go acceptance tests", (
     "internal/server/phase4_fixture_test.go",
   ]) {
     assert.equal(classifyChangedPaths([{ status: "M", path: file }]).browser, true, file);
+  }
+});
+
+test("deleted or renamed Go packages fail closed", () => {
+  for (const change of [
+    { status: "D", path: "internal/store/old.go" },
+    { status: "R100", previousPath: "internal/store/old.go", path: "internal/store/new.go" },
+  ]) {
+    const plan = classifyChangedPaths([change]);
+    assert.equal(plan.mode, "full");
+    assert.equal(plan.failClosed, true);
+    assert.deepEqual(goPackageTargets(plan), ["./..."]);
   }
 });
 

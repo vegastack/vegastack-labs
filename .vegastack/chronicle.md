@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-09-2026 — Phase 5 checks run at the scope that changed ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
+
+- **What:** Intermediate Phase 5 branches can prove an exact base and head with affected policy groups and changed Go package tests, while the final integration or acceptance candidate has one explicit complete lane.
+- **Why:** An implicit full manual check followed by PR and post-merge checks repeatedly exercised unchanged packages and browser acceptance, delaying a serial delivery chain without adding distinct evidence.
+- **How it went:** The existing affected planner already protected unknown and dependency changes. The correction added package targets, fail-closed Go topology changes, and explicit manual affected/full inputs while retaining repository-wide compilation and hosted integration checks.
+- **Changed:** Changed-package Go tests and vet · exact-base manual CI mode · explicit final full mode · exact-head ship proof policy.
+- **Decisions:** none; issue-specific native acceptance and the final Phase 5 full integration proof remain required.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-fast-batch
+
 ## 22-09-2026 — A clean replacement can inspect a protected recovery handoff ([#159](https://github.com/vegastack/vegastack-labs/issues/159))
 
 - **What:** The software can read one administrator-installed public witness and encrypted envelope from protected files, match them to a signed manifest and a closed direct-denial verifier registration, and offer a one-use digest-only handoff to a later exact-inode comparator.

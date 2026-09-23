@@ -28,11 +28,11 @@ test("valid links, fragments, and JSON pass", async () => {
   assert.deepEqual(result, { markdownFiles: 2, jsonFiles: 1 });
 });
 
-test("future-session mandates require one selected complete pre-PR proof and affected CI", async () => {
+test("future-session mandates require exact affected batch proof and one final complete lane", async () => {
   const files = ["AGENTS.md", "docs/development/operating-mandate.md", ".vegastack/dev.md"];
   for (const file of files) {
     const text = await readFile(new URL(`../../${file}`, import.meta.url), "utf8");
-    assert.match(text, /one successful complete public check.*exact clean.*branch head/is, file);
+    assert.match(text, /one successful.*exact(?:-base| base).*exact(?:-head| head).*affected public check/is, file);
     assert.match(text, /browser.*only.*browser-(?:facing|impacting)/is, file);
     assert.match(text, /fail(?:s|ed)? closed.*full/is, file);
     assert.match(text, /pull request.*GitHub-hosted.*Ubuntu 24\.04/is, file);
@@ -41,9 +41,11 @@ test("future-session mandates require one selected complete pre-PR proof and aff
   }
   for (const file of files.slice(0, 2)) {
     const text = await readFile(new URL(`../../${file}`, import.meta.url), "utf8");
-    assert.match(text, /pinned local.*pnpm check.*or.*manual Public CI/is, file);
+    assert.match(text, /complete public suite.*final Phase 5 integration or acceptance/is, file);
   }
   const profile = await readFile(new URL("../../.vegastack/dev.md", import.meta.url), "utf8");
-  assert.match(profile, /^ship-check: ci-full-exact-head\b/m);
-  assert.match(profile, /manual full-mode Public CI run as that proof/i);
+  assert.match(profile, /^ship-check: ci-batch-exact-head\b/m);
+  assert.match(profile, /exact current `main` SHA as `base_sha`/i);
+  assert.match(profile, /affected (?:public check|plan)/i);
+  assert.match(profile, /final Phase 5 integration\/acceptance candidate.*full_check/is);
 });

@@ -7,6 +7,15 @@ on:
       - main
   workflow_dispatch:
     inputs:
+      base_sha:
+        description: 'Exact current main SHA for an intermediate affected check; omit only with full_check'
+        required: false
+        type: string
+      full_check:
+        description: 'Run the complete lane for the final Phase 5 integration or acceptance candidate'
+        required: false
+        default: false
+        type: boolean
       native_credential_sha:
         description: 'Exact #143 branch SHA for disposable native credential acceptance; leave empty for ordinary checks'
         required: false
@@ -52,9 +61,17 @@ jobs:
       - name: Plan affected public checks
         id: check-plan
         env:
-          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || '' }}
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event_name == 'push' && github.event.before || inputs.base_sha || '' }}
+          FULL_CHECK: ${{ inputs.full_check || false }}
           HEAD_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
         run: |
+          if [ "${{ github.event_name }}" = workflow_dispatch ]; then
+            if [ "$FULL_CHECK" = true ]; then
+              test -z "$BASE_SHA" || { echo "full_check cannot be combined with base_sha" >&2; exit 1; }
+            else
+              [[ "$BASE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "manual affected checks require an exact base_sha" >&2; exit 1; }
+            fi
+          fi
           node tooling/check-affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --dry-run
           node tooling/check-affected.mjs --base "$BASE_SHA" --head "$HEAD_SHA" --dry-run --format github >> "$GITHUB_OUTPUT"
 
