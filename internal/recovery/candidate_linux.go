@@ -58,7 +58,10 @@ func (storage LocalCandidateStorage) VerifyPromoted(ctx context.Context, paths C
 	if err := verifyRecoveryFile(paths.PreservedAuthority, storage.ExpectedUID, "", false); err != nil {
 		return err
 	}
-	return verifyRecoveryFile(paths.TransitionJournal, storage.ExpectedUID, expected.JournalDigest, false)
+	if err := verifyRecoveryFile(paths.TransitionJournal, storage.ExpectedUID, expected.JournalDigest, false); err != nil {
+		return err
+	}
+	return syncRecoveryDirectory(filepath.Dir(paths.Candidate))
 }
 
 func (storage LocalCandidateStorage) WriteTransitionJournal(ctx context.Context, paths CandidatePaths, body []byte) error {
