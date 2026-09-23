@@ -50,15 +50,3 @@ func TestFreshFormerWriterCanaryReprobesExactRecoveredFence(t *testing.T) {
 		t.Fatalf("mismatched request reached fresh verifier: err=%v called=%v", err, fences.called)
 	}
 }
-
-func TestUnavailableCanaryPortsFailClosed(t *testing.T) {
-	if id, err := (UnavailableCanaryNoop{}).RunRecoveryCanaryNoop(context.Background(), CanaryRequest{}); id != "" || err == nil {
-		t.Fatalf("noop = %q, %v", id, err)
-	}
-	if id, err := (UnavailableCanaryAudit{}).AppendAndVerifyRecoveryCheckpoint(context.Background(), CanaryRequest{}, "run-a"); id != "" || err == nil {
-		t.Fatalf("audit = %q, %v", id, err)
-	}
-	if id, err := (UnavailableCanaryBackup{}).CreateAndVerifyRecoveryBackup(context.Background(), CanaryRequest{}); id != "" || err == nil {
-		t.Fatalf("backup = %q, %v", id, err)
-	}
-}

@@ -40,17 +40,19 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build              result.BuildInfo
-	requestIDs         result.RequestIDSource
-	openStore          func(context.Context, store.Config) (*store.Store, error)
-	databasePath       string
-	platformProbe      PlatformProbe
-	identityHTTPClient *http.Client
-	offsiteEffect      OffsiteEffectFactory
-	newAdapterRegistry func() *adapter.Registry
+	build               result.BuildInfo
+	requestIDs          result.RequestIDSource
+	openStore           func(context.Context, store.Config) (*store.Store, error)
+	databasePath        string
+	platformProbe       PlatformProbe
+	identityHTTPClient  *http.Client
+	offsiteEffect       OffsiteEffectFactory
+	recoveryCanaryPorts RecoveryCanaryPortFactory
+	newAdapterRegistry  func() *adapter.Registry
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
+type RecoveryCanaryPortFactory func(context.Context, serverconfig.Profile, *store.Store, *store.BackupRepository) (recovery.CanaryAuditVerifier, recovery.CanaryBackupVerifier, error)
 type OperationsOption func(*Operations)
 
 // WithOffsiteEffectFactory supplies the qualified site composition. The
@@ -63,6 +65,13 @@ func WithOffsiteEffectFactory(factory OffsiteEffectFactory) OperationsOption {
 	}
 }
 
+// WithRecoveryCanaryPortFactory supplies site-qualified independent audit and
+// local backup capabilities. An omitted factory leaves both typed ports nil,
+// so restore verification remains recovery-required.
+func WithRecoveryCanaryPortFactory(factory RecoveryCanaryPortFactory) OperationsOption {
+	return func(operations *Operations) { operations.recoveryCanaryPorts = factory }
+}
+
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, options ...OperationsOption) *Operations {
 	operations := &Operations{
 		build: build, requestIDs: requestIDs, openStore: store.Open,
@@ -70,6 +79,9 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		identityHTTPClient: &http.Client{Timeout: 10 * time.Second},
 		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
+		},
+		recoveryCanaryPorts: func(context.Context, serverconfig.Profile, *store.Store, *store.BackupRepository) (recovery.CanaryAuditVerifier, recovery.CanaryBackupVerifier, error) {
+			return nil, nil, nil
 		},
 		newAdapterRegistry: productionAdapterRegistry,
 	}
@@ -287,6 +299,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if profile.LocalBackup != nil && restoreSnapshotSource != nil && restoreInspector != nil && restoreTrust != nil {
 		borrower := recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}
@@ -307,7 +320,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore}, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: runengine.UnavailableGateVerifier{}, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -378,9 +391,14 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		ReleaseBuildID: operations.build.ReleaseBuildID, EvaluatorVersion: "1.0.0",
 	}
 	restoreStoreCanary := recovery.StoreRecoveryCanary{Authority: authority, Restores: restoreRepository}
+	canaryAudit, canaryBackup, err := operations.recoveryCanaryPorts(ctx, profile, authority, backupRepository)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	restoreCanary := recovery.CanaryVerifier{
 		Read: restoreStoreCanary, OldEpoch: restoreStoreCanary,
-		Noop: recovery.UnavailableCanaryNoop{}, Audit: recovery.UnavailableCanaryAudit{}, Backup: recovery.UnavailableCanaryBackup{},
+		Noop: recovery.BoundCanaryNoop{Restores: restoreRepository, Core: coreRouter, Recorder: authority}, Audit: canaryAudit, Backup: canaryBackup,
 		FormerWriter: recovery.FreshFormerWriterCanary{Restores: restoreRepository, Fences: restoreFences.Execution},
 		Enable:       restoreStoreCanary,
 		Clock:        time.Now,
