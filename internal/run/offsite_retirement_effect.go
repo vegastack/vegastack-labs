@@ -15,7 +15,7 @@ const OffsiteRetirementAdapterID = "r2.retention"
 // that owns the exact intent, write-ahead journal, two distinct JIT identities,
 // provider clients, and survivor verifier.
 type OffsiteRetirementExecution interface {
-	RetireOffsite(context.Context, adapter.Operation, adapter.ExactExecutionBinding, *credentialref.Value, *credentialref.Value) (string, error)
+	RetireOffsite(context.Context, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (string, error)
 	VerifiedReceiptExists(context.Context, string, string) (bool, error)
 }
 type OffsiteRetirementEffect struct{ execution OffsiteRetirementExecution }
@@ -30,14 +30,21 @@ func (*OffsiteRetirementEffect) Execute(context.Context, adapter.Operation) (ada
 	return adapter.Effect{}, runError(generated.ErrorCodeAuthorizationDenied, "offsite-retirement-bound-credentials")
 }
 func (e *OffsiteRetirementEffect) ExecuteBoundWithCredentials(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (adapter.Effect, error) {
-	if e == nil || e.execution == nil || adapter.ValidateOperation(operation) != nil || operation.AdapterID != OffsiteRetirementAdapterID || operation.OperationType != "backup.retire.offsite" || operation.Idempotent || len(operation.SecretReferences) != 2 || len(values) != 2 || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID || values[0] == nil || values[1] == nil || len(values[0].Bytes()) == 0 || len(values[1].Bytes()) == 0 || binding.PlanID == "" || binding.RunID == "" || binding.StepID == "" || binding.LeaseID == "" {
+	if e == nil || e.execution == nil || adapter.ValidateOperation(operation) != nil || operation.AdapterID != OffsiteRetirementAdapterID || operation.OperationType != "backup.retire.offsite" || operation.Idempotent || len(operation.SecretReferences) < 3 || len(operation.SecretReferences) != len(values) || binding.PlanID == "" || binding.RunID == "" || binding.StepID == "" || binding.LeaseID == "" {
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-binding")
+	}
+	seen := map[string]bool{}
+	for index, reference := range operation.SecretReferences {
+		if reference.ID == "" || seen[reference.ID] || values[index] == nil || len(values[index].Bytes()) == 0 {
+			return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-binding")
+		}
+		seen[reference.ID] = true
 	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
 	if err != nil || !time.Now().UTC().Before(deadline) || !exactOffsiteRetirementExtensions(binding.ContractExtensions, operation.ArtifactDigest) {
 		return adapter.Effect{}, runError(generated.ErrorCodePlanStale, "offsite-retirement-binding")
 	}
-	digest, err := e.execution.RetireOffsite(ctx, operation, binding, values[0], values[1])
+	digest, err := e.execution.RetireOffsite(ctx, operation, binding, values)
 	if err != nil {
 		return adapter.Effect{EffectObserved: true}, err
 	}

@@ -80,7 +80,7 @@ func (app *Application) backupOffsiteRetirementDryRun(config BackupOperations) f
 			return
 		}
 		var input generated.BackupOffsiteRetirementDryRunRequest
-		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "selectionDigest", "oneOwnerProofId", "lockAdminReferenceId", "retentionReferenceId", "credentialBindingDigest"}, &input); err != nil {
+		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "selectionDigest", "oneOwnerProofId", "lockAdminReferenceId", "retentionReferenceId"}, &input); err != nil {
 			app.failure(w, op, err)
 			return
 		}

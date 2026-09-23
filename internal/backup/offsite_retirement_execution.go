@@ -12,7 +12,7 @@ import (
 )
 
 type OffsiteRetirementProviderFactory interface {
-	Clients(context.Context, store.OffsiteRetirementIntent, *credentialref.Value, *credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, OffsiteSurvivorVerifier, error)
+	Clients(context.Context, store.OffsiteRetirementIntent, adapter.ExactExecutionBinding, *credentialref.Value, *credentialref.Value, map[string]*credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, OffsiteSurvivorVerifier, error)
 }
 
 // SQLRetirementExecution is the production destructive composition. It owns
@@ -34,14 +34,34 @@ func NewSQLRetirementExecution(authority *store.Store, providers OffsiteRetireme
 	return &SQLRetirementExecution{repository: store.NewOffsiteRetirementRepository(authority), providers: providers, clock: clock}, nil
 }
 
-func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, lockAdmin, retention *credentialref.Value) (string, error) {
-	if execution == nil || execution.repository == nil || execution.providers == nil || lockAdmin == nil || retention == nil || operation.ArtifactDigest == "" {
+func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, operation adapter.Operation, binding adapter.ExactExecutionBinding, values []*credentialref.Value) (string, error) {
+	if execution == nil || execution.repository == nil || execution.providers == nil || operation.ArtifactDigest == "" || len(values) != len(operation.SecretReferences) {
 		return "", errors.New("offsite retirement execution unavailable")
 	}
 	intent, err := execution.repository.GetOffsiteRetirementIntentByDigest(ctx, operation.ArtifactDigest)
 	if err != nil || intent.PlanID != binding.PlanID || intent.PlanDigest != binding.PlanDigest || intent.GenerationID != operation.TargetID || intent.StateRevision != binding.StateRevision || intent.RecoveryEpoch != binding.RecoveryEpoch || intent.CredentialBindingDigest != operation.InputDigest ||
-		len(operation.SecretReferences) != 2 || operation.SecretReferences[0].Consumer != intent.LockAdminReferenceID || operation.SecretReferences[1].Consumer != intent.RetentionReferenceID || operation.SecretReferences[0].ID == operation.SecretReferences[1].ID {
+		len(operation.SecretReferences) != 2+len(intent.SurvivorKeyReferences) {
 		return "", errors.New("offsite retirement intent binding invalid")
+	}
+	var lockAdmin, retention *credentialref.Value
+	keys := map[string]*credentialref.Value{}
+	for index, reference := range operation.SecretReferences {
+		switch reference.ID {
+		case intent.LockAdminReferenceID:
+			lockAdmin = values[index]
+		case intent.RetentionReferenceID:
+			retention = values[index]
+		default:
+			keys[reference.ID] = values[index]
+		}
+	}
+	for _, key := range intent.SurvivorKeyReferences {
+		if keys[key.ReferenceID] == nil {
+			return "", errors.New("offsite retirement survivor key binding invalid")
+		}
+	}
+	if lockAdmin == nil || retention == nil || len(keys) != len(intent.SurvivorKeyReferences) {
+		return "", errors.New("offsite retirement credential binding invalid")
 	}
 	deadline, err := time.Parse(time.RFC3339, binding.MaximumExpiresAt)
 	if err != nil || !execution.clock().UTC().Before(deadline) {
@@ -51,7 +71,7 @@ func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, oper
 	if err != nil {
 		return "", err
 	}
-	rules, objects, verifier, err := execution.providers.Clients(ctx, intent, lockAdmin, retention)
+	rules, objects, verifier, err := execution.providers.Clients(ctx, intent, binding, lockAdmin, retention, keys)
 	if err != nil {
 		return "", err
 	}

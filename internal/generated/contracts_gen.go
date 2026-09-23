@@ -672,7 +672,6 @@ type BackupOffsiteRetirementDryRunData struct {
 	SchemaVersion           string   `json:"schemaVersion"`
 	IntentDigest            string   `json:"intentDigest"`
 	SelectionDigest         string   `json:"selectionDigest"`
-	CredentialBindingDigest string   `json:"credentialBindingDigest"`
 	GenerationID            string   `json:"generationId"`
 	PointID                 string   `json:"pointId"`
 	BucketID                string   `json:"bucketId"`
@@ -682,6 +681,7 @@ type BackupOffsiteRetirementDryRunData struct {
 	CatalogDigest           string   `json:"catalogDigest"`
 	InventoryDigest         string   `json:"inventoryDigest"`
 	SurvivorPointIDs        []string `json:"survivorPointIds"`
+	SurvivorKeyReferenceIDs []string `json:"survivorKeyReferenceIds"`
 	ObjectCount             int64    `json:"objectCount"`
 	ExpectedReclaimBytes    int64    `json:"expectedReclaimBytes"`
 	PreRuleCount            int64    `json:"preRuleCount"`
@@ -691,15 +691,14 @@ type BackupOffsiteRetirementDryRunData struct {
 }
 
 type BackupOffsiteRetirementDryRunRequest struct {
-	Schema                  string `json:"schema"`
-	SchemaVersion           string `json:"schemaVersion"`
-	ExpectedStateRevision   int64  `json:"expectedStateRevision"`
-	RecoveryEpoch           int64  `json:"recoveryEpoch"`
-	SelectionDigest         string `json:"selectionDigest"`
-	OneOwnerProofID         string `json:"oneOwnerProofId"`
-	LockAdminReferenceID    string `json:"lockAdminReferenceId"`
-	RetentionReferenceID    string `json:"retentionReferenceId"`
-	CredentialBindingDigest string `json:"credentialBindingDigest"`
+	Schema                string `json:"schema"`
+	SchemaVersion         string `json:"schemaVersion"`
+	ExpectedStateRevision int64  `json:"expectedStateRevision"`
+	RecoveryEpoch         int64  `json:"recoveryEpoch"`
+	SelectionDigest       string `json:"selectionDigest"`
+	OneOwnerProofID       string `json:"oneOwnerProofId"`
+	LockAdminReferenceID  string `json:"lockAdminReferenceId"`
+	RetentionReferenceID  string `json:"retentionReferenceId"`
 }
 
 type BackupOffsiteRetirementStageRequest struct {

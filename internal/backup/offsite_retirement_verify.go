@@ -66,7 +66,7 @@ func VerifyOffsiteRetirement(ctx context.Context, intent store.OffsiteRetirement
 		}
 		p, err := verifier.VerifyOffsiteSurvivor(ctx, id)
 		if err != nil || p.PointID != id || p.GenerationID == intent.GenerationID || p.RecoveryEpoch != intent.RecoveryEpoch || p.FullReadAt.IsZero() || p.RestoredAt.IsZero() || p.ObservedAt.IsZero() || p.FullReadAt.After(p.ObservedAt) || p.RestoredAt.After(p.ObservedAt) || p.FullReadAt.Before(now) || p.RestoredAt.Before(now) || p.ObservedAt.Before(now) ||
-			expected.PointID != id || expected.GenerationID != p.GenerationID || expected.RecoveryEpoch != p.RecoveryEpoch || expected.RuleDigest != p.RuleDigest || expected.InventoryDigest != p.InventoryDigest || expected.FullReadDigest != p.FullReadDigest || expected.RestoreDigest != p.RestoreDigest {
+			expected.PointID != id || expected.GenerationID != p.GenerationID || expected.RecoveryEpoch != p.RecoveryEpoch || expected.RuleDigest != p.RuleDigest || expected.InventoryDigest != p.InventoryDigest || p.FullReadDigest == expected.FullReadDigest || p.RestoreDigest == expected.RestoreDigest {
 			return OffsiteRetirementProof{}, errors.New("offsite survivor proof failed")
 		}
 		proofs = append(proofs, p)

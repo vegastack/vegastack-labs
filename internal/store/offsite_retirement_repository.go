@@ -22,6 +22,7 @@ type OffsiteRetirementObject struct {
 	Key, Digest string
 	Bytes       int64
 }
+type OffsiteRetirementSurvivorKey struct{ PointID, GenerationID, ReferenceID string }
 type OffsiteRetirementIntent struct {
 	IntentID, PlanID, PlanDigest, GenerationID, PointID, BucketID                     string
 	RuleSetDigest, SurvivorRuleDigest, ManifestDigest, CatalogDigest, InventoryDigest string
@@ -31,6 +32,7 @@ type OffsiteRetirementIntent struct {
 	Rules                                                                             []OffsiteRetirementRule
 	Objects                                                                           []OffsiteRetirementObject
 	SurvivorPointIDs                                                                  []string
+	SurvivorKeyReferences                                                             []OffsiteRetirementSurvivorKey
 	SourceRevision, StateRevision, RecoveryEpoch, MaxWorkObjects, MaxMutationBytes    int64
 	PreRuleCount, SurvivorRuleCount                                                   int
 }
@@ -165,6 +167,31 @@ func (r *OffsiteRetirementRepository) CurrentOffsiteLastGood(ctx context.Context
 	return pointID, err
 }
 
+func (r *OffsiteRetirementRepository) IsQualifiedSurvivorKey(ctx context.Context, referenceID string, epoch int64) (bool, error) {
+	if r == nil || r.store == nil || referenceID == "" || epoch < 0 {
+		return false, newStoreError(generated.ErrorCodeInputInvalid, "offsite-survivor-key", false, nil)
+	}
+	var count int
+	err := r.store.conn.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_run_specs s JOIN backup_offsite_generations g ON g.generation_id=s.generation_id JOIN backup_offsite_proofs p ON p.generation_id=g.generation_id AND p.status='offsite-verified' AND p.proof_class='qualified-provider' AND p.recovery_epoch=g.recovery_epoch WHERE s.repository_key_reference_id=? AND g.recovery_epoch=?`, referenceID, epoch).Scan(&count)
+	return count > 0, err
+}
+
+func (r *OffsiteRetirementRepository) VerifySurvivorReadLease(ctx context.Context, intentID, leaseID, runID, stepID, pointID, generationID string, epoch int64, at time.Time) error {
+	if r == nil || r.store == nil || intentID == "" || leaseID == "" || pointID == "" || generationID == "" || at.IsZero() {
+		return newStoreError(generated.ErrorCodeInputInvalid, "offsite-survivor-read-lease", false, nil)
+	}
+	var maximum string
+	err := r.store.conn.QueryRowContext(ctx, `SELECT l.maximum_expires_at FROM backup_offsite_retirement_leases l JOIN backup_offsite_retirement_survivors s ON s.intent_id=l.intent_id JOIN backup_offsite_generations g ON g.source_point_id=s.point_id AND g.recovery_epoch=l.recovery_epoch WHERE l.intent_id=? AND l.lease_id=? AND l.run_id=? AND l.step_id=? AND s.point_id=? AND g.generation_id=? AND l.recovery_epoch=?`, intentID, leaseID, runID, stepID, pointID, generationID, epoch).Scan(&maximum)
+	if err != nil {
+		return newStoreError(generated.ErrorCodeAuthorizationDenied, "offsite-survivor-read-lease", false, err)
+	}
+	deadline, err := time.Parse(time.RFC3339, maximum)
+	if err != nil || !at.Before(deadline) {
+		return newStoreError(generated.ErrorCodePlanStale, "offsite-survivor-read-lease", false, err)
+	}
+	return nil
+}
+
 func (r *OffsiteRetirementRepository) VerifiedReceiptExists(ctx context.Context, generationID, digest string) (bool, error) {
 	if r == nil || r.store == nil || generationID == "" || !validBackupDigest(digest) {
 		return false, newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-receipt", false, nil)
@@ -209,7 +236,7 @@ func (r *OffsiteRetirementRepository) CurrentCatalogGenerations(ctx context.Cont
 func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context, intent OffsiteRetirementIntent) (string, error) {
 	if r == nil || r.store == nil || intent.IntentID == "" || intent.PlanID == "" || !validBackupDigest(intent.PlanDigest) || intent.GenerationID == "" || intent.PointID == "" || intent.BucketID == "" ||
 		!validBackupDigest(intent.RuleSetDigest) || !validBackupDigest(intent.SurvivorRuleDigest) || !validBackupDigest(intent.ManifestDigest) || !validBackupDigest(intent.CatalogDigest) || !validBackupDigest(intent.InventoryDigest) ||
-		intent.OneOwnerProofID == "" || intent.LockAdminReferenceID == "" || intent.RetentionReferenceID == "" || intent.LockAdminReferenceID == intent.RetentionReferenceID || !validBackupDigest(intent.G008BundleDigest) || !validBackupDigest(intent.QualificationDigest) || !validBackupDigest(intent.PutCutoffDigest) || !validBackupDigest(intent.MultipartCutoffDigest) || !validBackupDigest(intent.ExclusiveAdminDigest) || !validBackupDigest(intent.IntentDigest) || !validBackupDigest(intent.CredentialBindingDigest) || len(intent.Rules) != 5 || len(intent.Objects) == 0 || len(intent.SurvivorPointIDs) == 0 || intent.MaxWorkObjects != int64(len(intent.Objects)) || intent.MaxMutationBytes < 0 || intent.PreRuleCount < 5 || intent.SurvivorRuleCount != intent.PreRuleCount-5 {
+		intent.OneOwnerProofID == "" || intent.LockAdminReferenceID == "" || intent.RetentionReferenceID == "" || intent.LockAdminReferenceID == intent.RetentionReferenceID || !validBackupDigest(intent.G008BundleDigest) || !validBackupDigest(intent.QualificationDigest) || !validBackupDigest(intent.PutCutoffDigest) || !validBackupDigest(intent.MultipartCutoffDigest) || !validBackupDigest(intent.ExclusiveAdminDigest) || !validBackupDigest(intent.IntentDigest) || !validBackupDigest(intent.CredentialBindingDigest) || len(intent.Rules) != 5 || len(intent.Objects) == 0 || len(intent.SurvivorPointIDs) == 0 || len(intent.SurvivorKeyReferences) != len(intent.SurvivorPointIDs) || intent.MaxWorkObjects != int64(len(intent.Objects)) || intent.MaxMutationBytes < 0 || intent.PreRuleCount < 5 || intent.SurvivorRuleCount != intent.PreRuleCount-5 {
 		return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-intent", false, nil)
 	}
 	ruleIDs, prefixes := map[string]bool{}, map[string]bool{}
@@ -237,6 +264,13 @@ func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context
 		}
 		survivors[pointID] = true
 	}
+	keyPoints, keyReferences := map[string]bool{}, map[string]bool{}
+	for _, key := range intent.SurvivorKeyReferences {
+		if !survivors[key.PointID] || key.GenerationID == "" || key.ReferenceID == "" || keyPoints[key.PointID] || keyReferences[key.ReferenceID] || key.ReferenceID == intent.LockAdminReferenceID || key.ReferenceID == intent.RetentionReferenceID {
+			return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-survivor-keys", false, nil)
+		}
+		keyPoints[key.PointID], keyReferences[key.ReferenceID] = true, true
+	}
 	wantIntent, wantCredential, err := OffsiteRetirementIntentDigests(intent)
 	if err != nil || intent.IntentDigest != wantIntent || intent.CredentialBindingDigest != wantCredential {
 		return "", newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-intent-digest", false, err)
@@ -256,7 +290,7 @@ func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context
 		}
 	}
 	bindings, err := NewCredentialRepository(r.store).GetStepBindings(ctx, committed.Plan, operationID)
-	if err != nil || len(bindings) != 2 || credentialref.OperationManifestDigest(bindings, operationID) != intent.CredentialBindingDigest || !exactOffsiteCredentialBindings(bindings, intent) {
+	if err != nil || len(bindings) != 2+len(intent.SurvivorKeyReferences) || credentialref.OperationManifestDigest(bindings, operationID) != intent.CredentialBindingDigest || !exactOffsiteCredentialBindings(bindings, intent) {
 		return "", newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-credential-bindings", false, err)
 	}
 	now := r.store.config.Clock().UTC().Format(time.RFC3339)
@@ -438,6 +472,17 @@ func (r *OffsiteRetirementRepository) SettleVerifiedReceipt(ctx context.Context,
 		if !exactOffsiteEffectJournal(intent, bucket, survivorRuleDigest, journal) {
 			return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-settlement-journal", false, nil)
 		}
+		var lastEffectText string
+		if err := tx.QueryRowContext(ctx, `SELECT MAX(recorded_at) FROM backup_offsite_retirement_attempts WHERE lease_id=?`, v.LeaseID).Scan(&lastEffectText); err != nil {
+			return err
+		}
+		lastEffectAt, err := time.Parse(time.RFC3339Nano, lastEffectText)
+		if err != nil {
+			lastEffectAt, err = time.Parse(time.RFC3339, lastEffectText)
+		}
+		if err != nil {
+			return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-settlement-time", false, err)
+		}
 		survivors := append([]OffsiteRetirementSurvivorSettlement(nil), v.Survivors...)
 		slices.SortFunc(survivors, func(a, b OffsiteRetirementSurvivorSettlement) int {
 			if a.PointID < b.PointID {
@@ -450,6 +495,11 @@ func (r *OffsiteRetirementRepository) SettleVerifiedReceipt(ctx context.Context,
 		})
 		if !exactOffsiteSurvivorSettlement(ctx, tx, intent, survivors, epoch) {
 			return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-settlement-survivors", false, nil)
+		}
+		for _, survivor := range survivors {
+			if survivor.ObservedAt.Before(lastEffectAt) {
+				return newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-settlement-stale-proof", false, nil)
+			}
 		}
 		body, err := json.Marshal(struct {
 			IntentDigest   string
@@ -513,18 +563,17 @@ func exactOffsiteSurvivorSettlement(ctx context.Context, tx *sql.Tx, intent Offs
 			!validBackupDigest(proof.RuleDigest) || !validBackupDigest(proof.InventoryDigest) || !validBackupDigest(proof.FullReadDigest) || !validBackupDigest(proof.RestoreDigest) {
 			return false
 		}
-		var pendingJSON, storedFullReadDigest, storedRestoreDigest string
+		var pendingJSON string
 		if err := tx.QueryRowContext(ctx, `SELECT g.pending_json,p.proof_digest,v.proof_digest
 			FROM backup_offsite_generations g
 			JOIN backup_offsite_proofs p ON p.generation_id=g.generation_id AND p.status='offsite-verified' AND p.proof_class='qualified-provider' AND p.recovery_epoch=g.recovery_epoch
 			JOIN backup_local_verifications v ON v.point_id=g.source_point_id AND v.status='local-verified' AND v.proof_class='live' AND v.recovery_epoch=g.recovery_epoch
 			WHERE g.generation_id=? AND g.source_point_id=? AND g.recovery_epoch=?
-			ORDER BY p.created_at DESC,p.proof_id DESC,v.created_at DESC,v.verification_id DESC LIMIT 1`, proof.GenerationID, proof.PointID, epoch).Scan(&pendingJSON, &storedFullReadDigest, &storedRestoreDigest); err != nil {
+			ORDER BY p.created_at DESC,p.proof_id DESC,v.created_at DESC,v.verification_id DESC LIMIT 1`, proof.GenerationID, proof.PointID, epoch).Scan(&pendingJSON, new(string), new(string)); err != nil {
 			return false
 		}
 		var pending struct{ RuleDigest, OffsiteInventoryDigest string }
-		if json.Unmarshal([]byte(pendingJSON), &pending) != nil || pending.RuleDigest != proof.RuleDigest || pending.OffsiteInventoryDigest != proof.InventoryDigest ||
-			storedFullReadDigest != proof.FullReadDigest || storedRestoreDigest != proof.RestoreDigest {
+		if json.Unmarshal([]byte(pendingJSON), &pending) != nil || pending.RuleDigest != proof.RuleDigest || pending.OffsiteInventoryDigest != proof.InventoryDigest {
 			return false
 		}
 		if proof.PointID == currentLastGood {
@@ -647,27 +696,31 @@ func OffsiteRetirementIntentDigests(intent OffsiteRetirementIntent) (string, str
 	})
 	survivors := append([]string(nil), intent.SurvivorPointIDs...)
 	slices.Sort(survivors)
+	survivorKeys := append([]OffsiteRetirementSurvivorKey(nil), intent.SurvivorKeyReferences...)
+	slices.SortFunc(survivorKeys, func(a, b OffsiteRetirementSurvivorKey) int { return strings.Compare(a.PointID, b.PointID) })
 	payload := struct {
-		GenerationID, PointID, BucketID, RuleSetDigest, SurvivorRuleDigest, ManifestDigest, CatalogDigest, InventoryDigest, OneOwnerProofID, LockAdminReferenceID, RetentionReferenceID, CredentialBindingDigest, G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest, ExclusiveAdminDigest string
-		Rules                                                                                                                                                                                                                                                                                                         []OffsiteRetirementRule
-		Objects                                                                                                                                                                                                                                                                                                       []OffsiteRetirementObject
-		Survivors                                                                                                                                                                                                                                                                                                     []string
-		SourceRevision, StateRevision, RecoveryEpoch, MaxWorkObjects, MaxMutationBytes                                                                                                                                                                                                                                int64
-		PreRuleCount, SurvivorRuleCount                                                                                                                                                                                                                                                                               int
-	}{intent.GenerationID, intent.PointID, intent.BucketID, intent.RuleSetDigest, intent.SurvivorRuleDigest, intent.ManifestDigest, intent.CatalogDigest, intent.InventoryDigest, intent.OneOwnerProofID, intent.LockAdminReferenceID, intent.RetentionReferenceID, intent.CredentialBindingDigest, intent.G008BundleDigest, intent.QualificationDigest, intent.PutCutoffDigest, intent.MultipartCutoffDigest, intent.ExclusiveAdminDigest, rules, objects, survivors, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.MaxWorkObjects, intent.MaxMutationBytes, intent.PreRuleCount, intent.SurvivorRuleCount}
+		GenerationID, PointID, BucketID, RuleSetDigest, SurvivorRuleDigest, ManifestDigest, CatalogDigest, InventoryDigest, OneOwnerProofID, LockAdminReferenceID, RetentionReferenceID, G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest, ExclusiveAdminDigest string
+		Rules                                                                                                                                                                                                                                                                                []OffsiteRetirementRule
+		Objects                                                                                                                                                                                                                                                                              []OffsiteRetirementObject
+		Survivors                                                                                                                                                                                                                                                                            []string
+		SurvivorKeys                                                                                                                                                                                                                                                                         []OffsiteRetirementSurvivorKey
+		SourceRevision, StateRevision, RecoveryEpoch, MaxWorkObjects, MaxMutationBytes                                                                                                                                                                                                       int64
+		PreRuleCount, SurvivorRuleCount                                                                                                                                                                                                                                                      int
+	}{intent.GenerationID, intent.PointID, intent.BucketID, intent.RuleSetDigest, intent.SurvivorRuleDigest, intent.ManifestDigest, intent.CatalogDigest, intent.InventoryDigest, intent.OneOwnerProofID, intent.LockAdminReferenceID, intent.RetentionReferenceID, intent.G008BundleDigest, intent.QualificationDigest, intent.PutCutoffDigest, intent.MultipartCutoffDigest, intent.ExclusiveAdminDigest, rules, objects, survivors, survivorKeys, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.MaxWorkObjects, intent.MaxMutationBytes, intent.PreRuleCount, intent.SurvivorRuleCount}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", "", err
 	}
 	sum := sha256.Sum256(append([]byte("offsite-retirement-intent-v1\x00"), body...))
-	if !validBackupDigest(intent.CredentialBindingDigest) {
-		return "", "", errors.New("offsite retirement credential binding digest invalid")
-	}
 	return "sha256:" + hex.EncodeToString(sum[:]), intent.CredentialBindingDigest, nil
 }
 
 func exactOffsiteCredentialBindings(bindings []credentialref.StepBinding, intent OffsiteRetirementIntent) bool {
 	seenLock, seenRetention := false, false
+	keys := map[string]OffsiteRetirementSurvivorKey{}
+	for _, key := range intent.SurvivorKeyReferences {
+		keys[key.ReferenceID] = key
+	}
 	for _, binding := range bindings {
 		if binding.AdapterID != "r2.retention" || binding.TargetID != intent.GenerationID || binding.ConsumerID != "r2.retention" || binding.ResolverID != "native-systemd" || binding.StateRevision != intent.StateRevision || binding.RecoveryEpoch != intent.RecoveryEpoch {
 			return false
@@ -683,11 +736,16 @@ func exactOffsiteCredentialBindings(bindings []credentialref.StepBinding, intent
 				return false
 			}
 			seenRetention = true
+		case "repository-key":
+			if _, ok := keys[binding.ReferenceID]; !ok {
+				return false
+			}
+			delete(keys, binding.ReferenceID)
 		default:
 			return false
 		}
 	}
-	return seenLock && seenRetention
+	return seenLock && seenRetention && len(keys) == 0
 }
 func nilIfEmpty(v string) any {
 	if v == "" {

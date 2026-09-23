@@ -776,7 +776,6 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `schemaVersion`: `1.1.0`
 - `intentDigest`
 - `selectionDigest`
-- `credentialBindingDigest`
 - `generationId`
 - `pointId`
 - `bucketId`
@@ -786,6 +785,7 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `catalogDigest`
 - `inventoryDigest`
 - `survivorPointIds`
+- `survivorKeyReferenceIds`
 - `objectCount`
 - `expectedReclaimBytes`
 - `preRuleCount`
@@ -803,7 +803,6 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `oneOwnerProofId`
 - `lockAdminReferenceId`
 - `retentionReferenceId`
-- `credentialBindingDigest`
 
 ### `vegastack-labs.dev/backup-run-request`
 

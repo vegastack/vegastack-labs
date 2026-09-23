@@ -22,7 +22,7 @@ func (f retirementSourceFixture) Execution(context.Context, serverconfig.Profile
 
 type retirementExecutionServerFixture struct{}
 
-func (retirementExecutionServerFixture) RetireOffsite(context.Context, adapter.Operation, adapter.ExactExecutionBinding, *credentialref.Value, *credentialref.Value) (string, error) {
+func (retirementExecutionServerFixture) RetireOffsite(context.Context, adapter.Operation, adapter.ExactExecutionBinding, []*credentialref.Value) (string, error) {
 	return "", nil
 }
 func (retirementExecutionServerFixture) VerifiedReceiptExists(context.Context, string, string) (bool, error) {

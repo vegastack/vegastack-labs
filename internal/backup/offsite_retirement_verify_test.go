@@ -29,7 +29,7 @@ func (v survivorVerifierFixture) VerifyOffsiteSurvivor(_ context.Context, id str
 		return OffsiteSurvivorProof{}, errors.New("restore failed")
 	}
 	d := "sha256:" + strings.Repeat("a", 64)
-	return OffsiteSurvivorProof{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: d, RestoreDigest: d, FullReadAt: v.now, RestoredAt: v.now, ObservedAt: v.now, RecoveryEpoch: 2}, nil
+	return OffsiteSurvivorProof{PointID: id, GenerationID: "survivor-" + id, RuleDigest: d, InventoryDigest: d, FullReadDigest: "sha256:" + strings.Repeat("b", 64), RestoreDigest: "sha256:" + strings.Repeat("c", 64), FullReadAt: v.now, RestoredAt: v.now, ObservedAt: v.now, RecoveryEpoch: 2}, nil
 }
 
 func TestOffsiteRetirementCannotSettleAfterPartialDeleteOrFailedSurvivor(t *testing.T) {

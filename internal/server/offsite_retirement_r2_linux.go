@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
 	"github.com/vegastack/vegastack-labs/internal/adapters/r2"
 	"github.com/vegastack/vegastack-labs/internal/api"
@@ -25,10 +26,12 @@ import (
 
 type labsR2RetirementProviders struct {
 	profile   *serverconfig.OffsiteBackup
+	local     *serverconfig.LocalBackup
 	authority *store.Store
+	inspector store.RestoredSQLiteInspector
 }
 
-func (providers labsR2RetirementProviders) Clients(_ context.Context, intent store.OffsiteRetirementIntent, lockAdmin, retention *credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, backup.OffsiteSurvivorVerifier, error) {
+func (providers labsR2RetirementProviders) Clients(_ context.Context, intent store.OffsiteRetirementIntent, binding adapter.ExactExecutionBinding, lockAdmin, retention *credentialref.Value, repositoryKeys map[string]*credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, backup.OffsiteSurvivorVerifier, error) {
 	if providers.profile == nil || lockAdmin == nil || retention == nil || intent.BucketID != providers.profile.Bucket || intent.GenerationID == "" {
 		return nil, nil, nil, errors.New("r2 retirement provider binding unavailable")
 	}
@@ -39,16 +42,46 @@ func (providers labsR2RetirementProviders) Clients(_ context.Context, intent sto
 	rules := &boundR2Rules{client: r2.RetentionClient{AccountID: providers.profile.AccountID, Bucket: providers.profile.Bucket, Clock: time.Now}, bearer: append([]byte(nil), lockAdmin.Bytes()...)}
 	objects := &boundR2Objects{client: r2.S3Client{Endpoint: providers.profile.Endpoint, Bucket: providers.profile.Bucket, Clock: time.Now}, credentials: credentials, prefix: strings.TrimSuffix(providers.profile.Prefix, "/") + "/" + intent.GenerationID}
 	verifierCredentials := r2.S3Credentials{AccessKeyID: append([]byte(nil), credentials.AccessKeyID...), SecretAccessKey: append([]byte(nil), credentials.SecretAccessKey...), SessionToken: append([]byte(nil), credentials.SessionToken...)}
-	verifier := &labsR2SurvivorVerifier{repository: store.NewOffsiteRetirementRepository(providers.authority), client: r2.S3Client{Endpoint: providers.profile.Endpoint, Bucket: providers.profile.Bucket, Clock: time.Now}, credentials: verifierCredentials, prefix: strings.TrimSuffix(providers.profile.Prefix, "/"), clock: time.Now}
+	keyCopies := map[string]*credentialref.Value{}
+	for referenceID, value := range repositoryKeys {
+		copied, copyErr := credentialref.NewValue(value.Bytes())
+		if copyErr != nil {
+			rules.Close()
+			objects.Close()
+			for _, prior := range keyCopies {
+				prior.Close()
+			}
+			return nil, nil, nil, copyErr
+		}
+		keyCopies[referenceID] = copied
+	}
+	parentCopy, copyErr := credentialref.NewValue(retention.Bytes())
+	if copyErr != nil {
+		rules.Close()
+		objects.Close()
+		for _, prior := range keyCopies {
+			prior.Close()
+		}
+		return nil, nil, nil, copyErr
+	}
+	verifier := &labsR2SurvivorVerifier{authority: providers.authority, profile: providers.profile, local: providers.local, inspector: providers.inspector, intent: intent, binding: binding, repository: store.NewOffsiteRetirementRepository(providers.authority), client: r2.S3Client{Endpoint: providers.profile.Endpoint, Bucket: providers.profile.Bucket, Clock: time.Now}, credentials: verifierCredentials, parent: parentCopy, repositoryKeys: keyCopies, prefix: strings.TrimSuffix(providers.profile.Prefix, "/"), clock: time.Now}
 	return rules, objects, verifier, nil
 }
 
 type labsR2SurvivorVerifier struct {
-	repository  *store.OffsiteRetirementRepository
-	client      r2.S3Client
-	credentials r2.S3Credentials
-	prefix      string
-	clock       func() time.Time
+	authority      *store.Store
+	profile        *serverconfig.OffsiteBackup
+	local          *serverconfig.LocalBackup
+	inspector      store.RestoredSQLiteInspector
+	intent         store.OffsiteRetirementIntent
+	binding        adapter.ExactExecutionBinding
+	repository     *store.OffsiteRetirementRepository
+	client         r2.S3Client
+	credentials    r2.S3Credentials
+	parent         *credentialref.Value
+	repositoryKeys map[string]*credentialref.Value
+	prefix         string
+	clock          func() time.Time
 }
 
 func (verifier *labsR2SurvivorVerifier) VerifyOffsiteSurvivor(ctx context.Context, pointID string) (backup.OffsiteSurvivorProof, error) {
@@ -63,11 +96,22 @@ func (verifier *labsR2SurvivorVerifier) VerifyOffsiteSurvivor(ctx context.Contex
 	if err != nil || observed.InventoryDigest != expected.InventoryDigest {
 		return backup.OffsiteSurvivorProof{}, errors.New("fresh survivor full read failed")
 	}
-	now := verifier.clock().UTC()
-	// The isolated restore proof is bound to #114's exact durable recovery
-	// artifact while this call performs a new complete provider read. A caller
-	// cannot supply either digest.
-	return backup.OffsiteSurvivorProof{PointID: pointID, GenerationID: expected.GenerationID, RuleDigest: expected.RuleDigest, InventoryDigest: observed.InventoryDigest, FullReadDigest: expected.FullReadDigest, RestoreDigest: expected.RestoreDigest, FullReadAt: now, RestoredAt: now, ObservedAt: now, RecoveryEpoch: expected.RecoveryEpoch}, nil
+	var referenceID string
+	for _, key := range verifier.intent.SurvivorKeyReferences {
+		if key.PointID == pointID {
+			referenceID = key.ReferenceID
+		}
+	}
+	password := verifier.repositoryKeys[referenceID]
+	if verifier.local == nil || password == nil {
+		return backup.OffsiteSurvivorProof{}, errors.New("fresh survivor restore binding unavailable")
+	}
+	proof, err := r2.VerifyRetirementSurvivor(ctx, r2.RetirementSurvivorVerificationConfig{Authority: verifier.authority, Intent: verifier.intent, Binding: verifier.binding, Endpoint: verifier.profile.Endpoint, Bucket: verifier.profile.Bucket, Prefix: verifier.prefix, ParentReferenceID: verifier.profile.ParentReferenceID, ParentFingerprint: verifier.profile.ParentFingerprint, ResticBinaryPath: verifier.local.ResticBinaryPath, CustodyPolicyPath: verifier.local.CustodyPolicyPath, Parent: verifier.parent, RepositoryKey: password, Inspector: verifier.inspector, Clock: verifier.clock}, pointID)
+	if err != nil {
+		return backup.OffsiteSurvivorProof{}, err
+	}
+	proof.InventoryDigest = observed.InventoryDigest
+	return proof, nil
 }
 
 func (verifier *labsR2SurvivorVerifier) Close() error {
@@ -76,20 +120,30 @@ func (verifier *labsR2SurvivorVerifier) Close() error {
 		zeroCredential(verifier.credentials.SecretAccessKey)
 		zeroCredential(verifier.credentials.SessionToken)
 		verifier.credentials = r2.S3Credentials{}
+		verifier.parent.Close()
+		for id, value := range verifier.repositoryKeys {
+			value.Close()
+			delete(verifier.repositoryKeys, id)
+		}
 	}
 	return nil
 }
 
 type r2RetirementCredentialResolver struct {
-	profile *serverconfig.OffsiteBackup
-	systemd *systemdCredentialResolver
+	profile     *serverconfig.OffsiteBackup
+	systemd     *systemdCredentialResolver
+	retirements *store.OffsiteRetirementRepository
 }
 
 func (resolver *r2RetirementCredentialResolver) Resolve(ctx context.Context, binding credentialref.StepBinding) (*credentialref.Value, error) {
 	if resolver == nil || resolver.profile == nil || resolver.systemd == nil || binding.ConsumerID != "r2.retention" || binding.ResolverID != "native-systemd" || binding.AdapterID != "r2.retention" {
 		return nil, errors.New("r2 retirement credential binding unavailable")
 	}
-	if (binding.PurposeID == "lock-admin" && binding.ReferenceID != resolver.profile.ObserverReferenceID) || (binding.PurposeID == "retention" && binding.ReferenceID != resolver.profile.ParentReferenceID) || (binding.PurposeID != "lock-admin" && binding.PurposeID != "retention") {
+	qualifiedKey := false
+	if binding.PurposeID == "repository-key" && resolver.retirements != nil {
+		qualifiedKey, _ = resolver.retirements.IsQualifiedSurvivorKey(ctx, binding.ReferenceID, binding.RecoveryEpoch)
+	}
+	if (binding.PurposeID == "lock-admin" && binding.ReferenceID != resolver.profile.ObserverReferenceID) || (binding.PurposeID == "retention" && binding.ReferenceID != resolver.profile.ParentReferenceID) || (binding.PurposeID == "repository-key" && !qualifiedKey) || (binding.PurposeID != "lock-admin" && binding.PurposeID != "retention" && binding.PurposeID != "repository-key") {
 		return nil, errors.New("r2 retirement credential binding invalid")
 	}
 	raw, err := resolver.systemd.Resolve(ctx, credentialref.Reference{ID: binding.ReferenceID, Consumer: binding.ConsumerID})
@@ -130,7 +184,7 @@ func composeR2RetirementCredentials(ctx context.Context, profile serverconfig.Pr
 	if err != nil {
 		return nil, err
 	}
-	resolver := &r2RetirementCredentialResolver{profile: profile.OffsiteBackup, systemd: systemd}
+	resolver := &r2RetirementCredentialResolver{profile: profile.OffsiteBackup, systemd: systemd, retirements: retirements}
 	if err := registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "native-systemd", ConsumerID: "r2.retention", ProfileID: scope.ProfileID, CapabilityID: "credential.native.read", Enabled: true}, resolver); err != nil {
 		_ = systemd.directory.Close()
 		return nil, err
@@ -194,10 +248,14 @@ func (client *boundR2Objects) Close() error {
 }
 
 func NewLabsR2RetirementExecution(_ context.Context, profile serverconfig.Profile, authority *store.Store, _ generated.GateEvidence) (runengine.OffsiteRetirementExecution, error) {
-	if profile.OffsiteBackup == nil {
+	if profile.OffsiteBackup == nil || profile.LocalBackup == nil {
 		return nil, errors.New("r2 retirement profile unavailable")
 	}
-	return backup.NewSQLRetirementExecution(authority, labsR2RetirementProviders{profile: profile.OffsiteBackup, authority: authority}, time.Now)
+	inspector, err := store.NewRestoredSQLiteInspector(authority)
+	if err != nil {
+		return nil, err
+	}
+	return backup.NewSQLRetirementExecution(authority, labsR2RetirementProviders{profile: profile.OffsiteBackup, local: profile.LocalBackup, authority: authority, inspector: inspector}, time.Now)
 }
 
 type labsR2RetirementCatalog struct {

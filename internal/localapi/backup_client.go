@@ -63,7 +63,7 @@ func (client *client) DryRunBackupOffsiteRetirement(ctx context.Context, profile
 		return zero, failure.New(generated.ErrorCodeInputInvalid, "backup-offsite-retirement-dry-run", false)
 	}
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/backups/offsite-retirements/dry-run", "api.v1.backup-offsite-retirements.dry-run", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.BackupOffsiteRetirementDryRunData, result generated.RunResult) bool {
-		return data.Schema == generated.SchemaIDBackupOffsiteRetirementDryRunData && data.IntentDigest != "" && data.CredentialBindingDigest == input.CredentialBindingDigest && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
+		return data.Schema == generated.SchemaIDBackupOffsiteRetirementDryRunData && data.IntentDigest != "" && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
 	})
 }
 

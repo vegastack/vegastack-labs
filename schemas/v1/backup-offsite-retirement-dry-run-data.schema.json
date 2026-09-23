@@ -11,10 +11,6 @@
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
-    "credentialBindingDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
-      "type": "string"
-    },
     "expectedReclaimBytes": {
       "minimum": 0,
       "type": "integer"
@@ -75,6 +71,14 @@
       "minimum": 0,
       "type": "integer"
     },
+    "survivorKeyReferenceIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
     "survivorPointIds": {
       "items": {
         "type": "string"
@@ -97,7 +101,6 @@
     "schemaVersion",
     "intentDigest",
     "selectionDigest",
-    "credentialBindingDigest",
     "generationId",
     "pointId",
     "bucketId",
@@ -107,6 +110,7 @@
     "catalogDigest",
     "inventoryDigest",
     "survivorPointIds",
+    "survivorKeyReferenceIds",
     "objectCount",
     "expectedReclaimBytes",
     "preRuleCount",
