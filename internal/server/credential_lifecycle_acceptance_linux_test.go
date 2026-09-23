@@ -121,38 +121,37 @@ func (verifier *lifecycleAcceptanceVerifier) Verify(_ context.Context, step rune
 	return results, nil
 }
 
-type lifecycleAcceptanceRecoveryAuthority struct{}
-
-func (lifecycleAcceptanceRecoveryAuthority) CurrentInstalledRecovery(_ context.Context, request RecoveryCustodyRequest) (installedRecoveryAuthority, error) {
-	binding := recovery.WitnessBinding{FormerHostID: "former-host", FormerInstanceID: "former-instance", ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance",
-		DraftID: request.Draft.DraftID, CiphertextFingerprint: request.Draft.CiphertextFingerprint, PlanDigest: request.PlanDigest,
-		RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, ChallengeID: "challenge-135", ReceiptID: "receipt-135",
-		PriorEpoch: request.PriorRecoveryEpoch, NewEpoch: request.RecoveryEpoch, StateRevision: request.StateRevision}
-	required := []recovery.BoundaryRequirement{{Kind: "host-service", SubjectID: request.Draft.TargetID, TargetID: "former-host", AdapterID: "host-denial-v1", FormerIdentityID: "former-instance", ProbeID: "former-writer-denied"}}
-	return installedRecoveryAuthority{Binding: binding, Required: required}, nil
+type lifecycleAcceptanceInstalledSource struct {
+	t              *testing.T
+	draft          store.CredentialImportDraft
+	native         nativecredential.VerifyRecoveryRequest
+	material       []byte
+	custody, fence string
+	delegate       *acceptanceRecoverySource
+	authority      installedRecoveryAuthority
 }
 
-type lifecycleAcceptanceRecoveryLoader struct {
-	material []byte
-	uses     int
-}
-
-func (loader *lifecycleAcceptanceRecoveryLoader) LoadVerified(_ context.Context, _ recovery.WitnessBinding, required []recovery.BoundaryRequirement, _ time.Time) (installedRecoveryCandidate, error) {
-	if len(required) != 1 {
-		return installedRecoveryCandidate{}, errors.New("wrong recovery boundary")
+func (source *lifecycleAcceptanceInstalledSource) CurrentInstalledRecovery(_ context.Context, request RecoveryCustodyRequest) (installedRecoveryAuthority, error) {
+	binding := recovery.WitnessBinding{FormerHostID: "former-host", FormerInstanceID: "former-instance", ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance", DraftID: request.Draft.DraftID, CiphertextFingerprint: request.Draft.CiphertextFingerprint, PlanDigest: request.PlanDigest, RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, ChallengeID: "challenge-135", ReceiptID: "receipt-135", PriorEpoch: request.PriorRecoveryEpoch, NewEpoch: request.RecoveryEpoch, StateRevision: request.StateRevision}
+	source.delegate = newAcceptanceRecoverySource(source.t, binding, source.draft, source.native, source.material)
+	value, err := source.delegate.installedRecoverySource.authority.CurrentInstalledRecovery(context.Background(), request)
+	if err == nil {
+		source.authority = value
 	}
-	return installedRecoveryCandidate{
-		sourceDigest: lifecycleAcceptanceDigest("source"), manifestDigest: lifecycleAcceptanceDigest("manifest"),
-		witnessDigest: lifecycleAcceptanceDigest("fence"), fenceDigest: lifecycleAcceptanceDigest("qualification"),
-		envelopeDigest: lifecycleAcceptanceDigest("custody"),
-		consume: func(_ context.Context, compare func(io.ReadCloser) error) error {
-			if loader.uses != 0 {
-				return errors.New("recovery handoff replay")
-			}
-			loader.uses++
-			return compare(io.NopCloser(bytes.NewReader(loader.material)))
-		},
-	}, nil
+	return value, err
+}
+
+func (source *lifecycleAcceptanceInstalledSource) LoadVerified(ctx context.Context, binding recovery.WitnessBinding, required []recovery.BoundaryRequirement, now time.Time) (installedRecoveryCandidate, error) {
+	if source.delegate == nil {
+		return installedRecoveryCandidate{}, recovery.ErrWitnessUnavailable
+	}
+	value, err := source.delegate.installedRecoverySource.loader.LoadVerified(ctx, binding, required, now)
+	if err == nil {
+		// Custody and fence are controlled public seams in this capstone because
+		// the immutable recovery plan necessarily precedes fixture construction.
+		value.envelopeDigest, value.witnessDigest = source.custody, source.fence
+	}
+	return value, err
 }
 
 type lifecycleAcceptanceEnv struct {
@@ -312,21 +311,6 @@ func (env *lifecycleAcceptanceEnv) importDraft(version, suffix string, private [
 	return value
 }
 
-func (env *lifecycleAcceptanceEnv) importRecoveryFixtureDraft(version, suffix string) generated.CredentialImportSubmission {
-	env.t.Helper()
-	current, err := env.revisions.CurrentRevision(context.Background())
-	if err != nil {
-		env.t.Fatal(err)
-	}
-	input := generated.CredentialImportRequest{Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: "1.1.0", ReferenceID: "reference-135", ConsumerID: "consumer-a", PurposeID: "purpose-135", TargetID: "target-135", ResolverID: "native-systemd", MaterialVersion: version, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "import-" + suffix}
-	input.TargetDigest = credentialref.ImportTargetDigest(input)
-	value, err := env.references.PutImportDraft(context.Background(), store.CredentialImportDraftRequest{Input: input, DraftID: "draft-" + suffix, CiphertextName: "ciphertext-" + suffix, CiphertextFingerprint: lifecycleAcceptanceDigest("ciphertext", suffix), Expected: current, Attribution: audit.Attribution{AuthenticatedPrincipalID: env.principal.ID, AuthenticatedPrincipalMethod: env.principal.Method}, KeyDigest: lifecycleAcceptanceDigest("import-key", suffix), RequestDigest: lifecycleAcceptanceDigest("import-request", suffix)})
-	if err != nil {
-		env.t.Fatal(err)
-	}
-	return value
-}
-
 func (env *lifecycleAcceptanceEnv) configureNative(version string) {
 	env.t.Helper()
 	name := credentialref.LoadedNameForVersion("consumer-a", "reference-135", version)
@@ -476,23 +460,90 @@ func (env *lifecycleAcceptanceEnv) enterRecoveryEpoch() {
 	}
 }
 
-func (env *lifecycleAcceptanceEnv) installRecoveryVerifier(material []byte) *lifecycleAcceptanceRecoveryLoader {
-	loader := &lifecycleAcceptanceRecoveryLoader{material: material}
-	source := &installedRecoverySource{authority: lifecycleAcceptanceRecoveryAuthority{}, loader: loader, ciphertextRoot: filepath.Join(filepath.Dir(env.path), "credential-drafts"), ownerUID: uint32(os.Geteuid()), clock: env.clock,
-		compare: func(_ context.Context, request nativecredential.VerifyRecoveryRequest, private io.ReadCloser) (nativecredential.VerifiedDraft, error) {
-			defer private.Close()
-			value, err := io.ReadAll(private)
-			if err != nil || !bytes.Equal(value, material) || request.ExpectedFingerprint == "" || request.Name == "" {
-				return nativecredential.VerifiedDraft{}, errors.New("exact draft comparison failed")
-			}
-			return nativecredential.VerifiedDraft{CiphertextFingerprint: request.ExpectedFingerprint, HostKeyDigest: lifecycleAcceptanceDigest("replacement-host-key")}, nil
-		}}
+func (env *lifecycleAcceptanceEnv) enterReplacementAuthority() {
+	env.t.Helper()
+	replacement, err := os.MkdirTemp("/var/tmp", "vsk135-replacement-")
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	env.t.Cleanup(func() { _ = os.RemoveAll(replacement) })
+	if err := os.Chmod(replacement, 0o700); err != nil {
+		env.t.Fatal(err)
+	}
+	snapshot := filepath.Join(replacement, "control.db")
+	db, err := sql.Open("sqlite3", env.path)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	if _, err := db.Exec(`VACUUM INTO ?`, snapshot); err != nil {
+		_ = db.Close()
+		env.t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		env.t.Fatal(err)
+	}
+	if err := env.authority.Close(); err != nil {
+		env.t.Fatal(err)
+	}
+	authority, err := store.Open(context.Background(), store.Config{DatabasePath: snapshot, Mode: store.OpenExisting, ExpectedUID: 0, ToolVersion: "lifecycle-acceptance", BuildVersion: "lifecycle-acceptance", Clock: env.clock})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	env.t.Cleanup(func() { _ = authority.Close() })
+	env.path, env.authority = snapshot, authority
+	env.references, env.revisions = store.NewCredentialRepository(authority), store.NewPlanRepository(authority)
+	env.declarations, err = change.NewService(store.NewDeclarationRepository(authority), env.clock)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	env.lifecycle, err = api.NewCredentialLifecycleService(env.references, env.revisions, env.declarations, lifecycleAcceptanceAuthorizer{})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+}
+
+func (env *lifecycleAcceptanceEnv) enterReplacementHost() {
+	env.t.Helper()
+	directory := filepath.Dir(env.path)
+	root := filepath.Join(directory, "credential-drafts")
+	formerRoot := filepath.Join(directory, "former-credential-drafts")
+	if err := os.Rename(root, formerRoot); err != nil && !os.IsNotExist(err) {
+		env.t.Fatal(err)
+	}
+	if err := os.Mkdir(root, 0o700); err != nil {
+		env.t.Fatal(err)
+	}
+	const hostKey = "/var/lib/systemd/credential.secret"
+	formerKey := filepath.Join(directory, "former-systemd-credential.secret")
+	if err := os.Rename(hostKey, formerKey); err != nil {
+		env.t.Fatal(err)
+	}
+	setup := exec.Command("/usr/bin/systemd-creds", "setup")
+	setup.Stdout, setup.Stderr = io.Discard, io.Discard
+	if err := setup.Run(); err != nil {
+		env.t.Fatal("replacement host key setup failed")
+	}
+	env.t.Cleanup(func() {
+		_ = os.Remove(hostKey)
+		if err := os.Rename(formerKey, hostKey); err != nil {
+			env.t.Error(err)
+		}
+	})
+}
+
+func (env *lifecycleAcceptanceEnv) installRecoveryVerifier(draftID string, material []byte, custody, fence string) *lifecycleAcceptanceInstalledSource {
+	draft, err := env.references.GetImportDraftByID(context.Background(), draftID)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	dynamic := &lifecycleAcceptanceInstalledSource{t: env.t, draft: draft, native: nativecredential.VerifyRecoveryRequest{Name: draft.CiphertextName, CiphertextDirectory: filepath.Join(filepath.Dir(env.path), "credential-drafts"), ExpectedUID: 0, ExpectedFingerprint: draft.CiphertextFingerprint}, material: material, custody: custody, fence: fence}
+	source := &installedRecoverySource{authority: dynamic, loader: dynamic, ciphertextRoot: filepath.Join(filepath.Dir(env.path), "credential-drafts"), ownerUID: uint32(os.Geteuid()), clock: time.Now, compare: nativecredential.VerifyRecoveredDraft}
 	verifier, err := NewRecoveryCustodyVerifier(env.references, env.revisions, source)
 	if err != nil {
 		env.t.Fatal(err)
 	}
 	env.recovery = verifier
-	return loader
+	return dynamic
 }
 
 func TestFullCredentialLifecycleAcceptance(t *testing.T) {
@@ -579,18 +630,35 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 		t.Fatalf("active successor shadowed: %+v %v", v2Final, err)
 	}
 
+	env.enterReplacementAuthority()
 	env.enterRecoveryEpoch()
-	recoveryDraft := env.importRecoveryFixtureDraft("version-2", "recovery-v2")
-	loader := env.installRecoveryVerifier(material)
+	env.enterReplacementHost()
+	recoveryDraft := env.importDraft("version-2", "recovery-v2", material)
 	priorEpoch := int64(0)
 	custody, fence := lifecycleAcceptanceDigest("custody"), lifecycleAcceptanceDigest("fence")
+	source := env.installRecoveryVerifier(recoveryDraft.DraftID, material, custody, fence)
 	recover := env.request("credential.recover", "version-2", "recover-v2")
 	recover.DraftID, recover.ConsumerIDs = &recoveryDraft.DraftID, []string{"consumer-a"}
 	recover.PriorRecoveryEpoch, recover.CustodyProofDigest, recover.FormerControllerFenceDigest = &priorEpoch, &custody, &fence
 	env.apply(recover)
 	current, err := env.revisions.CurrentRevision(context.Background())
-	if err != nil || current.RecoveryEpoch != 1 || loader.uses != 1 {
-		t.Fatalf("recovery changed epoch or custody use: %+v uses=%d err=%v", current, loader.uses, err)
+	if err != nil || current.RecoveryEpoch != 1 || source.delegate == nil {
+		t.Fatalf("recovery changed epoch or skipped installed source: %+v err=%v", current, err)
+	}
+	beforeReplayVersions, err := env.references.ListCredentialVersions(context.Background(), "reference-135", 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replay, err := source.LoadVerified(context.Background(), source.authority.Binding, source.authority.Required, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := replay.consume(context.Background(), func(private io.ReadCloser) error { return private.Close() }); err == nil {
+		t.Fatal("one-use recovery custody replay accepted")
+	}
+	afterReplayVersions, err := env.references.ListCredentialVersions(context.Background(), "reference-135", 1)
+	if err != nil || len(afterReplayVersions) != len(beforeReplayVersions) {
+		t.Fatalf("denied recovery replay appended a credential version: before=%d after=%d err=%v", len(beforeReplayVersions), len(afterReplayVersions), err)
 	}
 	oldEpoch, err := env.references.ListCredentialVersions(context.Background(), "reference-135", 0)
 	latestStatus := map[string]string{}
