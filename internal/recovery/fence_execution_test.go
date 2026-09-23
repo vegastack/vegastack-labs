@@ -23,11 +23,15 @@ func TestExactFenceWitnessBindsImmutablePlanAndExecution(t *testing.T) {
 		t.Fatal(err)
 	}
 	binding := generated.RestoreBinding{Source: source.Binding, FormerHostID: witness.FormerHostID, ReplacementHostID: witness.ReplacementHostID, RecoveryDraftID: witness.DraftID, CiphertextFingerprint: witness.CiphertextFingerprint, SourceAdmissionDigest: witness.SourceAdmissionDigest, FenceQualificationDigest: witness.FenceQualificationDigest, PlanDigest: witness.PlanDigest, RecoveryRunID: witness.RunID, RecoveryStepID: witness.StepID, RecoveryLeaseID: witness.LeaseID, RecoveryChallengeID: witness.ChallengeID, RecoveryReceiptID: witness.ReceiptID, PriorInstanceID: witness.FormerInstanceID, NewInstanceID: witness.ReplacementInstanceID, PriorRecoveryEpoch: witness.PriorEpoch, NextRecoveryEpoch: witness.NewEpoch, FenceSetDigest: requiredSet.FenceSetDigest}
+	receipts := &testReceipts{}
 	verifier := ExactFenceWitnessVerifier{Admissions: func(SourceAdmissionExpectation) (SourceAdmission, error) { return admission, nil }, Packages: func(context.Context, WitnessBinding) (InstalledPackage, error) { return installed, nil }, Qualifications: func(context.Context, []BoundaryRequirement, time.Time) (QualifiedAdapters, error) {
 		return qualified, nil
-	}, Clock: func() time.Time { return now }, ReleaseBuildID: "build-a", EvaluatorVersion: "1.0.0"}
+	}, Receipts: receipts, Clock: func() time.Time { return now }, ReleaseBuildID: "build-a", EvaluatorVersion: "1.0.0"}
 	if _, err := verifier.Verify(context.Background(), binding, witness.StateRevision, requiredSet.Items); err != nil {
 		t.Fatal(err)
+	}
+	if !receipts.used[witness.ReceiptID+"/"+witness.ChallengeID] {
+		t.Fatal("exact witness receipt was not consumed")
 	}
 	binding.RecoveryLeaseID = "other-lease"
 	if _, err := verifier.Verify(context.Background(), binding, witness.StateRevision, requiredSet.Items); err == nil {

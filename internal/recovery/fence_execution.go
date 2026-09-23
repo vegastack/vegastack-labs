@@ -19,13 +19,31 @@ type ExactFenceWitnessVerifier struct {
 	Admissions       SourceAdmissionLoader
 	Packages         RecoveryPackageLoader
 	Qualifications   QualifiedAdapterLoader
+	Receipts         ReceiptStore
 	Clock            func() time.Time
 	ReleaseBuildID   string
 	EvaluatorVersion string
 }
 
 func (verifier ExactFenceWitnessVerifier) Verify(ctx context.Context, binding generated.RestoreBinding, stateRevision int64, planned []generated.RestoreFenceItem) (FenceResult, error) {
-	if ctx == nil || ctx.Err() != nil || verifier.Admissions == nil || verifier.Packages == nil || verifier.Qualifications == nil || verifier.Clock == nil || stateRevision < 0 {
+	return verifier.verify(ctx, binding, stateRevision, planned)
+}
+
+// VerifyCanary consumes a separately precommitted witness package. Replacing
+// only the execution and one-use custody identifiers keeps the immutable plan,
+// host pair, epochs, source admission, and fence set identical to cutover.
+func (verifier ExactFenceWitnessVerifier) VerifyCanary(ctx context.Context, binding generated.RestoreBinding, stateRevision int64, planned []generated.RestoreFenceItem) (FenceResult, error) {
+	if binding.CanaryRunID == "" || binding.CanaryStepID == "" || binding.CanaryLeaseID == "" || binding.CanaryChallengeID == "" || binding.CanaryReceiptID == "" ||
+		binding.CanaryRunID == binding.RecoveryRunID || binding.CanaryStepID == binding.RecoveryStepID || binding.CanaryLeaseID == binding.RecoveryLeaseID || binding.CanaryChallengeID == binding.RecoveryChallengeID || binding.CanaryReceiptID == binding.RecoveryReceiptID {
+		return FenceResult{}, ErrWitnessUnavailable
+	}
+	binding.RecoveryRunID, binding.RecoveryStepID, binding.RecoveryLeaseID = binding.CanaryRunID, binding.CanaryStepID, binding.CanaryLeaseID
+	binding.RecoveryChallengeID, binding.RecoveryReceiptID = binding.CanaryChallengeID, binding.CanaryReceiptID
+	return verifier.verify(ctx, binding, stateRevision, planned)
+}
+
+func (verifier ExactFenceWitnessVerifier) verify(ctx context.Context, binding generated.RestoreBinding, stateRevision int64, planned []generated.RestoreFenceItem) (FenceResult, error) {
+	if ctx == nil || ctx.Err() != nil || verifier.Admissions == nil || verifier.Packages == nil || verifier.Qualifications == nil || verifier.Receipts == nil || verifier.Clock == nil || stateRevision < 0 {
 		return FenceResult{}, ErrWitnessUnavailable
 	}
 	expectedAdmission := SourceAdmissionExpectation{FormerHostID: binding.FormerHostID, FormerInstanceID: binding.PriorInstanceID, ReplacementHostID: binding.ReplacementHostID, ReplacementInstanceID: binding.NewInstanceID, DraftID: binding.RecoveryDraftID, CiphertextFingerprint: binding.CiphertextFingerprint, SourceAdmissionDigest: binding.SourceAdmissionDigest, FenceQualificationDigest: binding.FenceQualificationDigest, TargetReleaseBuildID: binding.Source.TargetReleaseBuildID, TargetToolVersion: binding.Source.TargetToolVersion, TargetSchemaVersion: binding.Source.TargetSchemaVersion, RequiredDependencies: append([]generated.RestoreDependencyBinding(nil), binding.Source.RequiredDependencies...), PriorEpoch: binding.PriorRecoveryEpoch, NewEpoch: binding.NextRecoveryEpoch}
@@ -64,6 +82,9 @@ func (verifier ExactFenceWitnessVerifier) Verify(ctx context.Context, binding ge
 	if err != nil || verified.FenceSetDigest != binding.FenceSetDigest {
 		return FenceResult{}, ErrWitnessUnavailable
 	}
+	if err := verifier.Receipts.Consume(ctx, witness.ReceiptID, witness.ChallengeID); err != nil {
+		return FenceResult{}, ErrWitnessUnavailable
+	}
 	return verified, nil
 }
 
@@ -94,5 +115,5 @@ func mustExpandFenceRequirements(requirements []FenceRequirement) []BoundaryRequ
 }
 
 func SystemExactFenceWitnessVerifier(releaseBuildID, evaluatorVersion string) ExactFenceWitnessVerifier {
-	return ExactFenceWitnessVerifier{Admissions: LoadSystemSourceAdmission, Packages: LoadSystemRecoveryPackage, Qualifications: LoadSystemQualifiedAdapters, Clock: time.Now, ReleaseBuildID: releaseBuildID, EvaluatorVersion: evaluatorVersion}
+	return ExactFenceWitnessVerifier{Admissions: LoadSystemSourceAdmission, Packages: LoadSystemRecoveryPackage, Qualifications: LoadSystemQualifiedAdapters, Receipts: NewSystemReceiptStore(), Clock: time.Now, ReleaseBuildID: releaseBuildID, EvaluatorVersion: evaluatorVersion}
 }

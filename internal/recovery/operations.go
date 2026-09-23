@@ -129,7 +129,7 @@ func (service *OperationsService) Verify(ctx context.Context, request generated.
 	if err != nil || !verifyMatchesBinding(request, qualification.Binding) {
 		return generated.RestoreVerification{}, failure.New(generated.ErrorCodePlanStale, "restore-verify", false)
 	}
-	canary, err := service.config.Canary.Verify(ctx, CanaryRequest{PlanID: request.PlanID, PlanDigest: request.PlanDigest, NewInstanceID: request.NewInstanceID, FenceSetDigest: request.FenceSetDigest, RecoveryEpoch: request.NextRecoveryEpoch, ExpectedStateRevision: request.ExpectedStateRevision, ResponsibleHumanID: principal.ID, PrincipalMethod: principal.Method})
+	canary, err := service.config.Canary.Verify(ctx, CanaryRequest{PlanID: request.PlanID, PlanDigest: request.PlanDigest, NewInstanceID: request.NewInstanceID, FenceSetDigest: request.FenceSetDigest, RecoveryEpoch: request.NextRecoveryEpoch, ExpectedStateRevision: request.ExpectedStateRevision, CanaryRunID: qualification.Binding.CanaryRunID, CanaryStepID: qualification.Binding.CanaryStepID, CanaryLeaseID: qualification.Binding.CanaryLeaseID, CanaryChallengeID: qualification.Binding.CanaryChallengeID, CanaryReceiptID: qualification.Binding.CanaryReceiptID, ResponsibleHumanID: principal.ID, PrincipalMethod: principal.Method})
 	if err != nil {
 		return generated.RestoreVerification{}, err
 	}
@@ -217,7 +217,7 @@ func sameJSONValue(left, right any) bool {
 func runMatchesBinding(request generated.RestoreRunRequest, binding generated.RestoreBinding) bool {
 	return request.PlanID == binding.PlanID && request.PlanDigest == binding.PlanDigest && request.PointID == binding.PointID && request.TargetDigest == binding.TargetDigest && request.FenceSetDigest == binding.FenceSetDigest && request.AuditDecisionDigest == binding.AuditDecisionDigest && request.CandidateDigest == binding.CandidateDigest &&
 		request.RecoveryRunID == binding.RecoveryRunID && request.RecoveryStepID == binding.RecoveryStepID && request.RecoveryLeaseID == binding.RecoveryLeaseID && request.RecoveryChallengeID == binding.RecoveryChallengeID && request.RecoveryReceiptID == binding.RecoveryReceiptID &&
-		request.CanaryRunID == binding.CanaryRunID && request.CanaryStepID == binding.CanaryStepID && request.CanaryLeaseID == binding.CanaryLeaseID && request.CanaryBindingDigest == binding.CanaryBindingDigest &&
+		request.CanaryRunID == binding.CanaryRunID && request.CanaryStepID == binding.CanaryStepID && request.CanaryLeaseID == binding.CanaryLeaseID && request.CanaryChallengeID == binding.CanaryChallengeID && request.CanaryReceiptID == binding.CanaryReceiptID && request.CanaryBindingDigest == binding.CanaryBindingDigest &&
 		request.PriorInstanceID == binding.PriorInstanceID && request.NewInstanceID == binding.NewInstanceID && request.PriorRecoveryEpoch == binding.PriorRecoveryEpoch && request.NextRecoveryEpoch == binding.NextRecoveryEpoch && sameJSONValue(request.Source, binding.Source)
 }
 

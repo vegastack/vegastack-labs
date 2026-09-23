@@ -47,14 +47,10 @@ func (canary StoreRecoveryCanary) VerifyOldEpochDenied(ctx context.Context, requ
 	if err != nil {
 		return err
 	}
-	current, err := canary.CurrentAuthority(ctx)
-	if err != nil {
-		return err
-	}
-	if bundle.Binding.PriorRecoveryEpoch+1 != current.RecoveryEpoch || bundle.Binding.PriorRecoveryEpoch == current.RecoveryEpoch || current.InstanceID != bundle.Binding.NewInstanceID || current.Mode != "recovery-required" {
+	if bundle.Binding.PriorRecoveryEpoch+1 != request.RecoveryEpoch {
 		return failure.New(generated.ErrorCodeRecoveryRequired, "recovery-canary-old-epoch", false)
 	}
-	return nil
+	return canary.Authority.VerifyRecoveryOldEpochMutationDenied(ctx, request.ExpectedStateRevision, bundle.Binding.PriorRecoveryEpoch)
 }
 
 func (canary StoreRecoveryCanary) EnableAuthority(ctx context.Context, request CanaryRequest, digest string) error {
@@ -72,7 +68,7 @@ func (canary StoreRecoveryCanary) exactBundle(ctx context.Context, request Canar
 	if err != nil {
 		return store.RecoveredAuthorityBundle{}, err
 	}
-	if bundle.Plan.PlanDigest != request.PlanDigest || bundle.Binding.NewInstanceID != request.NewInstanceID || bundle.Binding.NextRecoveryEpoch != request.RecoveryEpoch || bundle.Binding.FenceSetDigest != request.FenceSetDigest || bundle.Status != "verification-required" {
+	if bundle.Plan.PlanDigest != request.PlanDigest || bundle.Binding.NewInstanceID != request.NewInstanceID || bundle.Binding.NextRecoveryEpoch != request.RecoveryEpoch || bundle.Binding.FenceSetDigest != request.FenceSetDigest || bundle.Binding.CanaryRunID != request.CanaryRunID || bundle.Binding.CanaryStepID != request.CanaryStepID || bundle.Binding.CanaryLeaseID != request.CanaryLeaseID || bundle.Binding.CanaryChallengeID != request.CanaryChallengeID || bundle.Binding.CanaryReceiptID != request.CanaryReceiptID || bundle.Status != "verification-required" {
 		return store.RecoveredAuthorityBundle{}, failure.New(generated.ErrorCodePlanStale, "recovery-canary-authority", false)
 	}
 	return bundle, nil

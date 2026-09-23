@@ -2,6 +2,8 @@ package recovery
 
 import (
 	"context"
+	"encoding/json"
+	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -17,6 +19,7 @@ type RecoveryCheckpointAppender interface {
 
 type AuditCheckpointReader interface {
 	GetAuditCheckpoint(context.Context, string) (generated.AuditCheckpoint, error)
+	RecoveryCanaryNoopEvent(context.Context, string, string) (int64, time.Time, error)
 }
 
 type IndependentCheckpointCanary struct {
@@ -33,7 +36,12 @@ func (canary IndependentCheckpointCanary) AppendAndVerifyRecoveryCheckpoint(ctx 
 		return "", canaryCapabilityError("recovery-canary-audit")
 	}
 	checkpoint, err := canary.Reader.GetAuditCheckpoint(ctx, id)
-	if err != nil || checkpoint.CheckpointID != id || checkpoint.InstanceID != request.NewInstanceID || checkpoint.RecoveryEpoch != request.RecoveryEpoch || checkpoint.Status != "anchored" || checkpoint.VerificationStatus != "verified" || checkpoint.SourceKind != "independent" || checkpoint.ProofClass != "live" || checkpoint.SignatureDigest == nil || checkpoint.ExportReceiptDigest == nil || checkpoint.IndependentReadDigest == nil || checkpoint.IndependentCopyDigest == nil || checkpoint.VerifiedAt == nil {
+	eventID, eventAt, eventErr := canary.Reader.RecoveryCanaryNoopEvent(ctx, request.PlanID, noopRunID)
+	var verifiedAt time.Time
+	if checkpoint.VerifiedAt != nil {
+		verifiedAt, _ = time.Parse(time.RFC3339, *checkpoint.VerifiedAt)
+	}
+	if err != nil || eventErr != nil || checkpoint.CheckpointID != id || checkpoint.InstanceID != request.NewInstanceID || checkpoint.RecoveryEpoch != request.RecoveryEpoch || checkpoint.Status != "anchored" || checkpoint.VerificationStatus != "verified" || checkpoint.SourceKind != "independent" || checkpoint.ProofClass != "live" || checkpoint.SignatureDigest == nil || checkpoint.ExportReceiptDigest == nil || checkpoint.IndependentReadDigest == nil || checkpoint.IndependentCopyDigest == nil || eventID < checkpoint.FirstEventID || eventID > checkpoint.LastEventID || eventAt.Before(request.StartedAt) || verifiedAt.Before(eventAt) {
 		return "", canaryCapabilityError("recovery-canary-audit")
 	}
 	return id, nil
@@ -64,7 +72,12 @@ func (canary CurrentEpochBackupCanary) CreateAndVerifyRecoveryBackup(ctx context
 		return "", canaryCapabilityError("recovery-canary-backup")
 	}
 	source, err := canary.Reader.CurrentLocalRecoverySource(ctx, class)
-	if err != nil || source.Point.PointID != pointID || source.Point.RecoveryEpoch != request.RecoveryEpoch || source.Verification.PointID != pointID || source.Verification.RecoveryEpoch != request.RecoveryEpoch || source.Verification.Status != "local-verified" || source.Verification.ProofClass != "live" || source.Verification.StateRevision < request.ExpectedStateRevision || source.FullReadAt.IsZero() || source.FunctionalRestoredAt.IsZero() {
+	var manifest struct {
+		RunID  string `json:"runId"`
+		StepID string `json:"stepId"`
+	}
+	manifestErr := json.Unmarshal(source.Point.ManifestJSON, &manifest)
+	if err != nil || manifestErr != nil || source.Point.PointID != pointID || source.Point.RecoveryEpoch != request.RecoveryEpoch || source.Verification.PointID != pointID || source.Verification.RecoveryEpoch != request.RecoveryEpoch || source.Verification.Status != "local-verified" || source.Verification.ProofClass != "live" || source.Verification.StateRevision < request.ExpectedStateRevision || manifest.RunID != request.CanaryRunID || manifest.StepID != request.CanaryStepID || source.CreatedAt.Before(request.StartedAt) || source.VerifiedAt.Before(request.StartedAt) || source.FullReadAt.Before(request.StartedAt) || source.FunctionalRestoredAt.Before(request.StartedAt) {
 		return "", canaryCapabilityError("recovery-canary-backup")
 	}
 	return pointID, nil

@@ -116,6 +116,17 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := authority.VerifyRecoveryOldEpochMutationDenied(context.Background(), health.Revision.StateRevision, binding.PriorRecoveryEpoch); err != nil {
+		t.Fatalf("former epoch reached mutation callback: %v", err)
+	}
+	human := "human-a"
+	if err := authority.RecordRecoveryCanaryNoop(context.Background(), RecoveryCanaryNoopRequest{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, RunID: binding.CanaryRunID, StepID: binding.CanaryStepID, LeaseID: binding.CanaryLeaseID, InstanceID: binding.NewInstanceID, ResultDigest: testDigest, RecoveryEpoch: binding.NextRecoveryEpoch, StateRevision: health.Revision.StateRevision, Attribution: audit.Attribution{AuthenticatedPrincipalID: human, AuthenticatedPrincipalMethod: "local-os-peer", ResponsibleHumanPrincipalID: &human}}); err != nil {
+		t.Fatal(err)
+	}
+	eventID, eventAt, err := authority.RecoveryCanaryNoopEvent(context.Background(), binding.PlanID, binding.CanaryRunID)
+	if err != nil || eventID < 1 || !eventAt.Equal(config.Clock()) {
+		t.Fatalf("canary noop event=%d at=%s err=%v", eventID, eventAt, err)
+	}
 	if err := authority.EnableRecoveredAuthority(context.Background(), binding.NewInstanceID, binding.NextRecoveryEpoch, health.Revision.StateRevision, testDigest); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +144,7 @@ func testRestoreRequest(binding generated.RestoreBinding) generated.RestoreReque
 	fence := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: "host-service", SubjectID: "former-control", TargetID: "control-a", AdapterID: "adapter-a", FormerIdentityID: "former-identity", RequiredEvidenceKinds: []string{"service-denied"}, Required: true, EvidenceIDs: []string{binding.SourceAdmissionDigest, binding.FenceQualificationDigest}, EvidenceDigest: binding.FenceSetDigest, Status: "required"}
 	decision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", LocalLastEventID: 0, IndependentLastEventID: 0, IndependentCheckpointDigest: binding.AuditDecisionDigest, Strategy: "matched", DecisionDigest: binding.AuditDecisionDigest}
 	return generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: binding.PriorRecoveryEpoch, RecoveryEpoch: binding.PriorRecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-plan-test", Source: binding.Source, Fences: []generated.RestoreFenceItem{fence}, AuditDecision: decision, PointID: binding.PointID, DependencyIDs: binding.DependencyIDs, TargetIDs: binding.TargetIDs, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest,
-		FormerHostID: binding.FormerHostID, ReplacementHostID: binding.ReplacementHostID, RecoveryDraftID: binding.RecoveryDraftID, CiphertextFingerprint: binding.CiphertextFingerprint, SourceAdmissionDigest: binding.SourceAdmissionDigest, FenceQualificationDigest: binding.FenceQualificationDigest, RecoveryRunID: binding.RecoveryRunID, RecoveryStepID: binding.RecoveryStepID, RecoveryLeaseID: binding.RecoveryLeaseID, RecoveryChallengeID: binding.RecoveryChallengeID, RecoveryReceiptID: binding.RecoveryReceiptID}
+		FormerHostID: binding.FormerHostID, ReplacementHostID: binding.ReplacementHostID, RecoveryDraftID: binding.RecoveryDraftID, CiphertextFingerprint: binding.CiphertextFingerprint, SourceAdmissionDigest: binding.SourceAdmissionDigest, FenceQualificationDigest: binding.FenceQualificationDigest, RecoveryRunID: binding.RecoveryRunID, RecoveryStepID: binding.RecoveryStepID, RecoveryLeaseID: binding.RecoveryLeaseID, RecoveryChallengeID: binding.RecoveryChallengeID, RecoveryReceiptID: binding.RecoveryReceiptID, CanaryRunID: binding.CanaryRunID, CanaryStepID: binding.CanaryStepID, CanaryLeaseID: binding.CanaryLeaseID, CanaryChallengeID: binding.CanaryChallengeID, CanaryReceiptID: binding.CanaryReceiptID, CanaryBindingDigest: binding.CanaryBindingDigest}
 }
 
 func testRestoreBinding(plan generated.Plan, instance, acknowledgement string) generated.RestoreBinding {

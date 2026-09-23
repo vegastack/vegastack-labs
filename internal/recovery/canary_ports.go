@@ -13,7 +13,7 @@ type RecoveredBundleReader interface {
 }
 
 type ExactFenceRefresher interface {
-	Verify(context.Context, generated.RestoreBinding, int64, []generated.RestoreFenceItem) (FenceResult, error)
+	VerifyCanary(context.Context, generated.RestoreBinding, int64, []generated.RestoreFenceItem) (FenceResult, error)
 }
 
 // FreshFormerWriterCanary reloads the immutable recovered bundle and runs the
@@ -31,10 +31,10 @@ func (verifier FreshFormerWriterCanary) VerifyFormerWriterDenied(ctx context.Con
 	bundle, _, err := verifier.Restores.RecoveredAuthorityBundle(ctx, request.PlanID)
 	if err != nil || bundle.Status != "verification-required" || bundle.Binding.PlanDigest != request.PlanDigest ||
 		bundle.Binding.NewInstanceID != request.NewInstanceID || bundle.Binding.NextRecoveryEpoch != request.RecoveryEpoch ||
-		bundle.Binding.FenceSetDigest != request.FenceSetDigest {
+		bundle.Binding.FenceSetDigest != request.FenceSetDigest || bundle.Binding.CanaryRunID != request.CanaryRunID || bundle.Binding.CanaryStepID != request.CanaryStepID || bundle.Binding.CanaryLeaseID != request.CanaryLeaseID || bundle.Binding.CanaryChallengeID != request.CanaryChallengeID || bundle.Binding.CanaryReceiptID != request.CanaryReceiptID {
 		return failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-former-writer", false)
 	}
-	result, err := verifier.Fences.Verify(ctx, bundle.Binding, request.ExpectedStateRevision, bundle.Request.Fences)
+	result, err := verifier.Fences.VerifyCanary(ctx, bundle.Binding, request.ExpectedStateRevision, bundle.Request.Fences)
 	if err != nil || result.FenceSetDigest != request.FenceSetDigest {
 		return failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-former-writer", false)
 	}

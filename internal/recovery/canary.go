@@ -43,8 +43,11 @@ func (admission AuthorityAdmission) Require(ctx context.Context, expected Author
 
 type CanaryRequest struct {
 	PlanID, PlanDigest, NewInstanceID, FenceSetDigest string
+	CanaryRunID, CanaryStepID, CanaryLeaseID          string
+	CanaryChallengeID, CanaryReceiptID                string
 	RecoveryEpoch, ExpectedStateRevision              int64
 	ResponsibleHumanID, PrincipalMethod               string
+	StartedAt                                         time.Time
 }
 
 type CanaryReadVerifier interface {
@@ -84,7 +87,11 @@ func (verifier CanaryVerifier) Verify(ctx context.Context, request CanaryRequest
 	blocked := func() (generated.RestoreCanaryResult, error) {
 		return generated.RestoreCanaryResult{}, failure.New(generated.ErrorCodeRecoveryRequired, "recovery-canary", false)
 	}
-	if ctx == nil || ctx.Err() != nil || verifier.Read == nil || verifier.OldEpoch == nil || verifier.Noop == nil || verifier.Audit == nil || verifier.Backup == nil || verifier.FormerWriter == nil || verifier.Enable == nil || verifier.Clock == nil || request.PlanID == "" || request.NewInstanceID == "" || request.ResponsibleHumanID == "" || request.PrincipalMethod == "" || request.RecoveryEpoch < 1 || request.ExpectedStateRevision < 0 || !restoreDigest.MatchString(request.PlanDigest) || !restoreDigest.MatchString(request.FenceSetDigest) {
+	if ctx == nil || ctx.Err() != nil || verifier.Read == nil || verifier.OldEpoch == nil || verifier.Noop == nil || verifier.Audit == nil || verifier.Backup == nil || verifier.FormerWriter == nil || verifier.Enable == nil || verifier.Clock == nil || request.PlanID == "" || request.NewInstanceID == "" || request.CanaryRunID == "" || request.CanaryStepID == "" || request.CanaryLeaseID == "" || request.CanaryChallengeID == "" || request.CanaryReceiptID == "" || request.ResponsibleHumanID == "" || request.PrincipalMethod == "" || request.RecoveryEpoch < 1 || request.ExpectedStateRevision < 0 || !request.StartedAt.IsZero() || !restoreDigest.MatchString(request.PlanDigest) || !restoreDigest.MatchString(request.FenceSetDigest) {
+		return blocked()
+	}
+	request.StartedAt = verifier.Clock().UTC().Truncate(time.Second)
+	if request.StartedAt.IsZero() {
 		return blocked()
 	}
 	if err := verifier.Read.VerifyRecoveryRead(ctx, request); err != nil {
@@ -94,7 +101,7 @@ func (verifier CanaryVerifier) Verify(ctx context.Context, request CanaryRequest
 		return blocked()
 	}
 	noopID, err := verifier.Noop.RunRecoveryCanaryNoop(ctx, request)
-	if err != nil || noopID == "" {
+	if err != nil || noopID != request.CanaryRunID {
 		return blocked()
 	}
 	checkpointID, err := verifier.Audit.AppendAndVerifyRecoveryCheckpoint(ctx, request, noopID)

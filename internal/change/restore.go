@@ -74,12 +74,12 @@ func BuildRestoreChange(ctx context.Context, request generated.RestoreRequest, s
 // and authority target before the enclosing restore plan is acknowledged.
 func RestoreCanaryBindingDigest(request generated.RestoreRequest) (string, error) {
 	value := struct {
-		Domain                                        string
-		CanaryRunID, CanaryStepID, CanaryLeaseID      string
-		NewInstanceID                                 string
-		NextRecoveryEpoch                             int64
-		TargetDigest, FenceSetDigest, CandidateDigest string
-	}{"vegastack-labs.dev/recovery-subordinate-canary/v1", request.CanaryRunID, request.CanaryStepID, request.CanaryLeaseID, request.NewInstanceID, request.NextRecoveryEpoch, request.TargetDigest, request.FenceSetDigest, request.CandidateDigest}
+		Domain                                                                       string
+		CanaryRunID, CanaryStepID, CanaryLeaseID, CanaryChallengeID, CanaryReceiptID string
+		NewInstanceID                                                                string
+		NextRecoveryEpoch                                                            int64
+		TargetDigest, FenceSetDigest, CandidateDigest                                string
+	}{"vegastack-labs.dev/recovery-subordinate-canary/v1", request.CanaryRunID, request.CanaryStepID, request.CanaryLeaseID, request.CanaryChallengeID, request.CanaryReceiptID, request.NewInstanceID, request.NextRecoveryEpoch, request.TargetDigest, request.FenceSetDigest, request.CandidateDigest}
 	_, sum, err := stateexport.CanonicalJSON(value)
 	if err != nil {
 		return "", err

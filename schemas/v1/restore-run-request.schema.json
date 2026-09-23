@@ -157,7 +157,15 @@
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
+    "canaryChallengeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "canaryLeaseId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "canaryReceiptId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
@@ -288,6 +296,8 @@
     "canaryRunId",
     "canaryStepId",
     "canaryLeaseId",
+    "canaryChallengeId",
+    "canaryReceiptId",
     "canaryBindingDigest"
   ],
   "title": "VegaStack Labs restore run request",

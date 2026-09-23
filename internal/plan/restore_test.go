@@ -16,7 +16,7 @@ func TestRestorePlanPreservesExactFenceAuditAndAuthorityBinding(t *testing.T) {
 	decision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", LocalLastEventID: 4, IndependentLastEventID: 4, IndependentCheckpointDigest: digest, Strategy: "matched", DecisionDigest: digest}
 	request := generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 8, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "restore-a", Source: source, Fences: fences, AuditDecision: decision, PointID: source.PointID, DependencyIDs: []string{"dependency-a"}, TargetIDs: []string{"control-a"}, PriorInstanceID: "instance-old", NewInstanceID: "instance-new", PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, FenceSetDigest: digest, AuditDecisionDigest: digest, CandidateDigest: digest,
 		FormerHostID: "former-host", ReplacementHostID: "replacement-host", RecoveryDraftID: "draft-a", CiphertextFingerprint: digest, SourceAdmissionDigest: digest, FenceQualificationDigest: digest, RecoveryRunID: "run-a", RecoveryStepID: "step-a", RecoveryLeaseID: "lease-a", RecoveryChallengeID: "challenge-a", RecoveryReceiptID: "receipt-a"}
-	request.CanaryRunID, request.CanaryStepID, request.CanaryLeaseID = "canary-run-a", "canary-step-a", "canary-lease-a"
+	request.CanaryRunID, request.CanaryStepID, request.CanaryLeaseID, request.CanaryChallengeID, request.CanaryReceiptID = "canary-run-a", "canary-step-a", "canary-lease-a", "canary-challenge-a", "canary-receipt-a"
 	request.CanaryBindingDigest, _ = change.RestoreCanaryBindingDigest(request)
 	declaration, err := change.BuildRestoreChange(context.Background(), request, source, fences, decision)
 	if err != nil {
