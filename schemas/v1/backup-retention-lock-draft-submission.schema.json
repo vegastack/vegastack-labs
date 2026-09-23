@@ -1,0 +1,63 @@
+{
+  "$id": "vegastack-labs.dev/backup-retention-lock-draft-submission",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "catalogDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "changeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "draftId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "operationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-retention-lock-draft-submission"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "draft"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "draftId",
+    "changeId",
+    "operationId",
+    "catalogDigest",
+    "status",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs backup retention lock draft submission",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

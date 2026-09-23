@@ -79,6 +79,14 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
+	currentTime := time.Now().UTC().Truncate(time.Second)
+	operationTime := currentTime.Add(-8 * 24 * time.Hour)
+	clock := func() time.Time {
+		if operationTime.IsZero() {
+			return time.Now()
+		}
+		return operationTime
+	}
 	root := "/var/lib/vsk163-systemd"
 	var err error
 	if !systemdFixture {
@@ -99,6 +107,7 @@ func TestLocalBackupComposition(t *testing.T) {
 	authority, err := store.Open(ctx, store.Config{
 		DatabasePath: filepath.Join(controlRoot, "control.db"), Mode: store.InitializeNew,
 		ExpectedUID: uid, BusyTimeout: 5 * time.Second, ToolVersion: "test", BuildVersion: "test",
+		Clock: clock,
 	})
 	if err != nil {
 		t.Fatalf("open authority: %v; cause=%v", err, errors.Unwrap(err))
@@ -228,6 +237,9 @@ func TestLocalBackupComposition(t *testing.T) {
 	}
 	var firstPoint, secondPoint string
 	for attempt := 1; attempt <= 2; attempt++ {
+		if attempt == 2 {
+			operationTime = time.Time{}
+		}
 		password, err := credentialref.NewValue([]byte("isolated-composition-password"))
 		if err != nil {
 			t.Fatal(err)
@@ -314,6 +326,28 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err != nil || priorGood == "" {
 		t.Fatalf("first live proof did not establish last-good: %q %v", priorGood, err)
 	}
+	firstGood := priorGood
+	second, err := backups.GetPendingRecoveryPoint(ctx, secondPoint)
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondOperation := verifyOperation
+	secondOperation.TargetID, secondOperation.InputDigest, secondOperation.ArtifactDigest = second.PointID, second.ManifestDigest, second.InventoryDigest
+	secondBinding := verifyBinding
+	secondBinding.RunID, secondBinding.StepID = "run-live-second", "step-live-second"
+	secondPassword, err := credentialref.NewValue([]byte("isolated-composition-password"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secondLive, err := live.ExecuteBoundWithCredentials(ctx, secondOperation, secondBinding, []*credentialref.Value{secondPassword})
+	secondPassword.Close()
+	if err != nil || secondLive.Status != "succeeded" {
+		t.Fatalf("second live proof rejected while capacity current: effect=%#v err=%v", secondLive, err)
+	}
+	priorGood, err = backups.CurrentLocalLastGood(ctx, "standard")
+	if err != nil || priorGood == "" || priorGood == firstGood {
+		t.Fatalf("second live proof did not advance last-good: %q %v", priorGood, err)
+	}
 	custodyPolicy, err := backup.LoadCustodyPolicy(custodyPath)
 	if err != nil {
 		t.Fatal(err)
@@ -337,13 +371,6 @@ func TestLocalBackupComposition(t *testing.T) {
 	if err := unix.Statfs(standard, &constrained); err != nil || capacityAdmitted(uint64(constrained.Bavail)*uint64(constrained.Bsize), policy) {
 		t.Fatal("capacity fixture did not cross policy headroom")
 	}
-	second, err := backups.GetPendingRecoveryPoint(ctx, secondPoint)
-	if err != nil {
-		t.Fatal(err)
-	}
-	secondOperation := verifyOperation
-	secondOperation.TargetID, secondOperation.InputDigest, secondOperation.ArtifactDigest = second.PointID, second.ManifestDigest, second.InventoryDigest
-	secondBinding := verifyBinding
 	secondBinding.RunID, secondBinding.StepID = "run-live-low-capacity", "step-live-low-capacity"
 	lowPassword, err := credentialref.NewValue([]byte("isolated-composition-password"))
 	if err != nil {

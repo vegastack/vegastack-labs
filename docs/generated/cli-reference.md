@@ -55,6 +55,32 @@ Owner phase: `5` · risk: `mutation` · availability: `available`
 
 - Validate and store an inert canonical backup-policy draft; application still needs an exact human-approved plan.: `vsk-labs backup policy draft --config fixture/server-profile.json --file fixture/backup-policy-draft-request.json --output json`
 
+### `vsk-labs backup retention-locks draft`
+
+Store one complete inert local retention-lock catalog and its exact human-plan declaration.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact typed backup-retention-lock-draft-request JSON file (64 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Store one complete inert local retention-lock catalog and its exact human-plan declaration.: `vsk-labs backup retention-locks draft --config fixture/server-profile.json --file fixture/backup-retention-lock-draft-request.json --output json`
+
+### `vsk-labs backup retirement draft`
+
+Derive and store one exact inert local retirement selection with its credential binding.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--file <path>` — Read one exact typed backup-retirement-draft-request JSON file (64 KiB max).
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Derive and store one exact inert local retirement selection with its credential binding.: `vsk-labs backup retirement draft --config fixture/server-profile.json --file fixture/backup-retirement-draft-request.json --output json`
+
 ### `vsk-labs backup run`
 
 Execute one exact approved backup-creation plan; the point remains pending.

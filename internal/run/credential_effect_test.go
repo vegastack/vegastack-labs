@@ -27,20 +27,22 @@ func (gate *syntheticGateVerifier) VerifySecretStep(context.Context, generated.P
 }
 
 type syntheticCredentialAdapter struct {
-	calls    int
-	plain    int
-	observed []byte
-	retained []byte
+	calls            int
+	plain            int
+	observed         []byte
+	retained         []byte
+	secretReferences []adapter.SecretReference
 }
 
 func (implementation *syntheticCredentialAdapter) Execute(context.Context, adapter.Operation) (adapter.Effect, error) {
 	implementation.plain++
 	return adapter.Effect{Status: "succeeded", ResultDigest: digest("synthetic-plain-effect"), EffectObserved: true}, nil
 }
-func (implementation *syntheticCredentialAdapter) ExecuteWithCredentials(_ context.Context, _ adapter.Operation, values []*credentialref.Value) (adapter.Effect, error) {
+func (implementation *syntheticCredentialAdapter) ExecuteWithCredentials(_ context.Context, operation adapter.Operation, values []*credentialref.Value) (adapter.Effect, error) {
 	implementation.calls++
 	implementation.retained = values[0].Bytes()
 	implementation.observed = append([]byte(nil), implementation.retained...)
+	implementation.secretReferences = append([]adapter.SecretReference(nil), operation.SecretReferences...)
 	return adapter.Effect{Status: "succeeded", ResultDigest: digest("synthetic-credential-effect"), EffectObserved: true}, nil
 }
 func (implementation *syntheticCredentialAdapter) Verify(context.Context, adapter.Operation, adapter.Effect) (adapter.Verification, error) {
@@ -101,6 +103,9 @@ func TestSecretEffectJITOrderingAndZeroization(t *testing.T) {
 	}
 	if string(implementation.observed) != "synthetic-private-canary" {
 		t.Fatal("credential was not delivered to exact adapter")
+	}
+	if len(implementation.secretReferences) != 1 || implementation.secretReferences[0] != (adapter.SecretReference{ID: binding.ReferenceID, Consumer: binding.ConsumerID}) {
+		t.Fatalf("adapter did not receive server-derived credential references: %#v", implementation.secretReferences)
 	}
 	gate.deny = true
 	fixture.request.Reference.IdempotencyKey = "synthetic-gate-denied"

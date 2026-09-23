@@ -50,6 +50,7 @@ func verificationRequest(t *testing.T, point PendingRecoveryPoint, revision Revi
 		ManifestDigest: point.ManifestDigest, InventoryDigest: point.InventoryDigest, ObservedDigest: point.InventoryDigest,
 		ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest,
 		KeyReferenceID: manifest.KeyReferenceID, SourceRevision: point.SourceRevision, Expected: revision,
+		CapacityTotalBytes: 10 << 30, CapacityAvailableBytes: 8 << 30, CapacityQuarantinedBytes: 0,
 		ProofClass: proofClass, Result: result, ReasonCode: "fixture-check", FullReadAt: time.Now().Add(-2 * time.Minute), FunctionalRestoredAt: time.Now().Add(-time.Minute), DependencyTrust: trust}
 }
 
@@ -187,6 +188,10 @@ func TestLocalLastGoodCurrentLiveProofAdvancesOnce(t *testing.T) {
 	}
 	if source.Verification.VerificationID != receipt.VerificationID || source.Point.PointID != point.PointID || source.SnapshotID == "" || source.DatabaseSchemaVersion == 0 || source.CreatedAt.IsZero() || source.VerifiedAt.IsZero() || len(source.Point.ExpectedObjects) == 0 || len(source.Verification.DependencyTrust) == 0 {
 		t.Fatalf("restore source=%#v", source)
+	}
+	var total, available int64
+	if err := repository.store.conn.QueryRowContext(ctx, `SELECT total_bytes,available_bytes FROM backup_repository_capacity_observations WHERE verification_id=?`, receipt.VerificationID).Scan(&total, &available); err != nil || total != request.CapacityTotalBytes || available != request.CapacityAvailableBytes {
+		t.Fatalf("capacity observation total=%d available=%d err=%v", total, available, err)
 	}
 	status, err := repository.ReadLocalBackupStatus(ctx)
 	if err != nil || len(status.Policies) != 1 || len(status.Jobs) != 1 || len(status.Verifications) != 1 || len(status.LastGood) != 1 ||

@@ -91,6 +91,15 @@ func (repository *BackupRepository) AcquireBackupWriterLease(ctx context.Context
 		if activeReaders != 0 {
 			return backupStoreError(generated.ErrorCodeStateConflict, "backup-writer-lease")
 		}
+		// An unresolved retention lease may have quarantined objects. Expiry
+		// alone cannot prove that repository reconciliation completed.
+		var activeRetention int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_retirement_leases WHERE repository_class=? AND released_at IS NULL`, request.RepositoryClass).Scan(&activeRetention); err != nil {
+			return backupWriteError(err)
+		}
+		if activeRetention != 0 {
+			return backupStoreError(generated.ErrorCodeStateConflict, "backup-writer-lease")
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,?,?,?,?,?,NULL,?,?,'running',?,?,?)`,
 			request.JobID, request.PolicyID, request.PolicyDigest, request.RepositoryID, request.RepositoryClass, request.RunID, "local", "fixture", request.RecoveryEpoch, now, now); err != nil {
 			return backupWriteError(err)

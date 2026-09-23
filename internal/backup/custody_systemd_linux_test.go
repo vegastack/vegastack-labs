@@ -70,6 +70,14 @@ func TestCustodyLaunchFrameDoesNotConsumeFollowingCommand(t *testing.T) {
 	}
 }
 
+func TestSystemdCustodyPoisonRejectsResticIndependentOfChildExit(t *testing.T) {
+	client := &systemdCustodyClient{}
+	client.poisoned.Store(true)
+	if _, err := client.RunRestic(context.Background(), ResticRequest{Mode: "forget"}, nil); err == nil || !strings.Contains(err.Error(), "journal uncertain") {
+		t.Fatalf("poisoned custody admitted restic result: %v", err)
+	}
+}
+
 func TestBrokeredResticRejectsCallerSelectedAuthority(t *testing.T) {
 	policy := CustodyPolicy{
 		StandardRoot: "/var/lib/vsk/standard", CriticalRoot: "/var/lib/vsk/critical",
@@ -96,6 +104,38 @@ func TestBrokeredResticRejectsCallerSelectedAuthority(t *testing.T) {
 				t.Fatal("forged restic authority accepted")
 			}
 		})
+	}
+}
+
+func TestBrokeredRetentionModesRequireRetentionSession(t *testing.T) {
+	policy := CustodyPolicy{
+		StandardRoot: "/var/lib/vsk/standard", CriticalRoot: "/var/lib/vsk/critical",
+		ExchangeRoot: "/var/lib/vsk/exchange", ResticBinaryPath: "/usr/local/bin/restic",
+		ControllerUID: 21164, ResticUID: 21165,
+	}
+	request := ResticRequest{Mode: "forget", BinaryPath: policy.ResticBinaryPath, RepositoryID: "repository-a",
+		RepositoryClass: "standard", RepositoryRoot: policy.StandardRoot, ExchangeRoot: policy.ExchangeRoot,
+		ExecutionUID: policy.ResticUID, ExecutionGID: policy.ResticUID, ControllerUID: policy.ControllerUID,
+		SnapshotIDs: []string{strings.Repeat("a", 64)}}
+	writer := CustodySession{Role: "writer", RepositoryID: request.RepositoryID, RepositoryClass: request.RepositoryClass}
+	if transfer, err := prepareBrokeredRestic(policy, writer, "http+unix:///run/custody.sock:/repository-a/", &request); err == nil || transfer != nil {
+		t.Fatal("writer custody admitted retention command")
+	}
+	if request.RepositoryURL != "" {
+		t.Fatal("rejected writer request mutated repository authority")
+	}
+	retention := writer
+	retention.Role = "retention"
+	for _, mode := range []string{"forget-dry-run", "forget", "prune"} {
+		candidate := request
+		candidate.Mode = mode
+		if mode == "prune" {
+			candidate.SnapshotIDs = nil
+			candidate.MaxRepackBytes = 64 << 20
+		}
+		if transfer, err := prepareBrokeredRestic(policy, retention, "http+unix:///run/custody.sock:/repository-a/", &candidate); err != nil || transfer != nil {
+			t.Fatalf("retention mode %s rejected: transfer=%v err=%v", mode, transfer, err)
+		}
 	}
 }
 

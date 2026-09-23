@@ -1,0 +1,86 @@
+{
+  "$id": "vegastack-labs.dev/backup-retirement-draft-submission",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "changeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "credentialManifestDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "draftId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "operationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-retirement-draft-submission"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "selectionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "draft"
+      ],
+      "type": "string"
+    },
+    "survivorPointIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "targetPointIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "draftId",
+    "changeId",
+    "operationId",
+    "selectionDigest",
+    "credentialManifestDigest",
+    "targetPointIds",
+    "survivorPointIds",
+    "status",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs backup retirement draft submission",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}
