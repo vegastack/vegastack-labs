@@ -164,6 +164,7 @@ type lifecycleAcceptanceEnv struct {
 	principal    identity.Principal
 	human        identity.Principal
 	clock        func() time.Time
+	now          *time.Time
 	machineID    string
 	gate         *lifecycleAcceptanceGate
 	verifier     *lifecycleAcceptanceVerifier
@@ -204,7 +205,7 @@ func newLifecycleAcceptanceEnv(t *testing.T) *lifecycleAcceptanceEnv {
 	return &lifecycleAcceptanceEnv{t: t, path: path, authority: authority, references: references, revisions: revisions, declarations: declarations, lifecycle: lifecycle,
 		principal: identity.Principal{ID: "operator-135", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman},
 		human:     identity.Principal{ID: "human-135", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman},
-		clock:     clock, machineID: strings.TrimSpace(string(machine)), gate: &lifecycleAcceptanceGate{}, verifier: &lifecycleAcceptanceVerifier{},
+		clock:     clock, now: &now, machineID: strings.TrimSpace(string(machine)), gate: &lifecycleAcceptanceGate{}, verifier: &lifecycleAcceptanceVerifier{},
 		recovery: runengine.UnavailableCredentialRecoveryVerifier{}}
 }
 
@@ -372,6 +373,21 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	}
 
 	v1 := env.importDraft("version-1", "v1")
+	provider := env.request("credential.stage", "version-1", "provider-stage-v1")
+	provider.DraftID, provider.ConsumerIDs, provider.ResolverID = &v1.DraftID, []string{"consumer-provider"}, "onepassword-a"
+	provider.TargetDigest = credentialref.LifecycleTargetDigest(provider)
+	beforeProvider, err := env.revisions.CurrentRevision(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := env.lifecycle.CreateDraft(context.Background(), provider, env.principal); err == nil {
+		t.Fatal("optional provider lifecycle reached the native authority path")
+	}
+	afterProvider, err := env.revisions.CurrentRevision(context.Background())
+	if err != nil || beforeProvider != afterProvider {
+		t.Fatalf("optional provider denial appended authority state: before=%+v after=%+v err=%v", beforeProvider, afterProvider, err)
+	}
+
 	stage := env.request("credential.stage", "version-1", "stage-v1")
 	stage.DraftID, stage.ConsumerIDs = &v1.DraftID, []string{"consumer-a", "consumer-b"}
 	env.apply(stage)
@@ -399,6 +415,12 @@ func TestFullCredentialLifecycleAcceptance(t *testing.T) {
 	if err != nil || oldDuringOverlap.Status != "active" {
 		t.Fatalf("rotation removed old overlap version: %+v %v", oldDuringOverlap, err)
 	}
+	*env.now = env.now.Add(899 * time.Second)
+	oldBeforeDeadline, err := env.references.GetCredentialVersion(context.Background(), "reference-135", "version-1")
+	if err != nil || oldBeforeDeadline.Status != "active" {
+		t.Fatalf("old version did not survive the declared overlap: %+v %v", oldBeforeDeadline, err)
+	}
+	*env.now = env.now.Add(time.Second)
 
 	revoke := env.request("credential.revoke", "version-1", "revoke-v1")
 	env.apply(revoke)
