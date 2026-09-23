@@ -24,6 +24,7 @@ type analysis struct {
 	XSysOutsideScope         bool     `json:"xSysOutsideScope"`
 	PlatformScopeInvalid     bool     `json:"platformScopeInvalid"`
 	RepositoryCustodyInvalid bool     `json:"repositoryCustodyInvalid"`
+	RecoveryAuthorityInvalid bool     `json:"recoveryAuthorityInvalid"`
 }
 
 func main() {
@@ -183,7 +184,37 @@ func analyze(root string) (analysis, error) {
 			result.RepositoryCustodyInvalid = result.RepositoryCustodyInvalid || !strings.Contains(backupSource, required)
 		}
 	}
+	result.RecoveryAuthorityInvalid = invalidRecoveryAuthorityClosure(source)
 	return result, nil
+}
+
+// invalidRecoveryAuthorityClosure fails closed once production restore
+// composition appears. The complete closure must promote before opening the
+// store, use one fixed database path, admit the exact authority binding, and
+// keep normal mutation disabled until the canary enables it. An absent
+// coordinator is reported by Task 7 acceptance rather than misclassified as a
+// partially safe implementation.
+func invalidRecoveryAuthorityClosure(source string) bool {
+	markers := []string{"RegisterRestoreOperations", "PromoteAtStartup", "NewCandidateManager", "AuthorityAdmission", "CanaryVerifier"}
+	present := 0
+	for _, marker := range markers {
+		if strings.Contains(source, marker) {
+			present++
+		}
+	}
+	if present == 0 {
+		return false
+	}
+	if present != len(markers) || strings.Count(source, "productionDatabasePath") < 2 {
+		return true
+	}
+	for _, forbidden := range []string{"RestoreSnapshot(ctx, productionDatabasePath", "RestoreSnapshot(context.Background(), productionDatabasePath", "exec.Command(", "sql.Open("} {
+		if strings.Contains(source, forbidden) {
+			return true
+		}
+	}
+	promote, open := strings.Index(source, "PromoteAtStartup"), strings.Index(source, "operations.openStore")
+	return promote < 0 || open < 0 || promote > open
 }
 
 // These custody paths use no-follow Unix file descriptors for one protected
