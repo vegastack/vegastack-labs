@@ -113,6 +113,9 @@ func TestBrokeredRetentionModesRequireRetentionSession(t *testing.T) {
 	if transfer, err := prepareBrokeredRestic(policy, writer, "http+unix:///run/custody.sock:/repository-a/", &request); err == nil || transfer != nil {
 		t.Fatal("writer custody admitted retention command")
 	}
+	if request.RepositoryURL != "" {
+		t.Fatal("rejected writer request mutated repository authority")
+	}
 	retention := writer
 	retention.Role = "retention"
 	for _, mode := range []string{"forget-dry-run", "forget", "prune"} {

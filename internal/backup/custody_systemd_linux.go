@@ -844,21 +844,32 @@ func prepareBrokeredRestic(policy CustodyPolicy, session CustodySession, reposit
 		request.ExecutionUID != policy.ResticUID || request.ExecutionGID != policy.ResticUID || request.ControllerUID != policy.ControllerUID {
 		return nil, errors.New("restic request outside custody policy")
 	}
-	request.RepositoryURL = repositoryURL
 	switch request.Mode {
 	case "backup":
-		return prepareBackupExchange(policy, request.SnapshotPath)
+		transfer, err := prepareBackupExchange(policy, request.SnapshotPath)
+		if err != nil {
+			return nil, err
+		}
+		request.RepositoryURL = repositoryURL
+		return transfer, nil
 	case "restore":
-		return prepareRestoreExchange(policy, request.RestoreTarget)
+		transfer, err := prepareRestoreExchange(policy, request.RestoreTarget)
+		if err != nil {
+			return nil, err
+		}
+		request.RepositoryURL = repositoryURL
+		return transfer, nil
 	case "init", "config", "snapshots", "check-full":
 		if request.SnapshotPath != "" || request.RestoreTarget != "" {
 			return nil, errors.New("unexpected exchange path")
 		}
+		request.RepositoryURL = repositoryURL
 		return nil, nil
 	case "forget-dry-run", "forget", "prune":
 		if session.Role != "retention" || request.SnapshotPath != "" || request.RestoreTarget != "" {
 			return nil, errors.New("retention restic outside custody policy")
 		}
+		request.RepositoryURL = repositoryURL
 		return nil, nil
 	default:
 		return nil, errors.New("restic mode outside custody policy")
