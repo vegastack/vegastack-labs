@@ -12,6 +12,7 @@ import (
 
 type candidateStorageStub struct {
 	live              bool
+	candidateMissing  bool
 	created, promoted bool
 	journal           []byte
 }
@@ -21,7 +22,29 @@ func (s *candidateStorageStub) CreateCandidate(context.Context, CandidatePaths) 
 	return nil
 }
 func (s *candidateStorageStub) VerifyCandidate(context.Context, CandidatePaths) error {
+	if s.candidateMissing {
+		return errors.New("candidate already promoted")
+	}
 	return nil
+}
+
+func TestCandidatePromotionRestartAcceptsOnlySemanticallyVerifiedActiveAuthority(t *testing.T) {
+	binding := candidateTestBinding()
+	databaseDigest := testCandidateDigest("6")
+	journal, err := candidateTransitionBytes(binding, databaseDigest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	storage := &candidateStorageStub{candidateMissing: true, journal: journal}
+	authority := &candidateAuthorityStub{}
+	manager := CandidateManager{DatabasePath: "/var/lib/vsk-labs/control.db", Storage: storage, Authority: authority}
+	result, err := manager.PromoteAtStartup(context.Background(), StartupExpectation{Binding: binding, DatabaseDigest: databaseDigest, JournalDigest: digestBytes(journal)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !authority.verified || storage.promoted || result.InstanceID != binding.NewInstanceID || result.RecoveryEpoch != binding.NextRecoveryEpoch {
+		t.Fatalf("result=%#v verified=%v promoted=%v", result, authority.verified, storage.promoted)
+	}
 }
 func (s *candidateStorageStub) VerifyPromoted(context.Context, CandidatePaths, StartupExpectation) error {
 	return nil
