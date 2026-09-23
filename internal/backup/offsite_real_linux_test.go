@@ -152,6 +152,11 @@ func newHermeticS3(t *testing.T) *hermeticS3 {
 }
 
 func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.Request) {
+	if request.URL.Query().Has("location") {
+		writer.Header().Set("Content-Type", "application/xml")
+		_, _ = io.WriteString(writer, `<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></LocationConstraint>`)
+		return
+	}
 	if request.URL.Path == "/bucket" || request.URL.Path == "/bucket/" {
 		writer.WriteHeader(http.StatusOK)
 		return
@@ -165,11 +170,6 @@ func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.R
 		return
 	}
 	atomic.AddInt64(&fixture.iamAuthenticatedCalls, 1)
-	if request.URL.Query().Has("location") {
-		writer.Header().Set("Content-Type", "application/xml")
-		_, _ = io.WriteString(writer, `<LocationConstraint xmlns="http://s3.amazonaws.com/doc/2006-03-01/"></LocationConstraint>`)
-		return
-	}
 	if request.URL.Query().Get("list-type") == "2" {
 		fixture.list(writer, request.URL.Query().Get("prefix"))
 		return
@@ -191,7 +191,7 @@ func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.R
 	case http.MethodHead:
 		body, ok := fixture.objects[key]
 		if !ok {
-			http.NotFound(writer, request)
+			writeS3Missing(writer, key)
 			return
 		}
 		writer.Header().Set("Content-Length", fmt.Sprint(len(body)))
@@ -199,7 +199,7 @@ func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.R
 	case http.MethodGet:
 		body, ok := fixture.objects[key]
 		if !ok {
-			http.NotFound(writer, request)
+			writeS3Missing(writer, key)
 			return
 		}
 		http.ServeContent(writer, request, key, time.Unix(1, 0), bytes.NewReader(body))
@@ -209,6 +209,12 @@ func (fixture *hermeticS3) serveHTTP(writer http.ResponseWriter, request *http.R
 	default:
 		http.Error(writer, "method", http.StatusMethodNotAllowed)
 	}
+}
+
+func writeS3Missing(writer http.ResponseWriter, key string) {
+	writer.Header().Set("Content-Type", "application/xml")
+	writer.WriteHeader(http.StatusNotFound)
+	_, _ = fmt.Fprintf(writer, `<Error><Code>NoSuchKey</Code><Message>missing</Message><BucketName>bucket</BucketName><Key>%s</Key><RequestId>fixture</RequestId><HostId>fixture</HostId></Error>`, key)
 }
 
 func (fixture *hermeticS3) list(writer http.ResponseWriter, prefix string) {
