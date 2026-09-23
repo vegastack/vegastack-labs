@@ -11,11 +11,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"
 	"github.com/vegastack/vegastack-labs/internal/apissh"
 	"github.com/vegastack/vegastack-labs/internal/clientfile"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
+	"github.com/vegastack/vegastack-labs/internal/recovery"
 	"github.com/vegastack/vegastack-labs/internal/release"
 	"github.com/vegastack/vegastack-labs/internal/result"
 )
@@ -135,6 +137,8 @@ type App struct {
 	credentials              CredentialControlOperations
 	files                    clientfile.Reader
 	openCredentialDescriptor CredentialDescriptorOpener
+	witnessPinLoader         func(recovery.WitnessBinding) (recovery.PinnedWitness, error)
+	witnessAdapters          map[string]recoverydenial.Adapter
 }
 
 func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, options ...Option) *App {
@@ -145,7 +149,7 @@ func New(stdout, stderr io.Writer, build BuildInfo, requestIDs RequestIDSource, 
 		revision := *build.SourceRevision
 		build.SourceRevision = &revision
 	}
-	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor}
+	app := &App{stdin: strings.NewReader(""), stdout: stdout, stderr: stderr, build: build, requestIDs: requestIDs, openCredentialDescriptor: openCredentialDescriptor, witnessPinLoader: recovery.LoadSystemWitnessManifest, witnessAdapters: disposableWitnessAdapters()}
 	for _, option := range options {
 		if option != nil {
 			option(app)
@@ -397,6 +401,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.handlePlanResponse(mode, response)
 	case generated.CommandNameGateList, generated.CommandNameGateInspect, generated.CommandNameGateCheck, generated.CommandNameGateEvidence, generated.CommandNameGateProfileDraft:
 		return app.runGateCommand(ctx, mode, parsed)
+	case generated.CommandNameRecoveryWitnessCollect:
+		return app.runRecoveryWitnessCollect(ctx, mode, parsed)
 	case generated.CommandNameBackupPolicyDraft:
 		return app.runBackupCommand(ctx, mode, parsed)
 	case generated.CommandNameApply:

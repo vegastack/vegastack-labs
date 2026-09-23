@@ -10,13 +10,13 @@ import (
 // key must be authenticated separately from both controllers. This package
 // has no production recipient or custodian implementation.
 type ProtectedEnvelope struct {
-	Version            int
-	RecipientKeyID     string
-	EphemeralPublicKey []byte
-	Nonce              []byte
-	BindingDigest      string
-	Ciphertext         []byte
-	ReceiptID          string
+	Version            int    `json:"version"`
+	RecipientKeyID     string `json:"recipientKeyId"`
+	EphemeralPublicKey []byte `json:"ephemeralPublicKey"`
+	Nonce              []byte `json:"nonce"`
+	BindingDigest      string `json:"bindingDigest"`
+	Ciphertext         []byte `json:"ciphertext"`
+	ReceiptID          string `json:"receiptId"`
 }
 
 // ProtectedRecipient opens one envelope only after independently checking the

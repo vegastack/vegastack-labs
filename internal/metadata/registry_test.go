@@ -444,6 +444,7 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
 		"backup policy draft": false, "credential import": false, "credential stage": false, "credential activate": false, "credential rotate": false, "credential revoke": false, "credential recover": false,
 		"audit checkpoints": false, "audit verify": false,
+		"recovery witness collect": false,
 	}
 	wantPlanned := map[string]string{
 		"doctor": "2", "audit": "5",

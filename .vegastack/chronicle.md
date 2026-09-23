@@ -11,6 +11,34 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none.
 
 — approved by (omkarmohanta09) · built by Codex · branch fix/156-phase4-browser-reconnect
+## 22-09-2026 — A custodian can collect a bounded recovery witness on disposable endpoints ([#153](https://github.com/vegastack/vegastack-labs/issues/153))
+
+- **What:** The single `vsk-labs` executable has a finite custodian-side command that reads a protected admin pin and two private descriptors, probes every declared former-controller boundary, signs one exact attempt, and encrypts the held material to the replacement recipient.
+- **Why:** The verification protocol alone could check a witness artifact but did not collect it from an independently held source; a status bit or a copied controller secret cannot prove former-controller denial.
+- **How it went:** Red-first result-binding and collector tests preceded a typed CLI route. An independent review found the ordinary request could omit a whole boundary kind and that only in-process tests could reach an adapter. The collector now takes its exact set from the administrator-signed manifest; a disposable-only binary runs the finite command as a separate Linux custodian identity and a replacement process rechecks the signed bundle and encrypted handoff. The production registry remains empty. The CLI analyzer pins the exact custodian source; changed source bytes fail closed.
+- **Changed:** Typed challenge/result binding · finite collection and re-probe · bounded descriptor custody · generated JSON command/data contract · exact-source CLI analyzer guard · disposable endpoint acceptance and manual handback.
+- **Decisions:** none; the production adapter registry is empty, no custodian or key was enrolled, and #144/#108 still require real clean-host composition and current-authority proof before any recovery gate can move.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/153-custodian-witness-collection
+## 22-09-2026 — Native credential delivery can be proven on a disposable host ([#141](https://github.com/vegastack/vegastack-labs/issues/141))
+
+- **What:** The local Linux verifier can compare a planned encrypted credential with the exact systemd unit, running process, loaded credential file and denied reader set. It returns one complete typed proof only after every positive and denied probe agrees; server composition still leaves the production gate unavailable.
+- **Why:** The earlier lifecycle engine had no trustworthy evidence that the intended service actually received the host-key credential or that other local identities could not read it.
+- **How it went:** The first real Debian VM run exposed a root-owned credential file and mount-namespace observation that the synthetic tests had missed. The verifier was corrected to prove access under the service identity and use a root-owned namespace receipt, then a two-unit, two-denied-identity matrix passed with negative mutations and cleanup.
+- **Changed:** Typed systemd D-Bus observation · exact process and inode binding · direct denied-reader probes · qualified local server composition · disposable Linux acceptance fixture · sealed CLI and Phase 2 source checks. No production authority or live G-007 proof was registered.
+- **Decisions:** none; the separately reviewed [#140](https://github.com/vegastack/vegastack-labs/issues/140) reader map and [#143](https://github.com/vegastack/vegastack-labs/issues/143) OS authority must land before this composition is integrated.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/141-native-credential-lifecycle
+
+## 22-09-2026 — Local credential checks can use narrowly delegated host authority ([#143](https://github.com/vegastack/vegastack-labs/issues/143))
+
+- **What:** The unprivileged server can request an exact enrolled service restart and a metadata-only credential access probe through a root-owned policy. The policy checks the current unit, process identity and allowed arguments; a broader host grant or changed identity blocks the result.
+- **Why:** Native credential verification needed a real way to restart the intended service and test the actual reader identities without making the server root or trusting a simulated observer.
+- **How it went:** The disposable self-hosted runner lacked required tools and its positive probe refused, so a fresh mount-free Debian VM supplied the full systemd, polkit and sudo allow/deny test. The VM passed and was deleted. Hosted CI also caught a Linux witness test fixture whose fixed expiry passed during development but expired at 06:30 AM IST; its acceptance test now pins expiry relative to the test clock.
+- **Changed:** Exact restart and probe policy · Ansible role · local authority adapter · synthetic acceptance fixture · fail-closed analyzer and Phase 2 guards · human test route.
+- **Decisions:** none; [#141](https://github.com/vegastack/vegastack-labs/issues/141) still owns native lifecycle composition, and live G-007 evidence remains separate.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/143-native-credential-authority
 
 ## 22-09-2026 — Independent recovery evidence has a bounded software handback ([#146](https://github.com/vegastack/vegastack-labs/issues/146))
 
