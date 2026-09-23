@@ -16,7 +16,7 @@ const GO_BROWSER_TESTS = Object.freeze([
 ]);
 const GO_PACKAGE_TARGET_POLICY = Object.freeze({
   "./internal/adapter/nativecredential": Object.freeze({
-    env: Object.freeze({ GOOS: "linux" }),
+    env: Object.freeze({ GOOS: "linux", GOARCH: "amd64" }),
   }),
 });
 

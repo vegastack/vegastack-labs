@@ -124,7 +124,7 @@ test("Linux-only changed packages use their supported target", () => {
   ]);
   assert.deepEqual(goPackageExecutionTargets(plan), [{
     package: "./internal/adapter/nativecredential",
-    env: { GOOS: "linux" },
+    env: { GOOS: "linux", GOARCH: "amd64" },
   }]);
 });
 
