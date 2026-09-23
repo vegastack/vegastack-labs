@@ -13,6 +13,34 @@ import (
 // backup-policy-draft-request JSON file and submits it as an inert draft. It
 // activates nothing; an exact plan and human approval remain required to apply.
 func (app *App) runBackupCommand(ctx context.Context, mode outputMode, parsed parsedArguments) int {
+	if parsed.commandName() == generated.CommandNameBackupOffsiteRetirementStage {
+		control, ok := app.control.(BackupOffsiteRetirementControlOperations)
+		if !ok || app.files == nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "backup-offsite-retirement-control", generated.RunStatusFailed, false)
+		}
+		raw, err := app.files.Read(ctx, parsed.Value(generated.FlagFile), 65536)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		var input generated.BackupOffsiteRetirementStageRequest
+		if generated.ValidateContractJSON(generated.SchemaIDBackupOffsiteRetirementStageRequest, raw, generated.ContractExact) != nil || json.Unmarshal(raw, &input) != nil {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeInputInvalid, "backup-offsite-retirement-stage-contract", generated.RunStatusFailed, false)
+		}
+		response, err := control.StageBackupOffsiteRetirement(ctx, parsed.Value(generated.FlagConfig), input)
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Staged off-site retirement %s for generation %s with %d survivor rules.\n", response.Data.IntentID, response.Data.GenerationID, response.Data.SurvivorRuleCount); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
 	if parsed.commandName() == generated.CommandNameBackupRetirementDraft {
 		control, ok := app.control.(BackupRetirementControlOperations)
 		if !ok || app.files == nil {

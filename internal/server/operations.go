@@ -38,15 +38,16 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build                   result.BuildInfo
-	requestIDs              result.RequestIDSource
-	openStore               func(context.Context, store.Config) (*store.Store, error)
-	databasePath            string
-	platformProbe           PlatformProbe
-	identityHTTPClient      *http.Client
-	offsiteEffect           OffsiteEffectFactory
-	offsiteRetirementEffect OffsiteRetirementEffectFactory
-	newAdapterRegistry      func() *adapter.Registry
+	build                    result.BuildInfo
+	requestIDs               result.RequestIDSource
+	openStore                func(context.Context, store.Config) (*store.Store, error)
+	databasePath             string
+	platformProbe            PlatformProbe
+	identityHTTPClient       *http.Client
+	offsiteEffect            OffsiteEffectFactory
+	offsiteRetirementEffect  OffsiteRetirementEffectFactory
+	offsiteRetirementCatalog api.OffsiteRetirementCatalogSource
+	newAdapterRegistry       func() *adapter.Registry
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
@@ -68,6 +69,13 @@ func WithOffsiteRetirementEffectFactory(factory OffsiteRetirementEffectFactory) 
 		}
 	}
 }
+func WithOffsiteRetirementCatalogSource(source api.OffsiteRetirementCatalogSource) OperationsOption {
+	return func(operations *Operations) {
+		if source != nil {
+			operations.offsiteRetirementCatalog = source
+		}
+	}
+}
 
 func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, options ...OperationsOption) *Operations {
 	operations := &Operations{
@@ -77,8 +85,9 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
 		},
-		offsiteRetirementEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) { return nil, nil },
-		newAdapterRegistry:      productionAdapterRegistry,
+		offsiteRetirementEffect:  func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) { return nil, nil },
+		offsiteRetirementCatalog: api.UnavailableOffsiteRetirementCatalogSource{},
+		newAdapterRegistry:       productionAdapterRegistry,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -345,7 +354,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, Status: backupRepository,
+	offsiteRetirementStages, err := api.NewOffsiteRetirementStageService(store.NewLocalRetirementRepository(authority), store.NewOffsiteRetirementRepository(authority), operations.offsiteRetirementCatalog)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, OffsiteRetirements: offsiteRetirementStages, Status: backupRepository,
 		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
 		Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
@@ -563,6 +577,14 @@ func (operations *Operations) SubmitBackupRetirementDraft(ctx context.Context, c
 		return localapi.TypedResponse[generated.BackupRetirementDraftSubmission]{}, err
 	}
 	return client.SubmitBackupRetirementDraft(ctx, profile, input)
+}
+
+func (operations *Operations) StageBackupOffsiteRetirement(ctx context.Context, configPath string, input generated.BackupOffsiteRetirementStageRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission]{}, err
+	}
+	return client.StageBackupOffsiteRetirement(ctx, profile, input)
 }
 
 func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {

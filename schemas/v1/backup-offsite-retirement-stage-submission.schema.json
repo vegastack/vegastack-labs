@@ -1,0 +1,92 @@
+{
+  "$id": "vegastack-labs.dev/backup-offsite-retirement-stage-submission",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "expectedReclaimBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "generationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "intentId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "pointId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "preRuleCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "ruleSetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-offsite-retirement-stage-submission"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.1.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "staged"
+      ],
+      "type": "string"
+    },
+    "survivorPointIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "survivorRuleCount": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "survivorRuleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "intentId",
+    "generationId",
+    "pointId",
+    "ruleSetDigest",
+    "survivorRuleDigest",
+    "preRuleCount",
+    "survivorRuleCount",
+    "survivorPointIds",
+    "expectedReclaimBytes",
+    "status",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs backup offsite retirement stage submission",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

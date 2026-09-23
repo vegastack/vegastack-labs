@@ -8,6 +8,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
 )
 
@@ -26,12 +27,13 @@ type BackupStatusService interface {
 // BackupOperations exposes the backup catalog and submits exact backup plans
 // through the same run executor used by the generic plan route.
 type BackupOperations struct {
-	Drafts         BackupPolicyDraftService
-	RetentionLocks RetentionLockDraftService
-	Retirements    RetirementDraftService
-	Status         BackupStatusService
-	Runs           RunOperationConfig
-	Results        *result.Factory
+	Drafts             BackupPolicyDraftService
+	RetentionLocks     RetentionLockDraftService
+	Retirements        RetirementDraftService
+	OffsiteRetirements OffsiteRetirementStageService
+	Status             BackupStatusService
+	Runs               RunOperationConfig
+	Results            *result.Factory
 }
 
 func RegisterBackupOperations(app *Application, config BackupOperations) error {
@@ -42,6 +44,10 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 	added := 1
 	if config.Retirements != nil {
 		app.routes = append(app.routes, route{id: "api.v1.backup-retirement-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/retirements/drafts", deferredAuthorization: true, handler: app.backupRetirementDraft(config)})
+		added++
+	}
+	if config.OffsiteRetirements != nil {
+		app.routes = append(app.routes, route{id: "api.v1.backup-offsite-retirements.stage", method: http.MethodPost, pattern: "/api/v1/backups/offsite-retirements/stage", deferredAuthorization: true, handler: app.backupOffsiteRetirementStage(config)})
 		added++
 	}
 	if config.RetentionLocks != nil {
@@ -61,6 +67,37 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
+}
+
+func (app *Application) backupOffsiteRetirementStage(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
+		const op = "api.v1.backup-offsite-retirements.stage"
+		if r.URL.RawQuery != "" {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "query"))
+			return
+		}
+		var input generated.BackupOffsiteRetirementStageRequest
+		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "selectionDigest", "planId", "planDigest", "oneOwnerProofId", "lockAdminConsumerId", "retentionConsumerId"}, &input); err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		principal, ok := identity.PrincipalFromContext(r.Context())
+		if !ok || principal.Method != identity.LocalOSPeerMethod {
+			app.failure(w, op, apiFailure(generated.ErrorCodeAuthorizationDenied, "offsite-retirement-operator-only"))
+			return
+		}
+		requestID, err := config.Results.RequestID()
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		result, err := config.OffsiteRetirements.Stage(r.Context(), input, principal)
+		if err != nil {
+			app.operationFailure(w, op, requestID, err)
+			return
+		}
+		app.operationSuccess(w, op, requestID, true, result.StateRevision, result.RecoveryEpoch, result)
+	}
 }
 
 func (app *Application) backupStatus(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {

@@ -101,6 +101,14 @@ func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context
 		if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_generations g WHERE g.generation_id=? AND g.source_point_id=? AND g.source_revision=? AND g.state_revision<=? AND g.recovery_epoch=? AND json_extract(g.pending_json,'$.SourceManifestDigest')=? AND json_extract(g.pending_json,'$.OffsiteInventoryDigest')=? AND EXISTS(SELECT 1 FROM immutable_plans p WHERE p.plan_id=? AND p.plan_digest=? AND p.state_revision=? AND p.recovery_epoch=? AND p.expires_at>?)`, intent.GenerationID, intent.PointID, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.ManifestDigest, intent.InventoryDigest, intent.PlanID, intent.PlanDigest, intent.StateRevision, intent.RecoveryEpoch, now).Scan(&exact); e != nil || exact != 1 {
 			return newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-generation", false, e)
 		}
+		var planBytes []byte
+		if e := tx.QueryRowContext(ctx, `SELECT canonical_bytes FROM immutable_plans WHERE plan_id=? AND plan_digest=?`, intent.PlanID, intent.PlanDigest).Scan(&planBytes); e != nil {
+			return newStoreError(generated.ErrorCodePlanStale, "offsite-retirement-plan", false, e)
+		}
+		var plan generated.Plan
+		if json.Unmarshal(planBytes, &plan) != nil || generated.ValidateContractJSON(generated.SchemaIDPlan, planBytes, generated.ContractExact) != nil || !planBindsOffsiteRetirement(plan, intent) {
+			return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-plan", false, nil)
+		}
 		if e := exactRetirementCatalogRows(ctx, tx, intent); e != nil {
 			return e
 		}
@@ -196,6 +204,7 @@ func (r *OffsiteRetirementRepository) AppendReceipt(ctx context.Context, v Offsi
 	}
 	return r.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
 		var matches, observed, uncertain int
+		var maxWork, maxBytes int64
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_retirement_leases WHERE lease_id=? AND intent_id=?`, v.LeaseID, v.IntentID).Scan(&matches); err != nil || matches != 1 {
 			return newStoreError(generated.ErrorCodeAuthorizationDenied, "offsite-retirement-receipt-lease", false, err)
 		}
@@ -205,7 +214,10 @@ func (r *OffsiteRetirementRepository) AppendReceipt(ctx context.Context, v Offsi
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_retirement_attempts WHERE lease_id=? AND status='uncertain'`, v.LeaseID).Scan(&uncertain); err != nil {
 			return err
 		}
-		if v.Status == "verified" && (uncertain != 0 || observed < 2) {
+		if err := tx.QueryRowContext(ctx, `SELECT max_work_objects,max_mutation_bytes FROM backup_offsite_retirement_intents WHERE intent_id=?`, v.IntentID).Scan(&maxWork, &maxBytes); err != nil {
+			return err
+		}
+		if v.Status == "verified" && (uncertain != 0 || int64(observed) != maxWork+1 || v.ReclaimedBytes != maxBytes || v.EffectDigest != v.SurvivorProofDigest) {
 			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-receipt-proof", false, nil)
 		}
 		_, err := tx.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_receipts(receipt_id,intent_id,lease_id,status,effect_digest,survivor_proof_digest,reclaimed_bytes,canonical_json,recorded_at) VALUES(?,?,?,?,?,?,?,?,?)`, v.ReceiptID, v.IntentID, v.LeaseID, v.Status, v.EffectDigest, nilIfEmpty(v.SurvivorProofDigest), v.ReclaimedBytes, string(v.CanonicalJSON), r.store.config.Clock().UTC().Format(time.RFC3339))
@@ -249,7 +261,36 @@ func exactRetirementCatalogRows(ctx context.Context, tx *sql.Tx, intent OffsiteR
 	if !slices.Equal(rules, intent.Rules) || !slices.Equal(objects, intent.Objects) {
 		return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-catalog", false, nil)
 	}
+	lastGoodSeen := false
+	for _, pointID := range intent.SurvivorPointIDs {
+		var count int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_generations WHERE source_point_id=? AND recovery_epoch=? AND generation_id<>?`, pointID, intent.RecoveryEpoch, intent.GenerationID).Scan(&count); err != nil || count != 1 {
+			return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-survivors", false, err)
+		}
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM backup_offsite_last_good_history h JOIN backup_offsite_generations g ON g.generation_id=h.generation_id WHERE g.source_point_id=? AND h.recovery_epoch=? AND h.sequence=(SELECT MAX(sequence) FROM backup_offsite_last_good_history WHERE recovery_epoch=?)`, pointID, intent.RecoveryEpoch, intent.RecoveryEpoch).Scan(&count); err != nil {
+			return err
+		}
+		if count == 1 {
+			lastGoodSeen = true
+		}
+	}
+	if !lastGoodSeen {
+		return newStoreError(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-last-good", false, nil)
+	}
 	return nil
+}
+
+func planBindsOffsiteRetirement(plan generated.Plan, intent OffsiteRetirementIntent) bool {
+	if plan.PlanID != intent.PlanID || plan.PlanDigest != intent.PlanDigest || plan.Binding.StateRevision != intent.StateRevision || plan.Binding.RecoveryEpoch != intent.RecoveryEpoch || plan.Risk != "destructive" || plan.AuthorizationBranch != "human" || plan.ExecutorMode != "central" {
+		return false
+	}
+	matched := 0
+	for _, operation := range plan.Operations {
+		if operation.OperationType == "backup.retire.offsite" && operation.AdapterID == "r2.retention" && operation.TargetID == intent.GenerationID && !operation.Idempotent {
+			matched++
+		}
+	}
+	return matched == 1
 }
 func nilIfEmpty(v string) any {
 	if v == "" {

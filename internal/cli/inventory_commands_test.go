@@ -16,31 +16,32 @@ import (
 )
 
 type stubControlOperations struct {
-	gateListResponse      localapi.TypedResponse[generated.GateListData]
-	gateViewResponse      localapi.TypedResponse[generated.GateView]
-	gateCheckResponse     localapi.TypedResponse[generated.GateEvaluation]
-	gateEvidenceResponse  localapi.TypedResponse[generated.GateEvidenceSubmission]
-	gateProfileResponse   localapi.TypedResponse[generated.GateProfileDraftSubmission]
-	backupPolicyResponse  localapi.TypedResponse[generated.BackupPolicyDraftSubmission]
-	retentionLockResponse localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]
-	retirementResponse    localapi.TypedResponse[generated.BackupRetirementDraftSubmission]
-	backupStatusResponse  localapi.TypedResponse[generated.BackupStatusData]
-	backupJobResponse     localapi.TypedResponse[generated.BackupJob]
-	summaryResponse       localapi.TypedResponse[generated.ApiSummaryData]
-	databaseResponse      localapi.TypedResponse[generated.DatabaseStatusData]
-	auditListResponse     localapi.TypedResponse[generated.AuditCheckpointListData]
-	auditVerifyResponse   localapi.TypedResponse[generated.AuditVerificationData]
-	importResponse        localapi.TypedResponse[generated.InventoryImportData]
-	diffResponse          localapi.TypedResponse[generated.InventoryDiffData]
-	exportResponse        localapi.TypedResponse[generated.InventoryExportData]
-	planResponse          localapi.TypedResponse[generated.Plan]
-	runResponse           localapi.TypedResponse[generated.RunPresentation]
-	err                   error
-	calls                 int
-	config                string
-	importRequest         generated.InventoryImportRequest
-	diffRequest           generated.InventoryDiffRequest
-	exportRequest         generated.InventoryExportRequest
+	gateListResponse          localapi.TypedResponse[generated.GateListData]
+	gateViewResponse          localapi.TypedResponse[generated.GateView]
+	gateCheckResponse         localapi.TypedResponse[generated.GateEvaluation]
+	gateEvidenceResponse      localapi.TypedResponse[generated.GateEvidenceSubmission]
+	gateProfileResponse       localapi.TypedResponse[generated.GateProfileDraftSubmission]
+	backupPolicyResponse      localapi.TypedResponse[generated.BackupPolicyDraftSubmission]
+	retentionLockResponse     localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission]
+	retirementResponse        localapi.TypedResponse[generated.BackupRetirementDraftSubmission]
+	offsiteRetirementResponse localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission]
+	backupStatusResponse      localapi.TypedResponse[generated.BackupStatusData]
+	backupJobResponse         localapi.TypedResponse[generated.BackupJob]
+	summaryResponse           localapi.TypedResponse[generated.ApiSummaryData]
+	databaseResponse          localapi.TypedResponse[generated.DatabaseStatusData]
+	auditListResponse         localapi.TypedResponse[generated.AuditCheckpointListData]
+	auditVerifyResponse       localapi.TypedResponse[generated.AuditVerificationData]
+	importResponse            localapi.TypedResponse[generated.InventoryImportData]
+	diffResponse              localapi.TypedResponse[generated.InventoryDiffData]
+	exportResponse            localapi.TypedResponse[generated.InventoryExportData]
+	planResponse              localapi.TypedResponse[generated.Plan]
+	runResponse               localapi.TypedResponse[generated.RunPresentation]
+	err                       error
+	calls                     int
+	config                    string
+	importRequest             generated.InventoryImportRequest
+	diffRequest               generated.InventoryDiffRequest
+	exportRequest             generated.InventoryExportRequest
 }
 
 func (stub *stubControlOperations) Gates(_ context.Context, _ string) (localapi.TypedResponse[generated.GateListData], error) {
@@ -66,6 +67,9 @@ func (stub *stubControlOperations) SubmitBackupRetentionLockDraft(_ context.Cont
 }
 func (stub *stubControlOperations) SubmitBackupRetirementDraft(_ context.Context, _ string, _ generated.BackupRetirementDraftRequest) (localapi.TypedResponse[generated.BackupRetirementDraftSubmission], error) {
 	return stub.retirementResponse, stub.err
+}
+func (stub *stubControlOperations) StageBackupOffsiteRetirement(context.Context, string, generated.BackupOffsiteRetirementStageRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error) {
+	return stub.offsiteRetirementResponse, stub.err
 }
 func (stub *stubControlOperations) BackupStatus(_ context.Context, _ string) (localapi.TypedResponse[generated.BackupStatusData], error) {
 	return stub.backupStatusResponse, stub.err
@@ -179,28 +183,30 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	backup := generated.BackupPolicyDraftSubmission{Schema: generated.SchemaIDBackupPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: "backup-draft-test", PolicyID: "policy-a", PolicyDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 8, RecoveryEpoch: 2}
 	retentionLock := generated.BackupRetentionLockDraftSubmission{Schema: generated.SchemaIDBackupRetentionLockDraftSubmission, SchemaVersion: "1.1.0", DraftID: "lock-draft-test", ChangeID: "retention-lock-change-test", OperationID: "retention-lock-operation-test", CatalogDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 9, RecoveryEpoch: 2}
 	retirement := generated.BackupRetirementDraftSubmission{Schema: generated.SchemaIDBackupRetirementDraftSubmission, SchemaVersion: "1.1.0", DraftID: "retirement-draft-test", ChangeID: "retirement-change-test", OperationID: "retirement-operation-test", SelectionDigest: "sha256:" + strings.Repeat("b", 64), CredentialManifestDigest: "sha256:" + strings.Repeat("c", 64), TargetPointIDs: []string{"point-old"}, SurvivorPointIDs: []string{"point-good"}, Status: "draft", StateRevision: 10, RecoveryEpoch: 2}
+	offsiteRetirement := generated.BackupOffsiteRetirementStageSubmission{Schema: generated.SchemaIDBackupOffsiteRetirementStageSubmission, SchemaVersion: "1.1.0", IntentID: "offsite-retirement-test", GenerationID: "generation-old", PointID: "point-old", RuleSetDigest: "sha256:" + strings.Repeat("a", 64), SurvivorRuleDigest: "sha256:" + strings.Repeat("b", 64), PreRuleCount: 10, SurvivorRuleCount: 5, SurvivorPointIDs: []string{"point-good"}, ExpectedReclaimBytes: 8, Status: "staged", StateRevision: 7, RecoveryEpoch: 2}
 	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: 2}
 	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
 	return &stubControlOperations{
-		gateListResponse:      operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
-		gateViewResponse:      operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
-		gateCheckResponse:     operationResponse(t, "api.v1.gates.check", false, 2, 7, evaluation),
-		gateEvidenceResponse:  operationResponse(t, "api.v1.gate-evidence.create", true, 2, 8, evidence),
-		gateProfileResponse:   operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
-		backupPolicyResponse:  operationResponse(t, "api.v1.backup-policy-drafts.create", true, 2, 8, backup),
-		retentionLockResponse: operationResponse(t, "api.v1.backup-retention-lock-drafts.create", true, 2, 9, retentionLock),
-		retirementResponse:    operationResponse(t, "api.v1.backup-retirement-drafts.create", true, 2, 10, retirement),
-		backupStatusResponse:  operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
-		backupJobResponse:     operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
-		summaryResponse:       operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
-		databaseResponse:      operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
-		auditListResponse:     operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),
-		auditVerifyResponse:   operationResponse(t, "api.v1.audit-history.verification", false, 2, 7, auditVerify),
-		importResponse:        operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
-		diffResponse:          operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
-		exportResponse:        operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
-		planResponse:          operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
-		runResponse:           operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
+		gateListResponse:          operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
+		gateViewResponse:          operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
+		gateCheckResponse:         operationResponse(t, "api.v1.gates.check", false, 2, 7, evaluation),
+		gateEvidenceResponse:      operationResponse(t, "api.v1.gate-evidence.create", true, 2, 8, evidence),
+		gateProfileResponse:       operationResponse(t, "api.v1.gate-profile-drafts.create", true, 2, 8, profile),
+		backupPolicyResponse:      operationResponse(t, "api.v1.backup-policy-drafts.create", true, 2, 8, backup),
+		retentionLockResponse:     operationResponse(t, "api.v1.backup-retention-lock-drafts.create", true, 2, 9, retentionLock),
+		retirementResponse:        operationResponse(t, "api.v1.backup-retirement-drafts.create", true, 2, 10, retirement),
+		offsiteRetirementResponse: operationResponse(t, "api.v1.backup-offsite-retirements.stage", true, 2, 7, offsiteRetirement),
+		backupStatusResponse:      operationResponse(t, "api.v1.backups.status", false, 2, 7, backupStatus),
+		backupJobResponse:         operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
+		summaryResponse:           operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
+		databaseResponse:          operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
+		auditListResponse:         operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),
+		auditVerifyResponse:       operationResponse(t, "api.v1.audit-history.verification", false, 2, 7, auditVerify),
+		importResponse:            operationResponse(t, "api.v1.inventory-drafts.import", true, 2, 8, imported),
+		diffResponse:              operationResponse(t, "api.v1.inventory-diffs.create", false, 2, 8, diff),
+		exportResponse:            operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
+		planResponse:              operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
+		runResponse:               operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
 	}
 }
 

@@ -8,6 +8,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
 )
 
 const OffsiteRetentionWindow = 14 * 24 * time.Hour
@@ -64,6 +66,13 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 	dependencies := stringSet(catalog.DependencyPointIDs)
 	promises := stringSet(catalog.ActivePromisePointIDs)
 	if len(lastGood) == 0 || len(catalog.Generations) < 2 || len(catalog.CurrentRules) != catalog.RuleCount {
+		return fail()
+	}
+	completeRules := make([]r2retention.Rule, len(catalog.CurrentRules))
+	for i, rule := range catalog.CurrentRules {
+		completeRules[i] = r2retention.Rule{RuleID: rule.RuleID, Prefix: rule.Prefix}
+	}
+	if r2retention.DigestRuleSet(r2retention.RuleSet{Rules: completeRules}) != catalog.RuleSetDigest {
 		return fail()
 	}
 	targets := stringSet(nil)

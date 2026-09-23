@@ -911,10 +911,10 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 }
 
 const (
-	// #115 adds the typed, local-only inert retention-lock catalog draft. It
-	// carries public point IDs and digests only and reaches no provider path.
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "baaed3f48daf3bd806246ca3f6473e2d9674e8af14c613d1970e8e246578d49c"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "7c102d030fa2ca86e3d5c6d9fb5018d30fd1da61cbeb0b43c6fa8239725e2d66"
+	// #118 adds one typed off-site retirement staging request. It carries only
+	// public IDs/digests and reaches the existing value-only local transport.
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "24d47c7345696396670ebb28388da7ebffdd4853c7b09a6064070f7d70d5b04d"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "2a5820132ac72517cd8f70cdc10a764e389edab5fffcb49928037dd2f4abc454"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )

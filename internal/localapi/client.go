@@ -75,6 +75,7 @@ type Client interface {
 	SubmitBackupPolicyDraft(context.Context, serverconfig.Profile, generated.BackupPolicyDraftRequest) (TypedResponse[generated.BackupPolicyDraftSubmission], error)
 	SubmitBackupRetentionLockDraft(context.Context, serverconfig.Profile, generated.BackupRetentionLockDraftRequest) (TypedResponse[generated.BackupRetentionLockDraftSubmission], error)
 	SubmitBackupRetirementDraft(context.Context, serverconfig.Profile, generated.BackupRetirementDraftRequest) (TypedResponse[generated.BackupRetirementDraftSubmission], error)
+	StageBackupOffsiteRetirement(context.Context, serverconfig.Profile, generated.BackupOffsiteRetirementStageRequest) (TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error)
 	BackupStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error)
 	RunBackup(context.Context, serverconfig.Profile, generated.BackupRunRequest) (TypedResponse[generated.BackupJob], error)
 	VerifyBackup(context.Context, serverconfig.Profile, generated.BackupVerifyRequest) (TypedResponse[generated.BackupJob], error)

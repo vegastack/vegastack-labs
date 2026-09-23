@@ -45,6 +45,17 @@ func (client *client) SubmitBackupRetirementDraft(ctx context.Context, profile s
 	})
 }
 
+func (client *client) StageBackupOffsiteRetirement(ctx context.Context, profile serverconfig.Profile, input generated.BackupOffsiteRetirementStageRequest) (TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error) {
+	var zero TypedResponse[generated.BackupOffsiteRetirementStageSubmission]
+	raw, err := json.Marshal(input)
+	if err != nil || generated.ValidateContractJSON(generated.SchemaIDBackupOffsiteRetirementStageRequest, raw, generated.ContractExact) != nil {
+		return zero, failure.New(generated.ErrorCodeInputInvalid, "backup-offsite-retirement-stage", false)
+	}
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/backups/offsite-retirements/stage", "api.v1.backup-offsite-retirements.stage", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.BackupOffsiteRetirementStageSubmission, result generated.RunResult) bool {
+		return data.Schema == generated.SchemaIDBackupOffsiteRetirementStageSubmission && data.Status == "staged" && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
+	})
+}
+
 func (client *client) BackupStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error) {
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/backups/status", "api.v1.backups.status", maxOperationResponseBodyBytes, statusTimeout, false}, nil, func(data generated.BackupStatusData, result generated.RunResult) bool {
 		raw, err := json.Marshal(data)

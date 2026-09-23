@@ -1,66 +1,68 @@
 package metadata
 
 const (
-	gateDefinitionSchemaID                = "vegastack-labs.dev/gate-definition"
-	gateEvidenceSchemaID                  = "vegastack-labs.dev/gate-evidence"
-	gateEvaluationSchemaID                = "vegastack-labs.dev/gate-evaluation"
-	credentialReferenceSchemaID           = "vegastack-labs.dev/credential-reference"
-	credentialResolutionRecordSchemaID    = "vegastack-labs.dev/credential-resolution-record"
-	backupPolicySchemaID                  = "vegastack-labs.dev/backup-policy"
-	backupDependencySchemaID              = "vegastack-labs.dev/backup-dependency"
-	backupPolicyDraftRequestSchemaID      = "vegastack-labs.dev/backup-policy-draft-request"
-	backupPolicyDraftSubmissionSchemaID   = "vegastack-labs.dev/backup-policy-draft-submission"
-	backupJobSchemaID                     = "vegastack-labs.dev/backup-job"
-	backupVerificationAttemptSchemaID     = "vegastack-labs.dev/backup-verification-attempt"
-	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
-	backupLocalRetirementStatusSchemaID   = "vegastack-labs.dev/backup-local-retirement-status"
-	backupOffsiteStatusSchemaID           = "vegastack-labs.dev/backup-offsite-status"
-	offsiteRunSpecSchemaID                = "vegastack-labs.dev/offsite-run-spec"
-	backupRetentionLockSchemaID           = "vegastack-labs.dev/backup-retention-lock"
-	backupRetentionLockCatalogSchemaID    = "vegastack-labs.dev/local-retention-lock-catalog"
-	backupRetentionLockDraftRequestID     = "vegastack-labs.dev/backup-retention-lock-draft-request"
-	backupRetentionLockDraftSubmissionID  = "vegastack-labs.dev/backup-retention-lock-draft-submission"
-	backupRetirementDraftRequestID        = "vegastack-labs.dev/backup-retirement-draft-request"
-	backupRetirementDraftSubmissionID     = "vegastack-labs.dev/backup-retirement-draft-submission"
-	backupTrustSourceDraftRequestSchemaID = "vegastack-labs.dev/backup-trust-source-draft-request"
-	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
-	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
-	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
-	restoreVerificationSchemaID           = "vegastack-labs.dev/restore-verification"
-	scheduledJobPolicySchemaID            = "vegastack-labs.dev/scheduled-job-policy"
-	scheduledJobSchemaID                  = "vegastack-labs.dev/scheduled-job"
-	gateCheckRequestSchemaID              = "vegastack-labs.dev/gate-check-request"
-	gateEvidenceRequestSchemaID           = "vegastack-labs.dev/gate-evidence-request"
-	gateProfileDraftRequestSchemaID       = "vegastack-labs.dev/gate-profile-draft-request"
-	gateProfileDraftSubmissionSchemaID    = "vegastack-labs.dev/gate-profile-draft-submission"
-	gateEvidenceFactSchemaID              = "vegastack-labs.dev/gate-evidence-fact"
-	gateEvidenceCheckSchemaID             = "vegastack-labs.dev/gate-evidence-check"
-	gateEvidenceAttachmentSchemaID        = "vegastack-labs.dev/gate-evidence-attachment"
-	gateEvidenceBundleSchemaID            = "vegastack-labs.dev/gate-evidence-bundle"
-	gateEvidenceSubmissionSchemaID        = "vegastack-labs.dev/gate-evidence-submission"
-	gateViewSchemaID                      = "vegastack-labs.dev/gate-view"
-	backupRunRequestSchemaID              = "vegastack-labs.dev/backup-run-request"
-	backupVerifyRequestSchemaID           = "vegastack-labs.dev/backup-verify-request"
-	restoreRequestSchemaID                = "vegastack-labs.dev/restore-request"
-	restoreRunRequestSchemaID             = "vegastack-labs.dev/restore-run-request"
-	restoreVerifyRequestSchemaID          = "vegastack-labs.dev/restore-verify-request"
-	scheduledJobRequestSchemaID           = "vegastack-labs.dev/scheduled-job-request"
-	credentialReferenceRequestSchemaID    = "vegastack-labs.dev/credential-reference-request"
-	credentialImportRequestSchemaID       = "vegastack-labs.dev/credential-import-request"
-	credentialImportSubmissionSchemaID    = "vegastack-labs.dev/credential-import-submission"
-	credentialLifecycleRequestSchemaID    = "vegastack-labs.dev/credential-lifecycle-request"
-	credentialNativeConsumerSchemaID      = "vegastack-labs.dev/credential-native-consumer"
-	credentialNativeDeniedReaderID        = "vegastack-labs.dev/credential-native-denied-reader"
-	credentialLifecycleSubmissionID       = "vegastack-labs.dev/credential-lifecycle-submission"
-	auditCheckpointRequestSchemaID        = "vegastack-labs.dev/audit-checkpoint-request"
-	databaseExportRequestSchemaID         = "vegastack-labs.dev/database-export-request"
-	gateListDataSchemaID                  = "vegastack-labs.dev/gate-list-data"
-	backupStatusDataSchemaID              = "vegastack-labs.dev/backup-status-data"
-	auditCheckpointListDataSchemaID       = "vegastack-labs.dev/audit-checkpoint-list-data"
-	auditVerificationDataSchemaID         = "vegastack-labs.dev/audit-verification-data"
-	recoveryWitnessCollectionDataSchemaID = "vegastack-labs.dev/recovery-witness-collection-data"
-	browserRestoreStatusSchemaID          = "vegastack-labs.dev/browser-restore-status"
-	sanitizedExportDataSchemaID           = "vegastack-labs.dev/sanitized-export-data"
+	gateDefinitionSchemaID                   = "vegastack-labs.dev/gate-definition"
+	gateEvidenceSchemaID                     = "vegastack-labs.dev/gate-evidence"
+	gateEvaluationSchemaID                   = "vegastack-labs.dev/gate-evaluation"
+	credentialReferenceSchemaID              = "vegastack-labs.dev/credential-reference"
+	credentialResolutionRecordSchemaID       = "vegastack-labs.dev/credential-resolution-record"
+	backupPolicySchemaID                     = "vegastack-labs.dev/backup-policy"
+	backupDependencySchemaID                 = "vegastack-labs.dev/backup-dependency"
+	backupPolicyDraftRequestSchemaID         = "vegastack-labs.dev/backup-policy-draft-request"
+	backupPolicyDraftSubmissionSchemaID      = "vegastack-labs.dev/backup-policy-draft-submission"
+	backupJobSchemaID                        = "vegastack-labs.dev/backup-job"
+	backupVerificationAttemptSchemaID        = "vegastack-labs.dev/backup-verification-attempt"
+	backupLastGoodSchemaID                   = "vegastack-labs.dev/backup-last-good"
+	backupLocalRetirementStatusSchemaID      = "vegastack-labs.dev/backup-local-retirement-status"
+	backupOffsiteStatusSchemaID              = "vegastack-labs.dev/backup-offsite-status"
+	offsiteRunSpecSchemaID                   = "vegastack-labs.dev/offsite-run-spec"
+	backupRetentionLockSchemaID              = "vegastack-labs.dev/backup-retention-lock"
+	backupRetentionLockCatalogSchemaID       = "vegastack-labs.dev/local-retention-lock-catalog"
+	backupRetentionLockDraftRequestID        = "vegastack-labs.dev/backup-retention-lock-draft-request"
+	backupRetentionLockDraftSubmissionID     = "vegastack-labs.dev/backup-retention-lock-draft-submission"
+	backupRetirementDraftRequestID           = "vegastack-labs.dev/backup-retirement-draft-request"
+	backupRetirementDraftSubmissionID        = "vegastack-labs.dev/backup-retirement-draft-submission"
+	backupOffsiteRetirementStageRequestID    = "vegastack-labs.dev/backup-offsite-retirement-stage-request"
+	backupOffsiteRetirementStageSubmissionID = "vegastack-labs.dev/backup-offsite-retirement-stage-submission"
+	backupTrustSourceDraftRequestSchemaID    = "vegastack-labs.dev/backup-trust-source-draft-request"
+	recoveryPointSchemaID                    = "vegastack-labs.dev/recovery-point"
+	auditCheckpointSchemaID                  = "vegastack-labs.dev/audit-checkpoint"
+	restoreBindingSchemaID                   = "vegastack-labs.dev/restore-binding"
+	restoreVerificationSchemaID              = "vegastack-labs.dev/restore-verification"
+	scheduledJobPolicySchemaID               = "vegastack-labs.dev/scheduled-job-policy"
+	scheduledJobSchemaID                     = "vegastack-labs.dev/scheduled-job"
+	gateCheckRequestSchemaID                 = "vegastack-labs.dev/gate-check-request"
+	gateEvidenceRequestSchemaID              = "vegastack-labs.dev/gate-evidence-request"
+	gateProfileDraftRequestSchemaID          = "vegastack-labs.dev/gate-profile-draft-request"
+	gateProfileDraftSubmissionSchemaID       = "vegastack-labs.dev/gate-profile-draft-submission"
+	gateEvidenceFactSchemaID                 = "vegastack-labs.dev/gate-evidence-fact"
+	gateEvidenceCheckSchemaID                = "vegastack-labs.dev/gate-evidence-check"
+	gateEvidenceAttachmentSchemaID           = "vegastack-labs.dev/gate-evidence-attachment"
+	gateEvidenceBundleSchemaID               = "vegastack-labs.dev/gate-evidence-bundle"
+	gateEvidenceSubmissionSchemaID           = "vegastack-labs.dev/gate-evidence-submission"
+	gateViewSchemaID                         = "vegastack-labs.dev/gate-view"
+	backupRunRequestSchemaID                 = "vegastack-labs.dev/backup-run-request"
+	backupVerifyRequestSchemaID              = "vegastack-labs.dev/backup-verify-request"
+	restoreRequestSchemaID                   = "vegastack-labs.dev/restore-request"
+	restoreRunRequestSchemaID                = "vegastack-labs.dev/restore-run-request"
+	restoreVerifyRequestSchemaID             = "vegastack-labs.dev/restore-verify-request"
+	scheduledJobRequestSchemaID              = "vegastack-labs.dev/scheduled-job-request"
+	credentialReferenceRequestSchemaID       = "vegastack-labs.dev/credential-reference-request"
+	credentialImportRequestSchemaID          = "vegastack-labs.dev/credential-import-request"
+	credentialImportSubmissionSchemaID       = "vegastack-labs.dev/credential-import-submission"
+	credentialLifecycleRequestSchemaID       = "vegastack-labs.dev/credential-lifecycle-request"
+	credentialNativeConsumerSchemaID         = "vegastack-labs.dev/credential-native-consumer"
+	credentialNativeDeniedReaderID           = "vegastack-labs.dev/credential-native-denied-reader"
+	credentialLifecycleSubmissionID          = "vegastack-labs.dev/credential-lifecycle-submission"
+	auditCheckpointRequestSchemaID           = "vegastack-labs.dev/audit-checkpoint-request"
+	databaseExportRequestSchemaID            = "vegastack-labs.dev/database-export-request"
+	gateListDataSchemaID                     = "vegastack-labs.dev/gate-list-data"
+	backupStatusDataSchemaID                 = "vegastack-labs.dev/backup-status-data"
+	auditCheckpointListDataSchemaID          = "vegastack-labs.dev/audit-checkpoint-list-data"
+	auditVerificationDataSchemaID            = "vegastack-labs.dev/audit-verification-data"
+	recoveryWitnessCollectionDataSchemaID    = "vegastack-labs.dev/recovery-witness-collection-data"
+	browserRestoreStatusSchemaID             = "vegastack-labs.dev/browser-restore-status"
+	sanitizedExportDataSchemaID              = "vegastack-labs.dev/sanitized-export-data"
 )
 
 // Phase 5 metadata describes public shapes. It does not make an evidence
@@ -616,6 +618,17 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5IDs("targetPointIds", "TargetPointIDs", 256), phase5IDs("survivorPointIds", "SurvivorPointIDs", 256),
 			phase5Enum("status", "Status", "draft"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5BackupRequest(backupOffsiteRetirementStageRequestID,
+			phase5Digest("selectionDigest", "SelectionDigest"), phase5ID("planId", "PlanID"), phase5Digest("planDigest", "PlanDigest"),
+			phase5ID("oneOwnerProofId", "OneOwnerProofID"), phase5ID("lockAdminConsumerId", "LockAdminConsumerID"), phase5ID("retentionConsumerId", "RetentionConsumerID"),
+		),
+		phase5BackupSchema(backupOffsiteRetirementStageSubmissionID,
+			phase5ID("intentId", "IntentID"), phase5ID("generationId", "GenerationID"), phase5ID("pointId", "PointID"),
+			phase5Digest("ruleSetDigest", "RuleSetDigest"), phase5Digest("survivorRuleDigest", "SurvivorRuleDigest"),
+			phase5Nonnegative("preRuleCount", "PreRuleCount"), phase5Nonnegative("survivorRuleCount", "SurvivorRuleCount"),
+			phase5IDs("survivorPointIds", "SurvivorPointIDs", 256), phase5Nonnegative("expectedReclaimBytes", "ExpectedReclaimBytes"),
+			phase5Enum("status", "Status", "staged"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5BackupSchema(backupPolicyDraftSubmissionSchemaID,
 			phase5ID("draftId", "DraftID"), phase5ID("policyId", "PolicyID"),
 			phase5Digest("policyDigest", "PolicyDigest"),
@@ -741,6 +754,7 @@ func phase5Endpoints() []EndpointDefinition {
 		{ID: "api.v1.backup-policy-drafts.create", Method: "POST", Path: "/api/v1/backups/policies/drafts", RequestSchema: backupPolicyDraftRequestSchemaID, DataSchema: backupPolicyDraftSubmissionSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		{ID: "api.v1.backup-retention-lock-drafts.create", Method: "POST", Path: "/api/v1/backups/retention-locks/drafts", RequestSchema: backupRetentionLockDraftRequestID, DataSchema: backupRetentionLockDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		{ID: "api.v1.backup-retirement-drafts.create", Method: "POST", Path: "/api/v1/backups/retirements/drafts", RequestSchema: backupRetirementDraftRequestID, DataSchema: backupRetirementDraftSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
+		{ID: "api.v1.backup-offsite-retirements.stage", Method: "POST", Path: "/api/v1/backups/offsite-retirements/stage", RequestSchema: backupOffsiteRetirementStageRequestID, DataSchema: backupOffsiteRetirementStageSubmissionID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}},
 		phase5AvailableGateEndpoint("api.v1.backups.status", "GET", "/api/v1/backups/status", "", backupStatusDataSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.backups.run", "POST", "/api/v1/backups/run", backupRunRequestSchemaID, backupJobSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.backups.verify", "POST", "/api/v1/backups/{jobId}/verify", backupVerifyRequestSchemaID, backupJobSchemaID, false),
@@ -779,6 +793,8 @@ func phase5CommandSchemas(path string) (request string, data string) {
 		return backupRetentionLockDraftRequestID, backupRetentionLockDraftSubmissionID
 	case "backup retirement draft":
 		return backupRetirementDraftRequestID, backupRetirementDraftSubmissionID
+	case "backup offsite-retirement stage":
+		return backupOffsiteRetirementStageRequestID, backupOffsiteRetirementStageSubmissionID
 	case "recovery witness collect":
 		return "", recoveryWitnessCollectionDataSchemaID
 	case "backup run", "database backup":

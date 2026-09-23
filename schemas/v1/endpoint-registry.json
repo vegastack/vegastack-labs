@@ -43,6 +43,19 @@
       ]
     },
     {
+      "id": "api.v1.backup-offsite-retirements.stage",
+      "method": "POST",
+      "path": "/api/v1/backups/offsite-retirements/stage",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-offsite-retirement-stage-request",
+      "dataSchema": "vegastack-labs.dev/backup-offsite-retirement-stage-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.backup-policy-drafts.create",
       "method": "POST",
       "path": "/api/v1/backups/policies/drafts",

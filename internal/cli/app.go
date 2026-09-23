@@ -93,6 +93,9 @@ type BackupRetentionLockControlOperations interface {
 type BackupRetirementControlOperations interface {
 	SubmitBackupRetirementDraft(context.Context, string, generated.BackupRetirementDraftRequest) (localapi.TypedResponse[generated.BackupRetirementDraftSubmission], error)
 }
+type BackupOffsiteRetirementControlOperations interface {
+	StageBackupOffsiteRetirement(context.Context, string, generated.BackupOffsiteRetirementStageRequest) (localapi.TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error)
+}
 
 type BackupRunControlOperations interface {
 	BackupStatus(context.Context, string) (localapi.TypedResponse[generated.BackupStatusData], error)
@@ -417,7 +420,7 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runGateCommand(ctx, mode, parsed)
 	case generated.CommandNameRecoveryWitnessCollect:
 		return app.runRecoveryWitnessCollect(ctx, mode, parsed)
-	case generated.CommandNameBackupPolicyDraft, generated.CommandNameBackupRetentionLocksDraft, generated.CommandNameBackupRetirementDraft:
+	case generated.CommandNameBackupPolicyDraft, generated.CommandNameBackupRetentionLocksDraft, generated.CommandNameBackupRetirementDraft, generated.CommandNameBackupOffsiteRetirementStage:
 		return app.runBackupCommand(ctx, mode, parsed)
 	case generated.CommandNameBackupStatus, generated.CommandNameBackupRun, generated.CommandNameBackupVerify:
 		return app.runBackupOperation(ctx, mode, parsed)

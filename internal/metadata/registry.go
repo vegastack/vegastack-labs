@@ -207,6 +207,7 @@ func Current() Registry {
 		backupPolicyDraftCommand(),
 		backupRetentionLockDraftCommand(),
 		backupRetirementDraftCommand(),
+		backupOffsiteRetirementStageCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		credentialImportCommand(),
 		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
@@ -392,6 +393,12 @@ func backupRetirementDraftCommand() CommandDefinition {
 	return phase5GateCommand([]string{"backup", "retirement", "draft"}, "Derive and store one exact inert local retirement selection with its credential binding.", backupRetirementDraftRequestID, backupRetirementDraftSubmissionID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-retirement-draft-request JSON file (64 KiB max)."}},
 		[]string{"backup", "retirement", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-retirement-draft-request.json", "--output", "json"})
+}
+
+func backupOffsiteRetirementStageCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "offsite-retirement", "stage"}, "Derive and stage one exact inert off-site retirement from a qualified complete bucket catalog.", backupOffsiteRetirementStageRequestID, backupOffsiteRetirementStageSubmissionID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-offsite-retirement-stage-request JSON file (64 KiB max)."}},
+		[]string{"backup", "offsite-retirement", "stage", "--config", "fixture/server-profile.json", "--file", "fixture/backup-offsite-retirement-stage-request.json", "--output", "json"})
 }
 
 func backupStatusCommand() CommandDefinition {
