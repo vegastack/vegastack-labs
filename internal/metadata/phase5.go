@@ -123,6 +123,13 @@ func phase5BackupStatusSchema(fields ...FieldDefinition) SchemaDefinition {
 	return schema
 }
 
+func phase5BackupOffsiteStatusSchema(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5BackupSchema(backupOffsiteStatusSchemaID, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
 func phase5BackupRequest(identifier string, fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Request(identifier, fields...)
 	schema.Version = "1.1.0"
@@ -364,13 +371,15 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5NullableDigest("journalDigest", "JournalDigest"), phase5NullableDigest("survivorVerificationDigest", "SurvivorVerificationDigest"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
-		phase5BackupSchema(backupOffsiteStatusSchemaID,
+		phase5BackupOffsiteStatusSchema(
 			phase5ID("generationId", "GenerationID"), phase5ID("sourcePointId", "SourcePointID"),
 			phase5ID("repositoryId", "RepositoryID"),
 			FieldDefinition{JSONName: "snapshotId", GoName: "SnapshotID", Kind: ValueString, Required: true, Pattern: `^[a-f0-9]{64}$`},
 			phase5Enum("status", "Status", "pending", "fixture-only", "offsite-verified", "full-payload-due", "site-loss-blocked", "uncertain", "failed"),
 			FieldDefinition{JSONName: "proofClass", GoName: "ProofClass", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"fixture", "qualified-provider"}},
-			phase5NullableID("lastGoodProofId", "LastGoodProofID"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5NullableID("lastGoodProofId", "LastGoodProofID"),
+			FieldDefinition{JSONName: "retirementStatus", GoName: "RetirementStatus", Kind: ValueString, Required: true, Nullable: true, Enum: []string{"planned", "in-progress", "uncertain", "verified", "failed"}},
+			phase5NullableDigest("retirementReceiptDigest", "RetirementReceiptDigest"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(backupRetentionLockSchemaID,
 			phase5ID("pointId", "PointID"), phase5Digest("reasonDigest", "ReasonDigest"),

@@ -3375,7 +3375,7 @@
     },
     {
       "id": "vegastack-labs.dev/backup-offsite-status",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-offsite-status.schema.json"
     },
     {

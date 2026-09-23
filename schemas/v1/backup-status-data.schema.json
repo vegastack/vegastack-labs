@@ -365,6 +365,27 @@
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
         },
+        "retirementReceiptDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retirementStatus": {
+          "enum": [
+            null,
+            "planned",
+            "in-progress",
+            "uncertain",
+            "verified",
+            "failed"
+          ],
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "schema": {
           "enum": [
             "vegastack-labs.dev/backup-offsite-status"
@@ -373,7 +394,7 @@
         },
         "schemaVersion": {
           "enum": [
-            "1.1.0"
+            "1.2.0"
           ],
           "type": "string"
         },
@@ -408,6 +429,8 @@
         "status",
         "proofClass",
         "lastGoodProofId",
+        "retirementStatus",
+        "retirementReceiptDigest",
         "recoveryEpoch"
       ],
       "type": "object"

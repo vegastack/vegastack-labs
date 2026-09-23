@@ -662,16 +662,18 @@ type BackupLocalRetirementStatus struct {
 }
 
 type BackupOffsiteStatus struct {
-	Schema          string  `json:"schema"`
-	SchemaVersion   string  `json:"schemaVersion"`
-	GenerationID    string  `json:"generationId"`
-	SourcePointID   string  `json:"sourcePointId"`
-	RepositoryID    string  `json:"repositoryId"`
-	SnapshotID      string  `json:"snapshotId"`
-	Status          string  `json:"status"`
-	ProofClass      *string `json:"proofClass"`
-	LastGoodProofID *string `json:"lastGoodProofId"`
-	RecoveryEpoch   int64   `json:"recoveryEpoch"`
+	Schema                  string  `json:"schema"`
+	SchemaVersion           string  `json:"schemaVersion"`
+	GenerationID            string  `json:"generationId"`
+	SourcePointID           string  `json:"sourcePointId"`
+	RepositoryID            string  `json:"repositoryId"`
+	SnapshotID              string  `json:"snapshotId"`
+	Status                  string  `json:"status"`
+	ProofClass              *string `json:"proofClass"`
+	LastGoodProofID         *string `json:"lastGoodProofId"`
+	RetirementStatus        *string `json:"retirementStatus"`
+	RetirementReceiptDigest *string `json:"retirementReceiptDigest"`
+	RecoveryEpoch           int64   `json:"recoveryEpoch"`
 }
 
 type BackupPolicy struct {

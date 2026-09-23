@@ -187,6 +187,12 @@ func (service *Service) Create(ctx context.Context, author AuthorScope, request 
 		}
 		risk = string(authorization.RiskDestructive)
 	}
+	if offsiteRetirementPlanCandidate(declaration, operations) {
+		if !sealedSingleOffsiteRetirement(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
+			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
+		}
+		risk = string(authorization.RiskDestructive)
+	}
 	if offsitePlanCandidate(declaration, operations) {
 		if !sealedSingleOffsiteCopy(declaration, operations) || service.config.AuthorizationBranch != "human" || service.config.ExecutorMode != "central" {
 			return store.PlanCommitResult{}, planError(generated.ErrorCodeAuthorizationDenied)
@@ -265,6 +271,36 @@ func localRetentionPlanCandidate(declaration generated.DeclarationRevision, oper
 		}
 	}
 	return false
+}
+
+func offsiteRetirementPlanCandidate(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if declaration.DeclarationType == "backup.offsite-retirement" {
+		return true
+	}
+	for _, operation := range operations {
+		if operation.OperationType == "backup.retire.offsite" || operation.AdapterID == "r2.retention" {
+			return true
+		}
+	}
+	return false
+}
+
+func sealedSingleOffsiteRetirement(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
+	if declaration.DeclarationType != "backup.offsite-retirement" || len(operations) != 1 || operations[0].Idempotent || operations[0].OperationType != "backup.retire.offsite" || operations[0].AdapterID != "r2.retention" || len(declaration.Extensions) != 2 {
+		return false
+	}
+	seenIntent, seenCredential := false, false
+	for _, extension := range declaration.Extensions {
+		switch extension.Name {
+		case "x-backup-offsite-retirement":
+			seenIntent = extension.ValueDigest != "" && extension.ValueDigest == operations[0].ArtifactDigest
+		case "x-credential-bindings":
+			seenCredential = extension.ValueDigest != "" && extension.ValueDigest == operations[0].InputDigest
+		default:
+			return false
+		}
+	}
+	return seenIntent && seenCredential
 }
 
 func sealedSingleLocalRetention(declaration generated.DeclarationRevision, operations []generated.PlanOperation) bool {
