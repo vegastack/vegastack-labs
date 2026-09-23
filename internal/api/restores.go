@@ -116,7 +116,7 @@ func (app *Application) restoreRun(config RestoreConfig) func(http.ResponseWrite
 			return
 		}
 		operation := plan.Operations[0]
-		if _, err := app.authorizePlanAction(r, authorization.ActionExecute, authorization.Target{Capability: operation.OperationType, ResourceKind: "execution-target", ResourceID: operation.TargetID}, plan, []authorization.Branch{authorization.BranchHuman}, authorization.RevisionBinding{StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch}); err != nil {
+		if _, err := app.authorizePlanActionWithoutExpected(r, authorization.ActionExecute, authorization.Target{Capability: operation.OperationType, ResourceKind: "execution-target", ResourceID: operation.TargetID}, plan, []authorization.Branch{authorization.BranchHuman}); err != nil {
 			app.failure(w, op, err)
 			return
 		}
@@ -161,7 +161,7 @@ func (app *Application) restoreVerify(config RestoreConfig) func(http.ResponseWr
 			return
 		}
 		operation := plan.Operations[0]
-		if _, err := app.authorizePlanAction(r, authorization.ActionExecute, authorization.Target{Capability: operation.OperationType, ResourceKind: "execution-target", ResourceID: operation.TargetID}, plan, []authorization.Branch{authorization.BranchHuman}, authorization.RevisionBinding{StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch}); err != nil {
+		if _, err := app.authorizeRecoveryContinuation(r, authorization.Target{Capability: operation.OperationType, ResourceKind: "execution-target", ResourceID: operation.TargetID}, plan, authorization.RevisionBinding{StateRevision: input.ExpectedStateRevision, RecoveryEpoch: input.RecoveryEpoch}); err != nil {
 			app.failure(w, op, err)
 			return
 		}

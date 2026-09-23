@@ -24,9 +24,9 @@ type RestoreTransitionRequest struct {
 }
 
 type RecoveryCandidateRequest struct {
-	CandidateID, PlanID, CandidateDigest, PreservedAuthorityDigest     string
-	FenceSetDigest, AuditDecisionDigest, DatabaseDigest, JournalDigest string
-	Expected                                                           RevisionToken
+	CandidateID, PlanID, CandidateDigest, PreservedAuthorityDigest                   string
+	FenceSetDigest, AuditDecisionDigest, DatabaseDigest, JournalDigest, BundleDigest string
+	Expected                                                                         RevisionToken
 }
 
 type RestoreSession struct {
@@ -40,6 +40,7 @@ type PendingRecoveryCandidate struct {
 	Binding        generated.RestoreBinding
 	DatabaseDigest string
 	JournalDigest  string
+	BundleDigest   string
 }
 
 func (repository *RestoreRepository) Qualification(ctx context.Context, planID string) (RestorePlanQualification, error) {
@@ -71,6 +72,10 @@ func validRestorePlanQualification(qualification RestorePlanQualification, plan 
 	if requestErr != nil || bindingErr != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreRequest, requestRaw, generated.ContractExact) != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, bindingRaw, generated.ContractExact) != nil || !validRestoreBinding(binding) || binding.PlanID != plan.PlanID || binding.PlanDigest != plan.PlanDigest || binding.HumanAcknowledgementID != "pending-human-acknowledgement" {
 		return false
 	}
+	return restoreRequestMatchesBinding(request, binding)
+}
+
+func restoreRequestMatchesBinding(request generated.RestoreRequest, binding generated.RestoreBinding) bool {
 	return equalRestoreSource(request.Source, binding.Source) && request.PointID == binding.PointID && request.TargetDigest == binding.TargetDigest && request.FenceSetDigest == binding.FenceSetDigest && request.AuditDecisionDigest == binding.AuditDecisionDigest && request.CandidateDigest == binding.CandidateDigest && request.PriorInstanceID == binding.PriorInstanceID && request.NewInstanceID == binding.NewInstanceID && request.PriorRecoveryEpoch == binding.PriorRecoveryEpoch && request.NextRecoveryEpoch == binding.NextRecoveryEpoch && equalSortedStrings(request.DependencyIDs, binding.DependencyIDs) && equalSortedStrings(request.TargetIDs, binding.TargetIDs)
 }
 
@@ -98,6 +103,13 @@ func equalSortedStrings(left, right []string) bool {
 type RestoreRepository struct{ store *Store }
 
 func NewRestoreRepository(store *Store) *RestoreRepository { return &RestoreRepository{store: store} }
+
+func (repository *RestoreRepository) RecoveredAuthorityBundle(ctx context.Context, planID string) (RecoveredAuthorityBundle, string, error) {
+	if repository == nil || repository.store == nil {
+		return RecoveredAuthorityBundle{}, "", restoreStoreError(generated.ErrorCodeInputInvalid, "recovery-authority-bundle")
+	}
+	return repository.store.RecoveredAuthorityBundle(ctx, planID)
+}
 
 func (repository *RestoreRepository) CreatePlan(ctx context.Context, request RestorePlanRequest) (RestoreSession, error) {
 	if repository == nil || repository.store == nil || !validRestoreBinding(request.Binding) || request.Expected.StateRevision < 0 || request.Expected.RecoveryEpoch < 0 {
@@ -170,7 +182,7 @@ func (repository *RestoreRepository) PendingPromotion(ctx context.Context) (Pend
 	var raw []byte
 	found := false
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		rows, err := tx.query(ctx, `SELECT s.binding_bytes,c.database_digest,c.journal_digest
+		rows, err := tx.query(ctx, `SELECT s.binding_bytes,c.database_digest,c.journal_digest,c.bundle_digest
 			FROM recovery_candidates c
 			JOIN restore_sessions s ON s.plan_id=c.plan_id
 			WHERE (SELECT t.to_status FROM restore_transitions t WHERE t.plan_id=c.plan_id ORDER BY t.transition_id DESC LIMIT 1)='verification-required'
@@ -182,7 +194,7 @@ func (repository *RestoreRepository) PendingPromotion(ctx context.Context) (Pend
 		if !rows.Next() {
 			return rows.Err()
 		}
-		if err := rows.Scan(&raw, &result.DatabaseDigest, &result.JournalDigest); err != nil {
+		if err := rows.Scan(&raw, &result.DatabaseDigest, &result.JournalDigest, &result.BundleDigest); err != nil {
 			return err
 		}
 		found = true
@@ -194,7 +206,7 @@ func (repository *RestoreRepository) PendingPromotion(ctx context.Context) (Pend
 	if err != nil || !found {
 		return PendingRecoveryCandidate{}, found, err
 	}
-	if json.Unmarshal(raw, &result.Binding) != nil || !validRestoreBinding(result.Binding) || !restoreDigest(result.DatabaseDigest) || !restoreDigest(result.JournalDigest) {
+	if json.Unmarshal(raw, &result.Binding) != nil || !validRestoreBinding(result.Binding) || !restoreDigest(result.DatabaseDigest) || !restoreDigest(result.JournalDigest) || !restoreDigest(result.BundleDigest) {
 		return PendingRecoveryCandidate{}, false, restoreStoreError(generated.ErrorCodeIntegrityFailure, "recovery-candidate")
 	}
 	return result, true, nil
@@ -236,7 +248,7 @@ func (repository *RestoreRepository) AppendTransition(ctx context.Context, reque
 }
 
 func (repository *RestoreRepository) BindCandidate(ctx context.Context, request RecoveryCandidateRequest) error {
-	if repository == nil || repository.store == nil || request.CandidateID == "" || request.PlanID == "" || !restoreDigest(request.CandidateDigest) || !restoreDigest(request.PreservedAuthorityDigest) || !restoreDigest(request.FenceSetDigest) || !restoreDigest(request.AuditDecisionDigest) || !restoreDigest(request.DatabaseDigest) || !restoreDigest(request.JournalDigest) {
+	if repository == nil || repository.store == nil || request.CandidateID == "" || request.PlanID == "" || !restoreDigest(request.CandidateDigest) || !restoreDigest(request.PreservedAuthorityDigest) || !restoreDigest(request.FenceSetDigest) || !restoreDigest(request.AuditDecisionDigest) || !restoreDigest(request.DatabaseDigest) || !restoreDigest(request.JournalDigest) || !restoreDigest(request.BundleDigest) {
 		return restoreStoreError(generated.ErrorCodeInputInvalid, "recovery-candidate")
 	}
 	repository.store.mu.Lock()
@@ -256,7 +268,7 @@ func (repository *RestoreRepository) BindCandidate(ctx context.Context, request 
 	if candidate != request.CandidateDigest || fence != request.FenceSetDigest || decision != request.AuditDecisionDigest {
 		return restoreStoreError(generated.ErrorCodeStateConflict, "recovery-candidate")
 	}
-	_, err = tx.ExecContext(ctx, `INSERT INTO recovery_candidates(candidate_id,plan_id,candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,database_digest,journal_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, request.CandidateID, request.PlanID, request.CandidateDigest, request.PreservedAuthorityDigest, request.FenceSetDigest, request.AuditDecisionDigest, request.DatabaseDigest, request.JournalDigest, request.Expected.StateRevision, request.Expected.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
+	_, err = tx.ExecContext(ctx, `INSERT INTO recovery_candidates(candidate_id,plan_id,candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,database_digest,journal_digest,bundle_digest,state_revision,recovery_epoch,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, request.CandidateID, request.PlanID, request.CandidateDigest, request.PreservedAuthorityDigest, request.FenceSetDigest, request.AuditDecisionDigest, request.DatabaseDigest, request.JournalDigest, request.BundleDigest, request.Expected.StateRevision, request.Expected.RecoveryEpoch, repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339))
 	if err != nil {
 		return restoreStoreError(generated.ErrorCodeStateConflict, "recovery-candidate")
 	}
@@ -307,7 +319,7 @@ func getRestoreSessionRead(ctx context.Context, tx ReadTx, planID string) (Resto
 		return RestoreSession{}, err
 	}
 	var candidate RecoveryCandidateRequest
-	err = tx.queryRow(ctx, `SELECT candidate_id,plan_id,candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,database_digest,journal_digest,state_revision,recovery_epoch FROM recovery_candidates WHERE plan_id=?`, planID).Scan(&candidate.CandidateID, &candidate.PlanID, &candidate.CandidateDigest, &candidate.PreservedAuthorityDigest, &candidate.FenceSetDigest, &candidate.AuditDecisionDigest, &candidate.DatabaseDigest, &candidate.JournalDigest, &candidate.Expected.StateRevision, &candidate.Expected.RecoveryEpoch)
+	err = tx.queryRow(ctx, `SELECT candidate_id,plan_id,candidate_digest,preserved_authority_digest,fence_set_digest,audit_decision_digest,database_digest,journal_digest,bundle_digest,state_revision,recovery_epoch FROM recovery_candidates WHERE plan_id=?`, planID).Scan(&candidate.CandidateID, &candidate.PlanID, &candidate.CandidateDigest, &candidate.PreservedAuthorityDigest, &candidate.FenceSetDigest, &candidate.AuditDecisionDigest, &candidate.DatabaseDigest, &candidate.JournalDigest, &candidate.BundleDigest, &candidate.Expected.StateRevision, &candidate.Expected.RecoveryEpoch)
 	if err == nil {
 		result.Candidate = &candidate
 	} else if !errors.Is(err, sql.ErrNoRows) {

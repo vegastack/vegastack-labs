@@ -81,7 +81,7 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	if err := repository.AppendTransition(context.Background(), RestoreTransitionRequest{PlanID: binding.PlanID, From: "fenced", To: "verified", PlanDigest: binding.PlanDigest, EvidenceDigest: testDigest, Expected: expected}); Code(err) != generated.ErrorCodeInputInvalid {
 		t.Fatalf("skipped transition err = %v", err)
 	}
-	if err := repository.BindCandidate(context.Background(), RecoveryCandidateRequest{CandidateID: "candidate-a", PlanID: binding.PlanID, CandidateDigest: binding.CandidateDigest, PreservedAuthorityDigest: testDigest, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, DatabaseDigest: testDigest, JournalDigest: testDigest, Expected: expected}); err != nil {
+	if err := repository.BindCandidate(context.Background(), RecoveryCandidateRequest{CandidateID: "candidate-a", PlanID: binding.PlanID, CandidateDigest: binding.CandidateDigest, PreservedAuthorityDigest: testDigest, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, DatabaseDigest: testDigest, JournalDigest: testDigest, BundleDigest: testDigest, Expected: expected}); err != nil {
 		t.Fatal(err)
 	}
 	if _, found, err := repository.PendingPromotion(context.Background()); err != nil || found {
@@ -103,6 +103,25 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	}
 	if err := authority.PrepareRecoveredAuthority(context.Background(), binding, audit.Fingerprint(testDigest)); err != nil {
 		t.Fatal(err)
+	}
+	bundleDigest, err := authority.WriteRecoveredAuthorityBundle(context.Background(), RecoveredAuthorityBundle{Plan: committed.Plan, Readable: committed.Readable, Request: qualification.Request, Binding: binding, Status: "verification-required"})
+	if err != nil || !restoreDigest(bundleDigest) {
+		t.Fatalf("bundle digest=%s err=%v", bundleDigest, err)
+	}
+	recovered, gotDigest, err := authority.RecoveredAuthorityBundle(context.Background(), binding.PlanID)
+	if err != nil || gotDigest != bundleDigest || recovered.Status != "verification-required" || recovered.Binding.HumanAcknowledgementID != ackID {
+		t.Fatalf("recovered=%#v digest=%s err=%v", recovered, gotDigest, err)
+	}
+	health, err := authority.Health(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := authority.EnableRecoveredAuthority(context.Background(), binding.NewInstanceID, binding.NextRecoveryEpoch, health.Revision.StateRevision, testDigest); err != nil {
+		t.Fatal(err)
+	}
+	recovered, _, err = authority.RecoveredAuthorityBundle(context.Background(), binding.PlanID)
+	if err != nil || recovered.Status != "verified" {
+		t.Fatalf("verified recovered=%#v err=%v", recovered, err)
 	}
 	verification, err := authority.VerifyAuditHistory(context.Background(), nil)
 	if err != nil || verification.Status != "degraded" || verification.ReasonCode != "no-independent-anchor" {

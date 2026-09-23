@@ -134,8 +134,19 @@ func (service *OperationsService) AuthorizationPlan(ctx context.Context, planID 
 }
 
 func (service *OperationsService) qualify(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, FenceResult, AuditContinuity, error) {
-	selection := SourceSelection{PointID: request.PointID, SourceClass: request.Source.SourceClass, RepositoryClass: repositoryClass(request.Source.SourceClass), DeclaredRPOSeconds: request.Source.DeclaredRPOSeconds, TargetReleaseBuildID: service.config.TargetReleaseBuildID, TargetToolVersion: service.config.TargetToolVersion, TargetSchemaVersion: service.config.TargetSchemaVersion}
-	source, err := service.config.Sources.Verify(ctx, selection)
+	classes := []string{"critical"}
+	if request.Source.SourceClass == "local" {
+		classes = []string{"standard", "critical"}
+	}
+	var source VerifiedSource
+	var err error
+	for _, class := range classes {
+		selection := SourceSelection{PointID: request.PointID, SourceClass: request.Source.SourceClass, RepositoryClass: class, DeclaredRPOSeconds: request.Source.DeclaredRPOSeconds, TargetReleaseBuildID: service.config.TargetReleaseBuildID, TargetToolVersion: service.config.TargetToolVersion, TargetSchemaVersion: service.config.TargetSchemaVersion}
+		source, err = service.config.Sources.Verify(ctx, selection)
+		if err == nil {
+			break
+		}
+	}
 	if err != nil {
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
 	}
@@ -155,13 +166,6 @@ func (service *OperationsService) qualify(ctx context.Context, request generated
 		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
 	}
 	return source, fences, continuity, nil
-}
-
-func repositoryClass(sourceClass string) string {
-	if sourceClass == "off-site" {
-		return "critical"
-	}
-	return "standard"
 }
 
 func sameJSONValue(left, right any) bool {

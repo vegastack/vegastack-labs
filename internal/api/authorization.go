@@ -51,6 +51,30 @@ func (app *Application) authorizePlanAction(request *http.Request, action author
 	return PlanAuthorization{Scope: outcome.Scope, Decision: projected}, nil
 }
 
+func (app *Application) authorizePlanActionWithoutExpected(request *http.Request, action authorization.Action, target authorization.Target, plan generated.Plan, branches []authorization.Branch) (PlanAuthorization, error) {
+	outcome, err := app.authorize(request, authorization.Request{Action: action, Target: target, Plan: &plan, Branches: branches})
+	if err != nil {
+		return PlanAuthorization{}, err
+	}
+	projected, err := projectAuthorizationDecision(outcome.Record)
+	if err != nil {
+		return PlanAuthorization{}, err
+	}
+	return PlanAuthorization{Scope: outcome.Scope, Decision: projected}, nil
+}
+
+func (app *Application) authorizeRecoveryContinuation(request *http.Request, target authorization.Target, plan generated.Plan, expected authorization.RevisionBinding) (PlanAuthorization, error) {
+	outcome, err := app.authorize(request, authorization.Request{Action: authorization.ActionExecute, Target: target, Plan: &plan, Branches: []authorization.Branch{authorization.BranchHuman}, Expected: &expected, RecoveryContinuation: true})
+	if err != nil {
+		return PlanAuthorization{}, err
+	}
+	projected, err := projectAuthorizationDecision(outcome.Record)
+	if err != nil {
+		return PlanAuthorization{}, err
+	}
+	return PlanAuthorization{Scope: outcome.Scope, Decision: projected}, nil
+}
+
 type authorizationOutcome struct {
 	Scope  authorization.EffectiveScope
 	Record authorization.DecisionRecord

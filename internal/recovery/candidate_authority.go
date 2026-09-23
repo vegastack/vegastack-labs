@@ -40,8 +40,51 @@ func (recorder StoreCandidateRecorder) BindRecoveryCandidate(ctx context.Context
 		AuditDecisionDigest:      binding.AuditDecisionDigest,
 		DatabaseDigest:           receipt.DatabaseDigest,
 		JournalDigest:            receipt.JournalDigest,
+		BundleDigest:             receipt.BundleDigest,
 		Expected:                 recorder.Expected,
 	})
+}
+
+type StoreRecoveryBundleStore struct {
+	Open     CandidateStoreOpener
+	Plans    *store.PlanRepository
+	Restores *store.RestoreRepository
+}
+
+func (bundles StoreRecoveryBundleStore) WriteRecoveryBundle(ctx context.Context, path string, binding generated.RestoreBinding) (string, error) {
+	if bundles.Open == nil || bundles.Plans == nil || bundles.Restores == nil {
+		return "", failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-authority-bundle", false)
+	}
+	planned, err := bundles.Plans.GetPlan(ctx, binding.PlanID)
+	if err != nil {
+		return "", err
+	}
+	qualification, err := bundles.Restores.Qualification(ctx, binding.PlanID)
+	if err != nil {
+		return "", err
+	}
+	candidate, err := bundles.Open(ctx, path)
+	if err != nil {
+		return "", err
+	}
+	defer candidate.Close()
+	return candidate.WriteRecoveredAuthorityBundle(ctx, store.RecoveredAuthorityBundle{Plan: planned.Plan, Readable: planned.Readable, Request: qualification.Request, Binding: binding, Status: "verification-required"})
+}
+
+func (bundles StoreRecoveryBundleStore) VerifyRecoveryBundle(ctx context.Context, path string, binding generated.RestoreBinding, digest string) error {
+	if bundles.Open == nil || !restoreDigest.MatchString(digest) {
+		return failure.New(generated.ErrorCodePrerequisiteBlocked, "recovery-authority-bundle", false)
+	}
+	candidate, err := bundles.Open(ctx, path)
+	if err != nil {
+		return err
+	}
+	defer candidate.Close()
+	stored, got, err := candidate.RecoveredAuthorityBundle(ctx, binding.PlanID)
+	if err != nil || got != digest || !sameRestoreSource(stored.Binding.Source, binding.Source) || stored.Binding.PlanDigest != binding.PlanDigest || stored.Binding.HumanAcknowledgementID != binding.HumanAcknowledgementID {
+		return failure.New(generated.ErrorCodeIntegrityFailure, "recovery-authority-bundle", false)
+	}
+	return nil
 }
 
 func (authority StoreCandidateAuthority) PrepareRecoveredAuthority(ctx context.Context, path string, binding generated.RestoreBinding, continuity AuditContinuity) error {

@@ -73,11 +73,19 @@ func (planner StoreRestorePlanner) CreateRestorePlan(ctx context.Context, reques
 
 func (planner StoreRestorePlanner) RestoreQualification(ctx context.Context, planID string) (RestoreQualification, error) {
 	stored, err := planner.Restores.Qualification(ctx, planID)
+	if store.Code(err) == generated.ErrorCodeResourceNotFound {
+		bundle, _, bundleErr := planner.Restores.RecoveredAuthorityBundle(ctx, planID)
+		return RestoreQualification{Request: bundle.Request, Binding: bundle.Binding}, bundleErr
+	}
 	return RestoreQualification{Request: stored.Request, Binding: stored.Binding}, err
 }
 
 func (planner StoreRestorePlanner) RestoreAuthorizationPlan(ctx context.Context, planID string) (generated.Plan, error) {
 	stored, err := planner.Plans.GetPlan(ctx, planID)
+	if store.Code(err) == generated.ErrorCodeResourceNotFound {
+		bundle, _, bundleErr := planner.Restores.RecoveredAuthorityBundle(ctx, planID)
+		return bundle.Plan, bundleErr
+	}
 	return stored.Plan, err
 }
 
@@ -95,7 +103,18 @@ func (sessions StoreRestoreSessions) TransitionRestore(ctx context.Context, bind
 func (sessions StoreRestoreSessions) RestoreStatus(ctx context.Context, planID string) (generated.BrowserRestoreStatus, error) {
 	stored, err := sessions.Repository.Get(ctx, planID)
 	if err != nil {
-		return generated.BrowserRestoreStatus{}, err
+		if store.Code(err) != generated.ErrorCodeResourceNotFound {
+			return generated.BrowserRestoreStatus{}, err
+		}
+		bundle, _, bundleErr := sessions.Repository.RecoveredAuthorityBundle(ctx, planID)
+		if bundleErr != nil {
+			return generated.BrowserRestoreStatus{}, bundleErr
+		}
+		verification := "pending"
+		if bundle.Status == "verified" {
+			verification = "verified"
+		}
+		return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: bundle.Binding.PointID, PlanID: bundle.Binding.PlanID, PlanDigest: bundle.Binding.PlanDigest, TargetDigest: bundle.Binding.TargetDigest, Status: bundle.Status, RecoveryEpoch: bundle.Binding.NextRecoveryEpoch, VerificationStatus: verification}, nil
 	}
 	verification := "pending"
 	if stored.Status == "verified" {
@@ -107,10 +126,16 @@ func (sessions StoreRestoreSessions) RestoreStatus(ctx context.Context, planID s
 type StoreCandidateStager struct {
 	Manager    CandidateManager
 	Repository *store.RestoreRepository
+	Plans      *store.PlanRepository
 }
 
 func (stager StoreCandidateStager) StageRestoreCandidate(ctx context.Context, binding generated.RestoreBinding, source VerifiedSource, fences FenceResult, expected store.RevisionToken) (CandidateReceipt, error) {
 	manager := stager.Manager
+	if bundles, ok := manager.Bundles.(StoreRecoveryBundleStore); ok {
+		bundles.Plans = stager.Plans
+		bundles.Restores = stager.Repository
+		manager.Bundles = bundles
+	}
 	manager.Records = StoreCandidateRecorder{Repository: stager.Repository, Expected: expected, PreservedAuthorityDigest: semanticDigest(mustJSON(struct {
 		InstanceID string
 		Revision   store.RevisionToken

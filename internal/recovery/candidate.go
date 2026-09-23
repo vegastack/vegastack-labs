@@ -22,14 +22,15 @@ type candidateTarget struct{ path string }
 func (candidateTarget) recoveryCandidateTarget() {}
 
 type CandidateReceipt struct {
-	PlanID, CandidateDigest, DatabaseDigest, JournalDigest, NewInstanceID string
-	NextRecoveryEpoch                                                     int64
+	PlanID, CandidateDigest, DatabaseDigest, JournalDigest, BundleDigest, NewInstanceID string
+	NextRecoveryEpoch                                                                   int64
 }
 
 type StartupExpectation struct {
 	Binding        generated.RestoreBinding
 	DatabaseDigest string
 	JournalDigest  string
+	BundleDigest   string
 }
 
 type PromotionResult struct {
@@ -57,11 +58,17 @@ type CandidateAuthority interface {
 	VerifyRecoveredAuthority(context.Context, string, generated.RestoreBinding) error
 }
 
+type CandidateBundleStore interface {
+	WriteRecoveryBundle(context.Context, string, generated.RestoreBinding) (string, error)
+	VerifyRecoveryBundle(context.Context, string, generated.RestoreBinding, string) error
+}
+
 type CandidateManager struct {
 	DatabasePath string
 	Storage      CandidateStorage
 	Records      CandidateRecorder
 	Authority    CandidateAuthority
+	Bundles      CandidateBundleStore
 }
 
 func DeriveCandidatePaths(databasePath, planID string) (CandidatePaths, error) {
@@ -101,6 +108,13 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	if err := manager.Authority.PrepareRecoveredAuthority(ctx, paths.Candidate, binding, source.Audit); err != nil {
 		return CandidateReceipt{}, err
 	}
+	bundleDigest := ""
+	if manager.Bundles != nil {
+		bundleDigest, err = manager.Bundles.WriteRecoveryBundle(ctx, paths.Candidate, binding)
+		if err != nil || !restoreDigest.MatchString(bundleDigest) {
+			return blocked("recovery-candidate-bundle")
+		}
+	}
 	if err := manager.Storage.VerifyCandidate(ctx, paths); err != nil {
 		return CandidateReceipt{}, err
 	}
@@ -116,7 +130,7 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	if err := manager.Storage.WriteTransitionJournal(ctx, paths, raw); err != nil {
 		return CandidateReceipt{}, err
 	}
-	receipt := CandidateReceipt{PlanID: binding.PlanID, CandidateDigest: binding.CandidateDigest, DatabaseDigest: source.DatabaseDigest, JournalDigest: journalDigest, NewInstanceID: binding.NewInstanceID, NextRecoveryEpoch: binding.NextRecoveryEpoch}
+	receipt := CandidateReceipt{PlanID: binding.PlanID, CandidateDigest: binding.CandidateDigest, DatabaseDigest: source.DatabaseDigest, JournalDigest: journalDigest, BundleDigest: bundleDigest, NewInstanceID: binding.NewInstanceID, NextRecoveryEpoch: binding.NextRecoveryEpoch}
 	if err := manager.Records.BindRecoveryCandidate(ctx, binding, receipt); err != nil {
 		return CandidateReceipt{}, err
 	}
@@ -152,10 +166,16 @@ func (manager CandidateManager) PromoteAtStartup(ctx context.Context, expected S
 		if verifyErr := manager.Authority.VerifyRecoveredAuthority(ctx, manager.DatabasePath, binding); verifyErr != nil {
 			return PromotionResult{}, verifyErr
 		}
+		if expected.BundleDigest != "" && (manager.Bundles == nil || manager.Bundles.VerifyRecoveryBundle(ctx, manager.DatabasePath, binding, expected.BundleDigest) != nil) {
+			return PromotionResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "recovery-candidate-bundle", false)
+		}
 		return PromotionResult{FormerPreserved: true, InstanceID: binding.NewInstanceID, RecoveryEpoch: binding.NextRecoveryEpoch}, nil
 	}
 	if err := manager.Authority.VerifyRecoveredAuthority(ctx, paths.Candidate, binding); err != nil {
 		return PromotionResult{}, err
+	}
+	if expected.BundleDigest != "" && (manager.Bundles == nil || manager.Bundles.VerifyRecoveryBundle(ctx, paths.Candidate, binding, expected.BundleDigest) != nil) {
+		return PromotionResult{}, failure.New(generated.ErrorCodeIntegrityFailure, "recovery-candidate-bundle", false)
 	}
 	if err := manager.Storage.PromoteNoReplace(ctx, paths, expected); err != nil {
 		return PromotionResult{}, err

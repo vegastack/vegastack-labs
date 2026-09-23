@@ -4,6 +4,7 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -334,6 +335,36 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
+	// Restore routes are composed in the one server process. The store-backed
+	// planner, session journal, candidate staging, and startup promotion are
+	// concrete here; source snapshot/compatibility/audit, installed fence scope,
+	// and canary ports remain fail-closed until their protected profile adapters
+	// are present rather than being substituted with fixture authority.
+	restoreRepository := store.NewRestoreRepository(authority)
+	candidateOpener := func(ctx context.Context, path string) (*store.Store, error) {
+		return operations.openStore(ctx, store.Config{DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+	}
+	health, err := authority.Health(ctx)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	restorePlanner := recovery.StoreRestorePlanner{Declarations: declarationRepository, Plans: planRepository, Restores: restoreRepository, Clock: time.Now}
+	restoreSessions := recovery.StoreRestoreSessions{Repository: restoreRepository}
+	restoreCandidates := recovery.StoreCandidateStager{Repository: restoreRepository, Plans: planRepository, Manager: recovery.CandidateManager{DatabasePath: operations.databasePath, Storage: recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID}, Authority: recovery.StoreCandidateAuthority{Open: candidateOpener}, Bundles: recovery.StoreRecoveryBundleStore{Open: candidateOpener}}}
+	restoreService, err := recovery.NewOperationsService(recovery.OperationsConfig{
+		Sources: recovery.SourceVerifier{Local: backupRepository, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: recovery.FenceEvaluator{Clock: time.Now},
+		Plans: restorePlanner, Sessions: restoreSessions, Candidates: restoreCandidates, Canary: recovery.CanaryVerifier{},
+		TargetReleaseBuildID: operations.build.ReleaseBuildID, TargetToolVersion: operations.build.ToolVersion, TargetSchemaVersion: strconv.FormatUint(health.SchemaVersion, 10),
+	})
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterRestoreOperations(application, api.RestoreConfig{Operations: restoreService, Results: factory, Authorization: effectiveConfig}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
 	if err := api.ValidateRegisteredRoutes(application); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -380,8 +411,9 @@ func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, pr
 		DatabasePath: operations.databasePath,
 		Storage:      recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID},
 		Authority:    recovery.StoreCandidateAuthority{Open: opener},
+		Bundles:      recovery.StoreRecoveryBundleStore{Open: opener},
 	}
-	if _, err := manager.PromoteAtStartup(ctx, recovery.StartupExpectation{Binding: pending.Binding, DatabaseDigest: pending.DatabaseDigest, JournalDigest: pending.JournalDigest}); err != nil {
+	if _, err := manager.PromoteAtStartup(ctx, recovery.StartupExpectation{Binding: pending.Binding, DatabaseDigest: pending.DatabaseDigest, JournalDigest: pending.JournalDigest, BundleDigest: pending.BundleDigest}); err != nil {
 		return nil, err
 	}
 	return operations.openStore(ctx, configFor(operations.databasePath))

@@ -168,6 +168,7 @@ CREATE TABLE recovery_candidates (
     audit_decision_digest TEXT NOT NULL CHECK (audit_decision_digest GLOB 'sha256:[0-9a-f]*' AND length(audit_decision_digest) = 71),
     database_digest TEXT NOT NULL CHECK (database_digest GLOB 'sha256:[0-9a-f]*' AND length(database_digest) = 71),
     journal_digest TEXT NOT NULL CHECK (journal_digest GLOB 'sha256:[0-9a-f]*' AND length(journal_digest) = 71),
+    bundle_digest TEXT NOT NULL CHECK (bundle_digest GLOB 'sha256:[0-9a-f]*' AND length(bundle_digest) = 71),
     state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     created_at TEXT NOT NULL,
@@ -191,6 +192,18 @@ CREATE TABLE recovery_authority_journal (
     PRIMARY KEY(plan_id,transition)
 ) STRICT;
 
+CREATE TABLE recovery_authority_bundles (
+    plan_id TEXT PRIMARY KEY,
+    plan_digest TEXT NOT NULL UNIQUE CHECK (plan_digest GLOB 'sha256:[0-9a-f]*' AND length(plan_digest)=71),
+    bundle_digest TEXT NOT NULL UNIQUE CHECK (bundle_digest GLOB 'sha256:[0-9a-f]*' AND length(bundle_digest)=71),
+    plan_bytes BLOB NOT NULL CHECK (length(plan_bytes)>0),
+    readable_plan TEXT NOT NULL CHECK (length(readable_plan)>0),
+    request_bytes BLOB NOT NULL CHECK (length(request_bytes)>0),
+    binding_bytes BLOB NOT NULL CHECK (length(binding_bytes)>0),
+    status TEXT NOT NULL CHECK (status='verification-required'),
+    created_at TEXT NOT NULL
+) STRICT;
+
 CREATE INDEX restore_transitions_plan_sequence ON restore_transitions(plan_id, transition_id);
 
 CREATE TRIGGER restore_sessions_no_update BEFORE UPDATE ON restore_sessions BEGIN SELECT RAISE(ABORT, 'restore sessions are immutable'); END;
@@ -203,3 +216,5 @@ CREATE TRIGGER recovery_candidates_no_update BEFORE UPDATE ON recovery_candidate
 CREATE TRIGGER recovery_candidates_no_delete BEFORE DELETE ON recovery_candidates BEGIN SELECT RAISE(ABORT, 'recovery candidates are append-only'); END;
 CREATE TRIGGER recovery_authority_journal_no_update BEFORE UPDATE ON recovery_authority_journal BEGIN SELECT RAISE(ABORT,'recovery authority journal is immutable'); END;
 CREATE TRIGGER recovery_authority_journal_no_delete BEFORE DELETE ON recovery_authority_journal BEGIN SELECT RAISE(ABORT,'recovery authority journal is append-only'); END;
+CREATE TRIGGER recovery_authority_bundles_no_update BEFORE UPDATE ON recovery_authority_bundles BEGIN SELECT RAISE(ABORT,'recovery authority bundles are immutable'); END;
+CREATE TRIGGER recovery_authority_bundles_no_delete BEFORE DELETE ON recovery_authority_bundles BEGIN SELECT RAISE(ABORT,'recovery authority bundles are append-only'); END;

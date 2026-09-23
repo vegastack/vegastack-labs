@@ -44,6 +44,7 @@ var operationRisk = map[string]RiskClass{
 	"secret-provider.change":             RiskControlPlane,
 	"control-plane.change":               RiskControlPlane,
 	"control-plane.recover":              RiskControlPlane,
+	"recovery.restore.cutover":           RiskControlPlane,
 	"credential.stage":                   RiskControlPlane,
 	"credential.activate":                RiskControlPlane,
 	"credential.rotate":                  RiskControlPlane,
