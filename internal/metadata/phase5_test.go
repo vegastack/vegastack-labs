@@ -80,7 +80,11 @@ func TestBackupCreationContractsAreVersionedAndInert(t *testing.T) {
 		if !ok {
 			t.Fatalf("missing backup schema %s", id)
 		}
-		if schema.Version != "1.1.0" {
+		wantVersion := "1.1.0"
+		if id == backupPolicySchemaID {
+			wantVersion = "1.2.0"
+		}
+		if schema.Version != wantVersion {
 			t.Errorf("backup schema %s version = %s", id, schema.Version)
 		}
 	}
@@ -122,8 +126,8 @@ func TestBackupCreationContractsAreVersionedAndInert(t *testing.T) {
 		if registry.Endpoints[index].ID == "api.v1.backup-policy-drafts.create" {
 			draftEndpoint = &registry.Endpoints[index]
 		}
-		if registry.Endpoints[index].ID == "api.v1.backups.run" && registry.Endpoints[index].Availability != AvailabilityPlanned {
-			t.Error("backup run became available")
+		if registry.Endpoints[index].ID == "api.v1.backups.run" && registry.Endpoints[index].Availability != AvailabilityAvailable {
+			t.Error("backup run is unavailable")
 		}
 	}
 	if draftEndpoint == nil || draftEndpoint.Method != "POST" || draftEndpoint.Path != "/api/v1/backups/policies/drafts" ||
@@ -194,7 +198,7 @@ func TestPhase5SurfaceRemainsPlanned(t *testing.T) {
 			continue
 		}
 		found = true
-		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.credential-lifecycle-drafts.create" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification" || endpoint.ID == "api.v1.backup-policy-drafts.create"
+		available := endpoint.ID == "api.v1.gate-profile-drafts.create" || endpoint.ID == "api.v1.gates.list" || endpoint.ID == "api.v1.gates.get" || endpoint.ID == "api.v1.gates.check" || endpoint.ID == "api.v1.gate-evidence.create" || endpoint.ID == "api.v1.credential-references.import-stream" || endpoint.ID == "api.v1.credential-lifecycle-drafts.create" || endpoint.ID == "api.v1.audit-checkpoints.list" || endpoint.ID == "api.v1.audit-checkpoints.create" || endpoint.ID == "api.v1.audit-history.verification" || endpoint.ID == "api.v1.backup-policy-drafts.create" || endpoint.ID == "api.v1.backups.status" || endpoint.ID == "api.v1.backups.run" || endpoint.ID == "api.v1.backups.verify"
 		if (!available && endpoint.Availability != AvailabilityPlanned) || (available && endpoint.Availability != AvailabilityAvailable) || endpoint.DataSchema == "" {
 			t.Errorf("unsafe Phase 5 endpoint %s", endpoint.ID)
 		}

@@ -8,9 +8,19 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Why:** The recovery contract previously accepted typed custody and fence digests without composing them with proof that a clean replacement opened the exact already-staged draft rather than freshly encrypting substitute material.
 - **How it went:** Red-first tests caught the missing state-revision binding. Disposable Linux acceptance then proved old-host ciphertext denial, exact existing-draft comparison, one-use custody, and rejection of changed draft, plan, lease, epoch, revision, fence and replay inputs. The adapter is deliberately not selected by production operations.
 - **Changed:** Exact current-authority seam · protected-source loader · state-revision binding · native existing-draft comparison · composed disposable acceptance · fail-closed Phase 2 source seal.
-- **Decisions:** none; #159 must land and be integrated once, #108 must supply current replacement authority, and a real independently enrolled source plus qualified denial adapters remain required before production selection or live `G-007`/`G-008` evidence.
+- **Decisions:** none; #108 must supply current replacement authority, and a real independently enrolled source plus qualified denial adapters remain required before production selection or live `G-007`/`G-008` evidence.
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/144-clean-host-recovery-proof
+
+## 23-09-2026 — Phase 5 checks run at the scope that changed ([#165](https://github.com/vegastack/vegastack-labs/issues/165))
+
+- **What:** Intermediate Phase 5 branches can prove an exact base and head with affected policy groups and changed Go package tests, while the final integration or acceptance candidate has one explicit complete lane.
+- **Why:** An implicit full manual check followed by PR and post-merge checks repeatedly exercised unchanged packages and browser acceptance, delaying a serial delivery chain without adding distinct evidence.
+- **How it went:** The existing affected planner already protected unknown and dependency changes. The correction added package targets, fail-closed Go topology changes, and explicit manual affected/full inputs while retaining repository-wide compilation and hosted integration checks.
+- **Changed:** Changed-package Go tests and vet · exact-base manual CI mode · explicit final full mode · exact-head ship proof policy.
+- **Decisions:** none; issue-specific native acceptance and the final Phase 5 full integration proof remain required.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/165-phase5-fast-batch
 
 ## 22-09-2026 — A clean replacement can inspect a protected recovery handoff ([#159](https://github.com/vegastack/vegastack-labs/issues/159))
 
@@ -22,6 +32,25 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 
 — approved by (omkarmohanta09) · built by Codex · branch feat/159-recovery-source-admission
 
+## 22-09-2026 — Local backup points can prove they are restorable ([#117](https://github.com/vegastack/vegastack-labs/issues/117))
+
+- **What:** A pending encrypted local point can now be checked against its exact retained objects, read fully by pinned restic, and restored into an isolated SQLite inspection before it becomes current local last-good. The backup status and exact human-approved run and verify commands expose the result without giving the CLI a separate mutation path.
+- **Why:** Creating a point was not enough to know it could recover the control database or preserve a trustworthy earlier point when verification failed.
+- **How it went:** Native restic tests exposed immutable-pack and restore details; independent review found that capacity had been checked at creation but not again before live qualification. A red-first low-capacity test caught a false promotion, and the final verifier now preserves prior last-good with a sanitized failed attempt. Signature, config and image dependency trust remains unavailable until an independently pinned source is built.
+- **Changed:** Revisioned full-read and functional cadence · point-bound read lease · exact manifest and dependency evidence · isolated restore · append-only verification attempts and last-good compare-and-swap · sanitized status and generated client commands.
+- **Decisions:** none; [#115](https://github.com/vegastack/vegastack-labs/issues/115) still owns safe retirement and successor-pack lineage, [#154](https://github.com/vegastack/vegastack-labs/issues/154) owns the missing trusted dependency sources, and no off-site or live recovery gate is claimed.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/117-integration-140
+
+## 22-09-2026 — A durable run keeps its SSE cursor across same-run reads ([#156](https://github.com/vegastack/vegastack-labs/issues/156))
+
+- **What:** The Console keeps `Last-Event-ID` while the same run's GET response changes, resets it for a new run ID, and Phase 4 CI reports a bounded test title, failing assertion location, status and descriptor.
+- **Why:** A normal read could replace the cached response, restart the watcher and clear the cursor; the acceptance wrapper then hid the browser failure behind a stage code.
+- **How it went:** A focused browser test forced a revision change after the first event and failed with an empty second cursor before the fix. A separate two-run test failed with the old cursor when the reset was removed. CI then required regeneration of the embedded Console bundle and a new Phase 2 reviewed source seal for those measured production bytes. No live run or private operational state was involved.
+- **Changed:** Run watcher lifecycle · regenerated embedded Console assets · measured Phase 2 reviewed wave · deterministic SSE regression fixture · sanitized Phase 4 and exit diagnostics.
+- **Decisions:** none.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/156-phase4-browser-reconnect
 ## 22-09-2026 — A custodian can collect a bounded recovery witness on disposable endpoints ([#153](https://github.com/vegastack/vegastack-labs/issues/153))
 
 - **What:** The single `vsk-labs` executable has a finite custodian-side command that reads a protected admin pin and two private descriptors, probes every declared former-controller boundary, signs one exact attempt, and encrypts the held material to the replacement recipient.

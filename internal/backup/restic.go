@@ -11,9 +11,8 @@ import (
 // only logical references and paths; the repository password is passed
 // separately as a borrowed credential value and never appears here.
 type ResticRequest struct {
-	// Mode is "init" (create an empty repository-format-v2 repository),
-	// "config" (read the authenticated repository format), or "backup"
-	// (create one snapshot). It defaults to "backup".
+	// Mode is init, config, backup, snapshots, check-full or restore.
+	// It defaults to backup. Verification modes use a point-bound read lease.
 	Mode            string
 	BinaryPath      string
 	Architecture    string
@@ -22,6 +21,8 @@ type ResticRequest struct {
 	RepositoryClass string
 	RepositoryRoot  string
 	SnapshotPath    string
+	SnapshotID      string
+	RestoreTarget   string
 	PolicyDigest    string
 	Lease           WriterLease
 	OutputLimit     int64
@@ -34,6 +35,8 @@ type ResticResult struct {
 	ObjectCount      int64
 	ObjectBytes      int64
 	Inventory        []ExpectedObject
+	SnapshotIDs      []string
+	SnapshotPaths    map[string][]string
 	RepositoryFormat int
 	StartedAt        time.Time
 	CompletedAt      time.Time

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,7 +37,7 @@ func newRESTFixture(t *testing.T) (*RESTServer, *http.Client, func()) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	socket := filepath.Join(t.TempDir(), "rest.sock")
+	socket := shortRESTSocketPath(t)
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
@@ -47,6 +48,18 @@ func newRESTFixture(t *testing.T) (*RESTServer, *http.Client, func()) {
 		return (&net.Dialer{}).DialContext(ctx, "unix", socket)
 	}}}
 	return server, client, func() { cancel(); _ = listener.Close() }
+}
+
+// Unix socket names have a much smaller path limit than ordinary files. Keep
+// the socket beneath the protected test TMPDIR without the test-name suffix.
+func shortRESTSocketPath(t *testing.T) string {
+	t.Helper()
+	directory, err := os.MkdirTemp("", "vsk-rest-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(directory) })
+	return filepath.Join(directory, "rest.sock")
 }
 
 func restDo(t *testing.T, client *http.Client, method, path string, body []byte) int {
@@ -166,7 +179,7 @@ func TestRESTBoundaryRejectsWhenLeaseVerifierDenies(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	socket := filepath.Join(t.TempDir(), "rest.sock")
+	socket := shortRESTSocketPath(t)
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		t.Fatal(err)
@@ -180,4 +193,51 @@ func TestRESTBoundaryRejectsWhenLeaseVerifierDenies(t *testing.T) {
 	if code := restDo(t, client, http.MethodPost, "/repo-a/data/"+strings.Repeat("e", 64), []byte("x")); code != http.StatusForbidden {
 		t.Fatalf("denied lease = %d, want 403", code)
 	}
+}
+
+func TestVerifierRESTBoundaryReadsButOnlyMutatesOwnLocks(t *testing.T) {
+	writer, client, done := newRESTFixture(t)
+	defer done()
+	name := strings.Repeat("a", 64)
+	if code := restDo(t, client, http.MethodPost, "/repo-a/data/"+name, []byte("retained")); code != http.StatusOK {
+		t.Fatalf("seed retained object = %d", code)
+	}
+	readLease := ReadLease{LeaseID: "read-a", PointID: "point-a", RepositoryID: "repo-a", RecoveryEpoch: writer.lease.RecoveryEpoch, MaximumExpiresAt: time.Now().Add(time.Hour)}
+	verifier, err := NewVerifierRESTServer(writer.root, uint32(os.Geteuid()), readLease, allowingReadLeaseVerifier{}, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, method := range []string{http.MethodPost, http.MethodPut, http.MethodDelete} {
+		if code := restRequestCode(t, verifier, method, "/repo-a/data/"+name, []byte("replacement")); code != http.StatusForbidden {
+			t.Fatalf("%s retained = %d", method, code)
+		}
+	}
+	if code := restRequestCode(t, verifier, http.MethodPost, "/repo-a/?create=true", nil); code != http.StatusForbidden {
+		t.Fatalf("repository create = %d", code)
+	}
+	if code := restRequestCode(t, verifier, http.MethodGet, "/repo-a/data/"+name, nil); code != http.StatusOK {
+		t.Fatalf("retained read = %d", code)
+	}
+	lock := strings.Repeat("b", 64)
+	if code := restRequestCode(t, verifier, http.MethodPost, "/repo-a/locks/"+lock, []byte("lock")); code != http.StatusOK {
+		t.Fatalf("own lock create = %d", code)
+	}
+	if code := restRequestCode(t, verifier, http.MethodDelete, "/repo-a/locks/"+lock, nil); code != http.StatusOK {
+		t.Fatalf("own lock delete = %d", code)
+	}
+	if code := restRequestCode(t, verifier, http.MethodDelete, "/repo-a/locks/"+strings.Repeat("c", 64), nil); code != http.StatusForbidden {
+		t.Fatalf("foreign lock delete = %d", code)
+	}
+}
+
+type allowingReadLeaseVerifier struct{}
+
+func (allowingReadLeaseVerifier) VerifyReadLease(ReadLease, time.Time) error { return nil }
+
+func restRequestCode(t *testing.T, server *RESTServer, method, path string, body []byte) int {
+	t.Helper()
+	request := httptest.NewRequest(method, path, bytes.NewReader(body))
+	response := httptest.NewRecorder()
+	server.ServeHTTP(response, request)
+	return response.Code
 }

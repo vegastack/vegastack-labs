@@ -202,7 +202,7 @@ func validateBackupPolicyDraftRequest(input generated.BackupPolicyDraftRequest, 
 // repository, no keys, no retention. `standard`/`critical` require a repository,
 // both key references and positive retention.
 func validateBackupPolicy(policy generated.BackupPolicy, recoveryEpoch int64) error {
-	if policy.Schema != generated.SchemaIDBackupPolicy || policy.SchemaVersion != "1.1.0" || policy.Revision <= 0 || policy.RecoveryEpoch != recoveryEpoch {
+	if policy.Schema != generated.SchemaIDBackupPolicy || policy.SchemaVersion != "1.2.0" || policy.Revision <= 0 || policy.RecoveryEpoch != recoveryEpoch {
 		return backupStoreError(generated.ErrorCodeInputInvalid, "backup-policy")
 	}
 	for _, id := range []string{policy.PolicyID, policy.OwnerID, policy.SourceID, policy.ConsistencyHookID, policy.RestoreTargetID} {
@@ -238,11 +238,14 @@ func validateBackupPolicy(policy generated.BackupPolicy, recoveryEpoch int64) er
 	}
 	switch policy.RepositoryClass {
 	case "none":
-		if policy.RepositoryID != nil || policy.EncryptionKeyReferenceID != nil || policy.RecoveryKeyReferenceID != nil || policy.RetentionDays != 0 {
+		if policy.RepositoryID != nil || policy.EncryptionKeyReferenceID != nil || policy.RecoveryKeyReferenceID != nil || policy.RetentionDays != 0 ||
+			policy.FullPayloadIntervalHours != 0 || policy.FunctionalTestIntervalHours != 0 {
 			return backupStoreError(generated.ErrorCodeInputInvalid, "backup-policy-none")
 		}
 	case "standard", "critical":
-		if policy.RepositoryID == nil || policy.EncryptionKeyReferenceID == nil || policy.RecoveryKeyReferenceID == nil || policy.RetentionDays <= 0 {
+		if policy.RepositoryID == nil || policy.EncryptionKeyReferenceID == nil || policy.RecoveryKeyReferenceID == nil || policy.RetentionDays <= 0 ||
+			!policy.FunctionalTestRequired || policy.FullPayloadIntervalHours < 1 || policy.FullPayloadIntervalHours > 8760 ||
+			policy.FunctionalTestIntervalHours < 1 || policy.FunctionalTestIntervalHours > 8760 {
 			return backupStoreError(generated.ErrorCodeInputInvalid, "backup-policy-class")
 		}
 		if !backupidentity.Registered(policy.SourceID, policy.SourceSelectors, policy.RepositoryClass, policy.RepositoryID) {

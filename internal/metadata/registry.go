@@ -205,13 +205,14 @@ func Current() Registry {
 		runResumeCommand(),
 		gateListCommand(), gateInspectCommand(), gateCheckCommand(), gateEvidenceCommand(), gateProfileDraftCommand(),
 		backupPolicyDraftCommand(),
+		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		credentialImportCommand(),
 		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
 		recoveryWitnessCollectCommand(),
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
+		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -374,6 +375,24 @@ func backupPolicyDraftCommand() CommandDefinition {
 			{Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-policy-draft-request JSON file (64 KiB max)."},
 		},
 		[]string{"backup", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/backup-policy-draft-request.json", "--output", "json"})
+}
+
+func backupStatusCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "status"}, "Inspect local backup jobs and qualification status.", "", backupStatusDataSchemaID, RiskReadOnly,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
+		[]string{"backup", "status", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func backupRunCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "run"}, "Execute one exact approved backup-creation plan; the point remains pending.", backupRunRequestSchemaID, backupJobSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-run-request JSON file (4 KiB max)."}},
+		[]string{"backup", "run", "--config", "fixture/server-profile.json", "--file", "fixture/backup-run-request.json", "--output", "json"})
+}
+
+func backupVerifyCommand() CommandDefinition {
+	return phase5GateCommand([]string{"backup", "verify"}, "Execute one exact approved local-backup verification plan.", backupVerifyRequestSchemaID, backupJobSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact typed backup-verify-request JSON file (4 KiB max)."}},
+		[]string{"backup", "verify", "--config", "fixture/server-profile.json", "--file", "fixture/backup-verify-request.json", "--output", "json"})
 }
 
 func credentialImportCommand() CommandDefinition {

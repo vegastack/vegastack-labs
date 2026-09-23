@@ -86,6 +86,12 @@ type BackupControlOperations interface {
 	SubmitBackupPolicyDraft(context.Context, string, generated.BackupPolicyDraftRequest) (localapi.TypedResponse[generated.BackupPolicyDraftSubmission], error)
 }
 
+type BackupRunControlOperations interface {
+	BackupStatus(context.Context, string) (localapi.TypedResponse[generated.BackupStatusData], error)
+	RunBackup(context.Context, string, generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error)
+	VerifyBackup(context.Context, string, generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error)
+}
+
 type Option func(*App)
 
 func WithReleaseOperations(operations ReleaseOperations) Option {
@@ -405,6 +411,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runRecoveryWitnessCollect(ctx, mode, parsed)
 	case generated.CommandNameBackupPolicyDraft:
 		return app.runBackupCommand(ctx, mode, parsed)
+	case generated.CommandNameBackupStatus, generated.CommandNameBackupRun, generated.CommandNameBackupVerify:
+		return app.runBackupOperation(ctx, mode, parsed)
 	case generated.CommandNameApply:
 		return app.runCommand(ctx, mode, parsed, parsed.Value(generated.FlagPlanID))
 	case generated.CommandNameRunInspect:

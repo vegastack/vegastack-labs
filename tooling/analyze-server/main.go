@@ -179,6 +179,8 @@ func reviewedRecoveryUnixFile(relative string, content []byte) bool {
 		expected = "c037f299077084fb66ed6fa660e9a434732ecc006c5d986982b4bea538cdbebe"
 	case "internal/recovery/receipt_file_unix.go":
 		expected = "87b5ac429e13b1631a7d9c17160d1b6978b1bbb66626e714b463de97befcac3c"
+	case "internal/recovery/package_file_unix.go":
+		expected = "a29cef56decead9cd44283fc9cebb257f6ae3f4661a8fbd3cd12a631867e511e"
 	case "internal/server/recovery_recipient_linux.go":
 		expected = "1bb55d15e07c13baddab7e1933f56e767179ddf01ba0bc42dca76aa710b5e10e"
 	default:

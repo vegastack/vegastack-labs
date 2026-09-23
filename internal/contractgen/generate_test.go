@@ -112,7 +112,7 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 	}) {
 		t.Errorf("#102 Phase 5 endpoint baseline or #104/#105 scoped additions changed: %v", phase5EndpointIDs)
 	}
-	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backup-policy-drafts.create", "api.v1.credential-lifecycle-drafts.create", "api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
+	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backup-policy-drafts.create", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify", "api.v1.credential-lifecycle-drafts.create", "api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list"}) {
 		t.Errorf("unexpected available Phase 5 endpoints: %v", availablePhase5Endpoints)
 	}
 	var gateSchema map[string]any
@@ -184,11 +184,13 @@ func TestGenerateIsByteStable(t *testing.T) {
 		"schemas/v1/authorization-decision.schema.json",
 		"schemas/v1/backup-dependency.schema.json",
 		"schemas/v1/backup-job.schema.json",
+		"schemas/v1/backup-last-good.schema.json",
 		"schemas/v1/backup-policy-draft-request.schema.json",
 		"schemas/v1/backup-policy-draft-submission.schema.json",
 		"schemas/v1/backup-policy.schema.json",
 		"schemas/v1/backup-run-request.schema.json",
 		"schemas/v1/backup-status-data.schema.json",
+		"schemas/v1/backup-verification-attempt.schema.json",
 		"schemas/v1/backup-verify-request.schema.json",
 		"schemas/v1/browser-audit-event.schema.json",
 		"schemas/v1/browser-declaration-revision.schema.json",
@@ -691,14 +693,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 32 || planned != 34 {
-		t.Fatalf("command availability = (%d available, %d planned), want (32, 34)", available, planned)
+	if available != 35 || planned != 31 {
+		t.Fatalf("command availability = (%d available, %d planned), want (35, 31)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;
 	// #124 promoted one exact local-only credential import command;
 	// #107 promoted two exact audit read commands.
-	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "backup policy draft", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect"}) {
+	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "backup policy draft", "backup run", "backup status", "backup verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 

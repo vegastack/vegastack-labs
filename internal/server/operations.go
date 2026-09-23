@@ -187,11 +187,19 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			_ = application.Shutdown(ctx)
 			return snapshotErr
 		}
+		inspector, inspectErr := store.NewRestoredSQLiteInspector(authority)
+		if inspectErr != nil {
+			_ = application.Shutdown(ctx)
+			return inspectErr
+		}
 		localAdapter, adapterErr := localbackup.New(localbackup.Config{
 			LocalBackup: profile.LocalBackup,
 			ExpectedUID: profile.SocketOwnerUID,
 			Backups:     store.NewBackupRepository(authority),
 			Snapshots:   snapshots,
+			Inspector:   inspector,
+			Trust:       localbackup.NewProtectedLocalDependencyTrust(),
+			LiveProof:   true,
 			Plans:       plans,
 			Hooks:       backup.DefaultHookRegistry(),
 			Runner:      backup.NewResticRunner(),
@@ -253,7 +261,10 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: store.NewBackupRepository(authority), Results: factory}); err != nil {
+	backupRepository := store.NewBackupRepository(authority)
+	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, Status: backupRepository,
+		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
+		Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -453,6 +464,30 @@ func (operations *Operations) SubmitBackupPolicyDraft(ctx context.Context, confi
 		return localapi.TypedResponse[generated.BackupPolicyDraftSubmission]{}, err
 	}
 	return client.SubmitBackupPolicyDraft(ctx, profile, input)
+}
+
+func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupStatusData]{}, err
+	}
+	return client.BackupStatus(ctx, profile)
+}
+
+func (operations *Operations) RunBackup(ctx context.Context, configPath string, input generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupJob]{}, err
+	}
+	return client.RunBackup(ctx, profile, input)
+}
+
+func (operations *Operations) VerifyBackup(ctx context.Context, configPath string, input generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupJob]{}, err
+	}
+	return client.VerifyBackup(ctx, profile, input)
 }
 
 func (operations *Operations) ImportInventory(ctx context.Context, configPath string, request generated.InventoryImportRequest) (localapi.TypedResponse[generated.InventoryImportData], error) {

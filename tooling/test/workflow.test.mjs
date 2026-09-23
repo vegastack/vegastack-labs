@@ -44,7 +44,15 @@ test("CI uses affected checks and installs Chromium only when selected", async (
   const phase4Exit = trustedSteps.find(({ name }) => name === "Run exact Phase 4 exit acceptance");
   const trustedNode = trustedSteps.find(({ uses }) => uses?.startsWith("actions/setup-node@"));
 
+  assert.equal(workflow.on.workflow_dispatch.inputs.base_sha.type, "string");
+  assert.equal(workflow.on.workflow_dispatch.inputs.base_sha.required, false);
+  assert.equal(workflow.on.workflow_dispatch.inputs.full_check.type, "boolean");
+  assert.equal(workflow.on.workflow_dispatch.inputs.full_check.default, false);
   assert.ok(plan);
+  assert.match(plan.env.BASE_SHA, /inputs\.base_sha/);
+  assert.match(plan.env.FULL_CHECK, /inputs\.full_check/);
+  assert.match(plan.run, /manual affected checks require an exact base_sha/);
+  assert.match(plan.run, /full_check cannot be combined with base_sha/);
   assert.match(plan.run, /node tooling\/check-affected\.mjs[\s\S]*--format github/);
   assert.equal(workflow.jobs.plan["runs-on"], "ubuntu-24.04");
   assert.equal(workflow.jobs.verify_pr["runs-on"], "ubuntu-24.04");

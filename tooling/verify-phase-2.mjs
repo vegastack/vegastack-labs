@@ -183,12 +183,32 @@ const REVIEWED_WITNESS_COLLECTION_WAVE = Object.freeze({
   mutationBoundaryDigest: "sha256:d14608fe7b00ce92fe57cc4bed03beb44c8ac43d9e49bb5c18343da29a61da97",
 });
 
+// Issue #156 changes the browser's same-run SSE cursor lifecycle. The
+// generated Console asset refresh is the sole production closure delta; no
+// command, Go import, or server mutation authority is added by this wave.
+const REVIEWED_BROWSER_RECONNECT_WAVE = Object.freeze({
+  id: "phase5-issue156-v1", issue: 156,
+  commands: Object.freeze([]), imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:378485d4c81e751b0e9b72ab53083c5834c09f104166ef04af29035abb6af64a",
+});
+
+// Issue #117 activates the exact backup status/run/verify commands and seals
+// their point-bound read role, full-read/restore, policy cadence and proof CAS.
+// It adds no new production import: #106 already introduced the backup package
+// and local adapter. The digest is recomputed from the current source closure.
+const REVIEWED_BACKUP_VERIFY_WAVE = Object.freeze({
+  id: "phase5-issue117-v1", issue: 117,
+  commands: Object.freeze(["backup run", "backup status", "backup verify"]),
+  imports: Object.freeze([]),
+  mutationBoundaryDigest: "sha256:89ff1628146fb0d7da81011c57793664f953faf4b482a07de34e66c2e241646a",
+});
+
 // #159 admits only an exact administrator-installed public package through a
 // closed verifier registry. Production remains unavailable with no factories.
 const REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE = Object.freeze({
   id: "phase5-issue159-v1", issue: 159,
   commands: Object.freeze([]), imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:48343f586a773d5c7563244bb315b89f536a6bbcadf01416d45350b2d15b773d",
+  mutationBoundaryDigest: "sha256:a87f15826c58af20b2fd5fe7048c49311c68cf279f4486d68e0a54f37365e31d",
 });
 
 // #144 composes the protected handoff with the existing-draft native
@@ -197,10 +217,10 @@ const REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE = Object.freeze({
 const REVIEWED_CLEAN_HOST_RECOVERY_WAVE = Object.freeze({
   id: "phase5-issue144-v1", issue: 144,
   commands: Object.freeze([]), imports: Object.freeze([]),
-  mutationBoundaryDigest: "sha256:0f8f91f0c9fcf870e56bdb61bdce0e20e1b1bf02e09ae5b9755d79c34d1475ac",
+  mutationBoundaryDigest: "sha256:9c0314e30319a02d3acafa546c37af5d38c8dab05537a49eec64e1a355d020f4",
 });
 
-const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE]);
+const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_BROWSER_RECONNECT_WAVE, REVIEWED_BACKUP_VERIFY_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE]);
 const ONEPASSWORD_SDK_VERSION = "v0.4.1";
 const CREDENTIAL_FOUNDATION_MIGRATION = Object.freeze({ file: "0012_credential_refs.sql", sha256: "302b2bedb4eee771436e3772c49b3c0c6cdaefbd5a1a17d11370e10a44c8e0c7" });
 const CREDENTIAL_IMPORT_MIGRATION = Object.freeze({ file: "0013_credential_import_drafts.sql", sha256: "2dd9895e6a06a6789635cbe787fc89c6c56597f2192b39395ffa5186388e5204" });

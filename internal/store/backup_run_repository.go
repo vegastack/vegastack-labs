@@ -81,6 +81,16 @@ func (repository *BackupRepository) AcquireBackupWriterLease(ctx context.Context
 		if _, err := tx.ExecContext(ctx, `UPDATE backup_writer_leases SET released_at=? WHERE repository_class=? AND released_at IS NULL AND maximum_expires_at < ?`, now, request.RepositoryClass, now); err != nil {
 			return backupWriteError(err)
 		}
+		if _, err := tx.ExecContext(ctx, `UPDATE backup_read_leases SET released_at=? WHERE repository_class=? AND released_at IS NULL AND maximum_expires_at<=?`, now, request.RepositoryClass, now); err != nil {
+			return backupWriteError(err)
+		}
+		var activeReaders int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_read_leases WHERE repository_class=? AND released_at IS NULL`, request.RepositoryClass).Scan(&activeReaders); err != nil {
+			return backupWriteError(err)
+		}
+		if activeReaders != 0 {
+			return backupStoreError(generated.ErrorCodeStateConflict, "backup-writer-lease")
+		}
 		if _, err := tx.ExecContext(ctx, `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,run_id,point_id,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,?,?,?,?,?,NULL,?,?,'running',?,?,?)`,
 			request.JobID, request.PolicyID, request.PolicyDigest, request.RepositoryID, request.RepositoryClass, request.RunID, "local", "fixture", request.RecoveryEpoch, now, now); err != nil {
 			return backupWriteError(err)
@@ -204,8 +214,14 @@ func (repository *BackupRepository) AppendPendingRecoveryPoint(ctx context.Conte
 // fixture evidence; later independent verification lives in a separate record.
 type PendingRecoveryPoint struct {
 	PointID         string
+	JobID           string
+	PolicyID        string
+	PolicyDigest    string
+	RepositoryID    string
+	RepositoryClass string
 	ManifestDigest  string
 	ManifestJSON    []byte
+	ContentDigest   string
 	InventoryDigest string
 	ExpectedObjects []ExpectedObjectRow
 	SourceRevision  int64
@@ -221,10 +237,12 @@ func (repository *BackupRepository) GetPendingRecoveryPoint(ctx context.Context,
 	}
 	var request PendingRecoveryPointRequest
 	var manifestJSON, sourceKind, proofClass, verificationStatus string
+	var jobID, policyID, policyDigest, repositoryID, repositoryClass string
 	var verifiedAt *string
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		if err := tx.queryRow(ctx, `SELECT point_id,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,source_kind,proof_class,verification_status,verified_at FROM recovery_points WHERE point_id=?`, pointID).Scan(
-			&request.PointID, &request.SnapshotID, &request.SnapshotCount, &request.ObjectCount, &request.ObjectBytes, &request.ContentDigest,
+		if err := tx.queryRow(ctx, `SELECT point_id,job_id,policy_id,policy_digest,repository_id,repository_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,source_kind,proof_class,verification_status,verified_at FROM recovery_points WHERE point_id=?`, pointID).Scan(
+			&request.PointID, &jobID, &policyID, &policyDigest, &repositoryID, &repositoryClass,
+			&request.SnapshotID, &request.SnapshotCount, &request.ObjectCount, &request.ObjectBytes, &request.ContentDigest,
 			&request.ManifestDigest, &manifestJSON, &request.InventoryDigest, &request.SourceRevision, &request.RecoveryEpoch,
 			&sourceKind, &proofClass, &verificationStatus, &verifiedAt); err != nil {
 			return err
@@ -279,7 +297,9 @@ func (repository *BackupRepository) GetPendingRecoveryPoint(ctx context.Context,
 	if _, err := validatePendingManifest(request); err != nil {
 		return point, backupStoreError(generated.ErrorCodeIntegrityFailure, "backup-pending-point-read")
 	}
-	return PendingRecoveryPoint{PointID: pointID, ManifestDigest: request.ManifestDigest, ManifestJSON: request.ManifestJSON,
+	return PendingRecoveryPoint{PointID: pointID, JobID: jobID, PolicyID: policyID, PolicyDigest: policyDigest, RepositoryID: repositoryID, RepositoryClass: repositoryClass,
+		ManifestDigest: request.ManifestDigest, ManifestJSON: request.ManifestJSON,
+		ContentDigest:   request.ContentDigest,
 		InventoryDigest: request.InventoryDigest, ExpectedObjects: request.ExpectedObjects,
 		SourceRevision: request.SourceRevision, RecoveryEpoch: request.RecoveryEpoch}, nil
 }
