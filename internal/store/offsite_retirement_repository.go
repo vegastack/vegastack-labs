@@ -609,6 +609,7 @@ func exactRetirementCatalogRows(ctx context.Context, tx *sql.Tx, intent OffsiteR
 	if err := rows.Err(); err != nil {
 		return err
 	}
+	slices.SortFunc(rules, func(a, b OffsiteRetirementRule) int { return strings.Compare(a.RuleID, b.RuleID) })
 	objectsRows, err := tx.QueryContext(ctx, `SELECT object_key,object_digest,object_bytes FROM backup_offsite_objects WHERE generation_id=? ORDER BY sequence`, intent.GenerationID)
 	if err != nil {
 		return err
@@ -625,6 +626,7 @@ func exactRetirementCatalogRows(ctx context.Context, tx *sql.Tx, intent OffsiteR
 	if err := objectsRows.Err(); err != nil {
 		return err
 	}
+	slices.SortFunc(objects, func(a, b OffsiteRetirementObject) int { return strings.Compare(a.Key, b.Key) })
 	if !slices.Equal(rules, intent.Rules) || !slices.Equal(objects, intent.Objects) {
 		return newStoreError(generated.ErrorCodeIntegrityFailure, "offsite-retirement-catalog", false, nil)
 	}
