@@ -178,10 +178,26 @@ func (source *recoverySource) OnlineBackup(ctx context.Context, destination stri
 }
 
 func (source *recoverySource) InspectSnapshot(ctx context.Context, snapshotPath string, expected SnapshotExpectation) (SnapshotInspection, error) {
+	if source == nil || source.store == nil {
+		return SnapshotInspection{}, newStoreError("INPUT_INVALID", "migration-snapshot", false, nil)
+	}
+	return source.inspectSnapshotOwned(ctx, snapshotPath, expected, source.store.config.ExpectedUID)
+}
+
+// InspectSnapshotOwned retains every normal restored-SQLite validation while
+// admitting the exact non-controller UID that the protected restic child used.
+func (source *recoverySource) InspectSnapshotOwned(ctx context.Context, snapshotPath string, expected SnapshotExpectation, expectedUID uint32) (SnapshotInspection, error) {
+	if expectedUID == 0 {
+		return SnapshotInspection{}, newStoreError("INPUT_INVALID", "migration-snapshot", false, nil)
+	}
+	return source.inspectSnapshotOwned(ctx, snapshotPath, expected, expectedUID)
+}
+
+func (source *recoverySource) inspectSnapshotOwned(ctx context.Context, snapshotPath string, expected SnapshotExpectation, expectedUID uint32) (SnapshotInspection, error) {
 	if source == nil || source.store == nil || snapshotPath == source.store.config.DatabasePath {
 		return SnapshotInspection{}, newStoreError("INPUT_INVALID", "migration-snapshot", false, nil)
 	}
-	if _, err := source.store.filesystem.InspectDatabase(ctx, snapshotPath, source.store.config.ExpectedUID); err != nil {
+	if _, err := source.store.filesystem.InspectDatabase(ctx, snapshotPath, expectedUID); err != nil {
 		return SnapshotInspection{}, err
 	}
 	database, err := sql.Open(sqliteDriverName, fileURI(snapshotPath, "ro"))

@@ -826,6 +826,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "standardBackupRoot", GoName: "StandardBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "criticalBackupRoot", GoName: "CriticalBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "resticBinaryPath", GoName: "ResticBinaryPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
+				{JSONName: "custodyPolicyPath", GoName: "CustodyPolicyPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 			},
 		},
 		{

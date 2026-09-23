@@ -161,6 +161,8 @@ The selected restic/R2 combination is a candidate pending the [coordination/payl
 
 V1 selects restic repository format v2. The first implementation must pin restic `0.19.1` or a later reviewed patch by binary digest; upgrading the repository format is a separate plan. Restic supplies client-side encryption, S3-compatible storage, integrity checks and JSON-capable automation. Losing every repository key makes recovery impossible.
 
+The local software path isolates repository custody under a dedicated UID through one short-lived mode of the existing `vsk-labs` executable. Its disposable Debian/ext4 proof does not enroll the required real accounts, install the root-owned policy/systemd/polkit profile, qualify actual backup media, or close `G-008`. Those remain infrastructure-admin evidence for the selected host and storage.
+
 - `standard`: one encrypted restic repository on the central 512 GB SSD; daily snapshots; `--keep-within 7d`.
 - `critical-local`: a separate encrypted SSD repository; every 6 hours; `--keep-within 14d`.
 - `critical-offsite`: a separate encrypted R2 S3-compatible repository; daily; `--keep-within 14d`; bucket/prefix lock covers at least the retention window.

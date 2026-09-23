@@ -1948,6 +1948,7 @@ type ServerProfile struct {
 	StandardBackupRoot               *string                 `json:"standardBackupRoot"`
 	CriticalBackupRoot               *string                 `json:"criticalBackupRoot"`
 	ResticBinaryPath                 *string                 `json:"resticBinaryPath"`
+	CustodyPolicyPath                *string                 `json:"custodyPolicyPath"`
 }
 
 type ServerStatusData struct {

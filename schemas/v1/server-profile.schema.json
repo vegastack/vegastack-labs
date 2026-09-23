@@ -104,6 +104,15 @@
         "null"
       ]
     },
+    "custodyPolicyPath": {
+      "maxLength": 4096,
+      "minLength": 2,
+      "pattern": "^/[^\\x00]*$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "inventoryExportRoot": {
       "maxLength": 4096,
       "minLength": 2,

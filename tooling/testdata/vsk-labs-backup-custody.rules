@@ -1,0 +1,15 @@
+// Disposable acceptance fixture only. Live installation remains an
+// infrastructure-admin action and requires a host-specific qualified profile.
+polkit.addRule(function(action, subject) {
+  if (subject.user != "vsk-controller") return polkit.Result.NOT_HANDLED;
+  if (action.id == "org.freedesktop.systemd1.manage-unit-files" ||
+      action.id == "org.freedesktop.systemd1.reload-daemon") return polkit.Result.NO;
+  if (action.id != "org.freedesktop.systemd1.manage-units") return polkit.Result.NOT_HANDLED;
+  var unit = action.lookup("unit");
+  var verb = action.lookup("verb");
+  if (verb == "start" &&
+      /^vsk-labs-backup-custody@[a-f0-9]{32}\.service$/.test(unit)) {
+    return polkit.Result.YES;
+  }
+  return polkit.Result.NO;
+});

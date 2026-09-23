@@ -1,0 +1,19 @@
+[Unit]
+Description=VegaStack disposable backup custody %i
+After=polkit.service
+
+[Service]
+Type=exec
+Environment=VSK_BACKUP_CUSTODY_SUPERVISOR=1
+ExecStart=/usr/local/bin/vsk-labs __backup-custody-supervisor %i
+RuntimeMaxSec=600
+TimeoutStopSec=5
+NoNewPrivileges=yes
+PrivateDevices=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/vsk-labs/backup /run/vsk-labs
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
