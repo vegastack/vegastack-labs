@@ -275,6 +275,17 @@
           "github.com/vegastack/vegastack-labs/internal/adapters/r2"
         ],
         "mutationBoundaryDigest": "sha256:6c6a3ab5f366603d73c1bd07d91097d0062f49a48231aca42a4c1f500af0455d"
+      },
+      {
+        "id": "phase5-issue108-v1",
+        "issue": 108,
+        "commands": [
+          "restore plan",
+          "restore run",
+          "restore verify"
+        ],
+        "imports": [],
+        "mutationBoundaryDigest": "sha256:bc3d67a96a32ca261ff05a615c567b78454dc431e8031ddf6297cda6b1e3b27b"
       }
     ]
   },
