@@ -27,6 +27,15 @@
     "changedPaths": ["internal/store/store.go"]
   },
   {
+    "name": "Linux-only Go source",
+    "changes": [{ "status": "M", "path": "internal/adapter/nativecredential/authority_linux.go" }],
+    "mode": "affected",
+    "browser": false,
+    "failClosed": false,
+    "groups": ["always", "go"],
+    "changedPaths": ["internal/adapter/nativecredential/authority_linux.go"]
+  },
+  {
     "name": "tooling only",
     "changes": [{ "status": "M", "path": "tooling/test/process.test.mjs" }],
     "mode": "affected",
