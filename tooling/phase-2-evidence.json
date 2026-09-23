@@ -231,6 +231,15 @@
         "commands": [],
         "imports": [],
         "mutationBoundaryDigest": "sha256:9c0314e30319a02d3acafa546c37af5d38c8dab05537a49eec64e1a355d020f4"
+      },
+      {
+        "id": "phase5-issue154-v1",
+        "issue": 154,
+        "commands": [],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/backuptrust"
+        ],
+        "mutationBoundaryDigest": "sha256:47397683b5c937500ee10cb5abb2b597373e3508f3db5eb7992512789352eab2"
       }
     ]
   },

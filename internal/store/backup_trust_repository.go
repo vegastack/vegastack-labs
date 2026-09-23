@@ -139,6 +139,9 @@ func (repository *BackupRepository) ApplyBackupTrustSource(ctx context.Context, 
 	requestSum := sha256.Sum256([]byte(draft.Digest + ":" + request.Status + ":" + request.PlanID + ":" + request.RunID + ":" + request.StepID + ":" + request.LeaseID))
 	intentKey := audit.IntentKey{Scope: "backup-trust-source-binding", KeyDigest: audit.Fingerprint("sha256:" + hex.EncodeToString(keySum[:])), RequestDigest: audit.Fingerprint("sha256:" + hex.EncodeToString(requestSum[:]))}
 	_, err = repository.store.writeIntent(ctx, intentRequest{Expected: &request.Expected, Idempotency: intentKey, Event: event}, func(ctx context.Context, tx *sql.Tx) error {
+		if err := backupTrustExactStep(ctx, tx, request, draft, now.Format(time.RFC3339)); err != nil {
+			return err
+		}
 		var prior int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_trust_source_bindings WHERE binding_id=?`, request.BindingID).Scan(&prior); err != nil {
 			return err
@@ -160,6 +163,22 @@ func (repository *BackupRepository) ApplyBackupTrustSource(ctx context.Context, 
 		return draft, nil
 	}
 	return repository.GetCurrentBackupTrustSource(ctx, request.SourceID, request.SourceRevision, request.Expected.StateRevision+1, request.Expected.RecoveryEpoch)
+}
+
+func backupTrustExactStep(ctx context.Context, tx *sql.Tx, request BackupTrustSourceApplyRequest, draft BackupTrustSourceDraft, now string) error {
+	operationType := "backup.trust-source.current"
+	if request.Status == "revoked" {
+		operationType = "backup.trust-source.revoke"
+	}
+	var count int
+	err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM immutable_plans p JOIN plan_runs r ON r.plan_id=p.plan_id JOIN plan_run_steps s ON s.run_id=r.run_id JOIN target_execution_leases l ON l.run_id=r.run_id AND l.step_id=s.step_id WHERE p.plan_id=? AND p.plan_digest=? AND p.declaration_id=? AND p.declaration_revision=? AND p.state_revision=? AND p.recovery_epoch=? AND p.expires_at>? AND r.run_id=? AND r.plan_digest=? AND r.state_revision=? AND r.recovery_epoch=? AND r.executor_mode='central' AND r.status='running' AND s.step_id=? AND s.operation_type=? AND s.adapter_id='core.backup-trust' AND s.target_id=? AND s.input_digest=? AND s.artifact_digest=? AND s.effect_state='intent-recorded' AND s.active_lease_id=? AND l.lease_id=? AND l.status='active' AND l.lease_kind='central' AND l.expires_at>? AND l.recovery_epoch=?`, request.PlanID, request.PlanDigest, request.DeclarationID, request.DeclarationRevision, request.Expected.StateRevision, request.Expected.RecoveryEpoch, now, request.RunID, request.PlanDigest, request.Expected.StateRevision, request.Expected.RecoveryEpoch, request.StepID, operationType, draft.SourceID, draft.Digest, draft.Digest, request.LeaseID, request.LeaseID, now, request.Expected.RecoveryEpoch).Scan(&count)
+	if err != nil {
+		return err
+	}
+	if count != 1 {
+		return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-trust-source-exact-step")
+	}
+	return nil
 }
 
 func (repository *BackupRepository) GetCurrentBackupTrustSource(ctx context.Context, sourceID string, sourceRevision, stateRevision, epoch int64) (BackupTrustSourceDraft, error) {
