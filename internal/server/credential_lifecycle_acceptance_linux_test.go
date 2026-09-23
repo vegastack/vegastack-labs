@@ -1,0 +1,478 @@
+//go:build linux
+
+package server
+
+import (
+	"bytes"
+	"context"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/hex"
+	"encoding/json"
+	"errors"
+	"io"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
+	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/nativecredential"
+	"github.com/vegastack/vegastack-labs/internal/api"
+	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/change"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
+	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
+	planengine "github.com/vegastack/vegastack-labs/internal/plan"
+	"github.com/vegastack/vegastack-labs/internal/recovery"
+	runengine "github.com/vegastack/vegastack-labs/internal/run"
+	"github.com/vegastack/vegastack-labs/internal/store"
+)
+
+const lifecycleAcceptanceCanary = "synthetic-private-lifecycle-canary-135"
+
+func lifecycleAcceptanceDigest(parts ...string) string {
+	hash := sha256.New()
+	for _, part := range parts {
+		_, _ = hash.Write([]byte(part))
+		_, _ = hash.Write([]byte{0})
+	}
+	return "sha256:" + hex.EncodeToString(hash.Sum(nil))
+}
+
+type lifecycleAcceptanceAuthorizer struct{}
+
+func (lifecycleAcceptanceAuthorizer) Authorize(_ context.Context, principal identity.Principal, request authorization.Request) (authorization.Decision, error) {
+	branch := authorization.BranchHuman
+	return authorization.Decision{PrincipalID: principal.ID, Action: request.Action, Target: request.Target, Allowed: true, Branch: &branch,
+		ReasonCode: authorization.ReasonAllowed, GrantRevision: 1, Risk: authorization.RiskControlPlane,
+		StateRevision: func() int64 {
+			if request.Plan != nil {
+				return request.Plan.Binding.StateRevision
+			}
+			return 0
+		}(),
+		RecoveryEpoch: func() int64 {
+			if request.Plan != nil {
+				return request.Plan.Binding.RecoveryEpoch
+			}
+			return 0
+		}(),
+		PlanDigest: func() string {
+			if request.Plan != nil {
+				return request.Plan.PlanDigest
+			}
+			return ""
+		}()}, nil
+}
+
+type lifecycleAcceptancePlanReader struct{ plans *planengine.Service }
+
+func (reader lifecycleAcceptancePlanReader) Get(ctx context.Context, id string) (generated.Plan, error) {
+	stored, err := reader.plans.Get(ctx, id)
+	return stored.Plan, err
+}
+func (reader lifecycleAcceptancePlanReader) ValidateCurrent(ctx context.Context, plan generated.Plan) error {
+	return reader.plans.ValidateCurrent(ctx, plan)
+}
+
+type lifecycleAcceptanceGate struct{ calls int }
+
+func (gate *lifecycleAcceptanceGate) VerifySecretStep(_ context.Context, plan generated.Plan, operation generated.PlanOperation) error {
+	if plan.AuthorizationBranch != string(authorization.BranchHuman) || plan.ExecutorMode != "central" || operation.AdapterID != "core.credential" {
+		return errors.New("synthetic gate received a widened operation")
+	}
+	gate.calls++
+	return nil
+}
+
+type lifecycleAcceptanceVerifier struct {
+	actions []credentialref.LifecycleAction
+}
+
+func (verifier *lifecycleAcceptanceVerifier) Verify(_ context.Context, step runengine.ExactStepBinding, binding credentialref.LifecycleBinding) ([]credentialref.ConsumerVerification, error) {
+	if step.Step.OperationID != binding.OperationID || step.Step.ArtifactDigest != binding.CiphertextFingerprint || !credentialref.ValidNativeBindings(binding) {
+		return nil, errors.New("native observation binding mismatch")
+	}
+	verifier.actions = append(verifier.actions, binding.Action)
+	results := make([]credentialref.ConsumerVerification, 0, len(binding.ConsumerIDs)+len(binding.RequiredDeniedConsumerIDs))
+	for _, consumer := range binding.NativeConsumers {
+		value, err := credentialref.NewConsumerVerification(binding, consumer.ConsumerID, consumer.ProfileID, consumer.RoleID,
+			lifecycleAcceptanceDigest("native-positive", string(binding.Action), consumer.ConsumerID), "loaded", "verified", true)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, value)
+	}
+	for _, reader := range binding.NativeDeniedReaders {
+		value, err := credentialref.NewConsumerVerification(binding, reader.ConsumerID, reader.ProfileID, reader.RoleID,
+			lifecycleAcceptanceDigest("native-denied", string(binding.Action), reader.ConsumerID), "reader-denied", "denied", false)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, value)
+	}
+	return results, nil
+}
+
+type lifecycleAcceptanceRecoveryAuthority struct{}
+
+func (lifecycleAcceptanceRecoveryAuthority) CurrentInstalledRecovery(_ context.Context, request RecoveryCustodyRequest) (installedRecoveryAuthority, error) {
+	binding := recovery.WitnessBinding{FormerHostID: "former-host", FormerInstanceID: "former-instance", ReplacementHostID: "replacement-host", ReplacementInstanceID: "replacement-instance",
+		DraftID: request.Draft.DraftID, CiphertextFingerprint: request.Draft.CiphertextFingerprint, PlanDigest: request.PlanDigest,
+		RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, ChallengeID: "challenge-135", ReceiptID: "receipt-135",
+		PriorEpoch: request.PriorRecoveryEpoch, NewEpoch: request.RecoveryEpoch, StateRevision: request.StateRevision}
+	required := []recovery.BoundaryRequirement{{Kind: "host-service", SubjectID: request.Draft.TargetID, TargetID: "former-host", AdapterID: "host-denial-v1", FormerIdentityID: "former-instance", ProbeID: "former-writer-denied"}}
+	return installedRecoveryAuthority{Binding: binding, Required: required}, nil
+}
+
+type lifecycleAcceptanceRecoveryLoader struct {
+	material []byte
+	uses     int
+}
+
+func (loader *lifecycleAcceptanceRecoveryLoader) LoadVerified(_ context.Context, _ recovery.WitnessBinding, required []recovery.BoundaryRequirement, _ time.Time) (installedRecoveryCandidate, error) {
+	if len(required) != 1 {
+		return installedRecoveryCandidate{}, errors.New("wrong recovery boundary")
+	}
+	return installedRecoveryCandidate{
+		sourceDigest: lifecycleAcceptanceDigest("source"), manifestDigest: lifecycleAcceptanceDigest("manifest"),
+		witnessDigest: lifecycleAcceptanceDigest("fence"), fenceDigest: lifecycleAcceptanceDigest("qualification"),
+		envelopeDigest: lifecycleAcceptanceDigest("custody"),
+		consume: func(_ context.Context, compare func(io.ReadCloser) error) error {
+			if loader.uses != 0 {
+				return errors.New("recovery handoff replay")
+			}
+			loader.uses++
+			return compare(io.NopCloser(bytes.NewReader(loader.material)))
+		},
+	}, nil
+}
+
+type lifecycleAcceptanceEnv struct {
+	t            *testing.T
+	path         string
+	authority    *store.Store
+	references   *store.CredentialRepository
+	revisions    *store.PlanRepository
+	declarations *change.Service
+	lifecycle    api.CredentialLifecycleService
+	principal    identity.Principal
+	human        identity.Principal
+	clock        func() time.Time
+	machineID    string
+	gate         *lifecycleAcceptanceGate
+	verifier     *lifecycleAcceptanceVerifier
+	recovery     runengine.CredentialRecoveryVerifier
+	plans        []generated.Plan
+	runs         []generated.Run
+}
+
+func newLifecycleAcceptanceEnv(t *testing.T) *lifecycleAcceptanceEnv {
+	t.Helper()
+	ctx := context.Background()
+	directory := t.TempDir()
+	if err := os.Chmod(directory, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(directory, "control.db")
+	now := time.Date(2026, 9, 23, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "lifecycle-acceptance", BuildVersion: "lifecycle-acceptance", Clock: clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = authority.Close() })
+	references := store.NewCredentialRepository(authority)
+	revisions := store.NewPlanRepository(authority)
+	declarations, err := change.NewService(store.NewDeclarationRepository(authority), clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lifecycle, err := api.NewCredentialLifecycleService(references, revisions, declarations, lifecycleAcceptanceAuthorizer{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	machine, err := os.ReadFile("/etc/machine-id")
+	if err != nil || len(strings.TrimSpace(string(machine))) != 32 {
+		t.Fatalf("machine identity unavailable: %v", err)
+	}
+	return &lifecycleAcceptanceEnv{t: t, path: path, authority: authority, references: references, revisions: revisions, declarations: declarations, lifecycle: lifecycle,
+		principal: identity.Principal{ID: "operator-135", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman},
+		human:     identity.Principal{ID: "human-135", Method: identity.SlackSocketModeMethod, Kind: identity.PrincipalHuman},
+		clock:     clock, machineID: strings.TrimSpace(string(machine)), gate: &lifecycleAcceptanceGate{}, verifier: &lifecycleAcceptanceVerifier{},
+		recovery: runengine.UnavailableCredentialRecoveryVerifier{}}
+}
+
+func (env *lifecycleAcceptanceEnv) importDraft(version, suffix string) generated.CredentialImportSubmission {
+	env.t.Helper()
+	current, err := env.revisions.CurrentRevision(context.Background())
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	input := generated.CredentialImportRequest{Schema: generated.SchemaIDCredentialImportRequest, SchemaVersion: "1.1.0", ReferenceID: "reference-135", ConsumerID: "consumer-a", PurposeID: "purpose-135", TargetID: "target-135", ResolverID: "native-systemd", MaterialVersion: version, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: "import-" + suffix}
+	input.TargetDigest = credentialref.ImportTargetDigest(input)
+	value, err := env.references.PutImportDraft(context.Background(), store.CredentialImportDraftRequest{Input: input, DraftID: "draft-" + suffix, CiphertextName: "ciphertext-" + suffix,
+		CiphertextFingerprint: lifecycleAcceptanceDigest("ciphertext", suffix), Expected: current,
+		Attribution: audit.Attribution{AuthenticatedPrincipalID: env.principal.ID, AuthenticatedPrincipalMethod: env.principal.Method},
+		KeyDigest:   lifecycleAcceptanceDigest("import-key", suffix), RequestDigest: lifecycleAcceptanceDigest("import-request", suffix)})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	return value
+}
+
+func (env *lifecycleAcceptanceEnv) nativeReaders() (*[]generated.CredentialNativeConsumer, *[]generated.CredentialNativeDeniedReader) {
+	positives := []generated.CredentialNativeConsumer{
+		{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-a", TargetID: "target-135", HostMachineID: env.machineID, UnitName: "capstone-alpha.service", ServiceUID: 21142, ServiceGID: 21142, ProfileID: "profile-native", RoleID: "role-alpha"},
+		{Schema: generated.SchemaIDCredentialNativeConsumer, SchemaVersion: "1.0.0", ConsumerID: "consumer-b", TargetID: "target-135", HostMachineID: env.machineID, UnitName: "capstone-beta.service", ServiceUID: 21143, ServiceGID: 21143, ProfileID: "profile-native", RoleID: "role-beta"},
+	}
+	denied := []generated.CredentialNativeDeniedReader{
+		{Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "denied-a", TargetID: "target-135", HostMachineID: env.machineID, ReaderUID: 21144, ReaderGID: 21144, ProfileID: "profile-native", RoleID: "role-denied-a"},
+		{Schema: generated.SchemaIDCredentialNativeDeniedReader, SchemaVersion: "1.0.0", ConsumerID: "denied-b", TargetID: "target-135", HostMachineID: env.machineID, ReaderUID: 21145, ReaderGID: 21145, ProfileID: "profile-native", RoleID: "role-denied-b"},
+	}
+	return &positives, &denied
+}
+
+func (env *lifecycleAcceptanceEnv) request(action, version, key string) generated.CredentialLifecycleRequest {
+	current, err := env.revisions.CurrentRevision(context.Background())
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	value := generated.CredentialLifecycleRequest{Schema: generated.SchemaIDCredentialLifecycleRequest, SchemaVersion: "1.3.0", Action: action, ReferenceID: "reference-135", MaterialVersion: version,
+		ResolverID: "native-systemd", TargetID: "target-135", ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, IdempotencyKey: key,
+		ConsumerIDs: []string{}, RequiredDeniedConsumerIDs: []string{}}
+	return value
+}
+
+func (env *lifecycleAcceptanceEnv) apply(input generated.CredentialLifecycleRequest) generated.Run {
+	env.t.Helper()
+	input.TargetDigest = credentialref.LifecycleTargetDigest(input)
+	if input.TargetDigest == "" {
+		env.t.Fatalf("invalid lifecycle request: %+v", input)
+	}
+	submission, err := env.lifecycle.CreateDraft(context.Background(), input, env.principal)
+	if err != nil {
+		env.t.Fatalf("create %s draft: %v", input.Action, err)
+	}
+	declaration, err := env.declarations.Get(context.Background(), submission.ChangeID, 1)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	current, err := env.revisions.CurrentRevision(context.Background())
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	observations, err := planengine.NewStateObservationReader(env.revisions)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	fingerprint, err := observations.CurrentFingerprint(context.Background(), declaration.DeclarationID, declaration.Operations)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	plans, err := planengine.NewService(planengine.Config{Repository: env.revisions, Observations: observations, Clock: env.clock, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	created, err := plans.Create(context.Background(), planengine.AuthorScope{PrincipalID: env.principal.ID, PrincipalMethod: env.principal.Method, AgentSessionID: "session-135"}, generated.PlanCreateRequest{Schema: generated.SchemaIDPlanCreateRequest, SchemaVersion: "1.0.0", DeclarationID: declaration.DeclarationID, DeclarationRevision: declaration.Revision, ExpectedStateRevision: current.StateRevision, RecoveryEpoch: current.RecoveryEpoch, ObservationFingerprint: fingerprint, IdempotencyKey: "plan-" + input.IdempotencyKey, Extensions: declaration.Extensions})
+	if err != nil {
+		env.t.Fatalf("plan %s: %v", input.Action, err)
+	}
+	plan := created.Plan
+	acknowledger, err := acknowledgement.NewService(acknowledgement.Config{Repository: store.NewAcknowledgementRepository(env.authority), Plans: lifecycleAcceptancePlanReader{plans}, Authorizer: lifecycleAcceptanceAuthorizer{}, Clock: env.clock})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	card, err := acknowledger.Request(context.Background(), acknowledgement.Scope{Human: env.human, AuthorityID: "authority-135", Nonce: "nonce-" + input.IdempotencyKey}, plan.PlanID)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	approved, err := acknowledger.Decide(context.Background(), acknowledgement.Candidate{Human: env.human, AuthorityID: card.Request.AuthorityID, Action: acknowledgement.ActionApprove,
+		PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: plan.Binding.TargetDigest, ReasonDigest: plan.Binding.ReasonDigest, Nonce: card.Nonce,
+		StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch, ExpiresAt: mustAcceptanceTime(env.t, plan.ExpiresAt), DecidedAt: env.clock()})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	core, err := runengine.NewCoreCredentialEffect(env.references, store.NewAcknowledgementRepository(env.authority), env.gate, env.verifier, env.recovery, env.clock)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	engine, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(env.authority), Plans: plans, Admission: runengine.NewAdmissionGate(acknowledger, env.clock), Adapters: adapter.NewRegistry(), CredentialCore: core, Clock: env.clock})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	branch := string(authorization.BranchHuman)
+	decision := generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-" + input.IdempotencyKey, PrincipalID: env.human.ID,
+		Action: string(authorization.ActionExecute), TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: 1,
+		RecoveryEpoch: plan.Binding.RecoveryEpoch, PlanDigest: plan.PlanDigest, DecidedAt: env.clock().Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	humanID := env.human.ID
+	result, err := engine.Submit(context.Background(), runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "run-" + input.IdempotencyKey, Extensions: []generated.ContractExtension{}}, Authorization: decision, Acknowledgement: &approved,
+		Attribution: audit.Attribution{AuthenticatedPrincipalID: env.principal.ID, AuthenticatedPrincipalMethod: env.principal.Method, ResponsibleHumanPrincipalID: &humanID, Agent: &audit.AgentMetadata{Name: "codex", SessionID: "session-135"}}})
+	if err != nil || result.Status != "succeeded" {
+		env.t.Fatalf("apply %s: run=%+v err=%v", input.Action, result, err)
+	}
+	env.plans, env.runs = append(env.plans, plan), append(env.runs, result)
+	return result
+}
+
+func mustAcceptanceTime(t *testing.T, value string) time.Time {
+	t.Helper()
+	parsed, err := time.Parse(time.RFC3339, value)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parsed
+}
+
+func (env *lifecycleAcceptanceEnv) enterRecoveryEpoch() {
+	if err := env.authority.PrepareRecoveryAuditEpoch(context.Background(), 1, audit.Fingerprint(lifecycleAcceptanceDigest("checkpoint")), audit.Fingerprint(lifecycleAcceptanceDigest("decision"))); err != nil {
+		env.t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite3", env.path)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	defer db.Close()
+	if _, err := db.Exec(`UPDATE system_meta SET recovery_epoch=1 WHERE id=1`); err != nil {
+		env.t.Fatal(err)
+	}
+}
+
+func (env *lifecycleAcceptanceEnv) installRecoveryVerifier(material []byte) *lifecycleAcceptanceRecoveryLoader {
+	loader := &lifecycleAcceptanceRecoveryLoader{material: material}
+	source := &installedRecoverySource{authority: lifecycleAcceptanceRecoveryAuthority{}, loader: loader, ciphertextRoot: filepath.Join(filepath.Dir(env.path), "credential-drafts"), ownerUID: uint32(os.Geteuid()), clock: env.clock,
+		compare: func(_ context.Context, request nativecredential.VerifyRecoveryRequest, private io.ReadCloser) (nativecredential.VerifiedDraft, error) {
+			defer private.Close()
+			value, err := io.ReadAll(private)
+			if err != nil || !bytes.Equal(value, material) || request.ExpectedFingerprint == "" || request.Name == "" {
+				return nativecredential.VerifiedDraft{}, errors.New("exact draft comparison failed")
+			}
+			return nativecredential.VerifiedDraft{CiphertextFingerprint: request.ExpectedFingerprint, HostKeyDigest: lifecycleAcceptanceDigest("replacement-host-key")}, nil
+		}}
+	verifier, err := NewRecoveryCustodyVerifier(env.references, env.revisions, source)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	env.recovery = verifier
+	return loader
+}
+
+func TestFullCredentialLifecycleAcceptance(t *testing.T) {
+	env := newLifecycleAcceptanceEnv(t)
+	if _, err := productionAdapterRegistry().Resolve("onepassword"); err == nil {
+		t.Fatal("optional provider unexpectedly registered")
+	}
+	if err := (runengine.UnavailableGateVerifier{}).VerifySecretStep(context.Background(), generated.Plan{}, generated.PlanOperation{}); err == nil {
+		t.Fatal("production live gate unexpectedly available")
+	}
+
+	v1 := env.importDraft("version-1", "v1")
+	stage := env.request("credential.stage", "version-1", "stage-v1")
+	stage.DraftID, stage.ConsumerIDs = &v1.DraftID, []string{"consumer-a", "consumer-b"}
+	env.apply(stage)
+	staged, err := env.references.GetCredentialVersion(context.Background(), "reference-135", "version-1")
+	if err != nil || staged.Status != "staged" || staged.ActivatedAt != nil {
+		t.Fatalf("stage was not inert: %+v %v", staged, err)
+	}
+
+	activate := env.request("credential.activate", "version-1", "activate-v1")
+	activate.ConsumerIDs, activate.RequiredDeniedConsumerIDs = []string{"consumer-a", "consumer-b"}, []string{"denied-a", "denied-b"}
+	activate.NativeConsumers, activate.NativeDeniedReaders = env.nativeReaders()
+	env.apply(activate)
+
+	v2 := env.importDraft("version-2", "v2")
+	stageV2 := env.request("credential.stage", "version-2", "stage-v2")
+	stageV2.DraftID, stageV2.ConsumerIDs = &v2.DraftID, []string{"consumer-a", "consumer-b"}
+	env.apply(stageV2)
+	prior := "version-1"
+	rotate := env.request("credential.rotate", "version-2", "rotate-v2")
+	rotate.DraftID, rotate.PriorMaterialVersion, rotate.OverlapSeconds = &v2.DraftID, &prior, 900
+	rotate.ConsumerIDs, rotate.RequiredDeniedConsumerIDs = []string{"consumer-a", "consumer-b"}, []string{"denied-a", "denied-b"}
+	rotate.NativeConsumers, rotate.NativeDeniedReaders = env.nativeReaders()
+	env.apply(rotate)
+	oldDuringOverlap, err := env.references.GetCredentialVersion(context.Background(), "reference-135", "version-1")
+	if err != nil || oldDuringOverlap.Status != "active" {
+		t.Fatalf("rotation removed old overlap version: %+v %v", oldDuringOverlap, err)
+	}
+
+	revoke := env.request("credential.revoke", "version-1", "revoke-v1")
+	env.apply(revoke)
+	v1Final, err := env.references.GetCredentialVersion(context.Background(), "reference-135", "version-1")
+	if err != nil || v1Final.Status != "revoked" {
+		t.Fatalf("old version not revoked: %+v %v", v1Final, err)
+	}
+	v2Final, err := env.references.GetCredentialVersion(context.Background(), "reference-135", "version-2")
+	if err != nil || v2Final.Status != "active" {
+		t.Fatalf("active successor shadowed: %+v %v", v2Final, err)
+	}
+
+	env.enterRecoveryEpoch()
+	recoveryDraft := env.importDraft("version-2", "recovery-v2")
+	material := []byte(lifecycleAcceptanceCanary)
+	t.Cleanup(func() {
+		for index := range material {
+			material[index] = 0
+		}
+	})
+	loader := env.installRecoveryVerifier(material)
+	priorEpoch := int64(0)
+	custody, fence := lifecycleAcceptanceDigest("custody"), lifecycleAcceptanceDigest("fence")
+	recover := env.request("credential.recover", "version-2", "recover-v2")
+	recover.DraftID, recover.ConsumerIDs = &recoveryDraft.DraftID, []string{"consumer-a"}
+	recover.PriorRecoveryEpoch, recover.CustodyProofDigest, recover.FormerControllerFenceDigest = &priorEpoch, &custody, &fence
+	env.apply(recover)
+	current, err := env.revisions.CurrentRevision(context.Background())
+	if err != nil || current.RecoveryEpoch != 1 || loader.uses != 1 {
+		t.Fatalf("recovery changed epoch or custody use: %+v uses=%d err=%v", current, loader.uses, err)
+	}
+
+	if len(env.verifier.actions) != 2 || env.verifier.actions[0] != credentialref.ActionActivate || env.verifier.actions[1] != credentialref.ActionRotate || env.gate.calls != 3 {
+		t.Fatalf("wrong verifier/gate calls: actions=%v gates=%d", env.verifier.actions, env.gate.calls)
+	}
+	db, err := sql.Open("sqlite3", env.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	var positive, denied, restart, recoveryRecords int
+	if err := db.QueryRow(`SELECT count(*) FROM credential_consumer_verifications WHERE result='verified'`).Scan(&positive); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM credential_consumer_verifications WHERE result='denied'`).Scan(&denied); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM credential_consumer_verifications WHERE result='verified' AND restart_observed=1`).Scan(&restart); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.QueryRow(`SELECT count(*) FROM credential_recovery_records`).Scan(&recoveryRecords); err != nil {
+		t.Fatal(err)
+	}
+	if positive != 4 || denied != 4 || restart != 4 || recoveryRecords != 1 {
+		t.Fatalf("incomplete lifecycle evidence: positive=%d denied=%d restart=%d recovery=%d", positive, denied, restart, recoveryRecords)
+	}
+
+	public, err := json.Marshal(struct {
+		Plans []generated.Plan
+		Runs  []generated.Run
+	}{env.plans, env.runs})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bytes.Contains(public, []byte(lifecycleAcceptanceCanary)) {
+		t.Fatal("secret escaped public envelopes")
+	}
+	for _, suffix := range []string{"", "-wal", "-shm"} {
+		raw, readErr := os.ReadFile(env.path + suffix)
+		if readErr != nil && !os.IsNotExist(readErr) {
+			t.Fatal(readErr)
+		}
+		if bytes.Contains(raw, []byte(lifecycleAcceptanceCanary)) {
+			t.Fatalf("secret escaped SQLite surface %s", suffix)
+		}
+	}
+}
