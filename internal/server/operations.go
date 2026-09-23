@@ -9,6 +9,7 @@ import (
 
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/backuptrust"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localretention"
 	"github.com/vegastack/vegastack-labs/internal/api"
@@ -178,6 +179,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	leaseRepository := store.NewExecutorLeaseRepository(authority)
 	admission := runengine.NewAdmissionGate(acknowledgements, time.Now)
 	adapters := productionAdapterRegistry()
+	backupRepository := store.NewBackupRepository(authority)
 	// The protected local backup adapter is registered only when the complete
 	// standard/critical/restic profile triplet is present. It fails closed
 	// off-Linux and its effect always runs through the exact bound credential
@@ -193,13 +195,14 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 			_ = application.Shutdown(ctx)
 			return inspectErr
 		}
+		localTrust := localbackup.NewProtectedLocalDependencyTrust()
 		localAdapter, adapterErr := localbackup.New(localbackup.Config{
 			LocalBackup: profile.LocalBackup,
 			ExpectedUID: profile.SocketOwnerUID,
-			Backups:     store.NewBackupRepository(authority),
+			Backups:     backupRepository,
 			Snapshots:   snapshots,
 			Inspector:   inspector,
-			Trust:       localbackup.NewProtectedLocalDependencyTrust(),
+			Trust:       backuptrust.NewVerifier(backupRepository, backuptrust.UnavailableArtifactReader{}, localTrust),
 			LiveProof:   true,
 			Plans:       plans,
 			Hooks:       backup.DefaultHookRegistry(),
@@ -272,7 +275,6 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	backupRepository := store.NewBackupRepository(authority)
 	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, Status: backupRepository,
 		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
 		Results: factory}); err != nil {

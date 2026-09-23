@@ -45,3 +45,20 @@ func TestProtectedLocalTrustOnlyProvesCurrentPinnedDependencies(t *testing.T) {
 		t.Fatal("manifest claim satisfied current trust")
 	}
 }
+
+func TestExactDependencyTrustRequiresPointPolicyAndSignedSource(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	expected := []backup.ExpectedDependency{{DependencyID: "config-a", Kind: "config", Digest: digest}}
+	proof := DependencyTrustEvidence{DependencyID: "config-a", Kind: "config", Digest: digest,
+		SourceKind: "registered-signed-artifact", PointID: "point-a", PolicyDigest: digest, SourceID: "source-a",
+		ArtifactID: "artifact-a", BundleDigest: digest, TrustedRootReferenceID: "root-a", TrustRootDigest: digest,
+		SignerIdentity: "https://example.invalid/signer", SignerIssuer: "https://issuer.example.invalid",
+		SourceRevision: 1, StateRevision: 7, RecoveryEpoch: 2}
+	if !exactDependencyTrust(expected, []DependencyTrustEvidence{proof}, 7, 2) {
+		t.Fatal("exact signed evidence rejected")
+	}
+	proof.PointID = ""
+	if exactDependencyTrust(expected, []DependencyTrustEvidence{proof}, 7, 2) {
+		t.Fatal("unbound point accepted")
+	}
+}

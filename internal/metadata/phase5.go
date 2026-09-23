@@ -14,6 +14,7 @@ const (
 	backupVerificationAttemptSchemaID     = "vegastack-labs.dev/backup-verification-attempt"
 	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
 	backupLocalRetirementStatusSchemaID   = "vegastack-labs.dev/backup-local-retirement-status"
+	backupTrustSourceDraftRequestSchemaID = "vegastack-labs.dev/backup-trust-source-draft-request"
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
 	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
@@ -125,6 +126,13 @@ func phase5BackupVerifyRequest(fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5Request(backupVerifyRequestSchemaID, fields...)
 	schema.Version = "1.1.0"
 	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
+func phase5BackupVerificationSchema(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5BackupSchema(backupVerificationAttemptSchemaID, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
 	return schema
 }
 
@@ -267,6 +275,17 @@ func phase5GateCredentialSchemas() []SchemaDefinition {
 
 func phase5RecoveryJobSchemas() []SchemaDefinition {
 	return []SchemaDefinition{
+		phase5Schema(backupTrustSourceDraftRequestSchemaID,
+			phase5ID("sourceId", "SourceID"), phase5ID("dependencyId", "DependencyID"),
+			phase5Enum("dependencyKind", "DependencyKind", "config", "image", "signature"),
+			phase5ID("artifactId", "ArtifactID"), phase5Digest("artifactDigest", "ArtifactDigest"),
+			phase5Digest("bundleDigest", "BundleDigest"), phase5ID("trustedRootReferenceId", "TrustedRootReferenceID"),
+			phase5Digest("trustRootDigest", "TrustRootDigest"),
+			FieldDefinition{JSONName: "signerIdentity", GoName: "SignerIdentity", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(512)},
+			FieldDefinition{JSONName: "signerIssuer", GoName: "SignerIssuer", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(512)},
+			phase5Positive("revision", "Revision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Nonnegative("expectedStateRevision", "ExpectedStateRevision"), phase5ID("idempotencyKey", "IdempotencyKey"),
+		),
 		// BackupDependency is a nested sub-object (like a principal binding); it
 		// carries no schema/schemaVersion envelope of its own.
 		{ID: backupDependencySchemaID, Version: "1.1.0", ArtifactPath: schemaPath(backupDependencySchemaID), Fields: []FieldDefinition{
@@ -301,12 +320,12 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5NullableID("runId", "RunID"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 			phase5NullableDigest("verificationDigest", "VerificationDigest"),
 		),
-		phase5BackupSchema(backupVerificationAttemptSchemaID,
+		phase5BackupVerificationSchema(
 			phase5ID("verificationId", "VerificationID"), phase5ID("jobId", "JobID"), phase5ID("pointId", "PointID"),
 			phase5NullableID("runId", "RunID"), phase5Enum("status", "Status", "pending", "fixture-only", "local-verified", "full-payload-due", "functional-test-due", "uncertain", "failed"),
 			phase5Enum("proofClass", "ProofClass", "fixture", "live"), phase5NullableDigest("verificationDigest", "VerificationDigest"),
 			phase5NullableTimestamp("verifiedAt", "VerifiedAt"), phase5NullableTimestamp("fullPayloadDueAt", "FullPayloadDueAt"),
-			phase5NullableTimestamp("functionalTestDueAt", "FunctionalTestDueAt"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5NullableTimestamp("functionalTestDueAt", "FunctionalTestDueAt"), phase5NullableID("reasonCode", "ReasonCode"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5BackupSchema(backupLastGoodSchemaID,
 			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"), phase5ID("pointId", "PointID"),

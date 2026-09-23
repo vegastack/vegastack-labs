@@ -40,11 +40,17 @@ func verificationRequest(t *testing.T, point PendingRecoveryPoint, revision Revi
 	if err := json.Unmarshal(point.ManifestJSON, &manifest); err != nil {
 		t.Fatal(err)
 	}
+	trust := make([]BackupDependencyTrustEvidence, 0, len(manifest.ExpectedDependencies))
+	for _, dependency := range manifest.ExpectedDependencies {
+		trust = append(trust, BackupDependencyTrustEvidence{DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest,
+			SourceKind: "protected-local-pin", PointID: point.PointID, PolicyDigest: manifest.PolicyDigest, SourceID: "protected-local-pin",
+			StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch})
+	}
 	return LocalVerificationRequest{VerificationID: "verify-" + proofClass + "-" + result, RunID: "run-verify", PointID: point.PointID, ReadLeaseID: "reader-a",
 		ManifestDigest: point.ManifestDigest, InventoryDigest: point.InventoryDigest, ObservedDigest: point.InventoryDigest,
 		ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest,
 		KeyReferenceID: manifest.KeyReferenceID, SourceRevision: point.SourceRevision, Expected: revision,
-		ProofClass: proofClass, Result: result, ReasonCode: "fixture-check", FullReadAt: time.Now().Add(-2 * time.Minute), FunctionalRestoredAt: time.Now().Add(-time.Minute)}
+		ProofClass: proofClass, Result: result, ReasonCode: "fixture-check", FullReadAt: time.Now().Add(-2 * time.Minute), FunctionalRestoredAt: time.Now().Add(-time.Minute), DependencyTrust: trust}
 }
 
 func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
@@ -117,6 +123,45 @@ func TestLocalLastGoodSurvivesFailedFixtureAndStaleProof(t *testing.T) {
 	var count int
 	if err := repository.store.conn.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_local_last_good`).Scan(&count); err != nil || count != 0 {
 		t.Fatalf("last-good count=%d err=%v", count, err)
+	}
+}
+
+func TestFailedVerificationReasonCodeMatchesGeneratedContract(t *testing.T) {
+	ctx := context.Background()
+	repository, point, revision := seededVerificationPoint(t)
+	lease := BackupReadLeaseRequest{LeaseID: "reader-a", PointID: point.PointID, RepositoryID: backupidentity.StandardRepository,
+		RepositoryClass: "standard", SourceRevision: point.SourceRevision, Expected: revision, MaximumExpiresAt: time.Now().Add(time.Hour)}
+	if err := repository.AcquireBackupReadLease(ctx, lease); err != nil {
+		t.Fatal(err)
+	}
+	request := verificationRequest(t, point, revision, "live", "failed")
+	request.FullReadAt, request.FunctionalRestoredAt = time.Time{}, time.Time{}
+	request.ReasonCode = "backup-dependency-trust"
+	if _, err := repository.AppendLocalVerification(ctx, request); err != nil {
+		t.Fatal(err)
+	}
+	status, err := repository.ReadLocalBackupStatus(ctx)
+	if err != nil || len(status.Verifications) != 1 {
+		t.Fatalf("status=%#v err=%v", status, err)
+	}
+	attempt := status.Verifications[0]
+	if attempt.ReasonCode == nil || *attempt.ReasonCode != "backup-dependency-trust" {
+		t.Fatalf("reason code=%v", attempt.ReasonCode)
+	}
+	raw, err := json.Marshal(attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := generated.ValidateContractJSON(generated.SchemaIDBackupVerificationAttempt, raw, generated.ContractExact); err != nil {
+		t.Fatalf("stored failure violates exact generated contract: %v", err)
+	}
+
+	forged := verificationRequest(t, point, revision, "live", "failed")
+	forged.VerificationID = "verify-live-forged"
+	forged.FullReadAt, forged.FunctionalRestoredAt = time.Time{}, time.Time{}
+	forged.ReasonCode = string(generated.ErrorCodePrerequisiteBlocked)
+	if _, err := repository.AppendLocalVerification(ctx, forged); Code(err) != generated.ErrorCodeInputInvalid {
+		t.Fatalf("uppercase engine code admitted as public reason: %v", err)
 	}
 }
 

@@ -3253,8 +3253,13 @@
       "artifactPath": "schemas/v1/backup-status-data.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/backup-trust-source-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/backup-trust-source-draft-request.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/backup-verification-attempt",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-verification-attempt.schema.json"
     },
     {

@@ -124,12 +124,21 @@ type LocalVerificationRequest struct {
 	Result                                                         string // passed, failed or uncertain
 	ReasonCode                                                     string
 	FullReadAt, FunctionalRestoredAt                               time.Time
+	DependencyTrust                                                []BackupDependencyTrustEvidence
+}
+
+type BackupDependencyTrustEvidence struct {
+	DependencyID, Kind, Digest, SourceKind, PointID, PolicyDigest         string
+	SourceID, ArtifactID, BundleDigest                                    string
+	TrustedRootReferenceID, TrustRootDigest, SignerIdentity, SignerIssuer string
+	SourceRevision, StateRevision, RecoveryEpoch                          int64
 }
 
 type LocalVerificationReceipt struct {
 	VerificationID, ProofDigest, PointID, RepositoryClass, Status, ProofClass string
 	ManifestDigest, InventoryDigest                                           string
 	StateRevision, RecoveryEpoch                                              int64
+	DependencyTrust                                                           []BackupDependencyTrustEvidence
 }
 
 // AppendLocalVerification records an immutable result. A passed fixture stays
@@ -140,7 +149,8 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 	if repository == nil || repository.store == nil || request.VerificationID == "" || request.RunID == "" || request.PointID == "" || request.ReadLeaseID == "" ||
 		(request.ProofClass != "fixture" && request.ProofClass != "live") ||
 		(request.Result != "passed" && request.Result != "failed" && request.Result != "uncertain") ||
-		request.Expected.StateRevision < 0 || request.Expected.RecoveryEpoch < 0 || request.SourceRevision < 0 {
+		(request.ReasonCode != "" && !validRunToken(request.ReasonCode)) || request.Expected.StateRevision < 0 ||
+		request.Expected.RecoveryEpoch < 0 || request.SourceRevision < 0 {
 		return receipt, backupStoreError(generated.ErrorCodeInputInvalid, "backup-local-verification")
 	}
 	for _, digest := range []string{request.ManifestDigest, request.InventoryDigest, request.ObservedDigest, request.ContentDigest, request.CatalogDigest, request.DependencyDigest} {
@@ -198,6 +208,9 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 			stateRevision != request.Expected.StateRevision || currentEpoch != request.Expected.RecoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-local-verification")
 		}
+		if status == "local-verified" && !exactStoredDependencyTrust(manifest.ExpectedDependencies, request.DependencyTrust, request.PointID, policyDigest, stateRevision, currentEpoch) {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-local-verification-dependency-trust")
+		}
 		var canonicalPolicy string
 		if err := tx.QueryRowContext(ctx, `SELECT canonical_json FROM backup_policy_drafts WHERE policy_digest=? AND recovery_epoch=?`, policyDigest, currentEpoch).Scan(&canonicalPolicy); err != nil {
 			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-local-verification-policy")
@@ -227,7 +240,16 @@ func (repository *BackupRepository) AppendLocalVerification(ctx context.Context,
 		if err != nil {
 			return backupWriteError(err)
 		}
-		receipt = LocalVerificationReceipt{VerificationID: request.VerificationID, ProofDigest: proofDigest, PointID: request.PointID, RepositoryClass: class, Status: status, ProofClass: request.ProofClass, ManifestDigest: request.ManifestDigest, InventoryDigest: request.InventoryDigest, StateRevision: stateRevision, RecoveryEpoch: currentEpoch}
+		for _, proof := range request.DependencyTrust {
+			_, err = tx.ExecContext(ctx, `INSERT INTO backup_dependency_trust_evidence(verification_id,dependency_id,dependency_kind,dependency_digest,source_kind,point_id,policy_digest,source_id,artifact_id,bundle_digest,trusted_root_reference_id,trust_root_digest,signer_identity,signer_issuer,source_revision,state_revision,recovery_epoch) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+				request.VerificationID, proof.DependencyID, proof.Kind, proof.Digest, proof.SourceKind, proof.PointID, proof.PolicyDigest, proof.SourceID,
+				nullableTrustValue(proof.ArtifactID), nullableTrustValue(proof.BundleDigest), nullableTrustValue(proof.TrustedRootReferenceID), nullableTrustValue(proof.TrustRootDigest), nullableTrustValue(proof.SignerIdentity), nullableTrustValue(proof.SignerIssuer),
+				proof.SourceRevision, proof.StateRevision, proof.RecoveryEpoch)
+			if err != nil {
+				return backupWriteError(err)
+			}
+		}
+		receipt = LocalVerificationReceipt{VerificationID: request.VerificationID, ProofDigest: proofDigest, PointID: request.PointID, RepositoryClass: class, Status: status, ProofClass: request.ProofClass, ManifestDigest: request.ManifestDigest, InventoryDigest: request.InventoryDigest, StateRevision: stateRevision, RecoveryEpoch: currentEpoch, DependencyTrust: append([]BackupDependencyTrustEvidence(nil), request.DependencyTrust...)}
 		return nil
 	})
 	return receipt, err
@@ -241,7 +263,25 @@ func (repository *BackupRepository) GetLocalVerificationByDigest(ctx context.Con
 		return receipt, backupStoreError(generated.ErrorCodeInputInvalid, "backup-local-verification")
 	}
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		return tx.queryRow(ctx, `SELECT v.verification_id,v.proof_digest,v.point_id,p.repository_class,v.status,v.proof_class,v.manifest_digest,v.inventory_digest,v.state_revision,v.recovery_epoch FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.proof_digest=?`, digest).Scan(&receipt.VerificationID, &receipt.ProofDigest, &receipt.PointID, &receipt.RepositoryClass, &receipt.Status, &receipt.ProofClass, &receipt.ManifestDigest, &receipt.InventoryDigest, &receipt.StateRevision, &receipt.RecoveryEpoch)
+		if err := tx.queryRow(ctx, `SELECT v.verification_id,v.proof_digest,v.point_id,p.repository_class,v.status,v.proof_class,v.manifest_digest,v.inventory_digest,v.state_revision,v.recovery_epoch FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id WHERE v.proof_digest=?`, digest).Scan(&receipt.VerificationID, &receipt.ProofDigest, &receipt.PointID, &receipt.RepositoryClass, &receipt.Status, &receipt.ProofClass, &receipt.ManifestDigest, &receipt.InventoryDigest, &receipt.StateRevision, &receipt.RecoveryEpoch); err != nil {
+			return err
+		}
+		rows, err := tx.query(ctx, `SELECT dependency_id,dependency_kind,dependency_digest,source_kind,point_id,policy_digest,source_id,artifact_id,bundle_digest,trusted_root_reference_id,trust_root_digest,signer_identity,signer_issuer,source_revision,state_revision,recovery_epoch FROM backup_dependency_trust_evidence WHERE verification_id=? ORDER BY rowid`, receipt.VerificationID)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var proof BackupDependencyTrustEvidence
+			var artifactID, bundleDigest, rootID, rootDigest, identity, issuer sql.NullString
+			if err := rows.Scan(&proof.DependencyID, &proof.Kind, &proof.Digest, &proof.SourceKind, &proof.PointID, &proof.PolicyDigest, &proof.SourceID,
+				&artifactID, &bundleDigest, &rootID, &rootDigest, &identity, &issuer, &proof.SourceRevision, &proof.StateRevision, &proof.RecoveryEpoch); err != nil {
+				return err
+			}
+			proof.ArtifactID, proof.BundleDigest, proof.TrustedRootReferenceID, proof.TrustRootDigest, proof.SignerIdentity, proof.SignerIssuer = nullTrust(artifactID), nullTrust(bundleDigest), nullTrust(rootID), nullTrust(rootDigest), nullTrust(identity), nullTrust(issuer)
+			receipt.DependencyTrust = append(receipt.DependencyTrust, proof)
+		}
+		return rows.Err()
 	})
 	return receipt, err
 }
@@ -276,19 +316,24 @@ func (repository *BackupRepository) AdvanceLocalLastGood(ctx context.Context, re
 		if revision != expected.StateRevision || epoch != expected.RecoveryEpoch || revision != receipt.StateRevision || epoch != receipt.RecoveryEpoch {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-last-good")
 		}
-		var fullText, restoredText, policyJSON string
-		if err := tx.QueryRowContext(ctx, `SELECT v.full_read_at,v.functional_restored_at,d.canonical_json FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch WHERE v.verification_id=? AND v.proof_digest=? AND v.point_id=? AND p.repository_class=? AND v.status='local-verified' AND v.proof_class='live' AND v.state_revision=? AND v.recovery_epoch=? AND v.full_read_at IS NOT NULL AND v.functional_restored_at IS NOT NULL AND v.manifest_digest=p.manifest_digest AND v.inventory_digest=p.inventory_digest AND v.content_digest=p.content_digest`, receipt.VerificationID, receipt.ProofDigest, receipt.PointID, receipt.RepositoryClass, revision, epoch).Scan(&fullText, &restoredText, &policyJSON); err != nil {
+		var fullText, restoredText, policyJSON, manifestJSON string
+		if err := tx.QueryRowContext(ctx, `SELECT v.full_read_at,v.functional_restored_at,d.canonical_json,p.manifest_json FROM backup_local_verifications v JOIN recovery_points p ON p.point_id=v.point_id JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch WHERE v.verification_id=? AND v.proof_digest=? AND v.point_id=? AND p.repository_class=? AND v.status='local-verified' AND v.proof_class='live' AND v.state_revision=? AND v.recovery_epoch=? AND v.full_read_at IS NOT NULL AND v.functional_restored_at IS NOT NULL AND v.manifest_digest=p.manifest_digest AND v.inventory_digest=p.inventory_digest AND v.content_digest=p.content_digest`, receipt.VerificationID, receipt.ProofDigest, receipt.PointID, receipt.RepositoryClass, revision, epoch).Scan(&fullText, &restoredText, &policyJSON, &manifestJSON); err != nil {
 			return backupStoreError(generated.ErrorCodePlanStale, "backup-last-good")
 		}
 		var policy generated.BackupPolicy
+		var manifest pendingCreationManifest
 		fullAt, fullErr := time.Parse(time.RFC3339, fullText)
 		restoredAt, restoreErr := time.Parse(time.RFC3339, restoredText)
-		if json.Unmarshal([]byte(policyJSON), &policy) != nil || policy.SchemaVersion != "1.2.0" ||
+		if json.Unmarshal([]byte(policyJSON), &policy) != nil || json.Unmarshal([]byte(manifestJSON), &manifest) != nil || policy.SchemaVersion != "1.2.0" ||
 			policy.FullPayloadIntervalHours < 1 || policy.FullPayloadIntervalHours > 8760 ||
 			policy.FunctionalTestIntervalHours < 1 || policy.FunctionalTestIntervalHours > 8760 || fullErr != nil || restoreErr != nil ||
 			!repository.store.config.Clock().UTC().Before(fullAt.Add(time.Duration(policy.FullPayloadIntervalHours)*time.Hour)) ||
 			!repository.store.config.Clock().UTC().Before(restoredAt.Add(time.Duration(policy.FunctionalTestIntervalHours)*time.Hour)) {
 			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-last-good-cadence")
+		}
+		var trustCount int
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM backup_dependency_trust_evidence WHERE verification_id=?`, receipt.VerificationID).Scan(&trustCount); err != nil || trustCount != len(manifest.ExpectedDependencies) {
+			return backupStoreError(generated.ErrorCodePrerequisiteBlocked, "backup-last-good-dependency-trust")
 		}
 		var current string
 		err := tx.QueryRowContext(ctx, `SELECT verification_id FROM backup_local_last_good WHERE repository_class=?`, receipt.RepositoryClass).Scan(&current)
@@ -308,4 +353,49 @@ func (repository *BackupRepository) AdvanceLocalLastGood(ctx context.Context, re
 		}
 		return backupWriteError(err)
 	})
+}
+
+func exactStoredDependencyTrust(expected []ExpectedDependencyRow, evidence []BackupDependencyTrustEvidence, pointID, policyDigest string, revision, epoch int64) bool {
+	if len(expected) != len(evidence) {
+		return false
+	}
+	seen := make(map[string]struct{}, len(evidence))
+	for index, dependency := range expected {
+		proof := evidence[index]
+		if _, duplicate := seen[proof.DependencyID]; duplicate || proof.DependencyID != dependency.DependencyID || proof.Kind != dependency.Kind ||
+			proof.Digest != dependency.Digest || proof.PointID != pointID || proof.PolicyDigest != policyDigest || proof.StateRevision != revision ||
+			proof.RecoveryEpoch != epoch || proof.SourceID == "" || !validBackupDigest(proof.Digest) {
+			return false
+		}
+		seen[proof.DependencyID] = struct{}{}
+		switch proof.Kind {
+		case "binary", "schema":
+			if proof.SourceKind != "protected-local-pin" || proof.SourceID != "protected-local-pin" || proof.SourceRevision != 0 ||
+				proof.ArtifactID != "" || proof.BundleDigest != "" || proof.TrustedRootReferenceID != "" || proof.TrustRootDigest != "" || proof.SignerIdentity != "" || proof.SignerIssuer != "" {
+				return false
+			}
+		case "config", "image", "signature":
+			if proof.SourceKind != "registered-signed-artifact" || proof.SourceRevision <= 0 || proof.ArtifactID == "" || !validBackupDigest(proof.BundleDigest) ||
+				proof.TrustedRootReferenceID == "" || !validBackupDigest(proof.TrustRootDigest) || proof.SignerIdentity == "" || proof.SignerIssuer == "" {
+				return false
+			}
+		default:
+			return false
+		}
+	}
+	return true
+}
+
+func nullableTrustValue(value string) any {
+	if value == "" {
+		return nil
+	}
+	return value
+}
+
+func nullTrust(value sql.NullString) string {
+	if value.Valid {
+		return value.String
+	}
+	return ""
 }
