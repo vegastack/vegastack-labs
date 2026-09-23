@@ -159,11 +159,18 @@ func validatePhase5Relations(schemaID string, value any) error {
 	case SchemaIDRestoreBinding:
 		if contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("recovery epoch must increment once") }
 		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restored controller must have a new instance") }
+		if object["schemaVersion"] == "1.1.0" && object["formerHostId"] == object["replacementHostId"] { return errors.New("restored controller must have a new host") }
 		if source, ok := object["source"].(map[string]any); ok && (source["pointId"] != object["pointId"] || contractInt(source, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch")) { return errors.New("restore binding source mismatch") }
+	case SchemaIDRestoreFenceItem:
+		status := object["status"]
+		if status == "required" && (object["observedAt"] != nil || len(object["evidenceIds"].([]any)) != 2) { return errors.New("planned fence requirement claimed observation or lacks admission bindings") }
+		if status == "verified" && object["observedAt"] == nil { return errors.New("verified fence lacks observation time") }
 	case SchemaIDRestoreRequest:
 		if contractInt(object, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") || contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("restore plan request epoch mismatch") }
 		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restore plan request reuses controller instance") }
+		if object["formerHostId"] == object["replacementHostId"] { return errors.New("restore plan request reuses controller host") }
 		if source, ok := object["source"].(map[string]any); !ok || source["pointId"] != object["pointId"] || contractInt(source, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") { return errors.New("restore plan source mismatch") }
+		for _, item := range object["fences"].([]any) { if item.(map[string]any)["status"] != "required" { return errors.New("restore plan accepts only fence requirements") } }
 	case SchemaIDRestoreRunRequest:
 		if contractInt(object, "recoveryEpoch") != contractInt(object, "priorRecoveryEpoch") || contractInt(object, "nextRecoveryEpoch") != contractInt(object, "priorRecoveryEpoch")+1 { return errors.New("restore request epoch mismatch") }
 		if object["newInstanceId"] == object["priorInstanceId"] { return errors.New("restore request reuses controller instance") }
@@ -218,7 +225,7 @@ func auditCheckpointV10OmittedField(name string) bool {
 }
 
 func restoreV10OmittedField(schemaID, name string) bool {
-	if schemaID == SchemaIDRestoreBinding { switch name { case "source", "fenceSetDigest", "auditDecisionDigest", "candidateDigest": return true } }
+	if schemaID == SchemaIDRestoreBinding { switch name { case "source", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "formerHostId", "replacementHostId", "recoveryDraftId", "ciphertextFingerprint", "sourceAdmissionDigest", "fenceQualificationDigest", "recoveryRunId", "recoveryStepId", "recoveryLeaseId", "recoveryChallengeId", "recoveryReceiptId": return true } }
 	if schemaID == SchemaIDRestoreVerification { switch name { case "source", "priorInstanceId", "newInstanceId", "priorRecoveryEpoch", "fenceSetDigest", "auditDecisionDigest", "candidateDigest", "canary": return true } }
 	return false
 }

@@ -1906,24 +1906,35 @@ type RestoreAuditDecision struct {
 }
 
 type RestoreBinding struct {
-	Schema                 string               `json:"schema"`
-	SchemaVersion          string               `json:"schemaVersion"`
-	Source                 RestoreSourceBinding `json:"source"`
-	PointID                string               `json:"pointId"`
-	DependencyIDs          []string             `json:"dependencyIds"`
-	TargetIDs              []string             `json:"targetIds"`
-	TargetDigest           string               `json:"targetDigest"`
-	PlanID                 string               `json:"planId"`
-	PlanDigest             string               `json:"planDigest"`
-	HumanAcknowledgementID string               `json:"humanAcknowledgementId"`
-	FenceSetDigest         string               `json:"fenceSetDigest"`
-	AuditDecisionDigest    string               `json:"auditDecisionDigest"`
-	CandidateDigest        string               `json:"candidateDigest"`
-	PriorInstanceID        string               `json:"priorInstanceId"`
-	NewInstanceID          string               `json:"newInstanceId"`
-	PriorRecoveryEpoch     int64                `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch      int64                `json:"nextRecoveryEpoch"`
-	Status                 string               `json:"status"`
+	Schema                   string               `json:"schema"`
+	SchemaVersion            string               `json:"schemaVersion"`
+	Source                   RestoreSourceBinding `json:"source"`
+	PointID                  string               `json:"pointId"`
+	DependencyIDs            []string             `json:"dependencyIds"`
+	TargetIDs                []string             `json:"targetIds"`
+	TargetDigest             string               `json:"targetDigest"`
+	PlanID                   string               `json:"planId"`
+	PlanDigest               string               `json:"planDigest"`
+	HumanAcknowledgementID   string               `json:"humanAcknowledgementId"`
+	FenceSetDigest           string               `json:"fenceSetDigest"`
+	AuditDecisionDigest      string               `json:"auditDecisionDigest"`
+	CandidateDigest          string               `json:"candidateDigest"`
+	FormerHostID             string               `json:"formerHostId"`
+	ReplacementHostID        string               `json:"replacementHostId"`
+	RecoveryDraftID          string               `json:"recoveryDraftId"`
+	CiphertextFingerprint    string               `json:"ciphertextFingerprint"`
+	SourceAdmissionDigest    string               `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string               `json:"fenceQualificationDigest"`
+	RecoveryRunID            string               `json:"recoveryRunId"`
+	RecoveryStepID           string               `json:"recoveryStepId"`
+	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
+	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
+	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
+	PriorInstanceID          string               `json:"priorInstanceId"`
+	NewInstanceID            string               `json:"newInstanceId"`
+	PriorRecoveryEpoch       int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch        int64                `json:"nextRecoveryEpoch"`
+	Status                   string               `json:"status"`
 }
 
 type RestoreCanaryResult struct {
@@ -1940,37 +1951,52 @@ type RestoreCanaryResult struct {
 }
 
 type RestoreFenceItem struct {
-	Schema         string   `json:"schema"`
-	SchemaVersion  string   `json:"schemaVersion"`
-	Boundary       string   `json:"boundary"`
-	SubjectID      string   `json:"subjectId"`
-	Required       bool     `json:"required"`
-	EvidenceIDs    []string `json:"evidenceIds"`
-	EvidenceDigest string   `json:"evidenceDigest"`
-	ObservedAt     string   `json:"observedAt"`
-	Status         string   `json:"status"`
+	Schema                string   `json:"schema"`
+	SchemaVersion         string   `json:"schemaVersion"`
+	Boundary              string   `json:"boundary"`
+	SubjectID             string   `json:"subjectId"`
+	TargetID              string   `json:"targetId"`
+	AdapterID             string   `json:"adapterId"`
+	FormerIdentityID      string   `json:"formerIdentityId"`
+	RequiredEvidenceKinds []string `json:"requiredEvidenceKinds"`
+	Required              bool     `json:"required"`
+	EvidenceIDs           []string `json:"evidenceIds"`
+	EvidenceDigest        string   `json:"evidenceDigest"`
+	ObservedAt            *string  `json:"observedAt"`
+	Status                string   `json:"status"`
 }
 
 type RestoreRequest struct {
-	Schema                string               `json:"schema"`
-	SchemaVersion         string               `json:"schemaVersion"`
-	ExpectedStateRevision int64                `json:"expectedStateRevision"`
-	RecoveryEpoch         int64                `json:"recoveryEpoch"`
-	TargetDigest          string               `json:"targetDigest"`
-	IdempotencyKey        string               `json:"idempotencyKey"`
-	Source                RestoreSourceBinding `json:"source"`
-	Fences                []RestoreFenceItem   `json:"fences"`
-	AuditDecision         RestoreAuditDecision `json:"auditDecision"`
-	PointID               string               `json:"pointId"`
-	DependencyIDs         []string             `json:"dependencyIds"`
-	TargetIDs             []string             `json:"targetIds"`
-	PriorInstanceID       string               `json:"priorInstanceId"`
-	NewInstanceID         string               `json:"newInstanceId"`
-	PriorRecoveryEpoch    int64                `json:"priorRecoveryEpoch"`
-	NextRecoveryEpoch     int64                `json:"nextRecoveryEpoch"`
-	FenceSetDigest        string               `json:"fenceSetDigest"`
-	AuditDecisionDigest   string               `json:"auditDecisionDigest"`
-	CandidateDigest       string               `json:"candidateDigest"`
+	Schema                   string               `json:"schema"`
+	SchemaVersion            string               `json:"schemaVersion"`
+	ExpectedStateRevision    int64                `json:"expectedStateRevision"`
+	RecoveryEpoch            int64                `json:"recoveryEpoch"`
+	TargetDigest             string               `json:"targetDigest"`
+	IdempotencyKey           string               `json:"idempotencyKey"`
+	Source                   RestoreSourceBinding `json:"source"`
+	Fences                   []RestoreFenceItem   `json:"fences"`
+	AuditDecision            RestoreAuditDecision `json:"auditDecision"`
+	PointID                  string               `json:"pointId"`
+	DependencyIDs            []string             `json:"dependencyIds"`
+	TargetIDs                []string             `json:"targetIds"`
+	PriorInstanceID          string               `json:"priorInstanceId"`
+	NewInstanceID            string               `json:"newInstanceId"`
+	PriorRecoveryEpoch       int64                `json:"priorRecoveryEpoch"`
+	NextRecoveryEpoch        int64                `json:"nextRecoveryEpoch"`
+	FenceSetDigest           string               `json:"fenceSetDigest"`
+	AuditDecisionDigest      string               `json:"auditDecisionDigest"`
+	CandidateDigest          string               `json:"candidateDigest"`
+	FormerHostID             string               `json:"formerHostId"`
+	ReplacementHostID        string               `json:"replacementHostId"`
+	RecoveryDraftID          string               `json:"recoveryDraftId"`
+	CiphertextFingerprint    string               `json:"ciphertextFingerprint"`
+	SourceAdmissionDigest    string               `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string               `json:"fenceQualificationDigest"`
+	RecoveryRunID            string               `json:"recoveryRunId"`
+	RecoveryStepID           string               `json:"recoveryStepId"`
+	RecoveryLeaseID          string               `json:"recoveryLeaseId"`
+	RecoveryChallengeID      string               `json:"recoveryChallengeId"`
+	RecoveryReceiptID        string               `json:"recoveryReceiptId"`
 }
 
 type RestoreRunRequest struct {
@@ -1992,6 +2018,11 @@ type RestoreRunRequest struct {
 	NewInstanceID          string               `json:"newInstanceId"`
 	PriorRecoveryEpoch     int64                `json:"priorRecoveryEpoch"`
 	NextRecoveryEpoch      int64                `json:"nextRecoveryEpoch"`
+	RecoveryRunID          string               `json:"recoveryRunId"`
+	RecoveryStepID         string               `json:"recoveryStepId"`
+	RecoveryLeaseID        string               `json:"recoveryLeaseId"`
+	RecoveryChallengeID    string               `json:"recoveryChallengeId"`
+	RecoveryReceiptID      string               `json:"recoveryReceiptId"`
 }
 
 type RestoreSourceBinding struct {
@@ -2003,6 +2034,7 @@ type RestoreSourceBinding struct {
 	VerificationDigest     string   `json:"verificationDigest"`
 	SourceClass            string   `json:"sourceClass"`
 	RepositoryGenerationID string   `json:"repositoryGenerationId"`
+	KeyReferenceID         string   `json:"keyReferenceId"`
 	DeclaredRPOSeconds     int64    `json:"declaredRpoSeconds"`
 	CreatedAt              string   `json:"createdAt"`
 	VerifiedAt             string   `json:"verifiedAt"`

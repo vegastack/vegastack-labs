@@ -22,7 +22,7 @@ type RestoreDraftFacts struct {
 // BuildRestoreChange constructs only an inert draft. It performs no store,
 // filesystem, adapter, or authority mutation.
 func BuildRestoreChange(ctx context.Context, request generated.RestoreRequest, source generated.RestoreSourceBinding, fences []generated.RestoreFenceItem, decision generated.RestoreAuditDecision) (generated.DeclarationRevision, error) {
-	if ctx == nil || ctx.Err() != nil || !exactRestoreValue(generated.SchemaIDRestoreRequest, request) || !exactRestoreValue(generated.SchemaIDRestoreSourceBinding, source) || !exactRestoreValue(generated.SchemaIDRestoreAuditDecision, decision) || !sameJSON(request.Source, source) || !sameJSON(request.AuditDecision, decision) || request.PointID != source.PointID || request.PriorRecoveryEpoch != source.RecoveryEpoch || request.NextRecoveryEpoch != request.PriorRecoveryEpoch+1 || request.PriorInstanceID == request.NewInstanceID || len(fences) == 0 || len(fences) != len(request.Fences) {
+	if ctx == nil || ctx.Err() != nil || !exactRestoreValue(generated.SchemaIDRestoreRequest, request) || !exactRestoreValue(generated.SchemaIDRestoreSourceBinding, source) || !exactRestoreValue(generated.SchemaIDRestoreAuditDecision, decision) || !sameJSON(request.Source, source) || !sameJSON(request.AuditDecision, decision) || request.PointID != source.PointID || request.PriorRecoveryEpoch != source.RecoveryEpoch || request.NextRecoveryEpoch != request.PriorRecoveryEpoch+1 || request.PriorInstanceID == request.NewInstanceID || request.FormerHostID == request.ReplacementHostID || len(fences) == 0 || len(fences) != len(request.Fences) {
 		return generated.DeclarationRevision{}, inputError()
 	}
 	ordered := append([]generated.RestoreFenceItem(nil), fences...)

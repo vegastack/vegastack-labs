@@ -129,7 +129,7 @@ func (verifier SourceVerifier) Verify(ctx context.Context, selection SourceSelec
 	if now.IsZero() || record.Point.PointID != selection.PointID || record.Verification.PointID != selection.PointID ||
 		record.Verification.Status != "local-verified" || record.Verification.ProofClass != "live" || record.CreatedAt.After(now) || record.VerifiedAt.After(now) ||
 		now.Sub(record.CreatedAt) > time.Duration(selection.DeclaredRPOSeconds)*time.Second || record.VerifiedAt.Before(record.CreatedAt) ||
-		record.Point.RecoveryEpoch != record.Verification.RecoveryEpoch || strconv.FormatUint(record.DatabaseSchemaVersion, 10) != selection.TargetSchemaVersion {
+		record.Point.RecoveryEpoch != record.Verification.RecoveryEpoch || !validWitnessToken(record.KeyReferenceID) || strconv.FormatUint(record.DatabaseSchemaVersion, 10) != selection.TargetSchemaVersion {
 		return blocked("restore-source")
 	}
 	for _, value := range []string{record.Point.ContentDigest, record.Point.ManifestDigest, record.Verification.ProofDigest, record.Point.InventoryDigest, record.CatalogDigest, record.DependencyDigest} {
@@ -163,7 +163,7 @@ func (verifier SourceVerifier) Verify(ctx context.Context, selection SourceSelec
 	binding := generated.RestoreSourceBinding{
 		Schema: generated.SchemaIDRestoreSourceBinding, SchemaVersion: "1.1.0", PointID: record.Point.PointID,
 		PointDigest: pointDigest, ManifestDigest: record.Point.ManifestDigest, VerificationDigest: record.Verification.ProofDigest,
-		SourceClass: "local", RepositoryGenerationID: record.Point.RepositoryID, DeclaredRPOSeconds: selection.DeclaredRPOSeconds,
+		SourceClass: "local", RepositoryGenerationID: record.Point.RepositoryID, KeyReferenceID: record.KeyReferenceID, DeclaredRPOSeconds: selection.DeclaredRPOSeconds,
 		CreatedAt: record.CreatedAt.UTC().Format(time.RFC3339), VerifiedAt: record.VerifiedAt.UTC().Format(time.RFC3339),
 		RecoveryEpoch: record.Point.RecoveryEpoch, DependencyDigests: dependencyDigests,
 	}
@@ -186,7 +186,7 @@ func (verifier SourceVerifier) verifyOffsite(ctx context.Context, selection Sour
 		return VerifiedSource{}, err
 	}
 	now := verifier.Clock().UTC()
-	if now.IsZero() || record.PointID != selection.PointID || record.GenerationID == "" || record.RepositoryID == "" || record.SnapshotID == "" ||
+	if now.IsZero() || record.PointID != selection.PointID || record.GenerationID == "" || record.RepositoryID == "" || record.SnapshotID == "" || !validWitnessToken(record.KeyReferenceID) ||
 		record.Status != "offsite-verified" || record.ProofClass != "qualified-provider" || record.StateRevision != record.CurrentStateRevision ||
 		record.RecoveryEpoch != record.CurrentRecoveryEpoch || record.CreatedAt.After(now) || record.VerifiedAt.Before(record.CreatedAt) || record.VerifiedAt.After(now) ||
 		!now.Before(record.FullReadValidUntil) || !now.Before(record.FunctionalValidUntil) || now.Sub(record.CreatedAt) > time.Duration(selection.DeclaredRPOSeconds)*time.Second ||
@@ -222,7 +222,7 @@ func (verifier SourceVerifier) verifyOffsite(ctx context.Context, selection Sour
 	}
 	binding := generated.RestoreSourceBinding{Schema: generated.SchemaIDRestoreSourceBinding, SchemaVersion: "1.1.0", PointID: record.PointID,
 		PointDigest: pointDigest, ManifestDigest: record.ManifestDigest, VerificationDigest: record.VerificationDigest,
-		SourceClass: "off-site", RepositoryGenerationID: record.GenerationID, DeclaredRPOSeconds: selection.DeclaredRPOSeconds,
+		SourceClass: "off-site", RepositoryGenerationID: record.GenerationID, KeyReferenceID: record.KeyReferenceID, DeclaredRPOSeconds: selection.DeclaredRPOSeconds,
 		CreatedAt: record.CreatedAt.UTC().Format(time.RFC3339), VerifiedAt: record.VerifiedAt.UTC().Format(time.RFC3339),
 		RecoveryEpoch: record.RecoveryEpoch, DependencyDigests: dependencies}
 	raw, err := json.Marshal(binding)
@@ -234,10 +234,10 @@ func (verifier SourceVerifier) verifyOffsite(ctx context.Context, selection Sour
 
 func offsitePointDigest(record OffsiteRecoverySource, dependencies []string) (string, error) {
 	value := struct {
-		Domain, PointID, GenerationID, RepositoryID, SnapshotID, ManifestDigest, InventoryDigest, ContentDigest, VerificationDigest, CatalogDigest, DependencyDigest string
-		SourceRevision, StateRevision, RecoveryEpoch, DatabaseSchemaVersion                                                                                          int64
-		DependencyDigests                                                                                                                                            []string
-	}{"vegastack-labs.dev/restore-offsite-point/v1", record.PointID, record.GenerationID, record.RepositoryID, record.SnapshotID, record.ManifestDigest, record.InventoryDigest, record.ContentDigest, record.VerificationDigest, record.CatalogDigest, record.DependencyDigest, record.SourceRevision, record.StateRevision, record.RecoveryEpoch, record.DatabaseSchemaVersion, dependencies}
+		Domain, PointID, GenerationID, RepositoryID, SnapshotID, ManifestDigest, InventoryDigest, ContentDigest, VerificationDigest, CatalogDigest, DependencyDigest, KeyReferenceID string
+		SourceRevision, StateRevision, RecoveryEpoch, DatabaseSchemaVersion                                                                                                          int64
+		DependencyDigests                                                                                                                                                            []string
+	}{"vegastack-labs.dev/restore-offsite-point/v1", record.PointID, record.GenerationID, record.RepositoryID, record.SnapshotID, record.ManifestDigest, record.InventoryDigest, record.ContentDigest, record.VerificationDigest, record.CatalogDigest, record.DependencyDigest, record.KeyReferenceID, record.SourceRevision, record.StateRevision, record.RecoveryEpoch, record.DatabaseSchemaVersion, dependencies}
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return "", err
@@ -248,9 +248,9 @@ func offsitePointDigest(record OffsiteRecoverySource, dependencies []string) (st
 
 func localPointDigest(record store.LocalRecoverySource) (string, error) {
 	value := struct {
-		Domain, PointID, SnapshotID, RepositoryID, ManifestDigest, InventoryDigest, ContentDigest, VerificationDigest string
-		SourceRevision, StateRevision, RecoveryEpoch                                                                  int64
-	}{"vegastack-labs.dev/restore-local-point/v1", record.Point.PointID, record.SnapshotID, record.Point.RepositoryID, record.Point.ManifestDigest, record.Point.InventoryDigest, record.Point.ContentDigest, record.Verification.ProofDigest, record.Point.SourceRevision, record.Verification.StateRevision, record.Verification.RecoveryEpoch}
+		Domain, PointID, SnapshotID, RepositoryID, ManifestDigest, InventoryDigest, ContentDigest, VerificationDigest, KeyReferenceID string
+		SourceRevision, StateRevision, RecoveryEpoch                                                                                  int64
+	}{"vegastack-labs.dev/restore-local-point/v1", record.Point.PointID, record.SnapshotID, record.Point.RepositoryID, record.Point.ManifestDigest, record.Point.InventoryDigest, record.Point.ContentDigest, record.Verification.ProofDigest, record.KeyReferenceID, record.Point.SourceRevision, record.Verification.StateRevision, record.Verification.RecoveryEpoch}
 	raw, err := json.Marshal(value)
 	if err != nil {
 		return "", err

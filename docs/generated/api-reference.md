@@ -377,6 +377,11 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `newInstanceId`
 - `priorRecoveryEpoch`
 - `nextRecoveryEpoch`
+- `recoveryRunId`
+- `recoveryStepId`
+- `recoveryLeaseId`
+- `recoveryChallengeId`
+- `recoveryReceiptId`
 
 ### `vegastack-labs.dev/run`
 

@@ -76,7 +76,10 @@ func validRestorePlanQualification(qualification RestorePlanQualification, plan 
 }
 
 func restoreRequestMatchesBinding(request generated.RestoreRequest, binding generated.RestoreBinding) bool {
-	return equalRestoreSource(request.Source, binding.Source) && request.PointID == binding.PointID && request.TargetDigest == binding.TargetDigest && request.FenceSetDigest == binding.FenceSetDigest && request.AuditDecisionDigest == binding.AuditDecisionDigest && request.CandidateDigest == binding.CandidateDigest && request.PriorInstanceID == binding.PriorInstanceID && request.NewInstanceID == binding.NewInstanceID && request.PriorRecoveryEpoch == binding.PriorRecoveryEpoch && request.NextRecoveryEpoch == binding.NextRecoveryEpoch && equalSortedStrings(request.DependencyIDs, binding.DependencyIDs) && equalSortedStrings(request.TargetIDs, binding.TargetIDs)
+	return equalRestoreSource(request.Source, binding.Source) && request.PointID == binding.PointID && request.TargetDigest == binding.TargetDigest && request.FenceSetDigest == binding.FenceSetDigest && request.AuditDecisionDigest == binding.AuditDecisionDigest && request.CandidateDigest == binding.CandidateDigest &&
+		request.FormerHostID == binding.FormerHostID && request.ReplacementHostID == binding.ReplacementHostID && request.RecoveryDraftID == binding.RecoveryDraftID && request.CiphertextFingerprint == binding.CiphertextFingerprint && request.SourceAdmissionDigest == binding.SourceAdmissionDigest && request.FenceQualificationDigest == binding.FenceQualificationDigest &&
+		request.RecoveryRunID == binding.RecoveryRunID && request.RecoveryStepID == binding.RecoveryStepID && request.RecoveryLeaseID == binding.RecoveryLeaseID && request.RecoveryChallengeID == binding.RecoveryChallengeID && request.RecoveryReceiptID == binding.RecoveryReceiptID &&
+		request.PriorInstanceID == binding.PriorInstanceID && request.NewInstanceID == binding.NewInstanceID && request.PriorRecoveryEpoch == binding.PriorRecoveryEpoch && request.NextRecoveryEpoch == binding.NextRecoveryEpoch && equalSortedStrings(request.DependencyIDs, binding.DependencyIDs) && equalSortedStrings(request.TargetIDs, binding.TargetIDs)
 }
 
 func equalRestoreSource(left, right generated.RestoreSourceBinding) bool {
@@ -349,7 +352,7 @@ func allowedRestoreTransition(from, to string) bool {
 
 func validRestoreBinding(binding generated.RestoreBinding) bool {
 	raw, err := json.Marshal(binding)
-	return err == nil && generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, raw, generated.ContractExact) == nil && binding.Status == "planned" && binding.PointID == binding.Source.PointID && binding.PriorRecoveryEpoch == binding.Source.RecoveryEpoch && binding.NextRecoveryEpoch == binding.PriorRecoveryEpoch+1 && binding.PriorInstanceID != binding.NewInstanceID
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, raw, generated.ContractExact) == nil && binding.Status == "planned" && binding.PointID == binding.Source.PointID && binding.PriorRecoveryEpoch == binding.Source.RecoveryEpoch && binding.NextRecoveryEpoch == binding.PriorRecoveryEpoch+1 && binding.PriorInstanceID != binding.NewInstanceID && binding.FormerHostID != binding.ReplacementHostID
 }
 
 func equalRestoreBinding(left, right generated.RestoreBinding) bool {

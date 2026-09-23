@@ -66,7 +66,7 @@ func TestOperationsRunResumesAfterRestoringWithoutRestaging(t *testing.T) {
 	service, request, _, sessions, stager := operationsFixture(t)
 	sessions.status = "restoring"
 	binding := service.config.Plans.(*restorePlannerStub).qualification.Binding
-	run := generated.RestoreRunRequest{Schema: generated.SchemaIDRestoreRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-run-retry", Source: binding.Source, PointID: binding.PointID, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, HumanAcknowledgementID: "ack-a", FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch}
+	run := operationsRunRequest(request, binding, "ack-a")
 	if _, err := service.Run(context.Background(), run, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod}); err != nil {
 		t.Fatal(err)
 	}
@@ -103,7 +103,7 @@ func TestOperationsPlanRecomputesQualificationAndRejectsCallerMismatch(t *testin
 func TestOperationsRunRequalifiesBeforeStagingExactCandidate(t *testing.T) {
 	service, request, _, sessions, stager := operationsFixture(t)
 	binding := service.config.Plans.(*restorePlannerStub).qualification.Binding
-	run := generated.RestoreRunRequest{Schema: generated.SchemaIDRestoreRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-run-a", Source: binding.Source, PointID: binding.PointID, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, HumanAcknowledgementID: "ack-a", FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch}
+	run := operationsRunRequest(request, binding, "ack-a")
 	got, err := service.Run(context.Background(), run, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod})
 	if err != nil {
 		t.Fatal(err)
@@ -117,10 +117,23 @@ func TestOperationsRunRequalifiesBeforeStagingExactCandidate(t *testing.T) {
 	}
 }
 
+func TestOperationsRunRejectsExecutionIDWideningBeforeMutation(t *testing.T) {
+	service, request, _, sessions, stager := operationsFixture(t)
+	binding := service.config.Plans.(*restorePlannerStub).qualification.Binding
+	run := operationsRunRequest(request, binding, "ack-a")
+	run.RecoveryLeaseID = "other-lease"
+	if _, err := service.Run(context.Background(), run, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod}); failureCode(err) != generated.ErrorCodePlanStale {
+		t.Fatalf("widened execution binding err=%v", err)
+	}
+	if len(sessions.transitions) != 0 || stager.calls != 0 {
+		t.Fatalf("mutation before execution binding validation: transitions=%v stages=%d", sessions.transitions, stager.calls)
+	}
+}
+
 func TestOperationsRunRejectsPlaceholderAcknowledgementBeforeMutation(t *testing.T) {
 	service, request, _, sessions, stager := operationsFixture(t)
 	binding := service.config.Plans.(*restorePlannerStub).qualification.Binding
-	run := generated.RestoreRunRequest{Schema: generated.SchemaIDRestoreRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-run-a", Source: binding.Source, PointID: binding.PointID, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, HumanAcknowledgementID: "pending-human-acknowledgement", FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch}
+	run := operationsRunRequest(request, binding, "pending-human-acknowledgement")
 	if _, err := service.Run(context.Background(), run, identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod}); failureCode(err) != generated.ErrorCodePlanStale {
 		t.Fatalf("placeholder acknowledgement err=%v", err)
 	}
@@ -152,13 +165,16 @@ func operationsFixture(t *testing.T) (*OperationsService, generated.RestoreReque
 	}
 	scope := AppliedFenceScope{ProfileID: requirement.ProfileID, ProfileVersion: requirement.ProfileVersion, PolicyID: requirement.PolicyID, PolicyVersion: requirement.PolicyVersion, ReleaseBuildID: requirement.ReleaseBuildID, EvaluatorVersion: requirement.EvaluatorVersion, FormerInstanceID: binding.FormerInstanceID, ReplacementInstanceID: binding.ReplacementInstanceID, RecoveryEpoch: binding.PriorEpoch, Boundaries: []AppliedFenceBoundary{{Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, TargetID: requirement.TargetID, AdapterID: requirement.AdapterID, FormerIdentityID: requirement.FormerIdentityID}}}
 	fences := FenceEvaluator{Scopes: fenceScopeFixture{scope: scope}, Evidence: reader, Clock: func() time.Time { return now }}
-	fenceResult, err := fences.Verify(context.Background(), []FenceRequirement{requirement})
+	plannedFences, err := RequiredFenceSet([]FenceRequirement{requirement}, binding.SourceAdmissionDigest, binding.FenceQualificationDigest)
 	if err != nil {
 		t.Fatal(err)
 	}
 	auditDecision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", LocalLastEventID: 4, IndependentLastEventID: 4, IndependentCheckpointDigest: auditPosition.IndependentCheckpointDigest, Strategy: "matched", DecisionDigest: continuity.DecisionDigest}
-	request := generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 8, RecoveryEpoch: binding.PriorEpoch, TargetDigest: testCandidateDigest("2"), IdempotencyKey: "restore-plan-a", Source: verified.Binding, Fences: fenceResult.Items, AuditDecision: auditDecision, PointID: verified.Binding.PointID, DependencyIDs: []string{"binary-a"}, TargetIDs: []string{"control-a"}, PriorInstanceID: binding.FormerInstanceID, NewInstanceID: binding.ReplacementInstanceID, PriorRecoveryEpoch: binding.PriorEpoch, NextRecoveryEpoch: binding.PriorEpoch + 1, FenceSetDigest: fenceResult.FenceSetDigest, AuditDecisionDigest: continuity.DecisionDigest, CandidateDigest: testCandidateDigest("3")}
-	restoreBinding := generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: request.Source, PointID: request.PointID, DependencyIDs: request.DependencyIDs, TargetIDs: request.TargetIDs, TargetDigest: request.TargetDigest, PlanID: "plan-a", PlanDigest: testCandidateDigest("4"), HumanAcknowledgementID: "pending-human-acknowledgement", FenceSetDigest: request.FenceSetDigest, AuditDecisionDigest: request.AuditDecisionDigest, CandidateDigest: request.CandidateDigest, PriorInstanceID: request.PriorInstanceID, NewInstanceID: request.NewInstanceID, PriorRecoveryEpoch: request.PriorRecoveryEpoch, NextRecoveryEpoch: request.NextRecoveryEpoch, Status: "planned"}
+	request := generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 8, RecoveryEpoch: binding.PriorEpoch, TargetDigest: testCandidateDigest("2"), IdempotencyKey: "restore-plan-a", Source: verified.Binding, Fences: plannedFences.Items, AuditDecision: auditDecision, PointID: verified.Binding.PointID, DependencyIDs: []string{"binary-a"}, TargetIDs: []string{"control-a"}, PriorInstanceID: binding.FormerInstanceID, NewInstanceID: binding.ReplacementInstanceID, PriorRecoveryEpoch: binding.PriorEpoch, NextRecoveryEpoch: binding.PriorEpoch + 1, FenceSetDigest: plannedFences.FenceSetDigest, AuditDecisionDigest: continuity.DecisionDigest, CandidateDigest: testCandidateDigest("3"),
+		FormerHostID: binding.FormerHostID, ReplacementHostID: binding.ReplacementHostID, RecoveryDraftID: binding.DraftID, CiphertextFingerprint: binding.CiphertextFingerprint, SourceAdmissionDigest: binding.SourceAdmissionDigest, FenceQualificationDigest: binding.FenceQualificationDigest, RecoveryRunID: binding.RunID, RecoveryStepID: binding.StepID, RecoveryLeaseID: binding.LeaseID, RecoveryChallengeID: binding.ChallengeID, RecoveryReceiptID: binding.ReceiptID}
+	restoreBinding := generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: request.Source, PointID: request.PointID, DependencyIDs: request.DependencyIDs, TargetIDs: request.TargetIDs, TargetDigest: request.TargetDigest, PlanID: "plan-a", PlanDigest: testCandidateDigest("4"), HumanAcknowledgementID: "pending-human-acknowledgement", FenceSetDigest: request.FenceSetDigest, AuditDecisionDigest: request.AuditDecisionDigest, CandidateDigest: request.CandidateDigest,
+		FormerHostID: request.FormerHostID, ReplacementHostID: request.ReplacementHostID, RecoveryDraftID: request.RecoveryDraftID, CiphertextFingerprint: request.CiphertextFingerprint, SourceAdmissionDigest: request.SourceAdmissionDigest, FenceQualificationDigest: request.FenceQualificationDigest, RecoveryRunID: request.RecoveryRunID, RecoveryStepID: request.RecoveryStepID, RecoveryLeaseID: request.RecoveryLeaseID, RecoveryChallengeID: request.RecoveryChallengeID, RecoveryReceiptID: request.RecoveryReceiptID,
+		PriorInstanceID: request.PriorInstanceID, NewInstanceID: request.NewInstanceID, PriorRecoveryEpoch: request.PriorRecoveryEpoch, NextRecoveryEpoch: request.NextRecoveryEpoch, Status: "planned"}
 	planner := &restorePlannerStub{qualification: RestoreQualification{Request: request, Binding: restoreBinding}}
 	sessions := &restoreSessionsStub{}
 	stager := &restoreStagerStub{}
@@ -167,4 +183,9 @@ func operationsFixture(t *testing.T) (*OperationsService, generated.RestoreReque
 		t.Fatal(err)
 	}
 	return service, request, planner, sessions, stager
+}
+
+func operationsRunRequest(request generated.RestoreRequest, binding generated.RestoreBinding, acknowledgement string) generated.RestoreRunRequest {
+	return generated.RestoreRunRequest{Schema: generated.SchemaIDRestoreRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: request.ExpectedStateRevision + 1, RecoveryEpoch: request.RecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-run-a", Source: binding.Source, PointID: binding.PointID, PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, HumanAcknowledgementID: acknowledgement, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch,
+		RecoveryRunID: binding.RecoveryRunID, RecoveryStepID: binding.RecoveryStepID, RecoveryLeaseID: binding.RecoveryLeaseID, RecoveryChallengeID: binding.RecoveryChallengeID, RecoveryReceiptID: binding.RecoveryReceiptID}
 }

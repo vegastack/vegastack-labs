@@ -94,6 +94,10 @@
     "restore-fence-item": {
       "additionalProperties": false,
       "properties": {
+        "adapterId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "boundary": {
           "enum": [
             "host-service",
@@ -118,12 +122,28 @@
           "type": "array",
           "uniqueItems": true
         },
+        "formerIdentityId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "observedAt": {
           "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "required": {
           "type": "boolean"
+        },
+        "requiredEvidenceKinds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 16,
+          "minItems": 1,
+          "type": "array",
+          "uniqueItems": true
         },
         "schema": {
           "enum": [
@@ -139,6 +159,7 @@
         },
         "status": {
           "enum": [
+            "required",
             "verified",
             "blocked",
             "not-applicable"
@@ -148,6 +169,10 @@
         "subjectId": {
           "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
           "type": "string"
+        },
+        "targetId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
         }
       },
       "required": [
@@ -155,6 +180,10 @@
         "schemaVersion",
         "boundary",
         "subjectId",
+        "targetId",
+        "adapterId",
+        "formerIdentityId",
+        "requiredEvidenceKinds",
         "required",
         "evidenceIds",
         "evidenceDigest",
@@ -181,6 +210,10 @@
           "maxItems": 256,
           "type": "array",
           "uniqueItems": true
+        },
+        "keyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
         },
         "manifestDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
@@ -239,6 +272,7 @@
         "verificationDigest",
         "sourceClass",
         "repositoryGenerationId",
+        "keyReferenceId",
         "declaredRpoSeconds",
         "createdAt",
         "verifiedAt",
@@ -263,6 +297,10 @@
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
+    "ciphertextFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
     "dependencyIds": {
       "items": {
         "type": "string"
@@ -274,6 +312,10 @@
     "expectedStateRevision": {
       "minimum": 0,
       "type": "integer"
+    },
+    "fenceQualificationDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
     },
     "fenceSetDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
@@ -287,6 +329,10 @@
       "minItems": 1,
       "type": "array",
       "uniqueItems": true
+    },
+    "formerHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
     },
     "idempotencyKey": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
@@ -312,9 +358,37 @@
       "minimum": 0,
       "type": "integer"
     },
+    "recoveryChallengeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryDraftId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "recoveryEpoch": {
       "minimum": 0,
       "type": "integer"
+    },
+    "recoveryLeaseId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryReceiptId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryRunId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryStepId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "replacementHostId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
     },
     "schema": {
       "enum": [
@@ -330,6 +404,10 @@
     },
     "source": {
       "$ref": "#/$defs/restore-source-binding"
+    },
+    "sourceAdmissionDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
     },
     "targetDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
@@ -364,7 +442,18 @@
     "nextRecoveryEpoch",
     "fenceSetDigest",
     "auditDecisionDigest",
-    "candidateDigest"
+    "candidateDigest",
+    "formerHostId",
+    "replacementHostId",
+    "recoveryDraftId",
+    "ciphertextFingerprint",
+    "sourceAdmissionDigest",
+    "fenceQualificationDigest",
+    "recoveryRunId",
+    "recoveryStepId",
+    "recoveryLeaseId",
+    "recoveryChallengeId",
+    "recoveryReceiptId"
   ],
   "title": "VegaStack Labs restore request",
   "type": "object",

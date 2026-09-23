@@ -62,7 +62,7 @@ func (service *OperationsService) Plan(ctx context.Context, request generated.Re
 	if service == nil || principal.ID == "" {
 		return generated.RestoreBinding{}, failure.New(generated.ErrorCodeInputInvalid, "restore-plan", false)
 	}
-	source, fences, continuity, err := service.qualify(ctx, request)
+	source, fences, continuity, err := service.qualifyPlan(ctx, request)
 	if err != nil {
 		return generated.RestoreBinding{}, err
 	}
@@ -79,7 +79,7 @@ func (service *OperationsService) Run(ctx context.Context, request generated.Res
 	}
 	executionBinding := qualification.Binding
 	executionBinding.HumanAcknowledgementID = request.HumanAcknowledgementID
-	source, fences, continuity, err := service.qualify(ctx, qualification.Request)
+	source, fences, continuity, err := service.qualifyRun(ctx, qualification.Request)
 	if err != nil {
 		return generated.RestoreBinding{}, err
 	}
@@ -150,7 +150,38 @@ func (service *OperationsService) AuthorizationPlan(ctx context.Context, planID 
 	return service.config.Plans.RestoreAuthorizationPlan(ctx, planID)
 }
 
-func (service *OperationsService) qualify(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, FenceResult, AuditContinuity, error) {
+func (service *OperationsService) qualifyPlan(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, FenceResult, AuditContinuity, error) {
+	source, requirements, continuity, err := service.qualifyBase(ctx, request)
+	if err != nil {
+		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+	}
+	fences, err := RequiredFenceSet(requirements, request.SourceAdmissionDigest, request.FenceQualificationDigest)
+	if err != nil || !sameJSONValue(fences.Items, request.Fences) || fences.FenceSetDigest != request.FenceSetDigest {
+		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
+	}
+	return source, fences, continuity, nil
+}
+
+func (service *OperationsService) qualifyRun(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, FenceResult, AuditContinuity, error) {
+	source, requirements, continuity, err := service.qualifyBase(ctx, request)
+	if err != nil {
+		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+	}
+	planned, err := RequiredFenceSet(requirements, request.SourceAdmissionDigest, request.FenceQualificationDigest)
+	if err != nil || !sameJSONValue(planned.Items, request.Fences) || planned.FenceSetDigest != request.FenceSetDigest {
+		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
+	}
+	verified, err := service.config.Fences.Verify(ctx, requirements)
+	if err != nil {
+		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+	}
+	if verified.FenceSetDigest != planned.FenceSetDigest {
+		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
+	}
+	return source, verified, continuity, nil
+}
+
+func (service *OperationsService) qualifyBase(ctx context.Context, request generated.RestoreRequest) (VerifiedSource, []FenceRequirement, AuditContinuity, error) {
 	classes := []string{"critical"}
 	if request.Source.SourceClass == "local" {
 		classes = []string{"standard", "critical"}
@@ -165,24 +196,20 @@ func (service *OperationsService) qualify(ctx context.Context, request generated
 		}
 	}
 	if err != nil {
-		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+		return VerifiedSource{}, nil, AuditContinuity{}, err
 	}
 	continuity, err := service.config.Continuity.Resolve(ctx, source, &request.AuditDecision)
 	if err != nil {
-		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+		return VerifiedSource{}, nil, AuditContinuity{}, err
 	}
 	requirements, err := service.config.Fences.Requirements(ctx, source, request.PriorInstanceID)
 	if err != nil {
-		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+		return VerifiedSource{}, nil, AuditContinuity{}, err
 	}
-	fences, err := service.config.Fences.Verify(ctx, requirements)
-	if err != nil {
-		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, err
+	if !sameJSONValue(source.Binding, request.Source) || continuity.DecisionDigest != request.AuditDecisionDigest {
+		return VerifiedSource{}, nil, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
 	}
-	if !sameJSONValue(source.Binding, request.Source) || !sameJSONValue(fences.Items, request.Fences) || fences.FenceSetDigest != request.FenceSetDigest || continuity.DecisionDigest != request.AuditDecisionDigest {
-		return VerifiedSource{}, FenceResult{}, AuditContinuity{}, failure.New(generated.ErrorCodePlanStale, "restore-qualification", false)
-	}
-	return source, fences, continuity, nil
+	return source, requirements, continuity, nil
 }
 
 func sameJSONValue(left, right any) bool {
@@ -192,7 +219,9 @@ func sameJSONValue(left, right any) bool {
 }
 
 func runMatchesBinding(request generated.RestoreRunRequest, binding generated.RestoreBinding) bool {
-	return request.PlanID == binding.PlanID && request.PlanDigest == binding.PlanDigest && request.PointID == binding.PointID && request.TargetDigest == binding.TargetDigest && request.FenceSetDigest == binding.FenceSetDigest && request.AuditDecisionDigest == binding.AuditDecisionDigest && request.CandidateDigest == binding.CandidateDigest && request.PriorInstanceID == binding.PriorInstanceID && request.NewInstanceID == binding.NewInstanceID && request.PriorRecoveryEpoch == binding.PriorRecoveryEpoch && request.NextRecoveryEpoch == binding.NextRecoveryEpoch && sameJSONValue(request.Source, binding.Source)
+	return request.PlanID == binding.PlanID && request.PlanDigest == binding.PlanDigest && request.PointID == binding.PointID && request.TargetDigest == binding.TargetDigest && request.FenceSetDigest == binding.FenceSetDigest && request.AuditDecisionDigest == binding.AuditDecisionDigest && request.CandidateDigest == binding.CandidateDigest &&
+		request.RecoveryRunID == binding.RecoveryRunID && request.RecoveryStepID == binding.RecoveryStepID && request.RecoveryLeaseID == binding.RecoveryLeaseID && request.RecoveryChallengeID == binding.RecoveryChallengeID && request.RecoveryReceiptID == binding.RecoveryReceiptID &&
+		request.PriorInstanceID == binding.PriorInstanceID && request.NewInstanceID == binding.NewInstanceID && request.PriorRecoveryEpoch == binding.PriorRecoveryEpoch && request.NextRecoveryEpoch == binding.NextRecoveryEpoch && sameJSONValue(request.Source, binding.Source)
 }
 
 func verifyMatchesBinding(request generated.RestoreVerifyRequest, binding generated.RestoreBinding) bool {

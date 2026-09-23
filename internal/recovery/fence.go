@@ -149,11 +149,48 @@ func (evaluator FenceEvaluator) Verify(ctx context.Context, requirements []Fence
 		}
 		items = append(items, item)
 	}
-	digest, err := canonicalFenceSetDigest(items, ordered, now)
+	digest, err := canonicalFenceSetDigest(ordered)
 	if err != nil {
 		return blocked()
 	}
 	return FenceResult{Items: items, FenceSetDigest: digest, VerifiedAt: now}, nil
+}
+
+// RequiredFenceSet binds the exact server-derived fence requirements into an
+// immutable plan without accepting a caller assertion that live denial has
+// already been observed. Live evidence replaces these required items only at
+// Run, while retaining the same requirement-set digest.
+func RequiredFenceSet(requirements []FenceRequirement, sourceAdmissionDigest, fenceQualificationDigest string) (FenceResult, error) {
+	if len(requirements) == 0 || !restoreDigest.MatchString(sourceAdmissionDigest) || !restoreDigest.MatchString(fenceQualificationDigest) {
+		return FenceResult{}, ErrWitnessUnavailable
+	}
+	ordered := append([]FenceRequirement(nil), requirements...)
+	sort.Slice(ordered, func(i, j int) bool { return fenceRequirementKey(ordered[i]) < fenceRequirementKey(ordered[j]) })
+	items := make([]generated.RestoreFenceItem, 0, len(ordered))
+	seen := make(map[string]bool, len(ordered))
+	for _, requirement := range ordered {
+		key := fenceRequirementKey(requirement)
+		if seen[key] || !validFenceRequirement(requirement) {
+			return FenceResult{}, ErrWitnessUnavailable
+		}
+		seen[key] = true
+		raw, err := json.Marshal(struct {
+			Domain      string
+			Requirement FenceRequirement
+		}{"vegastack-labs.dev/restore-fence-requirement/v1", requirement})
+		if err != nil {
+			return FenceResult{}, err
+		}
+		sum := sha256.Sum256(raw)
+		item := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, TargetID: requirement.TargetID, AdapterID: requirement.AdapterID, FormerIdentityID: requirement.FormerIdentityID, RequiredEvidenceKinds: append([]string(nil), requirement.RequiredEvidenceKinds...), Required: true, EvidenceIDs: []string{sourceAdmissionDigest, fenceQualificationDigest}, EvidenceDigest: "sha256:" + hex.EncodeToString(sum[:]), Status: "required"}
+		encoded, err := json.Marshal(item)
+		if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreFenceItem, encoded, generated.ContractExact) != nil {
+			return FenceResult{}, ErrWitnessUnavailable
+		}
+		items = append(items, item)
+	}
+	digest, err := canonicalFenceSetDigest(ordered)
+	return FenceResult{Items: items, FenceSetDigest: digest}, err
 }
 
 func validFenceScope(scope AppliedFenceScope, source VerifiedSource, former string) bool {
@@ -190,7 +227,7 @@ func fenceRequirementKey(requirement FenceRequirement) string {
 }
 
 func verifyFenceProofs(requirement FenceRequirement, proofs []IndependentFenceProof, now time.Time) (generated.RestoreFenceItem, bool, error) {
-	item := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, Required: true, Status: "verified"}
+	item := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: requirement.Boundary, SubjectID: requirement.SubjectID, TargetID: requirement.TargetID, AdapterID: requirement.AdapterID, FormerIdentityID: requirement.FormerIdentityID, RequiredEvidenceKinds: append([]string(nil), requirement.RequiredEvidenceKinds...), Required: true, Status: "verified"}
 	if len(proofs) != len(requirement.RequiredEvidenceKinds) {
 		return item, false, ErrWitnessUnavailable
 	}
@@ -223,7 +260,8 @@ func verifyFenceProofs(requirement FenceRequirement, proofs []IndependentFencePr
 	}
 	sum := sha256.Sum256(append([]byte("vegastack-labs.dev/restore-fence-item/v1\x00"), raw...))
 	item.EvidenceDigest = "sha256:" + hex.EncodeToString(sum[:])
-	item.ObservedAt = oldest.UTC().Format(time.RFC3339)
+	observedAt := oldest.UTC().Format(time.RFC3339)
+	item.ObservedAt = &observedAt
 	encoded, err := json.Marshal(item)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDRestoreFenceItem, encoded, generated.ContractExact) != nil {
 		return item, false, ErrWitnessUnavailable
@@ -231,13 +269,11 @@ func verifyFenceProofs(requirement FenceRequirement, proofs []IndependentFencePr
 	return item, false, nil
 }
 
-func canonicalFenceSetDigest(items []generated.RestoreFenceItem, requirements []FenceRequirement, verifiedAt time.Time) (string, error) {
+func canonicalFenceSetDigest(requirements []FenceRequirement) (string, error) {
 	payload := struct {
 		Domain       string
 		Requirements []FenceRequirement
-		Items        []generated.RestoreFenceItem
-		VerifiedAt   string
-	}{fenceSetDomain, requirements, items, verifiedAt.UTC().Format(time.RFC3339)}
+	}{fenceSetDomain, requirements}
 	raw, err := json.Marshal(payload)
 	if err != nil {
 		return "", err

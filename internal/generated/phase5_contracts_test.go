@@ -163,6 +163,8 @@ func TestPhase5RestoreBindingRejectsAmbiguousEpochAndController(t *testing.T) {
 		"dependencyIds": []string{"point-b"}, "targetIds": []string{"control-a"}, "targetDigest": phase5DigestFixture(),
 		"planId": "plan-a", "planDigest": phase5DigestFixture(), "humanAcknowledgementId": "ack-a",
 		"fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(), "priorInstanceId": "instance-old", "newInstanceId": "instance-new",
+		"formerHostId": "former-host", "replacementHostId": "replacement-host", "recoveryDraftId": "draft-a", "ciphertextFingerprint": phase5DigestFixture(), "sourceAdmissionDigest": phase5DigestFixture(), "fenceQualificationDigest": phase5DigestFixture(),
+		"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
 		"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3, "status": "planned",
 	}
 	if err := ValidateContractJSON(SchemaIDRestoreBinding, phase5Document(t, binding), ContractExact); err != nil {
@@ -235,6 +237,7 @@ func TestPhase5RestoreAndJobRequestsRequireExactBindingFields(t *testing.T) {
 			"humanAcknowledgementId": "ack-a", "fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(),
 			"priorInstanceId": "instance-old", "newInstanceId": "instance-new",
 			"priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3,
+			"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
 		}},
 		{"job", SchemaIDScheduledJobRequest, map[string]any{
 			"schema": SchemaIDScheduledJobRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
@@ -264,7 +267,7 @@ func validRestoreSourceV11() map[string]any {
 	return map[string]any{
 		"schema": SchemaIDRestoreSourceBinding, "schemaVersion": "1.1.0", "pointId": "point-a",
 		"pointDigest": phase5DigestFixture(), "manifestDigest": phase5DigestFixture(), "verificationDigest": phase5DigestFixture(),
-		"sourceClass": "local", "repositoryGenerationId": "generation-a", "declaredRpoSeconds": 3600,
+		"sourceClass": "local", "repositoryGenerationId": "generation-a", "keyReferenceId": "key-a", "declaredRpoSeconds": 3600,
 		"createdAt": "2026-09-15T07:00:00Z", "verifiedAt": "2026-09-15T08:00:00Z", "recoveryEpoch": 2,
 		"dependencyDigests": []string{phase5DigestFixture()},
 	}
@@ -277,6 +280,7 @@ func TestRestoreV11BindsFenceAuditCandidateAndAdjacentEpoch(t *testing.T) {
 		"source": validRestoreSourceV11(), "pointId": "point-a", "planId": "plan-a", "planDigest": phase5DigestFixture(),
 		"humanAcknowledgementId": "ack-a", "fenceSetDigest": phase5DigestFixture(), "auditDecisionDigest": phase5DigestFixture(), "candidateDigest": phase5DigestFixture(),
 		"priorInstanceId": "instance-old", "newInstanceId": "instance-new", "priorRecoveryEpoch": 2, "nextRecoveryEpoch": 3,
+		"recoveryRunId": "run-a", "recoveryStepId": "step-a", "recoveryLeaseId": "lease-a", "recoveryChallengeId": "challenge-a", "recoveryReceiptId": "receipt-a",
 	}
 	if err := ValidateContractJSON(SchemaIDRestoreRunRequest, phase5Document(t, request), ContractExact); err != nil {
 		t.Fatal(err)

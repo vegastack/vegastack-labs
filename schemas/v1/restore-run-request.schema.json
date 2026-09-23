@@ -19,6 +19,10 @@
           "type": "array",
           "uniqueItems": true
         },
+        "keyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "manifestDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
@@ -76,6 +80,7 @@
         "verificationDigest",
         "sourceClass",
         "repositoryGenerationId",
+        "keyReferenceId",
         "declaredRpoSeconds",
         "createdAt",
         "verifiedAt",
@@ -141,9 +146,29 @@
       "minimum": 0,
       "type": "integer"
     },
+    "recoveryChallengeId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "recoveryEpoch": {
       "minimum": 0,
       "type": "integer"
+    },
+    "recoveryLeaseId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryReceiptId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryRunId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryStepId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
     },
     "schema": {
       "enum": [
@@ -183,7 +208,12 @@
     "priorInstanceId",
     "newInstanceId",
     "priorRecoveryEpoch",
-    "nextRecoveryEpoch"
+    "nextRecoveryEpoch",
+    "recoveryRunId",
+    "recoveryStepId",
+    "recoveryLeaseId",
+    "recoveryChallengeId",
+    "recoveryReceiptId"
   ],
   "title": "VegaStack Labs restore run request",
   "type": "object",

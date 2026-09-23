@@ -85,6 +85,10 @@
           "type": "array",
           "uniqueItems": true
         },
+        "keyReferenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
         "manifestDigest": {
           "pattern": "^sha256:[a-f0-9]{64}$",
           "type": "string"
@@ -142,6 +146,7 @@
         "verificationDigest",
         "sourceClass",
         "repositoryGenerationId",
+        "keyReferenceId",
         "declaredRpoSeconds",
         "createdAt",
         "verifiedAt",
