@@ -43,7 +43,14 @@ type EffectJournal struct {
 // DELETE ends the attempt as uncertain.
 func RetireExact(ctx context.Context, intent store.OffsiteRetirementIntent, lease store.OffsiteRetirementLease, rules RuleClient, objects ObjectClient, recorder Recorder) (EffectJournal, error) {
 	journal := EffectJournal{Status: "uncertain"}
-	if rules == nil || objects == nil || recorder == nil || intent.IntentID != lease.IntentID || intent.GenerationID != lease.GenerationID || intent.BucketID != lease.BucketID || intent.RecoveryEpoch != lease.RecoveryEpoch || time.Now().After(lease.MaximumExpiresAt) || lease.LockAdminConsumerID == lease.RetentionConsumerID || len(intent.Rules) != 5 || len(intent.Objects) == 0 {
+	var plannedBytes int64
+	for _, object := range intent.Objects {
+		if object.Bytes < 0 || object.Bytes > intent.MaxMutationBytes-plannedBytes {
+			return journal, errors.New("offsite retirement object bound invalid")
+		}
+		plannedBytes += object.Bytes
+	}
+	if rules == nil || objects == nil || recorder == nil || intent.IntentID != lease.IntentID || intent.GenerationID != lease.GenerationID || intent.BucketID != lease.BucketID || intent.RecoveryEpoch != lease.RecoveryEpoch || time.Now().After(lease.MaximumExpiresAt) || lease.LockAdminConsumerID == lease.RetentionConsumerID || len(intent.Rules) != 5 || len(intent.Objects) == 0 || intent.MaxWorkObjects != int64(len(intent.Objects)) || plannedBytes != intent.MaxMutationBytes || lease.MaxWorkObjects != intent.MaxWorkObjects || lease.MaxMutationBytes != intent.MaxMutationBytes {
 		return journal, errors.New("offsite retirement authority mismatch")
 	}
 	pre, err := rules.ReadRules(ctx, intent.BucketID)
