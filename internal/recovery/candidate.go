@@ -22,8 +22,8 @@ type candidateTarget struct{ path string }
 func (candidateTarget) recoveryCandidateTarget() {}
 
 type CandidateReceipt struct {
-	PlanID, CandidateDigest, JournalDigest, NewInstanceID string
-	NextRecoveryEpoch                                     int64
+	PlanID, CandidateDigest, DatabaseDigest, JournalDigest, NewInstanceID string
+	NextRecoveryEpoch                                                     int64
 }
 
 type StartupExpectation struct {
@@ -116,7 +116,7 @@ func (manager CandidateManager) Stage(ctx context.Context, binding generated.Res
 	if err := manager.Storage.WriteTransitionJournal(ctx, paths, raw); err != nil {
 		return CandidateReceipt{}, err
 	}
-	receipt := CandidateReceipt{PlanID: binding.PlanID, CandidateDigest: binding.CandidateDigest, JournalDigest: journalDigest, NewInstanceID: binding.NewInstanceID, NextRecoveryEpoch: binding.NextRecoveryEpoch}
+	receipt := CandidateReceipt{PlanID: binding.PlanID, CandidateDigest: binding.CandidateDigest, DatabaseDigest: source.DatabaseDigest, JournalDigest: journalDigest, NewInstanceID: binding.NewInstanceID, NextRecoveryEpoch: binding.NextRecoveryEpoch}
 	if err := manager.Records.BindRecoveryCandidate(ctx, binding, receipt); err != nil {
 		return CandidateReceipt{}, err
 	}

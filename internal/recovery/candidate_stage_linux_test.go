@@ -100,7 +100,7 @@ func TestCandidateStageAndStartupPromotionBindMutatedSQLiteSemantically(t *testi
 	if err != nil {
 		t.Fatal(err)
 	}
-	if receipt != recorder.receipt || receipt.CandidateDigest != binding.CandidateDigest {
+	if receipt != recorder.receipt || receipt.CandidateDigest != binding.CandidateDigest || receipt.DatabaseDigest != databaseDigest {
 		t.Fatalf("receipt=%#v recorded=%#v", receipt, recorder.receipt)
 	}
 	result, err := manager.PromoteAtStartup(ctx, StartupExpectation{Binding: binding, DatabaseDigest: databaseDigest, JournalDigest: receipt.JournalDigest})

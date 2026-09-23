@@ -154,6 +154,8 @@ CREATE TABLE recovery_candidates (
     preserved_authority_digest TEXT NOT NULL CHECK (preserved_authority_digest GLOB 'sha256:[0-9a-f]*' AND length(preserved_authority_digest) = 71),
     fence_set_digest TEXT NOT NULL CHECK (fence_set_digest GLOB 'sha256:[0-9a-f]*' AND length(fence_set_digest) = 71),
     audit_decision_digest TEXT NOT NULL CHECK (audit_decision_digest GLOB 'sha256:[0-9a-f]*' AND length(audit_decision_digest) = 71),
+    database_digest TEXT NOT NULL CHECK (database_digest GLOB 'sha256:[0-9a-f]*' AND length(database_digest) = 71),
+    journal_digest TEXT NOT NULL CHECK (journal_digest GLOB 'sha256:[0-9a-f]*' AND length(journal_digest) = 71),
     state_revision INTEGER NOT NULL CHECK (state_revision >= 0),
     recovery_epoch INTEGER NOT NULL CHECK (recovery_epoch >= 0),
     created_at TEXT NOT NULL,

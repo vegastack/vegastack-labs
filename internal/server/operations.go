@@ -25,6 +25,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/inventoryops"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
+	"github.com/vegastack/vegastack-labs/internal/recovery"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
@@ -96,7 +97,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	factory := result.NewFactory(operations.build, operations.requestIDs)
-	authority, err := operations.openStore(ctx, store.Config{DatabasePath: operations.databasePath, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID})
+	authority, err := operations.openAuthorityWithPromotion(ctx, profile)
 	if err != nil {
 		return err
 	}
@@ -347,6 +348,43 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	return service.Run(ctx)
+}
+
+// openAuthorityWithPromotion is the sole startup cutover boundary. It opens
+// the former authority only long enough to read its immutable pending record,
+// closes it before acquiring the filesystem authority lock, and then reopens
+// the exact promoted database in recovery-required mode.
+func (operations *Operations) openAuthorityWithPromotion(ctx context.Context, profile serverconfig.Profile) (*store.Store, error) {
+	configFor := func(path string) store.Config {
+		return store.Config{DatabasePath: path, Mode: store.OpenExisting, ExpectedUID: profile.SocketOwnerUID, ToolVersion: operations.build.ToolVersion, BuildVersion: operations.build.ReleaseBuildID}
+	}
+	authority, err := operations.openStore(ctx, configFor(operations.databasePath))
+	if err != nil {
+		return nil, err
+	}
+	pending, found, err := store.NewRestoreRepository(authority).PendingPromotion(ctx)
+	if err != nil || !found {
+		if err != nil {
+			_ = authority.Close()
+			return nil, err
+		}
+		return authority, nil
+	}
+	if err := authority.Close(); err != nil {
+		return nil, err
+	}
+	opener := func(ctx context.Context, path string) (*store.Store, error) {
+		return operations.openStore(ctx, configFor(path))
+	}
+	manager := recovery.CandidateManager{
+		DatabasePath: operations.databasePath,
+		Storage:      recovery.LocalCandidateStorage{ExpectedUID: profile.SocketOwnerUID},
+		Authority:    recovery.StoreCandidateAuthority{Open: opener},
+	}
+	if _, err := manager.PromoteAtStartup(ctx, recovery.StartupExpectation{Binding: pending.Binding, DatabaseDigest: pending.DatabaseDigest, JournalDigest: pending.JournalDigest}); err != nil {
+		return nil, err
+	}
+	return operations.openStore(ctx, configFor(operations.databasePath))
 }
 
 // productionAdapterRegistry is the single composition point for adapters that
