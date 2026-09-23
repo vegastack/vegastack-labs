@@ -33,11 +33,6 @@ func installedSourceFixture(t *testing.T) (InstalledPackage, []BoundaryRequireme
 	pin.PublicKey = witnessPublic
 	pin.RecipientPublicKey = recipient.PublicKey().Bytes()
 	pin.Requirements = append([]BoundaryRequirement(nil), required...)
-	pin.pinSeal = pin.seal()
-	signed, envelope, err := CollectWitness(context.Background(), CollectRequest{Pin: pin, Binding: binding, Required: required, Adapters: map[string]recoverydenial.Adapter{"adapter-1": collectorAdapter{now: now}}, SigningKey: io.NopCloser(bytes.NewReader(witnessPrivate.Seed())), Material: io.NopCloser(bytes.NewReader([]byte("synthetic-private-canary"))), Now: func() time.Time { return now }})
-	if err != nil {
-		t.Fatalf("collect source: %v", err)
-	}
 	adminPublic, adminPrivate, err := ed25519.GenerateKey(rand.Reader)
 	if err != nil {
 		t.Fatal(err)
@@ -60,6 +55,22 @@ func installedSourceFixture(t *testing.T) (InstalledPackage, []BoundaryRequireme
 	if err != nil {
 		t.Fatalf("qualification: %v", err)
 	}
+	binding.FenceQualificationDigest = qualified.qualificationDigest
+	binding.SourceAdmissionDigest = SourceAdmissionDigest(SourceAdmission{
+		FormerHostID: binding.FormerHostID, FormerInstanceID: binding.FormerInstanceID,
+		ReplacementHostID: binding.ReplacementHostID, ReplacementInstanceID: binding.ReplacementInstanceID,
+		DraftID: binding.DraftID, CiphertextFingerprint: binding.CiphertextFingerprint,
+		PriorEpoch: binding.PriorEpoch, NewEpoch: binding.NewEpoch,
+		WitnessKeyID: pin.KeyID, WitnessInstanceID: pin.WitnessInstanceID, RecipientKeyID: pin.RecipientKeyID,
+		WitnessPublicKey: pin.PublicKey, RecipientPublicKey: pin.RecipientPublicKey,
+		AdminRootDigest: pin.adminRootDigest, FenceQualificationDigest: qualified.qualificationDigest, Requirements: required,
+	})
+	pin.manifestBinding = binding
+	pin.pinSeal = pin.seal()
+	signed, envelope, err := CollectWitness(context.Background(), CollectRequest{Pin: pin, Binding: binding, Required: required, Adapters: map[string]recoverydenial.Adapter{"adapter-1": collectorAdapter{now: now}}, SigningKey: io.NopCloser(bytes.NewReader(witnessPrivate.Seed())), Material: io.NopCloser(bytes.NewReader([]byte("synthetic-private-canary"))), Now: func() time.Time { return now }})
+	if err != nil {
+		t.Fatalf("collect source: %v", err)
+	}
 	return InstalledPackage{Pin: pin, Witness: signed, Envelope: envelope}, required, qualified, binding, now, recipient.Bytes()
 }
 
@@ -81,6 +92,10 @@ func TestInstalledSourceRejectsPartialFenceAndBurnsFailedCustody(t *testing.T) {
 	handoff, err := VerifyInstalledSource(context.Background(), binding, required, installed, qualified, now)
 	if err != nil {
 		t.Fatal(err)
+	}
+	digests, err := SourceHandoffDigest(installed, qualified.qualificationDigest)
+	if err != nil || handoff.WitnessDigest != digests.WitnessDigest || handoff.EnvelopeDigest != digests.EnvelopeDigest || handoff.SourceDigest != digests.SourceDigest {
+		t.Fatalf("verified handoff diverged from production digest derivation: handoff=%+v digests=%+v err=%v", handoff, digests, err)
 	}
 	if handoff.ManifestDigest != installed.Pin.ManifestDigest || handoff.SourceDigest == "" || handoff.FenceDigest != qualified.qualificationDigest {
 		t.Fatal("public handoff digests missing")

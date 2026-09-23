@@ -7,7 +7,7 @@ import (
 )
 
 func TestReviewedRecoveryCustodianClosureRejectsSigningAndSourceDrift(t *testing.T) {
-	common := []string{"artifact.go", "collector.go", "custody.go", "fence_witness.go", "manifest.go", "qualification.go", "source_handoff.go", "transport.go", "witness.go"}
+	common := []string{"artifact.go", "collector.go", "custody.go", "fence_witness.go", "manifest.go", "qualification.go", "source_admission.go", "source_handoff.go", "transport.go", "witness.go"}
 	for _, platform := range []struct {
 		name  string
 		files []string

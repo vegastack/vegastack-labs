@@ -21,21 +21,23 @@ var witnessDigest = regexp.MustCompile(`^sha256:[a-f0-9]{64}$`)
 // come from server-owned state; accepting it from the signed artifact alone
 // would let a witness choose the authority being proved.
 type WitnessBinding struct {
-	FormerHostID          string `json:"formerHostId"`
-	FormerInstanceID      string `json:"formerInstanceId"`
-	ReplacementHostID     string `json:"replacementHostId"`
-	ReplacementInstanceID string `json:"replacementInstanceId"`
-	DraftID               string `json:"draftId"`
-	CiphertextFingerprint string `json:"ciphertextFingerprint"`
-	PlanDigest            string `json:"planDigest"`
-	RunID                 string `json:"runId"`
-	StepID                string `json:"stepId"`
-	LeaseID               string `json:"leaseId"`
-	ChallengeID           string `json:"challengeId"`
-	ReceiptID             string `json:"receiptId"`
-	PriorEpoch            int64  `json:"priorEpoch"`
-	NewEpoch              int64  `json:"newEpoch"`
-	StateRevision         int64  `json:"stateRevision"`
+	FormerHostID             string `json:"formerHostId"`
+	FormerInstanceID         string `json:"formerInstanceId"`
+	ReplacementHostID        string `json:"replacementHostId"`
+	ReplacementInstanceID    string `json:"replacementInstanceId"`
+	DraftID                  string `json:"draftId"`
+	CiphertextFingerprint    string `json:"ciphertextFingerprint"`
+	PlanDigest               string `json:"planDigest"`
+	RunID                    string `json:"runId"`
+	StepID                   string `json:"stepId"`
+	LeaseID                  string `json:"leaseId"`
+	ChallengeID              string `json:"challengeId"`
+	ReceiptID                string `json:"receiptId"`
+	SourceAdmissionDigest    string `json:"sourceAdmissionDigest"`
+	FenceQualificationDigest string `json:"fenceQualificationDigest"`
+	PriorEpoch               int64  `json:"priorEpoch"`
+	NewEpoch                 int64  `json:"newEpoch"`
+	StateRevision            int64  `json:"stateRevision"`
 }
 
 // PinnedWitness is supplied only by a protected manifest authenticated by an
@@ -138,7 +140,7 @@ func validBinding(b WitnessBinding) bool {
 			return false
 		}
 	}
-	return witnessDigest.MatchString(b.CiphertextFingerprint) && witnessDigest.MatchString(b.PlanDigest) && b.PriorEpoch >= 0 && b.NewEpoch == b.PriorEpoch+1 && b.StateRevision > 0
+	return witnessDigest.MatchString(b.CiphertextFingerprint) && witnessDigest.MatchString(b.PlanDigest) && witnessDigest.MatchString(b.SourceAdmissionDigest) && witnessDigest.MatchString(b.FenceQualificationDigest) && b.PriorEpoch >= 0 && b.NewEpoch == b.PriorEpoch+1 && b.StateRevision > 0
 }
 
 func validWitnessToken(value string) bool { return witnessToken.MatchString(value) }

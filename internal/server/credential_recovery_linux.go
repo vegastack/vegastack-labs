@@ -17,8 +17,9 @@ import (
 // replacement-authority state. It is deliberately not implemented by local
 // database epoch state, the installed package, or caller input.
 type installedRecoveryAuthority struct {
-	Binding  recovery.WitnessBinding
-	Required []recovery.BoundaryRequirement
+	Binding                                         recovery.WitnessBinding
+	Required                                        []recovery.BoundaryRequirement
+	SourceAdmissionDigest, FenceQualificationDigest string
 }
 
 type installedRecoveryAuthoritySource interface {
@@ -31,6 +32,7 @@ type installedRecoveryAuthoritySource interface {
 type installedRecoveryCandidate struct {
 	sourceDigest, manifestDigest, witnessDigest string
 	fenceDigest, envelopeDigest                 string
+	sourceAdmissionDigest                       string
 	consume                                     func(context.Context, func(io.ReadCloser) error) error
 }
 
@@ -56,7 +58,7 @@ func (loader systemInstalledRecoveryLoader) LoadVerified(ctx context.Context, bi
 	recipient := recovery.NewProtectedRecipient(installed.Pin, systemdRecoveryRecipientKeySource{ownerUID: loader.ownerUID})
 	receipts := recovery.NewSystemReceiptStore()
 	return installedRecoveryCandidate{
-		sourceDigest: handoff.SourceDigest, manifestDigest: handoff.ManifestDigest, witnessDigest: handoff.WitnessDigest,
+		sourceDigest: handoff.SourceDigest, manifestDigest: handoff.ManifestDigest, witnessDigest: handoff.WitnessDigest, sourceAdmissionDigest: handoff.SourceAdmissionDigest,
 		fenceDigest: handoff.FenceDigest, envelopeDigest: handoff.EnvelopeDigest,
 		consume: func(consumeCtx context.Context, compare func(io.ReadCloser) error) error {
 			return handoff.ConsumeCustody(consumeCtx, recipient, receipts, compare)
@@ -98,7 +100,7 @@ func (source *installedRecoverySource) VerifyRecovery(ctx context.Context, reque
 		return unavailable, recovery.ErrWitnessUnavailable
 	}
 	candidate, err := source.loader.LoadVerified(ctx, authority.Binding, append([]recovery.BoundaryRequirement(nil), authority.Required...), source.clock().UTC())
-	if err != nil || ctx.Err() != nil || !validInstalledCandidate(candidate) {
+	if err != nil || ctx.Err() != nil || !validInstalledCandidate(candidate) || candidate.sourceAdmissionDigest != request.SourceAdmissionDigest || candidate.fenceDigest != request.FenceQualificationDigest {
 		return unavailable, recovery.ErrWitnessUnavailable
 	}
 	var verified nativecredential.VerifiedDraft
@@ -117,14 +119,15 @@ func (source *installedRecoverySource) VerifyRecovery(ctx context.Context, reque
 		DraftID: request.Draft.DraftID, CiphertextName: request.Draft.CiphertextName, CiphertextFingerprint: verified.CiphertextFingerprint,
 		ReferenceID: request.Draft.ReferenceID, TargetID: request.Draft.TargetID, MaterialVersion: request.Draft.MaterialVersion,
 		PriorRecoveryEpoch: request.PriorRecoveryEpoch, RecoveryEpoch: request.RecoveryEpoch,
-		CustodyProofDigest: candidate.envelopeDigest, FormerControllerFenceDigest: candidate.witnessDigest,
+		CustodyProofDigest: authority.SourceAdmissionDigest, FormerControllerFenceDigest: authority.FenceQualificationDigest,
+		WitnessDigest: candidate.witnessDigest, EnvelopeDigest: candidate.envelopeDigest,
 		ReplacementHostKeyDigest: verified.HostKeyDigest, SourceEvidenceDigest: candidate.sourceDigest,
 	}, nil
 }
 
 func installedAuthorityMatchesRequest(authority installedRecoveryAuthority, request RecoveryCustodyRequest) bool {
 	binding := authority.Binding
-	return len(authority.Required) > 0 && binding.DraftID == request.Draft.DraftID && binding.CiphertextFingerprint == request.Draft.CiphertextFingerprint &&
+	return len(authority.Required) > 0 && authority.SourceAdmissionDigest == request.SourceAdmissionDigest && authority.FenceQualificationDigest == request.FenceQualificationDigest && binding.SourceAdmissionDigest == request.SourceAdmissionDigest && binding.FenceQualificationDigest == request.FenceQualificationDigest && binding.DraftID == request.Draft.DraftID && binding.CiphertextFingerprint == request.Draft.CiphertextFingerprint &&
 		binding.PlanDigest == request.PlanDigest && binding.RunID == request.RunID && binding.StepID == request.StepID && binding.LeaseID == request.LeaseID &&
 		binding.PriorEpoch == request.PriorRecoveryEpoch && binding.NewEpoch == request.RecoveryEpoch && binding.StateRevision == request.StateRevision &&
 		binding.FormerHostID != "" && binding.FormerInstanceID != "" && binding.ReplacementHostID != "" && binding.ReplacementInstanceID != "" &&
@@ -132,6 +135,6 @@ func installedAuthorityMatchesRequest(authority installedRecoveryAuthority, requ
 }
 
 func validInstalledCandidate(candidate installedRecoveryCandidate) bool {
-	return candidate.consume != nil && credentialref.ValidSHA256Digest(candidate.sourceDigest) && credentialref.ValidSHA256Digest(candidate.manifestDigest) &&
+	return candidate.consume != nil && credentialref.ValidSHA256Digest(candidate.sourceAdmissionDigest) && credentialref.ValidSHA256Digest(candidate.sourceDigest) && credentialref.ValidSHA256Digest(candidate.manifestDigest) &&
 		credentialref.ValidSHA256Digest(candidate.witnessDigest) && credentialref.ValidSHA256Digest(candidate.fenceDigest) && credentialref.ValidSHA256Digest(candidate.envelopeDigest)
 }

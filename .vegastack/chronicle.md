@@ -2,6 +2,15 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 23-09-2026 — The native credential lifecycle has one complete software path ([#135](https://github.com/vegastack/vegastack-labs/issues/135))
+
+- **What:** One exact plan/run path now composes inert import, staging, real native consumer verification, bounded-overlap rotation, named revocation and independently evidenced clean-host recovery without exposing credential material.
+- **Why:** The individual lifecycle, consumer, host-authority and recovery components needed a final integrated proof before the native Phase 5 credential work could be considered software-complete.
+- **How it went:** The first Linux run correctly rejected Docker's overlay filesystem. A disposable Debian 13 VM with ext4 then exposed that a rotation successor must be staged before rotation; the corrected full lifecycle passed with positive and denied consumer evidence, restart proof, one-use custody and final status checks.
+- **Changed:** Integrated Linux lifecycle acceptance · final Phase 2 source seal · current lifecycle and gate documentation · identical human fallback and recovery procedure.
+- **Decisions:** none; `G-007` remains evidence-required, the optional 1Password resolver remains unregistered, and production recovery still requires independently enrolled sources, qualified live adapters and current replacement authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/135-f8-transition-api
 ## 23-09-2026 — Local backup repositories have a separate short-lived custodian ([#163](https://github.com/vegastack/vegastack-labs/issues/163))
 
 - **What:** Backup creation and verification now request one bounded custody mode of the existing `vsk-labs` executable through an exact root-owned systemd template. The persistent controller, repository owner and pinned restic process run as three distinct UIDs and exchange only authenticated typed messages.

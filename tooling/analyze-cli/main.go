@@ -1007,12 +1007,12 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	sort.Strings(names)
 	var expected string
 	switch strings.Join(names, ",") {
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source_handoff.go,transport.go,witness.go":
-		expected = "65b3dbb8e27253b48ca8a8f00f18fbaead4c0805f46d799c51fbbc0332c95d00"
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source_handoff.go,transport.go,witness.go":
-		expected = "21122f580683725b5cc0f293943d0f5b391f0b34427428a6d4a0063f864fd033"
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source_handoff.go,transport.go,witness.go":
-		expected = "f920c71a26208d5fb56f7e9d44569c5d3507925ad1827fded64fd7ca65236252"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
+		expected = "26aa0c194f1df8c74c57efaeb0b626c1402a14e5c6ed420262bb6c7e7cdfe433"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
+		expected = "1138578166ca5084503c7df66d832fdf2d8d3341ee2d7172fa493d43a4687bd3"
+	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source_admission.go,source_handoff.go,transport.go,witness.go":
+		expected = "5e5f8477602adba1c602ad405802c189f89e7c14b71c08cc008dad7e6e1dc91f"
 	default:
 		return false
 	}

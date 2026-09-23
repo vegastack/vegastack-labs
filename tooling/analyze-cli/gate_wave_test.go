@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -50,5 +51,26 @@ func TestReviewedCredentialImportAndAuditLocalClientWavesRejectChangedAndAddedSo
 				t.Fatal("added local client source inherited the reviewed wave")
 			}
 		})
+	}
+}
+
+func TestReviewedCredentialLifecycleDispatchRejectsChangedRoute(t *testing.T) {
+	temporary := t.TempDir()
+	files := []string{"audit_client.go", "backup_client.go", "client.go", "credential_client.go", "credential_lifecycle_client.go", "gates_client.go", "listener.go", "listener_linux.go"}
+	for _, name := range files {
+		content, err := os.ReadFile(filepath.Join("..", "..", "internal", "localapi", name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if name == "credential_lifecycle_client.go" {
+			content = []byte(strings.Replace(string(content), "/api/v1/credential-lifecycle-drafts", "/api/v1/credential-references/direct-status", 1))
+		}
+		if err := os.WriteFile(filepath.Join(temporary, name), content, 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{Dir: temporary, GoFiles: files}}}
+	if reviewedLocalAPISource(candidate) {
+		t.Fatal("changed credential lifecycle dispatch inherited the reviewed local client wave")
 	}
 }
