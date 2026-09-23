@@ -219,3 +219,34 @@ func (repository *LocalRetirementRepository) StageLocalRetirement(ctx context.Co
 	request.Survivors = append([]LocalRetirementSurvivor(nil), request.Survivors...)
 	return LocalRetirementIntent{IntentID: intentID, Request: request, CreatedAt: createdAt}, nil
 }
+
+// GetLocalRetirementIntentBySelection resolves only an already-staged immutable
+// intent. It never stages or claims work.
+func (repository *LocalRetirementRepository) GetLocalRetirementIntentBySelection(ctx context.Context, selectionDigest string) (LocalRetirementIntent, error) {
+	var result LocalRetirementIntent
+	if repository == nil || repository.store == nil || !validBackupDigest(selectionDigest) {
+		return result, newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-intent-read", false, nil)
+	}
+	var canonical string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT intent_id,plan_id,plan_digest,repository_id,repository_class,catalog_digest,expected_inventory_digest,lock_catalog_digest,source_coverage_digest,lock_catalog_sequence,selection_digest,canonical_json,source_revision,state_revision,recovery_epoch,expected_reclaim_bytes,max_work_objects,max_mutation_bytes,max_repack_bytes,created_at FROM backup_retirement_intents WHERE selection_digest=?`, selectionDigest).Scan(
+			&result.IntentID, &result.Request.PlanID, &result.Request.PlanDigest, &result.Request.RepositoryID, &result.Request.RepositoryClass,
+			&result.Request.CatalogDigest, &result.Request.ExpectedInventoryDigest, &result.Request.LockCatalogDigest, &result.Request.SourceCoverageDigest,
+			&result.Request.LockCatalogSequence, &result.Request.SelectionDigest, &canonical, &result.Request.SourceRevision, &result.Request.StateRevision,
+			&result.Request.RecoveryEpoch, &result.Request.ExpectedReclaimBytes, &result.Request.MaxWorkObjects, &result.Request.MaxMutationBytes,
+			&result.Request.MaxRepackBytes, &result.CreatedAt)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return result, newStoreError(generated.ErrorCodeResourceNotFound, "local-retirement-intent", false, nil)
+	}
+	if err != nil {
+		return result, err
+	}
+	var stored struct{ Selection retirementSelectionPayload }
+	if json.Unmarshal([]byte(canonical), &stored) != nil || stored.Selection.RepositoryID != result.Request.RepositoryID || stored.Selection.RepositoryClass != result.Request.RepositoryClass {
+		return LocalRetirementIntent{}, newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-intent-read", false, nil)
+	}
+	result.Request.Targets = stored.Selection.Targets
+	result.Request.Survivors = stored.Selection.Survivors
+	return result, nil
+}

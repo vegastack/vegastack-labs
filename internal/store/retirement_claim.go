@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -11,11 +12,11 @@ import (
 )
 
 type LocalRetirementClaimRequest struct {
-	IntentID, LeaseID, PlanID, PlanDigest, RunID, StepID             string
-	ExecutorLeaseID, AcknowledgementID, HumanID, RetentionConsumerID string
-	RecoveryEpoch                                                    int64
-	MaximumExpiresAt                                                 time.Time
-	Attribution                                                      audit.Attribution
+	IntentID, LeaseID, PlanID, PlanDigest, RunID, StepID string
+	ExecutorLeaseID, RetentionConsumerID                 string
+	RecoveryEpoch                                        int64
+	MaximumExpiresAt                                     time.Time
+	Attribution                                          audit.Attribution
 }
 
 type LocalRetirementLease struct {
@@ -30,7 +31,7 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 	var lease LocalRetirementLease
 	if repository == nil || repository.store == nil || !validRetirementID(request.IntentID) || !validRetirementID(request.LeaseID) ||
 		!validRetirementID(request.PlanID) || !validBackupDigest(request.PlanDigest) || !validRetirementID(request.RunID) || !validRetirementID(request.StepID) ||
-		!validRetirementID(request.ExecutorLeaseID) || !validRetirementID(request.AcknowledgementID) || !validRetirementID(request.HumanID) ||
+		!validRetirementID(request.ExecutorLeaseID) ||
 		request.RetentionConsumerID != "backup-retention" || request.RecoveryEpoch < 0 || request.MaximumExpiresAt.IsZero() ||
 		request.Attribution.AuthenticatedPrincipalID == "" || request.Attribution.AuthenticatedPrincipalMethod == "" {
 		return lease, newStoreError(generated.ErrorCodeInputInvalid, "local-retirement-claim", false, nil)
@@ -55,16 +56,43 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 		if currentRevision != stateRevision || currentEpoch != epoch {
 			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-claim", false, nil)
 		}
-		var currentLockDigest, currentCoverage string
+		var currentLockDigest, currentCoverage, lockCanonical string
 		var currentLockSequence int64
-		if err := tx.QueryRowContext(ctx, `SELECT catalog_digest,source_coverage_digest,activation_sequence FROM backup_retention_lock_catalog_activations WHERE repository_class=? AND recovery_epoch=? ORDER BY activation_sequence DESC LIMIT 1`, class, epoch).Scan(&currentLockDigest, &currentCoverage, &currentLockSequence); err != nil || currentLockDigest != lockDigest || currentCoverage != coverage || currentLockSequence != lockSequence {
+		if err := tx.QueryRowContext(ctx, `SELECT catalog_digest,source_coverage_digest,activation_sequence,canonical_json FROM backup_retention_lock_catalog_activations WHERE repository_class=? AND recovery_epoch=? ORDER BY activation_sequence DESC LIMIT 1`, class, epoch).Scan(&currentLockDigest, &currentCoverage, &currentLockSequence, &lockCanonical); err != nil || currentLockDigest != lockDigest || currentCoverage != coverage || currentLockSequence != lockSequence {
 			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-lock-catalog", false, err)
 		}
-		var authorized int
+		var appliedLocks LocalRetentionLockCatalog
+		if json.Unmarshal([]byte(lockCanonical), &appliedLocks) != nil {
+			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-lock-catalog", false, nil)
+		}
+		lockBytes, verifiedLockDigest, lockErr := CanonicalLocalRetentionLockCatalog(appliedLocks)
+		if lockErr != nil || string(lockBytes) != lockCanonical || verifiedLockDigest != lockDigest {
+			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-lock-catalog", false, lockErr)
+		}
+		var acknowledgementID, humanID, executorMaximum, planExpires, acknowledgementExpires string
 		expiry := request.MaximumExpiresAt.Format(time.RFC3339)
-		err := tx.QueryRowContext(ctx, `SELECT COUNT(1) FROM plan_runs r JOIN plan_run_steps s ON s.run_id=r.run_id AND s.step_id=? AND s.status='running' AND s.effect_state='intent-recorded' AND s.operation_type='backup.local.retire' AND s.adapter_id='local.retention' AND s.target_id=? AND s.input_digest=(SELECT selection_digest FROM backup_retirement_intents WHERE intent_id=?) AND s.artifact_digest=? AND s.active_lease_id=? JOIN target_execution_leases e ON e.lease_id=? AND e.run_id=r.run_id AND e.step_id=s.step_id AND e.target_id=? AND e.recovery_epoch=? AND e.status='active' JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id AND a.plan_id=r.plan_id AND a.plan_digest=r.plan_digest AND a.human_id=? AND a.status='approved' AND a.consumed_at IS NOT NULL JOIN acknowledgement_proofs p ON p.acknowledgement_id=a.acknowledgement_id AND p.status='approved' WHERE r.run_id=? AND r.plan_id=? AND r.plan_digest=? AND r.acknowledgement_id=? AND r.executor_mode='central' AND r.status='running'`, request.StepID, repo, request.IntentID, expectedInventory, request.ExecutorLeaseID, request.ExecutorLeaseID, repo, epoch, request.HumanID, request.RunID, request.PlanID, request.PlanDigest, request.AcknowledgementID).Scan(&authorized)
-		if err != nil || authorized != 1 {
+		err := tx.QueryRowContext(ctx, `SELECT a.acknowledgement_id,a.human_id,e.maximum_expires_at,p.expires_at,a.expires_at
+			FROM plan_runs r
+			JOIN immutable_plans p ON p.plan_id=r.plan_id AND p.plan_digest=r.plan_digest
+			JOIN plan_run_steps s ON s.run_id=r.run_id AND s.step_id=? AND s.status='running' AND s.effect_state='intent-recorded'
+				AND s.operation_type='backup.local.retire' AND s.adapter_id='local.retention' AND s.target_id=?
+				AND s.input_digest=(SELECT selection_digest FROM backup_retirement_intents WHERE intent_id=?) AND s.artifact_digest=? AND s.active_lease_id=?
+			JOIN target_execution_leases e ON e.lease_id=? AND e.run_id=r.run_id AND e.step_id=s.step_id AND e.target_id=? AND e.recovery_epoch=? AND e.status='active'
+			JOIN acknowledgement_requests a ON a.acknowledgement_id=r.acknowledgement_id AND a.plan_id=r.plan_id AND a.plan_digest=r.plan_digest
+				AND a.target_digest=(SELECT selection_digest FROM backup_retirement_intents WHERE intent_id=?) AND a.state_revision=? AND a.recovery_epoch=?
+				AND a.status='approved' AND a.consumed_at IS NOT NULL
+			JOIN acknowledgement_proofs ap ON ap.acknowledgement_id=a.acknowledgement_id AND ap.status='approved'
+			WHERE r.run_id=? AND r.plan_id=? AND r.plan_digest=? AND r.executor_mode='central' AND r.status='running'`, request.StepID, repo,
+			request.IntentID, expectedInventory, request.ExecutorLeaseID, request.ExecutorLeaseID, repo, epoch, request.IntentID, stateRevision, epoch,
+			request.RunID, request.PlanID, request.PlanDigest).Scan(&acknowledgementID, &humanID, &executorMaximum, &planExpires, &acknowledgementExpires)
+		if err != nil || acknowledgementID == "" || humanID == "" {
 			return newStoreError(generated.ErrorCodeAuthorizationDenied, "local-retirement-human-run", false, err)
+		}
+		for _, encoded := range []string{executorMaximum, planExpires, acknowledgementExpires} {
+			deadline, parseErr := time.Parse(time.RFC3339, encoded)
+			if parseErr != nil || request.MaximumExpiresAt.After(deadline) {
+				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-deadline", false, parseErr)
+			}
 		}
 		var competing int
 		if err := tx.QueryRowContext(ctx, `SELECT (SELECT COUNT(*) FROM backup_writer_leases WHERE repository_class=? AND released_at IS NULL)+(SELECT COUNT(*) FROM backup_read_leases WHERE repository_class=? AND released_at IS NULL)+(SELECT COUNT(*) FROM backup_retirement_leases WHERE repository_class=? AND released_at IS NULL)`, class, class, class).Scan(&competing); err != nil || competing != 0 {
@@ -73,6 +101,54 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 		var points int
 		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM recovery_points WHERE repository_id=? AND repository_class=? AND recovery_epoch=?`, repo, class, epoch).Scan(&points); err != nil || int64(points) != targetCount+survivorCount {
 			return newStoreError(generated.ErrorCodePlanStale, "local-retirement-point-set", false, err)
+		}
+		var staged struct {
+			Selection retirementSelectionPayload
+		}
+		if json.Unmarshal([]byte(canonical), &staged) != nil || int64(len(staged.Selection.Targets)) != targetCount || int64(len(staged.Selection.Survivors)) != survivorCount {
+			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-selection", false, nil)
+		}
+		survivors := make(map[string]bool, len(staged.Selection.Survivors))
+		for _, survivor := range staged.Selection.Survivors {
+			survivors[survivor.PointID] = true
+			var fullText, restoredText, policyJSON string
+			if err := tx.QueryRowContext(ctx, `SELECT v.full_read_at,v.functional_restored_at,d.canonical_json
+				FROM recovery_points p JOIN backup_local_verifications v ON v.point_id=p.point_id
+				JOIN backup_policy_drafts d ON d.policy_digest=p.policy_digest AND d.recovery_epoch=p.recovery_epoch
+				WHERE p.point_id=? AND p.snapshot_id=? AND p.repository_id=? AND p.repository_class=? AND p.manifest_digest=? AND p.inventory_digest=?
+				AND p.source_revision=? AND p.recovery_epoch=? AND v.proof_digest=? AND v.status='local-verified' AND v.proof_class='live'
+				AND v.manifest_digest=? AND v.inventory_digest=? AND v.dependency_digest=? AND v.state_revision=? AND v.recovery_epoch=?
+				AND v.full_read_at IS NOT NULL AND v.functional_restored_at IS NOT NULL`, survivor.PointID, survivor.SnapshotID, repo, class,
+				survivor.ManifestDigest, survivor.InventoryDigest, sourceRevision, epoch, survivor.ProofDigest, survivor.ManifestDigest,
+				survivor.InventoryDigest, survivor.DependencyDigest, stateRevision, epoch).Scan(&fullText, &restoredText, &policyJSON); err != nil {
+				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-survivor-proof", false, err)
+			}
+			var policy generated.BackupPolicy
+			fullAt, fullErr := time.Parse(time.RFC3339, fullText)
+			restoredAt, restoreErr := time.Parse(time.RFC3339, restoredText)
+			if json.Unmarshal([]byte(policyJSON), &policy) != nil || policy.SchemaVersion != "1.2.0" ||
+				policy.FullPayloadIntervalHours < 1 || policy.FullPayloadIntervalHours > 8760 ||
+				policy.FunctionalTestIntervalHours < 1 || policy.FunctionalTestIntervalHours > 8760 || fullErr != nil || restoreErr != nil ||
+				!now.Before(fullAt.Add(time.Duration(policy.FullPayloadIntervalHours)*time.Hour)) ||
+				!now.Before(restoredAt.Add(time.Duration(policy.FunctionalTestIntervalHours)*time.Hour)) {
+				return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-survivor-cadence", false, nil)
+			}
+		}
+		for _, target := range staged.Selection.Targets {
+			var exact int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM recovery_points WHERE point_id=? AND snapshot_id=? AND repository_id=? AND repository_class=? AND manifest_digest=? AND inventory_digest=? AND source_revision=? AND recovery_epoch=?`,
+				target.PointID, target.SnapshotID, repo, class, target.ManifestDigest, target.InventoryDigest, sourceRevision, epoch).Scan(&exact); err != nil || exact != 1 {
+				return newStoreError(generated.ErrorCodePlanStale, "local-retirement-target", false, err)
+			}
+		}
+		for _, lock := range appliedLocks.Locks {
+			if !survivors[lock.PointID] {
+				return newStoreError(generated.ErrorCodeAuthorizationDenied, "local-retirement-locked-point", false, nil)
+			}
+		}
+		var lastGood string
+		if err := tx.QueryRowContext(ctx, `SELECT point_id FROM backup_local_last_good WHERE repository_class=? AND recovery_epoch=?`, class, epoch).Scan(&lastGood); err != nil || !survivors[lastGood] {
+			return newStoreError(generated.ErrorCodePrerequisiteBlocked, "local-retirement-last-good", false, err)
 		}
 		rows, err := tx.QueryContext(ctx, `SELECT json_extract(value,'$.SnapshotID') FROM json_each(json_extract(?,'$.Selection.Targets')) ORDER BY 1`, canonical)
 		if err != nil {
@@ -90,7 +166,7 @@ func (repository *LocalRetirementRepository) ClaimLocalRetirement(ctx context.Co
 		if int64(len(snapshots)) != targetCount {
 			return newStoreError(generated.ErrorCodeIntegrityFailure, "local-retirement-targets", false, nil)
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO backup_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,retention_consumer_id,repository_class,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL)`, request.LeaseID, request.IntentID, request.RunID, request.StepID, request.ExecutorLeaseID, request.AcknowledgementID, request.HumanID, request.RetentionConsumerID, class, epoch, expiry, now.Format(time.RFC3339))
+		_, err = tx.ExecContext(ctx, `INSERT INTO backup_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,retention_consumer_id,repository_class,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL)`, request.LeaseID, request.IntentID, request.RunID, request.StepID, request.ExecutorLeaseID, acknowledgementID, humanID, request.RetentionConsumerID, class, epoch, expiry, now.Format(time.RFC3339))
 		if err != nil {
 			return err
 		}

@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -103,7 +104,7 @@ func (runner *resticRunner) runSealed(ctx context.Context, request ResticRequest
 	if mode == "" {
 		mode = "backup"
 	}
-	if mode != "backup" && mode != "init" && mode != "config" && mode != "snapshots" && mode != "check-full" && mode != "restore" {
+	if mode != "backup" && mode != "init" && mode != "config" && mode != "snapshots" && mode != "check-full" && mode != "restore" && mode != "forget-dry-run" && mode != "forget" && mode != "prune" {
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
 	}
 	if mode == "backup" && request.SnapshotPath == "" {
@@ -111,6 +112,12 @@ func (runner *resticRunner) runSealed(ctx context.Context, request ResticRequest
 	}
 	if mode == "restore" && (!validObjectName(request.SnapshotID) || !safeRestoreTarget(request)) {
 		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic", false)
+	}
+	if (mode == "forget" || mode == "forget-dry-run") && !validRetentionSnapshotIDs(request.SnapshotIDs) {
+		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic-retention", false)
+	}
+	if mode == "prune" && (len(request.SnapshotIDs) != 0 || request.MaxRepackBytes < 1 || request.MaxRepackBytes > maxObjectBytes) {
+		return ResticResult{}, failure.New(generated.ErrorCodeInputInvalid, "backup-restic-retention", false)
 	}
 
 	argv := []string{
@@ -129,6 +136,14 @@ func (runner *resticRunner) runSealed(ctx context.Context, request ResticRequest
 		argv = append(argv, "check", "--read-data")
 	} else if mode == "restore" {
 		argv = append(argv, "restore", request.SnapshotID, "--target", request.RestoreTarget)
+	} else if mode == "forget" || mode == "forget-dry-run" {
+		argv = append(argv, "forget")
+		if mode == "forget-dry-run" {
+			argv = append(argv, "--dry-run")
+		}
+		argv = append(argv, request.SnapshotIDs...)
+	} else if mode == "prune" {
+		argv = append(argv, "prune", "--max-unused", "0", "--max-repack-size", strconv.FormatInt(request.MaxRepackBytes, 10))
 	} else {
 		argv = append(argv, "backup", request.SnapshotPath, "--host", "vsk-labs")
 	}
@@ -186,7 +201,7 @@ func (runner *resticRunner) runSealed(ctx context.Context, request ResticRequest
 		}
 		return ResticResult{SnapshotIDs: ids, SnapshotPaths: paths, RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
 	}
-	if mode == "check-full" || mode == "restore" {
+	if mode == "check-full" || mode == "restore" || mode == "forget" || mode == "forget-dry-run" || mode == "prune" {
 		return ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}, nil
 	}
 
@@ -433,4 +448,18 @@ func (writer *boundedWriter) Write(data []byte) (int, error) {
 	writer.buffer.Write(data)
 	writer.written += int64(len(data))
 	return len(data), nil
+}
+
+func validRetentionSnapshotIDs(ids []string) bool {
+	if len(ids) == 0 || len(ids) > 256 {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, id := range ids {
+		if !validObjectName(id) || seen[id] {
+			return false
+		}
+		seen[id] = true
+	}
+	return true
 }

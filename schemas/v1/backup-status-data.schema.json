@@ -212,6 +212,126 @@
       ],
       "type": "object"
     },
+    "backup-local-retirement-status": {
+      "additionalProperties": false,
+      "properties": {
+        "expectedInventoryDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "expectedReclaimBytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "intentId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "journalDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lockCatalogDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "lockCatalogSequence": {
+          "minimum": 1,
+          "type": "integer"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "repositoryClass": {
+          "enum": [
+            "standard",
+            "critical"
+          ],
+          "type": "string"
+        },
+        "repositoryId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-local-retirement-status"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.1.0"
+          ],
+          "type": "string"
+        },
+        "selectionDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "sourceCoverageDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "in-progress",
+            "uncertain",
+            "verified",
+            "failed"
+          ],
+          "type": "string"
+        },
+        "survivorPointIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array",
+          "uniqueItems": true
+        },
+        "survivorVerificationDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "targetPointIds": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 256,
+          "type": "array",
+          "uniqueItems": true
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "intentId",
+        "repositoryId",
+        "repositoryClass",
+        "status",
+        "selectionDigest",
+        "lockCatalogDigest",
+        "lockCatalogSequence",
+        "sourceCoverageDigest",
+        "expectedInventoryDigest",
+        "targetPointIds",
+        "survivorPointIds",
+        "expectedReclaimBytes",
+        "journalDigest",
+        "survivorVerificationDigest",
+        "recoveryEpoch"
+      ],
+      "type": "object"
+    },
     "backup-policy": {
       "additionalProperties": false,
       "properties": {
@@ -498,6 +618,13 @@
       "minimum": 0,
       "type": "integer"
     },
+    "retirements": {
+      "items": {
+        "$ref": "#/$defs/backup-local-retirement-status"
+      },
+      "maxItems": 256,
+      "type": "array"
+    },
     "schema": {
       "enum": [
         "vegastack-labs.dev/backup-status-data"
@@ -506,7 +633,7 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.1.0"
+        "1.2.0"
       ],
       "type": "string"
     },
@@ -525,6 +652,7 @@
     "jobs",
     "verifications",
     "lastGood",
+    "retirements",
     "recoveryEpoch"
   ],
   "title": "VegaStack Labs backup status data",

@@ -53,7 +53,7 @@ func newRetentionRESTServer(root, quarantine string, ownerUID, peerUID uint32, l
 	if err := validateOwnedDirectoryDescriptor(parentFD, ownerUID); err != nil {
 		return nil, fmt.Errorf("quarantine parent: %w", err)
 	}
-	if err := unix.Mkdirat(parentFD, filepath.Base(quarantine), 0o700); err != nil {
+	if err := unix.Mkdirat(parentFD, filepath.Base(quarantine), 0o700); err != nil && !errors.Is(err, unix.EEXIST) {
 		return nil, err
 	}
 	if err := unix.Fsync(parentFD); err != nil {

@@ -10,6 +10,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
+	"github.com/vegastack/vegastack-labs/internal/adapter/localretention"
 	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/backup"
@@ -207,6 +208,16 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		})
 		if adapterErr == nil {
 			if registerErr := adapters.Register(localbackup.AdapterID, localAdapter); registerErr != nil {
+				_ = application.Shutdown(ctx)
+				return registerErr
+			}
+		}
+		retirementAdapter, retirementErr := localretention.New(localretention.Config{
+			LocalBackup: profile.LocalBackup, ExpectedUID: profile.SocketOwnerUID, Backups: store.NewBackupRepository(authority),
+			Retirements: store.NewLocalRetirementRepository(authority), Inspector: inspector, Clock: time.Now,
+		})
+		if retirementErr == nil {
+			if registerErr := adapters.Register(localretention.AdapterID, retirementAdapter); registerErr != nil {
 				_ = application.Shutdown(ctx)
 				return registerErr
 			}

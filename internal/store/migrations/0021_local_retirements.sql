@@ -171,3 +171,19 @@ CREATE TABLE backup_retirement_finalizations (
 ) STRICT;
 CREATE TRIGGER backup_retirement_finalizations_no_update BEFORE UPDATE ON backup_retirement_finalizations BEGIN SELECT RAISE(ABORT,'retirement finalizations are append-only'); END;
 CREATE TRIGGER backup_retirement_finalizations_no_delete BEFORE DELETE ON backup_retirement_finalizations BEGIN SELECT RAISE(ABORT,'retirement finalizations are append-only'); END;
+
+CREATE TABLE backup_retirement_custody_attempts (
+    attempt_id TEXT PRIMARY KEY,
+    lease_id TEXT NOT NULL REFERENCES backup_retirement_leases(lease_id),
+    nonce_digest TEXT NOT NULL UNIQUE,
+    begun_at TEXT NOT NULL
+) STRICT;
+CREATE TRIGGER backup_retirement_custody_attempts_no_update BEFORE UPDATE ON backup_retirement_custody_attempts BEGIN SELECT RAISE(ABORT,'retirement custody attempts are append-only'); END;
+CREATE TRIGGER backup_retirement_custody_attempts_no_delete BEFORE DELETE ON backup_retirement_custody_attempts BEGIN SELECT RAISE(ABORT,'retirement custody attempts are append-only'); END;
+CREATE TABLE backup_retirement_custody_outcomes (
+    attempt_id TEXT PRIMARY KEY REFERENCES backup_retirement_custody_attempts(attempt_id),
+    outcome TEXT NOT NULL CHECK (outcome IN ('succeeded','failed','uncertain')),
+    recorded_at TEXT NOT NULL
+) STRICT;
+CREATE TRIGGER backup_retirement_custody_outcomes_no_update BEFORE UPDATE ON backup_retirement_custody_outcomes BEGIN SELECT RAISE(ABORT,'retirement custody outcomes are append-only'); END;
+CREATE TRIGGER backup_retirement_custody_outcomes_no_delete BEFORE DELETE ON backup_retirement_custody_outcomes BEGIN SELECT RAISE(ABORT,'retirement custody outcomes are append-only'); END;

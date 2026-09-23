@@ -49,6 +49,7 @@ const (
 	SchemaIDBackupDependency                = "vegastack-labs.dev/backup-dependency"
 	SchemaIDBackupJob                       = "vegastack-labs.dev/backup-job"
 	SchemaIDBackupLastGood                  = "vegastack-labs.dev/backup-last-good"
+	SchemaIDBackupLocalRetirementStatus     = "vegastack-labs.dev/backup-local-retirement-status"
 	SchemaIDBackupPolicy                    = "vegastack-labs.dev/backup-policy"
 	SchemaIDBackupPolicyDraftRequest        = "vegastack-labs.dev/backup-policy-draft-request"
 	SchemaIDBackupPolicyDraftSubmission     = "vegastack-labs.dev/backup-policy-draft-submission"
@@ -628,6 +629,26 @@ type BackupLastGood struct {
 	RecoveryEpoch   int64  `json:"recoveryEpoch"`
 }
 
+type BackupLocalRetirementStatus struct {
+	Schema                     string   `json:"schema"`
+	SchemaVersion              string   `json:"schemaVersion"`
+	IntentID                   string   `json:"intentId"`
+	RepositoryID               string   `json:"repositoryId"`
+	RepositoryClass            string   `json:"repositoryClass"`
+	Status                     string   `json:"status"`
+	SelectionDigest            string   `json:"selectionDigest"`
+	LockCatalogDigest          string   `json:"lockCatalogDigest"`
+	LockCatalogSequence        int64    `json:"lockCatalogSequence"`
+	SourceCoverageDigest       string   `json:"sourceCoverageDigest"`
+	ExpectedInventoryDigest    string   `json:"expectedInventoryDigest"`
+	TargetPointIDs             []string `json:"targetPointIds"`
+	SurvivorPointIDs           []string `json:"survivorPointIds"`
+	ExpectedReclaimBytes       int64    `json:"expectedReclaimBytes"`
+	JournalDigest              *string  `json:"journalDigest"`
+	SurvivorVerificationDigest *string  `json:"survivorVerificationDigest"`
+	RecoveryEpoch              int64    `json:"recoveryEpoch"`
+}
+
 type BackupPolicy struct {
 	Schema                      string             `json:"schema"`
 	SchemaVersion               string             `json:"schemaVersion"`
@@ -690,13 +711,14 @@ type BackupRunRequest struct {
 }
 
 type BackupStatusData struct {
-	Schema        string                      `json:"schema"`
-	SchemaVersion string                      `json:"schemaVersion"`
-	Policies      []BackupPolicy              `json:"policies"`
-	Jobs          []BackupJob                 `json:"jobs"`
-	Verifications []BackupVerificationAttempt `json:"verifications"`
-	LastGood      []BackupLastGood            `json:"lastGood"`
-	RecoveryEpoch int64                       `json:"recoveryEpoch"`
+	Schema        string                        `json:"schema"`
+	SchemaVersion string                        `json:"schemaVersion"`
+	Policies      []BackupPolicy                `json:"policies"`
+	Jobs          []BackupJob                   `json:"jobs"`
+	Verifications []BackupVerificationAttempt   `json:"verifications"`
+	LastGood      []BackupLastGood              `json:"lastGood"`
+	Retirements   []BackupLocalRetirementStatus `json:"retirements"`
+	RecoveryEpoch int64                         `json:"recoveryEpoch"`
 }
 
 type BackupVerificationAttempt struct {

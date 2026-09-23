@@ -117,7 +117,7 @@ func TestBackupStatusRequiresCurrentGlobalReadTarget(t *testing.T) {
 		seen = target
 		return authorization.ReadScope{PrincipalID: "human-run-test", Capability: target.Capability, ResourceKind: target.ResourceKind, ScopeDigest: "scope-test", GrantRevision: 1}, nil
 	})
-	status := backupStatusStub{data: generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.1.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}}}
+	status := backupStatusStub{data: generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.2.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}}}
 	if err := RegisterBackupOperations(app, BackupOperations{Drafts: &backupDraftServiceStub{}, Status: status, Runs: RunOperationConfig{Runs: runs, Plans: runs, Acknowledgements: runs, Results: app.config.Results, Authorization: app.effective}, Results: app.config.Results}); err != nil {
 		t.Fatal(err)
 	}
@@ -138,7 +138,7 @@ func TestBackupVerifyRouteRequiresExactPointPlanAndHumanAcknowledgement(t *testi
 	runs := &runAPIStub{plan: plan, run: apiRunResult(plan)}
 	app := newRunTestApplication(t, runs)
 	point := "point-test"
-	status := backupStatusStub{data: generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.1.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-test", SourceKind: "fixture", ProofClass: "fixture", PointID: &point, Status: "pending", RecoveryEpoch: plan.Binding.RecoveryEpoch}}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, RecoveryEpoch: plan.Binding.RecoveryEpoch}}
+	status := backupStatusStub{data: generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.2.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-test", SourceKind: "fixture", ProofClass: "fixture", PointID: &point, Status: "pending", RecoveryEpoch: plan.Binding.RecoveryEpoch}}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, RecoveryEpoch: plan.Binding.RecoveryEpoch}}
 	config := BackupOperations{Drafts: &backupDraftServiceStub{}, Status: status, Runs: RunOperationConfig{Runs: runs, Plans: runs, Acknowledgements: runs, Results: app.config.Results, Authorization: app.effective}, Results: app.config.Results}
 	if err := RegisterBackupOperations(app, config); err != nil {
 		t.Fatal(err)

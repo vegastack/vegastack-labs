@@ -282,7 +282,16 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 	if err := retirement.FinishLocalMutation(ctx, created); err == nil {
 		t.Fatal("duplicate mutation outcome silently rewritten")
 	}
-	unresolved.ObjectName = strings.Repeat("e", 64)
+	createdDelete := mutation
+	createdDelete.MutationID, createdDelete.Sequence, createdDelete.MutationKind = "mutation-two", 2, "delete"
+	if err := retirement.BeginLocalMutation(ctx, createdDelete); err != nil {
+		t.Fatalf("same-lease prune object could not be quarantined: %v", err)
+	}
+	if err := retirement.FinishLocalMutation(ctx, LocalRetirementMutationOutcome{MutationID: createdDelete.MutationID, LeaseID: createdDelete.LeaseID,
+		Status: "quarantined", QuarantineName: "data/" + createdDelete.ObjectName, Attribution: request.Attribution}); err != nil {
+		t.Fatalf("same-lease prune quarantine not durable: %v", err)
+	}
+	unresolved.MutationID, unresolved.Sequence, unresolved.ObjectName = "mutation-three", 3, strings.Repeat("e", 64)
 	if err := retirement.BeginLocalMutation(ctx, unresolved); err != nil {
 		t.Fatalf("settled prior attempt did not admit next bounded attempt: %v", err)
 	}
@@ -291,7 +300,7 @@ func TestUnreconciledRetentionLeaseExcludesBackupWriterAndReader(t *testing.T) {
 		t.Fatalf("uncertain outcome was not durable: %v", err)
 	}
 	third := unresolved
-	third.MutationID, third.Sequence, third.ObjectName = "mutation-three", 3, strings.Repeat("d", 64)
+	third.MutationID, third.Sequence, third.ObjectName = "mutation-four", 4, strings.Repeat("d", 64)
 	if err := retirement.BeginLocalMutation(ctx, third); Code(err) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatalf("uncertain outcome admitted another mutation: %v", err)
 	}

@@ -65,7 +65,7 @@ func (app *App) runBackupOperation(ctx context.Context, mode outputMode, parsed 
 		if mode == outputJSON {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
-		_, err = fmt.Fprintf(app.stdout, "%d backup jobs, %d local verification attempts, %d last-good points.\n", len(response.Data.Jobs), len(response.Data.Verifications), len(response.Data.LastGood))
+		_, err = fmt.Fprintf(app.stdout, "%d backup jobs, %d local verification attempts, %d last-good points, %d local retirement intents.\n", len(response.Data.Jobs), len(response.Data.Verifications), len(response.Data.LastGood), len(response.Data.Retirements))
 		if err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}

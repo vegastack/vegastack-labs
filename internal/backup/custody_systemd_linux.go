@@ -855,6 +855,11 @@ func prepareBrokeredRestic(policy CustodyPolicy, session CustodySession, reposit
 			return nil, errors.New("unexpected exchange path")
 		}
 		return nil, nil
+	case "forget-dry-run", "forget", "prune":
+		if session.Role != "retention" || request.SnapshotPath != "" || request.RestoreTarget != "" {
+			return nil, errors.New("retention restic outside custody policy")
+		}
+		return nil, nil
 	default:
 		return nil, errors.New("restic mode outside custody policy")
 	}

@@ -3223,6 +3223,11 @@
       "artifactPath": "schemas/v1/backup-last-good.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/backup-local-retirement-status",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/backup-local-retirement-status.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/backup-policy",
       "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-policy.schema.json"
@@ -3244,7 +3249,7 @@
     },
     {
       "id": "vegastack-labs.dev/backup-status-data",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "artifactPath": "schemas/v1/backup-status-data.schema.json"
     },
     {

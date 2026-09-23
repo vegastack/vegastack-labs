@@ -13,6 +13,7 @@ const (
 	backupJobSchemaID                     = "vegastack-labs.dev/backup-job"
 	backupVerificationAttemptSchemaID     = "vegastack-labs.dev/backup-verification-attempt"
 	backupLastGoodSchemaID                = "vegastack-labs.dev/backup-last-good"
+	backupLocalRetirementStatusSchemaID   = "vegastack-labs.dev/backup-local-retirement-status"
 	recoveryPointSchemaID                 = "vegastack-labs.dev/recovery-point"
 	auditCheckpointSchemaID               = "vegastack-labs.dev/audit-checkpoint"
 	restoreBindingSchemaID                = "vegastack-labs.dev/restore-binding"
@@ -101,6 +102,13 @@ func phase5BackupSchema(identifier string, fields ...FieldDefinition) SchemaDefi
 
 func phase5BackupPolicySchema(fields ...FieldDefinition) SchemaDefinition {
 	schema := phase5BackupSchema(backupPolicySchemaID, fields...)
+	schema.Version = "1.2.0"
+	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
+func phase5BackupStatusSchema(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5BackupSchema(backupStatusDataSchemaID, fields...)
 	schema.Version = "1.2.0"
 	schema.Fields[1].Enum = []string{"1.2.0"}
 	return schema
@@ -303,6 +311,18 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 		phase5BackupSchema(backupLastGoodSchemaID,
 			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"), phase5ID("pointId", "PointID"),
 			phase5ID("verificationId", "VerificationID"), phase5Digest("manifestDigest", "ManifestDigest"),
+			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5BackupSchema(backupLocalRetirementStatusSchemaID,
+			phase5ID("intentId", "IntentID"), phase5ID("repositoryId", "RepositoryID"),
+			phase5Enum("repositoryClass", "RepositoryClass", "standard", "critical"),
+			phase5Enum("status", "Status", "planned", "in-progress", "uncertain", "verified", "failed"),
+			phase5Digest("selectionDigest", "SelectionDigest"), phase5Digest("lockCatalogDigest", "LockCatalogDigest"),
+			phase5Positive("lockCatalogSequence", "LockCatalogSequence"), phase5Digest("sourceCoverageDigest", "SourceCoverageDigest"),
+			phase5Digest("expectedInventoryDigest", "ExpectedInventoryDigest"),
+			phase5IDs("targetPointIds", "TargetPointIDs", 256), phase5IDs("survivorPointIds", "SurvivorPointIDs", 256),
+			phase5Nonnegative("expectedReclaimBytes", "ExpectedReclaimBytes"),
+			phase5NullableDigest("journalDigest", "JournalDigest"), phase5NullableDigest("survivorVerificationDigest", "SurvivorVerificationDigest"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5BackupSchema(recoveryPointSchemaID,
@@ -564,11 +584,12 @@ func phase5RequestSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "gates", GoName: "Gates", Kind: ValueArray, Required: true, ItemRef: gateViewSchemaID, MaxItems: intPointer(256)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
-		phase5BackupSchema(backupStatusDataSchemaID,
+		phase5BackupStatusSchema(
 			FieldDefinition{JSONName: "policies", GoName: "Policies", Kind: ValueArray, Required: true, ItemRef: backupPolicySchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "jobs", GoName: "Jobs", Kind: ValueArray, Required: true, ItemRef: backupJobSchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "verifications", GoName: "Verifications", Kind: ValueArray, Required: true, ItemRef: backupVerificationAttemptSchemaID, MaxItems: intPointer(256)},
 			FieldDefinition{JSONName: "lastGood", GoName: "LastGood", Kind: ValueArray, Required: true, ItemRef: backupLastGoodSchemaID, MaxItems: intPointer(16)},
+			FieldDefinition{JSONName: "retirements", GoName: "Retirements", Kind: ValueArray, Required: true, ItemRef: backupLocalRetirementStatusSchemaID, MaxItems: intPointer(256)},
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(auditCheckpointListDataSchemaID,

@@ -346,6 +346,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	localTransportImport := modulePath + "/internal/localtransport"
 	sshTransportImport := modulePath + "/internal/sshtransport"
 	nativeCredentialImport := modulePath + "/internal/adapter/nativecredential"
+	localRetentionImport := modulePath + "/internal/adapter/localretention"
 	backupImport := modulePath + "/internal/backup"
 	cliImport := modulePath + "/internal/cli"
 	clientFileImport := modulePath + "/internal/clientfile"
@@ -400,6 +401,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			return analysis{}, err
 		}
 		checked[candidate.ImportPath] = parsed.infoPackage()
+		if candidate.ImportPath == localRetentionImport && !reviewedLocalRetentionPackage(parsed, localRetentionImport) {
+			result.ControlProviderAccess = true
+		}
 		if candidate.ImportPath == mainImport && !reviewedMainComposition(parsed, modulePath, cliImport, clientFileImport, releaseImport, serverImport) {
 			result.ControlProviderAccess = true
 		}
@@ -1179,9 +1183,35 @@ var forbiddenBackupProcessPatterns = []string{"RESTIC_PASSWORD_COMMAND", "RESTIC
 // os/exec: the pinned restic runner and the exact systemd custody launcher.
 // Each file is byte-pinned so neither authority can silently expand.
 var reviewedBackupSubprocesses = map[string]string{
-	"restic_linux.go":          "e76bbe0f63392dba83622c8cc4d2caf6466d556cf4d4e1416607c1d2878a5b37",
-	"custody_process_linux.go": "a964582435dba39b32e4848e951ad4da0f064f5fe4d0c04304714ae04329c7f1",
-	"custody_systemd_linux.go": "687486882f2790caef88bf73b0bf01fe5ba99d5503d0607aac4799c10c82a43c",
+	"restic_linux.go":          "31b9bdb45f88d903cd9c2c483b4832f400b34d7be6d4b572b37297334fbfdae9",
+	"custody_process_linux.go": "ff64cee65c3ad90e036d8cd69f48a575ec0dfa7dceca436c00e7cbd4852256e8",
+	"custody_systemd_linux.go": "d0e1448c6169ea2c4ef443752c9857fcfb1ff2f9cb7e2d1e473b3bcc0114d69b",
+}
+
+var reviewedLocalRetentionSources = map[string]string{
+	"adapter_linux.go":       "983e2a251ce4853f0cecd5244020c66b5995890ed948169eb560fe721d2b6ec3",
+	"adapter_unsupported.go": "d3cf269cde1eee954a7253dccbea4acea06058b0c7322b185d527c742f81b126",
+}
+
+func reviewedLocalRetentionPackage(candidate checkedSourcePackage, importPath string) bool {
+	if candidate.listed.ImportPath != importPath || len(candidate.listed.GoFiles) != 1 {
+		return false
+	}
+	name := candidate.listed.GoFiles[0]
+	expected, ok := reviewedLocalRetentionSources[name]
+	if !ok || digestSourceFiles(candidate.listed.Dir, []string{name}) != expected {
+		return false
+	}
+	source, err := os.ReadFile(filepath.Join(candidate.listed.Dir, name))
+	if err != nil {
+		return false
+	}
+	for _, forbidden := range []string{"BranchPreauthorized", "--no-lock", "unsafe-recover-no-free-space"} {
+		if strings.Contains(string(source), forbidden) {
+			return false
+		}
+	}
+	return true
 }
 
 // reviewedBackupProcessPackage allows os/exec only in the exact reviewed backup

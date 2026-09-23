@@ -284,6 +284,26 @@ export interface BackupLastGood {
   readonly "recoveryEpoch": number;
 }
 
+export interface BackupLocalRetirementStatus {
+  readonly "schema": "vegastack-labs.dev/backup-local-retirement-status";
+  readonly "schemaVersion": "1.1.0";
+  readonly "intentId": string;
+  readonly "repositoryId": string;
+  readonly "repositoryClass": "standard" | "critical";
+  readonly "status": "planned" | "in-progress" | "uncertain" | "verified" | "failed";
+  readonly "selectionDigest": string;
+  readonly "lockCatalogDigest": string;
+  readonly "lockCatalogSequence": number;
+  readonly "sourceCoverageDigest": string;
+  readonly "expectedInventoryDigest": string;
+  readonly "targetPointIds": ReadonlyArray<string>;
+  readonly "survivorPointIds": ReadonlyArray<string>;
+  readonly "expectedReclaimBytes": number;
+  readonly "journalDigest": string | null;
+  readonly "survivorVerificationDigest": string | null;
+  readonly "recoveryEpoch": number;
+}
+
 export interface BackupPolicy {
   readonly "schema": "vegastack-labs.dev/backup-policy";
   readonly "schemaVersion": "1.2.0";
@@ -312,11 +332,12 @@ export interface BackupPolicy {
 
 export interface BackupStatusData {
   readonly "schema": "vegastack-labs.dev/backup-status-data";
-  readonly "schemaVersion": "1.1.0";
+  readonly "schemaVersion": "1.2.0";
   readonly "policies": ReadonlyArray<BackupPolicy>;
   readonly "jobs": ReadonlyArray<BackupJob>;
   readonly "verifications": ReadonlyArray<BackupVerificationAttempt>;
   readonly "lastGood": ReadonlyArray<BackupLastGood>;
+  readonly "retirements": ReadonlyArray<BackupLocalRetirementStatus>;
   readonly "recoveryEpoch": number;
 }
 
@@ -2145,6 +2166,147 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
     ]
   },
   {
+    "id": "vegastack-labs.dev/backup-local-retirement-status",
+    "fields": [
+      {
+        "name": "schema",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "vegastack-labs.dev/backup-local-retirement-status"
+        ]
+      },
+      {
+        "name": "schemaVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "1.1.0"
+        ]
+      },
+      {
+        "name": "intentId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "repositoryId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "repositoryClass",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "standard",
+          "critical"
+        ]
+      },
+      {
+        "name": "status",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "planned",
+          "in-progress",
+          "uncertain",
+          "verified",
+          "failed"
+        ]
+      },
+      {
+        "name": "selectionDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "lockCatalogDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "lockCatalogSequence",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "sourceCoverageDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "expectedInventoryDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "targetPointIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 256,
+        "uniqueItems": true
+      },
+      {
+        "name": "survivorPointIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 256,
+        "uniqueItems": true
+      },
+      {
+        "name": "expectedReclaimBytes",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "journalDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "survivorVerificationDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": true,
+        "pattern": "^sha256:[a-f0-9]{64}$"
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      }
+    ]
+  },
+  {
     "id": "vegastack-labs.dev/backup-policy",
     "fields": [
       {
@@ -2345,7 +2507,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.1.0"
+          "1.2.0"
         ]
       },
       {
@@ -2379,6 +2541,14 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "nullable": false,
         "itemRef": "vegastack-labs.dev/backup-last-good",
         "maxItems": 16
+      },
+      {
+        "name": "retirements",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemRef": "vegastack-labs.dev/backup-local-retirement-status",
+        "maxItems": 256
       },
       {
         "name": "recoveryEpoch",
@@ -4891,6 +5061,10 @@ function decodeBackupJob(value: unknown): BackupJob {
 
 function decodeBackupLastGood(value: unknown): BackupLastGood {
   return decodeSchema("vegastack-labs.dev/backup-last-good", value) as unknown as BackupLastGood;
+}
+
+function decodeBackupLocalRetirementStatus(value: unknown): BackupLocalRetirementStatus {
+  return decodeSchema("vegastack-labs.dev/backup-local-retirement-status", value) as unknown as BackupLocalRetirementStatus;
 }
 
 function decodeBackupPolicy(value: unknown): BackupPolicy {
