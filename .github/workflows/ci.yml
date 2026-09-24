@@ -155,9 +155,11 @@ jobs:
         run: |
           git checkout --detach 55438e62ce3181eb19694b4dd0fce237efb905d8
           test -z "$(git status --porcelain)"
-          pnpm --filter @vegastack/labs-web build
+          runtime_root="$(mktemp -d -p "$TMPDIR" phase5-runtime.XXXXXX)"
+          printf 'ID=debian\nVERSION_ID=13\n' > "$runtime_root/os-release"
+          go build -race -ldflags "-X github.com/vegastack/vegastack-labs/internal/server.productionDatabasePath=$runtime_root/control.db -X github.com/vegastack/vegastack-labs/internal/server.runtimeOSReleasePath=$runtime_root/os-release" -o "$runtime_root/vsk-labs" ./cmd/vsk-labs
           test -z "$(git status --porcelain)"
-          node tooling/verify-phase-5.mjs --prepared
+          VSK_PHASE3_BINARY="$runtime_root/vsk-labs" VSK_PHASE3_RUNTIME_ROOT="$runtime_root" go test -json -race -count=1 ./internal/server -run '^TestFullCredentialLifecycleAcceptance$'
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
