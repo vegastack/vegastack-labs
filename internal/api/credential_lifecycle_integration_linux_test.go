@@ -89,6 +89,44 @@ func newLifecyclePublicFixture(t *testing.T) *lifecyclePublicFixture {
 	return &lifecyclePublicFixture{authority: authority, references: refs, revisions: revisions, service: service, principal: identity.Principal{ID: "operator-lifecycle", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}, clock: clock, path: path}
 }
 
+func (fixture *lifecyclePublicFixture) enterRecoveryEpoch(t *testing.T) {
+	t.Helper()
+	ctx := context.Background()
+	if err := fixture.authority.PrepareRecoveryAuditEpoch(ctx, 1, audit.Fingerprint(lifecyclePublicDigest("prior-checkpoint")), audit.Fingerprint(lifecyclePublicDigest("recovery-decision"))); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.authority.Close(); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite3", fixture.path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = db.ExecContext(ctx, "UPDATE system_meta SET recovery_epoch=1 WHERE id=1"); err != nil {
+		_ = db.Close()
+		t.Fatal(err)
+	}
+	if err = db.Close(); err != nil {
+		t.Fatal(err)
+	}
+	authority, err := store.Open(ctx, store.Config{DatabasePath: fixture.path, Mode: store.OpenExisting, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "lifecycle-test", BuildVersion: "lifecycle-test", Clock: fixture.clock})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = authority.Close() })
+	fixture.authority = authority
+	fixture.references = store.NewCredentialRepository(authority)
+	fixture.revisions = store.NewPlanRepository(authority)
+	declarations, err := change.NewService(store.NewDeclarationRepository(authority), fixture.clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	fixture.service, err = NewCredentialLifecycleService(fixture.references, fixture.revisions, declarations, authorization.NewEvaluator(store.NewEffectiveAuthorizationRepository(authority)))
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (fixture *lifecyclePublicFixture) importDraft(t *testing.T, version string) generated.CredentialImportSubmission {
 	t.Helper()
 	ctx := context.Background()
@@ -214,20 +252,9 @@ func TestLifecycleRotateAndRecoverDraftsRejectOriginSubstitution(t *testing.T) {
 			t.Run(action+"/"+mode, func(t *testing.T) {
 				fixture := newLifecyclePublicFixture(t)
 				if action == "credential.recover" {
-					// Test-only restored-epoch setup. The store requires an explicit
-					// prior checkpoint and decision before the epoch can admit writes.
-					if err := fixture.authority.PrepareRecoveryAuditEpoch(context.Background(), 1, audit.Fingerprint(lifecyclePublicDigest("prior-checkpoint")), audit.Fingerprint(lifecyclePublicDigest("recovery-decision"))); err != nil {
-						t.Fatal(err)
-					}
-					db, err := sql.Open("sqlite3", fixture.path)
-					if err != nil {
-						t.Fatal(err)
-					}
-					_, err = db.Exec("UPDATE system_meta SET recovery_epoch=1 WHERE id=1")
-					_ = db.Close()
-					if err != nil {
-						t.Fatal(err)
-					}
+					// Reopen after the test-only restored-epoch transition so the
+					// fixture's in-memory write token is bound to the current epoch.
+					fixture.enterRecoveryEpoch(t)
 				}
 				imported := fixture.importDraft(t, "version-2")
 				input := fixture.stageRequest(t, imported)
