@@ -88,11 +88,18 @@ func (app *Application) authorize(request *http.Request, policyRequest authoriza
 	if !ok {
 		return authorizationOutcome{}, apiFailure(generated.ErrorCodeAuthenticationRequired, "principal")
 	}
-	decision, evaluationErr := app.effective.Authorizer.Authorize(request.Context(), principal, policyRequest)
+	return app.authorizePrincipal(request.Context(), principal, policyRequest)
+}
+
+func (app *Application) authorizePrincipal(ctx context.Context, principal identity.Principal, policyRequest authorization.Request) (authorizationOutcome, error) {
+	if app == nil || app.effective.Authorizer == nil || app.effective.Recorder == nil || app.effective.Clock == nil || principal.ID == "" {
+		return authorizationOutcome{}, apiFailure(generated.ErrorCodeIntegrityFailure, "effective-authorization")
+	}
+	decision, evaluationErr := app.effective.Authorizer.Authorize(ctx, principal, policyRequest)
 	if evaluationErr != nil || decision.PrincipalID != principal.ID || decision.Action != policyRequest.Action || decision.Target != policyRequest.Target {
 		decision = unavailableAuthorizationDecision(principal, policyRequest, decision)
 	}
-	record, err := app.recordAuthorizationDecision(request.Context(), principal, decision)
+	record, err := app.recordAuthorizationDecision(ctx, principal, decision)
 	if err != nil {
 		if apiErrorCode(err) != "" {
 			return authorizationOutcome{}, err
@@ -207,11 +214,7 @@ func (app *Application) AuthorizeScheduled(ctx context.Context, principalID stri
 		return generated.AuthorizationDecision{}, apiFailure(generated.ErrorCodeInputInvalid, "plan-operations")
 	}
 	principal := identity.Principal{ID: principalID, Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalPolicy}
-	request, err := http.NewRequestWithContext(identity.WithVerifiedPrincipal(ctx, principal), http.MethodPost, "http://local/api/v1/scheduled-jobs", nil)
-	if err != nil {
-		return generated.AuthorizationDecision{}, err
-	}
-	outcome, err := app.authorize(request, authorization.Request{Action: authorization.ActionExecute, Target: authorization.Target{Capability: plan.Operations[0].OperationType, ResourceKind: "execution-target", ResourceID: plan.Operations[0].TargetID}, Plan: &plan, Branches: []authorization.Branch{authorization.BranchPreauthorized}})
+	outcome, err := app.authorizePrincipal(ctx, principal, authorization.Request{Action: authorization.ActionExecute, Target: authorization.Target{Capability: plan.Operations[0].OperationType, ResourceKind: "execution-target", ResourceID: plan.Operations[0].TargetID}, Plan: &plan, Branches: []authorization.Branch{authorization.BranchPreauthorized}})
 	if err != nil {
 		return generated.AuthorizationDecision{}, err
 	}
