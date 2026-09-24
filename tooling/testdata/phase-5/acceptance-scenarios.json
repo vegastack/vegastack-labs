@@ -167,8 +167,8 @@
       "ownerIssue": 125,
       "seam": "credential",
       "kind": "go-test",
-      "path": "internal/server/credential_recovery_acceptance_linux_test.go",
-      "selector": "TestCredentialRecoveryAcceptanceNativeWitnessAndDraft",
+      "path": "internal/server/credential_recovery_linux_test.go",
+      "selector": "TestCredentialRecoveryPublicCleanHostRejectsFormerRecipientKey",
       "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {

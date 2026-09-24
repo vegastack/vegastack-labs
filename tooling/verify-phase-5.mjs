@@ -70,7 +70,7 @@ export const REQUIRED_PHASE5_SCENARIOS = Object.freeze([
   requiredScenario("credential.rotation-overlap-revoke", "5.4.3", 125, "credential", "go-test",
     "internal/api/credential_lifecycle_spine_linux_test.go", "TestCredentialLifecyclePublicDraftPlanAckApplySpine", "built-linux", "revoked"),
   requiredScenario("credential.clean-host-old-key-denied", "5.4.3", 125, "credential", "go-test",
-    "internal/server/credential_recovery_acceptance_linux_test.go", "TestCredentialRecoveryAcceptanceNativeWitnessAndDraft", "built-linux", "denied"),
+    "internal/server/credential_recovery_linux_test.go", "TestCredentialRecoveryPublicCleanHostRejectsFormerRecipientKey", "built-linux", "denied"),
   requiredScenario("credential.private-canary-redacted", "5.4.3", 125, "credential", "go-test",
     "internal/run/credential_lifecycle_sqlite_linux_test.go", "TestSQLiteCredentialVerifierPanicRecordsPartialWithoutSecretLeak", "built-linux", "redacted"),
   requiredScenario("backup.pending-not-verified", "5.5", 106, "backup-local", "go-test",
