@@ -41,6 +41,8 @@ type QuerySpec struct {
 	AllowedFilters []string
 	AllowedSorts   []string
 	DefaultSort    string
+	DefaultLimit   int
+	MaxLimit       int
 }
 
 type QueryDecoder interface {
@@ -63,13 +65,23 @@ func (strictQueryDecoder) Decode(values url.Values, spec QuerySpec) (ValidatedQu
 			return ValidatedQuery{}, failure.New("INPUT_INVALID", "query", false)
 		}
 	}
-	result := ValidatedQuery{Limit: DefaultPageLimit, Sort: spec.DefaultSort, Filters: make(map[string]string)}
+	defaultLimit, maxLimit := spec.DefaultLimit, spec.MaxLimit
+	if defaultLimit == 0 {
+		defaultLimit = DefaultPageLimit
+	}
+	if maxLimit == 0 {
+		maxLimit = MaxPageLimit
+	}
+	if defaultLimit < 1 || defaultLimit > maxLimit {
+		return ValidatedQuery{}, failure.New("INPUT_INVALID", "query", false)
+	}
+	result := ValidatedQuery{Limit: defaultLimit, Sort: spec.DefaultSort, Filters: make(map[string]string)}
 	if raw := values.Get("limit"); raw != "" {
 		if raw[0] == '0' || strings.ContainsAny(raw, "+-") {
 			return ValidatedQuery{}, failure.New("INPUT_INVALID", "query", false)
 		}
 		limit, err := strconv.Atoi(raw)
-		if err != nil || limit < 1 || limit > MaxPageLimit {
+		if err != nil || limit < 1 || limit > maxLimit {
 			return ValidatedQuery{}, failure.New("INPUT_INVALID", "query", false)
 		}
 		result.Limit = limit

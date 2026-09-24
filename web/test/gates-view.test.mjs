@@ -4,7 +4,7 @@ import test from "node:test";
 
 // Preserve the accepted Phase 3 proof selector while #104 upgrades the view
 // from a capability placeholder to generated, server-derived gate records.
-test("Gates renders generated records without approval or pass controls", async () => {
+test("Gates renders capability status without invented gate records or controls", async () => {
   const source = await readFile(new URL("../components/gates-view.tsx", import.meta.url), "utf8");
   assert.match(source, /readQueries\.gates/);
   assert.doesNotMatch(source, /const gateRecords|mockGates|approveGate|passGate|applyGate/);

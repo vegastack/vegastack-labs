@@ -30,6 +30,7 @@ type stubControlOperations struct {
 	backupJobResponse         localapi.TypedResponse[generated.BackupJob]
 	restoreBindingResponse    localapi.TypedResponse[generated.RestoreBinding]
 	restoreVerifyResponse     localapi.TypedResponse[generated.RestoreVerification]
+	databaseExportResponse    localapi.TypedResponse[generated.DatabaseExportDraftSubmission]
 	summaryResponse           localapi.TypedResponse[generated.ApiSummaryData]
 	databaseResponse          localapi.TypedResponse[generated.DatabaseStatusData]
 	auditListResponse         localapi.TypedResponse[generated.AuditCheckpointListData]
@@ -41,12 +42,21 @@ type stubControlOperations struct {
 	runResponse               localapi.TypedResponse[generated.RunPresentation]
 	schedulePolicyResponse    localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission]
 	scheduleJobResponse       localapi.TypedResponse[generated.ScheduledJob]
+	scheduleListResponse      localapi.TypedResponse[generated.BrowserScheduledJobPolicyListData]
+	scheduleInspectResponse   localapi.TypedResponse[generated.BrowserScheduledJobPolicy]
 	err                       error
 	calls                     int
 	config                    string
 	importRequest             generated.InventoryImportRequest
 	diffRequest               generated.InventoryDiffRequest
 	exportRequest             generated.InventoryExportRequest
+}
+
+func (stub *stubControlOperations) ListScheduledPolicies(_ context.Context, _ string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicyListData], error) {
+	return stub.scheduleListResponse, stub.err
+}
+func (stub *stubControlOperations) InspectScheduledPolicy(_ context.Context, _, _ string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicy], error) {
+	return stub.scheduleInspectResponse, stub.err
 }
 
 func (stub *stubControlOperations) SubmitScheduledPolicyDraft(_ context.Context, _ string, _ generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission], error) {
@@ -106,6 +116,18 @@ func (stub *stubControlOperations) RunRestore(_ context.Context, _ string, _ gen
 }
 func (stub *stubControlOperations) VerifyRestore(_ context.Context, _ string, _ generated.RestoreVerifyRequest) (localapi.TypedResponse[generated.RestoreVerification], error) {
 	return stub.restoreVerifyResponse, stub.err
+}
+func (stub *stubControlOperations) RunDatabaseBackup(_ context.Context, _ string, _ generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	return stub.backupJobResponse, stub.err
+}
+func (stub *stubControlOperations) VerifyDatabase(_ context.Context, _ string, _ generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	return stub.backupJobResponse, stub.err
+}
+func (stub *stubControlOperations) PlanDatabaseRestore(_ context.Context, _ string, _ generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	return stub.restoreBindingResponse, stub.err
+}
+func (stub *stubControlOperations) DraftDatabaseExport(_ context.Context, _ string, _ generated.DatabaseExportRequest) (localapi.TypedResponse[generated.DatabaseExportDraftSubmission], error) {
+	return stub.databaseExportResponse, stub.err
 }
 
 func (stub *stubControlOperations) Summary(_ context.Context, config string) (localapi.TypedResponse[generated.ApiSummaryData], error) {
@@ -219,8 +241,11 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	restoreBinding := generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PointID: restoreRequest.PointID, DependencyIDs: restoreRequest.DependencyIDs, TargetIDs: restoreRequest.TargetIDs, TargetDigest: restoreRequest.TargetDigest, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, HumanAcknowledgementID: restoreRun.HumanAcknowledgementID, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, Status: "planned"}
 	verifiedAt := "2026-09-24T06:00:00Z"
 	restoreVerification := generated.RestoreVerification{Schema: generated.SchemaIDRestoreVerification, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, PointID: restoreRequest.PointID, TargetDigest: restoreRequest.TargetDigest, FenceVerified: true, DatabaseVerified: true, AuditVerified: true, VerifiedAt: &verifiedAt, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, Canary: generated.RestoreCanaryResult{Schema: generated.SchemaIDRestoreCanaryResult, SchemaVersion: "1.1.0", ReadVerified: true, OldEpochDenied: true, NoopRunID: "run-canary", AuditCheckpointID: "checkpoint-canary", BackupPointID: "point-canary", FormerWriterDenied: true, Status: "verified", VerifiedAt: &verifiedAt}, Status: "verified"}
+	databaseExport := generated.DatabaseExportDraftSubmission{Schema: generated.SchemaIDDatabaseExportDraftSubmission, SchemaVersion: "1.0.0", DraftID: "export-test", ChangeID: "sha256:" + strings.Repeat("d", 64), ExportID: "export-test", Kind: "sanitized-control", Status: "draft", SafeNextAction: "create and authorize an exact export plan", StateRevision: 8, RecoveryEpoch: 2}
 	schedulePolicy := syntheticScheduledPolicy()
 	scheduleJob := generated.ScheduledJob{Schema: generated.SchemaIDScheduledJob, SchemaVersion: "1.1.0", JobID: "scheduled-job-test", PolicyID: schedulePolicy.PolicyID, PolicyRevision: schedulePolicy.Revision, ScheduledAt: schedulePolicy.AnchorAt, Attempt: 1, Status: "succeeded", ReasonCode: "verified", RecoveryEpoch: schedulePolicy.RecoveryEpoch}
+	browserPolicy := generated.BrowserScheduledJobPolicy{Schema: generated.SchemaIDBrowserScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: schedulePolicy.PolicyID, Revision: schedulePolicy.Revision, ActionKind: schedulePolicy.ActionKind, Enabled: true, Status: "active", ReasonCode: "active", StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch}
+	browserPolicies := generated.BrowserScheduledJobPolicyListData{Schema: generated.SchemaIDBrowserScheduledJobPolicyListData, SchemaVersion: "1.0.0", Items: []generated.BrowserScheduledJobPolicy{browserPolicy}, StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch}
 	return &stubControlOperations{
 		gateListResponse:          operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
 		gateViewResponse:          operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
@@ -236,6 +261,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		backupJobResponse:         operationResponse(t, "api.v1.backups.run", true, 2, 8, backupJob),
 		restoreBindingResponse:    operationResponse(t, "api.v1.restores.plan", true, 2, 10, restoreBinding),
 		restoreVerifyResponse:     operationResponse(t, "api.v1.restores.verify", true, 3, 12, restoreVerification),
+		databaseExportResponse:    operationResponse(t, "api.v1.database-exports.create", true, 2, 8, databaseExport),
 		summaryResponse:           operationResponse(t, "api.v1.summary.get", false, 2, 7, summary),
 		databaseResponse:          operationResponse(t, "api.v1.database-status.get", false, 2, 7, database),
 		auditListResponse:         operationResponse(t, "api.v1.audit-checkpoints.list", false, 2, 7, auditList),
@@ -248,7 +274,9 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		schedulePolicyResponse: operationResponse(t, "api.v1.scheduled-job-policies.drafts.create", true, schedulePolicy.RecoveryEpoch, schedulePolicy.StateRevision, generated.ScheduledPolicyDraftSubmission{
 			Schema: generated.SchemaIDScheduledPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: "schedule-draft-a", PolicyID: schedulePolicy.PolicyID, PolicyRevision: schedulePolicy.Revision, PolicyDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch,
 		}),
-		scheduleJobResponse: operationResponse(t, "api.v1.scheduled-jobs.create", true, scheduleJob.RecoveryEpoch, schedulePolicy.StateRevision, scheduleJob),
+		scheduleJobResponse:     operationResponse(t, "api.v1.scheduled-occurrences.create", true, scheduleJob.RecoveryEpoch, schedulePolicy.StateRevision, scheduleJob),
+		scheduleListResponse:    operationResponse(t, "api.v1.scheduled-job-policies.list", false, schedulePolicy.RecoveryEpoch, schedulePolicy.StateRevision, browserPolicies),
+		scheduleInspectResponse: operationResponse(t, "api.v1.scheduled-job-policies.get", false, schedulePolicy.RecoveryEpoch, schedulePolicy.StateRevision, browserPolicy),
 	}
 }
 

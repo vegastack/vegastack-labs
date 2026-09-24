@@ -175,6 +175,33 @@ func (repository *RestoreRepository) Get(ctx context.Context, planID string) (Re
 	return result, err
 }
 
+func (repository *RestoreRepository) ListPlanIDs(ctx context.Context, afterID string, limit int) ([]string, RevisionToken, error) {
+	if repository == nil || repository.store == nil || limit < 1 || limit > 101 {
+		return nil, RevisionToken{}, restoreStoreError(generated.ErrorCodeInputInvalid, "restore-page")
+	}
+	var ids []string
+	var revision RevisionToken
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if err := tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&revision.StateRevision, &revision.RecoveryEpoch); err != nil {
+			return err
+		}
+		rows, err := tx.query(ctx, `SELECT plan_id FROM restore_sessions WHERE plan_id>? ORDER BY plan_id LIMIT ?`, afterID, limit)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		return rows.Err()
+	})
+	return ids, revision, err
+}
+
 // PendingPromotion returns the single exact candidate the next server startup
 // may promote. More than one candidate is an integrity failure rather than a
 // selection decision at startup.

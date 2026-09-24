@@ -110,6 +110,13 @@ type RestoreControlOperations interface {
 	VerifyRestore(context.Context, string, generated.RestoreVerifyRequest) (localapi.TypedResponse[generated.RestoreVerification], error)
 }
 
+type DatabaseControlOperations interface {
+	RunDatabaseBackup(context.Context, string, generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error)
+	VerifyDatabase(context.Context, string, generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error)
+	PlanDatabaseRestore(context.Context, string, generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error)
+	DraftDatabaseExport(context.Context, string, generated.DatabaseExportRequest) (localapi.TypedResponse[generated.DatabaseExportDraftSubmission], error)
+}
+
 type Option func(*App)
 
 func WithReleaseOperations(operations ReleaseOperations) Option {
@@ -310,6 +317,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
 		return renderHumanDatabaseStatus(app.stdout, response.Data)
+	case generated.CommandNameDatabaseBackup, generated.CommandNameDatabaseVerify, generated.CommandNameDatabaseRestore, generated.CommandNameDatabaseExport:
+		return app.runDatabaseOperation(ctx, mode, parsed)
 	case generated.CommandNameAuditCheckpoints:
 		control, ok := app.control.(AuditControlOperations)
 		if !ok {
@@ -431,7 +440,7 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runBackupCommand(ctx, mode, parsed)
 	case generated.CommandNameBackupStatus, generated.CommandNameBackupRun, generated.CommandNameBackupVerify:
 		return app.runBackupOperation(ctx, mode, parsed)
-	case generated.CommandNameSchedulePolicyDraft, generated.CommandNameScheduleDispatch, generated.CommandNameScheduleCancel:
+	case generated.CommandNameScheduleList, generated.CommandNameScheduleInspect, generated.CommandNameSchedulePolicyDraft, generated.CommandNameScheduleDispatch, generated.CommandNameScheduleCancel:
 		return app.runScheduleCommand(ctx, mode, parsed)
 	case generated.CommandNameRestorePlan, generated.CommandNameRestoreRun, generated.CommandNameRestoreVerify:
 		return app.runRestoreOperation(ctx, mode, parsed)

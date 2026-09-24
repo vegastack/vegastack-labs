@@ -192,6 +192,77 @@ func (repository *ScheduleRepository) ListRecoverableOccurrences(ctx context.Con
 	return jobs, nil
 }
 
+// ListActivePolicies returns a stable, bounded projection source ordered by
+// policy ID. Callers must request at most the public page bound.
+func (repository *ScheduleRepository) ListActivePolicies(ctx context.Context, afterID string, limit int) ([]generated.ScheduledJobPolicy, error) {
+	if repository == nil || repository.store == nil || limit < 1 || limit > 101 {
+		return nil, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-policy-page")
+	}
+	var ids []string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, err := tx.query(ctx, `SELECT DISTINCT policy_id FROM scheduled_policy_activations WHERE status='active' AND policy_id>? ORDER BY policy_id LIMIT ?`, afterID, limit)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	policies := make([]generated.ScheduledJobPolicy, 0, len(ids))
+	for _, id := range ids {
+		policy, err := repository.GetActivePolicy(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		policies = append(policies, policy)
+	}
+	return policies, nil
+}
+
+// ListOccurrences returns at most limit durable occurrences, newest first.
+func (repository *ScheduleRepository) ListOccurrences(ctx context.Context, afterID string, limit int) ([]generated.ScheduledJob, error) {
+	if repository == nil || repository.store == nil || limit < 1 || limit > 101 {
+		return nil, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-job-page")
+	}
+	var ids []string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, err := tx.query(ctx, `SELECT job_id FROM scheduled_occurrences WHERE job_id>? ORDER BY job_id LIMIT ?`, afterID, limit)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	jobs := make([]generated.ScheduledJob, 0, len(ids))
+	for _, id := range ids {
+		job, err := repository.GetOccurrence(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+	return jobs, nil
+}
+
 func (repository *ScheduleRepository) LatestScheduledAttempt(ctx context.Context, jobID string) (schedule.AttemptRecord, bool, error) {
 	var attempt ScheduledAttempt
 	var effect int

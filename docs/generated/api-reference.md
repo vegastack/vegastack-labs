@@ -20,7 +20,11 @@ Contract schema: `1.22.0`
 | `api.v1.credential-references.get` | `GET` | `/api/v1/credential-references/{referenceId}` | `planned` | `operator` | `finite` | `` | `vegastack-labs.dev/credential-reference` |
 | `api.v1.credential-references.import-stream` | `POST` | `/api/v1/credential-references/{referenceId}/import-stream` | `available` | `operator` | `finite` | `vegastack-labs.dev/credential-import-request` | `vegastack-labs.dev/credential-import-submission` |
 | `api.v1.credential-resolution-records.get` | `GET` | `/api/v1/credential-resolution-records/{recordId}` | `planned` | `operator` | `finite` | `` | `vegastack-labs.dev/credential-resolution-record` |
+| `api.v1.database-backups.create` | `POST` | `/api/v1/database/backups` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-run-request` | `vegastack-labs.dev/backup-job` |
+| `api.v1.database-exports.create` | `POST` | `/api/v1/database/exports` | `available` | `operator` | `finite` | `vegastack-labs.dev/database-export-request` | `vegastack-labs.dev/database-export-draft-submission` |
+| `api.v1.database-restores.create` | `POST` | `/api/v1/database/restores` | `available` | `operator` | `finite` | `vegastack-labs.dev/restore-request` | `vegastack-labs.dev/restore-binding` |
 | `api.v1.database-status.get` | `GET` | `/api/v1/database/status` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/database-status-data` |
+| `api.v1.database-verifications.create` | `POST` | `/api/v1/database/verifications` | `available` | `operator` | `finite` | `vegastack-labs.dev/backup-verify-request` | `vegastack-labs.dev/backup-job` |
 | `api.v1.declarations.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/browser-declaration-revision` |
 | `api.v1.declarations.plan-preparation.get` | `GET` | `/api/v1/declarations/{declarationId}/revisions/{revision}/plan-preparation` | `available` | `browser, operator` | `finite` | `` | `vegastack-labs.dev/plan-preparation` |
 | `api.v1.declarations.revise` | `POST` | `/api/v1/declarations/{declarationId}/revisions` | `available` | `browser, operator` | `finite` | `vegastack-labs.dev/declaration-revision-request` | `vegastack-labs.dev/browser-declaration-revision` |

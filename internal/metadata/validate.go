@@ -211,7 +211,7 @@ func validateCommands(commands []CommandDefinition, schemas map[string]struct{})
 			switch name {
 			case "server run", "server api-ssh":
 				wantRisk = RiskLocalService
-			case "apply", "run cancel", "run resume", "gate evidence", "gate profile draft", "credential import", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup offsite-retirement stage", "backup run", "backup verify", "restore plan", "restore run", "restore verify", "credential stage", "credential activate", "credential rotate", "credential revoke", "credential recover", "recovery witness collect", "schedule policy draft", "schedule dispatch", "schedule cancel":
+			case "apply", "run cancel", "run resume", "gate evidence", "gate profile draft", "credential import", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup offsite-retirement stage", "backup run", "backup verify", "restore plan", "restore run", "restore verify", "database backup", "database verify", "database restore", "database export", "credential stage", "credential activate", "credential rotate", "credential revoke", "credential recover", "recovery witness collect", "schedule policy draft", "schedule dispatch", "schedule cancel":
 				wantRisk = RiskMutation
 			}
 			if command.Risk != wantRisk {

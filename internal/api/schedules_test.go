@@ -27,6 +27,12 @@ func (scheduleAPIPolicies) StageDraft(context.Context, generated.ScheduledJobPol
 func (scheduleAPIPolicies) GetActivePolicy(context.Context, string) (generated.ScheduledJobPolicy, error) {
 	return generated.ScheduledJobPolicy{}, nil
 }
+func (scheduleAPIPolicies) ListActivePolicies(context.Context, string, int) ([]generated.ScheduledJobPolicy, error) {
+	return []generated.ScheduledJobPolicy{}, nil
+}
+func (scheduleAPIPolicies) ListOccurrences(context.Context, string, int) ([]generated.ScheduledJob, error) {
+	return []generated.ScheduledJob{}, nil
+}
 func (scheduleAPIPolicies) CurrentScheduleRevision(context.Context) (schedule.Revision, error) {
 	return schedule.Revision{StateRevision: 7, RecoveryEpoch: 2}, nil
 }

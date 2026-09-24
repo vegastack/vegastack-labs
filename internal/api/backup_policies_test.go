@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -14,7 +15,25 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
+
+func TestBackupPolicyDraftDenialUsesCollectionTargetBeforeBodyRead(t *testing.T) {
+	service := &backupDraftServiceStub{}
+	app := backupTestApp(t, service)
+	denied := &effectiveAuthorizationStub{decision: authorization.Decision{ReasonCode: authorization.ReasonGrantMissing}}
+	app.effective = EffectiveAuthorizationConfig{Authorizer: denied, Recorder: denied, Clock: time.Now}
+	body := &countingBody{data: bytes.NewReader([]byte(`{"privateCanary":"must-not-read"}`))}
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/backups/policies/drafts", nil)
+	request.Body = body
+	request.Header.Set("Content-Type", "application/json")
+	request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-a", Method: identity.LocalOSPeerMethod}))
+	response := httptest.NewRecorder()
+	app.ServeHTTP(response, request)
+	if response.Code != http.StatusForbidden || body.reads != 0 || service.calls != 0 || len(denied.records) != 1 || denied.records[0].Decision.Target.ResourceID != "policy-drafts" || strings.Contains(response.Body.String(), "privateCanary") {
+		t.Fatalf("status=%d reads=%d calls=%d records=%#v body=%s", response.Code, body.reads, service.calls, denied.records, response.Body.String())
+	}
+}
 
 type backupDraftServiceStub struct {
 	calls      int
@@ -30,6 +49,12 @@ func (stub backupStatusStub) ReadLocalBackupStatus(context.Context) (generated.B
 
 func (stub backupStatusStub) ReadLocalBackupStatusScoped(context.Context, authorization.ReadScope) (generated.BackupStatusData, error) {
 	return stub.data, nil
+}
+func (stub backupStatusStub) CurrentBackupRevision(context.Context, authorization.ReadScope) (store.RevisionToken, error) {
+	return store.RevisionToken{StateRevision: 7, RecoveryEpoch: stub.data.RecoveryEpoch}, nil
+}
+func (stub backupStatusStub) ListRecoveryPoints(context.Context, authorization.ReadScope, string, int) ([]generated.BrowserRecoveryPoint, store.RevisionToken, error) {
+	return []generated.BrowserRecoveryPoint{}, store.RevisionToken{StateRevision: 7, RecoveryEpoch: stub.data.RecoveryEpoch}, nil
 }
 
 func (stub *backupDraftServiceStub) CreateBackupPolicyDraft(_ context.Context, _ generated.BackupPolicyDraftRequest, _ audit.Attribution) (generated.BackupPolicyDraftSubmission, error) {
@@ -149,7 +174,7 @@ func TestBackupVerifyRouteRequiresExactPointPlanAndHumanAcknowledgement(t *testi
 		mutate func(*generated.BackupVerifyRequest)
 		want   int
 	}{
-		{"wrong-point", func(input *generated.BackupVerifyRequest) { input.PointID = "other-point" }, http.StatusConflict},
+		{"wrong-point", func(input *generated.BackupVerifyRequest) { input.PointID = "other-point" }, http.StatusBadRequest},
 		{"wrong-plan", func(input *generated.BackupVerifyRequest) { input.PlanDigest = "sha256:" + strings.Repeat("0", 64) }, http.StatusConflict},
 		{"wrong-ack", func(input *generated.BackupVerifyRequest) { input.HumanAcknowledgementID = "other-ack" }, http.StatusPreconditionFailed},
 		{"exact", func(*generated.BackupVerifyRequest) {}, http.StatusOK},
@@ -158,7 +183,7 @@ func TestBackupVerifyRouteRequiresExactPointPlanAndHumanAcknowledgement(t *testi
 			input := base
 			test.mutate(&input)
 			body, _ := json.Marshal(input)
-			request := httptest.NewRequest(http.MethodPost, "/api/v1/backups/job-test/verify", strings.NewReader(string(body)))
+			request := httptest.NewRequest(http.MethodPost, "/api/v1/recovery-points/point-test/verifications", strings.NewReader(string(body)))
 			request.Header.Set("Content-Type", "application/json")
 			request = request.WithContext(identity.WithVerifiedPrincipal(request.Context(), identity.Principal{ID: "human-run-test", Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalHuman}))
 			response := httptest.NewRecorder()

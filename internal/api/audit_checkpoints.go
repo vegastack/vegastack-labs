@@ -17,6 +17,7 @@ import (
 
 type AuditRepository interface {
 	ListAuditCheckpoints(context.Context) ([]generated.AuditCheckpoint, error)
+	ListAuditCheckpointsPage(context.Context, string, int) ([]generated.AuditCheckpoint, error)
 	VerifyAuditHistory(context.Context, adapter.CheckpointReader) (generated.AuditVerificationData, error)
 	ChainRange(context.Context, audit.EventID, audit.EventID) (audit.ChainRange, error)
 }
@@ -39,7 +40,7 @@ func RegisterAuditOperations(app *Application, config AuditOperations) error {
 	}
 	app.routes = append(app.routes,
 		route{id: "api.v1.audit-checkpoints.list", method: http.MethodGet, pattern: "/api/v1/audit-checkpoints", capability: "audit.checkpoint.read", kind: "audit-checkpoint", handler: app.auditCheckpoints(config)},
-		route{id: "api.v1.audit-checkpoints.create", method: http.MethodPost, pattern: "/api/v1/audit-checkpoints", capability: "audit.checkpoint.author", kind: "audit-checkpoint", action: authorization.ActionAuthor, handler: app.auditCheckpointDraft(config)},
+		route{id: "api.v1.audit-checkpoints.create", method: http.MethodPost, pattern: "/api/v1/audit-checkpoints", capability: "audit.checkpoint.author", kind: "audit-checkpoint", action: authorization.ActionAuthor, staticResourceID: "audit-checkpoints", handler: app.auditCheckpointDraft(config)},
 		route{id: "api.v1.audit-history.verification", method: http.MethodGet, pattern: "/api/v1/audit-history/verification", capability: "audit.history.verify", kind: "audit-history", handler: app.auditVerification(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
@@ -50,9 +51,14 @@ func RegisterAuditOperations(app *Application, config AuditOperations) error {
 }
 
 func (app *Application) auditCheckpoints(config AuditOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
-	return func(writer http.ResponseWriter, request *http.Request, _ authorization.ReadScope, _ map[string]string) {
+	return func(writer http.ResponseWriter, request *http.Request, scope authorization.ReadScope, _ map[string]string) {
 		const operation = "api.v1.audit-checkpoints.list"
-		checkpoints, err := config.Audit.ListAuditCheckpoints(request.Context())
+		page, err := app.phase5PageRequest(request, scope, operation)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		checkpoints, err := config.Audit.ListAuditCheckpointsPage(request.Context(), page.AfterID, page.Query.Limit+1)
 		if err != nil {
 			app.failure(writer, operation, err)
 			return
@@ -62,9 +68,30 @@ func (app *Application) auditCheckpoints(config AuditOperations) func(http.Respo
 			app.failure(writer, operation, err)
 			return
 		}
-		data := generated.AuditCheckpointListData{Schema: generated.SchemaIDAuditCheckpointListData, SchemaVersion: "1.0.0", Checkpoints: append([]generated.AuditCheckpoint{}, checkpoints...), RecoveryEpoch: revision.RecoveryEpoch}
+		if revision != page.Snapshot {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
+			return
+		}
+		hasMore := len(checkpoints) > page.Query.Limit
+		if hasMore {
+			checkpoints = checkpoints[:page.Query.Limit]
+		}
+		items := make([]generated.BrowserAuditCheckpoint, 0, len(checkpoints))
+		for _, checkpoint := range checkpoints {
+			items = append(items, generated.BrowserAuditCheckpoint{Schema: generated.SchemaIDBrowserAuditCheckpoint, SchemaVersion: "1.0.0", CheckpointID: checkpoint.CheckpointID, FirstEventID: checkpoint.FirstEventID, LastEventID: checkpoint.LastEventID, ChainDigest: checkpoint.ChainDigest, Status: checkpoint.Status, ReasonCode: checkpoint.ReasonCode, SourceKind: checkpoint.SourceKind, ProofClass: checkpoint.ProofClass, VerifiedAt: checkpoint.VerifiedAt, VerificationStatus: checkpoint.VerificationStatus, RecoveryEpoch: checkpoint.RecoveryEpoch})
+		}
+		var lastID string
+		if len(items) > 0 {
+			lastID = items[len(items)-1].CheckpointID
+		}
+		next, err := app.phase5NextCursor(operation, scope, page, lastID, hasMore)
+		if err != nil {
+			app.failure(writer, operation, err)
+			return
+		}
+		data := generated.BrowserAuditCheckpointListData{Schema: generated.SchemaIDBrowserAuditCheckpointListData, SchemaVersion: "1.0.0", Items: items, NextCursor: next, StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}
 		raw, err := json.Marshal(data)
-		if err != nil || generated.ValidateContractJSON(generated.SchemaIDAuditCheckpointListData, raw, generated.ContractExact) != nil {
+		if err != nil || generated.ValidateContractJSON(generated.SchemaIDBrowserAuditCheckpointListData, raw, generated.ContractExact) != nil {
 			app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "audit-checkpoint-projection"))
 			return
 		}
@@ -80,17 +107,42 @@ func (app *Application) auditVerification(config AuditOperations) func(http.Resp
 			app.failure(writer, operation, err)
 			return
 		}
-		raw, marshalErr := json.Marshal(data)
-		if marshalErr != nil || generated.ValidateContractJSON(generated.SchemaIDAuditVerificationData, raw, generated.ContractExact) != nil {
-			app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "audit-verification-projection"))
-			return
-		}
 		revision, revisionErr := config.Revisions.CurrentRevision(request.Context())
 		if revisionErr != nil {
 			app.failure(writer, operation, revisionErr)
 			return
 		}
-		app.success(writer, operation, revision.StateRevision, revision.RecoveryEpoch, data)
+		sourceKind, proofClass := "none", "none"
+		if data.IndependentDigest != nil {
+			sourceKind, proofClass = "independent", "live"
+		}
+		status, next, ok := browserAuditVerificationStatus(data.Status)
+		if !ok {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "audit-verification-status"))
+			return
+		}
+		projected := generated.BrowserAuditVerificationData{Schema: generated.SchemaIDBrowserAuditVerificationData, SchemaVersion: "1.0.0", Status: status, ReasonCode: data.ReasonCode, SourceKind: sourceKind, ProofClass: proofClass, IndependentMatch: data.IndependentMatch, LastAnchoredSequence: data.LastAnchoredSequence, PreAnchor: data.PreAnchor, StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch, SafeNextAction: next}
+		raw, marshalErr := json.Marshal(projected)
+		if marshalErr != nil || generated.ValidateContractJSON(generated.SchemaIDBrowserAuditVerificationData, raw, generated.ContractExact) != nil {
+			app.failure(writer, operation, apiFailure(generated.ErrorCodeIntegrityFailure, "audit-verification-projection"))
+			return
+		}
+		app.success(writer, operation, revision.StateRevision, revision.RecoveryEpoch, projected)
+	}
+}
+
+func browserAuditVerificationStatus(status string) (string, string, bool) {
+	switch status {
+	case "pending":
+		return "pending", "collect an independent audit checkpoint", true
+	case "anchored", "healthy":
+		return "anchored", "none", true
+	case "degraded":
+		return "degraded", "collect and compare an independent audit checkpoint", true
+	case "incident":
+		return "incident", "investigate the audit integrity incident", true
+	default:
+		return "", "", false
 	}
 }
 

@@ -79,6 +79,7 @@ function validAnalyzerResult(value) {
     "localClientBoundary",
     "releaseArtifactExecution",
     "releaseNetworkAccess",
+    "restoreCommandClosureInvalid",
     "shellDispatch",
     "sqliteAccess",
     "stateExportReleaseCoupling",
@@ -100,6 +101,7 @@ function validAnalyzerResult(value) {
     typeof value.localClientBoundary !== "boolean" ||
     typeof value.releaseArtifactExecution !== "boolean" ||
     typeof value.releaseNetworkAccess !== "boolean" ||
+    typeof value.restoreCommandClosureInvalid !== "boolean" ||
     typeof value.shellDispatch !== "boolean" ||
     typeof value.sqliteAccess !== "boolean" ||
     typeof value.stateExportTrust !== "boolean" ||
@@ -173,7 +175,7 @@ async function inspectSources(root, execute) {
     if (analysis.controlProviderAccess) codes.add("CLI_CONTROL_PROVIDER_ACCESS");
     if (analysis.controlArbitraryHTTP) codes.add("CLI_CONTROL_ARBITRARY_HTTP");
     if (analysis.controlServerPath) codes.add("CLI_CONTROL_SERVER_PATH");
-    if (!analysis.localClientBoundary) codes.add("CLI_LOCAL_CLIENT_BOUNDARY");
+    if (!analysis.localClientBoundary || analysis.restoreCommandClosureInvalid) codes.add("CLI_LOCAL_CLIENT_BOUNDARY");
     if (analysis.inventoryDirectDomain) codes.add("CLI_INVENTORY_DIRECT_DOMAIN");
     if (analysis.releaseNetworkAccess) codes.add("CLI_RELEASE_NETWORK_ACCESS");
     if (analysis.releaseArtifactExecution) codes.add("CLI_RELEASE_ARTIFACT_EXECUTION");

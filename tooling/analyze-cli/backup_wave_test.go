@@ -3,11 +3,21 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 )
 
 const backupImportPath = "github.com/vegastack/vegastack-labs/internal/backup"
+
+func reviewedBackupFileNames() []string {
+	names := make([]string, 0, len(reviewedBackupSubprocesses))
+	for name := range reviewedBackupSubprocesses {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
 
 // TestBackupProcessIsExactReviewedSurface confirms the pinned restic child source
 // stays inside the reviewed backup-process closure and never reintroduces an
@@ -39,7 +49,7 @@ func TestBackupProcessIsExactReviewedSurface(t *testing.T) {
 	candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{
 		ImportPath: backupImportPath,
 		Dir:        backupDir,
-		GoFiles:    []string{"restic_linux.go", "custody_process_linux.go", "custody_systemd_linux.go"},
+		GoFiles:    reviewedBackupFileNames(),
 	}}}
 	if !reviewedBackupProcessPackage(candidate, backupImportPath) {
 		t.Fatal("the exact reviewed backup process package was not accepted")
@@ -72,7 +82,7 @@ func TestBackupProcessRejectsNewSubprocessFile(t *testing.T) {
 	}
 	candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{
 		ImportPath: backupImportPath, Dir: stage,
-		GoFiles: []string{newFile, "restic_linux.go", "custody_process_linux.go", "custody_systemd_linux.go"},
+		GoFiles: append([]string{newFile}, reviewedBackupFileNames()...),
 	}}}
 	if reviewedBackupProcessPackage(candidate, backupImportPath) {
 		t.Fatal("a new backup subprocess file inherited the reviewed os/exec allowance")
@@ -95,23 +105,21 @@ func TestBackupProcessRejectsModifiedSubprocessFile(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(stage, changed), modified, 0o600); err != nil {
 		t.Fatal(err)
 	}
-	other, err := os.ReadFile(filepath.Join(backupDir, "custody_systemd_linux.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(stage, "custody_systemd_linux.go"), other, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	process, err := os.ReadFile(filepath.Join(backupDir, "custody_process_linux.go"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(stage, "custody_process_linux.go"), process, 0o600); err != nil {
-		t.Fatal(err)
+	for _, name := range reviewedBackupFileNames() {
+		if name == changed {
+			continue
+		}
+		data, readErr := os.ReadFile(filepath.Join(backupDir, name))
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		if err := os.WriteFile(filepath.Join(stage, name), data, 0o600); err != nil {
+			t.Fatal(err)
+		}
 	}
 	candidate := checkedSourcePackage{sourcePackage: sourcePackage{listed: listedPackage{
 		ImportPath: backupImportPath, Dir: stage,
-		GoFiles: []string{changed, "custody_process_linux.go", "custody_systemd_linux.go"},
+		GoFiles: reviewedBackupFileNames(),
 	}}}
 	if reviewedBackupProcessPackage(candidate, backupImportPath) {
 		t.Fatal("a modified subprocess file passed the pinned reviewed digest")

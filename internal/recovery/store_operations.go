@@ -114,13 +114,40 @@ func (sessions StoreRestoreSessions) RestoreStatus(ctx context.Context, planID s
 		if bundle.Status == "verified" {
 			verification = "verified"
 		}
-		return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: bundle.Binding.PointID, PlanID: bundle.Binding.PlanID, PlanDigest: bundle.Binding.PlanDigest, TargetDigest: bundle.Binding.TargetDigest, Status: bundle.Status, RecoveryEpoch: bundle.Binding.NextRecoveryEpoch, VerificationStatus: verification}, nil
+		return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: bundle.Binding.PointID, PlanID: bundle.Binding.PlanID, PlanDigest: bundle.Binding.PlanDigest, TargetDigest: bundle.Binding.TargetDigest, Status: bundle.Status, ReasonCode: "restore-" + bundle.Status, RecoveryEpoch: bundle.Binding.NextRecoveryEpoch, VerificationStatus: verification, SafeNextAction: restoreSafeNextAction(bundle.Status)}, nil
 	}
 	verification := "pending"
 	if stored.Status == "verified" {
 		verification = "verified"
 	}
-	return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: stored.Binding.PointID, PlanID: stored.Binding.PlanID, PlanDigest: stored.Binding.PlanDigest, TargetDigest: stored.Binding.TargetDigest, Status: stored.Status, RecoveryEpoch: stored.Binding.NextRecoveryEpoch, VerificationStatus: verification}, nil
+	return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: stored.Binding.PointID, PlanID: stored.Binding.PlanID, PlanDigest: stored.Binding.PlanDigest, TargetDigest: stored.Binding.TargetDigest, Status: stored.Status, ReasonCode: "restore-" + stored.Status, RecoveryEpoch: stored.Binding.NextRecoveryEpoch, VerificationStatus: verification, SafeNextAction: restoreSafeNextAction(stored.Status)}, nil
+}
+
+func restoreSafeNextAction(status string) string {
+	switch status {
+	case "verified":
+		return "none"
+	case "verification-required":
+		return "verify the recovered authority"
+	default:
+		return "continue with the exact approved restore plan"
+	}
+}
+
+func (sessions StoreRestoreSessions) ListRestoreStatuses(ctx context.Context, afterID string, limit int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
+	ids, revision, err := sessions.Repository.ListPlanIDs(ctx, afterID, limit)
+	if err != nil {
+		return nil, revision, err
+	}
+	items := make([]generated.BrowserRestoreStatus, 0, len(ids))
+	for _, id := range ids {
+		item, err := sessions.RestoreStatus(ctx, id)
+		if err != nil {
+			return nil, revision, err
+		}
+		items = append(items, item)
+	}
+	return items, revision, nil
 }
 
 func (sessions StoreRestoreSessions) RestoreExecutionStatus(ctx context.Context, planID string) (string, error) {

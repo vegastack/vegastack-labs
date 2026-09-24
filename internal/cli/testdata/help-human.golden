@@ -92,8 +92,28 @@ Available commands:
     --file <path>          Read one material-free lifecycle-request JSON file (4 KiB max).
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  database backup          Execute one exact approved control-database backup plan; qualification still requires database verify.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact material-free database operation request JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  database export          Create an inert authorized sanitized control-data export draft.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact material-free database operation request JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  database restore         Create an inert control-database restore change.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact material-free database operation request JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   database status          Inspect control-database status.
     --config <path>        Read the protected server profile at this explicit path.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  database verify          Verify control-database integrity or backup content.
+    --config <path>        Read one protected server profile.
+    --file <path>          Read one exact material-free database operation request JSON file.
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   gate check               Check one gate for one subject without changing state.
@@ -213,6 +233,15 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --policy-id <id>       Select one exact active policy; no action field may be overridden.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  schedule inspect         Inspect one sanitized fixed scheduled policy.
+    --config <path>        Read one protected local server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --policy-id <id>       Select one exact scheduled policy.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  schedule list            List sanitized fixed scheduled policies.
+    --config <path>        Read one protected local server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   schedule policy draft    Store one inert exact scheduled-policy draft for later human-plan activation.
     --config <path>        Read one protected local server profile.
     --file <path>          Read one exact scheduled-job-policy JSON file.
@@ -244,10 +273,6 @@ Planned commands (unavailable):
   control-plane plan       Create an immutable control-plane change plan.
   control-plane recover    Create an inert control-plane recovery change.
   control-plane verify     Verify control-plane health and authority.
-  database backup          Create a verified control-database backup.
-  database export          Export authorized sanitized control data.
-  database restore         Create an inert control-database restore change.
-  database verify          Verify control-database integrity or backup content.
   device approve           Create an inert device-approval change.
   device request           Create an inert device-enrollment request.
   device revoke            Create an inert device-revocation change.

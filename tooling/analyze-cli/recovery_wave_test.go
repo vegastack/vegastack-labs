@@ -7,14 +7,14 @@ import (
 )
 
 func TestReviewedRecoveryCustodianClosureRejectsSigningAndSourceDrift(t *testing.T) {
-	common := []string{"artifact.go", "collector.go", "custody.go", "fence_witness.go", "manifest.go", "qualification.go", "source_admission.go", "source_handoff.go", "transport.go", "witness.go"}
+	common := []string{"artifact.go", "audit_continuity.go", "bound_canary_noop.go", "canary.go", "canary_capabilities.go", "canary_ports.go", "candidate.go", "candidate_authority.go", "collector.go", "custody.go", "fence.go", "fence_admission.go", "fence_coordinator.go", "fence_evidence.go", "fence_execution.go", "fence_witness.go", "manifest.go", "offsite_source.go", "operations.go", "qualification.go", "source.go", "source_admission.go", "source_handoff.go", "store_canary.go", "store_operations.go", "transport.go", "witness.go"}
 	for _, platform := range []struct {
 		name  string
 		files []string
 	}{
-		{"unix", []string{"manifest_file_unix.go", "package_file_unix.go", "qualified_registry_linux.go", "receipt_file_unix.go"}},
-		{"darwin", []string{"manifest_file_unix.go", "package_file_unix.go", "qualified_registry_unsupported.go", "receipt_file_unix.go"}},
-		{"unsupported", []string{"manifest_file_unsupported.go", "package_file_unsupported.go", "qualified_registry_unsupported.go", "receipt_file_unsupported.go"}},
+		{"unix", []string{"candidate_linux.go", "manifest_file_unix.go", "package_file_unix.go", "qualified_registry_linux.go", "receipt_file_unix.go", "source_admission_file_unix.go"}},
+		{"darwin", []string{"candidate_unsupported.go", "manifest_file_unix.go", "package_file_unix.go", "qualified_registry_unsupported.go", "receipt_file_unix.go", "source_admission_file_unix.go"}},
+		{"unsupported", []string{"candidate_unsupported.go", "manifest_file_unsupported.go", "package_file_unsupported.go", "qualified_registry_unsupported.go", "receipt_file_unsupported.go", "source_admission_file_unsupported.go"}},
 	} {
 		t.Run(platform.name, func(t *testing.T) {
 			directory := t.TempDir()

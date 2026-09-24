@@ -69,6 +69,7 @@ const (
 	credentialLifecycleSubmissionID           = "vegastack-labs.dev/credential-lifecycle-submission"
 	auditCheckpointRequestSchemaID            = "vegastack-labs.dev/audit-checkpoint-request"
 	databaseExportRequestSchemaID             = "vegastack-labs.dev/database-export-request"
+	databaseExportDraftSubmissionSchemaID     = "vegastack-labs.dev/database-export-draft-submission"
 	gateListDataSchemaID                      = "vegastack-labs.dev/gate-list-data"
 	backupStatusDataSchemaID                  = "vegastack-labs.dev/backup-status-data"
 	auditCheckpointListDataSchemaID           = "vegastack-labs.dev/audit-checkpoint-list-data"
@@ -929,6 +930,12 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Digest("contentDigest", "ContentDigest"), phase5Timestamp("createdAt", "CreatedAt"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
+		phase5Schema(databaseExportDraftSubmissionSchemaID,
+			phase5ID("draftId", "DraftID"), phase5Digest("changeId", "ChangeID"), phase5ID("exportId", "ExportID"),
+			phase5Enum("kind", "Kind", "sanitized-control", "sanitized-audit"), phase5Enum("status", "Status", "draft"),
+			phase5Enum("safeNextAction", "SafeNextAction", "create and authorize an exact export plan"),
+			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 	}
 }
 
@@ -984,6 +991,10 @@ func phase5Endpoints() []EndpointDefinition {
 		{ID: "api.v1.restores.list", Method: "GET", Path: "/api/v1/restore-plans", Availability: AvailabilityAvailable, OwnerPhase: "5", QuerySchema: apiPageQuerySchemaID, DataSchema: browserRestoreStatusListDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser, AudienceOperator}},
 		phase5AvailableGateEndpoint("api.v1.restores.run", "POST", "/api/v1/restore-plans/{planId}/runs", restoreRunRequestSchemaID, restoreBindingSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.restores.verify", "POST", "/api/v1/restore-plans/{planId}/verifications", restoreVerifyRequestSchemaID, restoreVerificationSchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.database-backups.create", "POST", "/api/v1/database/backups", backupRunRequestSchemaID, backupJobSchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.database-verifications.create", "POST", "/api/v1/database/verifications", backupVerifyRequestSchemaID, backupJobSchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.database-restores.create", "POST", "/api/v1/database/restores", restoreRequestSchemaID, restoreBindingSchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.database-exports.create", "POST", "/api/v1/database/exports", databaseExportRequestSchemaID, databaseExportDraftSubmissionSchemaID, false),
 		{ID: "api.v1.scheduled-job-policies.list", Method: "GET", Path: "/api/v1/scheduled-job-policies", Availability: AvailabilityAvailable, OwnerPhase: "5", QuerySchema: apiPageQuerySchemaID, DataSchema: browserScheduledJobPolicyListDataSchemaID, Stream: StreamFinite, Audiences: []EndpointAudience{AudienceBrowser, AudienceOperator}},
 		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.get", "GET", "/api/v1/scheduled-job-policies/{policyId}", "", browserScheduledJobPolicySchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.drafts.create", "POST", "/api/v1/scheduled-job-policies/drafts", scheduledJobPolicySchemaID, scheduledPolicyDraftSubmissionSchemaID, false),
@@ -1036,7 +1047,7 @@ func phase5CommandSchemas(path string) (request string, data string) {
 	case "restore verify":
 		return restoreVerifyRequestSchemaID, restoreVerificationSchemaID
 	case "database export":
-		return databaseExportRequestSchemaID, sanitizedExportDataSchemaID
+		return databaseExportRequestSchemaID, databaseExportDraftSubmissionSchemaID
 	default:
 		return "", ""
 	}

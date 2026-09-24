@@ -201,6 +201,45 @@
       ]
     },
     {
+      "id": "api.v1.database-backups.create",
+      "method": "POST",
+      "path": "/api/v1/database/backups",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-run-request",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.database-exports.create",
+      "method": "POST",
+      "path": "/api/v1/database/exports",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/database-export-request",
+      "dataSchema": "vegastack-labs.dev/database-export-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.database-restores.create",
+      "method": "POST",
+      "path": "/api/v1/database/restores",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/restore-request",
+      "dataSchema": "vegastack-labs.dev/restore-binding",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.database-status.get",
       "method": "GET",
       "path": "/api/v1/database/status",
@@ -210,6 +249,19 @@
       "stream": "finite",
       "audiences": [
         "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.database-verifications.create",
+      "method": "POST",
+      "path": "/api/v1/database/verifications",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-verify-request",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "stream": "finite",
+      "audiences": [
         "operator"
       ]
     },

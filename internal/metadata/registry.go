@@ -215,13 +215,17 @@ func Current() Registry {
 		restoreCommand("plan", restoreRequestSchemaID, restoreBindingSchemaID, "Create one immutable fenced restore plan."),
 		restoreCommand("run", restoreRunRequestSchemaID, restoreBindingSchemaID, "Stage one exact authorized restore candidate."),
 		restoreCommand("verify", restoreVerifyRequestSchemaID, restoreVerificationSchemaID, "Verify the recovered authority and complete its canary."),
+		databaseOperationCommand("backup", "Execute one exact approved control-database backup plan; qualification still requires database verify.", backupRunRequestSchemaID, backupJobSchemaID),
+		databaseOperationCommand("verify", "Verify control-database integrity or backup content.", backupVerifyRequestSchemaID, backupJobSchemaID),
+		databaseOperationCommand("restore", "Create an inert control-database restore change.", restoreRequestSchemaID, restoreBindingSchemaID),
+		databaseOperationCommand("export", "Create an inert authorized sanitized control-data export draft.", databaseExportRequestSchemaID, databaseExportDraftSubmissionSchemaID),
 		credentialImportCommand(),
 		credentialLifecycleCommand("stage"), credentialLifecycleCommand("activate"), credentialLifecycleCommand("rotate"), credentialLifecycleCommand("revoke"), credentialLifecycleCommand("recover"),
 		recoveryWitnessCollectCommand(),
 		auditCheckpointsCommand(), auditVerifyCommand(),
 	}
 	for _, command := range plannedCommands {
-		if command.path == "status" || command.path == "database status" || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
+		if command.path == "status" || strings.HasPrefix(command.path, "database ") || strings.HasPrefix(command.path, "inventory ") || strings.HasPrefix(command.path, "gate ") || strings.HasPrefix(command.path, "backup ") || strings.HasPrefix(command.path, "restore ") || command.path == "credential import" || command.path == "audit checkpoints" || command.path == "audit verify" || isAvailablePhase4Command(command.path) {
 			continue
 		}
 		requestSchema, dataSchema := phase5CommandSchemas(command.path)
@@ -323,6 +327,12 @@ func phase5GateCommand(path []string, summary, requestSchema, dataSchema string,
 	return CommandDefinition{Path: path, Summary: summary, Availability: AvailabilityAvailable, OwnerPhase: "5", Risk: risk,
 		Flags: append(flags, commonFlags()...), RequestSchema: requestSchema, ResultSchema: runResultSchemaID, DataSchema: dataSchema,
 		Examples: []ExampleDefinition{{Summary: summary, Arguments: example}}}
+}
+
+func databaseOperationCommand(action, summary, requestSchema, dataSchema string) CommandDefinition {
+	return phase5GateCommand([]string{"database", action}, summary, requestSchema, dataSchema, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact material-free database operation request JSON file."}},
+		[]string{"database", action, "--config", "fixture/server-profile.json", "--file", "fixture/database-" + action + "-request.json", "--output", "json"})
 }
 
 func auditCheckpointsCommand() CommandDefinition {

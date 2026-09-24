@@ -15,7 +15,55 @@ type ScheduleControlOperations interface {
 	CancelSchedule(context.Context, string, string) (localapi.TypedResponse[generated.ScheduledJob], error)
 }
 
+type ScheduleReadOperations interface {
+	ListScheduledPolicies(context.Context, string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicyListData], error)
+	InspectScheduledPolicy(context.Context, string, string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicy], error)
+}
+
 func (app *App) runScheduleCommand(ctx context.Context, mode outputMode, parsed parsedArguments) int {
+	if parsed.commandName() == generated.CommandNameScheduleList {
+		reads, ok := app.control.(ScheduleReadOperations)
+		if !ok {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "schedule-read-control", generated.RunStatusFailed, false)
+		}
+		response, err := reads.ListScheduledPolicies(ctx, parsed.Value(generated.FlagConfig))
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		for _, policy := range response.Data.Items {
+			if _, err := fmt.Fprintf(app.stdout, "%s revision %d: %s (%s)\n", policy.PolicyID, policy.Revision, policy.Status, policy.ReasonCode); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		return 0
+	}
+	if parsed.commandName() == generated.CommandNameScheduleInspect {
+		reads, ok := app.control.(ScheduleReadOperations)
+		if !ok {
+			return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "schedule-read-control", generated.RunStatusFailed, false)
+		}
+		response, err := reads.InspectScheduledPolicy(ctx, parsed.Value(generated.FlagConfig), parsed.Value(generated.FlagPolicyID))
+		if err != nil {
+			return app.failServer(mode, parsed.commandName(), err)
+		}
+		if response.ExitCode != 0 {
+			return app.remoteFailure(mode, response.Raw, response.Result, response.ExitCode)
+		}
+		if mode == outputJSON {
+			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
+		}
+		_, err = fmt.Fprintf(app.stdout, "%s revision %d: %s (%s), action %s\n", response.Data.PolicyID, response.Data.Revision, response.Data.Status, response.Data.ReasonCode, response.Data.ActionKind)
+		if err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		return 0
+	}
 	control, ok := app.control.(ScheduleControlOperations)
 	if !ok {
 		return app.fail(mode, parsed.commandName(), generated.ErrorCodeIntegrityFailure, "schedule-control", generated.RunStatusFailed, false)

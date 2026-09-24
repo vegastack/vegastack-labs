@@ -352,7 +352,7 @@ function decodeSchema(identifier: string, value: unknown, path = identifier, com
     result[field.name] = decodeField(field, value[field.name], path + "." + field.name, compatibleRead);
   }
   if (result.sourceKind === "fixture" && result.proofClass !== "fixture") return mismatch(path, "fixture source cannot claim live proof");
-  if (identifier === "vegastack-labs.dev/audit-checkpoint") {
+  if (identifier === "vegastack-labs.dev/audit-checkpoint" || identifier === "vegastack-labs.dev/browser-audit-checkpoint") {
     if (Number(result.lastEventId) < Number(result.firstEventId)) return mismatch(path, "audit checkpoint event range is reversed");
     if (result.sourceKind === "independent" && result.proofClass === "live" && result.independentCopyDigest === null) return mismatch(path, "independent checkpoint lacks copy digest");
   }

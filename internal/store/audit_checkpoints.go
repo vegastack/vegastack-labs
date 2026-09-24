@@ -76,12 +76,19 @@ func (store *Store) GetAuditCheckpoint(ctx context.Context, checkpointID string)
 }
 
 func (store *Store) ListAuditCheckpoints(ctx context.Context) ([]generated.AuditCheckpoint, error) {
+	return store.ListAuditCheckpointsPage(ctx, "", 100)
+}
+
+func (store *Store) ListAuditCheckpointsPage(ctx context.Context, afterID string, limit int) ([]generated.AuditCheckpoint, error) {
+	if limit < 1 || limit > 101 {
+		return nil, newStoreError(generated.ErrorCodeInputInvalid, "audit-checkpoint-page", false, nil)
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 	if err := store.readyForRead(ctx); err != nil {
 		return nil, err
 	}
-	rows, err := store.conn.QueryContext(ctx, `SELECT canonical_bytes FROM audit_checkpoints ORDER BY last_event_id,checkpoint_id`)
+	rows, err := store.conn.QueryContext(ctx, `SELECT canonical_bytes FROM audit_checkpoints WHERE checkpoint_id>? ORDER BY checkpoint_id LIMIT ?`, afterID, limit)
 	if err != nil {
 		return nil, store.transactionError(ctx, err)
 	}

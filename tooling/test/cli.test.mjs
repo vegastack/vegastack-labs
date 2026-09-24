@@ -1455,6 +1455,7 @@ test("the CLI verifier fails closed when the analyzer reports a mismatched targe
           localClientBoundary: true,
           releaseArtifactExecution: false,
           releaseNetworkAccess: false,
+          restoreCommandClosureInvalid: false,
           sqliteAccess: false,
           shellDispatch: false,
           stateExportReleaseCoupling: false,

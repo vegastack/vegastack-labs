@@ -232,6 +232,45 @@ Owner phase: `5` · risk: `mutation` · availability: `available`
 
 - Create an inert credential lifecycle draft; execution requires a separate exact human-approved plan.: `vsk-labs credential stage --config fixture/server-profile.json --file fixture/credential-stage-request.json --output json`
 
+### `vsk-labs database backup`
+
+Execute one exact approved control-database backup plan; qualification still requires database verify.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact material-free database operation request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Execute one exact approved control-database backup plan; qualification still requires database verify.: `vsk-labs database backup --config fixture/server-profile.json --file fixture/database-backup-request.json --output json`
+
+### `vsk-labs database export`
+
+Create an inert authorized sanitized control-data export draft.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact material-free database operation request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Create an inert authorized sanitized control-data export draft.: `vsk-labs database export --config fixture/server-profile.json --file fixture/database-export-request.json --output json`
+
+### `vsk-labs database restore`
+
+Create an inert control-database restore change.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact material-free database operation request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Create an inert control-database restore change.: `vsk-labs database restore --config fixture/server-profile.json --file fixture/database-restore-request.json --output json`
+
 ### `vsk-labs database status`
 
 Inspect control-database status.
@@ -243,6 +282,19 @@ Owner phase: `2` · risk: `read-only` · availability: `available`
 - `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
 
 - Inspect control-database status.: `vsk-labs database status --config fixture/server-profile.json --output json`
+
+### `vsk-labs database verify`
+
+Verify control-database integrity or backup content.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected server profile.
+- `--file <path>` — Read one exact material-free database operation request JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Verify control-database integrity or backup content.: `vsk-labs database verify --config fixture/server-profile.json --file fixture/database-verify-request.json --output json`
 
 ### `vsk-labs gate check`
 
@@ -658,30 +710,6 @@ Owner phase: `6` · risk: `unassigned` · availability: `planned`
 Verify control-plane health and authority.
 
 Owner phase: `6` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs database backup`
-
-Create a verified control-database backup.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs database export`
-
-Export authorized sanitized control data.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs database restore`
-
-Create an inert control-database restore change.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
-
-### `vsk-labs database verify`
-
-Verify control-database integrity or backup content.
-
-Owner phase: `5` · risk: `unassigned` · availability: `planned`
 
 ### `vsk-labs device approve`
 
