@@ -688,6 +688,16 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none.
 
 — approved by (omkarmohanta09) · built by Codex · branch historical branch not recorded
+## 24-09-2026 — Phase 5 reached its exact-main acceptance boundary ([#112](https://github.com/vegastack/vegastack-labs/issues/112))
+
+- **What:** The complete Phase 5 software delivery is mapped to exact child reviews and merges, the closed 47-scenario hostile catalog, one clean Linux exact-main verifier, and one nonduplicated public CI route.
+- **Why:** Evidence, credentials, backups, audit custody, recovery fencing, scheduling, and operator surfaces need one immutable candidate before the operator can accept the phase.
+- **How it went:** Re-grounding corrected four stale or missing child evidence records and two research-review records. The CI path was reduced from two full-plan executions to one exact Phase 5 exit plus one focused race pass.
+- **Changed:** Phase document and ownership index · exact child/research/map bindings · trusted-main/clean-Linux/history guards · canonical artifact digest · mutually exclusive branch/main CI routing · candidate-only documentation.
+- **Decisions:** Phase 5 remains awaiting operator acceptance. The candidate is credential-free software proof and does not qualify G-007, G-008, live providers, hosts, storage, deployment, release, or fleet authority.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/112-phase5-integration-acceptance
+
 ## 24-09-2026 — Phase 5 workflows reached the shared operator surfaces ([#110](https://github.com/vegastack/vegastack-labs/issues/110))
 
 - **What:** Gates, backup and recovery points, audit checkpoints, restore state, and fixed schedules gained typed CLI/API access and sanitized Console views over the same server-owned authority.
