@@ -284,8 +284,10 @@
           "restore run",
           "restore verify"
         ],
-        "imports": [],
-        "mutationBoundaryDigest": "sha256:bc3d67a96a32ca261ff05a615c567b78454dc431e8031ddf6297cda6b1e3b27b"
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/adapter/recoverydenial"
+        ],
+        "mutationBoundaryDigest": "sha256:7ceaa7eb8fda2777cd7b5964ed72aafd54527fa26b0d03adb356c69bfd579805"
       }
     ]
   },
