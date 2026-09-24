@@ -4,6 +4,7 @@ package run
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	planengine "github.com/vegastack/vegastack-labs/internal/plan"
@@ -156,27 +158,30 @@ func TestSQLiteRestartRecoversBothSidesOfHumanAcknowledgementActivation(t *testi
 }
 
 type sqliteRestartFixture struct {
-	testingT     *testing.T
-	config       store.Config
-	authority    *store.Store
-	clock        func() time.Time
-	branch       string
-	plan         generated.Plan
-	request      SubmitRequest
-	adapter      *sqliteCountingAdapter
-	ids          *deterministicIDs
-	engine       *Engine
-	acknowledger *acknowledgement.Service
-	operation    phase5OperationBinding
+	testingT          *testing.T
+	config            store.Config
+	authority         *store.Store
+	clock             func() time.Time
+	branch            string
+	plan              generated.Plan
+	request           SubmitRequest
+	adapter           *sqliteCountingAdapter
+	effects           *sqliteCountingAdapter
+	ids               *deterministicIDs
+	engine            *Engine
+	acknowledger      *acknowledgement.Service
+	operation         phase5OperationBinding
+	credentialBinding *credentialref.StepBinding
 }
 
 type phase5OperationBinding struct {
-	name          string
-	operationType string
+	name, declarationType, operationType, adapterID, branch string
+	idempotent, sameDigest                                  bool
+	extensions                                              []string
 }
 
 func newSQLiteRestartFixture(t *testing.T, branch string) *sqliteRestartFixture {
-	return newSQLiteRestartFixtureForOperation(t, branch, phase5OperationBinding{name: "generic-run", operationType: "configuration.update"})
+	return newSQLiteRestartFixtureForOperation(t, branch, phase5OperationBinding{name: "generic-run", declarationType: "node.configuration", operationType: "configuration.update", adapterID: "adapter-sqlite-restart", branch: branch, idempotent: true})
 }
 
 func newSQLiteRestartFixtureForOperation(t *testing.T, branch string, operation phase5OperationBinding) *sqliteRestartFixture {
@@ -199,7 +204,8 @@ func newSQLiteRestartFixtureForOperation(t *testing.T, branch string, operation 
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture := &sqliteRestartFixture{testingT: t, config: config, authority: authority, clock: clock, branch: branch, adapter: &sqliteCountingAdapter{}, ids: &deterministicIDs{}, operation: operation}
+	counter := &sqliteCountingAdapter{}
+	fixture := &sqliteRestartFixture{testingT: t, config: config, authority: authority, clock: clock, branch: branch, adapter: counter, effects: counter, ids: &deterministicIDs{}, operation: operation}
 	t.Cleanup(func() { _ = fixture.authority.Close() })
 	fixture.plan = fixture.seedPlan()
 	fixture.recompose()
@@ -209,38 +215,81 @@ func newSQLiteRestartFixtureForOperation(t *testing.T, branch string, operation 
 
 func (fixture *sqliteRestartFixture) seedPlan() generated.Plan {
 	t := fixture.testingT
-	if fixture.operation.name == "" || fixture.operation.operationType == "" {
+	if fixture.operation.name == "" || fixture.operation.operationType == "" || fixture.operation.adapterID == "" || fixture.operation.declarationType == "" {
 		t.Fatal("durable operation binding is incomplete")
+	}
+	if fixture.operation.name == "offsite-copy" {
+		d := digest("phase5-offsite-source")
+		at := fixture.clock().Format(time.RFC3339)
+		database, err := sql.Open("sqlite3", fixture.config.DatabasePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer database.Close()
+		if _, err := database.ExecContext(context.Background(), `INSERT INTO backup_jobs(job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,status,recovery_epoch,created_at,updated_at) VALUES(?,?,?,?,?,'local','fixture','pending',0,?,?)`, "job-phase5", "policy-phase5", d, "repository-phase5", "critical", at, at); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := database.ExecContext(context.Background(), `INSERT INTO recovery_points(point_id,job_id,policy_id,policy_digest,repository_id,repository_class,source_kind,proof_class,snapshot_id,snapshot_count,object_count,object_bytes,content_digest,manifest_digest,manifest_json,inventory_digest,source_revision,recovery_epoch,verification_status,created_at) VALUES(?,?,?,?,?,?,'local','fixture',?,1,1,1,?,?,'{}',?,1,0,'pending',?)`, "point-phase5", "job-phase5", "policy-phase5", d, "repository-phase5", "critical", "snapshot-phase5", d, d, d, at); err != nil {
+			t.Fatal(err)
+		}
 	}
 	declarations, err := change.NewService(store.NewDeclarationRepository(fixture.authority), fixture.clock)
 	if err != nil {
 		t.Fatal(err)
 	}
+	inputDigest, artifactDigest := digest("sqlite-input-"+fixture.operation.name), digest("sqlite-artifact-"+fixture.operation.name)
+	if fixture.operation.sameDigest {
+		artifactDigest = inputDigest
+	}
+	for _, name := range fixture.operation.extensions {
+		if name == "x-credential-bindings" {
+			binding := credentialref.StepBinding{OperationID: "operation-sqlite-restart-" + fixture.operation.name, AdapterID: fixture.operation.adapterID, TargetID: "target-sqlite-restart", ReferenceID: "reference-" + fixture.operation.name, ConsumerID: fixture.operation.adapterID, PurposeID: "phase5-durable-matrix", MaterialVersion: "version-1", ResolverID: "native-phase5", StateRevision: 2, RecoveryEpoch: 0}
+			fixture.credentialBinding = &binding
+			inputDigest = credentialref.OperationManifestDigest([]credentialref.StepBinding{binding}, binding.OperationID)
+		}
+	}
+	extensions := make([]generated.ContractExtension, 0, len(fixture.operation.extensions))
+	for _, name := range fixture.operation.extensions {
+		value := artifactDigest
+		if name == "x-credential-bindings" {
+			value = credentialref.ManifestDigest([]credentialref.StepBinding{*fixture.credentialBinding})
+		}
+		extensions = append(extensions, generated.ContractExtension{Name: name, ValueDigest: value})
+	}
 	operation := generated.DeclarationOperation{
 		Sequence:       1,
 		OperationID:    "operation-sqlite-restart-" + fixture.operation.name,
 		OperationType:  fixture.operation.operationType,
-		AdapterID:      "adapter-sqlite-restart",
+		AdapterID:      fixture.operation.adapterID,
 		TargetID:       "target-sqlite-restart",
-		InputDigest:    digest("sqlite-input"),
-		ArtifactDigest: digest("sqlite-artifact"),
-		Idempotent:     true,
+		InputDigest:    inputDigest,
+		ArtifactDigest: artifactDigest,
+		Idempotent:     fixture.operation.idempotent,
+	}
+	if fixture.operation.name == "offsite-copy" {
+		operation.TargetID = "generation-phase5"
+		operation.OffsiteRunSpec = &generated.OffsiteRunSpec{GenerationID: operation.TargetID, SourcePointID: "point-phase5", SourceRevision: 1, SnapshotPath: "/var/lib/vsk-labs/offsite/phase5", RepositoryURL: "s3:https://account.r2.cloudflarestorage.com/bucket/phase5", ParentReferenceID: "parent-phase5", RepositoryKeyReferenceID: "password-phase5", ObserverReferenceID: "observer-phase5", RuleDigest: artifactDigest, G008EvidenceDigest: artifactDigest, MaximumBytes: 4096, MaximumPUTs: 100, MaximumLISTs: 20, MaximumRetainedGenerations: 100, RuleLimit: 1000, RetentionSeconds: 86400, SessionTTLSeconds: 60}
+		fixture.credentialBinding.TargetID = operation.TargetID
+		inputDigest = credentialref.OperationManifestDigest([]credentialref.StepBinding{*fixture.credentialBinding}, fixture.credentialBinding.OperationID)
+		operation.InputDigest = inputDigest
+		for index := range extensions {
+			if extensions[index].Name == "x-credential-bindings" {
+				extensions[index].ValueDigest = credentialref.ManifestDigest([]credentialref.StepBinding{*fixture.credentialBinding})
+			}
+		}
 	}
 	author := change.AuthorScope{PrincipalID: "principal-sqlite-restart", PrincipalMethod: identity.LocalOSPeerMethod, AgentSessionID: "session-sqlite-restart"}
 	revised, err := declarations.Revise(context.Background(), author, generated.DeclarationRevisionRequest{
 		Schema:                generated.SchemaIDDeclarationRevisionRequest,
 		SchemaVersion:         "1.0.0",
 		DeclarationID:         "declaration-sqlite-restart-" + fixture.operation.name,
-		DeclarationType:       "node.configuration",
+		DeclarationType:       fixture.operation.declarationType,
 		ExpectedRevision:      1,
 		ExpectedStateRevision: 0,
 		RecoveryEpoch:         0,
 		Operations:            []generated.DeclarationOperation{operation},
 		ReasonDigest:          digest("sqlite-reason"),
-		Extensions: []generated.ContractExtension{{
-			Name:        "x-sqlite-restart-" + fixture.operation.name,
-			ValueDigest: digest("sqlite-extension"),
-		}},
+		Extensions:            extensions,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -264,7 +313,7 @@ func (fixture *sqliteRestartFixture) seedPlan() generated.Plan {
 		RecoveryEpoch:          revised.Document.RecoveryEpoch,
 		ObservationFingerprint: fingerprint,
 		IdempotencyKey:         "plan-sqlite-restart-" + fixture.operation.name,
-		Extensions:             []generated.ContractExtension{},
+		Extensions:             extensions,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -313,23 +362,131 @@ func (fixture *sqliteRestartFixture) recompose() {
 		}
 	}
 	registry := adapter.NewRegistry()
-	if err := registry.Register("adapter-sqlite-restart", fixture.adapter); err != nil {
+	if fixture.operation.adapterID != "core.credential" && fixture.operation.adapterID != "core.audit" && fixture.operation.adapterID != "core.recovery" && fixture.operation.adapterID != "core.schedule-observe" {
+		if err := registry.Register(fixture.operation.adapterID, phase5ProviderBoundary(fixture.operation, fixture.effects)); err != nil {
+			t.Fatal(err)
+		}
+	} else if err := registry.Register("adapter-sqlite-restart", fixture.adapter); err != nil {
 		t.Fatal(err)
 	}
+	core := phase5CoreBoundary(fixture.operation, fixture.effects)
+	var secretGate GateVerifier
+	var credentialStep *CredentialStep
+	if fixture.credentialBinding != nil {
+		activeAt := fixture.clock().Format(time.RFC3339)
+		binding := *fixture.credentialBinding
+		secretGate = &syntheticGateVerifier{}
+		credentialStep = &CredentialStep{
+			Bindings:  &fakeCredentialBindings{binding: binding, reference: generated.CredentialReference{ReferenceID: binding.ReferenceID, ConsumerID: binding.ConsumerID, PurposeID: binding.PurposeID, TargetID: binding.TargetID, ResolverID: binding.ResolverID, MaterialVersion: binding.MaterialVersion, Status: "active", StateRevision: 2, RecoveryEpoch: 0, ActivatedAt: &activeAt, VerifiedConsumerIDs: []string{binding.ConsumerID}}},
+			Resolvers: &fakeCredentialRegistry{resolver: &countingCredentialResolver{}},
+			Profiles:  fakeCredentialProfiles{scope: store.GateAppliedProfile{ProfileID: "profile-phase5", StateRevision: 2, RecoveryEpoch: 0, Capabilities: []string{"credential.native.read"}}},
+			Plans:     plans,
+			Clock:     fixture.clock,
+		}
+	}
 	engine, err := NewEngine(Config{
-		Repository:   store.NewRunRepository(fixture.authority),
-		Plans:        plans,
-		Admission:    NewAdmissionGate(acknowledger, fixture.clock),
-		Adapters:     registry,
-		Clock:        fixture.clock,
-		IDs:          fixture.ids,
-		LeaseContext: sqliteTestLeaseContext,
+		Repository:     store.NewRunRepository(fixture.authority),
+		Plans:          plans,
+		Admission:      NewAdmissionGate(acknowledger, fixture.clock),
+		Adapters:       registry,
+		Core:           core,
+		CredentialCore: core,
+		SecretGate:     secretGate,
+		CredentialStep: credentialStep,
+		Clock:          fixture.clock,
+		IDs:            fixture.ids,
+		LeaseContext:   sqliteTestLeaseContext,
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	fixture.acknowledger = acknowledger
 	fixture.engine = engine
+}
+
+func (fixture *sqliteRestartFixture) effectCount() int { return fixture.effects.callCount() }
+
+type phase5ExactAdapter struct {
+	expectedAdapter, expectedOperation string
+	counter                            *sqliteCountingAdapter
+}
+
+type phase5LocalBackupBoundary struct{ *phase5ExactAdapter }
+type phase5LocalRetentionBoundary struct{ *phase5ExactAdapter }
+type phase5OffsiteCopyBoundary struct{ *phase5ExactAdapter }
+type phase5OffsiteRetirementBoundary struct{ *phase5ExactAdapter }
+
+func phase5ProviderBoundary(operation phase5OperationBinding, counter *sqliteCountingAdapter) adapter.Adapter {
+	base := &phase5ExactAdapter{expectedAdapter: operation.adapterID, expectedOperation: operation.operationType, counter: counter}
+	switch operation.adapterID {
+	case "local.backup":
+		return &phase5LocalBackupBoundary{base}
+	case "local.retention":
+		return &phase5LocalRetentionBoundary{base}
+	case "labs.r2-offsite":
+		return &phase5OffsiteCopyBoundary{base}
+	case "r2.retention":
+		return &phase5OffsiteRetirementBoundary{base}
+	default:
+		return base
+	}
+}
+
+func (implementation *phase5ExactAdapter) Execute(ctx context.Context, operation adapter.Operation) (adapter.Effect, error) {
+	if operation.AdapterID != implementation.expectedAdapter || operation.OperationType != implementation.expectedOperation {
+		return adapter.Effect{}, errors.New("unexpected phase5 adapter route")
+	}
+	return implementation.counter.Execute(ctx, operation)
+}
+func (implementation *phase5ExactAdapter) Verify(ctx context.Context, operation adapter.Operation, effect adapter.Effect) (adapter.Verification, error) {
+	if operation.AdapterID != implementation.expectedAdapter || operation.OperationType != implementation.expectedOperation {
+		return adapter.Verification{}, errors.New("unexpected phase5 adapter verification route")
+	}
+	return implementation.counter.Verify(ctx, operation, effect)
+}
+func (implementation *phase5ExactAdapter) ExecuteWithCredentials(ctx context.Context, operation adapter.Operation, _ []*credentialref.Value) (adapter.Effect, error) {
+	return implementation.Execute(ctx, operation)
+}
+
+type phase5ExactCore struct {
+	expectedAdapter, expectedOperation string
+	counter                            *sqliteCountingAdapter
+}
+
+type phase5CredentialBoundary struct{ *phase5ExactCore }
+type phase5AuditBoundary struct{ *phase5ExactCore }
+type phase5RecoveryBoundary struct{ *phase5ExactCore }
+type phase5ScheduleBoundary struct{ *phase5ExactCore }
+
+func phase5CoreBoundary(operation phase5OperationBinding, counter *sqliteCountingAdapter) CoreEffect {
+	base := &phase5ExactCore{expectedAdapter: operation.adapterID, expectedOperation: operation.operationType, counter: counter}
+	switch operation.adapterID {
+	case "core.credential":
+		return &phase5CredentialBoundary{base}
+	case "core.audit":
+		return &phase5AuditBoundary{base}
+	case "core.recovery":
+		return &phase5RecoveryBoundary{base}
+	case "core.schedule-observe":
+		return &phase5ScheduleBoundary{base}
+	default:
+		return base
+	}
+}
+
+func (implementation *phase5ExactCore) Execute(ctx context.Context, binding ExactStepBinding) (adapter.Effect, error) {
+	operation := binding.Plan.Operations[0]
+	if operation.AdapterID != implementation.expectedAdapter || operation.OperationType != implementation.expectedOperation {
+		return adapter.Effect{}, errors.New("unexpected phase5 core route")
+	}
+	return implementation.counter.Execute(ctx, adapter.Operation{AdapterID: operation.AdapterID, OperationType: operation.OperationType})
+}
+func (implementation *phase5ExactCore) Verify(ctx context.Context, binding ExactStepBinding, effect adapter.Effect) (adapter.Verification, error) {
+	operation := binding.Plan.Operations[0]
+	if operation.AdapterID != implementation.expectedAdapter || operation.OperationType != implementation.expectedOperation {
+		return adapter.Verification{}, errors.New("unexpected phase5 core verification route")
+	}
+	return implementation.counter.Verify(ctx, adapter.Operation{AdapterID: operation.AdapterID, OperationType: operation.OperationType}, effect)
 }
 
 func (fixture *sqliteRestartFixture) submitRequest() SubmitRequest {
