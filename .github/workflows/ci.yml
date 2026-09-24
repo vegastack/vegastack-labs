@@ -153,7 +153,10 @@ jobs:
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
         run: |
+          git checkout --detach 55438e62ce3181eb19694b4dd0fce237efb905d8
+          test -z "$(git status --porcelain)"
           pnpm --filter @vegastack/labs-web build
+          test -z "$(git status --porcelain)"
           node tooling/verify-phase-5.mjs --prepared
 
       - name: Run pinned local-backup acceptance
