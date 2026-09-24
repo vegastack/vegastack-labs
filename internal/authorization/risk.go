@@ -51,6 +51,7 @@ var operationRisk = map[string]RiskClass{
 	"credential.rotate":                  RiskControlPlane,
 	"credential.revoke":                  RiskControlPlane,
 	"credential.recover":                 RiskControlPlane,
+	"schedule.policy.activate":           RiskControlPlane,
 }
 
 var riskRank = map[RiskClass]int{
@@ -94,3 +95,7 @@ func preauthorizedOperation(operation string) bool {
 		return false
 	}
 }
+
+// IsPreauthorizedOperation exposes the closed routine-operation table to the
+// schedule package without allowing callers to extend it.
+func IsPreauthorizedOperation(operation string) bool { return preauthorizedOperation(operation) }

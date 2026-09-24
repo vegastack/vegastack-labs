@@ -209,6 +209,7 @@ func Current() Registry {
 		backupRetirementDraftCommand(),
 		backupOffsiteRetirementStageCommand(),
 		backupOffsiteRetirementDryRunCommand(),
+		schedulePolicyDraftCommand(), scheduleDispatchCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		restoreCommand("plan", restoreRequestSchemaID, restoreBindingSchemaID, "Create one immutable fenced restore plan."),
 		restoreCommand("run", restoreRunRequestSchemaID, restoreBindingSchemaID, "Stage one exact authorized restore candidate."),
@@ -415,6 +416,18 @@ func backupStatusCommand() CommandDefinition {
 	return phase5GateCommand([]string{"backup", "status"}, "Inspect local backup jobs and qualification status.", "", backupStatusDataSchemaID, RiskReadOnly,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
 		[]string{"backup", "status", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func schedulePolicyDraftCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "policy", "draft"}, "Store one inert exact scheduled-policy draft for later human-plan activation.", scheduledJobPolicySchemaID, scheduledJobPolicySchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact scheduled-job-policy JSON file."}},
+		[]string{"schedule", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/scheduled-job-policy.json", "--output", "json"})
+}
+
+func scheduleDispatchCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "dispatch"}, "Wake one exact approved schedule through the protected local API.", scheduledJobRequestSchemaID, scheduledJobSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--policy-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one exact active policy; no action field may be overridden."}},
+		[]string{"schedule", "dispatch", "--config", "fixture/server-profile.json", "--policy-id", "policy-a", "--output", "json"})
 }
 
 func backupRunCommand() CommandDefinition {

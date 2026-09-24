@@ -101,18 +101,18 @@ func TestPhase5GeneratedNamesMatchEveryConsumer(t *testing.T) {
 			}
 		}
 	}
-	if phase5 != 27 {
-		t.Errorf("Phase 5 endpoint count = %d, want 27", phase5)
+	if phase5 != 28 {
+		t.Errorf("Phase 5 endpoint count = %d, want 28", phase5)
 	}
 	if !reflect.DeepEqual(phase5EndpointIDs, []string{
 		"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backup-offsite-retirements.dry-run", "api.v1.backup-offsite-retirements.stage", "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
 		"api.v1.credential-lifecycle-drafts.create", "api.v1.credential-references.get", "api.v1.credential-references.import-stream", "api.v1.credential-resolution-records.get", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create",
 		"api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list", "api.v1.recovery-points.get", "api.v1.restores.get", "api.v1.restores.plan",
-		"api.v1.restores.run", "api.v1.restores.verify", "api.v1.scheduled-job-policies.get", "api.v1.scheduled-jobs.create",
+		"api.v1.restores.run", "api.v1.restores.verify", "api.v1.scheduled-job-policies.drafts.create", "api.v1.scheduled-job-policies.get", "api.v1.scheduled-jobs.create",
 	}) {
 		t.Errorf("#102 Phase 5 endpoint baseline or #104/#105 scoped additions changed: %v", phase5EndpointIDs)
 	}
-	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backup-offsite-retirements.dry-run", "api.v1.backup-offsite-retirements.stage", "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify", "api.v1.credential-lifecycle-drafts.create", "api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list", "api.v1.restores.get", "api.v1.restores.plan", "api.v1.restores.run", "api.v1.restores.verify"}) {
+	if !reflect.DeepEqual(availablePhase5Endpoints, []string{"api.v1.audit-checkpoints.create", "api.v1.audit-checkpoints.list", "api.v1.audit-history.verification", "api.v1.backup-offsite-retirements.dry-run", "api.v1.backup-offsite-retirements.stage", "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create", "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify", "api.v1.credential-lifecycle-drafts.create", "api.v1.credential-references.import-stream", "api.v1.gate-evidence.create", "api.v1.gate-profile-drafts.create", "api.v1.gates.check", "api.v1.gates.get", "api.v1.gates.list", "api.v1.restores.get", "api.v1.restores.plan", "api.v1.restores.run", "api.v1.restores.verify", "api.v1.scheduled-job-policies.drafts.create", "api.v1.scheduled-job-policies.get", "api.v1.scheduled-jobs.create"}) {
 		t.Errorf("unexpected available Phase 5 endpoints: %v", availablePhase5Endpoints)
 	}
 	var gateSchema map[string]any
@@ -714,14 +714,14 @@ func TestGeneratedContractsPreservePublicBoundary(t *testing.T) {
 			}
 		}
 	}
-	if available != 42 || planned != 28 {
-		t.Fatalf("command availability = (%d available, %d planned), want (42, 28)", available, planned)
+	if available != 44 || planned != 28 {
+		t.Fatalf("command availability = (%d available, %d planned), want (44, 28)", available, planned)
 	}
 	// #102's 17 available/38 planned baseline remains the arithmetic base:
 	// #104 promoted four exact gate commands and added one exact profile draft;
 	// #124 promoted one exact local-only credential import command;
 	// #107 promoted two exact audit read commands.
-	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "backup offsite-retirement dry-run", "backup offsite-retirement stage", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup run", "backup status", "backup verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect", "restore plan", "restore run", "restore verify"}) {
+	if !reflect.DeepEqual(availablePhase5, []string{"audit checkpoints", "audit verify", "backup offsite-retirement dry-run", "backup offsite-retirement stage", "backup policy draft", "backup retention-locks draft", "backup retirement draft", "backup run", "backup status", "backup verify", "credential activate", "credential import", "credential recover", "credential revoke", "credential rotate", "credential stage", "gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft", "recovery witness collect", "restore plan", "restore run", "restore verify", "schedule dispatch", "schedule policy draft"}) {
 		t.Fatalf("unexpected available Phase 5 commands: %v", availablePhase5)
 	}
 

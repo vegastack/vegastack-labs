@@ -3,42 +3,140 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
   "properties": {
-    "actionDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
-      "type": "string"
-    },
     "actionKind": {
       "enum": [
-        "backup",
-        "audit-checkpoint",
-        "gate-check"
+        "gate-check",
+        "observation-refresh",
+        "backup-create",
+        "backup-integrity-verify",
+        "audit-checkpoint-export"
       ],
       "type": "string"
     },
+    "adapterId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "anchorAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "approvalPlanDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    },
+    "approvalPlanId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "approvedByHumanId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "catchUp": {
+      "enum": [
+        "none",
+        "latest"
+      ],
+      "type": "string"
+    },
+    "concurrency": {
+      "enum": [
+        "forbid"
+      ],
+      "type": "string"
+    },
+    "credentialReferenceIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "declarationId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "declarationRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
     "enabled": {
       "type": "boolean"
+    },
+    "exactSourceIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
+    },
+    "exactSubjectIds": {
+      "items": {
+        "type": "string"
+      },
+      "maxItems": 64,
+      "type": "array",
+      "uniqueItems": true
     },
     "exactTargetIds": {
       "items": {
         "type": "string"
       },
       "maxItems": 64,
-      "minItems": 1,
       "type": "array",
       "uniqueItems": true
+    },
+    "expiresAt": {
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$",
+      "type": "string"
+    },
+    "grantRevision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "initialBackoffSeconds": {
+      "minimum": 1,
+      "type": "integer"
     },
     "intervalSeconds": {
       "maximum": 604800,
       "minimum": 1,
       "type": "integer"
     },
+    "maxAttempts": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "maximumBackoffSeconds": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "maximumWork": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "operationType": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "policyId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "policyVersion": {
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$",
       "type": "string"
     },
     "recoveryEpoch": {
       "minimum": 0,
       "type": "integer"
+    },
+    "retentionRuleDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
     },
     "revision": {
       "minimum": 1,
@@ -52,13 +150,17 @@
     },
     "schemaVersion": {
       "enum": [
-        "1.0.0"
+        "1.1.0"
       ],
       "type": "string"
     },
-    "targetDigest": {
-      "pattern": "^sha256:[a-f0-9]{64}$",
-      "type": "string"
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "windowSeconds": {
+      "minimum": 1,
+      "type": "integer"
     }
   },
   "required": [
@@ -66,13 +168,34 @@
     "schemaVersion",
     "policyId",
     "revision",
+    "declarationId",
+    "declarationRevision",
+    "approvalPlanId",
+    "approvalPlanDigest",
+    "approvedByHumanId",
     "actionKind",
+    "operationType",
+    "adapterId",
+    "exactSourceIds",
+    "exactSubjectIds",
     "exactTargetIds",
-    "actionDigest",
-    "targetDigest",
+    "maximumWork",
+    "credentialReferenceIds",
+    "grantRevision",
+    "stateRevision",
+    "recoveryEpoch",
+    "policyVersion",
+    "retentionRuleDigest",
+    "anchorAt",
     "intervalSeconds",
-    "enabled",
-    "recoveryEpoch"
+    "windowSeconds",
+    "catchUp",
+    "concurrency",
+    "maxAttempts",
+    "initialBackoffSeconds",
+    "maximumBackoffSeconds",
+    "expiresAt",
+    "enabled"
   ],
   "title": "VegaStack Labs scheduled job policy",
   "type": "object",
