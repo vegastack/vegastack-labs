@@ -78,14 +78,22 @@ test("browser runs only for browser impact and unknown input fails closed", () =
 test("Phase 5 acceptance changes select the browser group", () => {
   for (const path of [
     "tooling/verify-phase-5.mjs",
+    "tooling/verify-phase-5-exit.mjs",
     "tooling/phase-5-evidence.json",
+    "tooling/phase-5-exit-evidence.json",
     "tooling/test/phase-5-acceptance.test.mjs",
+    "tooling/test/phase-5-exit.test.mjs",
     "tooling/testdata/phase-5/acceptance-scenarios.json",
   ]) {
     const plan = classifyChangedPaths([{ status: "M", path }]);
     assert.equal(plan.browser, true, path);
     assert.ok(plan.groups.includes("browser"), path);
   }
+});
+
+test("the complete check plan does not recursively invoke the Phase 5 exit", () => {
+  const names = checkStepsForPlan(fullCheckPlan()).map((step) => step.name);
+  assert.equal(names.some((name) => /Phase 5 exit/i.test(name)), false);
 });
 
 test("Go-only changes omit only the four Chromium-backed Go acceptance tests", () => {
