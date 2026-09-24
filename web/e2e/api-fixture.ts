@@ -1,6 +1,6 @@
 import type { Page, Route } from "@playwright/test";
 
-export type FixtureMode = "healthy" | "dependency" | "dependency-summary" | "dependency-node-page" | "unavailable" | "denied" | "deny-node-page" | "empty" | "missing" | "mismatched-source" | "malformed";
+export type FixtureMode = "healthy" | "recovery-required" | "dependency" | "dependency-summary" | "dependency-node-page" | "unavailable" | "denied" | "deny-node-page" | "empty" | "missing" | "mismatched-source" | "malformed";
 type DomainFixtureState = "healthy" | "stale" | "unknown" | "unavailable" | "failed";
 export const fixtureState: { mode: FixtureMode; delay: number; domainState: DomainFixtureState } = { mode: "healthy", delay: 0, domainState: "unavailable" };
 export const fixtureAudit: { requests: string[]; responses: string[]; domainProjections: Array<{ source: string; candidates: number; excluded: number }> } = { requests: [], responses: [], domainProjections: [] };
@@ -62,16 +62,53 @@ async function respond(route: Route) {
   if (fixtureState.delay) await new Promise(resolve => setTimeout(resolve, fixtureState.delay));
   const url = new URL(requestUrl);
   const path = url.pathname;
+  const method = route.request().method();
   const isSecondNodePage = path.endsWith("/nodes") && Boolean(url.searchParams.get("cursor"));
   if (fixtureState.mode === "malformed") return fulfill(route, 200, "{not-json");
   if (fixtureState.mode === "denied" || (fixtureState.mode === "deny-node-page" && isSecondNodePage)) return fulfill(route, 403, JSON.stringify(envelope("read", {}, "failed", [{ code: "AUTHORIZATION_DENIED", target: "read", retryable: false }])));
   if (fixtureState.mode === "dependency-node-page" && isSecondNodePage) return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: true }])));
   if (fixtureState.mode === "dependency-summary" && path === "/api/v1/summary") return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "summary", retryable: true }])));
   if (fixtureState.mode === "dependency" || fixtureState.mode === "unavailable") return fulfill(route, 503, JSON.stringify(envelope("read", {}, "failed", [{ code: "DEPENDENCY_UNAVAILABLE", target: "source", retryable: fixtureState.mode === "dependency" }])));
+  if (method === "POST" && /^\/api\/v1\/recovery-points\/[^/]+\/restore-drafts$/.test(path)) return fulfill(route, 200, JSON.stringify(envelope("api.v1.restore-drafts.create", { schema: "vegastack-labs.dev/browser-restore-draft-submission", schemaVersion: "1.0.0", draftId: "draft-restore-a", changeId: "change-restore-a", pointId: "point-a", status: "draft", stateRevision: 9, recoveryEpoch: 2 })));
+  if (method === "POST" && /^\/api\/v1\/gates\/[^/]+\/check$/.test(path)) return fulfill(route, 200, JSON.stringify(envelope("api.v1.gates.check", gateViewFixture(gateFixtures[0]).evaluation)));
+  if (method === "POST" && /^\/api\/v1\/gates\/[^/]+\/evidence$/.test(path)) return fulfill(route, 200, JSON.stringify(envelope("api.v1.gate-evidence.create", { schema: "vegastack-labs.dev/gate-evidence-submission", schemaVersion: "1.1.0", draftId: "draft-gate-a", changeId: "change-gate-a", evidenceId: "evidence-a", status: "draft", stateRevision: 9, recoveryEpoch: 2 })));
   let command = "api.v1.summary.get";
   let data: unknown;
   if (path === "/api/v1/summary") data = { databaseMode: "ready", readAvailable: true, mutationAvailable: false, draftCount: fixtureState.mode === "empty" ? 0 : 1, validDraftCount: fixtureState.mode === "empty" ? 0 : 1, blockedDraftCount: 0, lastEventId: 4, recoveryEpoch: 2, stateRevision: 8, sourceCounts: { total: fixtureState.mode === "empty" ? 0 : 7, healthy: fixtureState.mode === "empty" ? 0 : 2, stale: 0, unknown: 0, unavailable: fixtureState.mode === "empty" ? 0 : 5, failed: 0 }, worstSourceState: fixtureState.mode === "empty" ? "unknown" : "unavailable" };
-  else if (path === "/api/v1/sources") {
+  else if (path === "/api/v1/backups/status") {
+    command = "api.v1.backups.status";
+    const recoveryRequired = fixtureState.mode === "recovery-required";
+    data = { schema: "vegastack-labs.dev/browser-backup-status-data", schemaVersion: "1.0.0", status: recoveryRequired ? "recovery-required" : "healthy", reasonCode: recoveryRequired ? "audit-continuity-required" : "last-good-current", sourceKind: "local", proofClass: "live", lastGoodPointId: "point-a", recoveryRequired, stateRevision: 8, recoveryEpoch: 2, safeNextAction: recoveryRequired ? "follow the recovery continuity runbook" : "inspect the last-good point" };
+  } else if (path === "/api/v1/recovery-points") {
+    command = "api.v1.recovery-points.list";
+    const item = { schema: "vegastack-labs.dev/browser-recovery-point", schemaVersion: "1.0.0", pointId: "point-a", sourceKind: "local", proofClass: "live", contentDigest: digest, manifestDigest: digest, createdAt: "2026-09-24T03:00:00Z", verifiedAt: "2026-09-24T03:05:00Z", verificationStatus: "verified", reasonCode: "integrity-verified", recoveryEpoch: 2 };
+    data = { schema: "vegastack-labs.dev/browser-recovery-point-list-data", schemaVersion: "1.0.0", items: fixtureState.mode === "empty" ? [] : [item], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
+  } else if (path === "/api/v1/audit-checkpoints") {
+    command = "api.v1.audit-checkpoints.list";
+    const item = { schema: "vegastack-labs.dev/browser-audit-checkpoint", schemaVersion: "1.0.0", checkpointId: "checkpoint-a", firstEventId: 1, lastEventId: 4, chainDigest: digest, status: "anchored", reasonCode: "independent-match", sourceKind: "independent", proofClass: "live", verifiedAt: "2026-09-24T03:05:00Z", verificationStatus: "verified", recoveryEpoch: 2 };
+    data = { schema: "vegastack-labs.dev/browser-audit-checkpoint-list-data", schemaVersion: "1.0.0", items: fixtureState.mode === "empty" ? [] : [item], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
+  } else if (path === "/api/v1/audit-history/verification") {
+    command = "api.v1.audit-history.verification";
+    const incident = fixtureState.mode === "recovery-required";
+    data = { schema: "vegastack-labs.dev/browser-audit-verification-data", schemaVersion: "1.0.0", status: incident ? "incident" : "anchored", reasonCode: incident ? "independent-mismatch" : "independent-match", sourceKind: "independent", proofClass: "live", independentMatch: !incident, lastAnchoredSequence: 4, preAnchor: false, stateRevision: 8, recoveryEpoch: 2, safeNextAction: incident ? "follow the audit continuity runbook" : "continue independent verification" };
+  } else if (path === "/api/v1/restore-plans") {
+    command = "api.v1.restores.list";
+    const item = { schema: "vegastack-labs.dev/browser-restore-status", schemaVersion: "1.0.0", pointId: "point-a", planId: "plan-a", planDigest: digest, targetDigest: digest, status: "planned", reasonCode: "awaiting-approval", recoveryEpoch: 2, verificationStatus: "pending", safeNextAction: "inspect exact plan" };
+    data = { schema: "vegastack-labs.dev/browser-restore-status-list-data", schemaVersion: "1.0.0", items: fixtureState.mode === "empty" ? [] : [item], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
+  } else if (path === "/api/v1/plans/plan-a") {
+    command = "api.v1.plans.get";
+    const operation = { sequence: 1, operationId: "operation-a", operationType: "restore.fixture", adapterId: "adapter.fixture", executorId: "executor-central", targetId: "target-a", inputDigest: digest, artifactDigest: digest, idempotent: true };
+    const plan = { schema: "vegastack-labs.dev/plan", schemaVersion: "1.0.0", planId: "plan-a", planDigest: digest, declarationId: "declaration-a", binding: { recoveryEpoch: 2, priorStateRevision: 7, stateRevision: 8, declarationRevision: 1, observationFingerprint: digest, targetDigest: digest, reasonDigest: digest, policyVersion: "1.0.0", toolVersion: "1.0.0", contractVersion: "1.0.0" }, operations: [operation], status: "planned", risk: "destructive", authorizationBranch: "human", executorMode: "central", executorId: null, createdAt: "2026-09-24T03:00:00Z", expiresAt: "2099-09-24T03:00:00Z", readableDigest: digest, extensions: [] };
+    data = { plan, readablePlan: "Exact fixture restore plan", canonicalPlan: JSON.stringify(plan) };
+  } else if (path === "/api/v1/scheduled-job-policies") {
+    command = "api.v1.scheduled-job-policies.list";
+    const item = { schema: "vegastack-labs.dev/browser-scheduled-job-policy", schemaVersion: "1.0.0", policyId: "policy-a", revision: 1, actionKind: "backup-create", enabled: true, status: "active", reasonCode: "policy-current", stateRevision: 8, recoveryEpoch: 2 };
+    data = { schema: "vegastack-labs.dev/browser-scheduled-job-policy-list-data", schemaVersion: "1.0.0", items: fixtureState.mode === "empty" ? [] : [item], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
+  } else if (path === "/api/v1/scheduled-jobs") {
+    command = "api.v1.scheduled-jobs.list";
+    const item = { schema: "vegastack-labs.dev/browser-scheduled-job", schemaVersion: "1.0.0", jobId: "scheduled-a", policyId: "policy-a", policyRevision: 1, status: "succeeded", reasonCode: "completed", scheduledAt: "2026-09-24T03:00:00Z", windowClosesAt: "2026-09-24T03:15:00Z", stateRevision: 8, recoveryEpoch: 2 };
+    data = { schema: "vegastack-labs.dev/browser-scheduled-job-list-data", schemaVersion: "1.0.0", items: fixtureState.mode === "empty" ? [] : [item], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
+  } else if (path === "/api/v1/sources") {
     command = "api.v1.sources.list";
     const requested = url.searchParams.get("source");
     const ids = fixtureState.mode === "empty" || (fixtureState.mode === "missing" && requested) ? [] : fixtureState.mode === "mismatched-source" && requested ? [requested === "people" ? "services" : "people"] : requested ? [requested] : fixtureState.mode === "missing" ? ["database"] : ["database", "nodes", "gates", "people", "services", "backups", "providers"];

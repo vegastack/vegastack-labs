@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/endpoint-registry",
-  "schemaVersion": "1.21.0",
+  "schemaVersion": "1.22.0",
   "endpoints": [
     {
       "id": "api.v1.audit-checkpoints.create",
@@ -22,7 +22,8 @@
       "path": "/api/v1/audit-checkpoints",
       "availability": "available",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/audit-checkpoint-list-data",
+      "querySchema": "vegastack-labs.dev/api-page-query",
+      "dataSchema": "vegastack-labs.dev/browser-audit-checkpoint-list-data",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -35,10 +36,23 @@
       "path": "/api/v1/audit-history/verification",
       "availability": "available",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/audit-verification-data",
+      "dataSchema": "vegastack-labs.dev/browser-audit-verification-data",
       "stream": "finite",
       "audiences": [
         "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.backup-jobs.create",
+      "method": "POST",
+      "path": "/api/v1/backup-policies/{policyId}/jobs",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-run-request",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "stream": "finite",
+      "audiences": [
         "operator"
       ]
     },
@@ -108,12 +122,12 @@
       ]
     },
     {
-      "id": "api.v1.backups.run",
+      "id": "api.v1.backup-verifications.create",
       "method": "POST",
-      "path": "/api/v1/backups/run",
+      "path": "/api/v1/recovery-points/{pointId}/verifications",
       "availability": "available",
       "ownerPhase": "5",
-      "requestSchema": "vegastack-labs.dev/backup-run-request",
+      "requestSchema": "vegastack-labs.dev/backup-verify-request",
       "dataSchema": "vegastack-labs.dev/backup-job",
       "stream": "finite",
       "audiences": [
@@ -126,23 +140,10 @@
       "path": "/api/v1/backups/status",
       "availability": "available",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/backup-status-data",
+      "dataSchema": "vegastack-labs.dev/browser-backup-status-data",
       "stream": "finite",
       "audiences": [
         "browser",
-        "operator"
-      ]
-    },
-    {
-      "id": "api.v1.backups.verify",
-      "method": "POST",
-      "path": "/api/v1/backups/{jobId}/verify",
-      "availability": "available",
-      "ownerPhase": "5",
-      "requestSchema": "vegastack-labs.dev/backup-verify-request",
-      "dataSchema": "vegastack-labs.dev/backup-job",
-      "stream": "finite",
-      "audiences": [
         "operator"
       ]
     },
@@ -200,6 +201,45 @@
       ]
     },
     {
+      "id": "api.v1.database-backups.create",
+      "method": "POST",
+      "path": "/api/v1/database/backups",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-run-request",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.database-exports.create",
+      "method": "POST",
+      "path": "/api/v1/database/exports",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/database-export-request",
+      "dataSchema": "vegastack-labs.dev/database-export-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.database-restores.create",
+      "method": "POST",
+      "path": "/api/v1/database/restores",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/restore-request",
+      "dataSchema": "vegastack-labs.dev/restore-binding",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.database-status.get",
       "method": "GET",
       "path": "/api/v1/database/status",
@@ -209,6 +249,19 @@
       "stream": "finite",
       "audiences": [
         "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.database-verifications.create",
+      "method": "POST",
+      "path": "/api/v1/database/verifications",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/backup-verify-request",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "stream": "finite",
+      "audiences": [
         "operator"
       ]
     },
@@ -314,6 +367,7 @@
       "dataSchema": "vegastack-labs.dev/gate-evidence-submission",
       "stream": "finite",
       "audiences": [
+        "browser",
         "operator"
       ]
     },
@@ -333,7 +387,7 @@
     {
       "id": "api.v1.gates.check",
       "method": "POST",
-      "path": "/api/v1/gates/check",
+      "path": "/api/v1/gates/{gateId}/check",
       "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/gate-check-request",
@@ -666,12 +720,13 @@
       ]
     },
     {
-      "id": "api.v1.recovery-points.get",
+      "id": "api.v1.recovery-points.list",
       "method": "GET",
-      "path": "/api/v1/recovery-points/{pointId}",
-      "availability": "planned",
+      "path": "/api/v1/recovery-points",
+      "availability": "available",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/recovery-point",
+      "querySchema": "vegastack-labs.dev/api-page-query",
+      "dataSchema": "vegastack-labs.dev/browser-recovery-point-list-data",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -679,12 +734,27 @@
       ]
     },
     {
-      "id": "api.v1.restores.get",
-      "method": "GET",
-      "path": "/api/v1/restores/plans/{planId}",
+      "id": "api.v1.restore-drafts.create",
+      "method": "POST",
+      "path": "/api/v1/recovery-points/{pointId}/restore-drafts",
       "availability": "available",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/browser-restore-status",
+      "requestSchema": "vegastack-labs.dev/browser-restore-draft-request",
+      "dataSchema": "vegastack-labs.dev/browser-restore-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.restores.list",
+      "method": "GET",
+      "path": "/api/v1/restore-plans",
+      "availability": "available",
+      "ownerPhase": "5",
+      "querySchema": "vegastack-labs.dev/api-page-query",
+      "dataSchema": "vegastack-labs.dev/browser-restore-status-list-data",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -694,7 +764,7 @@
     {
       "id": "api.v1.restores.plan",
       "method": "POST",
-      "path": "/api/v1/restores/plans",
+      "path": "/api/v1/recovery-points/{pointId}/restore-plans",
       "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/restore-request",
@@ -707,7 +777,7 @@
     {
       "id": "api.v1.restores.run",
       "method": "POST",
-      "path": "/api/v1/restores/plans/{planId}/run",
+      "path": "/api/v1/restore-plans/{planId}/runs",
       "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/restore-run-request",
@@ -720,7 +790,7 @@
     {
       "id": "api.v1.restores.verify",
       "method": "POST",
-      "path": "/api/v1/restores/plans/{planId}/verify",
+      "path": "/api/v1/restore-plans/{planId}/verifications",
       "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/restore-verify-request",
@@ -790,7 +860,21 @@
       "path": "/api/v1/scheduled-job-policies/{policyId}",
       "availability": "available",
       "ownerPhase": "5",
-      "dataSchema": "vegastack-labs.dev/scheduled-job-policy",
+      "dataSchema": "vegastack-labs.dev/browser-scheduled-job-policy",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.scheduled-job-policies.list",
+      "method": "GET",
+      "path": "/api/v1/scheduled-job-policies",
+      "availability": "available",
+      "ownerPhase": "5",
+      "querySchema": "vegastack-labs.dev/api-page-query",
+      "dataSchema": "vegastack-labs.dev/browser-scheduled-job-policy-list-data",
       "stream": "finite",
       "audiences": [
         "browser",
@@ -812,9 +896,23 @@
       "transportScope": "local"
     },
     {
-      "id": "api.v1.scheduled-jobs.create",
-      "method": "POST",
+      "id": "api.v1.scheduled-jobs.list",
+      "method": "GET",
       "path": "/api/v1/scheduled-jobs",
+      "availability": "available",
+      "ownerPhase": "5",
+      "querySchema": "vegastack-labs.dev/api-page-query",
+      "dataSchema": "vegastack-labs.dev/browser-scheduled-job-list-data",
+      "stream": "finite",
+      "audiences": [
+        "browser",
+        "operator"
+      ]
+    },
+    {
+      "id": "api.v1.scheduled-occurrences.create",
+      "method": "POST",
+      "path": "/api/v1/scheduled-job-policies/{policyId}/occurrences",
       "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/scheduled-job-request",

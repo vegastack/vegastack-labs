@@ -42,10 +42,10 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			controlOperations := successfulControlOperations(t)
 			credentialOperations := successfulCredentialOperations(t)
 			files := &stubFileReader{content: []byte("synthetic fixture")}
-			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft || commandName(command.Path) == generated.CommandNameBackupRetentionLocksDraft || commandName(command.Path) == generated.CommandNameBackupRetirementDraft || commandName(command.Path) == generated.CommandNameBackupOffsiteRetirementDryRun || commandName(command.Path) == generated.CommandNameBackupOffsiteRetirementStage || commandName(command.Path) == generated.CommandNameBackupRun || commandName(command.Path) == generated.CommandNameBackupVerify {
+			if commandName(command.Path) == generated.CommandNameGateEvidence || commandName(command.Path) == generated.CommandNameGateProfileDraft || commandName(command.Path) == generated.CommandNameBackupPolicyDraft || commandName(command.Path) == generated.CommandNameBackupRetentionLocksDraft || commandName(command.Path) == generated.CommandNameBackupRetirementDraft || commandName(command.Path) == generated.CommandNameBackupOffsiteRetirementDryRun || commandName(command.Path) == generated.CommandNameBackupOffsiteRetirementStage || commandName(command.Path) == generated.CommandNameBackupRun || commandName(command.Path) == generated.CommandNameBackupVerify || commandName(command.Path) == generated.CommandNameDatabaseBackup || commandName(command.Path) == generated.CommandNameDatabaseVerify || commandName(command.Path) == generated.CommandNameDatabaseExport {
 				files.content = syntheticGateRequest(t, commandName(command.Path))
 			}
-			if strings.HasPrefix(commandName(command.Path), "restore ") {
+			if strings.HasPrefix(commandName(command.Path), "restore ") || commandName(command.Path) == generated.CommandNameDatabaseRestore {
 				files.content = syntheticRestoreRequest(t, commandName(command.Path))
 			}
 			if strings.HasPrefix(commandName(command.Path), "credential ") && commandName(command.Path) != generated.CommandNameCredentialImport {

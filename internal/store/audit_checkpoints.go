@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -76,25 +77,49 @@ func (store *Store) GetAuditCheckpoint(ctx context.Context, checkpointID string)
 }
 
 func (store *Store) ListAuditCheckpoints(ctx context.Context) ([]generated.AuditCheckpoint, error) {
-	store.mu.Lock()
-	defer store.mu.Unlock()
-	if err := store.readyForRead(ctx); err != nil {
-		return nil, err
+	return store.ListAuditCheckpointsPage(ctx, "", 100)
+}
+
+func (store *Store) ListAuditCheckpointsPage(ctx context.Context, afterID string, limit int) ([]generated.AuditCheckpoint, error) {
+	return store.listAuditCheckpointsPage(ctx, authorization.ReadScope{}, RevisionToken{}, afterID, limit, false)
+}
+
+func (store *Store) ListAuditCheckpointsPageScoped(ctx context.Context, scope authorization.ReadScope, snapshot RevisionToken, afterID string, limit int) ([]generated.AuditCheckpoint, error) {
+	return store.listAuditCheckpointsPage(ctx, scope, snapshot, afterID, limit, true)
+}
+
+func (store *Store) listAuditCheckpointsPage(ctx context.Context, scope authorization.ReadScope, snapshot RevisionToken, afterID string, limit int, scoped bool) ([]generated.AuditCheckpoint, error) {
+	if limit < 1 || limit > 101 {
+		return nil, newStoreError(generated.ErrorCodeInputInvalid, "audit-checkpoint-page", false, nil)
 	}
-	rows, err := store.conn.QueryContext(ctx, `SELECT canonical_bytes FROM audit_checkpoints ORDER BY last_event_id,checkpoint_id`)
-	if err != nil {
-		return nil, store.transactionError(ctx, err)
-	}
-	defer rows.Close()
 	var result []generated.AuditCheckpoint
-	for rows.Next() {
-		checkpoint, err := scanAuditCheckpoint(rows)
-		if err != nil {
-			return nil, err
+	err := store.Read(ctx, func(tx ReadTx) error {
+		if scoped {
+			if err := verifyExactReadSnapshot(ctx, tx, scope, snapshot); err != nil {
+				return err
+			}
 		}
-		result = append(result, checkpoint)
-	}
-	return result, rows.Err()
+		query := `SELECT c.canonical_bytes FROM audit_checkpoints c WHERE c.checkpoint_id>? ORDER BY c.checkpoint_id LIMIT ?`
+		args := []any{afterID, limit}
+		if scoped {
+			query = `SELECT c.canonical_bytes FROM audit_checkpoints c JOIN read_grants g ON g.resource_id=c.checkpoint_id AND g.principal_id=? AND g.capability=? AND g.resource_kind=? AND g.grant_revision=? AND g.status='active' WHERE c.checkpoint_id>? ORDER BY c.checkpoint_id LIMIT ?`
+			args = []any{scope.PrincipalID, scope.Capability, scope.ResourceKind, scope.GrantRevision, afterID, limit}
+		}
+		rows, err := tx.query(ctx, query, args...)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			checkpoint, err := scanAuditCheckpoint(rows)
+			if err != nil {
+				return err
+			}
+			result = append(result, checkpoint)
+		}
+		return rows.Err()
+	})
+	return result, err
 }
 
 func (store *Store) RecordCheckpointSignature(ctx context.Context, request CheckpointSignatureRequest) (generated.AuditCheckpoint, error) {

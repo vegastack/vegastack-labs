@@ -8,7 +8,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localtransport"
-	"github.com/vegastack/vegastack-labs/internal/schedule"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
@@ -23,14 +22,38 @@ func (client *client) SubmitScheduledPolicyDraft(ctx context.Context, profile se
 	})
 }
 
-func (client *client) GetScheduledPolicy(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.ScheduledJobPolicy], error) {
-	var zero TypedResponse[generated.ScheduledJobPolicy]
+func (client *client) GetScheduledPolicy(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.BrowserScheduledJobPolicy], error) {
+	var zero TypedResponse[generated.BrowserScheduledJobPolicy]
 	if !validPathToken(policyID) {
 		return zero, failure.New(generated.ErrorCodeInputInvalid, "scheduled-policy", false)
 	}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies/" + policyID, "api.v1.scheduled-job-policies.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.ScheduledJobPolicy, result generated.RunResult) bool {
-		return data.PolicyID == policyID && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies/" + policyID, "api.v1.scheduled-job-policies.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.BrowserScheduledJobPolicy, result generated.RunResult) bool {
+		return validScheduledPolicy(data, result, policyID)
 	})
+}
+
+func (client *client) ListScheduledPolicies(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BrowserScheduledJobPolicyListData], error) {
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies", "api.v1.scheduled-job-policies.list", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.BrowserScheduledJobPolicyListData, result generated.RunResult) bool {
+		raw, err := json.Marshal(data)
+		if err != nil || generated.ValidateContractJSON(generated.SchemaIDBrowserScheduledJobPolicyListData, raw, generated.ContractExact) != nil || data.StateRevision != result.StateRevision || data.RecoveryEpoch != result.RecoveryEpoch {
+			return false
+		}
+		for _, policy := range data.Items {
+			if policy.TargetDigest == "" || policy.StateRevision != data.StateRevision || policy.RecoveryEpoch != data.RecoveryEpoch {
+				return false
+			}
+		}
+		return true
+	})
+}
+
+func (client *client) InspectScheduledPolicy(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.BrowserScheduledJobPolicy], error) {
+	return client.GetScheduledPolicy(ctx, profile, policyID)
+}
+
+func validScheduledPolicy(data generated.BrowserScheduledJobPolicy, result generated.RunResult, policyID string) bool {
+	raw, err := json.Marshal(data)
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDBrowserScheduledJobPolicy, raw, generated.ContractExact) == nil && data.PolicyID == policyID && data.TargetDigest != "" && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
 }
 
 func (client *client) DispatchSchedule(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.ScheduledJob], error) {
@@ -42,10 +65,6 @@ func (client *client) DispatchSchedule(ctx context.Context, profile serverconfig
 	if policyResponse.ExitCode != 0 {
 		return remapResponse[generated.ScheduledJob](policyResponse), nil
 	}
-	digest, err := schedule.ExactTargetDigest(policyResponse.Data)
-	if err != nil {
-		return zero, err
-	}
 	token, err := client.results.RequestID()
 	if err != nil {
 		return zero, err
@@ -54,8 +73,8 @@ func (client *client) DispatchSchedule(ctx context.Context, profile serverconfig
 	if err != nil {
 		return zero, err
 	}
-	input := generated.ScheduledJobRequest{Schema: generated.SchemaIDScheduledJobRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: policyResponse.Data.StateRevision, RecoveryEpoch: policyResponse.Data.RecoveryEpoch, TargetDigest: digest, IdempotencyKey: key, PolicyID: policyID, PolicyRevision: policyResponse.Data.Revision, OccurrenceToken: token, ObservedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/scheduled-jobs", "api.v1.scheduled-jobs.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.ScheduledJob, result generated.RunResult) bool {
+	input := generated.ScheduledJobRequest{Schema: generated.SchemaIDScheduledJobRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: policyResponse.Data.StateRevision, RecoveryEpoch: policyResponse.Data.RecoveryEpoch, TargetDigest: policyResponse.Data.TargetDigest, IdempotencyKey: key, PolicyID: policyID, PolicyRevision: policyResponse.Data.Revision, OccurrenceToken: token, ObservedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)}
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/scheduled-job-policies/" + policyID + "/occurrences", "api.v1.scheduled-occurrences.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.ScheduledJob, result generated.RunResult) bool {
 		return data.Schema == generated.SchemaIDScheduledJob && data.PolicyID == policyID && data.PolicyRevision == input.PolicyRevision && data.RecoveryEpoch == result.RecoveryEpoch
 	})
 }

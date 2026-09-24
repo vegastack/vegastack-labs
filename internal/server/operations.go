@@ -20,6 +20,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/clientprofile"
 	"github.com/vegastack/vegastack-labs/internal/consoleassets"
+	"github.com/vegastack/vegastack-labs/internal/databaseexport"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
@@ -487,9 +488,10 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterBackupOperations(application, api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, OffsiteRetirements: offsiteRetirementStages, Status: backupRepository,
+	backupOperations := api.BackupOperations{Drafts: backupRepository, RetentionLocks: retentionLockDrafts, Retirements: retirementDrafts, OffsiteRetirements: offsiteRetirementStages, Status: backupRepository,
 		Runs:    api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig},
-		Results: factory}); err != nil {
+		Results: factory}
+	if err := api.RegisterBackupOperations(application, backupOperations); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -543,7 +545,17 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterRestoreOperations(application, api.RestoreConfig{Operations: restoreService, Results: factory, Authorization: effectiveConfig}); err != nil {
+	restoreOperations := api.RestoreConfig{Operations: restoreService, Declarations: declarations, Results: factory, Authorization: effectiveConfig}
+	if err := api.RegisterRestoreOperations(application, restoreOperations); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	databaseExports, err := databaseexport.NewService(planRepository, declarations)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterDatabaseOperations(application, api.DatabaseOperations{Backups: backupOperations, Restores: restoreOperations, Exports: databaseExports, Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -703,6 +715,38 @@ func (operations *Operations) DatabaseStatus(ctx context.Context, configPath str
 	return client.DatabaseStatus(ctx, profile)
 }
 
+func (operations *Operations) RunDatabaseBackup(ctx context.Context, configPath string, input generated.BackupRunRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupJob]{}, err
+	}
+	return client.RunDatabaseBackup(ctx, profile, input)
+}
+
+func (operations *Operations) VerifyDatabase(ctx context.Context, configPath string, input generated.BackupVerifyRequest) (localapi.TypedResponse[generated.BackupJob], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BackupJob]{}, err
+	}
+	return client.VerifyDatabase(ctx, profile, input)
+}
+
+func (operations *Operations) PlanDatabaseRestore(ctx context.Context, configPath string, input generated.RestoreRequest) (localapi.TypedResponse[generated.RestoreBinding], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.RestoreBinding]{}, err
+	}
+	return client.PlanDatabaseRestore(ctx, profile, input)
+}
+
+func (operations *Operations) DraftDatabaseExport(ctx context.Context, configPath string, input generated.DatabaseExportRequest) (localapi.TypedResponse[generated.DatabaseExportDraftSubmission], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.DatabaseExportDraftSubmission]{}, err
+	}
+	return client.DraftDatabaseExport(ctx, profile, input)
+}
+
 func (operations *Operations) ImportCredential(ctx context.Context, configPath string, input generated.CredentialImportRequest, source io.Reader) (localapi.TypedResponse[generated.CredentialImportSubmission], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
@@ -719,18 +763,18 @@ func (operations *Operations) CreateCredentialLifecycleDraft(ctx context.Context
 	return client.CreateCredentialLifecycleDraft(ctx, profile, input)
 }
 
-func (operations *Operations) AuditCheckpoints(ctx context.Context, configPath string) (localapi.TypedResponse[generated.AuditCheckpointListData], error) {
+func (operations *Operations) AuditCheckpoints(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserAuditCheckpointListData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.AuditCheckpointListData]{}, err
+		return localapi.TypedResponse[generated.BrowserAuditCheckpointListData]{}, err
 	}
 	return client.AuditCheckpoints(ctx, profile)
 }
 
-func (operations *Operations) VerifyAudit(ctx context.Context, configPath string) (localapi.TypedResponse[generated.AuditVerificationData], error) {
+func (operations *Operations) VerifyAudit(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserAuditVerificationData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.AuditVerificationData]{}, err
+		return localapi.TypedResponse[generated.BrowserAuditVerificationData]{}, err
 	}
 	return client.VerifyAudit(ctx, profile)
 }
@@ -791,6 +835,22 @@ func (operations *Operations) SubmitScheduledPolicyDraft(ctx context.Context, co
 	return client.SubmitScheduledPolicyDraft(ctx, profile, input)
 }
 
+func (operations *Operations) ListScheduledPolicies(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicyListData], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BrowserScheduledJobPolicyListData]{}, err
+	}
+	return client.ListScheduledPolicies(ctx, profile)
+}
+
+func (operations *Operations) InspectScheduledPolicy(ctx context.Context, configPath, policyID string) (localapi.TypedResponse[generated.BrowserScheduledJobPolicy], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.BrowserScheduledJobPolicy]{}, err
+	}
+	return client.InspectScheduledPolicy(ctx, profile, policyID)
+}
+
 func (operations *Operations) CancelSchedule(ctx context.Context, configPath, jobID string) (localapi.TypedResponse[generated.ScheduledJob], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
@@ -839,10 +899,10 @@ func (operations *Operations) DryRunBackupOffsiteRetirement(ctx context.Context,
 	return client.DryRunBackupOffsiteRetirement(ctx, profile, input)
 }
 
-func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BackupStatusData], error) {
+func (operations *Operations) BackupStatus(ctx context.Context, configPath string) (localapi.TypedResponse[generated.BrowserBackupStatusData], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.BackupStatusData]{}, err
+		return localapi.TypedResponse[generated.BrowserBackupStatusData]{}, err
 	}
 	return client.BackupStatus(ctx, profile)
 }

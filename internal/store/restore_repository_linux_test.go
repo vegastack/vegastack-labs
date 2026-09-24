@@ -11,8 +11,85 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 )
+
+func TestScopedRestoreStatusListFiltersPartialGrantAndRejectsRevocation(t *testing.T) {
+	ctx := context.Background()
+	authority := openTestStore(t)
+	current, err := authority.CurrentAuthority(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `UPDATE system_meta SET state_revision=1 WHERE id=1`); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, suffix := range []string{"a", "b"} {
+		planID := "restore-plan-" + suffix
+		planDigest := string(digestForText(planID))
+		declarationID := "restore-declaration-" + suffix
+		acknowledgementID := "restore-ack-" + suffix
+		binding := testRestoreBinding(generated.Plan{PlanID: planID, PlanDigest: planDigest, Binding: generated.PlanBinding{TargetDigest: string(digestForText("restore-target-" + suffix))}}, current.InstanceID, acknowledgementID)
+		binding.PointID = "restore-point-" + suffix
+		binding.Source.PointID = binding.PointID
+		binding.NewInstanceID = "restore-instance-" + suffix
+		binding.FormerHostID = "restore-former-host-" + suffix
+		binding.ReplacementHostID = "restore-replacement-host-" + suffix
+		binding.RecoveryDraftID = "restore-draft-" + suffix
+		binding.CanaryRunID = "restore-canary-run-" + suffix
+		binding.CanaryStepID = "restore-canary-step-" + suffix
+		binding.CanaryLeaseID = "restore-canary-lease-" + suffix
+		binding.CanaryChallengeID = "restore-canary-challenge-" + suffix
+		binding.CanaryReceiptID = "restore-canary-receipt-" + suffix
+		binding.CanaryBindingDigest = string(digestForText("restore-canary-binding-" + suffix))
+		binding.PlanID = planID
+		binding.PlanDigest = planDigest
+		binding.HumanAcknowledgementID = acknowledgementID
+		rawBinding, err := json.Marshal(binding)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, rawBinding, generated.ContractExact); err != nil {
+			t.Fatalf("restore binding %s: %v", suffix, err)
+		}
+
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,1,'recovery.restore',1,0,?,?,'committed',X'7B7D','2026-09-24T06:00:00Z','human-a','session-a')`, declarationID, digestForText("content-"+suffix), digestForText("reason-"+suffix)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,1,1,0,?,?,?,?,?,?,?,?)`, planID, planDigest, declarationID, digestForText("observation-"+suffix), digestForText("idempotency-"+suffix), digestForText("request-"+suffix), []byte(`{}`), "restore plan", digestForText("readable-"+suffix), "2026-09-24T06:00:00Z", "2026-09-24T07:00:00Z"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO acknowledgement_requests(acknowledgement_id,plan_id,plan_digest,target_digest,reason_digest,human_id,authority_id,nonce_digest,state_revision,recovery_epoch,expires_at,status,request_bytes,pending_bytes,created_at,decided_at,consumed_at) VALUES(?,?,?,?,?,'human-a','authority-a',?,1,0,'2026-09-24T07:00:00Z','approved',X'7B7D',X'7B7D','2026-09-24T06:00:00Z','2026-09-24T06:00:00Z',NULL)`, acknowledgementID, planID, planDigest, binding.TargetDigest, digestForText("ack-reason-"+suffix), digestForText("nonce-"+suffix)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO restore_sessions(plan_id,plan_digest,declaration_id,declaration_revision,human_acknowledgement_id,point_id,point_digest,dependency_digest,fence_set_digest,audit_decision_digest,target_digest,candidate_digest,prior_instance_id,new_instance_id,prior_recovery_epoch,next_recovery_epoch,state_revision,binding_bytes,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, binding.PlanID, binding.PlanDigest, declarationID, 1, binding.HumanAcknowledgementID, binding.PointID, binding.Source.PointDigest, restoreDependencyDigest(binding.Source.DependencyDigests), binding.FenceSetDigest, binding.AuditDecisionDigest, binding.TargetDigest, binding.CandidateDigest, binding.PriorInstanceID, binding.NewInstanceID, binding.PriorRecoveryEpoch, binding.NextRecoveryEpoch, 1, rawBinding, "2026-09-24T06:00:00Z"); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	seedReadGrant(t, authority, "restore-reader", "restore.read", "restore-plan", "restore-plan-b", 4, "active")
+	scope, err := NewReadAuthorizer(authority).AuthorizeRead(ctx, identity.Principal{ID: "restore-reader", Method: identity.LocalOSPeerMethod}, authorization.ReadTarget{Capability: "restore.read", ResourceKind: "restore-plan"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := NewPlanRepository(authority).CurrentRevision(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	items, _, err := NewRestoreRepository(authority).ListRestoreStatusesScoped(ctx, scope, snapshot, "", 10)
+	if err != nil || len(items) != 1 || items[0].PlanID != "restore-plan-b" {
+		t.Fatalf("items=%#v err=%v", items, err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `UPDATE read_grants SET status='revoked' WHERE principal_id='restore-reader'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := NewRestoreRepository(authority).ListRestoreStatusesScoped(ctx, scope, snapshot, "", 10); Code(err) != generated.ErrorCodeAuthorizationDenied {
+		t.Fatalf("revoked scope err=%v", err)
+	}
+}
 
 func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	config := testConfig(t)

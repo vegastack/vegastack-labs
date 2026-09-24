@@ -66,7 +66,9 @@ type TypedResponse[T any] struct {
 
 type Client interface {
 	SubmitScheduledPolicyDraft(context.Context, serverconfig.Profile, generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledPolicyDraftSubmission], error)
-	GetScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJobPolicy], error)
+	ListScheduledPolicies(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserScheduledJobPolicyListData], error)
+	InspectScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserScheduledJobPolicy], error)
+	GetScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserScheduledJobPolicy], error)
 	DispatchSchedule(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJob], error)
 	CancelSchedule(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJob], error)
 	CreateCredentialLifecycleDraft(context.Context, serverconfig.Profile, generated.CredentialLifecycleRequest) (TypedResponse[generated.CredentialLifecycleSubmission], error)
@@ -81,18 +83,21 @@ type Client interface {
 	SubmitBackupRetirementDraft(context.Context, serverconfig.Profile, generated.BackupRetirementDraftRequest) (TypedResponse[generated.BackupRetirementDraftSubmission], error)
 	DryRunBackupOffsiteRetirement(context.Context, serverconfig.Profile, generated.BackupOffsiteRetirementDryRunRequest) (TypedResponse[generated.BackupOffsiteRetirementDryRunData], error)
 	StageBackupOffsiteRetirement(context.Context, serverconfig.Profile, generated.BackupOffsiteRetirementStageRequest) (TypedResponse[generated.BackupOffsiteRetirementStageSubmission], error)
-	BackupStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error)
+	BackupStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserBackupStatusData], error)
 	RunBackup(context.Context, serverconfig.Profile, generated.BackupRunRequest) (TypedResponse[generated.BackupJob], error)
 	VerifyBackup(context.Context, serverconfig.Profile, generated.BackupVerifyRequest) (TypedResponse[generated.BackupJob], error)
 	PlanRestore(context.Context, serverconfig.Profile, generated.RestoreRequest) (TypedResponse[generated.RestoreBinding], error)
 	RunRestore(context.Context, serverconfig.Profile, generated.RestoreRunRequest) (TypedResponse[generated.RestoreBinding], error)
 	VerifyRestore(context.Context, serverconfig.Profile, generated.RestoreVerifyRequest) (TypedResponse[generated.RestoreVerification], error)
-	GetRestore(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserRestoreStatus], error)
 	Status(context.Context, serverconfig.Profile) (Response, error)
 	Summary(context.Context, serverconfig.Profile) (TypedResponse[generated.ApiSummaryData], error)
 	DatabaseStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.DatabaseStatusData], error)
-	AuditCheckpoints(context.Context, serverconfig.Profile) (TypedResponse[generated.AuditCheckpointListData], error)
-	VerifyAudit(context.Context, serverconfig.Profile) (TypedResponse[generated.AuditVerificationData], error)
+	RunDatabaseBackup(context.Context, serverconfig.Profile, generated.BackupRunRequest) (TypedResponse[generated.BackupJob], error)
+	VerifyDatabase(context.Context, serverconfig.Profile, generated.BackupVerifyRequest) (TypedResponse[generated.BackupJob], error)
+	PlanDatabaseRestore(context.Context, serverconfig.Profile, generated.RestoreRequest) (TypedResponse[generated.RestoreBinding], error)
+	DraftDatabaseExport(context.Context, serverconfig.Profile, generated.DatabaseExportRequest) (TypedResponse[generated.DatabaseExportDraftSubmission], error)
+	AuditCheckpoints(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserAuditCheckpointListData], error)
+	VerifyAudit(context.Context, serverconfig.Profile) (TypedResponse[generated.BrowserAuditVerificationData], error)
 	ImportInventory(context.Context, serverconfig.Profile, generated.InventoryImportRequest) (TypedResponse[generated.InventoryImportData], error)
 	DiffInventory(context.Context, serverconfig.Profile, generated.InventoryDiffRequest) (TypedResponse[generated.InventoryDiffData], error)
 	ExportInventory(context.Context, serverconfig.Profile, generated.InventoryExportRequest) (TypedResponse[generated.InventoryExportData], error)
@@ -323,20 +328,72 @@ func remoteCommandArguments(spec requestSpec) []string {
 		}
 		return nil
 	}
+	if spec.command == "api.v1.gates.get" {
+		if id, ok := gatePathID(spec.path, "/api/v1/gates/", ""); ok {
+			return []string{"gate", "inspect", "--gate-id", id}
+		}
+		return nil
+	}
+	if spec.command == "api.v1.gates.check" {
+		if id, ok := gatePathID(spec.path, "/api/v1/gates/", "/check"); ok {
+			return []string{"gate", "check", "--gate-id", id}
+		}
+		return nil
+	}
+	if spec.command == "api.v1.scheduled-job-policies.get" {
+		if id, ok := pathID(spec.path, "/api/v1/scheduled-job-policies/", ""); ok {
+			return []string{"schedule", "inspect", "--policy-id", id}
+		}
+		return nil
+	}
+	if spec.command == "api.v1.scheduled-occurrences.create" {
+		if id, ok := pathID(spec.path, "/api/v1/scheduled-job-policies/", "/occurrences"); ok {
+			return []string{"schedule", "dispatch", "--policy-id", id}
+		}
+		return nil
+	}
+	if spec.command == "api.v1.scheduled-jobs.cancel" {
+		if id, ok := pathID(spec.path, "/api/v1/scheduled-jobs/", "/cancel"); ok {
+			return []string{"schedule", "cancel", "--job-id", id}
+		}
+		return nil
+	}
 	arguments := map[string][]string{
-		generated.CommandNameServerStatus:          {"server", "status"},
-		"api.v1.summary.get":                       {"status"},
-		"api.v1.database-status.get":               {"database", "status"},
-		"api.v1.inventory-drafts.import":           {"inventory", "import"},
-		"api.v1.inventory-diffs.create":            {"inventory", "diff"},
-		"api.v1.inventory-exports.create":          {"inventory", "export"},
-		"api.v1.declarations.plan-preparation.get": {"plan"},
-		"api.v1.plans.create":                      {"plan"},
-		"api.v1.plans.get":                         {"apply"},
-		"api.v1.plans.execute":                     {"apply"},
-		"api.v1.runs.get":                          {"run", "inspect"},
-		"api.v1.runs.cancel":                       {"run", "cancel"},
-		"api.v1.runs.resume":                       {"run", "resume"},
+		generated.CommandNameServerStatus:             {"server", "status"},
+		"api.v1.summary.get":                          {"status"},
+		"api.v1.database-status.get":                  {"database", "status"},
+		"api.v1.inventory-drafts.import":              {"inventory", "import"},
+		"api.v1.inventory-diffs.create":               {"inventory", "diff"},
+		"api.v1.inventory-exports.create":             {"inventory", "export"},
+		"api.v1.declarations.plan-preparation.get":    {"plan"},
+		"api.v1.plans.create":                         {"plan"},
+		"api.v1.plans.get":                            {"apply"},
+		"api.v1.plans.execute":                        {"apply"},
+		"api.v1.runs.get":                             {"run", "inspect"},
+		"api.v1.runs.cancel":                          {"run", "cancel"},
+		"api.v1.runs.resume":                          {"run", "resume"},
+		"api.v1.audit-checkpoints.list":               {"audit", "checkpoints"},
+		"api.v1.audit-history.verification":           {"audit", "verify"},
+		"api.v1.backup-offsite-retirements.dry-run":   {"backup", "offsite-retirement", "dry-run"},
+		"api.v1.backup-offsite-retirements.stage":     {"backup", "offsite-retirement", "stage"},
+		"api.v1.backup-policy-drafts.create":          {"backup", "policy", "draft"},
+		"api.v1.backup-retention-lock-drafts.create":  {"backup", "retention-locks", "draft"},
+		"api.v1.backup-retirement-drafts.create":      {"backup", "retirement", "draft"},
+		"api.v1.backup-jobs.create":                   {"backup", "run"},
+		"api.v1.backups.status":                       {"backup", "status"},
+		"api.v1.backup-verifications.create":          {"backup", "verify"},
+		"api.v1.database-backups.create":              {"database", "backup"},
+		"api.v1.database-exports.create":              {"database", "export"},
+		"api.v1.database-restores.create":             {"database", "restore"},
+		"api.v1.database-verifications.create":        {"database", "verify"},
+		"api.v1.gate-evidence.create":                 {"gate", "evidence"},
+		"api.v1.gates.list":                           {"gate", "list"},
+		"api.v1.gate-profile-drafts.create":           {"gate", "profile", "draft"},
+		"api.v1.restores.plan":                        {"restore", "plan"},
+		"api.v1.restores.run":                         {"restore", "run"},
+		"api.v1.restores.verify":                      {"restore", "verify"},
+		"api.v1.scheduled-job-policies.drafts.create": {"schedule", "policy", "draft"},
+		"api.v1.scheduled-job-policies.list":          {"schedule", "list"},
 	}
 	return append([]string(nil), arguments[spec.command]...)
 }
@@ -368,6 +425,14 @@ func pathID(path, prefix, suffix string) (string, bool) {
 	}
 	id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
 	return id, validPathToken(id)
+}
+
+func gatePathID(path, prefix, suffix string) (string, bool) {
+	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return "", false
+	}
+	id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
+	return id, gateToken(id)
 }
 
 func validateTypedResponse[T any](raw []byte, httpStatus int, spec requestSpec, validate func(T, generated.RunResult) bool) (TypedResponse[T], error) {

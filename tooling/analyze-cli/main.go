@@ -299,11 +299,20 @@ func hasSQLiteAccessOutsideStore(packages []listedPackage) bool {
 		for _, imported := range candidate.Imports {
 			switch imported {
 			case "database/sql", "github.com/ncruces/go-sqlite3", "github.com/ncruces/go-sqlite3/driver":
-				return true
+				if !reviewedLocalRecoverySQLiteSource(candidate, modulePath) {
+					return true
+				}
 			}
 		}
 	}
 	return false
+}
+
+func reviewedLocalRecoverySQLiteSource(candidate listedPackage, modulePath string) bool {
+	if candidate.ImportPath != modulePath+"/internal/adapter/localbackup" || !containsString(candidate.GoFiles, "recovery_restore_linux.go") {
+		return false
+	}
+	return digestSourceFiles(candidate.Dir, []string{"recovery_restore_linux.go"}) == "06b0a5a808e3470f65e87bb4288818c486b1dc628b2bab8c31180c927c4cf0c4"
 }
 
 func targetEnvironment(goos, goarch string) []string {
@@ -374,7 +383,10 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 	restoreCLISeen, restoreCLIValid := false, false
 	restoreClientSeen, restoreClientValid := false, false
 	localClosure := moduleDependencyClosure(inModule, localAPIImport)
-	controlClosure := moduleDependencyClosure(inModule, cliImport)
+	// The finite recovery witness command uses one byte-sealed package surface.
+	// Do not turn the server-only recovery engine behind that package into a
+	// portable CLI capability merely because Go compiles packages as a unit.
+	controlClosure := moduleDependencyClosurePruned(inModule, cliImport, map[string]bool{recoveryImport: true})
 	for importPath := range moduleDependencyClosure(inModule, clientFileImport) {
 		controlClosure[importPath] = true
 	}
@@ -387,7 +399,7 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 			// The server and the exact reviewed backup-custody package are private
 			// executable modes, not portable CLI control capabilities. Both remain
 			// subject to their dedicated whole-package and subprocess guards.
-			if imported == serverImport || strings.HasPrefix(imported, serverImport+"/") || imported == backupImport {
+			if imported == cliImport || imported == serverImport || strings.HasPrefix(imported, serverImport+"/") || imported == backupImport {
 				continue
 			}
 			for importPath := range moduleDependencyClosure(inModule, imported) {
@@ -431,10 +443,11 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 		// Its D-Bus and /proc surface is reviewed as a whole, never as a portable
 		// control client capability. Any source or import change breaks this seal.
 		sealedNativeCredential := reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath)
-		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential
+		sealedRecoveryCustodian := candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed)
+		isControlCapabilityPackage := isControlPackage && !(localClosure[candidate.ImportPath] && !result.LocalClientBoundary) && !sealedNativeCredential && !sealedRecoveryCustodian
 		// The custodian command imports recovery's fixed protected pin/receipt
 		// source. Only this exact reviewed source closure may carry those paths.
-		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !(candidate.ImportPath == recoveryImport && reviewedRecoveryCustodianPackage(parsed))
+		inspectControlPaths := isControlPackage && candidate.ImportPath != generatedImport && candidate.ImportPath != serverConfigImport && !sealedNativeCredential && !sealedRecoveryCustodian
 		for _, imported := range candidate.Imports {
 			if imported == "os/exec" && !isReleasePackage && !(candidate.ImportPath == sshTransportImport && reviewedSSHTransportPackage(parsed, localTransportImport)) && !reviewedNativeCredentialPackage(parsed, nativeCredentialImport, modulePath) && !reviewedBackupProcessPackage(parsed, backupImport) {
 				result.ShellDispatch = true
@@ -447,7 +460,9 @@ func analyzeTarget(listed []listedPackage) (analysis, error) {
 				// with public material only. Seal that exact package; every
 				// other Ed25519 dependency remains forbidden production trust.
 				if !(candidate.ImportPath == auditImport && reviewedAuditVerificationPackage(parsed)) &&
-					!(candidate.ImportPath == recoveryImport && (reviewedRecoveryVerificationPackage(parsed) || reviewedRecoveryCustodianPackage(parsed))) {
+					!(candidate.ImportPath == recoveryImport && (reviewedRecoveryVerificationPackage(parsed) || reviewedRecoveryCustodianPackage(parsed))) &&
+					!reviewedRecoveryDenialVerificationPackage(parsed, modulePath) &&
+					!reviewedRecoveryCanaryVerificationFile(parsed, serverImport) {
 					result.StateExportTrust = true
 				}
 			case "crypto/rsa":
@@ -515,7 +530,8 @@ func reviewedRestoreCLIFile(directory string) bool {
 
 func reviewedRestoreClientFile(directory string) bool {
 	return reviewedRestoreSource(filepath.Join(directory, "restore_client.go"), []string{
-		`"/api/v1/restores/plans"`, `"api.v1.restores.plan"`, `"api.v1.restores.run"`, `"api.v1.restores.verify"`,
+		`"/api/v1/recovery-points/"`, `"/restore-plans"`, `"/api/v1/restore-plans/"`, `"/runs"`, `"/verifications"`,
+		`"api.v1.restores.plan"`, `"api.v1.restores.run"`, `"api.v1.restores.verify"`,
 		"generated.ValidateContractJSON", "data.PriorRecoveryEpoch == result.RecoveryEpoch", "data.NextRecoveryEpoch == result.RecoveryEpoch",
 	}, []string{"os/exec", "database/sql", "productionDatabasePath", "RestoreSnapshot", "os.Rename", "net/http"})
 }
@@ -540,8 +556,8 @@ func reviewedRestoreSource(path string, required, forbidden []string) bool {
 }
 
 const reviewedMainCompositionDigest = "f029c8f3e41b0f66ee2984d971d5d35735a456a60d36fcae6c07ca8ff64ef2d3"
-const reviewedMainNativeLinuxDigest = "9ea6fd43ed2658bd8d2c062221cbb3ec2fc7d551fcb55c1d331d2596aa7965aa"
-const reviewedMainNativeOtherDigest = "816adb135dd295b64d2935fa32e207e2ac6a95166d2aa87f9c303b95a1737d7d"
+const reviewedMainNativeLinuxDigest = "aabc6268605a8c4418b632d36247aa88071e4b024b76c71259e27c3f72a232fb"
+const reviewedMainNativeOtherDigest = "9637bd3d4b8bcffb7f66d6e053263af9b97194432feebc4c513f280a9e910e78"
 
 func reviewedMainComposition(candidate checkedSourcePackage, modulePath, cliImport, clientFileImport, releaseImport, serverImport string) bool {
 	approvedInternal := map[string]bool{
@@ -611,6 +627,11 @@ func reviewedControlNetworkImport(candidate checkedSourcePackage, imported, main
 		return imported == "syscall" && reviewedMainSyscallUse(candidate)
 	case localAPIImport:
 		return imported == "net" && reviewedLocalAPISource(candidate)
+	case strings.TrimSuffix(localAPIImport, "/internal/localapi") + "/internal/adapter/recoverydenial":
+		if reviewedRecoveryDenialVerificationPackage(candidate, strings.TrimSuffix(localAPIImport, "/internal/localapi")) {
+			return true
+		}
+		return false
 	case localTransportImport:
 		return (imported == "net" || imported == "net/http") && reviewedLocalTransportPackage(candidate)
 	case sshTransportImport:
@@ -678,9 +699,9 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 			expected = "20230c50a5ab877241ef447281ade07e836298d3cde4f85d187b304f35aafae2"
 		}
 	case "serverconfig":
-		expected = "904856d34fcaec02b23865e5abc87c5793afb93c5d7ec12d5706c25cbb6f3da0"
+		expected = "26841031a8b95b00313f85233d083c2d715541152a97aba3bb5b9d7337d080a7"
 		if containsString(names, "profile_linux.go") {
-			expected = "dafef7193c4e88965d8e87cb1103174ffb3e876da80c23973b18a6540abb0e8e"
+			expected = "de8446d73d62ec36f3b33baff9eeff3f5e0c4d17f8902466fb3c6e63865813d1"
 		}
 	default:
 		return false
@@ -689,6 +710,10 @@ func reviewedControlPlatformSource(candidate checkedSourcePackage, kind string) 
 }
 
 func moduleDependencyClosure(packages []listedPackage, root string) map[string]bool {
+	return moduleDependencyClosurePruned(packages, root, nil)
+}
+
+func moduleDependencyClosurePruned(packages []listedPackage, root string, stop map[string]bool) map[string]bool {
 	byImport := make(map[string]listedPackage, len(packages))
 	for _, candidate := range packages {
 		byImport[candidate.ImportPath] = candidate
@@ -705,6 +730,9 @@ func moduleDependencyClosure(packages []listedPackage, root string) map[string]b
 			continue
 		}
 		closure[current] = true
+		if stop[current] {
+			continue
+		}
 		for _, imported := range byImport[current].Imports {
 			if _, ok := byImport[imported]; ok {
 				pending = append(pending, imported)
@@ -862,6 +890,11 @@ const (
 	reviewedAuditCredentialLocalAPIUnsupportedDigest = "c4a5a8bddeb0579d7dbd537c248836c92fa98fe4ac52fd77dccae7a47d7867d4"
 	reviewedScheduleLocalAPILinuxDigest              = "296ae54aa9e5e5554f33d82371105acb286f2c72c74ed0d39183e869db055dfd"
 	reviewedScheduleLocalAPIUnsupportedDigest        = "e1db57ef9e23a3bd1068e0ac42189edac917a44b0842d207abb3717933ca3d49"
+	// #110 adds typed database-scoped aliases over the reviewed backup and
+	// restore routes plus one inert export-draft route. The complete package
+	// remains sealed so the new file cannot widen the local transport.
+	reviewedDatabaseLocalAPILinuxDigest       = "d3bafb206d235c6da669ed04e540d419f2cacddfd00a805010b95a71c3a70806"
+	reviewedDatabaseLocalAPIUnsupportedDigest = "9bdeff75e774242bde84220094b3b4d08f49c26451e363548e04e5b5a1f22fdd"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -918,6 +951,7 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 	if containsString(names, "backup_client.go") && containsString(names, "credential_lifecycle_client.go") {
 		withRestore := containsString(names, "restore_client.go")
 		withSchedule := containsString(names, "schedule_client.go")
+		withDatabase := containsString(names, "database_client.go")
 		if containsString(names, "listener_linux.go") {
 			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go"
 			if withRestore {
@@ -925,6 +959,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			if withSchedule {
 				exact += ",schedule_client.go"
+			}
+			if withDatabase {
+				exact = "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,database_client.go,gates_client.go,listener.go,listener_linux.go,restore_client.go,schedule_client.go"
 			}
 			if strings.Join(names, ",") != exact {
 				return false
@@ -936,6 +973,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			if withSchedule {
 				expected = reviewedScheduleLocalAPILinuxDigest
 			}
+			if withDatabase {
+				expected = reviewedDatabaseLocalAPILinuxDigest
+			}
 		} else {
 			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go"
 			if withRestore {
@@ -943,6 +983,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			if withSchedule {
 				exact += ",schedule_client.go"
+			}
+			if withDatabase {
+				exact = "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,database_client.go,gates_client.go,listener.go,listener_unsupported.go,restore_client.go,schedule_client.go"
 			}
 			if strings.Join(names, ",") != exact {
 				return false
@@ -953,6 +996,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			}
 			if withSchedule {
 				expected = reviewedScheduleLocalAPIUnsupportedDigest
+			}
+			if withDatabase {
+				expected = reviewedDatabaseLocalAPIUnsupportedDigest
 			}
 		}
 	} else if containsString(names, "backup_client.go") {
@@ -1005,6 +1051,67 @@ func reviewedAuditVerificationPackage(candidate checkedSourcePackage) bool {
 		return false
 	}
 	return digestSourceFiles(candidate.listed.Dir, names) == reviewedAuditVerificationDigest
+}
+
+// The recovery-denial adapter verifies observer signatures with public
+// material. Seal the complete implementation and continue rejecting every
+// Ed25519 private-key operation outside the recovery custodian collector.
+func reviewedRecoveryDenialVerificationPackage(candidate checkedSourcePackage, modulePath string) bool {
+	if candidate.listed.ImportPath != modulePath+"/internal/adapter/recoverydenial" {
+		return false
+	}
+	names := append([]string(nil), candidate.listed.GoFiles...)
+	sort.Strings(names)
+	if strings.Join(names, ",") != "https.go,types.go" || digestSourceFiles(candidate.listed.Dir, names) != "ef6e0c94a0fdd174dc279eb1c6cec75e9d2f23c89cfe93744f445c882564b973" {
+		return false
+	}
+	for _, file := range candidate.files {
+		forbidden := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			selector, ok := node.(*ast.SelectorExpr)
+			if ok {
+				if object := candidate.info.ObjectOf(selector.Sel); object != nil && object.Pkg() != nil && object.Pkg().Path() == "crypto/ed25519" {
+					switch object.Name() {
+					case "Sign", "GenerateKey", "NewKeyFromSeed", "PrivateKey":
+						forbidden = true
+					}
+				}
+			}
+			return !forbidden
+		})
+		if forbidden {
+			return false
+		}
+	}
+	return true
+}
+
+func reviewedRecoveryCanaryVerificationFile(candidate checkedSourcePackage, serverImport string) bool {
+	if candidate.listed.ImportPath != serverImport || !containsString(candidate.listed.GoFiles, "recovery_canary_system.go") || digestSourceFiles(candidate.listed.Dir, []string{"recovery_canary_system.go"}) != "e5c6b4c0135eccca2e07f4a981bd2a33b93cee22894bfbbdc1b989a86f72c8ef" {
+		return false
+	}
+	for _, file := range candidate.files {
+		if filepath.Base(candidate.listed.Dir) != "server" {
+			return false
+		}
+		forbidden := false
+		ast.Inspect(file, func(node ast.Node) bool {
+			selector, ok := node.(*ast.SelectorExpr)
+			if ok {
+				if object := candidate.info.ObjectOf(selector.Sel); object != nil && object.Pkg() != nil && object.Pkg().Path() == "crypto/ed25519" {
+					switch object.Name() {
+					case "Sign", "GenerateKey", "NewKeyFromSeed", "PrivateKey":
+						forbidden = true
+					}
+				}
+			}
+			return !forbidden
+		})
+		if forbidden {
+			return false
+		}
+	}
+	return true
 }
 
 // The recovery contract verifies independently signed public artifacts. It
@@ -1084,12 +1191,12 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	sort.Strings(names)
 	var expected string
 	switch strings.Join(names, ",") {
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "d7ea2effd5df8259bc73c04b0a0887ee0c078559781be93ac32c38a8d36d9587"
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unix.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "7427f43bb532e12ecfaf2cbcc19b53892224762739a6d4dd70979be527489981"
-	case "artifact.go,collector.go,custody.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source_admission.go,source_handoff.go,transport.go,witness.go":
-		expected = "305e743c3cd3014e4000a95a3f887a952502ab802b51b783e558751aef749089"
+	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_linux.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
+		expected = "ba47d6e306e91015788671298c4da6f20792c6215347fb66075ceb5aae642462"
+	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
+		expected = "34576021c3c8b3573f5308290c0f09314e4a2e7be8a7899fc70455370af0f0ec"
+	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,offsite_source.go,operations.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source.go,source_admission.go,source_admission_file_unsupported.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
+		expected = "ee9df31bdcb171c1b312f50024916a94fa428380ddba32650750d09518f01cbe"
 	default:
 		return false
 	}
@@ -1186,7 +1293,7 @@ func reviewedLocalCallbacks(candidate checkedSourcePackage) map[*types.Var]bool 
 			case *ast.FuncDecl:
 				parameter := ""
 				switch typed.Name.Name {
-				case "validateTypedResponse":
+				case "validateTypedResponse", "databaseRequest":
 					parameter = "validate"
 				case "newAuthenticatedConn":
 					parameter = "onClose"
@@ -1265,6 +1372,7 @@ var reviewedBackupSubprocesses = map[string]string{
 	"restic_linux.go":          "5298187bff0aa47d207f304329a24defb6096d292c977ac7cd5b0be2064e1123",
 	"custody_process_linux.go": "c271d76bcc05bc63ff99ce396cb0ab896dbcbe364527ae6593122a8e15db4e57",
 	"custody_systemd_linux.go": "e43bced103cd0530812847b4fbf646d7bc931a3c7ba6c5b012bbed858925b910",
+	"offsite_copy_linux.go":    "5a581ea532e4b6640768463a59b28c9f290e266108b709ec934f87e9311bf250",
 }
 
 var reviewedLocalRetentionSources = map[string]string{

@@ -15,9 +15,18 @@
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
       "type": "string"
     },
+    "reasonCode": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
     "recoveryEpoch": {
       "minimum": 0,
       "type": "integer"
+    },
+    "safeNextAction": {
+      "maxLength": 256,
+      "minLength": 1,
+      "type": "string"
     },
     "schema": {
       "enum": [
@@ -65,8 +74,10 @@
     "planDigest",
     "targetDigest",
     "status",
+    "reasonCode",
     "recoveryEpoch",
-    "verificationStatus"
+    "verificationStatus",
+    "safeNextAction"
   ],
   "title": "VegaStack Labs browser restore status",
   "type": "object",

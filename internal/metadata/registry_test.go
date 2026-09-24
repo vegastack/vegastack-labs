@@ -196,8 +196,8 @@ func endpointByID(t *testing.T, registry Registry, id string) EndpointDefinition
 
 func TestSourceHealthContractsAreClosedAndPhaseThreeOwned(t *testing.T) {
 	registry := Current()
-	if registry.SchemaVersion != "1.21.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.21.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.22.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.22.0", registry.SchemaVersion)
 	}
 	var endpoint EndpointDefinition
 	for _, candidate := range registry.Endpoints {
@@ -321,8 +321,8 @@ func TestInventoryDraftContractsAreStrictAndProviderNeutral(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.21.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.21.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.22.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.22.0", registry.SchemaVersion)
 	}
 	input := schemaByID(t, registry, "vegastack-labs.dev/inventory-draft-input")
 	result := schemaByID(t, registry, "vegastack-labs.dev/inventory-import-data")
@@ -353,8 +353,8 @@ func TestAuditContractsAreClosedBoundedAndSecretFree(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.21.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.21.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.22.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.22.0", registry.SchemaVersion)
 	}
 	event := schemaByID(t, registry, "vegastack-labs.dev/audit-event")
 	outbox := schemaByID(t, registry, "vegastack-labs.dev/outbox-record-data")
@@ -433,8 +433,8 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 	t.Parallel()
 
 	registry := Current()
-	if registry.SchemaVersion != "1.21.0" {
-		t.Fatalf("SchemaVersion = %q, want 1.21.0", registry.SchemaVersion)
+	if registry.SchemaVersion != "1.22.0" {
+		t.Fatalf("SchemaVersion = %q, want 1.22.0", registry.SchemaVersion)
 	}
 
 	wantAvailable := map[string]bool{
@@ -444,8 +444,9 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"gate list": false, "gate inspect": false, "gate check": false, "gate evidence": false, "gate profile draft": false,
 		"backup policy draft": false, "backup retention-locks draft": false, "backup retirement draft": false, "backup offsite-retirement dry-run": false, "backup offsite-retirement stage": false, "backup status": false, "backup run": false, "backup verify": false, "credential import": false, "credential stage": false, "credential activate": false, "credential rotate": false, "credential revoke": false, "credential recover": false,
 		"audit checkpoints": false, "audit verify": false, "restore plan": false, "restore run": false, "restore verify": false,
+		"database backup": false, "database verify": false, "database restore": false, "database export": false,
 		"recovery witness collect": false,
-		"schedule policy draft":    false, "schedule dispatch": false, "schedule cancel": false,
+		"schedule list":            false, "schedule inspect": false, "schedule policy draft": false, "schedule dispatch": false, "schedule cancel": false,
 	}
 	wantPlanned := map[string]string{
 		"doctor": "2", "audit": "5",
@@ -455,7 +456,6 @@ func TestCurrentHasFoundationAndDocumentedCommands(t *testing.T) {
 		"service plan": "8", "service deploy": "8", "service rollback": "8",
 		"maintenance plan": "10", "maintenance run": "10", "connect": "7",
 		"control-plane plan": "6", "control-plane verify": "6", "control-plane recover": "6",
-		"database backup": "5", "database verify": "5", "database restore": "5", "database export": "5",
 	}
 	gotPlanned := make(map[string]string)
 	for _, command := range registry.Commands {

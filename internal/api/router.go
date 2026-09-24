@@ -19,6 +19,10 @@ import (
 type route struct {
 	id, method, pattern, capability, kind string
 	action                                authorization.Action
+	// resourceParam and staticResourceID let body-bearing routes establish the
+	// exact authorization target from the URL or server-owned route contract
+	// before the request body is read. At most one may be set.
+	resourceParam, staticResourceID string
 	// deferredAuthorization is for handlers whose exact authorization target is
 	// unavailable from the path. Each handler must authorize that target before
 	// mutation; sensitive callers are rejected before reading their body.
@@ -50,17 +54,35 @@ var remoteBrowserWriteEndpoints = map[string]bool{
 	"api.v1.plans.execute":                 true,
 	"api.v1.runs.cancel":                   true,
 	"api.v1.runs.resume":                   true,
+	"api.v1.gates.check":                   true,
+	"api.v1.gate-evidence.create":          true,
+	"api.v1.restore-drafts.create":         true,
 }
 
 var constrainedSSHWriteEndpoints = map[string]bool{
-	"api.v1.credential-lifecycle-drafts.create": true,
-	"api.v1.inventory-diffs.create":             true,
-	"api.v1.inventory-drafts.import":            true,
-	"api.v1.inventory-exports.create":           true,
-	"api.v1.plans.create":                       true,
-	"api.v1.plans.execute":                      true,
-	"api.v1.runs.cancel":                        true,
-	"api.v1.runs.resume":                        true,
+	"api.v1.credential-lifecycle-drafts.create":   true,
+	"api.v1.inventory-diffs.create":               true,
+	"api.v1.inventory-drafts.import":              true,
+	"api.v1.inventory-exports.create":             true,
+	"api.v1.plans.create":                         true,
+	"api.v1.plans.execute":                        true,
+	"api.v1.runs.cancel":                          true,
+	"api.v1.runs.resume":                          true,
+	"api.v1.gates.check":                          true,
+	"api.v1.gate-evidence.create":                 true,
+	"api.v1.backup-jobs.create":                   true,
+	"api.v1.backup-verifications.create":          true,
+	"api.v1.restore-drafts.create":                true,
+	"api.v1.restores.plan":                        true,
+	"api.v1.restores.run":                         true,
+	"api.v1.restores.verify":                      true,
+	"api.v1.database-backups.create":              true,
+	"api.v1.database-verifications.create":        true,
+	"api.v1.database-restores.create":             true,
+	"api.v1.database-exports.create":              true,
+	"api.v1.scheduled-job-policies.drafts.create": true,
+	"api.v1.scheduled-occurrences.create":         true,
+	"api.v1.scheduled-jobs.cancel":                true,
 }
 
 // RemoteReadRequestAllowed is the server-side admission boundary for the
@@ -239,7 +261,10 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 			candidate.handler(writer, request, authorization.ReadScope{}, params)
 			return
 		}
-		resourceID := ""
+		resourceID := candidate.staticResourceID
+		if candidate.resourceParam != "" {
+			resourceID = params[candidate.resourceParam]
+		}
 		if rawDraft, exists := params["draftId"]; exists {
 			resourceID = rawDraft
 			if revision := params["revision"]; revision != "" {

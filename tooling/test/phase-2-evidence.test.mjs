@@ -12,13 +12,13 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while Phase 5 waves through #109 have exact reviewed closures", async () => {
+test("the original Phase 2 baseline stays immutable while Phase 5 waves through #110 have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
-  assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:11b278dfc2431beb4910d958b4ef05ae5204ebc95061363790a96c9a8a129144");
+  assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 27);
+  assert.equal(manifest.contract.reviewedWaves?.length, 28);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -143,7 +143,12 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.deepEqual(manifest.contract.reviewedWaves[26].commands, ["schedule cancel", "schedule dispatch", "schedule policy draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[26].imports, ["github.com/vegastack/vegastack-labs/internal/schedule"]);
   assert.equal(manifest.contract.reviewedWaves[26].mutationBoundaryDigest, "sha256:11b278dfc2431beb4910d958b4ef05ae5204ebc95061363790a96c9a8a129144");
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[26].mutationBoundaryDigest);
+  assert.equal(manifest.contract.reviewedWaves[27].id, "phase5-issue110-v1");
+  assert.equal(manifest.contract.reviewedWaves[27].issue, 110);
+  assert.deepEqual(manifest.contract.reviewedWaves[27].commands, ["database backup", "database export", "database restore", "database verify", "schedule inspect", "schedule list"]);
+  assert.deepEqual(manifest.contract.reviewedWaves[27].imports, ["github.com/vegastack/vegastack-labs/internal/databaseexport"]);
+  assert.equal(manifest.contract.reviewedWaves[27].mutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[27].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 

@@ -77,3 +77,17 @@ func scopeDigest(principal, capability, kind string, revision int64, resources [
 	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
 	return "sha256:" + hex.EncodeToString(sum[:])
 }
+
+func verifyExactReadSnapshot(ctx context.Context, tx ReadTx, scope authorization.ReadScope, snapshot RevisionToken) error {
+	if err := verifyReadScope(ctx, tx, scope, ""); err != nil {
+		return err
+	}
+	var current RevisionToken
+	if err := tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&current.StateRevision, &current.RecoveryEpoch); err != nil {
+		return err
+	}
+	if current != snapshot {
+		return newStoreError(generated.ErrorCodeStateConflict, "read", false, nil)
+	}
+	return nil
+}

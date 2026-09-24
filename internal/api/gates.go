@@ -38,11 +38,11 @@ func RegisterGateOperations(app *Application, config GateOperations) error {
 		config.Clock = time.Now
 	}
 	app.routes = append(app.routes,
-		route{id: "api.v1.gate-profile-drafts.create", method: http.MethodPost, pattern: "/api/v1/gates/profile-drafts", capability: "gate.profile.author", kind: "profile", action: authorization.ActionAuthor, handler: app.profileDraft(config)},
+		route{id: "api.v1.gate-profile-drafts.create", method: http.MethodPost, pattern: "/api/v1/gates/profile-drafts", capability: "gate.profile.author", kind: "profile", action: authorization.ActionAuthor, staticResourceID: "profile-drafts", handler: app.profileDraft(config)},
 		route{id: "api.v1.gates.list", method: http.MethodGet, pattern: "/api/v1/gates", capability: "gate.read", kind: "gate", handler: app.gatesList(config)},
 		route{id: "api.v1.gates.get", method: http.MethodGet, pattern: "/api/v1/gates/{gateId}", capability: "gate.read", kind: "gate", handler: app.gateGet(config)},
-		route{id: "api.v1.gates.check", method: http.MethodPost, pattern: "/api/v1/gates/check", capability: "gate.read", kind: "gate", handler: app.gateCheck(config)},
-		route{id: "api.v1.gate-evidence.create", method: http.MethodPost, pattern: "/api/v1/gates/{gateId}/evidence", capability: "gate.evidence.author", kind: "gate", action: authorization.ActionAuthor, handler: app.gateEvidenceDraft(config)},
+		route{id: "api.v1.gates.check", method: http.MethodPost, pattern: "/api/v1/gates/{gateId}/check", capability: "gate.read", kind: "gate", resourceParam: "gateId", handler: app.gateCheck(config)},
+		route{id: "api.v1.gate-evidence.create", method: http.MethodPost, pattern: "/api/v1/gates/{gateId}/evidence", capability: "gate.evidence.author", kind: "gate", action: authorization.ActionAuthor, resourceParam: "gateId", handler: app.gateEvidenceDraft(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-5]
@@ -191,7 +191,7 @@ func (app *Application) gateGet(config GateOperations) func(http.ResponseWriter,
 }
 
 func (app *Application) gateCheck(config GateOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
-	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, params map[string]string) {
 		const op = "api.v1.gates.check"
 		var input generated.GateCheckRequest
 		if err := decodeOperationRequest(r, 4096, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "gateId", "subjectId", "definitionVersion"}, &input); err != nil {
@@ -200,7 +200,7 @@ func (app *Application) gateCheck(config GateOperations) func(http.ResponseWrite
 		}
 		raw, _ := json.Marshal(input)
 		def, ok := gateDefinition(input.GateID)
-		if !ok || generated.ValidateContractJSON(generated.SchemaIDGateCheckRequest, raw, generated.ContractExact) != nil || def.DefinitionVersion != input.DefinitionVersion {
+		if !ok || !strings.EqualFold(input.GateID, params["gateId"]) || generated.ValidateContractJSON(generated.SchemaIDGateCheckRequest, raw, generated.ContractExact) != nil || def.DefinitionVersion != input.DefinitionVersion {
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "gate-check"))
 			return
 		}

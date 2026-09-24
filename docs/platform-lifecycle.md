@@ -171,6 +171,16 @@ For backup adapters, mutable coordination objects and retained payload dependenc
 
 ## Disable, detach, replace and uninstall
 
+### Phase 5 inspection and recovery-required workflow
+
+Operators inspect Phase 5 state through generated `vsk-labs` commands or the embedded Console. Both surfaces read the same server-owned projections and report identifiers, status, source/proof class, reason code, state revision, recovery epoch, last-good point, blockers, and the exact safe next action. Empty, unavailable, stale, partial, failed, fixture-only, and recovery-required states remain distinct from success.
+
+Gate evidence and restore-source selection begin as inert drafts. Creating either draft does not pass a gate, acknowledge a plan, run a backup, or restore authority. The operator reviews the returned draft/change identifier, prepares an immutable plan through the normal declaration flow, obtains the required human acknowledgement outside the browser, and executes only that exact current plan. Backup, verification, restore, database, audit-checkpoint, and scheduled effects use the CLI or constrained operator transport; the Console can observe their safe status and link to an existing exact plan but cannot call those effects directly.
+
+The database commands preserve those same stages. `database backup` starts an exact approved backup and leaves the new point pending; `database verify` performs the separate qualification. `database restore` prepares an inert fenced restore plan. `database export` only creates an inert declaration with a draft/change identifier and safe next action. It does not emit exported data, and its declaration digest is not an export-content digest.
+
+If the server reports `recovery-required` or an audit incident, stop ordinary mutations. Preserve the current database, previous authority, recovery points, audit material, and retained dependencies; satisfy the listed fence, source, key, checkpoint, and canary prerequisites; then create a fresh exact plan. Do not edit SQLite, invoke restic/provider tools directly, reuse an old acknowledgement, or choose a browser force action. A no-JavaScript or unavailable-Console operator follows the same prerequisites with the generated CLI and receives the same result envelope.
+
 These are different operations. Disabling a capability stops new work but does not delete resources or revoke credentials still needed by active work/recovery. Before disconnecting an adapter, enumerate dependencies, drain or stop runs, identify retained recovery dependencies, transfer explicit ownership and preserve a human recovery path. Unavailable/unsupported migration becomes a blocker with a documented handoff, not invented conversion. Revoke only platform-owned scoped credentials and verify denial.
 
 Default product uninstall preserves application data, externally managed workloads, audit and recovery artifacts; it removes only the explicitly selected owned installation components after a reviewed plan and handoff. Destruction requires its own target list, recovery preconditions and stronger confirmation. Local account offboarding preserves homes per policy. Physical custody, media sanitization/destruction, repair handoff and disposal are outside product scope; logical inventory and credential retirement remain included.

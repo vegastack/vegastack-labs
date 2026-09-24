@@ -15,6 +15,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/recovery"
 	"github.com/vegastack/vegastack-labs/internal/result"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 type restoreOperationsStub struct{ plan, run, verify int }
@@ -33,6 +34,9 @@ func (stub *restoreOperationsStub) Verify(context.Context, generated.RestoreVeri
 }
 func (*restoreOperationsStub) Get(context.Context, string) (generated.BrowserRestoreStatus, error) {
 	return generated.BrowserRestoreStatus{}, nil
+}
+func (*restoreOperationsStub) List(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
+	return []generated.BrowserRestoreStatus{}, store.RevisionToken{}, nil
 }
 func (*restoreOperationsStub) AuthorizationPlan(context.Context, string) (generated.Plan, error) {
 	digest := "sha256:" + strings.Repeat("a", 64)
@@ -54,9 +58,9 @@ func TestRestorePostRoutesDenyExactTargetBeforeServiceMutation(t *testing.T) {
 		name, path, capability, kind, target string
 		body                                 any
 	}{
-		{"plan", "/api/v1/restores/plans", "recovery.restore.author", "recovery-point", "point-a", plan},
-		{"run", "/api/v1/restores/plans/plan-a/run", "recovery.restore.cutover", "execution-target", "control-a", run},
-		{"verify", "/api/v1/restores/plans/plan-a/verify", "recovery.restore.cutover", "execution-target", "control-a", verify},
+		{"plan", "/api/v1/recovery-points/point-a/restore-plans", "recovery.restore.author", "recovery-point", "point-a", plan},
+		{"run", "/api/v1/restore-plans/plan-a/runs", "recovery.restore.cutover", "restore-plan", "plan-a", run},
+		{"verify", "/api/v1/restore-plans/plan-a/verifications", "recovery.restore.cutover", "restore-plan", "plan-a", verify},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			operations := &restoreOperationsStub{}

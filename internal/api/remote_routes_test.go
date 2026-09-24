@@ -50,14 +50,29 @@ func TestRemoteReadAdmissionMatchesGeneratedReadAndSessionEndpoints(t *testing.T
 
 func TestConstrainedSSHAdmissionIsGeneratedOperatorAPIWithoutAlternateAuthorities(t *testing.T) {
 	allowedWrites := map[string]bool{
-		"api.v1.credential-lifecycle-drafts.create": true,
-		"api.v1.inventory-diffs.create":             true,
-		"api.v1.inventory-drafts.import":            true,
-		"api.v1.inventory-exports.create":           true,
-		"api.v1.plans.create":                       true,
-		"api.v1.plans.execute":                      true,
-		"api.v1.runs.cancel":                        true,
-		"api.v1.runs.resume":                        true,
+		"api.v1.credential-lifecycle-drafts.create":   true,
+		"api.v1.inventory-diffs.create":               true,
+		"api.v1.inventory-drafts.import":              true,
+		"api.v1.inventory-exports.create":             true,
+		"api.v1.plans.create":                         true,
+		"api.v1.plans.execute":                        true,
+		"api.v1.runs.cancel":                          true,
+		"api.v1.runs.resume":                          true,
+		"api.v1.gates.check":                          true,
+		"api.v1.gate-evidence.create":                 true,
+		"api.v1.backup-jobs.create":                   true,
+		"api.v1.backup-verifications.create":          true,
+		"api.v1.restore-drafts.create":                true,
+		"api.v1.restores.plan":                        true,
+		"api.v1.restores.run":                         true,
+		"api.v1.restores.verify":                      true,
+		"api.v1.database-backups.create":              true,
+		"api.v1.database-verifications.create":        true,
+		"api.v1.database-restores.create":             true,
+		"api.v1.database-exports.create":              true,
+		"api.v1.scheduled-job-policies.drafts.create": true,
+		"api.v1.scheduled-occurrences.create":         true,
+		"api.v1.scheduled-jobs.cancel":                true,
 	}
 	if RemoteReadRequestAllowed(http.MethodPost, "/api/v1/credential-lifecycle-drafts") {
 		t.Fatal("metadata-only credential lifecycle endpoint entered browser admission")
@@ -68,7 +83,7 @@ func TestConstrainedSSHAdmissionIsGeneratedOperatorAPIWithoutAlternateAuthoritie
 	for _, endpoint := range generated.Endpoints {
 		requestPath := strings.NewReplacer(
 			"{declarationId}", "declaration-test", "{draftId}", "draft-test", "{planId}", "plan-test",
-			"{revision}", "1", "{recordId}", "record-test", "{runId}", "run-test", "{leaseId}", "lease-test", "{idempotencyKey}", "request-test",
+			"{revision}", "1", "{recordId}", "record-test", "{runId}", "run-test", "{leaseId}", "lease-test", "{idempotencyKey}", "request-test", "{gateId}", "g-008", "{policyId}", "policy-test", "{jobId}", "job-test", "{pointId}", "point-test",
 		).Replace(endpoint.Path)
 		operator := slices.Contains(endpoint.Audiences, "operator")
 		want := endpoint.Availability == generated.AvailabilityAvailable && operator &&

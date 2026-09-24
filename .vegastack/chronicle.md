@@ -678,3 +678,12 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none.
 
 — approved by (omkarmohanta09) · built by Codex · branch historical branch not recorded
+## 24-09-2026 — Phase 5 workflows reached the shared operator surfaces ([#110](https://github.com/vegastack/vegastack-labs/issues/110))
+
+- **What:** Gates, backup and recovery points, audit checkpoints, restore state, and fixed schedules gained typed CLI/API access and sanitized Console views over the same server-owned authority.
+- **Why:** Phase 5 needed one truthful operator path that exposes blockers and recovery guidance without giving the browser secret, provider, executor, filesystem, or SQLite authority.
+- **How it went:** Re-grounding caught a stale generator baseline and an older plan that conflicted with the scheduler verbs already reviewed in #109. The plan was corrected additively, the scheduler contract was preserved, and broad browser/Linux acceptance was reserved for the Phase 5 epic run.
+- **Changed:** Resource-addressed Phase 5 routes · authorization-before-body handling · bounded browser projections · typed CLI rendering · gate evidence drafting · backup/recovery/audit/schedule Console views · operator fallback documentation.
+- **Decisions:** none; no live infrastructure, provider, credential, host, restore, or deployment authority was added.
+
+— approved by (omkarmohanta09) · built by Codex · branch feat/110-phase5-operator-surfaces

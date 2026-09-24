@@ -65,7 +65,7 @@ func (client *client) CheckGate(ctx context.Context, profile serverconfig.Profil
 	}
 	sum := sha256.Sum256([]byte(gateID + "\x00" + subjectID))
 	input := generated.GateCheckRequest{Schema: generated.SchemaIDGateCheckRequest, SchemaVersion: "1.0.0", ExpectedStateRevision: view.Result.StateRevision, RecoveryEpoch: view.Result.RecoveryEpoch, TargetDigest: "sha256:" + hex.EncodeToString(sum[:]), IdempotencyKey: key, GateID: gateID, SubjectID: subjectID, DefinitionVersion: view.Data.Definition.DefinitionVersion}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/gates/check", "api.v1.gates.check", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.GateEvaluation, result generated.RunResult) bool {
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/gates/" + gateID + "/check", "api.v1.gates.check", maxOperationResponseBodyBytes, operationTimeout, false}, input, func(data generated.GateEvaluation, result generated.RunResult) bool {
 		return validGateData(data, generated.SchemaIDGateEvaluation) && data.GateID == gateID && data.SubjectID == subjectID && data.RecoveryEpoch == result.RecoveryEpoch
 	})
 }

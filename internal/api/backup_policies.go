@@ -10,6 +10,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
+	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
 // BackupPolicyDraftService stores one inert canonical backup-policy draft. The
@@ -22,6 +23,8 @@ type BackupPolicyDraftService interface {
 type BackupStatusService interface {
 	ReadLocalBackupStatus(context.Context) (generated.BackupStatusData, error)
 	ReadLocalBackupStatusScoped(context.Context, authorization.ReadScope) (generated.BackupStatusData, error)
+	CurrentBackupRevision(context.Context, authorization.ReadScope) (store.RevisionToken, error)
+	ListRecoveryPoints(context.Context, authorization.ReadScope, string, int) ([]generated.BrowserRecoveryPoint, store.RevisionToken, error)
 }
 
 // BackupOperations exposes the backup catalog and submits exact backup plans
@@ -40,7 +43,7 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 	if app == nil || config.Drafts == nil || config.Results == nil || config.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "backup-config")
 	}
-	app.routes = append(app.routes, route{id: "api.v1.backup-policy-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/policies/drafts", capability: "backup.policy.author", kind: "backup-policy", action: authorization.ActionAuthor, handler: app.backupPolicyDraft(config)})
+	app.routes = append(app.routes, route{id: "api.v1.backup-policy-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/policies/drafts", capability: "backup.policy.author", kind: "backup-policy", action: authorization.ActionAuthor, staticResourceID: "policy-drafts", handler: app.backupPolicyDraft(config)})
 	added := 1
 	if config.Retirements != nil {
 		app.routes = append(app.routes, route{id: "api.v1.backup-retirement-drafts.create", method: http.MethodPost, pattern: "/api/v1/backups/retirements/drafts", deferredAuthorization: true, handler: app.backupRetirementDraft(config)})
@@ -59,11 +62,12 @@ func RegisterBackupOperations(app *Application, config BackupOperations) error {
 	}
 	if config.Status != nil && config.Runs.Runs != nil && config.Runs.Plans != nil && config.Runs.Acknowledgements != nil && config.Runs.Results == config.Results {
 		app.routes = append(app.routes,
-			route{id: "api.v1.backups.status", method: http.MethodGet, pattern: "/api/v1/backups/status", capability: "backup.read", kind: "backup", handler: app.backupStatus(config)},
-			route{id: "api.v1.backups.run", method: http.MethodPost, pattern: "/api/v1/backups/run", deferredAuthorization: true, handler: app.backupRun(config)},
-			route{id: "api.v1.backups.verify", method: http.MethodPost, pattern: "/api/v1/backups/{jobId}/verify", deferredAuthorization: true, handler: app.backupVerify(config)},
+			route{id: "api.v1.backups.status", method: http.MethodGet, pattern: "/api/v1/backups/status", capability: "backup.read", kind: "backup", staticResourceID: "current", handler: app.backupStatus(config)},
+			route{id: "api.v1.backup-jobs.create", method: http.MethodPost, pattern: "/api/v1/backup-policies/{policyId}/jobs", capability: "backup.execute", kind: "backup-policy", action: authorization.ActionAuthor, resourceParam: "policyId", handler: app.backupRun(config)},
+			route{id: "api.v1.backup-verifications.create", method: http.MethodPost, pattern: "/api/v1/recovery-points/{pointId}/verifications", capability: "backup.verify", kind: "recovery-point", action: authorization.ActionAuthor, resourceParam: "pointId", handler: app.backupVerify(config)},
+			route{id: "api.v1.recovery-points.list", method: http.MethodGet, pattern: "/api/v1/recovery-points", capability: "backup.read", kind: "recovery-point", staticResourceID: "points", handler: app.recoveryPointList(config)},
 		)
-		added += 3
+		added += 4
 	}
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-added]
@@ -146,27 +150,92 @@ func (app *Application) backupStatus(config BackupOperations) func(http.Response
 			app.failure(w, op, err)
 			return
 		}
-		app.success(w, op, 0, status.RecoveryEpoch, status)
+		revision, err := config.Status.CurrentBackupRevision(r.Context(), scope)
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		projected := browserBackupStatus(status)
+		projected.StateRevision = revision.StateRevision
+		raw, marshalErr := json.Marshal(projected)
+		if marshalErr != nil || generated.ValidateContractJSON(generated.SchemaIDBrowserBackupStatusData, raw, generated.ContractExact) != nil {
+			app.failure(w, op, apiFailure(generated.ErrorCodeIntegrityFailure, "backup-status-projection"))
+			return
+		}
+		app.success(w, op, projected.StateRevision, projected.RecoveryEpoch, projected)
+	}
+}
+
+func browserBackupStatus(status generated.BackupStatusData) generated.BrowserBackupStatusData {
+	result := generated.BrowserBackupStatusData{Schema: generated.SchemaIDBrowserBackupStatusData, SchemaVersion: "1.0.0", Status: "empty", ReasonCode: "no-recovery-point", SourceKind: "none", ProofClass: "none", RecoveryEpoch: status.RecoveryEpoch, SafeNextAction: "create and verify a recovery point"}
+	if len(status.LastGood) > 0 {
+		result.Status, result.ReasonCode, result.SourceKind, result.ProofClass = "healthy", "verified-recovery-point", "local", "live"
+		result.LastGoodPointID = &status.LastGood[0].PointID
+		result.SafeNextAction = "none"
+		return result
+	}
+	for _, job := range status.Jobs {
+		result.SourceKind, result.ProofClass = job.SourceKind, job.ProofClass
+		if job.Status == "failed" {
+			result.Status, result.ReasonCode, result.RecoveryRequired, result.SafeNextAction = "failed", "backup-job-failed", true, "inspect the failed backup job"
+			return result
+		}
+		result.Status, result.ReasonCode, result.SafeNextAction = "pending", "verification-pending", "verify the pending recovery point"
+	}
+	return result
+}
+
+func (app *Application) recoveryPointList(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
+	return func(w http.ResponseWriter, r *http.Request, scope authorization.ReadScope, _ map[string]string) {
+		const op = "api.v1.recovery-points.list"
+		page, err := app.phase5PageRequest(r, scope, op)
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		items, revision, err := config.Status.ListRecoveryPoints(r.Context(), scope, page.AfterID, page.Query.Limit+1)
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		if revision != page.Snapshot {
+			app.failure(w, op, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
+			return
+		}
+		hasMore := len(items) > page.Query.Limit
+		if hasMore {
+			items = items[:page.Query.Limit]
+		}
+		var lastID string
+		if len(items) > 0 {
+			lastID = items[len(items)-1].PointID
+		}
+		next, err := app.phase5NextCursor(op, scope, page, lastID, hasMore)
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		app.success(w, op, revision.StateRevision, revision.RecoveryEpoch, generated.BrowserRecoveryPointListData{Schema: generated.SchemaIDBrowserRecoveryPointListData, SchemaVersion: "1.0.0", Items: items, NextCursor: next, StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch})
 	}
 }
 
 func (app *Application) backupRun(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
-	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
-		const op = "api.v1.backups.run"
+	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, params map[string]string) {
+		const op = "api.v1.backup-jobs.create"
 		var input generated.BackupRunRequest
-		app.backupExecute(w, r, config, op, "backup.local.create", "", &input)
+		app.backupExecute(w, r, config, op, "backup.local.create", params["policyId"], &input)
 	}
 }
 
 func (app *Application) backupVerify(config BackupOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, params map[string]string) {
-		const op = "api.v1.backups.verify"
-		if !pathToken.MatchString(params["jobId"]) {
-			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "job"))
+		const op = "api.v1.backup-verifications.create"
+		if !pathToken.MatchString(params["pointId"]) {
+			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "point"))
 			return
 		}
 		var input generated.BackupVerifyRequest
-		app.backupExecute(w, r, config, op, "backup.local.verify", params["jobId"], &input)
+		app.backupExecute(w, r, config, op, "backup.local.verify", params["pointId"], &input)
 	}
 }
 
@@ -186,7 +255,7 @@ func (app *Application) backupExecute(w http.ResponseWriter, r *http.Request, co
 			return
 		}
 		raw, _ := json.Marshal(input)
-		if generated.ValidateContractJSON(generated.SchemaIDBackupRunRequest, raw, generated.ContractExact) != nil {
+		if generated.ValidateContractJSON(generated.SchemaIDBackupRunRequest, raw, generated.ContractExact) != nil || (pathJobID != "" && input.PolicyID != pathJobID) {
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "backup-run-contract"))
 			return
 		}
@@ -197,7 +266,7 @@ func (app *Application) backupExecute(w http.ResponseWriter, r *http.Request, co
 			return
 		}
 		raw, _ := json.Marshal(input)
-		if generated.ValidateContractJSON(generated.SchemaIDBackupVerifyRequest, raw, generated.ContractExact) != nil || input.JobID != pathJobID {
+		if generated.ValidateContractJSON(generated.SchemaIDBackupVerifyRequest, raw, generated.ContractExact) != nil || (pathJobID != "" && input.PointID != pathJobID) {
 			app.failure(w, op, apiFailure(generated.ErrorCodeInputInvalid, "backup-verify-contract"))
 			return
 		}
@@ -229,7 +298,7 @@ func (app *Application) backupExecute(w http.ResponseWriter, r *http.Request, co
 		}
 		found := false
 		for _, job := range status.Jobs {
-			if job.JobID == pathJobID && job.PointID != nil && *job.PointID == pointID && job.RecoveryEpoch == epoch && job.Status == "pending" {
+			if job.PointID != nil && *job.PointID == pointID && job.RecoveryEpoch == epoch && job.Status == "pending" {
 				found = true
 				break
 			}
@@ -255,7 +324,7 @@ func (app *Application) backupExecute(w http.ResponseWriter, r *http.Request, co
 		return
 	}
 	for _, job := range status.Jobs {
-		if (pathJobID != "" && job.JobID == pathJobID) || (pathJobID == "" && job.RunID != nil && *job.RunID == run.RunID) {
+		if (pointID != "" && job.PointID != nil && *job.PointID == pointID) || (pointID == "" && job.RunID != nil && *job.RunID == run.RunID) {
 			app.operationSuccess(w, op, key, true, run.StateRevision, run.RecoveryEpoch, job)
 			return
 		}

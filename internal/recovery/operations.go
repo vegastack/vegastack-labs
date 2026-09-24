@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
@@ -25,6 +26,7 @@ type RestoreSessionCoordinator interface {
 	CreateRestoreSession(context.Context, generated.RestoreBinding, store.RevisionToken) error
 	TransitionRestore(context.Context, generated.RestoreBinding, string, string, string, store.RevisionToken) error
 	RestoreStatus(context.Context, string) (generated.BrowserRestoreStatus, error)
+	ListRestoreStatuses(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error)
 	RestoreExecutionStatus(context.Context, string) (string, error)
 }
 
@@ -144,6 +146,10 @@ func (service *OperationsService) Verify(ctx context.Context, request generated.
 
 func (service *OperationsService) Get(ctx context.Context, planID string) (generated.BrowserRestoreStatus, error) {
 	return service.config.Sessions.RestoreStatus(ctx, planID)
+}
+
+func (service *OperationsService) List(ctx context.Context, scope authorization.ReadScope, snapshot store.RevisionToken, afterID string, limit int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
+	return service.config.Sessions.ListRestoreStatuses(ctx, scope, snapshot, afterID, limit)
 }
 
 func (service *OperationsService) AuthorizationPlan(ctx context.Context, planID string) (generated.Plan, error) {

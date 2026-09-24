@@ -28,6 +28,54 @@ func (repository *BackupRepository) ReadLocalBackupStatusScoped(ctx context.Cont
 	return repository.readLocalBackupStatus(ctx, &scope)
 }
 
+func (repository *BackupRepository) CurrentBackupRevision(ctx context.Context, scope authorization.ReadScope) (RevisionToken, error) {
+	if repository == nil || repository.store == nil || scope.Capability != "backup.read" || scope.ResourceKind != "backup" {
+		return RevisionToken{}, backupStoreError(generated.ErrorCodeAuthorizationDenied, "backup-status")
+	}
+	var revision RevisionToken
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if err := verifyReadScope(ctx, tx, scope, "current"); err != nil {
+			return err
+		}
+		return tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&revision.StateRevision, &revision.RecoveryEpoch)
+	})
+	return revision, err
+}
+
+// ListRecoveryPoints returns only the browser-safe recovery catalog fields and
+// enforces the public page bound inside the SQLite query.
+func (repository *BackupRepository) ListRecoveryPoints(ctx context.Context, scope authorization.ReadScope, afterID string, limit int) ([]generated.BrowserRecoveryPoint, RevisionToken, error) {
+	if repository == nil || repository.store == nil || scope.Capability != "backup.read" || scope.ResourceKind != "recovery-point" || limit < 1 || limit > 101 {
+		return nil, RevisionToken{}, backupStoreError(generated.ErrorCodeInputInvalid, "recovery-point-page")
+	}
+	items := []generated.BrowserRecoveryPoint{}
+	var revision RevisionToken
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		if err := verifyReadScope(ctx, tx, scope, "points"); err != nil {
+			return err
+		}
+		if err := tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&revision.StateRevision, &revision.RecoveryEpoch); err != nil {
+			return err
+		}
+		rows, err := tx.query(ctx, `SELECT point_id,source_kind,proof_class,content_digest,manifest_digest,created_at,verified_at,verification_status,recovery_epoch FROM recovery_points WHERE recovery_epoch=? AND point_id>? ORDER BY point_id LIMIT ?`, revision.RecoveryEpoch, afterID, limit)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var item generated.BrowserRecoveryPoint
+			item.Schema, item.SchemaVersion = generated.SchemaIDBrowserRecoveryPoint, "1.0.0"
+			if err := rows.Scan(&item.PointID, &item.SourceKind, &item.ProofClass, &item.ContentDigest, &item.ManifestDigest, &item.CreatedAt, &item.VerifiedAt, &item.VerificationStatus, &item.RecoveryEpoch); err != nil {
+				return err
+			}
+			item.ReasonCode = "verification-" + item.VerificationStatus
+			items = append(items, item)
+		}
+		return rows.Err()
+	})
+	return items, revision, err
+}
+
 func (repository *BackupRepository) readLocalBackupStatus(ctx context.Context, scope *authorization.ReadScope) (generated.BackupStatusData, error) {
 	status := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0",
 		Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{},

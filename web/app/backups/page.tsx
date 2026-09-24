@@ -1,14 +1,6 @@
 import type { Metadata } from "next";
 import { ConsoleShell } from "@/components/console-shell";
-import { DomainStatusView } from "@/components/domain-status-view";
+import { BackupRecoveryView } from "@/components/backup-recovery-view";
 
 export const metadata: Metadata = { title: "Backups" };
-const definition = {
-  source: "backups",
-  capability: "backup.status.read",
-  title: "Backups",
-  unavailableDescription: "The backup capability is unavailable or needs an approved adapter. Detailed recovery records arrive in their owning later phase.",
-  currentDescription: "It does not mean a recovery point, integrity check, or recovery operation is available.",
-} as const;
-
-export default function BackupsPage() { return <ConsoleShell title="Backups"><DomainStatusView definition={definition} /></ConsoleShell>; }
+export default function BackupsPage() { return <ConsoleShell title="Backups"><noscript><p>JavaScript is unavailable. Inspect backup and recovery state with <code>vsk-labs backup status --json</code>, <code>vsk-labs restore plan --help</code>, and <code>vsk-labs schedule list --json</code>. No browser action was attempted.</p></noscript><BackupRecoveryView /></ConsoleShell>; }

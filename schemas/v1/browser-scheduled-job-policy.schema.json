@@ -1,0 +1,79 @@
+{
+  "$id": "vegastack-labs.dev/browser-scheduled-job-policy",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "actionKind": {
+      "enum": [
+        "gate-check",
+        "observation-refresh",
+        "backup-create",
+        "backup-integrity-verify",
+        "audit-checkpoint-export"
+      ],
+      "type": "string"
+    },
+    "enabled": {
+      "type": "boolean"
+    },
+    "policyId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "reasonCode": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "revision": {
+      "minimum": 1,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/browser-scheduled-job-policy"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "status": {
+      "enum": [
+        "active",
+        "disabled"
+      ],
+      "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "policyId",
+    "revision",
+    "actionKind",
+    "enabled",
+    "status",
+    "reasonCode",
+    "targetDigest",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs browser scheduled job policy",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

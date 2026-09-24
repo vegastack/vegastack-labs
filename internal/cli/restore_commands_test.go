@@ -28,7 +28,7 @@ func syntheticRestoreRequest(t *testing.T, command string) []byte {
 	plan, run, verify := syntheticRestoreValues()
 	var value any
 	switch command {
-	case generated.CommandNameRestorePlan:
+	case generated.CommandNameRestorePlan, generated.CommandNameDatabaseRestore:
 		value = plan
 	case generated.CommandNameRestoreRun:
 		value = run

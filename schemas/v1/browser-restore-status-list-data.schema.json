@@ -1,0 +1,135 @@
+{
+  "$defs": {
+    "browser-restore-status": {
+      "additionalProperties": false,
+      "properties": {
+        "planDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "planId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "reasonCode": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "recoveryEpoch": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "safeNextAction": {
+          "maxLength": 256,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/browser-restore-status"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "planned",
+            "fenced",
+            "restoring",
+            "verification-required",
+            "verified",
+            "failed",
+            "uncertain"
+          ],
+          "type": "string"
+        },
+        "targetDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "verificationStatus": {
+          "enum": [
+            "pending",
+            "incomplete",
+            "verified",
+            "failed"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "pointId",
+        "planId",
+        "planDigest",
+        "targetDigest",
+        "status",
+        "reasonCode",
+        "recoveryEpoch",
+        "verificationStatus",
+        "safeNextAction"
+      ],
+      "type": "object"
+    }
+  },
+  "$id": "vegastack-labs.dev/browser-restore-status-list-data",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "items": {
+      "items": {
+        "$ref": "#/$defs/browser-restore-status"
+      },
+      "maxItems": 100,
+      "type": "array"
+    },
+    "nextCursor": {
+      "maxLength": 2048,
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "recoveryEpoch": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/browser-restore-status-list-data"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    },
+    "stateRevision": {
+      "minimum": 0,
+      "type": "integer"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "items",
+    "nextCursor",
+    "stateRevision",
+    "recoveryEpoch"
+  ],
+  "title": "VegaStack Labs browser restore status list data",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

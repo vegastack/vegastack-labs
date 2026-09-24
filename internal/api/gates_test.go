@@ -19,14 +19,15 @@ import (
 func TestGateRoutesStayOperatorOnlyAndHaveNoDirectSetter(t *testing.T) {
 	for _, candidate := range []struct{ method, path string }{
 		{http.MethodPost, "/api/v1/gates/profile-drafts"},
-		{http.MethodPost, "/api/v1/gates/G-008/evidence"},
-		{http.MethodPost, "/api/v1/gates/check"},
 		{http.MethodPost, "/api/v1/gates/G-008/pass"},
 		{http.MethodPost, "/api/v1/gates/profile-drafts/binding-a/bind"},
 	} {
 		if RemoteReadRequestAllowed(candidate.method, candidate.path) || ConstrainedSSHRequestAllowed(candidate.method, candidate.path) {
 			t.Errorf("nonlocal gate write admitted: %s", candidate.path)
 		}
+	}
+	if !RemoteReadRequestAllowed(http.MethodPost, "/api/v1/gates/G-008/evidence") || !RemoteReadRequestAllowed(http.MethodPost, "/api/v1/gates/G-008/check") {
+		t.Fatal("bounded browser gate draft/check routes unavailable")
 	}
 	if !RemoteReadRequestAllowed(http.MethodGet, "/api/v1/gates") || !RemoteReadRequestAllowed(http.MethodGet, "/api/v1/gates/G-008") {
 		t.Fatal("read-only gate projections unavailable")

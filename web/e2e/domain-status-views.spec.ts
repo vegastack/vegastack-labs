@@ -5,7 +5,6 @@ import { fixtureAudit, fixtureState, installReadFixture, privateDomainBackingRec
 const domains = [
   { route: "/people", title: "People", source: "people", capability: "identity.person.read" },
   { route: "/services", title: "Services", source: "services", capability: "service.read" },
-  { route: "/backups", title: "Backups", source: "backups", capability: "backup.status.read" },
   { route: "/providers", title: "Providers", source: "providers", capability: "adapter.status.read" },
 ] as const;
 
@@ -58,7 +57,7 @@ for (const domain of domains) {
     await expect(page.locator("[data-source-state]")).toHaveCount(0);
   });
 
-  test(`${domain.title} labels retryable old status stale and stays accessible on mobile`, async ({ page }, testInfo) => {
+  test(`${domain.title} labels retryable old status stale and stays accessible on mobile`, async ({ page }) => {
     fixtureState.domainState = "healthy";
     await page.setViewportSize({ width: 390, height: 844 });
     await page.addInitScript(() => localStorage.setItem("theme", "light"));
@@ -78,9 +77,6 @@ for (const domain of domains) {
     await expectNoSeriousAccessibilityViolations(page);
     await page.getByRole("button", { name: "Use dark theme" }).click();
     await expect(page.locator("html")).toHaveClass(/dark/);
-    if (domain.source === "backups" && !process.env.VSK_PHASE3_PLAYWRIGHT_OUTPUT) {
-      await page.screenshot({ path: testInfo.outputPath("backups-stale-mobile-dark.png"), fullPage: true });
-    }
   });
 }
 

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -114,13 +115,28 @@ func (sessions StoreRestoreSessions) RestoreStatus(ctx context.Context, planID s
 		if bundle.Status == "verified" {
 			verification = "verified"
 		}
-		return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: bundle.Binding.PointID, PlanID: bundle.Binding.PlanID, PlanDigest: bundle.Binding.PlanDigest, TargetDigest: bundle.Binding.TargetDigest, Status: bundle.Status, RecoveryEpoch: bundle.Binding.NextRecoveryEpoch, VerificationStatus: verification}, nil
+		return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: bundle.Binding.PointID, PlanID: bundle.Binding.PlanID, PlanDigest: bundle.Binding.PlanDigest, TargetDigest: bundle.Binding.TargetDigest, Status: bundle.Status, ReasonCode: "restore-" + bundle.Status, RecoveryEpoch: bundle.Binding.NextRecoveryEpoch, VerificationStatus: verification, SafeNextAction: restoreSafeNextAction(bundle.Status)}, nil
 	}
 	verification := "pending"
 	if stored.Status == "verified" {
 		verification = "verified"
 	}
-	return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: stored.Binding.PointID, PlanID: stored.Binding.PlanID, PlanDigest: stored.Binding.PlanDigest, TargetDigest: stored.Binding.TargetDigest, Status: stored.Status, RecoveryEpoch: stored.Binding.NextRecoveryEpoch, VerificationStatus: verification}, nil
+	return generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: stored.Binding.PointID, PlanID: stored.Binding.PlanID, PlanDigest: stored.Binding.PlanDigest, TargetDigest: stored.Binding.TargetDigest, Status: stored.Status, ReasonCode: "restore-" + stored.Status, RecoveryEpoch: stored.Binding.NextRecoveryEpoch, VerificationStatus: verification, SafeNextAction: restoreSafeNextAction(stored.Status)}, nil
+}
+
+func restoreSafeNextAction(status string) string {
+	switch status {
+	case "verified":
+		return "none"
+	case "verification-required":
+		return "verify the recovered authority"
+	default:
+		return "continue with the exact approved restore plan"
+	}
+}
+
+func (sessions StoreRestoreSessions) ListRestoreStatuses(ctx context.Context, scope authorization.ReadScope, snapshot store.RevisionToken, afterID string, limit int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
+	return sessions.Repository.ListRestoreStatusesScoped(ctx, scope, snapshot, afterID, limit)
 }
 
 func (sessions StoreRestoreSessions) RestoreExecutionStatus(ctx context.Context, planID string) (string, error) {

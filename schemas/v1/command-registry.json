@@ -1,7 +1,7 @@
 {
   "generatedBy": "go run ./tooling/generate-contracts --write; DO NOT EDIT",
   "schema": "vegastack-labs.dev/command-registry",
-  "schemaVersion": "1.21.0",
+  "schemaVersion": "1.22.0",
   "commands": [
     {
       "path": [
@@ -80,7 +80,7 @@
       "availability": "planned",
       "ownerPhase": "5",
       "risk": "unassigned",
-      "dataSchema": "vegastack-labs.dev/audit-checkpoint-list-data"
+      "dataSchema": "vegastack-labs.dev/browser-audit-checkpoint-list-data"
     },
     {
       "path": [
@@ -126,7 +126,7 @@
         }
       ],
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/audit-checkpoint-list-data",
+      "dataSchema": "vegastack-labs.dev/browser-audit-checkpoint-list-data",
       "examples": [
         {
           "summary": "List sanitized audit checkpoints.",
@@ -185,7 +185,7 @@
         }
       ],
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/audit-verification-data",
+      "dataSchema": "vegastack-labs.dev/browser-audit-verification-data",
       "examples": [
         {
           "summary": "Verify local audit history against independent checkpoint state.",
@@ -680,7 +680,7 @@
         }
       ],
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/backup-status-data",
+      "dataSchema": "vegastack-labs.dev/browser-backup-status-data",
       "examples": [
         {
           "summary": "Inspect local backup jobs and qualification status.",
@@ -1335,24 +1335,142 @@
         "database",
         "backup"
       ],
-      "summary": "Create a verified control-database backup.",
-      "availability": "planned",
+      "summary": "Execute one exact approved control-database backup plan; qualification still requires database verify.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact material-free database operation request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/backup-run-request",
-      "dataSchema": "vegastack-labs.dev/backup-job"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "examples": [
+        {
+          "summary": "Execute one exact approved control-database backup plan; qualification still requires database verify.",
+          "arguments": [
+            "database",
+            "backup",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/database-backup-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
         "database",
         "export"
       ],
-      "summary": "Export authorized sanitized control data.",
-      "availability": "planned",
+      "summary": "Create an inert authorized sanitized control-data export draft.",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact material-free database operation request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/database-export-request",
-      "dataSchema": "vegastack-labs.dev/sanitized-export-data"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/database-export-draft-submission",
+      "examples": [
+        {
+          "summary": "Create an inert authorized sanitized control-data export draft.",
+          "arguments": [
+            "database",
+            "export",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/database-export-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -1360,11 +1478,70 @@
         "restore"
       ],
       "summary": "Create an inert control-database restore change.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact material-free database operation request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/restore-request",
-      "dataSchema": "vegastack-labs.dev/restore-binding"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/restore-binding",
+      "examples": [
+        {
+          "summary": "Create an inert control-database restore change.",
+          "arguments": [
+            "database",
+            "restore",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/database-restore-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -1431,11 +1608,70 @@
         "verify"
       ],
       "summary": "Verify control-database integrity or backup content.",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
-      "risk": "unassigned",
+      "risk": "mutation",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected server profile.",
+          "enum": null
+        },
+        {
+          "name": "--file",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one exact material-free database operation request JSON file.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
       "requestSchema": "vegastack-labs.dev/backup-verify-request",
-      "dataSchema": "vegastack-labs.dev/backup-job"
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/backup-job",
+      "examples": [
+        {
+          "summary": "Verify control-database integrity or backup content.",
+          "arguments": [
+            "database",
+            "verify",
+            "--config",
+            "fixture/server-profile.json",
+            "--file",
+            "fixture/database-verify-request.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
     },
     {
       "path": [
@@ -3178,6 +3414,135 @@
     {
       "path": [
         "schedule",
+        "inspect"
+      ],
+      "summary": "Inspect one sanitized fixed scheduled policy.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--policy-id",
+          "kind": "value",
+          "valueName": "id",
+          "required": true,
+          "repeatable": false,
+          "summary": "Select one exact scheduled policy.",
+          "enum": null
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/browser-scheduled-job-policy",
+      "examples": [
+        {
+          "summary": "Inspect one sanitized fixed scheduled policy.",
+          "arguments": [
+            "schedule",
+            "inspect",
+            "--config",
+            "fixture/server-profile.json",
+            "--policy-id",
+            "policy-a",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
+        "list"
+      ],
+      "summary": "List sanitized fixed scheduled policies.",
+      "availability": "available",
+      "ownerPhase": "5",
+      "risk": "read-only",
+      "flags": [
+        {
+          "name": "--config",
+          "kind": "value",
+          "valueName": "path",
+          "required": true,
+          "repeatable": false,
+          "summary": "Read one protected local server profile.",
+          "enum": null
+        },
+        {
+          "name": "--output",
+          "kind": "value",
+          "valueName": "format",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select human or versioned JSON output.",
+          "enum": [
+            "human",
+            "json"
+          ]
+        },
+        {
+          "name": "--schema-version",
+          "kind": "value",
+          "valueName": "major",
+          "required": false,
+          "repeatable": false,
+          "summary": "Select the machine-contract schema major.",
+          "enum": [
+            "1"
+          ]
+        }
+      ],
+      "resultSchema": "vegastack-labs.dev/run-result",
+      "dataSchema": "vegastack-labs.dev/browser-scheduled-job-policy-list-data",
+      "examples": [
+        {
+          "summary": "List sanitized fixed scheduled policies.",
+          "arguments": [
+            "schedule",
+            "list",
+            "--config",
+            "fixture/server-profile.json",
+            "--output",
+            "json"
+          ]
+        }
+      ]
+    },
+    {
+      "path": [
+        "schedule",
         "policy",
         "draft"
       ],
@@ -4017,9 +4382,29 @@
       "artifactPath": "schemas/v1/backup-verify-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/browser-audit-checkpoint",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-audit-checkpoint.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-audit-checkpoint-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-audit-checkpoint-list-data.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/browser-audit-event",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-audit-event.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-audit-verification-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-audit-verification-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-backup-status-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-backup-status-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/browser-declaration-operation",
@@ -4031,9 +4416,34 @@
       "artifactPath": "schemas/v1/browser-declaration-revision.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/browser-recovery-point",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-recovery-point.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-recovery-point-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-recovery-point-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-restore-draft-request",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-restore-draft-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-restore-draft-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-restore-draft-submission.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/browser-restore-status",
       "version": "1.0.0",
       "artifactPath": "schemas/v1/browser-restore-status.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-restore-status-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-restore-status-list-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/browser-run",
@@ -4048,6 +4458,26 @@
     {
       "id": "vegastack-labs.dev/browser-run-step",
       "version": "1.0.0"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-scheduled-job",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-scheduled-job.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-scheduled-job-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-scheduled-job-list-data.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-scheduled-job-policy",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-scheduled-job-policy.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/browser-scheduled-job-policy-list-data",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/browser-scheduled-job-policy-list-data.schema.json"
     },
     {
       "id": "vegastack-labs.dev/cloudflare-access-profile",
@@ -4102,6 +4532,11 @@
       "id": "vegastack-labs.dev/credential-resolution-record",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/credential-resolution-record.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/database-export-draft-submission",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/database-export-draft-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/database-export-request",

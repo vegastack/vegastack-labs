@@ -29,10 +29,12 @@ func syntheticGateRequest(t *testing.T, command string) []byte {
 		value = generated.BackupOffsiteRetirementStageRequest{Schema: generated.SchemaIDBackupOffsiteRetirementStageRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "key-test", SelectionDigest: digest, PlanID: "plan-a", PlanDigest: digest, OneOwnerProofID: "proof-a", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", CredentialBindingDigest: digest}
 	case generated.CommandNameBackupOffsiteRetirementDryRun:
 		value = generated.BackupOffsiteRetirementDryRunRequest{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, SelectionDigest: digest, OneOwnerProofID: "proof-a", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention"}
-	case generated.CommandNameBackupRun:
+	case generated.CommandNameBackupRun, generated.CommandNameDatabaseBackup:
 		value = generated.BackupRunRequest{Schema: generated.SchemaIDBackupRunRequest, SchemaVersion: "1.0.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "key-test", PolicyID: "policy-a", PolicyRevision: 1, PlanID: "plan-a", PlanDigest: digest, HumanAcknowledgementID: "ack-a"}
-	case generated.CommandNameBackupVerify:
+	case generated.CommandNameBackupVerify, generated.CommandNameDatabaseVerify:
 		value = generated.BackupVerifyRequest{Schema: generated.SchemaIDBackupVerifyRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "key-test", JobID: "job-test", PointID: "point-test", PlanID: "plan-a", PlanDigest: digest, HumanAcknowledgementID: "ack-a"}
+	case generated.CommandNameDatabaseExport:
+		value = generated.DatabaseExportRequest{Schema: generated.SchemaIDDatabaseExportRequest, SchemaVersion: "1.0.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: digest, IdempotencyKey: "export-test", ExportID: "export-test", Kind: "sanitized-control"}
 	default:
 		t.Fatal("unexpected command")
 	}

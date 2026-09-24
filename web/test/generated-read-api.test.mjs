@@ -47,12 +47,12 @@ test("generated decoder rejects closed-object additions", async () => {
 });
 
 test("Phase 5 browser decoder rejects fixture backup promoted to live", async () => {
-  const job = {
-    schema: "vegastack-labs.dev/backup-job", schemaVersion: "1.0.0", jobId: "job-a", policyId: "policy-a",
-    sourceKind: "fixture", proofClass: "live", pointId: null, status: "queued", runId: null,
-    recoveryEpoch: 2, verificationDigest: null,
+  const data = {
+    schema: "vegastack-labs.dev/browser-backup-status-data", schemaVersion: "1.0.0",
+    status: "healthy", reasonCode: "current", sourceKind: "fixture", proofClass: "live",
+    lastGoodPointId: null, recoveryRequired: false, stateRevision: 8, recoveryEpoch: 2,
+    safeNextAction: "inspect current backup status",
   };
-  const data = { schema: "vegastack-labs.dev/backup-status-data", schemaVersion: "1.0.0", policies: [], jobs: [job], recoveryEpoch: 2 };
   const client = createPhase5Client(async () => new Response(JSON.stringify({ ...envelope(data), command: "api.v1.backups.status" })));
   await assert.rejects(
     () => client.getBackupStatus(),
@@ -60,27 +60,21 @@ test("Phase 5 browser decoder rejects fixture backup promoted to live", async ()
   );
 });
 
-test("Phase 5 browser decoder rejects reversed or unproven audit checkpoint", async () => {
+test("Phase 5 browser decoder rejects reversed or private audit checkpoint fields", async () => {
   const checkpoint = {
-    schema: "vegastack-labs.dev/audit-checkpoint", schemaVersion: "1.1.0", checkpointId: "checkpoint-a",
+    schema: "vegastack-labs.dev/browser-audit-checkpoint", schemaVersion: "1.0.0", checkpointId: "checkpoint-a",
     firstEventId: 2, lastEventId: 1, chainDigest: "sha256:" + "a".repeat(64),
-    instanceId: "instance-a", firstSegmentSequence: 2, lastSegmentSequence: 1,
-    signerReferenceId: "signer-a", signerMaterialVersion: "version-a",
-    signatureDigest: "sha256:" + "c".repeat(64), publicKeyId: "key-a",
-    exportReceiptDigest: "sha256:" + "d".repeat(64), independentReadDigest: "sha256:" + "e".repeat(64),
-    status: "anchored", reasonCode: "independent-match", preAnchor: false,
-    independentCopyDigest: "sha256:" + "b".repeat(64), sourceKind: "independent", proofClass: "live", verifiedAt: null,
+    status: "anchored", reasonCode: "independent-match", sourceKind: "independent", proofClass: "live", verifiedAt: null,
     verificationStatus: "pending", recoveryEpoch: 2,
   };
-  const data = { schema: "vegastack-labs.dev/audit-checkpoint-list-data", schemaVersion: "1.0.0", checkpoints: [checkpoint], recoveryEpoch: 2 };
+  const data = { schema: "vegastack-labs.dev/browser-audit-checkpoint-list-data", schemaVersion: "1.0.0", items: [checkpoint], nextCursor: null, stateRevision: 8, recoveryEpoch: 2 };
   const client = createPhase5Client(async () => new Response(JSON.stringify({ ...envelope(data), command: "api.v1.audit-checkpoints.list" })));
   await assert.rejects(() => client.listAuditCheckpoints(), (error) => error instanceof ReadClientError && error.kind === "schema-mismatch");
   checkpoint.lastEventId = 2;
-  checkpoint.lastSegmentSequence = 2;
-  checkpoint.independentCopyDigest = null;
+  checkpoint.signerReferenceId = "private-reference";
   await assert.rejects(() => client.listAuditCheckpoints(), (error) => error instanceof ReadClientError && error.kind === "schema-mismatch");
-  checkpoint.independentCopyDigest = "sha256:" + "b".repeat(64);
-  assert.equal((await client.listAuditCheckpoints()).data.checkpoints.length, 1);
+  delete checkpoint.signerReferenceId;
+  assert.equal((await client.listAuditCheckpoints()).data.items.length, 1);
 });
 
 test("generated decoder rejects another contract major", async () => {
