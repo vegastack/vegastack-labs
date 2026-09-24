@@ -688,16 +688,6 @@ Entries dated before 10-09-2026 are reconstructed from approved milestones, merg
 - **Decisions:** none.
 
 — approved by (omkarmohanta09) · built by Codex · branch historical branch not recorded
-## 24-09-2026 — The Phase 5 exit now passes Go vet ([#184](https://github.com/vegastack/vegastack-labs/issues/184))
-
-- **What:** Imported off-site retirement test records now use keyed fields, allowing the Linux Go vet stage to validate the merged Phase 5 candidate.
-- **Why:** The first exact-main Phase 5 run stopped at 17 unkeyed-literal diagnostics before reaching the acceptance catalog.
-- **How it went:** The closed diagnostic was reproduced with one narrow Linux-targeted vet command and fixed in three test literals without changing behavior.
-- **Changed:** R2 retirement test construction only.
-- **Decisions:** none; no product, schema, CI-policy, live-authority, or Phase 5 acceptance behavior changed.
-
-— approved by (omkarmohanta09) · built by Codex · branch fix/184-r2-retention-vet
-
 ## 24-09-2026 — Phase 5 reached its exact-main acceptance boundary ([#112](https://github.com/vegastack/vegastack-labs/issues/112))
 
 - **What:** The complete Phase 5 software delivery is mapped to exact child reviews and merges, the closed 47-scenario hostile catalog, one clean Linux exact-main verifier, and one nonduplicated public CI route.
