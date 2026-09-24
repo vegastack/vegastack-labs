@@ -274,7 +274,7 @@ func (fixture *durableScheduleFixture) seedRecoveryQualification() {
 func (fixture *durableScheduleFixture) seedStaleCriticalOffsiteProof() {
 	fixture.t.Helper()
 	generation := acceptanceGeneration("generation-stale-109", fixture.point.PointID, "offsite-key-109", fixture.point, fixture.now)
-	generation.StateRevision = 2
+	generation.StateRevision = 3
 	appendAcceptanceGeneration(fixture.t, fixture.ctx, store.NewOffsiteRepository(fixture.authority), generation)
 	observed := fixture.now.Add(-time.Minute)
 	proof := backup.OffsiteProof{
@@ -301,7 +301,7 @@ func (fixture *durableScheduleFixture) seedStaleCriticalOffsiteProof() {
 		fixture.t.Fatal(err)
 	}
 	defer database.Close()
-	if _, err := database.ExecContext(fixture.ctx, `INSERT INTO backup_offsite_last_good_history(proof_id,generation_id,source_revision,state_revision,recovery_epoch,advanced_at) VALUES(?,?,?,?,?,?)`, proof.ProofID, generation.GenerationID, generation.SourceRevision, generation.StateRevision, generation.RecoveryEpoch, fixture.now.Format(time.RFC3339)); err != nil {
+	if _, err := database.ExecContext(fixture.ctx, `INSERT INTO backup_offsite_last_good_history(proof_id,generation_id,source_revision,state_revision,recovery_epoch,advanced_at) VALUES(?,?,?,?,?,?)`, proof.ProofID, generation.GenerationID, generation.SourceRevision, int64(2), generation.RecoveryEpoch, fixture.now.Format(time.RFC3339)); err != nil {
 		fixture.t.Fatal(err)
 	}
 }
