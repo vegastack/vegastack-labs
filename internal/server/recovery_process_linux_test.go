@@ -3,7 +3,6 @@
 package server
 
 import (
-	"bufio"
 	"context"
 	"os"
 	"os/exec"
@@ -58,10 +57,11 @@ func TestRecoveryPromotionLockIsExclusiveAcrossProcesses(t *testing.T) {
 	}
 }
 
-// TestReturningFormerControllerCannotMutatePromotedAuthority runs a
-// replacement controller process against the promoted database while a
-// separate returning-former process attempts an old-epoch write. The former
-// process must observe the epoch denial and cannot become a second writer.
+// TestReturningFormerControllerCannotMutatePromotedAuthority first boots the
+// replacement controller against the promoted database, then lets it exit and
+// starts a distinct returning-former process with its preserved epoch token.
+// The separate lock test above owns simultaneous-writer exclusion; this test
+// deliberately releases that lock so it can reach the epoch admission check.
 func TestReturningFormerControllerCannotMutatePromotedAuthority(t *testing.T) {
 	if mode := os.Getenv(recoveryAuthorityHelperEnvironment); mode != "" {
 		runRecoveryAuthorityHelper(t, mode)
@@ -96,28 +96,13 @@ func TestReturningFormerControllerCannotMutatePromotedAuthority(t *testing.T) {
 	}
 	holder := exec.Command(os.Args[0], "-test.run=^TestReturningFormerControllerCannotMutatePromotedAuthority$")
 	holder.Env = append(os.Environ(), recoveryAuthorityHelperEnvironment+"=replacement", "VSK_RECOVERY_DATABASE="+databasePath)
-	holderIn, err := holder.StdinPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	holderOut, err := holder.StdoutPipe()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := holder.Start(); err != nil {
-		t.Fatal(err)
-	}
-	if line, err := bufio.NewReader(holderOut).ReadString('\n'); err != nil || strings.TrimSpace(line) != "replacement-ready" {
-		t.Fatalf("replacement start = %q, %v", line, err)
+	if output, err := holder.CombinedOutput(); err != nil || strings.TrimSpace(string(output)) != "replacement-ready" {
+		t.Fatalf("replacement start = %q, %v", output, err)
 	}
 	former := exec.Command(os.Args[0], "-test.run=^TestReturningFormerControllerCannotMutatePromotedAuthority$")
 	former.Env = append(os.Environ(), recoveryAuthorityHelperEnvironment+"=former", "VSK_RECOVERY_DATABASE="+databasePath, "VSK_RECOVERY_PRIOR_EPOCH=0")
 	if output, err := former.CombinedOutput(); err != nil {
 		t.Fatalf("returning former mutated or failed ambiguously: %v: %s", err, output)
-	}
-	_ = holderIn.Close()
-	if err := holder.Wait(); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -134,7 +119,6 @@ func runRecoveryAuthorityHelper(t *testing.T, mode string) {
 			t.Fatalf("replacement health = %#v, %v", health, err)
 		}
 		_, _ = os.Stdout.WriteString("replacement-ready\n")
-		_, _ = bufio.NewReader(os.Stdin).ReadString('\n')
 	case "former":
 		health, err := authority.Health(context.Background())
 		if err != nil {
