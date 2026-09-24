@@ -65,7 +65,7 @@ func (phase5ReadAuthorizer) AuthorizeRead(_ context.Context, principal identity.
 }
 
 func TestPhase5ScheduleProjectionComposesRealAPIAndLocalClient(t *testing.T) {
-	directory, err := os.MkdirTemp("/tmp", "vsk-phase5-compose-")
+	directory, err := os.MkdirTemp(os.TempDir(), "vsk-phase5-compose-")
 	if err != nil {
 		t.Fatal(err)
 	}

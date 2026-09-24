@@ -14,7 +14,13 @@ import (
 
 func TestOffsiteRetirementSchemaRejectsDuplicateLeaseAndCrossIntentReceipt(t *testing.T) {
 	db := openCredentialMigrationFixture(t)
-	if _, err := db.Exec(`PRAGMA foreign_keys=ON; CREATE TABLE backup_offsite_generations(generation_id TEXT PRIMARY KEY); INSERT INTO backup_offsite_generations VALUES('g1'),('g2')`); err != nil {
+	if _, err := db.Exec(`PRAGMA foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE backup_offsite_generations(generation_id TEXT PRIMARY KEY)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO backup_offsite_generations VALUES('g1'),('g2')`); err != nil {
 		t.Fatal(err)
 	}
 	catalog, err := Catalog()

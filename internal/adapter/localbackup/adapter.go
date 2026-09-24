@@ -77,15 +77,15 @@ type Adapter struct {
 }
 
 type recoveryCanaryPlanSource struct {
-	base                              PlanSource
+	plan                              generated.Plan
 	planID, planDigest, stepID        string
 	policyDigest                      string
 	priorRecoveryEpoch, recoveryEpoch int64
 }
 
-func (source recoveryCanaryPlanSource) GetPlan(ctx context.Context, planID string) (store.PlanCommitResult, error) {
-	commit, err := source.base.GetPlan(ctx, planID)
-	if err != nil || planID != source.planID || commit.Plan.PlanDigest != source.planDigest || commit.Plan.Binding.RecoveryEpoch != source.priorRecoveryEpoch || len(commit.Plan.Operations) != 2 || commit.Plan.Operations[1].Sequence != 2 || commit.Plan.Operations[1].OperationID != source.stepID || commit.Plan.Operations[1].OperationType != "recovery.canary.noop" || commit.Plan.Operations[1].AdapterID != "core.recovery" || !commit.Plan.Operations[1].Idempotent {
+func (source recoveryCanaryPlanSource) GetPlan(_ context.Context, planID string) (store.PlanCommitResult, error) {
+	commit := store.PlanCommitResult{Plan: source.plan}
+	if planID != source.planID || commit.Plan.PlanID != source.planID || commit.Plan.PlanDigest != source.planDigest || commit.Plan.Binding.RecoveryEpoch != source.priorRecoveryEpoch || len(commit.Plan.Operations) != 2 || commit.Plan.Operations[1].Sequence != 2 || commit.Plan.Operations[1].OperationID != source.stepID || commit.Plan.Operations[1].OperationType != "recovery.canary.noop" || commit.Plan.Operations[1].AdapterID != "core.recovery" || !commit.Plan.Operations[1].Idempotent {
 		return store.PlanCommitResult{}, backupError(generated.ErrorCodePlanStale, "recovery-canary-backup-plan")
 	}
 	// The source point's immutable manifest determines this policy digest and
@@ -103,6 +103,7 @@ type RecoveryCanaryBackupRequest struct {
 	PlanID, PlanDigest, RunID, StepID, LeaseID       string
 	StateRevision, PriorRecoveryEpoch, RecoveryEpoch int64
 	MaximumExpiresAt                                 time.Time
+	Plan                                             generated.Plan
 }
 
 // CreateAndVerifyRecoveryCanaryBackup executes the real local backup and full
@@ -118,7 +119,7 @@ func (adapterImpl *Adapter) CreateAndVerifyRecoveryCanaryBackup(ctx context.Cont
 		return "", "", backupError(generated.ErrorCodePrerequisiteBlocked, "recovery-canary-backup-policy")
 	}
 	projected := *adapterImpl
-	projected.config.Plans = recoveryCanaryPlanSource{base: adapterImpl.config.Plans, planID: request.PlanID, planDigest: request.PlanDigest, stepID: request.StepID, policyDigest: policyDigest, priorRecoveryEpoch: request.PriorRecoveryEpoch, recoveryEpoch: request.RecoveryEpoch}
+	projected.config.Plans = recoveryCanaryPlanSource{plan: request.Plan, planID: request.PlanID, planDigest: request.PlanDigest, stepID: request.StepID, policyDigest: policyDigest, priorRecoveryEpoch: request.PriorRecoveryEpoch, recoveryEpoch: request.RecoveryEpoch}
 	binding := adapter.ExactExecutionBinding{PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: request.RunID, StepID: request.StepID, LeaseID: request.LeaseID, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, MaximumExpiresAt: request.MaximumExpiresAt.UTC().Format(time.RFC3339)}
 	secret := []adapter.SecretReference{{ID: *policy.EncryptionKeyReferenceID, Consumer: AdapterID}}
 	create := adapter.Operation{OperationID: request.StepID, OperationType: OperationType, AdapterID: AdapterID, ExecutorID: "executor-central", TargetID: policy.RestoreTargetID, InputDigest: policyDigest, ArtifactDigest: policyDigest, SecretReferences: secret}

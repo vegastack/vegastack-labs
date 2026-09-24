@@ -446,6 +446,15 @@ func TestClaimLocalRetirementRechecksCapacityAndAdmitsQuarantinedSharedPack(t *t
 		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_expected_objects(point_id,object_type,object_name,object_bytes,object_digest) VALUES(?,'data',?,100,?)`, point.id, sharedName, testDigest); err != nil {
 			t.Fatal(err)
 		}
+		if index == 0 {
+			proofRevision := request.StateRevision - 1
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_read_leases(lease_id,point_id,repository_id,repository_class,source_revision,state_revision,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES('read-claim-target',?,?,?,?,?,0,'2026-09-12T18:29:00Z',?,'2026-09-12T18:29:30Z')`, point.id, request.RepositoryID, request.RepositoryClass, pointSourceRevision, request.StateRevision, stamp); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_local_verifications(verification_id,proof_digest,point_id,run_id,read_lease_id,status,proof_class,manifest_digest,inventory_digest,observed_digest,content_digest,catalog_digest,dependency_digest,key_reference_id,source_revision,state_revision,recovery_epoch,full_read_at,functional_restored_at,reason_code,created_at) VALUES('verify-claim-target',?,?,'run-source','read-claim-target','local-verified','live',?,?,?,?,?,?,'key-a',?,?,0,?,?, '',?)`, "sha256:"+strings.Repeat("2", 64), point.id, point.manifest, point.inventory, point.inventory, testDigest, testDigest, request.Targets[0].DependencyDigest, pointSourceRevision, proofRevision, stamp, stamp, stamp); err != nil {
+				t.Fatal(err)
+			}
+		}
 		if index == 1 {
 			if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_read_leases(lease_id,point_id,repository_id,repository_class,source_revision,state_revision,recovery_epoch,maximum_expires_at,acquired_at,released_at) VALUES('read-claim',?,?,?,?,?,0,'2026-09-12T18:29:00Z',?,'2026-09-12T18:29:30Z')`, point.id, request.RepositoryID, request.RepositoryClass, pointSourceRevision, request.StateRevision, stamp); err != nil {
 				t.Fatal(err)

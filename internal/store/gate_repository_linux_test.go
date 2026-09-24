@@ -17,6 +17,8 @@ import (
 func openGateTestStore(t *testing.T) *GateRepository {
 	t.Helper()
 	configuration := testConfig(t)
+	configuration.Clock = func() time.Time { return time.Date(2026, 9, 15, 8, 30, 0, 0, time.UTC) }
+	configuration.ToolVersion = "1.0.0"
 	authority, err := Open(context.Background(), configuration)
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +189,7 @@ func TestExactAppliedProfileAndEvidenceAppendWithoutStatusEdits(t *testing.T) {
 	apply := gateApplyFixture(draft)
 	apply.Expected.StateRevision = appliedScope.StateRevision
 	apply.PlanDigest = "sha256:" + strings.Repeat("d", 64)
-	apply.ReleaseBuildID, apply.ToolVersion, apply.ExpiresAt = "test-build", "test-tool", "2026-09-15T09:00:00Z"
+	apply.ReleaseBuildID, apply.ToolVersion, apply.ExpiresAt = "test-build", "1.0.0", "2026-09-15T09:00:00Z"
 	apply.SourceKind, apply.ProofClass = "local", "live"
 	seedGateExactStep(t, repository, apply.PlanID, apply.PlanDigest, apply.RunID, apply.StepID, apply.LeaseID, apply.DeclarationID, apply.SubjectID, draft.BundleDigest, "gate.evidence.apply", apply.Expected.StateRevision)
 	evidence, err := repository.ApplyGateEvidence(context.Background(), apply)

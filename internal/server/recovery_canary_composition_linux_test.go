@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -81,6 +82,7 @@ type canaryAcceptanceCustodyState struct {
 }
 
 func (state *canaryAcceptanceCustodyState) Start(ctx context.Context, session backup.CustodySession, writer backup.LeaseVerifier, reader backup.ReadLeaseVerifier, journal backup.CustodyJournal) (backup.CustodyClient, error) {
+	session.NonceDigest = canaryAcceptanceDigest(session.PlanID + "\x00" + session.RunID + "\x00" + session.Role)
 	if writer != nil && writer.VerifyWriterLease(*session.WriterLease, state.clock()) != nil {
 		return nil, os.ErrPermission
 	}
@@ -202,7 +204,7 @@ func TestOperationsRunRecoveryCanaryCreatesDurableCheckpointAndCurrentBackup(t *
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := authority.GetAuditCheckpoint(ctx, "checkpoint-canary-composition"); store.Code(err) != generated.ErrorCodeResourceNotFound {
+	if _, err := authority.GetAuditCheckpoint(ctx, "checkpoint-canary-composition"); !errors.Is(err, sql.ErrNoRows) {
 		t.Fatalf("canary checkpoint existed before execution: %v", err)
 	}
 	if points, _ := backups.CurrentLocalLastGood(ctx, policy.RepositoryClass); points != "" {
@@ -275,7 +277,8 @@ func TestOperationsRunRecoveryCanaryCreatesDurableCheckpointAndCurrentBackup(t *
 		t.Fatal("Operations.Run did not compose recovery canary")
 	}
 	verifier.Clock = clock.Now
-	result, err := verifier.Verify(ctx, recovery.CanaryRequest{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, NewInstanceID: binding.NewInstanceID, FenceSetDigest: binding.FenceSetDigest, CanaryRunID: binding.CanaryRunID, CanaryStepID: binding.CanaryStepID, CanaryLeaseID: binding.CanaryLeaseID, CanaryChallengeID: binding.CanaryChallengeID, CanaryReceiptID: binding.CanaryReceiptID, RecoveryEpoch: binding.NextRecoveryEpoch, ExpectedStateRevision: health.Revision.StateRevision, ResponsibleHumanID: "principal.canary", PrincipalMethod: "local-os-peer"})
+	canaryRequest := recovery.CanaryRequest{PlanID: binding.PlanID, PlanDigest: binding.PlanDigest, NewInstanceID: binding.NewInstanceID, FenceSetDigest: binding.FenceSetDigest, CanaryRunID: binding.CanaryRunID, CanaryStepID: binding.CanaryStepID, CanaryLeaseID: binding.CanaryLeaseID, CanaryChallengeID: binding.CanaryChallengeID, CanaryReceiptID: binding.CanaryReceiptID, RecoveryEpoch: binding.NextRecoveryEpoch, ExpectedStateRevision: health.Revision.StateRevision, ResponsibleHumanID: "principal.canary", PrincipalMethod: "local-os-peer"}
+	result, err := verifier.Verify(ctx, canaryRequest)
 	if err != nil {
 		t.Fatalf("composed canary: %v", err)
 	}
@@ -365,7 +368,7 @@ func canaryAcceptanceBundle(t *testing.T, prior store.AuthorityState, point stor
 	readable := "recovery canary composition plan\n"
 	readableSum := sha256.Sum256([]byte(readable))
 	created := time.Date(2099, 1, 1, 0, 0, 0, 0, time.UTC)
-	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: "declaration-canary-composition", Binding: generated.PlanBinding{RecoveryEpoch: prior.RecoveryEpoch, PriorStateRevision: 0, StateRevision: 1, DeclarationRevision: 1, ObservationFingerprint: digest, TargetDigest: binding.TargetDigest, ReasonDigest: digest, PolicyVersion: "1.0.0", ToolVersion: "test", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: binding.RecoveryStepID, OperationType: "recovery.restore.cutover", AdapterID: "core.recovery", ExecutorID: "executor-central", TargetID: binding.TargetIDs[0], InputDigest: digest, ArtifactDigest: digest, Idempotent: false}, {Sequence: 2, OperationID: binding.CanaryStepID, OperationType: "recovery.canary.noop", AdapterID: "core.recovery", ExecutorID: "executor-central", TargetID: binding.NewInstanceID, InputDigest: canaryDigest, ArtifactDigest: canaryDigest, Idempotent: true}}, Status: "planned", Risk: "control-plane", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Hour).Format(time.RFC3339), ReadableDigest: "sha256:" + hex.EncodeToString(readableSum[:]), Extensions: []generated.ContractExtension{}}
+	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: "declaration-canary-composition", Binding: generated.PlanBinding{RecoveryEpoch: prior.RecoveryEpoch, PriorStateRevision: 0, StateRevision: 1, DeclarationRevision: 1, ObservationFingerprint: digest, TargetDigest: binding.TargetDigest, ReasonDigest: digest, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: binding.RecoveryStepID, OperationType: "recovery.restore.cutover", AdapterID: "core.recovery", ExecutorID: "executor-central", TargetID: binding.TargetIDs[0], InputDigest: digest, ArtifactDigest: digest, Idempotent: false}, {Sequence: 2, OperationID: binding.CanaryStepID, OperationType: "recovery.canary.noop", AdapterID: "core.recovery", ExecutorID: "executor-central", TargetID: binding.NewInstanceID, InputDigest: canaryDigest, ArtifactDigest: canaryDigest, Idempotent: true}}, Status: "planned", Risk: "control-plane", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: created.Format(time.RFC3339), ExpiresAt: created.Add(time.Duration(generated.PlanValiditySeconds) * time.Second).Format(time.RFC3339), ReadableDigest: "sha256:" + hex.EncodeToString(readableSum[:]), Extensions: []generated.ContractExtension{}}
 	preimage, _ := json.Marshal(plan)
 	planSum := sha256.Sum256(preimage)
 	plan.PlanDigest = "sha256:" + hex.EncodeToString(planSum[:])
@@ -376,7 +379,7 @@ func canaryAcceptanceBundle(t *testing.T, prior store.AuthorityState, point stor
 }
 
 func canaryAcceptanceRestoreRequest(binding generated.RestoreBinding) generated.RestoreRequest {
-	fence := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: "host-service", SubjectID: "former-control", TargetID: binding.TargetIDs[0], AdapterID: "adapter-a", FormerIdentityID: "former-identity", RequiredEvidenceKinds: []string{"service-denied"}, Required: true, EvidenceIDs: []string{binding.SourceAdmissionDigest, binding.FenceQualificationDigest}, EvidenceDigest: binding.FenceSetDigest, Status: "required"}
+	fence := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: "host-service", SubjectID: "former-control", TargetID: binding.TargetIDs[0], AdapterID: "adapter-a", FormerIdentityID: "former-identity", ProfileID: "labs", ProfileVersion: "1.0.0", PolicyID: "policy-a", PolicyVersion: "1.0.0", ReleaseBuildID: "build-a", EvaluatorVersion: "1.0.0", RecoveryEpoch: binding.PriorRecoveryEpoch, RequiredEvidenceKinds: []string{"service-denied"}, Required: true, EvidenceIDs: []string{binding.SourceAdmissionDigest, binding.FenceQualificationDigest}, EvidenceDigest: binding.FenceSetDigest, Status: "required"}
 	decision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", IndependentCheckpointDigest: binding.AuditDecisionDigest, Strategy: "matched", DecisionDigest: binding.AuditDecisionDigest}
 	return generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: binding.PriorRecoveryEpoch, RecoveryEpoch: binding.PriorRecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-plan-canary", Source: binding.Source, Fences: []generated.RestoreFenceItem{fence}, AuditDecision: decision, PointID: binding.PointID, DependencyIDs: binding.DependencyIDs, TargetIDs: binding.TargetIDs, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest, FormerHostID: binding.FormerHostID, ReplacementHostID: binding.ReplacementHostID, RecoveryDraftID: binding.RecoveryDraftID, CiphertextFingerprint: binding.CiphertextFingerprint, SourceAdmissionDigest: binding.SourceAdmissionDigest, FenceQualificationDigest: binding.FenceQualificationDigest, RecoveryRunID: binding.RecoveryRunID, RecoveryStepID: binding.RecoveryStepID, RecoveryLeaseID: binding.RecoveryLeaseID, RecoveryChallengeID: binding.RecoveryChallengeID, RecoveryReceiptID: binding.RecoveryReceiptID, CanaryRunID: binding.CanaryRunID, CanaryStepID: binding.CanaryStepID, CanaryLeaseID: binding.CanaryLeaseID, CanaryChallengeID: binding.CanaryChallengeID, CanaryReceiptID: binding.CanaryReceiptID, CanaryBindingDigest: binding.CanaryBindingDigest}
 }
