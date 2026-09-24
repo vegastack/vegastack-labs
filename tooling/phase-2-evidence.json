@@ -300,6 +300,18 @@
           "github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
         ],
         "mutationBoundaryDigest": "sha256:85e6ba71118938c37b8e2ce90b4d2b8ca17941b8a39d1ad8234008bdb681b64a"
+      },
+      {
+        "id": "phase5-issue109-v1",
+        "issue": 109,
+        "commands": [
+          "schedule dispatch",
+          "schedule policy draft"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/schedule"
+        ],
+        "mutationBoundaryDigest": "sha256:8aa99e20da8e1d11111e30218a874f95bf74764a5d6bf86ea906c0cc63dff8dc"
       }
     ]
   },

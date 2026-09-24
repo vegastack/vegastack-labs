@@ -431,6 +431,8 @@ func (app *App) Run(ctx context.Context, args []string) int {
 		return app.runBackupCommand(ctx, mode, parsed)
 	case generated.CommandNameBackupStatus, generated.CommandNameBackupRun, generated.CommandNameBackupVerify:
 		return app.runBackupOperation(ctx, mode, parsed)
+	case generated.CommandNameSchedulePolicyDraft, generated.CommandNameScheduleDispatch:
+		return app.runScheduleCommand(ctx, mode, parsed)
 	case generated.CommandNameRestorePlan, generated.CommandNameRestoreRun, generated.CommandNameRestoreVerify:
 		return app.runRestoreOperation(ctx, mode, parsed)
 	case generated.CommandNameApply:

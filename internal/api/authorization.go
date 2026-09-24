@@ -199,3 +199,21 @@ func authorizationDecisionFailure(reason string) error {
 	}
 	return failure.New(code, "effective-authorization", false)
 }
+
+// AuthorizeScheduled evaluates and durably records the policy principal against
+// the same effective grant snapshot used by interactive execution.
+func (app *Application) AuthorizeScheduled(ctx context.Context, principalID string, plan generated.Plan) (generated.AuthorizationDecision, error) {
+	if len(plan.Operations) == 0 {
+		return generated.AuthorizationDecision{}, apiFailure(generated.ErrorCodeInputInvalid, "plan-operations")
+	}
+	principal := identity.Principal{ID: principalID, Method: identity.LocalOSPeerMethod, Kind: identity.PrincipalPolicy}
+	request, err := http.NewRequestWithContext(identity.WithVerifiedPrincipal(ctx, principal), http.MethodPost, "http://local/api/v1/scheduled-jobs", nil)
+	if err != nil {
+		return generated.AuthorizationDecision{}, err
+	}
+	outcome, err := app.authorize(request, authorization.Request{Action: authorization.ActionExecute, Target: authorization.Target{Capability: plan.Operations[0].OperationType, ResourceKind: "execution-target", ResourceID: plan.Operations[0].TargetID}, Plan: &plan, Branches: []authorization.Branch{authorization.BranchPreauthorized}})
+	if err != nil {
+		return generated.AuthorizationDecision{}, err
+	}
+	return projectAuthorizationDecision(outcome.Record)
+}

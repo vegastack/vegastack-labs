@@ -31,6 +31,8 @@ It is not a general shell, secrets manager, configuration editor for arbitrary f
 
 SQLite is authoritative for private operational intent, but not for secret values or provider facts. An observation never overwrites intended state. The UI shows `declared`, `observed`, `drifted`, `stale` and `unknown` explicitly.
 
+SQLite is also authoritative for fixed scheduled policies and their durable occurrence journal. Immutable policy drafts become active only through the exact human-approved activation effect. Canonical occurrence identity is `(policy ID, policy revision, scheduled time)`; transition and attempt records are append-only, while a bounded expiring lease prevents overlap. `vsk-labs server run` derives each occurrence and creates its fresh plan. Systemd only wakes the protected local endpoint and owns no policy or execution state.
+
 No routine control-plane operation depends on an SCM/CI/release host. In the VegaStack Labs deployment profile, a GitHub outage may block source fetches, Actions jobs or new releases, but not inventory reads, node recovery, local plans, backups or LAN/console operations.
 
 ### SQLite, D1 and R2 decision

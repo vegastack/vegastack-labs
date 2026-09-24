@@ -115,7 +115,7 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 		return runner.block(ctx, job, "plan-create-failed")
 	}
 	decision, err := runner.authorizer.AuthorizeScheduled(ctx, "schedule:"+policy.PolicyID, plan)
-	if err != nil || !decision.Allowed || decision.Branch == nil || *decision.Branch != "preauthorized" {
+	if err != nil || !decision.Allowed || decision.Branch == nil || *decision.Branch != "preauthorized" || decision.GrantRevision != policy.GrantRevision || decision.RecoveryEpoch != policy.RecoveryEpoch {
 		return runner.block(ctx, job, "authorization-denied")
 	}
 	submitKey := fmt.Sprintf("%s-attempt-%d", job.JobID, job.Attempt)

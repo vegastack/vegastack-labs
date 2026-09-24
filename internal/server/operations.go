@@ -14,6 +14,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/adapter/localretention"
 	"github.com/vegastack/vegastack-labs/internal/api"
+	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/change"
@@ -29,6 +30,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/recovery"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
+	"github.com/vegastack/vegastack-labs/internal/schedule"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -57,6 +59,12 @@ type Operations struct {
 	recoveryFormerWriter     func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier
 	recoveryCanaryObserve    func(recovery.CanaryVerifier)
 	newAdapterRegistry       func() *adapter.Registry
+}
+
+type scheduledEngineSubmitter struct{ engine *runengine.Engine }
+
+func (submitter scheduledEngineSubmitter) SubmitScheduled(ctx context.Context, plan generated.Plan, decision generated.AuthorizationDecision, key string, attribution audit.Attribution) (generated.Run, error) {
+	return submitter.engine.Submit(ctx, runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}, Authorization: decision, Attribution: attribution})
 }
 
 func WithOffsiteRetirementEffectFactory(factory OffsiteRetirementEffectFactory) OperationsOption {
@@ -390,6 +398,27 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: runs, Plans: plans, Acknowledgements: acknowledgements, Results: factory, Authorization: effectiveConfig}); err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	scheduleRepository := store.NewScheduleRepository(authority)
+	scheduleDispatcher, err := schedule.NewService(scheduleRepository, time.Now)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	scheduledPlans, err := planengine.NewScheduledService(planRepository, time.Now, operations.build.ToolVersion, "1.0.0", "executor-central")
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	authorityReader := schedule.AuthorityReader{Revisions: scheduleRepository, Clock: time.Now}
+	scheduledRunner, err := schedule.NewRunner(scheduleRepository, scheduledPlans, application, scheduledEngineSubmitter{engine: runs}, authorityReader, authorityReader, time.Now)
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	if err := api.RegisterScheduleOperations(application, api.ScheduleOperations{Policies: scheduleRepository, Dispatch: scheduleDispatcher, Runner: scheduledRunner, Results: factory}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -730,6 +759,22 @@ func (operations *Operations) SubmitBackupPolicyDraft(ctx context.Context, confi
 		return localapi.TypedResponse[generated.BackupPolicyDraftSubmission]{}, err
 	}
 	return client.SubmitBackupPolicyDraft(ctx, profile, input)
+}
+
+func (operations *Operations) SubmitScheduledPolicyDraft(ctx context.Context, configPath string, input generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledJobPolicy], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.ScheduledJobPolicy]{}, err
+	}
+	return client.SubmitScheduledPolicyDraft(ctx, profile, input)
+}
+
+func (operations *Operations) DispatchSchedule(ctx context.Context, configPath, policyID string) (localapi.TypedResponse[generated.ScheduledJob], error) {
+	client, profile, err := operations.controlClient(ctx, configPath)
+	if err != nil {
+		return localapi.TypedResponse[generated.ScheduledJob]{}, err
+	}
+	return client.DispatchSchedule(ctx, profile, policyID)
 }
 
 func (operations *Operations) SubmitBackupRetentionLockDraft(ctx context.Context, configPath string, input generated.BackupRetentionLockDraftRequest) (localapi.TypedResponse[generated.BackupRetentionLockDraftSubmission], error) {

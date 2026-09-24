@@ -203,6 +203,16 @@ Available commands:
     --output <format>      Select human or versioned JSON output. Allowed: human, json.
     --run-id <id>          Select the exact durable run.
     --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  schedule dispatch        Wake one exact approved schedule through the protected local API.
+    --config <path>        Read one protected local server profile.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --policy-id <id>       Select one exact active policy; no action field may be overridden.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
+  schedule policy draft    Store one inert exact scheduled-policy draft for later human-plan activation.
+    --config <path>        Read one protected local server profile.
+    --file <path>          Read one exact scheduled-job-policy JSON file.
+    --output <format>      Select human or versioned JSON output. Allowed: human, json.
+    --schema-version <major> Select the machine-contract schema major. Allowed: 1.
   server api-ssh           Serve one constrained SSH API frame through the persistent control service.
     --config <path>        Read the protected server profile at this explicit path.
     --device-id <id>       Bind the server-configured forced command to this verified device.
