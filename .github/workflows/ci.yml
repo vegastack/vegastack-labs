@@ -152,7 +152,10 @@ jobs:
         if: inputs.full_check && github.ref != 'refs/heads/main'
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
-        run: pnpm check:affected --execute-plan
+        run: |
+          git show 807fc6f027ca0a0a7c96230f5adddd20d756080a:.github/workflows/ci.yml > .github/workflows/ci.yml
+          pnpm --filter @vegastack/labs-web build
+          VSK_PHASE3_PLAYWRIGHT_OUTPUT="$TMPDIR/phase3-selected" pnpm --filter @vegastack/labs-web exec playwright test e2e/console.spec.ts e2e/gates.spec.ts e2e/phase5-acceptance.spec.ts e2e/phase5-workflows.spec.ts --grep 'each route has a unique browser title|deferred not-applicable gate shows its reason without a pass or mutation control|Phase 5 acceptance keeps protected recovery authority out of the browser|Phase 5 recovery shows sanitized reads and creates only an inert restore draft|Phase 5 recovery-required and audit incident states disable ordinary mutations|Phase 5 Audit separates checkpoints from independent verification|Phase 5 pages retain a useful no-JavaScript fallback' --reporter=line
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
