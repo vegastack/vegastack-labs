@@ -8,10 +8,12 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
+	"slices"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -68,61 +70,103 @@ func (canaryAcceptanceBorrower) BorrowRecoveryCanaryCredential(context.Context, 
 	return credentialref.NewValue([]byte("hermetic-recovery-password"))
 }
 
-type canaryAcceptanceBackupAdapter struct {
-	backups *store.BackupRepository
-	clock   func() time.Time
+type canaryAcceptanceCustodyState struct {
+	mu           sync.Mutex
+	clock        func() time.Time
+	snapshot     []byte
+	snapshotPath string
+	snapshotID   string
+	inventory    []backup.ExpectedObject
+	resticModes  []string
 }
 
-func (adapter *canaryAcceptanceBackupAdapter) CreateAndVerifyRecoveryCanaryBackup(ctx context.Context, request localbackup.RecoveryCanaryBackupRequest, policyDigest string, _ *credentialref.Value) (string, string, error) {
-	draft, err := adapter.backups.GetBackupPolicyDraftByDigest(ctx, policyDigest, request.RecoveryEpoch)
-	if err != nil {
-		return "", "", err
+func (state *canaryAcceptanceCustodyState) Start(ctx context.Context, session backup.CustodySession, writer backup.LeaseVerifier, reader backup.ReadLeaseVerifier, journal backup.CustodyJournal) (backup.CustodyClient, error) {
+	if writer != nil && writer.VerifyWriterLease(*session.WriterLease, state.clock()) != nil {
+		return nil, os.ErrPermission
 	}
-	var policy generated.BackupPolicy
-	if json.Unmarshal(draft.CanonicalJSON, &policy) != nil || policy.RepositoryID == nil {
-		return "", "", errors.New("invalid projected policy")
+	if reader != nil && reader.VerifyReadLease(*session.ReadLease, state.clock()) != nil {
+		return nil, os.ErrPermission
 	}
-	pointID, snapshotID := "point-canary-composition", strings.Repeat("8", 64)
-	leaseID := "writer-canary-composition"
-	if err := adapter.backups.AcquireBackupWriterLease(ctx, store.BackupWriterLeaseRequest{LeaseID: leaseID, JobID: "job-canary-composition", PolicyID: policy.PolicyID, PolicyDigest: policyDigest, PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: request.RunID, StepID: request.StepID, RepositoryID: *policy.RepositoryID, RepositoryClass: policy.RepositoryClass, TargetID: policy.RestoreTargetID, SourceRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, MaximumExpiresAt: request.MaximumExpiresAt}); err != nil {
-		return "", "", err
+	if err := journal.BeginCustody(ctx, session); err != nil {
+		return nil, err
 	}
-	objects := []store.ExpectedObjectRow{{Type: "config", Name: "config", Bytes: 64, Digest: canaryAcceptanceDigest("config")}, {Type: "data", Name: strings.Repeat("9", 64), Bytes: 128, Digest: canaryAcceptanceDigest("data")}, {Type: "keys", Name: strings.Repeat("a", 64), Bytes: 64, Digest: canaryAcceptanceDigest("keys")}, {Type: "snapshots", Name: snapshotID, Bytes: 128, Digest: canaryAcceptanceDigest("snapshot")}}
-	expectedObjects := make([]backup.ExpectedObject, len(objects))
-	for i, object := range objects {
-		expectedObjects[i] = backup.ExpectedObject{Type: object.Type, Name: object.Name, Bytes: object.Bytes, Digest: object.Digest}
+	return &canaryAcceptanceCustodyClient{state: state, session: session, journal: journal}, nil
+}
+
+type canaryAcceptanceCustodyClient struct {
+	state   *canaryAcceptanceCustodyState
+	session backup.CustodySession
+	journal backup.CustodyJournal
+}
+
+func (*canaryAcceptanceCustodyClient) RepositoryURL() string { return "http+unix://hermetic:/repo/" }
+func (client *canaryAcceptanceCustodyClient) Inventory(context.Context) ([]backup.ExpectedObject, error) {
+	client.state.mu.Lock()
+	defer client.state.mu.Unlock()
+	return append([]backup.ExpectedObject(nil), client.state.inventory...), nil
+}
+func (client *canaryAcceptanceCustodyClient) InventoryExpected(_ context.Context, expected []backup.ExpectedObject) ([]backup.ExpectedObject, error) {
+	return append([]backup.ExpectedObject(nil), expected...), nil
+}
+func (*canaryAcceptanceCustodyClient) Capacity(context.Context) (uint64, error) { return 1 << 30, nil }
+func (*canaryAcceptanceCustodyClient) CapacitySnapshot(context.Context) (backup.RepositoryCapacity, error) {
+	return backup.RepositoryCapacity{TotalBytes: 1 << 30, AvailableBytes: 1 << 29}, nil
+}
+func (client *canaryAcceptanceCustodyClient) RunRestic(_ context.Context, request backup.ResticRequest, _ *credentialref.Value) (backup.ResticResult, error) {
+	client.state.mu.Lock()
+	defer client.state.mu.Unlock()
+	started, completed := client.state.clock().UTC(), client.state.clock().UTC()
+	result := backup.ResticResult{RepositoryFormat: 2, StartedAt: started, CompletedAt: completed}
+	client.state.resticModes = append(client.state.resticModes, request.Mode)
+	switch request.Mode {
+	case "init", "config", "check-full":
+		return result, nil
+	case "backup":
+		body, err := os.ReadFile(request.SnapshotPath)
+		if err != nil {
+			return backup.ResticResult{}, err
+		}
+		client.state.snapshot = body
+		client.state.snapshotPath = request.SnapshotPath
+		client.state.snapshotID = strings.Repeat("8", 64)
+		client.state.inventory = []backup.ExpectedObject{{Type: "config", Name: "config", Bytes: 64, Digest: canaryAcceptanceDigest("config")}, {Type: "data", Name: strings.Repeat("9", 64), Bytes: int64(len(body)), Digest: canaryAcceptanceDigest("data")}, {Type: "keys", Name: strings.Repeat("a", 64), Bytes: 64, Digest: canaryAcceptanceDigest("keys")}, {Type: "snapshots", Name: client.state.snapshotID, Bytes: 128, Digest: canaryAcceptanceDigest("snapshot")}}
+		result.SnapshotID, result.SnapshotCount = client.state.snapshotID, 1
+		return result, nil
+	case "snapshots":
+		result.SnapshotPaths = map[string][]string{client.state.snapshotID: {client.state.snapshotPath}}
+		return result, nil
+	case "restore":
+		relative := strings.TrimPrefix(client.state.snapshotPath, string(filepath.Separator))
+		target := filepath.Join(request.RestoreTarget, relative)
+		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+			return backup.ResticResult{}, err
+		}
+		if err := os.WriteFile(target, client.state.snapshot, 0o600); err != nil {
+			return backup.ResticResult{}, err
+		}
+		return result, nil
+	default:
+		return backup.ResticResult{}, os.ErrInvalid
 	}
-	dependencies := make([]backup.ExpectedDependency, len(policy.Dependencies))
-	for i, dependency := range policy.Dependencies {
-		dependencies[i] = backup.ExpectedDependency{DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest}
+}
+func (*canaryAcceptanceCustodyClient) RunOffsiteRestic(context.Context, backup.OffsiteResticRequest, *credentialref.Value, []byte) (backup.OffsiteResticResult, error) {
+	return backup.OffsiteResticResult{}, os.ErrInvalid
+}
+func (*canaryAcceptanceCustodyClient) ResticObservation() backup.ResticObservation {
+	return backup.ResticObservation{}
+}
+func (client *canaryAcceptanceCustodyClient) Close(ctx context.Context) error {
+	return client.journal.FinishCustody(ctx, client.session, "succeeded")
+}
+
+type canaryAcceptanceTrust struct{}
+
+func (canaryAcceptanceTrust) VerifyCurrent(_ context.Context, request localbackup.DependencyTrustRequest) ([]localbackup.DependencyTrustEvidence, error) {
+	evidence := make([]localbackup.DependencyTrustEvidence, len(request.Expected))
+	for i, dependency := range request.Expected {
+		evidence[i] = localbackup.DependencyTrustEvidence{DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest, SourceKind: "protected-local-pin", PointID: request.PointID, PolicyDigest: request.PolicyDigest, SourceID: "protected-local-pin", StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch}
 	}
-	completed := adapter.clock().UTC()
-	manifest := backup.CreationManifest{Schema: backup.CreationManifestSchema, SchemaVersion: backup.CreationManifestVersion, PolicyID: policy.PolicyID, PolicyDigest: policyDigest, PointID: pointID, RunID: request.RunID, StepID: request.StepID, RepositoryID: *policy.RepositoryID, RepositoryClass: policy.RepositoryClass, SourceID: policy.SourceID, SourceSelectors: policy.SourceSelectors, SourceRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, DatabaseSchemaVersion: 24, CatalogDigest: canaryAcceptanceDigest("catalog"), ContentDigest: canaryAcceptanceDigest("content"), ConsistencyHookID: policy.ConsistencyHookID, ConsistencySuccess: true, SnapshotID: snapshotID, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: 384, InventoryDigest: backup.ExpectedInventoryDigest(expectedObjects), ExpectedObjects: expectedObjects, DependencyInventoryDigest: backup.ExpectedDependencyInventoryDigest(dependencies), ExpectedDependencies: dependencies, KeyReferenceID: *policy.EncryptionKeyReferenceID, ResticDigest: canaryAcceptanceDigest("restic"), PlatformDigest: canaryAcceptanceDigest("platform"), StartedAt: completed.Add(-time.Second).Format(time.RFC3339), CompletedAt: completed.Format(time.RFC3339)}
-	manifestJSON, manifestDigest, err := backup.CanonicalCreationManifest(manifest)
-	if err != nil {
-		return "", "", err
-	}
-	if _, _, err := adapter.backups.AppendPendingRecoveryPoint(ctx, store.PendingRecoveryPointRequest{LeaseID: leaseID, PointID: pointID, SnapshotID: snapshotID, SnapshotCount: 1, ObjectCount: int64(len(objects)), ObjectBytes: 384, ContentDigest: manifest.ContentDigest, ManifestDigest: manifestDigest, ManifestJSON: manifestJSON, InventoryDigest: manifest.InventoryDigest, SourceRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, SourceKind: "local", ProofClass: "fixture", ExpectedObjects: objects}); err != nil {
-		return "", "", err
-	}
-	revision := store.RevisionToken{StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch}
-	readLease := store.BackupReadLeaseRequest{LeaseID: "reader-canary-composition", PointID: pointID, RepositoryID: *policy.RepositoryID, RepositoryClass: policy.RepositoryClass, SourceRevision: request.StateRevision, Expected: revision, MaximumExpiresAt: request.MaximumExpiresAt}
-	if err := adapter.backups.AcquireBackupReadLease(ctx, readLease); err != nil {
-		return "", "", err
-	}
-	trust := make([]store.BackupDependencyTrustEvidence, len(dependencies))
-	for i, dependency := range dependencies {
-		trust[i] = store.BackupDependencyTrustEvidence{DependencyID: dependency.DependencyID, Kind: dependency.Kind, Digest: dependency.Digest, SourceKind: "protected-local-pin", PointID: pointID, PolicyDigest: policyDigest, SourceID: "protected-local-pin", SourceRevision: request.StateRevision, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch}
-	}
-	verified := adapter.clock().UTC()
-	receipt, err := adapter.backups.AppendLocalVerification(ctx, store.LocalVerificationRequest{VerificationID: "verify-canary-composition", RunID: request.RunID, PointID: pointID, ReadLeaseID: readLease.LeaseID, ManifestDigest: manifestDigest, InventoryDigest: manifest.InventoryDigest, ObservedDigest: manifest.InventoryDigest, ContentDigest: manifest.ContentDigest, CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest, KeyReferenceID: manifest.KeyReferenceID, SourceRevision: request.StateRevision, CapacityTotalBytes: 1 << 30, CapacityAvailableBytes: 1 << 29, Expected: revision, ProofClass: "live", Result: "passed", FullReadAt: verified.Add(-time.Second), FunctionalRestoredAt: verified, DependencyTrust: trust})
-	if err != nil {
-		return "", "", err
-	}
-	if err := adapter.backups.AdvanceLocalLastGood(ctx, receipt, revision, ""); err != nil {
-		return "", "", err
-	}
-	return pointID, policy.RepositoryClass, nil
+	return evidence, nil
 }
 
 type canaryAcceptanceFormerWriter struct{}
@@ -175,6 +219,15 @@ func TestOperationsRunRecoveryCanaryCreatesDurableCheckpointAndCurrentBackup(t *
 	if err := os.Mkdir(profileJSON.InventoryExportRoot, 0o700); err != nil {
 		t.Fatal(err)
 	}
+	standard, critical, exchange := filepath.Join(directory, "standard"), filepath.Join(directory, "critical"), filepath.Join(directory, "exchange")
+	for _, path := range []string{standard, critical, exchange} {
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	resticPath, custodyPath := filepath.Join(directory, "restic"), filepath.Join(directory, "custody.json")
+	profileJSON.StandardBackupRoot, profileJSON.CriticalBackupRoot = &standard, &critical
+	profileJSON.ResticBinaryPath, profileJSON.CustodyPolicyPath = &resticPath, &custodyPath
 	configPath := filepath.Join(directory, "server-profile.json")
 	writeProtectedJSON(t, configPath, profileJSON)
 	build := result.BuildInfo{ToolVersion: "test", ReleaseBuildID: "test"}
@@ -185,13 +238,25 @@ func TestOperationsRunRecoveryCanaryCreatesDurableCheckpointAndCurrentBackup(t *
 		input.Clock = clock.Now
 		return store.Open(ctx, input)
 	}
+	custody := &canaryAcceptanceCustodyState{clock: clock.Now}
+	operations.localBackupAdapter = func(config localbackup.Config) (*localbackup.Adapter, error) {
+		config.Clock = clock.Now
+		config.CustodyStart = custody.Start
+		config.CustodyPolicy = func(string) (backup.CustodyPolicy, error) {
+			return backup.CustodyPolicy{SchemaVersion: "1.0.0", StandardRoot: standard, CriticalRoot: critical, ControllerUID: uint32(os.Geteuid()), ExchangeRoot: exchange}, nil
+		}
+		config.ProfileVerifier = func(*serverconfig.LocalBackup, uint32) error { return nil }
+		config.Trust = canaryAcceptanceTrust{}
+		return localbackup.New(config)
+	}
+	operations.localRecoverySource = func(*serverconfig.LocalBackup, uint32, *store.BackupRepository, store.RestoredSQLiteInspector, localbackup.RecoveryCredentialSource, localbackup.DependencyTrustVerifier, store.OnlineSnapshotSource) (recovery.SnapshotResolver, recovery.CompatibilityVerifier, recovery.AuditPositionVerifier, error) {
+		return nil, nil, nil, nil
+	}
+	operations.recoveryCanaryBorrower = func(recoveryCredentialBorrower) recoveryCanaryCredentialBorrower { return canaryAcceptanceBorrower{} }
 	checkpoint := &canaryAcceptanceCheckpoint{clock: clock.Now}
 	operations.recoveryCanaryPorts = func(_ context.Context, _ serverconfig.Profile, authority *store.Store, _ *store.BackupRepository) (recovery.CanaryAuditVerifier, recovery.CanaryBackupVerifier, error) {
 		checkpoint.authority = authority
 		return recovery.IndependentCheckpointCanary{Appender: &durableRecoveryCheckpointAppender{authority: authority, capability: checkpoint}, Reader: authority}, nil, nil
-	}
-	operations.recoveryCanaryBackup = func(authority *store.Store, restores *store.RestoreRepository, repository *store.BackupRepository, _ *localbackup.Adapter, _ recoveryCredentialBorrower, _ func() time.Time) recovery.RecoveryBackupCreator {
-		return &localRecoveryCanaryBackup{authority: authority, restores: restores, backups: repository, adapter: &canaryAcceptanceBackupAdapter{backups: repository, clock: clock.Now}, borrower: canaryAcceptanceBorrower{}, clock: clock.Now}
 	}
 	operations.recoveryFormerWriter = func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier {
 		return canaryAcceptanceFormerWriter{}
@@ -214,6 +279,18 @@ func TestOperationsRunRecoveryCanaryCreatesDurableCheckpointAndCurrentBackup(t *
 	if err != nil {
 		t.Fatalf("composed canary: %v", err)
 	}
+	custody.mu.Lock()
+	modes := append([]string(nil), custody.resticModes...)
+	snapshotBytes := len(custody.snapshot)
+	custody.mu.Unlock()
+	for _, required := range []string{"backup", "snapshots", "check-full", "restore"} {
+		if !slices.Contains(modes, required) {
+			t.Fatalf("real local backup path did not call custody mode %q: %v", required, modes)
+		}
+	}
+	if snapshotBytes == 0 {
+		t.Fatal("real local backup path did not capture a database snapshot")
+	}
 	cancel()
 	if err := <-done; err != nil {
 		t.Fatal(err)
@@ -229,8 +306,13 @@ func ptrString(value string) *string { return &value }
 
 func seedCanaryAcceptanceSource(t *testing.T, repository *store.BackupRepository, now func() time.Time) (generated.BackupPolicy, store.PendingRecoveryPoint) {
 	t.Helper()
+	resticSHA256, ok := serverconfig.ExpectedResticExecutableDigest(runtime.GOARCH)
+	if !ok {
+		t.Fatal("missing pinned restic digest")
+	}
+	resticDigest := "sha256:" + resticSHA256
 	repositoryID, encryptionID, recoveryID := backupidentity.StandardRepository, "key-canary", "key-recovery"
-	policy := generated.BackupPolicy{Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0", PolicyID: "policy-canary", OwnerID: "owner-canary", SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: backup.SQLiteOnlineHookID, RepositoryID: &repositoryID, RepositoryClass: "standard", ScheduleIntent: "manual", ExpectedBytes: 1 << 20, ExpectedGrowthBytes: 1 << 20, MinimumFreeBytes: 1, EncryptionKeyReferenceID: &encryptionID, RecoveryKeyReferenceID: &recoveryID, RetentionDays: 7, RestoreTargetID: "control-canary", Dependencies: []generated.BackupDependency{{DependencyID: "restic", Kind: "binary", Digest: canaryAcceptanceDigest("restic")}}, FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 24, RecoveryEpoch: 0, Revision: 1}
+	policy := generated.BackupPolicy{Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0", PolicyID: "policy-canary", OwnerID: "owner-canary", SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: backup.SQLiteOnlineHookID, RepositoryID: &repositoryID, RepositoryClass: "standard", ScheduleIntent: "manual", ExpectedBytes: 1 << 20, ExpectedGrowthBytes: 1 << 20, MinimumFreeBytes: 1, EncryptionKeyReferenceID: &encryptionID, RecoveryKeyReferenceID: &recoveryID, RetentionDays: 7, RestoreTargetID: "control-canary", Dependencies: []generated.BackupDependency{{DependencyID: "restic", Kind: "binary", Digest: resticDigest}}, FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 24, RecoveryEpoch: 0, Revision: 1}
 	_, sum, err := stateexport.CanonicalJSON(policy)
 	if err != nil {
 		t.Fatal(err)
@@ -248,9 +330,9 @@ func seedCanaryAcceptanceSource(t *testing.T, repository *store.BackupRepository
 	for i, object := range objects {
 		expected[i] = backup.ExpectedObject{Type: object.Type, Name: object.Name, Bytes: object.Bytes, Digest: object.Digest}
 	}
-	dependencies := []backup.ExpectedDependency{{DependencyID: "restic", Kind: "binary", Digest: canaryAcceptanceDigest("restic")}}
+	dependencies := []backup.ExpectedDependency{{DependencyID: "restic", Kind: "binary", Digest: resticDigest}}
 	stamp := now().UTC()
-	manifest := backup.CreationManifest{Schema: backup.CreationManifestSchema, SchemaVersion: backup.CreationManifestVersion, PolicyID: policy.PolicyID, PolicyDigest: submission.PolicyDigest, PointID: pointID, RunID: "run-prior", StepID: "step-prior", RepositoryID: repositoryID, RepositoryClass: "standard", SourceID: policy.SourceID, SourceSelectors: policy.SourceSelectors, SourceRevision: 0, RecoveryEpoch: 0, DatabaseSchemaVersion: 24, CatalogDigest: canaryAcceptanceDigest("prior-catalog"), ContentDigest: canaryAcceptanceDigest("prior-content"), ConsistencyHookID: policy.ConsistencyHookID, ConsistencySuccess: true, SnapshotID: snapshotID, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: 384, InventoryDigest: backup.ExpectedInventoryDigest(expected), ExpectedObjects: expected, DependencyInventoryDigest: backup.ExpectedDependencyInventoryDigest(dependencies), ExpectedDependencies: dependencies, KeyReferenceID: encryptionID, ResticDigest: canaryAcceptanceDigest("restic"), PlatformDigest: canaryAcceptanceDigest("platform"), StartedAt: stamp.Add(-time.Second).Format(time.RFC3339), CompletedAt: stamp.Format(time.RFC3339)}
+	manifest := backup.CreationManifest{Schema: backup.CreationManifestSchema, SchemaVersion: backup.CreationManifestVersion, PolicyID: policy.PolicyID, PolicyDigest: submission.PolicyDigest, PointID: pointID, RunID: "run-prior", StepID: "step-prior", RepositoryID: repositoryID, RepositoryClass: "standard", SourceID: policy.SourceID, SourceSelectors: policy.SourceSelectors, SourceRevision: 0, RecoveryEpoch: 0, DatabaseSchemaVersion: 24, CatalogDigest: canaryAcceptanceDigest("prior-catalog"), ContentDigest: canaryAcceptanceDigest("prior-content"), ConsistencyHookID: policy.ConsistencyHookID, ConsistencySuccess: true, SnapshotID: snapshotID, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: 384, InventoryDigest: backup.ExpectedInventoryDigest(expected), ExpectedObjects: expected, DependencyInventoryDigest: backup.ExpectedDependencyInventoryDigest(dependencies), ExpectedDependencies: dependencies, KeyReferenceID: encryptionID, ResticDigest: resticDigest, PlatformDigest: canaryAcceptanceDigest("platform"), StartedAt: stamp.Add(-time.Second).Format(time.RFC3339), CompletedAt: stamp.Format(time.RFC3339)}
 	body, digest, err := backup.CanonicalCreationManifest(manifest)
 	if err != nil {
 		t.Fatal(err)

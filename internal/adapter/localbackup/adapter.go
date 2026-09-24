@@ -60,7 +60,16 @@ type Config struct {
 	Hooks     *backup.HookRegistry
 	Runner    backup.ResticRunner
 	Clock     func() time.Time
+	// CustodyStart, CustodyPolicy, and ProfileVerifier are external-boundary
+	// seams. Production leaves them nil and uses the protected system custody
+	// launcher, policy loader, and profile verifier; hermetic acceptance may
+	// replace only those boundaries.
+	CustodyStart    CustodyStarter
+	CustodyPolicy   func(string) (backup.CustodyPolicy, error)
+	ProfileVerifier func(*serverconfig.LocalBackup, uint32) error
 }
+
+type CustodyStarter func(context.Context, backup.CustodySession, backup.LeaseVerifier, backup.ReadLeaseVerifier, backup.CustodyJournal) (backup.CustodyClient, error)
 
 // Adapter implements the exact bound local backup creation effect.
 type Adapter struct {
@@ -162,6 +171,12 @@ func New(config Config) (*Adapter, error) {
 	if config.Clock == nil {
 		config.Clock = time.Now
 	}
+	if config.ProfileVerifier == nil {
+		config.ProfileVerifier = serverconfig.VerifyLocalBackup
+	}
+	if config.CustodyPolicy == nil {
+		config.CustodyPolicy = backup.LoadCustodyPolicy
+	}
 	return &Adapter{config: config}, nil
 }
 
@@ -229,7 +244,7 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 	if !ok {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-repository")
 	}
-	if err := serverconfig.VerifyLocalBackup(adapterImpl.config.LocalBackup, adapterImpl.config.ExpectedUID); err != nil {
+	if err := adapterImpl.config.ProfileVerifier(adapterImpl.config.LocalBackup, adapterImpl.config.ExpectedUID); err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-profile")
 	}
 	expectation, err := adapterImpl.config.Snapshots.CurrentExpectation(ctx)
@@ -277,7 +292,7 @@ func (adapterImpl *Adapter) ExecuteBoundWithCredentials(ctx context.Context, ope
 }
 
 func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated.BackupPolicy, policyDigest, repositoryID, root string, lease backup.WriterLease, pointID string, binding adapter.ExactExecutionBinding, expectation store.SnapshotExpectation, password *credentialref.Value) (effect adapter.Effect, outcomeErr error) {
-	custodyPolicy, err := backup.LoadCustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
+	custodyPolicy, err := adapterImpl.config.CustodyPolicy(adapterImpl.config.LocalBackup.CustodyPolicyPath)
 	if err != nil || custodyPolicy.ControllerUID != adapterImpl.config.ExpectedUID || custodyPolicy.StandardRoot != adapterImpl.config.LocalBackup.StandardRoot || custodyPolicy.CriticalRoot != adapterImpl.config.LocalBackup.CriticalRoot {
 		return adapter.Effect{}, backupError(generated.ErrorCodeIntegrityFailure, "local-backup-custody-policy")
 	}
@@ -289,9 +304,7 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 		RunID: binding.RunID, StepID: binding.StepID, LeaseID: lease.LeaseID, RepositoryID: repositoryID, RepositoryClass: policy.RepositoryClass,
 		PointID: pointID, SourceID: policy.SourceID, SourceRevision: expectation.Revision.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, MaximumExpiresAt: lease.MaximumExpiresAt,
 		MaximumObjects: 1_000_000, MaximumBytes: maximumBytes, WriterLease: &lease}
-	launcher := backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Writer: &leaseVerifier{backups: adapterImpl.config.Backups},
-		Journal: &custodyJournal{backups: adapterImpl.config.Backups}, Clock: adapterImpl.config.Clock}
-	custody, err := launcher.Start(ctx, session)
+	custody, err := adapterImpl.startCustody(ctx, session, &leaseVerifier{backups: adapterImpl.config.Backups}, nil, &custodyJournal{backups: adapterImpl.config.Backups})
 	if err != nil {
 		return adapter.Effect{}, backupError(generated.ErrorCodePrerequisiteBlocked, "local-backup-custody")
 	}
@@ -409,6 +422,13 @@ func (adapterImpl *Adapter) runBoundBackup(ctx context.Context, policy generated
 	// the digest separately binds its canonical manifest. Neither carries a
 	// secret, snapshot content, or any verification/last-good claim.
 	return adapter.Effect{Status: "succeeded", ResultDigest: resultDigest, PendingPointID: &resultPointID, Changed: true, EffectObserved: true}, nil
+}
+
+func (adapterImpl *Adapter) startCustody(ctx context.Context, session backup.CustodySession, writer backup.LeaseVerifier, reader backup.ReadLeaseVerifier, journal backup.CustodyJournal) (backup.CustodyClient, error) {
+	if adapterImpl.config.CustodyStart != nil {
+		return adapterImpl.config.CustodyStart(ctx, session, writer, reader, journal)
+	}
+	return (backup.CustodyLauncher{PolicyPath: adapterImpl.config.LocalBackup.CustodyPolicyPath, Writer: writer, Reader: reader, Journal: journal, Clock: adapterImpl.config.Clock}).Start(ctx, session)
 }
 
 func (adapterImpl *Adapter) resolvePolicy(ctx context.Context, binding adapter.ExactExecutionBinding) (generated.BackupPolicy, string, error) {

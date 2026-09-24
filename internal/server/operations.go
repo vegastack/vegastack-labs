@@ -40,18 +40,21 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build                 result.BuildInfo
-	requestIDs            result.RequestIDSource
-	openStore             func(context.Context, store.Config) (*store.Store, error)
-	databasePath          string
-	platformProbe         PlatformProbe
-	identityHTTPClient    *http.Client
-	offsiteEffect         OffsiteEffectFactory
-	recoveryCanaryPorts   RecoveryCanaryPortFactory
-	recoveryCanaryBackup  func(*store.Store, *store.RestoreRepository, *store.BackupRepository, *localbackup.Adapter, recoveryCredentialBorrower, func() time.Time) recovery.RecoveryBackupCreator
-	recoveryFormerWriter  func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier
-	recoveryCanaryObserve func(recovery.CanaryVerifier)
-	newAdapterRegistry    func() *adapter.Registry
+	build                  result.BuildInfo
+	requestIDs             result.RequestIDSource
+	openStore              func(context.Context, store.Config) (*store.Store, error)
+	databasePath           string
+	platformProbe          PlatformProbe
+	identityHTTPClient     *http.Client
+	offsiteEffect          OffsiteEffectFactory
+	recoveryCanaryPorts    RecoveryCanaryPortFactory
+	localBackupAdapter     func(localbackup.Config) (*localbackup.Adapter, error)
+	localRecoverySource    func(*serverconfig.LocalBackup, uint32, *store.BackupRepository, store.RestoredSQLiteInspector, localbackup.RecoveryCredentialSource, localbackup.DependencyTrustVerifier, store.OnlineSnapshotSource) (recovery.SnapshotResolver, recovery.CompatibilityVerifier, recovery.AuditPositionVerifier, error)
+	recoveryCanaryBorrower func(recoveryCredentialBorrower) recoveryCanaryCredentialBorrower
+	recoveryCanaryBackup   func(*store.Store, *store.RestoreRepository, *store.BackupRepository, *localbackup.Adapter, recoveryCanaryCredentialBorrower, func() time.Time) recovery.RecoveryBackupCreator
+	recoveryFormerWriter   func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier
+	recoveryCanaryObserve  func(recovery.CanaryVerifier)
+	newAdapterRegistry     func() *adapter.Registry
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
@@ -83,8 +86,11 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 		offsiteEffect: func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error) {
 			return nil, nil
 		},
-		recoveryCanaryPorts: systemRecoveryCanaryPortFactory(),
-		recoveryCanaryBackup: func(authority *store.Store, restores *store.RestoreRepository, backups *store.BackupRepository, local *localbackup.Adapter, borrower recoveryCredentialBorrower, clock func() time.Time) recovery.RecoveryBackupCreator {
+		recoveryCanaryPorts:    systemRecoveryCanaryPortFactory(),
+		localBackupAdapter:     localbackup.New,
+		localRecoverySource:    composeLocalRecoverySource,
+		recoveryCanaryBorrower: func(borrower recoveryCredentialBorrower) recoveryCanaryCredentialBorrower { return borrower },
+		recoveryCanaryBackup: func(authority *store.Store, restores *store.RestoreRepository, backups *store.BackupRepository, local *localbackup.Adapter, borrower recoveryCanaryCredentialBorrower, clock func() time.Time) recovery.RecoveryBackupCreator {
 			if local == nil {
 				return unavailableRecoveryCanaryBackup{}
 			}
@@ -265,7 +271,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		}
 		localTrust := localbackup.NewProtectedLocalDependencyTrust()
 		restoreSnapshotSource, restoreInspector, restoreTrust = snapshots, inspector, localTrust
-		localAdapter, adapterErr := localbackup.New(localbackup.Config{
+		localAdapter, adapterErr := operations.localBackupAdapter(localbackup.Config{
 			LocalBackup: profile.LocalBackup,
 			ExpectedUID: profile.SocketOwnerUID,
 			Backups:     backupRepository,
@@ -319,7 +325,7 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 	}
 	if profile.LocalBackup != nil && restoreSnapshotSource != nil && restoreInspector != nil && restoreTrust != nil {
 		borrower := recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}
-		restoreSnapshotResolver, restoreCompatibility, restoreAudit, err = composeLocalRecoverySource(profile.LocalBackup, profile.SocketOwnerUID, backupRepository, restoreInspector, borrower, restoreTrust, restoreSnapshotSource)
+		restoreSnapshotResolver, restoreCompatibility, restoreAudit, err = operations.localRecoverySource(profile.LocalBackup, profile.SocketOwnerUID, backupRepository, restoreInspector, borrower, restoreTrust, restoreSnapshotSource)
 		if err != nil {
 			_ = application.Shutdown(ctx)
 			return err
@@ -412,7 +418,8 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	backupCreator := operations.recoveryCanaryBackup(authority, restoreRepository, backupRepository, recoveryBackupAdapter, recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}, time.Now)
+	borrower := operations.recoveryCanaryBorrower(recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters})
+	backupCreator := operations.recoveryCanaryBackup(authority, restoreRepository, backupRepository, recoveryBackupAdapter, borrower, time.Now)
 	canaryBackup = recovery.CurrentEpochBackupCanary{Creator: backupCreator, Reader: backupRepository}
 	restoreCanary := recovery.CanaryVerifier{
 		Read: restoreStoreCanary, OldEpoch: restoreStoreCanary,
