@@ -1192,11 +1192,11 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	var expected string
 	switch strings.Join(names, ",") {
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_linux.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
-		expected = "ba47d6e306e91015788671298c4da6f20792c6215347fb66075ceb5aae642462"
+		expected = "f70716f4b4d84488770ba4b8cdcc36346fd23ab656983f6abae3d97576fbeaa9"
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
-		expected = "34576021c3c8b3573f5308290c0f09314e4a2e7be8a7899fc70455370af0f0ec"
+		expected = "0971b7c5344f9a2dc306b0794ba8a38b4b6deb3f6a27849614a9ba89d88ec0c6"
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,offsite_source.go,operations.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source.go,source_admission.go,source_admission_file_unsupported.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
-		expected = "ee9df31bdcb171c1b312f50024916a94fa428380ddba32650750d09518f01cbe"
+		expected = "60953df99739a99e33495a408772a4a6c28f137bf69b1e3e2ab9baf34eb6aa6c"
 	default:
 		return false
 	}
