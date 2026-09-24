@@ -66,6 +66,9 @@ type scheduledEngineSubmitter struct{ engine *runengine.Engine }
 func (submitter scheduledEngineSubmitter) SubmitScheduled(ctx context.Context, plan generated.Plan, decision generated.AuthorizationDecision, key string, attribution audit.Attribution) (generated.Run, error) {
 	return submitter.engine.Submit(ctx, runengine.SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: key, Extensions: []generated.ContractExtension{}}, Authorization: decision, Attribution: attribution})
 }
+func (submitter scheduledEngineSubmitter) GetScheduledRun(ctx context.Context, runID string) (generated.Run, error) {
+	return submitter.engine.Get(ctx, runID)
+}
 
 func WithOffsiteRetirementEffectFactory(factory OffsiteRetirementEffectFactory) OperationsOption {
 	return func(operations *Operations) {

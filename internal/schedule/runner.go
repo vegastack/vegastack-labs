@@ -28,6 +28,7 @@ type ScheduledAuthorizer interface {
 }
 type RunSubmitter interface {
 	SubmitScheduled(context.Context, generated.Plan, generated.AuthorizationDecision, string, audit.Attribution) (generated.Run, error)
+	GetScheduledRun(context.Context, string) (generated.Run, error)
 }
 type ObservationReader interface {
 	CurrentObservationFingerprint(context.Context, generated.ScheduledJobPolicy) (string, error)
@@ -189,7 +190,18 @@ func (runner *Runner) Startup(ctx context.Context) error {
 	}
 	for _, job := range jobs {
 		if job.Status == "running" {
-			if _, err = runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "uncertain", "restart-after-start", job.PlanID, job.RunID); err != nil {
+			if job.RunID == nil {
+				_, err = runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "uncertain", "restart-after-intent", job.PlanID, job.RunID)
+			} else {
+				var current generated.Run
+				current, err = runner.runs.GetScheduledRun(ctx, *job.RunID)
+				if err != nil {
+					_, err = runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "uncertain", "restart-run-unavailable", job.PlanID, job.RunID)
+				} else {
+					_, err = runner.settleRecovered(ctx, job, current, now)
+				}
+			}
+			if err != nil {
 				return err
 			}
 			continue
@@ -199,6 +211,26 @@ func (runner *Runner) Startup(ctx context.Context) error {
 		}
 	}
 	return nil
+}
+
+func (runner *Runner) settleRecovered(ctx context.Context, job generated.ScheduledJob, current generated.Run, now time.Time) (generated.ScheduledJob, error) {
+	switch current.Status {
+	case "succeeded":
+		return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "succeeded", "restart-verified", job.PlanID, job.RunID)
+	case "failed", "interrupted", "cancelled":
+		if allNotStarted(current) {
+			policy, err := runner.repository.GetActivePolicy(ctx, job.PolicyID)
+			if err != nil {
+				return job, err
+			}
+			scheduledAt, parseErr := time.Parse(time.RFC3339, job.ScheduledAt)
+			if parseErr == nil && job.Attempt < policy.MaxAttempts && now.Add(Backoff(policy, job.Attempt)).Before(scheduledAt.Add(time.Duration(policy.WindowSeconds)*time.Second)) {
+				return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "retry-wait", "restart-before-effect", job.PlanID, job.RunID)
+			}
+			return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "failed", "restart-retry-exhausted", job.PlanID, job.RunID)
+		}
+	}
+	return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "uncertain", "restart-effect-unknown", job.PlanID, job.RunID)
 }
 
 func (runner *Runner) block(ctx context.Context, job generated.ScheduledJob, reason string) (generated.ScheduledJob, error) {
