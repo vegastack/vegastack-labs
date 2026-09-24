@@ -286,7 +286,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
         ],
-        "mutationBoundaryDigest": "sha256:89295dc0a417101da03c8305f127cd0d61ed1aab67edce2fb7c31c311b57ddd2"
+        "mutationBoundaryDigest": "sha256:56b54092ad210c8cc6446d2c756c1df8cde6774f09c9a972344915e52ebb8c9b"
       }
     ]
   },

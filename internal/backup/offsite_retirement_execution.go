@@ -2,6 +2,9 @@ package backup
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -91,6 +94,9 @@ func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, oper
 	verifiedAt := execution.clock().UTC()
 	proof, err := VerifyOffsiteRetirement(ctx, intent, journal, execution.repository, verifier, verifiedAt)
 	if err != nil {
+		if receiptErr := execution.appendUncertainVerificationReceipt(ctx, intent, lease, journal); receiptErr != nil {
+			return "", errors.New("offsite retirement verification and uncertainty persistence failed")
+		}
 		return "", err
 	}
 	survivors := make([]store.OffsiteRetirementSurvivorSettlement, len(proof.Survivors))
@@ -102,6 +108,20 @@ func (execution *SQLRetirementExecution) RetireOffsite(ctx context.Context, oper
 		return "", err
 	}
 	return receipt.EffectDigest, nil
+}
+
+func (execution *SQLRetirementExecution) appendUncertainVerificationReceipt(ctx context.Context, intent store.OffsiteRetirementIntent, lease store.OffsiteRetirementLease, journal r2retention.EffectJournal) error {
+	body, err := json.Marshal(struct {
+		Schema        string                    `json:"schema"`
+		SchemaVersion string                    `json:"schemaVersion"`
+		IntentDigest  string                    `json:"intentDigest"`
+		Journal       r2retention.EffectJournal `json:"journal"`
+	}{Schema: "vegastack-labs.dev/offsite-retirement-uncertain", SchemaVersion: "1.0.0", IntentDigest: intent.IntentDigest, Journal: journal})
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256(body)
+	return execution.repository.AppendReceipt(context.WithoutCancel(ctx), store.OffsiteRetirementReceipt{ReceiptID: "receipt-" + lease.LeaseID, IntentID: intent.IntentID, LeaseID: lease.LeaseID, Status: "uncertain", EffectDigest: "sha256:" + hex.EncodeToString(sum[:]), ReclaimedBytes: journal.ReclaimedBytes, CanonicalJSON: body})
 }
 
 func closeRetirementClient(value any) {

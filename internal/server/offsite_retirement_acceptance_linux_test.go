@@ -214,6 +214,12 @@ func (source acceptanceAcknowledgementSource) Status(ctx context.Context, planID
 }
 
 func TestProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T) {
+	for _, scenario := range []string{"happy", "missing-g008", "stale-revision", "stale-epoch", "competing-claim", "restore-failure"} {
+		t.Run(scenario, func(t *testing.T) { runProductionOffsiteRetirementHTTPCompositionAcceptance(t, scenario) })
+	}
+}
+
+func runProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T, scenario string) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	clock := now
@@ -333,7 +339,11 @@ func TestProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T) {
 	// The qualified G008 evidence, deployment profile, and effective grant are
 	// observed authority inputs. Establish them before the immutable plan is
 	// committed, then leave them unchanged through the restarted server run.
-	seedAcceptanceGate(t, filepath.Join(directory, "control.db"), intent, bundle, bundleBytes, bundleDigest, attribution, now)
+	gateExpiresAt := now.Add(time.Hour)
+	if scenario == "missing-g008" {
+		gateExpiresAt = now.Add(-time.Second)
+	}
+	seedAcceptanceGate(t, filepath.Join(directory, "control.db"), intent, bundle, bundleBytes, bundleDigest, attribution, now, gateExpiresAt)
 	plan := commitAcceptancePlan(t, ctx, authority, intent, bindings, operationID, attribution, now)
 	stageRequest := generated.BackupOffsiteRetirementStageRequest{Schema: generated.SchemaIDBackupOffsiteRetirementStageRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 4, RecoveryEpoch: 0, TargetDigest: dryEnvelope.Data.IntentDigest, IdempotencyKey: "retire-a", SelectionDigest: localSelectionDigest, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, OneOwnerProofID: "owner-proof", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", CredentialBindingDigest: credentialDigest}
 	var stageEnvelope struct {
@@ -349,6 +359,7 @@ func TestProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T) {
 	authorizeAcceptancePlan(t, ctx, authority, plan, attribution, now)
 	assertAcceptancePlanCurrent(t, ctx, authority, plan)
 	assertAcceptanceAcknowledgementAuthority(t, ctx, authority, plan, attribution.AuthenticatedPrincipalID)
+	prepareAcceptanceExecutionScenario(t, filepath.Join(directory, "control.db"), scenario, stagedIntent, now)
 
 	providerRules := &acceptanceRules{current: r2retention.RuleSet{Rules: append([]r2retention.Rule(nil), allRules...)}}
 	providerObjects := &acceptanceObjects{}
@@ -356,18 +367,12 @@ func TestProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T) {
 		providerObjects.values = append(providerObjects.values, r2retention.Object{Key: object.Key, Digest: object.Digest, Bytes: object.Bytes})
 	}
 	providerProfile := &serverconfig.OffsiteBackup{Endpoint: "https://fixture.invalid", Bucket: "bucket-a", Prefix: "critical", ParentReferenceID: "parent-a", ParentFingerprint: d, ObserverReferenceID: "observer-a", LockAdminReferenceID: "lock-admin", LockAdminFingerprint: credentialFingerprint(lockSecret), RetentionReferenceID: "retention", RetentionFingerprint: credentialFingerprint(retentionSecret)}
-	parentValue, _ := credentialref.NewValue(retentionSecret)
-	repositoryValue, _ := credentialref.NewValue(repositorySecret)
-	failingVerifier := &labsR2SurvivorVerifier{authority: authority, profile: providerProfile, local: &serverconfig.LocalBackup{ResticBinaryPath: "/opt/vsk/restic", CustodyPolicyPath: "/etc/vsk/custody.json"}, intent: stagedIntent, binding: adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: "restore-failure-run", StepID: "restore-failure-step", LeaseID: "restore-failure-lease", RecoveryEpoch: 0, MaximumExpiresAt: now.Add(time.Hour).Format(time.RFC3339)}, repository: store.NewOffsiteRetirementRepository(authority), inventory: acceptanceInventory{observation: backup.OffsiteInventoryObservation{InventoryDigest: good.OffsiteInventoryDigest, ObjectCount: int64(len(good.Objects)), ObjectBytes: good.ObjectBytes, Objects: append([]backup.OffsiteObject(nil), good.Objects...)}}, restore: func(context.Context, r2.RetirementSurvivorVerificationConfig, string) (backup.OffsiteSurvivorProof, error) {
-		return backup.OffsiteSurvivorProof{}, errors.New("hermetic isolated restore failed")
-	}, credentials: r2.S3Credentials{AccessKeyID: []byte("fixture-access"), SecretAccessKey: []byte("fixture-secret")}, parent: parentValue, repositoryKeys: map[string]*credentialref.Value{"key-good": repositoryValue}, prefix: "critical", clock: func() time.Time { return now }}
-	if _, err := failingVerifier.VerifyOffsiteSurvivor(ctx, good.SourcePointID); err == nil {
-		t.Fatal("isolated restore failure was accepted")
-	}
-	_ = failingVerifier.Close()
 	restoreCalls := 0
 	restore := func(_ context.Context, config r2.RetirementSurvivorVerificationConfig, pointID string) (backup.OffsiteSurvivorProof, error) {
 		restoreCalls++
+		if scenario == "restore-failure" {
+			return backup.OffsiteSurvivorProof{}, errors.New("hermetic isolated restore failed")
+		}
 		if config.Intent.IntentDigest != dryEnvelope.Data.IntentDigest || config.RepositoryKey == nil || pointID != good.SourcePointID {
 			return backup.OffsiteSurvivorProof{}, errors.New("isolated restore binding mismatch")
 		}
@@ -428,8 +433,76 @@ func TestProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T) {
 	}
 	stopServer()
 	serverErr := <-serverDone
-	if requestErr != nil || serverErr != nil || httpResponse == nil || httpResponse.StatusCode != http.StatusOK || !bytes.Contains(responseBody, []byte(`"status":"succeeded"`)) || len(providerObjects.values) != 0 || len(providerRules.current.Rules) != 5 || restoreCalls != 1 {
-		t.Fatalf("Operations.Run execute response=%v body=%s requestErr=%v serverErr=%v objects=%d rules=%d restores=%d", httpResponse, responseBody, requestErr, serverErr, len(providerObjects.values), len(providerRules.current.Rules), restoreCalls)
+	assertAcceptanceExecutionOutcome(t, filepath.Join(directory, "control.db"), scenario, httpResponse, responseBody, requestErr, serverErr, providerObjects, providerRules, restoreCalls)
+}
+
+func assertAcceptanceExecutionOutcome(t *testing.T, databasePath, scenario string, response *http.Response, body []byte, requestErr, serverErr error, objects *acceptanceObjects, rules *acceptanceRules, restoreCalls int) {
+	t.Helper()
+	type expected struct {
+		httpStatus, objects, rules, restores, leases, attempts, verified, uncertain int
+		status, code, runStatus                                                     string
+	}
+	want := map[string]expected{
+		"happy":           {http.StatusOK, 0, 5, 1, 1, 4, 1, 0, "succeeded", "", "succeeded"},
+		"missing-g008":    {http.StatusBadGateway, 1, 10, 0, 0, 0, 0, 0, "failed", generated.ErrorCodeExecutionFailed, "failed"},
+		"stale-revision":  {http.StatusConflict, 1, 10, 0, 0, 0, 0, 0, "failed", generated.ErrorCodePlanStale, ""},
+		"stale-epoch":     {http.StatusPreconditionFailed, 1, 10, 0, 0, 0, 0, 0, "failed", generated.ErrorCodePrerequisiteBlocked, ""},
+		"competing-claim": {http.StatusConflict, 1, 10, 0, 1, 0, 0, 0, "partial", generated.ErrorCodeRecoveryRequired, "partial"},
+		"restore-failure": {http.StatusConflict, 0, 5, 1, 1, 4, 0, 1, "partial", generated.ErrorCodeRecoveryRequired, "partial"},
+	}[scenario]
+	if requestErr != nil || serverErr != nil || response == nil || response.StatusCode != want.httpStatus || !bytes.Contains(body, []byte(`"status":"`+want.status+`"`)) || (want.code != "" && !bytes.Contains(body, []byte(`"code":"`+want.code+`"`))) || len(objects.values) != want.objects || len(rules.current.Rules) != want.rules || restoreCalls != want.restores {
+		t.Fatalf("scenario=%s response=%v body=%s requestErr=%v serverErr=%v objects=%d rules=%d restores=%d", scenario, response, body, requestErr, serverErr, len(objects.values), len(rules.current.Rules), restoreCalls)
+	}
+	database, err := sql.Open("sqlite3", "file:"+databasePath+"?mode=ro")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	var leases, attempts, verified, uncertain int
+	for query, destination := range map[string]*int{
+		`SELECT COUNT(*) FROM backup_offsite_retirement_leases`:                                          &leases,
+		`SELECT COUNT(*) FROM backup_offsite_retirement_attempts`:                                        &attempts,
+		`SELECT COUNT(*) FROM backup_offsite_retirement_receipts WHERE status='verified'`:                &verified,
+		`SELECT COUNT(*) FROM backup_offsite_retirement_receipts WHERE status IN ('uncertain','failed')`: &uncertain,
+	} {
+		if err := database.QueryRow(query).Scan(destination); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if leases != want.leases || attempts != want.attempts || verified != want.verified || uncertain != want.uncertain {
+		t.Fatalf("scenario=%s durable state leases=%d attempts=%d verified=%d uncertain=%d", scenario, leases, attempts, verified, uncertain)
+	}
+	var runStatus string
+	err = database.QueryRow(`SELECT status FROM plan_runs ORDER BY created_at DESC LIMIT 1`).Scan(&runStatus)
+	if want.runStatus == "" {
+		if !errors.Is(err, sql.ErrNoRows) {
+			t.Fatalf("scenario=%s unexpected durable run status=%s err=%v", scenario, runStatus, err)
+		}
+	} else if err != nil || runStatus != want.runStatus {
+		t.Fatalf("scenario=%s durable run status=%s want=%s err=%v", scenario, runStatus, want.runStatus, err)
+	}
+}
+
+func prepareAcceptanceExecutionScenario(t *testing.T, databasePath, scenario string, intent store.OffsiteRetirementIntent, now time.Time) {
+	t.Helper()
+	if scenario != "stale-revision" && scenario != "stale-epoch" && scenario != "competing-claim" {
+		return
+	}
+	database, err := sql.Open("sqlite3", "file:"+databasePath+"?mode=rw")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	switch scenario {
+	case "stale-revision":
+		_, err = database.Exec(`UPDATE system_meta SET state_revision=state_revision+1 WHERE id=1`)
+	case "stale-epoch":
+		_, err = database.Exec(`UPDATE system_meta SET recovery_epoch=recovery_epoch+1 WHERE id=1`)
+	case "competing-claim":
+		_, err = database.Exec(`INSERT INTO backup_offsite_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,recovery_epoch,maximum_expires_at,acquired_at) VALUES('retirement-competing',?,'competing-run','competing-step','competing-executor-lease','ack-retirement-a','human-a',0,?,?)`, intent.IntentID, now.Add(20*time.Minute).Format(time.RFC3339), now.Format(time.RFC3339))
+	}
+	if err != nil {
+		t.Fatalf("prepare %s: %v", scenario, err)
 	}
 }
 
@@ -437,7 +510,7 @@ func TestProductionOffsiteRetirementHTTPCompositionAcceptance(t *testing.T) {
 // human-owned run that precede retirement. The retirement lease, provider
 // journal, survivor proofs, and settlement remain production-created by the
 // execution under test; none of those records are synthesized here.
-func seedAcceptanceGate(t *testing.T, databasePath string, intent store.OffsiteRetirementIntent, bundle generated.GateEvidenceBundle, bundleBytes []byte, bundleDigest string, attribution audit.Attribution, now time.Time) {
+func seedAcceptanceGate(t *testing.T, databasePath string, intent store.OffsiteRetirementIntent, bundle generated.GateEvidenceBundle, bundleBytes []byte, bundleDigest string, attribution audit.Attribution, now, expiresAt time.Time) {
 	t.Helper()
 	database, err := sql.Open("sqlite3", "file:"+databasePath+"?mode=rw")
 	if err != nil {
@@ -445,7 +518,7 @@ func seedAcceptanceGate(t *testing.T, databasePath string, intent store.OffsiteR
 	}
 	t.Cleanup(func() { _ = database.Close() })
 	d := "sha256:" + strings.Repeat("a", 64)
-	evidence := generated.GateEvidence{Schema: generated.SchemaIDGateEvidence, SchemaVersion: "1.1.0", EvidenceID: "owner-proof", GateID: "G-008", SubjectID: intent.BucketID, DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ReleaseBuildID: "test-build", ToolVersion: "1.0.0", ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "policy-a", PolicyVersion: "1.0.0", DeclarationID: "gate-declaration", DeclarationRevision: 1, StateRevision: intent.StateRevision, SourceKind: "local", ProofClass: "live", CollectorID: bundle.CollectorID, HumanID: attribution.AuthenticatedPrincipalID, ArtifactDigest: d, BundleDigest: bundleDigest, ObservedAt: bundle.ObservedAt, AppliedAt: now.Add(-30 * time.Second).Format(time.RFC3339), ExpiresAt: now.Add(time.Hour).Format(time.RFC3339), RecoveryEpoch: 0, Status: "applied"}
+	evidence := generated.GateEvidence{Schema: generated.SchemaIDGateEvidence, SchemaVersion: "1.1.0", EvidenceID: "owner-proof", GateID: "G-008", SubjectID: intent.BucketID, DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ReleaseBuildID: "test-build", ToolVersion: "1.0.0", ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "policy-a", PolicyVersion: "1.0.0", DeclarationID: "gate-declaration", DeclarationRevision: 1, StateRevision: intent.StateRevision, SourceKind: "local", ProofClass: "live", CollectorID: bundle.CollectorID, HumanID: attribution.AuthenticatedPrincipalID, ArtifactDigest: d, BundleDigest: bundleDigest, ObservedAt: bundle.ObservedAt, AppliedAt: now.Add(-30 * time.Second).Format(time.RFC3339), ExpiresAt: expiresAt.Format(time.RFC3339), RecoveryEpoch: 0, Status: "applied"}
 	evidenceBytes, err := json.Marshal(evidence)
 	contractErr := generated.ValidateContractJSON(generated.SchemaIDGateEvidence, evidenceBytes, generated.ContractExact)
 	if err != nil || contractErr != nil {

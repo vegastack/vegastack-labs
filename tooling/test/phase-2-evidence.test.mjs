@@ -132,7 +132,7 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.equal(manifest.contract.reviewedWaves[24].issue, 118);
   assert.deepEqual(manifest.contract.reviewedWaves[24].commands, ["backup offsite-retirement dry-run", "backup offsite-retirement stage"]);
   assert.deepEqual(manifest.contract.reviewedWaves[24].imports, ["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]);
-  assert.equal(manifest.contract.reviewedWaves[24].mutationBoundaryDigest, "sha256:89295dc0a417101da03c8305f127cd0d61ed1aab67edce2fb7c31c311b57ddd2");
+  assert.equal(manifest.contract.reviewedWaves[24].mutationBoundaryDigest, "sha256:56b54092ad210c8cc6446d2c756c1df8cde6774f09c9a972344915e52ebb8c9b");
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[24].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
