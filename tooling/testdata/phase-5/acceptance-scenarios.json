@@ -927,7 +927,7 @@
       "ownerIssue": 111,
       "seam": "suite",
       "kind": "go-test",
-      "path": "internal/run/phase5_acceptance_linux_test.go",
+      "path": "internal/store/phase5_acceptance_linux_test.go",
       "selector": "TestPhase5AcceptanceSeededConcurrency",
       "environment": "built-linux",
       "proofClass": "fixture",

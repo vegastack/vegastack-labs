@@ -146,7 +146,7 @@ export const REQUIRED_PHASE5_SCENARIOS = Object.freeze([
   requiredScenario("suite.no-hidden-quarantine", "5.10", 111, "suite", "node-test",
     "tooling/test/phase-5-acceptance.test.mjs", "Phase 5 acceptance rejects a weakened, reordered, skipped, or falsely live scenario", "fixture", "closed"),
   requiredScenario("suite.deterministic-repeat", "5.10", 111, "suite", "go-test",
-    "internal/run/phase5_acceptance_linux_test.go", "TestPhase5AcceptanceSeededConcurrency", "built-linux", "deterministic", 3, "phase5-concurrency-v1"),
+    "internal/store/phase5_acceptance_linux_test.go", "TestPhase5AcceptanceSeededConcurrency", "built-linux", "deterministic", 3, "phase5-concurrency-v1"),
 ]);
 const REQUIRED_PHASE5_SCENARIO_ID_SET = new Set(REQUIRED_PHASE5_SCENARIOS.map(({ id }) => id));
 
