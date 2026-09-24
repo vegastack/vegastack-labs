@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
+	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/recovery"
@@ -64,9 +65,17 @@ type localRecoveryCanaryBackup struct {
 	authority *store.Store
 	restores  *store.RestoreRepository
 	backups   *store.BackupRepository
-	adapter   *localbackup.Adapter
-	borrower  recoveryCredentialBorrower
+	adapter   recoveryCanaryBackupAdapter
+	borrower  recoveryCanaryCredentialBorrower
 	clock     func() time.Time
+}
+
+type recoveryCanaryBackupAdapter interface {
+	CreateAndVerifyRecoveryCanaryBackup(context.Context, localbackup.RecoveryCanaryBackupRequest, string, *credentialref.Value) (string, string, error)
+}
+
+type recoveryCanaryCredentialBorrower interface {
+	BorrowRecoveryCanaryCredential(context.Context, localbackup.RecoveryCredentialRequest, int64) (*credentialref.Value, error)
 }
 
 type unavailableRecoveryCanaryBackup struct{}

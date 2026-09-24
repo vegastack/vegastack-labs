@@ -40,15 +40,18 @@ import (
 var productionDatabasePath = "/var/lib/vsk-labs/control.db"
 
 type Operations struct {
-	build               result.BuildInfo
-	requestIDs          result.RequestIDSource
-	openStore           func(context.Context, store.Config) (*store.Store, error)
-	databasePath        string
-	platformProbe       PlatformProbe
-	identityHTTPClient  *http.Client
-	offsiteEffect       OffsiteEffectFactory
-	recoveryCanaryPorts RecoveryCanaryPortFactory
-	newAdapterRegistry  func() *adapter.Registry
+	build                 result.BuildInfo
+	requestIDs            result.RequestIDSource
+	openStore             func(context.Context, store.Config) (*store.Store, error)
+	databasePath          string
+	platformProbe         PlatformProbe
+	identityHTTPClient    *http.Client
+	offsiteEffect         OffsiteEffectFactory
+	recoveryCanaryPorts   RecoveryCanaryPortFactory
+	recoveryCanaryBackup  func(*store.Store, *store.RestoreRepository, *store.BackupRepository, *localbackup.Adapter, recoveryCredentialBorrower, func() time.Time) recovery.RecoveryBackupCreator
+	recoveryFormerWriter  func(*store.RestoreRepository, recovery.ExactFenceRefresher) recovery.FormerWriterVerifier
+	recoveryCanaryObserve func(recovery.CanaryVerifier)
+	newAdapterRegistry    func() *adapter.Registry
 }
 
 type OffsiteEffectFactory func(context.Context, serverconfig.Profile, *store.Store) (adapter.Adapter, error)
@@ -81,7 +84,16 @@ func NewOperations(build result.BuildInfo, requestIDs result.RequestIDSource, op
 			return nil, nil
 		},
 		recoveryCanaryPorts: systemRecoveryCanaryPortFactory(),
-		newAdapterRegistry:  productionAdapterRegistry,
+		recoveryCanaryBackup: func(authority *store.Store, restores *store.RestoreRepository, backups *store.BackupRepository, local *localbackup.Adapter, borrower recoveryCredentialBorrower, clock func() time.Time) recovery.RecoveryBackupCreator {
+			if local == nil {
+				return unavailableRecoveryCanaryBackup{}
+			}
+			return &localRecoveryCanaryBackup{authority: authority, restores: restores, backups: backups, adapter: local, borrower: borrower, clock: clock}
+		},
+		recoveryFormerWriter: func(restores *store.RestoreRepository, fences recovery.ExactFenceRefresher) recovery.FormerWriterVerifier {
+			return recovery.FreshFormerWriterCanary{Restores: restores, Fences: fences}
+		},
+		newAdapterRegistry: productionAdapterRegistry,
 	}
 	for _, option := range options {
 		if option != nil {
@@ -400,17 +412,17 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	backupCreator := recovery.RecoveryBackupCreator(unavailableRecoveryCanaryBackup{})
-	if recoveryBackupAdapter != nil {
-		backupCreator = &localRecoveryCanaryBackup{authority: authority, restores: restoreRepository, backups: backupRepository, adapter: recoveryBackupAdapter, borrower: recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}, clock: time.Now}
-	}
+	backupCreator := operations.recoveryCanaryBackup(authority, restoreRepository, backupRepository, recoveryBackupAdapter, recoveryCredentialBorrower{references: credentialRepository, profiles: gateRepository, revisions: planRepository, resolvers: adapters}, time.Now)
 	canaryBackup = recovery.CurrentEpochBackupCanary{Creator: backupCreator, Reader: backupRepository}
 	restoreCanary := recovery.CanaryVerifier{
 		Read: restoreStoreCanary, OldEpoch: restoreStoreCanary,
 		Noop: recovery.BoundCanaryNoop{Restores: restoreRepository, Core: coreRouter, Recorder: authority}, Audit: canaryAudit, Backup: canaryBackup,
-		FormerWriter: recovery.FreshFormerWriterCanary{Restores: restoreRepository, Fences: restoreFences.Execution},
+		FormerWriter: operations.recoveryFormerWriter(restoreRepository, restoreFences.Execution),
 		Enable:       restoreStoreCanary,
 		Clock:        time.Now,
+	}
+	if operations.recoveryCanaryObserve != nil {
+		operations.recoveryCanaryObserve(restoreCanary)
 	}
 	restoreService, err := recovery.NewOperationsService(recovery.OperationsConfig{
 		Sources: recovery.SourceVerifier{Local: backupRepository, Snapshots: restoreSnapshotResolver, Compatibility: restoreCompatibility, Audit: restoreAudit, Clock: time.Now}, Continuity: recovery.ContinuityResolver{}, Fences: restoreFences,
