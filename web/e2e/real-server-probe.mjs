@@ -86,8 +86,9 @@ try {
   if (await page.getByRole("main", { name: "Overview" }).evaluate(element => element !== document.activeElement)) throw new Error("skip-link focus recovery failed");
 
   stage = "routes";
-  const routes = [["/nodes", "Nodes"], ["/gates", "Gates"], ["/people", "People"], ["/services", "Services"], ["/backups", "Backups"], ["/providers", "Providers"]];
+  const routes = [["/nodes", "Nodes"], ["/gates", "Gates"], ["/people", "People"], ["/services", "Services"], ["/backups", "Backups and recovery"], ["/providers", "Providers"]];
   for (const [route, heading] of routes) {
+    stage = `route-${route.slice(1)}`;
     await page.goto(`${baseURL}${route}`, { waitUntil: "networkidle" });
     await page.getByRole("heading", { name: heading, exact: true }).waitFor();
     if (route === "/providers") await page.locator('[data-read-state="unavailable"]').waitFor();
