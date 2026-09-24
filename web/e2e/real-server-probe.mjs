@@ -187,7 +187,7 @@ try {
     });
     stage = "mobile-navigation";
     await mobile.goto(`${baseURL}/backups`, { waitUntil: "networkidle" });
-    await mobile.getByRole("heading", { name: "Backups", exact: true }).waitFor();
+    await mobile.getByRole("heading", { name: "Backups and recovery", exact: true }).waitFor();
     stage = "mobile-reflow";
     const layout = await mobile.evaluate(() => ({ width: document.documentElement.scrollWidth, viewport: window.innerWidth }));
     if (layout.width > layout.viewport) throw new Error("mobile reflow failed");
