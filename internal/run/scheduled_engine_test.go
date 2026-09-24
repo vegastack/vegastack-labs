@@ -149,3 +149,22 @@ func TestScheduledEngineFailsClosedWithoutAdmissionOrAdapter(t *testing.T) {
 		t.Fatalf("changed prerequisite run=%#v calls=%d effects=%d code=%q err=%v", failed, admission.calls, implementation.calls, Code(err), err)
 	}
 }
+
+func TestScheduledAdmissionSelectsOccurrencesButNotPolicyActivation(t *testing.T) {
+	now := time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC)
+	admission := &scheduledAdmissionProbe{}
+	engine := &Engine{scheduled: admission, clock: func() time.Time { return now }}
+	plan := generated.Plan{AuthorizationBranch: "human", ExecutorMode: "central", Operations: []generated.PlanOperation{{AdapterID: "core.schedule", OperationType: "schedule.policy.activate"}}, Extensions: []generated.ContractExtension{{Name: "x-scheduled-policy", ValueDigest: digest("policy")}}}
+	if err := engine.validateScheduled(context.Background(), plan); err != nil || admission.calls != 0 {
+		t.Fatalf("policy activation entered occurrence admission: calls=%d err=%v", admission.calls, err)
+	}
+	plan.AuthorizationBranch = "preauthorized"
+	if err := engine.validateScheduled(context.Background(), plan); Code(err) != generated.ErrorCodeAuthorizationDenied || admission.calls != 0 {
+		t.Fatalf("preauthorized policy-only plan admitted: calls=%d err=%v", admission.calls, err)
+	}
+	plan.AuthorizationBranch = "human"
+	plan.Extensions = append(plan.Extensions, generated.ContractExtension{Name: "x-scheduled-occurrence", ValueDigest: digest("occurrence")})
+	if err := engine.validateScheduled(context.Background(), plan); err != nil || admission.calls != 1 {
+		t.Fatalf("occurrence skipped scheduled admission: calls=%d err=%v", admission.calls, err)
+	}
+}

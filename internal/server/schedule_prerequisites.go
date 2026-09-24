@@ -105,7 +105,7 @@ func (reader schedulePrerequisiteReader) Current(ctx context.Context, requiremen
 			}
 		case "applicable-gate-current":
 			profile, readErr := reader.gates.GetAppliedProfileScope(ctx)
-			if readErr == nil && profile.RecoveryEpoch == requirement.RecoveryEpoch {
+			if readErr == nil && profile.RecoveryEpoch == requirement.RecoveryEpoch && profile.PolicyVersion == policy.PolicyVersion && profile.StateRevision <= policy.StateRevision {
 				current, oldest := true, now
 				for _, gateID := range policy.ExactSourceIDs {
 					evidence, evidenceErr := reader.gates.ListCurrentAppliedGateEvidence(ctx, gateID, requirement.SubjectID)

@@ -715,17 +715,29 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 }
 
 func (engine *Engine) validateScheduled(ctx context.Context, plan generated.Plan) error {
-	occurrenceBound := false
+	policyBound, occurrenceBound := false, false
 	for _, extension := range plan.Extensions {
-		if extension.Name == "x-scheduled-occurrence" {
+		switch extension.Name {
+		case "x-scheduled-policy":
+			policyBound = true
+		case "x-scheduled-occurrence":
 			occurrenceBound = true
 		}
 	}
+	if !policyBound && !occurrenceBound {
+		return nil
+	}
 	// A human-authorized schedule.policy.activate plan carries the policy
 	// digest but no occurrence. It must execute before that policy can become
-	// scheduled authority, so only an occurrence binding selects this gate.
-	if !occurrenceBound {
-		return nil
+	// scheduled authority. Every other partial scheduled binding fails closed.
+	if policyBound && !occurrenceBound {
+		if plan.AuthorizationBranch == "human" && plan.ExecutorMode == "central" && len(plan.Operations) == 1 && plan.Operations[0].AdapterID == "core.schedule" && plan.Operations[0].OperationType == "schedule.policy.activate" {
+			return nil
+		}
+		return runError(generated.ErrorCodeAuthorizationDenied, "scheduled-plan-binding")
+	}
+	if !policyBound {
+		return runError(generated.ErrorCodeAuthorizationDenied, "scheduled-plan-binding")
 	}
 	if engine.scheduled == nil {
 		return runError(generated.ErrorCodePrerequisiteBlocked, "scheduled-admission-unavailable")

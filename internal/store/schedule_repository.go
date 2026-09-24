@@ -419,6 +419,12 @@ func (repository *ScheduleRepository) ValidateScheduledPlan(ctx context.Context,
 		if operation.Sequence != int64(index+1) || operation.OperationType != action.OperationType || operation.AdapterID != action.AdapterID || operation.TargetID != action.TargetIDs[index] || !operation.Idempotent {
 			return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-operation-binding")
 		}
+		if policy.ActionKind == "backup-integrity-verify" {
+			point, pointErr := NewBackupRepository(repository.store).GetPendingRecoveryPoint(ctx, operation.TargetID)
+			if pointErr != nil || point.PolicyDigest != policy.RetentionRuleDigest || point.RecoveryEpoch != policy.RecoveryEpoch || operation.InputDigest != point.ManifestDigest || operation.ArtifactDigest != point.InventoryDigest {
+				return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-backup-point-binding")
+			}
+		}
 		if !scheduledOperationDigests(policy, plan.Extensions, operation) {
 			return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-operation-digest")
 		}
@@ -439,9 +445,9 @@ func scheduledOperationDigests(policy generated.ScheduledJobPolicy, extensions [
 	case "gate-check", "observation-refresh":
 		return operation.InputDigest == policy.RetentionRuleDigest && operation.ArtifactDigest == policy.RetentionRuleDigest
 	case "backup-create":
-		return extension("x-backup-policy") == policy.RetentionRuleDigest && operation.ArtifactDigest == policy.RetentionRuleDigest
+		return extension("x-backup-policy") == policy.RetentionRuleDigest && operation.InputDigest == policy.RetentionRuleDigest && operation.ArtifactDigest == policy.RetentionRuleDigest
 	case "backup-integrity-verify":
-		return extension("x-backup-policy") == policy.RetentionRuleDigest && operation.InputDigest != "" && operation.ArtifactDigest != ""
+		return extension("x-backup-policy") == policy.RetentionRuleDigest
 	case "audit-checkpoint-export":
 		checkpoint := extension("x-audit-checkpoint")
 		return checkpoint != "" && operation.InputDigest == checkpoint && operation.ArtifactDigest == checkpoint
