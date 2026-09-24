@@ -19,6 +19,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
+	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -120,6 +121,8 @@ type durableScheduleFixture struct {
 	policy           generated.ScheduledJobPolicy
 	policyDigest     string
 	backupDigest     string
+	repositoryID     string
+	repositoryClass  string
 	point            store.PendingRecoveryPoint
 	authorizer       *durableScheduleAuthorizer
 	prerequisites    *schedulePrerequisiteReader
@@ -136,6 +139,10 @@ func scheduleTestDigest(value string) string {
 }
 
 func newDurableScheduleFixture(t *testing.T, action string) *durableScheduleFixture {
+	return newDurableScheduleFixtureWithRepository(t, action, backupidentity.StandardRepository, "standard")
+}
+
+func newDurableScheduleFixtureWithRepository(t *testing.T, action, repositoryID, repositoryClass string) *durableScheduleFixture {
 	t.Helper()
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
@@ -150,7 +157,7 @@ func newDurableScheduleFixture(t *testing.T, action string) *durableScheduleFixt
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = authority.Close() })
-	fixture := &durableScheduleFixture{t: t, ctx: ctx, now: now, path: path, authority: authority, plans: store.NewPlanRepository(authority), policies: store.NewScheduleRepository(authority), backups: store.NewBackupRepository(authority), credentials: store.NewCredentialRepository(authority), acknowledgements: store.NewAcknowledgementRepository(authority), attribution: audit.Attribution{AuthenticatedPrincipalID: "human-109", AuthenticatedPrincipalMethod: "local-os-peer"}}
+	fixture := &durableScheduleFixture{t: t, ctx: ctx, now: now, path: path, authority: authority, repositoryID: repositoryID, repositoryClass: repositoryClass, plans: store.NewPlanRepository(authority), policies: store.NewScheduleRepository(authority), backups: store.NewBackupRepository(authority), credentials: store.NewCredentialRepository(authority), acknowledgements: store.NewAcknowledgementRepository(authority), attribution: audit.Attribution{AuthenticatedPrincipalID: "human-109", AuthenticatedPrincipalMethod: "local-os-peer"}}
 	fixture.seedBackupPolicy()
 	fixture.activateSchedulePolicy(action)
 	if action == "backup-create" || action == "backup-integrity-verify" {
@@ -168,8 +175,8 @@ func newDurableScheduleFixture(t *testing.T, action string) *durableScheduleFixt
 }
 
 func (fixture *durableScheduleFixture) seedBackupPolicy() {
-	repositoryID, encryption, recoveryKey := backupidentity.StandardRepository, "enc-a", "recovery-a"
-	policy := generated.BackupPolicy{Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0", PolicyID: "policy-a", OwnerID: "owner-a", SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: "sqlite-online", RepositoryID: &repositoryID, RepositoryClass: "standard", ScheduleIntent: "daily", ExpectedBytes: 1024, ExpectedGrowthBytes: 1, MinimumFreeBytes: 1, EncryptionKeyReferenceID: &encryption, RecoveryKeyReferenceID: &recoveryKey, RetentionDays: 14, RestoreTargetID: "restore-a", Dependencies: []generated.BackupDependency{}, FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 24, RecoveryEpoch: 0, Revision: 1}
+	repositoryID, encryption, recoveryKey := fixture.repositoryID, "enc-a", "recovery-a"
+	policy := generated.BackupPolicy{Schema: generated.SchemaIDBackupPolicy, SchemaVersion: "1.2.0", PolicyID: "policy-a", OwnerID: "owner-a", SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, ConsistencyHookID: "sqlite-online", RepositoryID: &repositoryID, RepositoryClass: fixture.repositoryClass, ScheduleIntent: "daily", ExpectedBytes: 1024, ExpectedGrowthBytes: 1, MinimumFreeBytes: 1, EncryptionKeyReferenceID: &encryption, RecoveryKeyReferenceID: &recoveryKey, RetentionDays: 14, RestoreTargetID: "restore-a", Dependencies: []generated.BackupDependency{}, FunctionalTestRequired: true, FullPayloadIntervalHours: 24, FunctionalTestIntervalHours: 24, RecoveryEpoch: 0, Revision: 1}
 	_, sum, err := stateexport.CanonicalJSON(policy)
 	if err != nil {
 		fixture.t.Fatal(err)
@@ -257,11 +264,46 @@ func (fixture *durableScheduleFixture) activateSchedulePolicy(action string) {
 }
 
 func (fixture *durableScheduleFixture) seedRecoveryQualification() {
-	point, receipt := seedAcceptancePointAtRevision(fixture.t, fixture.ctx, fixture.backups, fixture.backupDigest, "point-a", 0, fixture.now, 3, backupidentity.StandardRepository, "standard")
+	point, receipt := seedAcceptancePointAtRevision(fixture.t, fixture.ctx, fixture.backups, fixture.backupDigest, "point-a", 0, fixture.now, 3, fixture.repositoryID, fixture.repositoryClass)
 	if err := fixture.backups.AdvanceLocalLastGood(fixture.ctx, receipt, store.RevisionToken{StateRevision: 3, RecoveryEpoch: 0}, ""); err != nil {
 		fixture.t.Fatal(err)
 	}
 	fixture.point = point
+}
+
+func (fixture *durableScheduleFixture) seedStaleCriticalOffsiteProof() {
+	fixture.t.Helper()
+	generation := acceptanceGeneration("generation-stale-109", fixture.point.PointID, "offsite-key-109", fixture.point, fixture.now)
+	generation.StateRevision = 2
+	appendAcceptanceGeneration(fixture.t, fixture.ctx, store.NewOffsiteRepository(fixture.authority), generation)
+	observed := fixture.now.Add(-time.Minute)
+	proof := backup.OffsiteProof{
+		ProofID: "proof-stale-109", Status: backup.OffsiteStatusVerified, ProofClass: backup.OffsiteProofQualified,
+		SourcePointID: generation.SourcePointID, SourceSnapshotID: generation.SourceSnapshotID, SourceManifestDigest: generation.SourceManifestDigest,
+		SourceInventoryDigest: generation.SourceInventoryDigest, SourceContentDigest: generation.SourceContentDigest, SourceDependencyDigest: generation.SourceDependencyDigest,
+		SourceResticDigest: generation.SourceResticDigest, KeyReferenceID: generation.KeyReferenceID, GenerationID: generation.GenerationID, RepositoryID: generation.RepositoryID,
+		OffsiteSnapshotID: generation.OffsiteSnapshotID, OffsiteInventoryDigest: generation.OffsiteInventoryDigest, RuleDigest: generation.RuleDigest,
+		SourceRevision: generation.SourceRevision, StateRevision: generation.StateRevision, RecoveryEpoch: generation.RecoveryEpoch, ObjectCount: generation.ObjectCount, ObjectBytes: generation.ObjectBytes,
+		FullReadAt: observed, ObservedAt: observed,
+		Seal: backup.WriterSealProof{GenerationID: generation.GenerationID, ProofClass: backup.OffsiteProofQualified, IssuanceStoppedAt: generation.IssuanceStoppedAt, LastSessionExpiresAt: generation.SessionExpiries[0], ObservedAt: observed, ChildExited: true, IssuanceStopped: true, NewPUTDenied: true, MultipartCompletionDenied: true},
+	}
+	proof.ProofDigest = backup.DigestOffsiteProof(proof)
+	body, err := json.Marshal(proof)
+	if err != nil || backup.ValidateOffsiteProof(generation, proof) != nil {
+		fixture.t.Fatalf("stale offsite proof fixture invalid: %v", err)
+	}
+	offsite := store.NewOffsiteRepository(fixture.authority)
+	if err := offsite.AppendProof(fixture.ctx, store.OffsiteProofRecord{ProofID: proof.ProofID, ProofDigest: proof.ProofDigest, GenerationID: proof.GenerationID, Status: proof.Status, ProofClass: proof.ProofClass, CanonicalJSON: body, FullReadAt: proof.FullReadAt, ObservedAt: proof.ObservedAt, RecoveryEpoch: proof.RecoveryEpoch}); err != nil {
+		fixture.t.Fatal(err)
+	}
+	database, err := sql.Open("sqlite3", fixture.path)
+	if err != nil {
+		fixture.t.Fatal(err)
+	}
+	defer database.Close()
+	if _, err := database.ExecContext(fixture.ctx, `INSERT INTO backup_offsite_last_good_history(proof_id,generation_id,source_revision,state_revision,recovery_epoch,advanced_at) VALUES(?,?,?,?,?,?)`, proof.ProofID, generation.GenerationID, generation.SourceRevision, generation.StateRevision, generation.RecoveryEpoch, fixture.now.Format(time.RFC3339)); err != nil {
+		fixture.t.Fatal(err)
+	}
 }
 
 func (fixture *durableScheduleFixture) seedCredentialAndGrant() {
@@ -564,5 +606,38 @@ func TestScheduledBackupDurableAdmissionRejectsHostilePlanBindings(t *testing.T)
 				t.Fatalf("hostile verify %s digest admitted: effects=%d err=%v", field, fixture.adapter.calls, err)
 			}
 		})
+	}
+}
+
+func TestScheduledCriticalBackupRejectsStaleDurableOffsiteProofBeforeEffect(t *testing.T) {
+	fixture := newDurableScheduleFixtureWithRepository(t, "backup-create", backupidentity.CriticalRepository, "critical")
+	fixture.seedStaleCriticalOffsiteProof()
+	plan, decision, _ := fixture.planOccurrence()
+	run, err := fixture.submit(plan, decision, "stale-critical-offsite")
+	if err == nil || run.Status == "succeeded" || fixture.adapter.calls != 0 {
+		t.Fatalf("stale critical offsite proof reached effect: run=%+v adapter=%d err=%v", run, fixture.adapter.calls, err)
+	}
+}
+
+func TestScheduledAuditPrerequisiteUnavailableFailsClosedWithDurableDependencies(t *testing.T) {
+	fixture := newDurableScheduleFixture(t, "backup-create")
+	policy := fixture.policy
+	policy.ActionKind = "audit-checkpoint-export"
+	policy.OperationType = "audit.checkpoint.anchor"
+	policy.AdapterID = "core.audit"
+	policy.ExactSourceIDs = []string{"checkpoint-109"}
+	policy.ExactSubjectIDs = []string{"audit-chain"}
+	policy.ExactTargetIDs = []string{"instance-109"}
+	policy.CredentialReferenceIDs = []string{"signer-109"}
+	if _, _, err := schedule.CanonicalPolicy(policy); err != nil {
+		t.Fatalf("complete audit policy invalid: %v", err)
+	}
+	reader := schedulePrerequisiteReader{authority: fixture.authority, policies: fixture.policies, gates: store.NewGateRepository(fixture.authority), backups: fixture.backups, offsite: recovery.SQLOffsiteSourceReader{Local: fixture.backups, Offsite: store.NewOffsiteRepository(fixture.authority)}, clock: func() time.Time { return fixture.now }, backupReady: true, auditReady: false}
+	statuses, err := reader.Current(fixture.ctx, schedule.Requirements(policy))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := schedule.RequireCurrent(schedule.Requirements(policy), statuses, fixture.now); err == nil || fixture.adapter.calls != 0 {
+		t.Fatalf("unavailable audit authority admitted: statuses=%+v adapter=%d", statuses, fixture.adapter.calls)
 	}
 }
