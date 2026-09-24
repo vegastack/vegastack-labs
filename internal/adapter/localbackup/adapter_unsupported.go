@@ -48,6 +48,7 @@ type RecoveryCanaryBackupRequest struct {
 	PlanID, PlanDigest, RunID, StepID, LeaseID       string
 	StateRevision, PriorRecoveryEpoch, RecoveryEpoch int64
 	MaximumExpiresAt                                 time.Time
+	Plan                                             generated.Plan
 }
 
 func (*Adapter) CreateAndVerifyRecoveryCanaryBackup(context.Context, RecoveryCanaryBackupRequest, string, *credentialref.Value) (string, string, error) {

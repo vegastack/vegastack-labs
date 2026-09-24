@@ -286,15 +286,65 @@ func phase5Race(t *testing.T, repeat, family, writers int, operation func(int) (
 
 func requirePhase5ConcurrencyEnvironment(t *testing.T) int {
 	t.Helper()
-	if got := os.Getenv("VSK_PHASE5_SEED"); got != phase5ConcurrencySeed {
-		t.Fatalf("VSK_PHASE5_SEED=%q, want %q", got, phase5ConcurrencySeed)
+	seed, seedSet := os.LookupEnv("VSK_PHASE5_SEED")
+	raw, repeatSet := os.LookupEnv("VSK_PHASE5_REPEAT")
+	run, repeat, err := phase5ConcurrencyEnvironment(seed, seedSet, raw, repeatSet)
+	if err != nil {
+		t.Fatal(err)
 	}
-	raw := os.Getenv("VSK_PHASE5_REPEAT")
-	repeat, err := strconv.Atoi(raw)
-	if err != nil || repeat < 0 || repeat > 63 || strconv.Itoa(repeat) != raw {
-		t.Fatalf("invalid VSK_PHASE5_REPEAT=%q", raw)
+	if !run {
+		t.Skip("Phase 5 seeded concurrency runs only through the acceptance catalog")
 	}
 	return repeat
+}
+
+func phase5ConcurrencyEnvironment(seed string, seedSet bool, raw string, repeatSet bool) (bool, int, error) {
+	if !seedSet && !repeatSet {
+		return false, 0, nil
+	}
+	if !seedSet || !repeatSet {
+		return false, 0, fmt.Errorf("VSK_PHASE5_SEED and VSK_PHASE5_REPEAT must be set together")
+	}
+	if seed != phase5ConcurrencySeed {
+		return false, 0, fmt.Errorf("VSK_PHASE5_SEED=%q, want %q", seed, phase5ConcurrencySeed)
+	}
+	repeat, err := strconv.Atoi(raw)
+	if err != nil || repeat < 0 || repeat > 63 || strconv.Itoa(repeat) != raw {
+		return false, 0, fmt.Errorf("invalid VSK_PHASE5_REPEAT=%q", raw)
+	}
+	return true, repeat, nil
+}
+
+func TestPhase5ConcurrencyEnvironment(t *testing.T) {
+	tests := []struct {
+		name      string
+		seed      string
+		seedSet   bool
+		repeat    string
+		repeatSet bool
+		wantRun   bool
+		wantValue int
+		wantError bool
+	}{
+		{name: "generic go test skips"},
+		{name: "seed only fails", seed: phase5ConcurrencySeed, seedSet: true, wantError: true},
+		{name: "repeat only fails", repeat: "0", repeatSet: true, wantError: true},
+		{name: "wrong seed fails", seed: "wrong", seedSet: true, repeat: "0", repeatSet: true, wantError: true},
+		{name: "malformed repeat fails", seed: phase5ConcurrencySeed, seedSet: true, repeat: "01", repeatSet: true, wantError: true},
+		{name: "negative repeat fails", seed: phase5ConcurrencySeed, seedSet: true, repeat: "-1", repeatSet: true, wantError: true},
+		{name: "catalog environment runs", seed: phase5ConcurrencySeed, seedSet: true, repeat: "2", repeatSet: true, wantRun: true, wantValue: 2},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			run, value, err := phase5ConcurrencyEnvironment(test.seed, test.seedSet, test.repeat, test.repeatSet)
+			if (err != nil) != test.wantError {
+				t.Fatalf("error=%v, wantError=%t", err, test.wantError)
+			}
+			if run != test.wantRun || value != test.wantValue {
+				t.Fatalf("run=%t repeat=%d, want run=%t repeat=%d", run, value, test.wantRun, test.wantValue)
+			}
+		})
+	}
 }
 
 func assertAllPhase5Results(t *testing.T, results []phase5RaceResult, want string) {

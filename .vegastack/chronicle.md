@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 24-09-2026 — Phase 5 Linux acceptance now exercises the real recovery contracts ([#186](https://github.com/vegastack/vegastack-labs/issues/186))
+
+- **What:** The complete Go unit catalog can now run on the protected Debian filesystem and reaches the same exact recovery, custody, scheduling and credential contracts as production.
+- **Why:** The final Phase 5 exit exposed stale Linux fixtures, SQLite single-connection deadlocks and several exact-binding gaps that package-scoped macOS checks could not execute.
+- **How it went:** One narrow Debian diagnostic run grouped the failures by shared root. Fixture-only repairs preserved every denial, while the implementation corrections bound off-site objects to their exact generation, kept recovery transactions on the reserved SQLite connection, carried the validated recovered plan into the canary, and retained fail-closed startup behavior during recovery.
+- **Changed:** Linux-safe SQLite fixtures and protected temporary paths · current recovery-epoch bindings · exact off-site generation validation · reserved-connection recovery transactions · recovered-authority canary projection · deterministic store and schedule acceptance.
+- **Decisions:** none; the diagnostic workflow remains unmerged, live infrastructure was not used, and Phase 5 still requires its single exact-main exit proof.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/186-phase5-linux-unit-lane
+
 ## 24-09-2026 — Phase 5 has one closed hostile and recovery catalog ([#111](https://github.com/vegastack/vegastack-labs/issues/111))
 
 - **What:** One credential-free command binds every Phase 5 denial, recovery, concurrency, outage, surface and privacy claim to an exact real test selector and rejects missing, reordered, weakened, skipped, quarantined or falsely live proof.

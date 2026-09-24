@@ -104,7 +104,7 @@ func (creator *localRecoveryCanaryBackup) CreateRecoveryBackup(ctx context.Conte
 			return borrowErr
 		}
 		defer value.Close()
-		pointID, repositoryClass, prepareErr = creator.adapter.CreateAndVerifyRecoveryCanaryBackup(scoped, localbackup.RecoveryCanaryBackupRequest{PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: request.CanaryRunID, StepID: request.CanaryStepID, LeaseID: request.CanaryLeaseID, StateRevision: request.ExpectedStateRevision, PriorRecoveryEpoch: bundle.Binding.PriorRecoveryEpoch, RecoveryEpoch: request.RecoveryEpoch, MaximumExpiresAt: creator.clock().UTC().Add(10 * time.Minute)}, policyDigest, value)
+		pointID, repositoryClass, prepareErr = creator.adapter.CreateAndVerifyRecoveryCanaryBackup(scoped, localbackup.RecoveryCanaryBackupRequest{PlanID: request.PlanID, PlanDigest: request.PlanDigest, RunID: request.CanaryRunID, StepID: request.CanaryStepID, LeaseID: request.CanaryLeaseID, StateRevision: request.ExpectedStateRevision, PriorRecoveryEpoch: bundle.Binding.PriorRecoveryEpoch, RecoveryEpoch: request.RecoveryEpoch, MaximumExpiresAt: creator.clock().UTC().Add(10 * time.Minute), Plan: bundle.Plan}, policyDigest, value)
 		return prepareErr
 	})
 	return pointID, repositoryClass, err

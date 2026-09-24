@@ -28,7 +28,7 @@ func (store *Store) WriteRecoveredAuthorityBundle(ctx context.Context, bundle Re
 	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
-	tx, err := store.db.BeginTx(ctx, nil)
+	tx, err := store.conn.BeginTx(ctx, nil)
 	if err != nil {
 		return "", err
 	}

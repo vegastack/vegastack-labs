@@ -63,9 +63,19 @@ func TestReadRestoredAuditPositionRequiresIndependentAnchorAtHead(t *testing.T) 
 	key, verified := "key-a", time.Now().UTC().Format(time.RFC3339)
 	checkpoint := generated.AuditCheckpoint{Schema: generated.SchemaIDAuditCheckpoint, SchemaVersion: "1.1.0", CheckpointID: "checkpoint-a", FirstEventID: 1, LastEventID: 1, ChainDigest: digest, InstanceID: "instance-audit", FirstSegmentSequence: 1, LastSegmentSequence: 1, SignerReferenceID: "signer-a", SignerMaterialVersion: "version-a", SignatureDigest: &digest, PublicKeyID: &key, ExportReceiptDigest: &digest, IndependentReadDigest: &digest, Status: "anchored", ReasonCode: "independent-match", IndependentCopyDigest: &digest, SourceKind: "independent", ProofClass: "live", VerifiedAt: &verified, VerificationStatus: "verified", RecoveryEpoch: 0}
 	raw, _ := json.Marshal(checkpoint)
-	_, err = db.Exec(`CREATE TABLE audit_chain_links(event_id INTEGER PRIMARY KEY); CREATE TABLE audit_checkpoints(last_event_id INTEGER,status TEXT,independent_read_digest TEXT,canonical_bytes BLOB); INSERT INTO audit_chain_links VALUES(1); INSERT INTO audit_checkpoints VALUES(1,'anchored',?,?)`, digest, raw)
-	if err != nil {
-		t.Fatal(err)
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{query: `CREATE TABLE audit_chain_links(event_id INTEGER PRIMARY KEY)`},
+		{query: `CREATE TABLE audit_checkpoints(last_event_id INTEGER,status TEXT,independent_read_digest TEXT,canonical_bytes BLOB)`},
+		{query: `INSERT INTO audit_chain_links VALUES(1)`},
+		{query: `INSERT INTO audit_checkpoints VALUES(1,'anchored',?,?)`, args: []any{digest, raw}},
+	}
+	for _, statement := range statements {
+		if _, err = db.Exec(statement.query, statement.args...); err != nil {
+			t.Fatal(err)
+		}
 	}
 	if err = db.Close(); err != nil {
 		t.Fatal(err)

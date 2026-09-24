@@ -448,12 +448,33 @@ func (env *lifecycleAcceptanceEnv) enterRecoveryEpoch() {
 	if err := env.authority.PrepareRecoveryAuditEpoch(context.Background(), 1, audit.Fingerprint(lifecycleAcceptanceDigest("checkpoint")), audit.Fingerprint(lifecycleAcceptanceDigest("decision"))); err != nil {
 		env.t.Fatal(err)
 	}
+	if err := env.authority.Close(); err != nil {
+		env.t.Fatal(err)
+	}
 	db, err := sql.Open("sqlite3", env.path)
 	if err != nil {
 		env.t.Fatal(err)
 	}
-	defer db.Close()
 	if _, err := db.Exec(`UPDATE system_meta SET recovery_epoch=1 WHERE id=1`); err != nil {
+		_ = db.Close()
+		env.t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		env.t.Fatal(err)
+	}
+	authority, err := store.Open(context.Background(), store.Config{DatabasePath: env.path, Mode: store.OpenExisting, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "lifecycle-acceptance", BuildVersion: "lifecycle-acceptance", Clock: env.clock})
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	env.t.Cleanup(func() { _ = authority.Close() })
+	env.authority = authority
+	env.references, env.revisions = store.NewCredentialRepository(authority), store.NewPlanRepository(authority)
+	env.declarations, err = change.NewService(store.NewDeclarationRepository(authority), env.clock)
+	if err != nil {
+		env.t.Fatal(err)
+	}
+	env.lifecycle, err = api.NewCredentialLifecycleService(env.references, env.revisions, env.declarations, lifecycleAcceptanceAuthorizer{})
+	if err != nil {
 		env.t.Fatal(err)
 	}
 }

@@ -150,7 +150,11 @@ func (manager CandidateManager) PromoteAtStartup(ctx context.Context, expected S
 	if err != nil {
 		return PromotionResult{}, err
 	}
-	defer lock.Close()
+	defer func() {
+		if lock != nil {
+			_ = lock.Close()
+		}
+	}()
 	journal, err := manager.Storage.ReadTransitionJournal(ctx, paths, expected.JournalDigest)
 	if err != nil {
 		return PromotionResult{}, err
@@ -163,6 +167,14 @@ func (manager CandidateManager) PromoteAtStartup(ctx context.Context, expected S
 		if promotedErr := manager.Storage.VerifyPromoted(ctx, paths, expected); promotedErr != nil {
 			return PromotionResult{}, err
 		}
+		// The promoted database uses the same writer-lock path as this startup
+		// transition. Release the transition lock before the store opener takes
+		// that lock for semantic verification. A competing process that wins the
+		// handoff keeps this process fail-closed at Store.Open.
+		if closeErr := lock.Close(); closeErr != nil {
+			return PromotionResult{}, closeErr
+		}
+		lock = nil
 		if verifyErr := manager.Authority.VerifyRecoveredAuthority(ctx, manager.DatabasePath, binding); verifyErr != nil {
 			return PromotionResult{}, verifyErr
 		}

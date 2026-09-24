@@ -152,7 +152,7 @@ func newDurableScheduleFixtureWithRepository(t *testing.T, action, repositoryID,
 	}
 	t.Cleanup(func() { _ = os.RemoveAll(directory) })
 	path := filepath.Join(directory, "control.db")
-	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "schedule-acceptance", BuildVersion: "schedule-acceptance", Clock: func() time.Time { return now }, Filesystem: acceptanceFilesystem{}})
+	authority, err := store.Open(ctx, store.Config{DatabasePath: path, Mode: store.InitializeNew, ExpectedUID: uint32(os.Geteuid()), ToolVersion: "1.0.0", BuildVersion: "schedule-acceptance", Clock: func() time.Time { return now }, Filesystem: acceptanceFilesystem{}})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -230,7 +230,7 @@ func (fixture *durableScheduleFixture) activateSchedulePolicy(action string) {
 	desired := created.Document
 	desired.Revision, desired.StateRevision, desired.Status = 2, 3, "committed"
 	readable := "activate scheduled backup policy\n"
-	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: policy.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 2, StateRevision: 3, DeclarationRevision: 2, ObservationFingerprint: scheduleTestDigest("activation-observation-" + action), TargetDigest: scheduleTestDigest("activation-target-" + action), ReasonDigest: reason, PolicyVersion: "1.0.0", ToolVersion: "schedule-acceptance", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: activationOperation.OperationID, OperationType: activationOperation.OperationType, AdapterID: activationOperation.AdapterID, ExecutorID: "executor-central", TargetID: activationOperation.TargetID, InputDigest: activationOperation.InputDigest, ArtifactDigest: activationOperation.ArtifactDigest, Idempotent: true}}, Status: "planned", Risk: "control-plane", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: fixture.now.Format(time.RFC3339), ExpiresAt: fixture.now.Add(30 * time.Minute).Format(time.RFC3339), ReadableDigest: scheduleTestDigest(readable), Extensions: document.Extensions}
+	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: policy.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 2, StateRevision: 3, DeclarationRevision: 2, ObservationFingerprint: scheduleTestDigest("activation-observation-" + action), TargetDigest: scheduleTestDigest("activation-target-" + action), ReasonDigest: reason, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: activationOperation.OperationID, OperationType: activationOperation.OperationType, AdapterID: activationOperation.AdapterID, ExecutorID: "executor-central", TargetID: activationOperation.TargetID, InputDigest: activationOperation.InputDigest, ArtifactDigest: activationOperation.ArtifactDigest, Idempotent: true}}, Status: "planned", Risk: "control-plane", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: fixture.now.Format(time.RFC3339), ExpiresAt: fixture.now.Add(30 * time.Minute).Format(time.RFC3339), ReadableDigest: scheduleTestDigest(readable), Extensions: document.Extensions}
 	preimage, _ := json.Marshal(plan)
 	plan.PlanDigest = scheduleTestDigest(string(preimage))
 	plan.PlanID = "plan-" + strings.TrimPrefix(plan.PlanDigest, "sha256:")[:32]
@@ -345,7 +345,7 @@ func (fixture *durableScheduleFixture) seedGateEvidence() {
 	defer database.Close()
 	stamp := fixture.now.Format(time.RFC3339)
 	digest := scheduleTestDigest("gate-bundle")
-	evidence := generated.GateEvidence{Schema: generated.SchemaIDGateEvidence, SchemaVersion: "1.1.0", EvidenceID: "evidence-109", GateID: "G-001", SubjectID: "site-a", DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ReleaseBuildID: "schedule-acceptance", ToolVersion: "schedule-acceptance", ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "profile-policy", PolicyVersion: "1.0.0", DeclarationID: "gate-declaration", DeclarationRevision: 1, StateRevision: 3, SourceKind: "local", ProofClass: "live", CollectorID: "collector-109", HumanID: "human-109", ArtifactDigest: digest, BundleDigest: digest, ObservedAt: stamp, AppliedAt: stamp, ExpiresAt: fixture.now.Add(time.Hour).Format(time.RFC3339), RecoveryEpoch: 0, Status: "applied"}
+	evidence := generated.GateEvidence{Schema: generated.SchemaIDGateEvidence, SchemaVersion: "1.1.0", EvidenceID: "evidence-109", GateID: "G-001", SubjectID: "site-a", DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ReleaseBuildID: "schedule-acceptance", ToolVersion: "1.0.0", ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "profile-policy", PolicyVersion: "1.0.0", DeclarationID: "gate-declaration", DeclarationRevision: 1, StateRevision: 3, SourceKind: "local", ProofClass: "live", CollectorID: "collector-109", HumanID: "human-109", ArtifactDigest: digest, BundleDigest: digest, ObservedAt: stamp, AppliedAt: stamp, ExpiresAt: fixture.now.Add(time.Hour).Format(time.RFC3339), RecoveryEpoch: 0, Status: "applied"}
 	canonical, err := json.Marshal(evidence)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDGateEvidence, canonical, generated.ContractExact) != nil {
 		fixture.t.Fatalf("gate evidence fixture invalid: %v", err)
@@ -371,7 +371,7 @@ func (fixture *durableScheduleFixture) invalidateGateProof(kind string) {
 	if kind == "profile" {
 		_, err = database.ExecContext(fixture.ctx, `INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES('binding-z-stale','vegastack-labs','1.0.0','profile-policy','2.0.0',X'5B5D',3,0,'profile-declaration',1,'profile-plan-stale',?,'profile-run','profile-step','profile-lease','human-109',?)`, scheduleTestDigest("profile-plan-stale"), stamp)
 	} else {
-		revoked := generated.GateEvidence{Schema: generated.SchemaIDGateEvidence, SchemaVersion: "1.1.0", EvidenceID: "evidence-109-revoked", GateID: "G-001", SubjectID: "site-a", DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ReleaseBuildID: "schedule-acceptance", ToolVersion: "schedule-acceptance", ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "profile-policy", PolicyVersion: "1.0.0", DeclarationID: "gate-declaration", DeclarationRevision: 1, StateRevision: 3, SourceKind: "local", ProofClass: "live", CollectorID: "collector-109", HumanID: "human-109", ArtifactDigest: digest, BundleDigest: digest, ObservedAt: stamp, AppliedAt: stamp, ExpiresAt: fixture.now.Add(time.Hour).Format(time.RFC3339), RecoveryEpoch: 0, RevokesEvidenceID: func() *string { value := "evidence-109"; return &value }(), Status: "revoked"}
+		revoked := generated.GateEvidence{Schema: generated.SchemaIDGateEvidence, SchemaVersion: "1.1.0", EvidenceID: "evidence-109-revoked", GateID: "G-001", SubjectID: "site-a", DefinitionVersion: "1.0.0", EvaluatorVersion: "1.0.0", ReleaseBuildID: "schedule-acceptance", ToolVersion: "1.0.0", ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "profile-policy", PolicyVersion: "1.0.0", DeclarationID: "gate-declaration", DeclarationRevision: 1, StateRevision: 3, SourceKind: "local", ProofClass: "live", CollectorID: "collector-109", HumanID: "human-109", ArtifactDigest: digest, BundleDigest: digest, ObservedAt: stamp, AppliedAt: stamp, ExpiresAt: fixture.now.Add(time.Hour).Format(time.RFC3339), RecoveryEpoch: 0, RevokesEvidenceID: func() *string { value := "evidence-109"; return &value }(), Status: "revoked"}
 		canonical, encodeErr := json.Marshal(revoked)
 		if encodeErr != nil {
 			fixture.t.Fatal(encodeErr)
@@ -445,7 +445,7 @@ func (fixture *durableScheduleFixture) planOccurrence() (generated.Plan, generat
 	if err != nil {
 		fixture.t.Fatal(err)
 	}
-	planner, err := planengine.NewScheduledService(fixture.plans, func() time.Time { return fixture.now }, "schedule-acceptance", "1.0.0", "executor-central", scheduledActionResolver{backups: fixture.backups, audit: fixture.authority, credentials: fixture.credentials, policies: fixture.policies})
+	planner, err := planengine.NewScheduledService(fixture.plans, func() time.Time { return fixture.now }, "1.0.0", "1.0.0", "executor-central", scheduledActionResolver{backups: fixture.backups, audit: fixture.authority, credentials: fixture.credentials, policies: fixture.policies})
 	if err != nil {
 		fixture.t.Fatal(err)
 	}
