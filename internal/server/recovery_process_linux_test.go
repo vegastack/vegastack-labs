@@ -106,7 +106,7 @@ func TestReturningFormerControllerCannotMutatePromotedAuthority(t *testing.T) {
 	}
 	holder := exec.Command(os.Args[0], "-test.run=^TestReturningFormerControllerCannotMutatePromotedAuthority$")
 	holder.Env = append(os.Environ(), recoveryAuthorityHelperEnvironment+"=replacement", "VSK_RECOVERY_DATABASE="+databasePath)
-	if output, err := holder.CombinedOutput(); err != nil || strings.TrimSpace(string(output)) != "replacement-ready" {
+	if output, err := holder.CombinedOutput(); err != nil || !strings.Contains(string(output), "replacement-ready\n") {
 		t.Fatalf("replacement start = %q, %v", output, err)
 	}
 	former := exec.Command(os.Args[0], "-test.run=^TestReturningFormerControllerCannotMutatePromotedAuthority$")
@@ -229,7 +229,7 @@ func seedProcessOldAuthorityArtifacts(t *testing.T, databasePath string, artifac
 		query string
 		args  []any
 	}{
-		{`INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,1,'credential',1,0,?,?,'committed',?,?,?,?,?)`, []any{artifacts.Plan.DeclarationID, declaration.ContentDigest, artifacts.Plan.Binding.ReasonDigest, declarationBytes, created, declaration.CreatedBy, declaration.AgentSessionID}},
+		{`INSERT INTO declaration_revisions(declaration_id,declaration_revision,declaration_type,state_revision,recovery_epoch,content_digest,reason_digest,status,canonical_bytes,created_at,created_by,agent_session_id) VALUES(?,1,'credential',1,0,?,?,'committed',?,?,?,?)`, []any{artifacts.Plan.DeclarationID, declaration.ContentDigest, artifacts.Plan.Binding.ReasonDigest, declarationBytes, created, declaration.CreatedBy, declaration.AgentSessionID}},
 		{`INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,1,1,0,?,?,?,?,?,?,?,?)`, []any{artifacts.Plan.PlanID, artifacts.Plan.PlanDigest, artifacts.Plan.DeclarationID, artifacts.Plan.Binding.ObservationFingerprint, processRecoveryDigest("6"), processRecoveryDigest("7"), planBytes, "old authority process plan\n", artifacts.Plan.ReadableDigest, artifacts.Plan.CreatedAt, artifacts.Plan.ExpiresAt}},
 		{`INSERT INTO acknowledgement_requests(acknowledgement_id,plan_id,plan_digest,target_digest,reason_digest,human_id,authority_id,nonce_digest,state_revision,recovery_epoch,expires_at,status,request_bytes,pending_bytes,created_at,decided_at,consumed_at) VALUES(?,?,?,?,?,?,?,?,1,0,?,'approved',?,?,?,?,NULL)`, []any{artifacts.Acknowledgement.AcknowledgementID, artifacts.Plan.PlanID, artifacts.Plan.PlanDigest, artifacts.Plan.Binding.TargetDigest, artifacts.Plan.Binding.ReasonDigest, artifacts.Acknowledgement.HumanID, artifacts.Acknowledgement.AuthorityID, artifacts.Acknowledgement.NonceDigest, artifacts.Plan.ExpiresAt, requestBytes, pendingBytes, created, created}},
 		{`INSERT INTO acknowledgement_proofs(acknowledgement_id,proof_digest,status,canonical_bytes,received_at) VALUES(?,?,'approved',?,?)`, []any{artifacts.Acknowledgement.AcknowledgementID, artifacts.Acknowledgement.ProofDigest, proofBytes, artifacts.Acknowledgement.ReceivedAt}},
