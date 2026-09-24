@@ -12,13 +12,13 @@ async function loadManifest() {
   return JSON.parse(await readFile(path.join(ROOT, "tooling/phase-2-evidence.json"), "utf8"));
 }
 
-test("the original Phase 2 baseline stays immutable while Phase 5 waves through #110 have exact reviewed closures", async () => {
+test("the original Phase 2 baseline stays immutable while Phase 5 waves through #186 have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
   assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
-  assert.equal(manifest.contract.reviewedWaves?.length, 28);
+  assert.equal(manifest.contract.reviewedWaves?.length, 29);
   assert.equal(manifest.contract.reviewedWaves[0].id, "phase5-issue104-v1");
   assert.deepEqual(manifest.contract.reviewedWaves[0].commands, ["gate check", "gate evidence", "gate inspect", "gate list", "gate profile draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[0].imports, ["github.com/vegastack/vegastack-labs/internal/gate"]);
@@ -148,7 +148,12 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.deepEqual(manifest.contract.reviewedWaves[27].commands, ["database backup", "database export", "database restore", "database verify", "schedule inspect", "schedule list"]);
   assert.deepEqual(manifest.contract.reviewedWaves[27].imports, ["github.com/vegastack/vegastack-labs/internal/databaseexport"]);
   assert.equal(manifest.contract.reviewedWaves[27].mutationBoundaryDigest, "sha256:ec30a4cc9d4a6e5a3fc9817a55a5b0a1697adcae57b950325edd563637d308a8");
-  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[27].mutationBoundaryDigest);
+  assert.equal(manifest.contract.reviewedWaves[28].id, "phase5-issue186-v1");
+  assert.equal(manifest.contract.reviewedWaves[28].issue, 186);
+  assert.deepEqual(manifest.contract.reviewedWaves[28].commands, []);
+  assert.deepEqual(manifest.contract.reviewedWaves[28].imports, []);
+  assert.equal(manifest.contract.reviewedWaves[28].mutationBoundaryDigest, "sha256:09af428deadb5b53538bbeb5986d2a7ada85adf97d4eda8c146d989f020b461a");
+  assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[28].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
 
@@ -168,6 +173,25 @@ test("the #107 audit wave rejects command, import, and fingerprint drift", async
     const result = validateEvidence(changedManifest, changedFacts);
     assert.equal(result.status, "fail", `${name}: ${JSON.stringify(result)}`);
     assert.ok(result.codes.includes(code), `${name}: ${JSON.stringify(result)}`);
+  }
+});
+
+test("the #186 reseal grants no command or import authority and rejects later source drift", async () => {
+  const manifest = await loadManifest();
+  const facts = await collectIntegratedFacts(ROOT);
+  const cases = [
+    ["command authority", (m) => { m.contract.reviewedWaves[28].commands.push("restore bypass"); }],
+    ["import authority", (m) => { m.contract.reviewedWaves[28].imports.push("github.com/vegastack/vegastack-labs/internal/api"); }],
+    ["reseal digest", (m) => { m.contract.reviewedWaves[28].mutationBoundaryDigest = `sha256:${"0".repeat(64)}`; }],
+    ["later source drift", (_m, f) => { f.postPhase2MutationBoundaryDigest = `sha256:${"f".repeat(64)}`; }],
+  ];
+  for (const [name, mutate] of cases) {
+    const changedManifest = structuredClone(manifest);
+    const changedFacts = structuredClone(facts);
+    mutate(changedManifest, changedFacts);
+    const result = validateEvidence(changedManifest, changedFacts);
+    assert.equal(result.status, "fail", `${name}: ${JSON.stringify(result)}`);
+    assert.ok(result.codes.some((code) => ["PHASE2_TRACEABILITY_GAP", "PHASE2_MUTATION_AVAILABLE"].includes(code)), `${name}: ${JSON.stringify(result)}`);
   }
 });
 

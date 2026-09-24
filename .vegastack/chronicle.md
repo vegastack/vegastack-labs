@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 24-09-2026 — The Phase 2 closure includes the final Linux recovery repairs ([#188](https://github.com/vegastack/vegastack-labs/issues/188))
+
+- **What:** The fail-closed Phase 2 verifier now recognizes the exact independently reviewed source closure produced by the final Phase 5 Linux compatibility repair.
+- **Why:** Issue #186 changed recovery, backup and store production sources after the prior reviewed wave, so the final Phase 5 exit correctly stopped on the stale closure digest.
+- **How it went:** The new digest was computed directly from the merged source tree, recorded as a no-command/no-import wave, and checked with negative tests for authority widening and later source drift.
+- **Changed:** Exact #186 reviewed wave · current mutation-boundary digest · reviewed-wave ordering and drift regressions.
+- **Decisions:** none; this metadata repair grants no command, import or runtime authority and does not itself accept Phase 5.
+
+— approved by (omkarmohanta09) · built by Codex · branch fix/188-phase2-recovery-wave-reseal
+
 ## 24-09-2026 — Phase 5 Linux acceptance now exercises the real recovery contracts ([#186](https://github.com/vegastack/vegastack-labs/issues/186))
 
 - **What:** The complete Go unit catalog can now run on the protected Debian filesystem and reaches the same exact recovery, custody, scheduling and credential contracts as production.
