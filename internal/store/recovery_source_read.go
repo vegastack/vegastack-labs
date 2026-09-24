@@ -39,6 +39,7 @@ func (repository *BackupRepository) CurrentLocalRecoverySource(ctx context.Conte
 	}
 	var manifestJSON, createdText, verifiedText, fullText, restoredText, policyJSON string
 	var snapshotCount, objectCount, objectBytes int64
+	var storedManifest pendingCreationManifest
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
 		row := tx.queryRow(ctx, `SELECT
 			v.verification_id,v.proof_digest,v.point_id,p.repository_class,v.status,v.proof_class,v.manifest_digest,v.inventory_digest,v.state_revision,v.recovery_epoch,
@@ -65,18 +66,22 @@ func (repository *BackupRepository) CurrentLocalRecoverySource(ctx context.Conte
 		source.Point.InventoryDigest = source.Verification.InventoryDigest
 		source.Point.RecoveryEpoch = source.Verification.RecoveryEpoch
 		source.Point.ManifestJSON = []byte(manifestJSON)
+		if json.Unmarshal(source.Point.ManifestJSON, &storedManifest) != nil {
+			return backupStoreError(generated.ErrorCodeIntegrityFailure, "restore-local-source")
+		}
 
 		rows, err := tx.query(ctx, `SELECT object_type,object_name,object_bytes,object_digest FROM backup_expected_objects WHERE point_id=? ORDER BY object_name`, source.Point.PointID)
 		if err != nil {
 			return err
 		}
+		durableObjects := make(map[string]ExpectedObjectRow, len(storedManifest.ExpectedObjects))
 		for rows.Next() {
 			var object ExpectedObjectRow
 			if err := rows.Scan(&object.Type, &object.Name, &object.Bytes, &object.Digest); err != nil {
 				_ = rows.Close()
 				return err
 			}
-			source.Point.ExpectedObjects = append(source.Point.ExpectedObjects, object)
+			durableObjects[object.Name] = object
 		}
 		if err := rows.Err(); err != nil {
 			_ = rows.Close()
@@ -84,6 +89,15 @@ func (repository *BackupRepository) CurrentLocalRecoverySource(ctx context.Conte
 		}
 		if err := rows.Close(); err != nil {
 			return err
+		}
+		if len(durableObjects) != len(storedManifest.ExpectedObjects) {
+			return backupStoreError(generated.ErrorCodeIntegrityFailure, "restore-local-source")
+		}
+		for _, object := range storedManifest.ExpectedObjects {
+			if durableObjects[object.Name] != object {
+				return backupStoreError(generated.ErrorCodeIntegrityFailure, "restore-local-source")
+			}
+			source.Point.ExpectedObjects = append(source.Point.ExpectedObjects, object)
 		}
 
 		rows, err = tx.query(ctx, `SELECT dependency_id,dependency_kind,dependency_digest,source_kind,point_id,policy_digest,source_id,artifact_id,bundle_digest,trusted_root_reference_id,trust_root_digest,signer_identity,signer_issuer,source_revision,state_revision,recovery_epoch FROM backup_dependency_trust_evidence WHERE verification_id=? ORDER BY rowid`, source.Verification.VerificationID)

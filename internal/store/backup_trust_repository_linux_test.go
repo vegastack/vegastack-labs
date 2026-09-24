@@ -71,8 +71,12 @@ func TestBackupTrustSourceRequiresExactBindingAndRevocationWins(t *testing.T) {
 	if _, err := repository.GetCurrentBackupTrustSourceForDependency(ctx, "config-a", "config", draft.StateRevision, 0); err == nil {
 		t.Fatal("stale state resolved current source")
 	}
+	if _, err := repository.store.conn.ExecContext(ctx, `UPDATE target_execution_leases SET status='released' WHERE lease_id=?`, apply.LeaseID); err != nil {
+		t.Fatal(err)
+	}
 	apply.BindingID, apply.Status, apply.Expected.StateRevision = "binding-revoke-a", "revoked", draft.StateRevision+1
 	apply.PlanID, apply.RunID, apply.StepID, apply.LeaseID, apply.DeclarationID = "plan-revoke-a", "run-revoke-a", "step-revoke-a", "lease-revoke-a", "declaration-revoke-a"
+	apply.PlanDigest = "sha256:" + strings.Repeat("f", 64)
 	seedBackupTrustExactStep(t, repository, apply, draft, "backup.trust-source.revoke")
 	if _, err := repository.ApplyBackupTrustSource(ctx, apply); err != nil {
 		t.Fatal(err)
@@ -87,6 +91,9 @@ func seedBackupTrustExactStep(t *testing.T, repository *BackupRepository, reques
 	now := repository.store.config.Clock().UTC().Truncate(time.Second)
 	created, expires := now.Format(time.RFC3339), now.Add(time.Hour).Format(time.RFC3339)
 	digest := "sha256:" + strings.Repeat("e", 64)
+	if request.Status == "revoked" {
+		digest = "sha256:" + strings.Repeat("f", 64)
+	}
 	statements := []struct {
 		query string
 		args  []any

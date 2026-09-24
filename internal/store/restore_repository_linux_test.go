@@ -107,7 +107,10 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	draftRequest.Document.DeclarationType = "recovery.restore"
 	draftRequest.Document.Operations[0].OperationType = "recovery.restore.cutover"
 	draftRequest.Document.Operations[0].AdapterID = "core.recovery"
+	draftRequest.Document.Operations[0].OperationID = "step-a"
+	draftRequest.Document.Operations[0].TargetID = "control-a"
 	draftRequest.Document.Operations[0].Idempotent = false
+	draftRequest.Document.Operations = append(draftRequest.Document.Operations, generated.DeclarationOperation{Sequence: 2, OperationID: "canary-step-a", OperationType: "recovery.canary.noop", AdapterID: "core.recovery", TargetID: "instance-new-authority", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true})
 	draftRequest.Document.ContentDigest = declarationContentDigest(draftRequest.Document, draftRequest.ReasonDigest)
 	draft, err := NewDeclarationRepository(authority).CreateRevision(context.Background(), draftRequest)
 	if err != nil {
@@ -115,7 +118,10 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	}
 	planRequest := validPlanStoreRequest(draft.Document)
 	planRequest.Plan.Risk, planRequest.Plan.AuthorizationBranch = "control-plane", "human"
-	planRequest.Plan.Operations[0].OperationType, planRequest.Plan.Operations[0].AdapterID, planRequest.Plan.Operations[0].Idempotent = "recovery.restore.cutover", "core.recovery", false
+	planRequest.Plan.Operations = []generated.PlanOperation{
+		{Sequence: 1, OperationID: "step-a", OperationType: "recovery.restore.cutover", AdapterID: "core.recovery", ExecutorID: "executor-central", TargetID: "control-a", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: false},
+		{Sequence: 2, OperationID: "canary-step-a", OperationType: "recovery.canary.noop", AdapterID: "core.recovery", ExecutorID: "executor-central", TargetID: "instance-new-authority", InputDigest: testDigest, ArtifactDigest: testDigest, Idempotent: true},
+	}
 	planRequest.DesiredDeclaration.DeclarationType = "recovery.restore"
 	planRequest.DesiredDeclaration.Operations = draft.Document.Operations
 	planRequest.Plan.PlanID, planRequest.Plan.PlanDigest = "", ""
@@ -126,6 +132,17 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 	planRequest.CanonicalBytes, _ = json.Marshal(planRequest.Plan)
 	plannedBinding := testRestoreBinding(planRequest.Plan, before.InstanceID, "pending-human-acknowledgement")
 	planRequest.RestoreQualification = &RestorePlanQualification{Request: testRestoreRequest(plannedBinding), Binding: plannedBinding}
+	requestBytes, _ := json.Marshal(planRequest.RestoreQualification.Request)
+	if err := generated.ValidateContractJSON(generated.SchemaIDRestoreRequest, requestBytes, generated.ContractExact); err != nil {
+		t.Fatalf("restore request fixture: %v", err)
+	}
+	bindingBytes, _ := json.Marshal(planRequest.RestoreQualification.Binding)
+	if err := generated.ValidateContractJSON(generated.SchemaIDRestoreBinding, bindingBytes, generated.ContractExact); err != nil {
+		t.Fatalf("restore binding fixture: %v", err)
+	}
+	if !validRestorePlanQualification(*planRequest.RestoreQualification, planRequest.Plan) {
+		t.Fatal("restore qualification fixture does not match its plan")
+	}
 	committed, err := NewPlanRepository(authority).CommitDeclarationAndPlan(context.Background(), planRequest)
 	if err != nil {
 		t.Fatal(err)
@@ -258,15 +275,18 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 }
 
 func testRestoreRequest(binding generated.RestoreBinding) generated.RestoreRequest {
-	fence := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: "host-service", SubjectID: "former-control", TargetID: "control-a", AdapterID: "adapter-a", FormerIdentityID: "former-identity", RequiredEvidenceKinds: []string{"service-denied"}, Required: true, EvidenceIDs: []string{binding.SourceAdmissionDigest, binding.FenceQualificationDigest}, EvidenceDigest: binding.FenceSetDigest, Status: "required"}
+	fence := generated.RestoreFenceItem{Schema: generated.SchemaIDRestoreFenceItem, SchemaVersion: "1.1.0", Boundary: "host-service", SubjectID: "former-control", TargetID: "control-a", AdapterID: "adapter-a", FormerIdentityID: "former-identity",
+		ProfileID: "vegastack-labs", ProfileVersion: "1.0.0", PolicyID: "recovery-policy", PolicyVersion: "1.0.0", ReleaseBuildID: "build-a", EvaluatorVersion: "1.0.0", RecoveryEpoch: binding.PriorRecoveryEpoch,
+		RequiredEvidenceKinds: []string{"service-denied"}, Required: true, EvidenceIDs: []string{binding.SourceAdmissionDigest, binding.FenceQualificationDigest}, EvidenceDigest: binding.FenceSetDigest, Status: "required"}
 	decision := generated.RestoreAuditDecision{Schema: generated.SchemaIDRestoreAuditDecision, SchemaVersion: "1.1.0", LocalLastEventID: 0, IndependentLastEventID: 0, IndependentCheckpointDigest: binding.AuditDecisionDigest, Strategy: "matched", DecisionDigest: binding.AuditDecisionDigest}
 	return generated.RestoreRequest{Schema: generated.SchemaIDRestoreRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: binding.PriorRecoveryEpoch, RecoveryEpoch: binding.PriorRecoveryEpoch, TargetDigest: binding.TargetDigest, IdempotencyKey: "restore-plan-test", Source: binding.Source, Fences: []generated.RestoreFenceItem{fence}, AuditDecision: decision, PointID: binding.PointID, DependencyIDs: binding.DependencyIDs, TargetIDs: binding.TargetIDs, PriorInstanceID: binding.PriorInstanceID, NewInstanceID: binding.NewInstanceID, PriorRecoveryEpoch: binding.PriorRecoveryEpoch, NextRecoveryEpoch: binding.NextRecoveryEpoch, FenceSetDigest: binding.FenceSetDigest, AuditDecisionDigest: binding.AuditDecisionDigest, CandidateDigest: binding.CandidateDigest,
 		FormerHostID: binding.FormerHostID, ReplacementHostID: binding.ReplacementHostID, RecoveryDraftID: binding.RecoveryDraftID, CiphertextFingerprint: binding.CiphertextFingerprint, SourceAdmissionDigest: binding.SourceAdmissionDigest, FenceQualificationDigest: binding.FenceQualificationDigest, RecoveryRunID: binding.RecoveryRunID, RecoveryStepID: binding.RecoveryStepID, RecoveryLeaseID: binding.RecoveryLeaseID, RecoveryChallengeID: binding.RecoveryChallengeID, RecoveryReceiptID: binding.RecoveryReceiptID, CanaryRunID: binding.CanaryRunID, CanaryStepID: binding.CanaryStepID, CanaryLeaseID: binding.CanaryLeaseID, CanaryChallengeID: binding.CanaryChallengeID, CanaryReceiptID: binding.CanaryReceiptID, CanaryBindingDigest: binding.CanaryBindingDigest}
 }
 
 func testRestoreBinding(plan generated.Plan, instance, acknowledgement string) generated.RestoreBinding {
-	source := generated.RestoreSourceBinding{Schema: generated.SchemaIDRestoreSourceBinding, SchemaVersion: "1.1.0", PointID: "point-a", PointDigest: testDigest, ManifestDigest: testDigest, VerificationDigest: testDigest, SourceClass: "local", RepositoryGenerationID: "generation-a", KeyReferenceID: "key-a", DeclaredRPOSeconds: 3600, CreatedAt: "2026-09-24T05:00:00Z", VerifiedAt: "2026-09-24T05:30:00Z", RecoveryEpoch: 0, DependencyDigests: []string{testDigest}, RequiredDependencies: []generated.RestoreDependencyBinding{{DependencyID: "restic-binary", Kind: "binary", Digest: testDigest}}, TargetReleaseBuildID: "build-a", TargetToolVersion: "1.0.0", TargetSchemaVersion: "24"}
+	source := generated.RestoreSourceBinding{Schema: generated.SchemaIDRestoreSourceBinding, SchemaVersion: "1.1.0", PointID: "point-a", PointDigest: testDigest, ManifestDigest: testDigest, VerificationDigest: testDigest, SourceClass: "local", RepositoryGenerationID: "generation-a", KeyReferenceID: "key-a", DeclaredRPOSeconds: 3600, CreatedAt: "2026-09-24T05:00:00Z", VerifiedAt: "2026-09-24T05:30:00Z", RecoveryEpoch: 0, DependencyDigests: []string{testDigest}, RequiredDependencies: []generated.RestoreDependencyBinding{{DependencyID: "restic-binary", Kind: "binary", Digest: testDigest}}, TargetReleaseBuildID: "build-a", TargetToolVersion: "1.0.0", TargetSchemaVersion: "26"}
 	return generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: source, PointID: source.PointID, DependencyIDs: []string{"dependency-a"}, TargetIDs: []string{"control-a"}, TargetDigest: plan.Binding.TargetDigest, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, HumanAcknowledgementID: acknowledgement, FenceSetDigest: testDigest, AuditDecisionDigest: testDigest, CandidateDigest: testDigest,
-		FormerHostID: "former-host", ReplacementHostID: "replacement-host", RecoveryDraftID: "draft-a", CiphertextFingerprint: testDigest, SourceAdmissionDigest: testDigest, FenceQualificationDigest: testDigest, RecoveryRunID: "run-a", RecoveryStepID: "step-a", RecoveryLeaseID: "lease-a", RecoveryChallengeID: "challenge-a", RecoveryReceiptID: "receipt-a",
+		FormerHostID: "former-host", ReplacementHostID: "replacement-host", RecoveryDraftID: "draft-a", CiphertextFingerprint: testDigest, SourceAdmissionDigest: string(digestForText("source-admission")), FenceQualificationDigest: string(digestForText("fence-qualification")), RecoveryRunID: "run-a", RecoveryStepID: "step-a", RecoveryLeaseID: "lease-a", RecoveryChallengeID: "challenge-a", RecoveryReceiptID: "receipt-a",
+		CanaryRunID: "canary-run-a", CanaryStepID: "canary-step-a", CanaryLeaseID: "canary-lease-a", CanaryChallengeID: "canary-challenge-a", CanaryReceiptID: "canary-receipt-a", CanaryBindingDigest: testDigest,
 		PriorInstanceID: instance, NewInstanceID: "instance-new-authority", PriorRecoveryEpoch: 0, NextRecoveryEpoch: 1, Status: "planned"}
 }

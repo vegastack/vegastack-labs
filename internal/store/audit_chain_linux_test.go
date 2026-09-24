@@ -170,7 +170,11 @@ func TestAuditChainStoresReconstructableContext(t *testing.T) {
 func TestReadAuditSuffixReturnsOnlyCanonicalBoundedEvidence(t *testing.T) {
 	authority := openAuditTestStore(t)
 	for index := range 3 {
-		if _, err := authority.writeIntent(context.Background(), chainTestIntent(t, index), insertSyntheticBusiness); err != nil {
+		businessID := fmt.Sprintf("chain-suffix-business-%d", index)
+		if _, err := authority.writeIntent(context.Background(), chainTestIntent(t, index), func(ctx context.Context, tx *sql.Tx) error {
+			_, err := tx.ExecContext(ctx, `INSERT INTO audit_business(id) VALUES(?)`, businessID)
+			return err
+		}); err != nil {
 			t.Fatal(err)
 		}
 	}
