@@ -62,7 +62,7 @@ test("Phase 5 catalog covers every durable boundary", async () => {
   assert.deepEqual(new Set(definition.scenarios.map(({ seam }) => seam)), new Set([
     "gate", "credential", "backup-local", "backup-offsite", "audit", "restore", "schedule", "surface", "suite",
   ]));
-  assert.match(phase5ScenarioDigest(definition), /^sha256:[a-f0-9]{64}$/);
+  assert.equal(phase5ScenarioDigest(definition), "sha256:1634c21608cf757929d93cc47e8071c6d5f0bd657a97a753ba4afc218faa8382");
   for (const scenario of definition.scenarios) {
     assert.equal(scenario.proofClass, "fixture");
     assert.equal(scenario.expected.result, "pass");
@@ -76,6 +76,13 @@ test("Phase 5 catalog covers every durable boundary", async () => {
   );
 
   const scenarios = Object.fromEntries(definition.scenarios.map(scenario => [scenario.id, scenario]));
+  assert.deepEqual(scenarios["credential.rotation-overlap-revoke"], {
+    ...REQUIRED_PHASE5_SCENARIOS.find(({ id }) => id === "credential.rotation-overlap-revoke"),
+    path: "internal/api/credential_lifecycle_spine_linux_test.go",
+    selector: "TestCredentialLifecyclePublicDraftPlanAckApplySpine",
+    environment: "built-linux",
+    expected: { result: "pass", errorCode: null, state: "revoked" },
+  });
   assert.equal(scenarios["suite.durable-boundary-complete"].selector, "TestPhase5AcceptanceDurableFaultMatrix");
   assert.equal(scenarios["suite.deterministic-repeat"].selector, "TestPhase5AcceptanceSeededConcurrency");
   assert.equal(scenarios["surface.cli-api-console-parity"].selector, "TestPhase5AcceptanceBuiltProcessRecoveryAndIsolation");
