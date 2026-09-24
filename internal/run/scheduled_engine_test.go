@@ -9,10 +9,15 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
-type scheduledAdmissionProbe struct{ calls int }
+type scheduledAdmissionProbe struct {
+	calls, failAt int
+}
 
 func (probe *scheduledAdmissionProbe) ValidateScheduledPlan(context.Context, generated.Plan, time.Time) error {
 	probe.calls++
+	if probe.failAt == probe.calls {
+		return runError(generated.ErrorCodePrerequisiteBlocked, "scheduled-prerequisite-changed")
+	}
 	return nil
 }
 
@@ -87,5 +92,32 @@ func TestScheduledEngineFailsClosedWithoutAdmissionOrAdapter(t *testing.T) {
 	request := SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: 0, IdempotencyKey: "scheduled-denied", Extensions: []generated.ContractExtension{}}, Authorization: generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-denied", PrincipalID: "policy-test", Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: "allowed", GrantRevision: 1, RecoveryEpoch: 0, PlanDigest: plan.PlanDigest, DecidedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}}
 	if _, err := engine.Submit(context.Background(), request); Code(err) != generated.ErrorCodePrerequisiteBlocked {
 		t.Fatalf("missing scheduled admission code=%q err=%v", Code(err), err)
+	}
+
+	repository = newMemoryRepository(plan)
+	admission := &scheduledAdmissionProbe{}
+	engine, err = NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: adapter.NewRegistry(), Scheduled: admission, Clock: func() time.Time { return now }, IDs: &deterministicIDs{}, LeaseContext: testLeaseContext})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Reference.IdempotencyKey = "scheduled-missing-adapter"
+	if failed, err := engine.Submit(context.Background(), request); adapter.Code(err) != generated.ErrorCodePrerequisiteBlocked || failed.Status != "failed" || admission.calls != 1 {
+		t.Fatalf("missing adapter run=%#v calls=%d code=%q err=%v", failed, admission.calls, adapter.Code(err), err)
+	}
+
+	repository = newMemoryRepository(plan)
+	implementation := &fakeAdapter{verify: true}
+	registry := adapter.NewRegistry()
+	if err := registry.Register("local.backup", implementation); err != nil {
+		t.Fatal(err)
+	}
+	admission = &scheduledAdmissionProbe{failAt: 2}
+	engine, err = NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: registry, Scheduled: admission, Clock: func() time.Time { return now }, IDs: &deterministicIDs{}, LeaseContext: testLeaseContext})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Reference.IdempotencyKey = "scheduled-prerequisite-change"
+	if failed, err := engine.Submit(context.Background(), request); Code(err) != generated.ErrorCodePrerequisiteBlocked || failed.Status != "failed" || admission.calls != 2 || implementation.calls != 0 {
+		t.Fatalf("changed prerequisite run=%#v calls=%d effects=%d code=%q err=%v", failed, admission.calls, implementation.calls, Code(err), err)
 	}
 }
