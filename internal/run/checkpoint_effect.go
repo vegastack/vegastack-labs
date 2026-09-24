@@ -145,7 +145,7 @@ func checkpointDigest(data []byte) audit.Fingerprint {
 	return audit.Fingerprint("sha256:" + hex.EncodeToString(sum[:]))
 }
 
-type CoreRouter struct{ Gate, Checkpoint, Recovery CoreEffect }
+type CoreRouter struct{ Gate, Checkpoint, Recovery, Schedule CoreEffect }
 
 func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) (adapter.Effect, error) {
 	if binding.Step.AdapterID == "core.gate" && router.Gate != nil {
@@ -156,6 +156,9 @@ func (router CoreRouter) Execute(ctx context.Context, binding ExactStepBinding) 
 	}
 	if binding.Step.AdapterID == "core.recovery" && router.Recovery != nil {
 		return router.Recovery.Execute(ctx, binding)
+	}
+	if binding.Step.AdapterID == "core.schedule" && router.Schedule != nil {
+		return router.Schedule.Execute(ctx, binding)
 	}
 	return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "core-effect")
 }
@@ -169,6 +172,9 @@ func (router CoreRouter) Verify(ctx context.Context, binding ExactStepBinding, r
 	}
 	if binding.Step.AdapterID == "core.recovery" && router.Recovery != nil {
 		return router.Recovery.Verify(ctx, binding, result)
+	}
+	if binding.Step.AdapterID == "core.schedule" && router.Schedule != nil {
+		return router.Schedule.Verify(ctx, binding, result)
 	}
 	return adapter.Verification{}, runError(generated.ErrorCodePrerequisiteBlocked, "core-effect")
 }

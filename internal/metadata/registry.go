@@ -16,6 +16,7 @@ const (
 	remoteReadProfileSchemaID               = "vegastack-labs.dev/remote-read-profile"
 	cloudflareAccessProfileSchemaID         = "vegastack-labs.dev/cloudflare-access-profile"
 	serverProfileSchemaID                   = "vegastack-labs.dev/server-profile"
+	scheduledRunnerProfileSchemaID          = "vegastack-labs.dev/scheduled-runner-profile"
 	serverStatusDataSchemaID                = "vegastack-labs.dev/server-status-data"
 	stateExportKindCountSchemaID            = "vegastack-labs.dev/state-export-kind-count"
 	stateExportDraftRefSchemaID             = "vegastack-labs.dev/state-export-draft-ref"
@@ -861,6 +862,15 @@ func currentSchemas() []SchemaDefinition {
 			},
 		},
 		{
+			ID: scheduledRunnerProfileSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/scheduled-runner-profile.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "uid", GoName: "UID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
+				{JSONName: "principalId", GoName: "PrincipalID", Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "binaryPath", GoName: "BinaryPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+				{JSONName: "configPath", GoName: "ConfigPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+			},
+		},
+		{
 			ID:           serverProfileSchemaID,
 			Version:      "1.3.0",
 			ArtifactPath: "schemas/v1/server-profile.schema.json",
@@ -876,6 +886,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
 				{JSONName: "remoteRead", GoName: "RemoteRead", Kind: ValueObject, Required: true, Ref: remoteReadProfileSchemaID},
 				{JSONName: "acknowledgementAdapterConfigPath", GoName: "AcknowledgementAdapterConfigPath", Kind: ValueString, Required: false, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
+				{JSONName: "scheduledRunner", GoName: "ScheduledRunner", Kind: ValueObject, Required: false, Nullable: true, Ref: scheduledRunnerProfileSchemaID},
 				{JSONName: "standardBackupRoot", GoName: "StandardBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "criticalBackupRoot", GoName: "CriticalBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "resticBinaryPath", GoName: "ResticBinaryPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},

@@ -4457,6 +4457,11 @@
       "artifactPath": "schemas/v1/scheduled-job-request.schema.json"
     },
     {
+      "id": "vegastack-labs.dev/scheduled-runner-profile",
+      "version": "1.0.0",
+      "artifactPath": "schemas/v1/scheduled-runner-profile.schema.json"
+    },
+    {
       "id": "vegastack-labs.dev/server-profile",
       "version": "1.3.0",
       "artifactPath": "schemas/v1/server-profile.schema.json"

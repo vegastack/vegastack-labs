@@ -38,6 +38,12 @@ type Profile struct {
 	AcknowledgementAdapterConfigPath string
 	LocalBackup                      *LocalBackup
 	OffsiteBackup                    *OffsiteBackup
+	ScheduledRunner                  *ScheduledRunner
+}
+
+type ScheduledRunner struct {
+	UID                                 uint32
+	PrincipalID, BinaryPath, ConfigPath string
 }
 
 // LocalBackup names the protected server-owned local recovery roots and the
@@ -177,6 +183,14 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	var scheduledRunner *ScheduledRunner
+	if input.ScheduledRunner != nil {
+		runner := input.ScheduledRunner
+		if runner.UID < 0 || runner.UID > int64(^uint32(0)) || runner.PrincipalID == "" || !filepath.IsAbs(runner.BinaryPath) || filepath.Clean(runner.BinaryPath) != runner.BinaryPath || !filepath.IsAbs(runner.ConfigPath) || filepath.Clean(runner.ConfigPath) != runner.ConfigPath {
+			return invalid()
+		}
+		scheduledRunner = &ScheduledRunner{UID: uint32(runner.UID), PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
+	}
 	return Profile{
 		SocketPath:                       input.SocketPath,
 		InventoryExportRoot:              input.InventoryExportRoot,
@@ -189,6 +203,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 		LocalBackup:                      localBackup,
 		OffsiteBackup:                    offsiteBackup,
+		ScheduledRunner:                  scheduledRunner,
 	}, nil
 }
 

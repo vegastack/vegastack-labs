@@ -147,7 +147,8 @@ func isCredentialLifecycleOperation(kind string) bool {
 func isCoreOperation(adapterID, kind string) bool {
 	return adapterID == "core.gate" && isGateOperation(kind) ||
 		adapterID == "core.audit" && kind == "audit.checkpoint.anchor" ||
-		adapterID == "core.recovery" && kind == "recovery.canary.noop"
+		adapterID == "core.recovery" && kind == "recovery.canary.noop" ||
+		adapterID == "core.schedule" && kind == "schedule.policy.activate"
 }
 
 func NewEngine(config Config) (*Engine, error) {

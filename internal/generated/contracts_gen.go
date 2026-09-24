@@ -185,6 +185,7 @@ const (
 	SchemaIDScheduledJob                           = "vegastack-labs.dev/scheduled-job"
 	SchemaIDScheduledJobPolicy                     = "vegastack-labs.dev/scheduled-job-policy"
 	SchemaIDScheduledJobRequest                    = "vegastack-labs.dev/scheduled-job-request"
+	SchemaIDScheduledRunnerProfile                 = "vegastack-labs.dev/scheduled-runner-profile"
 	SchemaIDServerProfile                          = "vegastack-labs.dev/server-profile"
 	SchemaIDServerStatusData                       = "vegastack-labs.dev/server-status-data"
 	SchemaIDSignedInventoryDraftExport             = "vegastack-labs.dev/signed-inventory-draft-export"
@@ -2404,6 +2405,13 @@ type ScheduledJobRequest struct {
 	ObservedAt            string `json:"observedAt"`
 }
 
+type ScheduledRunnerProfile struct {
+	UID         int64  `json:"uid"`
+	PrincipalID string `json:"principalId"`
+	BinaryPath  string `json:"binaryPath"`
+	ConfigPath  string `json:"configPath"`
+}
+
 type ServerProfile struct {
 	Schema                           string                  `json:"schema"`
 	SchemaVersion                    string                  `json:"schemaVersion"`
@@ -2416,6 +2424,7 @@ type ServerProfile struct {
 	PrincipalBindings                []LocalPrincipalBinding `json:"principalBindings"`
 	RemoteRead                       RemoteReadProfile       `json:"remoteRead"`
 	AcknowledgementAdapterConfigPath string                  `json:"acknowledgementAdapterConfigPath"`
+	ScheduledRunner                  *ScheduledRunnerProfile `json:"scheduledRunner"`
 	StandardBackupRoot               *string                 `json:"standardBackupRoot"`
 	CriticalBackupRoot               *string                 `json:"criticalBackupRoot"`
 	ResticBinaryPath                 *string                 `json:"resticBinaryPath"`

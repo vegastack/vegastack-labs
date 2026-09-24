@@ -361,7 +361,12 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore}
+	scheduleCore, err := runengine.NewSchedulePolicyEffect(store.NewScheduleRepository(authority))
+	if err != nil {
+		_ = application.Shutdown(ctx)
+		return err
+	}
+	coreRouter := runengine.CoreRouter{Gate: coreGate, Recovery: recoveryCore, Schedule: scheduleCore}
 	credentialRepository := store.NewCredentialRepository(authority)
 	if err := registerProductionRecoveryCredentialResolver(ctx, adapters, credentialRepository, gateRepository, profile.SocketOwnerUID); err != nil {
 		_ = application.Shutdown(ctx)

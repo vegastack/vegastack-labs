@@ -504,6 +504,13 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `errors`
 - `data`
 
+### `vegastack-labs.dev/scheduled-runner-profile`
+
+- `uid`
+- `principalId`
+- `binaryPath`
+- `configPath`
+
 ### Run transitions
 
 - `interrupted` → `cancelled`

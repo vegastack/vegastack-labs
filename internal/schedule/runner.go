@@ -40,6 +40,8 @@ type RuntimeRepository interface {
 	CurrentScheduleRevision(context.Context) (Revision, error)
 	AppendScheduledAttempt(context.Context, string, int64, string, string, string, bool, time.Time) error
 	TransitionScheduledOccurrence(context.Context, string, string, string, string, *string, *string) (generated.ScheduledJob, error)
+	AcquireOccurrenceLease(context.Context, string, string, string, time.Time) error
+	ReleaseOccurrenceLease(context.Context, string, string) error
 }
 
 type Runner struct {
@@ -79,6 +81,9 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 		return runner.block(ctx, job, "scheduled-at-invalid")
 	}
 	windowCloses := scheduledAt.Add(time.Duration(policy.WindowSeconds) * time.Second)
+	if policy.CatchUp == "latest" && !now.Before(windowCloses) {
+		windowCloses = now.Add(time.Duration(policy.WindowSeconds) * time.Second)
+	}
 	if !now.Before(windowCloses) {
 		return runner.block(ctx, job, "window-closed")
 	}
@@ -89,6 +94,11 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 	if revision != (Revision{StateRevision: policy.StateRevision, RecoveryEpoch: policy.RecoveryEpoch}) {
 		return runner.block(ctx, job, "revision-or-epoch-stale")
 	}
+	leaseID := fmt.Sprintf("%s-lease-%d", job.JobID, job.Attempt)
+	if err := runner.repository.AcquireOccurrenceLease(ctx, job.JobID, leaseID, "schedule:"+policy.PolicyID, windowCloses); err != nil {
+		return runner.block(ctx, job, "overlap")
+	}
+	defer func() { _ = runner.repository.ReleaseOccurrenceLease(context.WithoutCancel(ctx), job.JobID, leaseID) }()
 	requirements := Requirements(policy)
 	statuses, err := runner.prerequisites.Current(ctx, requirements)
 	if err != nil {
