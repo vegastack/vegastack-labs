@@ -242,10 +242,9 @@ func TestPhase5RestoreAndJobRequestsRequireExactBindingFields(t *testing.T) {
 			"canaryRunId": "canary-run-a", "canaryStepId": "canary-step-a", "canaryLeaseId": "canary-lease-a", "canaryChallengeId": "canary-challenge-a", "canaryReceiptId": "canary-receipt-a", "canaryBindingDigest": phase5DigestFixture(),
 		}},
 		{"job", SchemaIDScheduledJobRequest, map[string]any{
-			"schema": SchemaIDScheduledJobRequest, "schemaVersion": "1.0.0", "expectedStateRevision": 3,
+			"schema": SchemaIDScheduledJobRequest, "schemaVersion": "1.1.0", "expectedStateRevision": 3,
 			"recoveryEpoch": 2, "targetDigest": phase5DigestFixture(), "idempotencyKey": "job-key",
-			"policyId": "policy-a", "policyRevision": 2, "actionDigest": phase5DigestFixture(),
-			"planId": "plan-a", "planDigest": phase5DigestFixture(), "humanAcknowledgementId": "ack-a",
+			"policyId": "policy-a", "policyRevision": 2, "occurrenceToken": "token-a", "observedAt": "2026-09-16T00:10:00Z",
 		}},
 	}
 	for _, request := range requests {
@@ -253,7 +252,13 @@ func TestPhase5RestoreAndJobRequestsRequireExactBindingFields(t *testing.T) {
 			if err := ValidateContractJSON(request.schemaID, phase5Document(t, request.value), ContractExact); err != nil {
 				t.Fatal(err)
 			}
-			for _, field := range []string{"recoveryEpoch", "planDigest", "targetDigest"} {
+			required := []string{"recoveryEpoch", "targetDigest"}
+			if request.name == "restore" {
+				required = append(required, "planDigest")
+			} else {
+				required = append(required, "occurrenceToken", "observedAt")
+			}
+			for _, field := range required {
 				original := request.value[field]
 				delete(request.value, field)
 				if err := ValidateContractJSON(request.schemaID, phase5Document(t, request.value), ContractExact); err == nil {
@@ -323,14 +328,13 @@ func TestRestoreV10IsDisplayOnly(t *testing.T) {
 
 func TestPhase5ScheduledJobBindingRejectsWidening(t *testing.T) {
 	policy := ScheduledJobPolicy{
-		Schema: SchemaIDScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: "policy-a", Revision: 2,
-		ActionKind: "backup", ExactTargetIDs: []string{"control-a"}, ActionDigest: phase5DigestFixture(),
-		TargetDigest: phase5DigestFixture(), IntervalSeconds: 3600, Enabled: true, RecoveryEpoch: 2,
+		Schema: SchemaIDScheduledJobPolicy, SchemaVersion: "1.1.0", PolicyID: "policy-a", Revision: 2,
+		ActionKind: "backup-create", ExactTargetIDs: []string{"control-a"}, IntervalSeconds: 3600, Enabled: true, RecoveryEpoch: 2,
 	}
 	job := ScheduledJob{
-		Schema: SchemaIDScheduledJob, SchemaVersion: "1.0.0", JobID: "job-a", PolicyID: "policy-a",
-		PolicyRevision: 2, ActionDigest: phase5DigestFixture(), TargetDigest: phase5DigestFixture(),
-		Status: "queued", RecoveryEpoch: 2,
+		Schema: SchemaIDScheduledJob, SchemaVersion: "1.1.0", JobID: "job-a", PolicyID: "policy-a",
+		PolicyRevision: 2, ScheduledAt: "2026-09-16T00:10:00Z", Attempt: 1,
+		Status: "queued", ReasonCode: "due", RecoveryEpoch: 2,
 	}
 	if err := ValidateScheduledJobBinding(policy, job); err != nil {
 		t.Fatal(err)
@@ -344,16 +348,11 @@ func TestPhase5ScheduledJobBindingRejectsWidening(t *testing.T) {
 		t.Fatal("unknown scheduled state accepted")
 	}
 	job.Status = "queued"
-	job.TargetDigest = "sha256:" + strings.Repeat("b", 64)
+	job.PolicyRevision = 3
 	if err := ValidateScheduledJobBinding(policy, job); err == nil {
-		t.Fatal("scheduled job widened targets")
+		t.Fatal("scheduled job changed policy revision")
 	}
-	job.TargetDigest = phase5DigestFixture()
-	job.ActionDigest = "sha256:" + strings.Repeat("b", 64)
-	if err := ValidateScheduledJobBinding(policy, job); err == nil {
-		t.Fatal("scheduled job changed action")
-	}
-	job.ActionDigest = phase5DigestFixture()
+	job.PolicyRevision = 2
 	job.RecoveryEpoch = 3
 	if err := ValidateScheduledJobBinding(policy, job); err == nil {
 		t.Fatal("scheduled job changed epoch")

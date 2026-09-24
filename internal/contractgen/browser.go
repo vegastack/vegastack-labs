@@ -114,7 +114,7 @@ func browserSecretField(name string) bool {
 	// like keyId/publicKeyId above. The backup policy's encryption/recovery key
 	// *reference* IDs (#106) are pointers resolved server-side by the credential
 	// seam; they never hold key material and are safe to surface as read metadata.
-	for _, safe := range []string{"authorizationbranch", "authorizationcurrent", "idempotencykey", "keyfingerprint", "keyid", "publickeyid", "encryptionkeyreferenceid", "recoverykeyreferenceid"} {
+	for _, safe := range []string{"authorizationbranch", "authorizationcurrent", "idempotencykey", "keyfingerprint", "keyid", "publickeyid", "encryptionkeyreferenceid", "recoverykeyreferenceid", "approvedbyhumanid", "credentialreferenceids"} {
 		if normalized == safe {
 			return false
 		}

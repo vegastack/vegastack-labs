@@ -264,6 +264,12 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		if referenceID, exists := params["referenceId"]; exists {
 			resourceID = referenceID
 		}
+		if policyID, exists := params["policyId"]; exists {
+			resourceID = policyID
+		}
+		if jobID, exists := params["jobId"]; exists {
+			resourceID = jobID
+		}
 		if candidate.id == "api.v1.gate-profile-drafts.create" {
 			resourceID = "profile-drafts"
 		}
@@ -275,6 +281,12 @@ func (app *Application) serve(writer http.ResponseWriter, request *http.Request)
 		}
 		if candidate.id == "api.v1.backup-policy-drafts.create" {
 			resourceID = "policy-drafts"
+		}
+		if candidate.id == "api.v1.scheduled-job-policies.drafts.create" {
+			resourceID = "policy-drafts"
+		}
+		if candidate.id == "api.v1.scheduled-jobs.create" {
+			resourceID = "dispatch"
 		}
 		if candidate.id == "api.v1.backups.status" {
 			resourceID = "current"

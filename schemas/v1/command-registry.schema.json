@@ -747,6 +747,38 @@
                     "const": "queued"
                   },
                   "to": {
+                    "const": "blocked"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "queued"
+                  },
+                  "to": {
+                    "const": "cancelled"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "queued"
+                  },
+                  "to": {
                     "const": "failed"
                   }
                 },
@@ -776,10 +808,90 @@
                 "additionalProperties": false,
                 "properties": {
                   "from": {
+                    "const": "queued"
+                  },
+                  "to": {
+                    "const": "skipped"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "retry-wait"
+                  },
+                  "to": {
+                    "const": "cancelled"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "retry-wait"
+                  },
+                  "to": {
+                    "const": "failed"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "retry-wait"
+                  },
+                  "to": {
+                    "const": "running"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
                     "const": "running"
                   },
                   "to": {
                     "const": "failed"
+                  }
+                },
+                "required": [
+                  "from",
+                  "to"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "from": {
+                    "const": "running"
+                  },
+                  "to": {
+                    "const": "retry-wait"
                   }
                 },
                 "required": [
@@ -822,8 +934,8 @@
               }
             ]
           },
-          "maxItems": 5,
-          "minItems": 5,
+          "maxItems": 12,
+          "minItems": 12,
           "type": "array",
           "uniqueItems": true
         }

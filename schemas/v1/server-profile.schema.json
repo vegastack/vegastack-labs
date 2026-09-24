@@ -83,6 +83,39 @@
         "identityConfigPath"
       ],
       "type": "object"
+    },
+    "scheduled-runner-profile": {
+      "additionalProperties": false,
+      "properties": {
+        "binaryPath": {
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^/[^\\x00]*$",
+          "type": "string"
+        },
+        "configPath": {
+          "maxLength": 4096,
+          "minLength": 2,
+          "pattern": "^/[^\\x00]*$",
+          "type": "string"
+        },
+        "principalId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "uid": {
+          "maximum": 4294967295,
+          "minimum": 0,
+          "type": "integer"
+        }
+      },
+      "required": [
+        "uid",
+        "principalId",
+        "binaryPath",
+        "configPath"
+      ],
+      "type": "object"
     }
   },
   "$id": "vegastack-labs.dev/server-profile",
@@ -287,6 +320,16 @@
       "type": [
         "string",
         "null"
+      ]
+    },
+    "scheduledRunner": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/scheduled-runner-profile"
+        },
+        {
+          "type": "null"
+        }
       ]
     },
     "schema": {

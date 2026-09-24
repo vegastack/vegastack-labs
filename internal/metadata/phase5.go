@@ -40,6 +40,7 @@ const (
 	restoreCanaryResultSchemaID              = "vegastack-labs.dev/restore-canary-result"
 	restoreVerificationSchemaID              = "vegastack-labs.dev/restore-verification"
 	scheduledJobPolicySchemaID               = "vegastack-labs.dev/scheduled-job-policy"
+	scheduledPolicyDraftSubmissionSchemaID   = "vegastack-labs.dev/scheduled-policy-draft-submission"
 	scheduledJobSchemaID                     = "vegastack-labs.dev/scheduled-job"
 	gateCheckRequestSchemaID                 = "vegastack-labs.dev/gate-check-request"
 	gateEvidenceRequestSchemaID              = "vegastack-labs.dev/gate-evidence-request"
@@ -57,6 +58,7 @@ const (
 	restoreRunRequestSchemaID                = "vegastack-labs.dev/restore-run-request"
 	restoreVerifyRequestSchemaID             = "vegastack-labs.dev/restore-verify-request"
 	scheduledJobRequestSchemaID              = "vegastack-labs.dev/scheduled-job-request"
+	scheduledJobCancelRequestSchemaID        = "vegastack-labs.dev/scheduled-job-cancel-request"
 	credentialReferenceRequestSchemaID       = "vegastack-labs.dev/credential-reference-request"
 	credentialImportRequestSchemaID          = "vegastack-labs.dev/credential-import-request"
 	credentialImportSubmissionSchemaID       = "vegastack-labs.dev/credential-import-submission"
@@ -174,6 +176,20 @@ func phase5BackupVerificationSchema(fields ...FieldDefinition) SchemaDefinition 
 	schema := phase5BackupSchema(backupVerificationAttemptSchemaID, fields...)
 	schema.Version = "1.2.0"
 	schema.Fields[1].Enum = []string{"1.2.0"}
+	return schema
+}
+
+func phase5ScheduleSchema(identifier string, fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Schema(identifier, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
+	return schema
+}
+
+func phase5ScheduleRequest(fields ...FieldDefinition) SchemaDefinition {
+	schema := phase5Request(scheduledJobRequestSchemaID, fields...)
+	schema.Version = "1.1.0"
+	schema.Fields[1].Enum = []string{"1.1.0"}
 	return schema
 }
 
@@ -508,19 +524,30 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			FieldDefinition{JSONName: "canary", GoName: "Canary", Kind: ValueObject, Required: true, Ref: restoreCanaryResultSchemaID},
 			phase5Enum("status", "Status", "failed", "incomplete", "verified"),
 		),
-		phase5Schema(scheduledJobPolicySchemaID,
+		phase5ScheduleSchema(scheduledJobPolicySchemaID,
 			phase5ID("policyId", "PolicyID"), phase5Positive("revision", "Revision"),
-			phase5Enum("actionKind", "ActionKind", "backup", "audit-checkpoint", "gate-check"),
-			FieldDefinition{JSONName: "exactTargetIds", GoName: "ExactTargetIDs", Kind: ValueArray, Required: true, ItemKind: ValueString, MinItems: intPointer(1), MaxItems: intPointer(64), UniqueItems: true},
-			phase5Digest("actionDigest", "ActionDigest"), phase5Digest("targetDigest", "TargetDigest"),
-			phase5Interval("intervalSeconds", "IntervalSeconds"),
-			phase5Bool("enabled", "Enabled"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5ID("declarationId", "DeclarationID"), phase5Positive("declarationRevision", "DeclarationRevision"),
+			phase5Enum("actionKind", "ActionKind", "gate-check", "observation-refresh", "backup-create", "backup-integrity-verify", "audit-checkpoint-export"),
+			phase5ID("operationType", "OperationType"), phase5ID("adapterId", "AdapterID"),
+			phase5IDs("exactSourceIds", "ExactSourceIDs", 64), phase5IDs("exactSubjectIds", "ExactSubjectIDs", 64), phase5IDs("exactTargetIds", "ExactTargetIDs", 64),
+			phase5Positive("maximumWork", "MaximumWork"), phase5IDs("credentialReferenceIds", "CredentialReferenceIDs", 64),
+			phase5Positive("grantRevision", "GrantRevision"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+			phase5Version("policyVersion", "PolicyVersion"), phase5Digest("retentionRuleDigest", "RetentionRuleDigest"),
+			phase5Timestamp("anchorAt", "AnchorAt"), phase5Interval("intervalSeconds", "IntervalSeconds"), FieldDefinition{JSONName: "windowSeconds", GoName: "WindowSeconds", Kind: ValueInteger, Required: true, Minimum: int64Pointer(1800), Maximum: int64Pointer(604800)},
+			phase5Enum("catchUp", "CatchUp", "none", "latest"), phase5Enum("concurrency", "Concurrency", "forbid"),
+			phase5Positive("maxAttempts", "MaxAttempts"), phase5Positive("initialBackoffSeconds", "InitialBackoffSeconds"), phase5Positive("maximumBackoffSeconds", "MaximumBackoffSeconds"),
+			phase5Timestamp("expiresAt", "ExpiresAt"), phase5Bool("enabled", "Enabled"),
 		),
-		phase5Schema(scheduledJobSchemaID,
+		phase5ScheduleSchema(scheduledPolicyDraftSubmissionSchemaID,
+			phase5ID("draftId", "DraftID"), phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
+			phase5Digest("policyDigest", "PolicyDigest"), phase5Enum("status", "Status", "draft"),
+			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
+		phase5ScheduleSchema(scheduledJobSchemaID,
 			phase5ID("jobId", "JobID"), phase5ID("policyId", "PolicyID"),
-			phase5Positive("policyRevision", "PolicyRevision"), phase5Digest("actionDigest", "ActionDigest"),
-			phase5Digest("targetDigest", "TargetDigest"), phase5NullableID("runId", "RunID"),
-			phase5Enum("status", "Status", "queued", "running", "failed", "succeeded", "uncertain"),
+			phase5Positive("policyRevision", "PolicyRevision"), phase5Timestamp("scheduledAt", "ScheduledAt"), phase5Positive("attempt", "Attempt"),
+			phase5NullableID("planId", "PlanID"), phase5NullableID("runId", "RunID"),
+			phase5Enum("status", "Status", "queued", "blocked", "skipped", "running", "retry-wait", "cancelled", "failed", "succeeded", "uncertain"), phase5ID("reasonCode", "ReasonCode"),
 			phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 	}
@@ -661,11 +688,11 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5ID("priorInstanceId", "PriorInstanceID"), phase5ID("newInstanceId", "NewInstanceID"), phase5Nonnegative("priorRecoveryEpoch", "PriorRecoveryEpoch"), phase5Positive("nextRecoveryEpoch", "NextRecoveryEpoch"),
 			phase5Digest("fenceSetDigest", "FenceSetDigest"), phase5Digest("auditDecisionDigest", "AuditDecisionDigest"), phase5Digest("candidateDigest", "CandidateDigest"),
 		),
-		phase5Request(scheduledJobRequestSchemaID,
+		phase5ScheduleRequest(
 			phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
-			phase5Digest("actionDigest", "ActionDigest"), phase5ID("planId", "PlanID"),
-			phase5Digest("planDigest", "PlanDigest"), phase5ID("humanAcknowledgementId", "HumanAcknowledgementID"),
+			phase5ID("occurrenceToken", "OccurrenceToken"), phase5Timestamp("observedAt", "ObservedAt"),
 		),
+		phase5ScheduleSchema(scheduledJobCancelRequestSchemaID, phase5ID("idempotencyKey", "IdempotencyKey")),
 		phase5CredentialRequest(credentialReferenceRequestSchemaID,
 			phase5ID("referenceId", "ReferenceID"), phase5ID("consumerId", "ConsumerID"),
 			phase5ID("purposeId", "PurposeID"), phase5ID("targetId", "TargetID"), phase5ID("resolverId", "ResolverID"),
@@ -885,8 +912,10 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5AvailableGateEndpoint("api.v1.restores.get", "GET", "/api/v1/restores/plans/{planId}", "", browserRestoreStatusSchemaID, true),
 		phase5AvailableGateEndpoint("api.v1.restores.run", "POST", "/api/v1/restores/plans/{planId}/run", restoreRunRequestSchemaID, restoreBindingSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.restores.verify", "POST", "/api/v1/restores/plans/{planId}/verify", restoreVerifyRequestSchemaID, restoreVerificationSchemaID, false),
-		phase5Endpoint("api.v1.scheduled-job-policies.get", "GET", "/api/v1/scheduled-job-policies/{policyId}", "", scheduledJobPolicySchemaID, true),
-		phase5Endpoint("api.v1.scheduled-jobs.create", "POST", "/api/v1/scheduled-jobs", scheduledJobRequestSchemaID, scheduledJobSchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.get", "GET", "/api/v1/scheduled-job-policies/{policyId}", "", scheduledJobPolicySchemaID, true),
+		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.drafts.create", "POST", "/api/v1/scheduled-job-policies/drafts", scheduledJobPolicySchemaID, scheduledPolicyDraftSubmissionSchemaID, false),
+		{ID: "api.v1.scheduled-jobs.create", Method: "POST", Path: "/api/v1/scheduled-jobs", RequestSchema: scheduledJobRequestSchemaID, DataSchema: scheduledJobSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, TransportScope: "local"},
+		{ID: "api.v1.scheduled-jobs.cancel", Method: "POST", Path: "/api/v1/scheduled-jobs/{jobId}/cancel", RequestSchema: scheduledJobCancelRequestSchemaID, DataSchema: scheduledJobSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, TransportScope: "local"},
 	}
 }
 
@@ -948,5 +977,5 @@ func phase5RestoreTransitions() []TransitionDefinition {
 }
 
 func phase5ScheduledJobTransitions() []TransitionDefinition {
-	return []TransitionDefinition{{From: "queued", To: "running"}, {From: "queued", To: "failed"}, {From: "running", To: "succeeded"}, {From: "running", To: "failed"}, {From: "running", To: "uncertain"}}
+	return []TransitionDefinition{{From: "queued", To: "blocked"}, {From: "queued", To: "skipped"}, {From: "queued", To: "running"}, {From: "queued", To: "cancelled"}, {From: "queued", To: "failed"}, {From: "running", To: "retry-wait"}, {From: "running", To: "succeeded"}, {From: "running", To: "failed"}, {From: "running", To: "uncertain"}, {From: "retry-wait", To: "running"}, {From: "retry-wait", To: "cancelled"}, {From: "retry-wait", To: "failed"}}
 }

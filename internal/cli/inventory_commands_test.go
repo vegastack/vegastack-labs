@@ -39,12 +39,24 @@ type stubControlOperations struct {
 	exportResponse            localapi.TypedResponse[generated.InventoryExportData]
 	planResponse              localapi.TypedResponse[generated.Plan]
 	runResponse               localapi.TypedResponse[generated.RunPresentation]
+	schedulePolicyResponse    localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission]
+	scheduleJobResponse       localapi.TypedResponse[generated.ScheduledJob]
 	err                       error
 	calls                     int
 	config                    string
 	importRequest             generated.InventoryImportRequest
 	diffRequest               generated.InventoryDiffRequest
 	exportRequest             generated.InventoryExportRequest
+}
+
+func (stub *stubControlOperations) SubmitScheduledPolicyDraft(_ context.Context, _ string, _ generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission], error) {
+	return stub.schedulePolicyResponse, stub.err
+}
+func (stub *stubControlOperations) DispatchSchedule(_ context.Context, _, _ string) (localapi.TypedResponse[generated.ScheduledJob], error) {
+	return stub.scheduleJobResponse, stub.err
+}
+func (stub *stubControlOperations) CancelSchedule(_ context.Context, _, _ string) (localapi.TypedResponse[generated.ScheduledJob], error) {
+	return stub.scheduleJobResponse, stub.err
 }
 
 func (stub *stubControlOperations) Gates(_ context.Context, _ string) (localapi.TypedResponse[generated.GateListData], error) {
@@ -207,6 +219,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	restoreBinding := generated.RestoreBinding{Schema: generated.SchemaIDRestoreBinding, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PointID: restoreRequest.PointID, DependencyIDs: restoreRequest.DependencyIDs, TargetIDs: restoreRequest.TargetIDs, TargetDigest: restoreRequest.TargetDigest, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, HumanAcknowledgementID: restoreRun.HumanAcknowledgementID, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, Status: "planned"}
 	verifiedAt := "2026-09-24T06:00:00Z"
 	restoreVerification := generated.RestoreVerification{Schema: generated.SchemaIDRestoreVerification, SchemaVersion: "1.1.0", Source: restoreRequest.Source, PlanID: restoreRun.PlanID, PlanDigest: restoreRun.PlanDigest, PointID: restoreRequest.PointID, TargetDigest: restoreRequest.TargetDigest, FenceVerified: true, DatabaseVerified: true, AuditVerified: true, VerifiedAt: &verifiedAt, PriorInstanceID: restoreRequest.PriorInstanceID, NewInstanceID: restoreRequest.NewInstanceID, PriorRecoveryEpoch: 2, NextRecoveryEpoch: 3, FenceSetDigest: restoreRequest.FenceSetDigest, AuditDecisionDigest: restoreRequest.AuditDecisionDigest, CandidateDigest: restoreRequest.CandidateDigest, Canary: generated.RestoreCanaryResult{Schema: generated.SchemaIDRestoreCanaryResult, SchemaVersion: "1.1.0", ReadVerified: true, OldEpochDenied: true, NoopRunID: "run-canary", AuditCheckpointID: "checkpoint-canary", BackupPointID: "point-canary", FormerWriterDenied: true, Status: "verified", VerifiedAt: &verifiedAt}, Status: "verified"}
+	schedulePolicy := syntheticScheduledPolicy()
+	scheduleJob := generated.ScheduledJob{Schema: generated.SchemaIDScheduledJob, SchemaVersion: "1.1.0", JobID: "scheduled-job-test", PolicyID: schedulePolicy.PolicyID, PolicyRevision: schedulePolicy.Revision, ScheduledAt: schedulePolicy.AnchorAt, Attempt: 1, Status: "succeeded", ReasonCode: "verified", RecoveryEpoch: schedulePolicy.RecoveryEpoch}
 	return &stubControlOperations{
 		gateListResponse:          operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
 		gateViewResponse:          operationResponse(t, "api.v1.gates.get", false, 2, 7, view),
@@ -231,7 +245,16 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		exportResponse:            operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
 		planResponse:              operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
 		runResponse:               operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
+		schedulePolicyResponse: operationResponse(t, "api.v1.scheduled-job-policies.drafts.create", true, schedulePolicy.RecoveryEpoch, schedulePolicy.StateRevision, generated.ScheduledPolicyDraftSubmission{
+			Schema: generated.SchemaIDScheduledPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: "schedule-draft-a", PolicyID: schedulePolicy.PolicyID, PolicyRevision: schedulePolicy.Revision, PolicyDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch,
+		}),
+		scheduleJobResponse: operationResponse(t, "api.v1.scheduled-jobs.create", true, scheduleJob.RecoveryEpoch, schedulePolicy.StateRevision, scheduleJob),
 	}
+}
+
+func syntheticScheduledPolicy() generated.ScheduledJobPolicy {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	return generated.ScheduledJobPolicy{Schema: generated.SchemaIDScheduledJobPolicy, SchemaVersion: "1.1.0", PolicyID: "policy-a", Revision: 1, DeclarationID: "declaration-a", DeclarationRevision: 1, ActionKind: "gate-check", OperationType: "schedule.gate.check", AdapterID: "core.schedule-observe", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1, CredentialReferenceIDs: []string{}, GrantRevision: 1, StateRevision: 7, RecoveryEpoch: 2, PolicyVersion: "1.0.0", RetentionRuleDigest: digest, AnchorAt: "2026-09-24T00:00:00Z", IntervalSeconds: 3600, WindowSeconds: 1800, CatchUp: "none", Concurrency: "forbid", MaxAttempts: 1, InitialBackoffSeconds: 1, MaximumBackoffSeconds: 1, ExpiresAt: "2026-09-25T00:00:00Z", Enabled: true}
 }
 
 func operationResponse[T any](t *testing.T, command string, changed bool, epoch, revision int64, data T) localapi.TypedResponse[T] {

@@ -45,7 +45,7 @@ export const RUN_TRANSITIONS = [{"from":"interrupted","to":"cancelled"},{"from":
 export const GATE_EVIDENCE_TRANSITIONS = [{"from":"applied","to":"revoked"},{"from":"draft","to":"applied"},{"from":"draft","to":"revoked"}] as const;
 export const BACKUP_JOB_TRANSITIONS = [{"from":"pending","to":"failed"},{"from":"pending","to":"verified"},{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"pending"},{"from":"running","to":"uncertain"}] as const;
 export const RESTORE_TRANSITIONS = [{"from":"fenced","to":"failed"},{"from":"fenced","to":"restoring"},{"from":"planned","to":"failed"},{"from":"planned","to":"fenced"},{"from":"restoring","to":"failed"},{"from":"restoring","to":"uncertain"},{"from":"restoring","to":"verification-required"},{"from":"verification-required","to":"failed"},{"from":"verification-required","to":"uncertain"},{"from":"verification-required","to":"verified"}] as const;
-export const SCHEDULED_JOB_TRANSITIONS = [{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"succeeded"},{"from":"running","to":"uncertain"}] as const;
+export const SCHEDULED_JOB_TRANSITIONS = [{"from":"queued","to":"blocked"},{"from":"queued","to":"cancelled"},{"from":"queued","to":"failed"},{"from":"queued","to":"running"},{"from":"queued","to":"skipped"},{"from":"retry-wait","to":"cancelled"},{"from":"retry-wait","to":"failed"},{"from":"retry-wait","to":"running"},{"from":"running","to":"failed"},{"from":"running","to":"retry-wait"},{"from":"running","to":"succeeded"},{"from":"running","to":"uncertain"}] as const;
 
 export interface ApiAuditEventData {
   readonly "event": BrowserAuditEvent;
@@ -723,16 +723,34 @@ export interface RunReferenceRequest {
 
 export interface ScheduledJobPolicy {
   readonly "schema": "vegastack-labs.dev/scheduled-job-policy";
-  readonly "schemaVersion": "1.0.0";
+  readonly "schemaVersion": "1.1.0";
   readonly "policyId": string;
   readonly "revision": number;
-  readonly "actionKind": "backup" | "audit-checkpoint" | "gate-check";
+  readonly "declarationId": string;
+  readonly "declarationRevision": number;
+  readonly "actionKind": "gate-check" | "observation-refresh" | "backup-create" | "backup-integrity-verify" | "audit-checkpoint-export";
+  readonly "operationType": string;
+  readonly "adapterId": string;
+  readonly "exactSourceIds": ReadonlyArray<string>;
+  readonly "exactSubjectIds": ReadonlyArray<string>;
   readonly "exactTargetIds": ReadonlyArray<string>;
-  readonly "actionDigest": string;
-  readonly "targetDigest": string;
-  readonly "intervalSeconds": number;
-  readonly "enabled": boolean;
+  readonly "maximumWork": number;
+  readonly "credentialReferenceIds": ReadonlyArray<string>;
+  readonly "grantRevision": number;
+  readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
+  readonly "policyVersion": string;
+  readonly "retentionRuleDigest": string;
+  readonly "anchorAt": string;
+  readonly "intervalSeconds": number;
+  readonly "windowSeconds": number;
+  readonly "catchUp": "none" | "latest";
+  readonly "concurrency": "forbid";
+  readonly "maxAttempts": number;
+  readonly "initialBackoffSeconds": number;
+  readonly "maximumBackoffSeconds": number;
+  readonly "expiresAt": string;
+  readonly "enabled": boolean;
 }
 
 export interface ServerStatusData {
@@ -5049,7 +5067,7 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "enum": [
-          "1.0.0"
+          "1.1.0"
         ]
       },
       {
@@ -5067,15 +5085,63 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "minimum": 1
       },
       {
+        "name": "declarationId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "declarationRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
         "name": "actionKind",
         "kind": "string",
         "required": true,
         "nullable": false,
         "enum": [
-          "backup",
-          "audit-checkpoint",
-          "gate-check"
+          "gate-check",
+          "observation-refresh",
+          "backup-create",
+          "backup-integrity-verify",
+          "audit-checkpoint-export"
         ]
+      },
+      {
+        "name": "operationType",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "adapterId",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "exactSourceIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "exactSubjectIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
       },
       {
         "name": "exactTargetIds",
@@ -5083,23 +5149,66 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "itemKind": "string",
-        "minItems": 1,
         "maxItems": 64,
         "uniqueItems": true
       },
       {
-        "name": "actionDigest",
+        "name": "maximumWork",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "credentialReferenceIds",
+        "kind": "array",
+        "required": true,
+        "nullable": false,
+        "itemKind": "string",
+        "maxItems": 64,
+        "uniqueItems": true
+      },
+      {
+        "name": "grantRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "stateRevision",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "recoveryEpoch",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 0
+      },
+      {
+        "name": "policyVersion",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.-]+)?$"
+      },
+      {
+        "name": "retentionRuleDigest",
         "kind": "string",
         "required": true,
         "nullable": false,
         "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
-        "name": "targetDigest",
+        "name": "anchorAt",
         "kind": "string",
         "required": true,
         "nullable": false,
-        "pattern": "^sha256:[a-f0-9]{64}$"
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
       },
       {
         "name": "intervalSeconds",
@@ -5110,17 +5219,65 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "maximum": 604800
       },
       {
+        "name": "windowSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1800,
+        "maximum": 604800
+      },
+      {
+        "name": "catchUp",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "none",
+          "latest"
+        ]
+      },
+      {
+        "name": "concurrency",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "enum": [
+          "forbid"
+        ]
+      },
+      {
+        "name": "maxAttempts",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "initialBackoffSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "maximumBackoffSeconds",
+        "kind": "integer",
+        "required": true,
+        "nullable": false,
+        "minimum": 1
+      },
+      {
+        "name": "expiresAt",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+      },
+      {
         "name": "enabled",
         "kind": "boolean",
         "required": true,
         "nullable": false
-      },
-      {
-        "name": "recoveryEpoch",
-        "kind": "integer",
-        "required": true,
-        "nullable": false,
-        "minimum": 0
       }
     ]
   },
@@ -5854,6 +6011,7 @@ export type ReadClient = {
   readonly resolveRun: (path: { readonly planId: string; readonly idempotencyKey: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
   readonly getRestoreStatus: (path: { readonly planId: string }, options?: RequestOptions) => Promise<ReadResult<BrowserRestoreStatus>>;
   readonly getRun: (path: { readonly runId: string }, options?: RequestOptions) => Promise<ReadResult<RunPresentation>>;
+  readonly getScheduledJobPolicy: (path: { readonly policyId: string }, options?: RequestOptions) => Promise<ReadResult<ScheduledJobPolicy>>;
   readonly listSources: (query?: ApiSourceListQuery, options?: RequestOptions) => Promise<ReadResult<ApiSourceListData>>;
   readonly getSummary: (options?: RequestOptions) => Promise<ReadResult<ApiSummaryData>>;
 };
@@ -5958,6 +6116,10 @@ export function createReadClient(fetchTransport: FetchTransport): ReadClient {
     async getRun(path, options = {}) {
       const operation = "api.v1.runs.get";
       return performRead(fetchTransport, "/api/v1/runs/" + encodePathString(path.runId, "runId") + "", options, operation, decodeRunPresentation);
+    },
+    async getScheduledJobPolicy(path, options = {}) {
+      const operation = "api.v1.scheduled-job-policies.get";
+      return performRead(fetchTransport, "/api/v1/scheduled-job-policies/" + encodePathString(path.policyId, "policyId") + "", options, operation, decodeScheduledJobPolicy);
     },
     async listSources(query = {}, options = {}) {
       const operation = "api.v1.sources.list";

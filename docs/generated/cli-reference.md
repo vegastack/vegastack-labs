@@ -504,6 +504,45 @@ Owner phase: `4` · risk: `mutation` · availability: `available`
 
 - Request server-owned resumption of one safely resumable durable run.: `vsk-labs run resume --config fixture/server-profile.json --run-id run-1 --output json`
 
+### `vsk-labs schedule cancel`
+
+Cancel one exact queued or retry-wait scheduled occurrence.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--job-id <id>` — Select one exact durable scheduled job.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Cancel one exact queued or retry-wait scheduled occurrence.: `vsk-labs schedule cancel --config fixture/server-profile.json --job-id scheduled-job-a --output json`
+
+### `vsk-labs schedule dispatch`
+
+Wake one exact approved schedule through the protected local API.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--policy-id <id>` — Select one exact active policy; no action field may be overridden.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Wake one exact approved schedule through the protected local API.: `vsk-labs schedule dispatch --config fixture/server-profile.json --policy-id policy-a --output json`
+
+### `vsk-labs schedule policy draft`
+
+Store one inert exact scheduled-policy draft for later human-plan activation.
+
+Owner phase: `5` · risk: `mutation` · availability: `available`
+
+- `--config <path>` — Read one protected local server profile.
+- `--file <path>` — Read one exact scheduled-job-policy JSON file.
+- `--output <format>` — Select human or versioned JSON output. Allowed: `human`, `json`.
+- `--schema-version <major>` — Select the machine-contract schema major. Allowed: `1`.
+
+- Store one inert exact scheduled-policy draft for later human-plan activation.: `vsk-labs schedule policy draft --config fixture/server-profile.json --file fixture/scheduled-job-policy.json --output json`
+
 ### `vsk-labs server api-ssh`
 
 Serve one constrained SSH API frame through the persistent control service.
@@ -1165,6 +1204,13 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `planId`
 - `errors`
 - `data`
+
+### `vegastack-labs.dev/scheduled-runner-profile`
+
+- `uid`
+- `principalId`
+- `binaryPath`
+- `configPath`
 
 ### Run transitions
 

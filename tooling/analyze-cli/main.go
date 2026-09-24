@@ -860,6 +860,8 @@ const (
 	// of both waves over the current sources.
 	reviewedAuditCredentialLocalAPILinuxDigest       = "a0fa1ad5845527ea5bba96709e3e6f0c81528fc6cb77823733666850a8c53812"
 	reviewedAuditCredentialLocalAPIUnsupportedDigest = "c4a5a8bddeb0579d7dbd537c248836c92fa98fe4ac52fd77dccae7a47d7867d4"
+	reviewedScheduleLocalAPILinuxDigest              = "296ae54aa9e5e5554f33d82371105acb286f2c72c74ed0d39183e869db055dfd"
+	reviewedScheduleLocalAPIUnsupportedDigest        = "e1db57ef9e23a3bd1068e0ac42189edac917a44b0842d207abb3717933ca3d49"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -915,10 +917,14 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 	}
 	if containsString(names, "backup_client.go") && containsString(names, "credential_lifecycle_client.go") {
 		withRestore := containsString(names, "restore_client.go")
+		withSchedule := containsString(names, "schedule_client.go")
 		if containsString(names, "listener_linux.go") {
 			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_linux.go"
 			if withRestore {
 				exact += ",restore_client.go"
+			}
+			if withSchedule {
+				exact += ",schedule_client.go"
 			}
 			if strings.Join(names, ",") != exact {
 				return false
@@ -927,10 +933,16 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			if withRestore {
 				expected = reviewedRestoreLocalAPILinuxDigest
 			}
+			if withSchedule {
+				expected = reviewedScheduleLocalAPILinuxDigest
+			}
 		} else {
 			exact := "audit_client.go,backup_client.go,client.go,credential_client.go,credential_lifecycle_client.go,gates_client.go,listener.go,listener_unsupported.go"
 			if withRestore {
 				exact += ",restore_client.go"
+			}
+			if withSchedule {
+				exact += ",schedule_client.go"
 			}
 			if strings.Join(names, ",") != exact {
 				return false
@@ -938,6 +950,9 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 			expected = reviewedBackupLifecycleLocalAPIUnsupportedDigest
 			if withRestore {
 				expected = reviewedRestoreLocalAPIUnsupportedDigest
+			}
+			if withSchedule {
+				expected = reviewedScheduleLocalAPIUnsupportedDigest
 			}
 		}
 	} else if containsString(names, "backup_client.go") {

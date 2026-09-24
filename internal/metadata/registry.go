@@ -16,6 +16,7 @@ const (
 	remoteReadProfileSchemaID               = "vegastack-labs.dev/remote-read-profile"
 	cloudflareAccessProfileSchemaID         = "vegastack-labs.dev/cloudflare-access-profile"
 	serverProfileSchemaID                   = "vegastack-labs.dev/server-profile"
+	scheduledRunnerProfileSchemaID          = "vegastack-labs.dev/scheduled-runner-profile"
 	serverStatusDataSchemaID                = "vegastack-labs.dev/server-status-data"
 	stateExportKindCountSchemaID            = "vegastack-labs.dev/state-export-kind-count"
 	stateExportDraftRefSchemaID             = "vegastack-labs.dev/state-export-draft-ref"
@@ -209,6 +210,7 @@ func Current() Registry {
 		backupRetirementDraftCommand(),
 		backupOffsiteRetirementStageCommand(),
 		backupOffsiteRetirementDryRunCommand(),
+		schedulePolicyDraftCommand(), scheduleDispatchCommand(), scheduleCancelCommand(),
 		backupStatusCommand(), backupRunCommand(), backupVerifyCommand(),
 		restoreCommand("plan", restoreRequestSchemaID, restoreBindingSchemaID, "Create one immutable fenced restore plan."),
 		restoreCommand("run", restoreRunRequestSchemaID, restoreBindingSchemaID, "Stage one exact authorized restore candidate."),
@@ -415,6 +417,24 @@ func backupStatusCommand() CommandDefinition {
 	return phase5GateCommand([]string{"backup", "status"}, "Inspect local backup jobs and qualification status.", "", backupStatusDataSchemaID, RiskReadOnly,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected server profile."}},
 		[]string{"backup", "status", "--config", "fixture/server-profile.json", "--output", "json"})
+}
+
+func schedulePolicyDraftCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "policy", "draft"}, "Store one inert exact scheduled-policy draft for later human-plan activation.", scheduledJobPolicySchemaID, scheduledPolicyDraftSubmissionSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact scheduled-job-policy JSON file."}},
+		[]string{"schedule", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/scheduled-job-policy.json", "--output", "json"})
+}
+
+func scheduleDispatchCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "dispatch"}, "Wake one exact approved schedule through the protected local API.", scheduledJobRequestSchemaID, scheduledJobSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--policy-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one exact active policy; no action field may be overridden."}},
+		[]string{"schedule", "dispatch", "--config", "fixture/server-profile.json", "--policy-id", "policy-a", "--output", "json"})
+}
+
+func scheduleCancelCommand() CommandDefinition {
+	return phase5GateCommand([]string{"schedule", "cancel"}, "Cancel one exact queued or retry-wait scheduled occurrence.", scheduledJobCancelRequestSchemaID, scheduledJobSchemaID, RiskMutation,
+		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--job-id", Kind: FlagValue, ValueName: "id", Required: true, Summary: "Select one exact durable scheduled job."}},
+		[]string{"schedule", "cancel", "--config", "fixture/server-profile.json", "--job-id", "scheduled-job-a", "--output", "json"})
 }
 
 func backupRunCommand() CommandDefinition {
@@ -848,6 +868,15 @@ func currentSchemas() []SchemaDefinition {
 			},
 		},
 		{
+			ID: scheduledRunnerProfileSchemaID, Version: "1.0.0", ArtifactPath: "schemas/v1/scheduled-runner-profile.schema.json",
+			Fields: []FieldDefinition{
+				{JSONName: "uid", GoName: "UID", Kind: ValueInteger, Required: true, Minimum: int64Pointer(0), Maximum: int64Pointer(4294967295)},
+				{JSONName: "principalId", GoName: "PrincipalID", Kind: ValueString, Required: true, Pattern: `^[a-z][a-z0-9._:-]{0,127}$`},
+				{JSONName: "binaryPath", GoName: "BinaryPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+				{JSONName: "configPath", GoName: "ConfigPath", Kind: ValueString, Required: true, Pattern: `^/[^\x00]*$`, MinLength: intPointer(2), MaxLength: intPointer(4096)},
+			},
+		},
+		{
 			ID:           serverProfileSchemaID,
 			Version:      "1.3.0",
 			ArtifactPath: "schemas/v1/server-profile.schema.json",
@@ -863,6 +892,7 @@ func currentSchemas() []SchemaDefinition {
 				{JSONName: "principalBindings", GoName: "PrincipalBindings", Kind: ValueArray, Required: true, ItemRef: localPrincipalBindingSchemaID, MinItems: intPointer(1), MaxItems: intPointer(256), UniqueItems: true},
 				{JSONName: "remoteRead", GoName: "RemoteRead", Kind: ValueObject, Required: true, Ref: remoteReadProfileSchemaID},
 				{JSONName: "acknowledgementAdapterConfigPath", GoName: "AcknowledgementAdapterConfigPath", Kind: ValueString, Required: false, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
+				{JSONName: "scheduledRunner", GoName: "ScheduledRunner", Kind: ValueObject, Required: false, Nullable: true, Ref: scheduledRunnerProfileSchemaID},
 				{JSONName: "standardBackupRoot", GoName: "StandardBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "criticalBackupRoot", GoName: "CriticalBackupRoot", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},
 				{JSONName: "resticBinaryPath", GoName: "ResticBinaryPath", Kind: ValueString, Required: false, Nullable: true, MinLength: intPointer(2), MaxLength: intPointer(4096), Pattern: `^/[^\x00]*$`},

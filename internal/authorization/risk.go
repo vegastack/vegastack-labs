@@ -23,11 +23,16 @@ var operationRisk = map[string]RiskClass{
 	"application.deploy.low-risk":        RiskRoutine,
 	"application.deploy.production-like": RiskProductionLike,
 	"audit.checkpoint":                   RiskRoutine,
+	"audit.checkpoint.anchor":            RiskRoutine,
 	"backup.snapshot":                    RiskRoutine,
 	"backup.verify":                      RiskRoutine,
+	"backup.local.create":                RiskRoutine,
+	"backup.local.verify":                RiskRoutine,
 	"backup.offsite.copy":                RiskInfrastructure,
 	"drift.scan":                         RiskRoutine,
 	"health.check":                       RiskRoutine,
+	"schedule.gate.check":                RiskRoutine,
+	"schedule.observation.refresh":       RiskRoutine,
 	"node.add":                           RiskInfrastructure,
 	"node.remove":                        RiskInfrastructure,
 	"shell.grant":                        RiskInfrastructure,
@@ -51,6 +56,7 @@ var operationRisk = map[string]RiskClass{
 	"credential.rotate":                  RiskControlPlane,
 	"credential.revoke":                  RiskControlPlane,
 	"credential.recover":                 RiskControlPlane,
+	"schedule.policy.activate":           RiskControlPlane,
 }
 
 var riskRank = map[RiskClass]int{
@@ -88,9 +94,13 @@ func ClassifyPlan(plan generated.Plan) (RiskClass, error) {
 
 func preauthorizedOperation(operation string) bool {
 	switch operation {
-	case "application.deploy.low-risk", "audit.checkpoint", "backup.snapshot", "backup.verify", "drift.scan", "health.check":
+	case "application.deploy.low-risk", "audit.checkpoint", "audit.checkpoint.anchor", "backup.snapshot", "backup.verify", "backup.local.create", "backup.local.verify", "drift.scan", "health.check", "schedule.gate.check", "schedule.observation.refresh":
 		return true
 	default:
 		return false
 	}
 }
+
+// IsPreauthorizedOperation exposes the closed routine-operation table to the
+// schedule package without allowing callers to extend it.
+func IsPreauthorizedOperation(operation string) bool { return preauthorizedOperation(operation) }

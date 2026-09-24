@@ -6,7 +6,7 @@
     "schemaVersion": "1.6.0",
     "productionExecutable": "cmd/vsk-labs",
     "productionDependencyDigest": "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133",
-    "postPhase2MutationBoundaryDigest": "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c",
+    "postPhase2MutationBoundaryDigest": "sha256:11b278dfc2431beb4910d958b4ef05ae5204ebc95061363790a96c9a8a129144",
     "mutationAvailable": false,
     "availableCommands": [
       "backup policy draft",
@@ -300,6 +300,19 @@
           "github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
         ],
         "mutationBoundaryDigest": "sha256:85e6ba71118938c37b8e2ce90b4d2b8ca17941b8a39d1ad8234008bdb681b64a"
+      },
+      {
+        "id": "phase5-issue109-v1",
+        "issue": 109,
+        "commands": [
+          "schedule cancel",
+          "schedule dispatch",
+          "schedule policy draft"
+        ],
+        "imports": [
+          "github.com/vegastack/vegastack-labs/internal/schedule"
+        ],
+        "mutationBoundaryDigest": "sha256:11b278dfc2431beb4910d958b4ef05ae5204ebc95061363790a96c9a8a129144"
       }
     ]
   },

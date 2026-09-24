@@ -79,6 +79,10 @@ type IDSource interface {
 	Lease(generated.RunStep) (string, string, error)
 }
 
+type ScheduledAdmission interface {
+	ValidateScheduledPlan(context.Context, generated.Plan, time.Time) error
+}
+
 type Config struct {
 	Repository       Repository
 	Plans            PlanSource
@@ -93,6 +97,7 @@ type Config struct {
 	IDs              IDSource
 	ExecutionContext context.Context
 	LeaseContext     func(context.Context, time.Time) (context.Context, context.CancelFunc)
+	Scheduled        ScheduledAdmission
 }
 
 type SubmitRequest struct {
@@ -116,6 +121,7 @@ type Engine struct {
 	ids               IDSource
 	executionContext  context.Context
 	leaseContext      func(context.Context, time.Time) (context.Context, context.CancelFunc)
+	scheduled         ScheduledAdmission
 	operationMu       sync.Mutex
 	operationLanes    map[string]*operationLane
 	testAfterBoundary func(Boundary) error
@@ -147,7 +153,9 @@ func isCredentialLifecycleOperation(kind string) bool {
 func isCoreOperation(adapterID, kind string) bool {
 	return adapterID == "core.gate" && isGateOperation(kind) ||
 		adapterID == "core.audit" && kind == "audit.checkpoint.anchor" ||
-		adapterID == "core.recovery" && kind == "recovery.canary.noop"
+		adapterID == "core.recovery" && kind == "recovery.canary.noop" ||
+		adapterID == "core.schedule" && kind == "schedule.policy.activate" ||
+		adapterID == "core.schedule-observe" && (kind == "schedule.gate.check" || kind == "schedule.observation.refresh")
 }
 
 func NewEngine(config Config) (*Engine, error) {
@@ -169,7 +177,7 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.SecretGate == nil {
 		config.SecretGate = UnavailableGateVerifier{}
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, credentialCore: config.CredentialCore, retentionCore: config.RetentionCore, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, credentialCore: config.CredentialCore, retentionCore: config.RetentionCore, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, scheduled: config.Scheduled, operationLanes: map[string]*operationLane{}}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -185,6 +193,9 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		return generated.Run{}, runError(generated.ErrorCodePlanStale, "plan")
 	}
 	if err := engine.verifyAdmission(ctx, plan, request.Authorization, request.Acknowledgement); err != nil {
+		return generated.Run{}, err
+	}
+	if err := engine.validateScheduled(ctx, plan); err != nil {
 		return generated.Run{}, err
 	}
 	if credentialPlanDigest(plan) != "" && plan.ExecutorMode != "central" {
@@ -538,7 +549,7 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		}
 		var implementation adapter.Adapter
 		if isCoreOperation(operation.AdapterID, operation.OperationType) {
-			if engine.core == nil || operation.InputDigest != operation.ArtifactDigest || plan.ExecutorMode != "central" {
+			if engine.core == nil || (operation.AdapterID != "core.schedule-observe" && operation.InputDigest != operation.ArtifactDigest) || plan.ExecutorMode != "central" {
 				err = runError(generated.ErrorCodePrerequisiteBlocked, "core-effect-unavailable")
 			}
 		} else if isRetentionLockOperation(operation.AdapterID, operation.OperationType) {
@@ -599,6 +610,10 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return current, runError(generated.ErrorCodeIntegrityFailure, "run-step-binding")
 		}
 		binding := ExactStepBinding{Plan: plan, Run: current, Step: *intentStep, Lease: lease, Attribution: attribution}
+		if err := engine.validateScheduled(leaseContext, plan); err != nil {
+			cancelLease()
+			return engine.failBeforeEffect(ctx, current, *live, attribution, err)
+		}
 		var effect adapter.Effect
 		var executeErr error
 		if isCoreOperation(operation.AdapterID, operation.OperationType) {
@@ -699,6 +714,37 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 	return current, nil
 }
 
+func (engine *Engine) validateScheduled(ctx context.Context, plan generated.Plan) error {
+	policyBound, occurrenceBound := false, false
+	for _, extension := range plan.Extensions {
+		switch extension.Name {
+		case "x-scheduled-policy":
+			policyBound = true
+		case "x-scheduled-occurrence":
+			occurrenceBound = true
+		}
+	}
+	if !policyBound && !occurrenceBound {
+		return nil
+	}
+	// A human-authorized schedule.policy.activate plan carries the policy
+	// digest but no occurrence. It must execute before that policy can become
+	// scheduled authority. Every other partial scheduled binding fails closed.
+	if policyBound && !occurrenceBound {
+		if plan.AuthorizationBranch == "human" && plan.ExecutorMode == "central" && len(plan.Operations) == 1 && plan.Operations[0].AdapterID == "core.schedule" && plan.Operations[0].OperationType == "schedule.policy.activate" {
+			return nil
+		}
+		return runError(generated.ErrorCodeAuthorizationDenied, "scheduled-plan-binding")
+	}
+	if !policyBound {
+		return runError(generated.ErrorCodeAuthorizationDenied, "scheduled-plan-binding")
+	}
+	if engine.scheduled == nil {
+		return runError(generated.ErrorCodePrerequisiteBlocked, "scheduled-admission-unavailable")
+	}
+	return engine.scheduled.ValidateScheduledPlan(ctx, plan, engine.clock().UTC().Truncate(time.Second))
+}
+
 func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan, step generated.RunStep, lease generated.ExecutorLease, operation adapter.Operation, implementation adapter.Adapter) (adapter.Effect, error) {
 	if engine.credentialStep == nil || engine.secretGate == nil || step.Status != "running" || step.EffectState != "intent-recorded" || step.StepID != lease.StepID || step.OperationID != lease.OperationID || step.AdapterID != lease.AdapterID || step.TargetID != lease.TargetID {
 		return adapter.Effect{}, runError(generated.ErrorCodePrerequisiteBlocked, "credential-intent-binding")
@@ -740,7 +786,7 @@ func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan
 		return adapter.Effect{}, err
 	}
 	bindings, err := engine.credentialStep.Bindings.GetStepBindings(ctx, plan, operation.OperationID)
-	if err != nil || len(bindings) != len(values) || operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID) {
+	if err != nil || len(bindings) != len(values) || (!scheduledCredentialPlan(plan) && operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID)) || (scheduledCredentialPlan(plan) && credentialPlanDigest(plan) != credentialref.ManifestDigest(bindings)) {
 		closeCredentialValues(values)
 		return adapter.Effect{}, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-references")
 	}

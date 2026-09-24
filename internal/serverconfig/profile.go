@@ -24,6 +24,7 @@ const maxProfileBytes = 64 * 1024
 
 var offsiteProfileToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
+var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
 	SocketPath                       string
@@ -38,6 +39,12 @@ type Profile struct {
 	AcknowledgementAdapterConfigPath string
 	LocalBackup                      *LocalBackup
 	OffsiteBackup                    *OffsiteBackup
+	ScheduledRunner                  *ScheduledRunner
+}
+
+type ScheduledRunner struct {
+	UID                                 uint32
+	PrincipalID, BinaryPath, ConfigPath string
 }
 
 // LocalBackup names the protected server-owned local recovery roots and the
@@ -177,6 +184,23 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	if err != nil {
 		return invalid()
 	}
+	var scheduledRunner *ScheduledRunner
+	if input.ScheduledRunner != nil {
+		runner := input.ScheduledRunner
+		if runner.UID < 0 || runner.UID > int64(^uint32(0)) || runner.PrincipalID == "" || !filepath.IsAbs(runner.BinaryPath) || filepath.Clean(runner.BinaryPath) != runner.BinaryPath || !scheduledRunnerPath.MatchString(runner.BinaryPath) || !filepath.IsAbs(runner.ConfigPath) || filepath.Clean(runner.ConfigPath) != runner.ConfigPath || !scheduledRunnerPath.MatchString(runner.ConfigPath) {
+			return invalid()
+		}
+		uid, matched := uint32(runner.UID), false
+		for _, binding := range bindings {
+			if binding.UID == uid && binding.PrincipalID == runner.PrincipalID {
+				matched = true
+			}
+		}
+		if !matched {
+			return invalid()
+		}
+		scheduledRunner = &ScheduledRunner{UID: uid, PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}
+	}
 	return Profile{
 		SocketPath:                       input.SocketPath,
 		InventoryExportRoot:              input.InventoryExportRoot,
@@ -189,6 +213,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 		AcknowledgementAdapterConfigPath: adapterConfigPath,
 		LocalBackup:                      localBackup,
 		OffsiteBackup:                    offsiteBackup,
+		ScheduledRunner:                  scheduledRunner,
 	}, nil
 }
 

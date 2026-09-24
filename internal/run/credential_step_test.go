@@ -173,6 +173,31 @@ func TestCredentialStepRechecksAppliedReferenceAndExactLease(t *testing.T) {
 	}
 }
 
+func TestScheduledCredentialStepKeepsSemanticInputAndRequiresScheduledAdmission(t *testing.T) {
+	now := time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC)
+	plan := testPlan(now)
+	plan.ExecutorMode, plan.AuthorizationBranch, plan.Binding.StateRevision = "central", "preauthorized", 3
+	binding := credentialref.StepBinding{OperationID: plan.Operations[0].OperationID, AdapterID: plan.Operations[0].AdapterID, TargetID: plan.Operations[0].TargetID, ReferenceID: "ref-a", ConsumerID: plan.Operations[0].AdapterID, PurposeID: "backup-encryption", MaterialVersion: "version-a", ResolverID: "native-a", StateRevision: 3, RecoveryEpoch: 0}
+	plan.Operations[0].InputDigest = digest("semantic-backup-manifest")
+	manifest := credentialref.ManifestDigest([]credentialref.StepBinding{binding})
+	plan.Extensions = []generated.ContractExtension{{Name: "x-scheduled-credential-bindings", ValueDigest: manifest}, {Name: "x-scheduled-occurrence", ValueDigest: digest("occurrence")}, {Name: "x-scheduled-policy", ValueDigest: digest("policy")}}
+	activated := now.Format(time.RFC3339)
+	reference := generated.CredentialReference{ReferenceID: binding.ReferenceID, ConsumerID: binding.ConsumerID, PurposeID: binding.PurposeID, TargetID: binding.TargetID, ResolverID: binding.ResolverID, MaterialVersion: binding.MaterialVersion, Status: "active", StateRevision: 2, RecoveryEpoch: 0, ActivatedAt: &activated, VerifiedConsumerIDs: []string{binding.ConsumerID}}
+	validator := &fakeCredentialPlanValidator{}
+	step := CredentialStep{Bindings: &fakeCredentialBindings{binding: binding, reference: reference}, Resolvers: &fakeCredentialRegistry{resolver: &countingCredentialResolver{}}, Profiles: fakeCredentialProfiles{scope: store.GateAppliedProfile{ProfileID: "profile-a", StateRevision: 2, RecoveryEpoch: 0, Capabilities: []string{"credential.native.read"}}}, Plans: &fakeCredentialPlanValidator{}, ScheduledPlans: validator, Clock: func() time.Time { return now }}
+	operation := plan.Operations[0]
+	lease := generated.ExecutorLease{LeaseID: "lease-a", RunID: "run-a", StepID: "step-a", ExecutorID: operation.ExecutorID, PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, OperationID: operation.OperationID, AdapterID: operation.AdapterID, TargetID: operation.TargetID, ArtifactDigest: operation.ArtifactDigest, RecoveryEpoch: 0, Status: "active", MaximumExpiresAt: now.Add(time.Minute).Format(time.RFC3339)}
+	values, err := step.Resolve(context.Background(), plan, operation, lease)
+	if err != nil || len(values) != 1 || validator.calls != 3 {
+		t.Fatalf("scheduled resolve values=%d validation=%d err=%v", len(values), validator.calls, err)
+	}
+	values[0].Close()
+	step.ScheduledPlans = nil
+	if _, err := step.Resolve(context.Background(), plan, operation, lease); Code(err) != generated.ErrorCodePlanStale {
+		t.Fatalf("missing scheduled admission err=%v", err)
+	}
+}
+
 func TestCredentialStepClassifiesOnlyServerBoundOperationAsSecret(t *testing.T) {
 	plan := testPlan(time.Date(2026, 9, 16, 0, 0, 0, 0, time.UTC))
 	plan.Extensions = []generated.ContractExtension{{Name: "x-credential-bindings", ValueDigest: digest("synthetic-manifest")}}

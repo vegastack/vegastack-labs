@@ -772,10 +772,23 @@
       ]
     },
     {
+      "id": "api.v1.scheduled-job-policies.drafts.create",
+      "method": "POST",
+      "path": "/api/v1/scheduled-job-policies/drafts",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/scheduled-job-policy",
+      "dataSchema": "vegastack-labs.dev/scheduled-policy-draft-submission",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ]
+    },
+    {
       "id": "api.v1.scheduled-job-policies.get",
       "method": "GET",
       "path": "/api/v1/scheduled-job-policies/{policyId}",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
       "dataSchema": "vegastack-labs.dev/scheduled-job-policy",
       "stream": "finite",
@@ -785,17 +798,32 @@
       ]
     },
     {
+      "id": "api.v1.scheduled-jobs.cancel",
+      "method": "POST",
+      "path": "/api/v1/scheduled-jobs/{jobId}/cancel",
+      "availability": "available",
+      "ownerPhase": "5",
+      "requestSchema": "vegastack-labs.dev/scheduled-job-cancel-request",
+      "dataSchema": "vegastack-labs.dev/scheduled-job",
+      "stream": "finite",
+      "audiences": [
+        "operator"
+      ],
+      "transportScope": "local"
+    },
+    {
       "id": "api.v1.scheduled-jobs.create",
       "method": "POST",
       "path": "/api/v1/scheduled-jobs",
-      "availability": "planned",
+      "availability": "available",
       "ownerPhase": "5",
       "requestSchema": "vegastack-labs.dev/scheduled-job-request",
       "dataSchema": "vegastack-labs.dev/scheduled-job",
       "stream": "finite",
       "audiences": [
         "operator"
-      ]
+      ],
+      "transportScope": "local"
     },
     {
       "id": "api.v1.session.create",

@@ -30,20 +30,41 @@ type CredentialPlanValidator interface {
 // CredentialStep is server-owned JIT delivery. It never accepts a caller
 // authored reference, artifact, profile, gate proof, or plaintext value.
 type CredentialStep struct {
-	Bindings  CredentialBindingSource
-	Resolvers CredentialResolverRegistry
-	Profiles  CredentialProfileSource
-	Plans     CredentialPlanValidator
-	Clock     func() time.Time
+	Bindings       CredentialBindingSource
+	Resolvers      CredentialResolverRegistry
+	Profiles       CredentialProfileSource
+	Plans          CredentialPlanValidator
+	ScheduledPlans CredentialPlanValidator
+	Clock          func() time.Time
 }
 
 func credentialPlanDigest(plan generated.Plan) string {
 	for _, extension := range plan.Extensions {
-		if extension.Name == "x-credential-bindings" {
+		if extension.Name == "x-credential-bindings" || extension.Name == "x-scheduled-credential-bindings" {
 			return extension.ValueDigest
 		}
 	}
 	return ""
+}
+
+func scheduledCredentialPlan(plan generated.Plan) bool {
+	policy, occurrence, credentials := false, false, false
+	for _, extension := range plan.Extensions {
+		policy = policy || extension.Name == "x-scheduled-policy"
+		occurrence = occurrence || extension.Name == "x-scheduled-occurrence"
+		credentials = credentials || extension.Name == "x-scheduled-credential-bindings"
+	}
+	return policy && occurrence && credentials && plan.AuthorizationBranch == "preauthorized" && plan.ExecutorMode == "central"
+}
+
+func (step *CredentialStep) validatePlan(ctx context.Context, plan generated.Plan) error {
+	if scheduledCredentialPlan(plan) {
+		if step.ScheduledPlans == nil {
+			return runError(generated.ErrorCodePrerequisiteBlocked, "scheduled-credential-plan")
+		}
+		return step.ScheduledPlans.ValidateCurrent(ctx, plan)
+	}
+	return step.Plans.ValidateCurrent(ctx, plan)
 }
 
 func closeCredentialValues(values []*credentialref.Value) {
@@ -59,7 +80,7 @@ func (step *CredentialStep) IsSecretOperation(ctx context.Context, plan generate
 	if step == nil || step.Bindings == nil || step.Plans == nil || credentialPlanDigest(plan) == "" || operation.OperationID == "" {
 		return false, runError(generated.ErrorCodePrerequisiteBlocked, "credential-bound-manifest")
 	}
-	if err := step.Plans.ValidateCurrent(ctx, plan); err != nil {
+	if err := step.validatePlan(ctx, plan); err != nil {
 		return false, runError(generated.ErrorCodePlanStale, "credential-plan")
 	}
 	bindings, err := step.Bindings.GetStepBindings(ctx, plan, operation.OperationID)
@@ -69,7 +90,7 @@ func (step *CredentialStep) IsSecretOperation(ctx context.Context, plan generate
 	if len(bindings) == 0 {
 		return false, nil
 	}
-	if len(bindings) > 16 || operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID) {
+	if len(bindings) > 16 || (!scheduledCredentialPlan(plan) && operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID)) || (scheduledCredentialPlan(plan) && credentialPlanDigest(plan) != credentialref.ManifestDigest(bindings)) {
 		return false, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-input")
 	}
 	return true, nil
@@ -92,14 +113,14 @@ func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, op
 	if clock == nil {
 		clock = time.Now
 	}
-	if plan.Status != "planned" || plan.ExecutorMode != "central" || plan.AuthorizationBranch != "human" || credentialPlanDigest(plan) == "" || lease.LeaseID == "" || lease.RunID == "" || lease.StepID == "" || lease.ExecutorID == "" || lease.PlanID != plan.PlanID || lease.PlanDigest != plan.PlanDigest || lease.OperationID != operation.OperationID || lease.AdapterID != operation.AdapterID || lease.TargetID != operation.TargetID || lease.ArtifactDigest != operation.ArtifactDigest || lease.RecoveryEpoch != plan.Binding.RecoveryEpoch || lease.Status != "active" || operation.AdapterID == "core.gate" || operation.AdapterID == "core.credential" {
+	if plan.Status != "planned" || plan.ExecutorMode != "central" || (plan.AuthorizationBranch != "human" && !scheduledCredentialPlan(plan)) || credentialPlanDigest(plan) == "" || lease.LeaseID == "" || lease.RunID == "" || lease.StepID == "" || lease.ExecutorID == "" || lease.PlanID != plan.PlanID || lease.PlanDigest != plan.PlanDigest || lease.OperationID != operation.OperationID || lease.AdapterID != operation.AdapterID || lease.TargetID != operation.TargetID || lease.ArtifactDigest != operation.ArtifactDigest || lease.RecoveryEpoch != plan.Binding.RecoveryEpoch || lease.Status != "active" || operation.AdapterID == "core.gate" || operation.AdapterID == "core.credential" {
 		return nil, runError(generated.ErrorCodePrerequisiteBlocked, "credential-exact-plan-lease")
 	}
 	deadline, err := time.Parse(time.RFC3339, lease.MaximumExpiresAt)
 	if err != nil || !clock().UTC().Before(deadline) || ctx.Err() != nil {
 		return nil, runError(generated.ErrorCodePlanStale, "credential-lease")
 	}
-	if err := step.Plans.ValidateCurrent(ctx, plan); err != nil {
+	if err := step.validatePlan(ctx, plan); err != nil {
 		return nil, runError(generated.ErrorCodePlanStale, "credential-plan")
 	}
 	profile, err := step.Profiles.GetAppliedProfileScope(ctx)
@@ -110,7 +131,7 @@ func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, op
 	if err != nil {
 		return nil, runError(generated.ErrorCodePrerequisiteBlocked, "credential-bound-manifest")
 	}
-	if len(bindings) == 0 || len(bindings) > 16 || operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID) {
+	if len(bindings) == 0 || len(bindings) > 16 || (!scheduledCredentialPlan(plan) && operation.InputDigest != credentialref.OperationManifestDigest(bindings, operation.OperationID)) || (scheduledCredentialPlan(plan) && credentialPlanDigest(plan) != credentialref.ManifestDigest(bindings)) {
 		return nil, runError(generated.ErrorCodeIntegrityFailure, "credential-operation-input")
 	}
 	values = make([]*credentialref.Value, 0, len(bindings))
@@ -123,7 +144,7 @@ func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, op
 			closeCredentialValues(values)
 			return nil, runError(generated.ErrorCodeIntegrityFailure, "credential-binding")
 		}
-		if err := step.Plans.ValidateCurrent(ctx, plan); err != nil {
+		if err := step.validatePlan(ctx, plan); err != nil {
 			closeCredentialValues(values)
 			return nil, runError(generated.ErrorCodePlanStale, "credential-plan")
 		}
@@ -162,7 +183,7 @@ func (step *CredentialStep) Resolve(ctx context.Context, plan generated.Plan, op
 		closeCredentialValues(values)
 		return nil, runError(generated.ErrorCodeInterrupted, "credential-lease")
 	}
-	if err := step.Plans.ValidateCurrent(ctx, plan); err != nil {
+	if err := step.validatePlan(ctx, plan); err != nil {
 		closeCredentialValues(values)
 		return nil, runError(generated.ErrorCodePlanStale, "credential-plan")
 	}

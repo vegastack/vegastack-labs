@@ -51,6 +51,9 @@ func TestEveryGeneratedCommandHasTruthfulRuntimeBehavior(t *testing.T) {
 			if strings.HasPrefix(commandName(command.Path), "credential ") && commandName(command.Path) != generated.CommandNameCredentialImport {
 				files.content = syntheticLifecycleRequest(t, commandName(command.Path))
 			}
+			if commandName(command.Path) == generated.CommandNameSchedulePolicyDraft {
+				files.content, _ = json.Marshal(syntheticScheduledPolicy())
+			}
 			code, stdout, stderr := runTestAppWithOptions(t, context.Background(), arguments, nil, WithInput(strings.NewReader("encrypted-fixture")), WithReleaseOperations(operations), WithServerOperations(serverOperations), WithControlOperations(controlOperations, files), WithCredentialControlOperations(credentialOperations))
 			if commandName(command.Path) == generated.CommandNameRecoveryWitnessCollect {
 				wantCode, wantError := 6, `"code":"PREREQUISITE_BLOCKED"`

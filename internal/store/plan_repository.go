@@ -40,6 +40,13 @@ type PlanCommitResult struct {
 	Created   bool
 }
 
+type OperationalPlanCommitRequest struct {
+	Plan                               generated.Plan
+	CanonicalBytes                     []byte
+	Readable, KeyDigest, RequestDigest string
+	Expected                           RevisionToken
+}
+
 type PlanRepository struct {
 	store                    *Store
 	testFailBeforePlanInsert func() error
@@ -65,6 +72,51 @@ func (repository *PlanRepository) CurrentRevision(ctx context.Context) (Revision
 
 func (repository *PlanRepository) ExistingPlan(ctx context.Context, keyDigest, requestDigest string) (PlanCommitResult, bool, error) {
 	return repository.existing(ctx, keyDigest, requestDigest)
+}
+
+// CommitOperationalPlan stores a fresh policy-derived plan without changing
+// desired declaration state. The exact declaration revision must already
+// exist, and the plan stays bound to the current state revision and epoch.
+func (repository *PlanRepository) CommitOperationalPlan(ctx context.Context, request OperationalPlanCommitRequest) (PlanCommitResult, error) {
+	if repository == nil || repository.store == nil || request.Expected.StateRevision <= 0 || request.Plan.Binding.PriorStateRevision != request.Expected.StateRevision || request.Plan.Binding.StateRevision != request.Expected.StateRevision || request.Plan.Binding.RecoveryEpoch != request.Expected.RecoveryEpoch || request.Plan.AuthorizationBranch != "preauthorized" || request.Plan.ExecutorMode != "central" || len(request.CanonicalBytes) == 0 || request.Readable == "" {
+		return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "operational-plan", false, nil)
+	}
+	canonical, err := json.Marshal(request.Plan)
+	if err != nil || string(canonical) != string(request.CanonicalBytes) || generated.ValidateContractJSON(generated.SchemaIDPlan, canonical, generated.ContractExact) != nil || generated.ValidatePlanTiming(request.Plan) != nil || !validPlanDigests(request.Plan, request.Readable) {
+		return PlanCommitResult{}, newStoreError(generated.ErrorCodeInputInvalid, "operational-plan", false, err)
+	}
+	if existing, found, err := repository.existing(ctx, request.KeyDigest, request.RequestDigest); err != nil || found {
+		return existing, err
+	}
+	repository.store.mu.Lock()
+	defer repository.store.mu.Unlock()
+	if err := repository.store.readyForTransaction(ctx); err != nil {
+		return PlanCommitResult{}, err
+	}
+	tx, err := repository.store.conn.BeginTx(ctx, nil)
+	if err != nil {
+		return PlanCommitResult{}, repository.store.transactionError(ctx, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	var stateRevision, recoveryEpoch int64
+	if err = tx.QueryRowContext(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&stateRevision, &recoveryEpoch); err != nil {
+		return PlanCommitResult{}, err
+	}
+	if request.Expected != (RevisionToken{StateRevision: stateRevision, RecoveryEpoch: recoveryEpoch}) {
+		return PlanCommitResult{}, newStoreError(generated.ErrorCodePlanStale, "operational-plan", false, nil)
+	}
+	var declarationCount int
+	if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM declaration_revisions WHERE declaration_id=? AND declaration_revision=?`, request.Plan.DeclarationID, request.Plan.Binding.DeclarationRevision).Scan(&declarationCount); err != nil || declarationCount != 1 {
+		return PlanCommitResult{}, newStoreError(generated.ErrorCodeResourceNotFound, "declaration-revision", false, err)
+	}
+	_, err = tx.ExecContext(ctx, `INSERT INTO immutable_plans(plan_id,plan_digest,declaration_id,declaration_revision,state_revision,recovery_epoch,observation_fingerprint,idempotency_key_digest,request_digest,canonical_bytes,readable_plan,readable_digest,created_at,expires_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, request.Plan.PlanID, request.Plan.PlanDigest, request.Plan.DeclarationID, request.Plan.Binding.DeclarationRevision, request.Plan.Binding.StateRevision, request.Plan.Binding.RecoveryEpoch, request.Plan.Binding.ObservationFingerprint, request.KeyDigest, request.RequestDigest, request.CanonicalBytes, request.Readable, request.Plan.ReadableDigest, request.Plan.CreatedAt, request.Plan.ExpiresAt)
+	if err != nil {
+		return PlanCommitResult{}, classifySQLiteError(ctx, err)
+	}
+	if err = tx.Commit(); err != nil {
+		return PlanCommitResult{}, repository.store.transactionError(ctx, err)
+	}
+	return PlanCommitResult{Plan: request.Plan, Canonical: append([]byte(nil), request.CanonicalBytes...), Readable: request.Readable, Commit: Commit{Changed: false, StateRevision: stateRevision, RecoveryEpoch: recoveryEpoch}, Created: true}, nil
 }
 
 func (repository *PlanRepository) CommitDeclarationAndPlan(ctx context.Context, request PlanCommitRequest) (PlanCommitResult, error) {

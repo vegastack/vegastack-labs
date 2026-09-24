@@ -100,7 +100,13 @@ func TestPhase5RestoreAndJobJSONSchemasRequireExactBindings(t *testing.T) {
 			if err := json.Unmarshal(artifact.Content, &schema); err != nil {
 				t.Fatal(err)
 			}
-			for _, field := range []string{"recoveryEpoch", "planDigest", "targetDigest"} {
+			fields := []string{"recoveryEpoch", "targetDigest"}
+			if path == "schemas/v1/restore-run-request.schema.json" {
+				fields = append(fields, "planDigest")
+			} else {
+				fields = append(fields, "occurrenceToken", "observedAt")
+			}
+			for _, field := range fields {
 				present := false
 				for _, required := range schema.Required {
 					if required == field {

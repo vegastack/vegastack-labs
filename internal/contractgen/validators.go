@@ -308,7 +308,6 @@ func ValidatePhase5Transition(kind, from, to string) error {
 func ValidateScheduledJobBinding(policy ScheduledJobPolicy, job ScheduledJob) error {
 	if !policy.Enabled || len(policy.ExactTargetIDs) == 0 ||
 		policy.PolicyID != job.PolicyID || policy.Revision != job.PolicyRevision ||
-		policy.ActionDigest != job.ActionDigest || policy.TargetDigest != job.TargetDigest ||
 		policy.RecoveryEpoch != job.RecoveryEpoch {
 		return errors.New("scheduled job widens or changes its exact policy")
 	}
@@ -318,8 +317,7 @@ func ValidateScheduledJobBinding(policy ScheduledJobPolicy, job ScheduledJob) er
 func ValidateScheduledJobRequestBinding(policy ScheduledJobPolicy, request ScheduledJobRequest) error {
 	if !policy.Enabled || len(policy.ExactTargetIDs) == 0 ||
 		policy.PolicyID != request.PolicyID || policy.Revision != request.PolicyRevision ||
-		policy.ActionDigest != request.ActionDigest || policy.TargetDigest != request.TargetDigest ||
-		policy.RecoveryEpoch != request.RecoveryEpoch {
+		policy.RecoveryEpoch != request.RecoveryEpoch || policy.StateRevision != request.ExpectedStateRevision {
 		return errors.New("scheduled request widens or changes its exact policy")
 	}
 	return nil
