@@ -25,11 +25,16 @@ type schedulePrerequisiteReader struct {
 }
 
 type scheduleAdmission struct {
-	repository    *store.ScheduleRepository
-	declarations  *store.DeclarationRepository
+	repository interface {
+		ValidateScheduledPlan(context.Context, generated.Plan, time.Time) error
+		GetActivePolicyByDigest(context.Context, string) (generated.ScheduledJobPolicy, error)
+	}
+	declarations interface {
+		GetRevision(context.Context, string, int64) (generated.DeclarationRevision, error)
+	}
 	authorizer    schedule.ScheduledAuthorizer
 	principalID   string
-	prerequisites schedulePrerequisiteReader
+	prerequisites schedule.PrerequisiteReader
 }
 
 func (admission scheduleAdmission) ValidateScheduledPlan(ctx context.Context, plan generated.Plan, now time.Time) error {

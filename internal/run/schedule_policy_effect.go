@@ -8,12 +8,18 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/store"
 )
 
+type SchedulePolicyRepository interface {
+	GetDraft(context.Context, string) (store.ScheduledPolicyDraft, error)
+	Activate(context.Context, store.ScheduleActivationRequest) (generated.ScheduledJobPolicy, error)
+	GetActivePolicy(context.Context, string) (generated.ScheduledJobPolicy, error)
+}
+
 type SchedulePolicyEffect struct {
-	repository *store.ScheduleRepository
+	repository SchedulePolicyRepository
 	approvals  GateApprovalSource
 }
 
-func NewSchedulePolicyEffect(repository *store.ScheduleRepository, approvals GateApprovalSource) (*SchedulePolicyEffect, error) {
+func NewSchedulePolicyEffect(repository SchedulePolicyRepository, approvals GateApprovalSource) (*SchedulePolicyEffect, error) {
 	if repository == nil || approvals == nil {
 		return nil, runError(generated.ErrorCodeInputInvalid, "schedule-policy-effect")
 	}

@@ -27,17 +27,27 @@ func (probe *scheduledCoreProbe) Execute(_ context.Context, binding ExactStepBin
 	probe.calls++
 	return adapter.Effect{Status: "succeeded", ResultDigest: binding.Step.InputDigest, Changed: false, EffectObserved: true}, nil
 }
+
+type scheduledObservationPort struct{ calls int }
+
+func (port *scheduledObservationPort) ObserveScheduled(_ context.Context, binding ExactStepBinding) (string, error) {
+	port.calls++
+	return binding.Step.InputDigest, nil
+}
 func (*scheduledCoreProbe) Verify(_ context.Context, _ ExactStepBinding, effect adapter.Effect) (adapter.Verification, error) {
 	return adapter.Verification{Verified: true, Digest: effect.ResultDigest}, nil
 }
 
 func TestScheduledFiveActionKindsCrossBothEngineAdmissionBoundaries(t *testing.T) {
-	cases := []struct{ name, operation, adapterID string }{
-		{"gate-check", "schedule.gate.check", "core.schedule-observe"},
-		{"observation-refresh", "schedule.observation.refresh", "core.schedule-observe"},
-		{"backup-create", "backup.local.create", "local.backup"},
-		{"backup-integrity-verify", "backup.local.verify", "local.backup"},
-		{"audit-checkpoint-export", "audit.checkpoint.anchor", "core.audit"},
+	cases := []struct {
+		name, operation, adapterID string
+		available                  bool
+	}{
+		{"gate-check", "schedule.gate.check", "core.schedule-observe", true},
+		{"observation-refresh", "schedule.observation.refresh", "core.schedule-observe", true},
+		{"backup-create", "backup.local.create", "local.backup", true},
+		{"backup-integrity-verify", "backup.local.verify", "local.backup", true},
+		{"audit-checkpoint-export", "audit.checkpoint.anchor", "core.audit", false},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -58,7 +68,19 @@ func TestScheduledFiveActionKindsCrossBothEngineAdmissionBoundaries(t *testing.T
 				}
 			}
 			admission := &scheduledAdmissionProbe{}
-			core := &scheduledCoreProbe{}
+			core := CoreEffect(&scheduledCoreProbe{})
+			observation := &scheduledObservationPort{}
+			if test.adapterID == "core.schedule-observe" {
+				effect, err := NewScheduleObservationEffect(observation)
+				if err != nil {
+					t.Fatal(err)
+				}
+				core = CoreRouter{ScheduleObserve: effect}
+			} else if test.adapterID == "core.audit" {
+				// Production intentionally leaves Checkpoint nil until signer,
+				// exporter, reader and encryptor dependencies are complete.
+				core = CoreRouter{}
+			}
 			engine, err := NewEngine(Config{Repository: repository, Plans: repository, Admission: allowAdmission{}, Adapters: registry, Core: core, Scheduled: admission, Clock: func() time.Time { return now }, IDs: &deterministicIDs{}, LeaseContext: testLeaseContext})
 			if err != nil {
 				t.Fatal(err)
@@ -66,11 +88,17 @@ func TestScheduledFiveActionKindsCrossBothEngineAdmissionBoundaries(t *testing.T
 			branch := "preauthorized"
 			request := SubmitRequest{Reference: generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: plan.Binding.RecoveryEpoch, IdempotencyKey: "scheduled-" + test.name, Extensions: []generated.ContractExtension{}}, Authorization: generated.AuthorizationDecision{Schema: generated.SchemaIDAuthorizationDecision, SchemaVersion: "1.0.0", DecisionID: "decision-" + test.name, PrincipalID: "policy-test", Action: "execute", TargetID: plan.Operations[0].TargetID, Allowed: true, Branch: &branch, ReasonCode: "allowed", GrantRevision: 1, RecoveryEpoch: plan.Binding.RecoveryEpoch, PlanDigest: plan.PlanDigest, DecidedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}}
 			completed, err := engine.Submit(context.Background(), request)
+			if !test.available {
+				if Code(err) != generated.ErrorCodePrerequisiteBlocked || completed.Status != "failed" || admission.calls != 2 {
+					t.Fatalf("unavailable run=%#v admission-calls=%d err=%v", completed, admission.calls, err)
+				}
+				return
+			}
 			if err != nil || completed.Status != "succeeded" || admission.calls != 2 {
 				t.Fatalf("run=%#v admission-calls=%d err=%v", completed, admission.calls, err)
 			}
-			if test.adapterID == "local.backup" && implementation.calls != 1 || test.adapterID != "local.backup" && core.calls != 1 {
-				t.Fatalf("adapter-calls=%d core-calls=%d", implementation.calls, core.calls)
+			if test.adapterID == "local.backup" && implementation.calls != 1 || test.adapterID == "core.schedule-observe" && observation.calls != 2 {
+				t.Fatalf("adapter-calls=%d observation-calls=%d", implementation.calls, observation.calls)
 			}
 		})
 	}

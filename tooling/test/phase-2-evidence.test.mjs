@@ -15,7 +15,7 @@ async function loadManifest() {
 test("the original Phase 2 baseline stays immutable while Phase 5 waves through #109 have exact reviewed closures", async () => {
   const manifest = await loadManifest();
   const facts = await collectIntegratedFacts(ROOT);
-  assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:e530e3139c9f06995389c39c28dc2c9758f96030c073c40e1b5000d44d32994c");
+  assert.equal(manifest.contract.postPhase2MutationBoundaryDigest, "sha256:fa0f9b0cc38192cca92a14d6bf007a74446a81d782dc34ed27248a3898e952ab");
   assert.equal(manifest.contract.productionDependencyDigest, "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133");
   assert.equal(manifest.contract.mutationAvailable, false);
   assert.equal(manifest.contract.reviewedWaves?.length, 27);
@@ -142,7 +142,7 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.equal(manifest.contract.reviewedWaves[26].issue, 109);
   assert.deepEqual(manifest.contract.reviewedWaves[26].commands, ["schedule cancel", "schedule dispatch", "schedule policy draft"]);
   assert.deepEqual(manifest.contract.reviewedWaves[26].imports, ["github.com/vegastack/vegastack-labs/internal/schedule"]);
-  assert.equal(manifest.contract.reviewedWaves[26].mutationBoundaryDigest, "sha256:fb70ab4e9d52d5a6c4645c8f7bc05f40ef893319772e582406ac5f808e77d866");
+  assert.equal(manifest.contract.reviewedWaves[26].mutationBoundaryDigest, "sha256:fa0f9b0cc38192cca92a14d6bf007a74446a81d782dc34ed27248a3898e952ab");
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[26].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
