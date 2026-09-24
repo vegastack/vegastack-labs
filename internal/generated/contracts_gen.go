@@ -52,8 +52,11 @@ const (
 	SchemaIDBackupLocalRetirementStatus            = "vegastack-labs.dev/backup-local-retirement-status"
 	SchemaIDBackupOffsiteRetirementDryRunData      = "vegastack-labs.dev/backup-offsite-retirement-dry-run-data"
 	SchemaIDBackupOffsiteRetirementDryRunRequest   = "vegastack-labs.dev/backup-offsite-retirement-dry-run-request"
+	SchemaIDBackupOffsiteRetirementObject          = "vegastack-labs.dev/backup-offsite-retirement-object"
+	SchemaIDBackupOffsiteRetirementRule            = "vegastack-labs.dev/backup-offsite-retirement-rule"
 	SchemaIDBackupOffsiteRetirementStageRequest    = "vegastack-labs.dev/backup-offsite-retirement-stage-request"
 	SchemaIDBackupOffsiteRetirementStageSubmission = "vegastack-labs.dev/backup-offsite-retirement-stage-submission"
+	SchemaIDBackupOffsiteRetirementSurvivorBinding = "vegastack-labs.dev/backup-offsite-retirement-survivor-binding"
 	SchemaIDBackupOffsiteStatus                    = "vegastack-labs.dev/backup-offsite-status"
 	SchemaIDBackupPolicy                           = "vegastack-labs.dev/backup-policy"
 	SchemaIDBackupPolicyDraftRequest               = "vegastack-labs.dev/backup-policy-draft-request"
@@ -668,26 +671,32 @@ type BackupLocalRetirementStatus struct {
 }
 
 type BackupOffsiteRetirementDryRunData struct {
-	Schema                  string   `json:"schema"`
-	SchemaVersion           string   `json:"schemaVersion"`
-	IntentDigest            string   `json:"intentDigest"`
-	SelectionDigest         string   `json:"selectionDigest"`
-	GenerationID            string   `json:"generationId"`
-	PointID                 string   `json:"pointId"`
-	BucketID                string   `json:"bucketId"`
-	RuleSetDigest           string   `json:"ruleSetDigest"`
-	SurvivorRuleDigest      string   `json:"survivorRuleDigest"`
-	ManifestDigest          string   `json:"manifestDigest"`
-	CatalogDigest           string   `json:"catalogDigest"`
-	InventoryDigest         string   `json:"inventoryDigest"`
-	SurvivorPointIDs        []string `json:"survivorPointIds"`
-	SurvivorKeyReferenceIDs []string `json:"survivorKeyReferenceIds"`
-	ObjectCount             int64    `json:"objectCount"`
-	ExpectedReclaimBytes    int64    `json:"expectedReclaimBytes"`
-	PreRuleCount            int64    `json:"preRuleCount"`
-	SurvivorRuleCount       int64    `json:"survivorRuleCount"`
-	StateRevision           int64    `json:"stateRevision"`
-	RecoveryEpoch           int64    `json:"recoveryEpoch"`
+	Schema                  string                                   `json:"schema"`
+	SchemaVersion           string                                   `json:"schemaVersion"`
+	IntentDigest            string                                   `json:"intentDigest"`
+	SelectionDigest         string                                   `json:"selectionDigest"`
+	GenerationID            string                                   `json:"generationId"`
+	PointID                 string                                   `json:"pointId"`
+	BucketID                string                                   `json:"bucketId"`
+	RuleSetDigest           string                                   `json:"ruleSetDigest"`
+	SurvivorRuleDigest      string                                   `json:"survivorRuleDigest"`
+	ManifestDigest          string                                   `json:"manifestDigest"`
+	CatalogDigest           string                                   `json:"catalogDigest"`
+	InventoryDigest         string                                   `json:"inventoryDigest"`
+	SurvivorPointIDs        []string                                 `json:"survivorPointIds"`
+	SurvivorKeyReferenceIDs []string                                 `json:"survivorKeyReferenceIds"`
+	Rules                   []BackupOffsiteRetirementRule            `json:"rules"`
+	Objects                 []BackupOffsiteRetirementObject          `json:"objects"`
+	SurvivorBindings        []BackupOffsiteRetirementSurvivorBinding `json:"survivorBindings"`
+	ObjectCount             int64                                    `json:"objectCount"`
+	ExpectedReclaimBytes    int64                                    `json:"expectedReclaimBytes"`
+	RetainedBytes           int64                                    `json:"retainedBytes"`
+	MaxWorkObjects          int64                                    `json:"maxWorkObjects"`
+	MaxMutationBytes        int64                                    `json:"maxMutationBytes"`
+	PreRuleCount            int64                                    `json:"preRuleCount"`
+	SurvivorRuleCount       int64                                    `json:"survivorRuleCount"`
+	StateRevision           int64                                    `json:"stateRevision"`
+	RecoveryEpoch           int64                                    `json:"recoveryEpoch"`
 }
 
 type BackupOffsiteRetirementDryRunRequest struct {
@@ -699,6 +708,21 @@ type BackupOffsiteRetirementDryRunRequest struct {
 	OneOwnerProofID       string `json:"oneOwnerProofId"`
 	LockAdminReferenceID  string `json:"lockAdminReferenceId"`
 	RetentionReferenceID  string `json:"retentionReferenceId"`
+}
+
+type BackupOffsiteRetirementObject struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	Key           string `json:"key"`
+	Digest        string `json:"digest"`
+	Bytes         int64  `json:"bytes"`
+}
+
+type BackupOffsiteRetirementRule struct {
+	Schema        string `json:"schema"`
+	SchemaVersion string `json:"schemaVersion"`
+	RuleID        string `json:"ruleId"`
+	Prefix        string `json:"prefix"`
 }
 
 type BackupOffsiteRetirementStageRequest struct {
@@ -732,6 +756,15 @@ type BackupOffsiteRetirementStageSubmission struct {
 	Status               string   `json:"status"`
 	StateRevision        int64    `json:"stateRevision"`
 	RecoveryEpoch        int64    `json:"recoveryEpoch"`
+}
+
+type BackupOffsiteRetirementSurvivorBinding struct {
+	Schema           string `json:"schema"`
+	SchemaVersion    string `json:"schemaVersion"`
+	PointID          string `json:"pointId"`
+	GenerationID     string `json:"generationId"`
+	ReferenceID      string `json:"referenceId"`
+	DependencyDigest string `json:"dependencyDigest"`
 }
 
 type BackupOffsiteStatus struct {
@@ -2198,6 +2231,10 @@ type ServerProfile struct {
 	OffsitePrefix                    *string                 `json:"offsitePrefix"`
 	OffsiteParentReferenceID         *string                 `json:"offsiteParentReferenceId"`
 	OffsiteObserverReferenceID       *string                 `json:"offsiteObserverReferenceId"`
+	OffsiteLockAdminReferenceID      *string                 `json:"offsiteLockAdminReferenceId"`
+	OffsiteLockAdminFingerprint      *string                 `json:"offsiteLockAdminFingerprint"`
+	OffsiteRetentionReferenceID      *string                 `json:"offsiteRetentionReferenceId"`
+	OffsiteRetentionFingerprint      *string                 `json:"offsiteRetentionFingerprint"`
 	OffsiteParentFingerprint         *string                 `json:"offsiteParentFingerprint"`
 	OffsiteRuleDigest                *string                 `json:"offsiteRuleDigest"`
 	OffsiteG008EvidenceDigest        *string                 `json:"offsiteG008EvidenceDigest"`

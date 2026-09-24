@@ -1,4 +1,119 @@
 {
+  "$defs": {
+    "backup-offsite-retirement-object": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes": {
+          "minimum": 0,
+          "type": "integer"
+        },
+        "digest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "key": {
+          "maxLength": 1024,
+          "minLength": 1,
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-offsite-retirement-object"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "key",
+        "digest",
+        "bytes"
+      ],
+      "type": "object"
+    },
+    "backup-offsite-retirement-rule": {
+      "additionalProperties": false,
+      "properties": {
+        "prefix": {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        "ruleId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-offsite-retirement-rule"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "ruleId",
+        "prefix"
+      ],
+      "type": "object"
+    },
+    "backup-offsite-retirement-survivor-binding": {
+      "additionalProperties": false,
+      "properties": {
+        "dependencyDigest": {
+          "pattern": "^sha256:[a-f0-9]{64}$",
+          "type": "string"
+        },
+        "generationId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "pointId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "referenceId": {
+          "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+          "type": "string"
+        },
+        "schema": {
+          "enum": [
+            "vegastack-labs.dev/backup-offsite-retirement-survivor-binding"
+          ],
+          "type": "string"
+        },
+        "schemaVersion": {
+          "enum": [
+            "1.0.0"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "schema",
+        "schemaVersion",
+        "pointId",
+        "generationId",
+        "referenceId",
+        "dependencyDigest"
+      ],
+      "type": "object"
+    }
+  },
   "$id": "vegastack-labs.dev/backup-offsite-retirement-dry-run-data",
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "additionalProperties": false,
@@ -31,9 +146,24 @@
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
     },
+    "maxMutationBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
+    "maxWorkObjects": {
+      "minimum": 0,
+      "type": "integer"
+    },
     "objectCount": {
       "minimum": 0,
       "type": "integer"
+    },
+    "objects": {
+      "items": {
+        "$ref": "#/$defs/backup-offsite-retirement-object"
+      },
+      "maxItems": 1000000,
+      "type": "array"
     },
     "pointId": {
       "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
@@ -47,9 +177,22 @@
       "minimum": 0,
       "type": "integer"
     },
+    "retainedBytes": {
+      "minimum": 0,
+      "type": "integer"
+    },
     "ruleSetDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": "string"
+    },
+    "rules": {
+      "items": {
+        "$ref": "#/$defs/backup-offsite-retirement-rule"
+      },
+      "maxItems": 5,
+      "minItems": 5,
+      "type": "array",
+      "uniqueItems": true
     },
     "schema": {
       "enum": [
@@ -70,6 +213,14 @@
     "stateRevision": {
       "minimum": 0,
       "type": "integer"
+    },
+    "survivorBindings": {
+      "items": {
+        "$ref": "#/$defs/backup-offsite-retirement-survivor-binding"
+      },
+      "maxItems": 256,
+      "type": "array",
+      "uniqueItems": true
     },
     "survivorKeyReferenceIds": {
       "items": {
@@ -111,8 +262,14 @@
     "inventoryDigest",
     "survivorPointIds",
     "survivorKeyReferenceIds",
+    "rules",
+    "objects",
+    "survivorBindings",
     "objectCount",
     "expectedReclaimBytes",
+    "retainedBytes",
+    "maxWorkObjects",
+    "maxMutationBytes",
     "preRuleCount",
     "survivorRuleCount",
     "stateRevision",

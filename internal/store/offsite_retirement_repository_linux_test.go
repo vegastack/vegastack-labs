@@ -62,7 +62,7 @@ func TestOffsiteRetirementRepositoryRecomputesVerifiedSettlement(t *testing.T) {
 	}
 	d := "sha256:" + strings.Repeat("a", 64)
 	rules := []OffsiteRetirementRule{{RuleID: "rule-a", Prefix: "critical/generation-target/config"}, {RuleID: "rule-b", Prefix: "critical/generation-target/keys/"}, {RuleID: "rule-c", Prefix: "critical/generation-target/data/"}, {RuleID: "rule-d", Prefix: "critical/generation-target/index/"}, {RuleID: "rule-e", Prefix: "critical/generation-target/snapshots/"}}
-	intent := OffsiteRetirementIntent{IntentID: "intent-a", PlanID: "plan-a", PlanDigest: d, GenerationID: "generation-target", PointID: "point-target", BucketID: "bucket-a", RuleSetDigest: d, SurvivorRuleDigest: d, ManifestDigest: d, CatalogDigest: d, InventoryDigest: d, OneOwnerProofID: "proof-owner", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", G008BundleDigest: d, QualificationDigest: d, PutCutoffDigest: d, MultipartCutoffDigest: d, ExclusiveAdminDigest: d, Rules: rules, Objects: []OffsiteRetirementObject{{Key: "data/a", Digest: d, Bytes: 7}}, SurvivorPointIDs: []string{"point-survivor"}, SourceRevision: 1, StateRevision: 1, RecoveryEpoch: 1, MaxWorkObjects: 1, MaxMutationBytes: 7, PreRuleCount: 6, SurvivorRuleCount: 1}
+	intent := OffsiteRetirementIntent{IntentID: "intent-a", PlanID: "plan-a", PlanDigest: d, GenerationID: "generation-target", PointID: "point-target", BucketID: "bucket-a", RuleSetDigest: d, SurvivorRuleDigest: d, ManifestDigest: d, CatalogDigest: d, InventoryDigest: d, OneOwnerProofID: "proof-owner", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", LockAdminFingerprint: d, RetentionFingerprint: d, G008BundleDigest: d, QualificationDigest: d, PutCutoffDigest: d, MultipartCutoffDigest: d, ExclusiveAdminDigest: d, CredentialBindingDigest: d, Rules: rules, Objects: []OffsiteRetirementObject{{Key: "data/a", Digest: d, Bytes: 7}}, SurvivorPointIDs: []string{"point-survivor"}, SurvivorKeyReferences: []OffsiteRetirementSurvivorKey{{PointID: "point-survivor", GenerationID: "generation-survivor", ReferenceID: "key-survivor", DependencyDigest: d}}, SourceRevision: 1, StateRevision: 1, RecoveryEpoch: 1, MaxWorkObjects: 1, MaxMutationBytes: 7, PreRuleCount: 6, SurvivorRuleCount: 1}
 	intent.IntentDigest, intent.CredentialBindingDigest, err = OffsiteRetirementIntentDigests(intent)
 	if err != nil {
 		t.Fatal(err)
@@ -97,8 +97,23 @@ func TestOffsiteRetirementRepositoryRecomputesVerifiedSettlement(t *testing.T) {
 	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_offsite_objects(generation_id,sequence,object_key,object_digest,object_bytes) VALUES('generation-target',1,'data/a',?,7)`, d); err != nil {
 		t.Fatal(err)
 	}
-	if id, err := repository.StageOffsiteRetirement(ctx, intent); err != nil || id != intent.IntentID {
-		t.Fatalf("stage = %q, %v", id, err)
+	intentJSON, err := json.Marshal(intent)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_intents(intent_id,plan_id,plan_digest,generation_id,point_id,bucket_id,rule_set_digest,survivor_rule_digest,manifest_digest,catalog_digest,inventory_digest,one_owner_proof_id,lock_admin_consumer_id,retention_consumer_id,canonical_json,g008_bundle_digest,qualification_digest,put_cutoff_digest,multipart_cutoff_digest,exclusive_admin_digest,intent_digest,credential_binding_digest,source_revision,state_revision,recovery_epoch,max_work_objects,max_mutation_bytes,pre_rule_count,survivor_rule_count,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, intent.IntentID, intent.PlanID, intent.PlanDigest, intent.GenerationID, intent.PointID, intent.BucketID, intent.RuleSetDigest, intent.SurvivorRuleDigest, intent.ManifestDigest, intent.CatalogDigest, intent.InventoryDigest, intent.OneOwnerProofID, intent.LockAdminReferenceID, intent.RetentionReferenceID, string(intentJSON), intent.G008BundleDigest, intent.QualificationDigest, intent.PutCutoffDigest, intent.MultipartCutoffDigest, intent.ExclusiveAdminDigest, intent.IntentDigest, intent.CredentialBindingDigest, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.MaxWorkObjects, intent.MaxMutationBytes, intent.PreRuleCount, intent.SurvivorRuleCount, now.Format(time.RFC3339)); err != nil {
+		t.Fatal(err)
+	}
+	for index, rule := range intent.Rules {
+		if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_rules(intent_id,sequence,rule_id,protected_prefix) VALUES(?,?,?,?)`, intent.IntentID, index+1, rule.RuleID, rule.Prefix); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_objects(intent_id,sequence,object_key,object_digest,object_bytes) VALUES(?,1,?,?,?)`, intent.IntentID, intent.Objects[0].Key, intent.Objects[0].Digest, intent.Objects[0].Bytes); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_survivors(intent_id,point_id) VALUES(?,?)`, intent.IntentID, intent.SurvivorPointIDs[0]); err != nil {
+		t.Fatal(err)
 	}
 	if _, err := authority.conn.ExecContext(ctx, `INSERT INTO backup_offsite_retirement_leases(lease_id,intent_id,run_id,step_id,executor_lease_id,acknowledgement_id,human_id,recovery_epoch,maximum_expires_at,acquired_at) VALUES('lease-a','intent-a','run-a','step-a','executor-a','ack-a','human-a',1,?,?)`, now.Add(time.Hour).Format(time.RFC3339), now.Format(time.RFC3339)); err != nil {
 		t.Fatal(err)

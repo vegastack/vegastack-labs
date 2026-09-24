@@ -36,8 +36,30 @@ func (app *App) runBackupCommand(ctx context.Context, mode outputMode, parsed pa
 		if mode == outputJSON {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
-		if _, err := fmt.Fprintf(app.stdout, "Off-site retirement dry-run selects generation %s with intent %s.\n", response.Data.GenerationID, response.Data.IntentDigest); err != nil {
+		data := response.Data
+		if _, err := fmt.Fprintf(app.stdout, "Off-site retirement dry-run selects generation %s (point %s) with intent %s.\nRules (%d -> %d, complete set %s):\n", data.GenerationID, data.PointID, data.IntentDigest, data.PreRuleCount, data.SurvivorRuleCount, data.RuleSetDigest); err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		for _, rule := range data.Rules {
+			if _, err := fmt.Fprintf(app.stdout, "  %s  %s\n", rule.RuleID, rule.Prefix); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Objects (%d, reclaim %d bytes, max %d objects/%d bytes):\n", data.ObjectCount, data.ExpectedReclaimBytes, data.MaxWorkObjects, data.MaxMutationBytes); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		for _, object := range data.Objects {
+			if _, err := fmt.Fprintf(app.stdout, "  %s  %d bytes  %s\n", object.Key, object.Bytes, object.Digest); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
+		}
+		if _, err := fmt.Fprintf(app.stdout, "Survivors (%d retained bytes, rule digest %s):\n", data.RetainedBytes, data.SurvivorRuleDigest); err != nil {
+			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+		}
+		for _, survivor := range data.SurvivorBindings {
+			if _, err := fmt.Fprintf(app.stdout, "  %s  generation %s  key %s  dependencies %s\n", survivor.PointID, survivor.GenerationID, survivor.ReferenceID, survivor.DependencyDigest); err != nil {
+				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
+			}
 		}
 		return 0
 	}

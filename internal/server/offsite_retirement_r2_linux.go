@@ -32,7 +32,8 @@ type labsR2RetirementProviders struct {
 }
 
 func (providers labsR2RetirementProviders) Clients(_ context.Context, intent store.OffsiteRetirementIntent, binding adapter.ExactExecutionBinding, lockAdmin, retention *credentialref.Value, repositoryKeys map[string]*credentialref.Value) (r2retention.RuleClient, r2retention.ObjectClient, backup.OffsiteSurvivorVerifier, error) {
-	if providers.profile == nil || lockAdmin == nil || retention == nil || intent.BucketID != providers.profile.Bucket || intent.GenerationID == "" {
+	if providers.profile == nil || lockAdmin == nil || retention == nil || intent.BucketID != providers.profile.Bucket || intent.GenerationID == "" ||
+		intent.LockAdminReferenceID != providers.profile.LockAdminReferenceID || intent.LockAdminFingerprint != providers.profile.LockAdminFingerprint || intent.RetentionReferenceID != providers.profile.RetentionReferenceID || intent.RetentionFingerprint != providers.profile.RetentionFingerprint {
 		return nil, nil, nil, errors.New("r2 retirement provider binding unavailable")
 	}
 	credentials, err := r2.ParseParentS3Credentials(retention.Bytes())
@@ -148,7 +149,7 @@ func (resolver *r2RetirementCredentialResolver) Resolve(ctx context.Context, bin
 	if binding.PurposeID == "repository-key" && resolver.retirements != nil {
 		qualifiedKey, _ = resolver.retirements.IsQualifiedSurvivorKey(ctx, binding.ReferenceID, binding.RecoveryEpoch)
 	}
-	if (binding.PurposeID == "lock-admin" && binding.ReferenceID != resolver.profile.ObserverReferenceID) || (binding.PurposeID == "retention" && binding.ReferenceID != resolver.profile.ParentReferenceID) || (binding.PurposeID == "repository-key" && !qualifiedKey) || (binding.PurposeID != "lock-admin" && binding.PurposeID != "retention" && binding.PurposeID != "repository-key") {
+	if (binding.PurposeID == "lock-admin" && binding.ReferenceID != resolver.profile.LockAdminReferenceID) || (binding.PurposeID == "retention" && binding.ReferenceID != resolver.profile.RetentionReferenceID) || (binding.PurposeID == "repository-key" && !qualifiedKey) || (binding.PurposeID != "lock-admin" && binding.PurposeID != "retention" && binding.PurposeID != "repository-key") {
 		return nil, errors.New("r2 retirement credential binding invalid")
 	}
 	raw, err := resolver.systemd.Resolve(ctx, credentialref.Reference{ID: binding.ReferenceID, Consumer: binding.ConsumerID})
@@ -156,6 +157,18 @@ func (resolver *r2RetirementCredentialResolver) Resolve(ctx context.Context, bin
 		return nil, err
 	}
 	defer zeroCredential(raw)
+	expectedFingerprint := ""
+	if binding.PurposeID == "lock-admin" {
+		expectedFingerprint = resolver.profile.LockAdminFingerprint
+	} else if binding.PurposeID == "retention" {
+		expectedFingerprint = resolver.profile.RetentionFingerprint
+	}
+	if expectedFingerprint != "" {
+		sum := sha256.Sum256(raw)
+		if "sha256:"+hex.EncodeToString(sum[:]) != expectedFingerprint {
+			return nil, errors.New("r2 retirement credential fingerprint mismatch")
+		}
+	}
 	return credentialref.NewValue(raw)
 }
 
@@ -303,7 +316,14 @@ func (source *labsR2RetirementCatalog) CurrentOffsiteRetirementCatalog(ctx conte
 	}
 	catalog := backup.OffsiteRetirementCatalog{GenerationCreatedAt: map[string]time.Time{}, BucketID: source.profile.Bucket, G008BundleDigest: source.profile.G008EvidenceDigest,
 		QualificationDigest: source.profile.QualificationDigest, PutCutoffDigest: source.profile.PutCutoffDigest, MultipartCutoffDigest: source.profile.MultipartCutoffDigest,
-		ExclusiveAdminDigest: exclusiveDigest, RuleCount: len(ruleSet.Rules), RuleLimit: 1000, AvailableBytes: source.profile.AvailableBytes, ObservedAt: now}
+		ExclusiveAdminDigest: exclusiveDigest, RuleCount: len(ruleSet.Rules), RuleLimit: 1000, AvailableBytes: source.profile.AvailableBytes, ObservedAt: now,
+		LockAdminReferenceID: source.profile.LockAdminReferenceID, LockAdminFingerprint: source.profile.LockAdminFingerprint, RetentionReferenceID: source.profile.RetentionReferenceID, RetentionFingerprint: source.profile.RetentionFingerprint}
+	slices.SortFunc(ruleSet.Rules, func(a, b r2retention.Rule) int {
+		if byID := strings.Compare(a.RuleID, b.RuleID); byID != 0 {
+			return byID
+		}
+		return strings.Compare(a.Prefix, b.Prefix)
+	})
 	for _, rule := range ruleSet.Rules {
 		catalog.CurrentRules = append(catalog.CurrentRules, backup.RetentionRuleRef{RuleID: rule.RuleID, Prefix: rule.Prefix})
 	}

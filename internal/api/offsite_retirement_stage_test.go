@@ -76,7 +76,7 @@ func TestOffsiteRetirementRouteDryRunBindsSurvivorKeysBeforeStage(t *testing.T) 
 	for i, rule := range rules {
 		ruleValues[i] = r2retention.Rule{RuleID: rule.RuleID, Prefix: rule.Prefix}
 	}
-	catalog := backup.OffsiteRetirementCatalog{Generations: []backup.PendingOffsiteGeneration{good, old}, GenerationCreatedAt: map[string]time.Time{old.GenerationID: now.Add(-15 * 24 * time.Hour), good.GenerationID: now}, CurrentRules: rules, VerifiedPointIDs: []string{old.SourcePointID, good.SourcePointID}, LastGoodPointIDs: []string{good.SourcePointID}, BucketID: "bucket-a", RuleSetDigest: r2retention.DigestRuleSet(r2retention.RuleSet{Rules: ruleValues}), CatalogDigest: d, G008BundleDigest: d, QualificationDigest: d, PutCutoffDigest: d, MultipartCutoffDigest: d, ExclusiveAdminDigest: d, RuleCount: len(rules), RuleLimit: 1000, TotalBytes: 100, AvailableBytes: 80, ObservedAt: now}
+	catalog := backup.OffsiteRetirementCatalog{Generations: []backup.PendingOffsiteGeneration{good, old}, GenerationCreatedAt: map[string]time.Time{old.GenerationID: now.Add(-15 * 24 * time.Hour), good.GenerationID: now}, CurrentRules: rules, VerifiedPointIDs: []string{old.SourcePointID, good.SourcePointID}, LastGoodPointIDs: []string{good.SourcePointID}, BucketID: "bucket-a", RuleSetDigest: r2retention.DigestRuleSet(r2retention.RuleSet{Rules: ruleValues}), CatalogDigest: d, G008BundleDigest: d, QualificationDigest: d, PutCutoffDigest: d, MultipartCutoffDigest: d, ExclusiveAdminDigest: d, LockAdminReferenceID: "lock-admin", LockAdminFingerprint: d, RetentionReferenceID: "retention", RetentionFingerprint: d, RuleCount: len(rules), RuleLimit: 1000, TotalBytes: 100, AvailableBytes: 80, ObservedAt: now}
 	selection := "sha256:" + strings.Repeat("b", 64)
 	local := store.LocalRetirementIntent{Request: store.LocalRetirementStageRequest{SelectionDigest: selection, StateRevision: 7, RecoveryEpoch: 2, Targets: []store.LocalRetirementTarget{{PointID: old.SourcePointID}}, Survivors: []store.LocalRetirementSurvivor{{PointID: good.SourcePointID}}}}
 	var staged store.OffsiteRetirementIntent
@@ -106,7 +106,7 @@ func TestOffsiteRetirementRouteDryRunBindsSurvivorKeysBeforeStage(t *testing.T) 
 		t.Fatalf("dry-run status=%d body=%s", dryResponse.Code, dryResponse.Body.String())
 	}
 	dry, err := service.DryRun(context.Background(), dryInput, principal)
-	if err != nil || len(dry.SurvivorKeyReferenceIDs) != 1 || dry.SurvivorKeyReferenceIDs[0] != "key-good" {
+	if err != nil || len(dry.SurvivorKeyReferenceIDs) != 1 || dry.SurvivorKeyReferenceIDs[0] != "key-good" || len(dry.Rules) != 5 || len(dry.Objects) != 1 || len(dry.SurvivorBindings) != 1 || dry.SurvivorBindings[0].DependencyDigest != d || dry.MaxWorkObjects != 1 || dry.MaxMutationBytes != 10 || dry.RetainedBytes != 10 {
 		t.Fatalf("dry-run=%+v err=%v", dry, err)
 	}
 	stageInput := generated.BackupOffsiteRetirementStageRequest{Schema: generated.SchemaIDBackupOffsiteRetirementStageRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: 7, RecoveryEpoch: 2, TargetDigest: dry.IntentDigest, IdempotencyKey: "retire-a", SelectionDigest: selection, PlanID: "plan-a", PlanDigest: d, OneOwnerProofID: "proof-a", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", CredentialBindingDigest: d}

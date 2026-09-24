@@ -786,8 +786,14 @@ Plans expire after `1800` seconds. Executor leases expire after `60` seconds and
 - `inventoryDigest`
 - `survivorPointIds`
 - `survivorKeyReferenceIds`
+- `rules`
+- `objects`
+- `survivorBindings`
 - `objectCount`
 - `expectedReclaimBytes`
+- `retainedBytes`
+- `maxWorkObjects`
+- `maxMutationBytes`
 - `preRuleCount`
 - `survivorRuleCount`
 - `stateRevision`

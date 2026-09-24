@@ -60,6 +60,9 @@ func TestOperationsRunComposesOnlyQualifiedOffsiteRuntime(t *testing.T) {
 			generatedProfile.OffsiteParentReferenceID, generatedProfile.OffsiteParentFingerprint = &parent, &digest
 			observer := "observer-a"
 			generatedProfile.OffsiteObserverReferenceID = &observer
+			lockAdmin, retention := "lock-admin-a", "retention-a"
+			generatedProfile.OffsiteLockAdminReferenceID, generatedProfile.OffsiteLockAdminFingerprint = &lockAdmin, &digest
+			generatedProfile.OffsiteRetentionReferenceID, generatedProfile.OffsiteRetentionFingerprint = &retention, &digest
 			generatedProfile.OffsiteRuleDigest, generatedProfile.OffsiteG008EvidenceDigest = &digest, &digest
 			account := "0123456789abcdef0123456789abcdef"
 			availableBytes, availablePUTs, availableLISTs := int64(1), int64(1), int64(1)

@@ -1,0 +1,37 @@
+{
+  "$id": "vegastack-labs.dev/backup-offsite-retirement-rule",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "properties": {
+    "prefix": {
+      "maxLength": 512,
+      "minLength": 1,
+      "type": "string"
+    },
+    "ruleId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": "string"
+    },
+    "schema": {
+      "enum": [
+        "vegastack-labs.dev/backup-offsite-retirement-rule"
+      ],
+      "type": "string"
+    },
+    "schemaVersion": {
+      "enum": [
+        "1.0.0"
+      ],
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema",
+    "schemaVersion",
+    "ruleId",
+    "prefix"
+  ],
+  "title": "VegaStack Labs backup offsite retirement rule",
+  "type": "object",
+  "x-generated-by": "go run ./tooling/generate-contracts --write; DO NOT EDIT"
+}

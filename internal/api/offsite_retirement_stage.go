@@ -71,10 +71,20 @@ func (s *offsiteRetirementStageService) DryRun(ctx context.Context, input genera
 		return zero, err
 	}
 	keyIDs := make([]string, len(intent.SurvivorKeyReferences))
+	bindings := make([]generated.BackupOffsiteRetirementSurvivorBinding, len(intent.SurvivorKeyReferences))
 	for i, key := range intent.SurvivorKeyReferences {
 		keyIDs[i] = key.ReferenceID
+		bindings[i] = generated.BackupOffsiteRetirementSurvivorBinding{PointID: key.PointID, GenerationID: key.GenerationID, ReferenceID: key.ReferenceID, DependencyDigest: key.DependencyDigest}
 	}
-	return generated.BackupOffsiteRetirementDryRunData{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunData, SchemaVersion: "1.1.0", IntentDigest: intent.IntentDigest, SelectionDigest: input.SelectionDigest, GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, SurvivorPointIDs: candidate.SurvivorPointIDs, SurvivorKeyReferenceIDs: keyIDs, ObjectCount: int64(len(candidate.Objects)), ExpectedReclaimBytes: candidate.ExpectedReclaimBytes, PreRuleCount: int64(candidate.PreRuleCount), SurvivorRuleCount: int64(candidate.SurvivorRuleCount), StateRevision: input.ExpectedStateRevision, RecoveryEpoch: input.RecoveryEpoch}, nil
+	rules := make([]generated.BackupOffsiteRetirementRule, len(intent.Rules))
+	for i, rule := range intent.Rules {
+		rules[i] = generated.BackupOffsiteRetirementRule{RuleID: rule.RuleID, Prefix: rule.Prefix}
+	}
+	objects := make([]generated.BackupOffsiteRetirementObject, len(intent.Objects))
+	for i, object := range intent.Objects {
+		objects[i] = generated.BackupOffsiteRetirementObject{Key: object.Key, Digest: object.Digest, Bytes: object.Bytes}
+	}
+	return generated.BackupOffsiteRetirementDryRunData{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunData, SchemaVersion: "1.1.0", IntentDigest: intent.IntentDigest, SelectionDigest: input.SelectionDigest, GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, SurvivorPointIDs: candidate.SurvivorPointIDs, SurvivorKeyReferenceIDs: keyIDs, Rules: rules, Objects: objects, SurvivorBindings: bindings, ObjectCount: int64(len(candidate.Objects)), ExpectedReclaimBytes: candidate.ExpectedReclaimBytes, RetainedBytes: candidate.ExpectedRetainedBytes, MaxWorkObjects: candidate.MaxWorkObjects, MaxMutationBytes: candidate.MaxMutationBytes, PreRuleCount: int64(candidate.PreRuleCount), SurvivorRuleCount: int64(candidate.SurvivorRuleCount), StateRevision: input.ExpectedStateRevision, RecoveryEpoch: input.RecoveryEpoch}, nil
 }
 
 func (s *offsiteRetirementStageService) derive(ctx context.Context, selectionDigest string, revision, epoch int64, proofID, lockReference, retentionReference string) (store.OffsiteRetirementIntent, backup.OffsiteRetirementCandidate, error) {
@@ -100,11 +110,15 @@ func (s *offsiteRetirementStageService) derive(ctx context.Context, selectionDig
 	if err != nil {
 		return store.OffsiteRetirementIntent{}, candidate, apiFailure(generated.ErrorCodePrerequisiteBlocked, "offsite-retirement-dry-run")
 	}
+	if (candidate.LockAdminReferenceID != "" && candidate.LockAdminReferenceID != lockReference) || (candidate.RetentionReferenceID != "" && candidate.RetentionReferenceID != retentionReference) {
+		return store.OffsiteRetirementIntent{}, candidate, apiFailure(generated.ErrorCodeAuthorizationDenied, "offsite-retirement-credential-profile")
+	}
 	intent := store.OffsiteRetirementIntent{GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, OneOwnerProofID: proofID, LockAdminReferenceID: lockReference, RetentionReferenceID: retentionReference, SurvivorPointIDs: append([]string(nil), candidate.SurvivorPointIDs...), SourceRevision: candidate.SourceRevision, StateRevision: revision, RecoveryEpoch: epoch, MaxWorkObjects: candidate.MaxWorkObjects, MaxMutationBytes: candidate.MaxMutationBytes, PreRuleCount: candidate.PreRuleCount, SurvivorRuleCount: candidate.SurvivorRuleCount}
+	intent.LockAdminFingerprint, intent.RetentionFingerprint = candidate.LockAdminFingerprint, candidate.RetentionFingerprint
 	for _, pointID := range candidate.SurvivorPointIDs {
 		for _, generation := range catalog.Generations {
 			if generation.SourcePointID == pointID {
-				intent.SurvivorKeyReferences = append(intent.SurvivorKeyReferences, store.OffsiteRetirementSurvivorKey{PointID: pointID, GenerationID: generation.GenerationID, ReferenceID: generation.KeyReferenceID})
+				intent.SurvivorKeyReferences = append(intent.SurvivorKeyReferences, store.OffsiteRetirementSurvivorKey{PointID: pointID, GenerationID: generation.GenerationID, ReferenceID: generation.KeyReferenceID, DependencyDigest: generation.SourceDependencyDigest})
 			}
 		}
 	}

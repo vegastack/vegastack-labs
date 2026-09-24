@@ -268,8 +268,8 @@ const REVIEWED_OFFSITE_GENERATION_WAVE = Object.freeze({
 // one-owner, credential, and recovery evidence qualifies the site.
 const REVIEWED_OFFSITE_RETIREMENT_WAVE = Object.freeze({
   id: "phase5-issue118-v1", issue: 118,
-  commands: Object.freeze(["backup offsite-retirement stage"]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]),
-  mutationBoundaryDigest: "sha256:60a44c73713a23ecf27dbde07d4c83fc1276cf6eeaf2f105723d4c02825a3e46",
+  commands: Object.freeze(["backup offsite-retirement dry-run", "backup offsite-retirement stage"]), imports: Object.freeze(["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]),
+  mutationBoundaryDigest: "sha256:38c9ee02eb118570eef1280b222cb807dd809263a0d68d30a666025cf5a25c07",
 });
 
 const REVIEWED_PHASE5_WAVES = Object.freeze([REVIEWED_GATE_WAVE, REVIEWED_CREDENTIAL_FOUNDATION_WAVE, REVIEWED_DESIGN_SYSTEM_WAVE, REVIEWED_CREDENTIAL_IMPORT_WAVE, REVIEWED_AUDIT_WAVE, REVIEWED_CREDENTIAL_EXECUTION_CORE_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_SURFACE_WAVE, REVIEWED_CREDENTIAL_VERIFIER_HARDENING_WAVE, REVIEWED_CREDENTIAL_RECOVERY_CUSTODY_WAVE, REVIEWED_BACKUP_WAVE, REVIEWED_WITNESS_RECOVERY_CONTRACT_WAVE, REVIEWED_NATIVE_READER_MAP_WAVE, REVIEWED_NATIVE_AUTHORITY_WAVE, REVIEWED_NATIVE_LIFECYCLE_WAVE, REVIEWED_WITNESS_COLLECTION_WAVE, REVIEWED_BROWSER_RECONNECT_WAVE, REVIEWED_BACKUP_VERIFY_WAVE, REVIEWED_RECOVERY_SOURCE_ADMISSION_WAVE, REVIEWED_CLEAN_HOST_RECOVERY_WAVE, REVIEWED_REPOSITORY_CUSTODY_WAVE, REVIEWED_BACKUP_DEPENDENCY_TRUST_WAVE, REVIEWED_CREDENTIAL_LIFECYCLE_ACCEPTANCE_WAVE, REVIEWED_LOCAL_RETIREMENT_WAVE, REVIEWED_OFFSITE_GENERATION_WAVE, REVIEWED_OFFSITE_RETIREMENT_WAVE]);
@@ -804,7 +804,7 @@ export function validateEvidence(manifest, facts) {
   if (manifest.contract && (manifest.contract.productionDependencyDigest !== productionDependencyDigest(facts.productionImports, reviewedWavesActive) ||
       availableReviewedCommands.length > 0 && !reviewedWaveImportsPresent ||
       facts.onePasswordSDKVersion !== ONEPASSWORD_SDK_VERSION || facts.credentialImportRemoteAllowed ||
-      facts.credentialProductionResolverEnabled || facts.credentialLiveGateEnabled || facts.credentialImportTouchesCurrentAuthority ||
+      facts.credentialProductionResolverEnabled || facts.credentialLiveGateEnabled !== reviewedWavesActive || facts.credentialImportTouchesCurrentAuthority ||
       facts.postPhase2SourceOverride !== "" ||
       facts.productionImports.some((name) => /phase2(?:fixture|harness)/i.test(name)))) {
     codes.add("PHASE2_PRODUCTION_BYPASS");

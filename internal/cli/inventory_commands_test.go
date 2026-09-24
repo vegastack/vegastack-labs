@@ -188,7 +188,8 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	retentionLock := generated.BackupRetentionLockDraftSubmission{Schema: generated.SchemaIDBackupRetentionLockDraftSubmission, SchemaVersion: "1.1.0", DraftID: "lock-draft-test", ChangeID: "retention-lock-change-test", OperationID: "retention-lock-operation-test", CatalogDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: 9, RecoveryEpoch: 2}
 	retirement := generated.BackupRetirementDraftSubmission{Schema: generated.SchemaIDBackupRetirementDraftSubmission, SchemaVersion: "1.1.0", DraftID: "retirement-draft-test", ChangeID: "retirement-change-test", OperationID: "retirement-operation-test", SelectionDigest: "sha256:" + strings.Repeat("b", 64), CredentialManifestDigest: "sha256:" + strings.Repeat("c", 64), TargetPointIDs: []string{"point-old"}, SurvivorPointIDs: []string{"point-good"}, Status: "draft", StateRevision: 10, RecoveryEpoch: 2}
 	offsiteRetirement := generated.BackupOffsiteRetirementStageSubmission{Schema: generated.SchemaIDBackupOffsiteRetirementStageSubmission, SchemaVersion: "1.1.0", IntentID: "offsite-retirement-test", GenerationID: "generation-old", PointID: "point-old", RuleSetDigest: "sha256:" + strings.Repeat("a", 64), SurvivorRuleDigest: "sha256:" + strings.Repeat("b", 64), PreRuleCount: 10, SurvivorRuleCount: 5, SurvivorPointIDs: []string{"point-good"}, ExpectedReclaimBytes: 8, Status: "staged", StateRevision: 7, RecoveryEpoch: 2}
-	offsiteDryRun := generated.BackupOffsiteRetirementDryRunData{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunData, SchemaVersion: "1.1.0", IntentDigest: "sha256:" + strings.Repeat("a", 64), SelectionDigest: "sha256:" + strings.Repeat("a", 64), GenerationID: "generation-old", PointID: "point-old", BucketID: "bucket-a", RuleSetDigest: "sha256:" + strings.Repeat("a", 64), SurvivorRuleDigest: "sha256:" + strings.Repeat("a", 64), ManifestDigest: "sha256:" + strings.Repeat("a", 64), CatalogDigest: "sha256:" + strings.Repeat("a", 64), InventoryDigest: "sha256:" + strings.Repeat("a", 64), SurvivorPointIDs: []string{"point-good"}, ObjectCount: 1, ExpectedReclaimBytes: 8, PreRuleCount: 10, SurvivorRuleCount: 5, StateRevision: 7, RecoveryEpoch: 2}
+	dryRunDigest := "sha256:" + strings.Repeat("a", 64)
+	offsiteDryRun := generated.BackupOffsiteRetirementDryRunData{Schema: generated.SchemaIDBackupOffsiteRetirementDryRunData, SchemaVersion: "1.1.0", IntentDigest: dryRunDigest, SelectionDigest: dryRunDigest, GenerationID: "generation-old", PointID: "point-old", BucketID: "bucket-a", RuleSetDigest: dryRunDigest, SurvivorRuleDigest: dryRunDigest, ManifestDigest: dryRunDigest, CatalogDigest: dryRunDigest, InventoryDigest: dryRunDigest, SurvivorPointIDs: []string{"point-good"}, SurvivorKeyReferenceIDs: []string{"key-good"}, Rules: []generated.BackupOffsiteRetirementRule{{RuleID: "old-config", Prefix: "critical/generation-old/config"}, {RuleID: "old-data", Prefix: "critical/generation-old/data/"}, {RuleID: "old-index", Prefix: "critical/generation-old/index/"}, {RuleID: "old-keys", Prefix: "critical/generation-old/keys/"}, {RuleID: "old-snapshots", Prefix: "critical/generation-old/snapshots/"}}, Objects: []generated.BackupOffsiteRetirementObject{{Key: "critical/generation-old/data/a", Digest: dryRunDigest, Bytes: 8}}, SurvivorBindings: []generated.BackupOffsiteRetirementSurvivorBinding{{PointID: "point-good", GenerationID: "generation-good", ReferenceID: "key-good", DependencyDigest: dryRunDigest}}, ObjectCount: 1, ExpectedReclaimBytes: 8, RetainedBytes: 21, MaxWorkObjects: 1, MaxMutationBytes: 8, PreRuleCount: 10, SurvivorRuleCount: 5, StateRevision: 7, RecoveryEpoch: 2}
 	backupStatus := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: 2}
 	backupJob := generated.BackupJob{Schema: generated.SchemaIDBackupJob, SchemaVersion: "1.1.0", JobID: "job-test", PolicyID: "policy-a", SourceKind: "fixture", ProofClass: "fixture", Status: "pending", RecoveryEpoch: 2}
 	return &stubControlOperations{
@@ -297,5 +298,37 @@ func TestControlHumanOutputsMatchGoldens(t *testing.T) {
 		if code != 0 || stderr != "" || stdout != string(want) {
 			t.Fatalf("%s = code %d stdout %q stderr %q want %q", test.golden, code, stdout, stderr, want)
 		}
+	}
+}
+
+func TestOffsiteRetirementDryRunRendersExactInspectableArtifact(t *testing.T) {
+	operations := successfulControlOperations(t)
+	files := &stubFileReader{content: syntheticGateRequest(t, generated.CommandNameBackupOffsiteRetirementDryRun)}
+	args := []string{"backup", "offsite-retirement", "dry-run", "--config", "profile.json", "--file", "/tmp/dry-run.json"}
+	code, stdout, stderr := runTestAppWithOptions(t, context.Background(), args, nil, WithControlOperations(operations, files))
+	for _, exact := range []string{
+		"old-config  critical/generation-old/config",
+		"critical/generation-old/data/a  8 bytes",
+		"point-good  generation generation-good  key key-good",
+		"Objects (1, reclaim 8 bytes, max 1 objects/8 bytes)",
+		"Survivors (21 retained bytes",
+	} {
+		if !strings.Contains(stdout, exact) {
+			t.Fatalf("human dry-run missing %q: %s", exact, stdout)
+		}
+	}
+	if code != 0 || stderr != "" {
+		t.Fatalf("human dry-run = code %d stderr %q stdout %q", code, stderr, stdout)
+	}
+
+	jsonArgs := append(append([]string(nil), args...), "--output", "json")
+	code, stdout, stderr = runTestAppWithOptions(t, context.Background(), jsonArgs, nil, WithControlOperations(operations, files))
+	for _, exact := range []string{`"ruleId":"old-config"`, `"prefix":"critical/generation-old/config"`, `"key":"critical/generation-old/data/a"`, `"referenceId":"key-good"`, `"dependencyDigest":"sha256:`} {
+		if !strings.Contains(stdout, exact) {
+			t.Fatalf("JSON dry-run missing %q: %s", exact, stdout)
+		}
+	}
+	if code != 0 || stderr != "" {
+		t.Fatalf("JSON dry-run = code %d stderr %q stdout %q", code, stderr, stdout)
 	}
 }

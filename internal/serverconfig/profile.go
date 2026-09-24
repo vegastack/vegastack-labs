@@ -61,6 +61,8 @@ type OffsiteBackup struct {
 	Endpoint, Bucket, Prefix                                  string
 	AccountID                                                 string
 	ParentReferenceID, ObserverReferenceID, ParentFingerprint string
+	LockAdminReferenceID, LockAdminFingerprint                string
+	RetentionReferenceID, RetentionFingerprint                string
 	RuleDigest, G008EvidenceDigest, QualificationDigest       string
 	PutCutoffDigest, MultipartCutoffDigest                    string
 	AvailableBytes, AvailablePUTs, AvailableLISTs             int64
@@ -191,7 +193,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 }
 
 func convertOffsiteBackup(input generated.ServerProfile, local *LocalBackup) (*OffsiteBackup, error) {
-	values := []*string{input.OffsiteEndpoint, input.OffsiteBucket, input.OffsitePrefix, input.OffsiteParentReferenceID, input.OffsiteObserverReferenceID,
+	values := []*string{input.OffsiteEndpoint, input.OffsiteBucket, input.OffsitePrefix, input.OffsiteParentReferenceID, input.OffsiteObserverReferenceID, input.OffsiteLockAdminReferenceID, input.OffsiteLockAdminFingerprint, input.OffsiteRetentionReferenceID, input.OffsiteRetentionFingerprint,
 		input.OffsiteParentFingerprint, input.OffsiteRuleDigest, input.OffsiteG008EvidenceDigest, input.OffsiteAccountID, input.OffsiteQualificationDigest,
 		input.OffsitePutCutoffDigest, input.OffsiteMultipartCutoffDigest}
 	integerValues := []*int64{input.OffsiteAvailableBytes, input.OffsiteAvailablePUTs, input.OffsiteAvailableLISTs, input.OffsiteRuleCount, input.OffsiteRetainedGenerations}
@@ -215,12 +217,13 @@ func convertOffsiteBackup(input generated.ServerProfile, local *LocalBackup) (*O
 	endpoint, err := url.Parse(*input.OffsiteEndpoint)
 	if err != nil || endpoint.Scheme != "https" || endpoint.Host == "" || endpoint.User != nil || endpoint.RawQuery != "" || endpoint.Fragment != "" ||
 		endpoint.Path != "" || endpoint.Host != endpoint.Hostname() || strings.ToLower(endpoint.Hostname()) != *input.OffsiteAccountID+".r2.cloudflarestorage.com" ||
-		!offsiteBucketName.MatchString(*input.OffsiteBucket) || !offsiteProfileToken.MatchString(*input.OffsiteParentReferenceID) || !offsiteProfileToken.MatchString(*input.OffsiteObserverReferenceID) || *input.OffsiteParentReferenceID == *input.OffsiteObserverReferenceID ||
+		!offsiteBucketName.MatchString(*input.OffsiteBucket) || !offsiteProfileToken.MatchString(*input.OffsiteParentReferenceID) || !offsiteProfileToken.MatchString(*input.OffsiteObserverReferenceID) || !offsiteProfileToken.MatchString(*input.OffsiteLockAdminReferenceID) || !offsiteProfileToken.MatchString(*input.OffsiteRetentionReferenceID) ||
+		len(map[string]bool{*input.OffsiteParentReferenceID: true, *input.OffsiteObserverReferenceID: true, *input.OffsiteLockAdminReferenceID: true, *input.OffsiteRetentionReferenceID: true}) != 4 ||
 		*input.OffsitePrefix == "" || strings.HasPrefix(*input.OffsitePrefix, "/") || strings.Contains(*input.OffsitePrefix, "..") || filepath.Clean(*input.OffsitePrefix) != *input.OffsitePrefix ||
 		*input.OffsiteAvailableBytes < 1 || *input.OffsiteAvailablePUTs < 1 || *input.OffsiteAvailableLISTs < 1 || *input.OffsiteRuleCount < 0 || *input.OffsiteRuleCount > 995 || *input.OffsiteRetainedGenerations < 0 {
 		return nil, failure.New("INPUT_INVALID", "server-config", false)
 	}
-	for _, digest := range []string{*input.OffsiteParentFingerprint, *input.OffsiteRuleDigest, *input.OffsiteG008EvidenceDigest, *input.OffsiteQualificationDigest, *input.OffsitePutCutoffDigest, *input.OffsiteMultipartCutoffDigest} {
+	for _, digest := range []string{*input.OffsiteParentFingerprint, *input.OffsiteLockAdminFingerprint, *input.OffsiteRetentionFingerprint, *input.OffsiteRuleDigest, *input.OffsiteG008EvidenceDigest, *input.OffsiteQualificationDigest, *input.OffsitePutCutoffDigest, *input.OffsiteMultipartCutoffDigest} {
 		if len(digest) != 71 || !strings.HasPrefix(digest, "sha256:") {
 			return nil, failure.New("INPUT_INVALID", "server-config", false)
 		}
@@ -230,6 +233,7 @@ func convertOffsiteBackup(input generated.ServerProfile, local *LocalBackup) (*O
 	}
 	return &OffsiteBackup{Endpoint: *input.OffsiteEndpoint, Bucket: *input.OffsiteBucket, Prefix: *input.OffsitePrefix,
 		AccountID: *input.OffsiteAccountID, ParentReferenceID: *input.OffsiteParentReferenceID, ObserverReferenceID: *input.OffsiteObserverReferenceID, ParentFingerprint: *input.OffsiteParentFingerprint,
+		LockAdminReferenceID: *input.OffsiteLockAdminReferenceID, LockAdminFingerprint: *input.OffsiteLockAdminFingerprint, RetentionReferenceID: *input.OffsiteRetentionReferenceID, RetentionFingerprint: *input.OffsiteRetentionFingerprint,
 		RuleDigest: *input.OffsiteRuleDigest, G008EvidenceDigest: *input.OffsiteG008EvidenceDigest, QualificationDigest: *input.OffsiteQualificationDigest,
 		PutCutoffDigest: *input.OffsitePutCutoffDigest, MultipartCutoffDigest: *input.OffsiteMultipartCutoffDigest,
 		AvailableBytes: *input.OffsiteAvailableBytes, AvailablePUTs: *input.OffsiteAvailablePUTs, AvailableLISTs: *input.OffsiteAvailableLISTs,

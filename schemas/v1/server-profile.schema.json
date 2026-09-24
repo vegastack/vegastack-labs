@@ -169,6 +169,20 @@
         "null"
       ]
     },
+    "offsiteLockAdminFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteLockAdminReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "offsiteMultipartCutoffDigest": {
       "pattern": "^sha256:[a-f0-9]{64}$",
       "type": [
@@ -222,6 +236,20 @@
       "minimum": 0,
       "type": [
         "integer",
+        "null"
+      ]
+    },
+    "offsiteRetentionFingerprint": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "offsiteRetentionReferenceId": {
+      "pattern": "^[a-z][a-z0-9._:-]{0,127}$",
+      "type": [
+        "string",
         "null"
       ]
     },

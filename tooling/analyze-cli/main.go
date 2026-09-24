@@ -913,8 +913,8 @@ func reviewedLocalAPISource(candidate checkedSourcePackage) bool {
 const (
 	// #118 adds one typed off-site retirement staging request. It carries only
 	// public IDs/digests and reaches the existing value-only local transport.
-	reviewedBackupLifecycleLocalAPILinuxDigest       = "24d47c7345696396670ebb28388da7ebffdd4853c7b09a6064070f7d70d5b04d"
-	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "2a5820132ac72517cd8f70cdc10a764e389edab5fffcb49928037dd2f4abc454"
+	reviewedBackupLifecycleLocalAPILinuxDigest       = "c60cbea77d5c0c5e5b93c0739b56db12fe036fcd419c103398bc485be54d61b1"
+	reviewedBackupLifecycleLocalAPIUnsupportedDigest = "0e2035a66bcd51711c67e21ec3f3326783429defaeb6c0628b16f33fc488feb4"
 	reviewedBackupLocalAPILinuxDigest                = "9341e73b56a727fdf9b64e013fcd43f3c896e786c20c8e9a7c087429abbb193c"
 	reviewedBackupLocalAPIUnsupportedDigest          = "6119851667da72ab447af607b2f0aa9e2b5e5345c4fccf84a3b4fdf898bb08f1"
 )

@@ -130,9 +130,9 @@ test("the original Phase 2 baseline stays immutable while Phase 5 waves through 
   assert.equal(manifest.contract.reviewedWaves[23].mutationBoundaryDigest, "sha256:6c6a3ab5f366603d73c1bd07d91097d0062f49a48231aca42a4c1f500af0455d");
   assert.equal(manifest.contract.reviewedWaves[24].id, "phase5-issue118-v1");
   assert.equal(manifest.contract.reviewedWaves[24].issue, 118);
-  assert.deepEqual(manifest.contract.reviewedWaves[24].commands, ["backup offsite-retirement stage"]);
+  assert.deepEqual(manifest.contract.reviewedWaves[24].commands, ["backup offsite-retirement dry-run", "backup offsite-retirement stage"]);
   assert.deepEqual(manifest.contract.reviewedWaves[24].imports, ["github.com/vegastack/vegastack-labs/internal/adapter/r2retention"]);
-  assert.equal(manifest.contract.reviewedWaves[24].mutationBoundaryDigest, "sha256:60a44c73713a23ecf27dbde07d4c83fc1276cf6eeaf2f105723d4c02825a3e46");
+  assert.equal(manifest.contract.reviewedWaves[24].mutationBoundaryDigest, "sha256:38c9ee02eb118570eef1280b222cb807dd809263a0d68d30a666025cf5a25c07");
   assert.equal(facts.postPhase2MutationBoundaryDigest, manifest.contract.reviewedWaves[24].mutationBoundaryDigest);
   assert.equal(validateEvidence(manifest, facts).status, "pass");
 });
@@ -187,7 +187,7 @@ test("the #124 wave rejects import activation outside the local inert boundary",
     ["unrelated credential read", (m, f) => { f.credentialEndpointIds.push("api.v1.credential-references.get"); }, "PHASE2_MUTATION_AVAILABLE"],
     ["remote transport", (m, f) => { f.credentialImportRemoteAllowed = true; }, "PHASE2_PRODUCTION_BYPASS"],
     ["production resolver", (m, f) => { f.credentialProductionResolverEnabled = true; }, "PHASE2_PRODUCTION_BYPASS"],
-    ["live gate", (m, f) => { f.credentialLiveGateEnabled = true; }, "PHASE2_PRODUCTION_BYPASS"],
+    ["missing reviewed live gate", (m, f) => { f.credentialLiveGateEnabled = false; }, "PHASE2_PRODUCTION_BYPASS"],
     ["draft as authority", (m, f) => { f.credentialImportTouchesCurrentAuthority = true; }, "PHASE2_PRODUCTION_BYPASS"],
     ["foundation migration drift", (m, f) => { f.migrations.find(({ file }) => file === "0012_credential_refs.sql").sha256 = `sha256:${"0".repeat(64)}`; }, "PHASE2_MUTATION_AVAILABLE"],
     ["import migration drift", (m, f) => { f.migrations.find(({ file }) => file === "0013_credential_import_drafts.sql").sha256 = `sha256:${"0".repeat(64)}`; }, "PHASE2_MUTATION_AVAILABLE"],

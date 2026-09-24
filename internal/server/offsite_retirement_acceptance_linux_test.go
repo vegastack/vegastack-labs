@@ -3,6 +3,7 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -10,19 +11,27 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/acknowledgement"
 	"github.com/vegastack/vegastack-labs/internal/adapter"
 	"github.com/vegastack/vegastack-labs/internal/adapter/r2retention"
+	"github.com/vegastack/vegastack-labs/internal/api"
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/backupidentity"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
+	planengine "github.com/vegastack/vegastack-labs/internal/plan"
+	"github.com/vegastack/vegastack-labs/internal/result"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
@@ -114,6 +123,68 @@ func (s acceptanceRetirementSource) Execution(_ context.Context, _ serverconfig.
 	return execution, err == nil, err
 }
 
+type acceptanceAdmission struct{}
+
+func (acceptanceAdmission) Verify(context.Context, generated.Plan, generated.AuthorizationDecision, *generated.Acknowledgement) error {
+	return nil
+}
+func (acceptanceAdmission) Activate(context.Context, generated.Plan, generated.AuthorizationDecision, generated.Run, *generated.Acknowledgement) error {
+	return nil
+}
+func (acceptanceAdmission) VerifyRun(context.Context, generated.Plan, generated.Run) error {
+	return nil
+}
+
+type acceptanceCredentialSource struct {
+	bindings   *store.CredentialRepository
+	references map[string]generated.CredentialReference
+}
+
+func (source acceptanceCredentialSource) GetStepBindings(ctx context.Context, plan generated.Plan, operationID string) ([]credentialref.StepBinding, error) {
+	return source.bindings.GetStepBindings(ctx, plan, operationID)
+}
+func (source acceptanceCredentialSource) GetReference(_ context.Context, id string) (generated.CredentialReference, error) {
+	if reference, ok := source.references[id]; ok {
+		return reference, nil
+	}
+	return generated.CredentialReference{}, errors.New("credential reference unavailable")
+}
+
+type acceptanceCredentialResolver struct{}
+
+func (acceptanceCredentialResolver) Resolve(_ context.Context, binding credentialref.StepBinding) (*credentialref.Value, error) {
+	return credentialref.NewValue([]byte("secret-" + binding.ReferenceID))
+}
+
+type acceptanceReadAuthorizer struct{}
+
+func (acceptanceReadAuthorizer) AuthorizeRead(_ context.Context, principal identity.Principal, target authorization.ReadTarget) (authorization.ReadScope, error) {
+	return authorization.ReadScope{PrincipalID: principal.ID, Capability: target.Capability, ResourceKind: target.ResourceKind, GrantRevision: 1, ScopeDigest: "sha256:" + strings.Repeat("d", 64)}, nil
+}
+
+type acceptanceExecutionAuthorizer struct{}
+
+func (acceptanceExecutionAuthorizer) Authorize(_ context.Context, principal identity.Principal, request authorization.Request) (authorization.Decision, error) {
+	branch := authorization.BranchHuman
+	scope := authorization.EffectiveScope{PrincipalID: principal.ID, Action: request.Action, Capability: request.Target.Capability, ResourceKind: request.Target.ResourceKind, ResourceID: request.Target.ResourceID, Role: authorization.RoleInfrastructureAdmin, GrantRevision: 1, StateRevision: request.Plan.Binding.StateRevision, RecoveryEpoch: request.Plan.Binding.RecoveryEpoch, ScopeDigest: "sha256:" + strings.Repeat("e", 64)}
+	return authorization.Decision{PrincipalID: principal.ID, Action: request.Action, Target: request.Target, Allowed: true, Branch: &branch, ReasonCode: authorization.ReasonAllowed, GrantRevision: scope.GrantRevision, StateRevision: scope.StateRevision, RecoveryEpoch: scope.RecoveryEpoch, PlanDigest: request.Plan.PlanDigest, Risk: authorization.RiskDestructive, Scope: scope}, nil
+}
+
+type acceptanceDecisionRecorder struct{}
+
+func (acceptanceDecisionRecorder) RecordDecision(context.Context, authorization.DecisionRecord) error {
+	return nil
+}
+
+type acceptanceAcknowledgementSource struct {
+	repository *store.AcknowledgementRepository
+}
+
+func (source acceptanceAcknowledgementSource) Status(ctx context.Context, planID string) (generated.Acknowledgement, error) {
+	stored, err := source.repository.Get(ctx, planID)
+	return stored.Acknowledgement, err
+}
+
 func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
@@ -199,7 +270,8 @@ func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 	if _, err := store.NewOffsiteRetirementRepository(authority).StageOffsiteRetirement(ctx, intent); err != nil {
 		t.Fatal(err)
 	}
-	seedAcceptanceAuthority(t, filepath.Join(directory, "control.db"), plan, intent, bundle, bundleBytes, bundleDigest, attribution, now)
+	seedAcceptanceGate(t, filepath.Join(directory, "control.db"), intent, bundle, bundleBytes, bundleDigest, attribution, now)
+	authorizeAcceptancePlan(t, ctx, authority, plan, attribution, now)
 
 	providerRules := &acceptanceRules{current: r2retention.RuleSet{Rules: append([]r2retention.Rule(nil), allRules...)}}
 	providerObjects := &acceptanceObjects{}
@@ -211,22 +283,56 @@ func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	effect := effectAdapter.(*runengine.OffsiteRetirementEffect)
-	values := make([]*credentialref.Value, len(bindings))
-	op := adapter.Operation{OperationID: operationID, OperationType: "backup.retire.offsite", AdapterID: "r2.retention", ExecutorID: "executor-central", TargetID: candidate.GenerationID, InputDigest: credentialDigest, ArtifactDigest: intent.IntentDigest, SecretReferences: make([]adapter.SecretReference, len(bindings))}
-	for i, binding := range bindings {
-		values[i], _ = credentialref.NewValue([]byte("secret-" + binding.ReferenceID))
-		defer values[i].Close()
-		op.SecretReferences[i] = adapter.SecretReference{ID: binding.ReferenceID, Consumer: binding.ConsumerID}
+	registry := adapter.NewRegistry()
+	if err := registry.Register("r2.retention", effectAdapter); err != nil {
+		t.Fatal(err)
 	}
-	binding := adapter.ExactExecutionBinding{PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: "run-a", StepID: "step-a", LeaseID: "lease-a", StateRevision: 4, RecoveryEpoch: 0, MaximumExpiresAt: now.Add(20 * time.Minute).Format(time.RFC3339), ContractExtensions: plan.Extensions}
-	result, err := effect.ExecuteBoundWithCredentials(ctx, op, binding, values)
-	if err != nil || !result.EffectObserved || result.ResultDigest == "" {
-		t.Fatalf("effect=%+v err=%v", result, err)
+	if err := registry.RegisterCredentialResolver(adapter.CredentialCapabilityScope{ResolverID: "native-systemd", ConsumerID: "r2.retention", ProfileID: "vegastack-labs", CapabilityID: "credential.native.read", Enabled: true}, acceptanceCredentialResolver{}); err != nil {
+		t.Fatal(err)
 	}
-	verified, err := effect.Verify(ctx, op, result)
-	if err != nil || !verified.Verified || len(providerObjects.values) != 0 || len(providerRules.current.Rules) != 5 {
-		t.Fatalf("verification=%+v objects=%d rules=%d err=%v", verified, len(providerObjects.values), len(providerRules.current.Rules), err)
+	activated := now.Add(-time.Minute).Format(time.RFC3339)
+	references := map[string]generated.CredentialReference{}
+	for _, binding := range bindings {
+		references[binding.ReferenceID] = generated.CredentialReference{Schema: generated.SchemaIDCredentialReference, SchemaVersion: "1.1.0", ReferenceID: binding.ReferenceID, ConsumerID: binding.ConsumerID, PurposeID: binding.PurposeID, TargetID: binding.TargetID, ResolverID: binding.ResolverID, MaterialVersion: binding.MaterialVersion, Fingerprint: "sha256:" + strings.Repeat("a", 64), Status: "active", StateRevision: binding.StateRevision, RecoveryEpoch: binding.RecoveryEpoch, ActivatedAt: &activated, VerifiedConsumerIDs: []string{binding.ConsumerID}}
+	}
+	planRepository := store.NewPlanRepository(authority)
+	observations, err := planengine.NewStateObservationReader(planRepository)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plans, err := planengine.NewService(planengine.Config{Repository: planRepository, Observations: observations, Clock: func() time.Time { return now }, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", OperationExecutorID: "executor-central"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	engine, err := runengine.NewEngine(runengine.Config{Repository: store.NewRunRepository(authority), Plans: plans, Admission: acceptanceAdmission{}, Adapters: registry, SecretGate: r2RetirementLiveGate{gates: store.NewGateRepository(authority), retirements: store.NewOffsiteRetirementRepository(authority), clock: func() time.Time { return now }}, CredentialStep: &runengine.CredentialStep{Bindings: acceptanceCredentialSource{bindings: store.NewCredentialRepository(authority), references: references}, Resolvers: registry, Profiles: store.NewGateRepository(authority), Plans: plans, Clock: func() time.Time { return now }}, Clock: func() time.Time { return now }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestBody := generated.PlanReferenceRequest{Schema: generated.SchemaIDPlanReferenceRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RecoveryEpoch: 0, IdempotencyKey: "submit-a", Extensions: []generated.ContractExtension{}}
+	rawRequest, err := json.Marshal(requestBody)
+	if err != nil {
+		t.Fatal(err)
+	}
+	requestIDs := 0
+	results := result.NewFactory(result.BuildInfo{ToolVersion: "1.0.0", ReleaseBuildID: "test-build"}, func() (string, error) {
+		requestIDs++
+		return "request-offsite-" + string(rune('a'+requestIDs)), nil
+	})
+	application, err := api.NewApplication(api.Config{Authority: authority, Authorizer: acceptanceReadAuthorizer{}, Reads: store.NewReadRepository(authority), Results: results})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := api.RegisterRunOperations(application, api.RunOperationConfig{Runs: engine, Plans: plans, Acknowledgements: acceptanceAcknowledgementSource{repository: store.NewAcknowledgementRepository(authority)}, Results: results, Authorization: api.EffectiveAuthorizationConfig{Authorizer: acceptanceExecutionAuthorizer{}, Recorder: acceptanceDecisionRecorder{}, Clock: func() time.Time { return now }}}); err != nil {
+		t.Fatal(err)
+	}
+	httpRequest := httptest.NewRequest(http.MethodPost, "/api/v1/plans/"+plan.PlanID+"/execute", bytes.NewReader(rawRequest))
+	httpRequest.Header.Set("Content-Type", "application/json")
+	httpRequest = httpRequest.WithContext(identity.WithVerifiedPrincipal(httpRequest.Context(), identity.Principal{ID: attribution.AuthenticatedPrincipalID, Method: identity.LocalOSPeerMethod}))
+	httpResponse := httptest.NewRecorder()
+	application.ServeHTTP(httpResponse, httpRequest)
+	run, found, existingErr := engine.Existing(ctx, requestBody)
+	if httpResponse.Code != http.StatusOK || existingErr != nil || !found || run.Status != "succeeded" || len(providerObjects.values) != 0 || len(providerRules.current.Rules) != 5 {
+		t.Fatalf("response=%d %s run=%+v found=%t objects=%d rules=%d err=%v", httpResponse.Code, httpResponse.Body.String(), run, found, len(providerObjects.values), len(providerRules.current.Rules), existingErr)
 	}
 }
 
@@ -234,7 +340,7 @@ func TestProductionOffsiteRetirementSQLRunAcceptance(t *testing.T) {
 // human-owned run that precede retirement. The retirement lease, provider
 // journal, survivor proofs, and settlement remain production-created by the
 // execution under test; none of those records are synthesized here.
-func seedAcceptanceAuthority(t *testing.T, databasePath string, plan generated.Plan, intent store.OffsiteRetirementIntent, bundle generated.GateEvidenceBundle, bundleBytes []byte, bundleDigest string, attribution audit.Attribution, now time.Time) {
+func seedAcceptanceGate(t *testing.T, databasePath string, intent store.OffsiteRetirementIntent, bundle generated.GateEvidenceBundle, bundleBytes []byte, bundleDigest string, attribution audit.Attribution, now time.Time) {
 	t.Helper()
 	database, err := sql.Open("sqlite3", "file:"+databasePath+"?mode=rw")
 	if err != nil {
@@ -248,34 +354,38 @@ func seedAcceptanceAuthority(t *testing.T, databasePath string, plan generated.P
 	if err != nil || contractErr != nil {
 		t.Fatalf("gate evidence contract: marshal=%v validation=%v body=%s", err, contractErr, evidenceBytes)
 	}
-	ackID := "ack-retirement-a"
-	ackRequest := generated.AcknowledgementRequest{Schema: generated.SchemaIDAcknowledgementRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: plan.Binding.TargetDigest, ReasonDigest: plan.Binding.ReasonDigest, HumanID: attribution.AuthenticatedPrincipalID, AuthorityID: "infra-admin", NonceDigest: "sha256:" + strings.Repeat("b", 64), StateRevision: plan.Binding.StateRevision, RecoveryEpoch: 0, ExpiresAt: plan.ExpiresAt, Extensions: []generated.ContractExtension{}}
-	ackProof := generated.Acknowledgement{Schema: generated.SchemaIDAcknowledgement, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: plan.Binding.TargetDigest, ReasonDigest: plan.Binding.ReasonDigest, HumanID: attribution.AuthenticatedPrincipalID, AuthorityID: "infra-admin", NonceDigest: ackRequest.NonceDigest, StateRevision: plan.Binding.StateRevision, RecoveryEpoch: 0, ExpiresAt: plan.ExpiresAt, AcknowledgementID: ackID, ProofDigest: "sha256:" + strings.Repeat("c", 64), Status: "approved", ReceivedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
-	requestBytes, _ := json.Marshal(ackRequest)
-	proofBytes, _ := json.Marshal(ackProof)
-	ackPtr := ackID
-	run := generated.Run{Schema: generated.SchemaIDRun, SchemaVersion: "1.0.0", RunID: "run-a", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, AuthorizationDecisionID: "decision-a", AcknowledgementID: &ackPtr, PolicyVersion: plan.Binding.PolicyVersion, ExecutorMode: "central", ExecutorID: "executor-central", ExecutorBindingDigest: d, Status: "running", Steps: []generated.RunStep{{Sequence: 1, OperationID: plan.Operations[0].OperationID, OperationType: plan.Operations[0].OperationType, AdapterID: plan.Operations[0].AdapterID, ExecutorID: plan.Operations[0].ExecutorID, TargetID: plan.Operations[0].TargetID, InputDigest: plan.Operations[0].InputDigest, ArtifactDigest: plan.Operations[0].ArtifactDigest, Idempotent: false, StepID: "step-a", Status: "running", EffectState: "intent-recorded"}}, CancellationRequested: false, RollbackStatus: "not-requested", VerificationStatus: "pending", Changed: false, StateRevision: plan.Binding.StateRevision, RecoveryEpoch: 0, CreatedAt: now.Format(time.RFC3339), UpdatedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
-	runBytes, _ := json.Marshal(run)
-	lease := generated.ExecutorLease{Schema: generated.SchemaIDExecutorLease, SchemaVersion: "1.0.0", LeaseID: "lease-a", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, RunID: run.RunID, StepID: "step-a", OperationID: plan.Operations[0].OperationID, ExecutorID: "executor-central", AdapterID: "r2.retention", TargetID: intent.GenerationID, ArtifactDigest: intent.IntentDigest, BindingDigest: d, NonceDigest: "sha256:" + strings.Repeat("d", 64), RecoveryEpoch: 0, ClaimedAt: now.Format(time.RFC3339), RenewAfter: now.Add(5 * time.Minute).Format(time.RFC3339), LeaseExpiresAt: now.Add(20 * time.Minute).Format(time.RFC3339), MaximumExpiresAt: now.Add(20 * time.Minute).Format(time.RFC3339), Status: "active", Extensions: []generated.ContractExtension{}}
-	leaseBytes, _ := json.Marshal(lease)
 	statements := []struct {
 		query string
 		args  []any
 	}{
 		{`INSERT INTO gate_evidence_drafts(draft_id,evidence_id,gate_id,subject_id,definition_version,evaluator_version,source_kind,proof_class,artifact_digest,bundle_digest,bundle_bytes,observed_at,state_revision,recovery_epoch,human_id,created_at) VALUES('gate-draft','owner-proof','G-008',?,'1.0.0','1.0.0','local','live',?,?,?,?,4,0,?,?)`, []any{intent.BucketID, d, bundleDigest, bundleBytes, bundle.ObservedAt, attribution.AuthenticatedPrincipalID, now.Format(time.RFC3339)}},
 		{`INSERT INTO gate_applied_evidence(evidence_id,draft_id,gate_id,subject_id,status,source_kind,proof_class,bundle_digest,canonical_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,applied_at) VALUES('owner-proof','gate-draft','G-008',?,'applied','local','live',?,?,4,0,'gate-declaration',1,'gate-plan',?,'gate-run','gate-step','gate-lease',?)`, []any{intent.BucketID, bundleDigest, evidenceBytes, d, now.Format(time.RFC3339)}},
-		{`INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES('profile-binding','vegastack-labs','1.0.0','policy-a','1.0.0',?,4,0,'gate-declaration',1,'gate-plan',?,'gate-run','gate-step','gate-lease',?,?)`, []any{[]byte(`[]`), d, attribution.AuthenticatedPrincipalID, now.Format(time.RFC3339)}},
-		{`INSERT INTO acknowledgement_requests(acknowledgement_id,plan_id,plan_digest,target_digest,reason_digest,human_id,authority_id,nonce_digest,state_revision,recovery_epoch,expires_at,status,request_bytes,pending_bytes,created_at,decided_at,consumed_at) VALUES(?,?,?,?,?,?,?,?,?,0,?,'approved',?,?,?,?,?)`, []any{ackID, plan.PlanID, plan.PlanDigest, plan.Binding.TargetDigest, plan.Binding.ReasonDigest, attribution.AuthenticatedPrincipalID, "infra-admin", ackRequest.NonceDigest, plan.Binding.StateRevision, plan.ExpiresAt, requestBytes, proofBytes, now.Format(time.RFC3339), now.Format(time.RFC3339), now.Format(time.RFC3339)}},
-		{`INSERT INTO acknowledgement_proofs(acknowledgement_id,proof_digest,status,canonical_bytes,received_at) VALUES(?,?,'approved',?,?)`, []any{ackID, ackProof.ProofDigest, proofBytes, ackProof.ReceivedAt}},
-		{`INSERT INTO plan_runs(run_id,plan_id,plan_digest,authorization_decision_id,acknowledgement_id,policy_version,executor_mode,executor_id,executor_binding_digest,status,cancellation_requested,rollback_status,verification_status,changed,state_revision,recovery_epoch,submit_key_digest,request_digest,canonical_bytes,created_at,updated_at) VALUES(?,?,?,?,?,?,'central','executor-central',?,'running',0,'not-requested','pending',0,?,0,?,?,?,?,?)`, []any{run.RunID, plan.PlanID, plan.PlanDigest, run.AuthorizationDecisionID, ackID, run.PolicyVersion, d, run.StateRevision, "sha256:" + strings.Repeat("e", 64), "sha256:" + strings.Repeat("f", 64), runBytes, run.CreatedAt, run.UpdatedAt}},
-		{`INSERT INTO plan_run_steps(step_id,run_id,sequence,operation_id,operation_type,adapter_id,executor_id,target_id,input_digest,artifact_digest,idempotent,status,effect_state,active_lease_id,started_at) VALUES('step-a','run-a',1,?,'backup.retire.offsite','r2.retention','executor-central',?,?,?,0,'running','intent-recorded','lease-a',?)`, []any{plan.Operations[0].OperationID, intent.GenerationID, intent.CredentialBindingDigest, intent.IntentDigest, now.Format(time.RFC3339)}},
-		{`INSERT INTO target_execution_leases(lease_id,run_id,step_id,target_id,binding_digest,nonce_digest,recovery_epoch,claimed_at,renew_after,expires_at,maximum_expires_at,status,canonical_bytes) VALUES('lease-a','run-a','step-a',?,?,?,?,?,?,?,?,'active',?)`, []any{intent.GenerationID, lease.BindingDigest, lease.NonceDigest, 0, lease.ClaimedAt, lease.RenewAfter, lease.LeaseExpiresAt, lease.MaximumExpiresAt, leaseBytes}},
+		{`INSERT INTO gate_applied_profiles(binding_id,profile_id,profile_version,policy_id,policy_version,capabilities_bytes,state_revision,recovery_epoch,declaration_id,declaration_revision,plan_id,plan_digest,run_id,step_id,lease_id,human_id,applied_at) VALUES('profile-binding','vegastack-labs','1.0.0','policy-a','1.0.0',?,4,0,'gate-declaration',1,'gate-plan',?,'gate-run','gate-step','gate-lease',?,?)`, []any{[]byte(`["credential.native.read"]`), d, attribution.AuthenticatedPrincipalID, now.Format(time.RFC3339)}},
 	}
 	for index, statement := range statements {
 		if _, err := database.ExecContext(context.Background(), statement.query, statement.args...); err != nil {
 			t.Fatalf("seed authority statement %d: %v", index, err)
 		}
 	}
+}
+
+func authorizeAcceptancePlan(t *testing.T, ctx context.Context, authority *store.Store, plan generated.Plan, attribution audit.Attribution, now time.Time) generated.Acknowledgement {
+	t.Helper()
+	request := generated.AcknowledgementRequest{Schema: generated.SchemaIDAcknowledgementRequest, SchemaVersion: "1.0.0", PlanID: plan.PlanID, PlanDigest: plan.PlanDigest, TargetDigest: plan.Binding.TargetDigest, ReasonDigest: plan.Binding.ReasonDigest, HumanID: attribution.AuthenticatedPrincipalID, AuthorityID: "infra-admin", NonceDigest: "sha256:" + strings.Repeat("b", 64), StateRevision: plan.Binding.StateRevision, RecoveryEpoch: plan.Binding.RecoveryEpoch, ExpiresAt: plan.ExpiresAt, Extensions: []generated.ContractExtension{}}
+	pending := generated.Acknowledgement{Schema: generated.SchemaIDAcknowledgement, SchemaVersion: "1.0.0", PlanID: request.PlanID, PlanDigest: request.PlanDigest, TargetDigest: request.TargetDigest, ReasonDigest: request.ReasonDigest, HumanID: request.HumanID, AuthorityID: request.AuthorityID, NonceDigest: request.NonceDigest, StateRevision: request.StateRevision, RecoveryEpoch: request.RecoveryEpoch, ExpiresAt: request.ExpiresAt, AcknowledgementID: "ack-retirement-a", ProofDigest: "sha256:" + strings.Repeat("c", 64), Status: "pending", ReceivedAt: now.Format(time.RFC3339), Extensions: []generated.ContractExtension{}}
+	repository := store.NewAcknowledgementRepository(authority)
+	if _, _, err := repository.Create(ctx, acknowledgement.CreateRecord{Request: request, Pending: pending, CreatedAt: now, Attribution: attribution}); err != nil {
+		t.Fatal(err)
+	}
+	approved := pending
+	approved.Status = "approved"
+	if _, _, err := repository.Decide(ctx, acknowledgement.DecisionRecord{Expected: request, Outcome: approved, DecidedAt: now, Attribution: attribution}); err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := repository.Consume(ctx, plan.PlanID, now); err != nil {
+		t.Fatal(err)
+	}
+	return approved
 }
 
 func acceptanceG008Bundle(t *testing.T, now time.Time, digest string) (generated.GateEvidenceBundle, []byte, string) {
@@ -352,7 +462,8 @@ func appendAcceptanceGeneration(t *testing.T, ctx context.Context, repository *s
 }
 
 func acceptanceIntent(candidate backup.OffsiteRetirementCandidate, credentialDigest string) store.OffsiteRetirementIntent {
-	intent := store.OffsiteRetirementIntent{IntentID: "intent-a", GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, OneOwnerProofID: "owner-proof", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", G008BundleDigest: candidate.G008BundleDigest, QualificationDigest: candidate.QualificationDigest, PutCutoffDigest: candidate.PutCutoffDigest, MultipartCutoffDigest: candidate.MultipartCutoffDigest, ExclusiveAdminDigest: candidate.ExclusiveAdminDigest, CredentialBindingDigest: credentialDigest, SurvivorPointIDs: append([]string(nil), candidate.SurvivorPointIDs...), SurvivorKeyReferences: []store.OffsiteRetirementSurvivorKey{{PointID: "point-good", GenerationID: "generation-good", ReferenceID: "key-good"}}, SourceRevision: candidate.SourceRevision, StateRevision: 4, RecoveryEpoch: 0, MaxWorkObjects: candidate.MaxWorkObjects, MaxMutationBytes: candidate.MaxMutationBytes, PreRuleCount: candidate.PreRuleCount, SurvivorRuleCount: candidate.SurvivorRuleCount}
+	d := "sha256:" + strings.Repeat("a", 64)
+	intent := store.OffsiteRetirementIntent{IntentID: "intent-a", GenerationID: candidate.GenerationID, PointID: candidate.PointID, BucketID: candidate.BucketID, RuleSetDigest: candidate.RuleSetDigest, SurvivorRuleDigest: candidate.SurvivorRuleDigest, ManifestDigest: candidate.ManifestDigest, CatalogDigest: candidate.CatalogDigest, InventoryDigest: candidate.InventoryDigest, OneOwnerProofID: "owner-proof", LockAdminReferenceID: "lock-admin", RetentionReferenceID: "retention", LockAdminFingerprint: d, RetentionFingerprint: d, G008BundleDigest: candidate.G008BundleDigest, QualificationDigest: candidate.QualificationDigest, PutCutoffDigest: candidate.PutCutoffDigest, MultipartCutoffDigest: candidate.MultipartCutoffDigest, ExclusiveAdminDigest: candidate.ExclusiveAdminDigest, CredentialBindingDigest: credentialDigest, SurvivorPointIDs: append([]string(nil), candidate.SurvivorPointIDs...), SurvivorKeyReferences: []store.OffsiteRetirementSurvivorKey{{PointID: "point-good", GenerationID: "generation-good", ReferenceID: "key-good", DependencyDigest: backup.ExpectedDependencyInventoryDigest(nil)}}, SourceRevision: candidate.SourceRevision, StateRevision: 4, RecoveryEpoch: 0, MaxWorkObjects: candidate.MaxWorkObjects, MaxMutationBytes: candidate.MaxMutationBytes, PreRuleCount: candidate.PreRuleCount, SurvivorRuleCount: candidate.SurvivorRuleCount}
 	for _, rule := range candidate.Rules {
 		intent.Rules = append(intent.Rules, store.OffsiteRetirementRule{RuleID: rule.RuleID, Prefix: rule.Prefix})
 	}
@@ -378,7 +489,15 @@ func commitAcceptancePlan(t *testing.T, ctx context.Context, authority *store.St
 	}
 	desired := created.Document
 	desired.Revision, desired.StateRevision, desired.Status = 2, 4, "committed"
-	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: document.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 3, StateRevision: 4, DeclarationRevision: 2, ObservationFingerprint: d, TargetDigest: intent.IntentDigest, ReasonDigest: d, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: operationID, OperationType: "backup.retire.offsite", AdapterID: "r2.retention", ExecutorID: "executor-central", TargetID: intent.GenerationID, InputDigest: intent.CredentialBindingDigest, ArtifactDigest: intent.IntentDigest, Idempotent: false}}, Status: "planned", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339), Extensions: extensions}
+	observationReader, err := planengine.NewStateObservationReader(store.NewPlanRepository(authority))
+	if err != nil {
+		t.Fatal(err)
+	}
+	observationFingerprint, err := observationReader.CurrentFingerprint(ctx, desired.DeclarationID, desired.Operations)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan := generated.Plan{Schema: generated.SchemaIDPlan, SchemaVersion: "1.0.0", DeclarationID: document.DeclarationID, Binding: generated.PlanBinding{RecoveryEpoch: 0, PriorStateRevision: 3, StateRevision: 4, DeclarationRevision: 2, ObservationFingerprint: observationFingerprint, TargetDigest: intent.IntentDigest, ReasonDigest: d, PolicyVersion: "1.0.0", ToolVersion: "1.0.0", ContractVersion: "1.0.0"}, Operations: []generated.PlanOperation{{Sequence: 1, OperationID: operationID, OperationType: "backup.retire.offsite", AdapterID: "r2.retention", ExecutorID: "executor-central", TargetID: intent.GenerationID, InputDigest: intent.CredentialBindingDigest, ArtifactDigest: intent.IntentDigest, Idempotent: false}}, Status: "planned", Risk: "destructive", AuthorizationBranch: "human", ExecutorMode: "central", CreatedAt: now.Format(time.RFC3339), ExpiresAt: now.Add(30 * time.Minute).Format(time.RFC3339), Extensions: extensions}
 	readable := "offsite retirement\n"
 	readableSum := sha256.Sum256([]byte(readable))
 	plan.ReadableDigest = "sha256:" + hex.EncodeToString(readableSum[:])

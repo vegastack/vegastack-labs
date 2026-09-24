@@ -22,11 +22,12 @@ type OffsiteRetirementObject struct {
 	Key, Digest string
 	Bytes       int64
 }
-type OffsiteRetirementSurvivorKey struct{ PointID, GenerationID, ReferenceID string }
+type OffsiteRetirementSurvivorKey struct{ PointID, GenerationID, ReferenceID, DependencyDigest string }
 type OffsiteRetirementIntent struct {
 	IntentID, PlanID, PlanDigest, GenerationID, PointID, BucketID                     string
 	RuleSetDigest, SurvivorRuleDigest, ManifestDigest, CatalogDigest, InventoryDigest string
 	OneOwnerProofID, LockAdminReferenceID, RetentionReferenceID                       string
+	LockAdminFingerprint, RetentionFingerprint                                        string
 	G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest     string
 	ExclusiveAdminDigest, IntentDigest, CredentialBindingDigest                       string
 	Rules                                                                             []OffsiteRetirementRule
@@ -236,7 +237,7 @@ func (r *OffsiteRetirementRepository) CurrentCatalogGenerations(ctx context.Cont
 func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context, intent OffsiteRetirementIntent) (string, error) {
 	if r == nil || r.store == nil || intent.IntentID == "" || intent.PlanID == "" || !validBackupDigest(intent.PlanDigest) || intent.GenerationID == "" || intent.PointID == "" || intent.BucketID == "" ||
 		!validBackupDigest(intent.RuleSetDigest) || !validBackupDigest(intent.SurvivorRuleDigest) || !validBackupDigest(intent.ManifestDigest) || !validBackupDigest(intent.CatalogDigest) || !validBackupDigest(intent.InventoryDigest) ||
-		intent.OneOwnerProofID == "" || intent.LockAdminReferenceID == "" || intent.RetentionReferenceID == "" || intent.LockAdminReferenceID == intent.RetentionReferenceID || !validBackupDigest(intent.G008BundleDigest) || !validBackupDigest(intent.QualificationDigest) || !validBackupDigest(intent.PutCutoffDigest) || !validBackupDigest(intent.MultipartCutoffDigest) || !validBackupDigest(intent.ExclusiveAdminDigest) || !validBackupDigest(intent.IntentDigest) || !validBackupDigest(intent.CredentialBindingDigest) || len(intent.Rules) != 5 || len(intent.Objects) == 0 || len(intent.SurvivorPointIDs) == 0 || len(intent.SurvivorKeyReferences) != len(intent.SurvivorPointIDs) || intent.MaxWorkObjects != int64(len(intent.Objects)) || intent.MaxMutationBytes < 0 || intent.PreRuleCount < 5 || intent.SurvivorRuleCount != intent.PreRuleCount-5 {
+		intent.OneOwnerProofID == "" || intent.LockAdminReferenceID == "" || intent.RetentionReferenceID == "" || intent.LockAdminReferenceID == intent.RetentionReferenceID || !validBackupDigest(intent.LockAdminFingerprint) || !validBackupDigest(intent.RetentionFingerprint) || !validBackupDigest(intent.G008BundleDigest) || !validBackupDigest(intent.QualificationDigest) || !validBackupDigest(intent.PutCutoffDigest) || !validBackupDigest(intent.MultipartCutoffDigest) || !validBackupDigest(intent.ExclusiveAdminDigest) || !validBackupDigest(intent.IntentDigest) || !validBackupDigest(intent.CredentialBindingDigest) || len(intent.Rules) != 5 || len(intent.Objects) == 0 || len(intent.SurvivorPointIDs) == 0 || len(intent.SurvivorKeyReferences) != len(intent.SurvivorPointIDs) || intent.MaxWorkObjects != int64(len(intent.Objects)) || intent.MaxMutationBytes < 0 || intent.PreRuleCount < 5 || intent.SurvivorRuleCount != intent.PreRuleCount-5 {
 		return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-intent", false, nil)
 	}
 	ruleIDs, prefixes := map[string]bool{}, map[string]bool{}
@@ -266,7 +267,7 @@ func (r *OffsiteRetirementRepository) StageOffsiteRetirement(ctx context.Context
 	}
 	keyPoints, keyReferences := map[string]bool{}, map[string]bool{}
 	for _, key := range intent.SurvivorKeyReferences {
-		if !survivors[key.PointID] || key.GenerationID == "" || key.ReferenceID == "" || keyPoints[key.PointID] || keyReferences[key.ReferenceID] || key.ReferenceID == intent.LockAdminReferenceID || key.ReferenceID == intent.RetentionReferenceID {
+		if !survivors[key.PointID] || key.GenerationID == "" || key.ReferenceID == "" || !validBackupDigest(key.DependencyDigest) || keyPoints[key.PointID] || keyReferences[key.ReferenceID] || key.ReferenceID == intent.LockAdminReferenceID || key.ReferenceID == intent.RetentionReferenceID {
 			return "", newStoreError(generated.ErrorCodeInputInvalid, "offsite-retirement-survivor-keys", false, nil)
 		}
 		keyPoints[key.PointID], keyReferences[key.ReferenceID] = true, true
@@ -701,14 +702,14 @@ func OffsiteRetirementIntentDigests(intent OffsiteRetirementIntent) (string, str
 	survivorKeys := append([]OffsiteRetirementSurvivorKey(nil), intent.SurvivorKeyReferences...)
 	slices.SortFunc(survivorKeys, func(a, b OffsiteRetirementSurvivorKey) int { return strings.Compare(a.PointID, b.PointID) })
 	payload := struct {
-		GenerationID, PointID, BucketID, RuleSetDigest, SurvivorRuleDigest, ManifestDigest, CatalogDigest, InventoryDigest, OneOwnerProofID, LockAdminReferenceID, RetentionReferenceID, G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest, ExclusiveAdminDigest string
-		Rules                                                                                                                                                                                                                                                                                []OffsiteRetirementRule
-		Objects                                                                                                                                                                                                                                                                              []OffsiteRetirementObject
-		Survivors                                                                                                                                                                                                                                                                            []string
-		SurvivorKeys                                                                                                                                                                                                                                                                         []OffsiteRetirementSurvivorKey
-		SourceRevision, StateRevision, RecoveryEpoch, MaxWorkObjects, MaxMutationBytes                                                                                                                                                                                                       int64
-		PreRuleCount, SurvivorRuleCount                                                                                                                                                                                                                                                      int
-	}{intent.GenerationID, intent.PointID, intent.BucketID, intent.RuleSetDigest, intent.SurvivorRuleDigest, intent.ManifestDigest, intent.CatalogDigest, intent.InventoryDigest, intent.OneOwnerProofID, intent.LockAdminReferenceID, intent.RetentionReferenceID, intent.G008BundleDigest, intent.QualificationDigest, intent.PutCutoffDigest, intent.MultipartCutoffDigest, intent.ExclusiveAdminDigest, rules, objects, survivors, survivorKeys, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.MaxWorkObjects, intent.MaxMutationBytes, intent.PreRuleCount, intent.SurvivorRuleCount}
+		GenerationID, PointID, BucketID, RuleSetDigest, SurvivorRuleDigest, ManifestDigest, CatalogDigest, InventoryDigest, OneOwnerProofID, LockAdminReferenceID, RetentionReferenceID, LockAdminFingerprint, RetentionFingerprint, G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest, ExclusiveAdminDigest string
+		Rules                                                                                                                                                                                                                                                                                                                            []OffsiteRetirementRule
+		Objects                                                                                                                                                                                                                                                                                                                          []OffsiteRetirementObject
+		Survivors                                                                                                                                                                                                                                                                                                                        []string
+		SurvivorKeys                                                                                                                                                                                                                                                                                                                     []OffsiteRetirementSurvivorKey
+		SourceRevision, StateRevision, RecoveryEpoch, MaxWorkObjects, MaxMutationBytes                                                                                                                                                                                                                                                   int64
+		PreRuleCount, SurvivorRuleCount                                                                                                                                                                                                                                                                                                  int
+	}{intent.GenerationID, intent.PointID, intent.BucketID, intent.RuleSetDigest, intent.SurvivorRuleDigest, intent.ManifestDigest, intent.CatalogDigest, intent.InventoryDigest, intent.OneOwnerProofID, intent.LockAdminReferenceID, intent.RetentionReferenceID, intent.LockAdminFingerprint, intent.RetentionFingerprint, intent.G008BundleDigest, intent.QualificationDigest, intent.PutCutoffDigest, intent.MultipartCutoffDigest, intent.ExclusiveAdminDigest, rules, objects, survivors, survivorKeys, intent.SourceRevision, intent.StateRevision, intent.RecoveryEpoch, intent.MaxWorkObjects, intent.MaxMutationBytes, intent.PreRuleCount, intent.SurvivorRuleCount}
 	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", "", err

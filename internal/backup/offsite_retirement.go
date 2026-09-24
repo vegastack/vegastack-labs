@@ -33,10 +33,12 @@ type OffsiteRetirementCatalog struct {
 	RuleCount, RuleLimit                                                                                int
 	TotalBytes, AvailableBytes, ExpectedGrowthBytes                                                     int64
 	ObservedAt                                                                                          time.Time
+	LockAdminReferenceID, LockAdminFingerprint, RetentionReferenceID, RetentionFingerprint              string
 }
 
 type OffsiteRetirementCandidate struct {
 	GenerationID, PointID, BucketID, RuleSetDigest, SurvivorRuleDigest                                  string
+	LockAdminReferenceID, LockAdminFingerprint, RetentionReferenceID, RetentionFingerprint              string
 	G008BundleDigest, QualificationDigest, PutCutoffDigest, MultipartCutoffDigest, ExclusiveAdminDigest string
 	ManifestDigest, CatalogDigest, InventoryDigest                                                      string
 	Rules                                                                                               []RetentionRuleRef
@@ -210,6 +212,7 @@ func SelectOffsiteRetirement(catalog OffsiteRetirementCatalog, local RetirementS
 	digest := hash.Sum(nil)
 	return OffsiteRetirementCandidate{
 		GenerationID: chosen.GenerationID, PointID: chosen.SourcePointID, BucketID: catalog.BucketID,
+		LockAdminReferenceID: catalog.LockAdminReferenceID, LockAdminFingerprint: catalog.LockAdminFingerprint, RetentionReferenceID: catalog.RetentionReferenceID, RetentionFingerprint: catalog.RetentionFingerprint,
 		G008BundleDigest: catalog.G008BundleDigest, QualificationDigest: catalog.QualificationDigest, PutCutoffDigest: catalog.PutCutoffDigest, MultipartCutoffDigest: catalog.MultipartCutoffDigest, ExclusiveAdminDigest: catalog.ExclusiveAdminDigest,
 		RuleSetDigest: catalog.RuleSetDigest, SurvivorRuleDigest: "sha256:" + hex.EncodeToString(digest),
 		ManifestDigest: chosen.SourceManifestDigest, CatalogDigest: catalog.CatalogDigest, InventoryDigest: chosen.OffsiteInventoryDigest,

@@ -24,6 +24,9 @@ const (
 	backupRetirementDraftSubmissionID        = "vegastack-labs.dev/backup-retirement-draft-submission"
 	backupOffsiteRetirementDryRunRequestID   = "vegastack-labs.dev/backup-offsite-retirement-dry-run-request"
 	backupOffsiteRetirementDryRunDataID      = "vegastack-labs.dev/backup-offsite-retirement-dry-run-data"
+	backupOffsiteRetirementRuleID            = "vegastack-labs.dev/backup-offsite-retirement-rule"
+	backupOffsiteRetirementObjectID          = "vegastack-labs.dev/backup-offsite-retirement-object"
+	backupOffsiteRetirementSurvivorBindingID = "vegastack-labs.dev/backup-offsite-retirement-survivor-binding"
 	backupOffsiteRetirementStageRequestID    = "vegastack-labs.dev/backup-offsite-retirement-stage-request"
 	backupOffsiteRetirementStageSubmissionID = "vegastack-labs.dev/backup-offsite-retirement-stage-submission"
 	backupTrustSourceDraftRequestSchemaID    = "vegastack-labs.dev/backup-trust-source-draft-request"
@@ -625,11 +628,26 @@ func phase5RequestSchemas() []SchemaDefinition {
 			phase5Digest("selectionDigest", "SelectionDigest"), phase5ID("oneOwnerProofId", "OneOwnerProofID"),
 			phase5ID("lockAdminReferenceId", "LockAdminReferenceID"), phase5ID("retentionReferenceId", "RetentionReferenceID"),
 		),
+		phase5Schema(backupOffsiteRetirementRuleID,
+			phase5ID("ruleId", "RuleID"),
+			FieldDefinition{JSONName: "prefix", GoName: "Prefix", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(512)},
+		),
+		phase5Schema(backupOffsiteRetirementObjectID,
+			FieldDefinition{JSONName: "key", GoName: "Key", Kind: ValueString, Required: true, MinLength: intPointer(1), MaxLength: intPointer(1024)},
+			phase5Digest("digest", "Digest"), phase5Nonnegative("bytes", "Bytes"),
+		),
+		phase5Schema(backupOffsiteRetirementSurvivorBindingID,
+			phase5ID("pointId", "PointID"), phase5ID("generationId", "GenerationID"), phase5ID("referenceId", "ReferenceID"), phase5Digest("dependencyDigest", "DependencyDigest"),
+		),
 		phase5BackupSchema(backupOffsiteRetirementDryRunDataID,
 			phase5Digest("intentDigest", "IntentDigest"), phase5Digest("selectionDigest", "SelectionDigest"),
 			phase5ID("generationId", "GenerationID"), phase5ID("pointId", "PointID"), phase5ID("bucketId", "BucketID"),
 			phase5Digest("ruleSetDigest", "RuleSetDigest"), phase5Digest("survivorRuleDigest", "SurvivorRuleDigest"), phase5Digest("manifestDigest", "ManifestDigest"), phase5Digest("catalogDigest", "CatalogDigest"), phase5Digest("inventoryDigest", "InventoryDigest"),
-			phase5IDs("survivorPointIds", "SurvivorPointIDs", 256), phase5IDs("survivorKeyReferenceIds", "SurvivorKeyReferenceIDs", 256), phase5Nonnegative("objectCount", "ObjectCount"), phase5Nonnegative("expectedReclaimBytes", "ExpectedReclaimBytes"),
+			phase5IDs("survivorPointIds", "SurvivorPointIDs", 256), phase5IDs("survivorKeyReferenceIds", "SurvivorKeyReferenceIDs", 256),
+			FieldDefinition{JSONName: "rules", GoName: "Rules", Kind: ValueArray, Required: true, ItemRef: backupOffsiteRetirementRuleID, MinItems: intPointer(5), MaxItems: intPointer(5), UniqueItems: true},
+			FieldDefinition{JSONName: "objects", GoName: "Objects", Kind: ValueArray, Required: true, ItemRef: backupOffsiteRetirementObjectID, MaxItems: intPointer(1000000)},
+			FieldDefinition{JSONName: "survivorBindings", GoName: "SurvivorBindings", Kind: ValueArray, Required: true, ItemRef: backupOffsiteRetirementSurvivorBindingID, MaxItems: intPointer(256), UniqueItems: true},
+			phase5Nonnegative("objectCount", "ObjectCount"), phase5Nonnegative("expectedReclaimBytes", "ExpectedReclaimBytes"), phase5Nonnegative("retainedBytes", "RetainedBytes"), phase5Nonnegative("maxWorkObjects", "MaxWorkObjects"), phase5Nonnegative("maxMutationBytes", "MaxMutationBytes"),
 			phase5Nonnegative("preRuleCount", "PreRuleCount"), phase5Nonnegative("survivorRuleCount", "SurvivorRuleCount"), phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5BackupRequest(backupOffsiteRetirementStageRequestID,
