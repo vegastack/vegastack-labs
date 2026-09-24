@@ -31,6 +31,9 @@ test("Phase 5 candidate maps every merged owner without claiming acceptance", as
   assert.ok(REQUIRED_PHASE5_SCENARIOS.every(({ id }) => proofIds.includes(id)));
   assert.equal(evidence.proofCatalog.expectedScenarioCount, REQUIRED_PHASE5_SCENARIOS.length);
   assert.deepEqual(JSON.parse(await readFile(path.join(ROOT, evidence.proofCatalog.evidence), "utf8")).quarantined, []);
+  for (const issue of [106, 117]) {
+    assert.equal(evidence.children.find((child) => child.issue === issue).postMergeProof, "epic-phase-5-exit");
+  }
 });
 
 test("Phase 5 records remain candidate-only and state every live limitation", async () => {
