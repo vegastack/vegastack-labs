@@ -51,6 +51,7 @@ const expectedCurrentStageNames = [
   "web unit tests",
   "Phase 3 browser evidence",
   "Phase 4 adversarial acceptance",
+  "Phase 5 hostile and recovery acceptance",
   "Git whitespace",
 ];
 
@@ -72,6 +73,19 @@ test("browser runs only for browser impact and unknown input fails closed", () =
   assert.equal(fallback.failClosed, true);
   assert.equal(Object.hasOwn(docs, "linux"), false);
   assert.equal(Object.hasOwn(fallback, "linux"), false);
+});
+
+test("Phase 5 acceptance changes select the browser group", () => {
+  for (const path of [
+    "tooling/verify-phase-5.mjs",
+    "tooling/phase-5-evidence.json",
+    "tooling/test/phase-5-acceptance.test.mjs",
+    "tooling/testdata/phase-5/acceptance-scenarios.json",
+  ]) {
+    const plan = classifyChangedPaths([{ status: "M", path }]);
+    assert.equal(plan.browser, true, path);
+    assert.ok(plan.groups.includes("browser"), path);
+  }
 });
 
 test("Go-only changes omit only the four Chromium-backed Go acceptance tests", () => {

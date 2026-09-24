@@ -86,6 +86,7 @@ const steps = Object.freeze([
   packageStep("web unit tests", "web", ["--filter", "@vegastack/labs-web", "test"]),
   commandStep("Phase 3 browser evidence", "browser", process.execPath, ["tooling/verify-phase-3.mjs", "--prepared"]),
   commandStep("Phase 4 adversarial acceptance", "browser", process.execPath, ["tooling/verify-phase-4.mjs", "--prepared"]),
+  commandStep("Phase 5 hostile and recovery acceptance", "browser", process.execPath, ["tooling/verify-phase-5.mjs", "--prepared"]),
   commandStep("Git whitespace", "always", "git", ["diff", "--check"]),
 ]);
 
@@ -137,8 +138,9 @@ function browserWebPath(file) {
 }
 
 function browserToolingPath(file) {
-  return /^tooling\/(?:console-assets|verify-static|verify-read-api|verify-phase-[34])\.mjs$/.test(file) ||
-    /^tooling\/test\/(?:console-assets|static|read-api|phase-[34])\.test\.mjs$/.test(file) ||
+  return /^tooling\/(?:console-assets|verify-static|verify-read-api|verify-phase-[345])\.mjs$/.test(file) ||
+    /^tooling\/test\/(?:console-assets|static|read-api|phase-[345](?:-acceptance)?)\.test\.mjs$/.test(file) ||
+    /^tooling\/(?:phase-5-evidence\.json|testdata\/phase-5\/acceptance-scenarios\.json)$/.test(file) ||
     /^tooling\/testdata\/(?:static|generated-read-client)/.test(file);
 }
 
