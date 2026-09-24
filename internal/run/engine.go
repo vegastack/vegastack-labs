@@ -715,13 +715,16 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 }
 
 func (engine *Engine) validateScheduled(ctx context.Context, plan generated.Plan) error {
-	found := false
+	occurrenceBound := false
 	for _, extension := range plan.Extensions {
-		if extension.Name == "x-scheduled-policy" || extension.Name == "x-scheduled-occurrence" {
-			found = true
+		if extension.Name == "x-scheduled-occurrence" {
+			occurrenceBound = true
 		}
 	}
-	if !found {
+	// A human-authorized schedule.policy.activate plan carries the policy
+	// digest but no occurrence. It must execute before that policy can become
+	// scheduled authority, so only an occurrence binding selects this gate.
+	if !occurrenceBound {
 		return nil
 	}
 	if engine.scheduled == nil {

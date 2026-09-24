@@ -6,7 +6,7 @@
     "schemaVersion": "1.6.0",
     "productionExecutable": "cmd/vsk-labs",
     "productionDependencyDigest": "sha256:a9e8788558fa5c3347b5b8464d8d5e4a67dcc9357e5ae07478b606a806f78133",
-    "postPhase2MutationBoundaryDigest": "sha256:fa0f9b0cc38192cca92a14d6bf007a74446a81d782dc34ed27248a3898e952ab",
+    "postPhase2MutationBoundaryDigest": "sha256:0e9f935c0299b87268e89b6f197e54be26ceac61d65406e3a8db579831295321",
     "mutationAvailable": false,
     "availableCommands": [
       "backup policy draft",
@@ -312,7 +312,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/schedule"
         ],
-        "mutationBoundaryDigest": "sha256:fa0f9b0cc38192cca92a14d6bf007a74446a81d782dc34ed27248a3898e952ab"
+        "mutationBoundaryDigest": "sha256:0e9f935c0299b87268e89b6f197e54be26ceac61d65406e3a8db579831295321"
       }
     ]
   },

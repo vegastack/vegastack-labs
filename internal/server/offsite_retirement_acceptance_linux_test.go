@@ -644,15 +644,20 @@ func acceptanceG008Bundle(t *testing.T, now time.Time, digest string) (generated
 }
 
 func seedAcceptancePoint(t *testing.T, ctx context.Context, repository *store.BackupRepository, policyDigest, pointID string, index int, now time.Time) store.PendingRecoveryPoint {
+	point, _ := seedAcceptancePointAtRevision(t, ctx, repository, policyDigest, pointID, index, now, 1, backupidentity.CriticalRepository, "critical")
+	return point
+}
+
+func seedAcceptancePointAtRevision(t *testing.T, ctx context.Context, repository *store.BackupRepository, policyDigest, pointID string, index int, now time.Time, stateRevision int64, repositoryID, repositoryClass string) (store.PendingRecoveryPoint, store.LocalVerificationReceipt) {
 	t.Helper()
 	t.Logf("seed point %s", pointID)
 	leaseID, jobID := "writer-"+pointID, "job-"+pointID
-	if err := repository.AcquireBackupWriterLease(ctx, store.BackupWriterLeaseRequest{LeaseID: leaseID, JobID: jobID, PolicyID: "policy-a", PolicyDigest: policyDigest, PlanID: "backup-plan", PlanDigest: "sha256:" + strings.Repeat("9", 64), RunID: "backup-run-" + pointID, StepID: "backup-step", RepositoryID: backupidentity.CriticalRepository, RepositoryClass: "critical", TargetID: "control-database", SourceRevision: 1, RecoveryEpoch: 0, MaximumExpiresAt: now.Add(time.Hour)}); err != nil {
+	if err := repository.AcquireBackupWriterLease(ctx, store.BackupWriterLeaseRequest{LeaseID: leaseID, JobID: jobID, PolicyID: "policy-a", PolicyDigest: policyDigest, PlanID: "backup-plan", PlanDigest: "sha256:" + strings.Repeat("9", 64), RunID: "backup-run-" + pointID, StepID: "backup-step", RepositoryID: repositoryID, RepositoryClass: repositoryClass, TargetID: "control-database", SourceRevision: 1, RecoveryEpoch: 0, MaximumExpiresAt: now.Add(time.Hour)}); err != nil {
 		t.Fatalf("acquire writer: %v", err)
 	}
 	snapshotID := strings.Repeat(string(rune('1'+index)), 64)
 	objects := []backup.ExpectedObject{{Type: "config", Name: "config", Bytes: 1, Digest: "sha256:" + strings.Repeat("1", 64)}, {Type: "keys", Name: strings.Repeat("a", 64), Bytes: 1, Digest: "sha256:" + strings.Repeat("2", 64)}, {Type: "snapshots", Name: snapshotID, Bytes: 1, Digest: "sha256:" + strings.Repeat("3", 64)}}
-	manifest := backup.CreationManifest{Schema: backup.CreationManifestSchema, SchemaVersion: backup.CreationManifestVersion, PolicyID: "policy-a", PolicyDigest: policyDigest, PointID: pointID, RunID: "backup-run-" + pointID, StepID: "backup-step", RepositoryID: backupidentity.CriticalRepository, RepositoryClass: "critical", SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, SourceRevision: 1, RecoveryEpoch: 0, DatabaseSchemaVersion: 1, CatalogDigest: "sha256:" + strings.Repeat("4", 64), ContentDigest: "sha256:" + strings.Repeat("5", 64), ConsistencyHookID: "sqlite-online", ConsistencySuccess: true, SnapshotID: snapshotID, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: 3, InventoryDigest: backup.ExpectedInventoryDigest(objects), ExpectedObjects: objects, DependencyInventoryDigest: backup.ExpectedDependencyInventoryDigest(nil), ExpectedDependencies: []backup.ExpectedDependency{}, KeyReferenceID: "enc-a", ResticDigest: "sha256:" + strings.Repeat("6", 64), PlatformDigest: "sha256:" + strings.Repeat("7", 64), StartedAt: now.Add(-time.Minute).Format(time.RFC3339), CompletedAt: now.Format(time.RFC3339)}
+	manifest := backup.CreationManifest{Schema: backup.CreationManifestSchema, SchemaVersion: backup.CreationManifestVersion, PolicyID: "policy-a", PolicyDigest: policyDigest, PointID: pointID, RunID: "backup-run-" + pointID, StepID: "backup-step", RepositoryID: repositoryID, RepositoryClass: repositoryClass, SourceID: backupidentity.ControlDatabaseSource, SourceSelectors: []string{backupidentity.ControlDatabaseSelector}, SourceRevision: 1, RecoveryEpoch: 0, DatabaseSchemaVersion: 1, CatalogDigest: "sha256:" + strings.Repeat("4", 64), ContentDigest: "sha256:" + strings.Repeat("5", 64), ConsistencyHookID: "sqlite-online", ConsistencySuccess: true, SnapshotID: snapshotID, SnapshotCount: 1, ExpectedObjectCount: int64(len(objects)), ExpectedObjectBytes: 3, InventoryDigest: backup.ExpectedInventoryDigest(objects), ExpectedObjects: objects, DependencyInventoryDigest: backup.ExpectedDependencyInventoryDigest(nil), ExpectedDependencies: []backup.ExpectedDependency{}, KeyReferenceID: "enc-a", ResticDigest: "sha256:" + strings.Repeat("6", 64), PlatformDigest: "sha256:" + strings.Repeat("7", 64), StartedAt: now.Add(-time.Minute).Format(time.RFC3339), CompletedAt: now.Format(time.RFC3339)}
 	manifestBytes, manifestDigest, err := backup.CanonicalCreationManifest(manifest)
 	if err != nil {
 		t.Fatalf("canonical manifest: %v", err)
@@ -668,17 +673,18 @@ func seedAcceptancePoint(t *testing.T, ctx context.Context, repository *store.Ba
 	if err != nil {
 		t.Fatalf("read point: %v", err)
 	}
-	readLease := store.BackupReadLeaseRequest{LeaseID: "reader-" + pointID, PointID: pointID, RepositoryID: backupidentity.CriticalRepository, RepositoryClass: "critical", SourceRevision: 1, Expected: store.RevisionToken{StateRevision: 1, RecoveryEpoch: 0}, MaximumExpiresAt: now.Add(time.Hour)}
+	readLease := store.BackupReadLeaseRequest{LeaseID: "reader-" + pointID, PointID: pointID, RepositoryID: repositoryID, RepositoryClass: repositoryClass, SourceRevision: 1, Expected: store.RevisionToken{StateRevision: stateRevision, RecoveryEpoch: 0}, MaximumExpiresAt: now.Add(time.Hour)}
 	if err := repository.AcquireBackupReadLease(ctx, readLease); err != nil {
 		t.Fatalf("acquire reader: %v", err)
 	}
-	if _, err := repository.AppendLocalVerification(ctx, store.LocalVerificationRequest{VerificationID: "verify-" + pointID, RunID: "verify-run-" + pointID, PointID: pointID, ReadLeaseID: readLease.LeaseID, ManifestDigest: point.ManifestDigest, InventoryDigest: point.InventoryDigest, ObservedDigest: point.InventoryDigest, ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest, KeyReferenceID: manifest.KeyReferenceID, SourceRevision: 1, CapacityTotalBytes: 100, CapacityAvailableBytes: 80, Expected: readLease.Expected, ProofClass: "live", Result: "passed", FullReadAt: now.Add(-2 * time.Minute), FunctionalRestoredAt: now.Add(-time.Minute), DependencyTrust: []store.BackupDependencyTrustEvidence{}}); err != nil {
+	receipt, err := repository.AppendLocalVerification(ctx, store.LocalVerificationRequest{VerificationID: "verify-" + pointID, RunID: "verify-run-" + pointID, PointID: pointID, ReadLeaseID: readLease.LeaseID, ManifestDigest: point.ManifestDigest, InventoryDigest: point.InventoryDigest, ObservedDigest: point.InventoryDigest, ContentDigest: point.ContentDigest, CatalogDigest: manifest.CatalogDigest, DependencyDigest: manifest.DependencyInventoryDigest, KeyReferenceID: manifest.KeyReferenceID, SourceRevision: 1, CapacityTotalBytes: 100, CapacityAvailableBytes: 80, Expected: readLease.Expected, ProofClass: "live", Result: "passed", FullReadAt: now.Add(-2 * time.Minute), FunctionalRestoredAt: now.Add(-time.Minute), DependencyTrust: []store.BackupDependencyTrustEvidence{}})
+	if err != nil {
 		t.Fatalf("append verification: %v", err)
 	}
 	if err := repository.ReleaseBackupReadLease(ctx, readLease.LeaseID); err != nil {
 		t.Fatalf("release reader: %v", err)
 	}
-	return point
+	return point, receipt
 }
 
 func acceptanceGeneration(id, pointID, key string, point store.PendingRecoveryPoint, now time.Time) backup.PendingOffsiteGeneration {
