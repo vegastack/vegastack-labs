@@ -68,7 +68,7 @@ export const REQUIRED_PHASE5_SCENARIOS = Object.freeze([
   requiredScenario("credential.wrong-consumer-denied", "5.4.1", 123, "credential", "go-test",
     "internal/generated/phase5_contracts_test.go", "TestCredentialReferenceV11RequiresExactBinding", "fixture", "denied"),
   requiredScenario("credential.rotation-overlap-revoke", "5.4.3", 125, "credential", "go-test",
-    "internal/server/credential_lifecycle_acceptance_linux_test.go", "TestFullCredentialLifecycleAcceptance", "built-linux", "revoked"),
+    "internal/api/credential_lifecycle_spine_linux_test.go", "TestCredentialLifecyclePublicDraftPlanAckApplySpine", "built-linux", "revoked"),
   requiredScenario("credential.clean-host-old-key-denied", "5.4.3", 125, "credential", "go-test",
     "internal/server/credential_recovery_acceptance_linux_test.go", "TestCredentialRecoveryAcceptanceNativeWitnessAndDraft", "built-linux", "denied"),
   requiredScenario("credential.private-canary-redacted", "5.4.3", 125, "credential", "go-test",

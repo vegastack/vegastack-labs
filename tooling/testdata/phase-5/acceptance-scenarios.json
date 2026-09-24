@@ -147,8 +147,8 @@
       "ownerIssue": 125,
       "seam": "credential",
       "kind": "go-test",
-      "path": "internal/server/credential_lifecycle_acceptance_linux_test.go",
-      "selector": "TestFullCredentialLifecycleAcceptance",
+      "path": "internal/api/credential_lifecycle_spine_linux_test.go",
+      "selector": "TestCredentialLifecyclePublicDraftPlanAckApplySpine",
       "environment": "built-linux",
       "proofClass": "fixture",
       "expected": {
