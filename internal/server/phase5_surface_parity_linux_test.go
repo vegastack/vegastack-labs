@@ -221,6 +221,11 @@ func (phase5ParityScheduleRunner) Run(context.Context, generated.ScheduledJob, a
 }
 
 func TestPhase5SurfacesAgreeAndBrowserCannotReachProtectedEffects(t *testing.T) {
+	runPhase5SurfaceParity(t)
+}
+
+func runPhase5SurfaceParity(t *testing.T) {
+	t.Helper()
 	if runtime.GOOS == "windows" {
 		t.Skip("the acceptance fixture exercises the local Unix-socket transport")
 	}
