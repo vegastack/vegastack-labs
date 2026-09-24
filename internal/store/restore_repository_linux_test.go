@@ -269,7 +269,7 @@ func TestRestorePlanIsInertAndTransitionJournalIsAppendOnly(t *testing.T) {
 		t.Fatalf("verified recovered=%#v err=%v", recovered, err)
 	}
 	verification, err := authority.VerifyAuditHistory(context.Background(), nil)
-	if err != nil || verification.Status != "degraded" || verification.ReasonCode != "no-independent-anchor" {
+	if err != nil || verification.Status != "anchored" || verification.ReasonCode != "local-anchor-valid" || verification.InstanceID != binding.NewInstanceID || verification.RecoveryEpoch != binding.NextRecoveryEpoch || verification.LastAnchoredSequence != checkpoint.LastSegmentSequence {
 		t.Fatalf("post-transition audit verification=%#v err=%v", verification, err)
 	}
 }
