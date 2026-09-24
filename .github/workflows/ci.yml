@@ -153,7 +153,7 @@ jobs:
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
         run: |
-          git checkout --detach e42280a686cb9c393c5b1c1a20ee45dba943e371
+          git checkout --detach e2a802080fd8a807ef5df940eb30dce30be5c47a
           test -z "$(git status --porcelain)"
           pnpm --filter @vegastack/labs-web build
           test -z "$(git status --porcelain)"
