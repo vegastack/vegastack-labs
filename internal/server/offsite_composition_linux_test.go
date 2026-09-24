@@ -13,10 +13,12 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/adapter"
+	"github.com/vegastack/vegastack-labs/internal/adapter/localbackup"
 	"github.com/vegastack/vegastack-labs/internal/backup"
 	"github.com/vegastack/vegastack-labs/internal/credentialref"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/localapi"
+	"github.com/vegastack/vegastack-labs/internal/recovery"
 	runengine "github.com/vegastack/vegastack-labs/internal/run"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -93,6 +95,9 @@ func TestOperationsRunComposesOnlyQualifiedOffsiteRuntime(t *testing.T) {
 			registry := adapter.NewRegistry()
 			operations.offsiteEffect = NewProductionOffsiteEffectFactory(runners)
 			operations.newAdapterRegistry = func() *adapter.Registry { return registry }
+			operations.localRecoverySource = func(*serverconfig.LocalBackup, uint32, *store.BackupRepository, store.RestoredSQLiteInspector, localbackup.RecoveryCredentialSource, localbackup.DependencyTrustVerifier, store.OnlineSnapshotSource) (recovery.SnapshotResolver, recovery.CompatibilityVerifier, recovery.AuditPositionVerifier, error) {
+				return nil, nil, nil, nil
+			}
 			ctx, cancel := context.WithCancel(context.Background())
 			done := make(chan error, 1)
 			go func() { done <- operations.Run(ctx, configPath) }()

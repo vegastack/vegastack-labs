@@ -308,7 +308,7 @@ func phase5ParityApplication(t *testing.T, token store.RevisionToken, backup gen
 	t.Helper()
 	testRoot := os.Getenv("VSK_PHASE5_TEST_ROOT")
 	if testRoot == "" {
-		testRoot = "/tmp"
+		testRoot = os.TempDir()
 	}
 	directory, err := os.MkdirTemp(testRoot, "vsk-p5-real-")
 	if err != nil {
