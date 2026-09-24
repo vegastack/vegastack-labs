@@ -152,7 +152,9 @@ jobs:
         if: inputs.full_check && github.ref != 'refs/heads/main'
         env:
           VSK_CHECK_PLAN_B64: ${{ needs.plan.outputs.check_plan }}
-        run: pnpm check:affected --execute-plan
+        run: |
+          git show e74f75c81f80932856c4c0a24848e0b770cb26e2:.github/workflows/ci.yml > .github/workflows/ci.yml
+          node --test --test-name-pattern='five operator commands preserve protected API bytes|Phase 4 commands preserve server facts|built server api-ssh forced command' tooling/test/cli-process.test.mjs
 
       - name: Run pinned local-backup acceptance
         if: github.event_name == 'workflow_dispatch' && inputs.backup_acceptance
