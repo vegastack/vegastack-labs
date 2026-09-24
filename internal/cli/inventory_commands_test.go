@@ -245,7 +245,7 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 	databaseExport := generated.DatabaseExportDraftSubmission{Schema: generated.SchemaIDDatabaseExportDraftSubmission, SchemaVersion: "1.0.0", DraftID: "export-test", ChangeID: "sha256:" + strings.Repeat("d", 64), ExportID: "export-test", Kind: "sanitized-control", Status: "draft", SafeNextAction: "create and authorize an exact export plan", StateRevision: 8, RecoveryEpoch: 2}
 	schedulePolicy := syntheticScheduledPolicy()
 	scheduleJob := generated.ScheduledJob{Schema: generated.SchemaIDScheduledJob, SchemaVersion: "1.1.0", JobID: "scheduled-job-test", PolicyID: schedulePolicy.PolicyID, PolicyRevision: schedulePolicy.Revision, ScheduledAt: schedulePolicy.AnchorAt, Attempt: 1, Status: "succeeded", ReasonCode: "verified", RecoveryEpoch: schedulePolicy.RecoveryEpoch}
-	browserPolicy := generated.BrowserScheduledJobPolicy{Schema: generated.SchemaIDBrowserScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: schedulePolicy.PolicyID, Revision: schedulePolicy.Revision, ActionKind: schedulePolicy.ActionKind, Enabled: true, Status: "active", ReasonCode: "active", StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch}
+	browserPolicy := generated.BrowserScheduledJobPolicy{Schema: generated.SchemaIDBrowserScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: schedulePolicy.PolicyID, Revision: schedulePolicy.Revision, ActionKind: schedulePolicy.ActionKind, Enabled: true, Status: "active", ReasonCode: "active", TargetDigest: "sha256:" + strings.Repeat("e", 64), StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch}
 	browserPolicies := generated.BrowserScheduledJobPolicyListData{Schema: generated.SchemaIDBrowserScheduledJobPolicyListData, SchemaVersion: "1.0.0", Items: []generated.BrowserScheduledJobPolicy{browserPolicy}, StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch}
 	return &stubControlOperations{
 		gateListResponse:          operationResponse(t, "api.v1.gates.list", false, 2, 7, list),
@@ -367,6 +367,35 @@ func TestControlHumanOutputsMatchGoldens(t *testing.T) {
 		if code != 0 || stderr != "" || stdout != string(want) {
 			t.Fatalf("%s = code %d stdout %q stderr %q want %q", test.golden, code, stdout, stderr, want)
 		}
+	}
+}
+
+func TestScheduleListAndInspectHumanAndJSONPreservePolicyBindings(t *testing.T) {
+	for name, test := range map[string]struct {
+		args     []string
+		response []byte
+	}{
+		"list": {
+			args:     []string{"schedule", "list", "--config", "profile.json"},
+			response: successfulControlOperations(t).scheduleListResponse.Raw,
+		},
+		"inspect": {
+			args:     []string{"schedule", "inspect", "--config", "profile.json", "--policy-id", "policy-a"},
+			response: successfulControlOperations(t).scheduleInspectResponse.Raw,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			operations := successfulControlOperations(t)
+			code, human, stderr := runTestAppWithOptions(t, context.Background(), test.args, nil, WithControlOperations(operations, &stubFileReader{}))
+			if code != 0 || stderr != "" || !strings.Contains(human, "target sha256:"+strings.Repeat("e", 64)) || !strings.Contains(human, "state revision 7") || !strings.Contains(human, "recovery epoch 2") {
+				t.Fatalf("human result=%d stdout=%q stderr=%q", code, human, stderr)
+			}
+			jsonArgs := append(append([]string(nil), test.args...), "--output", "json")
+			code, machine, stderr := runTestAppWithOptions(t, context.Background(), jsonArgs, nil, WithControlOperations(operations, &stubFileReader{}))
+			if code != 0 || stderr != "" || machine != string(test.response) {
+				t.Fatalf("json result=%d stdout=%q want=%q stderr=%q", code, machine, test.response, stderr)
+			}
+		})
 	}
 }
 

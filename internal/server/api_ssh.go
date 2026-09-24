@@ -201,6 +201,26 @@ func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string)
 		if id, ok := apiSSHPathID(requestPath, "/api/v1/runs/", ""); ok && reflect.DeepEqual(arguments, []string{"--run-id", id, "--output", "json"}) {
 			return requestPath, true
 		}
+	case "api.v1.gates.get":
+		if id, ok := apiSSHBoundPathValue(requestPath, "/api/v1/gates/", "", validAPISSHGateID); ok && reflect.DeepEqual(arguments, []string{"gate", "inspect", "--gate-id", id}) && apiSSHCommandAvailable([]string{"gate", "inspect"}) {
+			return requestPath, true
+		}
+	case "api.v1.gates.check":
+		if id, ok := apiSSHBoundPathValue(requestPath, "/api/v1/gates/", "/check", validAPISSHGateID); ok && reflect.DeepEqual(arguments, []string{"gate", "check", "--gate-id", id}) && apiSSHCommandAvailable([]string{"gate", "check"}) {
+			return requestPath, true
+		}
+	case "api.v1.scheduled-job-policies.get":
+		if id, ok := apiSSHPathID(requestPath, "/api/v1/scheduled-job-policies/", ""); ok && reflect.DeepEqual(arguments, []string{"schedule", "inspect", "--policy-id", id}) && apiSSHCommandAvailable([]string{"schedule", "inspect"}) {
+			return requestPath, true
+		}
+	case "api.v1.scheduled-occurrences.create":
+		if id, ok := apiSSHPathID(requestPath, "/api/v1/scheduled-job-policies/", "/occurrences"); ok && reflect.DeepEqual(arguments, []string{"schedule", "dispatch", "--policy-id", id}) && apiSSHCommandAvailable([]string{"schedule", "dispatch"}) {
+			return requestPath, true
+		}
+	case "api.v1.scheduled-jobs.cancel":
+		if id, ok := apiSSHPathID(requestPath, "/api/v1/scheduled-jobs/", "/cancel"); ok && reflect.DeepEqual(arguments, []string{"schedule", "cancel", "--job-id", id}) && apiSSHCommandAvailable([]string{"schedule", "cancel"}) {
+			return requestPath, true
+		}
 	default:
 		return requestPath, reflect.DeepEqual(arguments, commandArguments)
 	}
@@ -208,39 +228,92 @@ func apiSSHArgumentsAllowed(operationID, requestPath string, arguments []string)
 }
 
 func apiSSHPathID(path, prefix, suffix string) (string, bool) {
+	return apiSSHBoundPathValue(path, prefix, suffix, principal.ValidID)
+}
+
+func apiSSHBoundPathValue(path, prefix, suffix string, valid func(string) bool) (string, bool) {
 	if !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
 		return "", false
 	}
 	id := strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix)
-	return id, principal.ValidID(id)
+	return id, valid(id)
+}
+
+func validAPISSHGateID(id string) bool {
+	if principal.ValidID(id) {
+		return true
+	}
+	if len(id) != 5 || !strings.HasPrefix(id, "G-") {
+		return false
+	}
+	for _, character := range id[2:] {
+		if character < '0' || character > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func apiSSHCommandArguments(operationID string) ([]string, bool) {
 	commands := map[string][]string{
-		"api.v1.health.get":                        {"server", "status"},
-		"api.v1.summary.get":                       {"status"},
-		"api.v1.database-status.get":               {"database", "status"},
-		"api.v1.inventory-drafts.import":           {"inventory", "import"},
-		"api.v1.inventory-diffs.create":            {"inventory", "diff"},
-		"api.v1.inventory-exports.create":          {"inventory", "export"},
-		"api.v1.declarations.plan-preparation.get": {"plan"},
-		"api.v1.plans.create":                      {"plan"},
-		"api.v1.plans.get":                         {"apply"},
-		"api.v1.plans.execute":                     {"apply"},
-		"api.v1.runs.get":                          {"run", "inspect"},
-		"api.v1.runs.cancel":                       {"run", "cancel"},
-		"api.v1.runs.resume":                       {"run", "resume"},
+		"api.v1.health.get":                           {"server", "status"},
+		"api.v1.summary.get":                          {"status"},
+		"api.v1.database-status.get":                  {"database", "status"},
+		"api.v1.inventory-drafts.import":              {"inventory", "import"},
+		"api.v1.inventory-diffs.create":               {"inventory", "diff"},
+		"api.v1.inventory-exports.create":             {"inventory", "export"},
+		"api.v1.declarations.plan-preparation.get":    {"plan"},
+		"api.v1.plans.create":                         {"plan"},
+		"api.v1.plans.get":                            {"apply"},
+		"api.v1.plans.execute":                        {"apply"},
+		"api.v1.runs.get":                             {"run", "inspect"},
+		"api.v1.runs.cancel":                          {"run", "cancel"},
+		"api.v1.runs.resume":                          {"run", "resume"},
+		"api.v1.audit-checkpoints.list":               {"audit", "checkpoints"},
+		"api.v1.audit-history.verification":           {"audit", "verify"},
+		"api.v1.backup-offsite-retirements.dry-run":   {"backup", "offsite-retirement", "dry-run"},
+		"api.v1.backup-offsite-retirements.stage":     {"backup", "offsite-retirement", "stage"},
+		"api.v1.backup-policy-drafts.create":          {"backup", "policy", "draft"},
+		"api.v1.backup-retention-lock-drafts.create":  {"backup", "retention-locks", "draft"},
+		"api.v1.backup-retirement-drafts.create":      {"backup", "retirement", "draft"},
+		"api.v1.backup-jobs.create":                   {"backup", "run"},
+		"api.v1.backups.status":                       {"backup", "status"},
+		"api.v1.backup-verifications.create":          {"backup", "verify"},
+		"api.v1.database-backups.create":              {"database", "backup"},
+		"api.v1.database-exports.create":              {"database", "export"},
+		"api.v1.database-restores.create":             {"database", "restore"},
+		"api.v1.database-verifications.create":        {"database", "verify"},
+		"api.v1.gate-evidence.create":                 {"gate", "evidence"},
+		"api.v1.gates.check":                          {"gate", "check"},
+		"api.v1.gates.get":                            {"gate", "inspect"},
+		"api.v1.gates.list":                           {"gate", "list"},
+		"api.v1.gate-profile-drafts.create":           {"gate", "profile", "draft"},
+		"api.v1.restores.plan":                        {"restore", "plan"},
+		"api.v1.restores.run":                         {"restore", "run"},
+		"api.v1.restores.verify":                      {"restore", "verify"},
+		"api.v1.scheduled-job-policies.drafts.create": {"schedule", "policy", "draft"},
+		"api.v1.scheduled-job-policies.get":           {"schedule", "inspect"},
+		"api.v1.scheduled-job-policies.list":          {"schedule", "list"},
+		"api.v1.scheduled-jobs.cancel":                {"schedule", "cancel"},
+		"api.v1.scheduled-occurrences.create":         {"schedule", "dispatch"},
 	}
 	arguments, ok := commands[operationID]
 	if !ok {
 		return nil, false
 	}
-	for _, command := range generated.Commands {
-		if command.Availability == generated.AvailabilityAvailable && reflect.DeepEqual(command.Path, arguments) {
-			return append([]string(nil), arguments...), true
-		}
+	if apiSSHCommandAvailable(arguments) {
+		return append([]string(nil), arguments...), true
 	}
 	return nil, false
+}
+
+func apiSSHCommandAvailable(arguments []string) bool {
+	for _, command := range generated.Commands {
+		if command.Availability == generated.AvailabilityAvailable && reflect.DeepEqual(command.Path, arguments) {
+			return true
+		}
+	}
+	return false
 }
 
 func (handler apiSSHHandler) bindingMatches() bool {

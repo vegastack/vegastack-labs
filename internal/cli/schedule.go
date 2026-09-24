@@ -37,7 +37,7 @@ func (app *App) runScheduleCommand(ctx context.Context, mode outputMode, parsed 
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
 		for _, policy := range response.Data.Items {
-			if _, err := fmt.Fprintf(app.stdout, "%s revision %d: %s (%s)\n", policy.PolicyID, policy.Revision, policy.Status, policy.ReasonCode); err != nil {
+			if _, err := fmt.Fprintf(app.stdout, "%s revision %d: %s (%s), target %s, state revision %d, recovery epoch %d\n", policy.PolicyID, policy.Revision, policy.Status, policy.ReasonCode, policy.TargetDigest, policy.StateRevision, policy.RecoveryEpoch); err != nil {
 				return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 			}
 		}
@@ -58,7 +58,7 @@ func (app *App) runScheduleCommand(ctx context.Context, mode outputMode, parsed 
 		if mode == outputJSON {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
-		_, err = fmt.Fprintf(app.stdout, "%s revision %d: %s (%s), action %s\n", response.Data.PolicyID, response.Data.Revision, response.Data.Status, response.Data.ReasonCode, response.Data.ActionKind)
+		_, err = fmt.Fprintf(app.stdout, "%s revision %d: %s (%s), action %s, target %s, state revision %d, recovery epoch %d\n", response.Data.PolicyID, response.Data.Revision, response.Data.Status, response.Data.ReasonCode, response.Data.ActionKind, response.Data.TargetDigest, response.Data.StateRevision, response.Data.RecoveryEpoch)
 		if err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}

@@ -28,25 +28,32 @@ func (client *client) GetScheduledPolicy(ctx context.Context, profile serverconf
 		return zero, failure.New(generated.ErrorCodeInputInvalid, "scheduled-policy", false)
 	}
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies/" + policyID, "api.v1.scheduled-job-policies.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.BrowserScheduledJobPolicy, result generated.RunResult) bool {
-		raw, err := json.Marshal(data)
-		return err == nil && generated.ValidateContractJSON(generated.SchemaIDBrowserScheduledJobPolicy, raw, generated.ContractExact) == nil && data.PolicyID == policyID && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch && data.TargetDigest != ""
+		return validScheduledPolicy(data, result, policyID)
 	})
 }
 
 func (client *client) ListScheduledPolicies(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BrowserScheduledJobPolicyListData], error) {
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies", "api.v1.scheduled-job-policies.list", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.BrowserScheduledJobPolicyListData, result generated.RunResult) bool {
-		return data.Schema == generated.SchemaIDBrowserScheduledJobPolicyListData && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch && len(data.Items) <= 100
+		raw, err := json.Marshal(data)
+		if err != nil || generated.ValidateContractJSON(generated.SchemaIDBrowserScheduledJobPolicyListData, raw, generated.ContractExact) != nil || data.StateRevision != result.StateRevision || data.RecoveryEpoch != result.RecoveryEpoch {
+			return false
+		}
+		for _, policy := range data.Items {
+			if policy.TargetDigest == "" || policy.StateRevision != data.StateRevision || policy.RecoveryEpoch != data.RecoveryEpoch {
+				return false
+			}
+		}
+		return true
 	})
 }
 
 func (client *client) InspectScheduledPolicy(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.BrowserScheduledJobPolicy], error) {
-	var zero TypedResponse[generated.BrowserScheduledJobPolicy]
-	if !validPathToken(policyID) {
-		return zero, failure.New(generated.ErrorCodeInputInvalid, "scheduled-policy", false)
-	}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies/" + policyID, "api.v1.scheduled-job-policies.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.BrowserScheduledJobPolicy, result generated.RunResult) bool {
-		return data.Schema == generated.SchemaIDBrowserScheduledJobPolicy && data.PolicyID == policyID && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
-	})
+	return client.GetScheduledPolicy(ctx, profile, policyID)
+}
+
+func validScheduledPolicy(data generated.BrowserScheduledJobPolicy, result generated.RunResult, policyID string) bool {
+	raw, err := json.Marshal(data)
+	return err == nil && generated.ValidateContractJSON(generated.SchemaIDBrowserScheduledJobPolicy, raw, generated.ContractExact) == nil && data.PolicyID == policyID && data.TargetDigest != "" && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
 }
 
 func (client *client) DispatchSchedule(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.ScheduledJob], error) {

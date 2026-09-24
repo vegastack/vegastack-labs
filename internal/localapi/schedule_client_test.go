@@ -41,6 +41,52 @@ func TestDispatchScheduleUsesServerOwnedTargetDigest(t *testing.T) {
 	}
 }
 
+func TestScheduleReadsRejectMalformedOrUnboundGeneratedResponses(t *testing.T) {
+	digest := "sha256:" + strings.Repeat("a", 64)
+	valid := generated.BrowserScheduledJobPolicy{Schema: generated.SchemaIDBrowserScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: "policy-a", Revision: 3, ActionKind: "backup-create", Enabled: true, Status: "active", ReasonCode: "active", TargetDigest: digest, StateRevision: 7, RecoveryEpoch: 2}
+
+	for name, data := range map[string]generated.BrowserScheduledJobPolicy{
+		"missing target digest": func() generated.BrowserScheduledJobPolicy {
+			value := valid
+			value.TargetDigest = ""
+			return value
+		}(),
+		"wrong schema": func() generated.BrowserScheduledJobPolicy {
+			value := valid
+			value.Schema = generated.SchemaIDScheduledJobPolicy
+			return value
+		}(),
+	} {
+		t.Run("inspect "+name, func(t *testing.T) {
+			_, profile, _ := serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.scheduled-job-policies.get", false, 2, 7, data))
+			if _, err := NewClient(clientTestFactory()).InspectScheduledPolicy(context.Background(), profile, "policy-a"); err == nil {
+				t.Fatal("malformed inspect response was accepted")
+			}
+		})
+	}
+
+	for name, data := range map[string]generated.BrowserScheduledJobPolicyListData{
+		"nil items": {Schema: generated.SchemaIDBrowserScheduledJobPolicyListData, SchemaVersion: "1.0.0", Items: nil, StateRevision: 7, RecoveryEpoch: 2},
+		"item snapshot mismatch": {Schema: generated.SchemaIDBrowserScheduledJobPolicyListData, SchemaVersion: "1.0.0", Items: []generated.BrowserScheduledJobPolicy{func() generated.BrowserScheduledJobPolicy {
+			value := valid
+			value.StateRevision = 6
+			return value
+		}()}, StateRevision: 7, RecoveryEpoch: 2},
+		"item missing target digest": {Schema: generated.SchemaIDBrowserScheduledJobPolicyListData, SchemaVersion: "1.0.0", Items: []generated.BrowserScheduledJobPolicy{func() generated.BrowserScheduledJobPolicy {
+			value := valid
+			value.TargetDigest = ""
+			return value
+		}()}, StateRevision: 7, RecoveryEpoch: 2},
+	} {
+		t.Run("list "+name, func(t *testing.T) {
+			_, profile, _ := serveFixedResponse(t, http.StatusOK, operationEnvelope(t, "api.v1.scheduled-job-policies.list", false, 2, 7, data))
+			if _, err := NewClient(clientTestFactory()).ListScheduledPolicies(context.Background(), profile); err == nil {
+				t.Fatal("malformed list response was accepted")
+			}
+		})
+	}
+}
+
 func serveResponseSequence(t *testing.T, responses [][]byte) (serverconfig.Profile, <-chan capturedRequest) {
 	t.Helper()
 	directory, err := os.MkdirTemp("/tmp", "vsk-client-sequence-")

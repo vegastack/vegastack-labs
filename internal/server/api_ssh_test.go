@@ -90,6 +90,94 @@ func TestAPISSHForwardsOneAdmittedOperationWithExactBindingAndCommand(t *testing
 	}
 }
 
+func TestAPISSHForwardsFramedScheduleListAndInspectRequests(t *testing.T) {
+	for name, test := range map[string]struct {
+		path      string
+		arguments []string
+		command   string
+	}{
+		"list":    {path: "/api/v1/scheduled-job-policies", arguments: []string{"schedule", "list"}, command: "api.v1.scheduled-job-policies.list"},
+		"inspect": {path: "/api/v1/scheduled-job-policies/policy-a", arguments: []string{"schedule", "inspect", "--policy-id", "policy-a"}, command: "api.v1.scheduled-job-policies.get"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			recorder := &apiSSHRecorder{responses: []localtransport.Response{
+				apiSSHLocalResponse(t, apiSSHEnvelope("server status", "local-health", 4, 9)),
+				apiSSHLocalResponse(t, apiSSHEnvelope(test.command, "local-schedule", 4, 9)),
+			}}
+			handler := newAPISSHTestHandler(recorder)
+			var output bytes.Buffer
+			wire := apiSSHRequestWire(t, "GET "+test.path, test.arguments, 4, nil)
+			if err := handler.Serve(context.Background(), bytes.NewReader(wire), &output); err != nil {
+				t.Fatal(err)
+			}
+			response, err := apissh.ReadResponse(&output, apiSSHRequestID)
+			if err != nil || len(response.Envelope.Errors) != 0 || response.Envelope.Command != test.command {
+				t.Fatalf("response=%#v err=%v", response, err)
+			}
+			if len(recorder.requests) != 2 || recorder.requests[1].Method != localtransport.MethodGet || recorder.requests[1].Path != test.path {
+				t.Fatalf("forwards=%#v", recorder.requests)
+			}
+		})
+	}
+}
+
+func TestAPISSHPhase5ArgumentMappingsCoverExposedLocalClientCommands(t *testing.T) {
+	tests := []struct {
+		operation string
+		path      string
+		arguments []string
+	}{
+		{"api.v1.audit-checkpoints.list", "/api/v1/audit-checkpoints", []string{"audit", "checkpoints"}},
+		{"api.v1.audit-history.verification", "/api/v1/audit-history/verification", []string{"audit", "verify"}},
+		{"api.v1.backup-offsite-retirements.dry-run", "/api/v1/backups/offsite-retirements/dry-run", []string{"backup", "offsite-retirement", "dry-run"}},
+		{"api.v1.backup-offsite-retirements.stage", "/api/v1/backups/offsite-retirements/stage", []string{"backup", "offsite-retirement", "stage"}},
+		{"api.v1.backup-policy-drafts.create", "/api/v1/backups/policies/drafts", []string{"backup", "policy", "draft"}},
+		{"api.v1.backup-retention-lock-drafts.create", "/api/v1/backups/retention-locks/drafts", []string{"backup", "retention-locks", "draft"}},
+		{"api.v1.backup-retirement-drafts.create", "/api/v1/backups/retirements/drafts", []string{"backup", "retirement", "draft"}},
+		{"api.v1.backup-jobs.create", "/api/v1/backup-policies/policy-a/jobs", []string{"backup", "run"}},
+		{"api.v1.backups.status", "/api/v1/backups/status", []string{"backup", "status"}},
+		{"api.v1.backup-verifications.create", "/api/v1/recovery-points/point-a/verifications", []string{"backup", "verify"}},
+		{"api.v1.database-backups.create", "/api/v1/database/backups", []string{"database", "backup"}},
+		{"api.v1.database-exports.create", "/api/v1/database/exports", []string{"database", "export"}},
+		{"api.v1.database-restores.create", "/api/v1/database/restores", []string{"database", "restore"}},
+		{"api.v1.database-verifications.create", "/api/v1/database/verifications", []string{"database", "verify"}},
+		{"api.v1.gate-evidence.create", "/api/v1/gates/G-008/evidence", []string{"gate", "evidence"}},
+		{"api.v1.gates.check", "/api/v1/gates/G-008/check", []string{"gate", "check", "--gate-id", "G-008"}},
+		{"api.v1.gates.get", "/api/v1/gates/G-008", []string{"gate", "inspect", "--gate-id", "G-008"}},
+		{"api.v1.gates.list", "/api/v1/gates", []string{"gate", "list"}},
+		{"api.v1.gate-profile-drafts.create", "/api/v1/gates/profile-drafts", []string{"gate", "profile", "draft"}},
+		{"api.v1.restores.plan", "/api/v1/recovery-points/point-a/restore-plans", []string{"restore", "plan"}},
+		{"api.v1.restores.run", "/api/v1/restore-plans/restore-a/runs", []string{"restore", "run"}},
+		{"api.v1.restores.verify", "/api/v1/restore-plans/restore-a/verifications", []string{"restore", "verify"}},
+		{"api.v1.scheduled-job-policies.drafts.create", "/api/v1/scheduled-job-policies/drafts", []string{"schedule", "policy", "draft"}},
+		{"api.v1.scheduled-job-policies.get", "/api/v1/scheduled-job-policies/policy-a", []string{"schedule", "inspect", "--policy-id", "policy-a"}},
+		{"api.v1.scheduled-job-policies.list", "/api/v1/scheduled-job-policies", []string{"schedule", "list"}},
+		{"api.v1.scheduled-jobs.cancel", "/api/v1/scheduled-jobs/job-a/cancel", []string{"schedule", "cancel", "--job-id", "job-a"}},
+		{"api.v1.scheduled-occurrences.create", "/api/v1/scheduled-job-policies/policy-a/occurrences", []string{"schedule", "dispatch", "--policy-id", "policy-a"}},
+	}
+	for _, test := range tests {
+		t.Run(test.operation, func(t *testing.T) {
+			if forwardPath, ok := apiSSHArgumentsAllowed(test.operation, test.path, test.arguments); !ok || forwardPath != test.path {
+				t.Fatalf("mapping rejected: path=%q arguments=%v", test.path, test.arguments)
+			}
+		})
+	}
+	for _, denied := range []struct {
+		operation string
+		path      string
+		arguments []string
+	}{
+		{"api.v1.gates.get", "/api/v1/gates/G-008", []string{"gate", "inspect", "--gate-id", "G-009"}},
+		{"api.v1.scheduled-job-policies.get", "/api/v1/scheduled-job-policies/policy-a", []string{"schedule", "inspect", "--policy-id", "policy-b"}},
+		{"api.v1.scheduled-occurrences.create", "/api/v1/scheduled-job-policies/policy-a/occurrences", []string{"schedule", "dispatch", "--policy-id", "policy-b"}},
+		{"api.v1.scheduled-jobs.cancel", "/api/v1/scheduled-jobs/job-a/cancel", []string{"schedule", "cancel", "--job-id", "job-b"}},
+	} {
+		if _, ok := apiSSHArgumentsAllowed(denied.operation, denied.path, denied.arguments); ok {
+			t.Fatalf("mismatched ID admitted: %#v", denied)
+		}
+	}
+}
+
 func TestAPISSHForwardsExactVerifiedPayloadOnce(t *testing.T) {
 	payload := []byte(`{"schema":"vegastack-labs.dev/plan-reference-request","schemaVersion":"1.0.0","planId":"plan-test"}`)
 	recorder := &apiSSHRecorder{responses: []localtransport.Response{

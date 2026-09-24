@@ -893,8 +893,8 @@ const (
 	// #110 adds typed database-scoped aliases over the reviewed backup and
 	// restore routes plus one inert export-draft route. The complete package
 	// remains sealed so the new file cannot widen the local transport.
-	reviewedDatabaseLocalAPILinuxDigest       = "9196e771cb622951b2fb0f980e784e1eb1567f759d17648a037032dbec632daa"
-	reviewedDatabaseLocalAPIUnsupportedDigest = "d2be2dab5dfa132b7691642e7d764d0ce6c91b4c5c620fa5faf2e29831ddf681"
+	reviewedDatabaseLocalAPILinuxDigest       = "d3bafb206d235c6da669ed04e540d419f2cacddfd00a805010b95a71c3a70806"
+	reviewedDatabaseLocalAPIUnsupportedDigest = "9bdeff75e774242bde84220094b3b4d08f49c26451e363548e04e5b5a1f22fdd"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
