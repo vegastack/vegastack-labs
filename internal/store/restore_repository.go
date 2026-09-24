@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 )
 
@@ -175,21 +176,21 @@ func (repository *RestoreRepository) Get(ctx context.Context, planID string) (Re
 	return result, err
 }
 
-func (repository *RestoreRepository) ListPlanIDs(ctx context.Context, afterID string, limit int) ([]string, RevisionToken, error) {
+func (repository *RestoreRepository) ListRestoreStatusesScoped(ctx context.Context, scope authorization.ReadScope, snapshot RevisionToken, afterID string, limit int) ([]generated.BrowserRestoreStatus, RevisionToken, error) {
 	if repository == nil || repository.store == nil || limit < 1 || limit > 101 {
 		return nil, RevisionToken{}, restoreStoreError(generated.ErrorCodeInputInvalid, "restore-page")
 	}
-	var ids []string
-	var revision RevisionToken
+	var items []generated.BrowserRestoreStatus
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		if err := tx.queryRow(ctx, `SELECT state_revision,recovery_epoch FROM system_meta WHERE id=1`).Scan(&revision.StateRevision, &revision.RecoveryEpoch); err != nil {
+		if err := verifyExactReadSnapshot(ctx, tx, scope, snapshot); err != nil {
 			return err
 		}
-		rows, err := tx.query(ctx, `SELECT plan_id FROM restore_sessions WHERE plan_id>? ORDER BY plan_id LIMIT ?`, afterID, limit)
+		rows, err := tx.query(ctx, `SELECT s.plan_id FROM restore_sessions s JOIN read_grants g ON g.resource_id=s.plan_id AND g.principal_id=? AND g.capability=? AND g.resource_kind=? AND g.grant_revision=? AND g.status='active' WHERE s.plan_id>? ORDER BY s.plan_id LIMIT ?`, scope.PrincipalID, scope.Capability, scope.ResourceKind, scope.GrantRevision, afterID, limit)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
+		var ids []string
 		for rows.Next() {
 			var id string
 			if err := rows.Scan(&id); err != nil {
@@ -197,9 +198,37 @@ func (repository *RestoreRepository) ListPlanIDs(ctx context.Context, afterID st
 			}
 			ids = append(ids, id)
 		}
-		return rows.Err()
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		if err := rows.Close(); err != nil {
+			return err
+		}
+		for _, id := range ids {
+			stored, err := getRestoreSessionRead(ctx, tx, id)
+			if err != nil {
+				return err
+			}
+			verification := "pending"
+			if stored.Status == "verified" {
+				verification = "verified"
+			}
+			items = append(items, generated.BrowserRestoreStatus{Schema: generated.SchemaIDBrowserRestoreStatus, SchemaVersion: "1.0.0", PointID: stored.Binding.PointID, PlanID: stored.Binding.PlanID, PlanDigest: stored.Binding.PlanDigest, TargetDigest: stored.Binding.TargetDigest, Status: stored.Status, ReasonCode: "restore-" + stored.Status, RecoveryEpoch: stored.Binding.NextRecoveryEpoch, VerificationStatus: verification, SafeNextAction: restoreSafeNextActionForStore(stored.Status)})
+		}
+		return nil
 	})
-	return ids, revision, err
+	return items, snapshot, err
+}
+
+func restoreSafeNextActionForStore(status string) string {
+	switch status {
+	case "verified":
+		return "none"
+	case "verification-required":
+		return "verify the recovered authority"
+	default:
+		return "continue with the exact approved restore plan"
+	}
 }
 
 // PendingPromotion returns the single exact candidate the next server startup

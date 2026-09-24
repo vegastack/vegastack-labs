@@ -54,6 +54,10 @@
         "disabled"
       ],
       "type": "string"
+    },
+    "targetDigest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "type": "string"
     }
   },
   "required": [
@@ -65,6 +69,7 @@
     "enabled",
     "status",
     "reasonCode",
+    "targetDigest",
     "stateRevision",
     "recoveryEpoch"
   ],

@@ -17,7 +17,7 @@ import (
 
 type AuditRepository interface {
 	ListAuditCheckpoints(context.Context) ([]generated.AuditCheckpoint, error)
-	ListAuditCheckpointsPage(context.Context, string, int) ([]generated.AuditCheckpoint, error)
+	ListAuditCheckpointsPageScoped(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.AuditCheckpoint, error)
 	VerifyAuditHistory(context.Context, adapter.CheckpointReader) (generated.AuditVerificationData, error)
 	ChainRange(context.Context, audit.EventID, audit.EventID) (audit.ChainRange, error)
 }
@@ -58,7 +58,7 @@ func (app *Application) auditCheckpoints(config AuditOperations) func(http.Respo
 			app.failure(writer, operation, err)
 			return
 		}
-		checkpoints, err := config.Audit.ListAuditCheckpointsPage(request.Context(), page.AfterID, page.Query.Limit+1)
+		checkpoints, err := config.Audit.ListAuditCheckpointsPageScoped(request.Context(), scope, page.Snapshot, page.AfterID, page.Query.Limit+1)
 		if err != nil {
 			app.failure(writer, operation, err)
 			return

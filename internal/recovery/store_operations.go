@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/change"
 	"github.com/vegastack/vegastack-labs/internal/failure"
 	"github.com/vegastack/vegastack-labs/internal/generated"
@@ -134,20 +135,8 @@ func restoreSafeNextAction(status string) string {
 	}
 }
 
-func (sessions StoreRestoreSessions) ListRestoreStatuses(ctx context.Context, afterID string, limit int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
-	ids, revision, err := sessions.Repository.ListPlanIDs(ctx, afterID, limit)
-	if err != nil {
-		return nil, revision, err
-	}
-	items := make([]generated.BrowserRestoreStatus, 0, len(ids))
-	for _, id := range ids {
-		item, err := sessions.RestoreStatus(ctx, id)
-		if err != nil {
-			return nil, revision, err
-		}
-		items = append(items, item)
-	}
-	return items, revision, nil
+func (sessions StoreRestoreSessions) ListRestoreStatuses(ctx context.Context, scope authorization.ReadScope, snapshot store.RevisionToken, afterID string, limit int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
+	return sessions.Repository.ListRestoreStatusesScoped(ctx, scope, snapshot, afterID, limit)
 }
 
 func (sessions StoreRestoreSessions) RestoreExecutionStatus(ctx context.Context, planID string) (string, error) {

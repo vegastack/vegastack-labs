@@ -530,7 +530,8 @@ func reviewedRestoreCLIFile(directory string) bool {
 
 func reviewedRestoreClientFile(directory string) bool {
 	return reviewedRestoreSource(filepath.Join(directory, "restore_client.go"), []string{
-		`"/api/v1/restores/plans"`, `"api.v1.restores.plan"`, `"api.v1.restores.run"`, `"api.v1.restores.verify"`,
+		`"/api/v1/recovery-points/"`, `"/restore-plans"`, `"/api/v1/restore-plans/"`, `"/runs"`, `"/verifications"`,
+		`"api.v1.restores.plan"`, `"api.v1.restores.run"`, `"api.v1.restores.verify"`,
 		"generated.ValidateContractJSON", "data.PriorRecoveryEpoch == result.RecoveryEpoch", "data.NextRecoveryEpoch == result.RecoveryEpoch",
 	}, []string{"os/exec", "database/sql", "productionDatabasePath", "RestoreSnapshot", "os.Rename", "net/http"})
 }
@@ -892,8 +893,8 @@ const (
 	// #110 adds typed database-scoped aliases over the reviewed backup and
 	// restore routes plus one inert export-draft route. The complete package
 	// remains sealed so the new file cannot widen the local transport.
-	reviewedDatabaseLocalAPILinuxDigest       = "bc90adc5c7517ee20f7f32fe75debeb230de23d001a4f4a305279d43ed343313"
-	reviewedDatabaseLocalAPIUnsupportedDigest = "14d4f2a39d9ad9d133636954bc30d2255229d1e0e5c69e9caaeb6b497b0cc640"
+	reviewedDatabaseLocalAPILinuxDigest       = "85a5b64dfcfbf1c7351ad242b1ee8738d3f57af0a01debabd06cf5eaa645c81c"
+	reviewedDatabaseLocalAPIUnsupportedDigest = "4b6b98761bba477707450dcfd7cf74ab1d89b2a9dcede1a33231ca69f1004fa2"
 )
 
 // reviewedLocalAPISource seals every production source file in the package
@@ -1191,11 +1192,11 @@ func reviewedRecoveryCustodianPackage(candidate checkedSourcePackage) bool {
 	var expected string
 	switch strings.Join(names, ",") {
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_linux.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_linux.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
-		expected = "41e06c1beab107ebcce4bc719e76cb3a898a4686f5dabf97147e8e57c43b061d"
+		expected = "ba47d6e306e91015788671298c4da6f20792c6215347fb66075ceb5aae642462"
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unix.go,offsite_source.go,operations.go,package_file_unix.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unix.go,source.go,source_admission.go,source_admission_file_unix.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
-		expected = "c89d4d5f32a27ee0b69f6b4be0c6f66579226ef1cd59910c9ae597a74a964b53"
+		expected = "34576021c3c8b3573f5308290c0f09314e4a2e7be8a7899fc70455370af0f0ec"
 	case "artifact.go,audit_continuity.go,bound_canary_noop.go,canary.go,canary_capabilities.go,canary_ports.go,candidate.go,candidate_authority.go,candidate_unsupported.go,collector.go,custody.go,fence.go,fence_admission.go,fence_coordinator.go,fence_evidence.go,fence_execution.go,fence_witness.go,manifest.go,manifest_file_unsupported.go,offsite_source.go,operations.go,package_file_unsupported.go,qualification.go,qualified_registry_unsupported.go,receipt_file_unsupported.go,source.go,source_admission.go,source_admission_file_unsupported.go,source_handoff.go,store_canary.go,store_operations.go,transport.go,witness.go":
-		expected = "12a955f0f6e92cbf3f7850745e8e59364cd1db4920c4418255bd223dab987a93"
+		expected = "ee9df31bdcb171c1b312f50024916a94fa428380ddba32650750d09518f01cbe"
 	default:
 		return false
 	}

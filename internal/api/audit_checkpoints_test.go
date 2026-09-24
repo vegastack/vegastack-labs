@@ -72,7 +72,7 @@ type auditAPIRepository struct {
 func (repository auditAPIRepository) ListAuditCheckpoints(context.Context) ([]generated.AuditCheckpoint, error) {
 	return append([]generated.AuditCheckpoint{}, repository.checkpoints...), nil
 }
-func (repository auditAPIRepository) ListAuditCheckpointsPage(context.Context, string, int) ([]generated.AuditCheckpoint, error) {
+func (repository auditAPIRepository) ListAuditCheckpointsPageScoped(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.AuditCheckpoint, error) {
 	return append([]generated.AuditCheckpoint{}, repository.checkpoints...), nil
 }
 func (repository auditAPIRepository) VerifyAuditHistory(context.Context, adapter.CheckpointReader) (generated.AuditVerificationData, error) {
@@ -96,7 +96,7 @@ func (revision *mutableAuditAPIRevision) CurrentRevision(context.Context) (store
 
 type pagedAuditAPIRepository struct{ auditAPIRepository }
 
-func (repository pagedAuditAPIRepository) ListAuditCheckpointsPage(_ context.Context, afterID string, limit int) ([]generated.AuditCheckpoint, error) {
+func (repository pagedAuditAPIRepository) ListAuditCheckpointsPageScoped(_ context.Context, _ authorization.ReadScope, _ store.RevisionToken, afterID string, limit int) ([]generated.AuditCheckpoint, error) {
 	items := repository.checkpoints
 	for len(items) > 0 && items[0].CheckpointID <= afterID {
 		items = items[1:]

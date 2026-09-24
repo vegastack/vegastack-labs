@@ -447,6 +447,7 @@ export interface BrowserScheduledJobPolicy {
   readonly "enabled": boolean;
   readonly "status": "active" | "disabled";
   readonly "reasonCode": string;
+  readonly "targetDigest": string;
   readonly "stateRevision": number;
   readonly "recoveryEpoch": number;
 }
@@ -3288,6 +3289,13 @@ const SCHEMAS: ReadonlyArray<SchemaRule> = [
         "required": true,
         "nullable": false,
         "pattern": "^[a-z][a-z0-9._:-]{0,127}$"
+      },
+      {
+        "name": "targetDigest",
+        "kind": "string",
+        "required": true,
+        "nullable": false,
+        "pattern": "^sha256:[a-f0-9]{64}$"
       },
       {
         "name": "stateRevision",

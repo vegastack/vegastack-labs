@@ -1246,6 +1246,7 @@ type BrowserScheduledJobPolicy struct {
 	Enabled       bool   `json:"enabled"`
 	Status        string `json:"status"`
 	ReasonCode    string `json:"reasonCode"`
+	TargetDigest  string `json:"targetDigest"`
 	StateRevision int64  `json:"stateRevision"`
 	RecoveryEpoch int64  `json:"recoveryEpoch"`
 }

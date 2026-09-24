@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -44,7 +45,7 @@ func (stub *restoreSessionsStub) TransitionRestore(_ context.Context, _ generate
 func (stub *restoreSessionsStub) RestoreStatus(context.Context, string) (generated.BrowserRestoreStatus, error) {
 	return generated.BrowserRestoreStatus{}, nil
 }
-func (stub *restoreSessionsStub) ListRestoreStatuses(context.Context, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
+func (stub *restoreSessionsStub) ListRestoreStatuses(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
 	return []generated.BrowserRestoreStatus{}, store.RevisionToken{}, nil
 }
 func (stub *restoreSessionsStub) RestoreExecutionStatus(context.Context, string) (string, error) {

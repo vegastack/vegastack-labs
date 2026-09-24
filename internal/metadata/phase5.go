@@ -912,7 +912,7 @@ func phase5RequestSchemas() []SchemaDefinition {
 		),
 		phase5Schema(browserScheduledJobPolicySchemaID,
 			phase5ID("policyId", "PolicyID"), phase5Positive("revision", "Revision"), phase5Enum("actionKind", "ActionKind", "gate-check", "observation-refresh", "backup-create", "backup-integrity-verify", "audit-checkpoint-export"),
-			phase5Bool("enabled", "Enabled"), phase5Enum("status", "Status", "active", "disabled"), phase5ID("reasonCode", "ReasonCode"),
+			phase5Bool("enabled", "Enabled"), phase5Enum("status", "Status", "active", "disabled"), phase5ID("reasonCode", "ReasonCode"), phase5Digest("targetDigest", "TargetDigest"),
 			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
 		),
 		phase5Schema(browserScheduledJobSchemaID,

@@ -17,8 +17,8 @@ import (
 type ScheduledPolicyStore interface {
 	StageDraft(context.Context, generated.ScheduledJobPolicy, audit.Attribution) (store.ScheduledPolicyDraft, error)
 	GetActivePolicy(context.Context, string) (generated.ScheduledJobPolicy, error)
-	ListActivePolicies(context.Context, string, int) ([]generated.ScheduledJobPolicy, error)
-	ListOccurrences(context.Context, string, int) ([]generated.ScheduledJob, error)
+	ListActivePolicies(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.ScheduledJobPolicy, store.RevisionToken, error)
+	ListOccurrences(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.ScheduledJob, store.RevisionToken, error)
 	CurrentScheduleRevision(context.Context) (schedule.Revision, error)
 }
 
@@ -60,10 +60,10 @@ func RegisterScheduleOperations(app *Application, config ScheduleOperations) err
 	}
 	app.routes = append(app.routes,
 		route{id: "api.v1.scheduled-job-policies.drafts.create", method: http.MethodPost, pattern: "/api/v1/scheduled-job-policies/drafts", capability: "schedule.policy.author", kind: "scheduled-policy", action: authorization.ActionAuthor, staticResourceID: "policy-drafts", handler: app.scheduledPolicyDraft(config)},
-		route{id: "api.v1.scheduled-job-policies.list", method: http.MethodGet, pattern: "/api/v1/scheduled-job-policies", capability: "schedule.policy.read", kind: "scheduled-policy", staticResourceID: "policies", handler: app.scheduledPolicyList(config)},
+		route{id: "api.v1.scheduled-job-policies.list", method: http.MethodGet, pattern: "/api/v1/scheduled-job-policies", capability: "schedule.policy.read", kind: "scheduled-policy", handler: app.scheduledPolicyList(config)},
 		route{id: "api.v1.scheduled-job-policies.get", method: http.MethodGet, pattern: "/api/v1/scheduled-job-policies/{policyId}", capability: "schedule.policy.read", kind: "scheduled-policy", handler: app.scheduledPolicyGet(config)},
 		route{id: "api.v1.scheduled-occurrences.create", method: http.MethodPost, pattern: "/api/v1/scheduled-job-policies/{policyId}/occurrences", capability: "schedule.dispatch", kind: "scheduled-policy", action: authorization.ActionAuthor, resourceParam: "policyId", handler: app.scheduledDispatch(config)},
-		route{id: "api.v1.scheduled-jobs.list", method: http.MethodGet, pattern: "/api/v1/scheduled-jobs", capability: "schedule.policy.read", kind: "scheduled-job", staticResourceID: "jobs", handler: app.scheduledJobList(config)},
+		route{id: "api.v1.scheduled-jobs.list", method: http.MethodGet, pattern: "/api/v1/scheduled-jobs", capability: "schedule.policy.read", kind: "scheduled-job", handler: app.scheduledJobList(config)},
 		route{id: "api.v1.scheduled-jobs.cancel", method: http.MethodPost, pattern: "/api/v1/scheduled-jobs/{jobId}/cancel", capability: "schedule.dispatch", kind: "scheduled-job", action: authorization.ActionAuthor, resourceParam: "jobId", handler: app.scheduledCancel(config)},
 	)
 	if !routesAreGeneratedSubset(app.routes) {
@@ -76,8 +76,16 @@ func RegisterScheduleOperations(app *Application, config ScheduleOperations) err
 	return nil
 }
 
-func browserScheduledPolicy(policy generated.ScheduledJobPolicy) generated.BrowserScheduledJobPolicy {
-	return generated.BrowserScheduledJobPolicy{Schema: generated.SchemaIDBrowserScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: policy.PolicyID, Revision: policy.Revision, ActionKind: policy.ActionKind, Enabled: policy.Enabled, Status: "active", ReasonCode: "active", StateRevision: policy.StateRevision, RecoveryEpoch: policy.RecoveryEpoch}
+func browserScheduledPolicy(policy generated.ScheduledJobPolicy) (generated.BrowserScheduledJobPolicy, error) {
+	targetDigest, err := schedule.ExactTargetDigest(policy)
+	if err != nil {
+		return generated.BrowserScheduledJobPolicy{}, err
+	}
+	status := "active"
+	if !policy.Enabled {
+		status = "disabled"
+	}
+	return generated.BrowserScheduledJobPolicy{Schema: generated.SchemaIDBrowserScheduledJobPolicy, SchemaVersion: "1.0.0", PolicyID: policy.PolicyID, Revision: policy.Revision, ActionKind: policy.ActionKind, Enabled: policy.Enabled, Status: status, ReasonCode: status, TargetDigest: targetDigest, StateRevision: policy.StateRevision, RecoveryEpoch: policy.RecoveryEpoch}, nil
 }
 
 func (app *Application) scheduledPolicyList(config ScheduleOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
@@ -88,17 +96,12 @@ func (app *Application) scheduledPolicyList(config ScheduleOperations) func(http
 			app.failure(w, op, err)
 			return
 		}
-		policies, err := config.Policies.ListActivePolicies(r.Context(), page.AfterID, page.Query.Limit+1)
+		policies, revision, err := config.Policies.ListActivePolicies(r.Context(), scope, page.Snapshot, page.AfterID, page.Query.Limit+1)
 		if err != nil {
 			app.failure(w, op, err)
 			return
 		}
-		revision, err := config.Policies.CurrentScheduleRevision(r.Context())
-		if err != nil {
-			app.failure(w, op, err)
-			return
-		}
-		if (store.RevisionToken{StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}) != page.Snapshot {
+		if revision != page.Snapshot {
 			app.failure(w, op, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
 			return
 		}
@@ -108,7 +111,12 @@ func (app *Application) scheduledPolicyList(config ScheduleOperations) func(http
 		}
 		items := make([]generated.BrowserScheduledJobPolicy, 0, len(policies))
 		for _, policy := range policies {
-			items = append(items, browserScheduledPolicy(policy))
+			projected, projectErr := browserScheduledPolicy(policy)
+			if projectErr != nil {
+				app.failure(w, op, projectErr)
+				return
+			}
+			items = append(items, projected)
 		}
 		var lastID string
 		if len(items) > 0 {
@@ -169,7 +177,12 @@ func (app *Application) scheduledPolicyGet(config ScheduleOperations) func(http.
 			app.failure(w, op, err)
 			return
 		}
-		app.success(w, op, policy.StateRevision, policy.RecoveryEpoch, browserScheduledPolicy(policy))
+		projected, err := browserScheduledPolicy(policy)
+		if err != nil {
+			app.failure(w, op, err)
+			return
+		}
+		app.success(w, op, policy.StateRevision, policy.RecoveryEpoch, projected)
 	}
 }
 
@@ -181,17 +194,12 @@ func (app *Application) scheduledJobList(config ScheduleOperations) func(http.Re
 			app.failure(w, op, err)
 			return
 		}
-		jobs, err := config.Policies.ListOccurrences(r.Context(), page.AfterID, page.Query.Limit+1)
+		jobs, revision, err := config.Policies.ListOccurrences(r.Context(), scope, page.Snapshot, page.AfterID, page.Query.Limit+1)
 		if err != nil {
 			app.failure(w, op, err)
 			return
 		}
-		revision, err := config.Policies.CurrentScheduleRevision(r.Context())
-		if err != nil {
-			app.failure(w, op, err)
-			return
-		}
-		if (store.RevisionToken{StateRevision: revision.StateRevision, RecoveryEpoch: revision.RecoveryEpoch}) != page.Snapshot {
+		if revision != page.Snapshot {
 			app.failure(w, op, apiFailure(generated.ErrorCodeStateConflict, "cursor"))
 			return
 		}

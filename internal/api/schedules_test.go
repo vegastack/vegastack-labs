@@ -27,11 +27,11 @@ func (scheduleAPIPolicies) StageDraft(context.Context, generated.ScheduledJobPol
 func (scheduleAPIPolicies) GetActivePolicy(context.Context, string) (generated.ScheduledJobPolicy, error) {
 	return generated.ScheduledJobPolicy{}, nil
 }
-func (scheduleAPIPolicies) ListActivePolicies(context.Context, string, int) ([]generated.ScheduledJobPolicy, error) {
-	return []generated.ScheduledJobPolicy{}, nil
+func (scheduleAPIPolicies) ListActivePolicies(_ context.Context, _ authorization.ReadScope, snapshot store.RevisionToken, _ string, _ int) ([]generated.ScheduledJobPolicy, store.RevisionToken, error) {
+	return []generated.ScheduledJobPolicy{}, snapshot, nil
 }
-func (scheduleAPIPolicies) ListOccurrences(context.Context, string, int) ([]generated.ScheduledJob, error) {
-	return []generated.ScheduledJob{}, nil
+func (scheduleAPIPolicies) ListOccurrences(_ context.Context, _ authorization.ReadScope, snapshot store.RevisionToken, _ string, _ int) ([]generated.ScheduledJob, store.RevisionToken, error) {
+	return []generated.ScheduledJob{}, snapshot, nil
 }
 func (scheduleAPIPolicies) CurrentScheduleRevision(context.Context) (schedule.Revision, error) {
 	return schedule.Revision{StateRevision: 7, RecoveryEpoch: 2}, nil

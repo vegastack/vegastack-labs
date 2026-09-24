@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/vegastack/vegastack-labs/internal/audit"
+	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
 	"github.com/vegastack/vegastack-labs/internal/schedule"
 	"github.com/vegastack/vegastack-labs/internal/stateexport"
@@ -194,73 +195,71 @@ func (repository *ScheduleRepository) ListRecoverableOccurrences(ctx context.Con
 
 // ListActivePolicies returns a stable, bounded projection source ordered by
 // policy ID. Callers must request at most the public page bound.
-func (repository *ScheduleRepository) ListActivePolicies(ctx context.Context, afterID string, limit int) ([]generated.ScheduledJobPolicy, error) {
+func (repository *ScheduleRepository) ListActivePolicies(ctx context.Context, scope authorization.ReadScope, snapshot RevisionToken, afterID string, limit int) ([]generated.ScheduledJobPolicy, RevisionToken, error) {
 	if repository == nil || repository.store == nil || limit < 1 || limit > 101 {
-		return nil, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-policy-page")
+		return nil, RevisionToken{}, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-policy-page")
 	}
-	var ids []string
+	var policies []generated.ScheduledJobPolicy
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		rows, err := tx.query(ctx, `SELECT DISTINCT policy_id FROM scheduled_policy_activations WHERE status='active' AND policy_id>? ORDER BY policy_id LIMIT ?`, afterID, limit)
+		if err := verifyExactReadSnapshot(ctx, tx, scope, snapshot); err != nil {
+			return err
+		}
+		rows, err := tx.query(ctx, `SELECT d.canonical_json FROM scheduled_policy_activations a JOIN scheduled_policy_drafts d ON d.draft_id=a.draft_id JOIN read_grants g ON g.resource_id=a.policy_id AND g.principal_id=? AND g.capability=? AND g.resource_kind=? AND g.grant_revision=? AND g.status='active' WHERE a.status='active' AND a.policy_id>? AND a.policy_revision=(SELECT MAX(a2.policy_revision) FROM scheduled_policy_activations a2 WHERE a2.policy_id=a.policy_id AND a2.status='active') ORDER BY a.policy_id LIMIT ?`, scope.PrincipalID, scope.Capability, scope.ResourceKind, scope.GrantRevision, afterID, limit)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var id string
-			if err := rows.Scan(&id); err != nil {
+			var canonical string
+			if err := rows.Scan(&canonical); err != nil {
 				return err
 			}
-			ids = append(ids, id)
+			var policy generated.ScheduledJobPolicy
+			if json.Unmarshal([]byte(canonical), &policy) != nil {
+				return scheduleError(generated.ErrorCodeIntegrityFailure, "scheduled-policy")
+			}
+			if _, _, err := schedule.CanonicalPolicy(policy); err != nil {
+				return scheduleError(generated.ErrorCodeIntegrityFailure, "scheduled-policy")
+			}
+			policies = append(policies, policy)
 		}
 		return rows.Err()
 	})
-	if err != nil {
-		return nil, err
-	}
-	policies := make([]generated.ScheduledJobPolicy, 0, len(ids))
-	for _, id := range ids {
-		policy, err := repository.GetActivePolicy(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		policies = append(policies, policy)
-	}
-	return policies, nil
+	return policies, snapshot, err
 }
 
-// ListOccurrences returns at most limit durable occurrences, newest first.
-func (repository *ScheduleRepository) ListOccurrences(ctx context.Context, afterID string, limit int) ([]generated.ScheduledJob, error) {
+func (repository *ScheduleRepository) ListOccurrences(ctx context.Context, scope authorization.ReadScope, snapshot RevisionToken, afterID string, limit int) ([]generated.ScheduledJob, RevisionToken, error) {
 	if repository == nil || repository.store == nil || limit < 1 || limit > 101 {
-		return nil, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-job-page")
+		return nil, RevisionToken{}, scheduleError(generated.ErrorCodeInputInvalid, "scheduled-job-page")
 	}
-	var ids []string
+	var jobs []generated.ScheduledJob
 	err := repository.store.Read(ctx, func(tx ReadTx) error {
-		rows, err := tx.query(ctx, `SELECT job_id FROM scheduled_occurrences WHERE job_id>? ORDER BY job_id LIMIT ?`, afterID, limit)
+		if err := verifyExactReadSnapshot(ctx, tx, scope, snapshot); err != nil {
+			return err
+		}
+		rows, err := tx.query(ctx, `SELECT o.job_id,o.policy_id,o.policy_revision,o.scheduled_at,COALESCE((SELECT MAX(attempt) FROM scheduled_occurrence_attempts WHERE job_id=o.job_id),1),t.plan_id,t.run_id,t.to_status,t.reason_code,o.recovery_epoch FROM scheduled_occurrences o JOIN scheduled_occurrence_transitions t ON t.transition_id=(SELECT MAX(transition_id) FROM scheduled_occurrence_transitions WHERE job_id=o.job_id) JOIN read_grants g ON g.resource_id=o.job_id AND g.principal_id=? AND g.capability=? AND g.resource_kind=? AND g.grant_revision=? AND g.status='active' WHERE o.job_id>? ORDER BY o.job_id LIMIT ?`, scope.PrincipalID, scope.Capability, scope.ResourceKind, scope.GrantRevision, afterID, limit)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
-			var id string
-			if err := rows.Scan(&id); err != nil {
+			var job generated.ScheduledJob
+			var planID, runID sql.NullString
+			if err := rows.Scan(&job.JobID, &job.PolicyID, &job.PolicyRevision, &job.ScheduledAt, &job.Attempt, &planID, &runID, &job.Status, &job.ReasonCode, &job.RecoveryEpoch); err != nil {
 				return err
 			}
-			ids = append(ids, id)
+			job.Schema, job.SchemaVersion = generated.SchemaIDScheduledJob, "1.1.0"
+			if planID.Valid {
+				job.PlanID = &planID.String
+			}
+			if runID.Valid {
+				job.RunID = &runID.String
+			}
+			jobs = append(jobs, job)
 		}
 		return rows.Err()
 	})
-	if err != nil {
-		return nil, err
-	}
-	jobs := make([]generated.ScheduledJob, 0, len(ids))
-	for _, id := range ids {
-		job, err := repository.GetOccurrence(ctx, id)
-		if err != nil {
-			return nil, err
-		}
-		jobs = append(jobs, job)
-	}
-	return jobs, nil
+	return jobs, snapshot, err
 }
 
 func (repository *ScheduleRepository) LatestScheduledAttempt(ctx context.Context, jobID string) (schedule.AttemptRecord, bool, error) {

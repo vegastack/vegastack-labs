@@ -2,8 +2,6 @@ package localapi
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"time"
 
@@ -12,15 +10,6 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/localtransport"
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
-
-// exactScheduleTargetDigest reproduces the server's closed target-set digest
-// without importing the schedule engine into the portable local client.
-func exactScheduleTargetDigest(policy generated.ScheduledJobPolicy) string {
-	value := struct{ SourceIDs, SubjectIDs, TargetIDs []string }{policy.ExactSourceIDs, policy.ExactSubjectIDs, policy.ExactTargetIDs}
-	body, _ := json.Marshal(value)
-	sum := sha256.Sum256(body)
-	return "sha256:" + hex.EncodeToString(sum[:])
-}
 
 func (client *client) SubmitScheduledPolicyDraft(ctx context.Context, profile serverconfig.Profile, policy generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledPolicyDraftSubmission], error) {
 	var zero TypedResponse[generated.ScheduledPolicyDraftSubmission]
@@ -33,13 +22,14 @@ func (client *client) SubmitScheduledPolicyDraft(ctx context.Context, profile se
 	})
 }
 
-func (client *client) GetScheduledPolicy(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.ScheduledJobPolicy], error) {
-	var zero TypedResponse[generated.ScheduledJobPolicy]
+func (client *client) GetScheduledPolicy(ctx context.Context, profile serverconfig.Profile, policyID string) (TypedResponse[generated.BrowserScheduledJobPolicy], error) {
+	var zero TypedResponse[generated.BrowserScheduledJobPolicy]
 	if !validPathToken(policyID) {
 		return zero, failure.New(generated.ErrorCodeInputInvalid, "scheduled-policy", false)
 	}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies/" + policyID, "api.v1.scheduled-job-policies.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.ScheduledJobPolicy, result generated.RunResult) bool {
-		return data.PolicyID == policyID && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/scheduled-job-policies/" + policyID, "api.v1.scheduled-job-policies.get", maxOperationResponseBodyBytes, operationTimeout, false}, nil, func(data generated.BrowserScheduledJobPolicy, result generated.RunResult) bool {
+		raw, err := json.Marshal(data)
+		return err == nil && generated.ValidateContractJSON(generated.SchemaIDBrowserScheduledJobPolicy, raw, generated.ContractExact) == nil && data.PolicyID == policyID && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch && data.TargetDigest != ""
 	})
 }
 
@@ -68,7 +58,6 @@ func (client *client) DispatchSchedule(ctx context.Context, profile serverconfig
 	if policyResponse.ExitCode != 0 {
 		return remapResponse[generated.ScheduledJob](policyResponse), nil
 	}
-	digest := exactScheduleTargetDigest(policyResponse.Data)
 	token, err := client.results.RequestID()
 	if err != nil {
 		return zero, err
@@ -77,7 +66,7 @@ func (client *client) DispatchSchedule(ctx context.Context, profile serverconfig
 	if err != nil {
 		return zero, err
 	}
-	input := generated.ScheduledJobRequest{Schema: generated.SchemaIDScheduledJobRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: policyResponse.Data.StateRevision, RecoveryEpoch: policyResponse.Data.RecoveryEpoch, TargetDigest: digest, IdempotencyKey: key, PolicyID: policyID, PolicyRevision: policyResponse.Data.Revision, OccurrenceToken: token, ObservedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)}
+	input := generated.ScheduledJobRequest{Schema: generated.SchemaIDScheduledJobRequest, SchemaVersion: "1.1.0", ExpectedStateRevision: policyResponse.Data.StateRevision, RecoveryEpoch: policyResponse.Data.RecoveryEpoch, TargetDigest: policyResponse.Data.TargetDigest, IdempotencyKey: key, PolicyID: policyID, PolicyRevision: policyResponse.Data.Revision, OccurrenceToken: token, ObservedAt: time.Now().UTC().Truncate(time.Second).Format(time.RFC3339)}
 	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/scheduled-job-policies/" + policyID + "/occurrences", "api.v1.scheduled-occurrences.create", maxOperationResponseBodyBytes, operationTimeout, true}, input, func(data generated.ScheduledJob, result generated.RunResult) bool {
 		return data.Schema == generated.SchemaIDScheduledJob && data.PolicyID == policyID && data.PolicyRevision == input.PolicyRevision && data.RecoveryEpoch == result.RecoveryEpoch
 	})

@@ -35,7 +35,7 @@ func (stub *restoreOperationsStub) Verify(context.Context, generated.RestoreVeri
 func (*restoreOperationsStub) Get(context.Context, string) (generated.BrowserRestoreStatus, error) {
 	return generated.BrowserRestoreStatus{}, nil
 }
-func (*restoreOperationsStub) List(context.Context, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
+func (*restoreOperationsStub) List(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error) {
 	return []generated.BrowserRestoreStatus{}, store.RevisionToken{}, nil
 }
 func (*restoreOperationsStub) AuthorizationPlan(context.Context, string) (generated.Plan, error) {

@@ -66,7 +66,7 @@ type TypedResponse[T any] struct {
 
 type Client interface {
 	SubmitScheduledPolicyDraft(context.Context, serverconfig.Profile, generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledPolicyDraftSubmission], error)
-	GetScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJobPolicy], error)
+	GetScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserScheduledJobPolicy], error)
 	DispatchSchedule(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJob], error)
 	CancelSchedule(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJob], error)
 	CreateCredentialLifecycleDraft(context.Context, serverconfig.Profile, generated.CredentialLifecycleRequest) (TypedResponse[generated.CredentialLifecycleSubmission], error)
@@ -87,7 +87,6 @@ type Client interface {
 	PlanRestore(context.Context, serverconfig.Profile, generated.RestoreRequest) (TypedResponse[generated.RestoreBinding], error)
 	RunRestore(context.Context, serverconfig.Profile, generated.RestoreRunRequest) (TypedResponse[generated.RestoreBinding], error)
 	VerifyRestore(context.Context, serverconfig.Profile, generated.RestoreVerifyRequest) (TypedResponse[generated.RestoreVerification], error)
-	GetRestore(context.Context, serverconfig.Profile, string) (TypedResponse[generated.BrowserRestoreStatus], error)
 	Status(context.Context, serverconfig.Profile) (Response, error)
 	Summary(context.Context, serverconfig.Profile) (TypedResponse[generated.ApiSummaryData], error)
 	DatabaseStatus(context.Context, serverconfig.Profile) (TypedResponse[generated.DatabaseStatusData], error)

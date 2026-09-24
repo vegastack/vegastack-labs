@@ -68,21 +68,33 @@ func (client *client) DryRunBackupOffsiteRetirement(ctx context.Context, profile
 }
 
 func (client *client) BackupStatus(ctx context.Context, profile serverconfig.Profile) (TypedResponse[generated.BackupStatusData], error) {
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/backups/status", "api.v1.backups.status", maxOperationResponseBodyBytes, statusTimeout, false}, nil, func(data generated.BackupStatusData, result generated.RunResult) bool {
+	response, err := requestTyped(client, ctx, profile, requestSpec{localtransport.MethodGet, "/api/v1/backups/status", "api.v1.backups.status", maxOperationResponseBodyBytes, statusTimeout, false}, nil, func(data generated.BrowserBackupStatusData, result generated.RunResult) bool {
 		raw, err := json.Marshal(data)
-		return err == nil && generated.ValidateContractJSON(generated.SchemaIDBackupStatusData, raw, generated.ContractExact) == nil && data.RecoveryEpoch == result.RecoveryEpoch
+		return err == nil && generated.ValidateContractJSON(generated.SchemaIDBrowserBackupStatusData, raw, generated.ContractExact) == nil && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
 	})
+	if err != nil {
+		return TypedResponse[generated.BackupStatusData]{}, err
+	}
+	// Keep the established CLI method signature while treating the sanitized
+	// browser projection as the only wire contract. JSON output retains Raw;
+	// human output can still report the recovery epoch without reconstructing
+	// private catalog rows that the server deliberately omitted.
+	legacy := generated.BackupStatusData{Schema: generated.SchemaIDBackupStatusData, SchemaVersion: "1.3.0", Policies: []generated.BackupPolicy{}, Jobs: []generated.BackupJob{}, Verifications: []generated.BackupVerificationAttempt{}, LastGood: []generated.BackupLastGood{}, Retirements: []generated.BackupLocalRetirementStatus{}, Offsite: []generated.BackupOffsiteStatus{}, RecoveryEpoch: response.Data.RecoveryEpoch}
+	return TypedResponse[generated.BackupStatusData]{Raw: response.Raw, Result: response.Result, Data: legacy, ExitCode: response.ExitCode}, nil
 }
 
 func (client *client) RunBackup(ctx context.Context, profile serverconfig.Profile, input generated.BackupRunRequest) (TypedResponse[generated.BackupJob], error) {
-	return client.backupMutation(ctx, profile, "/api/v1/backups/run", "api.v1.backups.run", generated.SchemaIDBackupRunRequest, input, "", input.RecoveryEpoch)
+	if !validPathToken(input.PolicyID) {
+		return TypedResponse[generated.BackupJob]{}, failure.New(generated.ErrorCodeInputInvalid, "backup-policy", false)
+	}
+	return client.backupMutation(ctx, profile, "/api/v1/backup-policies/"+input.PolicyID+"/jobs", "api.v1.backup-jobs.create", generated.SchemaIDBackupRunRequest, input, "", input.RecoveryEpoch)
 }
 
 func (client *client) VerifyBackup(ctx context.Context, profile serverconfig.Profile, input generated.BackupVerifyRequest) (TypedResponse[generated.BackupJob], error) {
-	if !validPathToken(input.JobID) {
-		return TypedResponse[generated.BackupJob]{}, failure.New(generated.ErrorCodeInputInvalid, "backup-job", false)
+	if !validPathToken(input.PointID) {
+		return TypedResponse[generated.BackupJob]{}, failure.New(generated.ErrorCodeInputInvalid, "recovery-point", false)
 	}
-	return client.backupMutation(ctx, profile, "/api/v1/backups/"+input.JobID+"/verify", "api.v1.backups.verify", generated.SchemaIDBackupVerifyRequest, input, input.JobID, input.RecoveryEpoch)
+	return client.backupMutation(ctx, profile, "/api/v1/recovery-points/"+input.PointID+"/verifications", "api.v1.backup-verifications.create", generated.SchemaIDBackupVerifyRequest, input, input.JobID, input.RecoveryEpoch)
 }
 
 func (client *client) backupMutation(ctx context.Context, profile serverconfig.Profile, path, operation, schema string, input any, expectedJob string, epoch int64) (TypedResponse[generated.BackupJob], error) {

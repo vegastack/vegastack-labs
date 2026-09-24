@@ -22,7 +22,7 @@ type RestoreOperations interface {
 	Run(context.Context, generated.RestoreRunRequest, identity.Principal) (generated.RestoreBinding, error)
 	Verify(context.Context, generated.RestoreVerifyRequest, identity.Principal) (generated.RestoreVerification, error)
 	Get(context.Context, string) (generated.BrowserRestoreStatus, error)
-	List(context.Context, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error)
+	List(context.Context, authorization.ReadScope, store.RevisionToken, string, int) ([]generated.BrowserRestoreStatus, store.RevisionToken, error)
 	AuthorizationPlan(context.Context, string) (generated.Plan, error)
 }
 
@@ -50,7 +50,7 @@ func RegisterRestoreOperations(app *Application, config RestoreConfig) error {
 	previous := app.effective
 	app.effective = config.Authorization
 	app.routes = append(app.routes,
-		route{id: "api.v1.restores.list", method: http.MethodGet, pattern: "/api/v1/restore-plans", capability: "restore.read", kind: "restore-plan", staticResourceID: "plans", handler: app.restoreList(config)},
+		route{id: "api.v1.restores.list", method: http.MethodGet, pattern: "/api/v1/restore-plans", capability: "restore.read", kind: "restore-plan", handler: app.restoreList(config)},
 		route{id: "api.v1.restores.plan", method: http.MethodPost, pattern: "/api/v1/recovery-points/{pointId}/restore-plans", capability: "recovery.restore.author", kind: "recovery-point", action: authorization.ActionAuthor, resourceParam: "pointId", handler: app.restorePlan(config)},
 		route{id: "api.v1.restores.run", method: http.MethodPost, pattern: "/api/v1/restore-plans/{planId}/runs", capability: "recovery.restore.cutover", kind: "restore-plan", action: authorization.ActionAuthor, resourceParam: "planId", handler: app.restoreRun(config)},
 		route{id: "api.v1.restores.verify", method: http.MethodPost, pattern: "/api/v1/restore-plans/{planId}/verifications", capability: "recovery.restore.cutover", kind: "restore-plan", action: authorization.ActionAuthor, resourceParam: "planId", handler: app.restoreVerify(config)},
@@ -219,7 +219,7 @@ func (app *Application) restoreList(config RestoreConfig) func(http.ResponseWrit
 			app.failure(w, op, err)
 			return
 		}
-		items, revision, err := config.Operations.List(r.Context(), page.AfterID, page.Query.Limit+1)
+		items, revision, err := config.Operations.List(r.Context(), scope, page.Snapshot, page.AfterID, page.Query.Limit+1)
 		if err != nil {
 			app.failure(w, op, err)
 			return
