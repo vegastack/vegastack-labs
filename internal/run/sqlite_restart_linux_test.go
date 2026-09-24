@@ -167,9 +167,19 @@ type sqliteRestartFixture struct {
 	ids          *deterministicIDs
 	engine       *Engine
 	acknowledger *acknowledgement.Service
+	operation    phase5OperationBinding
+}
+
+type phase5OperationBinding struct {
+	name          string
+	operationType string
 }
 
 func newSQLiteRestartFixture(t *testing.T, branch string) *sqliteRestartFixture {
+	return newSQLiteRestartFixtureForOperation(t, branch, phase5OperationBinding{name: "generic-run", operationType: "configuration.update"})
+}
+
+func newSQLiteRestartFixtureForOperation(t *testing.T, branch string, operation phase5OperationBinding) *sqliteRestartFixture {
 	t.Helper()
 	now := time.Date(2026, 9, 13, 6, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
@@ -189,7 +199,7 @@ func newSQLiteRestartFixture(t *testing.T, branch string) *sqliteRestartFixture 
 	if err != nil {
 		t.Fatal(err)
 	}
-	fixture := &sqliteRestartFixture{testingT: t, config: config, authority: authority, clock: clock, branch: branch, adapter: &sqliteCountingAdapter{}, ids: &deterministicIDs{}}
+	fixture := &sqliteRestartFixture{testingT: t, config: config, authority: authority, clock: clock, branch: branch, adapter: &sqliteCountingAdapter{}, ids: &deterministicIDs{}, operation: operation}
 	t.Cleanup(func() { _ = fixture.authority.Close() })
 	fixture.plan = fixture.seedPlan()
 	fixture.recompose()
@@ -199,14 +209,17 @@ func newSQLiteRestartFixture(t *testing.T, branch string) *sqliteRestartFixture 
 
 func (fixture *sqliteRestartFixture) seedPlan() generated.Plan {
 	t := fixture.testingT
+	if fixture.operation.name == "" || fixture.operation.operationType == "" {
+		t.Fatal("durable operation binding is incomplete")
+	}
 	declarations, err := change.NewService(store.NewDeclarationRepository(fixture.authority), fixture.clock)
 	if err != nil {
 		t.Fatal(err)
 	}
 	operation := generated.DeclarationOperation{
 		Sequence:       1,
-		OperationID:    "operation-sqlite-restart",
-		OperationType:  "configuration.update",
+		OperationID:    "operation-sqlite-restart-" + fixture.operation.name,
+		OperationType:  fixture.operation.operationType,
 		AdapterID:      "adapter-sqlite-restart",
 		TargetID:       "target-sqlite-restart",
 		InputDigest:    digest("sqlite-input"),
@@ -217,7 +230,7 @@ func (fixture *sqliteRestartFixture) seedPlan() generated.Plan {
 	revised, err := declarations.Revise(context.Background(), author, generated.DeclarationRevisionRequest{
 		Schema:                generated.SchemaIDDeclarationRevisionRequest,
 		SchemaVersion:         "1.0.0",
-		DeclarationID:         "declaration-sqlite-restart",
+		DeclarationID:         "declaration-sqlite-restart-" + fixture.operation.name,
 		DeclarationType:       "node.configuration",
 		ExpectedRevision:      1,
 		ExpectedStateRevision: 0,
@@ -225,7 +238,7 @@ func (fixture *sqliteRestartFixture) seedPlan() generated.Plan {
 		Operations:            []generated.DeclarationOperation{operation},
 		ReasonDigest:          digest("sqlite-reason"),
 		Extensions: []generated.ContractExtension{{
-			Name:        "x-sqlite-restart",
+			Name:        "x-sqlite-restart-" + fixture.operation.name,
 			ValueDigest: digest("sqlite-extension"),
 		}},
 	})
@@ -250,7 +263,7 @@ func (fixture *sqliteRestartFixture) seedPlan() generated.Plan {
 		ExpectedStateRevision:  revised.Document.StateRevision,
 		RecoveryEpoch:          revised.Document.RecoveryEpoch,
 		ObservationFingerprint: fingerprint,
-		IdempotencyKey:         "plan-sqlite-restart",
+		IdempotencyKey:         "plan-sqlite-restart-" + fixture.operation.name,
 		Extensions:             []generated.ContractExtension{},
 	})
 	if err != nil {

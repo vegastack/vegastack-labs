@@ -206,6 +206,8 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		return generated.Run{}, runError(generated.ErrorCodePlanStale, "plan")
 	}
 	id := runID(plan.PlanID, request.Reference.IdempotencyKey)
+	release := engine.lockOperation("submit:" + id)
+	defer release()
 	executorID, err := planExecutorID(plan)
 	if err != nil {
 		return generated.Run{}, err
