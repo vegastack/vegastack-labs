@@ -182,7 +182,7 @@ jobs:
 
       - name: Run Linux Go unit diagnostic
         if: github.event_name == 'workflow_dispatch' && inputs.go_unit_diagnostic
-        run: go test ./...
+        run: go test ./internal/store -run '^TestRestorePlanIsInertAndTransitionJournalIsAppendOnly$' -count=1 -timeout 60s -v
 
       - name: Run exact Phase 5 exit acceptance
         if: inputs.full_check && github.ref == 'refs/heads/main'
