@@ -3159,7 +3159,7 @@
       ],
       "requestSchema": "vegastack-labs.dev/scheduled-job-policy",
       "resultSchema": "vegastack-labs.dev/run-result",
-      "dataSchema": "vegastack-labs.dev/scheduled-job-policy",
+      "dataSchema": "vegastack-labs.dev/scheduled-policy-draft-submission",
       "examples": [
         {
           "summary": "Store one inert exact scheduled-policy draft for later human-plan activation.",
@@ -4455,6 +4455,11 @@
       "id": "vegastack-labs.dev/scheduled-job-request",
       "version": "1.1.0",
       "artifactPath": "schemas/v1/scheduled-job-request.schema.json"
+    },
+    {
+      "id": "vegastack-labs.dev/scheduled-policy-draft-submission",
+      "version": "1.1.0",
+      "artifactPath": "schemas/v1/scheduled-policy-draft-submission.schema.json"
     },
     {
       "id": "vegastack-labs.dev/scheduled-runner-profile",

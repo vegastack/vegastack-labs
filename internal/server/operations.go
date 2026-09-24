@@ -397,7 +397,8 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: secretGate, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx})
+	scheduleRepository := store.NewScheduleRepository(authority)
+	runs, err := runengine.NewEngine(runengine.Config{Repository: runRepository, Plans: plans, Admission: admission, Adapters: adapters, Core: coreRouter, CredentialCore: credentialCore, RetentionCore: retentionCore, SecretGate: secretGate, CredentialStep: credentialStep, Clock: time.Now, ExecutionContext: ctx, Scheduled: scheduleRepository})
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
@@ -406,7 +407,6 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	scheduleRepository := store.NewScheduleRepository(authority)
 	scheduleDispatcher, err := schedule.NewService(scheduleRepository, time.Now)
 	if err != nil {
 		_ = application.Shutdown(ctx)
@@ -418,12 +418,16 @@ func (operations *Operations) Run(ctx context.Context, configPath string) error 
 		return err
 	}
 	authorityReader := schedule.AuthorityReader{Revisions: scheduleRepository, Clock: time.Now}
-	scheduledRunner, err := schedule.NewRunner(scheduleRepository, scheduledPlans, application, scheduledEngineSubmitter{engine: runs}, authorityReader, authorityReader, time.Now)
+	runnerPrincipalID := "schedule-runner-disabled"
+	if profile.ScheduledRunner != nil {
+		runnerPrincipalID = profile.ScheduledRunner.PrincipalID
+	}
+	scheduledRunner, err := schedule.NewRunner(scheduleRepository, scheduledPlans, application, scheduledEngineSubmitter{engine: runs}, authorityReader, authorityReader, time.Now, runnerPrincipalID)
 	if err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
-	if err := api.RegisterScheduleOperations(application, api.ScheduleOperations{Policies: scheduleRepository, Dispatch: scheduleDispatcher, Runner: scheduledRunner, Results: factory}); err != nil {
+	if err := api.RegisterScheduleOperations(application, api.ScheduleOperations{Policies: scheduleRepository, Dispatch: scheduleDispatcher, Runner: scheduledRunner, Results: factory, Lifecycle: scheduledRunner, RunnerPrincipalID: runnerPrincipalID}); err != nil {
 		_ = application.Shutdown(ctx)
 		return err
 	}
@@ -766,10 +770,10 @@ func (operations *Operations) SubmitBackupPolicyDraft(ctx context.Context, confi
 	return client.SubmitBackupPolicyDraft(ctx, profile, input)
 }
 
-func (operations *Operations) SubmitScheduledPolicyDraft(ctx context.Context, configPath string, input generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledJobPolicy], error) {
+func (operations *Operations) SubmitScheduledPolicyDraft(ctx context.Context, configPath string, input generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission], error) {
 	client, profile, err := operations.controlClient(ctx, configPath)
 	if err != nil {
-		return localapi.TypedResponse[generated.ScheduledJobPolicy]{}, err
+		return localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission]{}, err
 	}
 	return client.SubmitScheduledPolicyDraft(ctx, profile, input)
 }

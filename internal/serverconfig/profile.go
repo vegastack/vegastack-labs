@@ -24,6 +24,7 @@ const maxProfileBytes = 64 * 1024
 
 var offsiteProfileToken = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
 var offsiteBucketName = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]{1,62}$`)
+var scheduledRunnerPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 type Profile struct {
 	SocketPath                       string
@@ -186,7 +187,7 @@ func convertGeneratedProfile(input generated.ServerProfile, expectedOwnerUID uin
 	var scheduledRunner *ScheduledRunner
 	if input.ScheduledRunner != nil {
 		runner := input.ScheduledRunner
-		if runner.UID < 0 || runner.UID > int64(^uint32(0)) || runner.PrincipalID == "" || !filepath.IsAbs(runner.BinaryPath) || filepath.Clean(runner.BinaryPath) != runner.BinaryPath || !filepath.IsAbs(runner.ConfigPath) || filepath.Clean(runner.ConfigPath) != runner.ConfigPath {
+		if runner.UID < 0 || runner.UID > int64(^uint32(0)) || runner.PrincipalID == "" || !filepath.IsAbs(runner.BinaryPath) || filepath.Clean(runner.BinaryPath) != runner.BinaryPath || !scheduledRunnerPath.MatchString(runner.BinaryPath) || !filepath.IsAbs(runner.ConfigPath) || filepath.Clean(runner.ConfigPath) != runner.ConfigPath || !scheduledRunnerPath.MatchString(runner.ConfigPath) {
 			return invalid()
 		}
 		scheduledRunner = &ScheduledRunner{UID: uint32(runner.UID), PrincipalID: runner.PrincipalID, BinaryPath: runner.BinaryPath, ConfigPath: runner.ConfigPath}

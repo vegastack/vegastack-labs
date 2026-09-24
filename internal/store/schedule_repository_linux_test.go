@@ -16,7 +16,7 @@ func scheduledPolicyFixture() generated.ScheduledJobPolicy {
 	digest := "sha256:" + strings.Repeat("a", 64)
 	return generated.ScheduledJobPolicy{Schema: generated.SchemaIDScheduledJobPolicy, SchemaVersion: "1.1.0", PolicyID: "policy-a", Revision: 1,
 		DeclarationID: "declaration-a", DeclarationRevision: 1, ApprovalPlanID: "plan-a", ApprovalPlanDigest: digest, ApprovedByHumanID: "human-a",
-		ActionKind: "backup-create", OperationType: "backup.snapshot", AdapterID: "core.backup", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1, CredentialReferenceIDs: []string{"credential-a"},
+		ActionKind: "backup-create", OperationType: "backup.local.create", AdapterID: "core.backup", ExactSourceIDs: []string{"source-a"}, ExactSubjectIDs: []string{"subject-a"}, ExactTargetIDs: []string{"target-a"}, MaximumWork: 1, CredentialReferenceIDs: []string{"credential-a"},
 		GrantRevision: 1, StateRevision: 0, RecoveryEpoch: 0, PolicyVersion: "1.0.0", RetentionRuleDigest: digest, AnchorAt: "2026-09-16T00:00:00Z", IntervalSeconds: 3600, WindowSeconds: 1800, CatchUp: "latest", Concurrency: "forbid", MaxAttempts: 3, InitialBackoffSeconds: 10, MaximumBackoffSeconds: 60, ExpiresAt: "2026-10-16T00:00:00Z", Enabled: true}
 }
 
@@ -30,10 +30,10 @@ func TestPolicyActivationRequiresExactHumanPlanAndOccurrenceSlotIsUnique(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := repository.Activate(ctx, ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: "preauthorized", ExecutingOperation: "schedule.policy.activate", PlanID: policy.ApprovalPlanID, PlanDigest: policy.ApprovalPlanDigest, Expected: RevisionToken{}, Attribution: attribution}); Code(err) != generated.ErrorCodeAuthorizationDenied {
+	if _, err := repository.Activate(ctx, ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: "preauthorized", ExecutingOperation: "schedule.policy.activate", PlanID: policy.ApprovalPlanID, PlanDigest: policy.ApprovalPlanDigest, AcknowledgementID: "ack-a", Expected: RevisionToken{}, Attribution: attribution}); Code(err) != generated.ErrorCodeAuthorizationDenied {
 		t.Fatalf("preauthorized activation err=%v", err)
 	}
-	active, err := repository.Activate(ctx, ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: "human", ExecutingOperation: "schedule.policy.activate", PlanID: policy.ApprovalPlanID, PlanDigest: policy.ApprovalPlanDigest, Expected: RevisionToken{}, Attribution: attribution})
+	active, err := repository.Activate(ctx, ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: "human", ExecutingOperation: "schedule.policy.activate", PlanID: policy.ApprovalPlanID, PlanDigest: policy.ApprovalPlanDigest, AcknowledgementID: "ack-a", Expected: RevisionToken{}, Attribution: attribution})
 	if err != nil || active.PolicyID != policy.PolicyID {
 		t.Fatalf("activation=%#v err=%v", active, err)
 	}
@@ -58,7 +58,7 @@ func TestOccurrenceTransitionsAttemptsAndLeaseFailClosed(t *testing.T) {
 	policy := scheduledPolicyFixture()
 	attribution := audit.Attribution{AuthenticatedPrincipalID: "human-a", AuthenticatedPrincipalMethod: "local-os-peer"}
 	draft, _ := repository.StageDraft(ctx, policy, attribution)
-	_, _ = repository.Activate(ctx, ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: "human", ExecutingOperation: "schedule.policy.activate", PlanID: policy.ApprovalPlanID, PlanDigest: policy.ApprovalPlanDigest, Expected: RevisionToken{}, Attribution: attribution})
+	_, _ = repository.Activate(ctx, ScheduleActivationRequest{DraftID: draft.DraftID, AuthorizationBranch: "human", ExecutingOperation: "schedule.policy.activate", PlanID: policy.ApprovalPlanID, PlanDigest: policy.ApprovalPlanDigest, AcknowledgementID: "ack-a", Expected: RevisionToken{}, Attribution: attribution})
 	job, err := repository.ClaimOccurrence(ctx, OccurrenceClaim{Policy: policy, ScheduledAt: time.Date(2026, 9, 16, 1, 0, 0, 0, time.UTC), OccurrenceToken: "token-a", TargetDigest: policy.RetentionRuleDigest, IdempotencyKey: "key-a", Expected: RevisionToken{}})
 	if err != nil {
 		t.Fatal(err)

@@ -40,6 +40,7 @@ const (
 	restoreCanaryResultSchemaID              = "vegastack-labs.dev/restore-canary-result"
 	restoreVerificationSchemaID              = "vegastack-labs.dev/restore-verification"
 	scheduledJobPolicySchemaID               = "vegastack-labs.dev/scheduled-job-policy"
+	scheduledPolicyDraftSubmissionSchemaID   = "vegastack-labs.dev/scheduled-policy-draft-submission"
 	scheduledJobSchemaID                     = "vegastack-labs.dev/scheduled-job"
 	gateCheckRequestSchemaID                 = "vegastack-labs.dev/gate-check-request"
 	gateEvidenceRequestSchemaID              = "vegastack-labs.dev/gate-evidence-request"
@@ -537,6 +538,11 @@ func phase5RecoveryJobSchemas() []SchemaDefinition {
 			phase5Positive("maxAttempts", "MaxAttempts"), phase5Positive("initialBackoffSeconds", "InitialBackoffSeconds"), phase5Positive("maximumBackoffSeconds", "MaximumBackoffSeconds"),
 			phase5Timestamp("expiresAt", "ExpiresAt"), phase5Bool("enabled", "Enabled"),
 		),
+		phase5ScheduleSchema(scheduledPolicyDraftSubmissionSchemaID,
+			phase5ID("draftId", "DraftID"), phase5ID("policyId", "PolicyID"), phase5Positive("policyRevision", "PolicyRevision"),
+			phase5Digest("policyDigest", "PolicyDigest"), phase5Enum("status", "Status", "draft"),
+			phase5Nonnegative("stateRevision", "StateRevision"), phase5Nonnegative("recoveryEpoch", "RecoveryEpoch"),
+		),
 		phase5ScheduleSchema(scheduledJobSchemaID,
 			phase5ID("jobId", "JobID"), phase5ID("policyId", "PolicyID"),
 			phase5Positive("policyRevision", "PolicyRevision"), phase5Timestamp("scheduledAt", "ScheduledAt"), phase5Positive("attempt", "Attempt"),
@@ -906,7 +912,7 @@ func phase5Endpoints() []EndpointDefinition {
 		phase5AvailableGateEndpoint("api.v1.restores.run", "POST", "/api/v1/restores/plans/{planId}/run", restoreRunRequestSchemaID, restoreBindingSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.restores.verify", "POST", "/api/v1/restores/plans/{planId}/verify", restoreVerifyRequestSchemaID, restoreVerificationSchemaID, false),
 		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.get", "GET", "/api/v1/scheduled-job-policies/{policyId}", "", scheduledJobPolicySchemaID, true),
-		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.drafts.create", "POST", "/api/v1/scheduled-job-policies/drafts", scheduledJobPolicySchemaID, scheduledJobPolicySchemaID, false),
+		phase5AvailableGateEndpoint("api.v1.scheduled-job-policies.drafts.create", "POST", "/api/v1/scheduled-job-policies/drafts", scheduledJobPolicySchemaID, scheduledPolicyDraftSubmissionSchemaID, false),
 		{ID: "api.v1.scheduled-jobs.create", Method: "POST", Path: "/api/v1/scheduled-jobs", RequestSchema: scheduledJobRequestSchemaID, DataSchema: scheduledJobSchemaID, Availability: AvailabilityAvailable, OwnerPhase: "5", Stream: StreamFinite, Audiences: []EndpointAudience{AudienceOperator}, TransportScope: "local"},
 	}
 }

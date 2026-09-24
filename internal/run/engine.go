@@ -79,6 +79,10 @@ type IDSource interface {
 	Lease(generated.RunStep) (string, string, error)
 }
 
+type ScheduledAdmission interface {
+	ValidateScheduledPlan(context.Context, generated.Plan, time.Time) error
+}
+
 type Config struct {
 	Repository       Repository
 	Plans            PlanSource
@@ -93,6 +97,7 @@ type Config struct {
 	IDs              IDSource
 	ExecutionContext context.Context
 	LeaseContext     func(context.Context, time.Time) (context.Context, context.CancelFunc)
+	Scheduled        ScheduledAdmission
 }
 
 type SubmitRequest struct {
@@ -116,6 +121,7 @@ type Engine struct {
 	ids               IDSource
 	executionContext  context.Context
 	leaseContext      func(context.Context, time.Time) (context.Context, context.CancelFunc)
+	scheduled         ScheduledAdmission
 	operationMu       sync.Mutex
 	operationLanes    map[string]*operationLane
 	testAfterBoundary func(Boundary) error
@@ -170,7 +176,7 @@ func NewEngine(config Config) (*Engine, error) {
 	if config.SecretGate == nil {
 		config.SecretGate = UnavailableGateVerifier{}
 	}
-	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, credentialCore: config.CredentialCore, retentionCore: config.RetentionCore, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, operationLanes: map[string]*operationLane{}}, nil
+	return &Engine{repository: config.Repository, plans: config.Plans, admission: config.Admission, adapters: config.Adapters, core: config.Core, credentialCore: config.CredentialCore, retentionCore: config.RetentionCore, secretGate: config.SecretGate, credentialStep: config.CredentialStep, clock: config.Clock, ids: config.IDs, executionContext: config.ExecutionContext, leaseContext: config.LeaseContext, scheduled: config.Scheduled, operationLanes: map[string]*operationLane{}}, nil
 }
 
 func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (generated.Run, error) {
@@ -186,6 +192,9 @@ func (engine *Engine) Submit(ctx context.Context, request SubmitRequest) (genera
 		return generated.Run{}, runError(generated.ErrorCodePlanStale, "plan")
 	}
 	if err := engine.verifyAdmission(ctx, plan, request.Authorization, request.Acknowledgement); err != nil {
+		return generated.Run{}, err
+	}
+	if err := engine.validateScheduled(ctx, plan); err != nil {
 		return generated.Run{}, err
 	}
 	if credentialPlanDigest(plan) != "" && plan.ExecutorMode != "central" {
@@ -600,6 +609,10 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 			return current, runError(generated.ErrorCodeIntegrityFailure, "run-step-binding")
 		}
 		binding := ExactStepBinding{Plan: plan, Run: current, Step: *intentStep, Lease: lease, Attribution: attribution}
+		if err := engine.validateScheduled(leaseContext, plan); err != nil {
+			cancelLease()
+			return engine.failBeforeEffect(ctx, current, *live, attribution, err)
+		}
 		var effect adapter.Effect
 		var executeErr error
 		if isCoreOperation(operation.AdapterID, operation.OperationType) {
@@ -698,6 +711,22 @@ func (engine *Engine) start(ctx context.Context, plan generated.Plan, current ge
 		return current, err
 	}
 	return current, nil
+}
+
+func (engine *Engine) validateScheduled(ctx context.Context, plan generated.Plan) error {
+	found := false
+	for _, extension := range plan.Extensions {
+		if extension.Name == "x-scheduled-policy" || extension.Name == "x-scheduled-occurrence" {
+			found = true
+		}
+	}
+	if !found {
+		return nil
+	}
+	if engine.scheduled == nil {
+		return runError(generated.ErrorCodePrerequisiteBlocked, "scheduled-admission-unavailable")
+	}
+	return engine.scheduled.ValidateScheduledPlan(ctx, plan, engine.clock().UTC().Truncate(time.Second))
 }
 
 func (engine *Engine) executeSecretStep(ctx context.Context, plan generated.Plan, step generated.RunStep, lease generated.ExecutorLease, operation adapter.Operation, implementation adapter.Adapter) (adapter.Effect, error) {

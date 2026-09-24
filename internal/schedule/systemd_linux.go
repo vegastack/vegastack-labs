@@ -23,12 +23,13 @@ type UnitSet struct {
 }
 
 var unitID = regexp.MustCompile(`^[a-z][a-z0-9._:-]{0,127}$`)
+var unitPath = regexp.MustCompile(`^/[A-Za-z0-9._/-]+$`)
 
 func RenderSystemd(policy generated.ScheduledJobPolicy, runner RunnerProfile) (UnitSet, error) {
 	if _, _, err := CanonicalPolicy(policy); err != nil {
 		return UnitSet{}, err
 	}
-	if runner.UID == 0 || !unitID.MatchString(runner.PrincipalID) || !filepath.IsAbs(runner.BinaryPath) || !filepath.IsAbs(runner.ConfigPath) || strings.ContainsAny(runner.BinaryPath+runner.ConfigPath, "\n\r\x00\"") {
+	if runner.UID == 0 || !unitID.MatchString(runner.PrincipalID) || !filepath.IsAbs(runner.BinaryPath) || !filepath.IsAbs(runner.ConfigPath) || !unitPath.MatchString(runner.BinaryPath) || !unitPath.MatchString(runner.ConfigPath) || strings.ContainsAny(runner.BinaryPath+runner.ConfigPath, "\n\r\x00\"") {
 		return UnitSet{}, errors.New("invalid scheduled runner profile")
 	}
 	name := "vsk-labs-schedule-" + policy.PolicyID

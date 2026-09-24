@@ -35,6 +35,10 @@ type ObservationReader interface {
 type PrerequisiteReader interface {
 	Current(context.Context, []PrerequisiteRequirement) ([]PrerequisiteStatus, error)
 }
+type AttemptRecord struct {
+	Attempt    int64
+	RecordedAt time.Time
+}
 type RuntimeRepository interface {
 	GetActivePolicy(context.Context, string) (generated.ScheduledJobPolicy, error)
 	CurrentScheduleRevision(context.Context) (Revision, error)
@@ -42,6 +46,9 @@ type RuntimeRepository interface {
 	TransitionScheduledOccurrence(context.Context, string, string, string, string, *string, *string) (generated.ScheduledJob, error)
 	AcquireOccurrenceLease(context.Context, string, string, string, time.Time) error
 	ReleaseOccurrenceLease(context.Context, string, string) error
+	ListRecoverableOccurrences(context.Context) ([]generated.ScheduledJob, error)
+	LatestScheduledAttempt(context.Context, string) (AttemptRecord, bool, error)
+	ReleaseExpiredOccurrenceLeases(context.Context, time.Time) error
 }
 
 type Runner struct {
@@ -52,20 +59,21 @@ type Runner struct {
 	observations  ObservationReader
 	prerequisites PrerequisiteReader
 	clock         func() time.Time
+	principalID   string
 }
 
-func NewRunner(repository RuntimeRepository, plans PlanCreator, authorizer ScheduledAuthorizer, runs RunSubmitter, observations ObservationReader, prerequisites PrerequisiteReader, clock func() time.Time) (*Runner, error) {
-	if repository == nil || plans == nil || authorizer == nil || runs == nil || observations == nil || prerequisites == nil {
+func NewRunner(repository RuntimeRepository, plans PlanCreator, authorizer ScheduledAuthorizer, runs RunSubmitter, observations ObservationReader, prerequisites PrerequisiteReader, clock func() time.Time, principalID string) (*Runner, error) {
+	if repository == nil || plans == nil || authorizer == nil || runs == nil || observations == nil || prerequisites == nil || principalID == "" {
 		return nil, fmt.Errorf("invalid scheduled runner")
 	}
 	if clock == nil {
 		clock = time.Now
 	}
-	return &Runner{repository: repository, plans: plans, authorizer: authorizer, runs: runs, observations: observations, prerequisites: prerequisites, clock: clock}, nil
+	return &Runner{repository: repository, plans: plans, authorizer: authorizer, runs: runs, observations: observations, prerequisites: prerequisites, clock: clock, principalID: principalID}, nil
 }
 
 func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attribution audit.Attribution) (generated.ScheduledJob, error) {
-	if runner == nil || job.Status != "queued" || job.Attempt <= 0 {
+	if runner == nil || (job.Status != "queued" && job.Status != "retry-wait") || job.Attempt <= 0 {
 		return generated.ScheduledJob{}, fmt.Errorf("invalid scheduled job")
 	}
 	policy, err := runner.repository.GetActivePolicy(ctx, job.PolicyID)
@@ -75,7 +83,23 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 	if generated.ValidateScheduledJobBinding(policy, job) != nil {
 		return runner.block(ctx, job, "policy-binding-stale")
 	}
+	if attribution.AuthenticatedPrincipalID == "" || attribution.AuthenticatedPrincipalMethod == "" {
+		return runner.block(ctx, job, "runner-principal-missing")
+	}
+	attribution.ResponsibleHumanPrincipalID = &policy.ApprovedByHumanID
 	now := runner.clock().UTC().Truncate(time.Second)
+	fromStatus, attempt := job.Status, job.Attempt
+	if job.Status == "retry-wait" {
+		previous, found, latestErr := runner.repository.LatestScheduledAttempt(ctx, job.JobID)
+		if latestErr != nil {
+			return job, latestErr
+		}
+		if !found || now.Before(previous.RecordedAt.Add(Backoff(policy, previous.Attempt))) {
+			return job, nil
+		}
+		attempt = previous.Attempt + 1
+		job.Attempt = attempt
+	}
 	scheduledAt, err := time.Parse(time.RFC3339, job.ScheduledAt)
 	if err != nil {
 		return runner.block(ctx, job, "scheduled-at-invalid")
@@ -120,20 +144,20 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 		return runner.block(ctx, job, "occurrence-invalid")
 	}
 	occurrenceDigest := scheduleBytesDigest(jobBytes)
-	plan, err := runner.plans.CreateScheduledPlan(ctx, PlanRequest{Policy: policy, PolicyDigest: policyDigest, JobID: job.JobID, OccurrenceDigest: occurrenceDigest, ObservationFingerprint: observation, Attempt: job.Attempt, ScheduledAt: scheduledAt, WindowClosesAt: windowCloses, Expected: revision})
+	plan, err := runner.plans.CreateScheduledPlan(ctx, PlanRequest{Policy: policy, PolicyDigest: policyDigest, JobID: job.JobID, OccurrenceDigest: occurrenceDigest, ObservationFingerprint: observation, Attempt: attempt, ScheduledAt: scheduledAt, WindowClosesAt: windowCloses, Expected: revision})
 	if err != nil {
 		return runner.block(ctx, job, "plan-create-failed")
 	}
-	decision, err := runner.authorizer.AuthorizeScheduled(ctx, "schedule:"+policy.PolicyID, plan)
+	decision, err := runner.authorizer.AuthorizeScheduled(ctx, attribution.AuthenticatedPrincipalID, plan)
 	if err != nil || !decision.Allowed || decision.Branch == nil || *decision.Branch != "preauthorized" || decision.GrantRevision != policy.GrantRevision || decision.RecoveryEpoch != policy.RecoveryEpoch {
 		return runner.block(ctx, job, "authorization-denied")
 	}
-	submitKey := fmt.Sprintf("%s-attempt-%d", job.JobID, job.Attempt)
+	submitKey := fmt.Sprintf("%s-attempt-%d", job.JobID, attempt)
 	runID := runprotocol.ID(plan.PlanID, submitKey)
-	if err := runner.repository.AppendScheduledAttempt(ctx, job.JobID, job.Attempt, "running", plan.PlanID, runID, false, now); err != nil {
+	if err := runner.repository.AppendScheduledAttempt(ctx, job.JobID, attempt, "running", plan.PlanID, runID, false, now); err != nil {
 		return job, err
 	}
-	running, err := runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "queued", "running", "attempt-started", &plan.PlanID, &runID)
+	running, err := runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, fromStatus, "running", "attempt-started", &plan.PlanID, &runID)
 	if err != nil {
 		return job, err
 	}
@@ -154,7 +178,33 @@ func (runner *Runner) Run(ctx context.Context, job generated.ScheduledJob, attri
 	return runner.repository.TransitionScheduledOccurrence(context.WithoutCancel(ctx), job.JobID, "running", "uncertain", "non-terminal-run", &plan.PlanID, &runID)
 }
 
+func (runner *Runner) Startup(ctx context.Context) error {
+	now := runner.clock().UTC().Truncate(time.Second)
+	if err := runner.repository.ReleaseExpiredOccurrenceLeases(ctx, now); err != nil {
+		return err
+	}
+	jobs, err := runner.repository.ListRecoverableOccurrences(ctx)
+	if err != nil {
+		return err
+	}
+	for _, job := range jobs {
+		if job.Status == "running" {
+			if _, err = runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "running", "uncertain", "restart-after-start", job.PlanID, job.RunID); err != nil {
+				return err
+			}
+			continue
+		}
+		if _, err = runner.Run(ctx, job, audit.Attribution{AuthenticatedPrincipalID: runner.principalID, AuthenticatedPrincipalMethod: "local-os-peer"}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (runner *Runner) block(ctx context.Context, job generated.ScheduledJob, reason string) (generated.ScheduledJob, error) {
+	if job.Status == "retry-wait" {
+		return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "retry-wait", "failed", reason, job.PlanID, job.RunID)
+	}
 	return runner.repository.TransitionScheduledOccurrence(ctx, job.JobID, "queued", "blocked", reason, nil, nil)
 }
 func scheduleBytesDigest(value []byte) string {

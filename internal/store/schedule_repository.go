@@ -21,9 +21,9 @@ type ScheduledPolicyDraft struct {
 }
 
 type ScheduleActivationRequest struct {
-	DraftID, AuthorizationBranch, ExecutingOperation, PlanID, PlanDigest string
-	Expected                                                             RevisionToken
-	Attribution                                                          audit.Attribution
+	DraftID, AuthorizationBranch, ExecutingOperation, PlanID, PlanDigest, AcknowledgementID string
+	Expected                                                                                RevisionToken
+	Attribution                                                                             audit.Attribution
 }
 
 type OccurrenceClaim struct {
@@ -129,7 +129,7 @@ func (repository *ScheduleRepository) Activate(ctx context.Context, request Sche
 		return generated.ScheduledJobPolicy{}, err
 	}
 	policy := draft.Policy
-	if request.AuthorizationBranch != "human" || request.ExecutingOperation != "schedule.policy.activate" || request.PlanID != policy.ApprovalPlanID || request.PlanDigest != policy.ApprovalPlanDigest || request.Expected.StateRevision != policy.StateRevision || request.Expected.RecoveryEpoch != policy.RecoveryEpoch || request.Attribution.AuthenticatedPrincipalID != policy.ApprovedByHumanID {
+	if request.AuthorizationBranch != "human" || request.ExecutingOperation != "schedule.policy.activate" || request.PlanID == "" || request.PlanDigest == "" || request.AcknowledgementID == "" || request.Expected.StateRevision != policy.StateRevision || request.Expected.RecoveryEpoch != policy.RecoveryEpoch || request.Attribution.AuthenticatedPrincipalID != policy.ApprovedByHumanID {
 		return generated.ScheduledJobPolicy{}, scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-policy-activation")
 	}
 	now := repository.store.config.Clock().UTC().Truncate(time.Second).Format(time.RFC3339)
@@ -142,13 +142,68 @@ func (repository *ScheduleRepository) Activate(ctx context.Context, request Sche
 			return scheduleError(generated.ErrorCodePlanStale, "scheduled-policy-activation")
 		}
 		activationID := "schedule-activation-" + draft.Digest[7:39]
-		_, err := tx.ExecContext(ctx, `INSERT INTO scheduled_policy_activations(activation_id,draft_id,policy_id,policy_revision,status,approval_plan_id,approval_plan_digest,approved_by_human_id,state_revision,recovery_epoch,activated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?)`, activationID, draft.DraftID, policy.PolicyID, policy.Revision, "active", policy.ApprovalPlanID, policy.ApprovalPlanDigest, policy.ApprovedByHumanID, stateRevision, recoveryEpoch, now)
+		_, err := tx.ExecContext(ctx, `INSERT INTO scheduled_policy_activations(activation_id,draft_id,policy_id,policy_revision,status,approval_plan_id,approval_plan_digest,acknowledgement_id,approved_by_human_id,state_revision,recovery_epoch,activated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, activationID, draft.DraftID, policy.PolicyID, policy.Revision, "active", request.PlanID, request.PlanDigest, request.AcknowledgementID, request.Attribution.AuthenticatedPrincipalID, stateRevision, recoveryEpoch, now)
 		if err != nil {
 			return classifySQLiteError(ctx, err)
 		}
 		return nil
 	})
 	return policy, err
+}
+
+func (repository *ScheduleRepository) ListRecoverableOccurrences(ctx context.Context) ([]generated.ScheduledJob, error) {
+	var ids []string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		rows, err := tx.query(ctx, `SELECT o.job_id FROM scheduled_occurrences o JOIN scheduled_occurrence_transitions t ON t.transition_id=(SELECT MAX(t2.transition_id) FROM scheduled_occurrence_transitions t2 WHERE t2.job_id=o.job_id) WHERE t.to_status IN ('queued','running','retry-wait') ORDER BY o.created_at,o.job_id`)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id string
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			ids = append(ids, id)
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return nil, err
+	}
+	jobs := make([]generated.ScheduledJob, 0, len(ids))
+	for _, id := range ids {
+		job, err := repository.GetOccurrence(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		jobs = append(jobs, job)
+	}
+	return jobs, nil
+}
+
+func (repository *ScheduleRepository) LatestScheduledAttempt(ctx context.Context, jobID string) (schedule.AttemptRecord, bool, error) {
+	var attempt ScheduledAttempt
+	var effect int
+	var recorded string
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT attempt_id,job_id,attempt,status,COALESCE(plan_id,''),COALESCE(run_id,''),effect_started,recorded_at FROM scheduled_occurrence_attempts WHERE job_id=? ORDER BY attempt DESC LIMIT 1`, jobID).Scan(&attempt.AttemptID, &attempt.JobID, &attempt.Attempt, &attempt.Status, &attempt.PlanID, &attempt.RunID, &effect, &recorded)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return schedule.AttemptRecord{}, false, nil
+	}
+	if err == nil {
+		attempt.RecordedAt, err = time.Parse(time.RFC3339, recorded)
+	}
+	attempt.EffectStarted = effect != 0
+	return schedule.AttemptRecord{Attempt: attempt.Attempt, RecordedAt: attempt.RecordedAt}, err == nil, err
+}
+
+func (repository *ScheduleRepository) ReleaseExpiredOccurrenceLeases(ctx context.Context, now time.Time) error {
+	return repository.inTx(ctx, func(ctx context.Context, tx *sql.Tx) error {
+		_, err := tx.ExecContext(ctx, `DELETE FROM scheduled_occurrence_leases WHERE expires_at<=?`, now.UTC().Truncate(time.Second).Format(time.RFC3339))
+		return err
+	})
 }
 
 func (repository *ScheduleRepository) GetActivePolicy(ctx context.Context, policyID string) (generated.ScheduledJobPolicy, error) {
@@ -216,6 +271,72 @@ func (repository *ScheduleRepository) GetOccurrence(ctx context.Context, jobID s
 		job.RunID = &runID.String
 	}
 	return job, nil
+}
+
+// ValidateScheduledPlan rebinds a generated occurrence plan to current durable
+// policy and occurrence state immediately before admission and again before an
+// adapter effect. The policy digest covers sources, subjects, targets, work
+// bound, credentials, grant, revision, epoch, expiry, and retry/window rules.
+func (repository *ScheduleRepository) ValidateScheduledPlan(ctx context.Context, plan generated.Plan, now time.Time) error {
+	policyDigest, occurrenceDigest := "", ""
+	for _, extension := range plan.Extensions {
+		switch extension.Name {
+		case "x-scheduled-policy":
+			if policyDigest != "" {
+				return scheduleError(generated.ErrorCodeIntegrityFailure, "scheduled-plan-extension")
+			}
+			policyDigest = extension.ValueDigest
+		case "x-scheduled-occurrence":
+			if occurrenceDigest != "" {
+				return scheduleError(generated.ErrorCodeIntegrityFailure, "scheduled-plan-extension")
+			}
+			occurrenceDigest = extension.ValueDigest
+		}
+	}
+	if policyDigest == "" || occurrenceDigest == "" || plan.AuthorizationBranch != "preauthorized" || plan.ExecutorMode != "central" {
+		return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-plan")
+	}
+	var jobID, leaseExpiry string
+	var attempt int64
+	err := repository.store.Read(ctx, func(tx ReadTx) error {
+		return tx.queryRow(ctx, `SELECT o.job_id,a.attempt,l.expires_at FROM scheduled_occurrences o JOIN scheduled_occurrence_transitions t ON t.transition_id=(SELECT MAX(t2.transition_id) FROM scheduled_occurrence_transitions t2 WHERE t2.job_id=o.job_id) JOIN scheduled_occurrence_attempts a ON a.attempt_id=(SELECT a2.attempt_id FROM scheduled_occurrence_attempts a2 WHERE a2.job_id=o.job_id ORDER BY a2.attempt DESC LIMIT 1) JOIN scheduled_occurrence_leases l ON l.job_id=o.job_id WHERE t.plan_id=? AND t.to_status='running' AND a.plan_id=?`, plan.PlanID, plan.PlanID).Scan(&jobID, &attempt, &leaseExpiry)
+	})
+	if errors.Is(err, sql.ErrNoRows) {
+		return scheduleError(generated.ErrorCodePlanStale, "scheduled-occurrence")
+	}
+	if err != nil {
+		return err
+	}
+	leaseDeadline, err := time.Parse(time.RFC3339, leaseExpiry)
+	if err != nil || !now.UTC().Before(leaseDeadline) || attempt <= 0 {
+		return scheduleError(generated.ErrorCodePlanStale, "scheduled-lease")
+	}
+	job, err := repository.GetOccurrence(ctx, jobID)
+	if err != nil {
+		return err
+	}
+	policy, err := repository.GetActivePolicy(ctx, job.PolicyID)
+	if err != nil {
+		return err
+	}
+	_, currentDigest, err := schedule.CanonicalPolicy(policy)
+	if err != nil || currentDigest != policyDigest || job.PolicyRevision != policy.Revision || job.RecoveryEpoch != policy.RecoveryEpoch || plan.Binding.StateRevision != policy.StateRevision || plan.Binding.RecoveryEpoch != policy.RecoveryEpoch {
+		return scheduleError(generated.ErrorCodePlanStale, "scheduled-policy")
+	}
+	expires, err := time.Parse(time.RFC3339, policy.ExpiresAt)
+	if err != nil || !now.UTC().Before(expires) {
+		return scheduleError(generated.ErrorCodePlanStale, "scheduled-policy")
+	}
+	action, err := schedule.BuildAction(policy)
+	if err != nil || int64(len(plan.Operations)) != action.MaximumWork || len(plan.Operations) != len(action.TargetIDs) {
+		return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-work-bound")
+	}
+	for index, operation := range plan.Operations {
+		if operation.Sequence != int64(index+1) || operation.OperationType != action.OperationType || operation.AdapterID != action.AdapterID || operation.TargetID != action.TargetIDs[index] || operation.InputDigest != policyDigest || operation.ArtifactDigest != action.ArtifactDigest || !operation.Idempotent {
+			return scheduleError(generated.ErrorCodeAuthorizationDenied, "scheduled-operation-binding")
+		}
+	}
+	return nil
 }
 
 func (repository *ScheduleRepository) TransitionOccurrence(ctx context.Context, jobID, from, to, reason string, planID, runID *string) (generated.ScheduledJob, error) {

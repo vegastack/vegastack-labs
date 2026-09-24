@@ -65,7 +65,7 @@ type TypedResponse[T any] struct {
 }
 
 type Client interface {
-	SubmitScheduledPolicyDraft(context.Context, serverconfig.Profile, generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledJobPolicy], error)
+	SubmitScheduledPolicyDraft(context.Context, serverconfig.Profile, generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledPolicyDraftSubmission], error)
 	GetScheduledPolicy(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJobPolicy], error)
 	DispatchSchedule(context.Context, serverconfig.Profile, string) (TypedResponse[generated.ScheduledJob], error)
 	CreateCredentialLifecycleDraft(context.Context, serverconfig.Profile, generated.CredentialLifecycleRequest) (TypedResponse[generated.CredentialLifecycleSubmission], error)

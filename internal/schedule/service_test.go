@@ -44,6 +44,14 @@ func (m *memoryRepository) TransitionScheduledOccurrence(_ context.Context, id, 
 	}
 	return generated.ScheduledJob{}, fmt.Errorf("missing")
 }
+func (m *memoryRepository) GetOccurrence(_ context.Context, id string) (generated.ScheduledJob, error) {
+	for _, job := range m.jobs {
+		if job.JobID == id {
+			return job, nil
+		}
+	}
+	return generated.ScheduledJob{}, fmt.Errorf("missing")
+}
 
 func TestDispatchUsesServerClockAndOneDurableSlot(t *testing.T) {
 	policy := validPolicy()
@@ -90,5 +98,19 @@ func TestDispatchBlocksRevisionEpochAndTargetWidening(t *testing.T) {
 	changed.RecoveryEpoch++
 	if _, err := service.Dispatch(context.Background(), changed); err == nil {
 		t.Fatal("wrong recovery epoch accepted")
+	}
+}
+
+func TestCancelOnlyStopsOccurrenceBeforeEffect(t *testing.T) {
+	policy := validPolicy()
+	repository := &memoryRepository{policy: policy, revision: Revision{StateRevision: policy.StateRevision, RecoveryEpoch: policy.RecoveryEpoch}, jobs: map[string]generated.ScheduledJob{"slot": {JobID: "job-a", Status: "queued"}}}
+	service, _ := NewService(repository, time.Now)
+	job, err := service.Cancel(context.Background(), "job-a")
+	if err != nil || job.Status != "cancelled" {
+		t.Fatalf("cancel=%#v err=%v", job, err)
+	}
+	repository.jobs["slot"] = generated.ScheduledJob{JobID: "job-a", Status: "running"}
+	if _, err := service.Cancel(context.Background(), "job-a"); err == nil {
+		t.Fatal("running effect cancelled through occurrence path")
 	}
 }

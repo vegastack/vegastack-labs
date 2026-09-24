@@ -15,9 +15,9 @@ import (
 var actionOperations = map[string]map[string]bool{
 	"gate-check":              {"health.check": true},
 	"observation-refresh":     {"drift.scan": true},
-	"backup-create":           {"backup.snapshot": true},
-	"backup-integrity-verify": {"backup.verify": true},
-	"audit-checkpoint-export": {"audit.checkpoint": true},
+	"backup-create":           {"backup.local.create": true},
+	"backup-integrity-verify": {"backup.local.verify": true},
+	"audit-checkpoint-export": {"audit.checkpoint.anchor": true},
 }
 
 // CanonicalPolicy validates and canonicalizes an exact fixed schedule. It
@@ -29,6 +29,9 @@ func CanonicalPolicy(policy generated.ScheduledJobPolicy) ([]byte, string, error
 	}
 	if policy.SchemaVersion != "1.1.0" || !policy.Enabled || policy.Concurrency != "forbid" || policy.WindowSeconds < int64(generated.PlanValiditySeconds) || policy.WindowSeconds > policy.IntervalSeconds || policy.MaximumBackoffSeconds < policy.InitialBackoffSeconds {
 		return nil, "", errors.New("invalid scheduled policy bounds")
+	}
+	if policy.MaximumWork != 1 || len(policy.ExactTargetIDs) != 1 {
+		return nil, "", errors.New("scheduled v1 work bound must be one exact target")
 	}
 	anchor, anchorErr := time.Parse(time.RFC3339, policy.AnchorAt)
 	expires, expiresErr := time.Parse(time.RFC3339, policy.ExpiresAt)

@@ -39,7 +39,7 @@ type stubControlOperations struct {
 	exportResponse            localapi.TypedResponse[generated.InventoryExportData]
 	planResponse              localapi.TypedResponse[generated.Plan]
 	runResponse               localapi.TypedResponse[generated.RunPresentation]
-	schedulePolicyResponse    localapi.TypedResponse[generated.ScheduledJobPolicy]
+	schedulePolicyResponse    localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission]
 	scheduleJobResponse       localapi.TypedResponse[generated.ScheduledJob]
 	err                       error
 	calls                     int
@@ -49,7 +49,7 @@ type stubControlOperations struct {
 	exportRequest             generated.InventoryExportRequest
 }
 
-func (stub *stubControlOperations) SubmitScheduledPolicyDraft(_ context.Context, _ string, _ generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledJobPolicy], error) {
+func (stub *stubControlOperations) SubmitScheduledPolicyDraft(_ context.Context, _ string, _ generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission], error) {
 	return stub.schedulePolicyResponse, stub.err
 }
 func (stub *stubControlOperations) DispatchSchedule(_ context.Context, _, _ string) (localapi.TypedResponse[generated.ScheduledJob], error) {
@@ -242,8 +242,10 @@ func successfulControlOperations(t *testing.T) *stubControlOperations {
 		exportResponse:            operationResponse(t, "api.v1.inventory-exports.create", true, 2, 9, exported),
 		planResponse:              operationResponse(t, "api.v1.plans.create", true, plan.Binding.RecoveryEpoch, plan.Binding.StateRevision, plan),
 		runResponse:               operationResponse(t, "api.v1.runs.get", run.Changed, run.RecoveryEpoch, run.StateRevision, phase4TestPresentation(run)),
-		schedulePolicyResponse:    operationResponse(t, "api.v1.scheduled-job-policies.drafts.create", true, schedulePolicy.RecoveryEpoch, schedulePolicy.StateRevision, schedulePolicy),
-		scheduleJobResponse:       operationResponse(t, "api.v1.scheduled-jobs.create", true, scheduleJob.RecoveryEpoch, schedulePolicy.StateRevision, scheduleJob),
+		schedulePolicyResponse: operationResponse(t, "api.v1.scheduled-job-policies.drafts.create", true, schedulePolicy.RecoveryEpoch, schedulePolicy.StateRevision, generated.ScheduledPolicyDraftSubmission{
+			Schema: generated.SchemaIDScheduledPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: "schedule-draft-a", PolicyID: schedulePolicy.PolicyID, PolicyRevision: schedulePolicy.Revision, PolicyDigest: "sha256:" + strings.Repeat("a", 64), Status: "draft", StateRevision: schedulePolicy.StateRevision, RecoveryEpoch: schedulePolicy.RecoveryEpoch,
+		}),
+		scheduleJobResponse: operationResponse(t, "api.v1.scheduled-jobs.create", true, scheduleJob.RecoveryEpoch, schedulePolicy.StateRevision, scheduleJob),
 	}
 }
 

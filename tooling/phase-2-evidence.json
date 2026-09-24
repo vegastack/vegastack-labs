@@ -311,7 +311,7 @@
         "imports": [
           "github.com/vegastack/vegastack-labs/internal/schedule"
         ],
-        "mutationBoundaryDigest": "sha256:f252966a7bb87b35183e5663991dcb0432e578f49fe46a21023f5d6d3bbd35b4"
+        "mutationBoundaryDigest": "sha256:da02e34d0efe216c2839eb22fb56b393cfb74198b63ed35475716d74d6f388ac"
       }
     ]
   },

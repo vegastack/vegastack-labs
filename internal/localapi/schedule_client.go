@@ -12,14 +12,14 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/serverconfig"
 )
 
-func (client *client) SubmitScheduledPolicyDraft(ctx context.Context, profile serverconfig.Profile, policy generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledJobPolicy], error) {
-	var zero TypedResponse[generated.ScheduledJobPolicy]
+func (client *client) SubmitScheduledPolicyDraft(ctx context.Context, profile serverconfig.Profile, policy generated.ScheduledJobPolicy) (TypedResponse[generated.ScheduledPolicyDraftSubmission], error) {
+	var zero TypedResponse[generated.ScheduledPolicyDraftSubmission]
 	raw, err := json.Marshal(policy)
 	if err != nil || generated.ValidateContractJSON(generated.SchemaIDScheduledJobPolicy, raw, generated.ContractExact) != nil {
 		return zero, failure.New(generated.ErrorCodeInputInvalid, "scheduled-policy-draft", false)
 	}
-	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/scheduled-job-policies/drafts", "api.v1.scheduled-job-policies.drafts.create", maxOperationResponseBodyBytes, operationTimeout, true}, policy, func(data generated.ScheduledJobPolicy, result generated.RunResult) bool {
-		return data.PolicyID == policy.PolicyID && data.Revision == policy.Revision && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
+	return requestTyped(client, ctx, profile, requestSpec{localtransport.MethodPost, "/api/v1/scheduled-job-policies/drafts", "api.v1.scheduled-job-policies.drafts.create", maxOperationResponseBodyBytes, operationTimeout, true}, policy, func(data generated.ScheduledPolicyDraftSubmission, result generated.RunResult) bool {
+		return data.Schema == generated.SchemaIDScheduledPolicyDraftSubmission && data.PolicyID == policy.PolicyID && data.PolicyRevision == policy.Revision && data.PolicyDigest != "" && data.Status == "draft" && data.StateRevision == result.StateRevision && data.RecoveryEpoch == result.RecoveryEpoch
 	})
 }
 

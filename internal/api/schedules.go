@@ -8,6 +8,7 @@ import (
 	"github.com/vegastack/vegastack-labs/internal/audit"
 	"github.com/vegastack/vegastack-labs/internal/authorization"
 	"github.com/vegastack/vegastack-labs/internal/generated"
+	"github.com/vegastack/vegastack-labs/internal/identity"
 	"github.com/vegastack/vegastack-labs/internal/result"
 	"github.com/vegastack/vegastack-labs/internal/schedule"
 	"github.com/vegastack/vegastack-labs/internal/store"
@@ -27,15 +28,31 @@ type ScheduledRunner interface {
 }
 
 type ScheduleOperations struct {
-	Policies ScheduledPolicyStore
-	Dispatch ScheduledDispatcher
-	Runner   ScheduledRunner
-	Results  *result.Factory
+	Policies          ScheduledPolicyStore
+	Dispatch          ScheduledDispatcher
+	Runner            ScheduledRunner
+	Results           *result.Factory
+	Lifecycle         RunLifecycle
+	RunnerPrincipalID string
+}
+
+type combinedRunLifecycle struct{ first, second RunLifecycle }
+
+func (l combinedRunLifecycle) Startup(ctx context.Context) error {
+	if l.first != nil {
+		if err := l.first.Startup(ctx); err != nil {
+			return err
+		}
+	}
+	return l.second.Startup(ctx)
 }
 
 func RegisterScheduleOperations(app *Application, config ScheduleOperations) error {
 	if app == nil || config.Policies == nil || config.Dispatch == nil || config.Runner == nil || config.Results == nil || config.Results != app.config.Results {
 		return apiFailure(generated.ErrorCodeInputInvalid, "schedule-config")
+	}
+	if config.Lifecycle != nil {
+		app.runs = combinedRunLifecycle{first: app.runs, second: config.Lifecycle}
 	}
 	app.routes = append(app.routes,
 		route{id: "api.v1.scheduled-job-policies.drafts.create", method: http.MethodPost, pattern: "/api/v1/scheduled-job-policies/drafts", capability: "schedule.policy.author", kind: "scheduled-policy", action: authorization.ActionAuthor, handler: app.scheduledPolicyDraft(config)},
@@ -44,6 +61,9 @@ func RegisterScheduleOperations(app *Application, config ScheduleOperations) err
 	)
 	if !routesAreGeneratedSubset(app.routes) {
 		app.routes = app.routes[:len(app.routes)-3]
+		if combined, ok := app.runs.(combinedRunLifecycle); ok {
+			app.runs = combined.first
+		}
 		return apiFailure(generated.ErrorCodeIntegrityFailure, "endpoint-registry")
 	}
 	return nil
@@ -72,11 +92,13 @@ func (app *Application) scheduledPolicyDraft(config ScheduleOperations) func(htt
 			app.failure(w, op, err)
 			return
 		}
-		if _, err = config.Policies.StageDraft(r.Context(), policy, attribution); err != nil {
+		draft, err := config.Policies.StageDraft(r.Context(), policy, attribution)
+		if err != nil {
 			app.operationFailure(w, op, requestID, err)
 			return
 		}
-		app.operationSuccess(w, op, requestID, true, policy.StateRevision, policy.RecoveryEpoch, policy)
+		submission := generated.ScheduledPolicyDraftSubmission{Schema: generated.SchemaIDScheduledPolicyDraftSubmission, SchemaVersion: "1.1.0", DraftID: draft.DraftID, PolicyID: policy.PolicyID, PolicyRevision: policy.Revision, PolicyDigest: draft.Digest, Status: "draft", StateRevision: policy.StateRevision, RecoveryEpoch: policy.RecoveryEpoch}
+		app.operationSuccess(w, op, requestID, true, policy.StateRevision, policy.RecoveryEpoch, submission)
 	}
 }
 
@@ -100,6 +122,11 @@ func (app *Application) scheduledPolicyGet(config ScheduleOperations) func(http.
 func (app *Application) scheduledDispatch(config ScheduleOperations) func(http.ResponseWriter, *http.Request, authorization.ReadScope, map[string]string) {
 	return func(w http.ResponseWriter, r *http.Request, _ authorization.ReadScope, _ map[string]string) {
 		const op = "api.v1.scheduled-jobs.create"
+		principal, authenticated := identity.PrincipalFromContext(r.Context())
+		if config.RunnerPrincipalID != "" && (!authenticated || principal.ID != config.RunnerPrincipalID) {
+			app.failure(w, op, apiFailure(generated.ErrorCodeAuthorizationDenied, "scheduled-runner-principal"))
+			return
+		}
 		var input generated.ScheduledJobRequest
 		if err := decodeOperationRequest(r, 65536, []string{"schema", "schemaVersion", "expectedStateRevision", "recoveryEpoch", "targetDigest", "idempotencyKey", "policyId", "policyRevision", "occurrenceToken", "observedAt"}, &input); err != nil {
 			app.failure(w, op, err)
@@ -122,7 +149,7 @@ func (app *Application) scheduledDispatch(config ScheduleOperations) func(http.R
 			return
 		}
 		job, err := config.Dispatch.Dispatch(r.Context(), request)
-		if err == nil && job.Status == "queued" {
+		if err == nil && (job.Status == "queued" || job.Status == "retry-wait") {
 			job, err = config.Runner.Run(r.Context(), job, attribution)
 		}
 		if err != nil {

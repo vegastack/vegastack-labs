@@ -420,7 +420,7 @@ func backupStatusCommand() CommandDefinition {
 }
 
 func schedulePolicyDraftCommand() CommandDefinition {
-	return phase5GateCommand([]string{"schedule", "policy", "draft"}, "Store one inert exact scheduled-policy draft for later human-plan activation.", scheduledJobPolicySchemaID, scheduledJobPolicySchemaID, RiskMutation,
+	return phase5GateCommand([]string{"schedule", "policy", "draft"}, "Store one inert exact scheduled-policy draft for later human-plan activation.", scheduledJobPolicySchemaID, scheduledPolicyDraftSubmissionSchemaID, RiskMutation,
 		[]FlagDefinition{{Name: "--config", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one protected local server profile."}, {Name: "--file", Kind: FlagValue, ValueName: "path", Required: true, Summary: "Read one exact scheduled-job-policy JSON file."}},
 		[]string{"schedule", "policy", "draft", "--config", "fixture/server-profile.json", "--file", "fixture/scheduled-job-policy.json", "--output", "json"})
 }

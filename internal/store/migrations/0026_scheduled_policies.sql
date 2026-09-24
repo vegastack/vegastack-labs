@@ -11,7 +11,7 @@ CREATE TRIGGER scheduled_policy_drafts_no_delete BEFORE DELETE ON scheduled_poli
 CREATE TABLE scheduled_policy_activations (
  activation_id TEXT PRIMARY KEY, draft_id TEXT NOT NULL REFERENCES scheduled_policy_drafts(draft_id),
  policy_id TEXT NOT NULL, policy_revision INTEGER NOT NULL CHECK(policy_revision>0), status TEXT NOT NULL CHECK(status IN ('active','disabled')),
- approval_plan_id TEXT NOT NULL, approval_plan_digest TEXT NOT NULL, approved_by_human_id TEXT NOT NULL,
+ approval_plan_id TEXT NOT NULL, approval_plan_digest TEXT NOT NULL, acknowledgement_id TEXT NOT NULL, approved_by_human_id TEXT NOT NULL,
  state_revision INTEGER NOT NULL CHECK(state_revision>=0), recovery_epoch INTEGER NOT NULL CHECK(recovery_epoch>=0), activated_at TEXT NOT NULL,
  UNIQUE(policy_id,policy_revision,status)
 ) STRICT;

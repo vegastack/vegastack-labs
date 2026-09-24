@@ -21,6 +21,10 @@ type Repository interface {
 	TransitionScheduledOccurrence(context.Context, string, string, string, string, *string, *string) (generated.ScheduledJob, error)
 }
 
+type occurrenceReader interface {
+	GetOccurrence(context.Context, string) (generated.ScheduledJob, error)
+}
+
 type DispatchRequest struct {
 	PolicyID, OccurrenceToken, TargetDigest, IdempotencyKey string
 	PolicyRevision, ExpectedStateRevision, RecoveryEpoch    int64
@@ -93,6 +97,26 @@ func (service *Service) Dispatch(ctx context.Context, request DispatchRequest) (
 		return service.repository.TransitionScheduledOccurrence(ctx, job.JobID, "queued", "skipped", "window-missed", nil, nil)
 	}
 	return job, nil
+}
+
+// Cancel stops only work that has not begun. Running work must use the run
+// cancellation path so an effect that may have started cannot be mislabeled.
+func (service *Service) Cancel(ctx context.Context, jobID string) (generated.ScheduledJob, error) {
+	if service == nil || jobID == "" {
+		return generated.ScheduledJob{}, failure.New(generated.ErrorCodeInputInvalid, "scheduled-cancel", false)
+	}
+	reader, ok := service.repository.(occurrenceReader)
+	if !ok {
+		return generated.ScheduledJob{}, failure.New(generated.ErrorCodeInputInvalid, "scheduled-cancel", false)
+	}
+	job, err := reader.GetOccurrence(ctx, jobID)
+	if err != nil {
+		return job, err
+	}
+	if job.Status != "queued" && job.Status != "retry-wait" {
+		return job, failure.New(generated.ErrorCodeStateConflict, "scheduled-cancel", false)
+	}
+	return service.repository.TransitionScheduledOccurrence(ctx, jobID, job.Status, "cancelled", "operator-cancelled", job.PlanID, job.RunID)
 }
 
 func DecodeRequest(raw []byte) (DispatchRequest, error) {

@@ -10,7 +10,7 @@ import (
 )
 
 type ScheduleControlOperations interface {
-	SubmitScheduledPolicyDraft(context.Context, string, generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledJobPolicy], error)
+	SubmitScheduledPolicyDraft(context.Context, string, generated.ScheduledJobPolicy) (localapi.TypedResponse[generated.ScheduledPolicyDraftSubmission], error)
 	DispatchSchedule(context.Context, string, string) (localapi.TypedResponse[generated.ScheduledJob], error)
 }
 
@@ -41,7 +41,7 @@ func (app *App) runScheduleCommand(ctx context.Context, mode outputMode, parsed 
 		if mode == outputJSON {
 			return writeRemoteJSON(app.stdout, response.Raw, response.ExitCode)
 		}
-		_, err = fmt.Fprintf(app.stdout, "Stored inert scheduled policy draft %s revision %d; activation still requires its exact human-approved plan.\n", response.Data.PolicyID, response.Data.Revision)
+		_, err = fmt.Fprintf(app.stdout, "Stored inert scheduled policy draft %s for policy %s revision %d (digest %s); activation still requires its exact human-approved plan.\n", response.Data.DraftID, response.Data.PolicyID, response.Data.PolicyRevision, response.Data.PolicyDigest)
 		if err != nil {
 			return exitCodeFor(generated.ErrorCodeIntegrityFailure)
 		}
