@@ -297,10 +297,10 @@ export async function runPhase5(root = ROOT, { prepared = false } = {}) {
   if (!prepared) {
     const build = packageManagerInvocation(["--filter", "@vegastack/labs-web", "build"]);
     await runPrerequisite(build.command, build.args, root, "web-build");
+    await runPrerequisite("go", ["run", "./tooling/generate-contracts", "--check"], root, "generated-contracts");
+    await runPrerequisite(process.execPath, ["tooling/verify-cli.mjs"], root, "cli-contract");
+    await runPrerequisite(process.execPath, ["tooling/verify-static.mjs"], root, "static-contract");
   }
-  await runPrerequisite("go", ["run", "./tooling/generate-contracts", "--check"], root, "generated-contracts");
-  await runPrerequisite(process.execPath, ["tooling/verify-cli.mjs"], root, "cli-contract");
-  await runPrerequisite(process.execPath, ["tooling/verify-static.mjs"], root, "static-contract");
   const artifacts = await mkdtemp(path.join(tmpdir(), "vsk-phase5-browser-"));
   let runtime;
   try {
