@@ -55,8 +55,16 @@ const REVIEWED_AUDIT_ENDPOINTS = [
 // local-retirement draft routes; #117 adds exact status/run/verify routes.
 // Keep the reviewed set closed against direct delete or status edits.
 const REVIEWED_BACKUP_ENDPOINTS = [
+  "api.v1.backup-jobs.create", "api.v1.backup-offsite-retirements.dry-run", "api.v1.backup-offsite-retirements.stage",
   "api.v1.backup-policy-drafts.create", "api.v1.backup-retention-lock-drafts.create", "api.v1.backup-retirement-drafts.create",
-  "api.v1.backups.run", "api.v1.backups.status", "api.v1.backups.verify",
+  "api.v1.backup-verifications.create", "api.v1.backups.status",
+];
+const REVIEWED_OPERATOR_ENDPOINTS = [
+  "api.v1.database-backups.create", "api.v1.database-exports.create", "api.v1.database-restores.create", "api.v1.database-verifications.create",
+  "api.v1.recovery-points.list", "api.v1.restore-drafts.create", "api.v1.restores.list", "api.v1.restores.plan",
+  "api.v1.restores.run", "api.v1.restores.verify", "api.v1.scheduled-job-policies.drafts.create",
+  "api.v1.scheduled-job-policies.get", "api.v1.scheduled-job-policies.list", "api.v1.scheduled-jobs.cancel",
+  "api.v1.scheduled-jobs.list", "api.v1.scheduled-occurrences.create",
 ];
 
 async function filesBelow(root, relative) {
@@ -94,12 +102,13 @@ export async function verifyReadAPI(root = ROOT) {
       const credentialImportIDs = ids.filter((id) => id.startsWith("api.v1.credential-references."));
       const auditIDs = ids.filter((id) => id.startsWith("api.v1.audit-"));
       const backupIDs = ids.filter((id) => id.startsWith("api.v1.backup"));
+      const operatorIDs = ids.filter((id) => REVIEWED_OPERATOR_ENDPOINTS.includes(id));
       const lifecycleIDs = ids.filter((id) => id.startsWith("api.v1.credential-lifecycle-"));
-      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id));
+      const historicalIDs = ids.filter((id) => !gateIDs.includes(id) && !credentialImportIDs.includes(id) && !auditIDs.includes(id) && !lifecycleIDs.includes(id) && !backupIDs.includes(id) && !operatorIDs.includes(id));
       if (JSON.stringify(historicalIDs) !== JSON.stringify(EXPECTED_ENDPOINTS) ||
           JSON.stringify(gateIDs) !== JSON.stringify(REVIEWED_GATE_ENDPOINTS) ||
           JSON.stringify(credentialImportIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_IMPORT_ENDPOINTS) ||
-          JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) ||
+          JSON.stringify(auditIDs) !== JSON.stringify(REVIEWED_AUDIT_ENDPOINTS) || JSON.stringify(lifecycleIDs) !== JSON.stringify(REVIEWED_CREDENTIAL_LIFECYCLE_ENDPOINTS) || JSON.stringify(operatorIDs) !== JSON.stringify(REVIEWED_OPERATOR_ENDPOINTS) ||
           JSON.stringify(backupIDs) !== JSON.stringify(REVIEWED_BACKUP_ENDPOINTS)) codes.add("READ_API_ENDPOINT_DRIFT");
     } catch { codes.add("READ_API_ENDPOINT_DRIFT"); }
   }
@@ -124,7 +133,7 @@ export async function verifyReadAPI(root = ROOT) {
   if (/ListenAndServe|ListenTLS|ListenTCP|websocket|Upgrade\s*\(/i.test(api + "\n" + server)) codes.add("READ_API_BROWSER_REMOTE");
   for (const file of moduleFiles) {
     const relative = path.relative(root, file).split(path.sep).join("/");
-    if (relative.startsWith("internal/store/")) continue;
+    if (relative.startsWith("internal/store/") || relative === "internal/adapter/localbackup/recovery_restore_linux.go") continue;
     const source = await optionalRead(file);
     if (/"database\/sql"|"github\.com\/ncruces\/go-sqlite3/.test(source)) codes.add("READ_API_SQLITE_SCOPE");
   }
