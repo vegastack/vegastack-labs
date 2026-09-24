@@ -2,6 +2,16 @@
 
 Entries dated before 10-09-2026 are reconstructed from approved milestones, merged issues, and their recorded evidence at the operator's request. New entries follow the `dev-chronicle` format and are added newest first.
 
+## 24-09-2026 — Phase 5 has one closed hostile and recovery catalog ([#111](https://github.com/vegastack/vegastack-labs/issues/111))
+
+- **What:** One credential-free command binds every Phase 5 denial, recovery, concurrency, outage, surface and privacy claim to an exact real test selector and rejects missing, reordered, weakened, skipped, quarantined or falsely live proof.
+- **Why:** The individual Phase 5 deliveries proved their own seams, but no closed catalog prevented a later change from silently dropping hostile or cross-component recovery coverage.
+- **How it went:** The accepted plan was adjusted to reuse the exact merged component tests where they already prove a scenario and add only missing catalog and browser-isolation coverage. This keeps the issue focused while preserving the single broad Linux/browser run for final exact-main acceptance in #112.
+- **Changed:** Canonical acceptance catalog and digest · reusable exact-result runner · deterministic repeat and seed rules · bounded diagnostics and cleanup · public `check:phase-5` composition · browser authority and privacy proofs · operator guide.
+- **Decisions:** none; all evidence is fixture-class, portable runs report Linux-required rows honestly, and live `G-007`, `G-008`, provider, host and recovery acceptance remain open.
+
+— approved by (omkarmohanta09) · built by Codex · branch chore/111-phase5-hostile-acceptance
+
 ## 24-09-2026 — One fenced control history can become the sole recovered authority ([#108](https://github.com/vegastack/vegastack-labs/issues/108))
 
 - **What:** An infrastructure administrator can now bind one current verified recovery point to an exact human-approved restore, stage it into an isolated candidate, reconcile its audit history, prove every former-controller boundary denied, and promote it under a new instance and adjacent recovery epoch. Normal mutation stays blocked until an exact no-op, independent checkpoint, current-epoch backup and renewed former-writer denial all pass.

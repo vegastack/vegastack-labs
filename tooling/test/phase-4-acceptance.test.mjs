@@ -30,6 +30,7 @@ test("Phase 4 acceptance requires every hostile and recovery scenario", async ()
   assert.equal(evidence.quarantined.length, 0);
   assert.deepEqual(evidence.requiredScenarioIds, REQUIRED_PHASE4_SCENARIO_IDS);
   assert.deepEqual(scenarios.scenarios.map(({ id }) => id), REQUIRED_PHASE4_SCENARIO_IDS);
+  assert.equal(phase4ScenarioDigest(scenarios), "sha256:8944707da6fb62063e480fd15a0cbb4039cd5118178cb9803487476258a780da");
 });
 
 test("Phase 4 acceptance rejects missing proof, hidden quarantine, and changed ordering", async () => {
@@ -59,6 +60,7 @@ test("Phase 4 result parsers require an exact executed pass", () => {
   const goName = "TestExact/sub_case";
   const goPass = `${JSON.stringify({ Action: "run", Test: goName })}\n${JSON.stringify({ Action: "pass", Test: goName })}\n`;
   assert.doesNotThrow(() => parseGoScenarioPass(goPass, goName));
+  assert.doesNotThrow(() => parseGoScenarioPass(goPass.repeat(2), goName, 2));
   assert.throws(() => parseGoScenarioPass("", goName), /PHASE4_FAILED:scenario-result/);
   assert.throws(() => parseGoScenarioPass(`${JSON.stringify({ Action: "skip", Test: goName })}\n`, goName), /PHASE4_FAILED:scenario-result/);
 
@@ -75,6 +77,7 @@ test("Phase 4 result parsers require an exact executed pass", () => {
 
   const nodeName = "exact node proof";
   assert.doesNotThrow(() => parseNodeScenarioPass(`ok 1 - ${nodeName}\n`, nodeName));
+  assert.doesNotThrow(() => parseNodeScenarioPass(`ok 1 - ${nodeName}\nok 2 - ${nodeName}\n`, nodeName, 2));
   assert.throws(() => parseNodeScenarioPass("TAP version 13\n", nodeName), /PHASE4_FAILED:scenario-result/);
   assert.throws(() => parseNodeScenarioPass(`ok 1 - ${nodeName} # TODO\n`, nodeName), /PHASE4_FAILED:scenario-result/);
 });
